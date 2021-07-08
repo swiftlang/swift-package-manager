@@ -26,9 +26,10 @@ final class BuildToolTests: XCTestCase {
     @discardableResult
     private func execute(
         _ args: [String],
+        environment: [String : String]? = nil,
         packagePath: AbsolutePath? = nil
     ) throws -> (stdout: String, stderr: String) {
-        return try SwiftPMProduct.SwiftBuild.execute(args, packagePath: packagePath)
+        return try SwiftPMProduct.SwiftBuild.execute(args, packagePath: packagePath, env: environment)
     }
 
     func build(_ args: [String], packagePath: AbsolutePath? = nil) throws -> BuildResult {
@@ -280,4 +281,36 @@ final class BuildToolTests: XCTestCase {
             }
         }
     }
+
+    func testXcodeBuildSystemOverrides() throws {
+        #if !os(macOS)
+        try XCTSkipIf(true, "test requires `xcbuild` and is therefore only supported on macOS")
+        #endif
+        fixture(name: "ValidLayouts/SingleModule/ExecutableNew") { path in
+            // Try building using XCBuild without specifying overrides.  This should succeed, and should use the default compiler path.
+            let defaultOutput = try execute(["-c", "debug", "-v"], packagePath: path).stdout
+            XCTAssert(defaultOutput.contains(Resources.default.swiftCompiler.pathString), defaultOutput)
+
+            // Now try building using XCBuild while specifying a faulty compiler override.  This should fail.  Note that we need to set the executable to use for the manifest itself to the default one, since it defaults to SWIFT_EXEC if not provided.
+            var overriddenOutput = ""
+            do {
+                overriddenOutput = try execute(["-c", "debug", "-v"], environment: ["SWIFT_EXEC": "/usr/bin/false", "SWIFT_EXEC_MANIFEST": Resources.default.swiftCompiler.pathString], packagePath: path).stdout
+                XCTFail("unexpected success (was SWIFT_EXEC not overridden properly?)")
+            }
+            catch SwiftPMProductError.executionFailure(let error, let stdout, _) {
+                switch error {
+                case ProcessResult.Error.nonZeroExit(let result) where result.exitStatus != .terminated(code: 0):
+                    overriddenOutput = stdout
+                    break
+                default:
+                    XCTFail("`swift build' failed in an unexpected manner")
+                }
+            }
+            catch {
+                XCTFail("`swift build' failed in an unexpected manner")
+            }
+            XCTAssert(overriddenOutput.contains("/usr/bin/false"), overriddenOutput)
+        }
+    }
+
 }
