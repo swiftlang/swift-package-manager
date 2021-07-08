@@ -122,9 +122,7 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
     }
 
     func createBuildParametersFile() throws -> AbsolutePath? {
-        // We only generate the build parameters file if it's required.
-        guard !buildParameters.archs.isEmpty else { return nil }
-
+        // Generate the run destination parameters.
         let runDestination = XCBBuildParameters.RunDestination(
             platform: "macosx",
             sdk: "macosx",
@@ -133,20 +131,28 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
             supportedArchitectures: [],
             disableOnlyActiveArch: true
         )
+        
+        // Generate a table of any overriding build settings.
+        var settings: [String: String] = [:]
+        // Always specify the path of the effective Swift compiler, which was determined in the same way as for the native build system.
+        settings["SWIFT_EXEC"] = buildParameters.toolchain.swiftCompiler.pathString
+        // Optionally also set the list of architectures to build for.
+        if !buildParameters.archs.isEmpty {
+            settings["ARCHS"] = buildParameters.archs.joined(separator: " ")
+        }
+        
+        // Generate the build parameters.
         let params = XCBBuildParameters(
             configurationName: buildParameters.configuration.xcbuildName,
-            overrides: .init(commandLine: .init(table: [
-                "ARCHS": "\(buildParameters.archs.joined(separator: " "))",
-            ])),
+            overrides: .init(commandLine: .init(table: settings)),
             activeRunDestination: runDestination
         )
 
-        let encoder = JSONEncoder.makeWithDefaults()        
-
+        // Write out the parameters as a JSON file, and return the path.
+        let encoder = JSONEncoder.makeWithDefaults()
         let data = try encoder.encode(params)
         let file = try withTemporaryFile(deleteOnClose: false) { $0.path }
         try localFileSystem.writeFileContents(file, bytes: ByteString(data))
-
         return file
     }
 
