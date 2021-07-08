@@ -2418,16 +2418,15 @@ final class BuildPlanTests: XCTestCase {
 
         let diagnostics = DiagnosticsEngine()
 
-        let graph = loadPackageGraph(
+        let graph = try loadPackageGraph(
             fs: fs,
             diagnostics: diagnostics,
             manifests: [
                 Manifest.createManifest(
                     name: "PkgA",
                     path: "/PkgA",
-                    url: "/PkgA",
-                    v: .v5_2,
                     packageKind: .root,
+                    v: .v5_2,
                     targets: [
                         TargetDescription(
                             name: "Foo",

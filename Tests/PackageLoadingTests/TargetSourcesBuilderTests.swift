@@ -468,11 +468,11 @@ class TargetSourcesBuilderTests: XCTestCase {
         }
     }
     
-    func testMissingResources() {
+    func testMissingResources() throws {
         
         do {
             // No Failures
-            let target = TargetDescription(name: "Foo", resources: [
+            let target = try TargetDescription(name: "Foo", resources: [
                 .init(rule: .copy, path: "foo.txt"),
                 .init(rule: .process, path: "bar.txt")
             ])
@@ -482,14 +482,14 @@ class TargetSourcesBuilderTests: XCTestCase {
                 "/bar.txt"
             )
             
-            build(target: target, toolsVersion: .v5_3, fs: fs) { (_, resources, _, _) in
+            build(target: target, toolsVersion: .v5_3, fs: fs) { _, resources, _, _, _ in
                 XCTAssertEqual(resources.count, 2)
             }
         }
         
         do {
             // Partial Success
-            let target = TargetDescription(name: "Foo", resources: [
+            let target = try TargetDescription(name: "Foo", resources: [
                 .init(rule: .copy, path: "foo.txt"),
                 .init(rule: .process, path: "bar.txt")
             ])
@@ -498,7 +498,7 @@ class TargetSourcesBuilderTests: XCTestCase {
                 "/foo.txt"
             )
             
-            build(target: target, toolsVersion: .v5_3, fs: fs) { _, resources, _, diagnostics in
+            build(target: target, toolsVersion: .v5_3, fs: fs) { _, resources, _, _, diagnostics in
                 XCTAssertEqual(resources.count, 1)
                 diagnostics.check(
                     diagnostic: .contains("""
@@ -512,7 +512,7 @@ class TargetSourcesBuilderTests: XCTestCase {
         
         do {
             // Ensure paths are normalised before comparison
-            let target = TargetDescription(name: "Foo", resources: [
+            let target = try TargetDescription(name: "Foo", resources: [
                 .init(rule: .copy, path: "./foo.txt"),
                 .init(rule: .process, path: "./dir/bar.txt"),
                 .init(rule: .copy, path: "./dir/../baz.txt"),
@@ -524,21 +524,21 @@ class TargetSourcesBuilderTests: XCTestCase {
                 "/baz.txt"
             )
             
-            build(target: target, toolsVersion: .v5_3, fs: fs) { _, resources, _, _ in
+            build(target: target, toolsVersion: .v5_3, fs: fs) { _, resources, _, _, _ in
                 XCTAssertEqual(resources.count, 3)
             }
         }
         
         do {
             // Complete Failure
-            let target = TargetDescription(name: "Foo", resources: [
+            let target = try TargetDescription(name: "Foo", resources: [
                 .init(rule: .copy, path: "foo.txt"),
                 .init(rule: .process, path: "bar.txt")
             ])
             
             let fs = InMemoryFileSystem(emptyFiles: [])
             
-            build(target: target, toolsVersion: .v5_3, fs: fs) { _, resources, _, diagnostics in
+            build(target: target, toolsVersion: .v5_3, fs: fs) { _, resources, _, _, diagnostics in
                 XCTAssertEqual(resources.count, 0)
                 diagnostics.check(
                     diagnostic: .contains("""
