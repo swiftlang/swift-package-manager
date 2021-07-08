@@ -103,7 +103,17 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
 
         arguments += buildParameters.xcbuildFlags
 
-        let process = Process(arguments: arguments, outputRedirection: .collect)
+        let delegate = createBuildDelegate()
+        var hasStdout = false
+        var stderrBuffer: [UInt8] = []
+        let redirection: Process.OutputRedirection = .stream(stdout: { bytes in
+            hasStdout = hasStdout || !bytes.isEmpty
+            delegate.parse(bytes: bytes)
+        }, stderr: { bytes in
+            stderrBuffer.append(contentsOf: bytes)
+        })
+                                                             
+        let process = Process(arguments: arguments, outputRedirection: redirection)
         try process.launch()
         let result = try process.waitUntilExit()
 
@@ -115,14 +125,9 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
             throw Diagnostics.fatalError
         }
         
-        let stdout = try result.output.get()
-        if !stdout.isEmpty {
-            let delegate = createBuildDelegate()
-            delegate.parse(bytes: stdout)
-        } else {
-            let stderr = try result.utf8stderrOutput()
-            if !stderr.isEmpty {
-                diagnostics.emit(StringError(stderr))
+        if !hasStdout {
+            if !stderrBuffer.isEmpty {
+                diagnostics.emit(StringError(String(decoding: stderrBuffer, as: UTF8.self)))
             } else {
                 diagnostics.emit(StringError("Unknown error: stdout and stderr are empty"))
             }
