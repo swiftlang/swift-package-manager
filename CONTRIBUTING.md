@@ -129,40 +129,51 @@ It is used on bare systems to bootstrap the Swift toolchain (including SwiftPM),
 The bootstrap script requires having [CMake](https://cmake.org/) and [Ninja](https://ninja-build.org/) installed.
 Please refer to the [_Get Started_ guide](https://github.com/apple/swift/blob/main/docs/HowToGuides/GettingStarted.md#installing-dependencies) on the Swift project repository for installation instructions.
 
-1. Clone [llbuild](https://github.com/apple/swift-llbuild) beside the SwiftPM directory.
+Clone the following repositories beside the SwiftPM directory:
 
-```bash
-$> git clone https://github.com/apple/swift-llbuild llbuild
-```
+1. [swift-argument-parser] and check out tag with the [latest version](https://github.com/apple/swift-argument-parser/tags).
+   
+   For example, if the latest tag is 0.4.3:
+   ```sh
+   $> git clone https://github.com/apple/swift-argument-parser --branch 0.4.3
+   ```
 
-Note: Make sure the directory for llbuild is called "llbuild" and not
-    "swift-llbuild".
+2. [swift-llbuild] as llbuild
+   ```sh
+   $> git clone https://github.com/apple/swift-llbuild llbuild
+   ```
+   > Note: Make sure the directory for llbuild is called "llbuild" and not "swift-llbuild".
 
-2. Clone [Yams](https://github.com/jpsim/yams) beside the SwiftPM directory.
+3. [swift-tools-support-core]
+   ```sh
+   $> git clone https://github.com/apple/swift-tools-support-core
+   ```
 
-```bash
-$> git clone https://github.com/jpsim/yams
-```
+4. [Yams] and checkout tag with the [latest version](https://github.com/jpsim/Yams.git/tags) before 5.0.0.
+   
+   For example, if the latest tag is 4.0.6:
+   ```sh
+   $> git clone https://github.com/jpsim/yams --branch 4.0.6
+   ```
 
-3. Clone [swift-driver](https://github.com/apple/swift-driver) beside the SwiftPM directory.
+5. [swift-driver]
+   ```sh
+   $> git clone https://github.com/apple/swift-driver
+   ```
 
-```bash
-$> git clone https://github.com/apple/swift-driver
-```
+6. [swift-crypto] and check out tag with the [latest version](https://github.com/apple/swift-crypto/tags).
+   
+   For example, if the latest tag is 1.1.6:
+   ```sh
+   $> git clone https://github.com/apple/swift-crypto --branch 1.1.6
+   ```
 
-4. Clone [swift-argument-parser](https://github.com/apple/swift-argument-parser) beside the SwiftPM directory and check out tag with the [latest version](https://github.com/apple/swift-argument-parser/tags).
-
-For example, if the latest tag is 0.3.1:
-```bash
-$> git clone https://github.com/apple/swift-argument-parser --branch 0.3.1
-```
-
-5. Clone [swift-crypto](https://github.com/apple/swift-crypto) beside the SwiftPM directory and check out tag with the [latest version](https://github.com/apple/swift-crypto/tags).
-
-For example, if the latest tag is 1.1.3:
-```bash
-$> git clone https://github.com/apple/swift-crypto --branch 1.1.3
-```
+[swift-argument-parser]: https://github.com/apple/swift-argument-parser
+[swift-crypto]: https://github.com/apple/swift-crypto
+[swift-driver]: https://github.com/apple/swift-driver
+[swift-llbuild]: https://github.com/apple/swift-llbuild
+[swift-tools-support-core]: https://github.com/apple/swift-tools-support-core
+[Yams]: https://github.com/jpsim/yams
 
 #### Building
 
