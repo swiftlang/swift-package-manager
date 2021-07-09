@@ -282,6 +282,19 @@ final class BuildToolTests: XCTestCase {
         }
     }
 
+    func testXcodeBuildSystemDefaultSettings() throws {
+        #if !os(macOS)
+        try XCTSkipIf(true, "test requires `xcbuild` and is therefore only supported on macOS")
+        #endif
+        fixture(name: "ValidLayouts/SingleModule/ExecutableNew") { path in
+            // Try building using XCBuild with default parameters.  This should succeed.  We build verbosely so we get full command lines.
+            let defaultOutput = try execute(["-c", "debug", "-v"], packagePath: path).stdout
+            
+            // Look for certain things in the output from XCBuild.
+            XCTAssert(defaultOutput.contains("-target \(Resources.default.toolchain.triple.tripleString)"), defaultOutput)
+        }
+    }
+
     func testXcodeBuildSystemOverrides() throws {
         #if !os(macOS)
         try XCTSkipIf(true, "test requires `xcbuild` and is therefore only supported on macOS")
