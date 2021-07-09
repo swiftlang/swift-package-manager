@@ -271,6 +271,6 @@ extension PackageCollectionsModel.Package.Version {
 
 extension Model.Package {
     var displayName: String {
-        self.latestVersion?.packageName ?? "Unknown"
+        self.latestVersion?.packageName ?? self.reference.identity.description
     }
 }
