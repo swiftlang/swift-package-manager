@@ -104,8 +104,13 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
         arguments += buildParameters.xcbuildFlags
 
         let delegate = createBuildDelegate()
-        let redirection: Process.OutputRedirection = .stream(stdout: delegate.parse(bytes:), stderr: { bytes in
-            self.diagnostics.emit(StringError(String(bytes: bytes, encoding: .utf8)!))
+        var hasStdout = false
+        var stderrBuffer: [UInt8] = []
+        let redirection: Process.OutputRedirection = .stream(stdout: { bytes in
+            hasStdout = hasStdout || !bytes.isEmpty
+            delegate.parse(bytes: bytes)
+        }, stderr: { bytes in
+            stderrBuffer.append(contentsOf: bytes)
         })
 
         let process = Process(arguments: arguments, outputRedirection: redirection)
@@ -118,6 +123,14 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
 
         guard result.exitStatus == .terminated(code: 0) else {
             throw Diagnostics.fatalError
+        }
+        
+        if !hasStdout {
+            if !stderrBuffer.isEmpty {
+                diagnostics.emit(StringError(String(decoding: stderrBuffer, as: UTF8.self)))
+            } else {
+                diagnostics.emit(StringError("Unknown error: stdout and stderr are empty"))
+            }
         }
     }
 
