@@ -112,7 +112,7 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
         }, stderr: { bytes in
             stderrBuffer.append(contentsOf: bytes)
         })
-                                                             
+
         let process = Process(arguments: arguments, outputRedirection: redirection)
         try process.launch()
         let result = try process.waitUntilExit()
