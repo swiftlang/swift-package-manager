@@ -64,6 +64,17 @@ class CFamilyTargetTestCase: XCTestCase {
             XCTAssertDirectoryContainsFile(dir: debugPath, filename: "UmbrellaHeader.c.o")
         }
     }
+    
+    func testNoIncludeDirCheck() {
+        fixture(name: "CFamilyTargets/CLibraryNoIncludeDir") { prefix in
+            XCTAssertThrowsError(try executeSwiftBuild(prefix), "This build should throw an error") { err in
+                // The err.localizedDescription doesn't capture the detailed error string so interpolate
+                let errStr = "\(err)"
+                let missingIncludeDirStr = "\(ModuleError.invalidPublicHeadersDirectory("Cfactorial"))"
+                XCTAssert(errStr.contains(missingIncludeDirStr))
+            }
+        }
+    }
 
     func testCanForwardExtraFlagsToClang() {
         // Try building a fixture which needs extra flags to be able to build.
