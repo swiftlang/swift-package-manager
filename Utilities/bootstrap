@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# encoding: utf-8
 
 """
  This source file is part of the Swift.org open source project
@@ -167,14 +168,24 @@ def add_test_args(parser):
 
 def parse_global_args(args):
     """Parses and cleans arguments necessary for all actions."""
-    args.build_dir = os.path.abspath(args.build_dir)
-    args.project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    args.tsc_source_dir = os.path.join(args.project_root, "..", "swift-tools-support-core")
-    args.yams_source_dir = os.path.join(args.project_root, "..", "yams")
-    args.swift_argument_parser_source_dir = os.path.join(args.project_root, "..", "swift-argument-parser")
-    args.swift_driver_source_dir = os.path.join(args.project_root, "..", "swift-driver")
-    args.swift_crypto_source_dir = os.path.join(args.project_root, "..", "swift-crypto")
-    args.source_root = os.path.join(args.project_root, "Sources")
+    # Test if 'build_dirs' and 'source_dirs' exist, and initialise them only if not.
+    # Otherwise, both are reset to empty dictionaries every time 'parse_global_args' is called, which crashes 'test', because 'test' calls it (via 'parse_test_args' → 'parse_build_args') after 'build' has called it (via 'parse_build_args').
+    try:
+        args.build_dirs
+    except AttributeError:
+        args.build_dirs = {}
+    try:
+        args.source_dirs
+    except AttributeError:
+        args.source_dirs = {}
+    args.build_dir                            = os.path.abspath(args.build_dir)
+    args.project_root                         = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    args.source_dirs["tsc"]                   = os.path.join(args.project_root, "..", "swift-tools-support-core")
+    args.source_dirs["yams"]                  = os.path.join(args.project_root, "..", "yams")
+    args.source_dirs["swift-argument-parser"] = os.path.join(args.project_root, "..", "swift-argument-parser")
+    args.source_dirs["swift-driver"]          = os.path.join(args.project_root, "..", "swift-driver")
+    args.source_dirs["swift-crypto"]          = os.path.join(args.project_root, "..", "swift-crypto")
+    args.source_root                          = os.path.join(args.project_root, "Sources")
 
     if platform.system() == 'Darwin':
         args.sysroot = call_output(["xcrun", "--sdk", "macosx", "--show-sdk-path"], verbose=args.verbose)
@@ -192,7 +203,7 @@ def parse_build_args(args):
         args.foundation_build_dir = os.path.abspath(args.foundation_build_dir)
 
     if args.llbuild_build_dir:
-        args.llbuild_build_dir = os.path.abspath(args.llbuild_build_dir)
+        args.build_dirs["llbuild"] = os.path.abspath(args.llbuild_build_dir)
 
     args.swiftc_path = get_swiftc_path(args)
     args.clang_path = get_clang_path(args)
@@ -313,15 +324,23 @@ def build(args):
     parse_build_args(args)
 
     # Build llbuild if its build path is not passed in.
-    if not args.llbuild_build_dir:
+    if not "llbuild" in args.build_dirs:
         build_llbuild(args)
 
     if args.bootstrap:
-        build_tsc(args)
-        build_yams(args)
-        build_swift_argument_parser(args)
-        build_swift_driver(args)
-        build_swift_crypto(args)
+        # tsc, swift-argument-parser, and yams are depended on by swift-driver, so they must be built first.
+        build_dependency(args, "tsc")
+        build_dependency(args, "swift-argument-parser", ["-DBUILD_TESTING=NO", "-DBUILD_EXAMPLES=NO"])
+        build_dependency(args, "yams", [], [get_foundation_cmake_arg(args)] if args.foundation_build_dir else [])
+
+        swift_driver_cmake_flags = [
+            get_llbuild_cmake_arg(args),
+            "-DTSC_DIR=" + os.path.join(args.build_dirs["tsc"], "cmake/modules"),
+            "-DYams_DIR=" + os.path.join(args.build_dirs["yams"], "cmake/modules"),
+            "-DArgumentParser_DIR=" + os.path.join(args.build_dirs["swift-argument-parser"], "cmake/modules"),
+        ]
+        build_dependency(args, "swift-driver", swift_driver_cmake_flags)
+        build_dependency(args, "swift-crypto")
         build_swiftpm_with_cmake(args)
 
     build_swiftpm_with_swiftpm(args,integrated_swift_driver=False)
@@ -486,9 +505,9 @@ def build_llbuild(args):
     note("Building llbuild")
 
     # Set where we are going to build llbuild for future steps to find it
-    args.llbuild_build_dir = os.path.join(args.target_dir, "llbuild")
+    args.build_dirs["llbuild"] = os.path.join(args.target_dir, "llbuild")
 
-    api_dir = os.path.join(args.llbuild_build_dir, ".cmake/api/v1/query")
+    api_dir = os.path.join(args.build_dirs["llbuild"], ".cmake/api/v1/query")
     mkdir_p(api_dir)
     call(["touch", "codemodel-v2"], cwd=api_dir, verbose=args.verbose)
 
@@ -505,73 +524,21 @@ def build_llbuild(args):
     if args.sysroot:
         flags.append("-DSQLite3_INCLUDE_DIR=%s/usr/include" % args.sysroot)
 
-    llbuild_source_dir = get_llbuild_source_path(args)
-    build_with_cmake(args, flags, llbuild_source_dir, args.llbuild_build_dir)
+    args.source_dirs["llbuild"] = get_llbuild_source_path(args)
+    build_with_cmake(args, flags, args.source_dirs["llbuild"], args.build_dirs["llbuild"])
 
-def build_tsc(args):
-    note("Building TSC")
-    args.tsc_build_dir = os.path.join(args.target_dir, "tsc")
+def build_dependency(args, target_name, common_cmake_flags = [], non_darwin_cmake_flags = []):
+    note("Building " + target_name)
+    args.build_dirs[target_name] = os.path.join(args.target_dir, target_name)
 
-    cmake_flags = []
-    if platform.system() == 'Darwin':
-        cmake_flags.append("-DCMAKE_C_FLAGS=-target %s%s" % (get_build_target(args), g_macos_deployment_target))
-        cmake_flags.append("-DCMAKE_OSX_DEPLOYMENT_TARGET=%s" % g_macos_deployment_target)
-
-    build_with_cmake(args, cmake_flags, args.tsc_source_dir, args.tsc_build_dir)
-
-def build_swift_argument_parser(args):
-    note("Building swift-argument-parser")
-    args.swift_argument_parser_build_dir = os.path.join(args.target_dir, "swift-argument-parser")
-
-    cmake_flags = []
-    if platform.system() == 'Darwin':
-        cmake_flags.append("-DCMAKE_C_FLAGS=-target %s%s" % (get_build_target(args), g_macos_deployment_target))
-        cmake_flags.append("-DCMAKE_OSX_DEPLOYMENT_TARGET=%s" % g_macos_deployment_target)
-
-    cmake_flags.append("-DBUILD_TESTING=NO")
-    cmake_flags.append("-DBUILD_EXAMPLES=NO")
-    build_with_cmake(args, cmake_flags, args.swift_argument_parser_source_dir, args.swift_argument_parser_build_dir)
-
-def build_yams(args):
-    note("Building Yams")
-    args.yams_build_dir = os.path.join(args.target_dir, "yams")
-
-    cmake_flags = []
+    cmake_flags = common_cmake_flags
     if platform.system() == 'Darwin':
         cmake_flags.append("-DCMAKE_C_FLAGS=-target %s%s" % (get_build_target(args), g_macos_deployment_target))
         cmake_flags.append("-DCMAKE_OSX_DEPLOYMENT_TARGET=%s" % g_macos_deployment_target)
     else:
-        if args.foundation_build_dir:
-            cmake_flags.append(get_foundation_cmake_arg(args))
+        cmake_flags += non_darwin_cmake_flags
 
-    build_with_cmake(args, cmake_flags, args.yams_source_dir, args.yams_build_dir)
-
-def build_swift_driver(args):
-    note("Building SwiftDriver")
-    args.swift_driver_build_dir = os.path.join(args.target_dir, "swift-driver")
-
-    cmake_flags = [
-        get_llbuild_cmake_arg(args),
-        "-DTSC_DIR=" + os.path.join(args.tsc_build_dir, "cmake/modules"),
-        "-DYams_DIR=" + os.path.join(args.yams_build_dir, "cmake/modules"),
-        "-DArgumentParser_DIR=" + os.path.join(args.swift_argument_parser_build_dir, "cmake/modules"),
-    ]
-    if platform.system() == 'Darwin':
-        cmake_flags.append("-DCMAKE_C_FLAGS=-target %s%s" % (get_build_target(args), g_macos_deployment_target))
-        cmake_flags.append("-DCMAKE_OSX_DEPLOYMENT_TARGET=%s" % g_macos_deployment_target)
-
-    build_with_cmake(args, cmake_flags, args.swift_driver_source_dir, args.swift_driver_build_dir)
-    
-def build_swift_crypto(args):
-    note("Building SwiftCrypto")
-    args.swift_crypto_build_dir = os.path.join(args.target_dir, "swift-crypto")
-
-    cmake_flags = []
-    if platform.system() == 'Darwin':
-        cmake_flags.append("-DCMAKE_C_FLAGS=-target %s%s" % (get_build_target(args), g_macos_deployment_target))
-        cmake_flags.append("-DCMAKE_OSX_DEPLOYMENT_TARGET=%s" % g_macos_deployment_target)
-
-    build_with_cmake(args, cmake_flags, args.swift_crypto_source_dir, args.swift_crypto_build_dir)
+    build_with_cmake(args, cmake_flags, args.source_dirs[target_name], args.build_dirs[target_name])
 
 def add_rpath_for_cmake_build(args, rpath):
     "Adds the given rpath to the CMake-built swift-build"
@@ -586,11 +553,11 @@ def build_swiftpm_with_cmake(args):
 
     cmake_flags = [
         get_llbuild_cmake_arg(args),
-        "-DTSC_DIR=" + os.path.join(args.tsc_build_dir, "cmake/modules"),
-        "-DYams_DIR=" + os.path.join(args.yams_build_dir, "cmake/modules"),
-        "-DArgumentParser_DIR=" + os.path.join(args.swift_argument_parser_build_dir, "cmake/modules"),
-        "-DSwiftDriver_DIR=" + os.path.join(args.swift_driver_build_dir, "cmake/modules"),
-        "-DSwiftCrypto_DIR=" + os.path.join(args.swift_crypto_build_dir, "cmake/modules"),
+        "-DTSC_DIR="            + os.path.join(args.build_dirs["tsc"],                   "cmake/modules"),
+        "-DYams_DIR="           + os.path.join(args.build_dirs["yams"],                  "cmake/modules"),
+        "-DArgumentParser_DIR=" + os.path.join(args.build_dirs["swift-argument-parser"], "cmake/modules"),
+        "-DSwiftDriver_DIR="    + os.path.join(args.build_dirs["swift-driver"],          "cmake/modules"),
+        "-DSwiftCrypto_DIR="    + os.path.join(args.build_dirs["swift-crypto"],          "cmake/modules"),
     ]
 
     if platform.system() == 'Darwin':
@@ -600,13 +567,13 @@ def build_swiftpm_with_cmake(args):
     build_with_cmake(args, cmake_flags, args.project_root, args.bootstrap_dir)
 
     if args.llbuild_link_framework:
-        add_rpath_for_cmake_build(args, args.llbuild_build_dir)
+        add_rpath_for_cmake_build(args, args.build_dirs["llbuild"])
 
     if platform.system() == "Darwin":
-        add_rpath_for_cmake_build(args, os.path.join(args.yams_build_dir, "lib"))
-        add_rpath_for_cmake_build(args, os.path.join(args.swift_argument_parser_build_dir, "lib"))
-        add_rpath_for_cmake_build(args, os.path.join(args.swift_driver_build_dir, "lib"))
-        add_rpath_for_cmake_build(args, os.path.join(args.swift_crypto_build_dir, "lib"))
+        add_rpath_for_cmake_build(args, os.path.join(args.build_dirs["yams"],                  "lib"))
+        add_rpath_for_cmake_build(args, os.path.join(args.build_dirs["swift-argument-parser"], "lib"))
+        add_rpath_for_cmake_build(args, os.path.join(args.build_dirs["swift-driver"],          "lib"))
+        add_rpath_for_cmake_build(args, os.path.join(args.build_dirs["swift-crypto"],          "lib"))
 
 def build_swiftpm_with_swiftpm(args, integrated_swift_driver):
     """Builds SwiftPM using the version of SwiftPM built with CMake."""
@@ -671,9 +638,9 @@ def get_foundation_cmake_arg(args):
 def get_llbuild_cmake_arg(args):
     """Returns the CMake argument to the LLBuild framework/binary to use for bulding SwiftPM."""
     if args.llbuild_link_framework:
-        return "-DCMAKE_FIND_FRAMEWORK_EXTRA_LOCATIONS=%s" % args.llbuild_build_dir
+        return "-DCMAKE_FIND_FRAMEWORK_EXTRA_LOCATIONS=%s" % args.build_dirs["llbuild"]
     else:
-        llbuild_dir = os.path.join(args.llbuild_build_dir, "cmake/modules")
+        llbuild_dir = os.path.join(args.build_dirs["llbuild"], "cmake/modules")
         return "-DLLBuild_DIR=" + llbuild_dir
 
 def get_llbuild_source_path(args):
@@ -698,13 +665,13 @@ def get_swiftpm_env_cmd(args):
 
     if args.bootstrap:
         libs_joined = ":".join([
-            os.path.join(args.bootstrap_dir, "lib"),
-            os.path.join(args.tsc_build_dir, "lib"),
-            os.path.join(args.llbuild_build_dir, "lib"),
-            os.path.join(args.yams_build_dir, "lib"),
-            os.path.join(args.swift_argument_parser_build_dir, "lib"),
-            os.path.join(args.swift_driver_build_dir, "lib"),
-            os.path.join(args.swift_crypto_build_dir, "lib"),
+            os.path.join(args.bootstrap_dir,                       "lib"),
+            os.path.join(args.build_dirs["tsc"],                   "lib"),
+            os.path.join(args.build_dirs["llbuild"],               "lib"),
+            os.path.join(args.build_dirs["yams"],                  "lib"),
+            os.path.join(args.build_dirs["swift-argument-parser"], "lib"),
+            os.path.join(args.build_dirs["swift-driver"],          "lib"),
+            os.path.join(args.build_dirs["swift-crypto"],          "lib"),
         ] + args.target_info["paths"]["runtimeLibraryPaths"])
 
         if platform.system() == 'Darwin':
@@ -730,8 +697,8 @@ def get_swiftpm_flags(args):
 
     if args.llbuild_link_framework:
         build_flags.extend([
-            "-Xswiftc", "-F" + args.llbuild_build_dir,
-            "-Xlinker", "-F" + args.llbuild_build_dir,
+            "-Xswiftc", "-F" + args.build_dirs["llbuild"],
+            "-Xlinker", "-F" + args.build_dirs["llbuild"],
 
             # For LLBuild in Xcode.
             "-Xlinker", "-rpath",
