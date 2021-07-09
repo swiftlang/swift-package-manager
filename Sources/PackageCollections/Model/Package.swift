@@ -268,3 +268,9 @@ extension PackageCollectionsModel.Package.Version {
         self.manifests[self.defaultToolsVersion]
     }
 }
+
+extension Model.Package {
+    var displayName: String {
+        self.latestVersion?.packageName ?? "Unknown"
+    }
+}

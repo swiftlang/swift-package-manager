@@ -331,7 +331,7 @@ public struct PackageCollections: PackageCollectionsProtocol {
                 }
 
                 let result = PackageCollectionsModel.PackageSearchResult(
-                    items: packageCollections.sorted { $0.key.identity < $1.key.identity }
+                    items: packageCollections.sorted { $0.value.package.displayName < $1.value.package.displayName }
                         .map { entry in
                             .init(package: entry.value.package, collections: Array(entry.value.collections))
                         }
