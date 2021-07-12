@@ -345,7 +345,7 @@ extension PackageDependencyDescription {
             } else if dependencyLocation.hasPrefix(filePrefix) {
                 // FIXME: SwiftPM can't handle file locations with file:// scheme so we need to
                 // strip that. We need to design a Location data structure for SwiftPM.
-                return AbsolutePath(String(dependencyLocation.dropFirst(filePrefix.count))).pathString
+                return AbsolutePath(String(dependencyLocation.dropFirst(filePrefix.count)), relativeTo: AbsolutePath(packageLocation)).pathString
             } else if URL.scheme(dependencyLocation) == nil {
                 // If the dependency URL is not remote, try to "fix" it.
                 // If the URL has no scheme, we treat it as a path (either absolute or relative to the base URL).

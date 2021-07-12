@@ -499,6 +499,37 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
         }
     }
 
+    func testURLContainsNotAbsolutePath() throws {
+        let stream = BufferedOutputByteStream()
+        stream <<< """
+        import PackageDescription
+        let package = Package(
+            name: "Trivial",
+            dependencies: [
+                .package(url: "file://../best", from: "1.0.0"),
+            ],
+            targets: [
+                .target(
+                    name: "foo",
+                    dependencies: []),
+            ]
+        )
+        """
+
+        try loadManifestThrowing(stream.bytes) { manifest in
+            if let dep = manifest.dependencies.first {
+                switch dep {
+                case .scm(let scm):
+                    XCTAssertEqual(scm.location, "/best")
+                default:
+                    XCTFail("dependency was expected to be remote")
+                }
+            } else {
+                XCTFail("manifest had no dependencies")
+            }
+        }
+    }
+
     func testCacheInvalidationOnEnv() throws {
         #if os(Linux)
         // rdar://79415639 (Test Case 'PackageDescription4_2LoadingTests.testCacheInvalidationOnEnv' failed)
