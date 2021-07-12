@@ -352,8 +352,8 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                         }
 
                     // FTS results are not sorted by relevance at all (FTS5 supports ORDER BY rank but FTS4 requires additional SQL function)
-                    // Sort by package identity for consistent ordering in results
-                    let result = Model.PackageSearchResult(items: packageCollections.sorted { $0.key < $1.key }.map { entry in
+                    // Sort by package name for consistent ordering in results
+                    let result = Model.PackageSearchResult(items: packageCollections.sorted { $0.value.package.displayName < $1.value.package.displayName }.map { entry in
                         .init(package: entry.value.package, collections: Array(entry.value.collections))
                     })
                     callback(.success(result))
@@ -393,8 +393,8 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                         }
                     }
 
-                    // Sort by package identity for consistent ordering in results
-                    let result = Model.PackageSearchResult(items: packageCollections.sorted { $0.key.identity < $1.key.identity }.map { entry in
+                    // Sort by package name for consistent ordering in results
+                    let result = Model.PackageSearchResult(items: packageCollections.sorted { $0.value.package.displayName < $1.value.package.displayName }.map { entry in
                         .init(package: entry.value.package, collections: Array(entry.value.collections))
                     })
                     callback(.success(result))
