@@ -1060,7 +1060,7 @@ final class PackageToolTests: XCTestCase {
                 XCTAssertEqual(result.exitStatus, .terminated(code: 1))
 
                 let stderrOutput = try result.utf8stderrOutput()
-                XCTAssert(stderrOutput.contains("error: Could not find Package.swift in this directory or any of it's parent directories."), #"actual: "\#(stderrOutput)""#)
+                XCTAssert(stderrOutput.contains("error: Could not find Package.swift in this directory or any of its parent directories."), #"actual: "\#(stderrOutput)""#)
             }
 
             // Runnning with output as absolute path to existing directory
