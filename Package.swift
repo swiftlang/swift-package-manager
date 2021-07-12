@@ -259,7 +259,7 @@ let package = Package(
             dependencies: ["Build", "SPMTestSupport"]),
         .testTarget(
             name: "CommandsTests",
-            dependencies: ["swift-build", "swift-package", "swift-test", "swift-run", "Commands", "Workspace", "SPMTestSupport"]),
+            dependencies: ["swift-build", "swift-package", "swift-test", "swift-run", "Commands", "Workspace", "SPMTestSupport", "Build"]),
         .testTarget(
             name: "WorkspaceTests",
             dependencies: ["Workspace", "SPMTestSupport"]),
