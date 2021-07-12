@@ -30,7 +30,7 @@ extension Error: CustomStringConvertible {
         case .invalidToolchain(let problem):
             return problem
         case .rootManifestFileNotFound:
-            return "Could not find \(Manifest.filename) in this folder or any of it's parent folders."
+            return "Could not find \(Manifest.filename) in this directory or any of it's parent directories."
         }
     }
 }
