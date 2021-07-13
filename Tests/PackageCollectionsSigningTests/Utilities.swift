@@ -28,10 +28,10 @@ struct TestCertificatePolicy: CertificatePolicy {
         // This is the datetime that the tests use to validate test certs (Test_rsa.cer, Test_ec.cer).
         // Make sure it falls within the certs' validity period, across timezones.
         // For example, suppose the current date is April 12, 2021, the cert validation runs as if
-        // the date were November 18, 2020.
+        // the date were July 18, 2021.
         var dateComponents = DateComponents()
-        dateComponents.year = 2020
-        dateComponents.month = 11
+        dateComponents.year = 2021
+        dateComponents.month = 7
         dateComponents.day = 18
         return Calendar.current.date(from: dateComponents)!
     }()
@@ -132,39 +132,39 @@ maa3Ms9tPcsQUggtAR/QepyrKmB1SRAouHqKi+bGTlCpFSFbDgW422gfqXEEboh3
 
 let certECPrivateKey = """
 -----BEGIN EC PRIVATE KEY-----
-MHcCAQEEIKRNt0dFe1qbIFqyWbpU3dvrdzRqZ18BrQBhIoSzm8K2oAoGCCqGSM49
-AwEHoUQDQgAE7TEGQSoJ6YWtocE3GTe/GEXgLayMdIGDe1OL66KLECP1CKm0BsJy
-Cz5Ae+Rox51jc8zTUcniBXZRNhoP6+6AhQ==
+MHcCAQEEIFyZDwhGj2Q6ZchEt6DIQSptRk9yKPo60JH5x4u3p4YmoAoGCCqGSM49
+AwEHoUQDQgAEHg58TCXScU6zXSYygCNW0tBZeYFRWf3XAjaDJUkeEFUvKxiIcP8S
+sLfb8P9mukwJsj2CwfatwneFIUQGJ4P+SQ==
 -----END EC PRIVATE KEY-----
 """
 
 let certRSAPrivateKey = """
 -----BEGIN RSA PRIVATE KEY-----
-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
+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
 -----END RSA PRIVATE KEY-----
 """
 
