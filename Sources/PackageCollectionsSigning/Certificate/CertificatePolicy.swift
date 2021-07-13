@@ -26,11 +26,13 @@ import Security
 
 let appleDistributionIOSMarker = "1.2.840.113635.100.6.1.4"
 let appleDistributionMacOSMarker = "1.2.840.113635.100.6.1.7"
+let appleSwiftPackageCollectionMarker = "1.2.840.113635.100.6.1.35"
 let appleIntermediateMarker = "1.2.840.113635.100.6.2.1"
 
 // For BoringSSL only - the Security framework recognizes these marker extensions
 #if os(Linux) || os(Windows) || os(Android)
-let supportedCriticalExtensions: Set<String> = [appleDistributionIOSMarker, appleDistributionMacOSMarker,
+let supportedCriticalExtensions: Set<String> = [appleSwiftPackageCollectionMarker, // This isn't a critical extension but including it just in case,
+                                                appleDistributionIOSMarker, appleDistributionMacOSMarker,
                                                 // Support "Apple Development" cert markers--they are valid code signing certs after all and satisfy DefaultCertificatePolicy
                                                 "1.2.840.113635.100.6.1.2", "1.2.840.113635.100.6.1.12"]
 #endif
@@ -659,11 +661,11 @@ struct DefaultCertificatePolicy: CertificatePolicy {
     }
 }
 
-/// Policy for validating developer.apple.com certificates.
+/// Policy for validating developer.apple.com Swift Package Collection certificates.
 ///
 /// This has the same requirements as `DefaultCertificatePolicy` plus additional
-/// marker extensions for Apple Distribution certifiications.
-struct AppleDeveloperCertificatePolicy: CertificatePolicy {
+/// marker extensions for Swift Package Collection certifiications.
+struct AppleSwiftPackageCollectionCertificatePolicy: CertificatePolicy {
     private static let expectedCertChainLength = 3
 
     let trustedRoots: [Certificate]?
@@ -676,7 +678,110 @@ struct AppleDeveloperCertificatePolicy: CertificatePolicy {
     private let httpClient: HTTPClient
     #endif
 
-    /// Initializes a `AppleDeveloperCertificatePolicy`.
+    /// Initializes a `AppleSwiftPackageCollectionCertificatePolicy`.
+    /// - Parameters:
+    ///   - trustedRootCertsDir: On Apple platforms, all root certificates that come preinstalled with the OS are automatically trusted.
+    ///                          Users may specify additional certificates to trust by placing them in `trustedRootCertsDir` and
+    ///                          configure the signing tool or SwiftPM to use it. On non-Apple platforms, only trust root certificates in
+    ///                          `trustedRootCertsDir` are trusted.
+    ///   - additionalTrustedRootCerts: Root certificates to be trusted in addition to those in `trustedRootCertsDir`. The difference
+    ///                                 between this and `trustedRootCertsDir` is that the latter is user configured and dynamic,
+    ///                                 while this is configured by SwiftPM and static.
+    ///   - expectedSubjectUserID: The subject user ID that must match if specified.
+    ///   - callbackQueue: The `DispatchQueue` to use for callbacks
+    ///   - diagnosticsEngine: The `DiagnosticsEngine` for emitting warnings and errors.
+    init(trustedRootCertsDir: URL?, additionalTrustedRootCerts: [Certificate]?, expectedSubjectUserID: String? = nil, callbackQueue: DispatchQueue, diagnosticsEngine: DiagnosticsEngine) {
+        #if !(os(macOS) || os(Linux) || os(Windows) || os(Android))
+        fatalError("Unsupported: \(#function)")
+        #else
+        var trustedRoots = [Certificate]()
+        if let trustedRootCertsDir = trustedRootCertsDir {
+            trustedRoots.append(contentsOf: Self.loadCerts(at: trustedRootCertsDir, diagnosticsEngine: diagnosticsEngine))
+        }
+        if let additionalTrustedRootCerts = additionalTrustedRootCerts {
+            trustedRoots.append(contentsOf: additionalTrustedRootCerts)
+        }
+        self.trustedRoots = trustedRoots.isEmpty ? nil : trustedRoots
+        self.expectedSubjectUserID = expectedSubjectUserID
+        self.callbackQueue = callbackQueue
+        self.diagnosticsEngine = diagnosticsEngine
+
+        #if os(Linux) || os(Windows) || os(Android)
+        self.httpClient = HTTPClient.makeDefault(callbackQueue: callbackQueue)
+        #endif
+        #endif
+    }
+
+    func validate(certChain: [Certificate], callback: @escaping (Result<Void, Error>) -> Void) {
+        #if !(os(macOS) || os(Linux) || os(Windows) || os(Android))
+        fatalError("Unsupported: \(#function)")
+        #else
+        let wrappedCallback: (Result<Void, Error>) -> Void = { result in self.callbackQueue.async { callback(result) } }
+
+        guard !certChain.isEmpty else {
+            return wrappedCallback(.failure(CertificatePolicyError.emptyCertChain))
+        }
+        // developer.apple.com cert chain is always 3-long
+        guard certChain.count == Self.expectedCertChainLength else {
+            return wrappedCallback(.failure(CertificatePolicyError.unexpectedCertChainLength))
+        }
+
+        do {
+            // Check if subject user ID matches
+            if let expectedSubjectUserID = self.expectedSubjectUserID {
+                guard try certChain[0].subject().userID == expectedSubjectUserID else {
+                    return wrappedCallback(.failure(CertificatePolicyError.subjectUserIDMismatch))
+                }
+            }
+
+            // Check marker extension
+            guard try self.hasExtension(oid: appleSwiftPackageCollectionMarker, in: certChain[0]) else {
+                return wrappedCallback(.failure(CertificatePolicyError.missingRequiredExtension))
+            }
+            guard try self.hasExtension(oid: appleIntermediateMarker, in: certChain[1]) else {
+                return wrappedCallback(.failure(CertificatePolicyError.missingRequiredExtension))
+            }
+
+            // Must be a code signing certificate
+            guard try self.hasExtendedKeyUsage(.codeSigning, in: certChain[0]) else {
+                return wrappedCallback(.failure(CertificatePolicyError.codeSigningCertRequired))
+            }
+            // Must support OCSP
+            guard try self.supportsOCSP(certificate: certChain[0]) else {
+                return wrappedCallback(.failure(CertificatePolicyError.ocspSupportRequired))
+            }
+
+            // Verify the cert chain - if it is trusted then cert chain is valid
+            #if os(macOS)
+            self.verify(certChain: certChain, anchorCerts: self.trustedRoots, diagnosticsEngine: self.diagnosticsEngine, callbackQueue: self.callbackQueue, callback: callback)
+            #elseif os(Linux) || os(Windows) || os(Android)
+            self.verify(certChain: certChain, anchorCerts: self.trustedRoots, httpClient: self.httpClient, diagnosticsEngine: self.diagnosticsEngine, callbackQueue: self.callbackQueue, callback: callback)
+            #endif
+        } catch {
+            return wrappedCallback(.failure(error))
+        }
+        #endif
+    }
+}
+
+/// Policy for validating developer.apple.com Apple Distribution certificates.
+///
+/// This has the same requirements as `DefaultCertificatePolicy` plus additional
+/// marker extensions for Apple Distribution certifiications.
+struct AppleDistributionCertificatePolicy: CertificatePolicy {
+    private static let expectedCertChainLength = 3
+
+    let trustedRoots: [Certificate]?
+    let expectedSubjectUserID: String?
+
+    private let callbackQueue: DispatchQueue
+    private let diagnosticsEngine: DiagnosticsEngine
+
+    #if os(Linux) || os(Windows) || os(Android)
+    private let httpClient: HTTPClient
+    #endif
+
+    /// Initializes a `AppleDistributionCertificatePolicy`.
     /// - Parameters:
     ///   - trustedRootCertsDir: On Apple platforms, all root certificates that come preinstalled with the OS are automatically trusted.
     ///                          Users may specify additional certificates to trust by placing them in `trustedRootCertsDir` and
@@ -764,11 +869,13 @@ struct AppleDeveloperCertificatePolicy: CertificatePolicy {
 
 public enum CertificatePolicyKey: Hashable {
     case `default`(subjectUserID: String?)
+    case appleSwiftPackageCollection(subjectUserID: String?)
     case appleDistribution(subjectUserID: String?)
 
     /// For internal-use only
     case custom
 
     public static let `default` = CertificatePolicyKey.default(subjectUserID: nil)
+    public static let appleSwiftPackageCollection = CertificatePolicyKey.appleSwiftPackageCollection(subjectUserID: nil)
     public static let appleDistribution = CertificatePolicyKey.appleDistribution(subjectUserID: nil)
 }
