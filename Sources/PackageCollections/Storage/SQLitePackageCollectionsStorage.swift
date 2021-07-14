@@ -765,7 +765,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
     private func removeFromSearchIndices(identifier: Model.CollectionIdentifier) throws {
         guard try self.shouldUseSearchIndices() else { return }
 
-        let identifierBase64 = try self.encoder.encode(identifier.databaseKey()).base64EncodedString()
+        let identifierBase64 = try self.encoder.encode(identifier).base64EncodedString()
 
         let packagesQuery = "DELETE FROM \(Self.packagesFTSName) WHERE collection_id_blob_base64 = ?;"
         try self.executeStatement(packagesQuery) { statement -> Void in
