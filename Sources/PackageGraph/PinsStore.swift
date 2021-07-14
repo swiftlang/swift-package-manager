@@ -131,9 +131,8 @@ extension PinsStore: JSONSerializable {
         let pinsWithOriginalLocations = self.pins.map { pin -> Pin in
             let url = self.mirrors.originalURL(for: pin.packageRef.location) ?? pin.packageRef.location
             let identity = PackageIdentity(url: url) // FIXME: pin store should also encode identity
-            return Pin(packageRef: .remote(identity: identity, location: url), state: pin.state)
+            return Pin(packageRef: .init(identity: identity, kind: pin.packageRef.kind, location: url, name: pin.packageRef.name), state: pin.state)
         }
-
         return JSON([
             "pins": pinsWithOriginalLocations.sorted(by: { $0.packageRef.identity < $1.packageRef.identity }).toJSON(),
         ])
@@ -170,7 +169,7 @@ extension PinsStore: SimplePersistanceProtocol {
         let pinsWithMirroredLocations = pins.map { pin -> Pin in
             let url = self.mirrors.effectiveURL(for: pin.packageRef.location)
             let identity = PackageIdentity(url: url) // FIXME: pin store should also encode identity
-            return Pin(packageRef: .remote(identity: identity, location: url), state: pin.state)
+            return Pin(packageRef: .init(identity: identity, kind: pin.packageRef.kind, location: url, name: pin.packageRef.name), state: pin.state)
         }
         self.pinsMap = try Dictionary(pinsWithMirroredLocations.map({ ($0.packageRef.identity, $0) }), uniquingKeysWith: { first, _ in throw StringError("duplicated entry for package \"\(first.packageRef.name)\"") })
     }
