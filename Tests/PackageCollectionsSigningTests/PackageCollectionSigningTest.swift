@@ -29,8 +29,8 @@ class PackageCollectionSigningTests: XCTestCase {
             let collection = try jsonDecoder.decode(PackageCollectionModel.V1.Collection.self, from: collectionData)
 
             let certPath = directoryPath.appending(components: "Signing", "Test_rsa.cer")
-            let intermediateCAPath = directoryPath.appending(components: "Signing", "TestIntermediateCA_rsa.cer")
-            let rootCAPath = directoryPath.appending(components: "Signing", "TestRootCA_rsa.cer")
+            let intermediateCAPath = directoryPath.appending(components: "Signing", "TestIntermediateCA.cer")
+            let rootCAPath = directoryPath.appending(components: "Signing", "TestRootCA.cer")
             let certChainPaths = [certPath, intermediateCAPath, rootCAPath].map { $0.asURL }
 
             let privateKeyPath = directoryPath.appending(components: "Signing", "Test_rsa_key.pem")
@@ -76,8 +76,8 @@ class PackageCollectionSigningTests: XCTestCase {
             )
 
             let certPath = directoryPath.appending(components: "Signing", "Test_rsa.cer")
-            let intermediateCAPath = directoryPath.appending(components: "Signing", "TestIntermediateCA_rsa.cer")
-            let rootCAPath = directoryPath.appending(components: "Signing", "TestRootCA_rsa.cer")
+            let intermediateCAPath = directoryPath.appending(components: "Signing", "TestIntermediateCA.cer")
+            let rootCAPath = directoryPath.appending(components: "Signing", "TestRootCA.cer")
             let certChainPaths = [certPath, intermediateCAPath, rootCAPath].map { $0.asURL }
 
             let privateKeyPath = directoryPath.appending(components: "Signing", "Test_rsa_key.pem")
@@ -117,8 +117,8 @@ class PackageCollectionSigningTests: XCTestCase {
             let collection = try jsonDecoder.decode(PackageCollectionModel.V1.Collection.self, from: collectionData)
 
             let certPath = directoryPath.appending(components: "Signing", "Test_ec.cer")
-            let intermediateCAPath = directoryPath.appending(components: "Signing", "TestIntermediateCA_ec.cer")
-            let rootCAPath = directoryPath.appending(components: "Signing", "TestRootCA_rsa.cer")
+            let intermediateCAPath = directoryPath.appending(components: "Signing", "TestIntermediateCA.cer")
+            let rootCAPath = directoryPath.appending(components: "Signing", "TestRootCA.cer")
             let certChainPaths = [certPath, intermediateCAPath, rootCAPath].map { $0.asURL }
 
             let privateKeyPath = directoryPath.appending(components: "Signing", "Test_ec_key.pem")
@@ -164,8 +164,8 @@ class PackageCollectionSigningTests: XCTestCase {
             )
 
             let certPath = directoryPath.appending(components: "Signing", "Test_ec.cer")
-            let intermediateCAPath = directoryPath.appending(components: "Signing", "TestIntermediateCA_ec.cer")
-            let rootCAPath = directoryPath.appending(components: "Signing", "TestRootCA_rsa.cer")
+            let intermediateCAPath = directoryPath.appending(components: "Signing", "TestIntermediateCA.cer")
+            let rootCAPath = directoryPath.appending(components: "Signing", "TestRootCA.cer")
             let certChainPaths = [certPath, intermediateCAPath, rootCAPath].map { $0.asURL }
 
             let privateKeyPath = directoryPath.appending(components: "Signing", "Test_ec_key.pem")

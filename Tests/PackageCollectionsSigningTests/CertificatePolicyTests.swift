@@ -24,10 +24,10 @@ class CertificatePolicyTests: XCTestCase {
             let certPath = directoryPath.appending(components: "Signing", "Test_rsa.cer")
             let certificate = try Certificate(derEncoded: Data(try localFileSystem.readFileContents(certPath).contents))
 
-            let intermediateCAPath = directoryPath.appending(components: "Signing", "TestIntermediateCA_rsa.cer")
+            let intermediateCAPath = directoryPath.appending(components: "Signing", "TestIntermediateCA.cer")
             let intermediateCA = try Certificate(derEncoded: Data(try localFileSystem.readFileContents(intermediateCAPath).contents))
 
-            let rootCAPath = directoryPath.appending(components: "Signing", "TestRootCA_rsa.cer")
+            let rootCAPath = directoryPath.appending(components: "Signing", "TestRootCA.cer")
             let rootCA = try Certificate(derEncoded: Data(try localFileSystem.readFileContents(rootCAPath).contents))
 
             let certChain = [certificate, intermediateCA, rootCA]
@@ -44,10 +44,10 @@ class CertificatePolicyTests: XCTestCase {
             let certPath = directoryPath.appending(components: "Signing", "Test_ec.cer")
             let certificate = try Certificate(derEncoded: Data(try localFileSystem.readFileContents(certPath).contents))
 
-            let intermediateCAPath = directoryPath.appending(components: "Signing", "TestIntermediateCA_ec.cer")
+            let intermediateCAPath = directoryPath.appending(components: "Signing", "TestIntermediateCA.cer")
             let intermediateCA = try Certificate(derEncoded: Data(try localFileSystem.readFileContents(intermediateCAPath).contents))
 
-            let rootCAPath = directoryPath.appending(components: "Signing", "TestRootCA_rsa.cer")
+            let rootCAPath = directoryPath.appending(components: "Signing", "TestRootCA.cer")
             let rootCA = try Certificate(derEncoded: Data(try localFileSystem.readFileContents(rootCAPath).contents))
 
             let certChain = [certificate, intermediateCA, rootCA]
@@ -64,10 +64,10 @@ class CertificatePolicyTests: XCTestCase {
             let certPath = directoryPath.appending(components: "Signing", "Test_rsa.cer")
             let certificate = try Certificate(derEncoded: Data(try localFileSystem.readFileContents(certPath).contents))
 
-            let intermediateCAPath = directoryPath.appending(components: "Signing", "TestIntermediateCA_rsa.cer")
+            let intermediateCAPath = directoryPath.appending(components: "Signing", "TestIntermediateCA.cer")
             let intermediateCA = try Certificate(derEncoded: Data(try localFileSystem.readFileContents(intermediateCAPath).contents))
 
-            let rootCAPath = directoryPath.appending(components: "Signing", "TestRootCA_rsa.cer")
+            let rootCAPath = directoryPath.appending(components: "Signing", "TestRootCA.cer")
             let rootCA = try Certificate(derEncoded: Data(try localFileSystem.readFileContents(rootCAPath).contents))
 
             let certChain = [certificate, intermediateCA, rootCA]
@@ -95,10 +95,10 @@ class CertificatePolicyTests: XCTestCase {
             let certPath = directoryPath.appending(components: "Signing", "Test_rsa.cer")
             let certificate = try Certificate(derEncoded: Data(try localFileSystem.readFileContents(certPath).contents))
 
-            let intermediateCAPath = directoryPath.appending(components: "Signing", "TestIntermediateCA_rsa.cer")
+            let intermediateCAPath = directoryPath.appending(components: "Signing", "TestIntermediateCA.cer")
             let intermediateCA = try Certificate(derEncoded: Data(try localFileSystem.readFileContents(intermediateCAPath).contents))
 
-            let rootCAPath = directoryPath.appending(components: "Signing", "TestRootCA_rsa.cer")
+            let rootCAPath = directoryPath.appending(components: "Signing", "TestRootCA.cer")
             let rootCA = try Certificate(derEncoded: Data(try localFileSystem.readFileContents(rootCAPath).contents))
 
             let certChain = [certificate, intermediateCA, rootCA]
