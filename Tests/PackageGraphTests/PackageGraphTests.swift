@@ -1276,7 +1276,7 @@ class PackageGraphTests: XCTestCase {
 
         let fs = InMemoryFileSystem(emptyFiles: [])
         let store = try PinsStore(pinsFile: AbsolutePath("/pins"), fileSystem: fs, mirrors: .init())
-        XCTAssertThrows(StringError("duplicated entry for package \"yams\""), { try store.restore(from: json) })
+        XCTAssertThrows(StringError("duplicated entry for package \"Yams\""), { try store.restore(from: json) })
     }
 
     func testTargetDependencies_Pre52() throws {
