@@ -335,6 +335,11 @@ struct BuildOptions: ParsableArguments {
     @Flag()
     var useIntegratedSwiftDriver: Bool = false
 
+    /// A flag that inidcates this build should check whether targets only import
+    /// their explicitly-declared dependencies
+    @Flag()
+    var enableExplicitTargetDependencyImportChecking: Bool = false    
+
     /// Whether to use the explicit module build flow (with the integrated driver)
     @Flag(name: .customLong("experimental-explicit-module-build"))
     var useExplicitModuleBuild: Bool = false

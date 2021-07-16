@@ -161,8 +161,11 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     // Emit a warning if a target imports another target in this build
     // without specifying it as a dependency in the manifest
     private func verifyTargetImports(in description: BuildDescription) throws {
+        guard !description.disableExplicitTargetDependencyImportChecking else {
+            return
+        }
         // Ensure the compiler supports the import-scan operation
-        guard SwiftTargetBuildDescription.checkSupportedFrontendFlags(flags: ["import-prescan"], fs: localFileSystem) else {
+        guard SwiftTargetBuildDescription.checkSupportedFrontendFlags(flags: ["import-prescan"], fileSystem: localFileSystem) else {
             return
         }
 
@@ -199,7 +202,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                     Set(description.targetDependencyMap.keys.filter { !targetDependenciesSet.contains($0) })
                 let importedTargetsMissingDependency = Set(imports).intersection(nonDependencyTargetsSet)
                 if let missedDependency = importedTargetsMissingDependency.first {
-                    diagnostics.emit(warning: "Target \(target) imports another target (\(missedDependency)) in the package without declaring it a dependency.", location: nil)
+                    self.observabilityScope.emit(warning: "Target \(target) imports another target (\(missedDependency)) in the package without declaring it a dependency.")
                 }
             } catch {
                 // The above verification is a best-effort attempt to warn the user about a potential manifest
