@@ -239,7 +239,7 @@ public func loadPackageGraph(
     return try PackageGraph.load(
         root: graphRoot,
         identityResolver: identityResolver,
-        additionalFileRules: useXCBuildFileRules ? FileRuleDescription.xcbuildFileTypes : [],
+        additionalFileRules: useXCBuildFileRules ? FileRuleDescription.xcbuildFileTypes : FileRuleDescription.swiftpmFileTypes,
         externalManifests: externalManifests,
         binaryArtifacts: binaryArtifacts,
         diagnostics: diagnostics,

@@ -662,7 +662,7 @@ class TargetSourcesBuilderTests: XCTestCase {
         XCTAssertEqual(diags.diagnostics.map { $0.description }, ["found 1 file(s) which are unhandled; explicitly declare them as resources or exclude from the target\n    /Foo.xcdatamodel\n"])
     }
 
-    func testIgnoredFileTypesDoNoCauseWarnings() throws {
+    func testDocCFilesDoNotCauseWarningOutsideXCBuild() throws {
         let target = try TargetDescription(
             name: "Foo",
             path: nil,
@@ -687,6 +687,7 @@ class TargetSourcesBuilderTests: XCTestCase {
             target: target,
             path: .root,
             defaultLocalization: nil,
+            additionalFileRules: FileRuleDescription.swiftpmFileTypes,
             toolsVersion: .v5_5,
             fs: fs,
             diags: diags

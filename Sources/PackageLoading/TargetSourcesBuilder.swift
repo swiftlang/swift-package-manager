@@ -66,15 +66,9 @@ public struct TargetSourcesBuilder {
         self.defaultLocalization = defaultLocalization
         self.diags = diags
         self.targetPath = path
-        
-        // Configure the file rules that determine how files of various types are processed.  We always start with the builtins.
-        var fileRules = FileRuleDescription.builtinRules
-        // In version 5.4 and earlier, we did not support `additionalFileRules` and always implicitly included the XCBuild file types.
-        fileRules += (toolsVersion <= ToolsVersion.v5_4) ? FileRuleDescription.xcbuildFileTypes : additionalFileRules
-        // At the end we add the ignored types.  They might duplicate some of the rules in `additionalFileRules`, but in that case, the rule to ignore the file type will never be reached.
-        fileRules += FileRuleDescription.ignoredFileTypes
-        self.rules = fileRules
-        
+        // In version 5.4 and earlier, SwiftPM did not support `additionalFileRules` and always implicitly included XCBuild file types.
+        let actualAdditionalRules = (toolsVersion <= ToolsVersion.v5_4 ? FileRuleDescription.xcbuildFileTypes : additionalFileRules)
+        self.rules = FileRuleDescription.builtinRules + actualAdditionalRules
         self.toolsVersion = toolsVersion
         self.fs = fs
         let excludedPaths = target.exclude.map{ path.appending(RelativePath($0)) }
@@ -611,7 +605,7 @@ public struct FileRuleDescription {
         )
     }()
 
-    /// File types related to DocC.
+    /// File rule to ignore .docc (in the SwiftPM build system).
     public static let docc: FileRuleDescription = {
         .init(
             rule: .ignored,
@@ -637,9 +631,8 @@ public struct FileRuleDescription {
         metal,
     ]
 
-    /// List of file types that are ignored in this version of SwiftPM CLI
-    /// (that don't generate warnings for being unhandled).
-    public static let ignoredFileTypes: [FileRuleDescription] = [
+    /// List of file types that apply just to the SwiftPM build system.
+    public static let swiftpmFileTypes: [FileRuleDescription] = [
         docc,
     ]
 }
