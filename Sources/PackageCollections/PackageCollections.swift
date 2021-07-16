@@ -454,16 +454,16 @@ public struct PackageCollections: PackageCollectionsProtocol {
     private func refreshCollectionFromSource(source: PackageCollectionsModel.CollectionSource,
                                              trustConfirmationProvider: ((PackageCollectionsModel.Collection, @escaping (Bool) -> Void) -> Void)?,
                                              callback: @escaping (Result<Model.Collection, Error>) -> Void) {
-        if let errors = source.validate()?.errors() {
-            return callback(.failure(MultipleErrors(errors)))
-        }
         guard let provider = self.collectionProviders[source.type] else {
             return callback(.failure(UnknownProvider(source.type)))
         }
         provider.get(source) { result in
             switch result {
             case .failure(let error):
-                callback(.failure(error))
+                // Remove the unavailable/invalid collection (if previously saved) from storage before calling back
+                self.storage.collections.remove(identifier: PackageCollectionsModel.CollectionIdentifier(from: source)) { _ in
+                    callback(.failure(error))
+                }
             case .success(let collection):
                 // If collection is signed and signature is valid, save to storage. `provider.get`
                 // would have failed if signature were invalid.
