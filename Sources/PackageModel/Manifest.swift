@@ -274,7 +274,10 @@ public final class Manifest: ObjectIdentifierProtocol {
             return nil
         }
 
-        return self.dependencies.first(where: { $0.nameForTargetDependencyResolutionOnly == packageName })
+        return self.dependencies.first(where: {
+            // rdar://80594761 make sure validation is case insensitive
+            $0.nameForTargetDependencyResolutionOnly.lowercased() == packageName.lowercased()
+        })
     }
 
     /// Registers a required product with a particular dependency if possible, or registers it as unknown.
@@ -341,7 +344,7 @@ public final class Manifest: ObjectIdentifierProtocol {
     /// - Parameters:
     ///   - product: The product to try registering.
     ///   - package: The package to try associating it with.
-    ///   - registry: The registry in which to record the assocation.
+    ///   - registry: The registry in which to record the association.
     ///   - availablePackages: The set of available packages.
     ///
     /// - Returns: `true` if the particular dependency was found and the product was registered; `false` if no matching dependency was found and the product has not yet been handled.
