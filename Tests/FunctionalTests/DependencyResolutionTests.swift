@@ -133,4 +133,11 @@ class DependencyResolutionTests: XCTestCase {
             }
         }
     }
+
+    func testPackageLookupCaseInsensitive() throws {
+        fixture(name: "DependencyResolution/External/PackageLookupCaseInsensitive") { path in
+            let result = try SwiftPMProduct.SwiftPackage.executeProcess(["update"], packagePath: path.appending(component: "pkg"))
+            XCTAssert(result.exitStatus == .terminated(code: 0), try! result.utf8Output() + result.utf8stderrOutput())
+        }
+    }
 }
