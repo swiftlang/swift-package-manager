@@ -602,6 +602,29 @@ class PackageGraphTests: XCTestCase {
         }
     }
     
+    func testExecutableTargetDependency() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+                "/XYZ/Sources/XYZ/main.swift",
+                "/XYZ/Tests/XYZTests/tests.swift"
+        )
+        let diagnostics = DiagnosticsEngine()
+        _ = try loadPackageGraph(fs: fs,
+                                 diagnostics: diagnostics,
+                                 manifests: [
+                    Manifest.createV4Manifest(
+                        name: "XYZ",
+                        path: "/XYZ",
+                        packageKind: .root,
+                        packageLocation: "/XYZ",
+                        targets: [
+                            TargetDescription(name: "XYZ", dependencies: [], type: .executable),
+                            TargetDescription(name: "XYZTests", dependencies: ["XYZ"], type: .test),
+                        ]),
+                    ]
+        )
+        DiagnosticsEngineTester(diagnostics) { _ in }
+    }
+    
     func testSameProductAndTargetNames() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Foo/Sources/Foo/src.swift",
