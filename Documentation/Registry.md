@@ -1,7 +1,4 @@
-# [DRAFT] Swift Package Registry Service Specification
-
-> **Important**
-> This is a draft pending the acceptance of [SE-0292](https://github.com/apple/swift-evolution/blob/main/proposals/0292-package-registry-service.md).
+# Swift Package Registry Service Specification
 
 - [1. Notations](#1-notations)
 - [2. Definitions](#2-definitions)
@@ -256,19 +253,15 @@ Package scopes are case-insensitive
 #### 3.6.2 Package name
 
 A package's *name* uniquely identifies a package in a scope.
-The maximum length of a package name is 128 characters.
+The maximum length of a package name is 100 characters.
 A valid package name matches the following regular expression pattern:
 
 ```regexp
-\A\p{XID_Start}\p{XID_Continue}{0,127}\z
+\A[a-zA-Z\d_.-]{1,100}\z
 ```
 
-> For more information,
-> see [Unicode Identifier and Pattern Syntax][UAX31].
-
-Package names are compared using
-[Normalization Form Compatible Composition (NFKC)][UAX15]
-with locale-independent case folding.
+Package scopes are case-insensitive
+(for example, `LinkedList` ≍ `LINKEDLIST`).
 
 ## 4. Endpoints
 
@@ -284,6 +277,14 @@ A server MUST respond to the following endpoints:
 
 A server SHOULD also respond to `HEAD` requests
 for each of the specified endpoints.
+
+A client MAY send an `OPTIONS` request with an asterisk (`*`)
+to determine the permitted communication options for the server.
+A server MAY respond with a `Link` header containing
+an entry for the `service-doc` relation type
+with a link to this document, and
+an entry for the `service-desc` relation type
+with a link to the OpenAPI specification.
 
 * * *
 
@@ -506,8 +507,8 @@ Content-Type: text/x-swift
 Content-Disposition: attachment; filename="Package.swift"
 Content-Length: 361
 Content-Version: 1
-Link: <http://packages.example.com/mona/LinkedList/Package.swift?swift-version=4>; rel="alternate",
-      <http://packages.example.com/mona/LinkedList/Package.swift?swift-version=4.2>; rel="alternate"
+Link: <http://packages.example.com/mona/LinkedList/1.1.1/Package.swift?swift-version=4>; rel="alternate",
+      <http://packages.example.com/mona/LinkedList/1.1.1/Package.swift?swift-version=4.2>; rel="alternate"
 
 // swift-tools-version:5.0
 import PackageDescription
@@ -661,20 +662,14 @@ as described by [RFC 6249].
 A client MAY use this information
 to determine its preferred strategy for downloading.
 
-A server that indexes but doesn't host packages
-MAY respond with a status code of `303` (See Other)
-and redirect to a hosted package archive if one is available.
+A server MAY respond with a status code of `303` (See Other)
+to redirect the client to download the source archive from another host.
 
 ```http
 HTTP/1.1 303 See Other
-Content-Version: 1
-Content-Length: 2048
-Digest: sha-256=a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812
 Location: https://packages.example.com/mona/LinkedList/1.1.1.zip
 ```
 
-The client SHOULD consider the `Digest` and `Content-Length` headers
-sent in the response to be authoritative for the redirected resource.
 The client MUST NOT follow redirects that downgrade to an insecure connection.
 The client SHOULD limit the number of redirects to prevent a redirect loop.
 
@@ -737,16 +732,13 @@ caching as described by [RFC 7234].
 * [RFC 7807]: Problem Details for HTTP APIs
 * [RFC 8288]: Web Linking
 * [SemVer]: Semantic Versioning
-* [UAX15]: Unicode Technical Report #15: Unicode Normalization Forms
-* [UAX18]: Unicode Technical Report #18: Unicode Regular Expressions
-* [UAX31]: Unicode Technical Report #31: Unicode Identifier and Pattern Syntax
 
 ## 6. Informative References
 
 * [BCP 13] Media Type Specifications and Registration Procedures
 * [RFC 6749]: The OAuth 2.0 Authorization Framework
 * [RFC 8446]: The Transport Layer Security (TLS) Protocol Version 1.3
-* [UAX36]: Unicode Technical Report #36: Unicode Security Considerations
+* [RFC 8631]: Link Relation Types for Web Services
 * [JSON-LD]: A JSON-based Serialization for Linked Data
 * [Schema.org]: A shared vocabulary for structured data.
 * [OAS]: OpenAPI Specification
@@ -1175,10 +1167,7 @@ components:
 [RFC 7807]: https://tools.ietf.org/html/rfc7807 "Problem Details for HTTP APIs"
 [RFC 8288]: https://tools.ietf.org/html/rfc8288 "Web Linking"
 [RFC 8446]: https://tools.ietf.org/html/rfc8446 "The Transport Layer Security (TLS) Protocol Version 1.3"
-[UAX15]: http://www.unicode.org/reports/tr15/ "Unicode Technical Report #15: Unicode Normalization Forms"
-[UAX18]: http://www.unicode.org/reports/tr18/ "Unicode Technical Report #18: Unicode Regular Expressions"
-[UAX31]: http://www.unicode.org/reports/tr31/ "Unicode Technical Report #31: Unicode Identifier and Pattern Syntax"
-[UAX36]: http://www.unicode.org/reports/tr36/ "Unicode Technical Report #36: Unicode Security Considerations"
+[RFC 8631]: https://tools.ietf.org/html/rfc8631 "Link Relation Types for Web Services"
 [IANA Link Relations]: https://www.iana.org/assignments/link-relations/link-relations.xhtml
 [JSON-LD]: https://w3c.github.io/json-ld-syntax/ "JSON-LD 1.1: A JSON-based Serialization for Linked Data"
 [SemVer]: https://semver.org/ "Semantic Versioning"
