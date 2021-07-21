@@ -23,7 +23,7 @@ final class PackageCollectionsTests: XCTestCase {
         let authTokens = ThreadSafeKeyValueStore<AuthTokenType, String>()
         let configuration = PackageCollections.Configuration(authTokens: { authTokens.get() })
 
-        // This test doesn't use storage at all and finishes quickly so disable target trie to prevent race
+        // This test doesn't use search at all and finishes quickly so disable target trie to prevent race
         let storageConfig = SQLitePackageCollectionsStorage.Configuration(initializeTargetTrie: false)
         let storage = makeMockStorage(storageConfig)
         defer { XCTAssertNoThrow(try storage.close()) }
@@ -156,7 +156,9 @@ final class PackageCollectionsTests: XCTestCase {
         try skipIfUnsupportedPlatform()
 
         let configuration = PackageCollections.Configuration()
-        let storage = makeMockStorage()
+        // This test doesn't use search at all and finishes quickly so disable target trie to prevent race
+        let storageConfig = SQLitePackageCollectionsStorage.Configuration(initializeTargetTrie: false)
+        let storage = makeMockStorage(storageConfig)
         defer { XCTAssertNoThrow(try storage.close()) }
 
         let mockCollection = makeMockCollections(count: 1).first!
@@ -174,7 +176,8 @@ final class PackageCollectionsTests: XCTestCase {
         }
 
         // add fails because collection is not found
-        guard case .failure = tsc_await({ callback in packageCollections.addCollection(mockCollection.source, order: nil, callback: callback) }) else {
+        guard case .failure(let error) = tsc_await({ callback in packageCollections.addCollection(mockCollection.source, order: nil, callback: callback) }),
+            error is NotFoundError else {
             return XCTFail("expected error")
         }
 
@@ -191,7 +194,9 @@ final class PackageCollectionsTests: XCTestCase {
         try skipIfUnsupportedPlatform()
 
         let configuration = PackageCollections.Configuration()
-        let storage = makeMockStorage()
+        // This test doesn't use search at all and finishes quickly so disable target trie to prevent race
+        let storageConfig = SQLitePackageCollectionsStorage.Configuration(initializeTargetTrie: false)
+        let storage = makeMockStorage(storageConfig)
         defer { XCTAssertNoThrow(try storage.close()) }
 
         let mockCollection = makeMockCollections(count: 1, signed: false).first!
@@ -208,7 +213,9 @@ final class PackageCollectionsTests: XCTestCase {
             XCTAssertEqual(sources.count, 0, "sources should be empty")
         }
 
-        guard case .failure = tsc_await({ callback in packageCollections.addCollection(mockCollection.source, order: nil, callback: callback) }) else {
+        // add fails because collection requires trust confirmation
+        guard case .failure(let error) = tsc_await({ callback in packageCollections.addCollection(mockCollection.source, order: nil, callback: callback) }),
+            case PackageCollectionError.trustConfirmationRequired = error else {
             return XCTFail("expected error")
         }
 
@@ -225,7 +232,9 @@ final class PackageCollectionsTests: XCTestCase {
         try skipIfUnsupportedPlatform()
 
         let configuration = PackageCollections.Configuration()
-        let storage = makeMockStorage()
+        // This test doesn't use search at all and finishes quickly so disable target trie to prevent race
+        let storageConfig = SQLitePackageCollectionsStorage.Configuration(initializeTargetTrie: false)
+        let storage = makeMockStorage(storageConfig)
         defer { XCTAssertNoThrow(try storage.close()) }
 
         let mockCollection = makeMockCollections(count: 1).first!
@@ -244,7 +253,7 @@ final class PackageCollectionsTests: XCTestCase {
 
         // add fails because collection's signature is invalid
         guard case .failure(let error) = tsc_await({ callback in packageCollections.addCollection(mockCollection.source, order: nil, callback: callback) }),
-            PackageCollectionError.invalidSignature == error as? PackageCollectionError else {
+            case PackageCollectionError.invalidSignature = error else {
             return XCTFail("expected PackageCollectionError.invalidSignature")
         }
 
