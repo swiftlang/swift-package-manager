@@ -284,9 +284,10 @@ public struct SwiftTestTool: SwiftCommand {
                 // If there were no matches, emit a warning.
                 if tests.isEmpty {
                     swiftTool.diagnostics.emit(.noMatchingTests)
+                    xctestArg = "''"
+                } else {
+                    xctestArg = tests.map { $0.specifier }.joined(separator: ",")
                 }
-
-                xctestArg = tests.map { $0.specifier }.joined(separator: ",")
             }
 
             let runner = TestRunner(
