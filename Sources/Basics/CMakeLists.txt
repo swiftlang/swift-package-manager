@@ -12,7 +12,6 @@ add_library(Basics
   Dictionary+Extensions.swift
   DispatchTimeInterval+Extensions.swift
   Errors.swift
-  Exports.swift
   FileSystem+Extensions.swift
   HTPClient+URLSession.swift
   HTTPClient.swift
@@ -22,7 +21,6 @@ add_library(Basics
   SQLiteBackedCache.swift
   Version+Extensions.swift)
 target_link_libraries(Basics PUBLIC
-  SwiftCollections::OrderedCollections
   TSCBasic
   TSCUtility)
 target_link_libraries(Basics PRIVATE

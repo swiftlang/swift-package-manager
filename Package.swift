@@ -15,7 +15,7 @@ import class Foundation.ProcessInfo
 
 
 /** SwiftPMDataModel is the subset of SwiftPM product that includes just its data model.
-This allows some clients (such as IDEs) that use SwiftPM's data model but not its build system
+This allowis some clients (such as IDEs) that use SwiftPM's data model but not its build system
 to not have to depend on SwiftDriver, SwiftLLBuild, etc. We should probably have better names here,
 though that could break some clients.
 */
@@ -33,7 +33,7 @@ let swiftPMDataModelProduct = (
     ]
 )
 
-/** The `libSwiftPM` set of interfaces to programmatically work with Swift
+/** The `libSwiftPM` set of interfaces to programatically work with Swift
  packages.  `libSwiftPM` includes all of the SwiftPM code except the
  command line tools, while `libSwiftPMDataModel` includes only the data model.
 
@@ -126,10 +126,7 @@ let package = Package(
 
         .target(
             name: "Basics",
-            dependencies: [
-                .product(name: "OrderedCollections", package: "swift-collections"),
-                "SwiftToolsSupport-auto"
-            ]),
+            dependencies: ["SwiftToolsSupport-auto"]),
 
         .target(
             /** The llbuild manifest model */
@@ -359,7 +356,6 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         .package(url: "https://github.com/apple/swift-argument-parser.git", .upToNextMinor(from: "0.4.3")),
         .package(url: "https://github.com/apple/swift-driver.git", .branch(relatedDependenciesBranch)),
         .package(url: "https://github.com/apple/swift-crypto.git", .upToNextMinor(from: "1.1.4")),
-        .package(url: "https://github.com/apple/swift-collections.git", .upToNextMinor(from: "0.0.4")),
     ]
 } else {
     package.dependencies += [
@@ -367,6 +363,5 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         .package(path: "../swift-argument-parser"),
         .package(path: "../swift-driver"),
         .package(path: "../swift-crypto"),
-        .package(path: "../swift-collections"),
     ]
 }
