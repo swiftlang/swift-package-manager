@@ -15,7 +15,7 @@ import TSCUtility
 import Foundation
 public typealias FileSystem = TSCBasic.FileSystem
 
-public enum ManifestParseError: Swift.Error {
+public enum ManifestParseError: Swift.Error, Equatable {
     /// The manifest contains invalid format.
     case invalidManifestFormat(String, diagnosticFile: AbsolutePath?)
 
