@@ -17,9 +17,6 @@ import Workspace
 
 class SwiftPMXCTestHelperTests: XCTestCase {
     func testBasicXCTestHelper() throws {
-        // <rdar://problem/70382477> Fix and re-enable tests which run `swift test` on newly created packages
-        try XCTSkipIf(true)
-
       #if os(macOS)
         fixture(name: "Miscellaneous/SwiftPMXCTestHelper") { prefix in
             // Build the package.
