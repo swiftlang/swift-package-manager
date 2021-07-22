@@ -95,8 +95,7 @@ A server SHOULD communicate any errors to the client
 using "problem details" objects,
 as described by [RFC 7807].
 For example,
-a client sends a request to create a package release
-with an invalid `tag` parameter
+a client sends a request for a nonexistent release of a package
 and receives the following response:
 
 ```http
@@ -106,7 +105,7 @@ Content-Type: application/problem+json
 Content-Language: en
 
 {
-   "detail": "tag '2.0.0' not found"
+   "detail": "release not found"
 }
 ```
 
