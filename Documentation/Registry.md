@@ -664,14 +664,34 @@ to determine its preferred strategy for downloading.
 
 A server MAY respond with a status code of `303` (See Other)
 to redirect the client to download the source archive from another host.
+The client MUST NOT follow redirects that downgrade to an insecure connection.
+The client SHOULD limit the number of redirects to prevent a redirect loop.
+
+For example,
+a server redirects the client to download from
+a content delivery network (CDN) using a signed URL:
 
 ```http
 HTTP/1.1 303 See Other
-Location: https://packages.example.com/mona/LinkedList/1.1.1.zip
+Location: https://example.cdn.com/LinkedList-1.1.1.zip?key=XXXXXXXXXXXXXXXXX
 ```
 
-The client MUST NOT follow redirects that downgrade to an insecure connection.
-The client SHOULD limit the number of redirects to prevent a redirect loop.
+```http
+GET /LinkedList-1.1.1.zip?key=XXXXXXXXXXXXXXXXX HTTP/1.1
+Host: example.cdn.com
+Accept: application/vnd.swift.registry.v1+zip
+```
+
+```http
+HTTP/1.1 200 OK
+Accept-Ranges: bytes
+Cache-Control: public, immutable
+Content-Type: application/zip
+Content-Disposition: attachment; filename="LinkedList-1.1.1.zip"
+Content-Length: 2048
+Content-Version: 1
+Digest: sha-256=a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812
+```
 
 <a name="endpoint-5"></a>
 
