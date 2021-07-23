@@ -367,8 +367,7 @@ class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
     func testDuplicateTargets() throws {
         guard Resources.havePD4Runtime else { return }
 
-        let stream = BufferedOutputByteStream()
-        stream <<< """
+        let manifest = """
             import PackageDescription
 
             let package = Package(
@@ -382,7 +381,7 @@ class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
             )
             """
 
-        XCTAssertManifestLoadThrows(stream.bytes) { _, diagnotics in
+        XCTAssertManifestLoadThrows(manifest) { _, diagnotics in
             diagnotics.checkUnordered(diagnostic: "duplicate target named 'A'", behavior: .error)
             diagnotics.checkUnordered(diagnostic: "duplicate target named 'B'", behavior: .error)
         }
@@ -391,8 +390,7 @@ class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
     func testEmptyProductTargets() throws {
         guard Resources.havePD4Runtime else { return }
 
-        let stream = BufferedOutputByteStream()
-        stream <<< """
+        let manifest = """
             import PackageDescription
 
             let package = Package(
@@ -406,7 +404,7 @@ class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
             )
             """
 
-        XCTAssertManifestLoadThrows(stream.bytes) { _, diagnostics in
+        XCTAssertManifestLoadThrows(manifest) { _, diagnostics in
             diagnostics.check(diagnostic: "product 'Product' doesn't reference any targets", behavior: .error)
         }
     }
@@ -414,8 +412,7 @@ class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
     func testProductTargetNotFound() throws {
         guard Resources.havePD4Runtime else { return }
 
-        let stream = BufferedOutputByteStream()
-        stream <<< """
+        let manifest = """
             import PackageDescription
 
             let package = Package(
@@ -429,7 +426,7 @@ class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
             )
             """
 
-        XCTAssertManifestLoadThrows(stream.bytes) { _, diagnostics in
+        XCTAssertManifestLoadThrows(manifest) { _, diagnostics in
             diagnostics.check(diagnostic: "target 'B' referenced in product 'Product' could not be found; valid targets are: 'A'", behavior: .error)
         }
     }

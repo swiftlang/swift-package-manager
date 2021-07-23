@@ -13,7 +13,7 @@ import PackageModel
 import TSCBasic
 
 public struct MockDependency {
-    public typealias Requirement = PackageDependencyDescription.Requirement
+    public typealias Requirement = PackageDependency.Requirement
 
     public let name: String?
     public let path: String
@@ -35,7 +35,7 @@ public struct MockDependency {
     }
 
     // TODO: refactor this when adding registry support
-    public func convert(baseURL: AbsolutePath, identityResolver: IdentityResolver) -> PackageDependencyDescription {
+    public func convert(baseURL: AbsolutePath, identityResolver: IdentityResolver) -> PackageDependency {
         let path = baseURL.appending(RelativePath(self.path))
         let location = identityResolver.resolveLocation(from: path.pathString)
         let identity = identityResolver.resolveIdentity(for: location)

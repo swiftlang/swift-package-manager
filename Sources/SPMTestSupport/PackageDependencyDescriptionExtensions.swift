@@ -11,41 +11,88 @@
 import PackageModel
 import TSCBasic
 
-public extension PackageDependencyDescription {
+public extension PackageDependency {
+    static func fileSystem(identity: PackageIdentity? = nil,
+                           name: String? = nil,
+                           path: String,
+                           productFilter: ProductFilter = .everything
+    ) -> Self {
+        return .fileSystem(identity: identity,
+                           name: name,
+                           path: AbsolutePath(path),
+                           productFilter: productFilter)
+    }
+
+    static func fileSystem(identity: PackageIdentity? = nil,
+                           name: String? = nil,
+                           path: AbsolutePath,
+                           productFilter: ProductFilter = .everything
+    ) -> Self {
+        let identity = identity ?? PackageIdentity(url: path.pathString)
+        return .fileSystem(identity: identity,
+                           name: name,
+                           path: path,
+                           productFilter: productFilter)
+    }
+
+    // backwards compatibility with existing tests
     static func local(identity: PackageIdentity? = nil,
                       name: String? = nil,
                       path: String,
                       productFilter: ProductFilter = .everything
-    ) -> PackageDependencyDescription {
-        return .local(identity: identity,
-                      name: name,
-                      path: AbsolutePath(path),
-                      productFilter: productFilter)
+    ) -> Self {
+        return .fileSystem(identity: identity,
+                           name: name,
+                           path: AbsolutePath(path),
+                           productFilter: productFilter)
     }
 
+    // backwards compatibility with existing tests
     static func local(identity: PackageIdentity? = nil,
                       name: String? = nil,
                       path: AbsolutePath,
                       productFilter: ProductFilter = .everything
-    ) -> PackageDependencyDescription {
-        let identity = identity ?? PackageIdentity(url: path.pathString)
-        return .local(identity: identity,
-                      name: name,
-                      path: path,
-                      productFilter: productFilter)
+    ) -> Self {
+        return .fileSystem(identity: identity,
+                           name: name,
+                           path: path,
+                           productFilter: productFilter)
     }
 
+    static func sourceControl(identity: PackageIdentity? = nil,
+                              name: String? = nil,
+                              location: String,
+                              requirement: Requirement,
+                              productFilter: ProductFilter = .everything
+    ) -> Self {
+        let identity = identity ?? PackageIdentity(url: location)
+        return .sourceControl(identity: identity,
+                              name: name,
+                              location: location,
+                              requirement: requirement,
+                              productFilter: productFilter)
+    }
+
+    // backwards compatibility with existing tests
     static func scm(identity: PackageIdentity? = nil,
                     name: String? = nil,
                     location: String,
                     requirement: Requirement,
                     productFilter: ProductFilter = .everything
-    ) -> PackageDependencyDescription {
-        let identity = identity ?? PackageIdentity(url: location)
-        return .scm(identity: identity,
-                    name: name,
-                    location: location,
-                    requirement: requirement,
-                    productFilter: productFilter)
+    ) -> Self {
+        return .sourceControl(identity: identity,
+                              name: name,
+                              location: location,
+                              requirement: requirement,
+                              productFilter: productFilter)
+    }
+
+    static func registry(identity: String,
+                         requirement: Requirement,
+                         productFilter: ProductFilter = .everything
+    ) -> Self {
+        return .registry(identity: .plain(identity),
+                         requirement: requirement,
+                         productFilter: productFilter)
     }
 }

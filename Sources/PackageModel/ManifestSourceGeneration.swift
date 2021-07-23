@@ -120,25 +120,37 @@ fileprivate extension SourceCodeFragment {
     }
     
     /// Instantiates a SourceCodeFragment to represent a single package dependency.
-    init(from dependency: PackageDependencyDescription) {
+    init(from dependency: PackageDependency) {
         var params: [SourceCodeFragment] = []
         if let explicitName = dependency.explicitNameForTargetDependencyResolutionOnly {
             params.append(SourceCodeFragment(key: "name", string: explicitName))
         }
         switch dependency {
-        case .local(let data):
-            params.append(SourceCodeFragment(key: "path", string: data.path.pathString))
-        case .scm(let data):
-            params.append(SourceCodeFragment(key: "url", string: data.location))
-            switch data.requirement {
-        case .exact(let version):
+        case .fileSystem(let settings):
+            params.append(SourceCodeFragment(key: "path", string: settings.path.pathString))
+        case .sourceControl(let settings):
+            params.append(SourceCodeFragment(key: "url", string: settings.location))
+            switch settings.requirement {
+            case .exact(let version):
                 params.append(SourceCodeFragment(enum: "exact", string: "\(version)"))
-        case .range(let range):
+            case .range(let range):
                 params.append(SourceCodeFragment("\"\(range.lowerBound)\"..<\"\(range.upperBound)\""))
-        case .revision(let revision):
-            params.append(SourceCodeFragment(enum: "revision", string: revision))
-        case .branch(let branch):
-            params.append(SourceCodeFragment(enum: "branch", string: branch))
+            case .revision(let revision):
+                params.append(SourceCodeFragment(enum: "revision", string: revision))
+            case .branch(let branch):
+                params.append(SourceCodeFragment(enum: "branch", string: branch))
+            }
+        case .registry(let settings):
+            params.append(SourceCodeFragment(key: "idenity", string: settings.identity.description))
+            switch settings.requirement {
+            case .exact(let version):
+                params.append(SourceCodeFragment(enum: "exact", string: "\(version)"))
+            case .range(let range):
+                params.append(SourceCodeFragment("\"\(range.lowerBound)\"..<\"\(range.upperBound)\""))
+            case .revision(let revision):
+                params.append(SourceCodeFragment(enum: "revision", string: revision))
+            case .branch(let branch):
+                params.append(SourceCodeFragment(enum: "branch", string: branch))
             }
         }
         self.init(enum: "package", subnodes: params)

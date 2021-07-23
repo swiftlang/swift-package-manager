@@ -23,7 +23,7 @@ enum ManifestJSONParser {
          var targets: [TargetDescription] = []
          var pkgConfig: String?
          var swiftLanguageVersions: [SwiftLanguageVersion]?
-         var dependencies: [PackageDependencyDescription] = []
+         var dependencies: [PackageDependency] = []
          var providers: [SystemPackageProviderDescription]?
          var products: [ProductDescription] = []
          var cxxLanguageStandard: String?
@@ -49,7 +49,7 @@ enum ManifestJSONParser {
         result.providers = try? package.getArray("providers").map(SystemPackageProviderDescription.init(v4:))
         result.targets = try package.getArray("targets").map(Self.parseTarget(json:))
         result.dependencies = try package.getArray("dependencies").map({
-            try PackageDependencyDescription(
+            try PackageDependency(
                 v4: $0,
                 toolsVersion: toolsVersion,
                 packageLocation: packageLocation,
@@ -298,7 +298,7 @@ extension ProductDescription {
     }
 }
 
-extension PackageDependencyDescription.Requirement {
+extension PackageDependency.Requirement {
     fileprivate init(v4 json: JSON) throws {
         let type = try json.get(String.self, forKey: "type")
         switch type {
@@ -323,13 +323,13 @@ extension PackageDependencyDescription.Requirement {
     }
 }
 
-extension PackageDependencyDescription {
+extension PackageDependency {
     fileprivate init(
         v4 json: JSON,
         toolsVersion: ToolsVersion,
         packageLocation: String,
         identityResolver: IdentityResolver,
-        fileSystem: FileSystem
+        fileSystem: TSCBasic.FileSystem
     ) throws {
         let filePrefix = "file://"
 
@@ -360,47 +360,63 @@ extension PackageDependencyDescription {
         }
 
         let name: String? = json.get("name")
-        let location = try fixLocation(json.get("url"))
+        // location/url is optional since its only required by non-registry dependencies
+        let location: String? = try (json.get("location") ?? json.get("url")).flatMap{ try fixLocation($0) }
+        // identity is optional since its only required by registry dependencies
+        let identity: String? = json.get("identity")
 
         // backwards compatibility 2/2021
         let requirementJSON: JSON = try json.get("requirement")
         let requirementType: String = try requirementJSON.get(String.self, forKey: "type")
-        switch requirementType {
-        // a local package on disk
-        case "localPackage":
+        switch (requirementType, location, identity) {
+        case ("localPackage", .some(let localPath), _):
             let path: AbsolutePath
             do {
-                path = try AbsolutePath(validating: location)
+                path = try AbsolutePath(validating: localPath)
             } catch PathValidationError.invalidAbsolutePath(let path) {
                 throw ManifestParseError.invalidManifestFormat("'\(path)' is not a valid path for path-based dependencies; use relative or absolute path instead.", diagnosticFile: nil)
             }
             let identity = identityResolver.resolveIdentity(for: path)
-            self = .local(identity: identity,
-                          name: name,
-                          path: path,
-                          productFilter: .everything)
-        // a package in a git location, may be a remote URL or on disk
-        // TODO: consider refining the behavior + validation when the package is on disk
-        // TODO: refactor this when adding registry support
-        default:
-            // location mapping (aka mirrors)
-            let location = identityResolver.resolveLocation(from: location)
-            
-            if let validPath = try? AbsolutePath(validating: location), fileSystem.exists(validPath) {
+            self = .fileSystem(identity: identity,
+                               name: name,
+                               path: path,
+                               productFilter: .everything)
+        case ("localPackage", .none, _):
+            // a package on disk must have a path specified
+            throw StringError("Local dependency must specify a location")
+
+        case (_, .some(var location), .none):
+            // a remote package that specifies a location and no identity is deemed to be from source control (git)
+            // a package in a git location, may be a remote URL or on disk
+            // if local, validate location is in fact a git repo
+            if let localPath = try? AbsolutePath(validating: location), fileSystem.exists(localPath) {
                 let gitRepoProvider = GitRepositoryProvider()
                 guard gitRepoProvider.isValidDirectory(location) else {
-                    throw StringError("Cannot clone from local directory \(location)\nPlease git init or use \"path:\" for \(location)")
+                    throw StringError("Cannot clone from local directory \(localPath)\nPlease git init or use \"path:\" for \(location)")
                 }
             }
-            
+
+            // location mapping (aka mirrors)
+            location = identityResolver.resolveLocation(from: location)
+
             // in the future this will check with the registries for the identity of the URL
             let identity = identityResolver.resolveIdentity(for: location)
             let requirement = try Requirement(v4: requirementJSON)
-            self = .scm(identity: identity,
-                        name: name,
-                        location: location,
-                        requirement: requirement,
-                        productFilter: .everything)
+            self = .sourceControl(identity: identity,
+                                  name: name,
+                                  location: location,
+                                  requirement: requirement,
+                                  productFilter: .everything)
+        case (_, .none, .some(let identity)):
+            // a remote package with identity and no location specified is deemed to be from a registry
+            let requirement = try Requirement(v4: requirementJSON)
+            self = .registry(identity: .plain(identity),
+                             requirement: requirement,
+                             productFilter: .everything)
+        case (_, .some(let location), .some(let identity)):
+            throw StringError("Invalid dependency definition, includes both identity \(identity) and location \(location)")
+        case (_, .none, .none):
+            throw StringError("Invalid dependency definition, includes neither identity nor location")
         }
     }
 }

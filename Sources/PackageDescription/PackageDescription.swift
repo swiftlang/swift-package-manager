@@ -6,7 +6,7 @@
 
  See http://swift.org/LICENSE.txt for license information
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
-*/
+ */
 
 #if canImport(Glibc)
 @_implementationOnly import Glibc
@@ -66,18 +66,18 @@ import Foundation
 /// existing packages.
 public final class Package {
 
-      /// A package dependency of a Swift package.
-      ///
-      /// A package dependency consists of a Git URL to the source of the package,
-      /// and a requirement for the version of the package.
-      ///
-      /// The Swift Package Manager performs a process called *dependency resolution* to
-      /// figure out the exact version of the package dependencies that an app or other
-      /// Swift package can use. The `Package.resolved` file records the results of the
-      /// dependency resolution and lives in the top-level directory of a Swift package.
-      /// If you add the Swift package as a package dependency to an app for an Apple platform,
-      /// you can find the `Package.resolved` file inside your `.xcodeproj` or `.xcworkspace`.
-      public class Dependency: Encodable {
+    /// A package dependency of a Swift package.
+    ///
+    /// A package dependency consists of a Git URL to the source of the package,
+    /// and a requirement for the version of the package.
+    ///
+    /// The Swift Package Manager performs a process called *dependency resolution* to
+    /// figure out the exact version of the package dependencies that an app or other
+    /// Swift package can use. The `Package.resolved` file records the results of the
+    /// dependency resolution and lives in the top-level directory of a Swift package.
+    /// If you add the Swift package as a package dependency to an app for an Apple platform,
+    /// you can find the `Package.resolved` file inside your `.xcodeproj` or `.xcworkspace`.
+    public class Dependency: Encodable {
 
         /// An enum that represents the requirement for a package dependency.
         ///
@@ -134,12 +134,21 @@ public final class Package {
             }
         }
 
-        /// The name of the package, or `nil` to deduce the name using the
-        /// package's Git URL.
+        /// The name of the package, or `nil` to deduce the name using the package's Git URL.
         public let name: String?
 
-        /// The Git URL of the package dependency.
-        public let url: String
+        /// The location of the package dependency.
+        public let location: String?
+
+        @available(*, deprecated, renamed: "location")
+        public var url: String? {
+            get {
+                return self.location
+            }
+        }
+
+        /// The registry identity of package dependency.
+        public let identity: String?
 
         /// The dependency requirement of the package dependency.
         public let requirement: Requirement
@@ -147,8 +156,17 @@ public final class Package {
         /// Initializes and returns a newly allocated requirement with the specified url and requirements.
         init(name: String?, url: String, requirement: Requirement) {
             self.name = name
-            self.url = url
+            self.location = url
             self.requirement = requirement
+            self.identity = nil
+        }
+
+        /// Initializes and returns a newly allocated requirement with the specified identity and requirements.
+        init(identity: String, requirement: Requirement) {
+            self.identity = identity
+            self.requirement = requirement
+            self.location = nil
+            self.name = nil
         }
     }
 
@@ -242,7 +260,7 @@ public final class Package {
     /// - Parameters:
     ///     - name: The name of the Swift package, or `nil`, if you want the Swift Package Manager to deduce the
     ///           name from the package’s Git URL.
-    ///     - pkgConfig: The name to use for C modules. If present, the Swift 
+    ///     - pkgConfig: The name to use for C modules. If present, the Swift
     ///           Package Manager searches for a `<name>.pc` file to get the
     ///           additional flags required for a system target.
     ///     - products: The list of products that this package makes available for clients to use.
@@ -281,7 +299,7 @@ public final class Package {
     ///     - name: The name of the Swift package, or `nil`, if you want the Swift Package Manager to deduce the
     ///           name from the package’s Git URL.
     ///     - platforms: The list of supported platforms that have a custom deployment target.
-    ///     - pkgConfig: The name to use for C modules. If present, the Swift 
+    ///     - pkgConfig: The name to use for C modules. If present, the Swift
     ///           Package Manager searches for a `<name>.pc` file to get the
     ///           additional flags required for a system target.
     ///     - products: The list of products that this package makes available for clients to use.
@@ -323,7 +341,7 @@ public final class Package {
     ///           name from the package’s Git URL.
     ///     - defaultLocalization: The default localization for resources.
     ///     - platforms: The list of supported platforms that have a custom deployment target.
-    ///     - pkgConfig: The name to use for C modules. If present, the Swift 
+    ///     - pkgConfig: The name to use for C modules. If present, the Swift
     ///           Package Manager searches for a `<name>.pc` file to get the
     ///           additional flags required for a system target.
     ///     - products: The list of products that this package vends and that clients can use.
@@ -378,9 +396,9 @@ public final class Package {
         // handle through the `-handle` option.
 #if os(Windows)
         if let index = CommandLine.arguments.firstIndex(of: "-handle") {
-          if let handle = Int(CommandLine.arguments[index + 1], radix: 16) {
-            dumpPackageAtExit(self, to: handle)
-          }
+            if let handle = Int(CommandLine.arguments[index + 1], radix: 16) {
+                dumpPackageAtExit(self, to: handle)
+            }
         }
 #else
         if let optIdx = CommandLine.arguments.firstIndex(of: "-fileno") {
@@ -609,26 +627,26 @@ var errors: [String] = []
 #if os(Windows)
 private var dumpInfo: (package: Package, handle: Int)?
 private func dumpPackageAtExit(_ package: Package, to handle: Int) {
-  let dump: @convention(c) () -> Void = {
-    guard let dumpInfo = dumpInfo else { return }
+    let dump: @convention(c) () -> Void = {
+        guard let dumpInfo = dumpInfo else { return }
 
-    let hFile: HANDLE = HANDLE(bitPattern: dumpInfo.handle)!
-    // NOTE: `_open_osfhandle` transfers ownership of the HANDLE to the file
-    // descriptor.  DO NOT invoke `CloseHandle` on `hFile`.
-    let fd: CInt = _open_osfhandle(Int(bitPattern: hFile), _O_APPEND)
-    // NOTE: `_fdopen` transfers ownership of the file descriptor to the
-    // `FILE *`.  DO NOT invoke `_close` on the `fd`.
-    guard let fp = _fdopen(fd, "w") else {
-      _close(fd)
-      return
+        let hFile: HANDLE = HANDLE(bitPattern: dumpInfo.handle)!
+        // NOTE: `_open_osfhandle` transfers ownership of the HANDLE to the file
+        // descriptor.  DO NOT invoke `CloseHandle` on `hFile`.
+        let fd: CInt = _open_osfhandle(Int(bitPattern: hFile), _O_APPEND)
+        // NOTE: `_fdopen` transfers ownership of the file descriptor to the
+        // `FILE *`.  DO NOT invoke `_close` on the `fd`.
+        guard let fp = _fdopen(fd, "w") else {
+            _close(fd)
+            return
+        }
+        defer { fclose(fp) }
+
+        fputs(manifestToJSON(dumpInfo.package), fp)
     }
-    defer { fclose(fp) }
 
-    fputs(manifestToJSON(dumpInfo.package), fp)
-  }
-
-  dumpInfo = (package, handle)
-  atexit(dump)
+    dumpInfo = (package, handle)
+    atexit(dump)
 }
 #else
 private var dumpInfo: (package: Package, fileDesc: Int32)?

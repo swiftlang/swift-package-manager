@@ -20,10 +20,10 @@ public struct PackageGraphRootInput {
     public let packages: [AbsolutePath]
 
     /// Top level dependencies to the graph.
-    public let dependencies: [PackageDependencyDescription]
+    public let dependencies: [PackageDependency]
 
     /// Create a package graph root.
-    public init(packages: [AbsolutePath], dependencies: [PackageDependencyDescription] = []) {
+    public init(packages: [AbsolutePath], dependencies: [PackageDependency] = []) {
         self.packages = packages
         self.dependencies = dependencies
     }
@@ -46,7 +46,7 @@ public struct PackageGraphRoot {
     }
 
     /// The top level dependencies.
-    public let dependencies: [PackageDependencyDescription]
+    public let dependencies: [PackageDependency]
 
     /// Create a package graph root.
     /// Note this quietly skip inputs for which manifests are not found. this could be because the manifest  failed to load or for some other reasons
@@ -96,19 +96,21 @@ public struct PackageGraphRoot {
     }
 }
 
-extension PackageDependencyDescription {
+extension PackageDependency {
     /// Returns the constraint requirement representation.
     public func toConstraintRequirement() throws -> PackageRequirement {
         switch self {
-        case .local:
+        case .fileSystem:
             return .unversioned
-        case .scm(let data):
-            return try data.requirement.toConstraintRequirement()
+        case .sourceControl(let settings):
+            return try settings.requirement.toConstraintRequirement()
+        case .registry(let settings):
+            return try settings.requirement.toConstraintRequirement()
         }
     }
 }
 
-extension PackageDependencyDescription.Requirement {
+extension PackageDependency.Requirement {
     /// Returns the constraint requirement representation.
     public func toConstraintRequirement() throws -> PackageRequirement {
         switch self {

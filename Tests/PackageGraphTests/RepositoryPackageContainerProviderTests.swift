@@ -375,7 +375,7 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
         try XCTSkipIf(true)
         #endif
 
-        let dependencies: [PackageDependencyDescription] = [
+        let dependencies: [PackageDependency] = [
             .scm(name: "Bar1", location: "/Bar1", requirement: .upToNextMajor(from: "1.0.0")),
             .scm(name: "Bar2", location: "/Bar2", requirement: .upToNextMajor(from: "1.0.0")),
             .scm(name: "Bar3", location: "/Bar3", requirement: .upToNextMajor(from: "1.0.0")),

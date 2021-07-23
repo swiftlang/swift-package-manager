@@ -2707,13 +2707,16 @@ private extension ManagedArtifact {
 
 // FIXME: the manifest loading logic should be changed to use identity instead of location once identity is unique
 // at that time we should remove this
-private extension PackageDependencyDescription {
+private extension PackageDependency {
     var location: String {
         switch self {
-        case .local(let data):
+        case .fileSystem(let data):
             return data.path.pathString
-        case .scm(let data):
+        case .sourceControl(let data):
             return data.location
+        case .registry:
+            // FIXME
+            fatalError("registry based dependencies not implemented yet")
         }
     }
 }

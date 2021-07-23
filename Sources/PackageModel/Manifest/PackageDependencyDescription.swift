@@ -11,16 +11,16 @@
 import TSCBasic
 
 /// Represents a package dependency.
-public enum PackageDependencyDescription: Equatable {
+public enum PackageDependency: Equatable {
 
-     public struct Local: Equatable, Codable {
+    public struct FileSystem: Equatable, Codable {
         public let identity: PackageIdentity
         public let name: String?
         public let path: AbsolutePath
         public let productFilter: ProductFilter
     }
 
-    public struct SourceControlRepository: Equatable, Codable {
+    public struct SourceControl: Equatable, Codable {
         public let identity: PackageIdentity
         public let name: String?
         public let location: String
@@ -28,9 +28,15 @@ public enum PackageDependencyDescription: Equatable {
         public let productFilter: ProductFilter
     }
 
-    case local(Local)
-    case scm(SourceControlRepository)
-    //case registry(data: Registry) // for future
+    public struct Registry: Equatable, Codable {
+        public let identity: PackageIdentity
+        public let requirement: Requirement
+        public let productFilter: ProductFilter
+    }
+
+    case fileSystem(FileSystem)
+    case sourceControl(SourceControl)
+    case registry(Registry)
 
     /// The dependency requirement.
     public enum Requirement: Equatable, Hashable {
@@ -50,10 +56,12 @@ public enum PackageDependencyDescription: Equatable {
 
     public var identity: PackageIdentity {
         switch self {
-        case .local(let data):
-            return data.identity
-        case .scm(let data):
-            return data.identity
+        case .fileSystem(let settings):
+            return settings.identity
+        case .sourceControl(let settings):
+            return settings.identity
+        case .registry(let settings):
+            return settings.identity
         }
     }
 
@@ -61,10 +69,12 @@ public enum PackageDependencyDescription: Equatable {
     // A name to be used *only* for target dependencies resolution
     public var nameForTargetDependencyResolutionOnly: String {
         switch self {
-        case .local(let data):
-            return data.name ?? LegacyPackageIdentity.computeDefaultName(fromURL: data.path.pathString)
-        case .scm(let data):
-            return data.name ?? LegacyPackageIdentity.computeDefaultName(fromURL: data.location)
+        case .fileSystem(let settings):
+            return settings.name ?? LegacyPackageIdentity.computeDefaultName(fromURL: settings.path.pathString)
+        case .sourceControl(let settings):
+            return settings.name ?? LegacyPackageIdentity.computeDefaultName(fromURL: settings.location)
+        case .registry:
+            return self.identity.description
         }
     }
 
@@ -72,53 +82,63 @@ public enum PackageDependencyDescription: Equatable {
     // A name to be used *only* for target dependencies resolution
     public var explicitNameForTargetDependencyResolutionOnly: String? {
         switch self {
-        case .local(let data):
-            return data.name
-        case .scm(let data):
-            return data.name
+        case .fileSystem(let settings):
+            return settings.name
+        case .sourceControl(let settings):
+            return settings.name
+        case .registry:
+            return nil
         }
     }
 
     public var productFilter: ProductFilter {
         switch self {
-        case .local(let data):
-            return data.productFilter
-        case .scm(let data):
-            return data.productFilter
+        case .fileSystem(let settings):
+            return settings.productFilter
+        case .sourceControl(let settings):
+            return settings.productFilter
+        case .registry(let settings):
+            return settings.productFilter
         }
     }
 
     public var isLocal: Bool {
         switch self {
-        case .local:
+        case .fileSystem:
             return true
-        case .scm:
+        case .sourceControl:
+            return false
+        case .registry:
             return false
         }
     }
 
-    public func filtered(by productFilter: ProductFilter) -> PackageDependencyDescription {
+    public func filtered(by productFilter: ProductFilter) -> Self {
         switch self {
-        case .local(let data):
-            return .local(identity: data.identity,
-                          name: data.name,
-                          path: data.path,
-                          productFilter: productFilter)
-        case .scm(let data):
-            return .scm(identity: data.identity,
-                        name: data.name,
-                        location: data.location,
-                        requirement: data.requirement,
-                        productFilter: productFilter)
+        case .fileSystem(let settings):
+            return .fileSystem(identity: settings.identity,
+                               name: settings.name,
+                               path: settings.path,
+                               productFilter: productFilter)
+        case .sourceControl(let settings):
+            return .sourceControl(identity: settings.identity,
+                                  name: settings.name,
+                                  location: settings.location,
+                                  requirement: settings.requirement,
+                                  productFilter: productFilter)
+        case .registry(let settings):
+            return .registry(identity: settings.identity,
+                             requirement: settings.requirement,
+                             productFilter: productFilter)
         }
     }
 
-    public static func local(identity: PackageIdentity,
-                             name: String?,
-                             path: AbsolutePath,
-                             productFilter: ProductFilter
-    ) -> PackageDependencyDescription {
-        .local (
+    public static func fileSystem(identity: PackageIdentity,
+                                  name: String?,
+                                  path: AbsolutePath,
+                                  productFilter: ProductFilter
+    ) -> Self {
+        .fileSystem (
             .init(identity: identity,
                   name: name,
                   path: path,
@@ -126,13 +146,13 @@ public enum PackageDependencyDescription: Equatable {
         )
     }
 
-    public static func scm(identity: PackageIdentity,
-                           name: String?,
-                           location: String,
-                           requirement: Requirement,
-                           productFilter: ProductFilter
-    ) -> PackageDependencyDescription {
-        .scm (
+    public static func sourceControl(identity: PackageIdentity,
+                                     name: String?,
+                                     location: String,
+                                     requirement: Requirement,
+                                     productFilter: ProductFilter
+    ) -> Self {
+        .sourceControl (
             .init(identity: identity,
                   name: name,
                   location: location,
@@ -140,20 +160,33 @@ public enum PackageDependencyDescription: Equatable {
                   productFilter: productFilter)
         )
     }
+
+    public static func registry(identity: PackageIdentity,
+                                requirement: Requirement,
+                                productFilter: ProductFilter
+    ) -> Self {
+        .registry (
+            .init(identity: identity,
+                  requirement: requirement,
+                  productFilter: productFilter)
+        )
+    }
 }
 
-extension PackageDependencyDescription: CustomStringConvertible {
+extension PackageDependency: CustomStringConvertible {
     public var description: String {
         switch self {
-        case .local(let data):
-            return "local[\(data)]"
-        case .scm(let data):
-            return "git[\(data)]"
+        case .fileSystem(let data):
+            return "fileSystem[\(data)]"
+        case .sourceControl(let data):
+            return "sourceControl[\(data)]"
+        case .registry(let data):
+            return "registry[\(data)]"
         }
     }
 }
 
-extension PackageDependencyDescription.Requirement: CustomStringConvertible {
+extension PackageDependency.Requirement: CustomStringConvertible {
     public var description: String {
         switch self {
         case .exact(let version):
@@ -168,21 +201,23 @@ extension PackageDependencyDescription.Requirement: CustomStringConvertible {
     }
 }
 
-extension PackageDependencyDescription: Codable {
+extension PackageDependency: Codable {
     private enum CodingKeys: String, CodingKey {
-        case local, scm
+        case local, fileSystem, scm, sourceControl, registry
     }
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         switch self {
-        case .local(let data):
-            var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .local)
-            try unkeyedContainer.encode(data)
-        case .scm(let data):
-            var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .scm)
-            try unkeyedContainer.encode(data)
-
+        case .fileSystem(let settings):
+            var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .fileSystem)
+            try unkeyedContainer.encode(settings)
+        case .sourceControl(let settings):
+            var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .sourceControl)
+            try unkeyedContainer.encode(settings)
+        case .registry(let settings):
+            var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .registry)
+            try unkeyedContainer.encode(settings)
         }
     }
 
@@ -192,19 +227,23 @@ extension PackageDependencyDescription: Codable {
             throw DecodingError.dataCorrupted(.init(codingPath: decoder.codingPath, debugDescription: "Did not find a matching key"))
         }
         switch key {
-        case .local:
+        case .local, .fileSystem:
             var unkeyedValues = try values.nestedUnkeyedContainer(forKey: key)
-            let data = try unkeyedValues.decode(Local.self)
-            self = .local(data)
-        case .scm:
+            let data = try unkeyedValues.decode(FileSystem.self)
+            self = .fileSystem(data)
+        case .scm, .sourceControl:
             var unkeyedValues = try values.nestedUnkeyedContainer(forKey: key)
-            let data = try unkeyedValues.decode(SourceControlRepository.self)
-            self = .scm(data)
+            let data = try unkeyedValues.decode(SourceControl.self)
+            self = .sourceControl(data)
+        case .registry:
+            var unkeyedValues = try values.nestedUnkeyedContainer(forKey: key)
+            let data = try unkeyedValues.decode(Registry.self)
+            self = .registry(data)
         }
     }
 }
 
-extension PackageDependencyDescription.Requirement: Codable {
+extension PackageDependency.Requirement: Codable {
     private enum CodingKeys: String, CodingKey {
         case exact, range, revision, branch
     }

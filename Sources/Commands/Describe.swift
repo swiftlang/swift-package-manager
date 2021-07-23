@@ -103,18 +103,21 @@ fileprivate struct DescribedPackage: Encodable {
         let identity: PackageIdentity
         let name: String?
         let url: String?
-        let requirement: PackageDependencyDescription.Requirement?
+        let requirement: PackageDependency.Requirement?
 
-        init(from dependency: PackageDependencyDescription) {
+        init(from dependency: PackageDependency) {
             self.identity = dependency.identity
             self.name = dependency.explicitNameForTargetDependencyResolutionOnly
             switch dependency {
-            case .local(let data):
-                self.url = data.path.pathString
+            case .fileSystem(let settings):
+                self.url = settings.path.pathString
                 self.requirement = nil
-            case .scm(let data):
-                self.url = data.location
-                self.requirement = data.requirement
+            case .sourceControl(let settings):
+                self.url = settings.location
+                self.requirement = settings.requirement
+            case .registry(let settings):
+                self.url = nil
+                self.requirement = settings.requirement
             }
         }
     }

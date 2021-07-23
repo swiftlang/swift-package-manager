@@ -466,7 +466,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         }
 
         if toolsVersion >= .v5_2 {
-            let duplicateDependencies = try duplicateDependencyIdentities.flatMap{ identifier -> [PackageDependencyDescription] in
+            let duplicateDependencies = try duplicateDependencyIdentities.flatMap{ identifier -> [PackageDependency] in
                 guard let dependency = dependenciesByIdentity[identifier] else {
                     throw InternalError("unknown dependency \(identifier)")
                 }

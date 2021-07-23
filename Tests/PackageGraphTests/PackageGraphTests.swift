@@ -1969,7 +1969,7 @@ extension Manifest {
         )
     }
 
-    func withDependencies(_ dependencies: [PackageDependencyDescription]) -> Manifest {
+    func withDependencies(_ dependencies: [PackageDependency]) -> Manifest {
         Manifest.createManifest(
             name: self.name,
             path: self.path.parentDirectory.pathString,
