@@ -499,6 +499,26 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
         }
     }
 
+    func testURLContainsNotAbsolutePath() throws {
+        let stream = BufferedOutputByteStream()
+        stream <<< """
+        import PackageDescription
+        let package = Package(
+            name: "Trivial",
+            dependencies: [
+                .package(url: "file://../best", from: "1.0.0"),
+            ],
+            targets: [
+                .target(
+                    name: "foo",
+                    dependencies: []),
+            ]
+        )
+        """
+
+        XCTAssertManifestLoadThrows(ManifestParseError.invalidManifestFormat("file:// URLs cannot be relative, did you mean to use `.package(path:)`?", diagnosticFile: nil), stream.bytes)
+    }
+
     func testCacheInvalidationOnEnv() throws {
         try testWithTemporaryDirectory { path in
             let fs = localFileSystem
