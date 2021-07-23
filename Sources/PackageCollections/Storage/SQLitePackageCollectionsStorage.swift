@@ -801,6 +801,27 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
     }
 
     internal func populateTargetTrie(callback: @escaping (Result<Void, Error>) -> Void = { _ in }) {
+        // Check to see if there is any data before submitting task to queue because otherwise it's no-op anyway
+        do {
+            let numberOfCollections: Int = try self.executeStatement("SELECT COUNT(*) FROM \(Self.packageCollectionsTableName);") { statement in
+                let row = try statement.step()
+                guard let count = row?.int(at: 0) else {
+                    throw StringError("Failed to get count of \(Self.packageCollectionsTableName) table")
+                }
+                return count
+            }
+            // No collections means no data, so no need to populate target trie
+            guard numberOfCollections > 0 else {
+                self.populateTargetTrieLock.withLock {
+                    self.targetTrieReady = true
+                }
+                return callback(.success(()))
+            }
+        } catch {
+            self.diagnosticsEngine?.emit(warning: "Failed to determine if database is empty or not: \(error)")
+            // Try again in background
+        }
+
         DispatchQueue.sharedConcurrent.async(group: nil, qos: .background, flags: .assignCurrentContext) {
             do {
                 try self.populateTargetTrieLock.withLock { // Prevent race to populate targetTrie
