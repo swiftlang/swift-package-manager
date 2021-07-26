@@ -516,18 +516,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
         )
         """
 
-        try loadManifestThrowing(stream.bytes) { manifest in
-            if let dep = manifest.dependencies.first {
-                switch dep {
-                case .scm(let scm):
-                    XCTAssertEqual(scm.location, "/best")
-                default:
-                    XCTFail("dependency was expected to be remote")
-                }
-            } else {
-                XCTFail("manifest had no dependencies")
-            }
-        }
+        XCTAssertManifestLoadThrows(ManifestParseError.invalidManifestFormat("file:// URLs cannot be relative, did you mean to use `.package(path:)`?", diagnosticFile: nil), stream.bytes)
     }
 
     func testCacheInvalidationOnEnv() throws {

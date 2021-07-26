@@ -19,7 +19,7 @@ enum PackageGraphError: Swift.Error {
     case cycleDetected((path: [Manifest], cycle: [Manifest]))
 
     /// The product dependency not found.
-    case productDependencyNotFound(package: String, targetName: String, dependencyProductName: String, dependencyPackageName: String?)
+    case productDependencyNotFound(package: String, targetName: String, dependencyProductName: String, dependencyPackageName: String?, dependencyProductInDecl: Bool)
 
     /// The package dependency name does not match the package name.
     case incorrectPackageDependencyName(package: String, dependencyName: String, dependencyLocation: String, resolvedPackageManifestName: String, resolvedPackageURL: String)
@@ -192,9 +192,12 @@ extension PackageGraphError: CustomStringConvertible {
                 (cycle.path + cycle.cycle).map({ $0.name }).joined(separator: " -> ") +
                 " -> " + cycle.cycle[0].name
 
-        case .productDependencyNotFound(let package, let targetName, let dependencyProductName, let dependencyPackageName):
-            return "product '\(dependencyProductName)' required by package '\(package)' target '\(targetName)' \(dependencyPackageName.map{ "not found in package '\($0)'" } ?? "not found")."
-
+        case .productDependencyNotFound(let package, let targetName, let dependencyProductName, let dependencyPackageName, let dependencyProductInDecl):
+            if dependencyProductInDecl {
+                return "product '\(dependencyProductName)' is declared in the same package '\(package)' and can't be used as a dependency for target '\(targetName)'."
+            } else {
+                return "product '\(dependencyProductName)' required by package '\(package)' target '\(targetName)' \(dependencyPackageName.map{ "not found in package '\($0)'" } ?? "not found")."
+            }
         case .incorrectPackageDependencyName(let package, let dependencyName, let dependencyURL, let resolvedPackageManifestName, let resolvedPackageURL):
             return """
                 '\(package)' dependency on '\(dependencyURL)' has an explicit name '\(dependencyName)' which does not match the \

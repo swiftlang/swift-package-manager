@@ -561,7 +561,7 @@ public class SwiftTool {
             config: try getSwiftPMConfig(),
             repositoryProvider: provider,
             netrcFilePath: try resolvedNetrcFilePath(),
-            additionalFileRules: isXcodeBuildSystemEnabled ? FileRuleDescription.xcbuildFileTypes : [],
+            additionalFileRules: isXcodeBuildSystemEnabled ? FileRuleDescription.xcbuildFileTypes : FileRuleDescription.swiftpmFileTypes,
             isResolverPrefetchingEnabled: options.shouldEnableResolverPrefetching,
             skipUpdate: options.skipDependencyUpdate,
             enableResolverTrace: options.enableResolverTrace,

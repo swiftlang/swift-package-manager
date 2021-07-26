@@ -573,6 +573,84 @@ class PackageGraphTests: XCTestCase {
         }
     }
 
+    func testProductDependencyDeclaredInSamePackage() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Foo/Sources/FooTarget/src.swift",
+            "/Foo/Tests/FooTests/source.swift"
+        )
+
+        let diagnostics = DiagnosticsEngine()
+        _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
+            manifests: [
+                Manifest.createV4Manifest(
+                    name: "Foo",
+                    path: "/Foo",
+                    packageKind: .root,
+                    packageLocation: "/Foo",
+                    products: [
+                        ProductDescription(name: "Foo", type: .library(.automatic), targets: ["FooTarget"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "FooTarget", dependencies: []),
+                        TargetDescription(name: "FooTests", dependencies: ["Foo"], type: .test),
+                    ]),
+            ]
+        )
+
+        DiagnosticsEngineTester(diagnostics) { result in
+            result.check(diagnostic: "product 'Foo' is declared in the same package 'foo' and can't be used as a dependency for target 'FooTests'.", behavior: .error, location: "'Foo' /Foo")
+        }
+    }
+    
+    func testExecutableTargetDependency() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+                "/XYZ/Sources/XYZ/main.swift",
+                "/XYZ/Tests/XYZTests/tests.swift"
+        )
+        let diagnostics = DiagnosticsEngine()
+        _ = try loadPackageGraph(fs: fs,
+                                 diagnostics: diagnostics,
+                                 manifests: [
+                    Manifest.createV4Manifest(
+                        name: "XYZ",
+                        path: "/XYZ",
+                        packageKind: .root,
+                        packageLocation: "/XYZ",
+                        targets: [
+                            TargetDescription(name: "XYZ", dependencies: [], type: .executable),
+                            TargetDescription(name: "XYZTests", dependencies: ["XYZ"], type: .test),
+                        ]),
+                    ]
+        )
+        DiagnosticsEngineTester(diagnostics) { _ in }
+    }
+    
+    func testSameProductAndTargetNames() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Foo/Sources/Foo/src.swift",
+            "/Foo/Tests/FooTests/source.swift"
+        )
+
+        let diagnostics = DiagnosticsEngine()
+        _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
+            manifests: [
+                Manifest.createV4Manifest(
+                    name: "Foo",
+                    path: "/Foo",
+                    packageKind: .root,
+                    packageLocation: "/Foo",
+                    products: [
+                        ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Foo", dependencies: []),
+                        TargetDescription(name: "FooTests", dependencies: ["Foo"], type: .test),
+                    ]),
+            ]
+        )
+        DiagnosticsEngineTester(diagnostics) { _ in }
+    }
+
     func testProductDependencyNotFoundWithName() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Foo/Sources/FooTarget/foo.swift"
