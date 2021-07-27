@@ -141,16 +141,12 @@ fileprivate extension SourceCodeFragment {
                 params.append(SourceCodeFragment(enum: "branch", string: branch))
             }
         case .registry(let settings):
-            params.append(SourceCodeFragment(key: "idenity", string: settings.identity.description))
+            params.append(SourceCodeFragment(key: "identity", string: settings.identity.description))
             switch settings.requirement {
             case .exact(let version):
                 params.append(SourceCodeFragment(enum: "exact", string: "\(version)"))
             case .range(let range):
                 params.append(SourceCodeFragment("\"\(range.lowerBound)\"..<\"\(range.upperBound)\""))
-            case .revision(let revision):
-                params.append(SourceCodeFragment(enum: "revision", string: revision))
-            case .branch(let branch):
-                params.append(SourceCodeFragment(enum: "branch", string: branch))
             }
         }
         self.init(enum: "package", subnodes: params)

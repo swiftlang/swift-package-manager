@@ -12,47 +12,44 @@ import TSCBasic
 
 /// Represents a package dependency.
 public enum PackageDependency: Equatable {
-
-    public struct FileSystem: Equatable, Codable {
+    public struct FileSystem: Equatable, Encodable {
         public let identity: PackageIdentity
         public let name: String?
         public let path: AbsolutePath
         public let productFilter: ProductFilter
     }
 
-    public struct SourceControl: Equatable, Codable {
+    public struct SourceControl: Equatable, Encodable {
         public let identity: PackageIdentity
         public let name: String?
         public let location: String
         public let requirement: Requirement
         public let productFilter: ProductFilter
+
+        /// The dependency requirement.
+        public enum Requirement: Equatable, Hashable {
+            case exact(Version)
+            case range(Range<Version>)
+            case revision(String)
+            case branch(String)
+        }
     }
 
-    public struct Registry: Equatable, Codable {
+    public struct Registry: Equatable, Encodable {
         public let identity: PackageIdentity
         public let requirement: Requirement
         public let productFilter: ProductFilter
+
+        /// The dependency requirement.
+        public enum Requirement: Equatable, Hashable {
+            case exact(Version)
+            case range(Range<Version>)
+        }
     }
 
     case fileSystem(FileSystem)
     case sourceControl(SourceControl)
     case registry(Registry)
-
-    /// The dependency requirement.
-    public enum Requirement: Equatable, Hashable {
-        case exact(Version)
-        case range(Range<Version>)
-        case revision(String)
-        case branch(String)
-
-        public static func upToNextMajor(from version: TSCUtility.Version) -> Requirement {
-            return .range(version..<Version(version.major + 1, 0, 0))
-        }
-
-        public static func upToNextMinor(from version: TSCUtility.Version) -> Requirement {
-            return .range(version..<Version(version.major, version.minor + 1, 0))
-        }
-    }
 
     public var identity: PackageIdentity {
         switch self {
@@ -149,7 +146,7 @@ public enum PackageDependency: Equatable {
     public static func sourceControl(identity: PackageIdentity,
                                      name: String?,
                                      location: String,
-                                     requirement: Requirement,
+                                     requirement: SourceControl.Requirement,
                                      productFilter: ProductFilter
     ) -> Self {
         .sourceControl (
@@ -162,7 +159,7 @@ public enum PackageDependency: Equatable {
     }
 
     public static func registry(identity: PackageIdentity,
-                                requirement: Requirement,
+                                requirement: Registry.Requirement,
                                 productFilter: ProductFilter
     ) -> Self {
         .registry (
@@ -170,6 +167,16 @@ public enum PackageDependency: Equatable {
                   requirement: requirement,
                   productFilter: productFilter)
         )
+    }
+}
+
+extension Range {
+    public static func upToNextMajor(from version: Version) -> Range<Bound> where Bound == Version {
+        return version ..< Version(version.major + 1, 0, 0)
+    }
+
+    public static func upToNextMinor(from version: Version) -> Range<Bound> where Bound == Version {
+        return version ..< Version(version.major, version.minor + 1, 0)
     }
 }
 
@@ -186,7 +193,7 @@ extension PackageDependency: CustomStringConvertible {
     }
 }
 
-extension PackageDependency.Requirement: CustomStringConvertible {
+extension PackageDependency.SourceControl.Requirement: CustomStringConvertible {
     public var description: String {
         switch self {
         case .exact(let version):
@@ -201,7 +208,18 @@ extension PackageDependency.Requirement: CustomStringConvertible {
     }
 }
 
-extension PackageDependency: Codable {
+extension PackageDependency.Registry.Requirement: CustomStringConvertible {
+    public var description: String {
+        switch self {
+        case .exact(let version):
+            return version.description
+        case .range(let range):
+            return range.description
+        }
+    }
+}
+
+extension PackageDependency: Encodable {
     private enum CodingKeys: String, CodingKey {
         case local, fileSystem, scm, sourceControl, registry
     }
@@ -220,30 +238,9 @@ extension PackageDependency: Codable {
             try unkeyedContainer.encode(settings)
         }
     }
-
-    public init(from decoder: Decoder) throws {
-        let values = try decoder.container(keyedBy: CodingKeys.self)
-        guard let key = values.allKeys.first(where: values.contains) else {
-            throw DecodingError.dataCorrupted(.init(codingPath: decoder.codingPath, debugDescription: "Did not find a matching key"))
-        }
-        switch key {
-        case .local, .fileSystem:
-            var unkeyedValues = try values.nestedUnkeyedContainer(forKey: key)
-            let data = try unkeyedValues.decode(FileSystem.self)
-            self = .fileSystem(data)
-        case .scm, .sourceControl:
-            var unkeyedValues = try values.nestedUnkeyedContainer(forKey: key)
-            let data = try unkeyedValues.decode(SourceControl.self)
-            self = .sourceControl(data)
-        case .registry:
-            var unkeyedValues = try values.nestedUnkeyedContainer(forKey: key)
-            let data = try unkeyedValues.decode(Registry.self)
-            self = .registry(data)
-        }
-    }
 }
 
-extension PackageDependency.Requirement: Codable {
+extension PackageDependency.SourceControl.Requirement: Encodable {
     private enum CodingKeys: String, CodingKey {
         case exact, range, revision, branch
     }
@@ -265,29 +262,22 @@ extension PackageDependency.Requirement: Codable {
             try unkeyedContainer.encode(a1)
         }
     }
+}
 
-    public init(from decoder: Decoder) throws {
-        let values = try decoder.container(keyedBy: CodingKeys.self)
-        guard let key = values.allKeys.first(where: values.contains) else {
-            throw DecodingError.dataCorrupted(.init(codingPath: decoder.codingPath, debugDescription: "Did not find a matching key"))
-        }
-        switch key {
-        case .exact:
-            var unkeyedValues = try values.nestedUnkeyedContainer(forKey: key)
-            let a1 = try unkeyedValues.decode(Version.self)
-            self = .exact(a1)
-        case .range:
-            var unkeyedValues = try values.nestedUnkeyedContainer(forKey: key)
-            let a1 = try unkeyedValues.decode(CodableRange<Version>.self)
-            self = .range(a1.range)
-        case .revision:
-            var unkeyedValues = try values.nestedUnkeyedContainer(forKey: key)
-            let a1 = try unkeyedValues.decode(String.self)
-            self = .revision(a1)
-        case .branch:
-            var unkeyedValues = try values.nestedUnkeyedContainer(forKey: key)
-            let a1 = try unkeyedValues.decode(String.self)
-            self = .branch(a1)
+extension PackageDependency.Registry.Requirement: Encodable {
+    private enum CodingKeys: String, CodingKey {
+        case exact, range
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case let .exact(a1):
+            var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .exact)
+            try unkeyedContainer.encode(a1)
+        case let .range(a1):
+            var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .range)
+            try unkeyedContainer.encode(CodableRange(a1))
         }
     }
 }

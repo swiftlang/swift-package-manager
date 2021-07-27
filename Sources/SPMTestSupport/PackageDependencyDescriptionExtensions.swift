@@ -62,7 +62,7 @@ public extension PackageDependency {
     static func sourceControl(identity: PackageIdentity? = nil,
                               name: String? = nil,
                               location: String,
-                              requirement: Requirement,
+                              requirement: SourceControl.Requirement,
                               productFilter: ProductFilter = .everything
     ) -> Self {
         let identity = identity ?? PackageIdentity(url: location)
@@ -77,7 +77,7 @@ public extension PackageDependency {
     static func scm(identity: PackageIdentity? = nil,
                     name: String? = nil,
                     location: String,
-                    requirement: Requirement,
+                    requirement: SourceControl.Requirement,
                     productFilter: ProductFilter = .everything
     ) -> Self {
         return .sourceControl(identity: identity,
@@ -88,11 +88,21 @@ public extension PackageDependency {
     }
 
     static func registry(identity: String,
-                         requirement: Requirement,
+                         requirement: Registry.Requirement,
                          productFilter: ProductFilter = .everything
     ) -> Self {
         return .registry(identity: .plain(identity),
                          requirement: requirement,
                          productFilter: productFilter)
+    }
+}
+
+// backwards compatibility with existing tests
+extension PackageDependency.SourceControl.Requirement {
+    public static func upToNextMajor(from version: Version) -> Self {
+        return .range(.upToNextMajor(from: version))
+    }
+    public static func upToNextMinor(from version: Version) -> Self {
+        return .range(.upToNextMinor(from: version))
     }
 }

@@ -13,27 +13,27 @@ import PackageModel
 import TSCBasic
 
 public struct MockDependency {
-    public typealias Requirement = PackageDependency.Requirement
-
+    public typealias Requirement = PackageDependency.SourceControl.Requirement
+    
     public let name: String?
     public let path: String
     public let requirement: Requirement?
     public let products: ProductFilter
-
+    
     init(name: String, requirement: Requirement?, products: ProductFilter = .everything) {
         self.name = name
         self.path = name
         self.requirement = requirement
         self.products = products
     }
-
+    
     init(name: String?, path: String, requirement: Requirement?, products: ProductFilter = .everything) {
         self.name = name
         self.path = path
         self.requirement = requirement
         self.products = products
     }
-
+    
     // TODO: refactor this when adding registry support
     public func convert(baseURL: AbsolutePath, identityResolver: IdentityResolver) -> PackageDependency {
         let path = baseURL.appending(RelativePath(self.path))
@@ -52,19 +52,19 @@ public struct MockDependency {
                           productFilter: self.products)
         }
     }
-
-    public static func local(name: String? = nil, path: String, products: ProductFilter = .everything) -> MockDependency{
+    
+    public static func local(name: String? = nil, path: String, products: ProductFilter = .everything) -> MockDependency {
         MockDependency(name: name, path: path, requirement: nil, products: products)
     }
-
+    
     public static func local(name: String, products: ProductFilter = .everything) -> MockDependency {
         MockDependency(name: name, requirement: nil, products: products)
     }
-
-    public static func git(name: String? = nil, path: String, requirement: Requirement, products: ProductFilter = .everything) -> MockDependency{
+    
+    public static func git(name: String? = nil, path: String, requirement: Requirement, products: ProductFilter = .everything) -> MockDependency {
         MockDependency(name: name, path: path, requirement: requirement, products: products)
     }
-
+    
     public static func git(name: String, requirement: Requirement, products: ProductFilter = .everything) -> MockDependency {
         MockDependency(name: name, requirement: requirement, products: products)
     }

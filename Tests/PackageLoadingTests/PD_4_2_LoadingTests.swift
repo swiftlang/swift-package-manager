@@ -249,7 +249,6 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                    .package(path: "~/path/to/~/foo12"),
                    .package(path: "~"),
                    .package(path: "file:///path/to/foo13"),
-
                ]
             )
             """

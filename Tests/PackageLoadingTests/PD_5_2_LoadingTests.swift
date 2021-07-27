@@ -41,7 +41,7 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
 
         do {
             try loadManifestThrowing(stream.bytes) { manifest in
-                return XCTFail("did not generate eror")
+                return XCTFail("did not generate error")
             }
         } catch ManifestParseError.invalidManifestFormat(let error, diagnosticFile: _) {
             XCTAssert(error.contains("error: \'product(name:package:)\' is unavailable: the 'package' argument is mandatory as of tools version 5.2"))

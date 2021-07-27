@@ -261,12 +261,8 @@ fileprivate extension PackageDependency {
         case .registry(let settings):
             parameters.append("identity: \"\(settings.identity)\"")
             switch settings.requirement {
-            case .branch(let branch):
-                parameters.append(".branch(\"\(branch)\")")
             case .exact(let version):
                 parameters.append(".exact(\"\(version)\")")
-            case .revision(let revision):
-                parameters.append(".revision(\"\(revision)\")")
             case .range(let range):
                 if range.upperBound == Version(range.lowerBound.major + 1, 0, 0) {
                     parameters.append("from: \"\(range.lowerBound)\"")

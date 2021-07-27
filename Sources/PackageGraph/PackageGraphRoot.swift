@@ -110,22 +110,36 @@ extension PackageDependency {
     }
 }
 
-extension PackageDependency.Requirement {
+extension PackageDependency.SourceControl.Requirement {
     /// Returns the constraint requirement representation.
     public func toConstraintRequirement() throws -> PackageRequirement {
         switch self {
         case .range(let range):
             return .versionSet(.range(range))
         case .revision(let identifier):
+            // FIXME: this validation could/should move somewhere more appropriate
             guard Git.checkRefFormat(ref: identifier) else {
                 throw StringError("Could not find revision: '\(identifier)'")
             }
             return .revision(identifier)
         case .branch(let identifier):
+            // FIXME: this validation could/should move somewhere more appropriate
             guard Git.checkRefFormat(ref: identifier) else {
                 throw StringError("Could not find branch: '\(identifier)'")
             }
             return .revision(identifier)
+        case .exact(let version):
+            return .versionSet(.exact(version))
+        }
+    }
+}
+
+extension PackageDependency.Registry.Requirement {
+    /// Returns the constraint requirement representation.
+    public func toConstraintRequirement() throws -> PackageRequirement {
+        switch self {
+        case .range(let range):
+            return .versionSet(.range(range))
         case .exact(let version):
             return .versionSet(.exact(version))
         }

@@ -6,7 +6,7 @@
 
  See http://swift.org/LICENSE.txt for license information
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
-*/
+ */
 
 import Basics
 import TSCBasic
@@ -16,20 +16,20 @@ import Foundation
 import SourceControl
 
 enum ManifestJSONParser {
-     struct Result {
-         var name: String
-         var defaultLocalization: String?
-         var platforms: [PlatformDescription] = []
-         var targets: [TargetDescription] = []
-         var pkgConfig: String?
-         var swiftLanguageVersions: [SwiftLanguageVersion]?
-         var dependencies: [PackageDependency] = []
-         var providers: [SystemPackageProviderDescription]?
-         var products: [ProductDescription] = []
-         var cxxLanguageStandard: String?
-         var cLanguageStandard: String?
-         var errors: [String] = []
-     }
+    struct Result {
+        var name: String
+        var defaultLocalization: String?
+        var platforms: [PlatformDescription] = []
+        var targets: [TargetDescription] = []
+        var pkgConfig: String?
+        var swiftLanguageVersions: [SwiftLanguageVersion]?
+        var dependencies: [PackageDependency] = []
+        var providers: [SystemPackageProviderDescription]?
+        var products: [ProductDescription] = []
+        var cxxLanguageStandard: String?
+        var cLanguageStandard: String?
+        var errors: [String] = []
+    }
 
     static func parse(
         v4 jsonString: String,
@@ -298,7 +298,7 @@ extension ProductDescription {
     }
 }
 
-extension PackageDependency.Requirement {
+extension PackageDependency.SourceControl.Requirement {
     fileprivate init(v4 json: JSON) throws {
         let type = try json.get(String.self, forKey: "type")
         switch type {
@@ -309,21 +309,60 @@ extension PackageDependency.Requirement {
             self = try .revision(json.get("identifier"))
 
         case "range":
-            let lowerBound = try json.get(String.self, forKey: "lowerBound")
-            let upperBound = try json.get(String.self, forKey: "upperBound")
-            self = .range(Version(string: lowerBound)! ..< Version(string: upperBound)!)
+            let lowerBoundString = try json.get(String.self, forKey: "lowerBound")
+            guard let lowerBound = Version(string: lowerBoundString) else {
+                throw InternalError("invalid version \(lowerBoundString)")
+            }
+            let upperBoundString = try json.get(String.self, forKey: "upperBound")
+            guard let upperBound = Version(string: upperBoundString) else {
+                throw InternalError("invalid version \(upperBoundString)")
+            }
+            self = .range(lowerBound ..< upperBound)
 
         case "exact":
-            let identifier = try json.get(String.self, forKey: "identifier")
-            self = .exact(Version(string: identifier)!)
+            let versionString = try json.get(String.self, forKey: "identifier")
+            guard let version = Version(string: versionString) else {
+                throw InternalError("invalid version \(versionString)")
+            }
+            self = .exact(version)
 
         default:
-            throw InternalError("invalid dependency \(type)")
+            throw InternalError("invalid dependency requirement \(type)")
+        }
+    }
+}
+
+extension PackageDependency.Registry.Requirement {
+    fileprivate init(v4 json: JSON) throws {
+        let type = try json.get(String.self, forKey: "type")
+        switch type {
+        case "range":
+            let lowerBoundString = try json.get(String.self, forKey: "lowerBound")
+            guard let lowerBound = Version(string: lowerBoundString) else {
+                throw InternalError("invalid version \(lowerBoundString)")
+            }
+            let upperBoundString = try json.get(String.self, forKey: "upperBound")
+            guard let upperBound = Version(string: upperBoundString) else {
+                throw InternalError("invalid version \(upperBoundString)")
+            }
+            self = .range(lowerBound ..< upperBound)
+
+        case "exact":
+            let versionString = try json.get(String.self, forKey: "identifier")
+            guard let version = Version(string: versionString) else {
+                throw InternalError("invalid version \(versionString)")
+            }
+            self = .exact(version)
+
+        default:
+            throw InternalError("invalid dependency requirement \(type)")
         }
     }
 }
 
 extension PackageDependency {
+    private static let filePrefix = "file://"
+
     fileprivate init(
         v4 json: JSON,
         toolsVersion: ToolsVersion,
@@ -331,93 +370,142 @@ extension PackageDependency {
         identityResolver: IdentityResolver,
         fileSystem: TSCBasic.FileSystem
     ) throws {
-        let filePrefix = "file://"
-
-        func fixLocation(_ dependencyLocation: String) throws -> String {
-            // If base URL is remote (http/ssh), we can't do any "fixing".
-            if URL.scheme(packageLocation) != nil {
-                return dependencyLocation
+        if let kindJSON = try? json.getJSON("kind") {
+            // new format introduced 7/2021
+            if let fileSystemJSON = try? kindJSON.getJSON("fileSystem") {
+                let name: String? = fileSystemJSON.get("name")
+                let path: String = try fileSystemJSON.get("path")
+                self = try Self.makeFileSystemDependency(
+                    packageLocation: packageLocation,
+                    name: name,
+                    at: path,
+                    identityResolver: identityResolver,
+                    fileSystem: fileSystem)
+            } else if let sourceControlJSON = try? kindJSON.getJSON("sourceControl") {
+                let name: String? = sourceControlJSON.get("name")
+                let location: String = try sourceControlJSON.get("location")
+                let requirementJSON: JSON = try sourceControlJSON.get("requirement")
+                let requirement = try SourceControl.Requirement(v4: requirementJSON)
+                self = try Self.makeSourceControlDependency(
+                    packageLocation: packageLocation,
+                    name: name,
+                    at: location,
+                    requirement: requirement,
+                    identityResolver: identityResolver,
+                    fileSystem: fileSystem)
+            } else if let registryJSON = try? kindJSON.getJSON("registry") {
+                let identity: String = try registryJSON.get("identity")
+                let requirementJSON: JSON = try registryJSON.get("requirement")
+                let requirement = try Registry.Requirement(v4: requirementJSON)
+                self = .registry(identity: .plain(identity), requirement: requirement, productFilter: .everything)
+            } else {
+                throw InternalError("Unknown dependency type \(kindJSON)")
             }
+        } else {
+            // old format, deprecated 7/2021 but may be stored in caches, etc
+            let name: String? = json.get("name")
+            let url: String = try json.get("url")
 
-            if dependencyLocation.hasPrefix("~/") {
-                // If the dependency URL starts with '~/', try to expand it.
-                return fileSystem.homeDirectory.appending(RelativePath(String(dependencyLocation.dropFirst(2)))).pathString
-            } else if dependencyLocation.hasPrefix(filePrefix) {
-                // FIXME: SwiftPM can't handle file locations with file:// scheme so we need to
-                // strip that. We need to design a Location data structure for SwiftPM.
-                let location = String(dependencyLocation.dropFirst(filePrefix.count))
-                if location.first != "/" {
-                    throw ManifestParseError.invalidManifestFormat("file:// URLs cannot be relative, did you mean to use `.package(path:)`?", diagnosticFile: nil)
-                }
-                return AbsolutePath(location).pathString
-            } else if URL.scheme(dependencyLocation) == nil {
-                // If the dependency URL is not remote, try to "fix" it.
-                // If the URL has no scheme, we treat it as a path (either absolute or relative to the base URL).
-                return AbsolutePath(dependencyLocation, relativeTo: AbsolutePath(packageLocation)).pathString
+            // backwards compatibility 2/2021
+            let requirementJSON: JSON = try json.get("requirement")
+            let requirementType: String = try requirementJSON.get(String.self, forKey: "type")
+            switch requirementType {
+            case "localPackage":
+                self = try Self.makeFileSystemDependency(
+                    packageLocation: packageLocation,
+                    name: name,
+                    at: url,
+                    identityResolver: identityResolver,
+                    fileSystem: fileSystem)
+
+            default:
+                let requirement = try SourceControl.Requirement(v4: requirementJSON)
+                self = try Self.makeSourceControlDependency(
+                    packageLocation: packageLocation,
+                    name: name,
+                    at: url,
+                    requirement: requirement,
+                    identityResolver: identityResolver,
+                    fileSystem: fileSystem)
             }
+        }
+    }
 
+    private static func makeFileSystemDependency(
+        packageLocation: String,
+        name: String?,
+        at location: String,
+        identityResolver: IdentityResolver,
+        fileSystem: TSCBasic.FileSystem
+    ) throws -> PackageDependency {
+        let location = try Self.fixLocation(fileSystem: fileSystem, packageLocation: packageLocation, dependencyLocation: location)
+        let path: AbsolutePath
+        do {
+            path = try AbsolutePath(validating: location)
+        } catch PathValidationError.invalidAbsolutePath(let path) {
+            throw ManifestParseError.invalidManifestFormat("'\(path)' is not a valid path for path-based dependencies; use relative or absolute path instead.", diagnosticFile: nil)
+        }
+        let identity = identityResolver.resolveIdentity(for: path)
+        return .fileSystem(identity: identity,
+                           name: name,
+                           path: path,
+                           productFilter: .everything)
+    }
+
+    private static func makeSourceControlDependency(
+        packageLocation: String,
+        name: String?,
+        at location: String,
+        requirement: SourceControl.Requirement,
+        identityResolver: IdentityResolver,
+        fileSystem: TSCBasic.FileSystem
+    ) throws -> PackageDependency {
+        var location = try Self.fixLocation(fileSystem: fileSystem, packageLocation: packageLocation, dependencyLocation: location)
+        // a remote package that specifies a location and no identity is deemed to be from source control (git)
+        // a package in a git location, may be a remote URL or on disk
+        // if local, validate location is in fact a git repo
+        if let localPath = try? AbsolutePath(validating: location), fileSystem.exists(localPath) {
+            let gitRepoProvider = GitRepositoryProvider()
+            guard gitRepoProvider.isValidDirectory(location) else {
+                throw StringError("Cannot clone from local directory \(localPath)\nPlease git init or use \"path:\" for \(location)")
+            }
+        }
+
+        // location mapping (aka mirrors)
+        location = identityResolver.resolveLocation(from: location)
+        // in the future this will check with the registries for the identity of the URL
+        let identity = identityResolver.resolveIdentity(for: location)
+        return .sourceControl(identity: identity,
+                              name: name,
+                              location: location,
+                              requirement: requirement,
+                              productFilter: .everything)
+    }
+
+    private static func fixLocation(fileSystem: TSCBasic.FileSystem, packageLocation: String, dependencyLocation: String) throws -> String {
+        // If base URL is remote (http/ssh), we can't do any "fixing".
+        if URL.scheme(packageLocation) != nil {
             return dependencyLocation
         }
 
-        let name: String? = json.get("name")
-        // location/url is optional since its only required by non-registry dependencies
-        let location: String? = try (json.get("location") ?? json.get("url")).flatMap{ try fixLocation($0) }
-        // identity is optional since its only required by registry dependencies
-        let identity: String? = json.get("identity")
-
-        // backwards compatibility 2/2021
-        let requirementJSON: JSON = try json.get("requirement")
-        let requirementType: String = try requirementJSON.get(String.self, forKey: "type")
-        switch (requirementType, location, identity) {
-        case ("localPackage", .some(let localPath), _):
-            let path: AbsolutePath
-            do {
-                path = try AbsolutePath(validating: localPath)
-            } catch PathValidationError.invalidAbsolutePath(let path) {
-                throw ManifestParseError.invalidManifestFormat("'\(path)' is not a valid path for path-based dependencies; use relative or absolute path instead.", diagnosticFile: nil)
+        if dependencyLocation.hasPrefix("~/") {
+            // If the dependency URL starts with '~/', try to expand it.
+            return fileSystem.homeDirectory.appending(RelativePath(String(dependencyLocation.dropFirst(2)))).pathString
+        } else if dependencyLocation.hasPrefix(filePrefix) {
+            // FIXME: SwiftPM can't handle file locations with file:// scheme so we need to
+            // strip that. We need to design a Location data structure for SwiftPM.
+            let location = String(dependencyLocation.dropFirst(filePrefix.count))
+            if location.first != "/" {
+                throw ManifestParseError.invalidManifestFormat("file:// URLs cannot be relative, did you mean to use `.package(path:)`?", diagnosticFile: nil)
             }
-            let identity = identityResolver.resolveIdentity(for: path)
-            self = .fileSystem(identity: identity,
-                               name: name,
-                               path: path,
-                               productFilter: .everything)
-        case ("localPackage", .none, _):
-            // a package on disk must have a path specified
-            throw StringError("Local dependency must specify a location")
-
-        case (_, .some(var location), .none):
-            // a remote package that specifies a location and no identity is deemed to be from source control (git)
-            // a package in a git location, may be a remote URL or on disk
-            // if local, validate location is in fact a git repo
-            if let localPath = try? AbsolutePath(validating: location), fileSystem.exists(localPath) {
-                let gitRepoProvider = GitRepositoryProvider()
-                guard gitRepoProvider.isValidDirectory(location) else {
-                    throw StringError("Cannot clone from local directory \(localPath)\nPlease git init or use \"path:\" for \(location)")
-                }
-            }
-
-            // location mapping (aka mirrors)
-            location = identityResolver.resolveLocation(from: location)
-
-            // in the future this will check with the registries for the identity of the URL
-            let identity = identityResolver.resolveIdentity(for: location)
-            let requirement = try Requirement(v4: requirementJSON)
-            self = .sourceControl(identity: identity,
-                                  name: name,
-                                  location: location,
-                                  requirement: requirement,
-                                  productFilter: .everything)
-        case (_, .none, .some(let identity)):
-            // a remote package with identity and no location specified is deemed to be from a registry
-            let requirement = try Requirement(v4: requirementJSON)
-            self = .registry(identity: .plain(identity),
-                             requirement: requirement,
-                             productFilter: .everything)
-        case (_, .some(let location), .some(let identity)):
-            throw StringError("Invalid dependency definition, includes both identity \(identity) and location \(location)")
-        case (_, .none, .none):
-            throw StringError("Invalid dependency definition, includes neither identity nor location")
+            return AbsolutePath(location).pathString
+        } else if URL.scheme(dependencyLocation) == nil {
+            // If the dependency URL is not remote, try to "fix" it.
+            // If the URL has no scheme, we treat it as a path (either absolute or relative to the base URL).
+            return AbsolutePath(dependencyLocation, relativeTo: AbsolutePath(packageLocation)).pathString
         }
+
+        return dependencyLocation
     }
 }
 

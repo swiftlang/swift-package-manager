@@ -99,25 +99,19 @@ fileprivate struct DescribedPackage: Encodable {
     }
     
     /// Represents a package dependency for the sole purpose of generating a description.
-    struct DescribedPackageDependency: Encodable {
-        let identity: PackageIdentity
-        let name: String?
-        let url: String?
-        let requirement: PackageDependency.Requirement?
+    enum DescribedPackageDependency: Encodable {
+        case fileSystem(name: String?, path: AbsolutePath)
+        case sourceControl(name: String?, location: String, requirement: PackageDependency.SourceControl.Requirement)
+        case registry(identity: PackageIdentity, requirement: PackageDependency.Registry.Requirement)
 
         init(from dependency: PackageDependency) {
-            self.identity = dependency.identity
-            self.name = dependency.explicitNameForTargetDependencyResolutionOnly
             switch dependency {
             case .fileSystem(let settings):
-                self.url = settings.path.pathString
-                self.requirement = nil
+                self = .fileSystem(name: dependency.explicitNameForTargetDependencyResolutionOnly, path: settings.path)
             case .sourceControl(let settings):
-                self.url = settings.location
-                self.requirement = settings.requirement
+                self = .sourceControl(name: dependency.explicitNameForTargetDependencyResolutionOnly, location: settings.location, requirement: settings.requirement)
             case .registry(let settings):
-                self.url = nil
-                self.requirement = settings.requirement
+                self = .registry(identity: settings.identity, requirement: settings.requirement)
             }
         }
     }
