@@ -96,21 +96,26 @@ extension Package {
         convenience init(name: String?, url: String, requirement: Requirement) {
             switch requirement {
             case .localPackageItem:
-                self.init(kind: .fileSystem(name: name, path: url))
+                self.init(name: name, path: url)
             case .branchItem(let branch):
-                self.init(kind: .sourceControl(name: name, location: url, requirement: .branch(branch)))
+                self.init(name: name, location: url, requirement: .branch(branch))
             case .exactItem(let version):
-                self.init(kind: .sourceControl(name: name, location: url, requirement: .exact(version)))
+                self.init(name: name, location: url, requirement: .exact(version))
             case .revisionItem(let revision):
-                self.init(kind: .sourceControl(name: name, location: url, requirement: .revision(revision)))
+                self.init(name: name, location: url, requirement: .revision(revision))
             case .rangeItem(let range):
-                self.init(kind: .sourceControl(name: name, location: url, requirement: .range(range)))
+                self.init(name: name, location: url, requirement: .range(range))
             }
         }
 
         @available(_PackageDescription, introduced: 999)
         init(kind: Kind) {
             self.kind = kind
+        }
+
+        @available(_PackageDescription, introduced: 999)
+        convenience init(name: String?, path: String) {
+            self.init(kind: .fileSystem(name: name, path: path))
         }
 
         @available(_PackageDescription, introduced: 999)
@@ -139,7 +144,7 @@ extension Package.Dependency {
     public static func package(
         path: String
     ) -> Package.Dependency {
-        return .init(kind: .fileSystem(name: nil, path: path))
+        return .package(name: nil, path: path)
     }
 
     /// Adds a package dependency to a local package on the filesystem.
@@ -157,7 +162,7 @@ extension Package.Dependency {
         name: String? = nil,
         path: String
     ) -> Package.Dependency {
-        return .init(kind: .fileSystem(name: name, path: path))
+        return .init(name: name, path: path)
     }
 }
 
@@ -233,7 +238,7 @@ extension Package.Dependency {
         url: String,
         branch: String
     ) -> Package.Dependency {
-        return .package(name: name, url: url, Package.Dependency.SourceControlRequirement.branch(branch))
+        return .package(name: name, url: url, requirement: .branch(branch))
     }
   
     /// Adds a remote package dependency given a revision requirement.
@@ -250,7 +255,7 @@ extension Package.Dependency {
         url: String,
         revision: String
     ) -> Package.Dependency {
-        return .package(name: name, url: url, Package.Dependency.SourceControlRequirement.revision(revision))
+        return .package(name: name, url: url, requirement: .revision(revision))
     }
 
     /// Adds a package dependency starting with a specific minimum version, up to
@@ -291,7 +296,7 @@ extension Package.Dependency {
         url: String,
         _ range: Range<Version>
     ) -> Package.Dependency {
-        return .package(name: name, url: url, .range(range))
+        return .package(name: name, url: url, requirement: .range(range))
     }
 
     /// Adds a package dependency starting with a specific minimum version, going
@@ -388,7 +393,7 @@ extension Package.Dependency {
         url: String,
         exact version: Version
     ) -> Package.Dependency {
-        return .init(kind: .sourceControl(name: name, location: url, requirement: .exact(version)))
+        return .init(name: name, location: url, requirement: .exact(version))
     }
 
     /// Adds a remote package dependency given a version requirement.
@@ -427,9 +432,9 @@ extension Package.Dependency {
     private static func package(
         name: String? = nil,
         url: String,
-        _ requirement: Package.Dependency.SourceControlRequirement
+        requirement: Package.Dependency.SourceControlRequirement
     ) -> Package.Dependency {
-        return .init(kind: .sourceControl(name: name, location: url, requirement: requirement))
+        return .init(name: name, location: url, requirement: requirement)
     }
 }
 
@@ -483,7 +488,7 @@ extension Package.Dependency {
         identity: String,
         exact version: Version
     ) -> Package.Dependency {
-        return .package(identity: identity, .exact(version))
+        return .package(identity: identity, requirement: .exact(version))
     }
 
     /// Adds a package dependency starting with a specific minimum version, up to
@@ -502,7 +507,7 @@ extension Package.Dependency {
         identity: String,
         _ range: Range<Version>
     ) -> Package.Dependency {
-        return .package(identity: identity, .range(range))
+        return .package(identity: identity, requirement: .range(range))
     }
 
     /// Adds a package dependency starting with a specific minimum version, going
@@ -534,7 +539,7 @@ extension Package.Dependency {
     @available(_PackageDescription, introduced: 999)
     private static func package(
         identity: String,
-        _ requirement: Package.Dependency.RegistryRequirement
+        requirement: Package.Dependency.RegistryRequirement
     ) -> Package.Dependency {
         return .init(identity: identity, requirement: requirement)
     }
