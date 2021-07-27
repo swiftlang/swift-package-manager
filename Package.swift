@@ -102,7 +102,7 @@ let package = Package(
         ),
         .executable(
             name: "package-parser",
-            targets: ["ScriptParse"]
+            targets: ["package-parser"]
         ),
     ],
     targets: [
@@ -193,7 +193,7 @@ let package = Package(
         .target(
             /** Parse `@package` marks */
             name: "ScriptParse",
-            dependencies: ["SwiftSyntax", "SwiftToolsSupport-auto"]
+            dependencies: ["SwiftSyntax", "SwiftToolsSupport-auto", "ArgumentParser"]
         ),
 
         .target(
@@ -223,7 +223,7 @@ let package = Package(
         .target(
             /** High-level commands */
             name: "Commands",
-            dependencies: ["SwiftToolsSupport-auto", "Basics", "Build", "PackageGraph", "SourceControl", "Xcodeproj", "Workspace", "XCBuildSupport", "ArgumentParser", "PackageCollections"]),
+            dependencies: ["SwiftToolsSupport-auto", "Basics", "Build", "PackageGraph", "SourceControl", "Xcodeproj", "Workspace", "XCBuildSupport", "ArgumentParser", "PackageCollections", "ScriptParse"]),
         .target(
             /** The main executable provided by SwiftPM */
             name: "swift-package",
@@ -240,6 +240,10 @@ let package = Package(
             /** Runs an executable product */
             name: "swift-run",
             dependencies: ["Commands"]),
+        .target(
+            /** Manages and runs a script */
+            name: "package-parser",
+            dependencies: ["ScriptParse"]),
         .target(
             /** Interacts with package collections */
             name: "swift-package-collection",

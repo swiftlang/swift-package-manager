@@ -16,17 +16,15 @@ import SwiftSyntax
 
 struct PackageModel: Codable {
     let raw: String
-    let path: String?
+    let path: AbsolutePath?
     let url: URL?
+    let name: String?
 
-    init(_ raw: String, path: String? = nil, url: String? = nil) {
+    init(_ raw: String, path: AbsolutePath? = nil, url: URL? = nil, name: String? = nil) {
         self.raw = raw
         self.path = path
-        if let url = url {
-            self.url = URL(string: url)
-        } else {
-            self.url = nil
-        }
+        self.url = url
+        self.name = name
     }
 }
 
