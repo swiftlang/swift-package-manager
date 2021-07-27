@@ -156,6 +156,10 @@ let package = Package(
             /** Package model conventions and loading support */
             name: "PackageLoading",
             dependencies: ["SwiftToolsSupport-auto", "Basics", "PackageModel", "SourceControl"]),
+        .target(
+            name: "ScriptingCore",
+            /** Package models for scripting support */
+            dependencies: ["SwiftToolsSupport-auto", "Basics"]),
 
         // MARK: Package Dependency Resolution
 
@@ -223,7 +227,7 @@ let package = Package(
         .target(
             /** High-level commands */
             name: "Commands",
-            dependencies: ["SwiftToolsSupport-auto", "Basics", "Build", "PackageGraph", "SourceControl", "Xcodeproj", "Workspace", "XCBuildSupport", "ArgumentParser", "PackageCollections", "ScriptParse"]),
+            dependencies: ["SwiftToolsSupport-auto", "Basics", "Build", "PackageGraph", "SourceControl", "Xcodeproj", "Workspace", "XCBuildSupport", "ArgumentParser", "PackageCollections", "ScriptParse", "ScriptingCore"]),
         .target(
             /** The main executable provided by SwiftPM */
             name: "swift-package",
@@ -239,6 +243,10 @@ let package = Package(
         .target(
             /** Runs an executable product */
             name: "swift-run",
+            dependencies: ["Commands"]),
+        .target(
+            /** Manages and runs a script */
+            name: "swift-script",
             dependencies: ["Commands"]),
         .target(
             /** Manages and runs a script */

@@ -336,6 +336,9 @@ public class SwiftTool {
 
     /// The stream to print standard output on.
     fileprivate(set) var stdoutStream: OutputByteStream = TSCBasic.stdoutStream
+    
+    /// Whether not to print the stream if there's no error.
+    var quiet: Bool = false
 
     /// Holds the currently active workspace.
     ///
@@ -574,8 +577,13 @@ public class SwiftTool {
 
     /// Start redirecting the standard output stream to the standard error stream.
     func redirectStdoutToStderr() {
-        self.stdoutStream = TSCBasic.stderrStream
-        DiagnosticsEngineHandler.default.stdoutStream = TSCBasic.stderrStream
+        redirectStdoutTo(TSCBasic.stderrStream)
+    }
+
+    /// Start redirecting the standard output stream to another stream.
+    func redirectStdoutTo(_ stream: ThreadSafeOutputByteStream) {
+        self.stdoutStream = stream
+        DiagnosticsEngineHandler.default.stdoutStream = stream
     }
 
     /// Resolve the dependencies.
