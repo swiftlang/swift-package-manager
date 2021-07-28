@@ -252,14 +252,17 @@ Package scopes are case-insensitive
 #### 3.6.2 Package name
 
 A package's *name* uniquely identifies a package in a scope.
+A package name consists of alphanumeric characters, underscores, and hyphens.
+Hyphens and underscores may not occur at the beginning or end,
+nor consecutively within a name.
 The maximum length of a package name is 100 characters.
-A valid package name matches the following regular expression pattern:
+A valid package scope matches the following regular expression pattern:
 
 ```regexp
-\A[a-zA-Z\d_.-]{1,100}\z
+\A[a-zA-Z0-9](?:[a-zA-Z0-9]|[-_](?=[a-zA-Z0-9])){0,99}\z
 ```
 
-Package scopes are case-insensitive
+Package names are case-insensitive
 (for example, `LinkedList` ≍ `LINKEDLIST`).
 
 ## 4. Endpoints
