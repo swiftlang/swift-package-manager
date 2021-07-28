@@ -256,7 +256,7 @@ A package name consists of alphanumeric characters, underscores, and hyphens.
 Hyphens and underscores may not occur at the beginning or end,
 nor consecutively within a name.
 The maximum length of a package name is 100 characters.
-A valid package scope matches the following regular expression pattern:
+A valid package name matches the following regular expression pattern:
 
 ```regexp
 \A[a-zA-Z0-9](?:[a-zA-Z0-9]|[-_](?=[a-zA-Z0-9])){0,99}\z
