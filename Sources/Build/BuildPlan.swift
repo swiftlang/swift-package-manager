@@ -330,7 +330,6 @@ public final class ClangTargetBuildDescription {
             args += ["-fobjc-arc"]
         }
         args += buildParameters.targetTripleArgs(for: target)
-        args += buildParameters.toolchain.extraCCFlags
         args += ["-g"]
         if buildParameters.triple.isWindows() {
             args += ["-gcodeview"]
@@ -373,6 +372,7 @@ public final class ClangTargetBuildDescription {
             args += ["-include", resourceAccessorHeaderFile.pathString]
         }
 
+        args += buildParameters.toolchain.extraCCFlags
         // User arguments (from -Xcc and -Xcxx below) should follow generated arguments to allow user overrides
         args += buildParameters.flags.cCompilerFlags
 
@@ -724,7 +724,6 @@ public final class SwiftTargetBuildDescription {
         }
 
         args += buildParameters.indexStoreArguments(for: target)
-        args += buildParameters.toolchain.extraSwiftCFlags
         args += optimizationArguments
         args += testingArguments
         args += ["-g"]
@@ -791,6 +790,7 @@ public final class SwiftTargetBuildDescription {
             args += ["-emit-module-interface-path", parseableModuleInterfaceOutputPath.pathString]
         }
 
+        args += buildParameters.toolchain.extraSwiftCFlags
         // User arguments (from -Xswiftc) should follow generated arguments to allow user overrides
         args += buildParameters.swiftCompilerFlags
         return args
@@ -907,7 +907,6 @@ public final class SwiftTargetBuildDescription {
         result += ["-swift-version", swiftVersion.rawValue]
 
         result += buildParameters.indexStoreArguments(for: target)
-        result += buildParameters.toolchain.extraSwiftCFlags
         result += optimizationArguments
         result += testingArguments
         result += ["-g"]
@@ -919,6 +918,7 @@ public final class SwiftTargetBuildDescription {
         result += buildParameters.sanitizers.compileSwiftFlags()
         result += ["-parseable-output"]
         result += self.buildSettingsFlags()
+        result += buildParameters.toolchain.extraSwiftCFlags
         result += buildParameters.swiftCompilerFlags
         return result
     }
@@ -1165,7 +1165,6 @@ public final class ProductBuildDescription {
     /// The arguments to link and create this product.
     public func linkArguments() throws -> [String] {
         var args = [buildParameters.toolchain.swiftCompiler.pathString]
-        args += buildParameters.toolchain.extraSwiftCFlags
         args += buildParameters.sanitizers.linkSwiftFlags()
         args += additionalFlags
 
@@ -1286,6 +1285,7 @@ public final class ProductBuildDescription {
         // building for Darwin in debug configuration.
         args += swiftASTs.flatMap{ ["-Xlinker", "-add_ast_path", "-Xlinker", $0.pathString] }
 
+        args += buildParameters.toolchain.extraSwiftCFlags
         // User arguments (from -Xlinker and -Xswiftc) should follow generated arguments to allow user overrides
         args += buildParameters.linkerFlags
         args += stripInvalidArguments(buildParameters.swiftCompilerFlags)
