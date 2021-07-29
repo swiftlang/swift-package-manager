@@ -1859,7 +1859,11 @@ extension Workspace {
         )
 
         if precomputationResult.isRequired {
-            diagnostics.emit(error: "cannot update Package.resolved file because automatic resolution is disabled")
+            if !fileSystem.exists(resolvedFile) {
+                diagnostics.emit(error: "a resolved file is required when automatic dependency resolution is disabled and should be placed at \(resolvedFile.pathString)")
+            } else {
+                diagnostics.emit(error: "an out-of-date resolved file was detected at \(resolvedFile.pathString), which is not allowed when automatic dependency resolution is disabled; please make sure to update the file to reflect the changes in dependencies")
+            }
         }
 
         try self.updateBinaryArtifacts(manifests: currentManifests, addedOrUpdatedPackages: [], diagnostics: diagnostics)
