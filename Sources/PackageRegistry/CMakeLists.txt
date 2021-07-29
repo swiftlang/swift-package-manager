@@ -8,7 +8,8 @@
 
 add_library(PackageRegistry
   Registry.swift
-  RegistryConfiguration.swift)
+  RegistryConfiguration.swift
+  RegistryManager.swift)
 target_link_libraries(PackageRegistry PUBLIC
   TSCBasic
   PackageLoading
