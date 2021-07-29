@@ -251,3 +251,5 @@ public func loadPackageGraph(
         observabilityScope: observabilityScope
     )
 }
+
+public let emptyZipFile = ByteString([0x80, 0x75, 0x05, 0x06] + [UInt8](repeating: 0x00, count: 18))
