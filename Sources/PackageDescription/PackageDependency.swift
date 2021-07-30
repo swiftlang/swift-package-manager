@@ -23,7 +23,7 @@ extension Package {
     /// If you add the Swift package as a package dependency to an app for an Apple platform,
     /// you can find the `Package.resolved` file inside your `.xcodeproj` or `.xcworkspace`.
     public class Dependency: Encodable {
-
+        @available(_PackageDescription, introduced: 999)
         public enum Kind: Encodable {
             case fileSystem(name: String?, path: String)
             case sourceControl(name: String?, location: String, requirement: SourceControlRequirement)
@@ -33,8 +33,8 @@ extension Package {
         @available(_PackageDescription, introduced: 999)
         public let kind: Kind
 
-        /// The name of the package, or `nil` to deduce the name using the package's Git URL.
-        @available(*, deprecated, message: "use kind instead")
+        /// The name of the dependency, or `nil` to deduce the name using the package's Git URL.
+        @available(_PackageDescription, deprecated: 999, message: "use kind instead")
         public var name: String? {
             get {
                 switch self.kind {
@@ -48,7 +48,8 @@ extension Package {
             }
         }
 
-        @available(*, deprecated, message: "use kind instead")
+        /// The location of the dependency.
+        @available(_PackageDescription, deprecated: 999, message: "use kind instead")
         public var url: String? {
             get {
                 switch self.kind {
@@ -62,8 +63,8 @@ extension Package {
             }
         }
 
-        /// The dependency requirement of the package dependency.
-        @available(*, deprecated, message: "use kind instead")
+        /// The requirement of the dependency.
+        @available(_PackageDescription, deprecated: 999, message: "use kind instead")
         public var requirement: Requirement {
             get {
                 switch self.kind {
@@ -108,23 +109,18 @@ extension Package {
             }
         }
 
-        @available(_PackageDescription, introduced: 999)
         init(kind: Kind) {
             self.kind = kind
         }
 
-        @available(_PackageDescription, introduced: 999)
         convenience init(name: String?, path: String) {
             self.init(kind: .fileSystem(name: name, path: path))
         }
 
-        @available(_PackageDescription, introduced: 999)
         convenience init(name: String?, location: String, requirement: SourceControlRequirement) {
             self.init(kind: .sourceControl(name: name, location: location, requirement: requirement))
         }
 
-        /// Initializes and returns a newly allocated requirement with the specified identity and requirements.
-        @available(_PackageDescription, introduced: 999)
         convenience init(identity: String, requirement: RegistryRequirement) {
             self.init(kind: .registry(identity: identity, requirement: requirement))
         }
