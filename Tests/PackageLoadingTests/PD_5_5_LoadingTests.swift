@@ -22,8 +22,7 @@ class PackageDescription5_5LoadingTests: PackageDescriptionLoadingTests {
     }
 
     func testPackageDependencies() throws {
-        let stream = BufferedOutputByteStream()
-        stream <<< """
+        let manifest = """
             import PackageDescription
             let package = Package(
                name: "Foo",
@@ -33,7 +32,7 @@ class PackageDescription5_5LoadingTests: PackageDescriptionLoadingTests {
                ]
             )
             """
-        loadManifest(stream.bytes, toolsVersion: .v5_5) { manifest in
+        loadManifest(manifest, toolsVersion: .v5_5) { manifest in
         let deps = Dictionary(uniqueKeysWithValues: manifest.dependencies.map{ ($0.identity.description, $0) })
             XCTAssertEqual(deps["foo5"], .scm(location: "/foo5", requirement: .branch("main")))
             XCTAssertEqual(deps["foo7"], .scm(location: "/foo7", requirement: .revision("58e9de4e7b79e67c72a46e164158e3542e570ab6")))

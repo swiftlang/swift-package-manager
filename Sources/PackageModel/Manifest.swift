@@ -95,7 +95,7 @@ public final class Manifest: ObjectIdentifierProtocol {
 
     /// The system package providers of a system package.
     public let providers: [SystemPackageProviderDescription]?
-
+    
     /// Targets required for building particular product filters.
     private var _requiredTargets = ThreadSafeKeyValueStore<ProductFilter, [TargetDescription]>()
 
@@ -226,8 +226,8 @@ public final class Manifest: ObjectIdentifierProtocol {
         keepUnused: Bool = false
     ) -> [PackageDependency] {
 
-        var registry: (known: [String: ProductFilter], unknown: Set<String>) = ([:], [])
-        let availablePackages = Set(dependencies.lazy.map{ $0.nameForTargetDependencyResolutionOnly })
+        var registry: (known: [PackageIdentity: ProductFilter], unknown: Set<String>) = ([:], [])
+        let availablePackages = Set(dependencies.lazy.map{ $0.identity })
 
         for target in targets {
             for targetDependency in target.dependencies {
@@ -246,7 +246,7 @@ public final class Manifest: ObjectIdentifierProtocol {
         }
 
         return dependencies.compactMap { dependency in
-            if let filter = associations[dependency.nameForTargetDependencyResolutionOnly] {
+            if let filter = associations[dependency.identity] {
                 return dependency.filtered(by: filter)
             } else if keepUnused {
                 // Register that while the dependency was kept, no products are needed.
@@ -288,8 +288,8 @@ public final class Manifest: ObjectIdentifierProtocol {
     ///   - availablePackages: The set of available packages.
     private func register(
         targetDependency: TargetDescription.Dependency,
-        registry: inout (known: [String: ProductFilter], unknown: Set<String>),
-        availablePackages: Set<String>
+        registry: inout (known: [PackageIdentity: ProductFilter], unknown: Set<String>),
+        availablePackages: Set<PackageIdentity>
     ) {
         switch targetDependency {
         case .target:
@@ -298,7 +298,7 @@ public final class Manifest: ObjectIdentifierProtocol {
             if let package = package { // ≥ 5.2
                 if !register(
                     product: product,
-                    inPackage: package,
+                    inPackage: .plain(package),
                     registry: &registry.known,
                     availablePackages: availablePackages) {
                         // This is an invalid manifest condition diagnosed later. (No such package.)
@@ -321,7 +321,7 @@ public final class Manifest: ObjectIdentifierProtocol {
                 // If a by‐name entry is a product, it must be in a package of the same name.
                 if !register(
                     product: product,
-                    inPackage: product,
+                    inPackage: .plain(product),
                     registry: &registry.known,
                     availablePackages: availablePackages) {
                         // If it doesn’t match a package, it should be a target, not a product.
@@ -350,9 +350,9 @@ public final class Manifest: ObjectIdentifierProtocol {
     /// - Returns: `true` if the particular dependency was found and the product was registered; `false` if no matching dependency was found and the product has not yet been handled.
     private func register(
         product: String,
-        inPackage package: String,
-        registry: inout [String: ProductFilter],
-        availablePackages: Set<String>
+        inPackage package: PackageIdentity,
+        registry: inout [PackageIdentity: ProductFilter],
+        availablePackages: Set<PackageIdentity>
     ) -> Bool {
         if let existing = registry[package] {
             registry[package] = existing.union(.specific([product]))

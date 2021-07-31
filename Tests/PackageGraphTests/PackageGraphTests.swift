@@ -721,7 +721,7 @@ class PackageGraphTests: XCTestCase {
                     packageLocation: "/Foo",
                     v: .v5_2,
                     dependencies: [
-                        .scm(name: "Bar", location: "/Bar", requirement: .branch("master")),
+                        .scm(location: "/Bar", requirement: .branch("master")),
                         .scm(location: "/BizPath", requirement: .exact("1.2.3")),
                         .scm(location: "/FizPath", requirement: .upToNextMajor(from: "1.1.2")),
                     ],
@@ -807,7 +807,7 @@ class PackageGraphTests: XCTestCase {
                     packageLocation: "/Foo",
                     v: .v5_2,
                     dependencies: [
-                        .scm(name: "UnBar", location: "/Bar", requirement: .branch("master")),
+                        .scm(deprecatedName: "UnBar", location: "/Bar", requirement: .branch("master")),
                     ],
                     targets: [
                         TargetDescription(name: "Foo", dependencies: [.product(name: "BarProduct", package: "UnBar")]),
@@ -1123,7 +1123,7 @@ class PackageGraphTests: XCTestCase {
                     packageKind: .root,
                     packageLocation: "/Foo",
                     dependencies: [
-                        .scm(name: "Baar", location: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(deprecatedName: "Baar", location: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "Foo", dependencies: ["Baar"]),
@@ -1258,7 +1258,7 @@ class PackageGraphTests: XCTestCase {
                     packageLocation: "/Root",
                     v: .v5_2,
                     dependencies: [
-                        .scm(name: "Immediate", location: "/Immediate", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(location: "/Immediate", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "Root", dependencies: [
@@ -1274,12 +1274,10 @@ class PackageGraphTests: XCTestCase {
                     v: .v5_2,
                     dependencies: [
                         .scm(
-                            name: "Transitive",
                             location: "/Transitive",
                             requirement: .upToNextMajor(from: "1.0.0")
                         ),
                         .scm(
-                            name: "Nonexistent",
                             location: "/Nonexistent",
                             requirement: .upToNextMajor(from: "1.0.0")
                         )
@@ -1306,7 +1304,6 @@ class PackageGraphTests: XCTestCase {
                     v: .v5_2,
                     dependencies: [
                         .scm(
-                            name: "Nonexistent",
                             location: "/Nonexistent",
                             requirement: .upToNextMajor(from: "1.0.0")
                         )
@@ -1608,7 +1605,7 @@ class PackageGraphTests: XCTestCase {
                 packageLocation: "/Foo",
                 v: .v5_2,
                 dependencies: [
-                    .scm(name: "Bar", location: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                    .scm(deprecatedName: "Bar", location: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
                 ],
                 targets: [
                     TargetDescription(name: "Foo", dependencies: ["ProductBar"]),
@@ -1800,7 +1797,7 @@ class PackageGraphTests: XCTestCase {
                 packageLocation: "/Foo",
                 v: .v5_2,
                 dependencies: [
-                    .scm(name: "Bar", location: "/Some-Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                    .scm(deprecatedName: "Bar", location: "/Some-Bar", requirement: .upToNextMajor(from: "1.0.0")),
                 ],
                 targets: [
                     TargetDescription(name: "Foo", dependencies: ["Bar"]),
@@ -1840,7 +1837,7 @@ class PackageGraphTests: XCTestCase {
                 packageLocation: "/Foo",
                 v: .v5_2,
                 dependencies: [
-                    .scm(name: "Bar", location: "/Some-Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                    .scm(deprecatedName: "Bar", location: "/Some-Bar", requirement: .upToNextMajor(from: "1.0.0")),
                 ],
                 targets: [
                     TargetDescription(name: "Foo", dependencies: ["ProductBar"]),
@@ -1903,7 +1900,7 @@ class PackageGraphTests: XCTestCase {
                 packageLocation: "/Foo",
                 v: .v5_2,
                 dependencies: [
-                    .scm(name: "Bar", location: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                    .scm(deprecatedName: "Bar", location: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
                 ],
                 targets: [
                     TargetDescription(name: "Foo", dependencies: ["ProductBar"]),
@@ -1941,7 +1938,7 @@ class PackageGraphTests: XCTestCase {
         do {
             let fixedManifests = [
                 try manifests[0].withDependencies([
-                    .scm(name: "Some-Bar", location: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                    .scm(deprecatedName: "Some-Bar", location: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
                 ]).withTargets([
                     TargetDescription(name: "Foo", dependencies: [.product(name: "ProductBar", package: "Some-Bar")]),
                 ]),

@@ -21,8 +21,8 @@ class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
         .v4
     }
 
-    func testTrivial() {
-        guard Resources.havePD4Runtime else { return }
+    func testTrivial() throws {
+        try XCTSkipIf(!Resources.havePD4Runtime, "test is only supported when PD4 runtime is available")
 
         let stream = BufferedOutputByteStream()
         stream <<< """
@@ -40,8 +40,8 @@ class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
         }
     }
 
-    func testTargetDependencies() {
-        guard Resources.havePD4Runtime else { return }
+    func testTargetDependencies() throws {
+        try XCTSkipIf(!Resources.havePD4Runtime, "test is only supported when PD4 runtime is available")
 
         let stream = BufferedOutputByteStream()
         stream <<< """
@@ -85,7 +85,7 @@ class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
     }
 
     func testCompatibleSwiftVersions() throws {
-        guard Resources.havePD4Runtime else { return }
+        try XCTSkipIf(!Resources.havePD4Runtime, "test is only supported when PD4 runtime is available")
 
         var stream = BufferedOutputByteStream()
         stream <<< """
@@ -123,7 +123,7 @@ class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
     }
 
     func testPackageDependencies() throws {
-        guard Resources.havePD4Runtime else { return }
+        try XCTSkipIf(!Resources.havePD4Runtime, "test is only supported when PD4 runtime is available")
 
         let stream = BufferedOutputByteStream()
         stream <<< """
@@ -151,8 +151,8 @@ class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
         }
     }
 
-    func testProducts() {
-        guard Resources.havePD4Runtime else { return }
+    func testProducts() throws {
+        try XCTSkipIf(!Resources.havePD4Runtime, "test is only supported when PD4 runtime is available")
 
         let stream = BufferedOutputByteStream()
         stream <<< """
@@ -190,8 +190,8 @@ class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
         }
     }
 
-    func testSystemPackage() {
-        guard Resources.havePD4Runtime else { return }
+    func testSystemPackage() throws {
+        try XCTSkipIf(!Resources.havePD4Runtime, "test is only supported when PD4 runtime is available")
 
         let stream = BufferedOutputByteStream()
         stream <<< """
@@ -215,8 +215,8 @@ class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
         }
     }
 
-    func testCTarget() {
-        guard Resources.havePD4Runtime else { return }
+    func testCTarget() throws {
+        try XCTSkipIf(!Resources.havePD4Runtime, "test is only supported when PD4 runtime is available")
 
         let stream = BufferedOutputByteStream()
         stream <<< """
@@ -241,8 +241,8 @@ class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
         }
     }
 
-    func testTargetProperties() {
-        guard Resources.havePD4Runtime else { return }
+    func testTargetProperties() throws {
+        try XCTSkipIf(!Resources.havePD4Runtime, "test is only supported when PD4 runtime is available")
 
         let stream = BufferedOutputByteStream()
         stream <<< """
@@ -277,7 +277,7 @@ class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
     }
 
     func testUnavailableAPIs() throws {
-        guard Resources.havePD4Runtime else { return }
+        try XCTSkipIf(!Resources.havePD4Runtime, "test is only supported when PD4 runtime is available")
 
         let stream = BufferedOutputByteStream()
         stream.write("""
@@ -294,17 +294,17 @@ class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
             """)
         do {
             try loadManifestThrowing(stream.bytes) { manifest in
-                XCTFail("this package should not load succesfully")
+                XCTFail("this package should not load successfully")
             }
-            XCTFail("this package should not load succesfully")
+            XCTFail("this package should not load successfully")
         } catch ManifestParseError.invalidManifestFormat(let error, _) {
-            XCTAssert(error.contains("error: 'package(url:version:)' is unavailable: use package(url:_:) with the .exact(Version) initializer instead\n"), "\(error)")
-            XCTAssert(error.contains("error: 'package(url:range:)' is unavailable: use package(url:_:) without the range label instead\n"), "\(error)")
+            XCTAssert(error.contains("error: 'package(url:version:)' is unavailable: use package(url:exact:) instead\n"), "\(error)")
+            XCTAssert(error.contains("error: 'package(url:range:)' is unavailable: use package(url:_:) instead\n"), "\(error)")
         }
     }
 
-    func testLanguageStandards() {
-        guard Resources.havePD4Runtime else { return }
+    func testLanguageStandards() throws {
+        try XCTSkipIf(!Resources.havePD4Runtime, "test is only supported when PD4 runtime is available")
 
         let stream = BufferedOutputByteStream()
         stream <<< """
@@ -326,7 +326,7 @@ class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
     }
 
     func testManifestWithWarnings() throws {
-        guard Resources.havePD4Runtime else { return }
+        try XCTSkipIf(!Resources.havePD4Runtime, "test is only supported when PD4 runtime is available")
 
         let fs = InMemoryFileSystem()
         let manifestPath = AbsolutePath.root.appending(component: Manifest.filename)
@@ -365,7 +365,7 @@ class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
     }
 
     func testDuplicateTargets() throws {
-        guard Resources.havePD4Runtime else { return }
+        try XCTSkipIf(!Resources.havePD4Runtime, "test is only supported when PD4 runtime is available")
 
         let manifest = """
             import PackageDescription
@@ -388,7 +388,7 @@ class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
     }
 
     func testEmptyProductTargets() throws {
-        guard Resources.havePD4Runtime else { return }
+        try XCTSkipIf(!Resources.havePD4Runtime, "test is only supported when PD4 runtime is available")
 
         let manifest = """
             import PackageDescription
@@ -410,7 +410,7 @@ class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
     }
 
     func testProductTargetNotFound() throws {
-        guard Resources.havePD4Runtime else { return }
+        try XCTSkipIf(!Resources.havePD4Runtime, "test is only supported when PD4 runtime is available")
 
         let manifest = """
             import PackageDescription

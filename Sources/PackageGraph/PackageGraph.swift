@@ -34,7 +34,7 @@ enum PackageGraphError: Swift.Error {
     case productDependencyMissingPackage(
         productName: String,
         targetName: String,
-        packageDependency: PackageDependency
+        packageIdentifier: String
     )
 
     /// A product was found in multiple packages.
@@ -213,12 +213,12 @@ extension PackageGraphError: CustomStringConvertible {
         case .productDependencyMissingPackage(
                 let productName,
                 let targetName,
-                let packageDependency
+                let packageIdentifier
             ):
 
             let solution = """
             reference the package in the target dependency with '.product(name: "\(productName)", package: \
-            "\(packageDependency.nameForTargetDependencyResolutionOnly)")'
+            "\(packageIdentifier)")'
             """
 
             return "dependency '\(productName)' in target '\(targetName)' requires explicit declaration; \(solution)"
@@ -226,55 +226,5 @@ extension PackageGraphError: CustomStringConvertible {
         case .duplicateProduct(let product, let packages):
             return "multiple products named '\(product)' in: '\(packages.joined(separator: "', '"))'"
         }
-    }
-}
-
-fileprivate extension PackageDependency {
-    func swiftRepresentation(overridingName: String? = nil) -> String {
-        var parameters: [String] = []
-        
-        if let name = overridingName ?? self.explicitNameForTargetDependencyResolutionOnly {
-            parameters.append("name: \"\(name)\"")
-        }
-        
-        switch self {
-        case .fileSystem(let settings):
-            parameters.append("path: \"\(settings.path)\"")
-        case .sourceControl(let settings):
-            parameters.append("url: \"\(settings.location)\"")
-            switch settings.requirement {
-            case .branch(let branch):
-                parameters.append(".branch(\"\(branch)\")")
-            case .exact(let version):
-                parameters.append(".exact(\"\(version)\")")
-            case .revision(let revision):
-                parameters.append(".revision(\"\(revision)\")")
-            case .range(let range):
-                if range.upperBound == Version(range.lowerBound.major + 1, 0, 0) {
-                    parameters.append("from: \"\(range.lowerBound)\"")
-                } else if range.upperBound == Version(range.lowerBound.major, range.lowerBound.minor + 1, 0) {
-                    parameters.append(".upToNextMinor(\"\(range.lowerBound)\")")
-                } else {
-                    parameters.append(".upToNextMinor(\"\(range.lowerBound)\"..<\"\(range.upperBound)\")")
-                }
-            }
-        case .registry(let settings):
-            parameters.append("identity: \"\(settings.identity)\"")
-            switch settings.requirement {
-            case .exact(let version):
-                parameters.append(".exact(\"\(version)\")")
-            case .range(let range):
-                if range.upperBound == Version(range.lowerBound.major + 1, 0, 0) {
-                    parameters.append("from: \"\(range.lowerBound)\"")
-                } else if range.upperBound == Version(range.lowerBound.major, range.lowerBound.minor + 1, 0) {
-                    parameters.append(".upToNextMinor(\"\(range.lowerBound)\")")
-                } else {
-                    parameters.append(".upToNextMinor(\"\(range.lowerBound)\"..<\"\(range.upperBound)\")")
-                }
-            }
-        }
-        
-        let swiftRepresentation = ".package(\(parameters.joined(separator: ", ")))"
-        return swiftRepresentation
     }
 }

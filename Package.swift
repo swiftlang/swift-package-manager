@@ -15,7 +15,7 @@ import class Foundation.ProcessInfo
 
 
 /** SwiftPMDataModel is the subset of SwiftPM product that includes just its data model.
-This allowis some clients (such as IDEs) that use SwiftPM's data model but not its build system
+This allows some clients (such as IDEs) that use SwiftPM's data model but not its build system
 to not have to depend on SwiftDriver, SwiftLLBuild, etc. We should probably have better names here,
 though that could break some clients.
 */
@@ -33,7 +33,7 @@ let swiftPMDataModelProduct = (
     ]
 )
 
-/** The `libSwiftPM` set of interfaces to programatically work with Swift
+/** The `libSwiftPM` set of interfaces to programmatically work with Swift
  packages.  `libSwiftPM` includes all of the SwiftPM code except the
  command line tools, while `libSwiftPMDataModel` includes only the data model.
 
