@@ -26,6 +26,7 @@ import Build
 import XCBuildSupport
 import Workspace
 import Basics
+import ScriptingCore
 
 typealias Diagnostic = TSCBasic.Diagnostic
 
@@ -275,6 +276,34 @@ extension SwiftCommand {
     public func run() throws {
         let swiftTool = try SwiftTool(options: swiftOptions)
         try self.run(swiftTool)
+        if swiftTool.diagnostics.hasErrors || swiftTool.executionStatus == .failure {
+            throw ExitCode.failure
+        }
+    }
+
+    public static var _errorLabel: String { "error" }
+}
+
+protocol ScriptCommand: ParsableCommand {
+    var swiftOptions: SwiftToolOptions { get }
+    var options: ScriptToolOptions { get }
+
+    func run(_ swiftTool: SwiftTool, as productName: String, at cacheDirPath: AbsolutePath) throws
+}
+
+extension ScriptCommand {
+    public func run() throws {
+        guard let file = options.file else {
+            throw ScriptError.fileNotFound("")
+        }
+        let (productName, cacheDirPath) = try checkAndPerformCache(for: file, at: SwiftScriptTool.cacheDir)
+
+        var swiftOptions = swiftOptions
+        swiftOptions.packagePath = cacheDirPath
+        swiftOptions.buildPath = nil
+        let swiftTool = try SwiftTool(options: swiftOptions)
+
+        try self.run(swiftTool, as: productName, at: cacheDirPath)
         if swiftTool.diagnostics.hasErrors || swiftTool.executionStatus == .failure {
             throw ExitCode.failure
         }

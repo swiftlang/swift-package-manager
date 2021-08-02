@@ -52,7 +52,7 @@ public func resolveFilePath(_ path: String) -> AbsolutePath? {
     return absolutePath
 }
 
-public func prepareCache(for file: String, at dirPath: AbsolutePath) throws -> (productName: String, cacheDirPath: AbsolutePath) {
+public func checkAndPerformCache(for file: String, at dirPath: AbsolutePath) throws -> (productName: String, cacheDirPath: AbsolutePath) {
     if let scriptPath = resolveFilePath(file) {
         let json = try ScriptParse.manifest(for: scriptPath)
         let decoder = JSONDecoder()
