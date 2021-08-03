@@ -8,14 +8,6 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-#if canImport(Glibc)
-@_implementationOnly import Glibc
-#elseif os(iOS) || os(macOS) || os(tvOS) || os(watchOS)
-@_implementationOnly import Darwin.C
-#elseif os(Windows)
-@_implementationOnly import ucrt
-@_implementationOnly import struct WinSDK.HANDLE
-#endif
 import Foundation
 
 /// The configuration of a Swift package.
@@ -384,126 +376,7 @@ public enum SystemPackageProvider {
     }
 }
 
-// MARK: Package JSON serialization
-
-extension Package: Encodable {
-    private enum CodingKeys: CodingKey {
-        case name
-        case defaultLocalization
-        case platforms
-        case pkgConfig
-        case providers
-        case products
-        case dependencies
-        case targets
-        case swiftLanguageVersions
-        case cLanguageStandard
-        case cxxLanguageStandard
-    }
-
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(name, forKey: .name)
-
-        if let defaultLocalization = _defaultLocalization {
-            try container.encode(defaultLocalization.tag, forKey: .defaultLocalization)
-        }
-        if let platforms = self._platforms {
-            try container.encode(platforms, forKey: .platforms)
-        }
-
-        try container.encode(pkgConfig, forKey: .pkgConfig)
-        try container.encode(providers, forKey: .providers)
-        try container.encode(products, forKey: .products)
-        try container.encode(dependencies, forKey: .dependencies)
-        try container.encode(targets, forKey: .targets)
-        try container.encode(swiftLanguageVersions, forKey: .swiftLanguageVersions)
-        try container.encode(cLanguageStandard, forKey: .cLanguageStandard)
-        try container.encode(cxxLanguageStandard, forKey: .cxxLanguageStandard)
-    }
-}
-
-extension SystemPackageProvider: Encodable {
-    private enum CodingKeys: CodingKey {
-        case name
-        case values
-    }
-
-    private enum Name: String, Encodable {
-        case brew
-        case apt
-        case yum
-    }
-
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        switch self {
-        case .brewItem(let packages):
-            try container.encode(Name.brew, forKey: .name)
-            try container.encode(packages, forKey: .values)
-        case .aptItem(let packages):
-            try container.encode(Name.apt, forKey: .name)
-            try container.encode(packages, forKey: .values)
-        case .yumItem(let packages):
-            try container.encode(Name.yum, forKey: .name)
-            try container.encode(packages, forKey: .values)
-        }
-    }
-}
-
-extension Target.PluginCapability: Encodable {
-    private enum CodingKeys: CodingKey {
-        case type
-    }
-
-    private enum Capability: String, Encodable {
-        case buildTool
-    }
-
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        switch self {
-        case ._buildTool:
-            try container.encode(Capability.buildTool, forKey: .type)
-        }
-    }
-}
-
-extension Target.Dependency: Encodable {
-    private enum CodingKeys: CodingKey {
-        case type
-        case name
-        case package
-        case condition
-    }
-
-    private enum Kind: String, Codable {
-        case target
-        case product
-        case byName = "byname"
-    }
-
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        switch self {
-        case .targetItem(let name, let condition):
-            try container.encode(Kind.target, forKey: .type)
-            try container.encode(name, forKey: .name)
-            try container.encode(condition, forKey: .condition)
-        case .productItem(let name, let package, let condition):
-            try container.encode(Kind.product, forKey: .type)
-            try container.encode(name, forKey: .name)
-            try container.encode(package, forKey: .package)
-            try container.encode(condition, forKey: .condition)
-        case .byNameItem(let name, let condition):
-            try container.encode(Kind.byName, forKey: .type)
-            try container.encode(name, forKey: .name)
-            try container.encode(condition, forKey: .condition)
-        }
-    }
-}
-
-// MARK: Package Dumping
+// MARK: - Package Dumping
 
 func manifestToJSON(_ package: Package) -> String {
     struct Output: Encodable {

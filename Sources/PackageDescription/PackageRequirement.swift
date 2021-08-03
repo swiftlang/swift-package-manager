@@ -122,65 +122,6 @@ extension Package.Dependency.Requirement {
     public static func branch(_ name: String) -> Package.Dependency.Requirement {
         return .branchItem(name)
     }
-
-    /// Returns a requirement for a version range, starting at the given minimum
-    /// version and going up to the next major version. This is the recommended version requirement.
-    ///
-    /// - Parameters:
-    ///     - version: The minimum version for the version range.
-    /*@available(_PackageDescription, deprecated: 999)
-    public static func upToNextMajor(from version: Version) -> Package.Dependency.Requirement {
-        return .rangeItem(.upToNextMajor(from: version))
-    }
-
-    /// Returns a requirement for a version range, starting at the given minimum
-    /// version and going up to the next minor version.
-    ///
-    /// - Parameters:
-    ///     - version: The minimum version for the version range.
-    @available(_PackageDescription, deprecated: 999)
-    public static func upToNextMinor(from version: Version) -> Package.Dependency.Requirement {
-        return .rangeItem(.upToNextMinor(from: version))
-    }*/
-}
-
-@available(_PackageDescription, deprecated: 999)
-extension Package.Dependency.Requirement: Encodable {
-    private enum CodingKeys: CodingKey {
-        case type
-        case lowerBound
-        case upperBound
-        case identifier
-    }
-
-    private enum Kind: String, Codable {
-        case range
-        case exact
-        case branch
-        case revision
-        case localPackage
-    }
-
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        switch self {
-        case .rangeItem(let range):
-            try container.encode(Kind.range, forKey: .type)
-            try container.encode(range.lowerBound, forKey: .lowerBound)
-            try container.encode(range.upperBound, forKey: .upperBound)
-        case .exactItem(let version):
-            try container.encode(Kind.exact, forKey: .type)
-            try container.encode(version, forKey: .identifier)
-        case .branchItem(let identifier):
-            try container.encode(Kind.branch, forKey: .type)
-            try container.encode(identifier, forKey: .identifier)
-        case .revisionItem(let identifier):
-            try container.encode(Kind.revision, forKey: .type)
-            try container.encode(identifier, forKey: .identifier)
-        case .localPackageItem:
-            try container.encode(Kind.localPackage, forKey: .type)
-        }
-    }
 }
 
 // MARK: - SourceControlRequirement
@@ -236,42 +177,6 @@ extension Package.Dependency {
     }
 }
 
-extension Package.Dependency.SourceControlRequirement: Encodable {
-    private enum CodingKeys: CodingKey {
-        case type
-        case lowerBound
-        case upperBound
-        case identifier
-    }
-
-    private enum Kind: String, Codable {
-        case range
-        case exact
-        case branch
-        case revision
-    }
-
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        switch self {
-        case .range(let range):
-            try container.encode(Kind.range, forKey: .type)
-            try container.encode(range.lowerBound, forKey: .lowerBound)
-            try container.encode(range.upperBound, forKey: .upperBound)
-        case .exact(let version):
-            try container.encode(Kind.exact, forKey: .type)
-            try container.encode(version, forKey: .identifier)
-        case .branch(let identifier):
-            try container.encode(Kind.branch, forKey: .type)
-            try container.encode(identifier, forKey: .identifier)
-        case .revision(let identifier):
-            try container.encode(Kind.revision, forKey: .type)
-            try container.encode(identifier, forKey: .identifier)
-        }
-    }
-}
-
-
 // MARK: - RegistryRequirement
 
 extension Package.Dependency {
@@ -320,33 +225,6 @@ extension Package.Dependency {
     public enum RegistryRequirement {
         case exact(Version)
         case range(Range<Version>)
-    }
-}
-
-extension Package.Dependency.RegistryRequirement: Encodable {
-    private enum CodingKeys: CodingKey {
-        case type
-        case lowerBound
-        case upperBound
-        case identifier
-    }
-
-    private enum Kind: String, Codable {
-        case range
-        case exact
-    }
-
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        switch self {
-        case .range(let range):
-            try container.encode(Kind.range, forKey: .type)
-            try container.encode(range.lowerBound, forKey: .lowerBound)
-            try container.encode(range.upperBound, forKey: .upperBound)
-        case .exact(let version):
-            try container.encode(Kind.exact, forKey: .type)
-            try container.encode(version, forKey: .identifier)
-        }
     }
 }
 

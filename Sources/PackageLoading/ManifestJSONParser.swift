@@ -371,20 +371,21 @@ extension PackageDependency {
         fileSystem: TSCBasic.FileSystem
     ) throws {
         if let kindJSON = try? json.getJSON("kind") {
+            let type: String = try kindJSON.get("type")
             // new format introduced 7/2021
-            if let fileSystemJSON = try? kindJSON.getJSON("fileSystem") {
-                let name: String? = fileSystemJSON.get("name")
-                let path: String = try fileSystemJSON.get("path")
+            if type == "fileSystem" {
+                let name: String? = kindJSON.get("name")
+                let path: String = try kindJSON.get("path")
                 self = try Self.makeFileSystemDependency(
                     packageLocation: packageLocation,
                     name: name,
                     at: path,
                     identityResolver: identityResolver,
                     fileSystem: fileSystem)
-            } else if let sourceControlJSON = try? kindJSON.getJSON("sourceControl") {
-                let name: String? = sourceControlJSON.get("name")
-                let location: String = try sourceControlJSON.get("location")
-                let requirementJSON: JSON = try sourceControlJSON.get("requirement")
+            } else if type == "sourceControl" {
+                let name: String? = kindJSON.get("name")
+                let location: String = try kindJSON.get("location")
+                let requirementJSON: JSON = try kindJSON.get("requirement")
                 let requirement = try SourceControl.Requirement(v4: requirementJSON)
                 self = try Self.makeSourceControlDependency(
                     packageLocation: packageLocation,
@@ -393,9 +394,9 @@ extension PackageDependency {
                     requirement: requirement,
                     identityResolver: identityResolver,
                     fileSystem: fileSystem)
-            } else if let registryJSON = try? kindJSON.getJSON("registry") {
-                let identity: String = try registryJSON.get("identity")
-                let requirementJSON: JSON = try registryJSON.get("requirement")
+            } else if type == "registry" {
+                let identity: String = try kindJSON.get("identity")
+                let requirementJSON: JSON = try kindJSON.get("requirement")
                 let requirement = try Registry.Requirement(v4: requirementJSON)
                 self = .registry(identity: .plain(identity), requirement: requirement, productFilter: .everything)
             } else {

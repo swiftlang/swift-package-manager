@@ -6,7 +6,7 @@
 
  See http://swift.org/LICENSE.txt for license information
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
-*/
+ */
 
 /// The object that defines a package product.
 ///
@@ -155,7 +155,7 @@ public class Product: Encodable {
     /// to use the package's functionality.
     ///
     /// A library's product can either be statically or dynamically linked.
-    /// If possible, don't declare the type of library explicitly to let 
+    /// If possible, don't declare the type of library explicitly to let
     /// the Swift Package Manager choose between static or dynamic linking based
     /// on the preference of the package's consumer.
     ///
@@ -163,7 +163,7 @@ public class Product: Encodable {
     ///     - name: The name of the library product.
     ///     - type: The optional type of the library that's used to determine how to link to the library.
     ///         Leave this parameter unspecified to let the Swift Package Manager choose between static or dynamic linking (recommended).
-    ///         If you don't support both linkage types, use `.static` or `.dynamic` for this parameter. 
+    ///         If you don't support both linkage types, use `.static` or `.dynamic` for this parameter.
     ///     - targets: The targets that are bundled into a library product.
     public static func library(
         name: String,

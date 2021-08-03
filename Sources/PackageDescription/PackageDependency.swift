@@ -6,7 +6,7 @@
 
  See http://swift.org/LICENSE.txt for license information
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
-*/
+ */
 
 // MARK: - file system
 
@@ -24,7 +24,7 @@ extension Package {
     /// you can find the `Package.resolved` file inside your `.xcodeproj` or `.xcworkspace`.
     public class Dependency: Encodable {
         @available(_PackageDescription, introduced: 999)
-        public enum Kind: Encodable {
+        public enum Kind {
             case fileSystem(name: String?, path: String)
             case sourceControl(name: String?, location: String, requirement: SourceControlRequirement)
             case registry(identity: String, requirement: RegistryRequirement)
@@ -236,7 +236,7 @@ extension Package.Dependency {
     ) -> Package.Dependency {
         return .package(name: name, url: url, requirement: .branch(branch))
     }
-  
+
     /// Adds a remote package dependency given a revision requirement.
     ///
     ///    .package(url: "https://example.com/example-package.git", revision: "aa681bd6c61e22df0fd808044a886fc4a7ed3a65"),
@@ -353,7 +353,7 @@ extension Package.Dependency {
     ///
     /// The following example instruct the Swift Package Manager to use version `1.2.3`.
     ///
-    ///    .package(identity: "scope.name", exact: "1.2.3"),
+    ///    .package(url: "https://example.com/example-package.git", exact: "1.2.3"),
     ///
     /// - Parameters:
     ///     - url: The valid Git URL of the package.
@@ -377,7 +377,7 @@ extension Package.Dependency {
     ///
     /// The following example instruct the Swift Package Manager to use version `1.2.3`.
     ///
-    ///    .package(identity: "scope.name", exact: "1.2.3"),
+    ///    .package(url: "https://example.com/example-package.git", exact: "1.2.3"),
     ///
     /// - Parameters:
     ///     - name: The name of the package, or `nil` to deduce it from the URL.
