@@ -62,8 +62,7 @@ class PluginInvocationTests: XCTestCase {
                         ),
                     ]
                 )
-            ],
-            allowPluginTargets: true
+            ]
         )
         
         // Check the basic integrity before running plugins.

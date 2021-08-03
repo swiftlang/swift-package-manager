@@ -39,32 +39,4 @@ class PackageDescription5_4LoadingTests: PackageDescriptionLoadingTests {
             XCTAssertEqual(manifest.targets[0].type, .executable)
         }
     }
-    
-    func testPluginsAreUnavailable() throws {
-        let stream = BufferedOutputByteStream()
-        stream <<< """
-            import PackageDescription
-            let package = Package(
-               name: "Foo",
-               targets: [
-                   .plugin(
-                       name: "Foo",
-                       capability: .buildTool()
-                   ),
-               ]
-            )
-            """
-        do {
-            try loadManifestThrowing(stream.bytes) { _ in }
-            XCTFail("expected manifest loading to fail, but it succeeded")
-        }
-        catch {
-            guard case let ManifestParseError.invalidManifestFormat(message, _) = error else {
-                return XCTFail("expected an invalidManifestFormat error, but got: \(error)")
-            }
-
-            XCTAssertMatch(message, .contains("is unavailable"))
-            XCTAssertMatch(message, .contains("was introduced in PackageDescription 5.5"))
-        }
-    }
 }

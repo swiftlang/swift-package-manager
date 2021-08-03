@@ -226,7 +226,6 @@ public func loadPackageGraph(
     binaryArtifacts: [BinaryArtifact] = [],
     explicitProduct: String? = nil,
     shouldCreateMultipleTestProducts: Bool = false,
-    allowPluginTargets: Bool = false,
     createREPLProduct: Bool = false,
     useXCBuildFileRules: Bool = false
 ) throws -> PackageGraph {
@@ -245,7 +244,6 @@ public func loadPackageGraph(
         diagnostics: diagnostics,
         fileSystem: fs,
         shouldCreateMultipleTestProducts: shouldCreateMultipleTestProducts,
-        allowPluginTargets: allowPluginTargets,
         createREPLProduct: createREPLProduct
     )
 }

@@ -2239,47 +2239,6 @@ class PackageBuilderTests: XCTestCase {
             }
         }
     }
-
-    func testExtensionTargetsAreGuardededByFeatureFlag() throws {
-        let fs = InMemoryFileSystem(emptyFiles:
-            "/Foo/Plugins/MyPlugin/plugin.swift",
-            "/Foo/Sources/MyLibrary/library.swift"
-        )
-
-        let manifest = Manifest.createManifest(
-            name: "Foo",
-            v: .v5_5,
-            targets: [
-                try TargetDescription(
-                    name: "MyPlugin",
-                    dependencies: [
-                        .target(name: "MyLibrary"),
-                    ],
-                    type: .plugin,
-                    pluginCapability: .buildTool
-                ),
-                try TargetDescription(
-                    name: "MyLibrary",
-                    type: .regular
-                ),
-            ]
-        )
-
-        // Check that plugin targets are set up correctly when the feature flag is set.
-        PackageBuilderTester(manifest, path: AbsolutePath("/Foo"), allowPluginTargets: true, in: fs) { package, diagnostics in
-            package.checkModule("MyPlugin") { target in
-                target.check(pluginCapability: .buildTool)
-                target.check(dependencies: ["MyLibrary"])
-            }
-            package.checkModule("MyLibrary")
-        }
-        
-        // Check that the right diagnostics are emitted when the feature flag isn't set.
-        PackageBuilderTester(manifest, path: AbsolutePath("/Foo"), allowPluginTargets: false, in: fs) { package, diagnostics in
-            diagnostics.check(diagnostic: "plugin target 'MyPlugin' cannot be used because the feature isn't enabled (set SWIFTPM_ENABLE_PLUGINS=1 in environment)", behavior: .error)
-        }
-    }
-
 }
 
 extension PackageModel.Product: ObjectIdentifierProtocol {}
@@ -2312,7 +2271,6 @@ final class PackageBuilderTester {
         path: AbsolutePath = .root,
         binaryArtifacts: [BinaryArtifact] = [],
         shouldCreateMultipleTestProducts: Bool = false,
-        allowPluginTargets: Bool = false,
         createREPLProduct: Bool = false,
         in fs: FileSystem,
         file: StaticString = #file,
@@ -2333,7 +2291,6 @@ final class PackageBuilderTester {
                 diagnostics: diagnostics,
                 shouldCreateMultipleTestProducts: shouldCreateMultipleTestProducts,
                 warnAboutImplicitExecutableTargets: true,
-                allowPluginTargets: allowPluginTargets,
                 createREPLProduct: createREPLProduct)
             let loadedPackage = try builder.construct()
             result = .package(loadedPackage)

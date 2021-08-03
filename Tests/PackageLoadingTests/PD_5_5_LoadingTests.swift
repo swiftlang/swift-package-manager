@@ -40,54 +40,6 @@ class PackageDescription5_5LoadingTests: PackageDescriptionLoadingTests {
         }
     }
 
-    func testBuildToolPluginTarget() throws {
-        let stream = BufferedOutputByteStream()
-        stream <<< """
-            import PackageDescription
-            let package = Package(
-               name: "Foo",
-               targets: [
-                   .plugin(
-                       name: "Foo",
-                       capability: .buildTool()
-                    )
-               ]
-            )
-            """
-
-        loadManifest(stream.bytes) { manifest in
-            XCTAssertEqual(manifest.targets[0].type, .plugin)
-            XCTAssertEqual(manifest.targets[0].pluginCapability, .buildTool)
-        }
-    }
-
-    func testPluginPluginTargetCustomization() throws {
-        let stream = BufferedOutputByteStream()
-        stream <<< """
-            import PackageDescription
-            let package = Package(
-               name: "Foo",
-               targets: [
-                   .plugin(
-                       name: "Foo",
-                       capability: .buildTool(),
-                       path: "Sources/Foo",
-                       exclude: ["IAmOut.swift"],
-                       sources: ["CountMeIn.swift"]
-                    )
-               ]
-            )
-            """
-
-        loadManifest(stream.bytes) { manifest in
-            XCTAssertEqual(manifest.targets[0].type, .plugin)
-            XCTAssertEqual(manifest.targets[0].pluginCapability, .buildTool)
-            XCTAssertEqual(manifest.targets[0].path, "Sources/Foo")
-            XCTAssertEqual(manifest.targets[0].exclude, ["IAmOut.swift"])
-            XCTAssertEqual(manifest.targets[0].sources, ["CountMeIn.swift"])
-        }
-    }
-
     func testPlatforms() throws {
         let stream = BufferedOutputByteStream()
         stream <<< """
@@ -111,6 +63,34 @@ class PackageDescription5_5LoadingTests: PackageDescriptionLoadingTests {
                 PlatformDescription(name: "maccatalyst", version: "15.0"),
                 PlatformDescription(name: "driverkit", version: "21.0"),
             ])
+        }
+    }
+    
+    func testPluginsAreUnavailable() throws {
+        let stream = BufferedOutputByteStream()
+        stream <<< """
+            import PackageDescription
+            let package = Package(
+               name: "Foo",
+               targets: [
+                   .plugin(
+                       name: "Foo",
+                       capability: .buildTool()
+                   ),
+               ]
+            )
+            """
+        do {
+            try loadManifestThrowing(stream.bytes) { _ in }
+            XCTFail("expected manifest loading to fail, but it succeeded")
+        }
+        catch {
+            guard case let ManifestParseError.invalidManifestFormat(message, _) = error else {
+                return XCTFail("expected an invalidManifestFormat error, but got: \(error)")
+            }
+
+            XCTAssertMatch(message, .contains("is unavailable"))
+            XCTAssertMatch(message, .contains("was introduced in PackageDescription 5.6"))
         }
     }
 }

@@ -274,7 +274,7 @@ final class PackageToolTests: XCTestCase {
     func testDescribePackageUsingPlugins() throws {
         fixture(name: "Miscellaneous/Plugins/MySourceGenPlugin") { prefix in
             // Generate the JSON description.
-            let result = try SwiftPMProduct.SwiftPackage.executeProcess(["describe", "--type=json"], packagePath: prefix, env: ["SWIFTPM_ENABLE_PLUGINS": "1"])
+            let result = try SwiftPMProduct.SwiftPackage.executeProcess(["describe", "--type=json"], packagePath: prefix)
             XCTAssert(result.exitStatus == .terminated(code: 0), "`swift-package describe` failed: \(String(describing: try? result.utf8stderrOutput()))")
             let json = try JSON(bytes: ByteString(encodingAsUTF8: result.utf8Output()))
 
