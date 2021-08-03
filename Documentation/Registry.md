@@ -17,7 +17,7 @@
     - [4.2.1. Package release metadata standards](#421-package-release-metadata-standards)
   - [4.3. Fetch manifest for a package release](#43-fetch-manifest-for-a-package-release)
     - [4.3.1. swift-version query parameter](#431-swift-version-query-parameter)
-  - [4.4. Fetch source archive](#44-fetch-source-archive)
+  - [4.4. Download source archive](#44-download-source-archive)
     - [4.4.1. Integrity verification](#441-integrity-verification)
     - [4.4.2. Download locations](#442-download-locations)
   - [4.5 Lookup package identifiers registered for a URL](#45-lookup-package-identifiers-registered-for-a-url)
@@ -129,7 +129,7 @@ Retry-After: 60
 A client SHOULD follow the guidance of any
 `Retry-After` header values provided in responses
 to prevent overwhelming a server with retry requests.
-It is RECOMMENDED for clients to introduce randomness in their retry logic
+It is RECOMMENDED for clients to introduce random jitter in their retry logic
 to avoid a [thundering herd effect].
 
 ### 3.5. API versioning
@@ -182,7 +182,7 @@ Content-Version: 1
 ```
 
 If a client sends a request without an `Accept` header,
-a server MAY either return `400 Bad Request` or
+a server MAY either respond with a status code of `400 Bad Request` or
 process the request using an API version that it chooses,
 making sure to set the `Content-Type` and `Content-Version` headers accordingly.
 
@@ -297,8 +297,8 @@ with a link to the OpenAPI specification.
 A client MAY send a `GET` request
 for a URI matching the expression `/{scope}/{name}`
 to retrieve a list of the available releases for a particular package.
-A client SHOULD set the `Accept` header with
-the `application/vnd.swift.registry.v1+json` content type
+A client SHOULD set the `Accept` header with the value
+`application/vnd.swift.registry.v1+json`
 and MAY append the `.json` extension to the requested URI.
 
 ```http
@@ -357,7 +357,7 @@ whose values are objects containing the following fields:
 
 A server MAY specify a URL for a release using the `url` key.
 A client SHOULD locate a release using the value of the `url` key, if one is provided.
-Otherwise, the client SHOULD locate a release 
+Otherwise, the client SHOULD locate a release
 by expanding the URI Template `/{scope}/{name}/{version}` on the originating host.
 
 A server SHOULD communicate the unavailability of a package release
@@ -413,8 +413,8 @@ such as one with a `payment` relation for sponsoring a package maintainer.
 A client MAY send a `GET` request
 for a URI matching the expression `/{scope}/{name}/{version}`
 to retrieve metadata about a release.
-A client SHOULD set the `Accept` header with
-the `application/vnd.swift.registry.v1+json` content type,
+A client SHOULD set the `Accept` header with the value
+`application/vnd.swift.registry.v1+json`,
 and MAY append the `.json` extension to the requested URI.
 
 ```http
@@ -488,7 +488,7 @@ this response using the [Schema.org] [SoftwareSourceCode] vocabulary:
 A client MAY send a `GET` request for a URI matching the expression
 `/{scope}/{name}/{version}/Package.swift`
 to retrieve the package manifest for a release.
-A client SHOULD set the `Accept` header to
+A client SHOULD set the `Accept` header with the value
 `application/vnd.swift.registry.v1+swift`.
 
 ```http
@@ -599,14 +599,14 @@ Location: https://packages.example.com/mona/LinkedList/1.1.1/Package.swift
 
 <a name="endpoint-4"></a>
 
-### 4.4. Fetch source archive
+### 4.4. Download source archive
 
 A client MAY send a `GET` request
 for a URI matching the expression `/{scope}/{name}/{version}`
 to retrieve a release's source archive.
-A client SHOULD set the `Accept` header to
+A client SHOULD set the `Accept` header with the value
 `application/vnd.swift.registry.v1+zip`
-and SHOULD append the `.zip` extension to the requested path.
+and MUST append the `.zip` extension to the requested path.
 
 ```http
 GET /mona/LinkedList/1.1.1.zip HTTP/1.1
@@ -702,7 +702,7 @@ Digest: sha-256=a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812
 A client MAY send a `GET` request
 for a URI matching the expression `/identifiers{?url}`
 to retrieve package identifiers associated with a particular URL.
-A client SHOULD set the `Accept` header to
+A client SHOULD set the `Accept` header with the value
 `application/vnd.swift.registry.v1+json`.
 
 ```http
