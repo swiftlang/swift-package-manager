@@ -51,7 +51,7 @@ extension Package.Dependency {
     /// can't be added as dependencies to packages that use version-based
     /// dependency requirements; you should remove commit-based dependency
     /// requirements before publishing a version of your package.
-    @available(_PackageDescription, deprecated: 999)
+    @available(_PackageDescription, deprecated: 5.6)
     public enum Requirement {
         case exactItem(Version)
         case rangeItem(Range<Version>)
@@ -66,7 +66,7 @@ extension Package.Dependency {
     }
 }
 
-@available(_PackageDescription, deprecated: 999)
+@available(_PackageDescription, deprecated: 5.6)
 extension Package.Dependency.Requirement {
     /// Returns a requirement for the given exact version.
     ///
@@ -81,7 +81,7 @@ extension Package.Dependency.Requirement {
     ///
     /// - Parameters:
     ///      - version: The exact version of the dependency for this requirement.
-    @available(_PackageDescription, deprecated: 999)
+    @available(_PackageDescription, deprecated: 5.6)
     public static func exact(_ version: Version) -> Package.Dependency.Requirement {
         return .exactItem(version)
     }
@@ -99,7 +99,7 @@ extension Package.Dependency.Requirement {
     ///
     /// - Parameters:
     ///     - ref: The Git revision, usually a commit hash.
-    @available(_PackageDescription, deprecated: 999)
+    @available(_PackageDescription, deprecated: 5.6)
     public static func revision(_ ref: String) -> Package.Dependency.Requirement {
         return .revisionItem(ref)
     }
@@ -118,7 +118,7 @@ extension Package.Dependency.Requirement {
     ///
     /// - Parameters:
     ///     - name: The name of the branch.
-    @available(_PackageDescription, deprecated: 999)
+    @available(_PackageDescription, deprecated: 5.6)
     public static func branch(_ name: String) -> Package.Dependency.Requirement {
         return .branchItem(name)
     }

@@ -23,18 +23,18 @@ extension Package {
     /// If you add the Swift package as a package dependency to an app for an Apple platform,
     /// you can find the `Package.resolved` file inside your `.xcodeproj` or `.xcworkspace`.
     public class Dependency: Encodable {
-        @available(_PackageDescription, introduced: 999)
+        @available(_PackageDescription, introduced: 5.6)
         public enum Kind {
             case fileSystem(name: String?, path: String)
             case sourceControl(name: String?, location: String, requirement: SourceControlRequirement)
             case registry(identity: String, requirement: RegistryRequirement)
         }
 
-        @available(_PackageDescription, introduced: 999)
+        @available(_PackageDescription, introduced: 5.6)
         public let kind: Kind
 
         /// The name of the dependency, or `nil` to deduce the name using the package's Git URL.
-        @available(_PackageDescription, deprecated: 999, message: "use kind instead")
+        @available(_PackageDescription, deprecated: 5.6, message: "use kind instead")
         public var name: String? {
             get {
                 switch self.kind {
@@ -49,7 +49,7 @@ extension Package {
         }
 
         /// The location of the dependency.
-        @available(_PackageDescription, deprecated: 999, message: "use kind instead")
+        @available(_PackageDescription, deprecated: 5.6, message: "use kind instead")
         public var url: String? {
             get {
                 switch self.kind {
@@ -64,7 +64,7 @@ extension Package {
         }
 
         /// The requirement of the dependency.
-        @available(_PackageDescription, deprecated: 999, message: "use kind instead")
+        @available(_PackageDescription, deprecated: 5.6, message: "use kind instead")
         public var requirement: Requirement {
             get {
                 switch self.kind {
@@ -93,7 +93,7 @@ extension Package {
         }
 
         /// Initializes and returns a newly allocated requirement with the specified url and requirements.
-        @available(_PackageDescription, deprecated: 999)
+        @available(_PackageDescription, deprecated: 5.6)
         convenience init(name: String?, url: String, requirement: Requirement) {
             switch requirement {
             case .localPackageItem:
@@ -358,7 +358,7 @@ extension Package.Dependency {
     /// - Parameters:
     ///     - url: The valid Git URL of the package.
     ///     - version: The minimum version requirement.
-    @available(_PackageDescription, introduced: 999)
+    @available(_PackageDescription, introduced: 5.6)
     public static func package(
         url: String,
         exact version: Version
@@ -383,7 +383,7 @@ extension Package.Dependency {
     ///     - name: The name of the package, or `nil` to deduce it from the URL.
     ///     - url: The valid Git URL of the package.
     ///     - version: The minimum version requirement.
-    @available(_PackageDescription, introduced: 999)
+    @available(_PackageDescription, introduced: 5.6)
     public static func package(
         name: String? = nil,
         url: String,
@@ -398,7 +398,7 @@ extension Package.Dependency {
     ///     - name: The name of the package, or nil to deduce it from the URL.
     ///     - url: The valid Git URL of the package.
     ///     - requirement: A dependency requirement. See static methods on `Package.Dependency.Requirement` for available options.
-    @available(_PackageDescription, obsoleted: 5.2, deprecated: 999)
+    @available(_PackageDescription, obsoleted: 5.2, deprecated: 5.6)
     public static func package(
         url: String,
         _ requirement: Package.Dependency.Requirement
@@ -413,7 +413,7 @@ extension Package.Dependency {
     ///     - name: The name of the package, or `nil` to deduce it from the URL.
     ///     - url: The valid Git URL of the package.
     ///     - requirement: A dependency requirement. See static methods on `Package.Dependency.Requirement` for available options.
-    @available(_PackageDescription, introduced: 5.2, deprecated: 999)
+    @available(_PackageDescription, introduced: 5.2, deprecated: 5.6)
     public static func package(
         name: String? = nil,
         url: String,
@@ -424,7 +424,7 @@ extension Package.Dependency {
     }
 
     // intentionally private to hide enum detail
-    @available(_PackageDescription, introduced: 999)
+    @available(_PackageDescription, introduced: 5.6)
     private static func package(
         name: String? = nil,
         url: String,

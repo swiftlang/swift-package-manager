@@ -57,7 +57,7 @@ extension Package: Encodable {
     }
 }
 
-@available(_PackageDescription, deprecated: 999)
+@available(_PackageDescription, deprecated: 5.6)
 extension Package.Dependency.Requirement: Encodable {
     private enum CodingKeys: CodingKey {
         case type
