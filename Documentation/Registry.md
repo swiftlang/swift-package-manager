@@ -509,8 +509,8 @@ Content-Type: text/x-swift
 Content-Disposition: attachment; filename="Package.swift"
 Content-Length: 361
 Content-Version: 1
-Link: <http://packages.example.com/mona/LinkedList/1.1.1/Package.swift?swift-version=4>; rel="alternate",
-      <http://packages.example.com/mona/LinkedList/1.1.1/Package.swift?swift-version=4.2>; rel="alternate"
+Link: <http://packages.example.com/mona/LinkedList/1.1.1/Package.swift?swift-version=4>; rel="alternate"; filename="Package@swift-4.swift"; swift-tools-version="4.0",
+      <http://packages.example.com/mona/LinkedList/1.1.1/Package.swift?swift-version=4.2>; rel="alternate"; filename="Package@swift-4.2.swift"; swift-tools-version="4.0"
 
 // swift-tools-version:5.0
 import PackageDescription
@@ -539,13 +539,22 @@ the name of the manifest file
 It is RECOMMENDED for clients and servers to support
 caching as described by [RFC 7234].
 
-A server SHOULD include `Link` header fields with the `alternate` relation type
-for each additional file in the release's source archive
+A server SHOULD include a `Link` header field
+with a value for each version-specific package manifest file
+in the release's source archive,
 whose filename matches the following regular expression pattern:
 
 ```regexp
-\APackage(?:@swift-\d+(?:\.\d+){0,2})?.swift\z
+\APackage@swift-(\d+)(?:\.(\d+))?(?:\.(\d+))?.swift\z
 ```
+
+Each link value SHOULD have the `alternative` relation type,
+a `filename` attribute set to the version-specific package manifest filename
+(for example, `Package@swift-4.swift`), and
+a `swift-tools-version` attribute set to the [Swift tools version]
+specified by the package manifest file
+(for example, `4.0` for a manifest beginning with the comment
+`// swift-tools-version:4.0`).
 
 #### 4.3.1. swift-version query parameter
 
@@ -1207,3 +1216,4 @@ components:
 [offline cache]: https://yarnpkg.com/features/offline-cache "Offline Cache | Yarn - Package Manager"
 [XCFramework]: https://developer.apple.com/videos/play/wwdc2019/416/ "WWDC 2019 Session 416: Binary Frameworks in Swift"
 [SE-0272]: https://github.com/apple/swift-evolution/blob/master/proposals/0272-swiftpm-binary-dependencies.md "Package Manager Binary Dependencies"
+[Swift tools version]: https://github.com/apple/swift-package-manager/blob/9b9bed7eaf0f38eeccd0d8ca06ae08f6689d1c3f/Documentation/Usage.md#swift-tools-version-specification "Swift Tools Version Specification"
