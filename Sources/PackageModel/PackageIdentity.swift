@@ -63,6 +63,17 @@ public struct PackageIdentity: CustomStringConvertible {
     public static func plain(_ value: String) -> PackageIdentity {
         PackageIdentity(value)
     }
+
+    // TODO: formalize package registry identifier
+    public var scopeAndName: (String, String)? {
+        let components = description.split(separator: ".", maxSplits: 1, omittingEmptySubsequences: true)
+        guard let scope = components.first,
+              let name = components.last,
+              components.count == 2
+        else { return nil }
+
+        return (String(scope), String(name))
+    }
 }
 
 extension PackageIdentity: Equatable, Comparable {
