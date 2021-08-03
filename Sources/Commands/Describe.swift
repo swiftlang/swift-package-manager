@@ -114,6 +114,41 @@ fileprivate struct DescribedPackage: Encodable {
                 self = .registry(identity: settings.identity, requirement: settings.requirement)
             }
         }
+
+        private enum CodingKeys: CodingKey {
+            case type
+            case name
+            case path
+            case url
+            case requirement
+            case identity
+        }
+
+        private enum Kind: String, Codable {
+            case fileSystem
+            case sourceControl
+            case registry
+        }
+
+        public func encode(to encoder: Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            switch self {
+            case .fileSystem(let name, let path):
+                try container.encode(Kind.fileSystem, forKey: .type)
+                try container.encode(name, forKey: .name)
+                try container.encode(path, forKey: .path)
+            case .sourceControl(let name, let location, let requirement):
+                try container.encode(Kind.sourceControl, forKey: .type)
+                try container.encode(name, forKey: .name)
+                try container.encode(location, forKey: .url)
+                try container.encode(requirement, forKey: .requirement)
+            case .registry(let identity, let requirement):
+                try container.encode(Kind.registry, forKey: .type)
+                try container.encode(identity, forKey: .identity)
+                try container.encode(requirement, forKey: .requirement)
+
+            }
+        }
     }
 
     /// Represents a product for the sole purpose of generating a description.

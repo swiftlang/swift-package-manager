@@ -371,8 +371,8 @@ extension PackageDependency {
         fileSystem: TSCBasic.FileSystem
     ) throws {
         if let kindJSON = try? json.getJSON("kind") {
-            let type: String = try kindJSON.get("type")
             // new format introduced 7/2021
+            let type: String = try kindJSON.get("type")
             if type == "fileSystem" {
                 let name: String? = kindJSON.get("name")
                 let path: String = try kindJSON.get("path")
