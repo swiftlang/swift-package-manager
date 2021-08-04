@@ -49,8 +49,7 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
     }
 
     func testDependencyNameForTargetDependencyResolution() throws {
-        let stream = BufferedOutputByteStream()
-        stream <<< """
+        let manifest = """
             import PackageDescription
             let package = Package(
                 name: "Trivial",
@@ -69,12 +68,23 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
                 targets: [
                     .target(
                         name: "foo",
-                        dependencies: [.product(name: "product", package: "Foo")]),
+                        dependencies: [
+                          .product(name: "product", package: "Foo"),
+                          .product(name: "product", package: "Foo2"),
+                          .product(name: "product", package: "Foo3"),
+                          .product(name: "product", package: "Foo4"),
+                          .product(name: "product", package: "Foo5"),
+                          .product(name: "product", package: "bar"),
+                          .product(name: "product", package: "bar2"),
+                          .product(name: "product", package: "baz"),
+                          .product(name: "product", package: "swift")
+                        ]
+                    ),
                 ]
             )
             """
 
-        loadManifest(stream.bytes) { manifest in
+        loadManifest(manifest) { manifest in
             XCTAssertEqual(manifest.name, "Trivial")
             XCTAssertEqual(manifest.dependencies[0].nameForTargetDependencyResolutionOnly, "Foo")
             XCTAssertEqual(manifest.dependencies[1].nameForTargetDependencyResolutionOnly, "Foo2")
@@ -163,6 +173,32 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
 
             XCTAssertManifestLoadThrows(manifest, packageKind: .root) { _, diagnostics in
                 diagnostics.checkUnordered(diagnostic: "unknown package 'foo1' in dependencies of target 'Target1'; valid packages are: 'foo2'", behavior: .error)
+            }
+        }
+
+        do {
+            let manifest = """
+                import PackageDescription
+                let package = Package(
+                    name: "Trivial",
+                    products: [],
+                    dependencies: [
+                        .package(url: "/foo1", from: "1.0.0"),
+                        .package(url: "/foo2", from: "1.0.0"),
+                    ],
+                    targets: [
+                        .target(
+                            name: "Target1",
+                            dependencies: [.product(name: "product", package: "foo3")]),
+                        .target(
+                            name: "Target2",
+                            dependencies: ["foos"]),
+                    ]
+                )
+                """
+
+            XCTAssertManifestLoadThrows(manifest, packageKind: .root) { _, diagnostics in
+                diagnostics.checkUnordered(diagnostic: "unknown package 'foo3' in dependencies of target 'Target1'; valid packages are: 'foo1', 'foo2'", behavior: .error)
             }
         }
     }

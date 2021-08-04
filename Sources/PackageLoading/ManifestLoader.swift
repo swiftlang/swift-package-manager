@@ -343,10 +343,6 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                                                                   packageLocation: packageLocation,
                                                                   identityResolver: identityResolver,
                                                                   fileSystem: fileSystem)
-                // Throw if we encountered any runtime errors.
-                guard parsedManifest.errors.isEmpty else {
-                    throw ManifestParseError.runtimeManifestErrors(parsedManifest.errors)
-                }
 
                 // Convert legacy system packages to the current target‐based model.
                 var products = parsedManifest.products

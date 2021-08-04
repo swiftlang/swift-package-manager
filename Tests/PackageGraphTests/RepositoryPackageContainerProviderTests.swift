@@ -376,9 +376,9 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
         #endif
 
         let dependencies: [PackageDependency] = [
-            .scm(name: "Bar1", location: "/Bar1", requirement: .upToNextMajor(from: "1.0.0")),
-            .scm(name: "Bar2", location: "/Bar2", requirement: .upToNextMajor(from: "1.0.0")),
-            .scm(name: "Bar3", location: "/Bar3", requirement: .upToNextMajor(from: "1.0.0")),
+            .scm(location: "/Bar1", requirement: .upToNextMajor(from: "1.0.0")),
+            .scm(location: "/Bar2", requirement: .upToNextMajor(from: "1.0.0")),
+            .scm(location: "/Bar3", requirement: .upToNextMajor(from: "1.0.0")),
         ]
 
         let products = [
@@ -392,27 +392,27 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
         ]
 
         let v5ProductMapping: [String: ProductFilter] = [
-            "Bar1": .specific(["Bar1", "Bar3"]),
-            "Bar2": .specific(["B2", "Bar1", "Bar3"]),
-            "Bar3": .specific(["Bar1", "Bar3"]),
+            "bar1": .specific(["Bar1", "Bar3"]),
+            "bar2": .specific(["B2", "Bar1", "Bar3"]),
+            "bar3": .specific(["Bar1", "Bar3"]),
         ]
         let v5Constraints = try dependencies.map {
             PackageContainerConstraint(
                 package: $0.createPackageRef(),
                 requirement: try $0.toConstraintRequirement(),
-                products: v5ProductMapping[$0.nameForTargetDependencyResolutionOnly]!
+                products: v5ProductMapping[$0.identity.description]!
             )
         }
         let v5_2ProductMapping: [String: ProductFilter] = [
-            "Bar1": .specific(["Bar1"]),
-            "Bar2": .specific(["B2"]),
-            "Bar3": .specific(["Bar3"]),
+            "bar1": .specific(["Bar1"]),
+            "bar2": .specific(["B2"]),
+            "bar3": .specific(["Bar3"]),
         ]
         let v5_2Constraints = try dependencies.map {
             PackageContainerConstraint(
                 package: $0.createPackageRef(),
                 requirement: try $0.toConstraintRequirement(),
-                products: v5_2ProductMapping[$0.nameForTargetDependencyResolutionOnly]!
+                products: v5_2ProductMapping[$0.identity.description]!
             )
         }
 

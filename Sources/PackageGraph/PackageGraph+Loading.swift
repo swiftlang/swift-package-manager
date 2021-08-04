@@ -421,7 +421,7 @@ private func createResolvedPackages(
                 // explicitly reference the package containing the product, or for the product, package and
                 // dependency to share the same name. We don't check this in manifest loading for root-packages so
                 // we can provide a more detailed diagnostic here.
-                if packageBuilder.package.manifest.toolsVersion >= .v5_2 && productRef.package == nil{
+                if packageBuilder.package.manifest.toolsVersion >= .v5_2 && productRef.package == nil {
                     let referencedPackageIdentity = product.packageBuilder.package.identity
                     guard let referencedPackageDependency = (packageBuilder.package.manifest.dependencies.first { package in
                         return package.identity == referencedPackageIdentity
@@ -433,7 +433,7 @@ private func createResolvedPackages(
                         let error = PackageGraphError.productDependencyMissingPackage(
                             productName: productRef.name,
                             targetName: targetBuilder.target.name,
-                            packageDependency: referencedPackageDependency
+                            packageIdentifier: referencedPackageName
                         )
                         diagnostics.emit(error, location: package.diagnosticLocation)
                     }

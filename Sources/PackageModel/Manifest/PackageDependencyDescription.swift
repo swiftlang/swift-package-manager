@@ -14,14 +14,14 @@ import TSCBasic
 public enum PackageDependency: Equatable {
     public struct FileSystem: Equatable, Encodable {
         public let identity: PackageIdentity
-        public let name: String?
+        public let nameForTargetDependencyResolutionOnly: String?
         public let path: AbsolutePath
         public let productFilter: ProductFilter
     }
 
     public struct SourceControl: Equatable, Encodable {
         public let identity: PackageIdentity
-        public let name: String?
+        public let nameForTargetDependencyResolutionOnly: String?
         public let location: String
         public let requirement: Requirement
         public let productFilter: ProductFilter
@@ -67,9 +67,9 @@ public enum PackageDependency: Equatable {
     public var nameForTargetDependencyResolutionOnly: String {
         switch self {
         case .fileSystem(let settings):
-            return settings.name ?? LegacyPackageIdentity.computeDefaultName(fromURL: settings.path.pathString)
+            return settings.nameForTargetDependencyResolutionOnly ?? LegacyPackageIdentity.computeDefaultName(fromURL: settings.path.pathString)
         case .sourceControl(let settings):
-            return settings.name ?? LegacyPackageIdentity.computeDefaultName(fromURL: settings.location)
+            return settings.nameForTargetDependencyResolutionOnly ?? LegacyPackageIdentity.computeDefaultName(fromURL: settings.location)
         case .registry:
             return self.identity.description
         }
@@ -80,9 +80,9 @@ public enum PackageDependency: Equatable {
     public var explicitNameForTargetDependencyResolutionOnly: String? {
         switch self {
         case .fileSystem(let settings):
-            return settings.name
+            return settings.nameForTargetDependencyResolutionOnly
         case .sourceControl(let settings):
-            return settings.name
+            return settings.nameForTargetDependencyResolutionOnly
         case .registry:
             return nil
         }
@@ -114,12 +114,12 @@ public enum PackageDependency: Equatable {
         switch self {
         case .fileSystem(let settings):
             return .fileSystem(identity: settings.identity,
-                               name: settings.name,
+                               nameForTargetDependencyResolutionOnly: settings.nameForTargetDependencyResolutionOnly,
                                path: settings.path,
                                productFilter: productFilter)
         case .sourceControl(let settings):
             return .sourceControl(identity: settings.identity,
-                                  name: settings.name,
+                                  nameForTargetDependencyResolutionOnly: settings.nameForTargetDependencyResolutionOnly,
                                   location: settings.location,
                                   requirement: settings.requirement,
                                   productFilter: productFilter)
@@ -131,27 +131,27 @@ public enum PackageDependency: Equatable {
     }
 
     public static func fileSystem(identity: PackageIdentity,
-                                  name: String?,
+                                  nameForTargetDependencyResolutionOnly: String?,
                                   path: AbsolutePath,
                                   productFilter: ProductFilter
     ) -> Self {
         .fileSystem (
             .init(identity: identity,
-                  name: name,
+                  nameForTargetDependencyResolutionOnly: nameForTargetDependencyResolutionOnly,
                   path: path,
                   productFilter: productFilter)
         )
     }
 
     public static func sourceControl(identity: PackageIdentity,
-                                     name: String?,
+                                     nameForTargetDependencyResolutionOnly: String?,
                                      location: String,
                                      requirement: SourceControl.Requirement,
                                      productFilter: ProductFilter
     ) -> Self {
         .sourceControl (
             .init(identity: identity,
-                  name: name,
+                  nameForTargetDependencyResolutionOnly: nameForTargetDependencyResolutionOnly,
                   location: location,
                   requirement: requirement,
                   productFilter: productFilter)

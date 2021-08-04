@@ -13,61 +13,61 @@ import TSCBasic
 
 public extension PackageDependency {
     static func fileSystem(identity: PackageIdentity? = nil,
-                           name: String? = nil,
+                           deprecatedName: String? = nil,
                            path: String,
                            productFilter: ProductFilter = .everything
     ) -> Self {
         return .fileSystem(identity: identity,
-                           name: name,
+                           deprecatedName: deprecatedName,
                            path: AbsolutePath(path),
                            productFilter: productFilter)
     }
 
     static func fileSystem(identity: PackageIdentity? = nil,
-                           name: String? = nil,
+                           deprecatedName: String? = nil,
                            path: AbsolutePath,
                            productFilter: ProductFilter = .everything
     ) -> Self {
         let identity = identity ?? PackageIdentity(url: path.pathString)
         return .fileSystem(identity: identity,
-                           name: name,
+                           nameForTargetDependencyResolutionOnly: deprecatedName,
                            path: path,
                            productFilter: productFilter)
     }
 
     // backwards compatibility with existing tests
     static func local(identity: PackageIdentity? = nil,
-                      name: String? = nil,
+                      deprecatedName: String? = nil,
                       path: String,
                       productFilter: ProductFilter = .everything
     ) -> Self {
         return .fileSystem(identity: identity,
-                           name: name,
+                           deprecatedName: deprecatedName,
                            path: AbsolutePath(path),
                            productFilter: productFilter)
     }
 
     // backwards compatibility with existing tests
     static func local(identity: PackageIdentity? = nil,
-                      name: String? = nil,
+                      deprecatedName: String? = nil,
                       path: AbsolutePath,
                       productFilter: ProductFilter = .everything
     ) -> Self {
         return .fileSystem(identity: identity,
-                           name: name,
+                           deprecatedName: deprecatedName,
                            path: path,
                            productFilter: productFilter)
     }
 
     static func sourceControl(identity: PackageIdentity? = nil,
-                              name: String? = nil,
+                              deprecatedName: String? = nil,
                               location: String,
                               requirement: SourceControl.Requirement,
                               productFilter: ProductFilter = .everything
     ) -> Self {
         let identity = identity ?? PackageIdentity(url: location)
         return .sourceControl(identity: identity,
-                              name: name,
+                              nameForTargetDependencyResolutionOnly: deprecatedName,
                               location: location,
                               requirement: requirement,
                               productFilter: productFilter)
@@ -75,13 +75,13 @@ public extension PackageDependency {
 
     // backwards compatibility with existing tests
     static func scm(identity: PackageIdentity? = nil,
-                    name: String? = nil,
+                    deprecatedName: String? = nil,
                     location: String,
                     requirement: SourceControl.Requirement,
                     productFilter: ProductFilter = .everything
     ) -> Self {
         return .sourceControl(identity: identity,
-                              name: name,
+                              deprecatedName: deprecatedName,
                               location: location,
                               requirement: requirement,
                               productFilter: productFilter)

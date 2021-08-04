@@ -14,21 +14,14 @@ import TSCBasic
 
 public struct MockDependency {
     public typealias Requirement = PackageDependency.SourceControl.Requirement
-    
-    public let name: String?
+
+    public let deprecatedName: String?
     public let path: String
     public let requirement: Requirement?
     public let products: ProductFilter
     
-    init(name: String, requirement: Requirement?, products: ProductFilter = .everything) {
-        self.name = name
-        self.path = name
-        self.requirement = requirement
-        self.products = products
-    }
-    
-    init(name: String?, path: String, requirement: Requirement?, products: ProductFilter = .everything) {
-        self.name = name
+    init(deprecatedName: String? = nil, path: String, requirement: Requirement?, products: ProductFilter = .everything) {
+        self.deprecatedName = deprecatedName
         self.path = path
         self.requirement = requirement
         self.products = products
@@ -41,31 +34,28 @@ public struct MockDependency {
         let identity = identityResolver.resolveIdentity(for: location)
         if let requirement = self.requirement {
             return .scm(identity: identity,
-                        name: self.name,
+                        deprecatedName: self.deprecatedName,
                         location: location,
                         requirement: requirement,
                         productFilter: self.products)
         } else {
             return .local(identity: identity,
-                          name: self.name,
+                          deprecatedName: self.deprecatedName,
                           path: location,
                           productFilter: self.products)
         }
     }
     
-    public static func local(name: String? = nil, path: String, products: ProductFilter = .everything) -> MockDependency {
-        MockDependency(name: name, path: path, requirement: nil, products: products)
+    public static func local(path: String, products: ProductFilter = .everything) -> MockDependency {
+        MockDependency(path: path, requirement: nil, products: products)
     }
-    
-    public static func local(name: String, products: ProductFilter = .everything) -> MockDependency {
-        MockDependency(name: name, requirement: nil, products: products)
+
+    public static func scm(path: String, requirement: Requirement, products: ProductFilter = .everything) -> MockDependency {
+        MockDependency(path: path, requirement: requirement, products: products)
     }
-    
-    public static func git(name: String? = nil, path: String, requirement: Requirement, products: ProductFilter = .everything) -> MockDependency {
-        MockDependency(name: name, path: path, requirement: requirement, products: products)
+
+    public static func scmWithDeprecatedName(name: String, path: String, requirement: Requirement, products: ProductFilter = .everything) -> MockDependency {
+        MockDependency(deprecatedName: name, path: path, requirement: requirement, products: products)
     }
-    
-    public static func git(name: String, requirement: Requirement, products: ProductFilter = .everything) -> MockDependency {
-        MockDependency(name: name, requirement: requirement, products: products)
-    }
+
 }

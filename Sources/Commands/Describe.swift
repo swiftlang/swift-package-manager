@@ -6,7 +6,7 @@
 
  See http://swift.org/LICENSE.txt for license information
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
-*/
+ */
 
 import TSCBasic
 import PackageModel
@@ -58,7 +58,7 @@ fileprivate struct DescribedPackage: Encodable {
         self.name = package.manifestName // TODO: rename property to manifestName?
         self.path = package.path.pathString
         self.toolsVersion = "\(package.manifest.toolsVersion.major).\(package.manifest.toolsVersion.minor)"
-            + (package.manifest.toolsVersion.patch == 0 ? "" : ".\(package.manifest.toolsVersion.patch)")
+        + (package.manifest.toolsVersion.patch == 0 ? "" : ".\(package.manifest.toolsVersion.patch)")
         self.dependencies = package.manifest.dependencies.map { DescribedPackageDependency(from: $0) }
         self.defaultLocalization = package.manifest.defaultLocalization
         self.platforms = package.manifest.platforms.map { DescribedPlatformRestriction(from: $0) }
@@ -100,16 +100,16 @@ fileprivate struct DescribedPackage: Encodable {
     
     /// Represents a package dependency for the sole purpose of generating a description.
     enum DescribedPackageDependency: Encodable {
-        case fileSystem(name: String?, path: AbsolutePath)
-        case sourceControl(name: String?, location: String, requirement: PackageDependency.SourceControl.Requirement)
+        case fileSystem(path: AbsolutePath)
+        case sourceControl(location: String, requirement: PackageDependency.SourceControl.Requirement)
         case registry(identity: PackageIdentity, requirement: PackageDependency.Registry.Requirement)
 
         init(from dependency: PackageDependency) {
             switch dependency {
             case .fileSystem(let settings):
-                self = .fileSystem(name: dependency.explicitNameForTargetDependencyResolutionOnly, path: settings.path)
+                self = .fileSystem(path: settings.path)
             case .sourceControl(let settings):
-                self = .sourceControl(name: dependency.explicitNameForTargetDependencyResolutionOnly, location: settings.location, requirement: settings.requirement)
+                self = .sourceControl(location: settings.location, requirement: settings.requirement)
             case .registry(let settings):
                 self = .registry(identity: settings.identity, requirement: settings.requirement)
             }
@@ -117,7 +117,6 @@ fileprivate struct DescribedPackage: Encodable {
 
         private enum CodingKeys: CodingKey {
             case type
-            case name
             case path
             case url
             case requirement
@@ -133,20 +132,17 @@ fileprivate struct DescribedPackage: Encodable {
         public func encode(to encoder: Encoder) throws {
             var container = encoder.container(keyedBy: CodingKeys.self)
             switch self {
-            case .fileSystem(let name, let path):
+            case .fileSystem(let path):
                 try container.encode(Kind.fileSystem, forKey: .type)
-                try container.encode(name, forKey: .name)
                 try container.encode(path, forKey: .path)
-            case .sourceControl(let name, let location, let requirement):
+            case .sourceControl(let location, let requirement):
                 try container.encode(Kind.sourceControl, forKey: .type)
-                try container.encode(name, forKey: .name)
                 try container.encode(location, forKey: .url)
                 try container.encode(requirement, forKey: .requirement)
             case .registry(let identity, let requirement):
                 try container.encode(Kind.registry, forKey: .type)
                 try container.encode(identity, forKey: .identity)
                 try container.encode(requirement, forKey: .requirement)
-
             }
         }
     }
@@ -287,7 +283,7 @@ public struct PlainTextEncoder {
         
         func unkeyedContainer() -> UnkeyedEncodingContainer {
             return PlainTextUnkeyedEncodingContainer(outputStream: outputStream, formattingOptions: formattingOptions, userInfo: userInfo, codingPath: codingPath)
-       }
+        }
         
         func singleValueContainer() -> SingleValueEncodingContainer {
             return TextSingleValueEncodingContainer(outputStream: outputStream, formattingOptions: formattingOptions, userInfo: userInfo, codingPath: codingPath)
