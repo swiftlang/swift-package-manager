@@ -119,7 +119,7 @@ public final class Target {
     public let providers: [SystemPackageProvider]?
     
     /// The capability provided by a package plugin target.
-    @available(_PackageDescription, introduced: 5.5)
+    @available(_PackageDescription, introduced: 5.6)
     public var pluginCapability: PluginCapability? {
         get { return _pluginCapability }
         set { _pluginCapability = newValue }
@@ -174,7 +174,7 @@ public final class Target {
     private var _checksum: String?
     
     /// The usages of package plugins by the target.
-    @available(_PackageDescription, introduced: 5.5)
+    @available(_PackageDescription, introduced: 5.6)
     public var plugins: [PluginUsage]? {
         get { return _pluginUsages }
         set { _pluginUsages = newValue }
@@ -394,7 +394,7 @@ public final class Target {
     ///   - cxxSettings: The C++ settings for this target.
     ///   - swiftSettings: The Swift settings for this target.
     ///   - linkerSettings: The linker settings for this target.
-    @available(_PackageDescription, introduced: 5.3, obsoleted: 5.5)
+    @available(_PackageDescription, introduced: 5.3, obsoleted: 5.6)
     public static func target(
         name: String,
         dependencies: [Dependency] = [],
@@ -448,7 +448,7 @@ public final class Target {
     ///   - swiftSettings: The Swift settings for this target.
     ///   - linkerSettings: The linker settings for this target.
     ///   - plugins: The plugins used by this target.
-    @available(_PackageDescription, introduced: 5.5)
+    @available(_PackageDescription, introduced: 5.6)
     public static func target(
         name: String,
         dependencies: [Dependency] = [],
@@ -504,7 +504,7 @@ public final class Target {
     ///   - cxxSettings: The C++ settings for this target.
     ///   - swiftSettings: The Swift settings for this target.
     ///   - linkerSettings: The linker settings for this target.
-    @available(_PackageDescription, introduced: 5.4, obsoleted: 5.5)
+    @available(_PackageDescription, introduced: 5.4, obsoleted: 5.6)
     public static func executableTarget(
         name: String,
         dependencies: [Dependency] = [],
@@ -559,7 +559,7 @@ public final class Target {
     ///   - swiftSettings: The Swift settings for this target.
     ///   - linkerSettings: The linker settings for this target.
     ///   - plugins: The plugins used by this target.
-    @available(_PackageDescription, introduced: 5.5)
+    @available(_PackageDescription, introduced: 5.6)
     public static func executableTarget(
         name: String,
         dependencies: [Dependency] = [],
@@ -694,7 +694,7 @@ public final class Target {
     ///   - cxxSettings: The C++ settings for this target.
     ///   - swiftSettings: The Swift settings for this target.
     ///   - linkerSettings: The linker settings for this target.
-    @available(_PackageDescription, introduced: 5.3, obsoleted: 5.5)
+    @available(_PackageDescription, introduced: 5.3, obsoleted: 5.6)
     public static func testTarget(
         name: String,
         dependencies: [Dependency] = [],
@@ -745,7 +745,7 @@ public final class Target {
     ///   - swiftSettings: The Swift settings for this target.
     ///   - linkerSettings: The linker settings for this target.
     ///   - plugins: The plugins used by this target.
-    @available(_PackageDescription, introduced: 5.5)
+    @available(_PackageDescription, introduced: 5.6)
     public static func testTarget(
         name: String,
         dependencies: [Dependency] = [],
@@ -896,7 +896,7 @@ public final class Target {
     /// on executables as well as binary targets. This is because of limitations
     /// in how SwiftPM constructs its build plan, and the goal is to remove this
     /// restriction in a future release.
-    @available(_PackageDescription, introduced: 5.5)
+    @available(_PackageDescription, introduced: 5.6)
     public static func plugin(
         name: String,
         capability: PluginCapability,
@@ -1006,7 +1006,7 @@ extension Target.PluginCapability {
     /// Specifies that the plugin provides a build tool capability. The plugin
     /// will be applied to each target that uses it and should create commands
     /// that will run before or during the build of the target.
-    @available(_PackageDescription, introduced: 5.5)
+    @available(_PackageDescription, introduced: 5.6)
     public static func buildTool() -> Target.PluginCapability {
         return ._buildTool
     }
@@ -1017,7 +1017,7 @@ extension Target.PluginUsage {
     ///
     /// - parameters:
     ///   - name: The name of the plugin target.
-    @available(_PackageDescription, introduced: 5.5)
+    @available(_PackageDescription, introduced: 5.6)
     public static func plugin(name: String) -> Target.PluginUsage {
         return ._pluginItem(name: name, package: nil)
     }
@@ -1027,7 +1027,7 @@ extension Target.PluginUsage {
     /// - parameters:
     ///   - name: The name of the plugin product.
     ///   - package: The name of the package in which it is defined.
-    @available(_PackageDescription, introduced: 5.5)
+    @available(_PackageDescription, introduced: 5.6)
     public static func plugin(name: String, package: String) -> Target.PluginUsage {
         return ._pluginItem(name: name, package: package)
     }

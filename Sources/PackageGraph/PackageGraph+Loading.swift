@@ -30,7 +30,6 @@ extension PackageGraph {
         diagnostics: DiagnosticsEngine,
         fileSystem: FileSystem = localFileSystem,
         shouldCreateMultipleTestProducts: Bool = false,
-        allowPluginTargets: Bool = false,
         createREPLProduct: Bool = false
     ) throws -> PackageGraph {
 
@@ -117,7 +116,6 @@ extension PackageGraph {
                         fileSystem: fileSystem,
                         diagnostics: diagnostics,
                         shouldCreateMultipleTestProducts: shouldCreateMultipleTestProducts,
-                        allowPluginTargets: allowPluginTargets,
                         createREPLProduct: manifest.packageKind == .root ? createREPLProduct : false
                     )
                     let package = try builder.construct()

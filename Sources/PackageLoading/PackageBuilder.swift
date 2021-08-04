@@ -69,9 +69,6 @@ public enum ModuleError: Swift.Error {
     /// Default localization not set in the presence of localized resources.
     case defaultLocalizationNotSet
 
-    /// A plugin target was declared but the feature flag isn't enabled.
-    case pluginTargetRequiresFeatureFlag(target: String)
-
     /// A plugin target didn't declare a capability.
     case pluginCapabilityNotDeclared(target: String)
 }
@@ -118,8 +115,6 @@ extension ModuleError: CustomStringConvertible {
             return "invalid header search path '\(path)'; header search path should not be outside the package root"
         case .defaultLocalizationNotSet:
             return "manifest property 'defaultLocalization' not set; it is required in the presence of localized resources"
-        case .pluginTargetRequiresFeatureFlag(let target):
-            return "plugin target '\(target)' cannot be used because the feature isn't enabled (set SWIFTPM_ENABLE_PLUGINS=1 in environment)"
         case .pluginCapabilityNotDeclared(let target):
             return "plugin target '\(target)' doesn't have a 'capability' property"
         }
@@ -244,10 +239,6 @@ public final class PackageBuilder {
     /// Temporary parameter controlling whether to warn about implicit executable targets when tools version is 5.4.
     private let warnAboutImplicitExecutableTargets: Bool
 
-    /// Temporary parameter controlling whether to allow package plugin targets (during bring-up, before proposal is accepted).
-    /// This is set if SWIFTPM_ENABLE_PLUGINS=1 or if the feature is enabled in the initializer (for use by unit tests).
-    private let allowPluginTargets: Bool
-    
     /// Create the special REPL product for this package.
     private let createREPLProduct: Bool
 
@@ -280,7 +271,6 @@ public final class PackageBuilder {
         diagnostics: DiagnosticsEngine,
         shouldCreateMultipleTestProducts: Bool = false,
         warnAboutImplicitExecutableTargets: Bool = true,
-        allowPluginTargets: Bool = false,
         createREPLProduct: Bool = false
     ) {
         self.identity = identity
@@ -293,7 +283,6 @@ public final class PackageBuilder {
         self.fileSystem = fileSystem
         self.diagnostics = diagnostics
         self.shouldCreateMultipleTestProducts = shouldCreateMultipleTestProducts
-        self.allowPluginTargets = allowPluginTargets || ProcessEnv.vars["SWIFTPM_ENABLE_PLUGINS"] == "1"
         self.createREPLProduct = createREPLProduct
         self.warnAboutImplicitExecutableTargets = warnAboutImplicitExecutableTargets
     }
@@ -857,9 +846,6 @@ public final class PackageBuilder {
         
         // Deal with package plugin targets.
         if potentialModule.type == .plugin {
-            guard allowPluginTargets else {
-                throw ModuleError.pluginTargetRequiresFeatureFlag(target: manifestTarget.name)
-            }
             guard let declaredCapability = manifestTarget.pluginCapability else {
                 throw ModuleError.pluginCapabilityNotDeclared(target: manifestTarget.name)
             }
