@@ -8,6 +8,14 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
+#if canImport(Glibc)
+@_implementationOnly import Glibc
+#elseif os(iOS) || os(macOS) || os(tvOS) || os(watchOS)
+@_implementationOnly import Darwin.C
+#elseif os(Windows)
+@_implementationOnly import ucrt
+@_implementationOnly import struct WinSDK.HANDLE
+#endif
 import Foundation
 
 /// The configuration of a Swift package.
