@@ -1,12 +1,12 @@
 /*
  This source file is part of the Swift.org open source project
- 
- Copyright (c) 2014 - 2021 Apple Inc. and the Swift project authors
+
+ Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
- 
+
  See http://swift.org/LICENSE.txt for license information
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
- */
+*/
 
 import XCTest
 
@@ -18,33 +18,15 @@ import PackageLoading
 
 class PackageDescriptionLoadingTests: XCTestCase {
     let manifestLoader = ManifestLoader(manifestResources: Resources.default)
-    
+
     var toolsVersion: ToolsVersion {
         fatalError("implement in subclass")
     }
-    
-    func loadManifestThrowing(
-        _ contents: String,
-        toolsVersion: ToolsVersion? = nil,
-        packageKind: PackageReference.Kind = .local,
-        file: StaticString = #file,
-        line: UInt = #line,
-        body: (Manifest) -> Void
-    ) throws {
-        try self.loadManifestThrowing(ByteString(encodingAsUTF8: contents),
-                                      toolsVersion: toolsVersion,
-                                      packageKind: packageKind,
-                                      file: file,
-                                      line: line,
-                                      body: body)
-    }
 
-    // TODO: deprecate in favor of String version
     func loadManifestThrowing(
         _ contents: ByteString,
         toolsVersion: ToolsVersion? = nil,
         packageKind: PackageReference.Kind = .local,
-        file: StaticString = #file,
         line: UInt = #line,
         body: (Manifest) -> Void
     ) throws {
@@ -59,26 +41,11 @@ class PackageDescriptionLoadingTests: XCTestCase {
             toolsVersion: toolsVersion,
             fileSystem: fs)
         guard m.toolsVersion == toolsVersion else {
-            return XCTFail("Invalid manifest version", file: file, line: line)
+            return XCTFail("Invalid manfiest version")
         }
         body(m)
     }
-    
-    func loadManifest(
-        _ contents: String,
-        toolsVersion: ToolsVersion? = nil,
-        packageKind: PackageReference.Kind = .local,
-        line: UInt = #line,
-        body: (Manifest) -> Void
-    ) {
-        self.loadManifest(ByteString(encodingAsUTF8: contents),
-                          toolsVersion: toolsVersion,
-                          packageKind: packageKind,
-                          line: line,
-                          body: body)
-    }
 
-    // TODO: deprecate in favor of String version
     func loadManifest(
         _ contents: ByteString,
         toolsVersion: ToolsVersion? = nil,
@@ -104,7 +71,7 @@ class PackageDescriptionLoadingTests: XCTestCase {
     }
 
     func XCTAssertManifestLoadNoThrows(
-        _ contents: String,
+        _ contents: ByteString,
         toolsVersion: ToolsVersion? = nil,
         packageKind: PackageReference.Kind = .local,
         file: StaticString = #file,
@@ -112,7 +79,7 @@ class PackageDescriptionLoadingTests: XCTestCase {
         onSuccess: ((Manifest, DiagnosticsEngineResult) -> Void)? = nil
     ) {
         let diagnostics = DiagnosticsEngine()
-        
+
         do {
             let manifest = try loadManifest(
                 contents,
@@ -121,7 +88,7 @@ class PackageDescriptionLoadingTests: XCTestCase {
                 diagnostics: diagnostics,
                 file: file,
                 line: line)
-            
+
             if let onSuccess = onSuccess {
                 DiagnosticsEngineTester(diagnostics) { result in
                     onSuccess(manifest, result)
@@ -133,7 +100,7 @@ class PackageDescriptionLoadingTests: XCTestCase {
     }
 
     func XCTAssertManifestLoadThrows(
-        _ contents: String,
+        _ contents: ByteString,
         toolsVersion: ToolsVersion? = nil,
         packageKind: PackageReference.Kind = .local,
         file: StaticString = #file,
@@ -141,7 +108,7 @@ class PackageDescriptionLoadingTests: XCTestCase {
         onCatch: ((Error, DiagnosticsEngineResult) -> Void)? = nil
     ) {
         let diagnostics = DiagnosticsEngine()
-        
+
         do {
             let manifest = try loadManifest(
                 contents,
@@ -150,7 +117,7 @@ class PackageDescriptionLoadingTests: XCTestCase {
                 diagnostics: diagnostics,
                 file: file,
                 line: line)
-            
+
             XCTFail("Unexpected success: \(manifest)", file: file, line: line)
         } catch {
             if let onCatch = onCatch {
@@ -160,10 +127,10 @@ class PackageDescriptionLoadingTests: XCTestCase {
             }
         }
     }
-    
+
     func XCTAssertManifestLoadThrows<E: Error & Equatable>(
         _ expectedError: E,
-        _ contents: String,
+        _ contents: ByteString,
         toolsVersion: ToolsVersion? = nil,
         packageKind: PackageReference.Kind = .local,
         file: StaticString = #file,
@@ -176,13 +143,13 @@ class PackageDescriptionLoadingTests: XCTestCase {
             } else {
                 XCTFail("Unexpected error: \(error)", file: file, line: line)
             }
-            
+
             onCatch?(result)
         }
     }
-    
+
     func loadManifest(
-        _ contents: String,
+        _ contents: ByteString,
         toolsVersion: ToolsVersion?,
         packageKind: PackageReference.Kind,
         diagnostics: DiagnosticsEngine?,
@@ -192,7 +159,7 @@ class PackageDescriptionLoadingTests: XCTestCase {
         let toolsVersion = toolsVersion ?? self.toolsVersion
         let fileSystem = InMemoryFileSystem()
         let manifestPath = AbsolutePath.root.appending(component: Manifest.filename)
-        try fileSystem.writeFileContents(manifestPath, bytes: ByteString(encodingAsUTF8: contents))
+        try fileSystem.writeFileContents(manifestPath, bytes: contents)
         let manifest = try manifestLoader.load(
             at: AbsolutePath.root,
             packageKind: packageKind,
@@ -200,11 +167,11 @@ class PackageDescriptionLoadingTests: XCTestCase {
             toolsVersion: toolsVersion,
             fileSystem: fileSystem,
             diagnostics: diagnostics)
-        
+
         if manifest.toolsVersion != toolsVersion {
             XCTFail("Invalid manifest version", file: file, line: line)
         }
-        
+
         return manifest
     }
 }

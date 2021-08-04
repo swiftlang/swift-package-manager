@@ -10,7 +10,6 @@ add_library(PackageDescription
   BuildSettings.swift
   LanguageStandardSettings.swift
   PackageDescription.swift
-  PackageDescriptionSerialization.swift
   PackageDependency.swift
   PackageRequirement.swift
   Product.swift

@@ -11,22 +11,19 @@
 import PackageModel
 import SourceControl
 
-extension PackageDependency {
+extension PackageDependencyDescription {
     /// Create the package reference object for the dependency.
     public func createPackageRef() -> PackageReference {
         // TODO (next steps): move the location into PackageKind to preserve path vs. location
         let packageKind: PackageReference.Kind
         let location: String
         switch self {
-        case .fileSystem(let settings):
+        case .local(let data):
             packageKind = .local
-            location = settings.path.pathString
-        case .sourceControl(let settings):
+            location = data.path.pathString
+        case .scm(let data):
             packageKind = .remote
-            location = settings.location
-        case .registry:
-            // FIXME
-            fatalError("registry based dependencies not implemented yet")
+            location = data.location
         }
         return PackageReference(
             identity: self.identity,

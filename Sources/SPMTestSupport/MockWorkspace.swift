@@ -296,7 +296,7 @@ public final class MockWorkspace {
 
     public func checkPackageGraph(
         roots: [String] = [],
-        dependencies: [PackageDependency] = [],
+        dependencies: [PackageDependencyDescription] = [],
         forceResolvedVersions: Bool = false,
         _ result: (PackageGraph, DiagnosticsEngine) -> Void
     ) {
@@ -326,7 +326,7 @@ public final class MockWorkspace {
 
     public func checkPackageGraphFailure(
         roots: [String] = [],
-        dependencies: [PackageDependency] = [],
+        dependencies: [PackageDependencyDescription] = [],
         forceResolvedVersions: Bool = false,
         _ result: (DiagnosticsEngine) -> Void
     ) {

@@ -20,10 +20,10 @@ public struct PackageGraphRootInput {
     public let packages: [AbsolutePath]
 
     /// Top level dependencies to the graph.
-    public let dependencies: [PackageDependency]
+    public let dependencies: [PackageDependencyDescription]
 
     /// Create a package graph root.
-    public init(packages: [AbsolutePath], dependencies: [PackageDependency] = []) {
+    public init(packages: [AbsolutePath], dependencies: [PackageDependencyDescription] = []) {
         self.packages = packages
         self.dependencies = dependencies
     }
@@ -46,7 +46,7 @@ public struct PackageGraphRoot {
     }
 
     /// The top level dependencies.
-    public let dependencies: [PackageDependency]
+    public let dependencies: [PackageDependencyDescription]
 
     /// Create a package graph root.
     /// Note this quietly skip inputs for which manifests are not found. this could be because the manifest  failed to load or for some other reasons
@@ -96,50 +96,34 @@ public struct PackageGraphRoot {
     }
 }
 
-extension PackageDependency {
+extension PackageDependencyDescription {
     /// Returns the constraint requirement representation.
     public func toConstraintRequirement() throws -> PackageRequirement {
         switch self {
-        case .fileSystem:
+        case .local:
             return .unversioned
-        case .sourceControl(let settings):
-            return try settings.requirement.toConstraintRequirement()
-        case .registry(let settings):
-            return try settings.requirement.toConstraintRequirement()
+        case .scm(let data):
+            return try data.requirement.toConstraintRequirement()
         }
     }
 }
 
-extension PackageDependency.SourceControl.Requirement {
+extension PackageDependencyDescription.Requirement {
     /// Returns the constraint requirement representation.
     public func toConstraintRequirement() throws -> PackageRequirement {
         switch self {
         case .range(let range):
             return .versionSet(.range(range))
         case .revision(let identifier):
-            // FIXME: this validation could/should move somewhere more appropriate
             guard Git.checkRefFormat(ref: identifier) else {
                 throw StringError("Could not find revision: '\(identifier)'")
             }
             return .revision(identifier)
         case .branch(let identifier):
-            // FIXME: this validation could/should move somewhere more appropriate
             guard Git.checkRefFormat(ref: identifier) else {
                 throw StringError("Could not find branch: '\(identifier)'")
             }
             return .revision(identifier)
-        case .exact(let version):
-            return .versionSet(.exact(version))
-        }
-    }
-}
-
-extension PackageDependency.Registry.Requirement {
-    /// Returns the constraint requirement representation.
-    public func toConstraintRequirement() throws -> PackageRequirement {
-        switch self {
-        case .range(let range):
-            return .versionSet(.range(range))
         case .exact(let version):
             return .versionSet(.exact(version))
         }

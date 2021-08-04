@@ -117,7 +117,8 @@ class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
     }
     
     func testBinaryTargetsDisallowedProperties() throws {
-        let manifest = """
+        let stream = BufferedOutputByteStream()
+        stream <<< """
             import PackageDescription
             var fwBinaryTarget = Target.binaryTarget(
                 name: "Foo",
@@ -128,14 +129,15 @@ class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
             let package = Package(name: "foo", targets: [fwBinaryTarget])
             """
         
-        XCTAssertManifestLoadThrows(manifest) { error, _ in
+        XCTAssertManifestLoadThrows(stream.bytes) { error, _ in
             XCTAssertEqual(error.localizedDescription, "target 'Foo' contains a value for disallowed property 'settings'")
         }
     }
 
     func testBinaryTargetsValidation() {
         do {
-            let manifest = """
+            let stream = BufferedOutputByteStream()
+            stream <<< """
                 import PackageDescription
                 let package = Package(
                     name: "Foo",
@@ -148,13 +150,14 @@ class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
                 )
                 """
 
-            XCTAssertManifestLoadThrows(manifest) { _, diagnostics in
+            XCTAssertManifestLoadThrows(stream.bytes) { _, diagnostics in
                 diagnostics.check(diagnostic: "invalid type for binary product 'FooLibrary'; products referencing only binary targets must have a type of 'library'", behavior: .error)
             }
         }
 
         do {
-            let manifest = """
+            let stream = BufferedOutputByteStream()
+            stream <<< """
                 import PackageDescription
                 let package = Package(
                     name: "Foo",
@@ -167,13 +170,14 @@ class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
                 )
                 """
 
-            XCTAssertManifestLoadThrows(manifest) { _, diagnostics in
+            XCTAssertManifestLoadThrows(stream.bytes) { _, diagnostics in
                 diagnostics.check(diagnostic: "invalid type for binary product 'FooLibrary'; products referencing only binary targets must have a type of 'library'", behavior: .error)
             }
         }
 
         do {
-            let manifest = """
+            let stream = BufferedOutputByteStream()
+            stream <<< """
                 import PackageDescription
                 let package = Package(
                     name: "Foo",
@@ -187,11 +191,12 @@ class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
                 )
                 """
 
-            XCTAssertManifestLoadNoThrows(manifest)
+            XCTAssertManifestLoadNoThrows(stream.bytes)
         }
 
         do {
-            let manifest = """
+            let stream = BufferedOutputByteStream()
+            stream <<< """
                 import PackageDescription
                 let package = Package(
                     name: "Foo",
@@ -204,13 +209,14 @@ class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
                 )
                 """
 
-            XCTAssertManifestLoadThrows(manifest) { _, diagnostics in
+            XCTAssertManifestLoadThrows(stream.bytes) { _, diagnostics in
                 diagnostics.check(diagnostic: "invalid location for binary target 'Foo'", behavior: .error)
             }
         }
 
         do {
-            let manifest = """
+            let stream = BufferedOutputByteStream()
+            stream <<< """
                 import PackageDescription
                 let package = Package(
                     name: "Foo",
@@ -223,13 +229,14 @@ class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
                 )
                 """
 
-            XCTAssertManifestLoadThrows(manifest) { _, diagnostics in
+            XCTAssertManifestLoadThrows(stream.bytes) { _, diagnostics in
                 diagnostics.check(diagnostic: "invalid URL scheme for binary target 'Foo'; valid schemes are: 'https'", behavior: .error)
             }
         }
 
         do {
-            let manifest = """
+            let stream = BufferedOutputByteStream()
+            stream <<< """
                 import PackageDescription
                 let package = Package(
                     name: "Foo",
@@ -242,13 +249,14 @@ class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
                 )
                 """
 
-            XCTAssertManifestLoadThrows(manifest) { _, diagnostics in
+            XCTAssertManifestLoadThrows(stream.bytes) { _, diagnostics in
                 diagnostics.check(diagnostic: "unsupported extension for binary target 'Foo'; valid extensions are: 'xcframework', 'artifactbundle'", behavior: .error)
             }
         }
 
         do {
-            let manifest = """
+            let stream = BufferedOutputByteStream()
+            stream <<< """
                 import PackageDescription
                 let package = Package(
                     name: "Foo",
@@ -264,13 +272,14 @@ class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
                 )
                 """
 
-            XCTAssertManifestLoadThrows(manifest) { _, diagnostics in
+            XCTAssertManifestLoadThrows(stream.bytes) { _, diagnostics in
                 diagnostics.check(diagnostic: "unsupported extension for binary target 'Foo'; valid extensions are: 'zip'", behavior: .error)
             }
         }
 
         do {
-            let manifest = """
+            let stream = BufferedOutputByteStream()
+            stream <<< """
                 import PackageDescription
                 let package = Package(
                     name: "Foo",
@@ -283,13 +292,14 @@ class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
                 )
                 """
 
-            XCTAssertManifestLoadThrows(manifest) { _, diagnostics in
+            XCTAssertManifestLoadThrows(stream.bytes) { _, diagnostics in
                 diagnostics.check(diagnostic: "unsupported extension for binary target 'Foo'; valid extensions are: 'xcframework', 'artifactbundle'", behavior: .error)
             }
         }
 
         do {
-            let manifest = """
+            let stream = BufferedOutputByteStream()
+            stream <<< """
                 import PackageDescription
                 let package = Package(
                     name: "Foo",
@@ -305,7 +315,7 @@ class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
                 )
                 """
 
-            XCTAssertManifestLoadThrows(manifest) { _, diagnostics in
+            XCTAssertManifestLoadThrows(stream.bytes) { _, diagnostics in
                 diagnostics.check(diagnostic: "unsupported extension for binary target 'Foo'; valid extensions are: 'zip'", behavior: .error)
             }
         }
@@ -344,7 +354,8 @@ class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
     }
 
     func testDefaultLocalization() throws {
-        let manifest = """
+        let stream = BufferedOutputByteStream()
+        stream <<< """
             import PackageDescription
             let package = Package(
                 name: "Foo",
@@ -355,7 +366,7 @@ class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
             )
             """
 
-        XCTAssertManifestLoadNoThrows(manifest) { manifest, _ in
+        XCTAssertManifestLoadNoThrows(stream.bytes) { manifest, _ in
             XCTAssertEqual(manifest.defaultLocalization, "fr")
         }
     }
@@ -368,7 +379,8 @@ class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
         ]
 
         for (manifestItem, expectedDiag) in manifestItemToDiagnosticMap {
-            let manifest = """
+            let stream = BufferedOutputByteStream()
+            stream <<< """
                 import PackageDescription
                 let package = Package(
                     name: "Foo",
@@ -381,7 +393,7 @@ class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
                 )
                 """
 
-            XCTAssertManifestLoadThrows(manifest) { error, _ in
+            XCTAssertManifestLoadThrows(stream.bytes) { error, _ in
                 switch error {
                 case let pathError as PathValidationError:
                     XCTAssertMatch(pathError.description, .contains(expectedDiag))
@@ -393,7 +405,8 @@ class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
     }
 
     func testNonZeroExitStatusDoesNotAssert() throws {
-        let manifest = """
+        let stream = BufferedOutputByteStream()
+        stream <<< """
             #if canImport(Glibc)
             import Glibc
             #elseif os(Windows)
@@ -407,14 +420,15 @@ class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
             exit(1)
             """
 
-        XCTAssertManifestLoadThrows(manifest) { error, _ in
+        XCTAssertManifestLoadThrows(stream.bytes) { error, _ in
             XCTAssertTrue(error is ManifestParseError, "unexpected error: \(error)")
         }
     }
 
     func testManifestLoadingIsSandboxed() throws {
         #if os(macOS) // Sandboxing is only done on macOS today.
-        let manifest = """
+        let stream = BufferedOutputByteStream()
+        stream <<< """
             import Foundation
 
             try! "should not be allowed".write(to: URL(fileURLWithPath: "/tmp/file.txt"), atomically: true, encoding: String.Encoding.utf8)
@@ -428,7 +442,7 @@ class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
             )
             """
 
-        XCTAssertManifestLoadThrows(manifest) { error, _ in
+        XCTAssertManifestLoadThrows(stream.bytes) { error, _ in
             guard case ManifestParseError.invalidManifestFormat(let msg, _) = error else { return XCTFail("unexpected error: \(error)") }
             XCTAssertTrue(msg.contains("Operation not permitted"), "unexpected error message: \(msg)")
         }

@@ -163,3 +163,26 @@ public enum SwiftVersion {
     /// The value is passed as-is to the Swift compiler's `-swift-version` flag.
     case version(String)
 }
+
+extension SwiftVersion: Encodable {
+
+    public func encode(to encoder: Encoder) throws {
+        let value: String
+
+        switch self {
+        case .v3:
+            value = "3"
+        case .v4:
+            value = "4"
+        case .v4_2:
+            value = "4.2"
+        case .v5:
+            value = "5"
+        case .version(let v):
+            value = v
+        }
+
+        var container = encoder.singleValueContainer()
+        try container.encode(value)
+    }
+}

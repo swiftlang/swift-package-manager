@@ -30,7 +30,7 @@ class PackageGraphPerfTests: XCTestCasePerf {
             let name = "Foo\(pkg)"
             let location = "/" + name
 
-            let dependencies: [PackageDependency]
+            let dependencies: [PackageDependencyDescription]
             let targets: [TargetDescription]
             // Create package.
             if pkg == N {

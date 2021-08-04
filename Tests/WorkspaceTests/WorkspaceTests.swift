@@ -335,7 +335,7 @@ final class WorkspaceTests: XCTestCase {
             ]
         )
 
-        let dependencies: [PackageDependency] = [
+        let dependencies: [PackageDependencyDescription] = [
             .scm(
                 location: workspace.packagesDir.appending(component: "Foo").pathString,
                 requirement: .upToNextMajor(from: "1.0.0"),
@@ -645,7 +645,7 @@ final class WorkspaceTests: XCTestCase {
             ]
         )
 
-        let dependencies: [PackageDependency] = [
+        let dependencies: [PackageDependencyDescription] = [
             .scm(
                 location: workspace.packagesDir.appending(component: "Bar").pathString,
                 requirement: .upToNextMajor(from: "1.0.0"),
@@ -2648,13 +2648,13 @@ final class WorkspaceTests: XCTestCase {
 
         let dependency = manifest.dependencies[0]
         switch dependency {
-        case .sourceControl(let settings):
-            let updatedDependency: PackageDependency = .sourceControl(
-                identity: settings.identity,
-                name: settings.name,
-                location: settings.location,
+        case .scm(let data):
+            let updatedDependency: PackageDependencyDescription = .scm(
+                identity: data.identity,
+                name: data.name,
+                location: data.location,
                 requirement: .exact("1.5.0"),
-                productFilter: settings.productFilter
+                productFilter: data.productFilter
             )
 
             workspace.manifestLoader.manifests[fooKey] = Manifest(

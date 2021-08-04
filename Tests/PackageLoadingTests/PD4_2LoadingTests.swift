@@ -249,6 +249,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                    .package(path: "~/path/to/~/foo12"),
                    .package(path: "~"),
                    .package(path: "file:///path/to/foo13"),
+
                ]
             )
             """
@@ -257,13 +258,13 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             XCTAssertEqual(deps["foo1"], .scm(location: "/foo1", requirement: .upToNextMajor(from: "1.0.0")))
             XCTAssertEqual(deps["foo2"], .scm(location: "/foo2", requirement: .revision("58e9de4e7b79e67c72a46e164158e3542e570ab6")))
 
-            if case .fileSystem(let dep) = deps["foo3"] {
+            if case .local(let dep) = deps["foo3"] {
                 XCTAssertEqual(dep.path.pathString, "/foo3")
             } else {
                 XCTFail("expected to be local dependency")
             }
 
-            if case .fileSystem(let dep) = deps["foo4"] {
+            if case .local(let dep) = deps["foo4"] {
                 XCTAssertEqual(dep.path.pathString, "/path/to/foo4")
             } else {
                 XCTFail("expected to be local dependency")
@@ -276,31 +277,31 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             XCTAssertEqual(deps["foo9"], .scm(location: "/foo9", requirement: .upToNextMajor(from: "1.3.4")))
 
             let homeDir = "/home/user"
-            if case .fileSystem(let dep) = deps["foo10"] {
+            if case .local(let dep) = deps["foo10"] {
                 XCTAssertEqual(dep.path.pathString, "\(homeDir)/path/to/foo10")
             } else {
                 XCTFail("expected to be local dependency")
             }
 
-            if case .fileSystem(let dep) = deps["~foo11"] {
+            if case .local(let dep) = deps["~foo11"] {
                 XCTAssertEqual(dep.path.pathString, "/foo/~foo11")
             } else {
                 XCTFail("expected to be local dependency")
             }
 
-            if case .fileSystem(let dep) = deps["foo12"] {
+            if case .local(let dep) = deps["foo12"] {
                 XCTAssertEqual(dep.path.pathString, "\(homeDir)/path/to/~/foo12")
             } else {
                 XCTFail("expected to be local dependency")
             }
 
-            if case .fileSystem(let dep) = deps["~"] {
+            if case .local(let dep) = deps["~"] {
                 XCTAssertEqual(dep.path.pathString, "/foo/~")
             } else {
                 XCTFail("expected to be local dependency")
             }
 
-            if case .fileSystem(let dep) = deps["foo13"] {
+            if case .local(let dep) = deps["foo13"] {
                 XCTAssertEqual(dep.path.pathString, "/path/to/foo13")
             } else {
                 XCTFail("expected to be local dependency")
@@ -445,7 +446,8 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
     }
 
     func testDuplicateDependencyDecl() throws {
-        let manifest = """
+        let stream = BufferedOutputByteStream()
+        stream <<< """
             import PackageDescription
             let package = Package(
                 name: "Trivial",
@@ -465,7 +467,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             )
             """
 
-        XCTAssertManifestLoadThrows(manifest) { _, diagnostics in
+        XCTAssertManifestLoadThrows(stream.bytes) { _, diagnostics in
             diagnostics.check(diagnostic: .regex("duplicate dependency 'foo(1|2)'"), behavior: .error)
             diagnostics.check(diagnostic: .regex("duplicate dependency 'foo(1|2)'"), behavior: .error)
         }
@@ -498,7 +500,8 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
     }
 
     func testURLContainsNotAbsolutePath() throws {
-        let manifest = """
+        let stream = BufferedOutputByteStream()
+        stream <<< """
         import PackageDescription
         let package = Package(
             name: "Trivial",
@@ -513,7 +516,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
         )
         """
 
-        XCTAssertManifestLoadThrows(ManifestParseError.invalidManifestFormat("file:// URLs cannot be relative, did you mean to use `.package(path:)`?", diagnosticFile: nil), manifest)
+        XCTAssertManifestLoadThrows(ManifestParseError.invalidManifestFormat("file:// URLs cannot be relative, did you mean to use `.package(path:)`?", diagnosticFile: nil), stream.bytes)
     }
 
     func testCacheInvalidationOnEnv() throws {
@@ -703,7 +706,8 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
     }
 
     func testProductTargetNotFound() throws {
-        let manifest = """
+        let stream = BufferedOutputByteStream()
+        stream <<< """
             import PackageDescription
 
             let package = Package(
@@ -719,13 +723,14 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             )
             """
 
-        XCTAssertManifestLoadThrows(manifest) { _, diagnostics in
+        XCTAssertManifestLoadThrows(stream.bytes) { _, diagnostics in
             diagnostics.check(diagnostic: "target 'B' referenced in product 'Product' could not be found; valid targets are: 'A', 'C', 'b'", behavior: .error)
         }
     }
 
     func testLoadingWithoutDiagnostics() throws {
-        let manifest = """
+        let stream = BufferedOutputByteStream()
+        stream <<< """
             import PackageDescription
 
             let package = Package(
@@ -741,7 +746,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
 
         do {
             _ = try loadManifest(
-                manifest,
+                stream.bytes,
                 toolsVersion: toolsVersion,
                 packageKind: .remote,
                 diagnostics: nil

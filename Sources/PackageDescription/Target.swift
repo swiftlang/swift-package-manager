@@ -1,12 +1,12 @@
 /*
  This source file is part of the Swift.org open source project
- 
+
  Copyright (c) 2018 - 2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
- 
+
  See http://swift.org/LICENSE.txt for license information
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
- */
+*/
 
 import Foundation
 
@@ -17,7 +17,7 @@ import Foundation
 ///
 /// A target may depend on other targets within the same package and on products vended by the package's dependencies.
 public final class Target {
-    
+
     /// The different types of a target.
     public enum TargetType: String, Encodable {
         /// A target that contains code for the Swift package’s functionality.
@@ -33,17 +33,17 @@ public final class Target {
         /// A target that provides a package plugin.
         case plugin
     }
-    
+
     /// The different types of a target's dependency on another entity.
     public enum Dependency {
         case targetItem(name: String, condition: TargetDependencyCondition?)
         case productItem(name: String, package: String?, condition: TargetDependencyCondition?)
         case byNameItem(name: String, condition: TargetDependencyCondition?)
     }
-    
+
     /// The name of the target.
     public var name: String
-    
+
     /// The path of the target, relative to the package root.
     ///
     /// If the path is `nil`, the Swift Package Manager looks for a target's source files at predefined search paths
@@ -57,7 +57,7 @@ public final class Target {
     ///
     /// Don't escape the package root; that is, values like `../Foo` or `/Foo` are invalid.
     public var path: String?
-    
+
     /// The URL of a binary target.
     ///
     /// The URL points to a ZIP file that contains an XCFramework at its root.
@@ -68,7 +68,7 @@ public final class Target {
         set { _url = newValue }
     }
     private var _url: String?
-    
+
     /// The source files in this target.
     ///
     /// If this property is `nil`, the Swift Package Manager includes all valid source files in the target's path and treats specified paths as relative to the target’s path.
@@ -76,7 +76,7 @@ public final class Target {
     /// A path can be a path to a directory or an individual source file. In case of a directory, the Swift Package Manager searches for valid source files
     /// recursively inside it.
     public var sources: [String]?
-    
+
     /// The explicit list of resource files in the target.
     @available(_PackageDescription, introduced: 5.3)
     public var resources: [Resource]? {
@@ -84,37 +84,37 @@ public final class Target {
         set { _resources = newValue }
     }
     private var _resources: [Resource]?
-    
+
     /// The paths to source and resource files you don’t want to include in the target.
     ///
     /// Excluded paths are relative to the target path.
     /// This property has precedence over the `sources` and `resources` properties.
     public var exclude: [String]
-    
+
     /// A boolean value that indicates if this is a test target.
     public var isTest: Bool {
         return type == .test
     }
-    
+
     /// The target's dependencies on other entities inside or outside the package.
     public var dependencies: [Dependency]
-    
+
     /// The path to the directory containing public headers of a C-family target.
     ///
     /// This path should be relative to the path specified in `path`.
     /// If this is `nil`, the directory is set to `include`.
     public var publicHeadersPath: String?
-    
+
     /// The type of the target.
     public let type: TargetType
-    
+
     /// The `pkgconfig` name to use for a system library target.
     ///
     /// If present, the Swift Package Manager tries for every pkg-config 
     /// name separated by a space to search for the `<name>.pc` file 
     /// to get the additional flags needed for the system target.
     public let pkgConfig: String?
-    
+
     /// The providers array for a system library target.
     public let providers: [SystemPackageProvider]?
     
@@ -132,7 +132,7 @@ public final class Target {
     public enum PluginCapability {
         case _buildTool
     }
-    
+
     /// The target's C build settings.
     @available(_PackageDescription, introduced: 5)
     public var cSettings: [CSetting]? {
@@ -140,7 +140,7 @@ public final class Target {
         set { _cSettings = newValue }
     }
     private var _cSettings: [CSetting]?
-    
+
     /// The target's C++ build settings.
     @available(_PackageDescription, introduced: 5)
     public var cxxSettings: [CXXSetting]? {
@@ -148,7 +148,7 @@ public final class Target {
         set { _cxxSettings = newValue }
     }
     private var _cxxSettings: [CXXSetting]?
-    
+
     /// The target's Swift build settings.
     @available(_PackageDescription, introduced: 5)
     public var swiftSettings: [SwiftSetting]? {
@@ -156,7 +156,7 @@ public final class Target {
         set { _swiftSettings = newValue }
     }
     private var _swiftSettings: [SwiftSetting]?
-    
+
     /// The target's linker settings.
     @available(_PackageDescription, introduced: 5)
     public var linkerSettings: [LinkerSetting]? {
@@ -164,7 +164,7 @@ public final class Target {
         set { _linkerSettings = newValue }
     }
     private var _linkerSettings: [LinkerSetting]?
-    
+
     /// The checksum for the ZIP file that contains the referenced XCFramework.
     @available(_PackageDescription, introduced: 5.3)
     public var checksum: String? {
@@ -172,7 +172,7 @@ public final class Target {
         set { _checksum = newValue }
     }
     private var _checksum: String?
-    
+
     /// The usages of package plugins by the target.
     @available(_PackageDescription, introduced: 5.5)
     public var plugins: [PluginUsage]? {
@@ -180,11 +180,11 @@ public final class Target {
         set { _pluginUsages = newValue }
     }
     private var _pluginUsages: [PluginUsage]?
-    
+
     public enum PluginUsage {
         case _pluginItem(name: String, package: String?)
     }
-    
+
     /// Construct a target.
     private init(
         name: String,
@@ -224,7 +224,7 @@ public final class Target {
         self._linkerSettings = linkerSettings
         self._checksum = checksum
         self._pluginUsages = pluginUsages
-        
+
         switch type {
         case .regular, .executable, .test:
             precondition(
@@ -282,7 +282,7 @@ public final class Target {
             )
         }
     }
-    
+
     /// Creates a library or executable target.
     ///
     /// A target can contain either Swift or C-family source files, but not both. The Swift Package Manager
@@ -320,7 +320,7 @@ public final class Target {
             type: .regular
         )
     }
-    
+
     /// Creates a library or executable target.
     ///
     /// A target can contain either Swift or C-family source files, but not both. The Swift Package Manager
@@ -370,7 +370,7 @@ public final class Target {
             linkerSettings: linkerSettings
         )
     }
-    
+
     /// Creates a regular target.
     ///
     /// A target can contain either Swift or C-family source files, but not both. It contains code that is built as
@@ -423,7 +423,7 @@ public final class Target {
             linkerSettings: linkerSettings
         )
     }
-    
+
     /// Creates a regular target.
     ///
     /// A target can contain either Swift or C-family source files, but not both. It contains code that is built as
@@ -479,7 +479,7 @@ public final class Target {
             pluginUsages: plugins
         )
     }
-    
+
     /// Creates an executable target.
     ///
     /// An executable target can contain either Swift or C-family source files, but not both. It contains code that
@@ -506,32 +506,32 @@ public final class Target {
     ///   - linkerSettings: The linker settings for this target.
     @available(_PackageDescription, introduced: 5.4, obsoleted: 5.5)
     public static func executableTarget(
-        name: String,
-        dependencies: [Dependency] = [],
-        path: String? = nil,
-        exclude: [String] = [],
-        sources: [String]? = nil,
-        resources: [Resource]? = nil,
-        publicHeadersPath: String? = nil,
-        cSettings: [CSetting]? = nil,
-        cxxSettings: [CXXSetting]? = nil,
-        swiftSettings: [SwiftSetting]? = nil,
-        linkerSettings: [LinkerSetting]? = nil
+       name: String,
+       dependencies: [Dependency] = [],
+       path: String? = nil,
+       exclude: [String] = [],
+       sources: [String]? = nil,
+       resources: [Resource]? = nil,
+       publicHeadersPath: String? = nil,
+       cSettings: [CSetting]? = nil,
+       cxxSettings: [CXXSetting]? = nil,
+       swiftSettings: [SwiftSetting]? = nil,
+       linkerSettings: [LinkerSetting]? = nil
     ) -> Target {
-        return Target(
-            name: name,
-            dependencies: dependencies,
-            path: path,
-            exclude: exclude,
-            sources: sources,
-            resources: resources,
-            publicHeadersPath: publicHeadersPath,
-            type: .executable,
-            cSettings: cSettings,
-            cxxSettings: cxxSettings,
-            swiftSettings: swiftSettings,
-            linkerSettings: linkerSettings
-        )
+       return Target(
+           name: name,
+           dependencies: dependencies,
+           path: path,
+           exclude: exclude,
+           sources: sources,
+           resources: resources,
+           publicHeadersPath: publicHeadersPath,
+           type: .executable,
+           cSettings: cSettings,
+           cxxSettings: cxxSettings,
+           swiftSettings: swiftSettings,
+           linkerSettings: linkerSettings
+       )
     }
     
     /// Creates an executable target.
@@ -561,36 +561,36 @@ public final class Target {
     ///   - plugins: The plugins used by this target.
     @available(_PackageDescription, introduced: 5.5)
     public static func executableTarget(
-        name: String,
-        dependencies: [Dependency] = [],
-        path: String? = nil,
-        exclude: [String] = [],
-        sources: [String]? = nil,
-        resources: [Resource]? = nil,
-        publicHeadersPath: String? = nil,
-        cSettings: [CSetting]? = nil,
-        cxxSettings: [CXXSetting]? = nil,
-        swiftSettings: [SwiftSetting]? = nil,
-        linkerSettings: [LinkerSetting]? = nil,
-        plugins: [PluginUsage]? = nil
+       name: String,
+       dependencies: [Dependency] = [],
+       path: String? = nil,
+       exclude: [String] = [],
+       sources: [String]? = nil,
+       resources: [Resource]? = nil,
+       publicHeadersPath: String? = nil,
+       cSettings: [CSetting]? = nil,
+       cxxSettings: [CXXSetting]? = nil,
+       swiftSettings: [SwiftSetting]? = nil,
+       linkerSettings: [LinkerSetting]? = nil,
+       plugins: [PluginUsage]? = nil
     ) -> Target {
-        return Target(
-            name: name,
-            dependencies: dependencies,
-            path: path,
-            exclude: exclude,
-            sources: sources,
-            resources: resources,
-            publicHeadersPath: publicHeadersPath,
-            type: .executable,
-            cSettings: cSettings,
-            cxxSettings: cxxSettings,
-            swiftSettings: swiftSettings,
-            linkerSettings: linkerSettings,
-            pluginUsages: plugins
-        )
+       return Target(
+           name: name,
+           dependencies: dependencies,
+           path: path,
+           exclude: exclude,
+           sources: sources,
+           resources: resources,
+           publicHeadersPath: publicHeadersPath,
+           type: .executable,
+           cSettings: cSettings,
+           cxxSettings: cxxSettings,
+           swiftSettings: swiftSettings,
+           linkerSettings: linkerSettings,
+           pluginUsages: plugins
+       )
     }
-    
+
     /// Creates a test target.
     ///
     /// Write test targets using the XCTest testing framework.
@@ -625,7 +625,7 @@ public final class Target {
             type: .test
         )
     }
-    
+
     /// Creates a test target.
     ///
     /// Write test targets using the XCTest testing framework.
@@ -672,7 +672,7 @@ public final class Target {
             linkerSettings: linkerSettings
         )
     }
-    
+
     /// Creates a test target.
     ///
     /// Write test targets using the XCTest testing framework.
@@ -722,7 +722,7 @@ public final class Target {
             linkerSettings: linkerSettings
         )
     }
-    
+
     /// Creates a test target.
     ///
     /// Write test targets using the XCTest testing framework.
@@ -775,7 +775,7 @@ public final class Target {
             pluginUsages: plugins
         )
     }
-    
+
     /// Creates a system library target.
     ///
     /// Use system library targets to adapt a library installed on the system to work with Swift packages.
@@ -806,7 +806,7 @@ public final class Target {
             pkgConfig: pkgConfig,
             providers: providers)
     }
-    
+
     /// Creates a binary target that references a remote artifact.
     ///
     /// A binary target provides the url to a pre-built binary artifact for the target. Currently only supports
@@ -836,7 +836,7 @@ public final class Target {
             type: .binary,
             checksum: checksum)
     }
-    
+
     /// Creates a binary target that references an artifact on disk.
     ///
     /// A binary target provides the path to a pre-built binary artifact for the target.
@@ -862,7 +862,7 @@ public final class Target {
             publicHeadersPath: nil,
             type: .binary)
     }
-    
+
     /// Defines a new package plugin target with a given name, declaring it as
     /// providing a capability of adding custom build commands to SwiftPM (and to
     /// any IDEs based on libSwiftPM).
@@ -905,15 +905,76 @@ public final class Target {
         exclude: [String] = [],
         sources: [String]? = nil
     ) -> Target {
-        return Target(
-            name: name,
-            dependencies: dependencies,
-            path: path,
-            exclude: exclude,
-            sources: sources,
-            publicHeadersPath: nil,
-            type: .plugin,
-            pluginCapability: capability)
+      return Target(
+          name: name,
+          dependencies: dependencies,
+          path: path,
+          exclude: exclude,
+          sources: sources,
+          publicHeadersPath: nil,
+          type: .plugin,
+          pluginCapability: capability)
+    }
+}
+
+extension Target: Encodable {
+    private enum CodingKeys: CodingKey {
+        case name
+        case path
+        case url
+        case sources
+        case resources
+        case exclude
+        case dependencies
+        case publicHeadersPath
+        case type
+        case pkgConfig
+        case providers
+        case pluginCapability
+        case cSettings
+        case cxxSettings
+        case swiftSettings
+        case linkerSettings
+        case checksum
+        case pluginUsages
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+
+        try container.encode(name, forKey: .name)
+        try container.encode(path, forKey: .path)
+        try container.encode(_url, forKey: .url)
+        try container.encode(sources, forKey: .sources)
+        try container.encode(_resources, forKey: .resources)
+        try container.encode(exclude, forKey: .exclude)
+        try container.encode(dependencies, forKey: .dependencies)
+        try container.encode(publicHeadersPath, forKey: .publicHeadersPath)
+        try container.encode(type, forKey: .type)
+        try container.encode(pkgConfig, forKey: .pkgConfig)
+        try container.encode(providers, forKey: .providers)
+        try container.encode(_pluginCapability, forKey: .pluginCapability)
+        try container.encode(_checksum, forKey: .checksum)
+
+        if let cSettings = self._cSettings {
+            try container.encode(cSettings, forKey: .cSettings)
+        }
+
+        if let cxxSettings = self._cxxSettings {
+            try container.encode(cxxSettings, forKey: .cxxSettings)
+        }
+
+        if let swiftSettings = self._swiftSettings {
+            try container.encode(swiftSettings, forKey: .swiftSettings)
+        }
+
+        if let linkerSettings = self._linkerSettings {
+            try container.encode(linkerSettings, forKey: .linkerSettings)
+        }
+        
+        if let pluginUsages = self._pluginUsages {
+            try container.encode(pluginUsages, forKey: .pluginUsages)
+        }
     }
 }
 
@@ -926,7 +987,7 @@ extension Target.Dependency {
     public static func target(name: String) -> Target.Dependency {
         return .targetItem(name: name, condition: nil)
     }
-    
+
     /// Creates a dependency on a product from a package dependency.
     ///
     /// - parameters:
@@ -936,7 +997,7 @@ extension Target.Dependency {
     public static func product(name: String, package: String? = nil) -> Target.Dependency {
         return .productItem(name: name, package: package, condition: nil)
     }
-    
+
     /// Creates a dependency that resolves to either a target or a product with the specified name.
     ///
     /// - parameters:
@@ -947,7 +1008,7 @@ extension Target.Dependency {
     public static func byName(name: String) -> Target.Dependency {
         return .byNameItem(name: name, condition: nil)
     }
-    
+
     /// Creates a dependency on a product from a package dependency.
     ///
     /// - parameters:
@@ -960,7 +1021,7 @@ extension Target.Dependency {
     ) -> Target.Dependency {
         return .productItem(name: name, package: package, condition: nil)
     }
-    
+
     /// Creates a dependency on a target in the same package.
     ///
     /// - parameters:
@@ -971,7 +1032,7 @@ extension Target.Dependency {
     public static func target(name: String, condition: TargetDependencyCondition? = nil) -> Target.Dependency {
         return .targetItem(name: name, condition: condition)
     }
-    
+
     /// Creates a target dependency on a product from a package dependency.
     ///
     /// - parameters:
@@ -987,7 +1048,7 @@ extension Target.Dependency {
     ) -> Target.Dependency {
         return .productItem(name: name, package: package, condition: condition)
     }
-    
+
     /// Creates a by-name dependency that resolves to either a target or a product but after the Swift Package Manager
     /// has loaded the package graph.
     ///
@@ -1002,7 +1063,7 @@ extension Target.Dependency {
 }
 
 extension Target.PluginCapability {
-    
+
     /// Specifies that the plugin provides a build tool capability. The plugin
     /// will be applied to each target that uses it and should create commands
     /// that will run before or during the build of the target.
@@ -1021,7 +1082,7 @@ extension Target.PluginUsage {
     public static func plugin(name: String) -> Target.PluginUsage {
         return ._pluginItem(name: name, package: nil)
     }
-    
+
     /// Specifies use of a plugin product in a package dependency.
     ///
     /// - parameters:
@@ -1037,7 +1098,7 @@ extension Target.PluginUsage {
 // MARK: ExpressibleByStringLiteral
 
 extension Target.Dependency: ExpressibleByStringLiteral {
-    
+
     /// Creates a target dependency instance with the given value.
     ///
     /// - parameters:
@@ -1048,7 +1109,7 @@ extension Target.Dependency: ExpressibleByStringLiteral {
 }
 
 extension Target.PluginUsage: ExpressibleByStringLiteral {
-    
+
     /// Specifies use of a plugin target in the same package.
     ///
     /// - parameters:
@@ -1058,3 +1119,47 @@ extension Target.PluginUsage: ExpressibleByStringLiteral {
     }
 }
 
+
+// MARK: Encodable
+
+/// A condition that limits the application of a target's dependency.
+public struct TargetDependencyCondition: Encodable {
+
+    private let platforms: [Platform]?
+
+    private init(platforms: [Platform]?) {
+        self.platforms = platforms
+    }
+
+    /// Creates a target dependency condition.
+    ///
+    /// - Parameters:
+    ///   - platforms: The applicable platforms for this target dependency condition.
+    public static func when(
+        platforms: [Platform]? = nil
+    ) -> TargetDependencyCondition {
+        // FIXME: This should be an error, not a precondition.
+        precondition(!(platforms == nil))
+        return TargetDependencyCondition(platforms: platforms)
+    }
+}
+
+extension Target.PluginUsage: Encodable {
+    private enum CodingKeys: CodingKey {
+        case type, name, package
+    }
+
+    private enum Kind: String, Codable {
+        case plugin
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case ._pluginItem(let name, let package):
+            try container.encode(Kind.plugin, forKey: .type)
+            try container.encode(name, forKey: .name)
+            try container.encode(package, forKey: .package)
+        }
+    }
+}

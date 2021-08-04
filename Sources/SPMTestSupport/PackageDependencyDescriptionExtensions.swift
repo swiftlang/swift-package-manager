@@ -11,98 +11,41 @@
 import PackageModel
 import TSCBasic
 
-public extension PackageDependency {
-    static func fileSystem(identity: PackageIdentity? = nil,
-                           name: String? = nil,
-                           path: String,
-                           productFilter: ProductFilter = .everything
-    ) -> Self {
-        return .fileSystem(identity: identity,
-                           name: name,
-                           path: AbsolutePath(path),
-                           productFilter: productFilter)
-    }
-
-    static func fileSystem(identity: PackageIdentity? = nil,
-                           name: String? = nil,
-                           path: AbsolutePath,
-                           productFilter: ProductFilter = .everything
-    ) -> Self {
-        let identity = identity ?? PackageIdentity(url: path.pathString)
-        return .fileSystem(identity: identity,
-                           name: name,
-                           path: path,
-                           productFilter: productFilter)
-    }
-
-    // backwards compatibility with existing tests
+public extension PackageDependencyDescription {
     static func local(identity: PackageIdentity? = nil,
                       name: String? = nil,
                       path: String,
                       productFilter: ProductFilter = .everything
-    ) -> Self {
-        return .fileSystem(identity: identity,
-                           name: name,
-                           path: AbsolutePath(path),
-                           productFilter: productFilter)
+    ) -> PackageDependencyDescription {
+        return .local(identity: identity,
+                      name: name,
+                      path: AbsolutePath(path),
+                      productFilter: productFilter)
     }
 
-    // backwards compatibility with existing tests
     static func local(identity: PackageIdentity? = nil,
                       name: String? = nil,
                       path: AbsolutePath,
                       productFilter: ProductFilter = .everything
-    ) -> Self {
-        return .fileSystem(identity: identity,
-                           name: name,
-                           path: path,
-                           productFilter: productFilter)
+    ) -> PackageDependencyDescription {
+        let identity = identity ?? PackageIdentity(url: path.pathString)
+        return .local(identity: identity,
+                      name: name,
+                      path: path,
+                      productFilter: productFilter)
     }
 
-    static func sourceControl(identity: PackageIdentity? = nil,
-                              name: String? = nil,
-                              location: String,
-                              requirement: SourceControl.Requirement,
-                              productFilter: ProductFilter = .everything
-    ) -> Self {
-        let identity = identity ?? PackageIdentity(url: location)
-        return .sourceControl(identity: identity,
-                              name: name,
-                              location: location,
-                              requirement: requirement,
-                              productFilter: productFilter)
-    }
-
-    // backwards compatibility with existing tests
     static func scm(identity: PackageIdentity? = nil,
                     name: String? = nil,
                     location: String,
-                    requirement: SourceControl.Requirement,
+                    requirement: Requirement,
                     productFilter: ProductFilter = .everything
-    ) -> Self {
-        return .sourceControl(identity: identity,
-                              name: name,
-                              location: location,
-                              requirement: requirement,
-                              productFilter: productFilter)
-    }
-
-    static func registry(identity: String,
-                         requirement: Registry.Requirement,
-                         productFilter: ProductFilter = .everything
-    ) -> Self {
-        return .registry(identity: .plain(identity),
-                         requirement: requirement,
-                         productFilter: productFilter)
-    }
-}
-
-// backwards compatibility with existing tests
-extension PackageDependency.SourceControl.Requirement {
-    public static func upToNextMajor(from version: Version) -> Self {
-        return .range(.upToNextMajor(from: version))
-    }
-    public static func upToNextMinor(from version: Version) -> Self {
-        return .range(.upToNextMinor(from: version))
+    ) -> PackageDependencyDescription {
+        let identity = identity ?? PackageIdentity(url: location)
+        return .scm(identity: identity,
+                    name: name,
+                    location: location,
+                    requirement: requirement,
+                    productFilter: productFilter)
     }
 }

@@ -13,7 +13,7 @@ add_library(PackageLoading
   MinimumDeploymentTarget.swift
   ModuleMapGenerator.swift
   PackageBuilder.swift
-  ManifestJSONParser.swift
+  PackageDescription4Loader.swift
   PlatformRegistry.swift
   Target+PkgConfig.swift
   TargetSourcesBuilder.swift

@@ -1,12 +1,12 @@
 /*
  This source file is part of the Swift.org open source project
- 
+
  Copyright (c) 2018 - 2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
- 
+
  See http://swift.org/LICENSE.txt for license information
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
- */
+*/
 
 extension Version: ExpressibleByStringLiteral {
     /// Initializes a version struct with the provided string literal.
@@ -23,7 +23,7 @@ extension Version: ExpressibleByStringLiteral {
             self.init(0, 0, 0)
         }
     }
-    
+
     /// Initializes a version struct with the provided extended grapheme cluster.
     ///
     /// - Parameters:
@@ -31,7 +31,7 @@ extension Version: ExpressibleByStringLiteral {
     public init(extendedGraphemeClusterLiteral value: String) {
         self.init(stringLiteral: value)
     }
-    
+
     /// Initializes a version struct with the provided Unicode string.
     ///
     /// - Parameters:
@@ -60,7 +60,7 @@ extension Version: LosslessStringConvertible {
             versionCoreIdentifiers.count == 3,
             // Major, minor, and patch versions must be ASCII numbers, according to the semantic versioning standard.
             // Converting each identifier from a substring to an integer doubles as checking if the identifiers have non-numeric characters.
-                let major = Int(versionCoreIdentifiers[0]),
+            let major = Int(versionCoreIdentifiers[0]),
             let minor = Int(versionCoreIdentifiers[1]),
             let patch = Int(versionCoreIdentifiers[2])
         else { return nil }

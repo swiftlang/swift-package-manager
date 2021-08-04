@@ -6,8 +6,16 @@
 
  See http://swift.org/LICENSE.txt for license information
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
- */
+*/
 
+#if canImport(Glibc)
+@_implementationOnly import Glibc
+#elseif os(iOS) || os(macOS) || os(tvOS) || os(watchOS)
+@_implementationOnly import Darwin.C
+#elseif os(Windows)
+@_implementationOnly import ucrt
+@_implementationOnly import struct WinSDK.HANDLE
+#endif
 import Foundation
 
 /// The configuration of a Swift package.
@@ -57,6 +65,93 @@ import Foundation
 /// without having to update your package manifest and without losing access to
 /// existing packages.
 public final class Package {
+
+      /// A package dependency of a Swift package.
+      ///
+      /// A package dependency consists of a Git URL to the source of the package,
+      /// and a requirement for the version of the package.
+      ///
+      /// The Swift Package Manager performs a process called *dependency resolution* to
+      /// figure out the exact version of the package dependencies that an app or other
+      /// Swift package can use. The `Package.resolved` file records the results of the
+      /// dependency resolution and lives in the top-level directory of a Swift package.
+      /// If you add the Swift package as a package dependency to an app for an Apple platform,
+      /// you can find the `Package.resolved` file inside your `.xcodeproj` or `.xcworkspace`.
+      public class Dependency: Encodable {
+
+        /// An enum that represents the requirement for a package dependency.
+        ///
+        /// The dependency requirement can be defined as one of three different version requirements:
+        ///
+        /// **A version-based requirement.**
+        ///
+        /// Decide whether your project accepts updates to a package dependency up
+        /// to the next major version or up to the next minor version. To be more
+        /// restrictive, select a specific version range or an exact version.
+        /// Major versions tend to have more significant changes than minor
+        /// versions, and may require you to modify your code when they update.
+        /// The version rule requires Swift packages to conform to semantic
+        /// versioning. To learn more about the semantic versioning standard,
+        /// visit [semver.org](https://semver.org).
+        ///
+        /// Selecting the version requirement is the recommended way to add a package dependency. It allows you to create a balance between restricting changes and obtaining improvements and features.
+        ///
+        /// **A branch-based requirement**
+        ///
+        /// Select the name of the branch for your package dependency to follow.
+        /// Use branch-based dependencies when you're developing multiple packages
+        /// in tandem or when you don't want to publish versions of your package dependencies.
+        ///
+        /// Note that packages which use branch-based dependency requirements
+        /// can't be added as dependencies to packages that use version-based dependency
+        /// requirements; you should remove branch-based dependency requirements
+        /// before publishing a version of your package.
+        ///
+        /// **A commit-based requirement**
+        ///
+        /// Select the commit hash for your package dependency to follow.
+        /// Choosing this option isn't recommended, and should be limited to
+        /// exceptional cases. While pinning your package dependency to a specific
+        /// commit ensures that the package dependency doesn't change and your
+        /// code remains stable, you don't receive any updates at all. If you worry about
+        /// the stability of a remote package, consider one of the more
+        /// restrictive options of the version-based requirement.
+        ///
+        /// Note that packages which use commit-based dependency requirements
+        /// can't be added as dependencies to packages that use version-based
+        /// dependency requirements; you should remove commit-based dependency
+        /// requirements before publishing a version of your package.
+        public enum Requirement {
+            case exactItem(Version)
+            case rangeItem(Range<Version>)
+            case revisionItem(String)
+            case branchItem(String)
+            case localPackageItem
+
+            var isLocalPackage: Bool {
+                if case .localPackageItem = self { return true }
+                return false
+            }
+        }
+
+        /// The name of the package, or `nil` to deduce the name using the
+        /// package's Git URL.
+        public let name: String?
+
+        /// The Git URL of the package dependency.
+        public let url: String
+
+        /// The dependency requirement of the package dependency.
+        public let requirement: Requirement
+
+        /// Initializes and returns a newly allocated requirement with the specified url and requirements.
+        init(name: String?, url: String, requirement: Requirement) {
+            self.name = name
+            self.url = url
+            self.requirement = requirement
+        }
+    }
+
     /// The name of the Swift package.
     public var name: String
 
@@ -147,7 +242,7 @@ public final class Package {
     /// - Parameters:
     ///     - name: The name of the Swift package, or `nil`, if you want the Swift Package Manager to deduce the
     ///           name from the package’s Git URL.
-    ///     - pkgConfig: The name to use for C modules. If present, the Swift
+    ///     - pkgConfig: The name to use for C modules. If present, the Swift 
     ///           Package Manager searches for a `<name>.pc` file to get the
     ///           additional flags required for a system target.
     ///     - products: The list of products that this package makes available for clients to use.
@@ -186,7 +281,7 @@ public final class Package {
     ///     - name: The name of the Swift package, or `nil`, if you want the Swift Package Manager to deduce the
     ///           name from the package’s Git URL.
     ///     - platforms: The list of supported platforms that have a custom deployment target.
-    ///     - pkgConfig: The name to use for C modules. If present, the Swift
+    ///     - pkgConfig: The name to use for C modules. If present, the Swift 
     ///           Package Manager searches for a `<name>.pc` file to get the
     ///           additional flags required for a system target.
     ///     - products: The list of products that this package makes available for clients to use.
@@ -228,7 +323,7 @@ public final class Package {
     ///           name from the package’s Git URL.
     ///     - defaultLocalization: The default localization for resources.
     ///     - platforms: The list of supported platforms that have a custom deployment target.
-    ///     - pkgConfig: The name to use for C modules. If present, the Swift
+    ///     - pkgConfig: The name to use for C modules. If present, the Swift 
     ///           Package Manager searches for a `<name>.pc` file to get the
     ///           additional flags required for a system target.
     ///     - products: The list of products that this package vends and that clients can use.
@@ -283,9 +378,9 @@ public final class Package {
         // handle through the `-handle` option.
 #if os(Windows)
         if let index = CommandLine.arguments.firstIndex(of: "-handle") {
-            if let handle = Int(CommandLine.arguments[index + 1], radix: 16) {
-                dumpPackageAtExit(self, to: handle)
-            }
+          if let handle = Int(CommandLine.arguments[index + 1], radix: 16) {
+            dumpPackageAtExit(self, to: handle)
+          }
         }
 #else
         if let optIdx = CommandLine.arguments.firstIndex(of: "-fileno") {
@@ -376,7 +471,126 @@ public enum SystemPackageProvider {
     }
 }
 
-// MARK: - Package Dumping
+// MARK: Package JSON serialization
+
+extension Package: Encodable {
+    private enum CodingKeys: CodingKey {
+        case name
+        case defaultLocalization
+        case platforms
+        case pkgConfig
+        case providers
+        case products
+        case dependencies
+        case targets
+        case swiftLanguageVersions
+        case cLanguageStandard
+        case cxxLanguageStandard
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(name, forKey: .name)
+
+        if let defaultLocalization = _defaultLocalization {
+            try container.encode(defaultLocalization.tag, forKey: .defaultLocalization)
+        }
+        if let platforms = self._platforms {
+            try container.encode(platforms, forKey: .platforms)
+        }
+
+        try container.encode(pkgConfig, forKey: .pkgConfig)
+        try container.encode(providers, forKey: .providers)
+        try container.encode(products, forKey: .products)
+        try container.encode(dependencies, forKey: .dependencies)
+        try container.encode(targets, forKey: .targets)
+        try container.encode(swiftLanguageVersions, forKey: .swiftLanguageVersions)
+        try container.encode(cLanguageStandard, forKey: .cLanguageStandard)
+        try container.encode(cxxLanguageStandard, forKey: .cxxLanguageStandard)
+    }
+}
+
+extension SystemPackageProvider: Encodable {
+    private enum CodingKeys: CodingKey {
+        case name
+        case values
+    }
+
+    private enum Name: String, Encodable {
+        case brew
+        case apt
+        case yum
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case .brewItem(let packages):
+            try container.encode(Name.brew, forKey: .name)
+            try container.encode(packages, forKey: .values)
+        case .aptItem(let packages):
+            try container.encode(Name.apt, forKey: .name)
+            try container.encode(packages, forKey: .values)
+        case .yumItem(let packages):
+            try container.encode(Name.yum, forKey: .name)
+            try container.encode(packages, forKey: .values)
+        }
+    }
+}
+
+extension Target.PluginCapability: Encodable {
+    private enum CodingKeys: CodingKey {
+        case type
+    }
+
+    private enum Capability: String, Encodable {
+        case buildTool
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case ._buildTool:
+            try container.encode(Capability.buildTool, forKey: .type)
+        }
+    }
+}
+
+extension Target.Dependency: Encodable {
+    private enum CodingKeys: CodingKey {
+        case type
+        case name
+        case package
+        case condition
+    }
+
+    private enum Kind: String, Codable {
+        case target
+        case product
+        case byName = "byname"
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case .targetItem(let name, let condition):
+            try container.encode(Kind.target, forKey: .type)
+            try container.encode(name, forKey: .name)
+            try container.encode(condition, forKey: .condition)
+        case .productItem(let name, let package, let condition):
+            try container.encode(Kind.product, forKey: .type)
+            try container.encode(name, forKey: .name)
+            try container.encode(package, forKey: .package)
+            try container.encode(condition, forKey: .condition)
+        case .byNameItem(let name, let condition):
+            try container.encode(Kind.byName, forKey: .type)
+            try container.encode(name, forKey: .name)
+            try container.encode(condition, forKey: .condition)
+        }
+    }
+}
+
+// MARK: Package Dumping
 
 func manifestToJSON(_ package: Package) -> String {
     struct Output: Encodable {
@@ -395,26 +609,26 @@ var errors: [String] = []
 #if os(Windows)
 private var dumpInfo: (package: Package, handle: Int)?
 private func dumpPackageAtExit(_ package: Package, to handle: Int) {
-    let dump: @convention(c) () -> Void = {
-        guard let dumpInfo = dumpInfo else { return }
+  let dump: @convention(c) () -> Void = {
+    guard let dumpInfo = dumpInfo else { return }
 
-        let hFile: HANDLE = HANDLE(bitPattern: dumpInfo.handle)!
-        // NOTE: `_open_osfhandle` transfers ownership of the HANDLE to the file
-        // descriptor.  DO NOT invoke `CloseHandle` on `hFile`.
-        let fd: CInt = _open_osfhandle(Int(bitPattern: hFile), _O_APPEND)
-        // NOTE: `_fdopen` transfers ownership of the file descriptor to the
-        // `FILE *`.  DO NOT invoke `_close` on the `fd`.
-        guard let fp = _fdopen(fd, "w") else {
-            _close(fd)
-            return
-        }
-        defer { fclose(fp) }
-
-        fputs(manifestToJSON(dumpInfo.package), fp)
+    let hFile: HANDLE = HANDLE(bitPattern: dumpInfo.handle)!
+    // NOTE: `_open_osfhandle` transfers ownership of the HANDLE to the file
+    // descriptor.  DO NOT invoke `CloseHandle` on `hFile`.
+    let fd: CInt = _open_osfhandle(Int(bitPattern: hFile), _O_APPEND)
+    // NOTE: `_fdopen` transfers ownership of the file descriptor to the
+    // `FILE *`.  DO NOT invoke `_close` on the `fd`.
+    guard let fp = _fdopen(fd, "w") else {
+      _close(fd)
+      return
     }
+    defer { fclose(fp) }
 
-    dumpInfo = (package, handle)
-    atexit(dump)
+    fputs(manifestToJSON(dumpInfo.package), fp)
+  }
+
+  dumpInfo = (package, handle)
+  atexit(dump)
 }
 #else
 private var dumpInfo: (package: Package, fileDesc: Int32)?

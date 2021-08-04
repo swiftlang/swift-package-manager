@@ -57,7 +57,7 @@ extension PackageGraph {
         let rootManifestNodes = root.packages.map { identity, package in
             GraphLoadingNode(identity: identity, manifest: package.manifest, productFilter: .everything)
         }
-        let rootDependencyNodes = root.dependencies.lazy.compactMap { (dependency: PackageDependency) -> GraphLoadingNode? in
+        let rootDependencyNodes = root.dependencies.lazy.compactMap { (dependency: PackageDependencyDescription) -> GraphLoadingNode? in
             manifestMap[dependency.identity].map {
                 GraphLoadingNode(identity: dependency.identity, manifest: $0, productFilter: dependency.productFilter)
             }
@@ -238,13 +238,10 @@ private func createResolvedPackages(
             // FIXME: change this validation logic to use identity instead of location
             let dependencyLocation: String
             switch dependency {
-            case .fileSystem(let settings):
-                dependencyLocation = settings.path.pathString
-            case .sourceControl(let settings):
-                dependencyLocation = settings.location
-            case .registry:
-                // FIXME
-                fatalError("registry based dependencies not implemented yet")
+            case .local(let data):
+                dependencyLocation = data.path.pathString
+            case .scm(let data):
+                dependencyLocation = data.location
             }
 
             // Use the package name to lookup the dependency. The package name will be present in packages with tools version >= 5.2.
