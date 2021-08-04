@@ -70,7 +70,7 @@ public final class Manifest: ObjectIdentifierProtocol {
     public let platforms: [PlatformDescription]
 
     /// The declared package dependencies.
-    public let dependencies: [PackageDependencyDescription]
+    public let dependencies: [PackageDependency]
 
     /// The targets declared in the manifest.
     public let targets: [TargetDescription]
@@ -100,7 +100,7 @@ public final class Manifest: ObjectIdentifierProtocol {
     private var _requiredTargets = ThreadSafeKeyValueStore<ProductFilter, [TargetDescription]>()
 
     /// Dependencies required for building particular product filters.
-    private var _requiredDependencies = ThreadSafeKeyValueStore<ProductFilter, [PackageDependencyDescription]>()
+    private var _requiredDependencies = ThreadSafeKeyValueStore<ProductFilter, [PackageDependency]>()
 
     public init(
         name: String,
@@ -117,7 +117,7 @@ public final class Manifest: ObjectIdentifierProtocol {
         cLanguageStandard: String? = nil,
         cxxLanguageStandard: String? = nil,
         swiftLanguageVersions: [SwiftLanguageVersion]? = nil,
-        dependencies: [PackageDependencyDescription] = [],
+        dependencies: [PackageDependency] = [],
         products: [ProductDescription] = [],
         targets: [TargetDescription] = []
     ) {
@@ -166,7 +166,7 @@ public final class Manifest: ObjectIdentifierProtocol {
     }
 
     /// Returns the package dependencies required for a particular products filter.
-    public func dependenciesRequired(for productFilter: ProductFilter) -> [PackageDependencyDescription] {
+    public func dependenciesRequired(for productFilter: ProductFilter) -> [PackageDependency] {
         #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
         // If we have already calcualted it, returned the cached value.
         if let dependencies = self._requiredDependencies[productFilter] {
@@ -224,7 +224,7 @@ public final class Manifest: ObjectIdentifierProtocol {
     private func dependenciesRequired(
         for targets: [TargetDescription],
         keepUnused: Bool = false
-    ) -> [PackageDependencyDescription] {
+    ) -> [PackageDependency] {
 
         var registry: (known: [String: ProductFilter], unknown: Set<String>) = ([:], [])
         let availablePackages = Set(dependencies.lazy.map{ $0.nameForTargetDependencyResolutionOnly })
@@ -263,7 +263,7 @@ public final class Manifest: ObjectIdentifierProtocol {
     /// package name (for tools versions less than 5.2), or if there were no dependencies with the provided name.
     public func packageDependency(
         referencedBy targetDependency: TargetDescription.Dependency
-    ) -> PackageDependencyDescription? {
+    ) -> PackageDependency? {
         let packageName: String
 
         switch targetDependency {

@@ -99,22 +99,54 @@ fileprivate struct DescribedPackage: Encodable {
     }
     
     /// Represents a package dependency for the sole purpose of generating a description.
-    struct DescribedPackageDependency: Encodable {
-        let identity: PackageIdentity
-        let name: String?
-        let url: String?
-        let requirement: PackageDependencyDescription.Requirement?
+    enum DescribedPackageDependency: Encodable {
+        case fileSystem(name: String?, path: AbsolutePath)
+        case sourceControl(name: String?, location: String, requirement: PackageDependency.SourceControl.Requirement)
+        case registry(identity: PackageIdentity, requirement: PackageDependency.Registry.Requirement)
 
-        init(from dependency: PackageDependencyDescription) {
-            self.identity = dependency.identity
-            self.name = dependency.explicitNameForTargetDependencyResolutionOnly
+        init(from dependency: PackageDependency) {
             switch dependency {
-            case .local(let data):
-                self.url = data.path.pathString
-                self.requirement = nil
-            case .scm(let data):
-                self.url = data.location
-                self.requirement = data.requirement
+            case .fileSystem(let settings):
+                self = .fileSystem(name: dependency.explicitNameForTargetDependencyResolutionOnly, path: settings.path)
+            case .sourceControl(let settings):
+                self = .sourceControl(name: dependency.explicitNameForTargetDependencyResolutionOnly, location: settings.location, requirement: settings.requirement)
+            case .registry(let settings):
+                self = .registry(identity: settings.identity, requirement: settings.requirement)
+            }
+        }
+
+        private enum CodingKeys: CodingKey {
+            case type
+            case name
+            case path
+            case url
+            case requirement
+            case identity
+        }
+
+        private enum Kind: String, Codable {
+            case fileSystem
+            case sourceControl
+            case registry
+        }
+
+        public func encode(to encoder: Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            switch self {
+            case .fileSystem(let name, let path):
+                try container.encode(Kind.fileSystem, forKey: .type)
+                try container.encode(name, forKey: .name)
+                try container.encode(path, forKey: .path)
+            case .sourceControl(let name, let location, let requirement):
+                try container.encode(Kind.sourceControl, forKey: .type)
+                try container.encode(name, forKey: .name)
+                try container.encode(location, forKey: .url)
+                try container.encode(requirement, forKey: .requirement)
+            case .registry(let identity, let requirement):
+                try container.encode(Kind.registry, forKey: .type)
+                try container.encode(identity, forKey: .identity)
+                try container.encode(requirement, forKey: .requirement)
+
             }
         }
     }
