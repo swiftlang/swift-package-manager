@@ -241,6 +241,10 @@ let package = Package(
             name: "swift-package-collection",
             dependencies: ["Commands"]),
         .target(
+            /** Interacts with package collections */
+            name: "swift-package-registry",
+            dependencies: ["Commands"]),
+        .target(
             /** Shim tool to find test names on OS X */
             name: "swiftpm-xctest-helper",
             dependencies: [],

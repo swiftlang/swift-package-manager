@@ -16,6 +16,7 @@ add_library(Commands
   show-dependencies.swift
   SwiftBuildTool.swift
   SwiftPackageCollectionsTool.swift
+  SwiftPackageRegistryTool.swift
   SwiftPackageTool.swift
   SwiftRunTool.swift
   SwiftTestTool.swift
