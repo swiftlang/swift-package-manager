@@ -22,17 +22,14 @@ class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
     }
 
     func testTrivial() throws {
-        try XCTSkipIf(!Resources.havePD4Runtime, "test is only supported when PD4 runtime is available")
-
-        let stream = BufferedOutputByteStream()
-        stream <<< """
+        let manifest = """
             import PackageDescription
             let package = Package(
                 name: "Trivial"
             )
             """
 
-        loadManifest(stream.bytes) { manifest in
+        loadManifest(manifest) { manifest in
             XCTAssertEqual(manifest.name, "Trivial")
             XCTAssertEqual(manifest.toolsVersion, .v4)
             XCTAssertEqual(manifest.targets, [])
@@ -41,10 +38,7 @@ class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
     }
 
     func testTargetDependencies() throws {
-        try XCTSkipIf(!Resources.havePD4Runtime, "test is only supported when PD4 runtime is available")
-
-        let stream = BufferedOutputByteStream()
-        stream <<< """
+        let manifest = """
             import PackageDescription
             let package = Package(
                 name: "Trivial",
@@ -62,7 +56,7 @@ class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
             )
             """
 
-        loadManifest(stream.bytes) { manifest in
+        loadManifest(manifest) { manifest in
             XCTAssertEqual(manifest.name, "Trivial")
             let foo = manifest.targetMap["foo"]!
             XCTAssertEqual(foo.name, "foo")
@@ -85,48 +79,40 @@ class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
     }
 
     func testCompatibleSwiftVersions() throws {
-        try XCTSkipIf(!Resources.havePD4Runtime, "test is only supported when PD4 runtime is available")
-
-        var stream = BufferedOutputByteStream()
-        stream <<< """
+        var manifest = """
             import PackageDescription
             let package = Package(
                name: "Foo",
                swiftLanguageVersions: [3, 4]
             )
             """
-        loadManifest(stream.bytes) { manifest in
+        loadManifest(manifest) { manifest in
             XCTAssertEqual(manifest.swiftLanguageVersions?.map({$0.rawValue}), ["3", "4"])
         }
 
-        stream = BufferedOutputByteStream()
-        stream <<< """
+        manifest = """
             import PackageDescription
             let package = Package(
                name: "Foo",
                swiftLanguageVersions: []
             )
             """
-        loadManifest(stream.bytes) { manifest in
+        loadManifest(manifest) { manifest in
             XCTAssertEqual(manifest.swiftLanguageVersions, [])
         }
 
-        stream = BufferedOutputByteStream()
-        stream <<< """
+        manifest = """
             import PackageDescription
             let package = Package(
                name: "Foo")
             """
-        loadManifest(stream.bytes) { manifest in
+        loadManifest(manifest) { manifest in
             XCTAssertEqual(manifest.swiftLanguageVersions, nil)
         }
     }
 
     func testPackageDependencies() throws {
-        try XCTSkipIf(!Resources.havePD4Runtime, "test is only supported when PD4 runtime is available")
-
-        let stream = BufferedOutputByteStream()
-        stream <<< """
+        let manifest = """
             import PackageDescription
             let package = Package(
                name: "Foo",
@@ -140,7 +126,7 @@ class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
                ]
             )
             """
-        loadManifest(stream.bytes, toolsVersion: ToolsVersion(string: "5.5")) { manifest in
+        loadManifest(manifest, toolsVersion: ToolsVersion(string: "5.5")) { manifest in
         let deps = Dictionary(uniqueKeysWithValues: manifest.dependencies.map{ ($0.identity.description, $0) })
             XCTAssertEqual(deps["foo1"], .scm(location: "/foo1", requirement: .upToNextMajor(from: "1.0.0")))
             XCTAssertEqual(deps["foo2"], .scm(location: "/foo2", requirement: .upToNextMajor(from: "1.0.0")))
@@ -152,10 +138,7 @@ class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
     }
 
     func testProducts() throws {
-        try XCTSkipIf(!Resources.havePD4Runtime, "test is only supported when PD4 runtime is available")
-
-        let stream = BufferedOutputByteStream()
-        stream <<< """
+        let manifest = """
             import PackageDescription
             let package = Package(
                 name: "Foo",
@@ -170,7 +153,7 @@ class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
                 ]
             )
             """
-        loadManifest(stream.bytes) { manifest in
+        loadManifest(manifest) { manifest in
             let products = Dictionary(uniqueKeysWithValues: manifest.products.map{ ($0.name, $0) })
             // Check tool.
             let tool = products["tool"]!
@@ -191,10 +174,7 @@ class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
     }
 
     func testSystemPackage() throws {
-        try XCTSkipIf(!Resources.havePD4Runtime, "test is only supported when PD4 runtime is available")
-
-        let stream = BufferedOutputByteStream()
-        stream <<< """
+        let manifest = """
             import PackageDescription
             let package = Package(
                name: "Copenssl",
@@ -205,7 +185,7 @@ class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
                ]
             )
             """
-        loadManifest(stream.bytes) { manifest in
+        loadManifest(manifest) { manifest in
             XCTAssertEqual(manifest.name, "Copenssl")
             XCTAssertEqual(manifest.pkgConfig, "openssl")
             XCTAssertEqual(manifest.providers, [
@@ -216,10 +196,7 @@ class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
     }
 
     func testCTarget() throws {
-        try XCTSkipIf(!Resources.havePD4Runtime, "test is only supported when PD4 runtime is available")
-
-        let stream = BufferedOutputByteStream()
-        stream <<< """
+        let manifest = """
             import PackageDescription
             let package = Package(
                name: "libyaml",
@@ -232,7 +209,7 @@ class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
                ]
             )
             """
-        loadManifest(stream.bytes) { manifest in
+        loadManifest(manifest) { manifest in
             let foo = manifest.targetMap["Foo"]!
             XCTAssertEqual(foo.publicHeadersPath, "inc")
 
@@ -242,10 +219,7 @@ class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
     }
 
     func testTargetProperties() throws {
-        try XCTSkipIf(!Resources.havePD4Runtime, "test is only supported when PD4 runtime is available")
-
-        let stream = BufferedOutputByteStream()
-        stream <<< """
+        let manifest = """
             import PackageDescription
             let package = Package(
                name: "libyaml",
@@ -261,7 +235,7 @@ class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
                ]
             )
             """
-        loadManifest(stream.bytes) { manifest in
+        loadManifest(manifest) { manifest in
             let foo = manifest.targetMap["Foo"]!
             XCTAssertEqual(foo.publicHeadersPath, "inc")
             XCTAssertEqual(foo.path, "foo/z")
@@ -277,10 +251,7 @@ class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
     }
 
     func testUnavailableAPIs() throws {
-        try XCTSkipIf(!Resources.havePD4Runtime, "test is only supported when PD4 runtime is available")
-
-        let stream = BufferedOutputByteStream()
-        stream.write("""
+        let manifest = """
             import PackageDescription
             let package = Package(
                name: "Foo",
@@ -291,9 +262,9 @@ class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
                    .package(url: "/foo4", range: "1.0.0"..<"1.5.0"),
                ]
             )
-            """)
+            """
         do {
-            try loadManifestThrowing(stream.bytes) { manifest in
+            try loadManifestThrowing(manifest) { manifest in
                 XCTFail("this package should not load successfully")
             }
             XCTFail("this package should not load successfully")
@@ -304,8 +275,6 @@ class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
     }
 
     func testLanguageStandards() throws {
-        try XCTSkipIf(!Resources.havePD4Runtime, "test is only supported when PD4 runtime is available")
-
         let stream = BufferedOutputByteStream()
         stream <<< """
             import PackageDescription
@@ -326,8 +295,6 @@ class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
     }
 
     func testManifestWithWarnings() throws {
-        try XCTSkipIf(!Resources.havePD4Runtime, "test is only supported when PD4 runtime is available")
-
         let fs = InMemoryFileSystem()
         let manifestPath = AbsolutePath.root.appending(component: Manifest.filename)
         let stream = BufferedOutputByteStream()
@@ -365,8 +332,6 @@ class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
     }
 
     func testDuplicateTargets() throws {
-        try XCTSkipIf(!Resources.havePD4Runtime, "test is only supported when PD4 runtime is available")
-
         let manifest = """
             import PackageDescription
 
@@ -388,8 +353,6 @@ class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
     }
 
     func testEmptyProductTargets() throws {
-        try XCTSkipIf(!Resources.havePD4Runtime, "test is only supported when PD4 runtime is available")
-
         let manifest = """
             import PackageDescription
 
@@ -410,8 +373,6 @@ class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
     }
 
     func testProductTargetNotFound() throws {
-        try XCTSkipIf(!Resources.havePD4Runtime, "test is only supported when PD4 runtime is available")
-
         let manifest = """
             import PackageDescription
 

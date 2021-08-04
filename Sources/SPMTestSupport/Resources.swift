@@ -60,9 +60,4 @@ public class Resources: ManifestResourceProvider {
       #endif
         toolchain = try! UserToolchain(destination: Destination.hostDestination(binDir))
     }
-
-    /// True if SwiftPM has PackageDescription 4 runtime available.
-    public static var havePD4Runtime: Bool {
-        return Resources.default.binDir == nil
-    }
 }

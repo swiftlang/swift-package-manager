@@ -3822,8 +3822,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testSimpleAPI() throws {
-        try XCTSkipIf(!Resources.havePD4Runtime, "test is only supported when PD4 runtime is available")
-
         // This verifies that the simplest possible loading APIs are available for package clients.
 
         // This checkout of the SwiftPM package.
