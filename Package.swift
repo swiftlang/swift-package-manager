@@ -241,7 +241,7 @@ let package = Package(
             name: "swift-package-collection",
             dependencies: ["Commands"]),
         .target(
-            /** Interacts with package collections */
+            /** Interact with package registry */
             name: "swift-package-registry",
             dependencies: ["Commands"]),
         .target(
