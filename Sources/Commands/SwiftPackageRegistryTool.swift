@@ -45,7 +45,7 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
     public static var configuration = CommandConfiguration(
         commandName: "package-registry",
         _superCommandName: "swift",
-        abstract: "Perform operations on Swift packages",
+        abstract: "Interact with package registry and manage related configuration",
         discussion: "SEE ALSO: swift package",
         version: SwiftVersion.currentVersion.completeDisplayString,
         subcommands: [
