@@ -16,6 +16,7 @@ import SPMTestSupport
 import SwiftDriver
 import TSCBasic
 import TSCUtility
+import Workspace
 import XCTest
 
 let hostTriple = Resources.default.toolchain.triple
@@ -2105,6 +2106,54 @@ final class BuildPlanTests: XCTestCase {
 
         let exe = try result.buildProduct(for: "exe").linkArguments()
         XCTAssertMatch(exe, [.anySequence, "-L", "/path/to/foo", "-L/path/to/foo", "-Xlinker", "-rpath=foo", "-Xlinker", "-rpath", "-Xlinker", "foo", "-L", "/fake/path/lib"])
+    }
+
+    func testUserToolchainCompileFlags() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Pkg/Sources/exe/main.swift",
+            "/Pkg/Sources/lib/lib.c",
+            "/Pkg/Sources/lib/include/lib.h"
+        )
+
+        let diagnostics = DiagnosticsEngine()
+        let graph = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
+            manifests: [
+                Manifest.createV4Manifest(
+                    name: "Pkg",
+                    path: "/Pkg",
+                    packageKind: .root,
+                    packageLocation: "/Pkg",
+                    targets: [
+                        TargetDescription(name: "exe", dependencies: ["lib"]),
+                        TargetDescription(name: "lib", dependencies: []),
+                    ]),
+            ]
+        )
+        XCTAssertNoDiagnostics(diagnostics)
+
+        let userDestination = Destination(sdk: AbsolutePath("/fake/sdk"),
+            binDir: Resources.default.toolchain.destination.binDir,
+            extraCCFlags: ["-I/fake/sdk/sysroot", "-clang-flag-from-json"],
+            extraSwiftCFlags: ["-swift-flag-from-json"])
+        let mockToolchain = try UserToolchain(destination: userDestination)
+        let extraBuildParameters = mockBuildParameters(toolchain: mockToolchain,
+            flags: BuildFlags(xcc: ["-clang-command-line-flag"], xswiftc: ["-swift-command-line-flag"]))
+        let result = BuildPlanResult(plan: try BuildPlan(buildParameters: extraBuildParameters, graph: graph, diagnostics: diagnostics, fileSystem: fs))
+        result.checkProductsCount(1)
+        result.checkTargetsCount(2)
+
+        let lib = try result.target(for: "lib").clangTarget()
+        var args: [StringPattern] = ["-fmodules-cache-path=/path/to/build/debug/ModuleCache"]
+      #if os(macOS)
+        args += ["-isysroot"]
+      #else
+        args += ["--sysroot"]
+      #endif
+        args += ["/fake/sdk", "-I/fake/sdk/sysroot", "-clang-flag-from-json", "-clang-command-line-flag"]
+        XCTAssertMatch(lib.basicArguments(), args)
+
+        let exe = try result.target(for: "exe").swiftTarget().compileArguments()
+        XCTAssertMatch(exe, ["-module-cache-path", "/path/to/build/debug/ModuleCache", .anySequence, "-swift-flag-from-json", "-Xcc", "-clang-command-line-flag", "-swift-command-line-flag"])
     }
 
     func testExecBuildTimeDependency() throws {

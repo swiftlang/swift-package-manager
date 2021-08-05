@@ -21,6 +21,7 @@
   * [Setting the Build Configuration](#setting-the-build-configuration)
     * [Debug](#debug)
     * [Release](#release)
+    * [Additional Flags](#additional-flags)
   * [Depending on Apple Modules](#depending-on-apple-modules)
   * [Creating C Language Targets](#creating-c-language-targets)
   * [Using Shell Completion Scripts](#using-shell-completion-scripts)
@@ -693,6 +694,22 @@ built with following flags in release mode:
 A C language target is built with following flags in release mode:
 
 * `-O2`: Compile with optimizations.
+
+### Additional Flags
+
+You can pass more flags to the C, C++, or Swift compilers in three different ways:
+
+* Command-line flags passed to these tools: flags like `-Xcc` or `-Xswiftc` are used to
+  pass C or Swift flags to all targets, as shown with `-Xlinker` above.
+* Target-specific flags in the manifest: options like `cSettings` or `swiftSettings` are
+  used for fine-grained control of compilation flags for particular targets.
+* A destination JSON file: once you have a set of working command-line flags that you
+  want applied to all targets, you can collect them in a JSON file and pass them in through
+  `extra-cc-flags` and `extra-swiftc-flags` with `--destination example.json`. Take a
+  look at `Utilities/build_ubuntu_cross_compilation_toolchain` for an example.
+
+One difference is that C flags passed in the `-Xcc` command-line or manifest's `cSettings`
+are supplied to the Swift compiler too for convenience, but `extra-cc-flags` aren't.
 
 ## Depending on Apple Modules
 
