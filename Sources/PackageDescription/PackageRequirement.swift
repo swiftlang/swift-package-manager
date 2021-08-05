@@ -169,6 +169,7 @@ extension Package.Dependency {
     /// can't be added as dependencies to packages that use version-based
     /// dependency requirements; you should remove commit-based dependency
     /// requirements before publishing a version of your package.
+    @available(_PackageDescription, introduced: 5.6)
     public enum SourceControlRequirement {
         case exact(Version)
         case range(Range<Version>)
@@ -222,6 +223,7 @@ extension Package.Dependency {
     /// can't be added as dependencies to packages that use version-based
     /// dependency requirements; you should remove commit-based dependency
     /// requirements before publishing a version of your package.
+    @available(_PackageDescription, introduced: 999)
     public enum RegistryRequirement {
         case exact(Version)
         case range(Range<Version>)
