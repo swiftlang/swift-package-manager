@@ -7,6 +7,7 @@
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
 add_library(PackageRegistry
+  Registry.swift
   RegistryConfiguration.swift)
 target_link_libraries(PackageRegistry PUBLIC
   TSCBasic
