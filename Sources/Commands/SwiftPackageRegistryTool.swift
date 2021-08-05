@@ -72,11 +72,13 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
         @Option(help: "Associate the registry with a given scope")
         var scope: String?
 
-        @Option(help: "Specify a user name for the remote machine")
-        var login: String?
+        // TODO: Uncomment once .netrc management is implemented
 
-        @Option(help: "Supply a password for the remote machine")
-        var password: String?
+        // @Option(help: "Specify a user name for the remote machine")
+        // var login: String?
+
+        // @Option(help: "Supply a password for the remote machine")
+        // var password: String?
 
         @Argument(help: "The registry URL")
         var url: String
