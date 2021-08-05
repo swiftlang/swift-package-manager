@@ -341,6 +341,12 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
         try repo.commit()
         try repo.tag(name: "v1.0.0")
         try repo.tag(name: "1.0.0")
+        try repo.tag(name: "v1.1.0")
+        try repo.tag(name: "1.1.0")
+        try repo.tag(name: "1.1")
+        try repo.tag(name: "1.2")
+        try repo.tag(name: "1.3")
+        try repo.tag(name: "1.3.0")
         try repo.tag(name: "1.0.1")
         try repo.tag(name: "v1.0.2")
         try repo.tag(name: "1.0.4")
@@ -366,7 +372,7 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
         let ref = PackageReference.remote(identity: PackageIdentity(path: repoPath), location: repoPath.pathString)
         let container = try provider.getContainer(for: ref, skipUpdate: false)
         let v = try container.toolsVersionsAppropriateVersionsDescending().map { $0 }
-        XCTAssertEqual(v, ["2.0.1", "1.0.4", "1.0.2", "1.0.1", "1.0.0"])
+        XCTAssertEqual(v, ["2.0.1", "1.3.0", "1.2.0", "1.1.0", "1.0.4", "1.0.2", "1.0.1", "1.0.0"])
     }
 
     func testDependencyConstraints() throws {
