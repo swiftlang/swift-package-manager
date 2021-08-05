@@ -13,15 +13,7 @@ import Foundation
 public struct RegistryConfiguration: Hashable {
     public typealias Scope = String
 
-    public struct Registry: Hashable {
-        public var url: Foundation.URL
-
-        public init(url: Foundation.URL) {
-            self.url = url
-        }
-    }
-
-    public enum Version: Int {
+    public enum Version: Int, Codable {
         case v1 = 1
     }
 
@@ -47,6 +39,10 @@ public struct RegistryConfiguration: Hashable {
         for (scope, registry) in other.scopedRegistries {
             self.scopedRegistries[scope] = registry
         }
+    }
+    
+    public func registry(for scope: Scope) -> Registry? {
+        return scopedRegistries[scope] ?? defaultRegistry
     }
 }
 
@@ -108,6 +104,3 @@ extension RegistryConfiguration: Codable {
         }
     }
 }
-
-extension RegistryConfiguration.Version: Codable {}
-extension RegistryConfiguration.Registry: Codable {}
