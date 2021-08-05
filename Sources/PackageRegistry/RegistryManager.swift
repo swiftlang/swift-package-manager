@@ -22,10 +22,11 @@ import struct Foundation.URLQueryItem
 import Dispatch
 
 public enum RegistryError: Error {
+    case unknown
     case registryNotConfigured(scope: PackageIdentity.Scope)
     case invalidPackage(PackageReference)
     case invalidOperation
-    case invalidResponse
+    case invalidResponse(HTTPClientResponse)
     case invalidURL
     case invalidChecksum(expected: String, actual: String)
 }
@@ -99,7 +100,7 @@ public final class RegistryManager {
                         .sorted(by: >)
                     return versions
                 } else {
-                    throw RegistryError.invalidResponse
+                    throw RegistryError.invalidResponse(response)
                 }
             })
         }
@@ -179,7 +180,7 @@ public final class RegistryManager {
                         completion: completion
                     )
                 } else {
-                    throw RegistryError.invalidResponse
+                    throw RegistryError.unknown
                 }
             } catch {
                 queue.async {
@@ -262,7 +263,7 @@ public final class RegistryManager {
                         completion(.failure(error))
                     }
                 } else {
-                    completion(.failure(RegistryError.invalidResponse))
+                    completion(.failure(RegistryError.invalidResponse(response)))
                 }
             case .failure(let error):
                 completion(.failure(error))
