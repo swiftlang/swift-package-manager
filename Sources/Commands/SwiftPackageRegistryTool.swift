@@ -84,10 +84,10 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
         var url: String
 
         func run(_ swiftTool: SwiftTool) throws {
-            guard let url = URL(string: url),
+            guard let url = URL(string: self.url),
                   url.scheme == "https"
             else {
-                throw RegistryConfigurationError.invalidURL(url)
+                throw RegistryConfigurationError.invalidURL(self.url)
             }
 
             // TODO: Require login if password is specified
