@@ -12,7 +12,8 @@ target_link_libraries(PackageRegistry PUBLIC
   TSCBasic
   PackageLoading
   PackageModel
-  TSCUtility)
+  TSCUtility
+  Basics)
 # NOTE(compnerd) workaround for CMake not setting up include flags yet
 set_target_properties(PackageRegistry PROPERTIES
   INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})
