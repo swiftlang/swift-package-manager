@@ -49,6 +49,8 @@ extension Manifest {
 }
 
 extension PackageContainerConstraint {
+    /// Constructs a structure of dependency nodes in a package.
+    /// - returns: An array of ``DependencyResolutionNode``
     internal func nodes() -> [DependencyResolutionNode] {
         switch products {
         case .everything:
