@@ -13,8 +13,9 @@
     - [3.6.2 Package name](#362-package-name)
 - [4. Endpoints](#4-endpoints)
   - [4.1. List package releases](#41-list-package-releases)
-  - [4.2. Fetch metadata for a package release](#42-fetch-metadata-for-a-package-release)
-    - [4.2.1. Package release metadata standards](#421-package-release-metadata-standards)
+  - [4.2. Fetch information about a package release](#42-fetch-information-about-a-package-release)
+    - [4.2.1. Package release resources](#421-package-release-resources)
+    - [4.2.2. Package release metadata standards](#422-package-release-metadata-standards)
   - [4.3. Fetch manifest for a package release](#43-fetch-manifest-for-a-package-release)
     - [4.3.1. swift-version query parameter](#431-swift-version-query-parameter)
   - [4.4. Download source archive](#44-download-source-archive)
@@ -269,13 +270,13 @@ Package names are case-insensitive
 
 A server MUST respond to the following endpoints:
 
-| Link                 | Method | Path                                                      | Description                                     |
-| -------------------- | ------ | --------------------------------------------------------- | ----------------------------------------------- |
-| [\[1\]](#endpoint-1) | `GET`  | `/{scope}/{name}`                                         | List package releases                           |
-| [\[2\]](#endpoint-2) | `GET`  | `/{scope}/{name}/{version}`                               | Fetch metadata for a package release            |
-| [\[3\]](#endpoint-3) | `GET`  | `/{scope}/{name}/{version}/Package.swift{?swift-version}` | Fetch manifest for a package release            |
-| [\[4\]](#endpoint-4) | `GET`  | `/{scope}/{name}/{version}.zip`                           | Download source archive for a package release   |
-| [\[5\]](#endpoint-5) | `GET`  | `/identifiers{?url}`                                      | Lookup package identifiers registered for a URL |
+| Link                 | Method   | Path                                                      | Description                                       |
+| -------------------- | -------- | --------------------------------------------------------- | ------------------------------------------------- |
+| [\[1\]](#endpoint-1) | `GET`    | `/{scope}/{name}`                                         | List package releases                             |
+| [\[2\]](#endpoint-2) | `GET`    | `/{scope}/{name}/{version}`                               | Fetch information about a package release         |
+| [\[3\]](#endpoint-3) | `GET`    | `/{scope}/{name}/{version}/Package.swift{?swift-version}` | Fetch manifest for a package release              |
+| [\[4\]](#endpoint-4) | `GET`    | `/{scope}/{name}/{version}.zip`                           | Download source archive for a package release     |
+| [\[5\]](#endpoint-5) | `GET`    | `/identifiers{?url}`                                      | Lookup package identifiers registered for a URL   |
 
 A server SHOULD also respond to `HEAD` requests
 for each of the specified endpoints.
@@ -408,11 +409,11 @@ such as one with a `payment` relation for sponsoring a package maintainer.
 
 <a name="endpoint-2"></a>
 
-### 4.2. Fetch metadata for a package release
+### 4.2. Fetch information about a package release
 
 A client MAY send a `GET` request
 for a URI matching the expression `/{scope}/{name}/{version}`
-to retrieve metadata about a release.
+to retrieve information about a release.
 A client SHOULD set the `Accept` header with the value
 `application/vnd.swift.registry.v1+json`,
 and MAY append the `.json` extension to the requested URI.
@@ -432,10 +433,31 @@ Otherwise, a server SHOULD respond with a status code of `404` (Not Found).
 HTTP/1.1 200 OK
 Content-Version: 1
 Content-Type: application/json
-Content-Length: 620
+Content-Length: 720
 Link: <https://packages.example.com/mona/LinkedList/1.1.1>; rel="latest-version",
       <https://packages.example.com/mona/LinkedList/1.0.0>; rel="predecessor-version"
+{
+  "id": "mona.LinkedList",
+  "version": "1.1.1",
+  "resources": [
+    {
+      "name": "source-archive",
+      "type": "application/zip",
+      "checksum": "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
+    }
+  ],
+  "metadata": { ... }
+}
 ```
+
+The response body MUST contain a JSON object containing the following fields:
+
+| Key         | Type   | Description                               |
+| ----------- | ------ | ----------------------------------------- |
+| `id`        | String | The namespaced package identifier.        |
+| `version`   | String | The package release version number.       |
+| `resources` | Array  | The resources available for the release.  |
+| `metadata`  | Object | Additional information about the release. |
 
 A server SHOULD respond with a `Link` header containing the following entries:
 
@@ -448,9 +470,26 @@ A server SHOULD respond with a `Link` header containing the following entries:
 A link with the `latest-version` relation
 MAY correspond to the requested release.
 
-#### 4.2.1. Package release metadata standards
+#### 4.2.1. Package release resources
 
-A server MAY include metadata fields in its package release response.
+Each element in the `resources` array is a JSON object with the following keys:
+
+| Key        | Type    | Description                                                 |
+| ---------- | ------- | ----------------------------------------------------------- |
+| `name`     | String  | The name of the resource.                                   |
+| `type`     | String  | The content type of the resource.                           |
+| `checksum` | String  | A SHA256 digest of the resource represented in hexadecimal. |
+
+A release object SHOULD have one of the following combinations of
+`name` and `type` values:
+
+| Name               | Content Type      | Description                        |
+| ------------------ | ----------------- | ---------------------------------- |
+| `source-archive`   | `application/zip` | An archive of package sources.     |
+
+#### 4.2.2. Package release metadata standards
+
+A server MAY include metadata in its package release response.
 It is RECOMMENDED that package metadata be represented in [JSON-LD]
 according to a structured data standard.
 For example,
@@ -458,25 +497,30 @@ this response using the [Schema.org] [SoftwareSourceCode] vocabulary:
 
 ```jsonc
 {
-  "@context": ["http://schema.org/"],
-  "@type": "SoftwareSourceCode",
-  "name": "LinkedList",
-  "description": "One thing links to another.",
-  "keywords": ["data-structure", "collection"],
+  "id": "mona.LinkedList",
   "version": "1.1.1",
-  "codeRepository": "https://github.com/mona/LinkedList",
-  "license": "https://www.apache.org/licenses/LICENSE-2.0",
-  "programmingLanguage": {
-    "@type": "ComputerLanguage",
-    "name": "Swift",
-    "url": "https://swift.org"
-  },
-  "author": {
-      "@type": "Person",
-      "@id": "https://example.com/mona",
-      "givenName": "Mona",
-      "middleName": "Lisa",
-      "familyName": "Octocat"
+  "resources": [ ... ],
+  "metadata": {
+    "@context": ["http://schema.org/"],
+    "@type": "SoftwareSourceCode",
+    "name": "LinkedList",
+    "description": "One thing links to another.",
+    "keywords": ["data-structure", "collection"],
+    "version": "1.1.1",
+    "codeRepository": "https://github.com/mona/LinkedList",
+    "license": "https://www.apache.org/licenses/LICENSE-2.0",
+    "programmingLanguage": {
+      "@type": "ComputerLanguage",
+      "name": "Swift",
+      "url": "https://swift.org"
+    },
+    "author": {
+        "@type": "Person",
+        "@id": "https://example.com/mona",
+        "givenName": "Mona",
+        "middleName": "Lisa",
+        "familyName": "Octocat"
+    }
   }
 }
 ```
@@ -636,7 +680,7 @@ Content-Type: application/zip
 Content-Disposition: attachment; filename="LinkedList-1.1.1.zip"
 Content-Length: 2048
 Content-Version: 1
-Digest: sha-256=a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812
+Digest: sha-256=oqxUzyX7wa0AKPA/CqS5aDO4O7BaFOUQiSuyfepNyBI=
 Link: <https://mirror-japanwest.example.com/mona-LinkedList-1.1.1.zip>; rel=duplicate; geo=jp; pri=10; type="application/zip"
 ```
 
@@ -645,8 +689,8 @@ set to the size of the archive in bytes.
 A client SHOULD terminate any requests whose response exceeds
 the expected content length.
 
-A server MUST respond with a `Digest` header
-containing a SHA-256 checksum for the source archive.
+A server MAY respond with a `Digest` header
+containing a cryptographic digest of the source archive.
 
 A server SHOULD respond with a `Content-Disposition` header
 set to `attachment` with a `filename` parameter equal to the name of the package
@@ -659,10 +703,15 @@ and caching as described by [RFC 7234].
 
 #### 4.4.1. Integrity verification
 
-A client MUST verify the integrity of a downloaded source archive
-using the checksum provided in the `Digest` header of a response
-(for example, using the command
-`echo "$CHECKSUM LinkedList-1.1.1.zip" | shasum -a 256 -c`).
+A client MUST verify the integrity of a downloaded source archive using
+the `checksum` value for the associated `source-archive` resource
+in the response to `GET /{scope}/{name}/{version}`,
+as described in [4.2.1](#421-package-release-resources).
+
+A client SHOULD also verify the integrity using any values
+provided in the `Digest` header of the source archive response
+(for using the command
+`shasum -b -a 256 LinkedList-1.1.1.zip | cut -f1 | xxd -r -p | base64`).
 
 #### 4.4.2. Download locations
 
