@@ -2201,7 +2201,7 @@ class DependencyGraphBuilder {
     /// Creates a pins store with the given pins.
     func create(pinsStore pins: [String: (CheckoutState, ProductFilter)]) -> PinsStore {
         let fs = InMemoryFileSystem()
-        let store = try! PinsStore(pinsFile: AbsolutePath("/tmp/Package.resolved"), fileSystem: fs, mirrors: .init())
+        let store = try! PinsStore(pinsFile: AbsolutePath("/tmp/Package.resolved"), fileSystem: fs, mirrors: .init(fileSystem: fs))
 
         for (package, pin) in pins {
             store.pin(packageRef: reference(for: package), state: pin.0)
@@ -2300,5 +2300,23 @@ extension Result where Success == [DependencyResolver.Binding] {
             XCTFail("Unexpected result \(self)")
         }
         return nil
+    }
+}
+
+
+extension PubgrubDependencyResolver {
+    public init(
+        provider: PackageContainerProvider,
+        pinsMap: PinsStore.PinsMap = [:],
+        delegate: DependencyResolverDelegate? = nil
+    ) {
+        self.init(
+            // FIXME: no cache
+            configuration: .init(
+                repositories: .init(cachePath: nil)
+            ),
+            provider: provider,
+            pinsMap: pinsMap,
+            delegate: delegate)
     }
 }

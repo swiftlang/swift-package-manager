@@ -886,8 +886,6 @@ extension SwiftPackageTool.Config {
         var mirrorURL: String
         
         func run(_ swiftTool: SwiftTool) throws {
-            let config = try swiftTool.getSwiftPMConfig()
-
             if packageURL != nil {
                 swiftTool.diagnostics.emit(
                     warning: "'--package-url' option is deprecated; use '--original-url' instead")
@@ -898,8 +896,10 @@ extension SwiftPackageTool.Config {
                 throw ExitCode.failure
             }
 
-            config.mirrors.set(mirrorURL: mirrorURL, forURL: originalURL)
-            try config.saveState()
+            let config = try swiftTool.getSwiftPMConfiguration()
+            try config.mirrors.withMapping { mapping in
+                mapping.set(mirrorURL: mirrorURL, forURL: originalURL)
+            }
         }
     }
 
@@ -920,8 +920,6 @@ extension SwiftPackageTool.Config {
         var mirrorURL: String?
         
         func run(_ swiftTool: SwiftTool) throws {
-            let config = try swiftTool.getSwiftPMConfig()
-
             if packageURL != nil {
                 swiftTool.diagnostics.emit(
                     warning: "'--package-url' option is deprecated; use '--original-url' instead")
@@ -932,8 +930,10 @@ extension SwiftPackageTool.Config {
                 throw ExitCode.failure
             }
 
-            try config.mirrors.unset(originalOrMirrorURL: originalOrMirrorURL)
-            try config.saveState()
+            let config = try swiftTool.getSwiftPMConfiguration()
+            try config.mirrors.withMapping { mapping in
+                try mapping.unset(originalOrMirrorURL: originalOrMirrorURL)
+            }
         }
     }
 
@@ -951,8 +951,6 @@ extension SwiftPackageTool.Config {
         var originalURL: String?
 
         func run(_ swiftTool: SwiftTool) throws {
-            let config = try swiftTool.getSwiftPMConfig()
-
             if packageURL != nil {
                 swiftTool.diagnostics.emit(
                     warning: "'--package-url' option is deprecated; use '--original-url' instead")
@@ -963,6 +961,7 @@ extension SwiftPackageTool.Config {
                 throw ExitCode.failure
             }
 
+            let config = try swiftTool.getSwiftPMConfiguration()
             if let mirror = config.mirrors.mirrorURL(for: originalURL) {
                 print(mirror)
             } else {

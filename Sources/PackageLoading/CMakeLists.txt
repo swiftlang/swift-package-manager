@@ -21,6 +21,7 @@ add_library(PackageLoading
 target_link_libraries(PackageLoading PUBLIC
   TSCBasic
   Basics
+  Configurations
   PackageModel
   SourceControl
   TSCUtility)

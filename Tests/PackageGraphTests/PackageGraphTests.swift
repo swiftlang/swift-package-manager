@@ -1350,7 +1350,7 @@ class PackageGraphTests: XCTestCase {
         """)
 
         let fs = InMemoryFileSystem(emptyFiles: [])
-        let store = try PinsStore(pinsFile: AbsolutePath("/pins"), fileSystem: fs, mirrors: .init())
+        let store = try PinsStore(pinsFile: AbsolutePath("/pins"), fileSystem: fs, mirrors: .init(fileSystem: fs))
         XCTAssertThrows(StringError("duplicated entry for package \"Yams\""), { try store.restore(from: json) })
     }
 

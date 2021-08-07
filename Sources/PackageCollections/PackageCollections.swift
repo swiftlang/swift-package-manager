@@ -9,6 +9,7 @@
  */
 
 import Basics
+import Configurations
 import PackageModel
 import TSCBasic
 
@@ -21,8 +22,8 @@ public struct PackageCollections: PackageCollectionsProtocol {
     static let isSupportedPlatform = false
     #endif
 
-    let configuration: Configuration
-    private let diagnosticsEngine: DiagnosticsEngine?
+    let configuration: Configuration.Collections
+    private let diagnosticsEngine: DiagnosticsEngine
     private let storageContainer: (storage: Storage, owned: Bool)
     private let collectionProviders: [Model.CollectionSourceType: PackageCollectionProvider]
     let metadataProvider: PackageMetadataProvider
@@ -32,8 +33,8 @@ public struct PackageCollections: PackageCollectionsProtocol {
     }
 
     // initialize with defaults
-    public init(configuration: Configuration = .init(), diagnosticsEngine: DiagnosticsEngine = DiagnosticsEngine()) {
-        let storage = Storage(sources: FilePackageCollectionsSourcesStorage(diagnosticsEngine: diagnosticsEngine),
+    public init(configuration: Configuration.Collections, diagnosticsEngine: DiagnosticsEngine) {
+        let storage = Storage(sources: FilePackageCollectionsSourcesStorage(configuration: configuration),
                               collections: SQLitePackageCollectionsStorage(diagnosticsEngine: diagnosticsEngine))
 
         let collectionProviders = [Model.CollectionSourceType.json: JSONPackageCollectionProvider(diagnosticsEngine: diagnosticsEngine)]
@@ -49,8 +50,8 @@ public struct PackageCollections: PackageCollectionsProtocol {
     }
 
     // internal initializer for testing
-    init(configuration: Configuration = .init(),
-         diagnosticsEngine: DiagnosticsEngine? = nil,
+    init(configuration: Configuration.Collections,
+         diagnosticsEngine: DiagnosticsEngine,
          storage: Storage,
          collectionProviders: [Model.CollectionSourceType: PackageCollectionProvider],
          metadataProvider: PackageMetadataProvider) {
@@ -368,7 +369,7 @@ public struct PackageCollections: PackageCollectionsProtocol {
                 self.metadataProvider.get(reference) { result in
                     switch result {
                     case .failure(let error):
-                        self.diagnosticsEngine?.emit(warning: "Failed fetching information about \(reference) from \(self.metadataProvider.name): \(error)")
+                        self.diagnosticsEngine.emit(warning: "Failed fetching information about \(reference) from \(self.metadataProvider.name): \(error)")
 
                         let provider: PackageMetadataProviderContext?
                         switch error {

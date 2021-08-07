@@ -14,6 +14,7 @@ import TSCBasic
 import TSCUtility
 
 /// A collection of dependency mirrors.
+@available(*, deprecated)
 public final class DependencyMirrors {
 
     /// A dependency mirror error.
@@ -71,9 +72,9 @@ public final class DependencyMirrors {
     public func originalURL(for url: String) -> String? {
         return self.reverseIndex[url]
     }
-
 }
 
+@available(*, deprecated)
 extension DependencyMirrors: Collection {
     public typealias Index = Dictionary<String, String>.Index
     public typealias Element = String
@@ -95,12 +96,14 @@ extension DependencyMirrors: Collection {
     }
 }
 
+@available(*, deprecated)
 extension DependencyMirrors: ExpressibleByDictionaryLiteral {
     public convenience init(dictionaryLiteral elements: (String, String)...) {
         self.init(elements.map { Mirror(original: $0.0, mirror: $0.1) })
     }
 }
 
+@available(*, deprecated)
 extension DependencyMirrors: JSONMappable, JSONSerializable {
     public convenience init(json: JSON) throws {
         self.init(try [Mirror](json: json))
@@ -112,6 +115,7 @@ extension DependencyMirrors: JSONMappable, JSONSerializable {
     }
 }
 
+@available(*, deprecated)
 extension DependencyMirrors.Error: CustomStringConvertible {
     public var description: String {
         switch self {
@@ -122,6 +126,7 @@ extension DependencyMirrors.Error: CustomStringConvertible {
 }
 
 // MARK: -
+
 
 /// An individual repository mirror.
 private struct Mirror {

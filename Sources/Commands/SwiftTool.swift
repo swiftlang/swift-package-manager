@@ -8,24 +8,23 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
+import ArgumentParser
+import Basics
+import Build
+import Configurations
+import Dispatch
 import func Foundation.NSUserName
 import class Foundation.ProcessInfo
 import func Foundation.NSHomeDirectory
-import Dispatch
-
-import ArgumentParser
-import TSCLibc
-import TSCBasic
-import TSCUtility
-
-import PackageModel
 import PackageGraph
+import PackageModel
 import SourceControl
 import SPMBuildCore
-import Build
-import XCBuildSupport
+import TSCBasic
+import TSCLibc
+import TSCUtility
 import Workspace
-import Basics
+import XCBuildSupport
 
 typealias Diagnostic = TSCBasic.Diagnostic
 
@@ -459,6 +458,7 @@ public class SwiftTool {
         return try getPackageRoot().appending(component: "Packages")
     }
 
+    // FIXME: move out of here
     func resolvedFilePath() throws -> AbsolutePath {
         if let multiRootPackageDataFile = options.multirootPackageDataFile {
             return multiRootPackageDataFile.appending(components: "xcshareddata", "swiftpm", "Package.resolved")
@@ -466,7 +466,73 @@ public class SwiftTool {
         return try getPackageRoot().appending(component: "Package.resolved")
     }
 
-    func configFilePath() throws -> AbsolutePath {
+    // FIXME: global vs local, default locations
+    func getSwiftPMConfiguration() throws -> Configuration {
+        let fileSystem = localFileSystem
+        return .init(resolution: try self.getResolutionConfiguration(fileSystem: fileSystem),
+                     manifestsLoading: try self.getManifestLoadingConfiguration(fileSystem: fileSystem),
+                     mirrors: try self.getMirrorsConfiguration(fileSystem: fileSystem),
+                     netrc: try self.getNetrcConfiguration(fileSystem: fileSystem),
+                     collections: try self.getCollectionsConfiguration(fileSystem: fileSystem)
+        )
+    }
+
+    func getManifestLoadingConfiguration(fileSystem: FileSystem) throws -> Configuration.ManifestsLoading {
+        return .init(
+            cachePath: try self.resolveManifestCachePath(fileSystem: fileSystem),
+            isManifestSandboxEnabled: !self.options.shouldDisableSandbox
+        )
+    }
+
+    // FIXME: move out of here
+    func resolveManifestCachePath(fileSystem: FileSystem) throws -> AbsolutePath? {
+        switch (self.options.shouldDisableManifestCaching, self.options.manifestCachingMode) {
+        case (true, _):
+            // backwards compatibility
+            return .none
+        case (false, .none):
+            return .none
+        case (false, .local):
+            return self.buildPath
+        case (false, .shared):
+            return try self.resolveCachePath(fileSystem: fileSystem).map { Configuration.ManifestsLoading.cachePath(rootCachePath: $0) }
+        }
+    }
+
+    func getResolutionConfiguration(fileSystem: FileSystem) throws -> Configuration.Resolution {
+        return .init(
+            repositories: try getRepositoriesResolutionConfiguration(fileSystem: fileSystem),
+            prefetchingEnabled: options.shouldEnableResolverPrefetching,
+            tracingEnabled: options.enableResolverTrace,
+            skipUpdate: options.skipDependencyUpdate
+        )
+    }
+
+    func getRepositoriesResolutionConfiguration(fileSystem: FileSystem) throws -> Configuration.Resolution.Repositories {
+        return .init(
+            cachePath: try self.resolveRepositoriesResolutionCachePath(fileSystem: fileSystem)
+        )
+    }
+
+    // FIXME: move out of here
+    func resolveRepositoriesResolutionCachePath(fileSystem: FileSystem) throws -> AbsolutePath? {
+        guard self.options.useRepositoriesCache else {
+            return .none
+        }
+        // FIXME
+        return try self.resolveCachePath(fileSystem: fileSystem).map { Configuration.Resolution.Repositories.cachePath(rootCachePath: $0) }
+    }
+
+    func getMirrorsConfiguration(fileSystem: FileSystem) throws -> Configuration.Mirrors {
+        return .init(
+            fileSystem: fileSystem,
+            path: try self.resolveMirrorsConfigFilePath(fileSystem: fileSystem)
+        )
+    }
+
+    // FIXME: move out of here
+    // FIXME: global vs local, default locations
+    func resolveMirrorsConfigFilePath(fileSystem: FileSystem) throws -> AbsolutePath {
         // Look for the override in the environment.
         if let envPath = ProcessEnv.vars["SWIFTPM_MIRROR_CONFIG"] {
             return try AbsolutePath(validating: envPath)
@@ -479,21 +545,21 @@ public class SwiftTool {
         return try getPackageRoot().appending(components: ".swiftpm", "config")
     }
 
-    func getSwiftPMConfig() throws -> Workspace.Configuration {
-        return try _swiftpmConfig.get()
+    func getNetrcConfiguration(fileSystem: FileSystem) throws -> Configuration.Netrc {
+        return .init(
+            fileSystem: fileSystem,
+            path: try self.resolveNetrcConfigFilePath(fileSystem: fileSystem)
+        )
     }
 
-    private lazy var _swiftpmConfig: Result<Workspace.Configuration, Swift.Error> = {
-        return Result(catching: { try Workspace.Configuration(path: try configFilePath()) })
-    }()
-    
-    func resolvedNetrcFilePath() throws -> AbsolutePath? {
+    // FIXME: move out of here
+    func resolveNetrcConfigFilePath(fileSystem: FileSystem) throws -> AbsolutePath? {
         guard options.netrc ||
                 options.netrcFilePath != nil ||
                 options.netrcOptional else { return nil }
         
         let resolvedPath: AbsolutePath = options.netrcFilePath ?? AbsolutePath("\(NSHomeDirectory())/.netrc")
-        guard localFileSystem.exists(resolvedPath) else {
+        guard fileSystem.exists(resolvedPath) else {
             if !options.netrcOptional {
                 diagnostics.emit(error: "Cannot find mandatory .netrc file at \(resolvedPath.pathString).  To make .netrc file optional, use --netrc-optional flag.")
                 throw ExitCode.failure
@@ -505,7 +571,20 @@ public class SwiftTool {
         return resolvedPath
     }
 
-    private func getCachePath(fileSystem: FileSystem = localFileSystem) throws -> AbsolutePath? {
+    func getCollectionsConfiguration(fileSystem: FileSystem) throws -> Configuration.Collections {
+        return .init(
+            fileSystem: fileSystem,
+            path: try self.resolveCollectionsFilePath(fileSystem: fileSystem)
+        )
+    }
+
+    // FIXME: move out of here
+    func resolveCollectionsFilePath(fileSystem: FileSystem) throws -> AbsolutePath? {
+        return try self.resolveConfigPath(fileSystem: fileSystem).flatMap{ $0.appending(component: "collections.json") }
+    }
+
+    // FIXME: move out of here
+    private func resolveCachePath(fileSystem: FileSystem) throws -> AbsolutePath? {
         if let explicitCachePath = options.cachePath {
             // Create the explicit cache path if necessary
             if !fileSystem.exists(explicitCachePath) {
@@ -522,7 +601,8 @@ public class SwiftTool {
         }
     }
 
-    private func getConfigPath(fileSystem: FileSystem = localFileSystem) throws -> AbsolutePath? {
+    // FIXME: move out of here
+    private func resolveConfigPath(fileSystem: FileSystem) throws -> AbsolutePath? {
         if let explicitConfigPath = options.configPath {
             // Create the explicit config path if necessary
             if !fileSystem.exists(explicitConfigPath) {
@@ -548,24 +628,17 @@ public class SwiftTool {
         let isVerbose = options.verbosity != 0
         let delegate = ToolWorkspaceDelegate(self.stdoutStream, isVerbose: isVerbose, diagnostics: diagnostics)
         let provider = GitRepositoryProvider(processSet: processSet)
-        let cachePath = self.options.useRepositoriesCache ? try self.getCachePath() : .none
-        _  = try self.getConfigPath() // TODO: actually use this in the workspace 
         let isXcodeBuildSystemEnabled = self.options.buildSystem == .xcode
         let workspace = Workspace(
+            configuration: try getSwiftPMConfiguration(),
             dataPath: buildPath,
             editablesPath: try editablesPath(),
             pinsFile: try resolvedFilePath(),
             manifestLoader: try getManifestLoader(),
             toolsVersionLoader: ToolsVersionLoader(),
             delegate: delegate,
-            config: try getSwiftPMConfig(),
             repositoryProvider: provider,
-            netrcFilePath: try resolvedNetrcFilePath(),
-            additionalFileRules: isXcodeBuildSystemEnabled ? FileRuleDescription.xcbuildFileTypes : FileRuleDescription.swiftpmFileTypes,
-            isResolverPrefetchingEnabled: options.shouldEnableResolverPrefetching,
-            skipUpdate: options.skipDependencyUpdate,
-            enableResolverTrace: options.enableResolverTrace,
-            cachePath: cachePath
+            additionalFileRules: isXcodeBuildSystemEnabled ? FileRuleDescription.xcbuildFileTypes : FileRuleDescription.swiftpmFileTypes
         )
         _workspace = workspace
         _workspaceDelegate = delegate
@@ -852,30 +925,17 @@ public class SwiftTool {
 
     private lazy var _manifestLoader: Result<ManifestLoader, Swift.Error> = {
         return Result(catching: {
-            let cachePath: AbsolutePath?
-            switch (self.options.shouldDisableManifestCaching, self.options.manifestCachingMode) {
-            case (true, _):
-                // backwards compatibility
-                cachePath = nil
-            case (false, .none):
-                cachePath = nil
-            case (false, .local):
-                cachePath = self.buildPath
-            case (false, .shared):
-                cachePath = try self.getCachePath().map{ $0.appending(component: "manifests") }
-            }
-
             var  extraManifestFlags = self.options.manifestFlags
             // Disable the implicit concurrency import if the compiler in use supports it to avoid warnings if we are building against an older SDK that does not contain a Concurrency module.
             if SwiftTargetBuildDescription.checkSupportedFrontendFlags(flags: ["disable-implicit-concurrency-module-import"], fs: localFileSystem) {
                 extraManifestFlags += ["-Xfrontend", "-disable-implicit-concurrency-module-import"]
             }
 
+            let configuration = try self.getSwiftPMConfiguration()
             return try ManifestLoader(
-                // Always use the host toolchain's resources for parsing manifest.
+                configuration: configuration.manifestsLoading,
+                // Always use the host toolchain's for parsing manifest.
                 toolchain: self._hostToolchain.get().configuration,
-                isManifestSandboxEnabled: !self.options.shouldDisableSandbox,
-                cacheDir: cachePath,
                 extraManifestFlags: extraManifestFlags
             )
         })

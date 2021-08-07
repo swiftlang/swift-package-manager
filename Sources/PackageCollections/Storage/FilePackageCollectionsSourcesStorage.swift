@@ -9,6 +9,7 @@
  */
 
 import Basics
+import Configurations
 import Dispatch
 import struct Foundation.Data
 import class Foundation.JSONDecoder
@@ -16,6 +17,158 @@ import class Foundation.JSONEncoder
 import struct Foundation.URL
 import TSCBasic
 
+struct FilePackageCollectionsSourcesStorage: PackageCollectionsSourcesStorage {
+    private let configuration: Configuration.Collections
+
+    var path: AbsolutePath {
+        self.configuration.path
+    }
+
+    init(configuration: Configuration.Collections) {
+        self.configuration = configuration
+    }
+
+    func list(callback: @escaping (Result<[Model.CollectionSource], Error>) -> Void) {
+        DispatchQueue.sharedConcurrent.async {
+            do {
+                let sources = try self.configuration.modelSources()
+                callback(.success(sources))
+            } catch {
+                callback(.failure(error))
+            }
+        }
+    }
+
+    func add(source: Model.CollectionSource,
+             order: Int?,
+             callback: @escaping (Result<Void, Error>) -> Void) {
+        DispatchQueue.sharedConcurrent.async {
+            do {
+                try self.configuration.withModelSources { sources in
+                    sources = sources.filter { $0 != source }
+                    let order = order.flatMap { $0 >= 0 && $0 < sources.endIndex ? order : sources.endIndex } ?? sources.endIndex
+                    sources.insert(source, at: order)
+                }
+                callback(.success(()))
+            } catch {
+                callback(.failure(error))
+            }
+        }
+    }
+
+    func remove(source: Model.CollectionSource,
+                callback: @escaping (Result<Void, Error>) -> Void) {
+        DispatchQueue.sharedConcurrent.async {
+            do {
+                try self.configuration.withModelSources { sources in
+                    sources = sources.filter { $0 != source }
+                }
+                callback(.success(()))
+            } catch {
+                callback(.failure(error))
+            }
+        }
+    }
+
+    func move(source: Model.CollectionSource,
+              to order: Int,
+              callback: @escaping (Result<Void, Error>) -> Void) {
+        DispatchQueue.sharedConcurrent.async {
+            do {
+                try self.configuration.withModelSources { sources in
+                    sources = sources.filter { $0 != source }
+                    let order = order >= 0 && order < sources.endIndex ? order : sources.endIndex
+                    sources.insert(source, at: order)
+                }
+                callback(.success(()))
+            } catch {
+                callback(.failure(error))
+            }
+        }
+    }
+
+    func exists(source: Model.CollectionSource,
+                callback: @escaping (Result<Bool, Error>) -> Void) {
+        DispatchQueue.sharedConcurrent.async {
+            do {
+                let sources = try self.configuration.modelSources()
+                callback(.success(sources.contains(source)))
+            } catch {
+                callback(.failure(error))
+            }
+        }
+    }
+
+    func update(source: PackageCollectionsModel.CollectionSource,
+                callback: @escaping (Result<Void, Error>) -> Void) {
+        DispatchQueue.sharedConcurrent.async {
+            do {
+                try self.configuration.withModelSources { sources in
+                    if let index = sources.firstIndex(where: { $0 == source }) {
+                        sources[index] = source
+                    }
+                }
+                callback(.success(()))
+            } catch {
+                callback(.failure(error))
+            }
+        }
+    }
+}
+
+extension Configuration.Collections {
+    fileprivate func withModelSources(handler: (inout [Model.CollectionSource]) -> Void) throws {
+        try self.withSources { sources in
+            var modelSources = try sources.map { try Model.CollectionSource($0) }
+            handler(&modelSources)
+            sources = modelSources.map { Configuration.Collections.Source($0) }
+        }
+    }
+
+    fileprivate func modelSources() throws -> [Model.CollectionSource] {
+        try self.sources().map { try Model.CollectionSource($0) }
+    }
+}
+
+extension Model.CollectionSource {
+    init(_ source: Configuration.Collections.Source) throws {
+        // currently only JSON is supported
+        guard let type = SourceType(rawValue: source.type), type == .json else {
+            throw SerializationError.unknownType(source.type)
+        }
+        guard let url = URL(string: source.value) else {
+            throw SerializationError.invalidURL(source.value)
+        }
+
+        // currently only JSON is supported
+        self.init(type: .json,
+                  url: url,
+                  isTrusted: source.isTrusted,
+                  skipSignatureCheck:
+                    source.skipSignatureCheck ?? false)
+    }
+
+    enum SourceType: String {
+        case json
+    }
+
+    private enum SerializationError: Error {
+        case unknownType(String)
+        case invalidURL(String)
+    }
+}
+
+extension Configuration.Collections.Source {
+    init(_ source: Model.CollectionSource) {
+        self.init(type: source.type.rawValue,
+                  value: source.url.absoluteString,
+                  isTrusted: source.isTrusted,
+                  skipSignatureCheck: source.skipSignatureCheck)
+    }
+}
+
+
+/*
 struct FilePackageCollectionsSourcesStorage: PackageCollectionsSourcesStorage {
     let fileSystem: FileSystem
     let path: AbsolutePath
@@ -221,3 +374,5 @@ private enum SerializationError: Error {
     case unknownType(String)
     case invalidURL(String)
 }
+
+*/

@@ -8,10 +8,11 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import Configurations
+import PackageModel
 import TSCBasic
 import TSCUtility
 import SourceControl
-import PackageModel
 
 public final class PinsStore {
     public typealias PinsMap = [PackageIdentity: PinsStore.Pin]
@@ -43,7 +44,7 @@ public final class PinsStore {
     /// The filesystem to manage the pin file on.
     private var fileSystem: FileSystem
 
-    private let mirrors: DependencyMirrors
+    private let mirrors: Configuration.Mirrors
 
     /// The pins map.
     public fileprivate(set) var pinsMap: PinsMap
@@ -60,7 +61,7 @@ public final class PinsStore {
     /// - Parameters:
     ///   - pinsFile: Path to the pins file.
     ///   - fileSystem: The filesystem to manage the pin file on.
-    public init(pinsFile: AbsolutePath, fileSystem: FileSystem, mirrors: DependencyMirrors) throws {
+    public init(pinsFile: AbsolutePath, fileSystem: FileSystem, mirrors: Configuration.Mirrors) throws {
         self.pinsFile = pinsFile
         self.fileSystem = fileSystem
         self.persistence = SimplePersistence(

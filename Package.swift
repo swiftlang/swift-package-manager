@@ -129,6 +129,10 @@ let package = Package(
             dependencies: ["SwiftToolsSupport-auto"]),
 
         .target(
+            name: "Configurations",
+            dependencies: ["SwiftToolsSupport-auto", "Basics"]),
+
+        .target(
             /** The llbuild manifest model */
             name: "LLBuildManifest",
             dependencies: ["SwiftToolsSupport-auto", "Basics"]),
@@ -151,7 +155,7 @@ let package = Package(
         .target(
             /** Package model conventions and loading support */
             name: "PackageLoading",
-            dependencies: ["SwiftToolsSupport-auto", "Basics", "PackageModel", "SourceControl"]),
+            dependencies: ["SwiftToolsSupport-auto", "Basics", "Configurations", "PackageModel", "SourceControl"]),
 
         // MARK: Package Dependency Resolution
 
@@ -182,7 +186,7 @@ let package = Package(
         .target(
             /** Data structures and support for package collections */
             name: "PackageCollections",
-            dependencies: ["SwiftToolsSupport-auto", "Basics", "PackageModel", "SourceControl", "PackageCollectionsModel", "PackageCollectionsSigning"]),
+            dependencies: ["SwiftToolsSupport-auto", "Basics", "Configurations", "PackageModel", "SourceControl", "PackageCollectionsModel", "PackageCollectionsSigning"]),
 
         // MARK: Package Manager Functionality
 
@@ -206,7 +210,7 @@ let package = Package(
         .target(
             /** High level functionality */
             name: "Workspace",
-            dependencies: ["SwiftToolsSupport-auto", "Basics", "SPMBuildCore", "PackageGraph", "PackageModel", "SourceControl", "Xcodeproj"]),
+            dependencies: ["SwiftToolsSupport-auto", "Basics", "Configurations", "SPMBuildCore", "PackageGraph", "PackageModel", "SourceControl", "Xcodeproj"]),
 
         // MARK: Commands
 

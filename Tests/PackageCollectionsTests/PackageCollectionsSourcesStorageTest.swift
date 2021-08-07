@@ -16,7 +16,7 @@ import XCTest
 final class PackageCollectionsSourcesStorageTest: XCTestCase {
     func testHappyCase() throws {
         let mockFileSystem = InMemoryFileSystem()
-        let storage = FilePackageCollectionsSourcesStorage(fileSystem: mockFileSystem)
+        let storage = FilePackageCollectionsSourcesStorage(configuration: .init(fileSystem: mockFileSystem))
 
         try assertHappyCase(storage: storage)
 
@@ -29,7 +29,7 @@ final class PackageCollectionsSourcesStorageTest: XCTestCase {
         try testWithTemporaryDirectory { tmpPath in
             let fileSystem = localFileSystem
             let path = tmpPath.appending(component: "test.json")
-            let storage = FilePackageCollectionsSourcesStorage(fileSystem: fileSystem, path: path)
+            let storage = FilePackageCollectionsSourcesStorage(configuration: .init(fileSystem: fileSystem, path: path))
 
             try assertHappyCase(storage: storage)
 
@@ -101,7 +101,7 @@ final class PackageCollectionsSourcesStorageTest: XCTestCase {
 
     func testFileDeleted() throws {
         let mockFileSystem = InMemoryFileSystem()
-        let storage = FilePackageCollectionsSourcesStorage(fileSystem: mockFileSystem)
+        let storage = FilePackageCollectionsSourcesStorage(configuration: .init(fileSystem: mockFileSystem))
 
         let sources = makeMockSources()
 
@@ -125,7 +125,7 @@ final class PackageCollectionsSourcesStorageTest: XCTestCase {
 
     func testFileEmpty() throws {
         let mockFileSystem = InMemoryFileSystem()
-        let storage = FilePackageCollectionsSourcesStorage(fileSystem: mockFileSystem)
+        let storage = FilePackageCollectionsSourcesStorage(configuration: .init(fileSystem: mockFileSystem))
 
         let sources = makeMockSources()
 
@@ -150,7 +150,7 @@ final class PackageCollectionsSourcesStorageTest: XCTestCase {
 
     func testFileCorrupt() throws {
         let mockFileSystem = InMemoryFileSystem()
-        let storage = FilePackageCollectionsSourcesStorage(fileSystem: mockFileSystem)
+        let storage = FilePackageCollectionsSourcesStorage(configuration: .init(fileSystem: mockFileSystem))
 
         let sources = makeMockSources()
 

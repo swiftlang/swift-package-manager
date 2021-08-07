@@ -10,6 +10,7 @@
 
 import ArgumentParser
 import Basics
+import Configurations
 import Foundation
 import PackageCollections
 import PackageModel
@@ -359,7 +360,9 @@ private extension JSONEncoder {
 
 private extension ParsableCommand {
     func with<T>(handler: (_ collections: PackageCollectionsProtocol) throws -> T) throws -> T {
-        let collections = PackageCollections()
+        let configuration = Configuration.Collections(fileSystem: localFileSystem) // FIXME: share across calls
+        let diagnosticsEngine = DiagnosticsEngine() // // FIXME: share across calls
+        let collections = PackageCollections(configuration: configuration, diagnosticsEngine: diagnosticsEngine)
         defer {
             do {
                 try collections.shutdown()

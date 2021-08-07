@@ -33,6 +33,7 @@ target_link_libraries(PackageCollections PUBLIC
   TSCBasic
   TSCUtility
   Basics
+  Configurations
   Crypto
   PackageCollectionsModel
   PackageCollectionsSigning

@@ -722,7 +722,7 @@ final class PackageToolTests: XCTestCase {
             // Try to pin bar at a branch.
             do {
                 try execute("resolve", "bar", "--branch", "YOLO")
-                let pinsStore = try PinsStore(pinsFile: pinsFile, fileSystem: localFileSystem, mirrors: .init())
+                let pinsStore = try PinsStore(pinsFile: pinsFile, fileSystem: localFileSystem, mirrors: .init(fileSystem: InMemoryFileSystem()))
                 let state = CheckoutState(revision: yoloRevision, branch: "YOLO")
                 let identity = PackageIdentity(path: barPath)
                 XCTAssertEqual(pinsStore.pinsMap[identity]?.state, state)
@@ -731,7 +731,7 @@ final class PackageToolTests: XCTestCase {
             // Try to pin bar at a revision.
             do {
                 try execute("resolve", "bar", "--revision", yoloRevision.identifier)
-                let pinsStore = try PinsStore(pinsFile: pinsFile, fileSystem: localFileSystem, mirrors: .init())
+                let pinsStore = try PinsStore(pinsFile: pinsFile, fileSystem: localFileSystem, mirrors: .init(fileSystem: InMemoryFileSystem()))
                 let state = CheckoutState(revision: yoloRevision)
                 let identity = PackageIdentity(path: barPath)
                 XCTAssertEqual(pinsStore.pinsMap[identity]?.state, state)
@@ -772,7 +772,7 @@ final class PackageToolTests: XCTestCase {
 
             // Test pins file.
             do {
-                let pinsStore = try PinsStore(pinsFile: pinsFile, fileSystem: localFileSystem, mirrors: .init())
+                let pinsStore = try PinsStore(pinsFile: pinsFile, fileSystem: localFileSystem, mirrors: .init(fileSystem: InMemoryFileSystem()))
                 XCTAssertEqual(pinsStore.pins.map{$0}.count, 2)
                 for pkg in ["bar", "baz"] {
                     let path = try SwiftPMProduct.packagePath(for: pkg, packageRoot: fooPath)
@@ -791,7 +791,7 @@ final class PackageToolTests: XCTestCase {
             // Try to pin bar.
             do {
                 try execute("resolve", "bar")
-                let pinsStore = try PinsStore(pinsFile: pinsFile, fileSystem: localFileSystem, mirrors: .init())
+                let pinsStore = try PinsStore(pinsFile: pinsFile, fileSystem: localFileSystem, mirrors: .init(fileSystem: InMemoryFileSystem()))
                 let identity = PackageIdentity(path: barPath)
                 XCTAssertEqual(pinsStore.pinsMap[identity]?.state.version, "1.2.3")
             }
@@ -815,7 +815,7 @@ final class PackageToolTests: XCTestCase {
             // We should be able to revert to a older version.
             do {
                 try execute("resolve", "bar", "--version", "1.2.3")
-                let pinsStore = try PinsStore(pinsFile: pinsFile, fileSystem: localFileSystem, mirrors: .init())
+                let pinsStore = try PinsStore(pinsFile: pinsFile, fileSystem: localFileSystem, mirrors: .init(fileSystem: InMemoryFileSystem()))
                 let identity = PackageIdentity(path: barPath)
                 XCTAssertEqual(pinsStore.pinsMap[identity]?.state.version, "1.2.3")
                 try checkBar(5)
@@ -975,7 +975,7 @@ final class PackageToolTests: XCTestCase {
                 try execute(["config", "get-mirror", "--original-url", "git@github.com:apple/swift-package-manager.git"], packagePath: packageRoot)
             }
 
-            check(stderr: "error: mirror not found\n") {
+            check(stderr: "error: Mirror not found: 'foo'\n") {
                 try execute(["config", "unset-mirror", "--original-url", "foo"], packagePath: packageRoot)
             }
         }

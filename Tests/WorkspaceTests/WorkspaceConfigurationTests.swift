@@ -8,15 +8,15 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import XCTest
-
+import Configurations
+import SPMTestSupport
+import Workspace
 import TSCBasic
 import TSCUtility
-import SPMTestSupport
+import XCTest
 
-import Workspace
-
-final class WorkspaceConfigurationTests: XCTestCase {
+// FIXME: move to new ConfigurationsTests module
+final class MirrorsConfigurationTests: XCTestCase {
     func testLoadingSchema1() throws {
         let fs = InMemoryFileSystem()
         let configFile = AbsolutePath("/.swiftpm/config")
@@ -38,44 +38,43 @@ final class WorkspaceConfigurationTests: XCTestCase {
                 """
         }
 
-        let config = try Workspace.Configuration(path: configFile, fs: fs)
+        let configuration = Configuration.Mirrors(fileSystem: fs, path: configFile)
 
-        XCTAssertEqual(config.mirrors.mirrorURL(for: "https://github.com/apple/swift-argument-parser.git"), "https://github.com/mona/swift-argument-parser.git")
-        XCTAssertEqual(config.mirrors.originalURL(for: "https://github.com/mona/swift-argument-parser.git"), "https://github.com/apple/swift-argument-parser.git")
+        XCTAssertEqual(configuration.mirrorURL(for: "https://github.com/apple/swift-argument-parser.git"), "https://github.com/mona/swift-argument-parser.git")
+        XCTAssertEqual(configuration.originalURL(for: "https://github.com/mona/swift-argument-parser.git"), "https://github.com/apple/swift-argument-parser.git")
     }
 
     func testThrowsMirrorNotFound() throws {
         let fs = InMemoryFileSystem()
         let configFile = AbsolutePath("/.swiftpm/config")
-        let config = try Workspace.Configuration(path: configFile, fs: fs)
+        let configuration = Configuration.Mirrors(fileSystem: fs, path: configFile)
 
-        XCTAssertThrows(DependencyMirrors.Error.mirrorNotFound) {
-            try config.mirrors.unset(originalOrMirrorURL: "https://github.com/apple/swift-argument-parser.git")
+        XCTAssertThrows(StringError("Mirror not found: 'https://github.com/apple/swift-argument-parser.git'")) {
+            try configuration.withMapping { mapping  in
+                try mapping.unset(originalOrMirrorURL: "https://github.com/apple/swift-argument-parser.git")
+            }
         }
     }
 
     func testEmptyMirrors() throws {
         let fs = InMemoryFileSystem()
         let configFile = AbsolutePath("/.swiftpm/config")
-        let config = try Workspace.Configuration(path: configFile, fs: fs)
+        let configuration = Configuration.Mirrors(fileSystem: fs, path: configFile)
 
-        try config.saveState()
+        try configuration.withMapping { _ in }
         XCTAssertFalse(fs.exists(configFile))
 
         let originalURL = "https://github.com/apple/swift-argument-parser.git"
         let mirrorURL = "https://github.com/mona/swift-argument-parser.git"
-        config.mirrors.set(mirrorURL: mirrorURL, forURL: originalURL)
-
-        XCTAssertFalse(fs.exists(configFile))
-
-        try config.saveState()
+        try configuration.withMapping { mapping in
+            mapping.set(mirrorURL: mirrorURL, forURL: originalURL)
+        }
         XCTAssertTrue(fs.exists(configFile))
+        XCTAssertEqual(configuration.effectiveURL(for: originalURL), mirrorURL)
 
-        try config.mirrors.unset(originalOrMirrorURL: originalURL)
-
-        XCTAssertTrue(fs.exists(configFile))
-
-        try config.saveState()
+        try configuration.withMapping { mapping in
+            try mapping.unset(originalOrMirrorURL: originalURL)
+        }
         XCTAssertFalse(fs.exists(configFile))
     }
 }

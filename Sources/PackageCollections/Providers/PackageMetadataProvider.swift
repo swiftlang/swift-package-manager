@@ -8,12 +8,14 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
+import Configurations
 import struct Foundation.Date
 import struct Foundation.URL
-
 import PackageModel
 import TSCBasic
 import TSCUtility
+
+public typealias AuthTokenType = Configurations.Configuration.Collections.AuthTokenType
 
 /// `PackageBasicMetadata` provider
 protocol PackageMetadataProvider: Closable {

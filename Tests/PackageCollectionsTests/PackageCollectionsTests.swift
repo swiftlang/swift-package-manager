@@ -12,6 +12,7 @@ import Foundation
 import XCTest
 
 import Basics
+import Configurations
 @testable import PackageCollections
 import PackageModel
 import SourceControl
@@ -21,7 +22,7 @@ import TSCUtility
 final class PackageCollectionsTests: XCTestCase {
     func testUpdateAuthTokens() throws {
         let authTokens = ThreadSafeKeyValueStore<AuthTokenType, String>()
-        let configuration = PackageCollections.Configuration(authTokens: { authTokens.get() })
+        let configuration = Configuration.Collections(fileSystem: InMemoryFileSystem(), authTokens: { authTokens.get() })
 
         // This test doesn't use search at all and finishes quickly so disable target trie to prevent race
         let storageConfig = SQLitePackageCollectionsStorage.Configuration(initializeTargetTrie: false)
@@ -57,14 +58,13 @@ final class PackageCollectionsTests: XCTestCase {
     func testBasicRegistration() throws {
         try skipIfUnsupportedPlatform()
 
-        let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
 
         let mockCollections = makeMockCollections()
         let collectionProviders = [PackageCollectionsModel.CollectionSourceType.json: MockCollectionsProvider(mockCollections)]
         let metadataProvider = MockMetadataProvider([:])
-        let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
+        let packageCollections = PackageCollections(storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
 
         do {
             let list = try tsc_await { callback in packageCollections.listCollections(callback: callback) }
@@ -84,7 +84,6 @@ final class PackageCollectionsTests: XCTestCase {
     func testAddDuplicates() throws {
         try skipIfUnsupportedPlatform()
 
-        let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
 
@@ -92,7 +91,7 @@ final class PackageCollectionsTests: XCTestCase {
 
         let collectionProviders = [PackageCollectionsModel.CollectionSourceType.json: MockCollectionsProvider([mockCollection])]
         let metadataProvider = MockMetadataProvider([:])
-        let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
+        let packageCollections = PackageCollections(storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
 
         do {
             let list = try tsc_await { callback in packageCollections.listCollections(callback: callback) }
@@ -112,7 +111,6 @@ final class PackageCollectionsTests: XCTestCase {
     func testAddUnsigned() throws {
         try skipIfUnsupportedPlatform()
 
-        let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
 
@@ -120,7 +118,7 @@ final class PackageCollectionsTests: XCTestCase {
 
         let collectionProviders = [PackageCollectionsModel.CollectionSourceType.json: MockCollectionsProvider(mockCollections)]
         let metadataProvider = MockMetadataProvider([:])
-        let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
+        let packageCollections = PackageCollections(storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
 
         do {
             let list = try tsc_await { callback in packageCollections.listCollections(callback: callback) }
@@ -155,7 +153,6 @@ final class PackageCollectionsTests: XCTestCase {
     func testInvalidCollectionNotAdded() throws {
         try skipIfUnsupportedPlatform()
 
-        let configuration = PackageCollections.Configuration()
         // This test doesn't use search at all and finishes quickly so disable target trie to prevent race
         let storageConfig = SQLitePackageCollectionsStorage.Configuration(initializeTargetTrie: false)
         let storage = makeMockStorage(storageConfig)
@@ -165,7 +162,7 @@ final class PackageCollectionsTests: XCTestCase {
 
         let collectionProviders = [PackageCollectionsModel.CollectionSourceType.json: MockCollectionsProvider([])]
         let metadataProvider = MockMetadataProvider([:])
-        let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
+        let packageCollections = PackageCollections(storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
 
         do {
             let list = try tsc_await { callback in packageCollections.listCollections(callback: callback) }
@@ -193,7 +190,6 @@ final class PackageCollectionsTests: XCTestCase {
     func testCollectionPendingTrustConfirmIsKeptOnAdd() throws {
         try skipIfUnsupportedPlatform()
 
-        let configuration = PackageCollections.Configuration()
         // This test doesn't use search at all and finishes quickly so disable target trie to prevent race
         let storageConfig = SQLitePackageCollectionsStorage.Configuration(initializeTargetTrie: false)
         let storage = makeMockStorage(storageConfig)
@@ -203,7 +199,7 @@ final class PackageCollectionsTests: XCTestCase {
 
         let collectionProviders = [PackageCollectionsModel.CollectionSourceType.json: MockCollectionsProvider([mockCollection])]
         let metadataProvider = MockMetadataProvider([:])
-        let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
+        let packageCollections = PackageCollections(storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
 
         do {
             let list = try tsc_await { callback in packageCollections.listCollections(callback: callback) }
@@ -231,7 +227,6 @@ final class PackageCollectionsTests: XCTestCase {
     func testCollectionWithInvalidSignatureNotAdded() throws {
         try skipIfUnsupportedPlatform()
 
-        let configuration = PackageCollections.Configuration()
         // This test doesn't use search at all and finishes quickly so disable target trie to prevent race
         let storageConfig = SQLitePackageCollectionsStorage.Configuration(initializeTargetTrie: false)
         let storage = makeMockStorage(storageConfig)
@@ -241,7 +236,7 @@ final class PackageCollectionsTests: XCTestCase {
 
         let collectionProviders = [PackageCollectionsModel.CollectionSourceType.json: MockCollectionsProvider([mockCollection], collectionsWithInvalidSignature: [mockCollection.source])]
         let metadataProvider = MockMetadataProvider([:])
-        let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
+        let packageCollections = PackageCollections(storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
 
         do {
             let list = try tsc_await { callback in packageCollections.listCollections(callback: callback) }
@@ -269,14 +264,13 @@ final class PackageCollectionsTests: XCTestCase {
     func testDelete() throws {
         try skipIfUnsupportedPlatform()
 
-        let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
 
         let mockCollections = makeMockCollections(count: 10)
         let collectionProviders = [PackageCollectionsModel.CollectionSourceType.json: MockCollectionsProvider(mockCollections)]
         let metadataProvider = MockMetadataProvider([:])
-        let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
+        let packageCollections = PackageCollections(storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
 
         do {
             let list = try tsc_await { callback in packageCollections.listCollections(callback: callback) }
@@ -320,7 +314,6 @@ final class PackageCollectionsTests: XCTestCase {
     func testDeleteFromBothStorages() throws {
         try skipIfUnsupportedPlatform()
 
-        let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
 
@@ -328,7 +321,7 @@ final class PackageCollectionsTests: XCTestCase {
 
         let collectionProviders = [PackageCollectionsModel.CollectionSourceType.json: MockCollectionsProvider([mockCollection])]
         let metadataProvider = MockMetadataProvider([:])
-        let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
+        let packageCollections = PackageCollections(storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
 
         do {
             let list = try tsc_await { callback in packageCollections.listCollections(callback: callback) }
@@ -355,14 +348,13 @@ final class PackageCollectionsTests: XCTestCase {
     func testOrdering() throws {
         try skipIfUnsupportedPlatform()
 
-        let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
 
         let mockCollections = makeMockCollections(count: 10)
         let collectionProviders = [PackageCollectionsModel.CollectionSourceType.json: MockCollectionsProvider(mockCollections)]
         let metadataProvider = MockMetadataProvider([:])
-        let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
+        let packageCollections = PackageCollections(storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
 
         do {
             let list = try tsc_await { callback in packageCollections.listCollections(callback: callback) }
@@ -426,14 +418,13 @@ final class PackageCollectionsTests: XCTestCase {
     func testReorder() throws {
         try skipIfUnsupportedPlatform()
 
-        let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
 
         let mockCollections = makeMockCollections(count: 3)
         let collectionProviders = [PackageCollectionsModel.CollectionSourceType.json: MockCollectionsProvider(mockCollections)]
         let metadataProvider = MockMetadataProvider([:])
-        let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
+        let packageCollections = PackageCollections(storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
 
         do {
             let list = try tsc_await { callback in packageCollections.listCollections(callback: callback) }
@@ -528,7 +519,6 @@ final class PackageCollectionsTests: XCTestCase {
     func testUpdateTrust() throws {
         try skipIfUnsupportedPlatform()
 
-        let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
 
@@ -536,7 +526,7 @@ final class PackageCollectionsTests: XCTestCase {
 
         let collectionProviders = [PackageCollectionsModel.CollectionSourceType.json: MockCollectionsProvider(mockCollections)]
         let metadataProvider = MockMetadataProvider([:])
-        let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
+        let packageCollections = PackageCollections(storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
 
         do {
             let list = try tsc_await { callback in packageCollections.listCollections(callback: callback) }
@@ -579,7 +569,6 @@ final class PackageCollectionsTests: XCTestCase {
     func testList() throws {
         try skipIfUnsupportedPlatform()
 
-        let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
 
@@ -588,7 +577,7 @@ final class PackageCollectionsTests: XCTestCase {
         let mockMetadata = makeMockPackageBasicMetadata()
         let collectionProviders = [PackageCollectionsModel.CollectionSourceType.json: MockCollectionsProvider(mockCollections)]
         let metadataProvider = MockMetadataProvider([mockPackage.reference: mockMetadata])
-        let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
+        let packageCollections = PackageCollections(storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
 
         try mockCollections.forEach { collection in
             _ = try tsc_await { callback in packageCollections.addCollection(collection.source, trustConfirmationProvider: { _, cb in cb(true) }, callback: callback) }
@@ -601,7 +590,6 @@ final class PackageCollectionsTests: XCTestCase {
     func testListSubset() throws {
         try skipIfUnsupportedPlatform()
 
-        let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
 
@@ -610,7 +598,7 @@ final class PackageCollectionsTests: XCTestCase {
         let mockMetadata = makeMockPackageBasicMetadata()
         let collectionProviders = [PackageCollectionsModel.CollectionSourceType.json: MockCollectionsProvider(mockCollections)]
         let metadataProvider = MockMetadataProvider([mockPackage.reference: mockMetadata])
-        let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
+        let packageCollections = PackageCollections(storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
 
         try mockCollections.forEach { collection in
             _ = try tsc_await { callback in packageCollections.addCollection(collection.source, trustConfirmationProvider: { _, cb in cb(true) }, callback: callback) }
@@ -629,7 +617,6 @@ final class PackageCollectionsTests: XCTestCase {
 
         try skipIfUnsupportedPlatform()
 
-        let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
 
@@ -638,7 +625,7 @@ final class PackageCollectionsTests: XCTestCase {
         let mockMetadata = makeMockPackageBasicMetadata()
         let collectionProviders = [PackageCollectionsModel.CollectionSourceType.json: MockCollectionsProvider(mockCollections)]
         let metadataProvider = MockMetadataProvider([mockPackage.reference: mockMetadata])
-        let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
+        let packageCollections = PackageCollections(storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
 
         let sync = DispatchGroup()
         mockCollections.forEach { collection in
@@ -659,7 +646,6 @@ final class PackageCollectionsTests: XCTestCase {
     func testPackageSearch() throws {
         try skipIfUnsupportedPlatform()
 
-        let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
 
@@ -724,7 +710,7 @@ final class PackageCollectionsTests: XCTestCase {
 
         let collectionProviders = [PackageCollectionsModel.CollectionSourceType.json: MockCollectionsProvider(mockCollections)]
         let metadataProvider = MockMetadataProvider([:])
-        let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
+        let packageCollections = PackageCollections(storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
 
         try mockCollections.forEach { collection in
             _ = try tsc_await { callback in packageCollections.addCollection(collection.source, trustConfirmationProvider: { _, cb in cb(true) }, callback: callback) }
@@ -794,14 +780,13 @@ final class PackageCollectionsTests: XCTestCase {
 
         try skipIfUnsupportedPlatform()
 
-        let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
 
         let mockCollections = makeMockCollections(count: 1000, maxPackages: 20)
         let collectionProviders = [PackageCollectionsModel.CollectionSourceType.json: MockCollectionsProvider(mockCollections)]
         let metadataProvider = MockMetadataProvider([:])
-        let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
+        let packageCollections = PackageCollections(storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
 
         let sync = DispatchGroup()
         mockCollections.forEach { collection in
@@ -824,7 +809,6 @@ final class PackageCollectionsTests: XCTestCase {
     func testTargetsSearch() throws {
         try skipIfUnsupportedPlatform()
 
-        let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
 
@@ -889,7 +873,7 @@ final class PackageCollectionsTests: XCTestCase {
 
         let collectionProviders = [PackageCollectionsModel.CollectionSourceType.json: MockCollectionsProvider(mockCollections)]
         let metadataProvider = MockMetadataProvider([:])
-        let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
+        let packageCollections = PackageCollections(storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
 
         try mockCollections.forEach { collection in
             _ = try tsc_await { callback in packageCollections.addCollection(collection.source, trustConfirmationProvider: { _, cb in cb(true) }, callback: callback) }
@@ -926,14 +910,13 @@ final class PackageCollectionsTests: XCTestCase {
 
         try skipIfUnsupportedPlatform()
 
-        let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
 
         let mockCollections = makeMockCollections(count: 1000)
         let collectionProviders = [PackageCollectionsModel.CollectionSourceType.json: MockCollectionsProvider(mockCollections)]
         let metadataProvider = MockMetadataProvider([:])
-        let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
+        let packageCollections = PackageCollections(storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
 
         let sync = DispatchGroup()
         mockCollections.forEach { collection in
@@ -956,14 +939,13 @@ final class PackageCollectionsTests: XCTestCase {
     func testHappyRefresh() throws {
         try skipIfUnsupportedPlatform()
 
-        let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
 
         let mockCollections = makeMockCollections()
         let collectionProviders = [PackageCollectionsModel.CollectionSourceType.json: MockCollectionsProvider(mockCollections)]
         let metadataProvider = MockMetadataProvider([:])
-        let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
+        let packageCollections = PackageCollections(storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
 
         try mockCollections.forEach { collection in
             // save directly to storage to circumvent refresh on add
@@ -1005,7 +987,6 @@ final class PackageCollectionsTests: XCTestCase {
 
         struct MyError: Error, Equatable {}
 
-        let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
 
@@ -1018,7 +999,7 @@ final class PackageCollectionsTests: XCTestCase {
         let collectionProviders = [PackageCollectionsModel.CollectionSourceType.json: provider]
 
         let metadataProvider = MockMetadataProvider([:])
-        let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
+        let packageCollections = PackageCollections(storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
 
         XCTAssertThrowsError(try tsc_await { callback in packageCollections.addCollection(brokenSources.first!, order: nil, callback: callback) }, "expected error", { error in
             XCTAssertEqual(error as? MyError, expectedError, "expected error to match")
@@ -1052,14 +1033,13 @@ final class PackageCollectionsTests: XCTestCase {
     func testRefreshOne() throws {
         try skipIfUnsupportedPlatform()
 
-        let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
 
         let mockCollections = makeMockCollections(count: 1)
         let collectionProviders = [PackageCollectionsModel.CollectionSourceType.json: MockCollectionsProvider(mockCollections)]
         let metadataProvider = MockMetadataProvider([:])
-        let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
+        let packageCollections = PackageCollections(storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
 
         try mockCollections.forEach { collection in
             // save directly to storage to circumvent refresh on add
@@ -1074,14 +1054,13 @@ final class PackageCollectionsTests: XCTestCase {
     func testRefreshOneTrustedUnsigned() throws {
         try skipIfUnsupportedPlatform()
 
-        let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
 
         let mockCollections = makeMockCollections(count: 1, signed: false)
         let collectionProviders = [PackageCollectionsModel.CollectionSourceType.json: MockCollectionsProvider(mockCollections)]
         let metadataProvider = MockMetadataProvider([:])
-        let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
+        let packageCollections = PackageCollections(storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
 
         // User trusted
         let collection = try tsc_await { callback in packageCollections.addCollection(mockCollections[0].source, order: nil, trustConfirmationProvider: { _, cb in cb(true) }, callback: callback) }
@@ -1094,14 +1073,13 @@ final class PackageCollectionsTests: XCTestCase {
     func testRefreshOneNotFound() throws {
         try skipIfUnsupportedPlatform()
 
-        let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
 
         let mockCollections = makeMockCollections(count: 1, signed: false)
         let collectionProviders = [PackageCollectionsModel.CollectionSourceType.json: MockCollectionsProvider(mockCollections)]
         let metadataProvider = MockMetadataProvider([:])
-        let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
+        let packageCollections = PackageCollections(storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
 
         // Don't add collection so it's not found in the config
         XCTAssertThrowsError(try tsc_await { callback in packageCollections.refreshCollection(mockCollections[0].source, callback: callback) }, "expected error") { error in
@@ -1112,14 +1090,13 @@ final class PackageCollectionsTests: XCTestCase {
     func testListTargets() throws {
         try skipIfUnsupportedPlatform()
 
-        let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
 
         let mockCollections = makeMockCollections()
         let collectionProviders = [PackageCollectionsModel.CollectionSourceType.json: MockCollectionsProvider(mockCollections)]
         let metadataProvider = MockMetadataProvider([:])
-        let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
+        let packageCollections = PackageCollections(storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
 
         do {
             let list = try tsc_await { callback in packageCollections.listCollections(callback: callback) }
@@ -1150,7 +1127,6 @@ final class PackageCollectionsTests: XCTestCase {
     func testFetchMetadataHappy() throws {
         try skipIfUnsupportedPlatform()
 
-        let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
 
@@ -1159,7 +1135,7 @@ final class PackageCollectionsTests: XCTestCase {
         let mockMetadata = makeMockPackageBasicMetadata()
         let collectionProviders = [PackageCollectionsModel.CollectionSourceType.json: MockCollectionsProvider(mockCollections)]
         let metadataProvider = MockMetadataProvider([mockPackage.reference: mockMetadata])
-        let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
+        let packageCollections = PackageCollections(storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
 
         do {
             let list = try tsc_await { callback in packageCollections.listCollections(callback: callback) }
@@ -1189,7 +1165,6 @@ final class PackageCollectionsTests: XCTestCase {
     func testFetchMetadataInOrder() throws {
         try skipIfUnsupportedPlatform()
 
-        let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
 
@@ -1197,7 +1172,7 @@ final class PackageCollectionsTests: XCTestCase {
         let mockPackage = mockCollections.last!.packages.first!
         let collectionProviders = [PackageCollectionsModel.CollectionSourceType.json: MockCollectionsProvider(mockCollections)]
         let metadataProvider = MockMetadataProvider([:])
-        let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
+        let packageCollections = PackageCollections(storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
 
         do {
             let list = try tsc_await { callback in packageCollections.listCollections(callback: callback) }
@@ -1227,7 +1202,6 @@ final class PackageCollectionsTests: XCTestCase {
     func testFetchMetadataInCollections() throws {
         try skipIfUnsupportedPlatform()
 
-        let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
 
@@ -1235,7 +1209,7 @@ final class PackageCollectionsTests: XCTestCase {
         let mockPackage = mockCollections.last!.packages.first!
         let collectionProviders = [PackageCollectionsModel.CollectionSourceType.json: MockCollectionsProvider(mockCollections)]
         let metadataProvider = MockMetadataProvider([:])
-        let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
+        let packageCollections = PackageCollections(storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
 
         do {
             let list = try tsc_await { callback in packageCollections.listCollections(callback: callback) }
@@ -1352,7 +1326,6 @@ final class PackageCollectionsTests: XCTestCase {
     func testFetchMetadataNotFoundInCollections() throws {
         try skipIfUnsupportedPlatform()
 
-        let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
 
@@ -1360,7 +1333,7 @@ final class PackageCollectionsTests: XCTestCase {
         let mockMetadata = makeMockPackageBasicMetadata()
         let collectionProviders = [PackageCollectionsModel.CollectionSourceType.json: MockCollectionsProvider([])]
         let metadataProvider = MockMetadataProvider([mockPackage.reference: mockMetadata])
-        let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
+        let packageCollections = PackageCollections(storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
 
         do {
             let list = try tsc_await { callback in packageCollections.listCollections(callback: callback) }
@@ -1375,7 +1348,6 @@ final class PackageCollectionsTests: XCTestCase {
     func testFetchMetadataNotFoundByProvider() throws {
         try skipIfUnsupportedPlatform()
 
-        let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
 
@@ -1383,7 +1355,7 @@ final class PackageCollectionsTests: XCTestCase {
         let mockPackage = mockCollections.last!.packages.last!
         let collectionProviders = [PackageCollectionsModel.CollectionSourceType.json: MockCollectionsProvider(mockCollections)]
         let metadataProvider = MockMetadataProvider([:])
-        let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
+        let packageCollections = PackageCollections(storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
 
         do {
             let list = try tsc_await { callback in packageCollections.listCollections(callback: callback) }
@@ -1429,7 +1401,6 @@ final class PackageCollectionsTests: XCTestCase {
             struct TerribleThing: Error {}
         }
 
-        let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
 
@@ -1437,7 +1408,7 @@ final class PackageCollectionsTests: XCTestCase {
         let mockPackage = mockCollections.last!.packages.last!
         let collectionProviders = [PackageCollectionsModel.CollectionSourceType.json: MockCollectionsProvider(mockCollections)]
         let metadataProvider = BrokenMetadataProvider()
-        let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
+        let packageCollections = PackageCollections(storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
 
         do {
             let list = try tsc_await { callback in packageCollections.listCollections(callback: callback) }
@@ -1469,7 +1440,6 @@ final class PackageCollectionsTests: XCTestCase {
 
         try skipIfUnsupportedPlatform()
 
-        let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
 
@@ -1478,7 +1448,7 @@ final class PackageCollectionsTests: XCTestCase {
         let mockMetadata = makeMockPackageBasicMetadata()
         let collectionProviders = [PackageCollectionsModel.CollectionSourceType.json: MockCollectionsProvider(mockCollections)]
         let metadataProvider = MockMetadataProvider([mockPackage.reference: mockMetadata])
-        let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
+        let packageCollections = PackageCollections(storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
 
         let sync = DispatchGroup()
         mockCollections.forEach { collection in
@@ -1499,7 +1469,6 @@ final class PackageCollectionsTests: XCTestCase {
     func testListPackages() throws {
         try skipIfUnsupportedPlatform()
 
-        let configuration = PackageCollections.Configuration()
         let storage = makeMockStorage()
         defer { XCTAssertNoThrow(try storage.close()) }
 
@@ -1562,7 +1531,7 @@ final class PackageCollectionsTests: XCTestCase {
 
         let collectionProviders = [PackageCollectionsModel.CollectionSourceType.json: MockCollectionsProvider(mockCollections)]
         let metadataProvider = MockMetadataProvider([:])
-        let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
+        let packageCollections = PackageCollections(storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
 
         try mockCollections.forEach { collection in
             _ = try tsc_await { callback in packageCollections.addCollection(collection.source, trustConfirmationProvider: { _, cb in cb(true) }, callback: callback) }
@@ -1598,5 +1567,15 @@ private extension XCTestCase {
         if !PackageCollections.isSupportedPlatform {
             throw XCTSkip("Skipping test on unsupported platform")
         }
+    }
+}
+
+extension PackageCollections {
+    init(configuration: Configuration.Collections? = nil, storage: Storage, collectionProviders: [Model.CollectionSourceType : PackageCollectionProvider], metadataProvider: PackageMetadataProvider) {
+        self.init(configuration: configuration ?? Configuration.Collections(fileSystem: InMemoryFileSystem()),
+                  diagnosticsEngine: DiagnosticsEngine(),
+                  storage: storage,
+                  collectionProviders: collectionProviders,
+                  metadataProvider: metadataProvider)
     }
 }

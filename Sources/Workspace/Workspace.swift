@@ -9,13 +9,14 @@
 */
 
 import Basics
-import TSCBasic
-import TSCUtility
+import Configurations
 import Foundation
+import PackageGraph
 import PackageLoading
 import PackageModel
-import PackageGraph
 import SourceControl
+import TSCBasic
+import TSCUtility
 
 /// Enumeration of the different reasons for which the resolver needs to be run.
 public enum WorkspaceResolveReason: Equatable {
@@ -157,14 +158,14 @@ private struct WorkspaceDependencyResolverDelegate: DependencyResolverDelegate {
 ///
 /// This class does *not* support concurrent operations.
 public class Workspace {
+    /// The swiftpm config.
+    fileprivate let configuration: Configurations.Configuration
+
     /// The delegate interface.
     public weak var delegate: WorkspaceDelegate?
 
     /// The path of the workspace data.
     public let dataPath: AbsolutePath
-
-    /// The swiftpm config.
-    fileprivate let config: Workspace.Configuration
 
     /// The current persisted state of the workspace.
     public let state: WorkspaceState
@@ -208,7 +209,7 @@ public class Workspace {
     /// The http client used for downloading binary artifacts.
     fileprivate let httpClient: HTTPClient
 
-    fileprivate let netrcFilePath: AbsolutePath?
+    //fileprivate let netrcFilePath: AbsolutePath?
 
     /// The downloader used for unarchiving binary artifacts.
     fileprivate let archiver: Archiver
@@ -217,16 +218,16 @@ public class Workspace {
     fileprivate let checksumAlgorithm: HashAlgorithm
 
     /// Enable prefetching containers in resolver.
-    fileprivate let isResolverPrefetchingEnabled: Bool
+    //fileprivate let isResolverPrefetchingEnabled: Bool
 
     /// Skip updating containers while fetching them.
-    fileprivate let skipUpdate: Bool
+    //fileprivate let skipUpdate: Bool
 
     /// The active package resolver. This is set during a dependency resolution operation.
     fileprivate var activeResolver: PubgrubDependencyResolver?
 
     /// Write dependency resolver trace to a file.
-    fileprivate let enableResolverTrace: Bool
+    //fileprivate let enableResolverTrace: Bool
 
     fileprivate var resolvedFileWatcher: ResolvedFileWatcher?
 
@@ -245,8 +246,102 @@ public class Workspace {
     ///   - manifestLoader: The manifest loader.
     ///   - fileSystem: The file system to operate on.
     ///   - repositoryProvider: The repository provider to use in repository manager.
-    /// - Throws: If the state was present, but could not be loaded.
+    // FIXME: document API ^^
     public init(
+        configuration: Configurations.Configuration,
+        dataPath: AbsolutePath,
+        editablesPath: AbsolutePath,
+        pinsFile: AbsolutePath,
+        manifestLoader: ManifestLoaderProtocol,
+        repositoryManager: RepositoryManager? = nil,
+        currentToolsVersion: ToolsVersion? = nil,
+        toolsVersionLoader: ToolsVersionLoaderProtocol? = nil,
+        delegate: WorkspaceDelegate? = nil,
+        fileSystem: FileSystem? = nil,
+        repositoryProvider: RepositoryProvider? = nil,
+        identityResolver: IdentityResolver? = nil,
+        httpClient: HTTPClient? = nil,
+        //netrcFilePath: AbsolutePath? = nil,
+        archiver: Archiver? = nil,
+        checksumAlgorithm: HashAlgorithm? = nil,
+        additionalFileRules: [FileRuleDescription]? = nil//,
+        //isResolverPrefetchingEnabled: Bool? = nil,
+        //enablePubgrubResolver: Bool? = nil,
+        //skipUpdate: Bool? = nil,
+        //enableResolverTrace: Bool? = nil,
+        //cachePath: AbsolutePath? = nil
+    ) {
+        // defaults
+        let currentToolsVersion = currentToolsVersion ?? ToolsVersion.currentToolsVersion
+        let toolsVersionLoader = toolsVersionLoader ?? ToolsVersionLoader()
+        //let config = config ?? Workspace.Configuration()
+        let fileSystem = fileSystem ?? localFileSystem
+        let repositoryProvider = repositoryProvider ?? GitRepositoryProvider()
+        let httpClient = httpClient ?? HTTPClient()
+        let archiver = archiver ?? ZipArchiver()
+        var checksumAlgorithm = checksumAlgorithm ?? SHA256()
+        #if canImport(CryptoKit)
+        if checksumAlgorithm is SHA256, #available(macOS 10.15, *) {
+            checksumAlgorithm = CryptoKitSHA256()
+        }
+        #endif
+        let additionalFileRules = additionalFileRules ?? []
+        //let isResolverPrefetchingEnabled = isResolverPrefetchingEnabled ?? false
+        //let skipUpdate = skipUpdate ?? false
+        //let enableResolverTrace = enableResolverTrace ?? false
+
+        // initialize
+        self.configuration = configuration
+        self.delegate = delegate
+        self.dataPath = dataPath
+        self.editablesPath = editablesPath
+        self.manifestLoader = manifestLoader
+        self.currentToolsVersion = currentToolsVersion
+        self.toolsVersionLoader = toolsVersionLoader
+        self.httpClient = httpClient
+        //self.netrcFilePath = netrcFilePath
+        self.archiver = archiver
+
+        self.checksumAlgorithm = checksumAlgorithm
+        //self.isResolverPrefetchingEnabled = isResolverPrefetchingEnabled
+        //self.skipUpdate = skipUpdate
+        //self.enableResolverTrace = enableResolverTrace
+        self.resolvedFile = pinsFile
+        self.additionalFileRules = additionalFileRules
+
+        let repositoriesPath = self.dataPath.appending(component: "repositories")
+        let repositoriesCachePath = configuration.resolution.repositories.cachePath
+        let repositoryManager = repositoryManager ?? RepositoryManager(
+            path: repositoriesPath,
+            provider: repositoryProvider,
+            delegate: delegate.map(WorkspaceRepositoryManagerDelegate.init(workspaceDelegate:)),
+            fileSystem: fileSystem,
+            cachePath: repositoriesCachePath)
+        self.repositoryManager = repositoryManager
+
+        self.checkoutsPath = self.dataPath.appending(component: "checkouts")
+        self.artifactsPath = self.dataPath.appending(component: "artifacts")
+
+        self.identityResolver = identityResolver ?? DefaultIdentityResolver(locationMapper: configuration.mirrors.effectiveURL(for:))
+
+        self.containerProvider = RepositoryPackageContainerProvider(
+            repositoryManager: repositoryManager,
+            identityResolver: self.identityResolver,
+            manifestLoader: manifestLoader,
+            currentToolsVersion: currentToolsVersion,
+            toolsVersionLoader: toolsVersionLoader
+        )
+        self.fileSystem = fileSystem
+
+        self.pinsStore = LoadableResult {
+            try PinsStore(pinsFile: pinsFile, fileSystem: fileSystem, mirrors: configuration.mirrors)
+        }
+        self.state = WorkspaceState(dataPath: dataPath, fileSystem: fileSystem)
+    }
+
+    // deprecated 8/2021
+    @available(*, deprecated)
+    public convenience init(
         dataPath: AbsolutePath,
         editablesPath: AbsolutePath,
         pinsFile: AbsolutePath,
@@ -270,72 +365,50 @@ public class Workspace {
         enableResolverTrace: Bool? = nil,
         cachePath: AbsolutePath? = nil
     ) {
-        // defaults
-        let currentToolsVersion = currentToolsVersion ?? ToolsVersion.currentToolsVersion
-        let toolsVersionLoader = toolsVersionLoader ?? ToolsVersionLoader()
-        let config = config ?? Workspace.Configuration()
-        let fileSystem = fileSystem ?? localFileSystem
-        let repositoryProvider = repositoryProvider ?? GitRepositoryProvider()
-        let httpClient = httpClient ?? HTTPClient()
-        let archiver = archiver ?? ZipArchiver()
-        var checksumAlgorithm = checksumAlgorithm ?? SHA256()
-        #if canImport(CryptoKit)
-        if checksumAlgorithm is SHA256, #available(macOS 10.15, *) {
-            checksumAlgorithm = CryptoKitSHA256()
-        }
-        #endif
-        let additionalFileRules = additionalFileRules ?? []
-        let isResolverPrefetchingEnabled = isResolverPrefetchingEnabled ?? false
-        let skipUpdate = skipUpdate ?? false
-        let enableResolverTrace = enableResolverTrace ?? false
-
-        // initialize
-        self.delegate = delegate
-        self.dataPath = dataPath
-        self.config = config
-        self.editablesPath = editablesPath
-        self.manifestLoader = manifestLoader
-        self.currentToolsVersion = currentToolsVersion
-        self.toolsVersionLoader = toolsVersionLoader
-        self.httpClient = httpClient
-        self.netrcFilePath = netrcFilePath
-        self.archiver = archiver
-
-        self.checksumAlgorithm = checksumAlgorithm
-        self.isResolverPrefetchingEnabled = isResolverPrefetchingEnabled
-        self.skipUpdate = skipUpdate
-        self.enableResolverTrace = enableResolverTrace
-        self.resolvedFile = pinsFile
-        self.additionalFileRules = additionalFileRules
-
-        let repositoriesPath = self.dataPath.appending(component: "repositories")
-        let repositoriesCachePath = cachePath.map { $0.appending(component: "repositories") }
-        let repositoryManager = repositoryManager ?? RepositoryManager(
-            path: repositoriesPath,
-            provider: repositoryProvider,
-            delegate: delegate.map(WorkspaceRepositoryManagerDelegate.init(workspaceDelegate:)),
-            fileSystem: fileSystem,
-            cachePath: repositoriesCachePath)
-        self.repositoryManager = repositoryManager
-
-        self.checkoutsPath = self.dataPath.appending(component: "checkouts")
-        self.artifactsPath = self.dataPath.appending(component: "artifacts")
-
-        self.identityResolver = identityResolver ?? DefaultIdentityResolver(locationMapper: config.mirrors.effectiveURL(for:))
-
-        self.containerProvider = RepositoryPackageContainerProvider(
-            repositoryManager: repositoryManager,
-            identityResolver: self.identityResolver,
-            manifestLoader: manifestLoader,
-            currentToolsVersion: currentToolsVersion,
-            toolsVersionLoader: toolsVersionLoader
+        // FIXME: these defaults are pretty bad
+        let configuration = Configurations.Configuration(
+            resolution: .init(
+                repositories: .init(
+                    cachePath: cachePath.map { Configurations.Configuration.Resolution.Repositories.cachePath(rootCachePath: $0) }
+                ),
+                prefetchingEnabled: isResolverPrefetchingEnabled,
+                tracingEnabled: enableResolverTrace,
+                skipUpdate: skipUpdate
+            ),
+            manifestsLoading: .init(
+                cachePath: cachePath.map { Configurations.Configuration.ManifestsLoading.cachePath(rootCachePath: $0) }
+            ),
+            mirrors: .init(
+                fileSystem: fileSystem ?? localFileSystem,
+                path: nil
+            ),
+            netrc: .init(
+                fileSystem: fileSystem ?? localFileSystem,
+                path: netrcFilePath
+            ),
+            collections: .init(
+                fileSystem: fileSystem ?? localFileSystem
+            )
         )
-        self.fileSystem = fileSystem
 
-        self.pinsStore = LoadableResult {
-            try PinsStore(pinsFile: pinsFile, fileSystem: fileSystem, mirrors: config.mirrors)
-        }
-        self.state = WorkspaceState(dataPath: dataPath, fileSystem: fileSystem)
+        self.init(
+            configuration: configuration,
+            dataPath: dataPath,
+            editablesPath: editablesPath,
+            pinsFile: pinsFile,
+            manifestLoader: manifestLoader,
+            repositoryManager: repositoryManager,
+            currentToolsVersion: currentToolsVersion,
+            toolsVersionLoader: toolsVersionLoader,
+            delegate: delegate,
+            fileSystem: fileSystem,
+            repositoryProvider: repositoryProvider,
+            identityResolver: identityResolver,
+            httpClient: httpClient,
+            archiver: archiver,
+            checksumAlgorithm: checksumAlgorithm,
+            additionalFileRules: additionalFileRules
+        )
     }
 
     /// A convenience method for creating a workspace for the given root
@@ -356,7 +429,8 @@ public class Workspace {
         delegate: WorkspaceDelegate? = nil
     ) throws {
         let toolchain = try toolchain ?? UserToolchain(destination: .hostDestination())
-        let manifestLoader = ManifestLoader(toolchain: toolchain.configuration)
+        // FIXME: these defaults are pretty bad
+        let manifestLoader = ManifestLoader(configuration: .init(cachePath: nil), toolchain: toolchain.configuration)
 
         try self.init(
             forRootPackage: packagePath,
@@ -383,8 +457,30 @@ public class Workspace {
         repositoryManager: RepositoryManager? = nil,
         delegate: WorkspaceDelegate? = nil
     ) throws {
+        // FIXME: these defaults are pretty bad
+        let configuration = Configurations.Configuration(
+            resolution: .init(
+                repositories: .init (
+                    cachePath: nil
+                )
+            ),
+            manifestsLoading: .init(
+                cachePath: nil
+            ),
+            mirrors: .init(
+                fileSystem: localFileSystem,
+                path: packagePath.appending(components: [".swiftpm", "config"])
+            ),
+            netrc: .init(
+                fileSystem: localFileSystem, path: nil
+            ),
+            collections: .init(
+                fileSystem: localFileSystem
+            )
+        )
 
         self .init(
+            configuration: configuration,
             dataPath: packagePath.appending(component: ".build"),
             editablesPath: packagePath.appending(component: "Packages"),
             pinsFile: packagePath.appending(component: "Package.resolved"),
@@ -708,8 +804,9 @@ extension Workspace {
         diagnostics: DiagnosticsEngine
     ) throws -> PackageGraph {
         let toolchain = ToolchainConfiguration(swiftCompiler: swiftCompiler, swiftCompilerFlags: swiftCompilerFlags)
-        let loader = ManifestLoader(toolchain: toolchain)
-        let workspace = Workspace.create(forRootPackage: packagePath, manifestLoader: loader, identityResolver: identityResolver)
+        // FIXME: these defaults are pretty bad
+        let manifestLoader = ManifestLoader(configuration: .init(cachePath: nil), toolchain: toolchain)
+        let workspace = Workspace.create(forRootPackage: packagePath, manifestLoader: manifestLoader, identityResolver: identityResolver)
         return try workspace.loadPackageGraph(rootPath: packagePath, diagnostics: diagnostics)
     }
 
@@ -1224,7 +1321,7 @@ extension Workspace {
             requiredIdentities = inputIdentities.union(requiredIdentities)
 
             let availableIdentities: Set<PackageReference> = Set(manifestsMap.map {
-                let url = workspace.config.mirrors.effectiveURL(for: $0.1.packageLocation)
+                let url = workspace.configuration.mirrors.effectiveURL(for: $0.1.packageLocation)
                 return PackageReference(identity: $0.key, kind: $0.1.packageKind, location: url)
             })
             // We should never have loaded a manifest we don't need.
@@ -1693,8 +1790,7 @@ extension Workspace {
         let tempDiagnostics = DiagnosticsEngine()
         let result = ThreadSafeArrayStore<ManagedArtifact>()
 
-        // FIXME: should this handle the error more gracefully?
-        let authProvider: AuthorizationProviding? = try? Netrc.load(fromFileAtPath: netrcFilePath).get()
+        let authProvider = try self.configuration.netrc.settings()
 
         // zip files to download
         // stored in a thread-safe way as we may fetch more from "artifactbundleindex" files
@@ -1709,7 +1805,7 @@ extension Workspace {
                 group.enter()
                 var request = HTTPClient.Request(method: .get, url: indexFile.url)
                 request.options.validResponseCodes = [200]
-                request.options.authorizationProvider = authProvider?.authorization(for:)
+                request.options.authorizationProvider = authProvider.authorization(for:)
                 self.httpClient.execute(request) { result in
                     defer { group.leave() }
 
@@ -1780,7 +1876,7 @@ extension Workspace {
 
             group.enter()
             var request = HTTPClient.Request.download(url: artifact.url, fileSystem: self.fileSystem, destination: archivePath)
-            request.options.authorizationProvider = authProvider?.authorization(for:)
+            request.options.authorizationProvider = authProvider.authorization(for:)
             request.options.validResponseCodes = [200]
             self.httpClient.execute(
                 request,
@@ -2153,7 +2249,10 @@ extension Workspace {
             extraConstraints
 
         let precomputationProvider = ResolverPrecomputationProvider(root: root, dependencyManifests: dependencyManifests)
-        let resolver = PubgrubDependencyResolver(provider: precomputationProvider, pinsMap: pinsStore.pinsMap)
+        let resolver = PubgrubDependencyResolver(
+            configuration: self.configuration.resolution,
+            provider: precomputationProvider, pinsMap: pinsStore.pinsMap
+        )
         let result = resolver.solve(constraints: constraints)
 
         switch result {
@@ -2408,16 +2507,15 @@ extension Workspace {
         if let workspaceDelegate = self.delegate {
             delegates.append(WorkspaceDependencyResolverDelegate(workspaceDelegate))
         }
-        if self.enableResolverTrace {
+        if self.configuration.resolution.tracingEnabled {
             delegates.append(try TracingDependencyResolverDelegate(path: self.dataPath.appending(components: "resolver.trace")))
         }
         let delegate = !delegates.isEmpty ? MultiplexResolverDelegate(delegates) : nil
 
         return PubgrubDependencyResolver(
+            configuration: self.configuration.resolution,
             provider: containerProvider,
             pinsMap: pinsMap,
-            isPrefetchingEnabled: isResolverPrefetchingEnabled,
-            skipUpdate: skipUpdate,
             delegate: delegate
         )
     }

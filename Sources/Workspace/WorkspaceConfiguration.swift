@@ -17,6 +17,7 @@ import PackageGraph
 
 extension Workspace {
     /// Manages a package workspace's configuration.
+    @available(*, deprecated)
     public final class Configuration {
         /// The path to the mirrors file.
         private let configFile: AbsolutePath?
@@ -91,12 +92,14 @@ extension Workspace {
     }
 }
 
+@available(*, deprecated)
 extension Workspace.Configuration: JSONSerializable {
     public func toJSON() -> JSON {
         return mirrors.toJSON()
     }
 }
 
+@available(*, deprecated)
 extension Workspace.Configuration: SimplePersistanceProtocol {
     public func restore(from json: JSON) throws {
         self.mirrors = try DependencyMirrors(json: json)

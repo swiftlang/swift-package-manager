@@ -8,19 +8,19 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-import XCTest
 
+import Basics
+import Configurations
 import PackageGraph
 import PackageLoading
 import PackageModel
 import SourceControl
 import SPMBuildCore
+import SPMTestSupport
 import TSCBasic
 import TSCUtility
 import Workspace
-import Basics
-
-import SPMTestSupport
+import XCTest
 
 final class WorkspaceTests: XCTestCase {
     func testBasics() throws {
@@ -133,16 +133,14 @@ final class WorkspaceTests: XCTestCase {
                     manifest($0)
                 }
 
-                let manifestLoader = ManifestLoader(toolchain: ToolchainConfiguration.default)
+                // FIXME: default config
+                let manifestLoader = ManifestLoader(configuration: .init(cachePath: nil), toolchain: ToolchainConfiguration.default)
 
                 let sandbox = path.appending(component: "ws")
-                return Workspace(
-                    dataPath: sandbox.appending(component: ".build"),
-                    editablesPath: sandbox.appending(component: "edits"),
-                    pinsFile: sandbox.appending(component: "Package.resolved"),
+                return try Workspace(
+                    forRootPackage: sandbox,
                     manifestLoader: manifestLoader,
-                    delegate: MockWorkspaceDelegate(),
-                    cachePath: fs.swiftPMCacheDirectory.appending(component: "repositories")
+                    delegate: MockWorkspaceDelegate()
                 )
             }
 
@@ -3392,15 +3390,36 @@ final class WorkspaceTests: XCTestCase {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let config = try Workspace.Configuration(path: sandbox.appending(component: "swiftpm"), fs: fs)
-        config.mirrors.set(mirrorURL: sandbox.appending(components: "pkgs", "Baz").pathString, forURL: sandbox.appending(components: "pkgs", "Bar").pathString)
-        config.mirrors.set(mirrorURL: sandbox.appending(components: "pkgs", "Baz").pathString, forURL: sandbox.appending(components: "pkgs", "Bam").pathString)
-        try config.saveState()
+        // FIXME: defaults
+        let configuration = Configuration(
+            resolution: .init(
+                repositories: .init(
+                    cachePath: nil
+                )
+            ),
+            manifestsLoading: .init(cachePath: nil),
+            // use location outside the sandbox as it is wiped clean when MockWorkspace is created
+            mirrors: .init(
+                fileSystem: fs,
+                path: fs.swiftPMConfigDirectory.appending(component: "mirrors.json")
+            ),
+            netrc: .init(
+                fileSystem: fs, path: nil
+            ),
+            collections: .init(
+                fileSystem: fs
+            )
+        )
+        
+        try configuration.mirrors.withMapping { mappings in
+            mappings.set(mirrorURL: sandbox.appending(components: "pkgs", "Baz").pathString, forURL: sandbox.appending(components: "pkgs", "Bar").pathString)
+            mappings.set(mirrorURL: sandbox.appending(components: "pkgs", "Baz").pathString, forURL: sandbox.appending(components: "pkgs", "Bam").pathString)
+        }
 
         let workspace = try MockWorkspace(
             sandbox: sandbox,
             fs: fs,
-            config: config,
+            configuration: configuration,
             roots: [
                 MockPackage(
                     name: "Foo",
@@ -4211,8 +4230,7 @@ final class WorkspaceTests: XCTestCase {
                     toolsVersion: .v5_2
                 ),
             ],
-            toolsVersion: .v5_2,
-            enablePubGrub: true
+            toolsVersion: .v5_2
         )
 
         // Load the graph.

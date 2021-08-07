@@ -8,6 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
+/*
 // TODO: how do we read default config values? ENV variables? user settings?
 extension PackageCollections {
     public struct Configuration {
@@ -27,3 +28,4 @@ extension PackageCollections {
 public enum AuthTokenType: Hashable {
     case github(_ host: String)
 }
+*/

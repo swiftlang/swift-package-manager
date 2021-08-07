@@ -10,6 +10,7 @@
 
 
 import Basics
+import Configurations
 import PackageLoading
 import PackageModel
 import SourceControl
@@ -25,14 +26,12 @@ public final class MockWorkspace {
     public let checksumAlgorithm: MockHashAlgorithm
     let roots: [MockPackage]
     let packages: [MockPackage]
-    public let config: Workspace.Configuration
+    public let configuration: Configurations.Configuration
     let identityResolver: IdentityResolver
     public var manifestLoader: MockManifestLoader
     public var repoProvider: InMemoryGitRepositoryProvider
     public let delegate = MockWorkspaceDelegate()
     let toolsVersion: ToolsVersion
-    let skipUpdate: Bool
-    let enablePubGrub: Bool
 
     public init(
         sandbox: AbsolutePath,
@@ -40,28 +39,49 @@ public final class MockWorkspace {
         httpClient: HTTPClient? = nil,
         archiver: MockArchiver = MockArchiver(),
         checksumAlgorithm: MockHashAlgorithm = MockHashAlgorithm(),
-        config: Workspace.Configuration? = nil,
+        configuration: Configurations.Configuration? = nil,
         roots: [MockPackage],
         packages: [MockPackage],
         toolsVersion: ToolsVersion = ToolsVersion.currentToolsVersion,
-        skipUpdate: Bool = false,
-        enablePubGrub: Bool = true
+        skipUpdate: Bool = false
     ) throws {
         self.sandbox = sandbox
         self.fs = fs
         self.httpClient = httpClient ?? HTTPClient.mock(fileSystem: fs)
         self.archiver = archiver
         self.checksumAlgorithm = checksumAlgorithm
-        self.config = try config ?? Workspace.Configuration(path: sandbox.appending(component: "swiftpm"), fs: fs)
-        self.identityResolver = DefaultIdentityResolver(locationMapper: self.config.mirrors.effectiveURL(for:))
+        // FIXME: this defaults are pretty bad
+        self.configuration = configuration ??
+            Configuration(
+                resolution: .init(
+                    repositories: .init(
+                        cachePath: nil
+                    ),
+                    prefetchingEnabled: true,
+                    skipUpdate: skipUpdate
+                ),
+                manifestsLoading: .init(
+                    cachePath: nil
+                ),
+                mirrors: .init(
+                    fileSystem: fs,
+                    path: nil
+                ),
+                netrc: .init(
+                    fileSystem: fs,
+                    path: nil
+                ),
+                collections: .init(
+                    fileSystem: fs
+                )
+            )
+        self.identityResolver = DefaultIdentityResolver(locationMapper: self.configuration.mirrors.effectiveURL(for:))
         self.roots = roots
         self.packages = packages
 
         self.manifestLoader = MockManifestLoader(manifests: [:])
         self.repoProvider = InMemoryGitRepositoryProvider()
         self.toolsVersion = toolsVersion
-        self.skipUpdate = skipUpdate
-        self.enablePubGrub = enablePubGrub
 
         try self.create()
     }
@@ -160,6 +180,7 @@ public final class MockWorkspace {
         }
 
         self._workspace = Workspace(
+            configuration: self.configuration,
             dataPath: self.sandbox.appending(component: ".build"),
             editablesPath: self.sandbox.appending(component: "edits"),
             pinsFile: self.sandbox.appending(component: "Package.resolved"),
@@ -167,17 +188,12 @@ public final class MockWorkspace {
             currentToolsVersion: self.toolsVersion,
             toolsVersionLoader: ToolsVersionLoader(),
             delegate: self.delegate,
-            config: self.config,
             fileSystem: self.fs,
             repositoryProvider: self.repoProvider,
             identityResolver: self.identityResolver,
             httpClient: self.httpClient,
             archiver: self.archiver,
-            checksumAlgorithm: self.checksumAlgorithm,
-            isResolverPrefetchingEnabled: true,
-            enablePubgrubResolver: self.enablePubGrub,
-            skipUpdate: self.skipUpdate,
-            cachePath: localFileSystem.swiftPMCacheDirectory.appending(component: "repositories")
+            checksumAlgorithm: self.checksumAlgorithm
         )
         return self._workspace!
     }

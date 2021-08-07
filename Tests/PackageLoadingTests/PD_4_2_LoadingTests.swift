@@ -542,7 +542,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
 
             let delegate = ManifestTestDelegate()
 
-            let manifestLoader = ManifestLoader(toolchain: ToolchainConfiguration.default, cacheDir: path, delegate: delegate)
+            let manifestLoader = ManifestLoader(configuration: .init(cachePath: path), toolchain: ToolchainConfiguration.default, delegate: delegate)
 
             func check(loader: ManifestLoader, expectCached: Bool) {
                 delegate.clear()
@@ -598,7 +598,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
 
             let delegate = ManifestTestDelegate()
 
-            let manifestLoader = ManifestLoader(toolchain: ToolchainConfiguration.default, cacheDir: path, delegate: delegate)
+            let manifestLoader = ManifestLoader(configuration: .init(cachePath: path), toolchain: ToolchainConfiguration.default, delegate: delegate)
 
             func check(loader: ManifestLoader, expectCached: Bool) {
                 delegate.clear()
@@ -643,7 +643,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                 check(loader: manifestLoader, expectCached: true)
             }
 
-            let noCacheLoader = ManifestLoader(toolchain: ToolchainConfiguration.default, delegate: delegate)
+            let noCacheLoader = ManifestLoader(configuration: .init(cachePath: nil), toolchain: ToolchainConfiguration.default, delegate: delegate)
             for _ in 0..<2 {
                 check(loader: noCacheLoader, expectCached: false)
             }
@@ -670,7 +670,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
 
             let delegate = ManifestTestDelegate()
 
-            let manifestLoader = ManifestLoader(toolchain: ToolchainConfiguration.default, cacheDir: path, delegate: delegate)
+            let manifestLoader = ManifestLoader(configuration: .init(cachePath: path), toolchain: ToolchainConfiguration.default, delegate: delegate)
 
             func check(loader: ManifestLoader) throws {
                 let fs = InMemoryFileSystem()
@@ -775,7 +775,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
 
             let diagnostics = DiagnosticsEngine()
             let delegate = ManifestTestDelegate()
-            let manifestLoader = ManifestLoader(toolchain: ToolchainConfiguration.default, cacheDir: path, delegate: delegate)
+            let manifestLoader = ManifestLoader(configuration: .init(cachePath: path), toolchain: ToolchainConfiguration.default, delegate: delegate)
             let identityResolver = DefaultIdentityResolver()
 
             // warm up caches
@@ -837,7 +837,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
 
             let diagnostics = DiagnosticsEngine()
             let delegate = ManifestTestDelegate()
-            let manifestLoader = ManifestLoader(toolchain: ToolchainConfiguration.default, cacheDir: path, delegate: delegate)
+            let manifestLoader = ManifestLoader(configuration: .init(cachePath: path), toolchain: ToolchainConfiguration.default, delegate: delegate)
             let identityResolver = DefaultIdentityResolver()
 
             let sync = DispatchGroup()

@@ -17,7 +17,8 @@ import PackageModel
 import PackageLoading
 
 class PackageDescriptionLoadingTests: XCTestCase {
-    let manifestLoader = ManifestLoader(toolchain: ToolchainConfiguration.default)
+    // FIXME: default config
+    let manifestLoader = ManifestLoader(configuration: .init(cachePath: nil), toolchain: ToolchainConfiguration.default)
     
     var toolsVersion: ToolsVersion {
         fatalError("implement in subclass")

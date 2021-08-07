@@ -9,6 +9,7 @@
 add_subdirectory(Basics)
 add_subdirectory(Build)
 add_subdirectory(Commands)
+add_subdirectory(Configurations)
 add_subdirectory(LLBuildManifest)
 add_subdirectory(PackageCollections)
 add_subdirectory(PackageCollectionsModel)

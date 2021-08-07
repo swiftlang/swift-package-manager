@@ -9,6 +9,7 @@
  */
 
 import Basics
+import Configurations
 import Dispatch
 import PackageModel
 import TSCBasic
@@ -115,16 +116,15 @@ public struct PubgrubDependencyResolver {
     private let delegate: DependencyResolverDelegate?
 
     public init(
+        configuration: Configuration.Resolution,
         provider: PackageContainerProvider,
         pinsMap: PinsStore.PinsMap = [:],
-        isPrefetchingEnabled: Bool = false,
-        skipUpdate: Bool = false,
         delegate: DependencyResolverDelegate? = nil
     ) {
         self.packageContainerProvider = provider
         self.pinsMap = pinsMap
-        self.isPrefetchingEnabled = isPrefetchingEnabled
-        self.skipUpdate = skipUpdate
+        self.isPrefetchingEnabled = configuration.prefetchingEnabled
+        self.skipUpdate = configuration.skipUpdate
         self.provider = ContainerProvider(provider: self.packageContainerProvider, skipUpdate: self.skipUpdate, pinsMap: self.pinsMap)
         self.delegate = delegate
     }

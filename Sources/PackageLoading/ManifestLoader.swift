@@ -9,10 +9,12 @@
 */
 
 import Basics
-import TSCBasic
-import PackageModel
-import TSCUtility
+import Configurations
 import Foundation
+import PackageModel
+import TSCBasic
+import TSCUtility
+
 public typealias FileSystem = TSCBasic.FileSystem
 
 public enum ManifestParseError: Swift.Error, Equatable {
@@ -91,20 +93,18 @@ public final class ManifestLoader: ManifestLoaderProtocol {
     private let operationQueue: OperationQueue
 
     public init(
+        configuration: Configuration.ManifestsLoading,
         toolchain: ToolchainConfiguration,
-        serializedDiagnostics: Bool = false,
-        isManifestSandboxEnabled: Bool = true,
-        cacheDir: AbsolutePath? = nil,
         delegate: ManifestLoaderDelegate? = nil,
         extraManifestFlags: [String] = []
     ) {
         self.toolchain = toolchain
-        self.serializedDiagnostics = serializedDiagnostics
-        self.isManifestSandboxEnabled = isManifestSandboxEnabled
+        self.serializedDiagnostics = configuration.serializedDiagnostics
+        self.isManifestSandboxEnabled = configuration.isManifestSandboxEnabled
         self.delegate = delegate
         self.extraManifestFlags = extraManifestFlags
 
-        self.databaseCacheDir = cacheDir.map(resolveSymlinks)
+        self.databaseCacheDir = configuration.cachePath.map(resolveSymlinks)
 
         self.operationQueue = OperationQueue()
         self.operationQueue.name = "org.swift.swiftpm.manifest-loader"
@@ -122,10 +122,12 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         extraManifestFlags: [String] = []
     ) {
         self.init(
+            configuration: .init(
+                cachePath: cacheDir,
+                serializedDiagnostics: serializedDiagnostics,
+                isManifestSandboxEnabled: isManifestSandboxEnabled
+            ),
             toolchain: manifestResources,
-            serializedDiagnostics: serializedDiagnostics,
-            isManifestSandboxEnabled: isManifestSandboxEnabled,
-            cacheDir: cacheDir,
             delegate: delegate,
             extraManifestFlags: extraManifestFlags
         )
@@ -154,7 +156,8 @@ public final class ManifestLoader: ManifestLoaderProtocol {
     ) {
         do {
             let toolchain = ToolchainConfiguration(swiftCompiler: swiftCompiler, swiftCompilerFlags: swiftCompilerFlags)
-            let loader = ManifestLoader(toolchain: toolchain)
+            // FIXME: no cache
+            let loader = ManifestLoader(configuration: .init(cachePath: nil), toolchain: toolchain)
             let toolsVersion = try ToolsVersionLoader().load(at: path, fileSystem: fileSystem)
             let packageLocation = fileSystem.isFile(path) ? path.parentDirectory : path
             let packageIdentity = identityResolver.resolveIdentity(for: packageLocation)
