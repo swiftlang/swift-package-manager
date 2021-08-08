@@ -20,7 +20,7 @@ class ManifestLoaderSQLiteCacheTests: XCTestCase {
     func testHappyCase() throws {
         try testWithTemporaryDirectory { tmpPath in
             let path = tmpPath.appending(component: "test.db")
-            let storage = SQLiteBackedCache<ManifestLoader.ManifestParseResult>(tableName: "manifests", path: path)
+            let storage = SQLiteBackedCache<ManifestLoader.CompilationResult>(tableName: "manifests", path: path)
             defer { XCTAssertNoThrow(try storage.close()) }
 
             let mockManifests = try makeMockManifests(fileSystem: localFileSystem, rootPath: tmpPath)
@@ -30,7 +30,7 @@ class ManifestLoaderSQLiteCacheTests: XCTestCase {
 
             try mockManifests.forEach { key, manifest in
                 let result = try storage.get(key: key.sha256Checksum)
-                XCTAssertEqual(result?.parsedManifest, manifest.parsedManifest)
+                XCTAssertEqual(result?.manifestJSON, manifest.manifestJSON)
             }
 
             guard case .path(let storagePath) = storage.location else {
@@ -42,10 +42,11 @@ class ManifestLoaderSQLiteCacheTests: XCTestCase {
     }
 }
 
-private func makeMockManifests(fileSystem: FileSystem, rootPath: AbsolutePath, count: Int = Int.random(in: 50 ..< 100)) throws -> [ManifestLoader.ManifestCacheKey: ManifestLoader.ManifestParseResult] {
-    var manifests = [ManifestLoader.ManifestCacheKey: ManifestLoader.ManifestParseResult]()
+private func makeMockManifests(fileSystem: FileSystem, rootPath: AbsolutePath, count: Int = Int.random(in: 50 ..< 100)) throws -> [ManifestLoader.CacheKey: ManifestLoader.CompilationResult] {
+    var manifests = [ManifestLoader.CacheKey: ManifestLoader.CompilationResult]()
     for index in 0 ..< count {
         let manifestPath = rootPath.appending(components: "\(index)", "Package.swift")
+
         try fileSystem.writeFileContents(manifestPath) { stream in
             stream <<< """
             import PackageDescription
@@ -59,14 +60,14 @@ private func makeMockManifests(fileSystem: FileSystem, rootPath: AbsolutePath, c
             )
             """
         }
-        let key = try ManifestLoader.ManifestCacheKey(packageIdentity: PackageIdentity(path: manifestPath),
-                                                      manifestPath: manifestPath,
-                                                      toolsVersion: ToolsVersion.currentToolsVersion,
-                                                      env: [:],
-                                                      swiftpmVersion: SwiftVersion.currentVersion.displayString,
-                                                      fileSystem: fileSystem)
-        manifests[key] = ManifestLoader.ManifestParseResult(compilerOutput: "mock-output-\(index)",
-                                                            parsedManifest: "{ 'name': 'mock-manifest-\(index)' }")
+        let key = try ManifestLoader.CacheKey(packageIdentity: PackageIdentity(path: manifestPath),
+                                              manifestPath: manifestPath,
+                                              toolsVersion: ToolsVersion.currentToolsVersion,
+                                              env: [:],
+                                              swiftpmVersion: SwiftVersion.currentVersion.displayString,
+                                              fileSystem: fileSystem)
+        manifests[key] = ManifestLoader.CompilationResult(compilerOutput: "mock-output-\(index)",
+                                                          manifestJSON: "{ 'name': 'mock-manifest-\(index)' }")
     }
 
     return manifests
