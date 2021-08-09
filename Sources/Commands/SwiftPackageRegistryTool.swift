@@ -150,20 +150,15 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
 private extension Decodable {
     static func readFromJSONFile(in fileSystem: FileSystem, at path: AbsolutePath) throws -> Self {
         let content = try fileSystem.readFileContents(path)
-
-        let decoder = JSONDecoder()
-
+        let decoder = JSONDecoder.makeWithDefaults()
         return try decoder.decode(Self.self, from: Data(content.contents))
     }
 }
 
 private extension Encodable {
     func writeToJSONFile(in fileSystem: FileSystem, at path: AbsolutePath) throws {
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.sortedKeys, .prettyPrinted, .withoutEscapingSlashes]
-
+        let encoder = JSONEncoder.makeWithDefaults()
         let data = try encoder.encode(self)
-
         try fileSystem.writeFileContents(path, bytes: ByteString(data), atomically: true)
     }
 }
