@@ -157,43 +157,6 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         self.operationQueue.maxConcurrentOperationCount = Concurrency.maxOperations
     }
 
-    // deprecated 3/21, remove once clients migrated over
-    @available(*, deprecated, message: "use loadRootManifest instead")
-    public static func loadManifest(
-        at path: AbsolutePath,
-        kind: PackageReference.Kind,
-        swiftCompiler: AbsolutePath,
-        swiftCompilerFlags: [String],
-        identityResolver: IdentityResolver,
-        on queue: DispatchQueue,
-        completion: @escaping (Result<Manifest, Error>) -> Void
-    ) {
-        do {
-            let fileSystem = localFileSystem
-            let resources = try UserManifestResources(swiftCompiler: swiftCompiler, swiftCompilerFlags: swiftCompilerFlags)
-            let loader = ManifestLoader(manifestResources: resources)
-            let toolsVersion = try ToolsVersionLoader().load(at: path, fileSystem: fileSystem)
-            let packageLocation = path.pathString
-            let packageIdentity = identityResolver.resolveIdentity(for: packageLocation)
-            loader.load(
-                at: path,
-                packageIdentity: packageIdentity,
-                packageKind: kind,
-                packageLocation: packageLocation,
-                version: nil,
-                revision: nil,
-                toolsVersion: toolsVersion,
-                identityResolver: identityResolver,
-                fileSystem: fileSystem,
-                diagnostics: nil,
-                on: queue,
-                completion: completion
-            )
-        } catch {
-            return completion(.failure(error))
-        }
-    }
-
     /// Loads a root manifest from a path using the resources associated with a particular `swiftc` executable.
     ///
     /// - Parameters:
@@ -236,36 +199,6 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         } catch {
             return completion(.failure(error))
         }
-    }
-
-    // deprecated 3/21, remove once clients migrated over
-    @available(*, deprecated, message: "use load(at: packageIdentity:, ...) variant instead")
-    public func load(
-        at path: AbsolutePath,
-        packageKind: PackageReference.Kind,
-        packageLocation: String,
-        version: Version?,
-        revision: String?,
-        toolsVersion: ToolsVersion,
-        identityResolver: IdentityResolver,
-        fileSystem: FileSystem,
-        diagnostics: DiagnosticsEngine? = nil,
-        on queue: DispatchQueue,
-        completion: @escaping (Result<Manifest, Error>) -> Void
-    ) {
-        let packageIdentity = identityResolver.resolveIdentity(for: packageLocation)
-        self.load(at: path,
-                  packageIdentity: packageIdentity,
-                  packageKind: packageKind,
-                  packageLocation: packageLocation,
-                  version: version,
-                  revision: revision,
-                  toolsVersion: toolsVersion,
-                  identityResolver: identityResolver,
-                  fileSystem: fileSystem,
-                  diagnostics: diagnostics,
-                  on: queue,
-                  completion: completion)
     }
 
     public func load(
