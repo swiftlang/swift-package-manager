@@ -32,7 +32,7 @@ public enum RegistryError: Error {
 
 public final class RegistryManager {
     internal static var archiverFactory: (FileSystem) -> Archiver = { fileSystem in
-        return ZipArchiver(fileSystem: fileSystem)
+        return SourceArchiver(fileSystem: fileSystem)
     }
 
     private static let sharedClient: HTTPClientProtocol = HTTPClient()
