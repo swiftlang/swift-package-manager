@@ -534,7 +534,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
     /// Load the JSON string for the given manifest.
     private func parseManifest(
-        _ result: CompilationResult,
+        _ result: EvaluationResult,
         packageIdentity: PackageIdentity,
         packageLocation: String,
         toolsVersion: ToolsVersion,
@@ -576,13 +576,13 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         fileSystem: FileSystem,
         diagnostics: DiagnosticsEngine?
     ) throws -> ManifestJSONParser.Result {
-        let cache = self.databaseCacheDir.map { cacheDir -> SQLiteBackedCache<CompilationResult> in
+        let cache = self.databaseCacheDir.map { cacheDir -> SQLiteBackedCache<EvaluationResult> in
             let path = Self.manifestCacheDBPath(cacheDir)
             var configuration = SQLiteBackedCacheConfiguration()
             // FIXME: expose as user-facing configuration
             configuration.maxSizeInMegabytes = 100
             configuration.truncateWhenFull = true
-            return SQLiteBackedCache<CompilationResult>(tableName: "MANIFEST_CACHE", location: .path(path), configuration: configuration, diagnosticsEngine: diagnostics)
+            return SQLiteBackedCache<EvaluationResult>(tableName: "MANIFEST_CACHE", location: .path(path), configuration: configuration, diagnosticsEngine: diagnostics)
         }
 
         // TODO: we could wrap the failure here with diagnostics if it wasn't optional throughout
@@ -614,10 +614,10 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         }
 
         // shells out and compiles the manifest, finally output a JSON
-        let result = self.compileManifestToJSON(packageIdentity: key.packageIdentity,
-                                                manifestPath: key.manifestPath,
-                                                manifestContents: key.manifestContents,
-                                                toolsVersion: key.toolsVersion)
+        let result = self.evaluateManifest(packageIdentity: key.packageIdentity,
+                                           manifestPath: key.manifestPath,
+                                           manifestContents: key.manifestContents,
+                                           toolsVersion: key.toolsVersion)
 
         // only cache successfully parsed manifests
         let parseManifest = try self.parseManifest(
@@ -689,7 +689,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         }
     }
 
-    internal struct CompilationResult: Codable {
+    internal struct EvaluationResult: Codable {
         /// The path to the diagnostics file (.dia).
         ///
         /// This is only present if serialized diagnostics are enabled.
@@ -718,17 +718,17 @@ public final class ManifestLoader: ManifestLoaderProtocol {
     }
 
     /// Compiler the manifest at the given path and retrieve the JSON.
-    fileprivate func compileManifestToJSON(
+    fileprivate func evaluateManifest(
         packageIdentity: PackageIdentity,
         manifestPath: AbsolutePath,
         manifestContents: [UInt8],
         toolsVersion: ToolsVersion
-    ) -> CompilationResult {
+    ) -> EvaluationResult {
 
-        var result = CompilationResult()
+        var result = EvaluationResult()
         do {
             if localFileSystem.isFile(manifestPath) {
-                try self.compileManifestToJSON(
+                try self.evaluateManifest(
                     at: manifestPath,
                     packageIdentity: packageIdentity,
                     toolsVersion: toolsVersion,
@@ -737,7 +737,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             } else {
                 try withTemporaryFile(suffix: ".swift") { tempFile in
                     try localFileSystem.writeFileContents(tempFile.path, bytes: ByteString(manifestContents))
-                    try self.compileManifestToJSON(
+                    try self.evaluateManifest(
                         at: tempFile.path,
                         packageIdentity: packageIdentity,
                         toolsVersion: toolsVersion,
@@ -753,12 +753,12 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         return result
     }
 
-    /// Helper method for compiling the manifest.
-    func compileManifestToJSON(
+    /// Helper method for evaluating the manifest.
+    func evaluateManifest(
         at manifestPath: AbsolutePath,
         packageIdentity: PackageIdentity,
         toolsVersion: ToolsVersion,
-        result: inout CompilationResult
+        result: inout EvaluationResult
     ) throws {
         self.delegate?.willParse(manifest: manifestPath)
 

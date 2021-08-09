@@ -20,7 +20,7 @@ class ManifestLoaderSQLiteCacheTests: XCTestCase {
     func testHappyCase() throws {
         try testWithTemporaryDirectory { tmpPath in
             let path = tmpPath.appending(component: "test.db")
-            let storage = SQLiteBackedCache<ManifestLoader.CompilationResult>(tableName: "manifests", path: path)
+            let storage = SQLiteBackedCache<ManifestLoader.EvaluationResult>(tableName: "manifests", path: path)
             defer { XCTAssertNoThrow(try storage.close()) }
 
             let mockManifests = try makeMockManifests(fileSystem: localFileSystem, rootPath: tmpPath)
@@ -42,8 +42,8 @@ class ManifestLoaderSQLiteCacheTests: XCTestCase {
     }
 }
 
-private func makeMockManifests(fileSystem: FileSystem, rootPath: AbsolutePath, count: Int = Int.random(in: 50 ..< 100)) throws -> [ManifestLoader.CacheKey: ManifestLoader.CompilationResult] {
-    var manifests = [ManifestLoader.CacheKey: ManifestLoader.CompilationResult]()
+private func makeMockManifests(fileSystem: FileSystem, rootPath: AbsolutePath, count: Int = Int.random(in: 50 ..< 100)) throws -> [ManifestLoader.CacheKey: ManifestLoader.EvaluationResult] {
+    var manifests = [ManifestLoader.CacheKey: ManifestLoader.EvaluationResult]()
     for index in 0 ..< count {
         let manifestPath = rootPath.appending(components: "\(index)", "Package.swift")
 
@@ -66,8 +66,8 @@ private func makeMockManifests(fileSystem: FileSystem, rootPath: AbsolutePath, c
                                               env: [:],
                                               swiftpmVersion: SwiftVersion.currentVersion.displayString,
                                               fileSystem: fileSystem)
-        manifests[key] = ManifestLoader.CompilationResult(compilerOutput: "mock-output-\(index)",
-                                                          manifestJSON: "{ 'name': 'mock-manifest-\(index)' }")
+        manifests[key] = ManifestLoader.EvaluationResult(compilerOutput: "mock-output-\(index)",
+                                                         manifestJSON: "{ 'name': 'mock-manifest-\(index)' }")
     }
 
     return manifests
