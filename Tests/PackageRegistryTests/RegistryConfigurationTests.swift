@@ -9,6 +9,7 @@
  */
 
 import XCTest
+import SPMTestSupport
 @testable import PackageRegistry
 
 private let defaultRegistryBaseURL = URL(string: "https://packages.example.com/")!
@@ -47,20 +48,20 @@ final class RegistryConfigurationTests: XCTestCase {
     }
 
     func testDecodeEmptyConfiguration() throws {
-        let data = #"""
+        let json = #"""
         {
             "registries": {},
             "version": 1
         }
-        """#.data(using: .utf8)!
+        """#
 
-        let configuration = try decoder.decode(RegistryConfiguration.self, from: data)
+        let configuration = try decoder.decode(RegistryConfiguration.self, from: json)
         XCTAssertNil(configuration.defaultRegistry)
         XCTAssertEqual(configuration.scopedRegistries, [:])
     }
 
     func testDecodeExampleConfiguration() throws {
-        let data = #"""
+        let json = #"""
         {
             "registries": {
                 "[default]": {
@@ -75,58 +76,58 @@ final class RegistryConfigurationTests: XCTestCase {
             },
             "version": 1
         }
-        """#.data(using: .utf8)!
+        """#
 
-        let configuration = try decoder.decode(RegistryConfiguration.self, from: data)
+        let configuration = try decoder.decode(RegistryConfiguration.self, from: json)
         XCTAssertEqual(configuration.defaultRegistry?.url, defaultRegistryBaseURL)
         XCTAssertEqual(configuration.scopedRegistries["foo"]?.url, customRegistryBaseURL)
         XCTAssertEqual(configuration.scopedRegistries["bar"]?.url, customRegistryBaseURL)
     }
 
     func testDecodeConfigurationWithInvalidRegistryKey() throws {
-        let data = #"""
+        let json = #"""
         {
             "registries": {
                 0: "\#(customRegistryBaseURL)"
             },
             "version": 1
         }
-        """#.data(using: .utf8)!
+        """#
 
-        XCTAssertThrowsError(try decoder.decode(RegistryConfiguration.self, from: data))
+        XCTAssertThrowsError(try decoder.decode(RegistryConfiguration.self, from: json))
     }
 
     func testDecodeConfigurationWithInvalidRegistryValue() throws {
-        let data = #"""
+        let json = #"""
         {
             "registries": {
                 "[default]": "\#(customRegistryBaseURL)"
             },
             "version": 1
         }
-        """#.data(using: .utf8)!
+        """#
 
-        XCTAssertThrowsError(try decoder.decode(RegistryConfiguration.self, from: data))
+        XCTAssertThrowsError(try decoder.decode(RegistryConfiguration.self, from: json))
     }
 
     func testDecodeConfigurationWithMissingVersion() throws {
-        let data = #"""
+        let json = #"""
         {
             "registries": {}
         }
-        """#.data(using: .utf8)!
+        """#
 
-        XCTAssertThrowsError(try decoder.decode(RegistryConfiguration.self, from: data))
+        XCTAssertThrowsError(try decoder.decode(RegistryConfiguration.self, from: json))
     }
 
     func testDecodeConfigurationWithInvalidVersion() throws {
-        let data = #"""
+        let json = #"""
         {
             "registries": {},
             "version": 999
         }
-        """#.data(using: .utf8)!
+        """#
 
-        XCTAssertThrowsError(try decoder.decode(RegistryConfiguration.self, from: data))
+        XCTAssertThrowsError(try decoder.decode(RegistryConfiguration.self, from: json))
     }
 }
