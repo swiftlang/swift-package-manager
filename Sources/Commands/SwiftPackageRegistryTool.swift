@@ -164,7 +164,7 @@ private extension Encodable {
 }
 
 private extension SwiftTool {
-    func getRegistryConfigurationPath(fileSystem: FileSystem = localFileSystem, global: Bool) throws -> AbsolutePath {
+    func getRegistryConfigurationPath(fileSystem: FileSystem, global: Bool) throws -> AbsolutePath {
         let filename = "registries.json"
         if global {
             return try fileSystem.getOrCreateSwiftPMConfigDirectory().appending(component: filename)
