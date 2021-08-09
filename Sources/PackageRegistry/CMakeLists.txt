@@ -9,7 +9,8 @@
 add_library(PackageRegistry
   Registry.swift
   RegistryConfiguration.swift
-  RegistryManager.swift)
+  RegistryManager.swift
+  SourceArchiver.swift)
 target_link_libraries(PackageRegistry PUBLIC
   TSCBasic
   PackageLoading
