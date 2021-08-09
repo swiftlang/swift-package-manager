@@ -287,41 +287,6 @@ public final class PackageBuilder {
         self.warnAboutImplicitExecutableTargets = warnAboutImplicitExecutableTargets
     }
 
-    // deprecated 3/21, remove once clients migrated over
-    @available(*, deprecated, message: "use loadRootPackage instead")
-    public static func loadPackage(
-        at path: AbsolutePath,
-        kind: PackageReference.Kind = .root,
-        swiftCompiler: AbsolutePath,
-        swiftCompilerFlags: [String],
-        xcTestMinimumDeploymentTargets: [PackageModel.Platform:PlatformVersion]
-            = MinimumDeploymentTarget.default.xcTestMinimumDeploymentTargets,
-        identityResolver: IdentityResolver,
-        diagnostics: DiagnosticsEngine,
-        on queue: DispatchQueue,
-        completion: @escaping (Result<Package, Error>) -> Void
-    ) {
-        ManifestLoader.loadManifest(at: path,
-                                    kind: kind,
-                                    swiftCompiler: swiftCompiler,
-                                    swiftCompilerFlags: swiftCompilerFlags,
-                                    identityResolver: identityResolver,
-                                    on: queue) { result in
-            let result = result.tryMap { manifest -> Package in
-                let identity = identityResolver.resolveIdentity(for: manifest.packageLocation)
-                let builder = PackageBuilder(
-                    identity: identity,
-                    manifest: manifest,
-                    productFilter: .everything,
-                    path: path,
-                    xcTestMinimumDeploymentTargets: xcTestMinimumDeploymentTargets,
-                    diagnostics: diagnostics)
-                return try builder.construct()
-            }
-            completion(result)
-        }
-    }
-
     /// Loads a root package from a path using the resources associated with a particular `swiftc` executable.
     ///
     /// - Parameters:
