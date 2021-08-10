@@ -21,7 +21,7 @@ class ManifestSourceGenerationTests: XCTestCase {
         try withTemporaryDirectory { packageDir in
             // Write the original manifest file contents, and load it.
             try fs.writeFileContents(packageDir.appending(component: Manifest.filename), bytes: ByteString(encodingAsUTF8: manifestContents))
-            let manifestLoader = ManifestLoader(manifestResources: Resources.default)
+            let manifestLoader = ManifestLoader(toolchain: ToolchainConfiguration.default)
             let identityResolver = DefaultIdentityResolver()
             let manifest = try tsc_await {
                 manifestLoader.load(at: packageDir,

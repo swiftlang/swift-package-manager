@@ -47,7 +47,7 @@ class MiscellaneousTestCase: XCTestCase {
 
         fixture(name: "Miscellaneous/ExactDependencies") { prefix in
             XCTAssertBuilds(prefix.appending(component: "app"))
-            let buildDir = prefix.appending(components: "app", ".build", Resources.default.toolchain.triple.tripleString, "debug")
+            let buildDir = prefix.appending(components: "app", ".build", UserToolchain.default.triple.tripleString, "debug")
             XCTAssertFileExists(buildDir.appending(component: "FooExec"))
             XCTAssertFileExists(buildDir.appending(component: "FooLib1.swiftmodule"))
             XCTAssertFileExists(buildDir.appending(component: "FooLib2.swiftmodule"))
@@ -120,7 +120,7 @@ class MiscellaneousTestCase: XCTestCase {
     */
     func testInternalDependencyEdges() {
         fixture(name: "Miscellaneous/DependencyEdges/Internal") { prefix in
-            let execpath = prefix.appending(components: ".build", Resources.default.toolchain.triple.tripleString, "debug", "Foo").pathString
+            let execpath = prefix.appending(components: ".build", UserToolchain.default.triple.tripleString, "debug", "Foo").pathString
 
             XCTAssertBuilds(prefix)
             var output = try Process.checkNonZeroExit(args: execpath)
@@ -144,7 +144,7 @@ class MiscellaneousTestCase: XCTestCase {
     */
     func testExternalDependencyEdges1() {
         fixture(name: "DependencyResolution/External/Complex") { prefix in
-            let execpath = prefix.appending(components: "app", ".build", Resources.default.toolchain.triple.tripleString, "debug", "Dealer").pathString
+            let execpath = prefix.appending(components: "app", ".build", UserToolchain.default.triple.tripleString, "debug", "Dealer").pathString
 
             let packageRoot = prefix.appending(component: "app")
             XCTAssertBuilds(packageRoot)
@@ -171,7 +171,7 @@ class MiscellaneousTestCase: XCTestCase {
      */
     func testExternalDependencyEdges2() {
         fixture(name: "Miscellaneous/DependencyEdges/External") { prefix in
-            let execpath = [prefix.appending(components: "root", ".build", Resources.default.toolchain.triple.tripleString, "debug", "dep2").pathString]
+            let execpath = [prefix.appending(components: "root", ".build", UserToolchain.default.triple.tripleString, "debug", "dep2").pathString]
 
             let packageRoot = prefix.appending(component: "root")
             XCTAssertBuilds(prefix.appending(component: "root"))
@@ -195,7 +195,7 @@ class MiscellaneousTestCase: XCTestCase {
     func testSpaces() {
         fixture(name: "Miscellaneous/Spaces Fixture") { prefix in
             XCTAssertBuilds(prefix)
-            XCTAssertFileExists(prefix.appending(components: ".build", Resources.default.toolchain.triple.tripleString, "debug", "Module_Name_1.build", "Foo.swift.o"))
+            XCTAssertFileExists(prefix.appending(components: ".build", UserToolchain.default.triple.tripleString, "debug", "Module_Name_1.build", "Foo.swift.o"))
         }
     }
 
@@ -300,7 +300,7 @@ class MiscellaneousTestCase: XCTestCase {
     func testOverridingDeploymentTargetUsingSwiftCompilerArgument() throws {
       #if os(macOS)
         fixture(name: "Miscellaneous/DistantFutureDeploymentTarget") { prefix in
-            let hostTriple = Resources.default.toolchain.triple
+            let hostTriple = UserToolchain.default.triple
             try executeSwiftBuild(prefix, Xswiftc: ["-target", "\(hostTriple.arch)-apple-macosx41.0"])
         }
       #endif
@@ -311,7 +311,7 @@ class MiscellaneousTestCase: XCTestCase {
             let systemModule = prefix.appending(component: "SystemModule")
             // Create a shared library.
             let input = systemModule.appending(components: "Sources", "SystemModule.c")
-            let triple = Resources.default.toolchain.triple
+            let triple = UserToolchain.default.triple
             let output =  systemModule.appending(component: "libSystemModule\(triple.dynamicLibraryExtension)")
             try systemQuietly(["clang", "-shared", input.pathString, "-o", output.pathString])
 

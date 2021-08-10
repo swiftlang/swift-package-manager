@@ -635,8 +635,8 @@ extension Workspace {
         identityResolver: IdentityResolver? = nil,
         diagnostics: DiagnosticsEngine
     ) throws -> PackageGraph {
-        let resources = try UserManifestResources(swiftCompiler: swiftCompiler, swiftCompilerFlags: swiftCompilerFlags)
-        let loader = ManifestLoader(manifestResources: resources)
+        let toolchain = try ToolchainConfiguration(swiftCompiler: swiftCompiler, swiftCompilerFlags: swiftCompilerFlags)
+        let loader = ManifestLoader(toolchain: toolchain)
         let workspace = Workspace.create(forRootPackage: packagePath, manifestLoader: loader, identityResolver: identityResolver)
         return try workspace.loadPackageGraph(rootPath: packagePath, diagnostics: diagnostics)
     }

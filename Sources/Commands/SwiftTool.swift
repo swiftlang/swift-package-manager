@@ -644,7 +644,7 @@ public class SwiftTool {
             // The `cache` directory is in the plugins directory and is where the plugin script runner caches
             // compiled plugin binaries and any other derived information.
             let cacheDir = pluginsDir.appending(component: "cache")
-            let pluginScriptRunner = try DefaultPluginScriptRunner(cacheDir: cacheDir, manifestResources: self._hostToolchain.get().manifestResources)
+            let pluginScriptRunner = try DefaultPluginScriptRunner(cacheDir: cacheDir, toolchain: self._hostToolchain.get().configuration)
             
             // The `outputs` directory contains subdirectories for each combination of package, target, and plugin.
             // Each usage of a plugin has an output directory that is writable by the plugin, where it can write
@@ -873,7 +873,7 @@ public class SwiftTool {
 
             return try ManifestLoader(
                 // Always use the host toolchain's resources for parsing manifest.
-                manifestResources: self._hostToolchain.get().manifestResources,
+                toolchain: self._hostToolchain.get().configuration,
                 isManifestSandboxEnabled: !self.options.shouldDisableSandbox,
                 cacheDir: cachePath,
                 extraManifestFlags: extraManifestFlags

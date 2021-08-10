@@ -362,7 +362,7 @@ class PackageDescription5_0LoadingTests: PackageDescriptionLoadingTests {
             }
 
             let loader = ManifestLoader(
-                manifestResources: Resources.default,
+                toolchain: ToolchainConfiguration.default,
                 serializedDiagnostics: true,
                 cacheDir: path)
 

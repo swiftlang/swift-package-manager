@@ -9,11 +9,12 @@
  */
 
 import Basics
+import Foundation
+import PackageLoading
+import PackageModel
+import SPMBuildCore
 import TSCBasic
 import TSCUtility
-import PackageLoading
-import SPMBuildCore
-import Foundation
 
 #if os(Windows)
 private let hostExecutableSuffix = ".exe"
@@ -25,7 +26,7 @@ private let hostExecutableSuffix = ""
 public final class UserToolchain: Toolchain {
 
     /// The manifest resource provider.
-    public let manifestResources: ManifestResourceProvider
+    public let configuration: ToolchainConfiguration
 
     /// Path of the `swiftc` compiler.
     public let swiftCompiler: AbsolutePath
@@ -35,6 +36,12 @@ public final class UserToolchain: Toolchain {
     public let extraSwiftCFlags: [String]
 
     public var extraCPPFlags: [String]
+
+    // deprecated 8/2021
+    @available(*, deprecated, message: "use configuration instead")
+    public var manifestResources: ToolchainConfiguration {
+        return self.configuration
+    }
 
     /// Path of the `swift` interpreter.
     public var swiftInterpreter: AbsolutePath {
@@ -359,7 +366,7 @@ public final class UserToolchain: Toolchain {
         }
 
         // Compute the path of directory containing the PackageDescription libraries.
-        var pdLibDir = UserManifestResources.libDir(forBinDir: binDir)
+        var pdLibDir = ToolchainConfiguration.libDir(forBinDir: binDir)
 
         // Look for an override in the env.
         if let pdLibDirEnvStr = ProcessEnv.vars["SWIFTPM_PD_LIBS"] {
@@ -402,14 +409,14 @@ public final class UserToolchain: Toolchain {
         }
 #endif
 
-        manifestResources = UserManifestResources(
+        self.configuration = .init(
             swiftCompiler: swiftCompilers.manifest,
             swiftCompilerFlags: self.extraSwiftCFlags,
             libDir: pdLibDir,
-            sdkRoot: self.destination.sdk,
-            xctestLocation: xctestLocation,
             // Set the bin directory if we don't have a lib dir.
-            binDir: localFileSystem.exists(pdLibDir) ? nil : binDir
+            binDir: localFileSystem.exists(pdLibDir) ? nil : binDir,
+            sdkRoot: self.destination.sdk,
+            xctestLocation: xctestLocation
         )
     }
 }

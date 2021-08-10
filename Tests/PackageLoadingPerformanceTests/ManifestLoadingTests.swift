@@ -8,14 +8,14 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import PackageModel
+import PackageLoading
+import SPMTestSupport
+import TSCBasic
 import XCTest
 
-import TSCBasic
-import SPMTestSupport
-import PackageLoading
-
 class ManifestLoadingPerfTests: XCTestCasePerf {
-    let manifestLoader = ManifestLoader(manifestResources: Resources.default)
+    let manifestLoader = ManifestLoader(toolchain: ToolchainConfiguration.default)
 
     func write(_ bytes: ByteString, body: (AbsolutePath) -> ()) throws {
         try testWithTemporaryDirectory { tmpdir in

@@ -8,13 +8,14 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import XCTest
-import Foundation
-import TSCBasic
 import Build
 import Commands
+import Foundation
 import SourceControl
 import SPMTestSupport
+import TSCBasic
+import Workspace
+import XCTest
 
 final class APIDiffTests: XCTestCase {
     @discardableResult
@@ -31,7 +32,7 @@ final class APIDiffTests: XCTestCase {
 
     func skipIfApiDigesterUnsupported() throws {
       // swift-api-digester is required to run tests.
-      guard (try? Resources.default.toolchain.getSwiftAPIDigester()) != nil else {
+      guard (try? UserToolchain.default.getSwiftAPIDigester()) != nil else {
         throw XCTSkip("swift-api-digester unavailable")
       }
       // SwiftPM's swift-api-digester integration relies on post-5.5 bugfixes and features,

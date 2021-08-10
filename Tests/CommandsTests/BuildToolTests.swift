@@ -8,13 +8,13 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import XCTest
-
+import Commands
+import PackageModel
+import SPMBuildCore
 import SPMTestSupport
 import TSCBasic
-import SPMBuildCore
-import Commands
 import Workspace
+import XCTest
 
 struct BuildResult {
     let binPath: AbsolutePath
@@ -75,7 +75,7 @@ final class BuildToolTests: XCTestCase {
     func testBinPathAndSymlink() throws {
         fixture(name: "ValidLayouts/SingleModule/ExecutableNew") { path in
             let fullPath = resolveSymlinks(path)
-            let targetPath = fullPath.appending(components: ".build", Resources.default.toolchain.triple.tripleString)
+            let targetPath = fullPath.appending(components: ".build", UserToolchain.default.triple.tripleString)
             let xcbuildTargetPath = fullPath.appending(components: ".build", "apple")
             XCTAssertEqual(try execute(["--show-bin-path"], packagePath: fullPath).stdout,
                            "\(targetPath.appending(component: "debug").pathString)\n")
@@ -291,7 +291,7 @@ final class BuildToolTests: XCTestCase {
             let defaultOutput = try execute(["-c", "debug", "-v"], packagePath: path).stdout
             
             // Look for certain things in the output from XCBuild.
-            XCTAssert(defaultOutput.contains("-target \(Resources.default.toolchain.triple.tripleString)"), defaultOutput)
+            XCTAssert(defaultOutput.contains("-target \(UserToolchain.default.triple.tripleString)"), defaultOutput)
         }
     }
 
@@ -302,12 +302,12 @@ final class BuildToolTests: XCTestCase {
         fixture(name: "ValidLayouts/SingleModule/ExecutableNew") { path in
             // Try building using XCBuild without specifying overrides.  This should succeed, and should use the default compiler path.
             let defaultOutput = try execute(["-c", "debug", "-v"], packagePath: path).stdout
-            XCTAssert(defaultOutput.contains(Resources.default.swiftCompiler.pathString), defaultOutput)
+            XCTAssert(defaultOutput.contains(ToolchainConfiguration.default.swiftCompiler.pathString), defaultOutput)
 
             // Now try building using XCBuild while specifying a faulty compiler override.  This should fail.  Note that we need to set the executable to use for the manifest itself to the default one, since it defaults to SWIFT_EXEC if not provided.
             var overriddenOutput = ""
             do {
-                overriddenOutput = try execute(["-c", "debug", "-v"], environment: ["SWIFT_EXEC": "/usr/bin/false", "SWIFT_EXEC_MANIFEST": Resources.default.swiftCompiler.pathString], packagePath: path).stdout
+                overriddenOutput = try execute(["-c", "debug", "-v"], environment: ["SWIFT_EXEC": "/usr/bin/false", "SWIFT_EXEC_MANIFEST": ToolchainConfiguration.default.swiftCompiler.pathString], packagePath: path).stdout
                 XCTFail("unexpected success (was SWIFT_EXEC not overridden properly?)")
             }
             catch SwiftPMProductError.executionFailure(let error, let stdout, _) {
