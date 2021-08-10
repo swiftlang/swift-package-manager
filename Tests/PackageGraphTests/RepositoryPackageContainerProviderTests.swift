@@ -48,7 +48,7 @@ private class MockRepository: Repository {
     }
 
     func resolveRevision(tag: String) throws -> Revision {
-        assert(self.versions.index(forKey: Version(string: tag)!) != nil)
+        assert(self.versions.index(forKey: Version(tag)!) != nil)
         return Revision(identifier: tag)
     }
 
@@ -69,7 +69,7 @@ private class MockRepository: Repository {
     }
 
     func openFileView(revision: Revision) throws -> FileSystem {
-        assert(self.versions.index(forKey: Version(string: revision.identifier)!) != nil)
+        assert(self.versions.index(forKey: Version(revision.identifier)!) != nil)
         // This is used for reading the tools version.
         return self.fs
     }
