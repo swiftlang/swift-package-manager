@@ -976,7 +976,7 @@ extension SwiftPackageTool.Config {
 
 extension SwiftPackageTool {
     struct ResolveOptions: ParsableArguments {
-        @Option(help: "The version to resolve at", transform: { Version(string: $0) })
+        @Option(help: "The version to resolve at", transform: { Version($0) })
         var version: Version?
         
         @Option(help: "The branch to resolve at")

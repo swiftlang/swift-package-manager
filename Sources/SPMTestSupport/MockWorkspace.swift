@@ -120,7 +120,7 @@ public final class MockWorkspace {
             let versions: [String?] = packageKind == .remote ? package.versions : [nil]
             let manifestPath = packagePath.appending(component: Manifest.filename)
             for version in versions {
-                let v = version.flatMap(Version.init(string:))
+                let v = version.flatMap(Version.init(_:))
                 manifests[.init(url: packageLocation, version: v)] = Manifest(
                     name: package.name,
                     path: manifestPath,
