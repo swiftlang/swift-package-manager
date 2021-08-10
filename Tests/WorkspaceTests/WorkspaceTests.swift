@@ -133,7 +133,7 @@ final class WorkspaceTests: XCTestCase {
                     manifest($0)
                 }
 
-                let manifestLoader = ManifestLoader(manifestResources: Resources.default)
+                let manifestLoader = ManifestLoader(toolchain: ToolchainConfiguration.default)
 
                 let sandbox = path.appending(component: "ws")
                 return Workspace(
@@ -3829,7 +3829,7 @@ final class WorkspaceTests: XCTestCase {
 
         // Clients must locate the corresponding “swiftc” exectuable themselves for now.
         // (This just uses the same one used by all the other tests.)
-        let swiftCompiler = Resources.default.swiftCompiler
+        let swiftCompiler = ToolchainConfiguration.default.swiftCompiler
 
         // identity resolver helps go from textual description to actual identity
         let identityResolver = DefaultIdentityResolver()

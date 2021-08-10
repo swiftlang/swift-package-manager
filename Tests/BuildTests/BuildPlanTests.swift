@@ -19,7 +19,7 @@ import TSCUtility
 import Workspace
 import XCTest
 
-let hostTriple = Resources.default.toolchain.triple
+let hostTriple = UserToolchain.default.triple
 #if os(macOS)
     let defaultTargetTriple: String = hostTriple.tripleString(forPlatformVersion: "10.10")
 #else
@@ -228,8 +228,8 @@ final class BuildPlanTests: XCTestCase {
                     buildParameters: mockBuildParameters(
                         buildPath: buildDirPath,
                         config: .release,
-                        toolchain: Resources.default.toolchain,
-                        destinationTriple: Resources.default.toolchain.triple,
+                        toolchain: UserToolchain.default,
+                        destinationTriple: UserToolchain.default.triple,
                         useExplicitModuleBuild: true
                     ),
                     graph: graph,
@@ -2132,7 +2132,7 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertNoDiagnostics(diagnostics)
 
         let userDestination = Destination(sdk: AbsolutePath("/fake/sdk"),
-            binDir: Resources.default.toolchain.destination.binDir,
+            binDir: UserToolchain.default.destination.binDir,
             extraCCFlags: ["-I/fake/sdk/sysroot", "-clang-flag-from-json"],
             extraSwiftCFlags: ["-swift-flag-from-json"])
         let mockToolchain = try UserToolchain(destination: userDestination)

@@ -17,8 +17,7 @@ add_library(PackageLoading
   PlatformRegistry.swift
   Target+PkgConfig.swift
   TargetSourcesBuilder.swift
-  ToolsVersionLoader.swift
-  UserManifestResources.swift)
+  ToolsVersionLoader.swift)
 target_link_libraries(PackageLoading PUBLIC
   TSCBasic
   Basics

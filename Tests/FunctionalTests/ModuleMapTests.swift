@@ -8,19 +8,20 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import XCTest
 import Commands
+import PackageModel
 import SPMTestSupport
 import TSCBasic
 import TSCUtility
 import Workspace
+import XCTest
 
 class ModuleMapsTestCase: XCTestCase {
 
     private func fixture(name: String, cModuleName: String, rootpkg: String, body: @escaping (AbsolutePath, [String]) throws -> Void) {
         SPMTestSupport.fixture(name: name) { prefix in
             let input = prefix.appending(components: cModuleName, "C", "foo.c")
-            let triple = Resources.default.toolchain.triple
+            let triple = UserToolchain.default.triple
             let outdir = prefix.appending(components: rootpkg, ".build", triple.tripleString, "debug")
             try makeDirectories(outdir)
             let output = outdir.appending(component: "libfoo\(triple.dynamicLibraryExtension)")
@@ -40,7 +41,7 @@ class ModuleMapsTestCase: XCTestCase {
 
             XCTAssertBuilds(prefix.appending(component: "App"), Xld: Xld)
 
-            let triple = Resources.default.toolchain.triple
+            let triple = UserToolchain.default.triple
             let targetPath = prefix.appending(components: "App", ".build", triple.tripleString)
             let debugout = try Process.checkNonZeroExit(args: targetPath.appending(components: "debug", "App").pathString)
             XCTAssertEqual(debugout, "123\n")
@@ -55,7 +56,7 @@ class ModuleMapsTestCase: XCTestCase {
             XCTAssertBuilds(prefix.appending(component: "packageA"), Xld: Xld)
 
             func verify(_ conf: String, file: StaticString = #file, line: UInt = #line) throws {
-                let triple = Resources.default.toolchain.triple
+                let triple = UserToolchain.default.triple
                 let out = try Process.checkNonZeroExit(args: prefix.appending(components: "packageA", ".build", triple.tripleString, conf, "packageA").pathString)
                 XCTAssertEqual(out, """
                     calling Y.bar()

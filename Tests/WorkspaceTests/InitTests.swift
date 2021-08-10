@@ -90,7 +90,7 @@ class InitTests: XCTestCase {
             // If we have a compiler that supports `-entry-point-function-name`, we try building it (we need that flag now).
             #if swift(>=5.5)
             XCTAssertBuilds(path)
-            let triple = Resources.default.toolchain.triple
+            let triple = UserToolchain.default.triple
             let binPath = path.appending(components: ".build", triple.tripleString, "debug")
             XCTAssertFileExists(binPath.appending(component: "Foo"))
             XCTAssertFileExists(binPath.appending(components: "Foo.swiftmodule"))
@@ -146,7 +146,7 @@ class InitTests: XCTestCase {
 
             // Try building it
             XCTAssertBuilds(path)
-            let triple = Resources.default.toolchain.triple
+            let triple = UserToolchain.default.triple
             XCTAssertFileExists(path.appending(components: ".build", triple.tripleString, "debug", "Foo.swiftmodule"))
         }
     }
@@ -229,7 +229,7 @@ class InitTests: XCTestCase {
 
             // Try building it.
             XCTAssertBuilds(packageRoot)
-            let triple = Resources.default.toolchain.triple
+            let triple = UserToolchain.default.triple
             XCTAssertFileExists(packageRoot.appending(components: ".build", triple.tripleString, "debug", "some_package.swiftmodule"))
         }
     }
