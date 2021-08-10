@@ -16,12 +16,12 @@ import PackageGraph
 import PackageLoading
 import Foundation
 import SPMBuildCore
+@_implementationOnly import SwiftDriver
 
-extension AbsolutePath {
-  fileprivate var asSwiftStringLiteralConstant: String {
-    return self.pathString.unicodeScalars
-              .reduce("", { $0 + $1.escaped(asASCII: false) })
-  }
+extension String {
+    fileprivate var asSwiftStringLiteralConstant: String {
+        return unicodeScalars.reduce("", { $0 + $1.escaped(asASCII: false) })
+    }
 }
 
 extension BuildParameters {
@@ -330,7 +330,6 @@ public final class ClangTargetBuildDescription {
             args += ["-fobjc-arc"]
         }
         args += buildParameters.targetTripleArgs(for: target)
-        args += buildParameters.toolchain.extraCCFlags
         args += ["-g"]
         if buildParameters.triple.isWindows() {
             args += ["-gcodeview"]
@@ -373,6 +372,7 @@ public final class ClangTargetBuildDescription {
             args += ["-include", resourceAccessorHeaderFile.pathString]
         }
 
+        args += buildParameters.toolchain.extraCCFlags
         // User arguments (from -Xcc and -Xcxx below) should follow generated arguments to allow user overrides
         args += buildParameters.flags.cCompilerFlags
 
@@ -564,6 +564,27 @@ public final class SwiftTargetBuildDescription {
 
     /// True if this is the test discovery target.
     public let testDiscoveryTarget: Bool
+    
+    /// True if this module needs to be parsed as a library based on the target type and the configuration
+    /// of the source code (for example because it has a single source file whose name isn't "main.swift").
+    /// This deactivates heuristics in the Swift compiler that treats single-file modules and source files
+    /// named "main.swift" specially w.r.t. whether they can have an entry point.
+    ///
+    /// See https://bugs.swift.org/browse/SR-14488 for discussion about improvements so that SwiftPM can
+    /// convey the intent to build an executable module to the compiler regardless of the number of files
+    /// in the module or their names.
+    var needsToBeParsedAsLibrary: Bool {
+        switch target.type {
+        case .library, .test:
+            return true
+        case .executable:
+            guard toolsVersion >= .v5_5 else { return false }
+            let sources = self.sources
+            return sources.count == 1 && sources.first?.basename != "main.swift"
+        default:
+            return false
+        }
+    }
 
     /// The filesystem to operate on.
     let fs: FileSystem
@@ -641,17 +662,13 @@ public final class SwiftTargetBuildDescription {
         guard let bundlePath = self.bundlePath else { return }
 
         let stream = BufferedOutputByteStream()
-
-        let mainPath: AbsolutePath =
-            AbsolutePath(Bundle.main.bundlePath).appending(component: bundlePath.basename)
-
         stream <<< """
         import class Foundation.Bundle
 
         extension Foundation.Bundle {
             static var module: Bundle = {
-                let mainPath = "\(mainPath.asSwiftStringLiteralConstant)"
-                let buildPath = "\(bundlePath.asSwiftStringLiteralConstant)"
+                let mainPath = Bundle.main.bundleURL.appendingPathComponent("\(bundlePath.basename.asSwiftStringLiteralConstant)").path
+                let buildPath = "\(bundlePath.pathString.asSwiftStringLiteralConstant)"
 
                 let preferredBundle = Bundle(path: mainPath)
 
@@ -674,7 +691,22 @@ public final class SwiftTargetBuildDescription {
         let path = derivedSources.root.appending(subpath)
         try fs.writeIfChanged(path: path, bytes: stream.bytes)
     }
-
+    
+    public static func checkSupportedFrontendFlags(flags: Set<String>, fs: FileSystem) -> Bool {
+        // The new driver is not supported on Windows, yet, so we should avoid calling into it there.
+        #if os(Windows)
+        return false
+        #else
+        do {
+            let executor = try SPMSwiftDriverExecutor(resolver: ArgsResolver(fileSystem: fs), fileSystem: fs, env: [:])
+            let driver = try Driver(args: ["swiftc"], executor: executor)
+            return driver.supportedFrontendFlags.intersection(flags) == flags
+        } catch {
+            return false
+        }
+        #endif
+    }
+    
     /// The arguments needed to compile this target.
     public func compileArguments() -> [String] {
         var args = [String]()
@@ -692,7 +724,6 @@ public final class SwiftTargetBuildDescription {
         }
 
         args += buildParameters.indexStoreArguments(for: target)
-        args += buildParameters.toolchain.extraSwiftCFlags
         args += optimizationArguments
         args += testingArguments
         args += ["-g"]
@@ -717,9 +748,18 @@ public final class SwiftTargetBuildDescription {
             // can construct the linker flags. In the future we will use a generated
             // code stub for the cases in which the linker doesn't support it, so that
             // we can rename the symbol unconditionally.
-            if buildParameters.linkerFlagsForRenamingMainFunction(of: target) != nil {
-                args += ["-Xfrontend", "-entry-point-function-name", "-Xfrontend", "\(target.c99name)_main"]
+            // No `-` for these flags because the set of Strings in driver.supportedFrontendFlags do
+            // not have a leading `-`
+            if SwiftTargetBuildDescription.checkSupportedFrontendFlags(flags: ["entry-point-function-name"], fs: self.fs) {
+                if buildParameters.linkerFlagsForRenamingMainFunction(of: target) != nil {
+                    args += ["-Xfrontend", "-entry-point-function-name", "-Xfrontend", "\(target.c99name)_main"]
+                }
             }
+        }
+        
+        // If the target needs to be parsed without any special semantics involving "main.swift", do so now.
+        if self.needsToBeParsedAsLibrary {
+            args += ["-parse-as-library"]
         }
 
         // Only add the build path to the framework search path if there are binary frameworks to link against.
@@ -742,14 +782,15 @@ public final class SwiftTargetBuildDescription {
             args += ["-color-diagnostics"]
         }
 
-        // Add the output for the `.swiftinterface`, if requested.
-        if buildParameters.enableParseableModuleInterfaces {
-            args += ["-emit-parseable-module-interface-path", parseableModuleInterfaceOutputPath.pathString]
-        }
-
         // Add agruments from declared build settings.
         args += self.buildSettingsFlags()
 
+        // Add the output for the `.swiftinterface`, if requested or if library evolution has been enabled some other way.
+        if buildParameters.enableParseableModuleInterfaces || args.contains("-enable-library-evolution") {
+            args += ["-emit-module-interface-path", parseableModuleInterfaceOutputPath.pathString]
+        }
+
+        args += buildParameters.toolchain.extraSwiftCFlags
         // User arguments (from -Xswiftc) should follow generated arguments to allow user overrides
         args += buildParameters.swiftCompilerFlags
         return args
@@ -772,14 +813,6 @@ public final class SwiftTargetBuildDescription {
         result.append("-output-file-map")
         // FIXME: Eliminate side effect.
         result.append(try writeOutputFileMap().pathString)
-
-        switch target.type {
-        case .library, .test:
-            result.append("-parse-as-library")
-
-        case .executable, .systemModule, .binary, .plugin:
-            do { }
-        }
 
         if buildParameters.useWholeModuleOptimization {
             result.append("-whole-module-optimization")
@@ -816,10 +849,6 @@ public final class SwiftTargetBuildDescription {
         result.append("-Xfrontend")
         result.append("-experimental-skip-non-inlinable-function-bodies")
         result.append("-force-single-frontend-invocation")
-
-        if target.type == .library || target.type == .test {
-            result.append("-parse-as-library")
-        }
 
         // FIXME: Handle WMO
 
@@ -864,9 +893,6 @@ public final class SwiftTargetBuildDescription {
         // FIXME: Eliminate side effect.
         result.append(try writeOutputFileMap().pathString)
 
-        if target.type == .library || target.type == .test {
-            result.append("-parse-as-library")
-        }
         // FIXME: Handle WMO
 
         result.append("-c")
@@ -881,7 +907,6 @@ public final class SwiftTargetBuildDescription {
         result += ["-swift-version", swiftVersion.rawValue]
 
         result += buildParameters.indexStoreArguments(for: target)
-        result += buildParameters.toolchain.extraSwiftCFlags
         result += optimizationArguments
         result += testingArguments
         result += ["-g"]
@@ -893,6 +918,7 @@ public final class SwiftTargetBuildDescription {
         result += buildParameters.sanitizers.compileSwiftFlags()
         result += ["-parseable-output"]
         result += self.buildSettingsFlags()
+        result += buildParameters.toolchain.extraSwiftCFlags
         result += buildParameters.swiftCompilerFlags
         return result
     }
@@ -1139,7 +1165,6 @@ public final class ProductBuildDescription {
     /// The arguments to link and create this product.
     public func linkArguments() throws -> [String] {
         var args = [buildParameters.toolchain.swiftCompiler.pathString]
-        args += buildParameters.toolchain.extraSwiftCFlags
         args += buildParameters.sanitizers.linkSwiftFlags()
         args += additionalFlags
 
@@ -1260,6 +1285,7 @@ public final class ProductBuildDescription {
         // building for Darwin in debug configuration.
         args += swiftASTs.flatMap{ ["-Xlinker", "-add_ast_path", "-Xlinker", $0.pathString] }
 
+        args += buildParameters.toolchain.extraSwiftCFlags
         // User arguments (from -Xlinker and -Xswiftc) should follow generated arguments to allow user overrides
         args += buildParameters.linkerFlags
         args += stripInvalidArguments(buildParameters.swiftCompilerFlags)
@@ -1381,14 +1407,17 @@ public class BuildPlan {
 
     private static func makeTestManifestTargets(
         _ buildParameters: BuildParameters,
-        _ graph: PackageGraph
+        _ graph: PackageGraph,
+        _ diagnostics: DiagnosticsEngine
     ) throws -> [(product: ResolvedProduct, targetBuildDescription: SwiftTargetBuildDescription)] {
         guard case .manifest(let generate) = buildParameters.testDiscoveryStrategy else {
             preconditionFailure("makeTestManifestTargets should not be used for build plan with useTestManifest set to false")
         }
 
+        var generateRedundant = generate
         var result: [(ResolvedProduct, SwiftTargetBuildDescription)] = []
         for testProduct in graph.allProducts where testProduct.type == .test {
+            generateRedundant = generateRedundant && nil == testProduct.testManifestTarget
             // if test manifest exists, prefer that over test detection,
             // this is designed as an escape hatch when test discovery is not appropriate
             // and for backwards compatibility for projects that have existing test manifests (LinuxMain.swift)
@@ -1437,6 +1466,11 @@ public class BuildPlan {
                 result.append((testProduct, target))
             }
         }
+
+        if generateRedundant {
+            diagnostics.emit(warning: "'--enable-test-discovery' option is deprecated; tests are automatically discovered on all platforms")
+        }
+
         return result
     }
 
@@ -1511,7 +1545,7 @@ public class BuildPlan {
 
         // Plan the test manifest target.
         if case .manifest = buildParameters.testDiscoveryStrategy {
-            let testManifestTargets = try Self.makeTestManifestTargets(buildParameters, graph)
+            let testManifestTargets = try Self.makeTestManifestTargets(buildParameters, graph, diagnostics)
             for item in testManifestTargets {
                 targetMap[item.targetBuildDescription.target] = .swift(item.targetBuildDescription)
                 testManifestTargetsMap[item.product] = item.targetBuildDescription.target
@@ -1853,11 +1887,22 @@ public class BuildPlan {
         }
     }
 
-    public func createAPIDigesterArgs() -> [String] {
+    public func createAPIToolCommonArgs(includeLibrarySearchPaths: Bool) -> [String] {
         let buildPath = buildParameters.buildPath.pathString
         var arguments = ["-I", buildPath]
 
-        arguments += buildParameters.toolchain.extraSwiftCFlags
+        var extraSwiftCFlags = buildParameters.toolchain.extraSwiftCFlags
+        if !includeLibrarySearchPaths {
+            for index in extraSwiftCFlags.indices.dropLast().reversed() {
+                if extraSwiftCFlags[index] == "-L" {
+                    // Remove the flag
+                    extraSwiftCFlags.remove(at: index)
+                    // Remove the argument
+                    extraSwiftCFlags.remove(at: index)
+                }
+            }
+        }
+        arguments += extraSwiftCFlags
 
         // Add the search path to the directory containing the modulemap file.
         for target in targets {
@@ -1873,14 +1918,7 @@ public class BuildPlan {
         // Add search paths from the system library targets.
         for target in graph.reachableTargets {
             if let systemLib = target.underlyingTarget as? SystemLibraryTarget {
-                for flag in self.pkgConfig(for: systemLib).cFlags {
-                    // The api-digester tool doesn't like `-I<Foo>` style for some reason.
-                    if flag.hasPrefix("-I") && flag.count > 2 {
-                        arguments += ["-I", String(flag.dropFirst(2))]
-                    } else {
-                        arguments.append(flag)
-                    }
-                }
+                arguments.append(contentsOf: self.pkgConfig(for: systemLib).cFlags)
                 // Add the path to the module map.
                 arguments += ["-I", systemLib.moduleMapPath.parentDirectory.pathString]
             }
@@ -2060,7 +2098,7 @@ private func generateResourceInfoPlist(
     return true
 }
 
-fileprivate extension Triple {
+fileprivate extension TSCUtility.Triple {
     var isSupportingStaticStdlib: Bool {
         isLinux() || arch == .wasm32
     }

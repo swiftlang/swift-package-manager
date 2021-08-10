@@ -412,21 +412,22 @@ public final class InMemoryGitRepositoryProvider: RepositoryProvider {
         return fetchedMap[path]!
     }
 
-    public func cloneCheckout(
+    public func createWorkingCopy(
         repository: RepositorySpecifier,
-        at sourcePath: AbsolutePath,
-        to destinationPath: AbsolutePath,
+        sourcePath: AbsolutePath,
+        at destinationPath: AbsolutePath,
         editable: Bool
-    ) throws {
+    ) throws -> WorkingCheckout {
         let checkout = try fetchedMap[sourcePath]!.copy(at: destinationPath)
         checkoutsMap[destinationPath] = checkout
+        return checkout
     }
 
-    public func checkoutExists(at path: AbsolutePath) throws -> Bool {
+    public func workingCopyExists(at path: AbsolutePath) throws -> Bool {
         return checkoutsMap.contains(path)
     }
 
-    public func openCheckout(at path: AbsolutePath) throws -> WorkingCheckout {
+    public func openWorkingCopy(at path: AbsolutePath) throws -> WorkingCheckout {
         return checkoutsMap[path]!
     }
 }

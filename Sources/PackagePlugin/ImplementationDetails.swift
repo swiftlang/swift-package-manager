@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-import Foundation
+@_implementationOnly import Foundation
 
 // The way in which SwiftPM communicates with the package plugin is an im-
 // plementation detail, but the way it currently works is that the plugin
@@ -61,7 +61,7 @@ struct BuildCommand: Encodable {
     let displayName: String?
     let executable: Path
     let arguments: [String]
-    let environment: [String: String]?
+    let environment: [String: String]
     let workingDirectory: Path?
     let inputFiles: [Path]
     let outputFiles: [Path]
@@ -71,7 +71,7 @@ struct PrebuildCommand: Encodable {
     let displayName: String?
     let executable: Path
     let arguments: [String]
-    let environment: [String: String]?
+    let environment: [String: String]
     let workingDirectory: Path?
     let outputFilesDirectory: Path
 }

@@ -1,4 +1,4 @@
-// swift-tools-version: 5.5
+// swift-tools-version: 5.6
 import PackageDescription
 
 let package = Package(
@@ -9,6 +9,7 @@ let package = Package(
             name: "MyLocalTool",
             plugins: [
                 "MySourceGenBuildToolPlugin",
+                "MyAmbiguouslyNamedCommandPlugin",
             ]
         ),
         // The plugin that generates build tool commands to invoke MySourceGenBuildTool.
@@ -22,6 +23,14 @@ let package = Package(
         // The command line tool that generates source files.
         .executableTarget(
             name: "MySourceGenBuildTool"
+        ),
+        // Plugin that emits commands with a generic name.
+        .plugin(
+            name: "MyAmbiguouslyNamedCommandPlugin",
+            capability: .buildTool(),
+            dependencies: [
+                "MySourceGenBuildTool",
+            ]
         ),
     ]
 )

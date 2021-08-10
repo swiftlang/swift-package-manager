@@ -104,8 +104,13 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
         arguments += buildParameters.xcbuildFlags
 
         let delegate = createBuildDelegate()
-        let redirection: Process.OutputRedirection = .stream(stdout: delegate.parse(bytes:), stderr: { bytes in
-            self.diagnostics.emit(StringError(String(bytes: bytes, encoding: .utf8)!))
+        var hasStdout = false
+        var stderrBuffer: [UInt8] = []
+        let redirection: Process.OutputRedirection = .stream(stdout: { bytes in
+            hasStdout = hasStdout || !bytes.isEmpty
+            delegate.parse(bytes: bytes)
+        }, stderr: { bytes in
+            stderrBuffer.append(contentsOf: bytes)
         })
 
         let process = Process(arguments: arguments, outputRedirection: redirection)
@@ -119,34 +124,48 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
         guard result.exitStatus == .terminated(code: 0) else {
             throw Diagnostics.fatalError
         }
+        
+        if !hasStdout {
+            if !stderrBuffer.isEmpty {
+                diagnostics.emit(StringError(String(decoding: stderrBuffer, as: UTF8.self)))
+            } else {
+                diagnostics.emit(StringError("Unknown error: stdout and stderr are empty"))
+            }
+        }
     }
 
     func createBuildParametersFile() throws -> AbsolutePath? {
-        // We only generate the build parameters file if it's required.
-        guard !buildParameters.archs.isEmpty else { return nil }
-
+        // Generate the run destination parameters.
         let runDestination = XCBBuildParameters.RunDestination(
             platform: "macosx",
             sdk: "macosx",
             sdkVariant: nil,
-            targetArchitecture: "x86_64",
+            targetArchitecture: buildParameters.triple.arch.rawValue,
             supportedArchitectures: [],
             disableOnlyActiveArch: true
         )
+        
+        // Generate a table of any overriding build settings.
+        var settings: [String: String] = [:]
+        // Always specify the path of the effective Swift compiler, which was determined in the same way as for the native build system.
+        settings["SWIFT_EXEC"] = buildParameters.toolchain.swiftCompiler.pathString
+        // Optionally also set the list of architectures to build for.
+        if !buildParameters.archs.isEmpty {
+            settings["ARCHS"] = buildParameters.archs.joined(separator: " ")
+        }
+        
+        // Generate the build parameters.
         let params = XCBBuildParameters(
             configurationName: buildParameters.configuration.xcbuildName,
-            overrides: .init(commandLine: .init(table: [
-                "ARCHS": "\(buildParameters.archs.joined(separator: " "))",
-            ])),
+            overrides: .init(commandLine: .init(table: settings)),
             activeRunDestination: runDestination
         )
 
-        let encoder = JSONEncoder.makeWithDefaults()        
-
+        // Write out the parameters as a JSON file, and return the path.
+        let encoder = JSONEncoder.makeWithDefaults()
         let data = try encoder.encode(params)
         let file = try withTemporaryFile(deleteOnClose: false) { $0.path }
         try localFileSystem.writeFileContents(file, bytes: ByteString(data))
-
         return file
     }
 

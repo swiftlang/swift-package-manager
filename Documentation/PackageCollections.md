@@ -4,6 +4,29 @@ Package collections, introduced by [SE-0291](https://github.com/apple/swift-evol
 curated lists of packages and associated metadata that make discovery of existing packages easier. They are authored as static JSON documents 
 and can be published to the web or distributed to local file systems. 
 
+## Table of Contents
+
+- [Using package collections with the `package-collection` CLI](#using-package-collections)
+  - [`add` subcommand](#add-subcommand)
+    - [Add signed package collections](#signed-package-collections)
+      - [Configure trusted root certificates](#trusted-root-certificates)
+    - [Add unsigned package collections](#unsigned-package-collections)
+  - [`describe` subcommand](#describe-subcommand)
+    - [Describe a package collection](#metadata-and-packages-of-a-collection)
+    - [Describe a package](#metadata-of-a-package)
+    - [Describe a package version](#metadata-of-a-package-version)
+  - [`list` subcommand](#list-subcommand)
+  - [`refresh` subcommand](#refresh-subcommand)
+  - [`remove` subcommand](#remove-subcommand)
+  - [`search` subcommand](#search-subcommand)
+    - [Keyword search](#string-based-search)
+    - [Module search](#module-based-search)
+- [Package collection configuration](#configuration-file)
+- [Publishing package collections](#publishing-package-collections)
+  - [Creating package collections](#creating-package-collections)
+  - [Signing package collections](#package-collection-signing-optional)
+  - [Protecting package collections](#protecting-package-collections)
+
 ## Using package collections
 
 With the `swift package-collection` command-line interface, SwiftPM users can subscribe to package collections. Contents of imported package 
@@ -30,6 +53,13 @@ Or found in the local file system:
 
 ```bash
 $ swift package-collection add file:///absolute/path/to/packages.json
+Added "Sample Package Collection" to your package collections.
+```
+
+The optional `order` hint can be used to order collections and may potentially influence ranking in search results:
+
+```bash
+$ swift package-collection add https://www.example.com/packages.json [--order N]
 Added "Sample Package Collection" to your package collections.
 ```
 
@@ -99,14 +129,15 @@ The `--skip-signature-check` flag has no effects on unsigned collections.
 
 ### `describe` subcommand
 
-This subcommand shows metadata for a collection or a package included in an imported collection. 
+This subcommand shows metadata for a collection or a package included in an imported collection. The result can optionally be returned as JSON using `--json` for
+integration into other tools.
 
 #### Metadata and packages of a collection
 
 `describe` can be used for both collections that have been previously added to the list of the user's configured collections, as well as to preview any other collections.
 
 ```bash
-$ swift package-collection describe https://www.example.com/packages.json
+$ swift package-collection describe [--json] https://www.example.com/packages.json
 Name: Sample Package Collection
 Source: https://www.example.com/packages.json
 Description: ...
@@ -119,13 +150,13 @@ Packages:
 
 #### Metadata of a package
 
-`describe` shows the metadata of a package included in an imported collection:
+`describe` can also show the metadata of a package included in an imported collection:
 
 ```bash
-$ swift package-collection describe https://github.com/jpsim/yams
+$ swift package-collection describe [--json] https://github.com/jpsim/yams
 Description: A sweet and swifty YAML parser built on LibYAML.
 Available Versions: 4.0.0, 3.0.0, ...
-Watchers: 14
+Stars: 14
 Readme: https://github.com/jpsim/Yams/blob/master/README.md
 Authors: @norio-nomura, @jpsim
 --------------------------------------------------------------
@@ -137,12 +168,12 @@ Supported Swift Versions: 5.3, 5.2, 5.1, 5.0
 License: MIT
 ```
 
-#### Metadata for a package version
+#### Metadata of a package version
 
 User may view additional metadata for a package version by passing `--version`:
 
 ```bash
-$ swift package-collection describe --version 4.0.0 https://github.com/jpsim/yams
+$ swift package-collection describe [--json] --version 4.0.0 https://github.com/jpsim/yams
 Package Name: Yams
 Version: 4.0.0
 Modules: Yams, CYaml
@@ -156,10 +187,12 @@ License: MIT
 This subcommand lists all collections that are configured by the user:
 
 ```bash
-$ swift package-collection list
+$ swift package-collection list [--json]
 Sample Package Collection - https://example.com/packages.json
 ...
 ```
+
+The result can optionally be returned as JSON using `--json` for integration into other tools.
 
 ### `refresh` subcommand
 
@@ -174,7 +207,7 @@ SwiftPM will also automatically refresh data under various conditions, but some 
 
 ### `remove` subcommand
 
-This subcommand removes as collection from the user's list of configured collections:
+This subcommand removes a collection from the user's list of configured collections:
 
 ```bash
 $ swift package-collection remove https://www.example.com/packages.json
@@ -183,14 +216,15 @@ Removed "Sample Package Collection" from your package collections.
 
 ### `search` subcommand
 
-This subcommand searches for packages by keywords or module names within imported collections.
+This subcommand searches for packages by keywords or module names within imported collections. The result can optionally be returned as JSON using `--json` for
+integration into other tools.
 
 #### String-based search
 
 The search command does a string-based search when using the `--keywords` option and returns the list of packages that matches the query:
 
 ```bash
-$ swift package-collection search --keywords yaml
+$ swift package-collection search [--json] --keywords yaml
 https://github.com/jpsim/yams: A sweet and swifty YAML parser built on LibYAML.
 ...
 ```
@@ -200,7 +234,7 @@ https://github.com/jpsim/yams: A sweet and swifty YAML parser built on LibYAML.
 The search command does a search for a specific module name when using the `--module` option:
 
 ```bash
-$ swift package-collection search --module yams
+$ swift package-collection search [--json] --module yams
 Package Name: Yams
 Latest Version: 4.0.0
 Description: A sweet and swifty YAML parser built on LibYAML.
@@ -274,8 +308,6 @@ Certificates used for signing package collections must meet the following requir
 - The certificate must use either 256-bit EC (recommended for enhanced security) or 2048-bit RSA key.
 - The certificate must not be revoked. The certificate authority must support OCSP, which means the certificate must have the "Certificate Authority Information Access" extension that includes OCSP as a method, specifying the responder's URL.
 - The certificate chain is valid and root certificate must be trusted.
-
-Non-expired, non-revoked Apple Distribution certificates from [developer.apple.com](https://developer.apple.com) satisfy all of the criteria above.
 
 ##### Trusted root certificates
 

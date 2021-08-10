@@ -661,4 +661,39 @@ class TargetSourcesBuilderTests: XCTestCase {
 
         XCTAssertEqual(diags.diagnostics.map { $0.description }, ["found 1 file(s) which are unhandled; explicitly declare them as resources or exclude from the target\n    /Foo.xcdatamodel\n"])
     }
+
+    func testDocCFilesDoNotCauseWarningOutsideXCBuild() throws {
+        let target = try TargetDescription(
+            name: "Foo",
+            path: nil,
+            exclude: [],
+            sources: ["File.swift"],
+            resources: [],
+            publicHeadersPath: nil,
+            type: .regular
+        )
+
+        let fs = InMemoryFileSystem()
+        fs.createEmptyFiles(at: .root, files: [
+            "/File.swift",
+            "/Foo.docc"
+        ])
+
+        let diags = DiagnosticsEngine()
+
+        let builder = TargetSourcesBuilder(
+            packageName: "",
+            packagePath: .root,
+            target: target,
+            path: .root,
+            defaultLocalization: nil,
+            additionalFileRules: FileRuleDescription.swiftpmFileTypes,
+            toolsVersion: .v5_5,
+            fs: fs,
+            diags: diags
+        )
+        _ = try builder.run()
+
+        XCTAssertTrue(diags.diagnostics.isEmpty)
+    }
 }

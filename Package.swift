@@ -13,95 +13,84 @@
 import PackageDescription
 import class Foundation.ProcessInfo
 
-// We default to a 10.10 minimum deployment target for clients of libSwiftPM,
-// but allow overriding it when building for a toolchain.
 
-let macOSPlatform: SupportedPlatform
-if let deploymentTarget = ProcessInfo.processInfo.environment["SWIFTPM_MACOS_DEPLOYMENT_TARGET"] {
-    macOSPlatform = .macOS(deploymentTarget)
-} else {
-    macOSPlatform = .macOS(.v10_15)
-}
+/** SwiftPMDataModel is the subset of SwiftPM product that includes just its data model.
+This allows some clients (such as IDEs) that use SwiftPM's data model but not its build system
+to not have to depend on SwiftDriver, SwiftLLBuild, etc. We should probably have better names here,
+though that could break some clients.
+*/
+let swiftPMDataModelProduct = (
+    name: "SwiftPMDataModel",
+    targets: [
+        "SourceControl",
+        "PackageCollections",
+        "PackageCollectionsModel",
+        "PackageModel",
+        "PackageLoading",
+        "PackageGraph",
+        "Xcodeproj",
+        "Workspace",
+    ]
+)
+
+/** The `libSwiftPM` set of interfaces to programmatically work with Swift
+ packages.  `libSwiftPM` includes all of the SwiftPM code except the
+ command line tools, while `libSwiftPMDataModel` includes only the data model.
+
+ NOTE: This API is *unstable* and may change at any time.
+*/
+let swiftPMProduct = (
+    name: "SwiftPM",
+    targets: swiftPMDataModelProduct.targets + [
+        "SPMLLBuild",
+        "LLBuildManifest",
+        "Build",
+    ]
+)
+
+/** An array of products which have two versions listed: one dynamically linked, the other with the
+automatic linking type with `-auto` suffix appended to product's name.
+*/
+let autoProducts = [swiftPMProduct, swiftPMDataModelProduct]
 
 let package = Package(
     name: "SwiftPM",
-    platforms: [macOSPlatform],
-    products: [
-        // The `libSwiftPM` set of interfaces to programatically work with Swift
-        // packages.  `libSwiftPM` includes all of the SwiftPM code except the
-        // command line tools, while `libSwiftPMDataModel` includes only the data model.
-        //
-        // NOTE: This API is *unstable* and may change at any time.
-        .library(
-            name: "SwiftPM",
-            type: .dynamic,
-            targets: [
-                "SourceControl",
-                "SPMLLBuild",
-                "PackageCollections",
-                "PackageCollectionsModel",
-                "LLBuildManifest",
-                "PackageModel",
-                "PackageLoading",
-                "PackageGraph",
-                "Build",
-                "Xcodeproj",
-                "Workspace"
-            ]
-        ),
-        .library(
-            name: "SwiftPM-auto",
-            targets: [
-                "SourceControl",
-                "SPMLLBuild",
-                "LLBuildManifest",
-                "PackageCollections",
-                "PackageCollectionsModel",
-                "PackageModel",
-                "PackageLoading",
-                "PackageGraph",
-                "Build",
-                "Xcodeproj",
-                "Workspace"
-            ]
-        ),
-        .library(
-            name: "SwiftPMDataModel",
-            type: .dynamic,
-            targets: [
-                "SourceControl",
-                "PackageCollections",
-                "PackageCollectionsModel",
-                "PackageModel",
-                "PackageLoading",
-                "PackageGraph",
-                "Xcodeproj",
-                "Workspace"
-            ]
-        ),
-
+    platforms: [
+        .macOS(.v10_15),
+        .iOS(.v13)
+    ],
+    products:
+        autoProducts.flatMap {
+          [
+            .library(
+                name: $0.name,
+                type: .dynamic,
+                targets: $0.targets
+            ),
+            .library(
+                name: "\($0.name)-auto",
+                targets: $0.targets
+            )
+          ]
+        } + [
         .library(
             name: "XCBuildSupport",
             targets: ["XCBuildSupport"]
         ),
-
         .library(
             name: "PackageDescription",
             type: .dynamic,
             targets: ["PackageDescription"]
         ),
-        
         .library(
             name: "PackagePlugin",
             type: .dynamic,
             targets: ["PackagePlugin"]
         ),
-        
         .library(
             name: "PackageCollectionsModel",
             targets: ["PackageCollectionsModel"]
         ),
-
         .library(
             name: "SwiftPMPackageCollections",
             targets: [
@@ -113,19 +102,25 @@ let package = Package(
         ),
     ],
     targets: [
-        // The `PackageDescription` targets define the API which is available to
-        // the `Package.swift` manifest files. We build the latest API version
-        // here which is used when building and running swiftpm without the
-        // bootstrap script.
+        // The `PackageDescription` target provides the API that is available
+        // to `Package.swift` manifests. Here we build a debug version of the
+        // library; the bootstrap scripts build the deployable version.
         .target(
-            /** Package Definition API */
             name: "PackageDescription",
             swiftSettings: [
-                .define("PACKAGE_DESCRIPTION_4_2"),
+                .unsafeFlags(["-package-description-version", "999.0"]),
+                .unsafeFlags(["-enable-library-evolution"], .when(platforms: [.macOS]))
             ]),
-        
+
+        // The `PackagePlugin` target provides the API that is available to
+        // plugin scripts. Here we build a debug version of the library; the
+        // bootstrap scripts build the deployable version.
         .target(
-            name: "PackagePlugin"),
+            name: "PackagePlugin",
+            swiftSettings: [
+                .unsafeFlags(["-package-description-version", "999.0"]),
+                .unsafeFlags(["-enable-library-evolution"], .when(platforms: [.macOS]))
+            ]),
 
         // MARK: SwiftPM specific support libraries
 
@@ -166,7 +161,7 @@ let package = Package(
             dependencies: ["SwiftToolsSupport-auto", "Basics", "PackageLoading", "PackageModel", "SourceControl"]),
 
         // MARK: Package Collections
-        
+
         .target(
             /** Package collections models */
             name: "PackageCollectionsModel",
@@ -222,7 +217,7 @@ let package = Package(
         .target(
             /** The main executable provided by SwiftPM */
             name: "swift-package",
-            dependencies: ["Commands"]),
+            dependencies: ["Commands", "SwiftToolsSupport-auto"]),
         .target(
             /** Builds packages */
             name: "swift-build",
@@ -264,7 +259,7 @@ let package = Package(
             dependencies: ["Build", "SPMTestSupport"]),
         .testTarget(
             name: "CommandsTests",
-            dependencies: ["swift-build", "swift-package", "swift-test", "swift-run", "Commands", "Workspace", "SPMTestSupport"]),
+            dependencies: ["swift-build", "swift-package", "swift-test", "swift-run", "Commands", "Workspace", "SPMTestSupport", "Build", "SourceControl"]),
         .testTarget(
             name: "WorkspaceTests",
             dependencies: ["Workspace", "SPMTestSupport"]),
@@ -275,7 +270,7 @@ let package = Package(
             name: "FunctionalPerformanceTests",
             dependencies: ["swift-build", "swift-package", "swift-test", "SPMTestSupport"]),
         .testTarget(
-            name: "PackageDescription4Tests",
+            name: "PackageDescriptionTests",
             dependencies: ["PackageDescription"]),
         .testTarget(
             name: "SPMBuildCoreTests",
@@ -358,7 +353,7 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         // The 'swift-argument-parser' version declared here must match that
         // used by 'swift-driver' and 'sourcekit-lsp'. Please coordinate
         // dependency version changes here with those projects.
-        .package(url: "https://github.com/apple/swift-argument-parser.git", .upToNextMinor(from: "0.3.1")),
+        .package(url: "https://github.com/apple/swift-argument-parser.git", .upToNextMinor(from: "0.4.3")),
         .package(url: "https://github.com/apple/swift-driver.git", .branch(relatedDependenciesBranch)),
         .package(url: "https://github.com/apple/swift-crypto.git", .upToNextMinor(from: "1.1.4")),
     ]

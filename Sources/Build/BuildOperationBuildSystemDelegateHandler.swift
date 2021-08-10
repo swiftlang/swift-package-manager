@@ -54,14 +54,18 @@ final class TestDiscoveryCommand: CustomLLBuildCommand {
     ) throws {
         let stream = try LocalFileOutputByteStream(path)
 
+        let testsByClassNames = Dictionary(grouping: tests, by: { $0.name }).sorted(by: { $0.key < $1.key })
+
         stream <<< "import XCTest" <<< "\n"
         stream <<< "@testable import " <<< module <<< "\n"
 
-        for klass in tests {
+        for iterator in testsByClassNames {
+            let className = iterator.key
+            let testMethods = iterator.value.flatMap{ $0.methods }
             stream <<< "\n"
-            stream <<< "fileprivate extension " <<< klass.name <<< " {" <<< "\n"
-            stream <<< indent(4) <<< "static let __allTests__\(klass.name) = [" <<< "\n"
-            for method in klass.methods {
+            stream <<< "fileprivate extension " <<< className <<< " {" <<< "\n"
+            stream <<< indent(4) <<< "static let __allTests__\(className) = [" <<< "\n"
+            for method in testMethods {
                 let method = method.hasSuffix("()") ? String(method.dropLast(2)) : method
                 stream <<< indent(8) <<< "(\"\(method)\", \(method))," <<< "\n"
             }
@@ -74,8 +78,9 @@ final class TestDiscoveryCommand: CustomLLBuildCommand {
             return [\n
         """
 
-        for klass in tests {
-            stream <<< indent(8) <<< "testCase(\(klass.name).__allTests__\(klass.name)),\n"
+        for iterator in testsByClassNames {
+            let className = iterator.key
+            stream <<< indent(8) <<< "testCase(\(className).__allTests__\(className)),\n"
         }
 
         stream <<< """
@@ -581,18 +586,22 @@ final class BuildOperationBuildSystemDelegateHandler: LLBuildBuildSystemDelegate
             }
 
             if let output = message.standardOutput {
-                // Scoop out any errors from the output, so they can later be passed to the advice provider in case of failure.
-                let regex = try! RegEx(pattern: #".*(error:[^\n]*)\n.*"#, options: .dotMatchesLineSeparators)
-                for match in regex.matchGroups(in: output) {
-                    self.errorMessagesByTarget[parser.targetName] = (self.errorMessagesByTarget[parser.targetName] ?? []) + [match[0]]
-                }
-                
+                // first we want to print the output so users have it handy
                 if !self.isVerbose {
                     self.progressAnimation.clear()
                 }
 
                 self.outputStream <<< output
                 self.outputStream.flush()
+
+                // next we want to try and scoop out any errors from the output (if reasonable size, otherwise this will be very slow),
+                // so they can later be passed to the advice provider in case of failure.
+                if output.utf8.count < 1024 * 10 {
+                    let regex = try! RegEx(pattern: #".*(error:[^\n]*)\n.*"#, options: .dotMatchesLineSeparators)
+                    for match in regex.matchGroups(in: output) {
+                        self.errorMessagesByTarget[parser.targetName] = (self.errorMessagesByTarget[parser.targetName] ?? []) + [match[0]]
+                    }
+                }
             }
         }
     }

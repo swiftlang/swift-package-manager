@@ -25,7 +25,7 @@ public extension Manifest {
         cLanguageStandard: String? = nil,
         cxxLanguageStandard: String? = nil,
         swiftLanguageVersions: [SwiftLanguageVersion]? = nil,
-        dependencies: [PackageDependencyDescription] = [],
+        dependencies: [PackageDependency] = [],
         products: [ProductDescription] = [],
         targets: [TargetDescription] = []
     ) -> Manifest {
@@ -62,7 +62,7 @@ public extension Manifest {
         cLanguageStandard: String? = nil,
         cxxLanguageStandard: String? = nil,
         swiftLanguageVersions: [SwiftLanguageVersion]? = nil,
-        dependencies: [PackageDependencyDescription] = [],
+        dependencies: [PackageDependency] = [],
         products: [ProductDescription] = [],
         targets: [TargetDescription] = []
     ) -> Manifest {

@@ -2,11 +2,16 @@ Note: This is in reverse chronological order, so newer entries are added to the 
 
 Swift v.Next
  -----------
+ * [#3649]
+     Semantic version dependencies can now be resolved against Git tag names that contain only major and minor version identifiers.  A tag with the form `X.Y` will be treated as `X.Y.0`. This improves compatibility with existing repositories.
 
 
 
 Swift 5.5
  -----------
+* [#3410]
+    In a package that specifies a minimum tools version of 5.5, `@main` can now be used in a single-source file executable as long as the name of the source file isn't `main.swift`.  To work around special compiler semantics with single-file modules, SwiftPM now passes `-parse-as-library` when compiling an executable module that contains a single Swift source file whose name is not `main.swift`.
+
 * [#3310]
     Adding a dependency requirement can now be done with the convenience initializer `.package(url: String, revision: String)`.
 
@@ -141,3 +146,7 @@ Swift 3.0
 [#1489]: https://github.com/apple/swift-package-manager/pull/1489
 [#1604]: https://github.com/apple/swift-package-manager/pull/1604
 [#2937]: https://github.com/apple/swift-package-manager/pull/2937
+[#3292]: https://github.com/apple/swift-package-manager/pull/3292
+[#3310]: https://github.com/apple/swift-package-manager/pull/3310
+[#3316]: https://github.com/apple/swift-package-manager/pull/3316
+[#3410]: https://github.com/apple/swift-package-manager/pull/3410

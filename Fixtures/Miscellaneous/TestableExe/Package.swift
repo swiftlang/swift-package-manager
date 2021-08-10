@@ -4,13 +4,13 @@ import PackageDescription
 let package = Package(
     name: "TestableExe",
     targets: [
-        .target(
+        .executableTarget(
             name: "TestableExe1"
         ),
-        .target(
+        .executableTarget(
             name: "TestableExe2"
         ),
-        .target(
+        .executableTarget(
             name: "TestableExe3"
         ),
         .testTarget(

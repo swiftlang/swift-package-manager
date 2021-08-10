@@ -45,7 +45,8 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
 
     // Targets have in-memory trie in addition to SQLite FTS as optimization
     private let targetTrie = Trie<CollectionPackage>()
-    private var targetTrieReady = ThreadSafeBox<Bool>()
+    private var targetTrieReady: Bool?
+    private let populateTargetTrieLock = Lock()
 
     init(location: SQLite.Location? = nil, configuration: Configuration = .init(), diagnosticsEngine: DiagnosticsEngine? = nil) {
         self.location = location ?? .path(localFileSystem.swiftPMCacheDirectory.appending(components: "package-collection.db"))
@@ -60,7 +61,9 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
         self.encoder = JSONEncoder.makeWithDefaults()
         self.decoder = JSONDecoder.makeWithDefaults()
 
-        self.populateTargetTrie()
+        if configuration.initializeTargetTrie {
+            self.populateTargetTrie()
+        }
     }
 
     convenience init(path: AbsolutePath, diagnosticsEngine: DiagnosticsEngine? = nil) {
@@ -75,24 +78,6 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
     }
 
     func close() throws {
-        // Signal long-running operation (e.g., populateTargetTrie) to stop
-        try self.withStateLock {
-            if case .connected(let db) = self.state {
-                self.state = .disconnecting(db)
-                do {
-                    try db.close()
-                } catch {
-                    do {
-                        var exponentialBackoff = ExponentialBackoff()
-                        try retryClose(db: db, exponentialBackoff: &exponentialBackoff)
-                    } catch {
-                        throw StringError("Failed to close database")
-                    }
-                }
-            }
-            self.state = .disconnected
-        }
-
         func retryClose(db: SQLite, exponentialBackoff: inout ExponentialBackoff) throws {
             let semaphore = DispatchSemaphore(value: 0)
             let callback = { (result: Result<Void, Error>) in
@@ -117,33 +102,65 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                 return try retryClose(db: db, exponentialBackoff: &exponentialBackoff)
             }
         }
+
+        // Signal long-running operation (e.g., populateTargetTrie) to stop
+        if case .connected(let db) = try self.withStateLock({ self.state }) {
+            try self.withStateLock {
+                self.state = .disconnecting(db)
+            }
+
+            do {
+                try db.close()
+            } catch {
+                do {
+                    var exponentialBackoff = ExponentialBackoff()
+                    try retryClose(db: db, exponentialBackoff: &exponentialBackoff)
+                } catch {
+                    throw StringError("Failed to close database")
+                }
+            }
+        }
+
+        try self.withStateLock {
+            self.state = .disconnected
+        }
     }
 
     func put(collection: Model.Collection,
              callback: @escaping (Result<Model.Collection, Error>) -> Void) {
         DispatchQueue.sharedConcurrent.async {
-            do {
-                // write to db
-                let query = "INSERT OR REPLACE INTO \(Self.packageCollectionsTableName) VALUES (?, ?);"
-                try self.executeStatement(query) { statement -> Void in
-                    let data = try self.encoder.encode(collection)
+            self.get(identifier: collection.identifier) { getResult in
+                do {
+                    // write to db
+                    let query = "INSERT OR REPLACE INTO \(Self.packageCollectionsTableName) VALUES (?, ?);"
+                    try self.executeStatement(query) { statement -> Void in
+                        let data = try self.encoder.encode(collection)
 
-                    let bindings: [SQLite.SQLiteValue] = [
-                        .string(collection.identifier.databaseKey()),
-                        .blob(data),
-                    ]
-                    try statement.bind(bindings)
-                    try statement.step()
+                        let bindings: [SQLite.SQLiteValue] = [
+                            .string(collection.identifier.databaseKey()),
+                            .blob(data),
+                        ]
+                        try statement.bind(bindings)
+                        try statement.step()
+                    }
+
+                    // Add to search indices
+                    // Optimization: do this only if the collection has not been indexed before or its packages have changed
+                    switch getResult {
+                    case .failure: // e.g., not found
+                        try self.insertToSearchIndices(collection: collection)
+                    case .success(let dbCollection) where dbCollection.packages != collection.packages:
+                        try self.insertToSearchIndices(collection: collection)
+                    default: // dbCollection.packages == collection.packages
+                        break
+                    }
+
+                    // write to cache
+                    self.cache[collection.identifier] = collection
+                    callback(.success(collection))
+                } catch {
+                    callback(.failure(error))
                 }
-
-                // Add to search indices
-                try self.insertToSearchIndices(collection: collection)
-
-                // write to cache
-                self.cache[collection.identifier] = collection
-                callback(.success(collection))
-            } catch {
-                callback(.failure(error))
             }
         }
     }
@@ -272,29 +289,45 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
     func searchPackages(identifiers: [Model.CollectionIdentifier]? = nil,
                         query: String,
                         callback: @escaping (Result<Model.PackageSearchResult, Error>) -> Void) {
-        self.list(identifiers: identifiers) { result in
-            switch result {
-            case .failure(let error):
-                callback(.failure(error))
-            case .success(let collections):
-                if self.useSearchIndices.get() ?? false {
-                    var matches = [(collection: Model.CollectionIdentifier, package: PackageIdentity)]()
-                    do {
-                        let packageQuery = "SELECT collection_id_blob_base64, repository_url FROM \(Self.packagesFTSName) WHERE \(Self.packagesFTSName) MATCH ?;"
-                        try self.executeStatement(packageQuery) { statement in
-                            try statement.bind([.string(query)])
+        let useSearchIndices: Bool
+        do {
+            useSearchIndices = try self.shouldUseSearchIndices()
+        } catch {
+            return callback(.failure(error))
+        }
 
-                            while let row = try statement.step() {
-                                if let collectionData = Data(base64Encoded: row.string(at: 0)),
-                                    let collection = try? self.decoder.decode(Model.CollectionIdentifier.self, from: collectionData) {
-                                    matches.append((collection: collection, package: PackageIdentity(url: row.string(at: 1))))
-                                }
-                            }
+        if useSearchIndices {
+            var matches = [(collection: Model.CollectionIdentifier, package: PackageIdentity)]()
+            var matchingCollections = Set<Model.CollectionIdentifier>()
+
+            do {
+                let packageQuery = "SELECT collection_id_blob_base64, repository_url FROM \(Self.packagesFTSName) WHERE \(Self.packagesFTSName) MATCH ?;"
+                try self.executeStatement(packageQuery) { statement in
+                    try statement.bind([.string(query)])
+
+                    while let row = try statement.step() {
+                        if let collectionData = Data(base64Encoded: row.string(at: 0)),
+                            let collection = try? self.decoder.decode(Model.CollectionIdentifier.self, from: collectionData) {
+                            matches.append((collection: collection, package: PackageIdentity(url: row.string(at: 1))))
+                            matchingCollections.insert(collection)
                         }
-                    } catch {
-                        return callback(.failure(error))
                     }
+                }
+            } catch {
+                return callback(.failure(error))
+            }
 
+            // Optimization: return early if no matches
+            guard !matches.isEmpty else {
+                return callback(.success(Model.PackageSearchResult(items: [])))
+            }
+
+            // Optimization: fetch only those collections that contain matching packages
+            self.list(identifiers: Array(identifiers.map { Set($0).intersection(matchingCollections) } ?? matchingCollections)) { result in
+                switch result {
+                case .failure(let error):
+                    callback(.failure(error))
+                case .success(let collections):
                     let collectionDict = collections.reduce(into: [Model.CollectionIdentifier: Model.Collection]()) { result, collection in
                         result[collection.identifier] = collection
                     }
@@ -319,12 +352,19 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                         }
 
                     // FTS results are not sorted by relevance at all (FTS5 supports ORDER BY rank but FTS4 requires additional SQL function)
-                    // Sort by package identity for consistent ordering in results
-                    let result = Model.PackageSearchResult(items: packageCollections.sorted { $0.key < $1.key }.map { entry in
+                    // Sort by package name for consistent ordering in results
+                    let result = Model.PackageSearchResult(items: packageCollections.sorted { $0.value.package.displayName < $1.value.package.displayName }.map { entry in
                         .init(package: entry.value.package, collections: Array(entry.value.collections))
                     })
                     callback(.success(result))
-                } else {
+                }
+            }
+        } else {
+            self.list(identifiers: identifiers) { result in
+                switch result {
+                case .failure(let error):
+                    callback(.failure(error))
+                case .success(let collections):
                     let queryString = query.lowercased()
                     let collectionsPackages = collections.reduce([Model.CollectionIdentifier: [Model.Package]]()) { partial, collection in
                         var map = partial
@@ -353,8 +393,8 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                         }
                     }
 
-                    // Sort by package identity for consistent ordering in results
-                    let result = Model.PackageSearchResult(items: packageCollections.sorted { $0.key.identity < $1.key.identity }.map { entry in
+                    // Sort by package name for consistent ordering in results
+                    let result = Model.PackageSearchResult(items: packageCollections.sorted { $0.value.package.displayName < $1.value.package.displayName }.map { entry in
                         .init(package: entry.value.package, collections: Array(entry.value.collections))
                     })
                     callback(.success(result))
@@ -365,30 +405,46 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
 
     func findPackage(identifier: PackageIdentity,
                      collectionIdentifiers: [Model.CollectionIdentifier]?,
-                     callback: @escaping (Result<Model.PackageSearchResult.Item, Error>) -> Void) {
-        self.list(identifiers: collectionIdentifiers) { result in
-            switch result {
-            case .failure(let error):
-                return callback(.failure(error))
-            case .success(let collections):
-                if self.useSearchIndices.get() ?? false {
-                    var matches = [(collection: Model.CollectionIdentifier, package: PackageIdentity)]()
-                    do {
-                        let packageQuery = "SELECT collection_id_blob_base64, repository_url FROM \(Self.packagesFTSName) WHERE id = ?;"
-                        try self.executeStatement(packageQuery) { statement in
-                            try statement.bind([.string(identifier.description)])
+                     callback: @escaping (Result<(packages: [PackageCollectionsModel.Package], collections: [PackageCollectionsModel.CollectionIdentifier]), Error>) -> Void) {
+        let useSearchIndices: Bool
+        do {
+            useSearchIndices = try self.shouldUseSearchIndices()
+        } catch {
+            return callback(.failure(error))
+        }
 
-                            while let row = try statement.step() {
-                                if let collectionData = Data(base64Encoded: row.string(at: 0)),
-                                    let collection = try? self.decoder.decode(Model.CollectionIdentifier.self, from: collectionData) {
-                                    matches.append((collection: collection, package: PackageIdentity(url: row.string(at: 1))))
-                                }
-                            }
+        if useSearchIndices {
+            var matches = [(collection: Model.CollectionIdentifier, package: PackageIdentity)]()
+            var matchingCollections = Set<Model.CollectionIdentifier>()
+
+            do {
+                let packageQuery = "SELECT collection_id_blob_base64, repository_url FROM \(Self.packagesFTSName) WHERE id = ?;"
+                try self.executeStatement(packageQuery) { statement in
+                    try statement.bind([.string(identifier.description)])
+
+                    while let row = try statement.step() {
+                        if let collectionData = Data(base64Encoded: row.string(at: 0)),
+                            let collection = try? self.decoder.decode(Model.CollectionIdentifier.self, from: collectionData) {
+                            matches.append((collection: collection, package: PackageIdentity(url: row.string(at: 1))))
+                            matchingCollections.insert(collection)
                         }
-                    } catch {
-                        return callback(.failure(error))
                     }
+                }
+            } catch {
+                return callback(.failure(error))
+            }
 
+            // Optimization: return early if no matches
+            guard !matches.isEmpty else {
+                return callback(.failure(NotFoundError("\(identifier)")))
+            }
+
+            // Optimization: fetch only those collections that contain matching packages
+            self.list(identifiers: Array(collectionIdentifiers.map { Set($0).intersection(matchingCollections) } ?? matchingCollections)) { result in
+                switch result {
+                case .failure(let error):
+                    return callback(.failure(error))
+                case .success(let collections):
                     let collectionDict = collections.reduce(into: [Model.CollectionIdentifier: Model.Collection]()) { result, collection in
                         result[collection.identifier] = collection
                     }
@@ -398,24 +454,41 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                         // Sort collections by processing date so the latest metadata is first
                         .sorted(by: { lhs, rhs in lhs.lastProcessedAt > rhs.lastProcessedAt })
 
-                    guard let package = collections.compactMap({ $0.packages.first { $0.reference.identity == identifier } }).first else {
+                    // rdar://79069839 - Package identities are not unique to repository URLs so there can be more than one result.
+                    // It's up to the caller to filter out the best-matched package(s). Results are sorted with the latest ones first.
+                    let packages = collections.flatMap { collection in
+                        collection.packages.filter { $0.reference.identity == identifier }
+                    }
+
+                    guard !packages.isEmpty else {
                         return callback(.failure(NotFoundError("\(identifier)")))
                     }
 
-                    callback(.success(.init(package: package, collections: collections.map { $0.identifier })))
-                } else {
+                    callback(.success((packages: packages, collections: collections.map { $0.identifier })))
+                }
+            }
+        } else {
+            self.list(identifiers: collectionIdentifiers) { result in
+                switch result {
+                case .failure(let error):
+                    return callback(.failure(error))
+                case .success(let collections):
                     // sorting by collection processing date so the latest metadata is first
                     let collectionPackages = collections.sorted(by: { lhs, rhs in lhs.lastProcessedAt > rhs.lastProcessedAt }).compactMap { collection in
                         collection.packages
                             .first(where: { $0.reference.identity == identifier })
                             .flatMap { (collection: collection.identifier, package: $0) }
                     }
-                    // first package should have latest processing date
-                    guard let package = collectionPackages.first?.package else {
+
+                    // rdar://79069839 - Package identities are not unique to repository URLs so there can be more than one result.
+                    // It's up to the caller to filter out the best-matched package(s). Results are sorted with the latest ones first.
+                    let packages = collectionPackages.map { $0.package }
+
+                    guard !packages.isEmpty else {
                         return callback(.failure(NotFoundError("\(identifier)")))
                     }
-                    let collections = collectionPackages.map { $0.collection }
-                    callback(.success(.init(package: package, collections: collections)))
+
+                    callback(.success((packages: packages, collections: collectionPackages.map { $0.collection })))
                 }
             }
         }
@@ -427,65 +500,103 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                        callback: @escaping (Result<Model.TargetSearchResult, Error>) -> Void) {
         let query = query.lowercased()
 
-        self.list(identifiers: identifiers) { result in
-            switch result {
-            case .failure(let error):
-                callback(.failure(error))
-            case .success(let collections):
-                // For each package, find the containing collections
-                var packageCollections = [PackageIdentity: (package: Model.Package, collections: Set<Model.CollectionIdentifier>)]()
-                // For each matching target, find the containing package version(s)
-                var targetPackageVersions = [Model.Target: [PackageIdentity: Set<Model.TargetListResult.PackageVersion>]]()
+        // For each package, find the containing collections
+        var packageCollections = [PackageIdentity: (package: Model.Package, collections: Set<Model.CollectionIdentifier>)]()
+        // For each matching target, find the containing package version(s)
+        var targetPackageVersions = [Model.Target: [PackageIdentity: Set<Model.TargetListResult.PackageVersion>]]()
 
-                if self.useSearchIndices.get() ?? false {
-                    var matches = [(collection: Model.CollectionIdentifier, package: PackageIdentity, targetName: String)]()
-                    // Trie is more performant for target search; use it if available
-                    if self.targetTrieReady.get() ?? false {
-                        do {
-                            switch type {
-                            case .exactMatch:
-                                try self.targetTrie.find(word: query).forEach {
-                                    matches.append((collection: $0.collection, package: $0.package, targetName: query))
-                                }
-                            case .prefix:
-                                try self.targetTrie.findWithPrefix(query).forEach { targetName, collectionPackages in
-                                    collectionPackages.forEach {
-                                        matches.append((collection: $0.collection, package: $0.package, targetName: targetName))
-                                    }
-                                }
-                            }
-                        } catch is NotFoundError {
-                            // Do nothing if no matches found
-                        } catch {
-                            return callback(.failure(error))
+        func buildResult() {
+            // Sort by target name for consistent ordering in results
+            let result = Model.TargetSearchResult(items: targetPackageVersions.sorted { $0.key.name < $1.key.name }.map { target, packageVersions in
+                let targetPackages: [Model.TargetListItem.Package] = packageVersions.compactMap { identity, versions in
+                    guard let packageEntry = packageCollections[identity] else {
+                        return nil
+                    }
+                    return Model.TargetListItem.Package(
+                        repository: packageEntry.package.repository,
+                        summary: packageEntry.package.summary,
+                        versions: Array(versions).sorted(by: >),
+                        collections: Array(packageEntry.collections)
+                    )
+                }
+                return Model.TargetListItem(target: target, packages: targetPackages)
+            })
+
+            callback(.success(result))
+        }
+
+        let useSearchIndices: Bool
+        do {
+            useSearchIndices = try self.shouldUseSearchIndices()
+        } catch {
+            return callback(.failure(error))
+        }
+
+        if useSearchIndices {
+            var matches = [(collection: Model.CollectionIdentifier, package: PackageIdentity, targetName: String)]()
+            var matchingCollections = Set<Model.CollectionIdentifier>()
+
+            // Trie is more performant for target search; use it if available
+            if self.populateTargetTrieLock.withLock({ self.targetTrieReady }) ?? false {
+                do {
+                    switch type {
+                    case .exactMatch:
+                        try self.targetTrie.find(word: query).forEach {
+                            matches.append((collection: $0.collection, package: $0.package, targetName: query))
+                            matchingCollections.insert($0.collection)
                         }
-                    } else {
-                        do {
-                            let targetQuery = "SELECT collection_id_blob_base64, package_repository_url, name FROM \(Self.targetsFTSName) WHERE name LIKE ?;"
-                            try self.executeStatement(targetQuery) { statement in
-                                switch type {
-                                case .exactMatch:
-                                    try statement.bind([.string("\(query)")])
-                                case .prefix:
-                                    try statement.bind([.string("\(query)%")])
-                                }
-
-                                while let row = try statement.step() {
-                                    if let collectionData = Data(base64Encoded: row.string(at: 0)),
-                                        let collection = try? self.decoder.decode(Model.CollectionIdentifier.self, from: collectionData) {
-                                        matches.append((
-                                            collection: collection,
-                                            package: PackageIdentity(url: row.string(at: 1)),
-                                            targetName: row.string(at: 2)
-                                        ))
-                                    }
-                                }
+                    case .prefix:
+                        try self.targetTrie.findWithPrefix(query).forEach { targetName, collectionPackages in
+                            collectionPackages.forEach {
+                                matches.append((collection: $0.collection, package: $0.package, targetName: targetName))
+                                matchingCollections.insert($0.collection)
                             }
-                        } catch {
-                            return callback(.failure(error))
                         }
                     }
+                } catch is NotFoundError {
+                    // Do nothing if no matches found
+                } catch {
+                    return callback(.failure(error))
+                }
+            } else {
+                do {
+                    let targetQuery = "SELECT collection_id_blob_base64, package_repository_url, name FROM \(Self.targetsFTSName) WHERE name LIKE ?;"
+                    try self.executeStatement(targetQuery) { statement in
+                        switch type {
+                        case .exactMatch:
+                            try statement.bind([.string("\(query)")])
+                        case .prefix:
+                            try statement.bind([.string("\(query)%")])
+                        }
 
+                        while let row = try statement.step() {
+                            if let collectionData = Data(base64Encoded: row.string(at: 0)),
+                                let collection = try? self.decoder.decode(Model.CollectionIdentifier.self, from: collectionData) {
+                                matches.append((
+                                    collection: collection,
+                                    package: PackageIdentity(url: row.string(at: 1)),
+                                    targetName: row.string(at: 2)
+                                ))
+                                matchingCollections.insert(collection)
+                            }
+                        }
+                    }
+                } catch {
+                    return callback(.failure(error))
+                }
+            }
+
+            // Optimization: return early if no matches
+            guard !matches.isEmpty else {
+                return callback(.success(Model.TargetSearchResult(items: [])))
+            }
+
+            // Optimization: fetch only those collections that contain matching packages
+            self.list(identifiers: Array(identifiers.map { Set($0).intersection(matchingCollections) } ?? matchingCollections)) { result in
+                switch result {
+                case .failure(let error):
+                    return callback(.failure(error))
+                case .success(let collections):
                     let collectionDict = collections.reduce(into: [Model.CollectionIdentifier: Model.Collection]()) { result, collection in
                         result[collection.identifier] = collection
                     }
@@ -519,7 +630,16 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                             }
                         }
                     }
-                } else {
+
+                    buildResult()
+                }
+            }
+        } else {
+            self.list(identifiers: identifiers) { result in
+                switch result {
+                case .failure(let error):
+                    callback(.failure(error))
+                case .success(let collections):
                     let collectionsPackages = collections.reduce([Model.CollectionIdentifier: [(target: Model.Target, package: Model.Package)]]()) { partial, collection in
                         var map = partial
                         collection.packages.forEach { package in
@@ -567,30 +687,15 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                             }
                         }
                     }
-                }
 
-                // Sort by target name for consistent ordering in results
-                let result = Model.TargetSearchResult(items: targetPackageVersions.sorted { $0.key.name < $1.key.name }.map { target, packageVersions in
-                    let targetPackages: [Model.TargetListItem.Package] = packageVersions.compactMap { identity, versions in
-                        guard let packageEntry = packageCollections[identity] else {
-                            return nil
-                        }
-                        return Model.TargetListItem.Package(
-                            repository: packageEntry.package.repository,
-                            summary: packageEntry.package.summary,
-                            versions: Array(versions).sorted(by: >),
-                            collections: Array(packageEntry.collections)
-                        )
-                    }
-                    return Model.TargetListItem(target: target, packages: targetPackages)
-                })
-                callback(.success(result))
+                    buildResult()
+                }
             }
         }
     }
 
     private func insertToSearchIndices(collection: Model.Collection) throws {
-        guard self.useSearchIndices.get() ?? false else { return }
+        guard try self.shouldUseSearchIndices() else { return }
 
         try self.ftsLock.withLock {
             // First delete existing data
@@ -658,9 +763,9 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
     }
 
     private func removeFromSearchIndices(identifier: Model.CollectionIdentifier) throws {
-        guard self.useSearchIndices.get() ?? false else { return }
+        guard try self.shouldUseSearchIndices() else { return }
 
-        let identifierBase64 = try self.encoder.encode(identifier.databaseKey()).base64EncodedString()
+        let identifierBase64 = try self.encoder.encode(identifier).base64EncodedString()
 
         let packagesQuery = "DELETE FROM \(Self.packagesFTSName) WHERE collection_id_blob_base64 = ?;"
         try self.executeStatement(packagesQuery) { statement -> Void in
@@ -676,13 +781,64 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
             try statement.step()
         }
 
+        // Repack database file to reduce size (rdar://77077510)
+        try self.withDB { db in
+            do {
+                try db.exec(query: "VACUUM;")
+            } catch {
+                self.diagnosticsEngine?.emit(warning: "Failed to 'VACUUM' the database: \(error)")
+            }
+        }
+
         self.targetTrie.remove { $0.collection == identifier }
     }
 
+    private func shouldUseSearchIndices() throws -> Bool {
+        // Make sure createSchemaIfNecessary is called and useSearchIndices is set before reading it
+        try self.withDB { _ in
+            self.useSearchIndices.get() ?? false
+        }
+    }
+
     internal func populateTargetTrie(callback: @escaping (Result<Void, Error>) -> Void = { _ in }) {
-        DispatchQueue.sharedConcurrent.async {
-            self.targetTrieReady.memoize {
-                do {
+        // Check to see if there is any data before submitting task to queue because otherwise it's no-op anyway
+        do {
+            let numberOfCollections: Int = try self.executeStatement("SELECT COUNT(*) FROM \(Self.packageCollectionsTableName);") { statement in
+                let row = try statement.step()
+                guard let count = row?.int(at: 0) else {
+                    throw StringError("Failed to get count of \(Self.packageCollectionsTableName) table")
+                }
+                return count
+            }
+            // No collections means no data, so no need to populate target trie
+            guard numberOfCollections > 0 else {
+                self.populateTargetTrieLock.withLock {
+                    self.targetTrieReady = true
+                }
+                return callback(.success(()))
+            }
+        } catch {
+            self.diagnosticsEngine?.emit(warning: "Failed to determine if database is empty or not: \(error)")
+            // Try again in background
+        }
+
+        DispatchQueue.sharedConcurrent.async(group: nil, qos: .background, flags: .assignCurrentContext) {
+            do {
+                try self.populateTargetTrieLock.withLock { // Prevent race to populate targetTrie
+                    // Exit early if we've already done the computation before
+                    guard self.targetTrieReady == nil else {
+                        return
+                    }
+
+                    // since running on low priority thread make sure the database has not already gone away
+                    switch (try self.withStateLock { self.state }) {
+                    case .disconnected, .disconnecting:
+                        self.targetTrieReady = false
+                        return
+                    default:
+                        break
+                    }
+
                     // Use FTS to build the trie
                     let query = "SELECT collection_id_blob_base64, package_repository_url, name FROM \(Self.targetsFTSName);"
                     try self.executeStatement(query) { statement in
@@ -707,12 +863,11 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                             }
                         }
                     }
-                    callback(.success(()))
-                    return true
-                } catch {
-                    callback(.failure(error))
-                    return false
+                    self.targetTrieReady = true
                 }
+                callback(.success(()))
+            } catch {
+                callback(.failure(error))
             }
         }
     }
@@ -753,6 +908,8 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
         let db = try self.withStateLock { () -> SQLite in
             let db: SQLite
             switch (self.location, self.state) {
+            case (_, .disconnecting), (_, .disconnected):
+                throw StringError("DB is disconnecting or disconnected")
             case (.path(let path), .connected(let database)):
                 if self.fileSystem.exists(path) {
                     db = database
@@ -794,6 +951,11 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
         """
         try db.exec(query: table)
 
+        #if os(Android)
+        // FTS queries for strings containing hyphens isn't working in SQLite on
+        // Android, so disable for now.
+        self.useSearchIndices.put(false)
+        #else
         do {
             let ftsPackages = """
                 CREATE VIRTUAL TABLE IF NOT EXISTS \(Self.packagesFTSName) USING fts4(
@@ -813,13 +975,14 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
             """
             try db.exec(query: ftsTargets)
 
-            useSearchIndices.put(true)
+            self.useSearchIndices.put(true)
         } catch {
             // We can use FTS3 tables but queries yield different results when run on different
             // platforms. This could be because of SQLite version perhaps? But since we can't get
             // consistent results we will not fallback to FTS3 and just give up if FTS4 is not available.
-            useSearchIndices.put(false)
+            self.useSearchIndices.put(false)
         }
+        #endif
 
         try db.exec(query: "PRAGMA journal_mode=WAL;")
     }
@@ -888,12 +1051,15 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
 
     struct Configuration {
         var batchSize: Int
+        var initializeTargetTrie: Bool
 
         fileprivate var underlying: SQLite.Configuration
 
-        init() {
-            self.underlying = .init()
+        init(initializeTargetTrie: Bool = true) {
             self.batchSize = 100
+            self.initializeTargetTrie = initializeTargetTrie
+
+            self.underlying = .init()
             self.maxSizeInMegabytes = 100
             // see https://www.sqlite.org/c3ref/busy_timeout.html
             self.busyTimeoutMilliseconds = 1000

@@ -15,17 +15,17 @@ import TSCBasic
 // TODO: is there a better name? this conflicts with the module name which is okay in this case but not ideal in Swift
 public struct PackageCollections: PackageCollectionsProtocol {
     // Check JSONPackageCollectionProvider.isSignatureCheckSupported before updating or removing this
-    #if os(macOS) || os(Linux) || os(Windows)
+    #if os(macOS) || os(Linux) || os(Windows) || os(Android)
     static let isSupportedPlatform = true
     #else
     static let isSupportedPlatform = false
     #endif
 
-    private let configuration: Configuration
+    let configuration: Configuration
     private let diagnosticsEngine: DiagnosticsEngine?
     private let storageContainer: (storage: Storage, owned: Bool)
     private let collectionProviders: [Model.CollectionSourceType: PackageCollectionProvider]
-    private let metadataProvider: PackageMetadataProvider
+    let metadataProvider: PackageMetadataProvider
 
     private var storage: Storage {
         self.storageContainer.storage
@@ -65,6 +65,7 @@ public struct PackageCollections: PackageCollectionsProtocol {
         if self.storageContainer.owned {
             try self.storageContainer.storage.close()
         }
+        try self.metadataProvider.close()
     }
 
     // MARK: - Collections
@@ -80,34 +81,38 @@ public struct PackageCollections: PackageCollectionsProtocol {
             case .failure(let error):
                 callback(.failure(error))
             case .success(let sources):
-                let identifiers = sources.map { .init(from: $0) }.filter { identifiers?.contains($0) ?? true }
-                if identifiers.isEmpty {
+                let identiferSource = sources.reduce(into: [PackageCollectionsModel.CollectionIdentifier: PackageCollectionsModel.CollectionSource]()) { result, source in
+                    result[.init(from: source)] = source
+                }
+                let identifiersToFetch = identiferSource.keys.filter { identifiers?.contains($0) ?? true }
+
+                if identifiersToFetch.isEmpty {
                     return callback(.success([]))
                 }
-                let collectionOrder = identifiers.enumerated().reduce([Model.CollectionIdentifier: Int]()) { partial, element in
-                    var dictionary = partial
-                    dictionary[element.element] = element.offset
-                    return dictionary
-                }
-                self.storage.collections.list(identifiers: identifiers) { result in
+
+                self.storage.collections.list(identifiers: identifiersToFetch) { result in
                     switch result {
                     case .failure(let error):
                         callback(.failure(error))
                     case .success(var collections):
-                        // re-order by profile order which reflects the user's election
-                        let sort = { (lhs: PackageCollectionsModel.Collection, rhs: PackageCollectionsModel.Collection) -> Bool in
-                            collectionOrder[lhs.identifier] ?? 0 < collectionOrder[rhs.identifier] ?? 0
+                        let sourceOrder = sources.enumerated().reduce(into: [Model.CollectionIdentifier: Int]()) { result, item in
+                            result[.init(from: item.element)] = item.offset
                         }
 
-                        // We've fetched all the configured collections and we're done
-                        if collections.count == sources.count {
+                        // re-order by profile order which reflects the user's election
+                        let sort = { (lhs: PackageCollectionsModel.Collection, rhs: PackageCollectionsModel.Collection) -> Bool in
+                            sourceOrder[lhs.identifier] ?? 0 < sourceOrder[rhs.identifier] ?? 0
+                        }
+
+                        // We've fetched all the wanted collections and we're done
+                        if collections.count == identifiersToFetch.count {
                             collections.sort(by: sort)
                             return callback(.success(collections))
                         }
 
                         // Some of the results are missing. This happens when deserialization of stored collections fail,
                         // so we will try refreshing the missing collections to update data in storage.
-                        let missingSources = Set(sources).subtracting(Set(collections.map { $0.source }))
+                        let missingSources = Set(identifiersToFetch.compactMap { identiferSource[$0] }).subtracting(Set(collections.map { $0.source }))
                         let refreshResults = ThreadSafeArrayStore<Result<Model.Collection, Error>>()
                         missingSources.forEach { source in
                             self.refreshCollectionFromSource(source: source, trustConfirmationProvider: nil) { refreshResult in
@@ -262,13 +267,13 @@ public struct PackageCollections: PackageCollectionsProtocol {
             return callback(.failure(PackageCollectionError.unsupportedPlatform))
         }
 
-        if let errors = source.validate()?.errors() {
-            return callback(.failure(MultipleErrors(errors)))
-        }
-
         self.storage.collections.get(identifier: .init(from: source)) { result in
             switch result {
             case .failure:
+                // The collection is not in storage. Validate the source before fetching it.
+                if let errors = source.validate()?.errors() {
+                    return callback(.failure(MultipleErrors(errors)))
+                }
                 guard let provider = self.collectionProviders[source.type] else {
                     return callback(.failure(UnknownProvider(source.type)))
                 }
@@ -302,35 +307,95 @@ public struct PackageCollections: PackageCollectionsProtocol {
         }
     }
 
+    public func listPackages(collections: Set<PackageCollectionsModel.CollectionIdentifier>? = nil,
+                             callback: @escaping (Result<PackageCollectionsModel.PackageSearchResult, Error>) -> Void) {
+        self.listCollections(identifiers: collections) { result in
+            switch result {
+            case .failure(let error):
+                callback(.failure(error))
+            case .success(let collections):
+                var packageCollections = [PackageReference: (package: Model.Package, collections: Set<Model.CollectionIdentifier>)]()
+                // Use package data from the most recently processed collection
+                collections.sorted(by: { $0.lastProcessedAt > $1.lastProcessedAt }).forEach { collection in
+                    collection.packages.forEach { package in
+                        var entry = packageCollections.removeValue(forKey: package.reference)
+                        if entry == nil {
+                            entry = (package, .init())
+                        }
+
+                        if var entry = entry {
+                            entry.collections.insert(collection.identifier)
+                            packageCollections[package.reference] = entry
+                        }
+                    }
+                }
+
+                let result = PackageCollectionsModel.PackageSearchResult(
+                    items: packageCollections.sorted { $0.value.package.displayName < $1.value.package.displayName }
+                        .map { entry in
+                            .init(package: entry.value.package, collections: Array(entry.value.collections))
+                        }
+                )
+                callback(.success(result))
+            }
+        }
+    }
+
     // MARK: - Package Metadata
 
     public func getPackageMetadata(_ reference: PackageReference,
+                                   callback: @escaping (Result<PackageCollectionsModel.PackageMetadata, Error>) -> Void) {
+        self.getPackageMetadata(reference, collections: nil, callback: callback)
+    }
+
+    public func getPackageMetadata(_ reference: PackageReference,
+                                   collections: Set<PackageCollectionsModel.CollectionIdentifier>?,
                                    callback: @escaping (Result<PackageCollectionsModel.PackageMetadata, Error>) -> Void) {
         guard Self.isSupportedPlatform else {
             return callback(.failure(PackageCollectionError.unsupportedPlatform))
         }
 
         // first find in storage
-        self.findPackage(identifier: reference.identity) { result in
+        self.findPackage(reference: reference, collections: collections) { result in
             switch result {
             case .failure(let error):
                 callback(.failure(error))
             case .success(let packageSearchResult):
                 // then try to get more metadata from provider (optional)
+                let authTokenType = self.metadataProvider.getAuthTokenType(for: reference)
+                let isAuthTokenConfigured = authTokenType.flatMap { self.configuration.authTokens()?[$0] } != nil
+
                 self.metadataProvider.get(reference) { result in
                     switch result {
-                    case .failure:
-                        self.diagnosticsEngine?.emit(warning: "Failed fetching information about \(reference) from \(self.metadataProvider.name).")
+                    case .failure(let error):
+                        self.diagnosticsEngine?.emit(warning: "Failed fetching information about \(reference) from \(self.metadataProvider.name): \(error)")
+
+                        let provider: PackageMetadataProviderContext?
+                        switch error {
+                        case let error as GitHubPackageMetadataProvider.Errors:
+                            let providerError = PackageMetadataProviderError.from(error)
+                            if providerError == nil {
+                                // The metadata provider cannot be used for the package
+                                provider = nil
+                            } else {
+                                provider = PackageMetadataProviderContext(authTokenType: authTokenType, isAuthTokenConfigured: isAuthTokenConfigured, error: providerError)
+                            }
+                        default:
+                            // For all other errors, including NotFoundError, assume the provider is not intended for the package.
+                            provider = nil
+                        }
                         let metadata = Model.PackageMetadata(
                             package: Self.mergedPackageMetadata(package: packageSearchResult.package, basicMetadata: nil),
-                            collections: packageSearchResult.collections
+                            collections: packageSearchResult.collections,
+                            provider: provider
                         )
                         callback(.success(metadata))
                     case .success(let basicMetadata):
                         // finally merge the results
                         let metadata = Model.PackageMetadata(
                             package: Self.mergedPackageMetadata(package: packageSearchResult.package, basicMetadata: basicMetadata),
-                            collections: packageSearchResult.collections
+                            collections: packageSearchResult.collections,
+                            provider: PackageMetadataProviderContext(authTokenType: authTokenType, isAuthTokenConfigured: isAuthTokenConfigured)
                         )
                         callback(.success(metadata))
                     }
@@ -389,16 +454,16 @@ public struct PackageCollections: PackageCollectionsProtocol {
     private func refreshCollectionFromSource(source: PackageCollectionsModel.CollectionSource,
                                              trustConfirmationProvider: ((PackageCollectionsModel.Collection, @escaping (Bool) -> Void) -> Void)?,
                                              callback: @escaping (Result<Model.Collection, Error>) -> Void) {
-        if let errors = source.validate()?.errors() {
-            return callback(.failure(MultipleErrors(errors)))
-        }
         guard let provider = self.collectionProviders[source.type] else {
             return callback(.failure(UnknownProvider(source.type)))
         }
         provider.get(source) { result in
             switch result {
             case .failure(let error):
-                callback(.failure(error))
+                // Remove the unavailable/invalid collection (if previously saved) from storage before calling back
+                self.storage.collections.remove(identifier: PackageCollectionsModel.CollectionIdentifier(from: source)) { _ in
+                    callback(.failure(error))
+                }
             case .success(let collection):
                 // If collection is signed and signature is valid, save to storage. `provider.get`
                 // would have failed if signature were invalid.
@@ -452,18 +517,34 @@ public struct PackageCollections: PackageCollectionsProtocol {
         }
     }
 
-    func findPackage(identifier: PackageIdentity,
+    func findPackage(reference: PackageReference,
+                     collections: Set<PackageCollectionsModel.CollectionIdentifier>?,
                      callback: @escaping (Result<PackageCollectionsModel.PackageSearchResult.Item, Error>) -> Void) {
         self.storage.sources.list { result in
             switch result {
             case .failure(let error):
                 callback(.failure(error))
             case .success(let sources):
-                let identifiers = sources.map { Model.CollectionIdentifier(from: $0) }
-                if identifiers.isEmpty {
-                    return callback(.failure(NotFoundError("\(identifier)")))
+                var collectionIdentifiers = sources.map { Model.CollectionIdentifier(from: $0) }
+                if let collections = collections {
+                    collectionIdentifiers = collectionIdentifiers.filter { collections.contains($0) }
                 }
-                self.storage.collections.findPackage(identifier: identifier, collectionIdentifiers: identifiers, callback: callback)
+                if collectionIdentifiers.isEmpty {
+                    return callback(.failure(NotFoundError("\(reference)")))
+                }
+                self.storage.collections.findPackage(identifier: reference.identity, collectionIdentifiers: collectionIdentifiers) { findPackageResult in
+                    switch findPackageResult {
+                    case .failure(let error):
+                        callback(.failure(error))
+                    case .success(let packagesCollections):
+                        // A package identity can be associated with multiple repository URLs
+                        let matches = packagesCollections.packages.filter { $0.reference.canonicalLocation == reference.canonicalLocation }
+                        guard let package = matches.first else {
+                            return callback(.failure(NotFoundError("\(reference)")))
+                        }
+                        callback(.success(.init(package: package, collections: packagesCollections.collections)))
+                    }
+                }
             }
         }
     }
@@ -518,10 +599,11 @@ public struct PackageCollections: PackageCollectionsProtocol {
     internal static func mergedPackageMetadata(package: Model.Package,
                                                basicMetadata: Model.PackageBasicMetadata?) -> Model.Package {
         // This dictionary contains recent releases and might not contain everything that's in package.versions.
-        let basicVersionMetadata = basicMetadata.map { Dictionary(uniqueKeysWithValues: $0.versions.map { ($0.version, $0) }) } ?? [:]
+        let basicVersionMetadata = basicMetadata.map { Dictionary($0.versions.map { ($0.version, $0) }, uniquingKeysWith: { first, _ in first }) } ?? [:]
         var versions = package.versions.map { packageVersion -> Model.Package.Version in
             let versionMetadata = basicVersionMetadata[packageVersion.version]
             return .init(version: packageVersion.version,
+                         title: versionMetadata?.title ?? packageVersion.title,
                          summary: versionMetadata?.summary ?? packageVersion.summary,
                          manifests: packageVersion.manifests,
                          defaultToolsVersion: packageVersion.defaultToolsVersion,
@@ -539,7 +621,8 @@ public struct PackageCollections: PackageCollectionsProtocol {
             watchersCount: basicMetadata?.watchersCount,
             readmeURL: basicMetadata?.readmeURL ?? package.readmeURL,
             license: basicMetadata?.license ?? package.license,
-            authors: basicMetadata?.authors
+            authors: basicMetadata?.authors ?? package.authors,
+            languages: basicMetadata?.languages ?? package.languages
         )
     }
 }
@@ -549,5 +632,11 @@ private struct UnknownProvider: Error {
 
     init(_ sourceType: Model.CollectionSourceType) {
         self.sourceType = sourceType
+    }
+}
+
+private extension PackageReference {
+    var canonicalLocation: String {
+        (self.location.hasSuffix(".git") ? String(self.location.dropLast(4)) : self.location).lowercased()
     }
 }

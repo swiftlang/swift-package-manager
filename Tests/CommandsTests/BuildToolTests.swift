@@ -26,9 +26,10 @@ final class BuildToolTests: XCTestCase {
     @discardableResult
     private func execute(
         _ args: [String],
+        environment: [String : String]? = nil,
         packagePath: AbsolutePath? = nil
     ) throws -> (stdout: String, stderr: String) {
-        return try SwiftPMProduct.SwiftBuild.execute(args, packagePath: packagePath)
+        return try SwiftPMProduct.SwiftBuild.execute(args, packagePath: packagePath, env: environment)
     }
 
     func build(_ args: [String], packagePath: AbsolutePath? = nil) throws -> BuildResult {
@@ -176,15 +177,22 @@ final class BuildToolTests: XCTestCase {
         fixture(name: "Miscellaneous/AtMainSupport") { path in
             let fullPath = resolveSymlinks(path)
             do {
-                let result = try build(["--product", "ClangExec"], packagePath: fullPath)
-                XCTAssert(result.binContents.contains("ClangExec"))
+                let result = try build(["--product", "ClangExecSingleFile"], packagePath: fullPath)
+                XCTAssert(result.binContents.contains("ClangExecSingleFile"))
             } catch SwiftPMProductError.executionFailure(_, let stdout, let stderr) {
                 XCTFail(stdout + "\n" + stderr)
             }
 
             do {
-                let result = try build(["--product", "SwiftExec"], packagePath: fullPath)
-                XCTAssert(result.binContents.contains("SwiftExec"))
+                let result = try build(["--product", "SwiftExecSingleFile"], packagePath: fullPath)
+                XCTAssert(result.binContents.contains("SwiftExecSingleFile"))
+            } catch SwiftPMProductError.executionFailure(_, let stdout, let stderr) {
+                XCTFail(stdout + "\n" + stderr)
+            }
+
+            do {
+                let result = try build(["--product", "SwiftExecMultiFile"], packagePath: fullPath)
+                XCTAssert(result.binContents.contains("SwiftExecMultiFile"))
             } catch SwiftPMProductError.executionFailure(_, let stdout, let stderr) {
                 XCTFail(stdout + "\n" + stderr)
             }
@@ -246,21 +254,76 @@ final class BuildToolTests: XCTestCase {
         }
     }
 
+    func testAutomaticParseableInterfacesWithLibraryEvolution() {
+        fixture(name: "Miscellaneous/LibraryEvolution") { path in
+            do {
+                let result = try build([], packagePath: path)
+                XCTAssert(result.binContents.contains("A.swiftinterface"))
+                XCTAssert(result.binContents.contains("B.swiftinterface"))
+            } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
+                XCTFail(stderr)
+            }
+        }
+    }
+
     func testBuildCompleteMessage() {
         fixture(name: "DependencyResolution/Internal/Simple") { path in
             do {
                 let result = try execute([], packagePath: path)
-                #if os(macOS)
-                XCTAssertTrue(result.stdout.contains("[6/6] Build complete!"), result.stdout)
-                #else
-                XCTAssertTrue(result.stdout.contains("[8/8] Build complete!"), result.stdout)
-                #endif
+                // Number of steps must be greater than 0. e.g., [8/8] Build complete!
+                XCTAssertMatch(result.stdout, .regex("\\[[1-9][0-9]*\\/[1-9][0-9]*\\] Build complete!"))
             }
 
             do {
                 let result = try execute([], packagePath: path)
+                // test second time, to make sure message is presented even when nothing to build (cached)
                 XCTAssertTrue(result.stdout.contains("[0/0] Build complete!"), result.stdout)
             }
         }
     }
+
+    func testXcodeBuildSystemDefaultSettings() throws {
+        #if !os(macOS)
+        try XCTSkipIf(true, "test requires `xcbuild` and is therefore only supported on macOS")
+        #endif
+        fixture(name: "ValidLayouts/SingleModule/ExecutableNew") { path in
+            // Try building using XCBuild with default parameters.  This should succeed.  We build verbosely so we get full command lines.
+            let defaultOutput = try execute(["-c", "debug", "-v"], packagePath: path).stdout
+            
+            // Look for certain things in the output from XCBuild.
+            XCTAssert(defaultOutput.contains("-target \(Resources.default.toolchain.triple.tripleString)"), defaultOutput)
+        }
+    }
+
+    func testXcodeBuildSystemOverrides() throws {
+        #if !os(macOS)
+        try XCTSkipIf(true, "test requires `xcbuild` and is therefore only supported on macOS")
+        #endif
+        fixture(name: "ValidLayouts/SingleModule/ExecutableNew") { path in
+            // Try building using XCBuild without specifying overrides.  This should succeed, and should use the default compiler path.
+            let defaultOutput = try execute(["-c", "debug", "-v"], packagePath: path).stdout
+            XCTAssert(defaultOutput.contains(Resources.default.swiftCompiler.pathString), defaultOutput)
+
+            // Now try building using XCBuild while specifying a faulty compiler override.  This should fail.  Note that we need to set the executable to use for the manifest itself to the default one, since it defaults to SWIFT_EXEC if not provided.
+            var overriddenOutput = ""
+            do {
+                overriddenOutput = try execute(["-c", "debug", "-v"], environment: ["SWIFT_EXEC": "/usr/bin/false", "SWIFT_EXEC_MANIFEST": Resources.default.swiftCompiler.pathString], packagePath: path).stdout
+                XCTFail("unexpected success (was SWIFT_EXEC not overridden properly?)")
+            }
+            catch SwiftPMProductError.executionFailure(let error, let stdout, _) {
+                switch error {
+                case ProcessResult.Error.nonZeroExit(let result) where result.exitStatus != .terminated(code: 0):
+                    overriddenOutput = stdout
+                    break
+                default:
+                    XCTFail("`swift build' failed in an unexpected manner")
+                }
+            }
+            catch {
+                XCTFail("`swift build' failed in an unexpected manner")
+            }
+            XCTAssert(overriddenOutput.contains("/usr/bin/false"), overriddenOutput)
+        }
+    }
+
 }

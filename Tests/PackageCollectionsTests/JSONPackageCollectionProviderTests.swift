@@ -54,6 +54,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             XCTAssertEqual(collection.keywords, ["sample package collection"])
             XCTAssertEqual(collection.createdBy?.name, "Jane Doe")
             XCTAssertEqual(collection.packages.count, 2)
+
             let package = collection.packages.first!
             XCTAssertEqual(package.repository, .init(url: "https://www.example.com/repos/RepoOne.git"))
             XCTAssertEqual(package.summary, "Package One")
@@ -75,6 +76,9 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             XCTAssertEqual(version.license, .init(type: .Apache2_0, url: URL(string: "https://www.example.com/repos/RepoOne/LICENSE")!))
             XCTAssertNotNil(version.createdAt)
             XCTAssertFalse(collection.isSigned)
+
+            // "1.8.3" is originally "v1.8.3"
+            XCTAssertEqual(["2.1.0", "1.8.3"], collection.packages[1].versions.map { $0.version.description })
         }
     }
 
@@ -94,6 +98,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             XCTAssertEqual(collection.keywords, ["sample package collection"])
             XCTAssertEqual(collection.createdBy?.name, "Jane Doe")
             XCTAssertEqual(collection.packages.count, 2)
+
             let package = collection.packages.first!
             XCTAssertEqual(package.repository, .init(url: "https://www.example.com/repos/RepoOne.git"))
             XCTAssertEqual(package.summary, "Package One")
@@ -113,6 +118,9 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             XCTAssertEqual(version.verifiedCompatibility!.first!.swiftVersion, SwiftLanguageVersion(string: "5.1")!)
             XCTAssertEqual(version.license, .init(type: .Apache2_0, url: URL(string: "https://www.example.com/repos/RepoOne/LICENSE")!))
             XCTAssertFalse(collection.isSigned)
+
+            // "1.8.3" is originally "v1.8.3"
+            XCTAssertEqual(["2.1.0", "1.8.3"], collection.packages[1].versions.map { $0.version.description })
         }
     }
 
@@ -124,13 +132,10 @@ class JSONPackageCollectionProviderTests: XCTestCase {
         httpClient.configuration.retryStrategy = .none
         let provider = JSONPackageCollectionProvider(httpClient: httpClient, diagnosticsEngine: DiagnosticsEngine())
         XCTAssertThrowsError(try tsc_await { callback in provider.get(source, callback: callback) }, "expected error", { error in
-            guard let internalError = (error as? MultipleErrors)?.errors.first else {
+            guard case .invalidSource(let errorMessage) = error as? JSONPackageCollectionProviderError else {
                 return XCTFail("invalid error \(error)")
             }
-            guard let validationError = internalError as? ValidationError, case .other(let message) = validationError else {
-                return XCTFail("invalid error \(error)")
-            }
-            XCTAssertTrue(message.contains("Scheme (\"ftp\") not allowed: \(url.absoluteString)"))
+            XCTAssertTrue(errorMessage.contains("Scheme (\"ftp\") not allowed: \(url.absoluteString)"))
         })
     }
 
@@ -152,12 +157,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
         let configuration = JSONPackageCollectionProvider.Configuration(maximumSizeInBytes: 10)
         let provider = JSONPackageCollectionProvider(configuration: configuration, httpClient: httpClient, diagnosticsEngine: DiagnosticsEngine())
         XCTAssertThrowsError(try tsc_await { callback in provider.get(source, callback: callback) }, "expected error", { error in
-            switch error {
-            case HTTPClientError.responseTooLarge(let size):
-                XCTAssertEqual(size, maxSize * 2)
-            default:
-                XCTFail("unexpected error \(error)")
-            }
+            XCTAssertEqual(error as? JSONPackageCollectionProviderError, .responseTooLarge(url, maxSize * 2))
         })
     }
 
@@ -186,12 +186,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
         let configuration = JSONPackageCollectionProvider.Configuration(maximumSizeInBytes: 10)
         let provider = JSONPackageCollectionProvider(configuration: configuration, httpClient: httpClient, diagnosticsEngine: DiagnosticsEngine())
         XCTAssertThrowsError(try tsc_await { callback in provider.get(source, callback: callback) }, "expected error", { error in
-            switch error {
-            case HTTPClientError.responseTooLarge(let size):
-                XCTAssertEqual(size, maxSize * 2)
-            default:
-                XCTFail("unexpected error \(error)")
-            }
+            XCTAssertEqual(error as? JSONPackageCollectionProviderError, .responseTooLarge(url, maxSize * 2))
         })
     }
 
@@ -211,12 +206,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
         let configuration = JSONPackageCollectionProvider.Configuration(maximumSizeInBytes: 10)
         let provider = JSONPackageCollectionProvider(configuration: configuration, httpClient: httpClient, diagnosticsEngine: DiagnosticsEngine())
         XCTAssertThrowsError(try tsc_await { callback in provider.get(source, callback: callback) }, "expected error", { error in
-            switch error {
-            case JSONPackageCollectionProvider.Errors.invalidResponse(let error):
-                XCTAssertEqual(error, "Missing Content-Length header")
-            default:
-                XCTFail("unexpected error \(error)")
-            }
+            XCTAssertEqual(error as? JSONPackageCollectionProviderError, .invalidResponse(url, "Missing Content-Length header"))
         })
     }
 
@@ -244,19 +234,14 @@ class JSONPackageCollectionProviderTests: XCTestCase {
         let configuration = JSONPackageCollectionProvider.Configuration(maximumSizeInBytes: 10)
         let provider = JSONPackageCollectionProvider(configuration: configuration, httpClient: httpClient, diagnosticsEngine: DiagnosticsEngine())
         XCTAssertThrowsError(try tsc_await { callback in provider.get(source, callback: callback) }, "expected error", { error in
-            switch error {
-            case HTTPClientError.responseTooLarge(let size):
-                XCTAssertEqual(size, maxSize * 2)
-            default:
-                XCTFail("unexpected error \(error)")
-            }
+            XCTAssertEqual(error as? HTTPClientError, .responseTooLarge(maxSize * 2))
         })
     }
 
-    func testUnsuccessfulHead() throws {
+    func testUnsuccessfulHead_unavailable() throws {
         let url = URL(string: "https://www.test.com/collection.json")!
         let source = PackageCollectionsModel.CollectionSource(type: .json, url: url)
-        let statusCode = Int.random(in: 201 ... 550)
+        let statusCode = Int.random(in: 500 ... 550) // Don't use 404 because it leads to a different error message
 
         let handler: HTTPClient.Handler = { request, _, completion in
             XCTAssertEqual(request.url, url, "url should match")
@@ -269,14 +254,14 @@ class JSONPackageCollectionProviderTests: XCTestCase {
         httpClient.configuration.retryStrategy = .none
         let provider = JSONPackageCollectionProvider(httpClient: httpClient, diagnosticsEngine: DiagnosticsEngine())
         XCTAssertThrowsError(try tsc_await { callback in provider.get(source, callback: callback) }, "expected error", { error in
-            XCTAssertEqual(error as? HTTPClientError, .badResponseStatusCode(statusCode))
+            XCTAssertEqual(error as? JSONPackageCollectionProviderError, .collectionUnavailable(url, statusCode))
         })
     }
 
-    func testUnsuccessfulGet() throws {
+    func testUnsuccessfulGet_unavailable() throws {
         let url = URL(string: "https://www.test.com/collection.json")!
         let source = PackageCollectionsModel.CollectionSource(type: .json, url: url)
-        let statusCode = Int.random(in: 201 ... 550)
+        let statusCode = Int.random(in: 500 ... 550) // Don't use 404 because it leads to a different error message
 
         let handler: HTTPClient.Handler = { request, _, completion in
             XCTAssertEqual(request.url, url, "url should match")
@@ -295,7 +280,51 @@ class JSONPackageCollectionProviderTests: XCTestCase {
         httpClient.configuration.retryStrategy = .none
         let provider = JSONPackageCollectionProvider(httpClient: httpClient, diagnosticsEngine: DiagnosticsEngine())
         XCTAssertThrowsError(try tsc_await { callback in provider.get(source, callback: callback) }, "expected error", { error in
-            XCTAssertEqual(error as? HTTPClientError, .badResponseStatusCode(statusCode))
+            XCTAssertEqual(error as? JSONPackageCollectionProviderError, .collectionUnavailable(url, statusCode))
+        })
+    }
+
+    func testUnsuccessfulHead_notFound() throws {
+        let url = URL(string: "https://www.test.com/collection.json")!
+        let source = PackageCollectionsModel.CollectionSource(type: .json, url: url)
+
+        let handler: HTTPClient.Handler = { request, _, completion in
+            XCTAssertEqual(request.url, url, "url should match")
+            XCTAssertEqual(request.method, .head, "method should match")
+            completion(.success(.init(statusCode: 404)))
+        }
+
+        var httpClient = HTTPClient(handler: handler)
+        httpClient.configuration.circuitBreakerStrategy = .none
+        httpClient.configuration.retryStrategy = .none
+        let provider = JSONPackageCollectionProvider(httpClient: httpClient, diagnosticsEngine: DiagnosticsEngine())
+        XCTAssertThrowsError(try tsc_await { callback in provider.get(source, callback: callback) }, "expected error", { error in
+            XCTAssertEqual(error as? JSONPackageCollectionProviderError, .collectionNotFound(url))
+        })
+    }
+
+    func testUnsuccessfulGet_notFound() throws {
+        let url = URL(string: "https://www.test.com/collection.json")!
+        let source = PackageCollectionsModel.CollectionSource(type: .json, url: url)
+
+        let handler: HTTPClient.Handler = { request, _, completion in
+            XCTAssertEqual(request.url, url, "url should match")
+            switch request.method {
+            case .head:
+                completion(.success(.init(statusCode: 200, headers: .init([.init(name: "Content-Length", value: "1")]))))
+            case .get:
+                completion(.success(.init(statusCode: 404)))
+            default:
+                XCTFail("method should match")
+            }
+        }
+
+        var httpClient = HTTPClient(handler: handler)
+        httpClient.configuration.circuitBreakerStrategy = .none
+        httpClient.configuration.retryStrategy = .none
+        let provider = JSONPackageCollectionProvider(httpClient: httpClient, diagnosticsEngine: DiagnosticsEngine())
+        XCTAssertThrowsError(try tsc_await { callback in provider.get(source, callback: callback) }, "expected error", { error in
+            XCTAssertEqual(error as? JSONPackageCollectionProviderError, .collectionNotFound(url))
         })
     }
 
@@ -323,12 +352,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
         let provider = JSONPackageCollectionProvider(httpClient: httpClient, diagnosticsEngine: DiagnosticsEngine())
         let source = PackageCollectionsModel.CollectionSource(type: .json, url: url)
         XCTAssertThrowsError(try tsc_await { callback in provider.get(source, callback: callback) }, "expected error", { error in
-            switch error {
-            case JSONPackageCollectionProvider.Errors.invalidJSON:
-                break
-            default:
-                XCTFail("unexpected error \(error)")
-            }
+            XCTAssertEqual(error as? JSONPackageCollectionProviderError, .invalidJSON(url))
         })
     }
 
@@ -370,6 +394,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             XCTAssertEqual(collection.keywords, ["sample package collection"])
             XCTAssertEqual(collection.createdBy?.name, "Jane Doe")
             XCTAssertEqual(collection.packages.count, 2)
+
             let package = collection.packages.first!
             XCTAssertEqual(package.repository, .init(url: "https://www.example.com/repos/RepoOne.git"))
             XCTAssertEqual(package.summary, "Package One")
@@ -395,6 +420,9 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             XCTAssertTrue(signature.isVerified)
             XCTAssertEqual("Sample Subject", signature.certificate.subject.commonName)
             XCTAssertEqual("Sample Issuer", signature.certificate.issuer.commonName)
+
+            // "1.8.3" is originally "v1.8.3"
+            XCTAssertEqual(["2.1.0", "1.8.3"], collection.packages[1].versions.map { $0.version.description })
         }
     }
 
@@ -624,7 +652,81 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             let signatureValidator = MockCollectionSignatureValidator(["Sample Package Collection"])
             // Collections from www.test.com must be signed
             let sourceCertPolicy = PackageCollectionSourceCertificatePolicy(
-                sourceCertPolicies: ["www.test.com": .init(certPolicyKey: CertificatePolicyKey.default, base64EncodedRootCerts: nil)]
+                sourceCertPolicies: ["www.test.com": [.init(certPolicyKey: CertificatePolicyKey.default, base64EncodedRootCerts: nil)]]
+            )
+            let provider = JSONPackageCollectionProvider(httpClient: httpClient, signatureValidator: signatureValidator,
+                                                         sourceCertPolicy: sourceCertPolicy, diagnosticsEngine: DiagnosticsEngine())
+            let source = PackageCollectionsModel.CollectionSource(type: .json, url: url)
+            let collection = try tsc_await { callback in provider.get(source, callback: callback) }
+
+            XCTAssertEqual(collection.name, "Sample Package Collection")
+            XCTAssertEqual(collection.overview, "This is a sample package collection listing made-up packages.")
+            XCTAssertEqual(collection.keywords, ["sample package collection"])
+            XCTAssertEqual(collection.createdBy?.name, "Jane Doe")
+            XCTAssertEqual(collection.packages.count, 2)
+            let package = collection.packages.first!
+            XCTAssertEqual(package.repository, .init(url: "https://www.example.com/repos/RepoOne.git"))
+            XCTAssertEqual(package.summary, "Package One")
+            XCTAssertEqual(package.keywords, ["sample package"])
+            XCTAssertEqual(package.readmeURL, URL(string: "https://www.example.com/repos/RepoOne/README")!)
+            XCTAssertEqual(package.license, .init(type: .Apache2_0, url: URL(string: "https://www.example.com/repos/RepoOne/LICENSE")!))
+            XCTAssertEqual(package.versions.count, 1)
+            let version = package.versions.first!
+            XCTAssertEqual(version.summary, "Fixed a few bugs")
+            let manifest = version.manifests.values.first!
+            XCTAssertEqual(manifest.packageName, "PackageOne")
+            XCTAssertEqual(manifest.targets, [.init(name: "Foo", moduleName: "Foo")])
+            XCTAssertEqual(manifest.products, [.init(name: "Foo", type: .library(.automatic), targets: [.init(name: "Foo", moduleName: "Foo")])])
+            XCTAssertEqual(manifest.toolsVersion, ToolsVersion(string: "5.1")!)
+            XCTAssertEqual(manifest.minimumPlatformVersions, [SupportedPlatform(platform: .macOS, version: .init("10.15"))])
+            XCTAssertEqual(version.verifiedCompatibility?.count, 3)
+            XCTAssertEqual(version.verifiedCompatibility!.first!.platform, .macOS)
+            XCTAssertEqual(version.verifiedCompatibility!.first!.swiftVersion, SwiftLanguageVersion(string: "5.1")!)
+            XCTAssertEqual(version.license, .init(type: .Apache2_0, url: URL(string: "https://www.example.com/repos/RepoOne/LICENSE")!))
+            XCTAssertNotNil(version.createdAt)
+            XCTAssertTrue(collection.isSigned)
+            let signature = collection.signature!
+            XCTAssertTrue(signature.isVerified)
+            XCTAssertEqual("Sample Subject", signature.certificate.subject.commonName)
+            XCTAssertEqual("Sample Issuer", signature.certificate.issuer.commonName)
+        }
+    }
+
+    func testRequiredSigningMultiplePoliciesGood() throws {
+        fixture(name: "Collections") { directoryPath in
+            let path = directoryPath.appending(components: "JSON", "good_signed.json")
+            let url = URL(string: "https://www.test.com/collection.json")!
+            let data = Data(try localFileSystem.readFileContents(path).contents)
+
+            let handler: HTTPClient.Handler = { request, _, completion in
+                XCTAssertEqual(request.url, url, "url should match")
+                switch request.method {
+                case .head:
+                    completion(.success(.init(statusCode: 200,
+                                              headers: .init([.init(name: "Content-Length", value: "\(data.count)")]))))
+                case .get:
+                    completion(.success(.init(statusCode: 200,
+                                              headers: .init([.init(name: "Content-Length", value: "\(data.count)")]),
+                                              body: data)))
+                default:
+                    XCTFail("method should match")
+                }
+            }
+
+            var httpClient = HTTPClient(handler: handler)
+            httpClient.configuration.circuitBreakerStrategy = .none
+            httpClient.configuration.retryStrategy = .none
+
+            // Mark collection as having valid signature
+            let signatureValidator = MockCollectionSignatureValidator(certPolicyKeys: [CertificatePolicyKey.default(subjectUserID: "test")])
+            // Collections from www.test.com must be signed
+            let sourceCertPolicy = PackageCollectionSourceCertificatePolicy(
+                sourceCertPolicies: [
+                    "www.test.com": [
+                        .init(certPolicyKey: CertificatePolicyKey.default, base64EncodedRootCerts: nil),
+                        .init(certPolicyKey: CertificatePolicyKey.default(subjectUserID: "test"), base64EncodedRootCerts: nil),
+                    ],
+                ]
             )
             let provider = JSONPackageCollectionProvider(httpClient: httpClient, signatureValidator: signatureValidator,
                                                          sourceCertPolicy: sourceCertPolicy, diagnosticsEngine: DiagnosticsEngine())
@@ -693,7 +795,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             let signatureValidator = MockCollectionSignatureValidator()
             // Collections from www.test.com must be signed
             let sourceCertPolicy = PackageCollectionSourceCertificatePolicy(
-                sourceCertPolicies: ["www.test.com": .init(certPolicyKey: CertificatePolicyKey.default, base64EncodedRootCerts: nil)]
+                sourceCertPolicies: ["www.test.com": [.init(certPolicyKey: CertificatePolicyKey.default, base64EncodedRootCerts: nil)]]
             )
             let provider = JSONPackageCollectionProvider(httpClient: httpClient, signatureValidator: signatureValidator,
                                                          sourceCertPolicy: sourceCertPolicy, diagnosticsEngine: DiagnosticsEngine())

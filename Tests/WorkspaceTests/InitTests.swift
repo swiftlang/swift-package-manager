@@ -40,8 +40,9 @@ class InitTests: XCTestCase {
             let manifest = path.appending(component: "Package.swift")
             XCTAssertTrue(fs.exists(manifest))
             let manifestContents = try localFileSystem.readFileContents(manifest).description
-            let version = "\(InitPackage.newPackageToolsVersion.major).\(InitPackage.newPackageToolsVersion.minor)"
-            XCTAssertTrue(manifestContents.hasPrefix("// swift-tools-version:\(version)\n"))
+			let version = InitPackage.newPackageToolsVersion
+			let versionSpecifier = "\(version.major).\(version.minor)"
+			XCTAssertTrue(manifestContents.hasPrefix("// swift-tools-version:\(version < .v5_4 ? "" : " ")\(versionSpecifier)\n"))
             XCTAssertTrue(manifestContents.contains(packageWithNameAndDependencies(with: name)))
             XCTAssert(fs.exists(path.appending(component: "README.md")))
             XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Sources")), [])
@@ -72,8 +73,9 @@ class InitTests: XCTestCase {
             let manifest = path.appending(component: "Package.swift")
             XCTAssertTrue(fs.exists(manifest))
             let manifestContents = try localFileSystem.readFileContents(manifest).description
-            let version = "\(InitPackage.newPackageToolsVersion.major).\(InitPackage.newPackageToolsVersion.minor)"
-            XCTAssertTrue(manifestContents.hasPrefix("// swift-tools-version:\(version)\n"))
+			let version = InitPackage.newPackageToolsVersion
+			let versionSpecifier = "\(version.major).\(version.minor)"
+			XCTAssertTrue(manifestContents.hasPrefix("// swift-tools-version:\(version < .v5_4 ? "" : " ")\(versionSpecifier)\n"))
             
             let readme = path.appending(component: "README.md")
             XCTAssertTrue(fs.exists(readme))
@@ -86,13 +88,13 @@ class InitTests: XCTestCase {
                 ["FooTests"])
             
             // If we have a compiler that supports `-entry-point-function-name`, we try building it (we need that flag now).
-            if (Resources.default.swiftCompilerSupportsRenamingMainSymbol) {
-                XCTAssertBuilds(path)
-                let triple = Resources.default.toolchain.triple
-                let binPath = path.appending(components: ".build", triple.tripleString, "debug")
-                XCTAssertFileExists(binPath.appending(component: "Foo"))
-                XCTAssertFileExists(binPath.appending(components: "Foo.swiftmodule"))
-            }
+            #if swift(>=5.5)
+            XCTAssertBuilds(path)
+            let triple = Resources.default.toolchain.triple
+            let binPath = path.appending(components: ".build", triple.tripleString, "debug")
+            XCTAssertFileExists(binPath.appending(component: "Foo"))
+            XCTAssertFileExists(binPath.appending(components: "Foo.swiftmodule"))
+            #endif
         }
     }
 
@@ -118,8 +120,9 @@ class InitTests: XCTestCase {
             let manifest = path.appending(component: "Package.swift")
             XCTAssertTrue(fs.exists(manifest))
             let manifestContents = try localFileSystem.readFileContents(manifest).description
-            let version = "\(InitPackage.newPackageToolsVersion.major).\(InitPackage.newPackageToolsVersion.minor)"
-            XCTAssertTrue(manifestContents.hasPrefix("// swift-tools-version:\(version)\n"))
+			let version = InitPackage.newPackageToolsVersion
+			let versionSpecifier = "\(version.major).\(version.minor)"
+			XCTAssertTrue(manifestContents.hasPrefix("// swift-tools-version:\(version < .v5_4 ? "" : " ")\(versionSpecifier)\n"))
 
             let readme = path.appending(component: "README.md")
             XCTAssertTrue(fs.exists(readme))
@@ -127,9 +130,19 @@ class InitTests: XCTestCase {
             XCTAssertTrue(readmeContents.hasPrefix("# Foo\n"))
 
             XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Sources").appending(component: "Foo")), ["Foo.swift"])
+
+            let tests = path.appending(component: "Tests")
             XCTAssertEqual(
-                try fs.getDirectoryContents(path.appending(component: "Tests")).sorted(),
+                try fs.getDirectoryContents(tests).sorted(),
                 ["FooTests"])
+
+            let testFile = tests.appending(component: "FooTests").appending(component: "FooTests.swift")
+            let testFileContents = try localFileSystem.readFileContents(testFile).description
+            XCTAssertTrue(testFileContents.hasPrefix("import XCTest"), """
+                          Validates formatting of XCTest source file, in particular that it does not contain leading whitespace:
+                          \(testFileContents)
+                          """)
+            XCTAssertTrue(testFileContents.contains("func testExample() throws"), "Contents:\n\(testFileContents)")
 
             // Try building it
             XCTAssertBuilds(path)
@@ -160,8 +173,9 @@ class InitTests: XCTestCase {
             let manifest = path.appending(component: "Package.swift")
             XCTAssertTrue(fs.exists(manifest))
             let manifestContents = try localFileSystem.readFileContents(manifest).description
-            let version = "\(InitPackage.newPackageToolsVersion.major).\(InitPackage.newPackageToolsVersion.minor)"
-            XCTAssertTrue(manifestContents.hasPrefix("// swift-tools-version:\(version)\n"))
+			let version = InitPackage.newPackageToolsVersion
+			let versionSpecifier = "\(version.major).\(version.minor)"
+			XCTAssertTrue(manifestContents.hasPrefix("// swift-tools-version:\(version < .v5_4 ? "" : " ")\(versionSpecifier)\n"))
             XCTAssertTrue(manifestContents.contains(packageWithNameAndDependencies(with: name)))
             XCTAssert(fs.exists(path.appending(component: "README.md")))
             XCTAssert(fs.exists(path.appending(component: "module.modulemap")))
@@ -190,8 +204,9 @@ class InitTests: XCTestCase {
             let manifest = path.appending(component: "Package.swift")
             XCTAssertTrue(fs.exists(manifest))
             let manifestContents = try localFileSystem.readFileContents(manifest).description
-            let version = "\(InitPackage.newPackageToolsVersion.major).\(InitPackage.newPackageToolsVersion.minor)"
-            XCTAssertTrue(manifestContents.hasPrefix("// swift-tools-version:\(version)\n"))
+			let version = InitPackage.newPackageToolsVersion
+			let versionSpecifier = "\(version.major).\(version.minor)"
+			XCTAssertTrue(manifestContents.hasPrefix("// swift-tools-version:\(version < .v5_4 ? "" : " ")\(versionSpecifier)\n"))
         }
     }
     
@@ -220,9 +235,6 @@ class InitTests: XCTestCase {
     }
     
     func testNonC99NameExecutablePackage() throws {
-        // <rdar://problem/70382477> Fix and re-enable tests which run `swift test` on newly created packages
-        try XCTSkipIf(true)
-
         try withTemporaryDirectory(removeTreeOnDeinit: true) { tempDirPath in
             XCTAssertTrue(localFileSystem.isDirectory(tempDirPath))
             

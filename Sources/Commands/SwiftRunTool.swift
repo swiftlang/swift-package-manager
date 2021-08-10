@@ -43,19 +43,26 @@ extension RunError: CustomStringConvertible {
 }
 
 struct RunToolOptions: ParsableArguments {
-    enum RunMode {
+    enum RunMode: EnumerableFlag {
         case repl
+        case debugger
         case run
+
+        static func help(for value: RunToolOptions.RunMode) -> ArgumentHelp? {
+            switch value {
+            case .repl:
+                return "Launch Swift REPL for the package"
+            case .debugger:
+                return "Launch the executable in a debugger session"
+            case .run:
+                return "Launch the executable with the provided arguments"
+            }
+        }
     }
 
-    /// Returns the mode in with the tool command should run.
-    var mode: RunMode {
-        if shouldLaunchREPL {
-            return .repl
-        }
-        return .run
-    }
-    
+    /// The mode in with the tool command should run.
+    @Flag var mode: RunMode = .run
+
     /// If the executable product should be built before running.
     @Flag(name: .customLong("skip-build"), help: "Skip building the executable product")
     var shouldSkipBuild: Bool = false
@@ -65,10 +72,6 @@ struct RunToolOptions: ParsableArguments {
     /// If the test should be built.
     @Flag(name: .customLong("build-tests"), help: "Build both source and test targets")
     var shouldBuildTests: Bool = false
-
-    /// If should launch the Swift REPL.
-    @Flag(name: .customLong("repl"), help: "Launch Swift REPL for the package")
-    var shouldLaunchREPL: Bool = false
 
     /// The executable product to run.
     @Argument(help: "The executable to run", completion: .shellCommand("swift package completion-tool list-executables"))
@@ -90,7 +93,7 @@ public struct SwiftRunTool: SwiftCommand {
         version: SwiftVersion.currentVersion.completeDisplayString,
         helpNames: [.short, .long, .customLong("help", withSingleDash: true)])
 
-    @OptionGroup()
+    @OptionGroup(_hiddenFromHelp: true)
     public var swiftOptions: SwiftToolOptions
 
     @OptionGroup()
@@ -109,7 +112,7 @@ public struct SwiftRunTool: SwiftCommand {
             let graphLoader = {
                 try swiftTool.loadPackageGraph(
                     explicitProduct: self.options.executable,
-                    createREPLProduct: self.options.shouldLaunchREPL)
+                    createREPLProduct: true)
             }
             let buildParameters = try swiftTool.buildParameters()
 
@@ -136,6 +139,32 @@ public struct SwiftRunTool: SwiftCommand {
                 swiftTool.getToolchain().swiftInterpreter,
                 originalWorkingDirectory: swiftTool.originalWorkingDirectory,
                 arguments: arguments)
+
+        case .debugger:
+            do {
+                let buildSystem = try swiftTool.createBuildSystem(explicitProduct: options.executable)
+                let productName = try findProductName(in: buildSystem.getPackageGraph())
+                if options.shouldBuildTests {
+                    try buildSystem.build(subset: .allIncludingTests)
+                } else if options.shouldBuild {
+                    try buildSystem.build(subset: .product(productName))
+                }
+
+                let executablePath = try swiftTool.buildParameters().buildPath.appending(component: productName)
+
+                // Make sure we are running from the original working directory.
+                let cwd: AbsolutePath? = localFileSystem.currentWorkingDirectory
+                if cwd == nil || swiftTool.originalWorkingDirectory != cwd {
+                    try ProcessEnv.chdir(swiftTool.originalWorkingDirectory)
+                }
+
+                let pathRelativeToWorkingDirectory = executablePath.relative(to: swiftTool.originalWorkingDirectory)
+                let lldbPath = try swiftTool.getToolchain().getLLDB()
+                try exec(path: lldbPath.pathString, args: ["--", pathRelativeToWorkingDirectory.pathString] + options.arguments)
+            } catch let error as RunError {
+                swiftTool.diagnostics.emit(error)
+                throw ExitCode.failure
+            }
 
         case .run:
             // Detect deprecated uses of swift run to interpret scripts.

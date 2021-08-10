@@ -174,8 +174,6 @@ public struct TargetDescription: Equatable, Codable {
             if pluginUsages != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "pluginUsages") }
         case .plugin:
             if url != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "url") }
-            if !exclude.isEmpty { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "exclude") }
-            if sources != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "sources") }
             if !resources.isEmpty { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "resources") }
             if publicHeadersPath != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "publicHeadersPath") }
             if pkgConfig != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "pkgConfig") }

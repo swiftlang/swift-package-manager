@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
  
- Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
+ Copyright (c) 2014 - 2020 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
  
  See http://swift.org/LICENSE.txt for license information
@@ -226,8 +226,8 @@ public final class InitPackage {
         let version = InitPackage.newPackageToolsVersion.zeroedPatch
 
         // Write the current tools version.
-        try writeToolsVersion(
-            at: manifest.parentDirectory, version: version, fs: localFileSystem)
+        try rewriteToolsVersionSpecification(
+            toDefaultManifestIn: manifest.parentDirectory, specifying: version, fileSystem: localFileSystem)
     }
 
     private func writeREADMEFile() throws {
@@ -260,7 +260,9 @@ public final class InitPackage {
                 /*.xcodeproj
                 xcuserdata/
                 DerivedData/
+                .swiftpm/config/registries.json
                 .swiftpm/xcode/package.xcworkspace/contents.xcworkspacedata
+                .netrc
 
                 """
         }
@@ -291,8 +293,11 @@ public final class InitPackage {
         switch packageType {
         case .library:
             content = """
-                struct \(typeName) {
-                    var text = "Hello, World!"
+                public struct \(typeName) {
+                    public private(set) var text = "Hello, World!"
+
+                    public init() {
+                    }
                 }
 
                 """
@@ -356,19 +361,15 @@ public final class InitPackage {
                 @testable import \(moduleName)
 
                 final class \(moduleName)Tests: XCTestCase {
-                    func testExample() {
+                    func testExample() throws {
                         // This is an example of a functional test case.
                         // Use XCTAssert and related functions to verify your tests produce the correct
                         // results.
                         XCTAssertEqual(\(typeName)().text, "Hello, World!")
                     }
-
-            """
-
-            stream <<< """
                 }
 
-            """
+                """
         }
     }
 
@@ -421,10 +422,6 @@ public final class InitPackage {
                         return Bundle.main.bundleURL
                       #endif
                     }
-
-                """
-
-            stream <<< """
                 }
 
                 """
@@ -467,6 +464,8 @@ extension PackageModel.Platform {
         switch self {
         case .macOS:
             return "macOS"
+        case .macCatalyst:
+            return "macCatalyst"
         case .iOS:
             return "iOS"
         case .tvOS:
@@ -487,7 +486,7 @@ extension SupportedPlatform {
             guard self.version.patch == 0 else {
                 return false
             }
-        } else if [Platform.macOS, .iOS, .watchOS, .tvOS, .driverKit].contains(platform) {
+        } else if [Platform.macOS, .macCatalyst, .iOS, .watchOS, .tvOS, .driverKit].contains(platform) {
             guard self.version.minor == 0, self.version.patch == 0 else {
                 return false
             }
@@ -500,6 +499,8 @@ extension SupportedPlatform {
             return (10...15).contains(version.minor)
         case .macOS:
             return (11...11).contains(version.major)
+        case .macCatalyst:
+            return (13...14).contains(version.major)
         case .iOS:
             return (8...14).contains(version.major)
         case .tvOS:

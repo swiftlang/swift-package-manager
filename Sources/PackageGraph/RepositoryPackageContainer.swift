@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2020 Apple Inc. and the Swift project authors
+ Copyright (c) 2014 - 2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -96,9 +96,23 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
             let knownVersionsWithDuplicates = Git.convertTagsToVersionMap(try repository.getTags())
 
             return knownVersionsWithDuplicates.mapValues({ tags -> String in
-                if tags.count == 2 {
+                if tags.count > 1 {
                     // FIXME: Warn if the two tags point to different git references.
-                    return tags.first(where: { !$0.hasPrefix("v") })!
+                    
+                    // If multiple tags are present with the same semantic version (e.g. v1.0.0, 1.0.0, 1.0) reconcile which one we prefer.
+                    // Prefer the most specific tag, e.g. 1.0.0 is preferred over 1.0.
+                    // Sort the tags so the most specific tag is first, order is ascending so the most specific tag will be last
+                    let tagsSortedBySpecificity = tags.sorted {
+                        let componentCounts = ($0.components(separatedBy: ".").count, $1.components(separatedBy: ".").count)
+                        if componentCounts.0 == componentCounts.1 {
+                            //if they are both have the same number of components, favor the one without a v prefix.
+                            //this matches previously defined behavior
+                            //this assumes we can only enter this situation because one tag has a v prefix and the other does not.
+                            return $0.hasPrefix("v")
+                        }
+                        return componentCounts.0 < componentCounts.1
+                    }
+                    return tagsSortedBySpecificity.last!
                 }
                 assert(tags.count == 1, "Unexpected number of tags")
                 return tags[0]
@@ -434,19 +448,6 @@ extension Git {
             return versionSpecificKnownVersions
         } else {
             return knownVersions
-        }
-    }
-}
-
-extension Version {
-    /// Try a version from a git tag.
-    ///
-    /// - Parameter tag: A version string possibly prepended with "v".
-    init?(tag: String) {
-        if tag.first == "v" {
-            self.init(string: String(tag.dropFirst()))
-        } else {
-            self.init(string: tag)
         }
     }
 }

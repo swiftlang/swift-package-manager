@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2020 Apple Inc. and the Swift project authors
+ Copyright (c) 2014 - 2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -15,7 +15,7 @@ import TSCUtility
 import Foundation
 public typealias FileSystem = TSCBasic.FileSystem
 
-public enum ManifestParseError: Swift.Error {
+public enum ManifestParseError: Swift.Error, Equatable {
     /// The manifest contains invalid format.
     case invalidManifestFormat(String, diagnosticFile: AbsolutePath?)
 
@@ -157,43 +157,6 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         self.operationQueue.maxConcurrentOperationCount = Concurrency.maxOperations
     }
 
-    // deprecated 3/21, remove once clients migrated over
-    @available(*, deprecated, message: "use loadRootManifest instead")
-    public static func loadManifest(
-        at path: AbsolutePath,
-        kind: PackageReference.Kind,
-        swiftCompiler: AbsolutePath,
-        swiftCompilerFlags: [String],
-        identityResolver: IdentityResolver,
-        on queue: DispatchQueue,
-        completion: @escaping (Result<Manifest, Error>) -> Void
-    ) {
-        do {
-            let fileSystem = localFileSystem
-            let resources = try UserManifestResources(swiftCompiler: swiftCompiler, swiftCompilerFlags: swiftCompilerFlags)
-            let loader = ManifestLoader(manifestResources: resources)
-            let toolsVersion = try ToolsVersionLoader().load(at: path, fileSystem: fileSystem)
-            let packageLocation = path.pathString
-            let packageIdentity = identityResolver.resolveIdentity(for: packageLocation)
-            loader.load(
-                at: path,
-                packageIdentity: packageIdentity,
-                packageKind: kind,
-                packageLocation: packageLocation,
-                version: nil,
-                revision: nil,
-                toolsVersion: toolsVersion,
-                identityResolver: identityResolver,
-                fileSystem: fileSystem,
-                diagnostics: nil,
-                on: queue,
-                completion: completion
-            )
-        } catch {
-            return completion(.failure(error))
-        }
-    }
-
     /// Loads a root manifest from a path using the resources associated with a particular `swiftc` executable.
     ///
     /// - Parameters:
@@ -236,36 +199,6 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         } catch {
             return completion(.failure(error))
         }
-    }
-
-    // deprecated 3/21, remove once clients migrated over
-    @available(*, deprecated, message: "use load(at: packageIdentity:, ...) variant instead")
-    public func load(
-        at path: AbsolutePath,
-        packageKind: PackageReference.Kind,
-        packageLocation: String,
-        version: Version?,
-        revision: String?,
-        toolsVersion: ToolsVersion,
-        identityResolver: IdentityResolver,
-        fileSystem: FileSystem,
-        diagnostics: DiagnosticsEngine? = nil,
-        on queue: DispatchQueue,
-        completion: @escaping (Result<Manifest, Error>) -> Void
-    ) {
-        let packageIdentity = identityResolver.resolveIdentity(for: packageLocation)
-        self.load(at: path,
-                  packageIdentity: packageIdentity,
-                  packageKind: packageKind,
-                  packageLocation: packageLocation,
-                  version: version,
-                  revision: revision,
-                  toolsVersion: toolsVersion,
-                  identityResolver: identityResolver,
-                  fileSystem: fileSystem,
-                  diagnostics: diagnostics,
-                  on: queue,
-                  completion: completion)
     }
 
     public func load(
@@ -324,29 +257,17 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
                 // Validate that the file exists.
                 guard fileSystem.isFile(path) else {
-                    throw PackageModel.Package.Error.noManifest(
-                        at: path, version: version?.description)
+                    throw PackageModel.Package.Error.noManifest(at: path, version: version?.description)
                 }
 
-                // Get the JSON string for the manifest.
-                let jsonString = try self.loadJSONString(
+                let parsedManifest = try self.parseAndCacheManifest(
                     at: path,
                     packageIdentity: packageIdentity,
+                    packageLocation: packageLocation,
                     toolsVersion: toolsVersion,
+                    identityResolver: identityResolver,
                     fileSystem: fileSystem,
-                    diagnostics: diagnostics
-                )
-
-                // Load the manifest from JSON.
-                let parsedManifest = try ManifestJSONParser.parse(v4: jsonString,
-                                                                  toolsVersion: toolsVersion,
-                                                                  packageLocation: packageLocation,
-                                                                  identityResolver: identityResolver,
-                                                                  fileSystem: fileSystem)
-                // Throw if we encountered any runtime errors.
-                guard parsedManifest.errors.isEmpty else {
-                    throw ManifestParseError.runtimeManifestErrors(parsedManifest.errors)
-                }
+                    diagnostics: diagnostics)
 
                 // Convert legacy system packages to the current target‐based model.
                 var products = parsedManifest.products
@@ -466,7 +387,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         }
 
         if toolsVersion >= .v5_2 {
-            let duplicateDependencies = try duplicateDependencyIdentities.flatMap{ identifier -> [PackageDependencyDescription] in
+            let duplicateDependencies = try duplicateDependencyIdentities.flatMap{ identifier -> [PackageDependency] in
                 guard let dependency = dependenciesByIdentity[identifier] else {
                     throw InternalError("unknown dependency \(identifier)")
                 }
@@ -545,27 +466,18 @@ public final class ManifestLoader: ManifestLoaderProtocol {
     }
 
     /// Load the JSON string for the given manifest.
-    private func loadJSONString(
-        at path: AbsolutePath,
+    private func parseManifest(
+        _ result: EvaluationResult,
         packageIdentity: PackageIdentity,
+        packageLocation: String,
         toolsVersion: ToolsVersion,
+        identityResolver: IdentityResolver,
         fileSystem: FileSystem,
         diagnostics: DiagnosticsEngine?
-    ) throws -> String {
-
-        let cacheKey = try ManifestCacheKey(
-            packageIdentity: packageIdentity,
-            manifestPath: path,
-            toolsVersion: toolsVersion,
-            env: ProcessEnv.vars,
-            swiftpmVersion: SwiftVersion.currentVersion.displayString,
-            fileSystem: fileSystem
-        )
-
-        let result = self.parseAndCacheManifest(key: cacheKey, diagnostics: diagnostics)
+    ) throws -> ManifestJSONParser.Result {
         // Throw now if we weren't able to parse the manifest.
-        guard let parsedManifest = result.parsedManifest else {
-            let errors = result.errorOutput ?? result.compilerOutput ?? "Unknown error parsing manifest for \(packageIdentity)"
+        guard let manifestJSON = result.manifestJSON, !manifestJSON.isEmpty else {
+            let errors = result.errorOutput ?? result.compilerOutput ?? "Missing or empty JSON output from manifest compilation for \(packageIdentity)"
             throw ManifestParseError.invalidManifestFormat(errors, diagnosticFile: result.diagnosticFile)
         }
 
@@ -581,49 +493,85 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             }
         }
 
-        return parsedManifest
+        return try ManifestJSONParser.parse(v4: manifestJSON,
+                                            toolsVersion: toolsVersion,
+                                            packageLocation: packageLocation,
+                                            identityResolver: identityResolver,
+                                            fileSystem: fileSystem)
     }
 
-    fileprivate func parseAndCacheManifest(key: ManifestCacheKey, diagnostics: DiagnosticsEngine?) -> ManifestParseResult {
-        let cache = self.databaseCacheDir.map { cacheDir -> SQLiteManifestCache in
+    private func parseAndCacheManifest(
+        at path: AbsolutePath,
+        packageIdentity: PackageIdentity,
+        packageLocation: String,
+        toolsVersion: ToolsVersion,
+        identityResolver: IdentityResolver,
+        fileSystem: FileSystem,
+        diagnostics: DiagnosticsEngine?
+    ) throws -> ManifestJSONParser.Result {
+        let cache = self.databaseCacheDir.map { cacheDir -> SQLiteBackedCache<EvaluationResult> in
             let path = Self.manifestCacheDBPath(cacheDir)
-            var configuration = SQLiteManifestCache.Configuration()
+            var configuration = SQLiteBackedCacheConfiguration()
             // FIXME: expose as user-facing configuration
             configuration.maxSizeInMegabytes = 100
             configuration.truncateWhenFull = true
-            return SQLiteManifestCache(location: .path(path), configuration: configuration, diagnosticsEngine: diagnostics)
+            return SQLiteBackedCache<EvaluationResult>(tableName: "MANIFEST_CACHE", location: .path(path), configuration: configuration, diagnosticsEngine: diagnostics)
         }
 
         // TODO: we could wrap the failure here with diagnostics if it wasn't optional throughout
         defer { try? cache?.close() }
 
+        let key = try CacheKey(
+            packageIdentity: packageIdentity,
+            manifestPath: path,
+            toolsVersion: toolsVersion,
+            env: ProcessEnv.vars,
+            swiftpmVersion: SwiftVersion.currentVersion.displayString,
+            fileSystem: fileSystem
+        )
+
         do {
-            if let result = try cache?.get(key: key) {
-                return result
+            // try to get it from the cache
+            if let result = try cache?.get(key: key.sha256Checksum), let manifestJSON = result.manifestJSON, !manifestJSON.isEmpty {
+                return try self.parseManifest(
+                    result,
+                    packageIdentity: packageIdentity,
+                    packageLocation: packageLocation,
+                    toolsVersion: toolsVersion,
+                    identityResolver: identityResolver,
+                    fileSystem: fileSystem,
+                    diagnostics: diagnostics)
             }
-        } catch  {
-            diagnostics?.emit(.warning("failed loading manifest for '\(key.packageIdentity)' from cache: \(error)"))
+        } catch {
+            diagnostics?.emit(.warning("failed loading cached manifest for '\(key.packageIdentity)': \(error)"))
         }
 
-        let result = self.parse(packageIdentity: key.packageIdentity,
-                                manifestPath: key.manifestPath,
-                                manifestContents: key.manifestContents,
-                                toolsVersion: key.toolsVersion)
+        // shells out and compiles the manifest, finally output a JSON
+        let result = self.evaluateManifest(packageIdentity: key.packageIdentity,
+                                           manifestPath: key.manifestPath,
+                                           manifestContents: key.manifestContents,
+                                           toolsVersion: key.toolsVersion)
 
-        // only cache successfully parsed manifests,
-        // this is important for swift-pm development
-        if !result.hasErrors {
-            do {
-                try cache?.put(key: key, manifest: result)
-            } catch {
-                diagnostics?.emit(.warning("failed storing manifest for '\(key.packageIdentity)' in cache: \(error)"))
-            }
+        // only cache successfully parsed manifests
+        let parseManifest = try self.parseManifest(
+            result,
+            packageIdentity: packageIdentity,
+            packageLocation: packageLocation,
+            toolsVersion: toolsVersion,
+            identityResolver: identityResolver,
+            fileSystem: fileSystem,
+            diagnostics: diagnostics)
+
+        do {
+            try cache?.put(key: key.sha256Checksum, value: result)
+        } catch {
+            diagnostics?.emit(.warning("failed storing manifest for '\(key.packageIdentity)' in cache: \(error)"))
         }
 
-        return result
+        return parseManifest
     }
 
-    internal struct ManifestCacheKey: Hashable {
+    internal struct CacheKey: Hashable {
         let packageIdentity: PackageIdentity
         let manifestPath: AbsolutePath
         let manifestContents: [UInt8]
@@ -674,11 +622,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         }
     }
 
-    internal struct ManifestParseResult: Codable {
-        var hasErrors: Bool {
-            return parsedManifest == nil
-        }
-
+    internal struct EvaluationResult: Codable {
         /// The path to the diagnostics file (.dia).
         ///
         /// This is only present if serialized diagnostics are enabled.
@@ -689,211 +633,219 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         /// This would contain the errors and warnings produced when loading the manifest file.
         var compilerOutput: String?
 
-        /// The parsed manifest in JSON format.
-        var parsedManifest: String?
+        /// The manifest in JSON format.
+        var manifestJSON: String?
 
         /// Any non-compiler error that might have occurred during manifest loading.
         ///
         /// For e.g., we could have failed to spawn the process or create temporary file.
         var errorOutput: String? {
             didSet {
-                assert(parsedManifest == nil)
+                assert(self.manifestJSON == nil)
             }
+        }
+
+        var hasErrors: Bool {
+            return self.manifestJSON == nil
         }
     }
 
-    /// Parse the manifest at the given path to JSON.
-    fileprivate func parse(
+    /// Compiler the manifest at the given path and retrieve the JSON.
+    fileprivate func evaluateManifest(
         packageIdentity: PackageIdentity,
         manifestPath: AbsolutePath,
         manifestContents: [UInt8],
         toolsVersion: ToolsVersion
-    ) -> ManifestParseResult {
-        /// Helper method for parsing the manifest.
-        func _parse(
-            path manifestPath: AbsolutePath,
-            toolsVersion: ToolsVersion,
-            manifestParseResult: inout ManifestParseResult
-        ) throws {
-            self.delegate?.willParse(manifest: manifestPath)
+    ) -> EvaluationResult {
 
-            // The compiler has special meaning for files with extensions like .ll, .bc etc.
-            // Assert that we only try to load files with extension .swift to avoid unexpected loading behavior.
-            assert(manifestPath.extension == "swift",
-                   "Manifest files must contain .swift suffix in their name, given: \(manifestPath).")
-
-            // For now, we load the manifest by having Swift interpret it directly.
-            // Eventually, we should have two loading processes, one that loads only
-            // the declarative package specification using the Swift compiler directly
-            // and validates it.
-
-            // Compute the path to runtime we need to load.
-            let runtimePath = self.runtimePath(for: toolsVersion)
-
-            // FIXME: Workaround for the module cache bug that's been haunting Swift CI
-            // <rdar://problem/48443680>
-            let moduleCachePath = (ProcessEnv.vars["SWIFTPM_MODULECACHE_OVERRIDE"] ?? ProcessEnv.vars["SWIFTPM_TESTS_MODULECACHE"]).flatMap{ AbsolutePath.init($0) }
-
-            var cmd: [String] = []
-            cmd += [resources.swiftCompiler.pathString]
-            cmd += verbosity.ccArgs
-
-            let macOSPackageDescriptionPath: AbsolutePath
-            // If we got the binDir that means we could be developing SwiftPM in Xcode
-            // which produces a framework for dynamic package products.
-            let packageFrameworkPath = runtimePath.appending(component: "PackageFrameworks")
-            if resources.binDir != nil, localFileSystem.exists(packageFrameworkPath)  {
-                cmd += [
-                    "-F", packageFrameworkPath.pathString,
-                    "-framework", "PackageDescription",
-                    "-Xlinker", "-rpath", "-Xlinker", packageFrameworkPath.pathString,
-                ]
-
-                macOSPackageDescriptionPath = packageFrameworkPath.appending(RelativePath("PackageDescription.framework/PackageDescription"))
-            } else {
-                cmd += [
-                    "-L", runtimePath.pathString,
-                    "-lPackageDescription",
-                ]
-#if !os(Windows)
-                // -rpath argument is not supported on Windows,
-                // so we add runtimePath to PATH when executing the manifest instead
-                cmd += ["-Xlinker", "-rpath", "-Xlinker", runtimePath.pathString]
-#endif
-
-                // note: this is not correct for all platforms, but we only actually use it on macOS.
-                macOSPackageDescriptionPath = runtimePath.appending(RelativePath("libPackageDescription.dylib"))
-            }
-
-            // Use the same minimum deployment target as the PackageDescription library (with a fallback of 10.15).
-            #if os(macOS)
-            let triple = Self._hostTriple.memoize {
-                Triple.getHostTriple(usingSwiftCompiler: resources.swiftCompiler)
-            }
-
-            let version = try Self._packageDescriptionMinimumDeploymentTarget.memoize {
-                (try MinimumDeploymentTarget.computeMinimumDeploymentTarget(of: macOSPackageDescriptionPath))?.versionString ?? "10.15"
-            }
-            cmd += ["-target", "\(triple.tripleString(forPlatformVersion: version))"]
-            #endif
-
-            // Add any extra flags required as indicated by the ManifestLoader.
-            cmd += resources.swiftCompilerFlags
-
-            cmd += self.interpreterFlags(for: toolsVersion)
-            if let moduleCachePath = moduleCachePath {
-                cmd += ["-module-cache-path", moduleCachePath.pathString]
-            }
-
-            // Add the arguments for emitting serialized diagnostics, if requested.
-            if self.serializedDiagnostics, let databaseCacheDir = self.databaseCacheDir {
-                let diaDir = databaseCacheDir.appending(component: "ManifestLoading")
-                let diagnosticFile = diaDir.appending(component: "\(packageIdentity).dia")
-                try localFileSystem.createDirectory(diaDir, recursive: true)
-                cmd += ["-Xfrontend", "-serialize-diagnostics-path", "-Xfrontend", diagnosticFile.pathString]
-                manifestParseResult.diagnosticFile = diagnosticFile
-            }
-
-            cmd += [manifestPath.pathString]
-
-            cmd += self.extraManifestFlags
-
-            try withTemporaryDirectory(removeTreeOnDeinit: true) { tmpDir in
-                // Set path to compiled manifest executable.
-#if os(Windows)
-                let executableSuffix = ".exe"
-#else
-                let executableSuffix = ""
-#endif
-                let compiledManifestFile = tmpDir.appending(component: "\(packageIdentity)-manifest\(executableSuffix)")
-                cmd += ["-o", compiledManifestFile.pathString]
-
-                // Compile the manifest.
-                let compilerResult = try Process.popen(arguments: cmd)
-                let compilerOutput = try (compilerResult.utf8Output() + compilerResult.utf8stderrOutput()).spm_chuzzle()
-                manifestParseResult.compilerOutput = compilerOutput
-
-                // Return now if there was an error.
-                if compilerResult.exitStatus != .terminated(code: 0) {
-                    return
-                }
-
-                // Pass an open file descriptor of a file to which the JSON representation of the manifest will be written.
-                let jsonOutputFile = tmpDir.appending(component: "\(packageIdentity)-output.json")
-                guard let jsonOutputFileDesc = fopen(jsonOutputFile.pathString, "w") else {
-                    throw StringError("couldn't create the manifest's JSON output file")
-                }
-
-                cmd = [compiledManifestFile.pathString]
-#if os(Windows)
-                // NOTE: `_get_osfhandle` returns a non-owning, unsafe,
-                // unretained HANDLE.  DO NOT invoke `CloseHandle` on `hFile`.
-                let hFile: Int = _get_osfhandle(_fileno(jsonOutputFileDesc))
-                cmd += ["-handle", "\(String(hFile, radix: 16))"]
-#else
-                cmd += ["-fileno", "\(fileno(jsonOutputFileDesc))"]
-#endif
-                // If enabled, run command in a sandbox.
-                // This provides some safety against arbitrary code execution when parsing manifest files.
-                // We only allow the permissions which are absolutely necessary.
-                if isManifestSandboxEnabled {
-                    let cacheDirectories = [self.databaseCacheDir, moduleCachePath].compactMap{ $0 }
-                    let strictness: Sandbox.Strictness = toolsVersion < .v5_3 ? .manifest_pre_53 : .default
-                    cmd = Sandbox.apply(command: cmd, writableDirectories: cacheDirectories, strictness: strictness)
-                }
-
-                // Run the compiled manifest.
-                var environment = ProcessEnv.vars
-#if os(Windows)
-                let windowsPathComponent = runtimePath.pathString.replacingOccurrences(of: "/", with: "\\")
-                environment["Path"] = "\(windowsPathComponent);\(environment["Path"] ?? "")"
-#endif
-                let runResult = try Process.popen(arguments: cmd, environment: environment)
-                fclose(jsonOutputFileDesc)
-                let runOutput = try (runResult.utf8Output() + runResult.utf8stderrOutput()).spm_chuzzle()
-                if let runOutput = runOutput {
-                    // Append the runtime output to any compiler output we've received.
-                    manifestParseResult.compilerOutput = (manifestParseResult.compilerOutput ?? "") + runOutput
-                }
-
-                // Return now if there was an error.
-                if runResult.exitStatus != .terminated(code: 0) {
-                    manifestParseResult.errorOutput = runOutput
-                    return
-                }
-
-                // Read the JSON output that was emitted by libPackageDescription.
-                guard let jsonOutput = try localFileSystem.readFileContents(jsonOutputFile).validDescription else {
-                    throw StringError("the manifest's JSON output has invalid encoding")
-                }
-                manifestParseResult.parsedManifest = jsonOutput
-            }
-        }
-
-        var manifestParseResult = ManifestParseResult()
+        var result = EvaluationResult()
         do {
             if localFileSystem.isFile(manifestPath) {
-                try _parse(
-                    path: manifestPath,
+                try self.evaluateManifest(
+                    at: manifestPath,
+                    packageIdentity: packageIdentity,
                     toolsVersion: toolsVersion,
-                    manifestParseResult: &manifestParseResult
+                    result: &result
                 )
             } else {
                 try withTemporaryFile(suffix: ".swift") { tempFile in
                     try localFileSystem.writeFileContents(tempFile.path, bytes: ByteString(manifestContents))
-                    try _parse(
-                        path: tempFile.path,
+                    try self.evaluateManifest(
+                        at: tempFile.path,
+                        packageIdentity: packageIdentity,
                         toolsVersion: toolsVersion,
-                        manifestParseResult: &manifestParseResult
+                        result: &result
                     )
                 }
             }
         } catch {
-            assert(manifestParseResult.parsedManifest == nil)
-            manifestParseResult.errorOutput = error.localizedDescription
+            assert(result.manifestJSON == nil)
+            result.errorOutput = error.localizedDescription
         }
 
-        return manifestParseResult
+        return result
+    }
+
+    /// Helper method for evaluating the manifest.
+    func evaluateManifest(
+        at manifestPath: AbsolutePath,
+        packageIdentity: PackageIdentity,
+        toolsVersion: ToolsVersion,
+        result: inout EvaluationResult
+    ) throws {
+        self.delegate?.willParse(manifest: manifestPath)
+
+        // The compiler has special meaning for files with extensions like .ll, .bc etc.
+        // Assert that we only try to load files with extension .swift to avoid unexpected loading behavior.
+        assert(manifestPath.extension == "swift",
+               "Manifest files must contain .swift suffix in their name, given: \(manifestPath).")
+
+        // For now, we load the manifest by having Swift interpret it directly.
+        // Eventually, we should have two loading processes, one that loads only
+        // the declarative package specification using the Swift compiler directly
+        // and validates it.
+
+        // Compute the path to runtime we need to load.
+        let runtimePath = self.runtimePath(for: toolsVersion)
+
+        // FIXME: Workaround for the module cache bug that's been haunting Swift CI
+        // <rdar://problem/48443680>
+        let moduleCachePath = (ProcessEnv.vars["SWIFTPM_MODULECACHE_OVERRIDE"] ?? ProcessEnv.vars["SWIFTPM_TESTS_MODULECACHE"]).flatMap{ AbsolutePath.init($0) }
+
+        var cmd: [String] = []
+        cmd += [resources.swiftCompiler.pathString]
+        cmd += verbosity.ccArgs
+
+        let macOSPackageDescriptionPath: AbsolutePath
+        // If we got the binDir that means we could be developing SwiftPM in Xcode
+        // which produces a framework for dynamic package products.
+        let packageFrameworkPath = runtimePath.appending(component: "PackageFrameworks")
+        if resources.binDir != nil, localFileSystem.exists(packageFrameworkPath)  {
+            cmd += [
+                "-F", packageFrameworkPath.pathString,
+                "-framework", "PackageDescription",
+                "-Xlinker", "-rpath", "-Xlinker", packageFrameworkPath.pathString,
+            ]
+
+            macOSPackageDescriptionPath = packageFrameworkPath.appending(RelativePath("PackageDescription.framework/PackageDescription"))
+        } else {
+            cmd += [
+                "-L", runtimePath.pathString,
+                "-lPackageDescription",
+            ]
+#if !os(Windows)
+            // -rpath argument is not supported on Windows,
+            // so we add runtimePath to PATH when executing the manifest instead
+            cmd += ["-Xlinker", "-rpath", "-Xlinker", runtimePath.pathString]
+#endif
+
+            // note: this is not correct for all platforms, but we only actually use it on macOS.
+            macOSPackageDescriptionPath = runtimePath.appending(RelativePath("libPackageDescription.dylib"))
+        }
+
+        // Use the same minimum deployment target as the PackageDescription library (with a fallback of 10.15).
+#if os(macOS)
+        let triple = Self._hostTriple.memoize {
+            Triple.getHostTriple(usingSwiftCompiler: resources.swiftCompiler)
+        }
+
+        let version = try Self._packageDescriptionMinimumDeploymentTarget.memoize {
+            (try MinimumDeploymentTarget.computeMinimumDeploymentTarget(of: macOSPackageDescriptionPath, platform: .macOS))?.versionString ?? "10.15"
+        }
+        cmd += ["-target", "\(triple.tripleString(forPlatformVersion: version))"]
+#endif
+
+        // Add any extra flags required as indicated by the ManifestLoader.
+        cmd += resources.swiftCompilerFlags
+
+        cmd += self.interpreterFlags(for: toolsVersion)
+        if let moduleCachePath = moduleCachePath {
+            cmd += ["-module-cache-path", moduleCachePath.pathString]
+        }
+
+        // Add the arguments for emitting serialized diagnostics, if requested.
+        if self.serializedDiagnostics, let databaseCacheDir = self.databaseCacheDir {
+            let diaDir = databaseCacheDir.appending(component: "ManifestLoading")
+            let diagnosticFile = diaDir.appending(component: "\(packageIdentity).dia")
+            try localFileSystem.createDirectory(diaDir, recursive: true)
+            cmd += ["-Xfrontend", "-serialize-diagnostics-path", "-Xfrontend", diagnosticFile.pathString]
+            result.diagnosticFile = diagnosticFile
+        }
+
+        cmd += [manifestPath.pathString]
+
+        cmd += self.extraManifestFlags
+
+        try withTemporaryDirectory(removeTreeOnDeinit: true) { tmpDir in
+            // Set path to compiled manifest executable.
+#if os(Windows)
+            let executableSuffix = ".exe"
+#else
+            let executableSuffix = ""
+#endif
+            let compiledManifestFile = tmpDir.appending(component: "\(packageIdentity)-manifest\(executableSuffix)")
+            cmd += ["-o", compiledManifestFile.pathString]
+
+            // Compile the manifest.
+            let compilerResult = try Process.popen(arguments: cmd)
+            let compilerOutput = try (compilerResult.utf8Output() + compilerResult.utf8stderrOutput()).spm_chuzzle()
+            result.compilerOutput = compilerOutput
+
+            // Return now if there was an error.
+            if compilerResult.exitStatus != .terminated(code: 0) {
+                return
+            }
+
+            // Pass an open file descriptor of a file to which the JSON representation of the manifest will be written.
+            let jsonOutputFile = tmpDir.appending(component: "\(packageIdentity)-output.json")
+            guard let jsonOutputFileDesc = fopen(jsonOutputFile.pathString, "w") else {
+                throw StringError("couldn't create the manifest's JSON output file")
+            }
+
+            cmd = [compiledManifestFile.pathString]
+#if os(Windows)
+            // NOTE: `_get_osfhandle` returns a non-owning, unsafe,
+            // unretained HANDLE.  DO NOT invoke `CloseHandle` on `hFile`.
+            let hFile: Int = _get_osfhandle(_fileno(jsonOutputFileDesc))
+            cmd += ["-handle", "\(String(hFile, radix: 16))"]
+#else
+            cmd += ["-fileno", "\(fileno(jsonOutputFileDesc))"]
+#endif
+            // If enabled, run command in a sandbox.
+            // This provides some safety against arbitrary code execution when parsing manifest files.
+            // We only allow the permissions which are absolutely necessary.
+            if isManifestSandboxEnabled {
+                let cacheDirectories = [self.databaseCacheDir, moduleCachePath].compactMap{ $0 }
+                let strictness: Sandbox.Strictness = toolsVersion < .v5_3 ? .manifest_pre_53 : .default
+                cmd = Sandbox.apply(command: cmd, writableDirectories: cacheDirectories, strictness: strictness)
+            }
+
+            // Run the compiled manifest.
+            var environment = ProcessEnv.vars
+#if os(Windows)
+            let windowsPathComponent = runtimePath.pathString.replacingOccurrences(of: "/", with: "\\")
+            environment["Path"] = "\(windowsPathComponent);\(environment["Path"] ?? "")"
+#endif
+            let runResult = try Process.popen(arguments: cmd, environment: environment)
+            fclose(jsonOutputFileDesc)
+            let runOutput = try (runResult.utf8Output() + runResult.utf8stderrOutput()).spm_chuzzle()
+            if let runOutput = runOutput {
+                // Append the runtime output to any compiler output we've received.
+                result.compilerOutput = (result.compilerOutput ?? "") + runOutput
+            }
+
+            // Return now if there was an error.
+            if runResult.exitStatus != .terminated(code: 0) {
+                result.errorOutput = runOutput
+                return
+            }
+
+            // Read the JSON output that was emitted by libPackageDescription.
+            guard let jsonOutput = try localFileSystem.readFileContents(jsonOutputFile).validDescription else {
+                throw StringError("the manifest's JSON output has invalid encoding")
+            }
+            result.manifestJSON = jsonOutput
+        }
     }
 
     /// Returns path to the sdk, if possible.
@@ -938,7 +890,18 @@ public final class ManifestLoader: ManifestLoaderProtocol {
     /// Returns the runtime path given the manifest version and path to libDir.
     private func runtimePath(for version: ToolsVersion) -> AbsolutePath {
         // Bin dir will be set when developing swiftpm without building all of the runtimes.
-        return resources.binDir ?? resources.libDir.appending(version.runtimeSubpath)
+        if let binDir = resources.binDir {
+            return binDir
+        }
+        
+        // Otherwise we use the standard location of the manifest API in the toolchain, if it exists.
+        let manifestAPIDir = resources.libDir.appending(component: "ManifestAPI")
+        if localFileSystem.exists(manifestAPIDir) {
+            return manifestAPIDir
+        }
+        
+        // Otherwise, fall back on the old location (this would indicate that we're using an old toolchain).
+        return resources.libDir.appending(version.runtimeSubpath)
     }
 
     /// Returns path to the manifest database inside the given cache directory.
@@ -1010,225 +973,5 @@ extension TSCBasic.Diagnostic.Message {
             invalid language tag '\(languageTag)'; the pattern for language tags is groups of latin characters and \
             digits separated by hyphens
             """)
-    }
-}
-
-/// SQLite backed persistent cache.
-internal final class SQLiteManifestCache: Closable {
-    let fileSystem: FileSystem
-    let location: SQLite.Location
-    let configuration: Configuration
-
-    private var state = State.idle
-    private let stateLock = Lock()
-
-    private let diagnosticsEngine: DiagnosticsEngine?
-    private let jsonEncoder: JSONEncoder
-    private let jsonDecoder: JSONDecoder
-
-    init(location: SQLite.Location, configuration: Configuration = .init(), diagnosticsEngine: DiagnosticsEngine? = nil) {
-        self.location = location
-        switch self.location {
-        case .path, .temporary:
-            self.fileSystem = localFileSystem
-        case .memory:
-            self.fileSystem = InMemoryFileSystem()
-        }
-        self.configuration = configuration
-        self.diagnosticsEngine = diagnosticsEngine
-        self.jsonEncoder = JSONEncoder.makeWithDefaults()
-        self.jsonDecoder = JSONDecoder.makeWithDefaults()
-    }
-
-    convenience init(path: AbsolutePath, configuration: Configuration = .init(), diagnosticsEngine: DiagnosticsEngine? = nil) {
-        self.init(location: .path(path), configuration: configuration, diagnosticsEngine: diagnosticsEngine)
-    }
-
-    deinit {
-        // TODO: we could wrap the failure here with diagnostics if it wasn't optional throughout
-        try? self.withStateLock {
-            if case .connected(let db) = self.state {
-                assertionFailure("db should be closed")
-                try db.close()
-            }
-        }
-    }
-
-    func close() throws {
-        try self.withStateLock {
-            if case .connected(let db) = self.state {
-                try db.close()
-            }
-            self.state = .disconnected
-        }
-    }
-
-    func put(key: ManifestLoader.ManifestCacheKey, manifest: ManifestLoader.ManifestParseResult) throws {
-        do {
-            let query = "INSERT OR IGNORE INTO MANIFEST_CACHE VALUES (?, ?);"
-            try self.executeStatement(query) { statement -> Void in
-                let data = try self.jsonEncoder.encode(manifest)
-                let bindings: [SQLite.SQLiteValue] = [
-                    .string(key.sha256Checksum),
-                    .blob(data),
-                ]
-                try statement.bind(bindings)
-                try statement.step()
-            }
-        } catch (let error as SQLite.Errors) where error == .databaseFull {
-            if !self.configuration.truncateWhenFull {
-                throw error
-            }
-            self.diagnosticsEngine?.emit(.warning("truncating manifest cache database since it reached max size of \(self.configuration.maxSizeInBytes ?? 0) bytes"))
-            try self.executeStatement("DELETE FROM MANIFEST_CACHE;") { statement -> Void in
-                try statement.step()
-            }
-            try self.put(key: key, manifest: manifest)
-        } catch {
-            throw error
-        }
-    }
-
-    func get(key: ManifestLoader.ManifestCacheKey) throws -> ManifestLoader.ManifestParseResult? {
-        let query = "SELECT value FROM MANIFEST_CACHE WHERE key == ? LIMIT 1;"
-        return try self.executeStatement(query) { statement ->  ManifestLoader.ManifestParseResult? in
-            try statement.bind([.string(key.sha256Checksum)])
-            let data = try statement.step()?.blob(at: 0)
-            return try data.flatMap {
-                try self.jsonDecoder.decode(ManifestLoader.ManifestParseResult.self, from: $0)
-            }
-        }
-    }
-
-    private func executeStatement<T>(_ query: String, _ body: (SQLite.PreparedStatement) throws -> T) throws -> T {
-        try self.withDB { db in
-            let result: Result<T, Error>
-            let statement = try db.prepare(query: query)
-            do {
-                result = .success(try body(statement))
-            } catch {
-                result = .failure(error)
-            }
-            try statement.finalize()
-            switch result {
-            case .failure(let error):
-                throw error
-            case .success(let value):
-                return value
-            }
-        }
-    }
-
-    private func withDB<T>(_ body: (SQLite) throws -> T) throws -> T {
-        let createDB = { () throws -> SQLite in
-            let db = try SQLite(location: self.location, configuration: self.configuration.underlying)
-            try self.createSchemaIfNecessary(db: db)
-            return db
-        }
-
-        let db = try self.withStateLock { () -> SQLite in
-            let db: SQLite
-            switch (self.location, self.state) {
-            case (.path(let path), .connected(let database)):
-                if self.fileSystem.exists(path) {
-                    db = database
-                } else {
-                    try database.close()
-                    try self.fileSystem.createDirectory(path.parentDirectory, recursive: true)
-                    db = try createDB()
-                }
-            case (.path(let path), _):
-                if !self.fileSystem.exists(path) {
-                    try self.fileSystem.createDirectory(path.parentDirectory, recursive: true)
-                }
-                db = try createDB()
-            case (_, .connected(let database)):
-                db = database
-            case (_, _):
-                db = try createDB()
-            }
-            self.state = .connected(db)
-            return db
-        }
-
-        // FIXME: workaround linux sqlite concurrency issues causing CI failures
-        #if os(Linux)
-        return try self.withStateLock {
-            return try body(db)
-        }
-        #else
-        return try body(db)
-        #endif
-    }
-
-    private func createSchemaIfNecessary(db: SQLite) throws {
-        let table = """
-            CREATE TABLE IF NOT EXISTS MANIFEST_CACHE (
-                key STRING PRIMARY KEY NOT NULL,
-                value BLOB NOT NULL
-            );
-        """
-
-        try db.exec(query: table)
-        try db.exec(query: "PRAGMA journal_mode=WAL;")
-    }
-
-    private func withStateLock<T>(_ body: () throws -> T) throws -> T {
-        switch self.location {
-        case .path(let path):
-            if !self.fileSystem.exists(path.parentDirectory) {
-                try self.fileSystem.createDirectory(path.parentDirectory)
-            }
-            return try self.fileSystem.withLock(on: path, type: .exclusive, body)
-        case .memory, .temporary:
-            return try self.stateLock.withLock(body)
-        }
-    }
-
-    private enum State {
-        case idle
-        case connected(SQLite)
-        case disconnected
-    }
-
-    struct Configuration {
-        var truncateWhenFull: Bool
-
-        fileprivate var underlying: SQLite.Configuration
-
-        init() {
-            self.underlying = .init()
-            self.truncateWhenFull = true
-            self.maxSizeInMegabytes = 100
-            // see https://www.sqlite.org/c3ref/busy_timeout.html
-            self.busyTimeoutMilliseconds = 1_000
-        }
-
-        var maxSizeInMegabytes: Int? {
-            get {
-                self.underlying.maxSizeInMegabytes
-            }
-            set {
-                self.underlying.maxSizeInMegabytes = newValue
-            }
-        }
-
-        var maxSizeInBytes: Int? {
-            get {
-                self.underlying.maxSizeInBytes
-            }
-            set {
-                self.underlying.maxSizeInBytes = newValue
-            }
-        }
-
-        var busyTimeoutMilliseconds: Int32 {
-            get {
-                self.underlying.busyTimeoutMilliseconds
-            }
-            set {
-                self.underlying.busyTimeoutMilliseconds = newValue
-            }
-        }
     }
 }

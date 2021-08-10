@@ -21,7 +21,7 @@ public protocol RepositoryManagerDelegate: AnyObject {
     func fetchingWillBegin(handle: RepositoryManager.RepositoryHandle, fetchDetails: RepositoryManager.FetchDetails?)
 
     /// Called when a repository has finished fetching.
-    func fetchingDidFinish(handle: RepositoryManager.RepositoryHandle, fetchDetails: RepositoryManager.FetchDetails?, error: Swift.Error?)
+    func fetchingDidFinish(handle: RepositoryManager.RepositoryHandle, fetchDetails: RepositoryManager.FetchDetails?, error: Swift.Error?, duration: DispatchTimeInterval)
 
     /// Called when a repository has started updating from its remote.
     func handleWillUpdate(handle: RepositoryManager.RepositoryHandle)
@@ -40,6 +40,7 @@ public extension RepositoryManagerDelegate {
     func handleWillUpdate(handle: RepositoryManager.RepositoryHandle) {}
     func handleDidUpdate(handle: RepositoryManager.RepositoryHandle) {}
     func fetchingRepository(from repository: String, objectsFetched: Int, totalObjectsToFetch: Int) {}
+    func handleDidUpdate(handle: RepositoryManager.RepositoryHandle, duration: DispatchTimeInterval) {}
 }
 
 /// Manages a collection of bare repositories.
@@ -107,16 +108,16 @@ public class RepositoryManager {
             return try self.manager.open(self)
         }
 
-        /// Clone into a working copy at on the local file system.
+        /// Create a working copy at on the local file system.
         ///
         /// - Parameters:
         ///   - path: The path at which to create the working copy; it is
         ///           expected to be non-existent when called.
         ///
         ///   - editable: The clone is expected to be edited by user.
-        public func cloneCheckout(to path: AbsolutePath, editable: Bool) throws {
-            precondition(status == .available, "cloneCheckout() called in invalid state")
-            try self.manager.cloneCheckout(self, to: path, editable: editable)
+        public func createWorkingCopy(at path: AbsolutePath, editable: Bool) throws -> WorkingCheckout {
+            precondition(status == .available, "createWorkingCopy() called in invalid state")
+            return try self.manager.createWorkingCopy(self, at: path, editable: editable)
         }
 
         fileprivate func toJSON() -> JSON {
@@ -174,7 +175,7 @@ public class RepositoryManager {
     ///
     /// We use operation queue (and not dispatch queue) to limit the amount of
     /// concurrent operations.
-    private let operationQueue: OperationQueue
+    private let lookupQueue: OperationQueue
 
     /// The filesystem to operate on.
     public let fileSystem: FileSystem
@@ -204,9 +205,9 @@ public class RepositoryManager {
         self.fileSystem = fileSystem
         self.cachePath = cachePath
 
-        self.operationQueue = OperationQueue()
-        self.operationQueue.name = "org.swift.swiftpm.repomanagerqueue-concurrent"
-        self.operationQueue.maxConcurrentOperationCount = Concurrency.maxOperations
+        self.lookupQueue = OperationQueue()
+        self.lookupQueue.name = "org.swift.swiftpm.repository-manager-lookup"
+        self.lookupQueue.maxConcurrentOperationCount = Swift.min(3, Concurrency.maxOperations)
 
         self.persistence = SimplePersistence(
             fileSystem: fileSystem,
@@ -236,7 +237,7 @@ public class RepositoryManager {
     ///
     /// - Parameters:
     ///   - repository: The repository to look up.
-    ///   - skipUpdate: If a repository is availble, skip updating it.
+    ///   - skipUpdate: If a repository is available, skip updating it.
     ///   - completion: The completion block that should be called after lookup finishes.
     public func lookup(
         repository: RepositorySpecifier,
@@ -244,7 +245,7 @@ public class RepositoryManager {
         on queue: DispatchQueue,
         completion: @escaping LookupCompletion
     ) {
-        operationQueue.addOperation {
+        self.lookupQueue.addOperation {
             // First look for the handle.
             let handle = self.getHandle(repository: repository)
             // Dispatch the action we want to take on the serial queue of the handle.
@@ -254,6 +255,7 @@ public class RepositoryManager {
                 switch handle.status {
                 case .available:
                     result = LookupResult(catching: {
+                        let start = DispatchTime.now()
                         // Update the repository when it is being looked up.
                         let repo = try handle.open()
 
@@ -268,13 +270,15 @@ public class RepositoryManager {
 
                         try repo.fetch()
 
+                        let duration = start.distance(to: .now())
                         queue.async {
-                            self.delegate?.handleDidUpdate(handle: handle)
+                            self.delegate?.handleDidUpdate(handle: handle, duration: duration)
                         }
 
                         return handle
                     })
                 case .pending, .uninitialized, .cached, .error:
+                    let start = DispatchTime.now()
                     let isCached = handle.status == .cached
                     let repositoryPath = self.path.appending(handle.subpath)
                     // Change the state to pending.
@@ -307,8 +311,9 @@ public class RepositoryManager {
                     }
 
                     // Inform delegate.
+                    let duration = start.distance(to: .now())
                     queue.async {
-                        self.delegate?.fetchingDidFinish(handle: handle, fetchDetails: fetchDetails, error: fetchError)
+                        self.delegate?.fetchingDidFinish(handle: handle, fetchDetails: fetchDetails, error: fetchError, duration: duration)
                     }
 
                     // Save the manager state.
@@ -433,16 +438,16 @@ public class RepositoryManager {
             repository: handle.repository, at: self.path.appending(handle.subpath))
     }
 
-    /// Clone a repository from a handle.
-    private func cloneCheckout(
+    /// Create a working copy of the repository from a handle.
+    private func createWorkingCopy(
         _ handle: RepositoryHandle,
-        to destinationPath: AbsolutePath,
+        at destinationPath: AbsolutePath,
         editable: Bool
-    ) throws {
-        try self.provider.cloneCheckout(
+    ) throws -> WorkingCheckout {
+        try self.provider.createWorkingCopy(
             repository: handle.repository,
-            at: self.path.appending(handle.subpath),
-            to: destinationPath,
+            sourcePath: self.path.appending(handle.subpath),
+            at: destinationPath,
             editable: editable)
     }
 

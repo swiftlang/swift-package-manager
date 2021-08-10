@@ -27,15 +27,15 @@ class CertificateTests: XCTestCase {
 
             let subject = try certificate.subject()
             XCTAssertNil(subject.userID)
-            XCTAssertEqual("Signer Test (Developer)", subject.organization)
-            XCTAssertEqual("Signer Test (Developer)", subject.organizationalUnit)
-            XCTAssertEqual("Signer Test (Developer)", subject.commonName)
+            XCTAssertEqual("Test (RSA)", subject.organization)
+            XCTAssertEqual("Test (RSA)", subject.organizationalUnit)
+            XCTAssertEqual("Test (RSA)", subject.commonName)
 
             let issuer = try certificate.issuer()
             XCTAssertNil(issuer.userID)
-            XCTAssertEqual("Signer Test Intermediate CA", issuer.organization)
-            XCTAssertEqual("Signer Test Intermediate CA", issuer.organizationalUnit)
-            XCTAssertEqual("Signer Test Intermediate CA", issuer.commonName)
+            XCTAssertEqual("Test Intermediate CA", issuer.organization)
+            XCTAssertEqual("Test Intermediate CA", issuer.organizationalUnit)
+            XCTAssertEqual("Test Intermediate CA", issuer.commonName)
         }
     }
 
@@ -50,15 +50,15 @@ class CertificateTests: XCTestCase {
 
             let subject = try certificate.subject()
             XCTAssertNil(subject.userID)
-            XCTAssertEqual("Signer Test (EC) (Developer)", subject.organization)
-            XCTAssertEqual("Signer Test (EC) (Developer)", subject.organizationalUnit)
-            XCTAssertEqual("Signer Test (EC) (Developer)", subject.commonName)
+            XCTAssertEqual("Test (EC)", subject.organization)
+            XCTAssertEqual("Test (EC)", subject.organizationalUnit)
+            XCTAssertEqual("Test (EC)", subject.commonName)
 
             let issuer = try certificate.issuer()
             XCTAssertNil(issuer.userID)
-            XCTAssertEqual("Signer Test (EC) Intermediate CA", issuer.organization)
-            XCTAssertEqual("Signer Test (EC) Intermediate CA", issuer.organizationalUnit)
-            XCTAssertEqual("Signer Test (EC) Intermediate CA", issuer.commonName)
+            XCTAssertEqual("Test Intermediate CA", issuer.organization)
+            XCTAssertEqual("Test Intermediate CA", issuer.organizationalUnit)
+            XCTAssertEqual("Test Intermediate CA", issuer.commonName)
         }
     }
 }

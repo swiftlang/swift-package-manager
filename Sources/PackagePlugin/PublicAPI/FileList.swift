@@ -35,7 +35,9 @@ extension FileList: Sequence {
 
 /// Provides information about a single file in a FileList.
 public struct FileInfo: Decodable {
+    /// The path of the file.
     public let path: Path
+    /// File type, as determined by SwiftPM.
     public let type: FileType
 }
 

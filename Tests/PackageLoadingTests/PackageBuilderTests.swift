@@ -1104,7 +1104,7 @@ class PackageBuilderTests: XCTestCase {
             )
 
             PackageBuilderTester(manifest, in: fs) { _, diagnostics in
-                diagnostics.check(diagnostic: "public headers directory path for 'Foo' is invalid or not contained in the target", behavior: .error)
+                diagnostics.check(diagnostic: "public headers (\"include\") directory path for 'Foo' is invalid or not contained in the target", behavior: .error)
             }
 
             manifest = Manifest.createV4Manifest(
@@ -1114,7 +1114,7 @@ class PackageBuilderTests: XCTestCase {
                 ]
             )
             PackageBuilderTester(manifest, in: fs) { _, diagnostics in
-                diagnostics.check(diagnostic: "public headers directory path for 'Bar' is invalid or not contained in the target", behavior: .error)
+                diagnostics.check(diagnostic: "public headers (\"include\") directory path for 'Bar' is invalid or not contained in the target", behavior: .error)
             }
         }
 
@@ -1680,6 +1680,7 @@ class PackageBuilderTests: XCTestCase {
         var expectedPlatforms = [
             "linux": "0.0",
             "macos": "10.12",
+            "maccatalyst": "13.0",
             "ios": "9.0",
             "tvos": "9.0",
             "driverkit": "19.0",
@@ -1687,6 +1688,7 @@ class PackageBuilderTests: XCTestCase {
             "android": "0.0",
             "windows": "0.0",
             "wasi": "0.0",
+            "openbsd": "0.0",
         ]
 
         PackageBuilderTester(manifest, in: fs) { package, _ in
@@ -1736,6 +1738,7 @@ class PackageBuilderTests: XCTestCase {
 
         expectedPlatforms = [
             "macos": "10.12",
+            "maccatalyst": "13.0",
             "tvos": "10.0",
             "linux": "0.0",
             "ios": "9.0",
@@ -1744,6 +1747,7 @@ class PackageBuilderTests: XCTestCase {
             "android": "0.0",
             "windows": "0.0",
             "wasi": "0.0",
+	    "openbsd": "0.0",
         ]
 
         PackageBuilderTester(manifest, in: fs) { package, _ in
@@ -1970,6 +1974,82 @@ class PackageBuilderTests: XCTestCase {
         }
     }
 
+    func testEmptyUnsafeFlagsAreAllowed() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/foo/foo.swift",
+            "/Sources/bar/bar.cpp",
+            "/Sources/bar/bar.c",
+            "/Sources/bar/include/bar.h"
+        )
+
+        let manifest = Manifest.createManifest(
+            name: "pkg",
+            v: .v5,
+            targets: [
+                try TargetDescription(
+                    name: "foo",
+                    settings: [
+                        .init(tool: .c, name: .unsafeFlags, value: []),
+                        .init(tool: .cxx, name: .unsafeFlags, value: []),
+                        .init(tool: .cxx, name: .unsafeFlags, value: [], condition: .init(config: "release")),
+                        .init(tool: .linker, name: .unsafeFlags, value: []),
+                    ]
+                ),
+                try TargetDescription(
+                    name: "bar",
+                    settings: [
+                        .init(tool: .swift, name: .unsafeFlags, value: [], condition: .init(platformNames: ["macos"], config: "debug")),
+                        .init(tool: .linker, name: .unsafeFlags, value: []),
+                        .init(tool: .linker, name: .unsafeFlags, value: [], condition: .init(platformNames: ["linux"])),
+                    ]
+                ),
+            ]
+        )
+
+        PackageBuilderTester(manifest, in: fs) { package, _ in
+            package.checkModule("foo") { package in
+                let macosDebugScope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+                )
+                XCTAssertEqual(macosDebugScope.evaluate(.OTHER_CFLAGS), [])
+                XCTAssertEqual(macosDebugScope.evaluate(.OTHER_CPLUSPLUSFLAGS), [])
+                XCTAssertEqual(macosDebugScope.evaluate(.OTHER_LDFLAGS), [])
+
+                let macosReleaseScope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .macOS, configuration: .release)
+                )
+                XCTAssertEqual(macosReleaseScope.evaluate(.OTHER_CFLAGS), [])
+                XCTAssertEqual(macosReleaseScope.evaluate(.OTHER_CPLUSPLUSFLAGS), [])
+                XCTAssertEqual(macosReleaseScope.evaluate(.OTHER_LDFLAGS), [])
+            }
+
+            package.checkModule("bar") { package in
+                let linuxDebugScope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .linux, configuration: .debug)
+                )
+                XCTAssertEqual(linuxDebugScope.evaluate(.OTHER_SWIFT_FLAGS), [])
+                XCTAssertEqual(linuxDebugScope.evaluate(.OTHER_LDFLAGS), [])
+
+                let linuxReleaseScope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .linux, configuration: .release)
+                )
+                XCTAssertEqual(linuxReleaseScope.evaluate(.OTHER_SWIFT_FLAGS), [])
+                XCTAssertEqual(linuxReleaseScope.evaluate(.OTHER_LDFLAGS), [])
+
+                let macosDebugScope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+                )
+                XCTAssertEqual(macosDebugScope.evaluate(.OTHER_SWIFT_FLAGS), [])
+                XCTAssertEqual(macosDebugScope.evaluate(.OTHER_LDFLAGS), [])
+            }
+        }
+    }
+
     func testInvalidHeaderSearchPath() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/pkg/Sources/exe/main.swift"
@@ -2159,47 +2239,6 @@ class PackageBuilderTests: XCTestCase {
             }
         }
     }
-
-    func testExtensionTargetsAreGuardededByFeatureFlag() throws {
-        let fs = InMemoryFileSystem(emptyFiles:
-            "/Foo/Sources/MyPlugin/plugin.swift",
-            "/Foo/Sources/MyLibrary/library.swift"
-        )
-
-        let manifest = Manifest.createManifest(
-            name: "Foo",
-            v: .v5_5,
-            targets: [
-                try TargetDescription(
-                    name: "MyPlugin",
-                    dependencies: [
-                        .target(name: "MyLibrary"),
-                    ],
-                    type: .plugin,
-                    pluginCapability: .buildTool
-                ),
-                try TargetDescription(
-                    name: "MyLibrary",
-                    type: .regular
-                ),
-            ]
-        )
-
-        // Check that plugin targets are set up correctly when the feature flag is set.
-        PackageBuilderTester(manifest, path: AbsolutePath("/Foo"), allowPluginTargets: true, in: fs) { package, diagnostics in
-            package.checkModule("MyPlugin") { target in
-                target.check(pluginCapability: .buildTool)
-                target.check(dependencies: ["MyLibrary"])
-            }
-            package.checkModule("MyLibrary")
-        }
-        
-        // Check that the right diagnostics are emitted when the feature flag isn't set.
-        PackageBuilderTester(manifest, path: AbsolutePath("/Foo"), allowPluginTargets: false, in: fs) { package, diagnostics in
-            diagnostics.check(diagnostic: "plugin target 'MyPlugin' cannot be used because the feature isn't enabled (set SWIFTPM_ENABLE_PLUGINS=1 in environment)", behavior: .error)
-        }
-    }
-
 }
 
 extension PackageModel.Product: ObjectIdentifierProtocol {}
@@ -2232,7 +2271,6 @@ final class PackageBuilderTester {
         path: AbsolutePath = .root,
         binaryArtifacts: [BinaryArtifact] = [],
         shouldCreateMultipleTestProducts: Bool = false,
-        allowPluginTargets: Bool = false,
         createREPLProduct: Bool = false,
         in fs: FileSystem,
         file: StaticString = #file,
@@ -2253,7 +2291,6 @@ final class PackageBuilderTester {
                 diagnostics: diagnostics,
                 shouldCreateMultipleTestProducts: shouldCreateMultipleTestProducts,
                 warnAboutImplicitExecutableTargets: true,
-                allowPluginTargets: allowPluginTargets,
                 createREPLProduct: createREPLProduct)
             let loadedPackage = try builder.construct()
             result = .package(loadedPackage)

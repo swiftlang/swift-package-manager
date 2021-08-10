@@ -100,7 +100,7 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
             let collections = try with { collections in
                 try tsc_await { collections.refreshCollections(callback: $0) }
             }
-            print("Refreshed \(collections.count) configured package collections.")
+            print("Refreshed \(collections.count) configured package collection\(collections.count == 1 ? "" : "s").")
         }
     }
 
@@ -108,7 +108,7 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
         static let configuration = CommandConfiguration(abstract: "Add a new collection")
 
         @Argument(help: "URL of the collection to add")
-        var collectionUrl: String
+        var collectionURL: String
 
         @Option(name: .long, help: "Sort order for the added collection")
         var order: Int?
@@ -120,11 +120,9 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
         var skipSignatureCheck: Bool = false
 
         mutating func run() throws {
-            guard let collectionUrl = URL(string: collectionUrl) else {
-                throw CollectionsError.invalidArgument("collectionUrl")
-            }
+            let collectionURL = try url(self.collectionURL)
 
-            let source = PackageCollectionsModel.CollectionSource(type: .json, url: collectionUrl, skipSignatureCheck: self.skipSignatureCheck)
+            let source = PackageCollectionsModel.CollectionSource(type: .json, url: collectionURL, skipSignatureCheck: self.skipSignatureCheck)
             let collection: PackageCollectionsModel.Collection = try with { collections in
                 do {
                     let userTrusted = self.trustUnsigned
@@ -155,14 +153,12 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
         static let configuration = CommandConfiguration(abstract: "Remove a configured collection")
 
         @Argument(help: "URL of the collection to remove")
-        var collectionUrl: String
+        var collectionURL: String
 
         mutating func run() throws {
-            guard let collectionUrl = URL(string: collectionUrl) else {
-                throw CollectionsError.invalidArgument("collectionUrl")
-            }
+            let collectionURL = try url(self.collectionURL)
 
-            let source = PackageCollectionsModel.CollectionSource(type: .json, url: collectionUrl)
+            let source = PackageCollectionsModel.CollectionSource(type: .json, url: collectionURL)
             try with { collections in
                 let collection = try tsc_await { collections.getCollection(source, callback: $0) }
                 _ = try tsc_await { collections.removeCollection(source, callback: $0) }
@@ -229,7 +225,7 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
         var jsonOptions: JSONOptions
 
         @Argument(help: "URL of the package or collection to get information for")
-        var packageUrl: String
+        var packageURL: String
 
         @Option(name: .long, help: "Version of the package to get information for")
         var version: String?
@@ -268,8 +264,8 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
 
         mutating func run() throws {
             try with { collections in
-                let identity = PackageIdentity(url: packageUrl)
-                let reference = PackageReference.remote(identity: identity, location: packageUrl)
+                let identity = PackageIdentity(url: packageURL)
+                let reference = PackageReference.remote(identity: identity, location: packageURL)
 
                 do { // assume URL is for a package in an imported collection
                     let result = try tsc_await { collections.getPackageMetadata(reference, callback: $0) }
@@ -287,9 +283,11 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
                     } else {
                         let description = optionalRow("Description", result.package.summary)
                         let versions = result.package.versions.map { "\($0.version)" }.joined(separator: ", ")
-                        let watchers = optionalRow("Watchers", result.package.watchersCount?.description)
+                        let stars = optionalRow("Stars", result.package.watchersCount?.description)
                         let readme = optionalRow("Readme", result.package.readmeURL?.absoluteString)
                         let authors = optionalRow("Authors", result.package.authors?.map { $0.username }.joined(separator: ", "))
+                        let license =  optionalRow("License", result.package.license.map { "\($0.type) (\($0.url))" })
+                        let languages = optionalRow("Languages", result.package.languages?.joined(separator: ", "))
                         let latestVersion = optionalRow("\(String(repeating: "-", count: 60))\n\(indent())Latest Version", printVersion(result.package.latestVersion))
 
                         if jsonOptions.json {
@@ -297,7 +295,7 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
                         } else {
                             print("""
                                 \(description)
-                                Available Versions: \(versions)\(watchers)\(readme)\(authors)\(latestVersion)
+                                Available Versions: \(versions)\(readme)\(license)\(authors)\(stars)\(languages)\(latestVersion)
                             """)
                         }
                     }
@@ -307,12 +305,10 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
                         throw error
                     }
 
-                    guard let collectionUrl = URL(string: packageUrl) else {
-                        throw CollectionsError.invalidArgument("collectionUrl")
-                    }
+                    let collectionURL = try url(self.packageURL)
 
                     do {
-                        let source = PackageCollectionsModel.CollectionSource(type: .json, url: collectionUrl)
+                        let source = PackageCollectionsModel.CollectionSource(type: .json, url: collectionURL)
                         let collection = try tsc_await { collections.getCollection(source, callback: $0) }
 
                         let description = optionalRow("Description", collection.overview)
@@ -324,7 +320,7 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
                             try JSONEncoder.makeWithDefaults().print(collection)
                         } else {
                             let signature = optionalRow("Signed By", collection.signature.map { "\($0.certificate.subject.commonName ?? "Unspecified") (\($0.isVerified ? "" : "not ")verified)" })
-                            
+
                             print("""
                                 Name: \(collection.name)
                                 Source: \(collection.source.url)\(description)\(keywords)\(createdAt)
@@ -333,7 +329,7 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
                             """)
                         }
                     } catch {
-                        print("Failed to get metadata. The given URL neither belongs to a valid collection nor a package in an imported collection.")
+                        print("Failed to get metadata. The given URL either belongs to a collection that is invalid or unavailable, or a package that is not found in any of the imported collections.")
                     }
                 }
             }
@@ -373,5 +369,17 @@ private extension ParsableCommand {
         }
 
         return try handler(collections)
+    }
+
+    func url(_ urlString: String) throws -> Foundation.URL {
+        guard let url = URL(string: urlString) else {
+            let filePrefix = "file://"
+            guard urlString.hasPrefix(filePrefix) else {
+                throw CollectionsError.invalidArgument("collectionURL")
+            }
+            // URL(fileURLWithPath:) can handle whitespaces in path
+            return URL(fileURLWithPath: String(urlString.dropFirst(filePrefix.count)))
+        }
+        return url
     }
 }

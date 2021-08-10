@@ -148,6 +148,8 @@ public struct BuildParameters: Encodable {
             return .wasi
         } else if self.triple.isWindows() {
             return .windows
+        } else if self.triple.isOpenBSD() {
+            return .openbsd
         } else {
             return .linux
         }

@@ -27,8 +27,7 @@ struct FilePackageCollectionsSourcesStorage: PackageCollectionsSourcesStorage {
     init(fileSystem: FileSystem = localFileSystem, path: AbsolutePath? = nil, diagnosticsEngine: DiagnosticsEngine? = nil) {
         self.fileSystem = fileSystem
 
-        let name = "collections"
-        self.path = path ?? fileSystem.dotSwiftPM.appending(components: "config", "\(name).json")
+        self.path = path ?? fileSystem.swiftPMConfigDirectory.appending(component: "collections.json")
         self.diagnosticsEngine = diagnosticsEngine
         self.encoder = JSONEncoder.makeWithDefaults()
         self.decoder = JSONDecoder.makeWithDefaults()

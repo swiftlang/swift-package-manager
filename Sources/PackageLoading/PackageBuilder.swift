@@ -69,9 +69,6 @@ public enum ModuleError: Swift.Error {
     /// Default localization not set in the presence of localized resources.
     case defaultLocalizationNotSet
 
-    /// A plugin target was declared but the feature flag isn't enabled.
-    case pluginTargetRequiresFeatureFlag(target: String)
-
     /// A plugin target didn't declare a capability.
     case pluginCapabilityNotDeclared(target: String)
 }
@@ -83,7 +80,7 @@ extension ModuleError: CustomStringConvertible {
             let packages = packages.joined(separator: "', '")
             return "multiple targets named '\(name)' in: '\(packages)'"
         case .moduleNotFound(let target, let type):
-            let folderName = type == .test ? "Tests" : "Sources"
+            let folderName = (type == .test) ? "Tests" : (type == .plugin) ? "Plugins" : "Sources"
             return "Source files for target \(target) should be located under '\(folderName)/\(target)', or a custom sources path can be set with the 'path' property in Package.swift"
         case .artifactNotFound(let target):
             return "artifact not found for target '\(target)'"
@@ -96,7 +93,7 @@ extension ModuleError: CustomStringConvertible {
                 (cycle.path + cycle.cycle).joined(separator: " -> ") +
                 " -> " + cycle.cycle[0]
         case .invalidPublicHeadersDirectory(let name):
-            return "public headers directory path for '\(name)' is invalid or not contained in the target"
+            return "public headers (\"include\") directory path for '\(name)' is invalid or not contained in the target"
         case .overlappingSources(let target, let sources):
             return "target '\(target)' has sources overlapping sources: " +
                 sources.map({ $0.description }).joined(separator: ", ")
@@ -118,8 +115,6 @@ extension ModuleError: CustomStringConvertible {
             return "invalid header search path '\(path)'; header search path should not be outside the package root"
         case .defaultLocalizationNotSet:
             return "manifest property 'defaultLocalization' not set; it is required in the presence of localized resources"
-        case .pluginTargetRequiresFeatureFlag(let target):
-            return "plugin target '\(target)' cannot be used because the feature isn't enabled (set SWIFTPM_ENABLE_PLUGINS=1 in environment)"
         case .pluginCapabilityNotDeclared(let target):
             return "plugin target '\(target)' doesn't have a 'capability' property"
         }
@@ -244,10 +239,6 @@ public final class PackageBuilder {
     /// Temporary parameter controlling whether to warn about implicit executable targets when tools version is 5.4.
     private let warnAboutImplicitExecutableTargets: Bool
 
-    /// Temporary parameter controlling whether to allow package plugin targets (during bring-up, before proposal is accepted).
-    /// This is set if SWIFTPM_ENABLE_PLUGINS=1 or if the feature is enabled in the initializer (for use by unit tests).
-    private let allowPluginTargets: Bool
-    
     /// Create the special REPL product for this package.
     private let createREPLProduct: Bool
 
@@ -280,7 +271,6 @@ public final class PackageBuilder {
         diagnostics: DiagnosticsEngine,
         shouldCreateMultipleTestProducts: Bool = false,
         warnAboutImplicitExecutableTargets: Bool = true,
-        allowPluginTargets: Bool = false,
         createREPLProduct: Bool = false
     ) {
         self.identity = identity
@@ -293,44 +283,8 @@ public final class PackageBuilder {
         self.fileSystem = fileSystem
         self.diagnostics = diagnostics
         self.shouldCreateMultipleTestProducts = shouldCreateMultipleTestProducts
-        self.allowPluginTargets = allowPluginTargets || ProcessEnv.vars["SWIFTPM_ENABLE_PLUGINS"] == "1"
         self.createREPLProduct = createREPLProduct
         self.warnAboutImplicitExecutableTargets = warnAboutImplicitExecutableTargets
-    }
-
-    // deprecated 3/21, remove once clients migrated over
-    @available(*, deprecated, message: "use loadRootPackage instead")
-    public static func loadPackage(
-        at path: AbsolutePath,
-        kind: PackageReference.Kind = .root,
-        swiftCompiler: AbsolutePath,
-        swiftCompilerFlags: [String],
-        xcTestMinimumDeploymentTargets: [PackageModel.Platform:PlatformVersion]
-            = MinimumDeploymentTarget.default.xcTestMinimumDeploymentTargets,
-        identityResolver: IdentityResolver,
-        diagnostics: DiagnosticsEngine,
-        on queue: DispatchQueue,
-        completion: @escaping (Result<Package, Error>) -> Void
-    ) {
-        ManifestLoader.loadManifest(at: path,
-                                    kind: kind,
-                                    swiftCompiler: swiftCompiler,
-                                    swiftCompilerFlags: swiftCompilerFlags,
-                                    identityResolver: identityResolver,
-                                    on: queue) { result in
-            let result = result.tryMap { manifest -> Package in
-                let identity = identityResolver.resolveIdentity(for: manifest.packageLocation)
-                let builder = PackageBuilder(
-                    identity: identity,
-                    manifest: manifest,
-                    productFilter: .everything,
-                    path: path,
-                    xcTestMinimumDeploymentTargets: xcTestMinimumDeploymentTargets,
-                    diagnostics: diagnostics)
-                return try builder.construct()
-            }
-            completion(result)
-        }
     }
 
     /// Loads a root package from a path using the resources associated with a particular `swiftc` executable.
@@ -535,9 +489,12 @@ public final class PackageBuilder {
 
     /// Predefined test directories, in order of preference.
     public static let predefinedTestDirectories = ["Tests", "Sources", "Source", "src", "srcs"]
+    
+    /// Predefined plugin directories, in order of preference.
+    public static let predefinedPluginDirectories = ["Plugins"]
 
-    /// Finds the predefined directories for regular and test targets.
-    private func findPredefinedTargetDirectory() -> (targetDir: String, testTargetDir: String) {
+    /// Finds the predefined directories for regular targets, test targets, and plugin targets.
+    private func findPredefinedTargetDirectory() -> (targetDir: String, testTargetDir: String, pluginTargetDir: String) {
         let targetDir = PackageBuilder.predefinedSourceDirectories.first(where: {
             fileSystem.isDirectory(packagePath.appending(component: $0))
         }) ?? PackageBuilder.predefinedSourceDirectories[0]
@@ -546,7 +503,11 @@ public final class PackageBuilder {
             fileSystem.isDirectory(packagePath.appending(component: $0))
         }) ?? PackageBuilder.predefinedTestDirectories[0]
 
-        return (targetDir, testTargetDir)
+        let pluginTargetDir = PackageBuilder.predefinedPluginDirectories.first(where: {
+            fileSystem.isDirectory(packagePath.appending(component: $0))
+        }) ?? PackageBuilder.predefinedPluginDirectories[0]
+
+        return (targetDir, testTargetDir, pluginTargetDir)
     }
 
     struct PredefinedTargetDirectory {
@@ -566,6 +527,7 @@ public final class PackageBuilder {
 
         let predefinedTargetDirectory = PredefinedTargetDirectory(fs: fileSystem, path: packagePath.appending(component: predefinedDirs.targetDir))
         let predefinedTestTargetDirectory = PredefinedTargetDirectory(fs: fileSystem, path: packagePath.appending(component: predefinedDirs.testTargetDir))
+        let predefinedPluginTargetDirectory = PredefinedTargetDirectory(fs: fileSystem, path: packagePath.appending(component: predefinedDirs.pluginTargetDir))
 
         /// Returns the path of the given target.
         func findPath(for target: TargetDescription) throws -> AbsolutePath {
@@ -598,7 +560,15 @@ public final class PackageBuilder {
             }
 
             // Check if target is present in the predefined directory.
-            let predefinedDir = target.isTest ? predefinedTestTargetDirectory : predefinedTargetDirectory
+            let predefinedDir: PredefinedTargetDirectory
+            switch target.type {
+            case .test:
+                predefinedDir = predefinedTestTargetDirectory
+            case .plugin:
+                predefinedDir = predefinedPluginTargetDirectory
+            default:
+                predefinedDir = predefinedTargetDirectory
+            }
             let path = predefinedDir.path.appending(component: target.name)
 
             // Return the path if the predefined directory contains it.
@@ -841,9 +811,6 @@ public final class PackageBuilder {
         
         // Deal with package plugin targets.
         if potentialModule.type == .plugin {
-            guard allowPluginTargets else {
-                throw ModuleError.pluginTargetRequiresFeatureFlag(target: manifestTarget.name)
-            }
             guard let declaredCapability = manifestTarget.pluginCapability else {
                 throw ModuleError.pluginCapabilityNotDeclared(target: manifestTarget.name)
             }
@@ -898,13 +865,15 @@ public final class PackageBuilder {
             // It's not a Swift target, so it's a Clang target (those are the only two types of source target currently supported).
             
             // First determine the type of module map that will be appropriate for the target based on its header layout.
-            // FIXME: We should really be checking the target type to see whether it is one that can vend headers, not just check for the existence of the public headers path.  But right now we have now way of distinguishing between, for example, a library and an executable.  The semantics here should be to only try to detect the header layout of targets that can vend public headers.
             let moduleMapType: ModuleMapType
+            
             if fileSystem.exists(publicHeadersPath) {
                 let moduleMapGenerator = ModuleMapGenerator(targetName: potentialModule.name, moduleName: potentialModule.name.spm_mangledToC99ExtendedIdentifier(), publicHeadersDir: publicHeadersPath, fileSystem: fileSystem)
                 moduleMapType = moduleMapGenerator.determineModuleMapType(diagnostics: diagnostics)
-            }
-            else {
+            } else if targetType == .library, manifest.toolsVersion >= .v5_5 {
+                // If this clang target is a library, it must contain "include" directory.
+                throw ModuleError.invalidPublicHeadersDirectory(potentialModule.name)
+            } else {
                 moduleMapType = .none
             }
 
@@ -1056,6 +1025,9 @@ public final class PackageBuilder {
             let oldestSupportedVersion: PlatformVersion
             if let xcTestMinimumDeploymentTarget = xcTestMinimumDeploymentTargets[platform], isTest {
                 oldestSupportedVersion = xcTestMinimumDeploymentTarget
+            } else if platform == .macCatalyst, let iOS = supportedPlatforms.first(where: { $0.platform == .iOS }) {
+                // If there was no deployment target specified for Mac Catalyst, fall back to the iOS deployment target.
+                oldestSupportedVersion = max(platform.oldestSupportedVersion, iOS.version)
             } else {
                 oldestSupportedVersion = platform.oldestSupportedVersion
             }

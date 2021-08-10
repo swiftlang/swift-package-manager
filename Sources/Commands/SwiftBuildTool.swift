@@ -83,7 +83,7 @@ public struct SwiftBuildTool: SwiftCommand {
         version: SwiftVersion.currentVersion.completeDisplayString,
         helpNames: [.short, .long, .customLong("help", withSingleDash: true)])
 
-    @OptionGroup()
+    @OptionGroup(_hiddenFromHelp: true)
     var swiftOptions: SwiftToolOptions
 
     @OptionGroup()

@@ -111,7 +111,7 @@ private class MockRepositories: RepositoryProvider {
         // No-op.
     }
 
-    func checkoutExists(at path: AbsolutePath) throws -> Bool {
+    func workingCopyExists(at path: AbsolutePath) throws -> Bool {
         return false
     }
 
@@ -119,11 +119,11 @@ private class MockRepositories: RepositoryProvider {
         return self.repositories[repository.url]!
     }
 
-    func cloneCheckout(repository: RepositorySpecifier, at sourcePath: AbsolutePath, to destinationPath: AbsolutePath, editable: Bool) throws {
+    func createWorkingCopy(repository: RepositorySpecifier, sourcePath: AbsolutePath, at destinationPath: AbsolutePath, editable: Bool) throws -> WorkingCheckout {
         fatalError("unexpected API call")
     }
 
-    func openCheckout(at path: AbsolutePath) throws -> WorkingCheckout {
+    func openWorkingCopy(at path: AbsolutePath) throws -> WorkingCheckout {
         fatalError("unexpected API call")
     }
 }
@@ -135,8 +135,12 @@ private class MockResolverDelegate: RepositoryManagerDelegate {
         self.fetched += [handle.repository]
     }
 
-    func fetchingDidFinish(handle: RepositoryManager.RepositoryHandle, fetchDetails: RepositoryManager.FetchDetails?, error: Swift.Error?) {
+    func fetchingDidFinish(handle: RepositoryManager.RepositoryHandle, fetchDetails: RepositoryManager.FetchDetails?, error: Swift.Error?, duration: DispatchTimeInterval) {
     }
+
+    func handleWillUpdate(handle: RepositoryManager.RepositoryHandle) {}
+
+    func handleDidUpdate(handle: RepositoryManager.RepositoryHandle, duration: DispatchTimeInterval) {}
 }
 
 // Some handy versions & ranges.
@@ -337,6 +341,12 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
         try repo.commit()
         try repo.tag(name: "v1.0.0")
         try repo.tag(name: "1.0.0")
+        try repo.tag(name: "v1.1.0")
+        try repo.tag(name: "1.1.0")
+        try repo.tag(name: "1.1")
+        try repo.tag(name: "1.2")
+        try repo.tag(name: "1.3")
+        try repo.tag(name: "1.3.0")
         try repo.tag(name: "1.0.1")
         try repo.tag(name: "v1.0.2")
         try repo.tag(name: "1.0.4")
@@ -362,7 +372,7 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
         let ref = PackageReference.remote(identity: PackageIdentity(path: repoPath), location: repoPath.pathString)
         let container = try provider.getContainer(for: ref, skipUpdate: false)
         let v = try container.toolsVersionsAppropriateVersionsDescending().map { $0 }
-        XCTAssertEqual(v, ["2.0.1", "1.0.4", "1.0.2", "1.0.1", "1.0.0"])
+        XCTAssertEqual(v, ["2.0.1", "1.3.0", "1.2.0", "1.1.0", "1.0.4", "1.0.2", "1.0.1", "1.0.0"])
     }
 
     func testDependencyConstraints() throws {
@@ -371,10 +381,10 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
         try XCTSkipIf(true)
         #endif
 
-        let dependencies: [PackageDependencyDescription] = [
-            .scm(name: "Bar1", location: "/Bar1", requirement: .upToNextMajor(from: "1.0.0")),
-            .scm(name: "Bar2", location: "/Bar2", requirement: .upToNextMajor(from: "1.0.0")),
-            .scm(name: "Bar3", location: "/Bar3", requirement: .upToNextMajor(from: "1.0.0")),
+        let dependencies: [PackageDependency] = [
+            .scm(location: "/Bar1", requirement: .upToNextMajor(from: "1.0.0")),
+            .scm(location: "/Bar2", requirement: .upToNextMajor(from: "1.0.0")),
+            .scm(location: "/Bar3", requirement: .upToNextMajor(from: "1.0.0")),
         ]
 
         let products = [
@@ -388,27 +398,27 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
         ]
 
         let v5ProductMapping: [String: ProductFilter] = [
-            "Bar1": .specific(["Bar1", "Bar3"]),
-            "Bar2": .specific(["B2", "Bar1", "Bar3"]),
-            "Bar3": .specific(["Bar1", "Bar3"]),
+            "bar1": .specific(["Bar1", "Bar3"]),
+            "bar2": .specific(["B2", "Bar1", "Bar3"]),
+            "bar3": .specific(["Bar1", "Bar3"]),
         ]
         let v5Constraints = try dependencies.map {
             PackageContainerConstraint(
                 package: $0.createPackageRef(),
                 requirement: try $0.toConstraintRequirement(),
-                products: v5ProductMapping[$0.nameForTargetDependencyResolutionOnly]!
+                products: v5ProductMapping[$0.identity.description]!
             )
         }
         let v5_2ProductMapping: [String: ProductFilter] = [
-            "Bar1": .specific(["Bar1"]),
-            "Bar2": .specific(["B2"]),
-            "Bar3": .specific(["Bar3"]),
+            "bar1": .specific(["Bar1"]),
+            "bar2": .specific(["B2"]),
+            "bar3": .specific(["Bar3"]),
         ]
         let v5_2Constraints = try dependencies.map {
             PackageContainerConstraint(
                 package: $0.createPackageRef(),
                 requirement: try $0.toConstraintRequirement(),
-                products: v5_2ProductMapping[$0.nameForTargetDependencyResolutionOnly]!
+                products: v5_2ProductMapping[$0.identity.description]!
             )
         }
 

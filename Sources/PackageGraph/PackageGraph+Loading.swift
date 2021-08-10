@@ -30,7 +30,6 @@ extension PackageGraph {
         diagnostics: DiagnosticsEngine,
         fileSystem: FileSystem = localFileSystem,
         shouldCreateMultipleTestProducts: Bool = false,
-        allowPluginTargets: Bool = false,
         createREPLProduct: Bool = false
     ) throws -> PackageGraph {
 
@@ -57,7 +56,7 @@ extension PackageGraph {
         let rootManifestNodes = root.packages.map { identity, package in
             GraphLoadingNode(identity: identity, manifest: package.manifest, productFilter: .everything)
         }
-        let rootDependencyNodes = root.dependencies.lazy.compactMap { (dependency: PackageDependencyDescription) -> GraphLoadingNode? in
+        let rootDependencyNodes = root.dependencies.lazy.compactMap { (dependency: PackageDependency) -> GraphLoadingNode? in
             manifestMap[dependency.identity].map {
                 GraphLoadingNode(identity: dependency.identity, manifest: $0, productFilter: dependency.productFilter)
             }
@@ -117,7 +116,6 @@ extension PackageGraph {
                         fileSystem: fileSystem,
                         diagnostics: diagnostics,
                         shouldCreateMultipleTestProducts: shouldCreateMultipleTestProducts,
-                        allowPluginTargets: allowPluginTargets,
                         createREPLProduct: manifest.packageKind == .root ? createREPLProduct : false
                     )
                     let package = try builder.construct()
@@ -238,10 +236,13 @@ private func createResolvedPackages(
             // FIXME: change this validation logic to use identity instead of location
             let dependencyLocation: String
             switch dependency {
-            case .local(let data):
-                dependencyLocation = data.path.pathString
-            case .scm(let data):
-                dependencyLocation = data.location
+            case .fileSystem(let settings):
+                dependencyLocation = settings.path.pathString
+            case .sourceControl(let settings):
+                dependencyLocation = settings.location
+            case .registry:
+                // FIXME
+                fatalError("registry based dependencies not implemented yet")
             }
 
             // Use the package name to lookup the dependency. The package name will be present in packages with tools version >= 5.2.
@@ -397,11 +398,19 @@ private func createResolvedPackages(
                     // found errors when there are more important errors to
                     // resolve (like authentication issues).
                     if !diagnostics.hasErrors {
+                        // Emit error if a product (not target) declared in the package is also a productRef (dependency)
+                        let declProductsAsDependency = package.products.filter { product in
+                            product.name == productRef.name
+                        }.map {$0.targets}.flatMap{$0}.filter { t in
+                            t.name != productRef.name
+                        }
+                        
                         let error = PackageGraphError.productDependencyNotFound(
                             package: package.identity.description,
                             targetName: targetBuilder.target.name,
                             dependencyProductName: productRef.name,
-                            dependencyPackageName: productRef.package
+                            dependencyPackageName: productRef.package,
+                            dependencyProductInDecl: !declProductsAsDependency.isEmpty
                         )
                         diagnostics.emit(error, location: package.diagnosticLocation)
                     }
@@ -412,7 +421,7 @@ private func createResolvedPackages(
                 // explicitly reference the package containing the product, or for the product, package and
                 // dependency to share the same name. We don't check this in manifest loading for root-packages so
                 // we can provide a more detailed diagnostic here.
-                if packageBuilder.package.manifest.toolsVersion >= .v5_2 && productRef.package == nil{
+                if packageBuilder.package.manifest.toolsVersion >= .v5_2 && productRef.package == nil {
                     let referencedPackageIdentity = product.packageBuilder.package.identity
                     guard let referencedPackageDependency = (packageBuilder.package.manifest.dependencies.first { package in
                         return package.identity == referencedPackageIdentity
@@ -424,7 +433,7 @@ private func createResolvedPackages(
                         let error = PackageGraphError.productDependencyMissingPackage(
                             productName: productRef.name,
                             targetName: targetBuilder.target.name,
-                            packageDependency: referencedPackageDependency
+                            packageIdentifier: referencedPackageName
                         )
                         diagnostics.emit(error, location: package.diagnosticLocation)
                     }

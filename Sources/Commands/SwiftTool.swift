@@ -30,7 +30,6 @@ import Basics
 typealias Diagnostic = TSCBasic.Diagnostic
 
 private class ToolWorkspaceDelegate: WorkspaceDelegate {
-
     /// The stream to use for reporting progress.
     private let stdoutStream: ThreadSafeOutputByteStream
 
@@ -85,17 +84,23 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
         }
     }
 
-    func fetchingDidFinish(repository: String, fetchDetails: RepositoryManager.FetchDetails?, diagnostic: Diagnostic?) {
+    func fetchingDidFinish(repository: String, fetchDetails: RepositoryManager.FetchDetails?, diagnostic: Diagnostic?, duration: DispatchTimeInterval) {
         queue.async {
             if self.diagnostics.hasErrors {
                 self.fetchAnimation.clear()
             }
 
-            self.fetchProgress.removeValue(forKey: repository)
+            let step = self.fetchProgress.values.reduce(0) { $0 + $1.objectsFetched }
+            let total = self.fetchProgress.values.reduce(0) { $0 + $1.totalObjectsToFetch }
 
-            if self.fetchProgress.isEmpty {
+            if step == total && !self.fetchProgress.isEmpty {
                 self.fetchAnimation.complete(success: true)
+                self.fetchProgress.removeAll()
             }
+
+            self.stdoutStream <<< "Fetched \(repository) (\(duration.descriptionInSeconds))"
+            self.stdoutStream <<< "\n"
+            self.stdoutStream.flush()
         }
     }
 
@@ -107,7 +112,12 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
         }
     }
 
-    func repositoryDidUpdate(_ repository: String) {
+    func repositoryDidUpdate(_ repository: String, duration: DispatchTimeInterval) {
+        queue.async {
+            self.stdoutStream <<< "Updated \(repository) (\(duration.descriptionInSeconds))"
+            self.stdoutStream <<< "\n"
+            self.stdoutStream.flush()
+        }
     }
 
     func dependenciesUpToDate() {
@@ -118,17 +128,24 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
         }
     }
 
-    func cloning(repository: String) {
+    func willCreateWorkingCopy(repository: String, at path: AbsolutePath) {
         queue.async {
-            self.stdoutStream <<< "Cloning \(repository)"
+            self.stdoutStream <<< "Creating working copy for \(repository)"
             self.stdoutStream <<< "\n"
             self.stdoutStream.flush()
         }
     }
 
-    func checkingOut(repository: String, atReference reference: String, to path: AbsolutePath) {
+    func willCheckOut(repository: String, revision: String, at path: AbsolutePath) {
+        // noop
+    }
+
+    func didCheckOut(repository: String, revision: String, at path: AbsolutePath, error: Diagnostic?) {
+        guard case .none = error else {
+            return // error will be printed before hand
+        }
         queue.async {
-            self.stdoutStream <<< "Resolving \(repository) at \(reference)"
+            self.stdoutStream <<< "Working copy of \(repository) resolved at \(revision)"
             self.stdoutStream <<< "\n"
             self.stdoutStream.flush()
         }
@@ -208,6 +225,22 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
         }
     }
 
+    func willComputeVersion(package: PackageIdentity, location: String) {
+        queue.async {
+            self.stdoutStream <<< "Computing version for \(location)"
+            self.stdoutStream <<< "\n"
+            self.stdoutStream.flush()
+        }
+    }
+
+    func didComputeVersion(package: PackageIdentity, location: String, version: String, duration: DispatchTimeInterval) {
+        queue.async {
+            self.stdoutStream <<< "Computed \(location) at \(version) (\(duration.descriptionInSeconds))"
+            self.stdoutStream <<< "\n"
+            self.stdoutStream.flush()
+        }
+    }
+
     func downloadingBinaryArtifact(from url: String, bytesDownloaded: Int64, totalBytesToDownload: Int64?) {
         queue.async {
             if let totalBytesToDownload = totalBytesToDownload {
@@ -245,6 +278,12 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
         }
     }
 
+    // noop
+    
+    func willLoadManifest(packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind) {}
+    func didLoadManifest(packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind, manifest: Manifest?, diagnostics: [Diagnostic]) {}
+    func didCreateWorkingCopy(repository url: String, at path: AbsolutePath, error: Diagnostic?) {}
+    func resolvedFileChanged() {}
 }
 
 /// Handler for the main DiagnosticsEngine used by the SwiftTool class.
@@ -377,7 +416,7 @@ public class SwiftTool {
               #if os(Windows)
                 // Exit as if by signal()
                 TerminateProcess(GetCurrentProcess(), 3)
-              #elseif os(macOS)
+              #elseif os(macOS) || os(OpenBSD)
                 // Install the default signal handler.
                 var action = sigaction()
                 action.__sigaction_u.__sa_handler = SIG_DFL
@@ -436,23 +475,13 @@ public class SwiftTool {
         if !options.archs.isEmpty && options.customCompileTriple != nil {
             diagnostics.emit(.mutuallyExclusiveArgumentsError(arguments: ["--arch", "--triple"]))
         }
-        
-        if options.netrcFilePath != nil {
-            // --netrc-file option only supported on macOS >=10.13
-            #if os(macOS)
-            if #available(macOS 10.13, *) {
-                // ok, check succeeds
-            } else {
-                diagnostics.emit(error: "'--netrc-file' option is only supported on macOS >=10.13")
-            }
-            #else
-            diagnostics.emit(error: "'--netrc-file' option is only supported on macOS >=10.13")
-            #endif
-        }
-        
+
+        // --enable-test-discovery should never be called on darwin based platforms
+        #if canImport(Darwin)
         if options.enableTestDiscovery {
             diagnostics.emit(warning: "'--enable-test-discovery' option is deprecated; tests are automatically discovered on all platforms")
         }
+        #endif
 
         if options.shouldDisableManifestCaching {
             diagnostics.emit(warning: "'--disable-package-manifest-caching' option is deprecated; use '--manifest-caching' instead")
@@ -522,23 +551,26 @@ public class SwiftTool {
         }
 
         do {
-            // Create the default cache directory.
-            let idiomaticCachePath = fileSystem.swiftPMCacheDirectory
-            if !fileSystem.exists(idiomaticCachePath) {
-                try fileSystem.createDirectory(idiomaticCachePath, recursive: true)
-            }
-            // Create ~/.swiftpm if necessary
-            if !fileSystem.exists(fileSystem.dotSwiftPM) {
-                try fileSystem.createDirectory(fileSystem.dotSwiftPM, recursive: true)
-            }
-            // Create ~/.swiftpm/cache symlink if necessary
-            let dotSwiftPMCachesPath = fileSystem.dotSwiftPM.appending(component: "cache")
-            if !fileSystem.exists(dotSwiftPMCachesPath, followSymlink: false) {
-                try fileSystem.createSymbolicLink(dotSwiftPMCachesPath, pointingAt: idiomaticCachePath, relative: false)
-            }
-            return idiomaticCachePath
+            return try fileSystem.getOrCreateSwiftPMCacheDirectory()
         } catch {
             self.diagnostics.emit(warning: "Failed creating default cache locations, \(error)")
+            return nil
+        }
+    }
+
+    private func getConfigPath(fileSystem: FileSystem = localFileSystem) throws -> AbsolutePath? {
+        if let explicitConfigPath = options.configPath {
+            // Create the explicit config path if necessary
+            if !fileSystem.exists(explicitConfigPath) {
+                try fileSystem.createDirectory(explicitConfigPath, recursive: true)
+            }
+            return explicitConfigPath
+        }
+
+        do {
+            return try fileSystem.getOrCreateSwiftPMConfigDirectory()
+        } catch {
+            self.diagnostics.emit(warning: "Failed creating default config locations, \(error)")
             return nil
         }
     }
@@ -553,6 +585,7 @@ public class SwiftTool {
         let delegate = ToolWorkspaceDelegate(self.stdoutStream, isVerbose: isVerbose, diagnostics: diagnostics)
         let provider = GitRepositoryProvider(processSet: processSet)
         let cachePath = self.options.useRepositoriesCache ? try self.getCachePath() : .none
+        _  = try self.getConfigPath() // TODO: actually use this in the workspace 
         let isXcodeBuildSystemEnabled = self.options.buildSystem == .xcode
         let workspace = Workspace(
             dataPath: buildPath,
@@ -564,7 +597,7 @@ public class SwiftTool {
             config: try getSwiftPMConfig(),
             repositoryProvider: provider,
             netrcFilePath: try resolvedNetrcFilePath(),
-            additionalFileRules: isXcodeBuildSystemEnabled ? FileRuleDescription.xcbuildFileTypes : [],
+            additionalFileRules: isXcodeBuildSystemEnabled ? FileRuleDescription.xcbuildFileTypes : FileRuleDescription.swiftpmFileTypes,
             isResolverPrefetchingEnabled: options.shouldEnableResolverPrefetching,
             skipUpdate: options.skipDependencyUpdate,
             enableResolverTrace: options.enableResolverTrace,
@@ -785,7 +818,7 @@ public class SwiftTool {
                 shouldLinkStaticSwiftStdlib: options.shouldLinkStaticSwiftStdlib,
                 sanitizers: options.enabledSanitizers,
                 enableCodeCoverage: options.shouldEnableCodeCoverage,
-                indexStoreMode: options.indexStore,
+                indexStoreMode: options.indexStoreMode.indexStoreMode,
                 enableParseableModuleInterfaces: options.shouldEnableParseableModuleInterfaces,
                 emitSwiftModuleSeparately: options.emitSwiftModuleSeparately,
                 useIntegratedSwiftDriver: options.useIntegratedSwiftDriver,
@@ -868,12 +901,18 @@ public class SwiftTool {
                 cachePath = try self.getCachePath().map{ $0.appending(component: "manifests") }
             }
 
+            var  extraManifestFlags = self.options.manifestFlags
+            // Disable the implicit concurrency import if the compiler in use supports it to avoid warnings if we are building against an older SDK that does not contain a Concurrency module.
+            if SwiftTargetBuildDescription.checkSupportedFrontendFlags(flags: ["disable-implicit-concurrency-module-import"], fs: localFileSystem) {
+                extraManifestFlags += ["-Xfrontend", "-disable-implicit-concurrency-module-import"]
+            }
+
             return try ManifestLoader(
                 // Always use the host toolchain's resources for parsing manifest.
                 manifestResources: self._hostToolchain.get().manifestResources,
                 isManifestSandboxEnabled: !self.options.shouldDisableSandbox,
                 cacheDir: cachePath,
-                extraManifestFlags: self.options.manifestFlags
+                extraManifestFlags: extraManifestFlags
             )
         })
     }()
@@ -910,38 +949,6 @@ private func getEnvBuildPath(workingDir: AbsolutePath) -> AbsolutePath? {
     return AbsolutePath(env, relativeTo: workingDir)
 }
 
-/// Returns the sandbox profile to be used when parsing manifest on macOS.
-private func sandboxProfile(allowedDirectories: [AbsolutePath]) -> String {
-    let stream = BufferedOutputByteStream()
-    stream <<< "(version 1)" <<< "\n"
-    // Deny everything by default.
-    stream <<< "(deny default)" <<< "\n"
-    // Import the system sandbox profile.
-    stream <<< "(import \"system.sb\")" <<< "\n"
-    // Allow reading all files.
-    stream <<< "(allow file-read*)" <<< "\n"
-    // These are required by the Swift compiler.
-    stream <<< "(allow process*)" <<< "\n"
-    stream <<< "(allow sysctl*)" <<< "\n"
-    // Allow writing in temporary locations.
-    stream <<< "(allow file-write*" <<< "\n"
-    for directory in Platform.darwinCacheDirectories() {
-        // For compiler module cache.
-        stream <<< ##"    (regex #"^\##(directory.pathString)/org\.llvm\.clang.*")"## <<< "\n"
-        // For archive tool.
-        stream <<< ##"    (regex #"^\##(directory.pathString)/ar.*")"## <<< "\n"
-        // For xcrun cache.
-        stream <<< ##"    (regex #"^\##(directory.pathString)/xcrun.*")"## <<< "\n"
-        // For autolink files.
-        stream <<< ##"    (regex #"^\##(directory.pathString)/.*\.(swift|c)-[0-9a-f]+\.autolink")"## <<< "\n"
-    }
-    for directory in allowedDirectories {
-        stream <<< "    (subpath \"\(directory.pathString)\")" <<< "\n"
-    }
-    stream <<< ")" <<< "\n"
-    return stream.bytes.description
-}
-
 /// A wrapper to hold the build system so we can use it inside
 /// the int. handler without requiring to initialize it.
 final class BuildSystemRef {
@@ -951,5 +958,26 @@ final class BuildSystemRef {
 extension Diagnostic.Message {
     static func unsupportedFlag(_ flag: String) -> Diagnostic.Message {
         .warning("\(flag) is an *unsupported* option which can be removed at any time; do not rely on it")
+    }
+}
+
+extension DispatchTimeInterval {
+    var descriptionInSeconds: String {
+        switch self {
+        case .seconds(let value):
+            return "\(value)s"
+        case .milliseconds(let value):
+            return String(format: "%.2f", Double(value)/Double(1000)) + "s"
+        case .microseconds(let value):
+            return String(format: "%.2f", Double(value)/Double(1_000_000)) + "s"
+        case .nanoseconds(let value):
+            return String(format: "%.2f", Double(value)/Double(1_000_000_000)) + "s"
+        case .never:
+            return "n/a"
+        #if os(macOS) || os(iOS) || os(tvOS) || os(watchOS)
+        @unknown default:
+            return "n/a"
+        #endif
+        }
     }
 }

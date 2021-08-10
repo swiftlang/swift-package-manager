@@ -23,11 +23,11 @@ final class PackageCollectionsModelTests: XCTestCase {
             toolsVersion: toolsVersion, packageName: "FooBar", targets: targets, products: products, minimumPlatformVersions: nil
         )]
         let versions: [PackageCollectionsModel.Package.Version] = [
-            .init(version: .init(stringLiteral: "1.2.0"), summary: nil, manifests: manifests, defaultToolsVersion: toolsVersion, verifiedCompatibility: nil, license: nil, createdAt: nil),
-            .init(version: .init(stringLiteral: "2.0.1"), summary: nil, manifests: manifests, defaultToolsVersion: toolsVersion, verifiedCompatibility: nil, license: nil, createdAt: nil),
-            .init(version: .init(stringLiteral: "2.1.0-beta.3"), summary: nil, manifests: manifests, defaultToolsVersion: toolsVersion, verifiedCompatibility: nil, license: nil, createdAt: nil),
-            .init(version: .init(stringLiteral: "2.1.0"), summary: nil, manifests: manifests, defaultToolsVersion: toolsVersion, verifiedCompatibility: nil, license: nil, createdAt: nil),
-            .init(version: .init(stringLiteral: "3.0.0-beta.1"), summary: nil, manifests: manifests, defaultToolsVersion: toolsVersion, verifiedCompatibility: nil, license: nil, createdAt: nil),
+            .init(version: .init(stringLiteral: "1.2.0"), title: nil, summary: nil, manifests: manifests, defaultToolsVersion: toolsVersion, verifiedCompatibility: nil, license: nil, createdAt: nil),
+            .init(version: .init(stringLiteral: "2.0.1"), title: nil, summary: nil, manifests: manifests, defaultToolsVersion: toolsVersion, verifiedCompatibility: nil, license: nil, createdAt: nil),
+            .init(version: .init(stringLiteral: "2.1.0-beta.3"), title: nil, summary: nil, manifests: manifests, defaultToolsVersion: toolsVersion, verifiedCompatibility: nil, license: nil, createdAt: nil),
+            .init(version: .init(stringLiteral: "2.1.0"), title: nil, summary: nil, manifests: manifests, defaultToolsVersion: toolsVersion, verifiedCompatibility: nil, license: nil, createdAt: nil),
+            .init(version: .init(stringLiteral: "3.0.0-beta.1"), title: nil, summary: nil, manifests: manifests, defaultToolsVersion: toolsVersion, verifiedCompatibility: nil, license: nil, createdAt: nil),
         ]
 
         XCTAssertEqual("2.1.0", versions.latestRelease?.version.description)
@@ -42,8 +42,8 @@ final class PackageCollectionsModelTests: XCTestCase {
             toolsVersion: toolsVersion, packageName: "FooBar", targets: targets, products: products, minimumPlatformVersions: nil
         )]
         let versions: [PackageCollectionsModel.Package.Version] = [
-            .init(version: .init(stringLiteral: "2.1.0-beta.3"), summary: nil, manifests: manifests, defaultToolsVersion: toolsVersion, verifiedCompatibility: nil, license: nil, createdAt: nil),
-            .init(version: .init(stringLiteral: "3.0.0-beta.1"), summary: nil, manifests: manifests, defaultToolsVersion: toolsVersion, verifiedCompatibility: nil, license: nil, createdAt: nil),
+            .init(version: .init(stringLiteral: "2.1.0-beta.3"), title: nil, summary: nil, manifests: manifests, defaultToolsVersion: toolsVersion, verifiedCompatibility: nil, license: nil, createdAt: nil),
+            .init(version: .init(stringLiteral: "3.0.0-beta.1"), title: nil, summary: nil, manifests: manifests, defaultToolsVersion: toolsVersion, verifiedCompatibility: nil, license: nil, createdAt: nil),
         ]
 
         XCTAssertNil(versions.latestRelease)
@@ -58,9 +58,9 @@ final class PackageCollectionsModelTests: XCTestCase {
             toolsVersion: toolsVersion, packageName: "FooBar", targets: targets, products: products, minimumPlatformVersions: nil
         )]
         let versions: [PackageCollectionsModel.Package.Version] = [
-            .init(version: .init(stringLiteral: "1.2.0"), summary: nil, manifests: manifests, defaultToolsVersion: toolsVersion, verifiedCompatibility: nil, license: nil, createdAt: nil),
-            .init(version: .init(stringLiteral: "2.0.1"), summary: nil, manifests: manifests, defaultToolsVersion: toolsVersion, verifiedCompatibility: nil, license: nil, createdAt: nil),
-            .init(version: .init(stringLiteral: "2.1.0"), summary: nil, manifests: manifests, defaultToolsVersion: toolsVersion, verifiedCompatibility: nil, license: nil, createdAt: nil),
+            .init(version: .init(stringLiteral: "1.2.0"), title: nil, summary: nil, manifests: manifests, defaultToolsVersion: toolsVersion, verifiedCompatibility: nil, license: nil, createdAt: nil),
+            .init(version: .init(stringLiteral: "2.0.1"), title: nil, summary: nil, manifests: manifests, defaultToolsVersion: toolsVersion, verifiedCompatibility: nil, license: nil, createdAt: nil),
+            .init(version: .init(stringLiteral: "2.1.0"), title: nil, summary: nil, manifests: manifests, defaultToolsVersion: toolsVersion, verifiedCompatibility: nil, license: nil, createdAt: nil),
         ]
 
         XCTAssertEqual("2.1.0", versions.latestRelease?.version.description)
@@ -109,7 +109,7 @@ final class PackageCollectionsModelTests: XCTestCase {
             guard case .error = messages[0].level else {
                 return XCTFail("Expected .error")
             }
-            XCTAssertNotNil(messages[0].message.range(of: "non-local files not allowed", options: .caseInsensitive))
+            XCTAssertNotNil(messages[0].message.range(of: "either a non-local path or the file does not exist", options: .caseInsensitive))
         }
     }
 }

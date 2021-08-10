@@ -16,6 +16,7 @@ import SPMTestSupport
 import SwiftDriver
 import TSCBasic
 import TSCUtility
+import Workspace
 import XCTest
 
 let hostTriple = Resources.default.toolchain.triple
@@ -246,9 +247,9 @@ final class BuildPlanTests: XCTestCase {
                 XCTAssertMatch(contents, .contains("-disable-implicit-swift-modules"))
                 XCTAssertMatch(contents, .contains("-fno-implicit-modules"))
                 XCTAssertMatch(contents, .contains("-explicit-swift-module-map-file"))
-                XCTAssertMatch(contents, .contains("A-dependencies.json"))
-                XCTAssertMatch(contents, .contains("B-dependencies.json"))
-                XCTAssertMatch(contents, .contains("C-dependencies.json"))
+                XCTAssertMatch(contents, .contains("A-dependencies"))
+                XCTAssertMatch(contents, .contains("B-dependencies"))
+                XCTAssertMatch(contents, .contains("C-dependencies"))
             } catch Driver.Error.unableToDecodeFrontendTargetInfo {
                 // If the toolchain being used is sufficiently old, the integrated driver
                 // will not be able to parse the `-print-target-info` output. In which case,
@@ -948,6 +949,58 @@ final class BuildPlanTests: XCTestCase {
             "-target", defaultTargetTriple,
         ])
       #endif
+    }
+
+    func testParseAsLibraryFlagForExe() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            // First executable has a single source file not named `main.swift`.
+            "/Pkg/Sources/exe1/foo.swift",
+            // Second executable has a single source file named `main.swift`.
+            "/Pkg/Sources/exe2/main.swift",
+            // Third executable has multiple source files.
+            "/Pkg/Sources/exe3/bar.swift",
+            "/Pkg/Sources/exe3/main.swift"
+        )
+
+        let diagnostics = DiagnosticsEngine()
+        let graph = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
+            manifests: [
+                Manifest.createV4Manifest(
+                    name: "Pkg",
+                    path: "/Pkg",
+                    packageKind: .root,
+                    packageLocation: "/Pkg",
+                    toolsVersion: .v5_5,
+                    targets: [
+                        TargetDescription(name: "exe1", type: .executable),
+                        TargetDescription(name: "exe2", type: .executable),
+                        TargetDescription(name: "exe3", type: .executable),
+                    ]),
+            ]
+        )
+        XCTAssertNoDiagnostics(diagnostics)
+
+        let result = BuildPlanResult(plan: try BuildPlan(
+            buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
+            graph: graph, diagnostics: diagnostics, fileSystem: fs)
+        )
+
+        result.checkProductsCount(3)
+        result.checkTargetsCount(3)
+
+        XCTAssertNoDiagnostics(diagnostics)
+
+        // Check that the first target (single source file not named main) has -parse-as-library.
+        let exe1 = try result.target(for: "exe1").swiftTarget().emitCommandLine()
+        XCTAssertMatch(exe1, ["-parse-as-library", .anySequence])
+
+        // Check that the second target (single source file named main) does not have -parse-as-library.
+        let exe2 = try result.target(for: "exe2").swiftTarget().emitCommandLine()
+        XCTAssertNoMatch(exe2, ["-parse-as-library", .anySequence])
+
+        // Check that the third target (multiple source files) does not have -parse-as-library.
+        let exe3 = try result.target(for: "exe3").swiftTarget().emitCommandLine()
+        XCTAssertNoMatch(exe3, ["-parse-as-library", .anySequence])
     }
 
     func testCModule() throws {
@@ -2055,6 +2108,54 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertMatch(exe, [.anySequence, "-L", "/path/to/foo", "-L/path/to/foo", "-Xlinker", "-rpath=foo", "-Xlinker", "-rpath", "-Xlinker", "foo", "-L", "/fake/path/lib"])
     }
 
+    func testUserToolchainCompileFlags() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Pkg/Sources/exe/main.swift",
+            "/Pkg/Sources/lib/lib.c",
+            "/Pkg/Sources/lib/include/lib.h"
+        )
+
+        let diagnostics = DiagnosticsEngine()
+        let graph = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
+            manifests: [
+                Manifest.createV4Manifest(
+                    name: "Pkg",
+                    path: "/Pkg",
+                    packageKind: .root,
+                    packageLocation: "/Pkg",
+                    targets: [
+                        TargetDescription(name: "exe", dependencies: ["lib"]),
+                        TargetDescription(name: "lib", dependencies: []),
+                    ]),
+            ]
+        )
+        XCTAssertNoDiagnostics(diagnostics)
+
+        let userDestination = Destination(sdk: AbsolutePath("/fake/sdk"),
+            binDir: Resources.default.toolchain.destination.binDir,
+            extraCCFlags: ["-I/fake/sdk/sysroot", "-clang-flag-from-json"],
+            extraSwiftCFlags: ["-swift-flag-from-json"])
+        let mockToolchain = try UserToolchain(destination: userDestination)
+        let extraBuildParameters = mockBuildParameters(toolchain: mockToolchain,
+            flags: BuildFlags(xcc: ["-clang-command-line-flag"], xswiftc: ["-swift-command-line-flag"]))
+        let result = BuildPlanResult(plan: try BuildPlan(buildParameters: extraBuildParameters, graph: graph, diagnostics: diagnostics, fileSystem: fs))
+        result.checkProductsCount(1)
+        result.checkTargetsCount(2)
+
+        let lib = try result.target(for: "lib").clangTarget()
+        var args: [StringPattern] = ["-fmodules-cache-path=/path/to/build/debug/ModuleCache"]
+      #if os(macOS)
+        args += ["-isysroot"]
+      #else
+        args += ["--sysroot"]
+      #endif
+        args += ["/fake/sdk", "-I/fake/sdk/sysroot", "-clang-flag-from-json", "-clang-command-line-flag"]
+        XCTAssertMatch(lib.basicArguments(), args)
+
+        let exe = try result.target(for: "exe").swiftTarget().compileArguments()
+        XCTAssertMatch(exe, ["-module-cache-path", "/path/to/build/debug/ModuleCache", .anySequence, "-swift-flag-from-json", "-Xcc", "-clang-command-line-flag", "-swift-command-line-flag"])
+    }
+
     func testExecBuildTimeDependency() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/PkgA/Sources/exe/main.swift",
@@ -2412,6 +2513,9 @@ final class BuildPlanTests: XCTestCase {
         let resourceAccessor = fooTarget.sources.first{ $0.basename == "resource_bundle_accessor.swift" }!
         let contents = try fs.readFileContents(resourceAccessor).cString
         XCTAssertTrue(contents.contains("extension Foundation.Bundle"), contents)
+        // Assert that `Bundle.main` is executed in the compiled binary (and not during compilation)
+        // See https://bugs.swift.org/browse/SR-14555 and https://github.com/apple/swift-package-manager/pull/2972/files#r623861646
+        XCTAssertTrue(contents.contains("let mainPath = Bundle.main."), contents)
 
         let barTarget = try result.target(for: "Bar").swiftTarget()
         XCTAssertEqual(barTarget.objects.map{ $0.pathString }, [
@@ -2617,7 +2721,7 @@ final class BuildPlanTests: XCTestCase {
         let fs = InMemoryFileSystem(emptyFiles: "/Pkg/Sources/exe/main.swift")
 
         let artifactName = "my-tool"
-        let toolPath = AbsolutePath("/Pkg/MyTool.arar")
+        let toolPath = AbsolutePath("/Pkg/MyTool.artifactbundle")
         try fs.createDirectory(toolPath, recursive: true)
 
         try fs.writeFileContents(
@@ -2655,7 +2759,7 @@ final class BuildPlanTests: XCTestCase {
                     ],
                     targets: [
                         TargetDescription(name: "exe", dependencies: ["MyTool"]),
-                        TargetDescription(name: "MyTool", path: "MyTool.arar", type: .binary),
+                        TargetDescription(name: "MyTool", path: "MyTool.artifactbundle", type: .binary),
                     ]
                 ),
             ],

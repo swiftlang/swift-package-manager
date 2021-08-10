@@ -25,7 +25,7 @@ import struct Foundation.Data
 
 #if os(macOS)
 import Security
-#elseif os(Linux) || os(Windows)
+#elseif os(Linux) || os(Windows) || os(Android)
 @_implementationOnly import CCryptoBoringSSL
 #endif
 
@@ -59,7 +59,7 @@ extension CoreRSAPublicKey {
 
 // MARK: - MessageSigner and MessageValidator conformance using BoringSSL
 
-#elseif os(Linux) || os(Windows)
+#elseif os(Linux) || os(Windows) || os(Android)
 // Reference: https://github.com/vapor/jwt-kit/blob/master/Sources/JWTKit/RSA/RSASigner.swift
 extension BoringSSLRSAPrivateKey: BoringSSLSigning {
     private static let algorithm = BoringSSLEVP(type: .sha256)

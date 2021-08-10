@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2020 Apple Inc. and the Swift project authors
+ Copyright (c) 2020-2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -124,16 +124,17 @@ class PackageCollectionsStorageTests: XCTestCase {
             }
 
             try storage.close()
-            storage.resetCache()
 
             XCTAssertTrue(storage.fileSystem.exists(storagePath), "expected file to exist at \(path)")
             try storage.fileSystem.writeFileContents(storagePath, bytes: ByteString("blah".utf8))
 
-            XCTAssertThrowsError(try tsc_await { callback in storage.get(identifier: mockCollections.first!.identifier, callback: callback) }, "expected error", { error in
+            let storage2 = SQLitePackageCollectionsStorage(path: path)
+            defer { XCTAssertNoThrow(try storage2.close()) }
+            XCTAssertThrowsError(try tsc_await { callback in storage2.get(identifier: mockCollections.first!.identifier, callback: callback) }, "expected error", { error in
                 XCTAssert("\(error)".contains("is not a database"), "Expected file is not a database error")
             })
 
-            XCTAssertThrowsError(try tsc_await { callback in storage.put(collection: mockCollections.first!, callback: callback) }, "expected error", { error in
+            XCTAssertThrowsError(try tsc_await { callback in storage2.put(collection: mockCollections.first!, callback: callback) }, "expected error", { error in
                 XCTAssert("\(error)".contains("is not a database"), "Expected file is not a database error")
             })
         }
@@ -230,10 +231,8 @@ class PackageCollectionsStorageTests: XCTestCase {
             do {
                 try tsc_await { callback in storage2.populateTargetTrie(callback: callback) }
 
-                do {
-                    let searchResult = try tsc_await { callback in storage2.searchTargets(query: targetName, type: .exactMatch, callback: callback) }
-                    XCTAssert(searchResult.items.count > 0, "should get results")
-                }
+                let searchResult = try tsc_await { callback in storage2.searchTargets(query: targetName, type: .exactMatch, callback: callback) }
+                XCTAssert(searchResult.items.count > 0, "should get results")
             } catch {
                 // It's possible that some platforms don't have support FTS
                 XCTAssertEqual(false, storage2.useSearchIndices.get(), "populateTargetTrie should fail only if FTS is not available")

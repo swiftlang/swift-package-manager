@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2020 Apple Inc. and the Swift project authors
+ Copyright (c) 2020-2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -10,6 +10,7 @@
 
 import TSCBasic
 
+import Basics
 import PackageCollectionsModel
 import PackageModel
 
@@ -38,7 +39,7 @@ extension Model.CollectionSource {
                 if absolutePath == nil {
                     appendMessage(.error("Invalid file path: \(self.url.path). It must be an absolute file system path."))
                 } else if let absolutePath = absolutePath, !localFileSystem.exists(absolutePath) {
-                    appendMessage(.error("Non-local files not allowed: \(self.url.path)"))
+                    appendMessage(.error("\(self.url.path) is either a non-local path or the file does not exist."))
                 }
             }
         }
@@ -81,6 +82,11 @@ extension PackageCollectionModel.V1 {
         private func validate(package: Collection.Package, messages: inout [ValidationMessage]) {
             let packageID = PackageIdentity(url: package.url.absoluteString).description
 
+            guard !package.versions.isEmpty else {
+                messages.append(.error("Package \(packageID) does not have any versions.", property: "package.versions"))
+                return
+            }
+
             // Check for duplicate versions
             let nonUniqueVersions = Dictionary(grouping: package.versions, by: { $0.version }).filter { $1.count > 1 }.keys
             if !nonUniqueVersions.isEmpty {
@@ -89,7 +95,7 @@ extension PackageCollectionModel.V1 {
 
             var nonSemanticVersions = [String]()
             let semanticVersions: [TSCUtility.Version] = package.versions.compactMap {
-                let semver = TSCUtility.Version(string: $0.version)
+                let semver = TSCUtility.Version(tag: $0.version)
                 if semver == nil {
                     nonSemanticVersions.append($0.version)
                 }

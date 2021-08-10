@@ -25,8 +25,9 @@ extension Manifest {
     public var generatedManifestFileContents: String {
         /// Only write out the major and minor (not patch) versions of the
         /// tools version, since the patch version doesn't change semantics.
+        /// We leave out the spacer if the tools version doesn't support it.
         return """
-            // swift-tools-version: \(toolsVersion.major).\(toolsVersion.minor)
+            \(toolsVersion.specification(roundedTo: .minor))
             import PackageDescription
 
             let package = \(SourceCodeFragment(from: self).generateSourceCode())
@@ -103,6 +104,8 @@ fileprivate extension SourceCodeFragment {
         switch platform.platformName {
         case "macos":
             self.init(enum: "macOS", string: platform.version)
+        case "maccatalyst":
+            self.init(enum: "macCatalyst", string: platform.version)
         case "ios":
             self.init(enum: "iOS", string: platform.version)
         case "tvos":
@@ -117,25 +120,33 @@ fileprivate extension SourceCodeFragment {
     }
     
     /// Instantiates a SourceCodeFragment to represent a single package dependency.
-    init(from dependency: PackageDependencyDescription) {
+    init(from dependency: PackageDependency) {
         var params: [SourceCodeFragment] = []
         if let explicitName = dependency.explicitNameForTargetDependencyResolutionOnly {
             params.append(SourceCodeFragment(key: "name", string: explicitName))
         }
         switch dependency {
-        case .local(let data):
-            params.append(SourceCodeFragment(key: "path", string: data.path.pathString))
-        case .scm(let data):
-            params.append(SourceCodeFragment(key: "url", string: data.location))
-            switch data.requirement {
+        case .fileSystem(let settings):
+            params.append(SourceCodeFragment(key: "path", string: settings.path.pathString))
+        case .sourceControl(let settings):
+            params.append(SourceCodeFragment(key: "url", string: settings.location))
+            switch settings.requirement {
             case .exact(let version):
-                params.append(SourceCodeFragment(enum: "exact", string: version.description))
+                params.append(SourceCodeFragment(enum: "exact", string: "\(version)"))
             case .range(let range):
-                params.append(SourceCodeFragment(enum: "range", string: range.description))
+                params.append(SourceCodeFragment("\"\(range.lowerBound)\"..<\"\(range.upperBound)\""))
             case .revision(let revision):
                 params.append(SourceCodeFragment(enum: "revision", string: revision))
             case .branch(let branch):
                 params.append(SourceCodeFragment(enum: "branch", string: branch))
+            }
+        case .registry(let settings):
+            params.append(SourceCodeFragment(key: "identity", string: settings.identity.description))
+            switch settings.requirement {
+            case .exact(let version):
+                params.append(SourceCodeFragment(enum: "exact", string: "\(version)"))
+            case .range(let range):
+                params.append(SourceCodeFragment("\"\(range.lowerBound)\"..<\"\(range.upperBound)\""))
             }
         }
         self.init(enum: "package", subnodes: params)
@@ -297,6 +308,7 @@ fileprivate extension SourceCodeFragment {
         let platformNodes: [SourceCodeFragment] = condition.platformNames.map { platformName in
             switch platformName {
             case "macos": return SourceCodeFragment(enum: "macOS")
+            case "maccatalyst": return SourceCodeFragment(enum: "macCatalyst")
             case "ios": return SourceCodeFragment(enum: "iOS")
             case "tvos": return SourceCodeFragment(enum: "tvOS")
             case "watchos": return SourceCodeFragment(enum: "watchOS")

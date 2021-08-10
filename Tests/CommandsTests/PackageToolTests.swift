@@ -47,89 +47,50 @@ final class PackageToolTests: XCTestCase {
         let stdout = try execute(["--version"]).stdout
         XCTAssert(stdout.contains("Swift Package Manager"), "got stdout:\n" + stdout)
     }
-    
-    func testNetrcSupportedOS() throws {
-        func verifyUnsupportedOSThrows() {
-            do {
-                // should throw and be caught
-                try execute(["update", "--netrc-file", "/Users/me/.hidden/.netrc"])
-                XCTFail()
-            } catch {
-                XCTAssert(true)
-            }
-        }
-        #if os(macOS)
-        if #available(macOS 10.13, *) {
-            // should succeed
-            XCTAssert(try execute(["--netrc"]).stdout.contains("USAGE: swift package"))
-            XCTAssert(try execute(["--netrc-file", "/Users/me/.hidden/.netrc"]).stdout.contains("USAGE: swift package"))
-            XCTAssert(try execute(["--netrc-optional"]).stdout.contains("USAGE: swift package"))
-        } else {
-            verifyUnsupportedOSThrows()
-        }
-        #else
-            verifyUnsupportedOSThrows()
-        #endif
-    }
-    
-    func testNetrcFile() throws {
-        #if os(macOS)
-        if #available(macOS 10.13, *) {
-            // SUPPORTED OS
-            fixture(name: "DependencyResolution/External/Complex") { prefix in
-                let packageRoot = prefix.appending(component: "app")
 
-                let fs = localFileSystem
-                let netrcPath = prefix.appending(component: ".netrc")
-                try fs.writeFileContents(netrcPath) { stream in
-                    stream <<< "machine mymachine.labkey.org login user@labkey.org password mypassword"
-                }
-                
-                do {
-                    // file at correct location
-                    try execute(["--netrc-file", netrcPath.pathString, "resolve"], packagePath: packageRoot)
-                    XCTAssert(true)
-                    // file does not exist, but is optional
-                    let textOutput = try execute(["--netrc-file", "/foo", "--netrc-optional", "resolve"], packagePath: packageRoot).stderr
-                    XCTAssert(textOutput.contains("warning: Did not find optional .netrc file at /foo."))
-                    
-                    // required file does not exist, will throw
-                    try execute(["--netrc-file", "/foo", "resolve"], packagePath: packageRoot)
-                    
-                } catch {
-                    XCTAssert(String(describing: error).contains("Cannot find mandatory .netrc file at /foo"))
-                }
+    func testNetrcFile() throws {
+        fixture(name: "DependencyResolution/External/XCFramework") { packageRoot in
+            let fs = localFileSystem
+            let netrcPath = packageRoot.appending(component: ".netrc")
+            try fs.writeFileContents(netrcPath) { stream in
+                stream <<< "machine mymachine.labkey.org login user@labkey.org password mypassword"
             }
-            
-            fixture(name: "DependencyResolution/External/Complex") { prefix in
-                let packageRoot = prefix.appending(component: "app")
-                do {
-                    // Developer machine may have .netrc file at NSHomeDirectory; modify test accordingly
-                    if localFileSystem.exists(localFileSystem.homeDirectory.appending(RelativePath(".netrc"))) {
-                        try execute(["--netrc", "resolve"], packagePath: packageRoot)
-                        XCTAssert(true)
-                    } else {
-                        // file does not exist, but is optional
-                        let textOutput = try execute(["--netrc", "--netrc-optional", "resolve"], packagePath: packageRoot)
-                        XCTAssert(textOutput.stderr.contains("Did not find optional .netrc file at \(localFileSystem.homeDirectory)/.netrc."))
-                        
-                        // file does not exist, but is optional
-                        let textOutput2 = try execute(["--netrc-optional", "resolve"], packagePath: packageRoot)
-                        XCTAssert(textOutput2.stderr.contains("Did not find optional .netrc file at \(localFileSystem.homeDirectory)/.netrc."))
-                        
-                        // required file does not exist, will throw
-                        try execute(["--netrc", "resolve"], packagePath: packageRoot)
-                    }
-                } catch {
-                    XCTAssert(String(describing: error).contains("Cannot find mandatory .netrc file at \(localFileSystem.homeDirectory)/.netrc"))
-                }
+
+            do {
+                // file at correct location
+                try execute(["--netrc-file", netrcPath.pathString, "resolve"], packagePath: packageRoot)
+                // file does not exist, but is optional
+                let textOutput = try execute(["--netrc-file", "/foo", "--netrc-optional", "resolve"], packagePath: packageRoot).stderr
+                XCTAssert(textOutput.contains("warning: Did not find optional .netrc file at /foo."))
+
+                // required file does not exist, will throw
+                try execute(["--netrc-file", "/foo", "resolve"], packagePath: packageRoot)
+            } catch {
+                XCTAssert(String(describing: error).contains("Cannot find mandatory .netrc file at /foo"), "\(error)")
             }
-        } else {
-            // UNSUPPORTED OS, HANDLED ELSEWHERE
         }
-        #else
-        // UNSUPPORTED OS, HANDLED ELSEWHERE
-        #endif
+
+        fixture(name: "DependencyResolution/External/XCFramework") { packageRoot in
+            do {
+                // Developer machine may have .netrc file at NSHomeDirectory; modify test accordingly
+                if localFileSystem.exists(localFileSystem.homeDirectory.appending(RelativePath(".netrc"))) {
+                    try execute(["--netrc", "resolve"], packagePath: packageRoot)
+                } else {
+                    // file does not exist, but is optional
+                    let textOutput = try execute(["--netrc", "--netrc-optional", "resolve"], packagePath: packageRoot)
+                    XCTAssert(textOutput.stderr.contains("Did not find optional .netrc file at \(localFileSystem.homeDirectory)/.netrc."))
+
+                    // file does not exist, but is optional
+                    let textOutput2 = try execute(["--netrc-optional", "resolve"], packagePath: packageRoot)
+                    XCTAssert(textOutput2.stderr.contains("Did not find optional .netrc file at \(localFileSystem.homeDirectory)/.netrc."))
+
+                    // required file does not exist, will throw
+                    try execute(["--netrc", "resolve"], packagePath: packageRoot)
+                }
+            } catch {
+                XCTAssert(String(describing: error).contains("Cannot find mandatory .netrc file at \(localFileSystem.homeDirectory)/.netrc"))
+            }
+        }
     }
 
     func testResolve() throws {
@@ -293,12 +254,27 @@ final class PackageToolTests: XCTestCase {
             XCTAssert(textChunk6.contains("Path: Sources/CExec"), textChunk6)
             XCTAssert(textChunk6.contains("Sources:\n        main.c"), textChunk6)
         }
+
+        fixture(name: "DependencyResolution/External/Simple/Bar") { prefix in
+            // Generate the JSON description.
+            let jsonResult = try SwiftPMProduct.SwiftPackage.executeProcess(["describe", "--type=json"], packagePath: prefix)
+            let jsonOutput = try jsonResult.utf8Output()
+            let json = try JSON(bytes: ByteString(encodingAsUTF8: jsonOutput))
+
+            // Check that product dependencies and memberships are as expected.
+            XCTAssertEqual(json["name"]?.string, "Bar")
+            let jsonTarget = try XCTUnwrap(json["targets"]?.array?[0])
+            XCTAssertEqual(jsonTarget["product_memberships"]?.array?[0].stringValue, "Bar")
+            XCTAssertEqual(jsonTarget["product_dependencies"]?.array?[0].stringValue, "Foo")
+            XCTAssertNil(jsonTarget["target_dependencies"])
+        }
+
     }
     
     func testDescribePackageUsingPlugins() throws {
         fixture(name: "Miscellaneous/Plugins/MySourceGenPlugin") { prefix in
             // Generate the JSON description.
-            let result = try SwiftPMProduct.SwiftPackage.executeProcess(["describe", "--type=json"], packagePath: prefix, env: ["SWIFTPM_ENABLE_PLUGINS": "1"])
+            let result = try SwiftPMProduct.SwiftPackage.executeProcess(["describe", "--type=json"], packagePath: prefix)
             XCTAssert(result.exitStatus == .terminated(code: 0), "`swift-package describe` failed: \(String(describing: try? result.utf8stderrOutput()))")
             let json = try JSON(bytes: ByteString(encodingAsUTF8: result.utf8Output()))
 
@@ -382,8 +358,8 @@ final class PackageToolTests: XCTestCase {
             packageLocation: "/PackageA",
             v: .v5_3,
             dependencies: [
-                .local(name: "PackageB", path: "/PackageB"),
-                .local(name: "PackageC", path: "/PackageC"),
+                .local(path: "/PackageB"),
+                .local(path: "/PackageC"),
             ],
             products: [
                 .init(name: "exe", type: .executable, targets: ["TargetA"])
@@ -400,8 +376,8 @@ final class PackageToolTests: XCTestCase {
             packageLocation: "/PackageB",
             v: .v5_3,
             dependencies: [
-                .local(name: "PackageC", path: "/PackageC"),
-                .local(name: "PackageD", path: "/PackageD"),
+                .local(path: "/PackageC"),
+                .local(path: "/PackageD"),
             ],
             products: [
                 .init(name: "PackageB", type: .library(.dynamic), targets: ["TargetB"])
@@ -418,7 +394,7 @@ final class PackageToolTests: XCTestCase {
             packageLocation: "/PackageC",
             v: .v5_3,
             dependencies: [
-                .local(name: "PackageD", path: "/PackageD"),
+                .local(path: "/PackageD"),
             ],
             products: [
                 .init(name: "PackageC", type: .library(.dynamic), targets: ["TargetC"])
@@ -477,6 +453,59 @@ final class PackageToolTests: XCTestCase {
         }
     }
 
+    func testShowDependencies_redirectJsonOutput() throws {
+        try testWithTemporaryDirectory { tmpPath in
+            let fs = localFileSystem
+            let root = tmpPath.appending(components: "root")
+            let dep = tmpPath.appending(components: "dep")
+
+            // Create root package.
+            try fs.writeFileContents(root.appending(components: "Sources", "root", "main.swift")) { $0 <<< "" }
+            try fs.writeFileContents(root.appending(component: "Package.swift")) {
+                $0 <<< """
+                // swift-tools-version:4.2
+                import PackageDescription
+                let package = Package(
+                name: "root",
+                dependencies: [.package(url: "../dep", from: "1.0.0")],
+                targets: [.target(name: "root", dependencies: ["dep"])]
+                )
+                """
+            }
+
+            // Create dependency.
+            try fs.writeFileContents(dep.appending(components: "Sources", "dep", "lib.swift")) { $0 <<< "" }
+            try fs.writeFileContents(dep.appending(component: "Package.swift")) {
+                $0 <<< """
+                // swift-tools-version:4.2
+                import PackageDescription
+                let package = Package(
+                name: "dep",
+                products: [.library(name: "dep", targets: ["dep"])],
+                targets: [.target(name: "dep")]
+                )
+                """
+            }
+            do {
+                let depGit = GitRepository(path: dep)
+                try depGit.create()
+                try depGit.stageEverything()
+                try depGit.commit()
+                try depGit.tag(name: "1.0.0")
+            }
+
+            let resultPath = root.appending(component: "result.json")
+            _ = try execute(["show-dependencies", "--format", "json", "--output-path", resultPath.pathString ], packagePath: root)
+            
+            XCTAssert(fs.exists(resultPath))
+            let jsonOutput = try fs.readFileContents(resultPath)
+            let json = try JSON(bytes: jsonOutput)
+
+            XCTAssertEqual(json["name"]?.string, "root")
+            XCTAssertEqual(json["dependencies"]?[0]?["name"]?.string, "dep")
+        }
+    }
+
     func testInitEmpty() throws {
         try testWithTemporaryDirectory { tmpPath in
             let fs = localFileSystem
@@ -499,8 +528,9 @@ final class PackageToolTests: XCTestCase {
 
             let manifest = path.appending(component: "Package.swift")
             let contents = try localFileSystem.readFileContents(manifest).description
-            let version = "\(InitPackage.newPackageToolsVersion.major).\(InitPackage.newPackageToolsVersion.minor)"
-            XCTAssertTrue(contents.hasPrefix("// swift-tools-version:\(version)\n"))
+			let version = InitPackage.newPackageToolsVersion
+            let versionSpecifier = "\(version.major).\(version.minor)"
+            XCTAssertTrue(contents.hasPrefix("// swift-tools-version:\(version < .v5_4 ? "" : " ")\(versionSpecifier)\n"))
 
             XCTAssertTrue(fs.exists(manifest))
             XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Sources").appending(component: "Foo")), ["main.swift"])
@@ -534,8 +564,9 @@ final class PackageToolTests: XCTestCase {
 
             let manifest = path.appending(component: "Package.swift")
             let contents = try localFileSystem.readFileContents(manifest).description
-            let version = "\(InitPackage.newPackageToolsVersion.major).\(InitPackage.newPackageToolsVersion.minor)"
-            XCTAssertTrue(contents.hasPrefix("// swift-tools-version:\(version)\n"))
+			let version = InitPackage.newPackageToolsVersion
+			let versionSpecifier = "\(version.major).\(version.minor)"
+			XCTAssertTrue(contents.hasPrefix("// swift-tools-version:\(version < .v5_4 ? "" : " ")\(versionSpecifier)\n"))
 
             XCTAssertTrue(fs.exists(manifest))
             XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Sources").appending(component: "CustomName")), ["main.swift"])
@@ -691,7 +722,7 @@ final class PackageToolTests: XCTestCase {
             // Try to pin bar at a branch.
             do {
                 try execute("resolve", "bar", "--branch", "YOLO")
-                let pinsStore = try PinsStore(pinsFile: pinsFile, fileSystem: localFileSystem)
+                let pinsStore = try PinsStore(pinsFile: pinsFile, fileSystem: localFileSystem, mirrors: .init())
                 let state = CheckoutState(revision: yoloRevision, branch: "YOLO")
                 let identity = PackageIdentity(path: barPath)
                 XCTAssertEqual(pinsStore.pinsMap[identity]?.state, state)
@@ -700,7 +731,7 @@ final class PackageToolTests: XCTestCase {
             // Try to pin bar at a revision.
             do {
                 try execute("resolve", "bar", "--revision", yoloRevision.identifier)
-                let pinsStore = try PinsStore(pinsFile: pinsFile, fileSystem: localFileSystem)
+                let pinsStore = try PinsStore(pinsFile: pinsFile, fileSystem: localFileSystem, mirrors: .init())
                 let state = CheckoutState(revision: yoloRevision)
                 let identity = PackageIdentity(path: barPath)
                 XCTAssertEqual(pinsStore.pinsMap[identity]?.state, state)
@@ -741,7 +772,7 @@ final class PackageToolTests: XCTestCase {
 
             // Test pins file.
             do {
-                let pinsStore = try PinsStore(pinsFile: pinsFile, fileSystem: localFileSystem)
+                let pinsStore = try PinsStore(pinsFile: pinsFile, fileSystem: localFileSystem, mirrors: .init())
                 XCTAssertEqual(pinsStore.pins.map{$0}.count, 2)
                 for pkg in ["bar", "baz"] {
                     let path = try SwiftPMProduct.packagePath(for: pkg, packageRoot: fooPath)
@@ -760,7 +791,7 @@ final class PackageToolTests: XCTestCase {
             // Try to pin bar.
             do {
                 try execute("resolve", "bar")
-                let pinsStore = try PinsStore(pinsFile: pinsFile, fileSystem: localFileSystem)
+                let pinsStore = try PinsStore(pinsFile: pinsFile, fileSystem: localFileSystem, mirrors: .init())
                 let identity = PackageIdentity(path: barPath)
                 XCTAssertEqual(pinsStore.pinsMap[identity]?.state.version, "1.2.3")
             }
@@ -784,7 +815,7 @@ final class PackageToolTests: XCTestCase {
             // We should be able to revert to a older version.
             do {
                 try execute("resolve", "bar", "--version", "1.2.3")
-                let pinsStore = try PinsStore(pinsFile: pinsFile, fileSystem: localFileSystem)
+                let pinsStore = try PinsStore(pinsFile: pinsFile, fileSystem: localFileSystem, mirrors: .init())
                 let identity = PackageIdentity(path: barPath)
                 XCTAssertEqual(pinsStore.pinsMap[identity]?.state.version, "1.2.3")
                 try checkBar(5)
@@ -1031,7 +1062,7 @@ final class PackageToolTests: XCTestCase {
                 XCTAssertEqual(result.exitStatus, .terminated(code: 1))
 
                 let stderrOutput = try result.utf8stderrOutput()
-                XCTAssert(stderrOutput.contains("error: root manifest not found"), #"actual: "\#(stderrOutput)""#)
+                XCTAssert(stderrOutput.contains("error: Could not find Package.swift in this directory or any of its parent directories."), #"actual: "\#(stderrOutput)""#)
             }
 
             // Runnning with output as absolute path to existing directory

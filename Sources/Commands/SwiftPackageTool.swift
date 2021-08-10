@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
+ Copyright (c) 2014 - 2020 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -41,6 +41,7 @@ public struct SwiftPackageTool: ParsableCommand {
             Format.self,
             
             APIDiff.self,
+            DeprecatedAPIDiff.self,
             DumpSymbolGraph.self,
             DumpPIF.self,
             DumpPackage.self,
@@ -78,7 +79,7 @@ extension SwiftPackageTool {
         static let configuration = CommandConfiguration(
             abstract: "Delete build artifacts")
 
-        @OptionGroup()
+        @OptionGroup(_hiddenFromHelp: true)
         var swiftOptions: SwiftToolOptions
         
         func run(_ swiftTool: SwiftTool) throws {
@@ -90,7 +91,7 @@ extension SwiftPackageTool {
         static let configuration = CommandConfiguration(
             abstract: "Purge the global repository cache.")
 
-        @OptionGroup()
+        @OptionGroup(_hiddenFromHelp: true)
         var swiftOptions: SwiftToolOptions
 
         func run(_ swiftTool: SwiftTool) throws {
@@ -102,7 +103,7 @@ extension SwiftPackageTool {
         static let configuration = CommandConfiguration(
             abstract: "Reset the complete cache/build directory")
 
-        @OptionGroup()
+        @OptionGroup(_hiddenFromHelp: true)
         var swiftOptions: SwiftToolOptions
         
         func run(_ swiftTool: SwiftTool) throws {
@@ -114,7 +115,7 @@ extension SwiftPackageTool {
         static let configuration = CommandConfiguration(
             abstract: "Update package dependencies")
 
-        @OptionGroup()
+        @OptionGroup(_hiddenFromHelp: true)
         var swiftOptions: SwiftToolOptions
         
         @Flag(name: [.long, .customShort("n")],
@@ -160,10 +161,10 @@ extension SwiftPackageTool {
         static let configuration = CommandConfiguration(
             abstract: "Describe the current package")
 
-        @OptionGroup()
+        @OptionGroup(_hiddenFromHelp: true)
         var swiftOptions: SwiftToolOptions
                 
-        @Option()
+        @Option(help: "json | text")
         var type: DescribeMode = .text
 
         func run(_ swiftTool: SwiftTool) throws {
@@ -191,21 +192,22 @@ extension SwiftPackageTool {
     }
 
     struct Init: SwiftCommand {
-        static let configuration = CommandConfiguration(
+        public static let configuration = CommandConfiguration(
             abstract: "Initialize a new package")
 
-        @OptionGroup()
+        @OptionGroup(_hiddenFromHelp: true)
         var swiftOptions: SwiftToolOptions
         
-        @Option(name: .customLong("type"))
+        @Option(name: .customLong("type"), help: "Package type: empty | library | executable | system-module | manifest")
         var initMode: InitPackage.PackageType = .library
         
         @Option(name: .customLong("name"), help: "Provide custom package name")
         var packageName: String?
-
+        
         func run(_ swiftTool: SwiftTool) throws {
-            // FIXME: Error handling.
-            let cwd = localFileSystem.currentWorkingDirectory!
+            guard let cwd = localFileSystem.currentWorkingDirectory else {
+                throw InternalError("Could not find the current working directory")
+            }
 
             let packageName = self.packageName ?? cwd.basename
             let initPackage = try InitPackage(
@@ -221,7 +223,7 @@ extension SwiftPackageTool {
         static let configuration = CommandConfiguration(
             commandName: "_format")
 
-        @OptionGroup()
+        @OptionGroup(_hiddenFromHelp: true)
         var swiftOptions: SwiftToolOptions
         
         @Argument(parsing: .unconditionalRemaining,
@@ -286,64 +288,219 @@ extension SwiftPackageTool {
             }
         }
     }
+
+    struct DeprecatedAPIDiff: ParsableCommand {
+        static let configuration = CommandConfiguration(commandName: "experimental-api-diff",
+                                                        abstract: "Deprecated - use `swift package diagnose-api-breaking-changes` instead",
+                                                        shouldDisplay: false)
+
+        @Argument(parsing: .unconditionalRemaining)
+        var args: [String] = []
+
+        func run() throws {
+            print("`swift package experimental-api-diff` has been renamed to `swift package diagnose-api-breaking-changes`")
+            throw ExitCode.failure
+        }
+    }
     
     struct APIDiff: SwiftCommand {
         static let configuration = CommandConfiguration(
-            commandName: "experimental-api-diff")
+            commandName: "diagnose-api-breaking-changes",
+            abstract: "Diagnose API-breaking changes to Swift modules in a package",
+            discussion: """
+            The diagnose-api-breaking-changes command can be used to compare the Swift API of \
+            a package to a baseline revision, diagnosing any breaking changes which have \
+            been introduced. By default, it compares every Swift module from the baseline \
+            revision which is part of a library product. For packages with many targets, this \
+            behavior may be undesirable as the comparison can be slow. \
+            The `--products` and `--targets` options may be used to restrict the scope of \
+            the comparison.
+            """)
 
-        @OptionGroup()
+        @OptionGroup(_hiddenFromHelp: true)
         var swiftOptions: SwiftToolOptions
 
-        @Argument(help: "The baseline treeish")
+        @Option(help: """
+        The path to a text file containing breaking changes which should be ignored by the API comparison. \
+        Each ignored breaking change in the file should appear on its own line and contain the exact message \
+        to be ignored (e.g. 'API breakage: func foo() has been removed').
+        """)
+        var breakageAllowlistPath: AbsolutePath?
+
+        @Argument(help: "The baseline treeish to compare to (e.g. a commit hash, branch name, tag, etc.)")
         var treeish: String
-        
-        @Flag(help: "Invert the baseline which is helpful for determining API additions")
-        var invertBaseline: Bool = false
+
+        @Option(parsing: .upToNextOption,
+                help: "One or more products to include in the API comparison. If present, only the specified products (and any targets specified using `--targets`) will be compared.")
+        var products: [String] = []
+
+        @Option(parsing: .upToNextOption,
+                help: "One or more targets to include in the API comparison. If present, only the specified targets (and any products specified using `--products`) will be compared.")
+        var targets: [String] = []
+
+        @Option(name: .customLong("baseline-dir"),
+                help: "The path to a directory used to store API baseline files. If unspecified, a temporary directory will be used.")
+        var overrideBaselineDir: AbsolutePath?
+
+        @Flag(help: "Regenerate the API baseline, even if an existing one is available.")
+        var regenerateBaseline: Bool = false
 
         func run(_ swiftTool: SwiftTool) throws {
             let apiDigesterPath = try swiftTool.getToolchain().getSwiftAPIDigester()
             let apiDigesterTool = SwiftAPIDigester(tool: apiDigesterPath)
 
-            // Build the current package.
-            //
+            let packageRoot = try swiftOptions.packagePath ?? swiftTool.getPackageRoot()
+            let repository = GitRepository(path: packageRoot)
+            let baselineRevision = try repository.resolveRevision(identifier: treeish)
+
             // We turn build manifest caching off because we need the build plan.
             let buildOp = try swiftTool.createBuildOperation(cacheBuildManifest: false)
-            try buildOp.build()
 
-            // Dump JSON for the current package.
-            let buildParameters = buildOp.buildParameters
-            let currentSDKJSON = buildParameters.apiDiff.appending(component: "current.json")
             let packageGraph = try buildOp.getPackageGraph()
+            let modulesToDiff = try determineModulesToDiff(packageGraph: packageGraph,
+                                                           diagnostics: swiftTool.diagnostics)
 
-            try apiDigesterTool.dumpSDKJSON(
-                at: currentSDKJSON,
-                modules: packageGraph.apiDigesterModules,
-                additionalArgs: buildOp.buildPlan!.createAPIDigesterArgs()
-            )
+            // Build the current package.
+            try buildOp.build()
 
             // Dump JSON for the baseline package.
             let workspace = try swiftTool.getActiveWorkspace()
             let baselineDumper = try APIDigesterBaselineDumper(
-                baselineTreeish: treeish,
+                baselineRevision: baselineRevision,
                 packageRoot: swiftTool.getPackageRoot(),
-                buildParameters: buildParameters,
+                buildParameters: buildOp.buildParameters,
                 manifestLoader: workspace.manifestLoader,
                 repositoryManager: workspace.repositoryManager,
                 apiDigesterTool: apiDigesterTool,
                 diags: swiftTool.diagnostics
             )
-            let baselineSDKJSON = try baselineDumper.dumpBaselineSDKJSON()
+            let baselineDir = try baselineDumper.emitAPIBaseline(for: modulesToDiff,
+                                                                 at: overrideBaselineDir,
+                                                                 force: regenerateBaseline)
 
-            // Run the diagnose tool which will print the diff.
-            try apiDigesterTool.diagnoseSDK(
-                currentSDKJSON: invertBaseline ? baselineSDKJSON : currentSDKJSON,
-                baselineSDKJSON: invertBaseline ? currentSDKJSON : baselineSDKJSON
-            )
+            let results = ThreadSafeArrayStore<SwiftAPIDigester.ComparisonResult>()
+            let group = DispatchGroup()
+            let semaphore = DispatchSemaphore(value: Int(buildOp.buildParameters.jobs))
+            var skippedModules: Set<String> = []
+
+            for module in modulesToDiff {
+                let moduleBaselinePath = baselineDir.appending(component: "\(module).json")
+                guard localFileSystem.exists(moduleBaselinePath) else {
+                    print("\nSkipping \(module) because it does not exist in the baseline")
+                    skippedModules.insert(module)
+                    continue
+                }
+                semaphore.wait()
+                DispatchQueue.sharedConcurrent.async(group: group) {
+                    if let comparisonResult = apiDigesterTool.compareAPIToBaseline(
+                        at: moduleBaselinePath,
+                        for: module,
+                        buildPlan: buildOp.buildPlan!,
+                        except: breakageAllowlistPath
+                    ) {
+                        results.append(comparisonResult)
+                    }
+                    semaphore.signal()
+                }
+            }
+
+            group.wait()
+
+            let failedModules = modulesToDiff
+                .subtracting(skippedModules)
+                .subtracting(results.map(\.moduleName))
+            for failedModule in failedModules {
+                swiftTool.diagnostics.emit(.error("failed to read API digester output for \(failedModule)"))
+            }
+
+            for result in results.get() {
+                printComparisonResult(result, diagnosticsEngine: swiftTool.diagnostics)
+            }
+
+            guard failedModules.isEmpty && results.get().allSatisfy(\.hasNoAPIBreakingChanges) else {
+                throw ExitCode.failure
+            }
+        }
+
+        private func determineModulesToDiff(packageGraph: PackageGraph, diagnostics: DiagnosticsEngine) throws -> Set<String> {
+            var modulesToDiff: Set<String> = []
+            if products.isEmpty && targets.isEmpty {
+                modulesToDiff.formUnion(packageGraph.apiDigesterModules)
+            } else {
+                for productName in products {
+                    guard let product = packageGraph
+                            .rootPackages
+                            .flatMap(\.products)
+                            .first(where: { $0.name == productName }) else {
+                        diagnostics.emit(.error("no such product '\(productName)'"))
+                        continue
+                    }
+                    guard product.type.isLibrary else {
+                        diagnostics.emit(.error("'\(productName)' is not a library product"))
+                        continue
+                    }
+                    modulesToDiff.formUnion(product.targets.filter { $0.underlyingTarget is SwiftTarget }.map(\.c99name))
+                }
+                for targetName in targets {
+                    guard let target = packageGraph
+                            .rootPackages
+                            .flatMap(\.targets)
+                            .first(where: { $0.name == targetName }) else {
+                        diagnostics.emit(.error("no such target '\(targetName)'"))
+                        continue
+                    }
+                    guard target.type == .library else {
+                        diagnostics.emit(.error("'\(targetName)' is not a library target"))
+                        continue
+                    }
+                    guard target.underlyingTarget is SwiftTarget else {
+                        diagnostics.emit(.error("'\(targetName)' is not a Swift language target"))
+                        continue
+                    }
+                    modulesToDiff.insert(target.c99name)
+                }
+                guard !diagnostics.hasErrors else {
+                    throw ExitCode.failure
+                }
+            }
+            return modulesToDiff
+        }
+
+        private func printComparisonResult(_ comparisonResult: SwiftAPIDigester.ComparisonResult,
+                                           diagnosticsEngine: DiagnosticsEngine) {
+            for diagnostic in comparisonResult.otherDiagnostics {
+                switch diagnostic.level {
+                case .error, .fatal:
+                    diagnosticsEngine.emit(error: diagnostic.text, location: diagnostic.location)
+                case .warning:
+                    diagnosticsEngine.emit(warning: diagnostic.text, location: diagnostic.location)
+                case .note:
+                    diagnosticsEngine.emit(note: diagnostic.text, location: diagnostic.location)
+                case .remark:
+                    diagnosticsEngine.emit(remark: diagnostic.text, location: diagnostic.location)
+                case .ignored:
+                    break
+                }
+            }
+
+            let moduleName = comparisonResult.moduleName
+            if comparisonResult.apiBreakingChanges.isEmpty {
+                print("\nNo breaking changes detected in \(moduleName)")
+            } else {
+                let count = comparisonResult.apiBreakingChanges.count
+                print("\n\(count) breaking \(count > 1 ? "changes" : "change") detected in \(moduleName):")
+                for change in comparisonResult.apiBreakingChanges {
+                    print("  💔 \(change.text)")
+                }
+            }
         }
     }
     
     struct DumpSymbolGraph: SwiftCommand {
-        @OptionGroup()
+        static let configuration = CommandConfiguration(
+            abstract: "Dump Symbol Graph")
+
+        @OptionGroup(_hiddenFromHelp: true)
         var swiftOptions: SwiftToolOptions
         
         func run(_ swiftTool: SwiftTool) throws {
@@ -366,7 +523,7 @@ extension SwiftPackageTool {
         static let configuration = CommandConfiguration(
             abstract: "Print parsed Package.swift as JSON")
 
-        @OptionGroup()
+        @OptionGroup(_hiddenFromHelp: true)
         var swiftOptions: SwiftToolOptions
         
         func run(_ swiftTool: SwiftTool) throws {
@@ -390,7 +547,7 @@ extension SwiftPackageTool {
     }
     
     struct DumpPIF: SwiftCommand {
-        @OptionGroup()
+        @OptionGroup(_hiddenFromHelp: true)
         var swiftOptions: SwiftToolOptions
         
         @Flag(help: "Preserve the internal structure of PIF")
@@ -409,7 +566,7 @@ extension SwiftPackageTool {
         static let configuration = CommandConfiguration(
             abstract: "Put a package in editable mode")
 
-        @OptionGroup()
+        @OptionGroup(_hiddenFromHelp: true)
         var swiftOptions: SwiftToolOptions
 
         @Option(help: "The revision to edit", transform: { Revision(identifier: $0) })
@@ -442,7 +599,7 @@ extension SwiftPackageTool {
         static let configuration = CommandConfiguration(
             abstract: "Remove a package from editable mode")
 
-        @OptionGroup()
+        @OptionGroup(_hiddenFromHelp: true)
         var swiftOptions: SwiftToolOptions
         
         @Flag(name: .customLong("force"),
@@ -469,15 +626,20 @@ extension SwiftPackageTool {
         static let configuration = CommandConfiguration(
             abstract: "Print the resolved dependency graph")
 
-        @OptionGroup()
+        @OptionGroup(_hiddenFromHelp: true)
         var swiftOptions: SwiftToolOptions
         
-        @Option()
+        @Option(help: "text | dot | json | flatlist")
         var format: ShowDependenciesMode = .text
+
+        @Option(name: [.long, .customShort("o") ], 
+                help: "The absolute or relative path to output the resolved dependency graph.")
+        var outputPath: AbsolutePath?
 
         func run(_ swiftTool: SwiftTool) throws {
             let graph = try swiftTool.loadPackageGraph()
-            dumpDependenciesOf(rootPackage: graph.rootPackages[0], mode: format)
+            let stream = try outputPath.map { try LocalFileOutputByteStream($0) } ?? TSCBasic.stdoutStream.stream
+            dumpDependenciesOf(rootPackage: graph.rootPackages[0], mode: format, on: stream)
         }
     }
     
@@ -486,10 +648,10 @@ extension SwiftPackageTool {
             commandName: "tools-version",
             abstract: "Manipulate tools version of the current package")
 
-        @OptionGroup()
+        @OptionGroup(_hiddenFromHelp: true)
         var swiftOptions: SwiftToolOptions
         
-        @Option()
+        @Option(help: "text | dot | json | flatlist")
         var format: ShowDependenciesMode = .text
 
         @Flag(help: "Set tools version of package to the current tools version in use")
@@ -529,14 +691,14 @@ extension SwiftPackageTool {
                     // FIXME: Probably lift this error defination to ToolsVersion.
                     throw ToolsVersionLoader.Error.malformedToolsVersionSpecification(.versionSpecifier(.isMisspelt(value)))
                 }
-                try writeToolsVersion(at: pkg, version: toolsVersion, fs: localFileSystem)
+                try rewriteToolsVersionSpecification(toDefaultManifestIn: pkg, specifying: toolsVersion, fileSystem: localFileSystem)
 
             case .setCurrent:
                 // Write the tools version with current version but with patch set to zero.
                 // We do this to avoid adding unnecessary constraints to patch versions, if
                 // the package really needs it, they can do it using --set option.
-                try writeToolsVersion(
-                    at: pkg, version: ToolsVersion.currentToolsVersion.zeroedPatch, fs: localFileSystem)
+                try rewriteToolsVersionSpecification(
+                    toDefaultManifestIn: pkg, specifying: ToolsVersion.currentToolsVersion.zeroedPatch, fileSystem: localFileSystem)
             }
         }
     }
@@ -545,7 +707,7 @@ extension SwiftPackageTool {
         static let configuration = CommandConfiguration(
             abstract: "Compute the checksum for a binary artifact.")
 
-        @OptionGroup()
+        @OptionGroup(_hiddenFromHelp: true)
         var swiftOptions: SwiftToolOptions
         
         @Argument(help: "The absolute or relative path to the binary artifact")
@@ -573,7 +735,7 @@ extension SwiftPackageTool {
             abstract: "Create a source archive for the package"
         )
 
-        @OptionGroup()
+        @OptionGroup(_hiddenFromHelp: true)
         var swiftOptions: SwiftToolOptions
 
         @Option(
@@ -635,7 +797,7 @@ extension SwiftPackageTool {
             var skipExtraFiles: Bool = false
         }
 
-        @OptionGroup()
+        @OptionGroup(_hiddenFromHelp: true)
         var swiftOptions: SwiftToolOptions
 
         @OptionGroup()
@@ -711,7 +873,7 @@ extension SwiftPackageTool.Config {
         static let configuration = CommandConfiguration(
             abstract: "Set a mirror for a dependency")
 
-        @OptionGroup()
+        @OptionGroup(_hiddenFromHelp: true)
         var swiftOptions: SwiftToolOptions
         
         @Option(help: "The package dependency url")
@@ -745,7 +907,7 @@ extension SwiftPackageTool.Config {
         static let configuration = CommandConfiguration(
             abstract: "Remove an existing mirror")
 
-        @OptionGroup()
+        @OptionGroup(_hiddenFromHelp: true)
         var swiftOptions: SwiftToolOptions
         
         @Option(help: "The package dependency url")
@@ -779,7 +941,7 @@ extension SwiftPackageTool.Config {
         static let configuration = CommandConfiguration(
             abstract: "Print mirror configuration for the given package dependency")
 
-        @OptionGroup()
+        @OptionGroup(_hiddenFromHelp: true)
         var swiftOptions: SwiftToolOptions
         
         @Option(help: "The package dependency url")
@@ -801,7 +963,7 @@ extension SwiftPackageTool.Config {
                 throw ExitCode.failure
             }
 
-            if let mirror = config.mirrors.getMirror(forURL: originalURL) {
+            if let mirror = config.mirrors.mirrorURL(for: originalURL) {
                 print(mirror)
             } else {
                 stderrStream <<< "not found\n"
@@ -831,7 +993,7 @@ extension SwiftPackageTool {
         static let configuration = CommandConfiguration(
             abstract: "Resolve package dependencies")
         
-        @OptionGroup()
+        @OptionGroup(_hiddenFromHelp: true)
         var swiftOptions: SwiftToolOptions
 
         @OptionGroup()
@@ -861,7 +1023,7 @@ extension SwiftPackageTool {
     struct Fetch: SwiftCommand {
         static let configuration = CommandConfiguration(shouldDisplay: false)
         
-        @OptionGroup()
+        @OptionGroup(_hiddenFromHelp: true)
         var swiftOptions: SwiftToolOptions
         
         @OptionGroup()
@@ -905,10 +1067,10 @@ extension SwiftPackageTool {
             )
         }
       
-        @OptionGroup()
+        @OptionGroup(_hiddenFromHelp: true)
         var swiftOptions: SwiftToolOptions
 
-        @Argument()
+        @Argument(help: "generate-bash-script | generate-zsh-script |\ngenerate-fish-script | list-dependencies | list-executables")
         var mode: Mode
 
         func run(_ swiftTool: SwiftTool) throws {

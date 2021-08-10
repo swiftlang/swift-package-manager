@@ -27,11 +27,13 @@ private typealias JSONModel = PackageCollectionModel.V1
 struct JSONPackageCollectionProvider: PackageCollectionProvider {
     // TODO: This can be removed when the `Security` framework APIs that the `PackageCollectionsSigning`
     // module depends on are available on all Apple platforms.
-    #if os(macOS) || os(Linux) || os(Windows)
+    #if os(macOS) || os(Linux) || os(Windows) || os(Android)
     static let isSignatureCheckSupported = true
     #else
     static let isSignatureCheckSupported = false
     #endif
+
+    static let defaultCertPolicyKeys: [CertificatePolicyKey] = [.default]
 
     private let configuration: Configuration
     private let diagnosticsEngine: DiagnosticsEngine
@@ -53,8 +55,8 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
         self.decoder = JSONDecoder.makeWithDefaults()
         self.validator = JSONModel.Validator(configuration: configuration.validator)
         self.signatureValidator = signatureValidator ?? PackageCollectionSigning(
-            trustedRootCertsDir: configuration.trustedRootCertsDir ?? fileSystem.dotSwiftPM.appending(components: "config", "trust-root-certs").asURL,
-            additionalTrustedRootCerts: sourceCertPolicy.allRootCerts,
+            trustedRootCertsDir: configuration.trustedRootCertsDir ?? fileSystem.swiftPMConfigDirectory.appending(component: "trust-root-certs").asURL,
+            additionalTrustedRootCerts: sourceCertPolicy.allRootCerts.map { Array($0) },
             callbackQueue: .sharedConcurrent,
             diagnosticsEngine: diagnosticsEngine
         )
@@ -67,7 +69,7 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
         }
 
         if let errors = source.validate()?.errors() {
-            return callback(.failure(MultipleErrors(errors)))
+            return callback(.failure(JSONPackageCollectionProviderError.invalidSource("\(errors)")))
         }
 
         // Source is a local file
@@ -75,7 +77,7 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
             do {
                 let fileContents = try localFileSystem.readFileContents(absolutePath)
                 return fileContents.withData { data in
-                    self.decodeAndRunSignatureCheck(source: source, data: data, certPolicyKey: .default, callback: callback)
+                    self.decodeAndRunSignatureCheck(source: source, data: data, certPolicyKeys: Self.defaultCertPolicyKeys, callback: callback)
                 }
             } catch {
                 return callback(.failure(error))
@@ -87,38 +89,50 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
         let headers = self.makeRequestHeaders()
         self.httpClient.head(source.url, headers: headers, options: headOptions) { result in
             switch result {
+            case .failure(HTTPClientError.badResponseStatusCode(let statusCode)):
+                if statusCode == 404 {
+                    return callback(.failure(JSONPackageCollectionProviderError.collectionNotFound(source.url)))
+                } else {
+                    return callback(.failure(JSONPackageCollectionProviderError.collectionUnavailable(source.url, statusCode)))
+                }
             case .failure(let error):
-                callback(.failure(error))
+                return callback(.failure(error))
             case .success(let response):
                 guard let contentLength = response.headers.get("Content-Length").first.flatMap(Int64.init) else {
-                    return callback(.failure(Errors.invalidResponse("Missing Content-Length header")))
+                    return callback(.failure(JSONPackageCollectionProviderError.invalidResponse(source.url, "Missing Content-Length header")))
                 }
                 guard contentLength <= self.configuration.maximumSizeInBytes else {
-                    return callback(.failure(HTTPClientError.responseTooLarge(contentLength)))
+                    return callback(.failure(JSONPackageCollectionProviderError.responseTooLarge(source.url, contentLength)))
                 }
                 // next do a get request to get the actual content
                 var getOptions = self.makeRequestOptions(validResponseCodes: [200])
                 getOptions.maximumResponseSizeInBytes = self.configuration.maximumSizeInBytes
                 self.httpClient.get(source.url, headers: headers, options: getOptions) { result in
                     switch result {
+                    case .failure(HTTPClientError.badResponseStatusCode(let statusCode)):
+                        if statusCode == 404 {
+                            return callback(.failure(JSONPackageCollectionProviderError.collectionNotFound(source.url)))
+                        } else {
+                            return callback(.failure(JSONPackageCollectionProviderError.collectionUnavailable(source.url, statusCode)))
+                        }
                     case .failure(let error):
-                        callback(.failure(error))
+                        return callback(.failure(error))
                     case .success(let response):
                         // check content length again so we can record this as a bad actor
                         // if not returning head and exceeding size
                         // TODO: store bad actors to prevent server DoS
                         guard let contentLength = response.headers.get("Content-Length").first.flatMap(Int64.init) else {
-                            return callback(.failure(Errors.invalidResponse("Missing Content-Length header")))
+                            return callback(.failure(JSONPackageCollectionProviderError.invalidResponse(source.url, "Missing Content-Length header")))
                         }
                         guard contentLength < self.configuration.maximumSizeInBytes else {
-                            return callback(.failure(HTTPClientError.responseTooLarge(contentLength)))
+                            return callback(.failure(JSONPackageCollectionProviderError.responseTooLarge(source.url, contentLength)))
                         }
                         guard let body = response.body else {
-                            return callback(.failure(Errors.invalidResponse("Body is empty")))
+                            return callback(.failure(JSONPackageCollectionProviderError.invalidResponse(source.url, "Body is empty")))
                         }
 
-                        let certPolicyKey = self.sourceCertPolicy.certificatePolicyKey(for: source) ?? .default
-                        self.decodeAndRunSignatureCheck(source: source, data: body, certPolicyKey: certPolicyKey, callback: callback)
+                        let certPolicyKeys = self.sourceCertPolicy.certificatePolicyKeys(for: source) ?? Self.defaultCertPolicyKeys
+                        self.decodeAndRunSignatureCheck(source: source, data: body, certPolicyKeys: certPolicyKeys, callback: callback)
                     }
                 }
             }
@@ -127,7 +141,7 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
 
     private func decodeAndRunSignatureCheck(source: Model.CollectionSource,
                                             data: Data,
-                                            certPolicyKey: CertificatePolicyKey,
+                                            certPolicyKeys: [CertificatePolicyKey],
                                             callback: @escaping (Result<Model.Collection, Error>) -> Void) {
         do {
             // This fails if collection is not signed (i.e., no "signature")
@@ -142,17 +156,26 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
                 }
 
                 // Check the signature
-                self.signatureValidator.validate(signedCollection: signedCollection, certPolicyKey: certPolicyKey) { result in
-                    switch result {
-                    case .failure(let error):
-                        self.diagnosticsEngine.emit(warning: "The signature of package collection [\(source)] is invalid: \(error)")
-                        if PackageCollectionSigningError.noTrustedRootCertsConfigured == error as? PackageCollectionSigningError {
-                            callback(.failure(PackageCollectionError.cannotVerifySignature))
-                        } else {
-                            callback(.failure(PackageCollectionError.invalidSignature))
+                let signatureResults = ThreadSafeArrayStore<Result<Void, Error>>()
+                certPolicyKeys.forEach { certPolicyKey in
+                    self.signatureValidator.validate(signedCollection: signedCollection, certPolicyKey: certPolicyKey) { result in
+                        let count = signatureResults.append(result)
+                        if count == certPolicyKeys.count {
+                            if signatureResults.compactMap({ $0.success }).first != nil {
+                                callback(self.makeCollection(from: signedCollection.collection, source: source, signature: Model.SignatureData(from: signedCollection.signature, isVerified: true)))
+                            } else {
+                                guard let error = signatureResults.compactMap({ $0.failure }).first else {
+                                    fatalError("Expected at least one package collection signature validation failure but got none")
+                                }
+
+                                self.diagnosticsEngine.emit(warning: "The signature of package collection [\(source)] is invalid: \(error)")
+                                if PackageCollectionSigningError.noTrustedRootCertsConfigured == error as? PackageCollectionSigningError {
+                                    callback(.failure(PackageCollectionError.cannotVerifySignature))
+                                } else {
+                                    callback(.failure(PackageCollectionError.invalidSignature))
+                                }
+                            }
                         }
-                    case .success:
-                        callback(self.makeCollection(from: signedCollection.collection, source: source, signature: Model.SignatureData(from: signedCollection.signature, isVerified: true)))
                     }
                 }
             }
@@ -163,7 +186,7 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
             }
             // Collection is unsigned
             guard let collection = try? self.decoder.decode(JSONModel.Collection.self, from: data) else {
-                return callback(.failure(Errors.invalidJSON(error)))
+                return callback(.failure(JSONPackageCollectionProviderError.invalidJSON(source.url)))
             }
             callback(self.makeCollection(from: collection, source: source, signature: nil))
         }
@@ -171,14 +194,14 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
 
     private func makeCollection(from collection: JSONModel.Collection, source: Model.CollectionSource, signature: Model.SignatureData?) -> Result<Model.Collection, Error> {
         if let errors = self.validator.validate(collection: collection)?.errors() {
-            return .failure(MultipleErrors(errors))
+            return .failure(JSONPackageCollectionProviderError.invalidCollection("\(errors)"))
         }
 
         var serializationOkay = true
         let packages = collection.packages.map { package -> Model.Package in
             let versions = package.versions.compactMap { version -> Model.Package.Version? in
                 // note this filters out / ignores missing / bad data in attempt to make the most out of the provided set
-                guard let parsedVersion = TSCUtility.Version(string: version.version) else {
+                guard let parsedVersion = TSCUtility.Version(tag: version.version) else {
                     return nil
                 }
 
@@ -224,6 +247,7 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
                 let license = version.license.flatMap { Model.License(from: $0) }
 
                 return .init(version: parsedVersion,
+                             title: nil,
                              summary: version.summary,
                              manifests: manifests,
                              defaultToolsVersion: defaultToolsVersion,
@@ -242,7 +266,8 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
                          watchersCount: nil,
                          readmeURL: package.readmeURL,
                          license: package.license.flatMap { Model.License(from: $0) },
-                         authors: nil)
+                         authors: nil,
+                         languages: nil)
         }
 
         if !serializationOkay {
@@ -277,7 +302,7 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
     private static func makeDefaultHTTPClient(diagnosticsEngine: DiagnosticsEngine?) -> HTTPClient {
         var client = HTTPClient(diagnosticsEngine: diagnosticsEngine)
         // TODO: make these defaults configurable?
-        client.configuration.requestTimeout = .seconds(1)
+        client.configuration.requestTimeout = .seconds(5)
         client.configuration.retryStrategy = .exponentialBackoff(maxAttempts: 3, baseDelay: .milliseconds(50))
         client.configuration.circuitBreakerStrategy = .hostErrors(maxErrors: 50, age: .seconds(30))
         return client
@@ -331,10 +356,32 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
             )
         }
     }
+}
 
-    public enum Errors: Error {
-        case invalidJSON(Error)
-        case invalidResponse(String)
+public enum JSONPackageCollectionProviderError: Error, Equatable, CustomStringConvertible {
+    case invalidSource(String)
+    case invalidJSON(URL)
+    case invalidCollection(String)
+    case invalidResponse(URL, String)
+    case responseTooLarge(URL, Int64)
+    case collectionNotFound(URL)
+    case collectionUnavailable(URL, Int)
+
+    public var description: String {
+        switch self {
+        case .invalidSource(let errorMessage), .invalidCollection(let errorMessage):
+            return errorMessage
+        case .invalidJSON(let url):
+            return "The package collection at \(url.absoluteString) contains invalid JSON."
+        case .invalidResponse(let url, let message):
+            return "Received invalid response for package collection at \(url.absoluteString): \(message)"
+        case .responseTooLarge(let url, _):
+            return "The package collection at \(url.absoluteString) is too large."
+        case .collectionNotFound(let url):
+            return "No package collection found at \(url.absoluteString). Please make sure the URL is correct."
+        case .collectionUnavailable(let url, _):
+            return "The package collection at \(url.absoluteString) is unavailable. Please make sure the URL is correct or try again later."
+        }
     }
 }
 
@@ -394,6 +441,8 @@ extension PackageModel.Platform {
         switch name.lowercased() {
         case let name where name.contains("macos"):
             self = PackageModel.Platform.macOS
+        case let name where name.contains("maccatalyst"):
+            self = PackageModel.Platform.macCatalyst
         case let name where name.contains("ios"):
             self = PackageModel.Platform.iOS
         case let name where name.contains("tvos"):
@@ -410,6 +459,8 @@ extension PackageModel.Platform {
             self = PackageModel.Platform.windows
         case let name where name.contains("wasi"):
             self = PackageModel.Platform.wasi
+        case let name where name.contains("openbsd"):
+            self = PackageModel.Platform.openbsd
         default:
             return nil
         }

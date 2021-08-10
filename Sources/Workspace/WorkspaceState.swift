@@ -63,7 +63,8 @@ public final class WorkspaceState: SimplePersistanceProtocol {
             try self.persistence.restoreState(self)
         } catch {
             // FIXME: We should emit a warning here using the diagnostic engine.
-            print("\(error)")
+            TSCBasic.stderrStream.write("\(error)\n")
+            TSCBasic.stderrStream.flush()
         }
     }
 

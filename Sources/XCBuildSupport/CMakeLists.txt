@@ -10,6 +10,7 @@ add_library(XCBuildSupport
   PIF.swift
   PIFBuilder.swift
   XCBuildDelegate.swift
+  XCBuildMessage.swift
   XCBuildOutputParser.swift
   XcodeBuildSystem.swift
 )

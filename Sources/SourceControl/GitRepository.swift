@@ -101,7 +101,9 @@ public struct GitRepositoryProvider: RepositoryProvider {
         precondition(!localFileSystem.exists(path))
 
         // FIXME: Ideally we should pass `--progress` here and report status regularly.  We currently don't have callbacks for that.
-        try self.callGit("clone", "--mirror", repository.url, path.pathString,
+        //
+        // NOTE: Explicitly set `core.symlinks=true` on `git clone` to ensure that symbolic links are correctly resolved.
+        try self.callGit("clone", "-c", "core.symlinks=true", "--mirror", repository.url, path.pathString,
                          repository: repository,
                          failureMessage: "Failed to clone repository \(repository.url)",
                          progress: progress)
@@ -127,17 +129,19 @@ public struct GitRepositoryProvider: RepositoryProvider {
         return GitRepository(path: path, isWorkingRepo: false)
     }
 
-    public func cloneCheckout(
+    public func createWorkingCopy(
         repository: RepositorySpecifier,
-        at sourcePath: AbsolutePath,
-        to destinationPath: AbsolutePath,
+        sourcePath: AbsolutePath,
+        at destinationPath: AbsolutePath,
         editable: Bool
-    ) throws {
+    ) throws -> WorkingCheckout {
         if editable {
             // For editable clones, i.e. the user is expected to directly work on them, first we create
             // a clone from our cache of repositories and then we replace the remote to the one originally
             // present in the bare repository.
-            try self.callGit("clone", "--no-checkout", sourcePath.pathString, destinationPath.pathString,
+            //
+            // NOTE: Explicitly set `core.symlinks=true` on `git clone` to ensure that symbolic links are correctly resolved.
+            try self.callGit("clone", "-c", "core.symlinks=true", "--no-checkout", sourcePath.pathString, destinationPath.pathString,
                              repository: repository,
                              failureMessage: "Failed to clone repository \(repository.url)")
             // The default name of the remote.
@@ -157,20 +161,23 @@ public struct GitRepositoryProvider: RepositoryProvider {
             // re-resolve such that the objects in this repository changed, we would
             // only ever expect to get back a revision that remains present in the
             // object storage.
-            try self.callGit("clone", "--shared", "--no-checkout", sourcePath.pathString, destinationPath.pathString,
+            //
+            // NOTE: Explicitly set `core.symlinks=true` on `git clone` to ensure that symbolic links are correctly resolved.
+            try self.callGit("clone", "-c", "core.symlinks=true", "--shared", "--no-checkout", sourcePath.pathString, destinationPath.pathString,
                              repository: repository,
                              failureMessage: "Failed to clone repository \(repository.url)")
         }
+        return try self.openWorkingCopy(at: destinationPath)
     }
 
-    public func checkoutExists(at path: AbsolutePath) throws -> Bool {
+    public func workingCopyExists(at path: AbsolutePath) throws -> Bool {
         precondition(localFileSystem.exists(path))
 
         let repo = GitRepository(path: path)
         return try repo.checkoutExists()
     }
 
-    public func openCheckout(at path: AbsolutePath) throws -> WorkingCheckout {
+    public func openWorkingCopy(at path: AbsolutePath) throws -> WorkingCheckout {
         return GitRepository(path: path)
     }
 }

@@ -42,7 +42,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "Foo", targets: ["Foo", "Bar"]),
                     ],
                     dependencies: [
-                        .git(name: "Baz", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(path: "./Baz", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
                 ),
             ],
@@ -71,8 +71,8 @@ final class WorkspaceTests: XCTestCase {
         )
 
         let deps: [MockDependency] = [
-            .git(name: "Quix", requirement: .upToNextMajor(from: "1.0.0"), products: .specific(["Quix"])),
-            .git(name: "Baz", requirement: .exact("1.0.0"), products: .specific(["Baz"])),
+            .scm(path: "./Quix", requirement: .upToNextMajor(from: "1.0.0"), products: .specific(["Quix"])),
+            .scm(path: "./Baz", requirement: .exact("1.0.0"), products: .specific(["Baz"])),
         ]
         workspace.checkPackageGraph(roots: ["Foo"], deps: deps) { graph, diagnostics in
             PackageGraphTester(graph) { result in
@@ -107,7 +107,7 @@ final class WorkspaceTests: XCTestCase {
             result.check(dependency: "quix", at: .checkout(.version("1.2.0")))
         }
 
-        let stateFile = workspace.createWorkspace().state.path
+        let stateFile = workspace.getOrCreateWorkspace().state.path
 
         // Remove state file and check we can get the state back automatically.
         try fs.removeFileTree(stateFile)
@@ -116,7 +116,7 @@ final class WorkspaceTests: XCTestCase {
         XCTAssertTrue(fs.exists(stateFile))
 
         // Remove state file and check we get back to a clean state.
-        try fs.removeFileTree(workspace.createWorkspace().state.path)
+        try fs.removeFileTree(workspace.getOrCreateWorkspace().state.path)
         workspace.closeWorkspace()
         workspace.checkManagedDependencies { result in
             result.checkEmpty()
@@ -193,7 +193,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        .git(name: "Baz", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(path: "./Baz", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
                 ),
                 MockPackage(
@@ -203,7 +203,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        .git(name: "Baz", requirement: .exact("1.0.1")),
+                        .scm(path: "./Baz", requirement: .exact("1.0.1")),
                     ]
                 ),
             ],
@@ -250,7 +250,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        .git(name: nil, path: "bazzz", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(path: "bazzz", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     toolsVersion: .v5
                 ),
@@ -318,7 +318,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "Foo", targets: ["Foo"]),
                     ],
                     dependencies: [
-                        .git(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(path: "./Bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -335,7 +335,7 @@ final class WorkspaceTests: XCTestCase {
             ]
         )
 
-        let dependencies: [PackageDependencyDescription] = [
+        let dependencies: [PackageDependency] = [
             .scm(
                 location: workspace.packagesDir.appending(component: "Foo").pathString,
                 requirement: .upToNextMajor(from: "1.0.0"),
@@ -428,7 +428,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        .git(name: "BarPackage", path: "bar-package", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scmWithDeprecatedName(name: "BarPackage", path: "bar-package", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     toolsVersion: .v5
                 ),
@@ -486,7 +486,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        .git(name: "Baz", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(path: "./Baz", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     toolsVersion: .v5
                 ),
@@ -547,7 +547,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        .git(name: "Baz", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(path: "./Baz", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
                 ),
                 MockPackage(
@@ -628,7 +628,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "Foo", targets: ["Foo"]),
                     ],
                     dependencies: [
-                        .git(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(path: "./Bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -645,7 +645,7 @@ final class WorkspaceTests: XCTestCase {
             ]
         )
 
-        let dependencies: [PackageDependencyDescription] = [
+        let dependencies: [PackageDependency] = [
             .scm(
                 location: workspace.packagesDir.appending(component: "Bar").pathString,
                 requirement: .upToNextMajor(from: "1.0.0"),
@@ -690,7 +690,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "A", targets: ["A"]),
                     ],
                     dependencies: [
-                        .git(name: "AA", requirement: .exact("1.0.0")),
+                        .scm(path: "./AA", requirement: .exact("1.0.0")),
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -703,7 +703,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "A", targets: ["A"]),
                     ],
                     dependencies: [
-                        .git(name: "AA", requirement: .exact("2.0.0")),
+                        .scm(path: "./AA", requirement: .exact("2.0.0")),
                     ],
                     versions: ["1.0.1"]
                 ),
@@ -723,7 +723,7 @@ final class WorkspaceTests: XCTestCase {
         // Resolve when A = 1.0.0.
         do {
             let deps: [MockDependency] = [
-                .git(name: "A", requirement: .exact("1.0.0"), products: .specific(["A"])),
+                .scm(path: "./A", requirement: .exact("1.0.0"), products: .specific(["A"])),
             ]
             workspace.checkPackageGraph(deps: deps) { graph, diagnostics in
                 PackageGraphTester(graph) { result in
@@ -746,7 +746,7 @@ final class WorkspaceTests: XCTestCase {
         // Resolve when A = 1.0.1.
         do {
             let deps: [MockDependency] = [
-                .git(name: "A", requirement: .exact("1.0.1"), products: .specific(["A"])),
+                .scm(path: "./A", requirement: .exact("1.0.1"), products: .specific(["A"])),
             ]
             workspace.checkPackageGraph(deps: deps) { graph, diagnostics in
                 PackageGraphTester(graph) { result in
@@ -786,7 +786,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "A", targets: ["A"]),
                     ],
                     dependencies: [
-                        .git(name: "AA", requirement: .exact("1.0.0")),
+                        .scm(path: "./AA", requirement: .exact("1.0.0")),
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -799,7 +799,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "B", targets: ["B"]),
                     ],
                     dependencies: [
-                        .git(name: "AA", requirement: .exact("2.0.0")),
+                        .scm(path: "./AA", requirement: .exact("2.0.0")),
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -817,8 +817,8 @@ final class WorkspaceTests: XCTestCase {
         )
 
         let deps: [MockDependency] = [
-            .git(name: "A", requirement: .exact("1.0.0"), products: .specific(["A"])),
-            .git(name: "B", requirement: .exact("1.0.0"), products: .specific(["B"])),
+            .scm(path: "./A", requirement: .exact("1.0.0"), products: .specific(["A"])),
+            .scm(path: "./B", requirement: .exact("1.0.0"), products: .specific(["B"])),
         ]
         workspace.checkPackageGraph(deps: deps) { _, diagnostics in
             DiagnosticsEngineTester(diagnostics) { result in
@@ -884,8 +884,8 @@ final class WorkspaceTests: XCTestCase {
                     targets: [MockTarget(name: "A")],
                     products: [],
                     dependencies: [
-                        .git(name: "B", requirement: v1Requirement),
-                        .git(name: "C", requirement: v1Requirement),
+                        .scm(path: "./B", requirement: v1Requirement),
+                        .scm(path: "./C", requirement: v1Requirement),
                     ]
                 ),
             ],
@@ -941,8 +941,8 @@ final class WorkspaceTests: XCTestCase {
                     targets: [MockTarget(name: "A")],
                     products: [],
                     dependencies: [
-                        .git(name: "B", requirement: v1Requirement),
-                        .git(name: "C", requirement: branchRequirement),
+                        .scm(path: "./B", requirement: v1Requirement),
+                        .scm(path: "./C", requirement: branchRequirement),
                     ]
                 ),
             ],
@@ -1000,7 +1000,7 @@ final class WorkspaceTests: XCTestCase {
                     targets: [MockTarget(name: "A")],
                     products: [],
                     dependencies: [
-                        .git(name: "C", requirement: .revision("hello")),
+                        .scm(path: "./C", requirement: .revision("hello")),
                     ]
                 ),
             ],
@@ -1051,8 +1051,8 @@ final class WorkspaceTests: XCTestCase {
                     targets: [MockTarget(name: "A")],
                     products: [],
                     dependencies: [
-                        .git(name: "B", requirement: v1Requirement),
-                        .git(name: "C", requirement: masterRequirement),
+                        .scm(path: "./B", requirement: v1Requirement),
+                        .scm(path: "./C", requirement: masterRequirement),
                     ]
                 ),
             ],
@@ -1113,8 +1113,8 @@ final class WorkspaceTests: XCTestCase {
                     targets: [MockTarget(name: "A")],
                     products: [],
                     dependencies: [
-                        .git(name: "B", requirement: v1Requirement),
-                        .local(name: "C"),
+                        .scm(path: "./B", requirement: v1Requirement),
+                        .local(path: "./C"),
                     ]
                 ),
             ],
@@ -1176,8 +1176,8 @@ final class WorkspaceTests: XCTestCase {
                     targets: [MockTarget(name: "A")],
                     products: [],
                     dependencies: [
-                        .git(name: "B", requirement: v1Requirement),
-                        .local(name: "C"),
+                        .scm(path: "./B", requirement: v1Requirement),
+                        .local(path: "./C"),
                     ]
                 ),
             ],
@@ -1238,8 +1238,8 @@ final class WorkspaceTests: XCTestCase {
                     targets: [MockTarget(name: "A")],
                     products: [],
                     dependencies: [
-                        .git(name: "B", requirement: v1Requirement),
-                        .git(name: "C", requirement: v2Requirement),
+                        .scm(path: "./B", requirement: v1Requirement),
+                        .scm(path: "./C", requirement: v2Requirement),
                     ]
                 ),
             ],
@@ -1297,8 +1297,8 @@ final class WorkspaceTests: XCTestCase {
                     targets: [MockTarget(name: "A")],
                     products: [],
                     dependencies: [
-                        .git(name: "B", requirement: v1Requirement),
-                        .git(name: "C", requirement: v2Requirement),
+                        .scm(path: "./B", requirement: v1Requirement),
+                        .scm(path: "./C", requirement: v2Requirement),
                     ]
                 ),
             ],
@@ -1378,7 +1378,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "Root", targets: ["Root"]),
                     ],
                     dependencies: [
-                        .git(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(path: "./Foo", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
                 ),
             ],
@@ -1392,7 +1392,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "Foo", targets: ["Foo"]),
                     ],
                     dependencies: [
-                        .git(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(path: "./Bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -1421,7 +1421,7 @@ final class WorkspaceTests: XCTestCase {
 
         // Do an intial run, capping at Foo at 1.0.0.
         let deps: [MockDependency] = [
-            .git(name: "Foo", requirement: .exact("1.0.0"), products: .specific(["Foo"])),
+            .scm(path: "./Foo", requirement: .exact("1.0.0"), products: .specific(["Foo"])),
         ]
         workspace.checkPackageGraph(roots: ["Root"], deps: deps) { graph, diagnostics in
             PackageGraphTester(graph) { result in
@@ -1476,7 +1476,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "Root", targets: ["Root"]),
                     ],
                     dependencies: [
-                        .git(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(path: "./Foo", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
                 ),
             ],
@@ -1506,7 +1506,7 @@ final class WorkspaceTests: XCTestCase {
 
         // Do an intial run, capping at Foo at 1.0.0.
         let deps: [MockDependency] = [
-            .git(name: "Foo", requirement: .exact("1.0.0"), products: .specific(["Foo"])),
+            .scm(path: "./Foo", requirement: .exact("1.0.0"), products: .specific(["Foo"])),
         ]
 
         workspace.checkPackageGraph(roots: ["Root"], deps: deps) { graph, diagnostics in
@@ -1569,7 +1569,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "Root", targets: ["Root"]),
                     ],
                     dependencies: [
-                        .git(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(path: "./Foo", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
                 ),
             ],
@@ -1583,7 +1583,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "Foo", targets: ["Foo"]),
                     ],
                     dependencies: [
-                        .git(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(path: "./Bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     versions: ["1.5.0"]
                 ),
@@ -1596,7 +1596,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "Foo", targets: ["Foo"]),
                     ],
                     dependencies: [
-                        .git(name: "Bar", requirement: .upToNextMinor(from: "1.0.0")),
+                        .scm(path: "./Bar", requirement: .upToNextMinor(from: "1.0.0")),
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -1615,7 +1615,7 @@ final class WorkspaceTests: XCTestCase {
 
         // Do an intial run, capping at Foo at 1.0.0.
         let deps: [MockDependency] = [
-            .git(name: "Foo", requirement: .exact("1.0.0"), products: .specific(["Foo"])),
+            .scm(path: "./Foo", requirement: .exact("1.0.0"), products: .specific(["Foo"])),
         ]
         workspace.checkPackageGraph(roots: ["Root"], deps: deps) { _, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
@@ -1673,7 +1673,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "Root", targets: ["Root"]),
                     ],
                     dependencies: [
-                        .git(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(path: "./Foo", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
                 ),
             ],
@@ -1697,7 +1697,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         // Drop a build artifact in data directory.
-        let ws = workspace.createWorkspace()
+        let ws = workspace.getOrCreateWorkspace()
         let buildArtifact = ws.dataPath.appending(component: "test.o")
         try fs.writeFileContents(buildArtifact, bytes: "Hi")
 
@@ -1750,7 +1750,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        .git(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(path: "./Foo", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
                 ),
                 MockPackage(
@@ -1760,7 +1760,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        .git(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(path: "./Bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
                 ),
             ],
@@ -1820,10 +1820,10 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        .git(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
-                        .git(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
-                        .git(name: "Baz", requirement: .upToNextMajor(from: "1.0.0")),
-                        .git(name: "Bam", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(path: "./Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(path: "./Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(path: "./Baz", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(path: "./Bam", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
                 ),
             ],
@@ -1837,8 +1837,8 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "Foo", targets: ["Foo"]),
                     ],
                     dependencies: [
-                        .git(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
-                        .git(name: "Baz", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(path: "./Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(path: "./Baz", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -1852,7 +1852,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "Baz", targets: ["Baz"]),
                     ],
                     dependencies: [
-                        .git(name: "Bam", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(path: "./Bam", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -1886,7 +1886,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        .git(name: "Foo", requirement: .branch("develop")),
+                        .scm(path: "./Foo", requirement: .branch("develop")),
                     ]
                 ),
             ],
@@ -1920,7 +1920,7 @@ final class WorkspaceTests: XCTestCase {
 
         // We request Bar via revision.
         let deps: [MockDependency] = [
-            .git(name: "Bar", requirement: .revision(barRevision), products: .specific(["Bar"])),
+            .scm(path: "./Bar", requirement: .revision(barRevision), products: .specific(["Bar"])),
         ]
         workspace.checkPackageGraph(roots: ["Root"], deps: deps) { graph, diagnostics in
             PackageGraphTester(graph) { result in
@@ -1950,7 +1950,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        .git(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(path: "./Foo", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
                 ),
             ],
@@ -2023,7 +2023,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        .git(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(path: "./Foo", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
                 ),
             ],
@@ -2041,7 +2041,7 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertNoDiagnostics(diagnostics)
         }
 
-        try fs.removeFileTree(workspace.createWorkspace().checkoutsPath)
+        try fs.removeFileTree(workspace.getOrCreateWorkspace().checkoutsPath)
 
         workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
             PackageGraphTester(graph) { result in
@@ -2069,7 +2069,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        .git(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(path: "./Foo", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
                 ),
             ],
@@ -2172,8 +2172,8 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        .git(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
-                        .git(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(path: "./Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(path: "./Bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
                 ),
             ],
@@ -2211,7 +2211,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         // Edit foo.
-        let fooPath = workspace.createWorkspace().editablesPath.appending(component: "Foo")
+        let fooPath = workspace.getOrCreateWorkspace().editablesPath.appending(component: "Foo")
         workspace.checkEdit(packageName: "Foo") { diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
         }
@@ -2251,7 +2251,7 @@ final class WorkspaceTests: XCTestCase {
         workspace.checkManagedDependencies { result in
             result.check(dependency: "bar", at: .edited(barPath))
         }
-        let barRepo = try workspace.repoProvider.openCheckout(at: barPath) as! InMemoryGitRepository
+        let barRepo = try workspace.repoProvider.openWorkingCopy(at: barPath) as! InMemoryGitRepository
         XCTAssert(barRepo.revisions.contains("dev"))
 
         // Test unediting.
@@ -2280,7 +2280,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        .git(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(path: "./Foo", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
                 ),
             ],
@@ -2302,7 +2302,7 @@ final class WorkspaceTests: XCTestCase {
         workspace.checkPackageGraph(roots: ["Root"]) { _, _ in }
 
         // Edit foo.
-        let fooPath = workspace.createWorkspace().editablesPath.appending(component: "Foo")
+        let fooPath = workspace.getOrCreateWorkspace().editablesPath.appending(component: "Foo")
         workspace.checkEdit(packageName: "Foo") { diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
         }
@@ -2346,9 +2346,9 @@ final class WorkspaceTests: XCTestCase {
         )
 
         let deps: [MockDependency] = [
-            .git(name: "Foo", requirement: .upToNextMajor(from: "1.0.0"), products: .specific(["Foo"])),
+            .scm(path: "./Foo", requirement: .upToNextMajor(from: "1.0.0"), products: .specific(["Foo"])),
         ]
-        let ws = workspace.createWorkspace()
+        let ws = workspace.getOrCreateWorkspace()
 
         // Load the graph and edit foo.
         workspace.checkPackageGraph(deps: deps) { graph, diagnostics in
@@ -2404,8 +2404,8 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        .git(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
-                        .git(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(path: "./Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(path: "./Bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
                 ),
             ],
@@ -2434,7 +2434,7 @@ final class WorkspaceTests: XCTestCase {
         )
 
         let deps: [MockDependency] = [
-            .git(name: "Foo", requirement: .exact("1.0.0"), products: .specific(["Foo"])),
+            .scm(path: "./Foo", requirement: .exact("1.0.0"), products: .specific(["Foo"])),
         ]
         // Load the graph.
         workspace.checkPackageGraph(roots: ["Root"], deps: deps) { graph, diagnostics in
@@ -2525,7 +2525,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        .git(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(path: "./Foo", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
                 ),
             ],
@@ -2549,7 +2549,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "Foo", targets: ["Foo"]),
                     ],
                     dependencies: [
-                        .git(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(path: "./Bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     versions: [nil]
                 ),
@@ -2579,7 +2579,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         let deps: [MockDependency] = [
-            .local(name: "Foo", products: .specific(["Foo"])),
+            .local(path: "./Foo", products: .specific(["Foo"])),
         ]
         workspace.checkPackageGraph(roots: ["Root"], deps: deps) { graph, diagnostics in
             PackageGraphTester(graph) { result in
@@ -2612,7 +2612,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "Foo", targets: ["Foo"]),
                     ],
                     dependencies: [
-                        .git(name: "Bar", requirement: .exact("1.0.0"))
+                        .scm(path: "./Bar", requirement: .exact("1.0.0"))
                     ]
                 ),
             ],
@@ -2648,13 +2648,13 @@ final class WorkspaceTests: XCTestCase {
 
         let dependency = manifest.dependencies[0]
         switch dependency {
-        case .scm(let data):
-            let updatedDependency: PackageDependencyDescription = .scm(
-                identity: data.identity,
-                name: data.name,
-                location: data.location,
+        case .sourceControl(let settings):
+            let updatedDependency: PackageDependency = .sourceControl(
+                identity: settings.identity,
+                nameForTargetDependencyResolutionOnly: settings.nameForTargetDependencyResolutionOnly,
+                location: settings.location,
                 requirement: .exact("1.5.0"),
-                productFilter: data.productFilter
+                productFilter: settings.productFilter
             )
 
             workspace.manifestLoader.manifests[fooKey] = Manifest(
@@ -2695,7 +2695,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        .git(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(path: "./Foo", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
                 ),
             ],
@@ -2751,7 +2751,7 @@ final class WorkspaceTests: XCTestCase {
 
         // Try resolving a bad graph.
         let deps: [MockDependency] = [
-            .git(name: "Bar", requirement: .exact("1.1.0"), products: .specific(["Bar"])),
+            .scm(path: "./Bar", requirement: .exact("1.1.0"), products: .specific(["Bar"])),
         ]
         workspace.checkPackageGraph(roots: ["Root"], deps: deps) { _, diagnostics in
             DiagnosticsEngineTester(diagnostics) { result in
@@ -2777,7 +2777,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "Root", targets: ["Root"]),
                     ],
                     dependencies: [
-                        .git(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(path: "./Foo", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
                 ),
             ],
@@ -2825,8 +2825,8 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        .local(name: "Bar"),
-                        .git(name: "Baz", requirement: .upToNextMajor(from: "1.0.0")),
+                        .local(path: "./Bar"),
+                        .scm(path: "./Baz", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
                 ),
             ],
@@ -2850,7 +2850,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "Baz", targets: ["Baz"]),
                     ],
                     dependencies: [
-                        .git(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(path: "./Bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     versions: ["1.0.0", "1.5.0"]
                 ),
@@ -2903,7 +2903,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        .git(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(path: "./Bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
                 ),
             ],
@@ -2917,7 +2917,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "Bar", targets: ["Bar"]),
                     ],
                     dependencies: [
-                        .local(name: "Baz"),
+                        .local(path: "./Baz"),
                     ],
                     versions: ["1.0.0", "1.5.0", nil]
                 ),
@@ -2963,7 +2963,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        .git(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(path: "./Bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
                 ),
             ],
@@ -2994,7 +2994,7 @@ final class WorkspaceTests: XCTestCase {
 
         // Override with local package and run update.
         let deps: [MockDependency] = [
-            .local(name: "Bar", products: .specific(["Bar"])),
+            .local(path: "./Bar", products: .specific(["Bar"])),
         ]
         workspace.checkUpdate(roots: ["Foo"], deps: deps) { diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
@@ -3027,7 +3027,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        .local(name: nil, path: "Bar"),
+                        .local(path: "Bar"),
                     ]
                 ),
             ],
@@ -3082,7 +3082,7 @@ final class WorkspaceTests: XCTestCase {
         // without running swift package update.
 
         var deps: [MockDependency] = [
-            .git(name: "Foo", requirement: .branch("develop"), products: .specific(["Foo"])),
+            .scm(path: "./Foo", requirement: .branch("develop"), products: .specific(["Foo"])),
         ]
         workspace.checkPackageGraph(roots: ["Root"], deps: deps) { graph, diagnostics in
             PackageGraphTester(graph) { result in
@@ -3096,7 +3096,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         deps = [
-            .git(name: "Foo", requirement: .upToNextMajor(from: "1.0.0"), products: .specific(["Foo"])),
+            .scm(path: "./Foo", requirement: .upToNextMajor(from: "1.0.0"), products: .specific(["Foo"])),
         ]
         workspace.checkPackageGraph(roots: ["Root"], deps: deps) { _, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
@@ -3106,7 +3106,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         deps = [
-            .git(name: "Foo", requirement: .branch("develop"), products: .specific(["Foo"])),
+            .scm(path: "./Foo", requirement: .branch("develop"), products: .specific(["Foo"])),
         ]
         workspace.checkPackageGraph(roots: ["Root"], deps: deps) { _, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
@@ -3151,7 +3151,7 @@ final class WorkspaceTests: XCTestCase {
         // without running swift package update.
 
         var deps: [MockDependency] = [
-            .local(name: "Foo", products: .specific(["Foo"])),
+            .local(path: "./Foo", products: .specific(["Foo"])),
         ]
         workspace.checkPackageGraph(roots: ["Root"], deps: deps) { graph, diagnostics in
             PackageGraphTester(graph) { result in
@@ -3165,7 +3165,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         deps = [
-            .git(name: "Foo", requirement: .upToNextMajor(from: "1.0.0"), products: .specific(["Foo"])),
+            .scm(path: "./Foo", requirement: .upToNextMajor(from: "1.0.0"), products: .specific(["Foo"])),
         ]
         workspace.checkPackageGraph(roots: ["Root"], deps: deps) { _, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
@@ -3175,7 +3175,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         deps = [
-            .local(name: "Foo", products: .specific(["Foo"])),
+            .local(path: "./Foo", products: .specific(["Foo"])),
         ]
         workspace.checkPackageGraph(roots: ["Root"], deps: deps) { _, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
@@ -3231,7 +3231,7 @@ final class WorkspaceTests: XCTestCase {
         // different locations works correctly.
 
         var deps: [MockDependency] = [
-            .local(name: "Foo", products: .specific(["Foo"])),
+            .local(path: "./Foo", products: .specific(["Foo"])),
         ]
         workspace.checkPackageGraph(roots: ["Root"], deps: deps) { graph, diagnostics in
             PackageGraphTester(graph) { result in
@@ -3245,7 +3245,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         deps = [
-            .local(name: "Foo2", products: .specific(["Foo"])),
+            .local(path: "./Foo2", products: .specific(["Foo"])),
         ]
         workspace.checkPackageGraph(roots: ["Root"], deps: deps) { _, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
@@ -3301,7 +3301,7 @@ final class WorkspaceTests: XCTestCase {
         // different locations works correctly.
 
         var deps: [MockDependency] = [
-            .local(name: "Foo", products: .specific(["Foo"])),
+            .local(path: "./Foo", products: .specific(["Foo"])),
         ]
         workspace.checkPackageGraph(roots: ["Root"], deps: deps) { graph, diagnostics in
             PackageGraphTester(graph) { result in
@@ -3314,12 +3314,12 @@ final class WorkspaceTests: XCTestCase {
             result.check(dependency: "foo", at: .local)
         }
         do {
-            let ws = workspace.createWorkspace()
+            let ws = workspace.getOrCreateWorkspace()
             XCTAssertNotNil(ws.state.dependencies[forURL: "/tmp/ws/pkgs/Foo"])
         }
 
         deps = [
-            .local(name: "Nested/Foo", products: .specific(["Foo"])),
+            .local(path: "./Nested/Foo", products: .specific(["Foo"])),
         ]
         workspace.checkPackageGraph(roots: ["Root"], deps: deps) { _, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
@@ -3328,7 +3328,7 @@ final class WorkspaceTests: XCTestCase {
             result.check(dependency: "foo", at: .local)
         }
         do {
-            let ws = workspace.createWorkspace()
+            let ws = workspace.getOrCreateWorkspace()
             XCTAssertNotNil(ws.state.dependencies[forURL: "/tmp/ws/pkgs/Nested/Foo"])
         }
     }
@@ -3365,7 +3365,7 @@ final class WorkspaceTests: XCTestCase {
         )
 
         let deps: [MockDependency] = [
-            .git(name: "Foo", requirement: .upToNextMajor(from: "1.0.0"), products: .specific(["Foo"])),
+            .scm(path: "./Foo", requirement: .upToNextMajor(from: "1.0.0"), products: .specific(["Foo"])),
         ]
         workspace.checkPackageGraph(roots: ["Root"], deps: deps) { _, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
@@ -3411,7 +3411,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "Foo", targets: ["Foo"]),
                     ],
                     dependencies: [
-                        .git(name: "Dep", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(path: "./Dep", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     toolsVersion: .v5
                 ),
@@ -3426,7 +3426,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "Dep", targets: ["Dep"]),
                     ],
                     dependencies: [
-                        .git(path: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(path: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     versions: ["1.0.0", "1.5.0"],
                     toolsVersion: .v5
@@ -3465,7 +3465,7 @@ final class WorkspaceTests: XCTestCase {
         )
 
         let deps: [MockDependency] = [
-            .git(name: "Bam", requirement: .upToNextMajor(from: "1.0.0"), products: .specific(["Bar"])),
+            .scm(path: "./Bam", requirement: .upToNextMajor(from: "1.0.0"), products: .specific(["Bar"])),
         ]
 
         workspace.checkPackageGraph(roots: ["Foo"], deps: deps) { graph, diagnostics in
@@ -3499,7 +3499,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        .git(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(path: "./Bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
                 ),
             ],
@@ -3513,7 +3513,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "Bar", targets: ["Bar"]),
                     ],
                     dependencies: [
-                        .git(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(path: "./Foo", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -3526,7 +3526,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "Bar", targets: ["Bar"]),
                     ],
                     dependencies: [
-                        .git(name: nil, path: "Nested/Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(path: "Nested/Foo", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     versions: ["1.1.0"],
                     toolsVersion: .v5
@@ -3569,7 +3569,7 @@ final class WorkspaceTests: XCTestCase {
         // dependencies.
 
         var deps: [MockDependency] = [
-            .git(name: "Bar", requirement: .exact("1.0.0"), products: .specific(["Bar"])),
+            .scm(path: "./Bar", requirement: .exact("1.0.0"), products: .specific(["Bar"])),
         ]
         workspace.checkPackageGraph(roots: ["Root"], deps: deps) { graph, diagnostics in
             PackageGraphTester(graph) { result in
@@ -3584,7 +3584,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         do {
-            let ws = workspace.createWorkspace()
+            let ws = workspace.getOrCreateWorkspace()
             XCTAssertNotNil(ws.state.dependencies[forURL: "/tmp/ws/pkgs/Foo"])
         }
 
@@ -3593,7 +3593,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         deps = [
-            .git(name: "Bar", requirement: .exact("1.1.0"), products: .specific(["Bar"])),
+            .scm(path: "./Bar", requirement: .exact("1.1.0"), products: .specific(["Bar"])),
         ]
         workspace.checkPackageGraph(roots: ["Root"], deps: deps) { graph, diagnostics in
             PackageGraphTester(graph) { result in
@@ -3608,7 +3608,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         do {
-            let ws = workspace.createWorkspace()
+            let ws = workspace.getOrCreateWorkspace()
             XCTAssertNotNil(ws.state.dependencies[forURL: "/tmp/ws/pkgs/Nested/Foo"])
         }
     }
@@ -3628,8 +3628,8 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        .git(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
-                        .git(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(path: "./Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(path: "./Bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
                 ),
             ],
@@ -3659,7 +3659,7 @@ final class WorkspaceTests: XCTestCase {
 
         // Load the initial graph.
         let deps: [MockDependency] = [
-            .git(name: "Bar", requirement: .revision("develop"), products: .specific(["Bar"])),
+            .scm(path: "./Bar", requirement: .revision("develop"), products: .specific(["Bar"])),
         ]
         workspace.checkPackageGraph(roots: ["Root"], deps: deps) { _, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
@@ -3675,7 +3675,7 @@ final class WorkspaceTests: XCTestCase {
 
         // Change pin of foo to something else.
         do {
-            let ws = workspace.createWorkspace()
+            let ws = workspace.getOrCreateWorkspace()
             let pinsStore = try ws.pinsStore.load()
             let fooPin = pinsStore.pins.first(where: { $0.packageRef.identity.description == "foo" })!
 
@@ -3690,7 +3690,7 @@ final class WorkspaceTests: XCTestCase {
         // Check force resolve. This should produce an error because the resolved file is out-of-date.
         workspace.checkPackageGraphFailure(roots: ["Root"], forceResolvedVersions: true) { diagnostics in
             DiagnosticsEngineTester(diagnostics) { result in
-                result.check(diagnostic: "cannot update Package.resolved file because automatic resolution is disabled", checkContains: true, behavior: .error)
+                result.check(diagnostic: "an out-of-date resolved file was detected at /tmp/ws/Package.resolved, which is not allowed when automatic dependency resolution is disabled; please make sure to update the file to reflect the changes in dependencies", checkContains: true, behavior: .error)
             }
         }
         workspace.checkManagedDependencies { result in
@@ -3729,6 +3729,57 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
+    func testForceResolveWithNoResolvedFile() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    targets: [
+                        MockTarget(name: "Root", dependencies: ["Foo", "Bar"]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        .scm(path: "./Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(path: "./Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                    ]
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "Foo",
+                    targets: [
+                        MockTarget(name: "Foo"),
+                    ],
+                    products: [
+                        MockProduct(name: "Foo", targets: ["Foo"]),
+                    ],
+                    versions: ["1.0.0", "1.2.0", "1.3.2"]
+                ),
+                MockPackage(
+                    name: "Bar",
+                    targets: [
+                        MockTarget(name: "Bar"),
+                    ],
+                    products: [
+                        MockProduct(name: "Bar", targets: ["Bar"]),
+                    ],
+                    versions: ["1.0.0", "develop"]
+                ),
+            ]
+        )
+
+        workspace.checkPackageGraphFailure(roots: ["Root"], forceResolvedVersions: true) { diagnostics in
+            DiagnosticsEngineTester(diagnostics) { result in
+                result.check(diagnostic: "a resolved file is required when automatic dependency resolution is disabled and should be placed at /tmp/ws/Package.resolved", checkContains: true, behavior: .error)
+            }
+        }
+    }
+
     func testForceResolveToResolvedVersionsLocalPackage() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
@@ -3744,7 +3795,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        .local(name: "Foo"),
+                        .local(path: "./Foo"),
                     ]
                 ),
             ],
@@ -3771,8 +3822,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testSimpleAPI() throws {
-        guard Resources.havePD4Runtime else { return }
-
         // This verifies that the simplest possible loading APIs are available for package clients.
 
         // This checkout of the SwiftPM package.
@@ -3839,7 +3888,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        .git(name: "Foo", requirement: .branch("develop")),
+                        .scm(path: "./Foo", requirement: .branch("develop")),
                     ]
                 ),
             ],
@@ -3853,7 +3902,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "Foo", targets: ["Foo"]),
                     ],
                     dependencies: [
-                        .local(name: "Local"),
+                        .local(path: "./Local"),
                     ],
                     versions: ["develop"]
                 ),
@@ -3912,7 +3961,7 @@ final class WorkspaceTests: XCTestCase {
         )
 
         let deps: [MockDependency] = [
-            .git(name: "bazzz", requirement: .exact("1.0.0"), products: .specific(["Baz"])),
+            .scm(path: "./bazzz", requirement: .exact("1.0.0"), products: .specific(["Baz"])),
         ]
 
         workspace.checkPackageGraphFailure(roots: ["Overridden/bazzz-master"], deps: deps) { diagnostics in
@@ -3947,8 +3996,8 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        .local(name: "Bar"),
-                        .git(name: "Baz", requirement: .upToNextMajor(from: "1.0.0")),
+                        .local(path: "./Bar"),
+                        .scm(path: "./Baz", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
                 ),
             ],
@@ -3972,7 +4021,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "Baz", targets: ["Baz"]),
                     ],
                     dependencies: [
-                        .git(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(path: "./Bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     versions: ["1.0.0", "1.5.0"]
                 ),
@@ -4003,8 +4052,8 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        .git(name: "Foo", requirement: .branch("master")),
-                        .git(name: "Baz", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(path: "./Foo", requirement: .branch("master")),
+                        .scm(path: "./Baz", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
                 ),
             ],
@@ -4018,7 +4067,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "Foo", targets: ["Foo"]),
                     ],
                     dependencies: [
-                        .git(name: "Bar", requirement: .branch("master")),
+                        .scm(path: "./Bar", requirement: .branch("master")),
                     ],
                     versions: ["master", nil]
                 ),
@@ -4041,7 +4090,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "Baz", targets: ["Baz"]),
                     ],
                     dependencies: [
-                        .git(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(path: "./Bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     versions: ["1.0.0", nil]
                 ),
@@ -4059,7 +4108,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         // Edit foo.
-        let fooPath = workspace.createWorkspace().editablesPath.appending(component: "Foo")
+        let fooPath = workspace.getOrCreateWorkspace().editablesPath.appending(component: "Foo")
         workspace.checkEdit(packageName: "Foo") { diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
         }
@@ -4113,9 +4162,9 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        .git(name: "Foo", requirement: .upToNextMajor(from: "1.0.0")),
-                        .git(name: "Bar", requirement: .upToNextMajor(from: "1.0.0")),
-                        .git(name: "TestHelper1", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(path: "./Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(path: "./Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(path: "./TestHelper1", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     toolsVersion: .v5_2
                 ),
@@ -4132,8 +4181,8 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "Foo", targets: ["Foo1"]),
                     ],
                     dependencies: [
-                        .git(name: "TestHelper2", requirement: .upToNextMajor(from: "1.0.0")),
-                        .git(name: "Baz", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(path: "./TestHelper2", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(path: "./Baz", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     versions: ["1.0.0"],
                     toolsVersion: .v5_2
@@ -4147,8 +4196,8 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: barProducts,
                     dependencies: [
-                        .git(name: "TestHelper2", requirement: .upToNextMajor(from: "1.0.0")),
-                        .git(name: "Biz", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(path: "./TestHelper2", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(path: "./Biz", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     versions: ["1.0.0"],
                     toolsVersion: .v5_2
@@ -4213,7 +4262,7 @@ final class WorkspaceTests: XCTestCase {
             packages: []
         )
 
-        let ws = workspace.createWorkspace()
+        let ws = workspace.getOrCreateWorkspace()
 
         // Checks the valid case.
         do {
@@ -4342,8 +4391,8 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        .git(name: "A", requirement: .exact("1.0.0")),
-                        .git(name: "B", requirement: .exact("1.0.0")),
+                        .scm(path: "./A", requirement: .exact("1.0.0")),
+                        .scm(path: "./B", requirement: .exact("1.0.0")),
                     ]
                 ),
             ],
@@ -4403,9 +4452,9 @@ final class WorkspaceTests: XCTestCase {
                 ByteString([0xB0]).hexadecimalRepresentation,
             ])
             XCTAssertEqual(workspace.archiver.extractions.map { $0.destinationPath }.sorted(), [
-                AbsolutePath("/tmp/ws/.build/artifacts/A"),
-                AbsolutePath("/tmp/ws/.build/artifacts/A"),
-                AbsolutePath("/tmp/ws/.build/artifacts/B")
+                AbsolutePath("/tmp/ws/.build/artifacts/extract/A1"),
+                AbsolutePath("/tmp/ws/.build/artifacts/extract/A2"),
+                AbsolutePath("/tmp/ws/.build/artifacts/extract/B")
             ])
             XCTAssertEqual(
                 downloads.map { $0.value }.sorted(),
@@ -4523,8 +4572,8 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        .git(name: "A", requirement: .exact("1.0.0")),
-                        .git(name: "B", requirement: .exact("1.0.0")),
+                        .scm(path: "./A", requirement: .exact("1.0.0")),
+                        .scm(path: "./B", requirement: .exact("1.0.0")),
                     ]
                 ),
             ],
@@ -4660,9 +4709,9 @@ final class WorkspaceTests: XCTestCase {
                 ByteString([0xB0]).hexadecimalRepresentation,
             ])
             XCTAssertEqual(workspace.archiver.extractions.map { $0.destinationPath }.sorted(), [
-                AbsolutePath("/tmp/ws/.build/artifacts/A"),
-                AbsolutePath("/tmp/ws/.build/artifacts/A"),
-                AbsolutePath("/tmp/ws/.build/artifacts/B"),
+                AbsolutePath("/tmp/ws/.build/artifacts/extract/A2"),
+                AbsolutePath("/tmp/ws/.build/artifacts/extract/A3"),
+                AbsolutePath("/tmp/ws/.build/artifacts/extract/B"),
             ])
             XCTAssertEqual(
                 downloads.map { $0.value }.sorted(),
@@ -4705,6 +4754,145 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
+    func testArtifactDownloadTwice() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+        let downloads = ThreadSafeArrayStore<(Foundation.URL, AbsolutePath)>()
+
+        // returns a dummy zipfile for the requested artifact
+        let httpClient = HTTPClient(handler: { request, _, completion in
+            do {
+                guard case .download(let fileSystem, let destination) = request.kind else {
+                    throw StringError("invalid request \(request.kind)")
+                }
+
+                let contents: [UInt8]
+                switch request.url.lastPathComponent {
+                case "a1.zip":
+                    contents = [0xA1]
+                default:
+                    throw StringError("unexpected url \(request.url)")
+                }
+
+                try fileSystem.writeFileContents(
+                    destination,
+                    bytes: ByteString(contents),
+                    atomically: true
+                )
+
+                downloads.append((request.url, destination))
+                completion(.success(.okay()))
+            } catch {
+                completion(.failure(error))
+            }
+        })
+
+        // create a dummy xcframework directory from the request archive
+        let archiver = MockArchiver(handler: { archiver, archivePath, destinationPath, completion in
+            do {
+                let name: String
+                switch archivePath.basename {
+                case "a1.zip":
+                    name = "A1.xcframework"
+                default:
+                    throw StringError("unexpected archivePath \(archivePath)")
+                }
+                let path = destinationPath.appending(component: name)
+                if fs.exists(path) {
+                    throw StringError("\(path) already exists")
+                }
+                try fs.createDirectory(path, recursive: false)
+                archiver.extractions.append(MockArchiver.Extraction(archivePath: archivePath, destinationPath: destinationPath))
+                completion(.success(()))
+            } catch {
+                completion(.failure(error))
+            }
+        })
+
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            httpClient: httpClient,
+            archiver: archiver,
+            roots: [
+                MockPackage(
+                    name: "Foo",
+                    targets: [
+                        MockTarget(name: "Foo", dependencies: [
+                            .product(name: "A1", package: "A"),
+                        ]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        .scm(path: "./A", requirement: .exact("1.0.0")),
+                    ]
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "A",
+                    targets: [
+                        MockTarget(
+                            name: "A1",
+                            type: .binary,
+                            url: "https://a.com/a1.zip",
+                            checksum: "a1"
+                        ),
+                    ],
+                    products: [
+                        MockProduct(name: "A1", targets: ["A1"]),
+                    ],
+                    versions: ["1.0.0"]
+                )
+            ]
+        )
+
+        workspace.checkPackageGraph(roots: ["Foo"]) { graph, diagnostics in
+            XCTAssertTrue(diagnostics.diagnostics.isEmpty, diagnostics.description)
+            XCTAssert(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/A")))
+            XCTAssertEqual(workspace.checksumAlgorithm.hashes.map{ $0.hexadecimalRepresentation }.sorted(), [
+                ByteString([0xA1]).hexadecimalRepresentation,
+            ])
+        }
+
+        XCTAssertEqual(downloads.map { $0.0.absoluteString }.sorted(), [
+            "https://a.com/a1.zip",
+        ])
+        XCTAssertEqual(archiver.extractions.map { $0.destinationPath }.sorted(), [
+            AbsolutePath("/tmp/ws/.build/artifacts/extract/A1"),
+        ])
+        XCTAssertEqual(
+            downloads.map { $0.1 }.sorted(),
+            archiver.extractions.map { $0.archivePath }.sorted()
+        )
+
+        // reset
+
+        try workspace.resetState()
+
+        // do it again
+
+        workspace.checkPackageGraph(roots: ["Foo"]) { graph, diagnostics in
+            XCTAssertTrue(diagnostics.diagnostics.isEmpty, diagnostics.description)
+            XCTAssert(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/A")))
+
+            XCTAssertEqual(workspace.checksumAlgorithm.hashes.map{ $0.hexadecimalRepresentation }.sorted(), [
+                ByteString([0xA1]).hexadecimalRepresentation, ByteString([0xA1]).hexadecimalRepresentation,
+            ])
+        }
+
+        XCTAssertEqual(downloads.map { $0.0.absoluteString }.sorted(), [
+            "https://a.com/a1.zip", "https://a.com/a1.zip",
+        ])
+        XCTAssertEqual(archiver.extractions.map { $0.destinationPath }.sorted(), [
+            AbsolutePath("/tmp/ws/.build/artifacts/extract/A1"), AbsolutePath("/tmp/ws/.build/artifacts/extract/A1"),
+        ])
+        XCTAssertEqual(
+            downloads.map { $0.1 }.sorted(),
+            archiver.extractions.map { $0.archivePath }.sorted()
+        )        
+    }
+
     func testArtifactDownloaderOrArchiverError() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
@@ -4735,7 +4923,7 @@ final class WorkspaceTests: XCTestCase {
         })
 
         let archiver = MockArchiver(handler: { _, _, destinationPath, completion in
-            XCTAssertEqual(destinationPath, AbsolutePath("/tmp/ws/.build/artifacts/A"))
+            XCTAssertEqual(destinationPath, AbsolutePath("/tmp/ws/.build/artifacts/extract/A2"))
             completion(.failure(DummyError()))
         })
 
@@ -4755,7 +4943,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        .git(name: "A", requirement: .exact("1.0.0")),
+                        .scm(path: "./A", requirement: .exact("1.0.0")),
                     ]
                 ),
             ],
@@ -4822,7 +5010,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        .git(name: "A", requirement: .exact("1.0.0")),
+                        .scm(path: "./A", requirement: .exact("1.0.0")),
                     ]
                 ),
             ],
@@ -4914,9 +5102,9 @@ final class WorkspaceTests: XCTestCase {
                 do {
                     let contents: String
                     switch request.url.lastPathComponent {
-                    case "a1.ari":
+                    case "a1.artifactbundleindex":
                         contents = ariFiles[0]
-                    case "a2.ari":
+                    case "a2.artifactbundleindex":
                         contents = ariFiles[1]
                     default:
                         throw StringError("unexpected url \(request.url)")
@@ -4959,11 +5147,11 @@ final class WorkspaceTests: XCTestCase {
                 let name: String
                 switch archivePath.basename {
                 case "a1.zip":
-                    name = "A1.arar"
+                    name = "A1.artifactbundle"
                 case "a2.zip":
-                    name = "A2.arar"
+                    name = "A2.artifactbundle"
                 case "b.zip":
-                    name = "B.arar"
+                    name = "B.artifactbundle"
                 default:
                     throw StringError("unexpected archivePath \(archivePath)")
                 }
@@ -4993,8 +5181,8 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        .git(name: "A", requirement: .exact("1.0.0")),
-                        .git(name: "B", requirement: .exact("1.0.0")),
+                        .scm(path: "./A", requirement: .exact("1.0.0")),
+                        .scm(path: "./B", requirement: .exact("1.0.0")),
                     ]
                 ),
             ],
@@ -5005,13 +5193,13 @@ final class WorkspaceTests: XCTestCase {
                         MockTarget(
                             name: "A1",
                             type: .binary,
-                            url: "https://a.com/a1.ari",
+                            url: "https://a.com/a1.artifactbundleindex",
                             checksum: ariFilesChecksums[0]
                         ),
                         MockTarget(
                             name: "A2",
                             type: .binary,
-                            url: "https://a.com/a2.ari",
+                            url: "https://a.com/a2.artifactbundleindex",
                             checksum: ariFilesChecksums[1]
                         )
                     ],
@@ -5060,9 +5248,9 @@ final class WorkspaceTests: XCTestCase {
                 ).map{ $0.hexadecimalRepresentation }.sorted()
             )
             XCTAssertEqual(workspace.archiver.extractions.map { $0.destinationPath }.sorted(), [
-                AbsolutePath("/tmp/ws/.build/artifacts/A"),
-                AbsolutePath("/tmp/ws/.build/artifacts/A"),
-                AbsolutePath("/tmp/ws/.build/artifacts/B"),
+                AbsolutePath("/tmp/ws/.build/artifacts/extract/A1"),
+                AbsolutePath("/tmp/ws/.build/artifacts/extract/A2"),
+                AbsolutePath("/tmp/ws/.build/artifacts/extract/B"),
             ])
             XCTAssertEqual(
                 downloads.map { $0.value }.sorted(),
@@ -5077,7 +5265,7 @@ final class WorkspaceTests: XCTestCase {
                             url: "https://a.com/a1.zip",
                             checksum: "a1"
                          ),
-                         path: workspace.artifactsDir.appending(components: "A", "A1.arar")
+                         path: workspace.artifactsDir.appending(components: "A", "A1.artifactbundle")
             )
             result.check(packageName: "A",
                          targetName: "A2",
@@ -5085,7 +5273,7 @@ final class WorkspaceTests: XCTestCase {
                             url: "https://a.com/a2/a2.zip",
                             checksum: "a2"
                          ),
-                         path: workspace.artifactsDir.appending(components: "A", "A2.arar")
+                         path: workspace.artifactsDir.appending(components: "A", "A2.artifactbundle")
             )
             result.check(packageName: "B",
                          targetName: "B",
@@ -5093,7 +5281,7 @@ final class WorkspaceTests: XCTestCase {
                             url: "https://b.com/b.zip",
                             checksum: "b0"
                          ),
-                         path: workspace.artifactsDir.appending(components: "B", "B.arar")
+                         path: workspace.artifactsDir.appending(components: "B", "B.artifactbundle")
             )
         }
     }
@@ -5119,7 +5307,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        .git(name: "A", requirement: .exact("1.0.0")),
+                        .scm(path: "./A", requirement: .exact("1.0.0")),
                     ]
                 ),
             ],
@@ -5127,7 +5315,7 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "A",
                     targets: [
-                        MockTarget(name: "A", type: .binary, url: "https://a.com/a.ari", checksum: "does-not-matter"),
+                        MockTarget(name: "A", type: .binary, url: "https://a.com/a.artifactbundleindex", checksum: "does-not-matter"),
                     ],
                     products: [
                         MockProduct(name: "A", targets: ["A"]),
@@ -5139,7 +5327,7 @@ final class WorkspaceTests: XCTestCase {
 
         workspace.checkPackageGraphFailure(roots: ["Foo"]) { diagnostics in
             DiagnosticsEngineTester(diagnostics) { result in
-                result.check(diagnostic: .contains("failed retrieving 'https://a.com/a.ari': badResponseStatusCode(500)"), behavior: .error)
+                result.check(diagnostic: .contains("failed retrieving 'https://a.com/a.artifactbundleindex': badResponseStatusCode(500)"), behavior: .error)
             }
         }
     }
@@ -5169,7 +5357,7 @@ final class WorkspaceTests: XCTestCase {
             do {
                 let contents: String
                 switch request.url.lastPathComponent {
-                case "a.ari":
+                case "a.artifactbundleindex":
                     contents = ari
                 default:
                     throw StringError("unexpected url \(request.url)")
@@ -5192,7 +5380,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        .git(name: "A", requirement: .exact("1.0.0")),
+                        .scm(path: "./A", requirement: .exact("1.0.0")),
                     ]
                 ),
             ],
@@ -5200,7 +5388,7 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "A",
                     targets: [
-                        MockTarget(name: "A", type: .binary, url: "https://a.com/a.ari", checksum: "incorrect"),
+                        MockTarget(name: "A", type: .binary, url: "https://a.com/a.artifactbundleindex", checksum: "incorrect"),
                     ],
                     products: [
                         MockProduct(name: "A", targets: ["A"]),
@@ -5212,7 +5400,7 @@ final class WorkspaceTests: XCTestCase {
 
         workspace.checkPackageGraphFailure(roots: ["Foo"]) { diagnostics in
             DiagnosticsEngineTester(diagnostics) { result in
-                result.check(diagnostic: .contains("failed retrieving 'https://a.com/a.ari': checksum of downloaded artifact of binary target 'A' (\(ariChecksums)) does not match checksum specified by the manifest (incorrect)"), behavior: .error)
+                result.check(diagnostic: .contains("failed retrieving 'https://a.com/a.artifactbundleindex': checksum of downloaded artifact of binary target 'A' (\(ariChecksums)) does not match checksum specified by the manifest (incorrect)"), behavior: .error)
             }
         }
     }
@@ -5232,7 +5420,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        .git(name: "A", requirement: .exact("1.0.0")),
+                        .scm(path: "./A", requirement: .exact("1.0.0")),
                     ]
                 ),
             ],
@@ -5240,7 +5428,7 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "A",
                     targets: [
-                        MockTarget(name: "A", type: .binary, url: "https://a.com/a.ari", checksum: "a"),
+                        MockTarget(name: "A", type: .binary, url: "https://a.com/a.artifactbundleindex", checksum: "a"),
                     ],
                     products: [
                         MockProduct(name: "A", targets: ["A"]),
@@ -5266,7 +5454,7 @@ final class WorkspaceTests: XCTestCase {
                     packageRef: aRef,
                     targetName: "A",
                     source: .remote(
-                        url: "https://a.com/a.ari",
+                        url: "https://a.com/a.artifactbundleindex",
                         checksum: "old-checksum"
                     ),
                     path: workspace.packagesDir.appending(components: "A", "A.xcframework")
@@ -5308,7 +5496,7 @@ final class WorkspaceTests: XCTestCase {
                 do {
                     let contents: String
                     switch request.url.lastPathComponent {
-                    case "a.ari":
+                    case "a.artifactbundleindex":
                         contents = ari
                     default:
                         throw StringError("unexpected url \(request.url)")
@@ -5346,7 +5534,7 @@ final class WorkspaceTests: XCTestCase {
                 let name: String
                 switch archivePath.basename {
                 case "a.zip":
-                    name = "A.arar"
+                    name = "A.artifactbundle"
                 default:
                     throw StringError("unexpected archivePath \(archivePath)")
                 }
@@ -5372,7 +5560,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        .git(name: "A", requirement: .exact("1.0.0")),
+                        .scm(path: "./A", requirement: .exact("1.0.0")),
                     ]
                 ),
             ],
@@ -5380,7 +5568,7 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "A",
                     targets: [
-                        MockTarget(name: "A", type: .binary, url: "https://a.com/a.ari", checksum: ariChecksums),
+                        MockTarget(name: "A", type: .binary, url: "https://a.com/a.artifactbundleindex", checksum: ariChecksums),
                     ],
                     products: [
                         MockProduct(name: "A", targets: ["A"]),
@@ -5424,7 +5612,7 @@ final class WorkspaceTests: XCTestCase {
                 do {
                     let contents: String
                     switch request.url.lastPathComponent {
-                    case "a.ari":
+                    case "a.artifactbundleindex":
                         contents = ari
                     default:
                         throw StringError("unexpected url \(request.url)")
@@ -5450,7 +5638,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        .git(name: "A", requirement: .exact("1.0.0")),
+                        .scm(path: "./A", requirement: .exact("1.0.0")),
                     ]
                 ),
             ],
@@ -5458,7 +5646,7 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "A",
                     targets: [
-                        MockTarget(name: "A", type: .binary, url: "https://a.com/a.ari", checksum: ariChecksums),
+                        MockTarget(name: "A", type: .binary, url: "https://a.com/a.artifactbundleindex", checksum: ariChecksums),
                     ],
                     products: [
                         MockProduct(name: "A", targets: ["A"]),
@@ -5503,7 +5691,7 @@ final class WorkspaceTests: XCTestCase {
             do {
                 let contents: String
                 switch request.url.lastPathComponent {
-                case "a.ari":
+                case "a.artifactbundleindex":
                     contents = ari
                 default:
                     throw StringError("unexpected url \(request.url)")
@@ -5526,7 +5714,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        .git(name: "A", requirement: .exact("1.0.0")),
+                        .scm(path: "./A", requirement: .exact("1.0.0")),
                     ]
                 ),
             ],
@@ -5534,7 +5722,7 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "A",
                     targets: [
-                        MockTarget(name: "A", type: .binary, url: "https://a.com/a.ari", checksum: ariChecksum),
+                        MockTarget(name: "A", type: .binary, url: "https://a.com/a.artifactbundleindex", checksum: ariChecksum),
                     ],
                     products: [
                         MockProduct(name: "A", targets: ["A"]),
@@ -5546,7 +5734,7 @@ final class WorkspaceTests: XCTestCase {
 
         workspace.checkPackageGraphFailure(roots: ["Foo"]) { diagnostics in
             DiagnosticsEngineTester(diagnostics) { result in
-                result.check(diagnostic: .contains("failed retrieving 'https://a.com/a.ari': No supported archive was found for '\(hostToolchain.triple.tripleString)'"), behavior: .error)
+                result.check(diagnostic: .contains("failed retrieving 'https://a.com/a.artifactbundleindex': No supported archive was found for '\(hostToolchain.triple.tripleString)'"), behavior: .error)
             }
         }
     }
@@ -5586,8 +5774,8 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        .git(name: "FooUtilityPackage", path: "foo/utility", requirement: .upToNextMajor(from: "1.0.0")),
-                        .git(name: "BarUtilityPackage", path: "bar/utility", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scmWithDeprecatedName(name: "FooUtilityPackage", path: "foo/utility", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scmWithDeprecatedName(name: "BarUtilityPackage", path: "bar/utility", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     toolsVersion: .v5
                 ),
@@ -5648,8 +5836,8 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        .git(name: "FooPackage", path: "foo", requirement: .upToNextMajor(from: "1.0.0")),
-                        .git(name: "FooPackage", path: "bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scmWithDeprecatedName(name: "FooPackage", path: "foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scmWithDeprecatedName(name: "FooPackage", path: "bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     toolsVersion: .v5
                 ),
@@ -5710,8 +5898,8 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        .git(path: "foo", requirement: .upToNextMajor(from: "1.0.0")),
-                        .git(path: "bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(path: "foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(path: "bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     toolsVersion: .v5
                 ),
@@ -5767,8 +5955,8 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        .git(path: "foo", requirement: .upToNextMajor(from: "1.0.0")),
-                        .git(path: "bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(path: "foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(path: "bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     toolsVersion: .v5
                 ),
@@ -5824,8 +6012,8 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        .git(name: "MyPackage1", path: "foo", requirement: .upToNextMajor(from: "1.0.0")),
-                        .git(name: "MyPackage2", path: "bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scmWithDeprecatedName(name: "MyPackage1", path: "foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scmWithDeprecatedName(name: "MyPackage2", path: "bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     toolsVersion: .v5
                 ),
@@ -5890,8 +6078,8 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        .git(path: "foo", requirement: .upToNextMajor(from: "1.0.0")),
-                        .git(path: "bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(path: "foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(path: "bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     toolsVersion: .v5
                 ),
@@ -5947,8 +6135,8 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        .git(path: "foo", requirement: .upToNextMajor(from: "1.0.0")),
-                        .git(path: "bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(path: "foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(path: "bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     toolsVersion: .v5_3
                 ),
@@ -6013,8 +6201,8 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        .git(path: "foo", requirement: .upToNextMajor(from: "1.0.0")),
-                        .git(path: "bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(path: "foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(path: "bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     toolsVersion: .v5_3
                 ),
@@ -6070,8 +6258,8 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        .git(path: "foo", requirement: .upToNextMajor(from: "1.0.0")),
-                        .git(name: "foo", path: "bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(path: "foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scmWithDeprecatedName(name: "foo", path: "bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     toolsVersion: .v5
                 ),
@@ -6131,8 +6319,8 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        .git(path: "foo", requirement: .upToNextMajor(from: "1.0.0")),
-                        .git(name: "foo", path: "bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(path: "foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scmWithDeprecatedName(name: "foo", path: "bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     toolsVersion: .v5
                 ),
@@ -6192,8 +6380,8 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        .git(name: "FooUtilityPackage", path: "foo/utility", requirement: .upToNextMajor(from: "1.0.0")),
-                        .git(name: "BarPackage", path: "bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scmWithDeprecatedName(name: "FooUtilityPackage", path: "foo/utility", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scmWithDeprecatedName(name: "BarPackage", path: "bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     toolsVersion: .v5
                 ),
@@ -6222,7 +6410,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "BarProduct", targets: ["BarTarget"]),
                     ],
                     dependencies: [
-                        .git(name: "OtherUtilityPackage", path: "other/utility", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scmWithDeprecatedName(name: "OtherUtilityPackage", path: "other/utility", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -6272,8 +6460,8 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        .git(name: nil, path: "foo/utility", requirement: .upToNextMajor(from: "1.0.0")),
-                        .git(name: nil, path: "bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(path: "foo/utility", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(path: "bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     toolsVersion: .v5
                 ),
@@ -6302,7 +6490,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "BarProduct", targets: ["BarTarget"]),
                     ],
                     dependencies: [
-                        .git(name: nil, path: "other-foo/utility", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(path: "other-foo/utility", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -6351,7 +6539,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        .git(name: "FooUtilityPackage", path: "foo/utility", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scmWithDeprecatedName(name: "FooUtilityPackage", path: "foo/utility", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     toolsVersion: .v5
                 ),
@@ -6369,7 +6557,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "FooUtilityProduct", targets: ["FooUtilityTarget"]),
                     ],
                     dependencies: [
-                        .git(name: "BarPackage", path: "bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scmWithDeprecatedName(name: "BarPackage", path: "bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -6385,7 +6573,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "BarProduct", targets: ["BarTarget"]),
                     ],
                     dependencies: [
-                        .git(name: "OtherUtilityPackage", path: "other/utility", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scmWithDeprecatedName(name: "OtherUtilityPackage", path: "other/utility", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -6434,7 +6622,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        .git(path: "foo/utility", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(path: "foo/utility", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     toolsVersion: .v5
                 ),
@@ -6452,7 +6640,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "FooUtilityProduct", targets: ["FooUtilityTarget"]),
                     ],
                     dependencies: [
-                        .git(path: "bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(path: "bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     versions: ["1.0.0"],
                     toolsVersion: .v5
@@ -6469,7 +6657,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "BarProduct", targets: ["BarTarget"]),
                     ],
                     dependencies: [
-                        .git(path: "other/utility", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(path: "other/utility", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     versions: ["1.0.0"],
                     toolsVersion: .v5
@@ -6520,7 +6708,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        .git(name: "BarPackage", path: "bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scmWithDeprecatedName(name: "BarPackage", path: "bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     toolsVersion: .v5
                 ),
@@ -6538,7 +6726,7 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "BarProduct", targets: ["BarTarget"]),
                     ],
                     dependencies: [
-                        .git(name: "FooPackage", path: "foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scmWithDeprecatedName(name: "FooPackage", path: "foo", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     versions: ["1.0.0"]
                 ),

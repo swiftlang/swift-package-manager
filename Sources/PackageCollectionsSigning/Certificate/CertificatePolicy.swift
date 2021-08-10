@@ -19,18 +19,20 @@ import TSCBasic
 
 #if os(macOS)
 import Security
-#elseif os(Linux) || os(Windows)
+#elseif os(Linux) || os(Windows) || os(Android)
 @_implementationOnly import CCryptoBoringSSL
 @_implementationOnly import PackageCollectionsSigningLibc
 #endif
 
 let appleDistributionIOSMarker = "1.2.840.113635.100.6.1.4"
 let appleDistributionMacOSMarker = "1.2.840.113635.100.6.1.7"
+let appleSwiftPackageCollectionMarker = "1.2.840.113635.100.6.1.35"
 let appleIntermediateMarker = "1.2.840.113635.100.6.2.1"
 
 // For BoringSSL only - the Security framework recognizes these marker extensions
-#if os(Linux) || os(Windows)
-let supportedCriticalExtensions: Set<String> = [appleDistributionIOSMarker, appleDistributionMacOSMarker,
+#if os(Linux) || os(Windows) || os(Android)
+let supportedCriticalExtensions: Set<String> = [appleSwiftPackageCollectionMarker, // This isn't a critical extension but including it just in case,
+                                                appleDistributionIOSMarker, appleDistributionMacOSMarker,
                                                 // Support "Apple Development" cert markers--they are valid code signing certs after all and satisfy DefaultCertificatePolicy
                                                 "1.2.840.113635.100.6.1.2", "1.2.840.113635.100.6.1.12"]
 #endif
@@ -99,7 +101,7 @@ extension CertificatePolicy {
         }
     }
 
-    #elseif os(Linux) || os(Windows)
+    #elseif os(Linux) || os(Windows) || os(Android)
     typealias BoringSSLVerifyCallback = @convention(c) (CInt, UnsafeMutablePointer<X509_STORE_CTX>?) -> CInt
 
     /// Verifies a certificate chain.
@@ -232,7 +234,7 @@ extension CertificatePolicy {
     #endif
 }
 
-#if os(Linux) || os(Windows)
+#if os(Linux) || os(Windows) || os(Android)
 private let ocspClient = BoringSSLOCSPClient()
 
 private struct BoringSSLOCSPClient {
@@ -447,7 +449,7 @@ extension CertificatePolicy {
             throw CertificatePolicyError.extensionFailure
         }
         return !dict.isEmpty
-        #elseif os(Linux) || os(Windows)
+        #elseif os(Linux) || os(Windows) || os(Android)
         let nid = CCryptoBoringSSL_OBJ_create(oid, "ObjectShortName", "ObjectLongName")
         let index = certificate.withUnsafeMutablePointer { CCryptoBoringSSL_X509_get_ext_by_NID($0, nid, -1) }
         return index >= 0
@@ -466,7 +468,7 @@ extension CertificatePolicy {
             return false
         }
         return usages.first(where: { $0 == usage.data }) != nil
-        #elseif os(Linux) || os(Windows)
+        #elseif os(Linux) || os(Windows) || os(Android)
         let eku = certificate.withUnsafeMutablePointer { CCryptoBoringSSL_X509_get_extended_key_usage($0) }
         return eku & UInt32(usage.flag) > 0
         #else
@@ -488,7 +490,7 @@ extension CertificatePolicy {
             return false
         }
         return infoAccessValue.first(where: { valueDict in valueDict[kSecPropertyKeyValue] as? String == "1.3.6.1.5.5.7.48.1" }) != nil
-        #elseif os(Linux) || os(Windows)
+        #elseif os(Linux) || os(Windows) || os(Android)
         // Check that there is at least one OCSP responder URL, in which case OCSP check will take place in `verify`.
         let ocspURLs = certificate.withUnsafeMutablePointer { CCryptoBoringSSL_X509_get1_ocsp($0) }
         defer { CCryptoBoringSSL_sk_OPENSSL_STRING_free(ocspURLs) }
@@ -513,7 +515,7 @@ enum CertificateExtendedKeyUsage {
         }
     }
 
-    #elseif os(Linux) || os(Windows)
+    #elseif os(Linux) || os(Windows) || os(Android)
     var flag: CInt {
         switch self {
         case .codeSigning:
@@ -581,7 +583,7 @@ struct DefaultCertificatePolicy: CertificatePolicy {
     private let callbackQueue: DispatchQueue
     private let diagnosticsEngine: DiagnosticsEngine
 
-    #if os(Linux) || os(Windows)
+    #if os(Linux) || os(Windows) || os(Android)
     private let httpClient: HTTPClient
     #endif
 
@@ -598,7 +600,7 @@ struct DefaultCertificatePolicy: CertificatePolicy {
     ///   - callbackQueue: The `DispatchQueue` to use for callbacks
     ///   - diagnosticsEngine: The `DiagnosticsEngine` for emitting warnings and errors.
     init(trustedRootCertsDir: URL?, additionalTrustedRootCerts: [Certificate]?, expectedSubjectUserID: String? = nil, callbackQueue: DispatchQueue, diagnosticsEngine: DiagnosticsEngine) {
-        #if !(os(macOS) || os(Linux) || os(Windows))
+        #if !(os(macOS) || os(Linux) || os(Windows) || os(Android))
         fatalError("Unsupported: \(#function)")
         #else
         var trustedRoots = [Certificate]()
@@ -613,14 +615,14 @@ struct DefaultCertificatePolicy: CertificatePolicy {
         self.callbackQueue = callbackQueue
         self.diagnosticsEngine = diagnosticsEngine
 
-        #if os(Linux) || os(Windows)
+        #if os(Linux) || os(Windows) || os(Android)
         self.httpClient = HTTPClient.makeDefault(callbackQueue: callbackQueue)
         #endif
         #endif
     }
 
     func validate(certChain: [Certificate], callback: @escaping (Result<Void, Error>) -> Void) {
-        #if !(os(macOS) || os(Linux) || os(Windows))
+        #if !(os(macOS) || os(Linux) || os(Windows) || os(Android))
         fatalError("Unsupported: \(#function)")
         #else
         let wrappedCallback: (Result<Void, Error>) -> Void = { result in self.callbackQueue.async { callback(result) } }
@@ -649,7 +651,7 @@ struct DefaultCertificatePolicy: CertificatePolicy {
             // Verify the cert chain - if it is trusted then cert chain is valid
             #if os(macOS)
             self.verify(certChain: certChain, anchorCerts: self.trustedRoots, diagnosticsEngine: self.diagnosticsEngine, callbackQueue: self.callbackQueue, callback: callback)
-            #elseif os(Linux) || os(Windows)
+            #elseif os(Linux) || os(Windows) || os(Android)
             self.verify(certChain: certChain, anchorCerts: self.trustedRoots, httpClient: self.httpClient, diagnosticsEngine: self.diagnosticsEngine, callbackQueue: self.callbackQueue, callback: callback)
             #endif
         } catch {
@@ -659,11 +661,11 @@ struct DefaultCertificatePolicy: CertificatePolicy {
     }
 }
 
-/// Policy for validating developer.apple.com certificates.
+/// Policy for validating developer.apple.com Swift Package Collection certificates.
 ///
 /// This has the same requirements as `DefaultCertificatePolicy` plus additional
-/// marker extensions for Apple Distribution certifiications.
-struct AppleDeveloperCertificatePolicy: CertificatePolicy {
+/// marker extensions for Swift Package Collection certifiications.
+struct AppleSwiftPackageCollectionCertificatePolicy: CertificatePolicy {
     private static let expectedCertChainLength = 3
 
     let trustedRoots: [Certificate]?
@@ -672,11 +674,11 @@ struct AppleDeveloperCertificatePolicy: CertificatePolicy {
     private let callbackQueue: DispatchQueue
     private let diagnosticsEngine: DiagnosticsEngine
 
-    #if os(Linux) || os(Windows)
+    #if os(Linux) || os(Windows) || os(Android)
     private let httpClient: HTTPClient
     #endif
 
-    /// Initializes a `AppleDeveloperCertificatePolicy`.
+    /// Initializes a `AppleSwiftPackageCollectionCertificatePolicy`.
     /// - Parameters:
     ///   - trustedRootCertsDir: On Apple platforms, all root certificates that come preinstalled with the OS are automatically trusted.
     ///                          Users may specify additional certificates to trust by placing them in `trustedRootCertsDir` and
@@ -689,7 +691,7 @@ struct AppleDeveloperCertificatePolicy: CertificatePolicy {
     ///   - callbackQueue: The `DispatchQueue` to use for callbacks
     ///   - diagnosticsEngine: The `DiagnosticsEngine` for emitting warnings and errors.
     init(trustedRootCertsDir: URL?, additionalTrustedRootCerts: [Certificate]?, expectedSubjectUserID: String? = nil, callbackQueue: DispatchQueue, diagnosticsEngine: DiagnosticsEngine) {
-        #if !(os(macOS) || os(Linux) || os(Windows))
+        #if !(os(macOS) || os(Linux) || os(Windows) || os(Android))
         fatalError("Unsupported: \(#function)")
         #else
         var trustedRoots = [Certificate]()
@@ -704,14 +706,117 @@ struct AppleDeveloperCertificatePolicy: CertificatePolicy {
         self.callbackQueue = callbackQueue
         self.diagnosticsEngine = diagnosticsEngine
 
-        #if os(Linux) || os(Windows)
+        #if os(Linux) || os(Windows) || os(Android)
         self.httpClient = HTTPClient.makeDefault(callbackQueue: callbackQueue)
         #endif
         #endif
     }
 
     func validate(certChain: [Certificate], callback: @escaping (Result<Void, Error>) -> Void) {
-        #if !(os(macOS) || os(Linux) || os(Windows))
+        #if !(os(macOS) || os(Linux) || os(Windows) || os(Android))
+        fatalError("Unsupported: \(#function)")
+        #else
+        let wrappedCallback: (Result<Void, Error>) -> Void = { result in self.callbackQueue.async { callback(result) } }
+
+        guard !certChain.isEmpty else {
+            return wrappedCallback(.failure(CertificatePolicyError.emptyCertChain))
+        }
+        // developer.apple.com cert chain is always 3-long
+        guard certChain.count == Self.expectedCertChainLength else {
+            return wrappedCallback(.failure(CertificatePolicyError.unexpectedCertChainLength))
+        }
+
+        do {
+            // Check if subject user ID matches
+            if let expectedSubjectUserID = self.expectedSubjectUserID {
+                guard try certChain[0].subject().userID == expectedSubjectUserID else {
+                    return wrappedCallback(.failure(CertificatePolicyError.subjectUserIDMismatch))
+                }
+            }
+
+            // Check marker extension
+            guard try self.hasExtension(oid: appleSwiftPackageCollectionMarker, in: certChain[0]) else {
+                return wrappedCallback(.failure(CertificatePolicyError.missingRequiredExtension))
+            }
+            guard try self.hasExtension(oid: appleIntermediateMarker, in: certChain[1]) else {
+                return wrappedCallback(.failure(CertificatePolicyError.missingRequiredExtension))
+            }
+
+            // Must be a code signing certificate
+            guard try self.hasExtendedKeyUsage(.codeSigning, in: certChain[0]) else {
+                return wrappedCallback(.failure(CertificatePolicyError.codeSigningCertRequired))
+            }
+            // Must support OCSP
+            guard try self.supportsOCSP(certificate: certChain[0]) else {
+                return wrappedCallback(.failure(CertificatePolicyError.ocspSupportRequired))
+            }
+
+            // Verify the cert chain - if it is trusted then cert chain is valid
+            #if os(macOS)
+            self.verify(certChain: certChain, anchorCerts: self.trustedRoots, diagnosticsEngine: self.diagnosticsEngine, callbackQueue: self.callbackQueue, callback: callback)
+            #elseif os(Linux) || os(Windows) || os(Android)
+            self.verify(certChain: certChain, anchorCerts: self.trustedRoots, httpClient: self.httpClient, diagnosticsEngine: self.diagnosticsEngine, callbackQueue: self.callbackQueue, callback: callback)
+            #endif
+        } catch {
+            return wrappedCallback(.failure(error))
+        }
+        #endif
+    }
+}
+
+/// Policy for validating developer.apple.com Apple Distribution certificates.
+///
+/// This has the same requirements as `DefaultCertificatePolicy` plus additional
+/// marker extensions for Apple Distribution certifiications.
+struct AppleDistributionCertificatePolicy: CertificatePolicy {
+    private static let expectedCertChainLength = 3
+
+    let trustedRoots: [Certificate]?
+    let expectedSubjectUserID: String?
+
+    private let callbackQueue: DispatchQueue
+    private let diagnosticsEngine: DiagnosticsEngine
+
+    #if os(Linux) || os(Windows) || os(Android)
+    private let httpClient: HTTPClient
+    #endif
+
+    /// Initializes a `AppleDistributionCertificatePolicy`.
+    /// - Parameters:
+    ///   - trustedRootCertsDir: On Apple platforms, all root certificates that come preinstalled with the OS are automatically trusted.
+    ///                          Users may specify additional certificates to trust by placing them in `trustedRootCertsDir` and
+    ///                          configure the signing tool or SwiftPM to use it. On non-Apple platforms, only trust root certificates in
+    ///                          `trustedRootCertsDir` are trusted.
+    ///   - additionalTrustedRootCerts: Root certificates to be trusted in addition to those in `trustedRootCertsDir`. The difference
+    ///                                 between this and `trustedRootCertsDir` is that the latter is user configured and dynamic,
+    ///                                 while this is configured by SwiftPM and static.
+    ///   - expectedSubjectUserID: The subject user ID that must match if specified.
+    ///   - callbackQueue: The `DispatchQueue` to use for callbacks
+    ///   - diagnosticsEngine: The `DiagnosticsEngine` for emitting warnings and errors.
+    init(trustedRootCertsDir: URL?, additionalTrustedRootCerts: [Certificate]?, expectedSubjectUserID: String? = nil, callbackQueue: DispatchQueue, diagnosticsEngine: DiagnosticsEngine) {
+        #if !(os(macOS) || os(Linux) || os(Windows) || os(Android))
+        fatalError("Unsupported: \(#function)")
+        #else
+        var trustedRoots = [Certificate]()
+        if let trustedRootCertsDir = trustedRootCertsDir {
+            trustedRoots.append(contentsOf: Self.loadCerts(at: trustedRootCertsDir, diagnosticsEngine: diagnosticsEngine))
+        }
+        if let additionalTrustedRootCerts = additionalTrustedRootCerts {
+            trustedRoots.append(contentsOf: additionalTrustedRootCerts)
+        }
+        self.trustedRoots = trustedRoots.isEmpty ? nil : trustedRoots
+        self.expectedSubjectUserID = expectedSubjectUserID
+        self.callbackQueue = callbackQueue
+        self.diagnosticsEngine = diagnosticsEngine
+
+        #if os(Linux) || os(Windows) || os(Android)
+        self.httpClient = HTTPClient.makeDefault(callbackQueue: callbackQueue)
+        #endif
+        #endif
+    }
+
+    func validate(certChain: [Certificate], callback: @escaping (Result<Void, Error>) -> Void) {
+        #if !(os(macOS) || os(Linux) || os(Windows) || os(Android))
         fatalError("Unsupported: \(#function)")
         #else
         let wrappedCallback: (Result<Void, Error>) -> Void = { result in self.callbackQueue.async { callback(result) } }
@@ -752,7 +857,7 @@ struct AppleDeveloperCertificatePolicy: CertificatePolicy {
             // Verify the cert chain - if it is trusted then cert chain is valid
             #if os(macOS)
             self.verify(certChain: certChain, anchorCerts: self.trustedRoots, diagnosticsEngine: self.diagnosticsEngine, callbackQueue: self.callbackQueue, callback: callback)
-            #elseif os(Linux) || os(Windows)
+            #elseif os(Linux) || os(Windows) || os(Android)
             self.verify(certChain: certChain, anchorCerts: self.trustedRoots, httpClient: self.httpClient, diagnosticsEngine: self.diagnosticsEngine, callbackQueue: self.callbackQueue, callback: callback)
             #endif
         } catch {
@@ -762,13 +867,15 @@ struct AppleDeveloperCertificatePolicy: CertificatePolicy {
     }
 }
 
-public enum CertificatePolicyKey: Equatable, Hashable {
+public enum CertificatePolicyKey: Hashable {
     case `default`(subjectUserID: String?)
+    case appleSwiftPackageCollection(subjectUserID: String?)
     case appleDistribution(subjectUserID: String?)
 
     /// For internal-use only
     case custom
 
     public static let `default` = CertificatePolicyKey.default(subjectUserID: nil)
+    public static let appleSwiftPackageCollection = CertificatePolicyKey.appleSwiftPackageCollection(subjectUserID: nil)
     public static let appleDistribution = CertificatePolicyKey.appleDistribution(subjectUserID: nil)
 }

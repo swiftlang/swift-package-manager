@@ -19,35 +19,47 @@ import PackageModel
 import TSCBasic
 
 struct GitHubPackageMetadataProvider: PackageMetadataProvider {
+    private static let apiHostPrefix = "api."
+
     public var name: String = "GitHub"
 
-    var configuration: Configuration
+    let configuration: Configuration
 
     private let httpClient: HTTPClient
     private let diagnosticsEngine: DiagnosticsEngine?
     private let decoder: JSONDecoder
 
-    private let cache: ThreadSafeKeyValueStore<PackageReference, (package: Model.PackageBasicMetadata, timestamp: DispatchTime)>?
+    private let cache: SQLiteBackedCache<CacheValue>?
 
     init(configuration: Configuration = .init(), httpClient: HTTPClient? = nil, diagnosticsEngine: DiagnosticsEngine? = nil) {
         self.configuration = configuration
         self.httpClient = httpClient ?? Self.makeDefaultHTTPClient(diagnosticsEngine: diagnosticsEngine)
         self.diagnosticsEngine = diagnosticsEngine
         self.decoder = JSONDecoder.makeWithDefaults()
-        self.cache = configuration.cacheTTLInSeconds > 0 ? .init() : nil
+        if configuration.cacheTTLInSeconds > 0 {
+            var cacheConfig = SQLiteBackedCacheConfiguration()
+            cacheConfig.maxSizeInMegabytes = configuration.cacheSizeInMegabytes
+            self.cache = SQLiteBackedCache<CacheValue>(tableName: "github_cache", path: configuration.cacheDir.appending(component: "package-metadata.db"), configuration: cacheConfig, diagnosticsEngine: diagnosticsEngine)
+        } else {
+            self.cache = nil
+        }
+    }
+
+    func close() throws {
+        try self.cache?.close()
     }
 
     func get(_ reference: PackageReference, callback: @escaping (Result<Model.PackageBasicMetadata, Error>) -> Void) {
         guard reference.kind == .remote else {
             return callback(.failure(Errors.invalidReferenceType(reference)))
         }
-        guard let baseURL = self.apiURL(reference.location) else {
+        guard let baseURL = Self.apiURL(reference.location) else {
             return callback(.failure(Errors.invalidGitURL(reference.location)))
         }
 
-        if let cachedMetadata = self.cache?[reference] {
-            if cachedMetadata.timestamp + DispatchTimeInterval.seconds(self.configuration.cacheTTLInSeconds) > DispatchTime.now() {
-                return callback(.success(cachedMetadata.package))
+        if let cached = try? self.cache?.get(key: reference.identity.description) {
+            if cached.dispatchTime + DispatchTimeInterval.seconds(self.configuration.cacheTTLInSeconds) > DispatchTime.now() {
+                return callback(.success(cached.package))
             }
         }
 
@@ -57,6 +69,7 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
         let contributorsURL = baseURL.appendingPathComponent("contributors")
         let readmeURL = baseURL.appendingPathComponent("readme")
         let licenseURL = baseURL.appendingPathComponent("license")
+        let languagesURL = baseURL.appendingPathComponent("languages")
 
         let sync = DispatchGroup()
         let results = ThreadSafeKeyValueStore<URL, Result<HTTPClientResponse, Error>>()
@@ -90,7 +103,7 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
                         self.diagnosticsEngine?.emit(warning: "Approaching API limits on \(metadataURL.host ?? metadataURL.absoluteString) (\(apiRemaining)/\(apiLimit)), consider configuring an API token for this service.")
                     }
                     // if successful, fan out multiple API calls
-                    [releasesURL, contributorsURL, readmeURL, licenseURL].forEach { url in
+                    [releasesURL, contributorsURL, readmeURL, licenseURL, languagesURL].forEach { url in
                         sync.enter()
                         var headers = HTTPClientHeaders()
                         headers.add(name: "Accept", value: "application/vnd.github.v3+json")
@@ -123,40 +136,32 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
                     let contributors = try results[contributorsURL]?.success?.decodeBody([Contributor].self, using: self.decoder)
                     let readme = try results[readmeURL]?.success?.decodeBody(Readme.self, using: self.decoder)
                     let license = try results[licenseURL]?.success?.decodeBody(License.self, using: self.decoder)
+                    let languages = try results[languagesURL]?.success?.decodeBody([String: Int].self, using: self.decoder)?.keys
 
                     let model = Model.PackageBasicMetadata(
                         summary: metadata.description,
                         keywords: metadata.topics,
                         // filters out non-semantic versioned tags
                         versions: releases.compactMap {
-                            guard let version = $0.tagName.flatMap(TSCUtility.Version.init(string:)) else {
+                            guard let version = $0.tagName.flatMap(TSCUtility.Version.init(tag:)) else {
                                 return nil
                             }
-                            return Model.PackageBasicVersionMetadata(version: version, summary: $0.body, createdAt: $0.createdAt, publishedAt: $0.publishedAt)
+                            return Model.PackageBasicVersionMetadata(version: version, title: $0.name, summary: $0.body, createdAt: $0.createdAt, publishedAt: $0.publishedAt)
                         },
                         watchersCount: metadata.watchersCount,
                         readmeURL: readme?.downloadURL,
                         license: license.flatMap { .init(type: Model.LicenseType(string: $0.license.spdxID), url: $0.downloadURL) },
                         authors: contributors?.map { .init(username: $0.login, url: $0.url, service: .init(name: "GitHub")) },
+                        languages: languages.flatMap(Set.init) ?? metadata.language.map { [$0] },
                         processedAt: Date()
                     )
 
-                    if let cache = self.cache {
-                        cache[reference] = (model, DispatchTime.now())
-
-                        if cache.count > self.configuration.cacheSize {
-                            DispatchQueue.sharedConcurrent.async {
-                                // Delete oldest entries with some room for growth
-                                let sortedCacheEntries = cache.get().sorted { $0.value.timestamp < $1.value.timestamp }
-                                let deleteCount = sortedCacheEntries.count - (self.configuration.cacheSize / 2)
-                                self.diagnosticsEngine?.emit(note: "Cache size limit exceeded, deleting the oldest \(deleteCount) entries")
-
-                                for index in 0 ..< deleteCount {
-                                    _ = cache.removeValue(forKey: sortedCacheEntries[index].key)
-                                }
-                            }
-                        }
+                    do {
+                        try self.cache?.put(key: reference.identity.description, value: CacheValue(package: model, timestamp: DispatchTime.now()), replace: true)
+                    } catch {
+                        self.diagnosticsEngine?.emit(.warning("Failed to save GitHub metadata for package \(reference) to cache: \(error)"))
                     }
+
                     callback(.success(model))
                 }
             } catch {
@@ -165,7 +170,17 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
         }
     }
 
-    internal func apiURL(_ url: String) -> Foundation.URL? {
+    func getAuthTokenType(for reference: PackageReference) -> AuthTokenType? {
+        guard reference.kind == .remote, let baseURL = Self.apiURL(reference.location) else {
+            return nil
+        }
+
+        return baseURL.host.flatMap { host in
+            self.getAuthTokenType(for: host)
+        }
+    }
+
+    internal static func apiURL(_ url: String) -> Foundation.URL? {
         do {
             let regex = try NSRegularExpression(pattern: #"([^/@]+)[:/]([^:/]+)/([^/.]+)(\.git)?$"#, options: .caseInsensitive)
             if let match = regex.firstMatch(in: url, options: [], range: NSRange(location: 0, length: url.count)) {
@@ -176,7 +191,7 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
                     let owner = String(url[ownerRange])
                     let repo = String(url[repoRange])
 
-                    return URL(string: "https://api.\(host)/repos/\(owner)/\(repo)")
+                    return URL(string: "https://\(Self.apiHostPrefix)\(host)/repos/\(owner)/\(repo)")
                 }
             }
             return nil
@@ -191,12 +206,18 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
         options.validResponseCodes = validResponseCodes
         options.authorizationProvider = { url in
             url.host.flatMap { host in
-                self.configuration.authTokens?[.github(host)].flatMap { token in
+                let tokenType = self.getAuthTokenType(for: host)
+                return self.configuration.authTokens()?[tokenType].flatMap { token in
                     "token \(token)"
                 }
             }
         }
         return options
+    }
+
+    private func getAuthTokenType(for host: String) -> AuthTokenType {
+        let host = host.hasPrefix(Self.apiHostPrefix) ? String(host.dropFirst(Self.apiHostPrefix.count)) : host
+        return .github(host)
     }
 
     private static func makeDefaultHTTPClient(diagnosticsEngine: DiagnosticsEngine?) -> HTTPClient {
@@ -209,19 +230,22 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
     }
 
     public struct Configuration {
+        public var authTokens: () -> [AuthTokenType: String]?
         public var apiLimitWarningThreshold: Int
-        public var authTokens: [AuthTokenType: String]?
+        public var cacheDir: AbsolutePath
         public var cacheTTLInSeconds: Int
-        public var cacheSize: Int
+        public var cacheSizeInMegabytes: Int
 
-        public init(authTokens: [AuthTokenType: String]? = nil,
+        public init(authTokens: @escaping () -> [AuthTokenType: String]? = { nil },
                     apiLimitWarningThreshold: Int? = nil,
+                    cacheDir: AbsolutePath? = nil,
                     cacheTTLInSeconds: Int? = nil,
-                    cacheSize: Int? = nil) {
+                    cacheSizeInMegabytes: Int? = nil) {
             self.authTokens = authTokens
             self.apiLimitWarningThreshold = apiLimitWarningThreshold ?? 5
+            self.cacheDir = cacheDir.map(resolveSymlinks) ?? localFileSystem.swiftPMCacheDirectory.appending(components: "package-metadata")
             self.cacheTTLInSeconds = cacheTTLInSeconds ?? 3600
-            self.cacheSize = cacheSize ?? 1000
+            self.cacheSizeInMegabytes = cacheSizeInMegabytes ?? 10
         }
     }
 
@@ -232,6 +256,38 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
         case permissionDenied(URL)
         case invalidAuthToken(URL)
         case apiLimitsExceeded(URL, Int)
+    }
+
+    struct CacheValue: Codable {
+        let package: Model.PackageBasicMetadata
+        let timestamp: UInt64
+
+        var dispatchTime: DispatchTime {
+            DispatchTime(uptimeNanoseconds: self.timestamp)
+        }
+
+        init(package: Model.PackageBasicMetadata, timestamp: DispatchTime) {
+            self.package = package
+            self.timestamp = timestamp.uptimeNanoseconds
+        }
+    }
+}
+
+extension PackageMetadataProviderError {
+    static func from(_ error: GitHubPackageMetadataProvider.Errors) -> PackageMetadataProviderError? {
+        switch error {
+        case .invalidResponse(_, let errorMessage):
+            return .invalidResponse(errorMessage: errorMessage)
+        case .permissionDenied:
+            return .permissionDenied
+        case .invalidAuthToken:
+            return .invalidAuthToken
+        case .apiLimitsExceeded:
+            return .apiLimitsExceeded
+        default:
+            // This metadata provider is not intended for the given package reference
+            return nil
+        }
     }
 }
 

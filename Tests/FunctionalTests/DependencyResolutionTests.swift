@@ -91,8 +91,8 @@ class DependencyResolutionTests: XCTestCase {
             // run with no mirror
             do {
                 let output = try executeSwiftPackage(appPath, extraArgs: ["show-dependencies"])
-                XCTAssertTrue(output.stdout.contains("Cloning \(prefix.pathString)/Foo\n"), output.stdout)
-                XCTAssertTrue(output.stdout.contains("Cloning \(prefix.pathString)/Bar\n"), output.stdout)
+                XCTAssertTrue(output.stdout.contains("Fetching \(prefix.pathString)/Foo\n"), output.stdout)
+                XCTAssertTrue(output.stdout.contains("Fetching \(prefix.pathString)/Bar\n"), output.stdout)
                 XCTAssertTrue(output.stdout.contains("foo<\(prefix.pathString)/Foo@unspecified"), output.stdout)
                 XCTAssertTrue(output.stdout.contains("bar<\(prefix.pathString)/Bar@unspecified"), output.stdout)
 
@@ -115,21 +115,29 @@ class DependencyResolutionTests: XCTestCase {
             // run with mirror
             do {
                 let output = try executeSwiftPackage(appPath, extraArgs: ["show-dependencies"])
-                XCTAssertTrue(output.stdout.contains("Cloning \(prefix.pathString)/Foo\n"), output.stdout)
-                XCTAssertTrue(output.stdout.contains("Cloning \(prefix.pathString)/BarMirror\n"), output.stdout)
-                XCTAssertFalse(output.stdout.contains("Cloning \(prefix.pathString)/Bar\n"), output.stdout)
+                XCTAssertTrue(output.stdout.contains("Fetching \(prefix.pathString)/Foo\n"), output.stdout)
+                XCTAssertTrue(output.stdout.contains("Fetching \(prefix.pathString)/BarMirror\n"), output.stdout)
+                XCTAssertFalse(output.stdout.contains("Fetching \(prefix.pathString)/Bar\n"), output.stdout)
 
                 XCTAssertTrue(output.stdout.contains("foo<\(prefix.pathString)/Foo@unspecified"), output.stdout)
                 XCTAssertTrue(output.stdout.contains("barmirror<\(prefix.pathString)/BarMirror@unspecified"), output.stdout)
                 XCTAssertFalse(output.stdout.contains("bar<\(prefix.pathString)/Bar@unspecified"), output.stdout)
 
+                // rdar://52529014 mirrors should not be reflected in pins file
                 let pins = try String(bytes: localFileSystem.readFileContents(appPinsPath).contents, encoding: .utf8)!
                 XCTAssertTrue(pins.contains("\"\(prefix.pathString)/Foo\""), pins)
-                XCTAssertTrue(pins.contains("\"\(prefix.pathString)/BarMirror\""), pins)
-                XCTAssertFalse(pins.contains("\"\(prefix.pathString)/Bar\""), pins)
+                XCTAssertTrue(pins.contains("\"\(prefix.pathString)/Bar\""), pins)
+                XCTAssertFalse(pins.contains("\"\(prefix.pathString)/BarMirror\""), pins)
 
                 XCTAssertBuilds(appPath)
             }
+        }
+    }
+
+    func testPackageLookupCaseInsensitive() throws {
+        fixture(name: "DependencyResolution/External/PackageLookupCaseInsensitive") { path in
+            let result = try SwiftPMProduct.SwiftPackage.executeProcess(["update"], packagePath: path.appending(component: "pkg"))
+            XCTAssert(result.exitStatus == .terminated(code: 0), try! result.utf8Output() + result.utf8stderrOutput())
         }
     }
 }

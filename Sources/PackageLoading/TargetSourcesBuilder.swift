@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2019 Apple Inc. and the Swift project authors
+ Copyright (c) 2014 - 2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -66,12 +66,9 @@ public struct TargetSourcesBuilder {
         self.defaultLocalization = defaultLocalization
         self.diags = diags
         self.targetPath = path
-        if toolsVersion <= ToolsVersion.v5_4 {
-            // In version 5.4 and earlier, we did not support `additionalFileRules` and always implicitly included XCBuild file types.
-            self.rules = FileRuleDescription.builtinRules + FileRuleDescription.xcbuildFileTypes
-        } else {
-            self.rules = FileRuleDescription.builtinRules + additionalFileRules
-        }
+        // In version 5.4 and earlier, SwiftPM did not support `additionalFileRules` and always implicitly included XCBuild file types.
+        let actualAdditionalRules = (toolsVersion <= ToolsVersion.v5_4 ? FileRuleDescription.xcbuildFileTypes : additionalFileRules)
+        self.rules = FileRuleDescription.builtinRules + actualAdditionalRules
         self.toolsVersion = toolsVersion
         self.fs = fs
         let excludedPaths = target.exclude.map{ path.appending(RelativePath($0)) }
@@ -253,7 +250,7 @@ public struct TargetSourcesBuilder {
     /// Returns the `Resource` file associated with a file and a particular rule, if there is one.
     private func resource(for path: AbsolutePath, with rule: Rule) -> Resource? {
         switch rule.rule {
-        case .compile, .header, .none, .modulemap:
+        case .compile, .header, .none, .modulemap, .ignored:
             return nil
         case .processResource:
             let implicitLocalization: String? = {
@@ -490,6 +487,9 @@ public struct FileRuleDescription {
 
         /// A header file.
         case header
+        
+        /// Indicates that the file should be treated as ignored, without causing an unhandled-file warning.
+        case ignored
 
         /// Sentinal to indicate that no rule was chosen for a given file.
         case none
@@ -605,6 +605,15 @@ public struct FileRuleDescription {
         )
     }()
 
+    /// File rule to ignore .docc (in the SwiftPM build system).
+    public static let docc: FileRuleDescription = {
+        .init(
+            rule: .ignored,
+            toolsVersion: .v5_5,
+            fileTypes: ["docc"]
+        )
+    }()
+
     /// List of all the builtin rules.
     public static let builtinRules: [FileRuleDescription] = [
         swift,
@@ -620,6 +629,11 @@ public struct FileRuleDescription {
         assetCatalog,
         coredata,
         metal,
+    ]
+
+    /// List of file types that apply just to the SwiftPM build system.
+    public static let swiftpmFileTypes: [FileRuleDescription] = [
+        docc,
     ]
 }
 
