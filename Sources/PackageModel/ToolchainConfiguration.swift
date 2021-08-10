@@ -35,33 +35,29 @@ public struct ToolchainConfiguration {
     /// XCTest Location
     public let xctestLocation: AbsolutePath?
 
+    /// Creates the set of manifest resources associated with a `swiftc` executable.
+    ///
+    /// - Parameters:
+    ///     - swiftCompiler: The absolute path of the associated `swiftc` executable.
+    ///     - swiftCompilerFlags: Extra flags to pass the Swift compiler.: Extra flags to pass the Swift compiler.
+    ///     - libDir: The path of the library resources.
+    ///     - binDir: The bin directory.
+    ///     - sdkRoot: The path to SDK root.
+    ///     - xctestLocation: XCTest Location
     public init(
         swiftCompiler: AbsolutePath,
-        swiftCompilerFlags: [String],
-        libDir: AbsolutePath,
+        swiftCompilerFlags: [String] = [],
+        libDir: AbsolutePath? = nil,
         binDir: AbsolutePath? = nil,
         sdkRoot: AbsolutePath? = nil,
         xctestLocation: AbsolutePath? = nil
     ) {
         self.swiftCompiler = swiftCompiler
         self.swiftCompilerFlags = swiftCompilerFlags
-        self.libDir = libDir
+        self.libDir = libDir ?? Self.libDir(forBinDir: swiftCompiler.parentDirectory)
         self.binDir = binDir
         self.sdkRoot = sdkRoot
         self.xctestLocation = xctestLocation
-    }
-
-    /// Creates the set of manifest resources associated with a `swiftc` executable.
-    ///
-    /// - Parameters:
-    ///     - swiftCompiler: The absolute path of the associated `swiftc` executable.
-    public init(swiftCompiler: AbsolutePath, swiftCompilerFlags: [String]) throws {
-        let binDir = swiftCompiler.parentDirectory
-        self.init(
-            swiftCompiler: swiftCompiler,
-            swiftCompilerFlags: swiftCompilerFlags,
-            libDir: Self.libDir(forBinDir: binDir)
-        )
     }
 
     public static func libDir(forBinDir binDir: AbsolutePath) -> AbsolutePath {

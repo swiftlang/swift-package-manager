@@ -242,7 +242,7 @@ public final class PackageBuilder {
     /// Create the special REPL product for this package.
     private let createREPLProduct: Bool
 
-    /// The additionla file detection rules.
+    /// The additional file detection rules.
     private let additionalFileRules: [FileRuleDescription]
 
     /// Minimum deployment target of XCTest per platform.
@@ -296,6 +296,8 @@ public final class PackageBuilder {
     ///   - diagnostics: Optional.  The diagnostics engine.
     ///   - on: The dispatch queue to perform asynchronous operations on.
     ///   - completion: The completion handler .
+    // deprecated 8/2021
+    @available(*, deprecated, message: "use workspace API instead")
     public static func loadRootPackage(
         at path: AbsolutePath,
         swiftCompiler: AbsolutePath,

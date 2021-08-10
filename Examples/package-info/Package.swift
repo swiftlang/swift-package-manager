@@ -1,8 +1,13 @@
-// swift-tools-version:4.2
+// swift-tools-version:5.1
+
 import PackageDescription
 
 let package = Package(
     name: "package-info",
+    platforms: [
+        .macOS(.v10_15),
+        .iOS(.v13)
+    ],
     dependencies: [
         // This just points to the SwiftPM at the root of this repository.
         .package(path: "../../"),
