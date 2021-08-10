@@ -474,18 +474,21 @@ MAY correspond to the requested release.
 
 Each element in the `resources` array is a JSON object with the following keys:
 
-| Key        | Type    | Description                                                 |
-| ---------- | ------- | ----------------------------------------------------------- |
-| `name`     | String  | The name of the resource.                                   |
-| `type`     | String  | The content type of the resource.                           |
-| `checksum` | String  | A SHA256 digest of the resource represented in hexadecimal. |
+| Key        | Type    | Description                                                         |
+| ---------- | ------- | ------------------------------------------------------------------- |
+| `name`     | String  | The name of the resource.                                           |
+| `type`     | String  | The content type of the resource.                                   |
+| `checksum` | String  | A hexadecimal representation of the SHA256 digest for the resource. |
 
-A release object SHOULD have one of the following combinations of
+A resource object SHOULD have one of the following combinations of
 `name` and `type` values:
 
 | Name               | Content Type      | Description                        |
 | ------------------ | ----------------- | ---------------------------------- |
 | `source-archive`   | `application/zip` | An archive of package sources.     |
+
+A release MUST NOT have more than a single resource object
+with a given combination of `name` and `type` values.
 
 #### 4.2.2. Package release metadata standards
 
