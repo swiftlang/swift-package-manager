@@ -42,8 +42,11 @@ public protocol ManifestResourceProvider {
     /// The bin directory.
     var binDir: AbsolutePath? { get }
 
-    /// Extra flags to pass the Swift compiler.
+    /// Extra flags to pass the Swift compiler (if not specified, no additional arguments are passed).
     var swiftCompilerFlags: [String] { get }
+    
+    /// Custom environment to pass to the Swift compiler (if not specified, the inherited environment is passed).
+    var swiftCompilerEnvironment: [String: String] { get }
 
     /// XCTest Location
     var xctestLocation: AbsolutePath? { get }
@@ -62,6 +65,10 @@ public extension ManifestResourceProvider {
 
     var swiftCompilerFlags: [String] {
         return []
+    }
+    
+    var swiftCompilerEnvironment: [String: String] {
+        return ProcessEnv.vars
     }
 
     var xctestLocation: AbsolutePath? {
@@ -807,9 +814,11 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 #endif
                 let compiledManifestFile = tmpDir.appending(component: "\(packageIdentity)-manifest\(executableSuffix)")
                 cmd += ["-o", compiledManifestFile.pathString]
+ 
+                 let compilerEnv = resources.swiftCompilerEnvironment
 
                 // Compile the manifest.
-                let compilerResult = try Process.popen(arguments: cmd)
+                let compilerResult = try Process.popen(arguments: cmd, environment: compilerEnv)
                 let compilerOutput = try (compilerResult.utf8Output() + compilerResult.utf8stderrOutput()).spm_chuzzle()
                 manifestParseResult.compilerOutput = compilerOutput
 
