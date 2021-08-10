@@ -37,6 +37,12 @@ public final class UserToolchain: Toolchain {
 
     public var extraCPPFlags: [String]
 
+    // deprecated 8/2021
+    @available(*, deprecated, message: "use configuration instead")
+    public var manifestResources: ToolchainConfiguration {
+        return self.configuration
+    }
+
     /// Path of the `swift` interpreter.
     public var swiftInterpreter: AbsolutePath {
         return swiftCompiler.parentDirectory.appending(component: "swift" + hostExecutableSuffix)

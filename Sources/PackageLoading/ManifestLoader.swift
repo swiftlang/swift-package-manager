@@ -111,6 +111,26 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         self.operationQueue.maxConcurrentOperationCount = Concurrency.maxOperations
     }
 
+    // deprecated 8/2021
+    @available(*, deprecated, message: "use non-deprecated constructor instead")
+    public convenience init(
+        manifestResources: ToolchainConfiguration,
+        serializedDiagnostics: Bool = false,
+        isManifestSandboxEnabled: Bool = true,
+        cacheDir: AbsolutePath? = nil,
+        delegate: ManifestLoaderDelegate? = nil,
+        extraManifestFlags: [String] = []
+    ) {
+        self.init(
+            toolchain: manifestResources,
+            serializedDiagnostics: serializedDiagnostics,
+            isManifestSandboxEnabled: isManifestSandboxEnabled,
+            cacheDir: cacheDir,
+            delegate: delegate,
+            extraManifestFlags: extraManifestFlags
+        )
+    }
+
     /// Loads a root manifest from a path using the resources associated with a particular `swiftc` executable.
     ///
     /// - Parameters:
