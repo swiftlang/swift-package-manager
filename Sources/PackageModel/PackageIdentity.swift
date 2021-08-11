@@ -195,17 +195,15 @@ extension PackageIdentity {
                 }
 
                 if character.isPunctuation {
-                    if character.isPunctuation {
-                        switch (index, description.index(after: index)) {
-                        case (description.startIndex, _):
-                            throw StringError("Hyphens and underscores may not occur at the beginning of a name.")
-                        case (_, description.endIndex):
-                            throw StringError("Hyphens and underscores may not occur at the end of a name.")
-                        case (_, let nextIndex) where description[nextIndex].isPunctuation:
-                            throw StringError("Hyphens and underscores may not occur consecutively within a name.")
-                        default:
-                            continue
-                        }
+                    switch (index, description.index(after: index)) {
+                    case (description.startIndex, _):
+                        throw StringError("Hyphens and underscores may not occur at the beginning of a name.")
+                    case (_, description.endIndex):
+                        throw StringError("Hyphens and underscores may not occur at the end of a name.")
+                    case (_, let nextIndex) where description[nextIndex].isPunctuation:
+                        throw StringError("Hyphens and underscores may not occur consecutively within a name.")
+                    default:
+                        continue
                     }
                 }
             }
