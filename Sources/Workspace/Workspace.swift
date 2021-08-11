@@ -343,13 +343,18 @@ public class Workspace {
     ///
     /// The root package path is used to compute the build directory and other
     /// default paths.
+    ///
+    /// - Parameters:
+    ///   - forRootPackage: The path for the root package.
+    ///   - toolchain: A custom toolchain.
+    ///   - repositoryManager: A custom repository manager.
+    ///   - delegate: Delegate for workspace events
     public convenience init(
         forRootPackage packagePath: AbsolutePath,
         toolchain: UserToolchain? = nil,
         repositoryManager: RepositoryManager? = nil,
         delegate: WorkspaceDelegate? = nil
     ) throws {
-        // 👀 is this correct (default toolchain)
         let toolchain = try toolchain ?? UserToolchain(destination: .hostDestination())
         let manifestLoader = ManifestLoader(toolchain: toolchain.configuration)
 
@@ -366,6 +371,12 @@ public class Workspace {
     ///
     /// The root package path is used to compute the build directory and other
     /// default paths.
+    ///
+    /// - Parameters:
+    ///   - forRootPackage: The path for the root package.
+    ///   - manifestLoader: A custom manifest loader.
+    ///   - repositoryManager: A custom repository manager.
+    ///   - delegate: Delegate for workspace events
     public convenience init(
         forRootPackage packagePath: AbsolutePath,
         manifestLoader: ManifestLoaderProtocol,
@@ -824,8 +835,7 @@ extension Workspace {
                 // normally, we call loadRootManifests which attempts to load any manifest it can and report errors via diagnostics
                 // in this case, we want to load a specific manifest, so if the diagnostics contains an error we want to throw
                 guard !diagnostics.hasErrors else {
-                    // not sure about this one
-                    throw StringError("\(diagnostics)")
+                    throw Diagnostics.fatalError
                 }
                 guard let manifest = $0[path] else {
                     throw InternalError("Unknown manifest for '\(path)'")
