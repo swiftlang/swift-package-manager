@@ -288,24 +288,44 @@ public class Workspace {
         pinsFile: AbsolutePath,
         manifestLoader: ManifestLoaderProtocol,
         repositoryManager: RepositoryManager? = nil,
-        currentToolsVersion: ToolsVersion = ToolsVersion.currentToolsVersion,
-        toolsVersionLoader: ToolsVersionLoaderProtocol = ToolsVersionLoader(),
+        currentToolsVersion: ToolsVersion? = nil,
+        toolsVersionLoader: ToolsVersionLoaderProtocol? = nil,
         delegate: WorkspaceDelegate? = nil,
-        config: Workspace.Configuration = Workspace.Configuration(),
-        fileSystem: FileSystem = localFileSystem,
-        repositoryProvider: RepositoryProvider = GitRepositoryProvider(),
+        config: Workspace.Configuration? = nil,
+        fileSystem: FileSystem? = nil,
+        repositoryProvider: RepositoryProvider? = nil,
         identityResolver: IdentityResolver? = nil,
-        httpClient: HTTPClient = HTTPClient(),
+        httpClient: HTTPClient? = nil,
         netrcFilePath: AbsolutePath? = nil,
-        archiver: Archiver = ZipArchiver(),
-        checksumAlgorithm: HashAlgorithm = SHA256(),
-        additionalFileRules: [FileRuleDescription] = [],
-        isResolverPrefetchingEnabled: Bool = false,
-        enablePubgrubResolver: Bool = false,
-        skipUpdate: Bool = false,
-        enableResolverTrace: Bool = false,
+        archiver: Archiver? = nil,
+        checksumAlgorithm: HashAlgorithm? = nil,
+        additionalFileRules: [FileRuleDescription]? = nil,
+        isResolverPrefetchingEnabled: Bool? = nil,
+        enablePubgrubResolver: Bool? = nil,
+        skipUpdate: Bool? = nil,
+        enableResolverTrace: Bool? = nil,
         cachePath: AbsolutePath? = nil
     ) {
+        // defaults
+        let currentToolsVersion = currentToolsVersion ?? ToolsVersion.currentToolsVersion
+        let toolsVersionLoader = toolsVersionLoader ?? ToolsVersionLoader()
+        let config = config ?? Workspace.Configuration()
+        let fileSystem = fileSystem ?? localFileSystem
+        let repositoryProvider = repositoryProvider ?? GitRepositoryProvider()
+        let httpClient = httpClient ?? HTTPClient()
+        let archiver = archiver ?? ZipArchiver()
+        var checksumAlgorithm = checksumAlgorithm ?? SHA256()
+        #if canImport(CryptoKit)
+        if checksumAlgorithm is SHA256, #available(macOS 10.15, *) {
+            checksumAlgorithm = CryptoKitSHA256()
+        }
+        #endif
+        let additionalFileRules = additionalFileRules ?? []
+        let isResolverPrefetchingEnabled = isResolverPrefetchingEnabled ?? false
+        let skipUpdate = skipUpdate ?? false
+        let enableResolverTrace = enableResolverTrace ?? false
+
+        // initialize
         self.delegate = delegate
         self.dataPath = dataPath
         self.config = config
@@ -317,12 +337,6 @@ public class Workspace {
         self.netrcFilePath = netrcFilePath
         self.archiver = archiver
 
-        var checksumAlgorithm = checksumAlgorithm
-        #if canImport(CryptoKit)
-        if checksumAlgorithm is SHA256, #available(macOS 10.15, *) {
-            checksumAlgorithm = CryptoKitSHA256()
-        }
-        #endif
         self.checksumAlgorithm = checksumAlgorithm
         self.isResolverPrefetchingEnabled = isResolverPrefetchingEnabled
         self.skipUpdate = skipUpdate
@@ -365,6 +379,65 @@ public class Workspace {
     ///
     /// The root package path is used to compute the build directory and other
     /// default paths.
+    ///
+    /// - Parameters:
+    ///   - forRootPackage: The path for the root package.
+    ///   - toolchain: A custom toolchain.
+    ///   - repositoryManager: A custom repository manager.
+    ///   - delegate: Delegate for workspace events
+    public convenience init(
+        forRootPackage packagePath: AbsolutePath,
+        toolchain: UserToolchain? = nil,
+        repositoryManager: RepositoryManager? = nil,
+        delegate: WorkspaceDelegate? = nil
+    ) throws {
+        let toolchain = try toolchain ?? UserToolchain(destination: .hostDestination())
+        let manifestLoader = ManifestLoader(toolchain: toolchain.configuration)
+
+        try self.init(
+            forRootPackage: packagePath,
+            manifestLoader: manifestLoader,
+            repositoryManager: repositoryManager,
+            delegate: delegate
+        )
+    }
+
+    /// A convenience method for creating a workspace for the given root
+    /// package path.
+    ///
+    /// The root package path is used to compute the build directory and other
+    /// default paths.
+    ///
+    /// - Parameters:
+    ///   - forRootPackage: The path for the root package.
+    ///   - manifestLoader: A custom manifest loader.
+    ///   - repositoryManager: A custom repository manager.
+    ///   - delegate: Delegate for workspace events
+    public convenience init(
+        forRootPackage packagePath: AbsolutePath,
+        manifestLoader: ManifestLoaderProtocol,
+        repositoryManager: RepositoryManager? = nil,
+        delegate: WorkspaceDelegate? = nil
+    ) throws {
+
+        self .init(
+            dataPath: packagePath.appending(component: ".build"),
+            editablesPath: packagePath.appending(component: "Packages"),
+            pinsFile: packagePath.appending(component: "Package.resolved"),
+            manifestLoader: manifestLoader,
+            repositoryManager: repositoryManager,
+            delegate: delegate
+        )
+    }
+
+    /// A convenience method for creating a workspace for the given root
+    /// package path.
+    ///
+    /// The root package path is used to compute the build directory and other
+    /// default paths.
+    // FIXME: this one is kind of messy to backwards support, hopefully we can remove quickly
+    // deprecated 8/2021
+    @available(*, deprecated, message: "use constructor instead")
     public static func create(
         forRootPackage packagePath: AbsolutePath,
         manifestLoader: ManifestLoaderProtocol,
@@ -372,14 +445,11 @@ public class Workspace {
         delegate: WorkspaceDelegate? = nil,
         identityResolver: IdentityResolver? = nil
     ) -> Workspace {
-        return Workspace(
-            dataPath: packagePath.appending(component: ".build"),
-            editablesPath: packagePath.appending(component: "Packages"),
-            pinsFile: packagePath.appending(component: "Package.resolved"),
-            manifestLoader: manifestLoader,
-            repositoryManager: repositoryManager,
-            delegate: delegate,
-            identityResolver: identityResolver
+        return try! .init(forRootPackage: packagePath,
+                     manifestLoader: manifestLoader,
+                     repositoryManager: repositoryManager,
+                     delegate: delegate//,
+                     //identityResolver: identityResolver
         )
     }
 }
@@ -664,6 +734,8 @@ extension Workspace {
     ///   - diagnostics: Optional.  The diagnostics engine.
     ///   - on: The dispatch queue to perform asynchronous operations on.
     ///   - completion: The completion handler .
+    // deprecated 8/2021
+    @available(*, deprecated, message: "use workspace instance API instead")
     public static func loadRootGraph(
         at packagePath: AbsolutePath,
         swiftCompiler: AbsolutePath,
@@ -671,8 +743,8 @@ extension Workspace {
         identityResolver: IdentityResolver? = nil,
         diagnostics: DiagnosticsEngine
     ) throws -> PackageGraph {
-        let resources = try UserManifestResources(swiftCompiler: swiftCompiler, swiftCompilerFlags: swiftCompilerFlags)
-        let loader = ManifestLoader(manifestResources: resources)
+        let toolchain = ToolchainConfiguration(swiftCompiler: swiftCompiler, swiftCompilerFlags: swiftCompilerFlags)
+        let loader = ManifestLoader(toolchain: toolchain)
         let workspace = Workspace.create(forRootPackage: packagePath, manifestLoader: loader, identityResolver: identityResolver)
         return try workspace.loadPackageGraph(rootPath: packagePath, diagnostics: diagnostics)
     }
@@ -785,6 +857,48 @@ extension Workspace {
             }
 
             completion(.success(rootManifests))
+        }
+    }
+
+    /// Loads and returns manifest at the given path.
+    public func loadRootManifest(
+        at path: AbsolutePath,
+        diagnostics: DiagnosticsEngine,
+        completion: @escaping(Result<Manifest, Error>) -> Void
+    ) {
+        self.loadRootManifests(packages: [path], diagnostics: diagnostics) { result in
+            completion(result.tryMap{
+                // normally, we call loadRootManifests which attempts to load any manifest it can and report errors via diagnostics
+                // in this case, we want to load a specific manifest, so if the diagnostics contains an error we want to throw
+                guard !diagnostics.hasErrors else {
+                    throw Diagnostics.fatalError
+                }
+                guard let manifest = $0[path] else {
+                    throw InternalError("Unknown manifest for '\(path)'")
+                }
+                return manifest
+            })
+        }
+    }
+    
+    public func loadRootPackage(
+        at path: AbsolutePath,
+        diagnostics: DiagnosticsEngine,
+        completion: @escaping(Result<Package, Error>) -> Void
+    ) {
+        self.loadRootManifest(at: path, diagnostics: diagnostics) { result in
+            let result = result.tryMap { manifest -> Package in
+                let identity = self.identityResolver.resolveIdentity(for: manifest.packageLocation)
+                let builder = PackageBuilder(
+                    identity: identity,
+                    manifest: manifest,
+                    productFilter: .everything,
+                    path: path,
+                    xcTestMinimumDeploymentTargets: MinimumDeploymentTarget.default.xcTestMinimumDeploymentTargets,
+                    diagnostics: diagnostics)
+                return try builder.construct()
+            }
+            completion(result)
         }
     }
 

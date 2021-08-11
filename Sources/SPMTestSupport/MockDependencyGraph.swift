@@ -50,7 +50,7 @@ public extension MockDependencyGraph {
             let (container, version) = value
             guard case .string(let str) = version else { fatalError() }
             let package = PackageReference.remote(identity: PackageIdentity(url: container.lowercased()), location: "/\(container)")
-            return (package, Version(string: str)!)
+            return (package, Version(str)!)
         })
         self.name = name
         self.constraints = constraints.map(PackageContainerConstraint.init(json:))
@@ -67,7 +67,7 @@ private extension MockPackageContainer {
         var depByVersion: [Version: [(container: String, versionRequirement: VersionSetSpecifier)]] = [:]
         for (version, deps) in versions {
             guard case .array(let depArray) = deps else { fatalError() }
-            depByVersion[Version(string: version)!] = depArray
+            depByVersion[Version(version)!] = depArray
                 .map(PackageContainerConstraint.init(json:))
                 .map { constraint in
                     switch constraint.requirement {
@@ -109,11 +109,11 @@ private extension VersionSetSpecifier {
             switch arr.count {
             case 1:
                 guard case .string(let str) = arr[0] else { fatalError() }
-                self = .exact(Version(string: str)!)
+                self = .exact(Version(str)!)
             case 2:
                 let versions = arr.map { json -> Version in
                     guard case .string(let str) = json else { fatalError() }
-                    return Version(string: str)!
+                    return Version(str)!
                 }
                 self = .range(versions[0] ..< versions[1])
             default: fatalError()

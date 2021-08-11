@@ -133,7 +133,7 @@ final class WorkspaceTests: XCTestCase {
                     manifest($0)
                 }
 
-                let manifestLoader = ManifestLoader(manifestResources: Resources.default)
+                let manifestLoader = ManifestLoader(toolchain: ToolchainConfiguration.default)
 
                 let sandbox = path.appending(component: "ws")
                 return Workspace(
@@ -3821,55 +3821,41 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
+    // This verifies that the simplest possible loading APIs are available for package clients.
     func testSimpleAPI() throws {
-        // This verifies that the simplest possible loading APIs are available for package clients.
-
         // This checkout of the SwiftPM package.
         let packagePath = AbsolutePath(#file).parentDirectory.parentDirectory.parentDirectory
 
-        // Clients must locate the corresponding “swiftc” exectuable themselves for now.
-        // (This just uses the same one used by all the other tests.)
-        let swiftCompiler = Resources.default.swiftCompiler
-
-        // identity resolver helps go from textual description to actual identity
-        let identityResolver = DefaultIdentityResolver()
+        let diagnostics = DiagnosticsEngine()
+        let workspace = try Workspace(forRootPackage: packagePath, toolchain: UserToolchain.default)
 
         // From here the API should be simple and straightforward:
-        let diagnostics = DiagnosticsEngine()
         let manifest = try tsc_await {
-            ManifestLoader.loadRootManifest(
+            workspace.loadRootManifest(
                 at: packagePath,
-                swiftCompiler: swiftCompiler,
-                swiftCompilerFlags: [],
-                identityResolver: identityResolver,
-                on: .global(),
-                completion: $0
-            )
-        }
-
-        let loadedPackage = try tsc_await {
-            PackageBuilder.loadRootPackage(
-                at: packagePath,
-                swiftCompiler: swiftCompiler,
-                swiftCompilerFlags: [],
-                xcTestMinimumDeploymentTargets: [:],
-                identityResolver: identityResolver,
                 diagnostics: diagnostics,
-                on: .global(),
                 completion: $0
             )
         }
+        XCTAssertFalse(diagnostics.hasErrors)
 
-        let graph = try Workspace.loadRootGraph(
-            at: packagePath,
-            swiftCompiler: swiftCompiler,
-            swiftCompilerFlags: [],
-            identityResolver: identityResolver,
+        let package = try tsc_await {
+            workspace.loadRootPackage(
+                at: packagePath,
+                diagnostics: diagnostics,
+                completion: $0
+            )
+        }
+        XCTAssertFalse(diagnostics.hasErrors)
+
+        let graph = try workspace.loadPackageGraph(
+            rootPath: packagePath,
             diagnostics: diagnostics
         )
+        XCTAssertFalse(diagnostics.hasErrors)
 
         XCTAssertEqual(manifest.name, "SwiftPM")
-        XCTAssertEqual(loadedPackage.manifestName, manifest.name)
+        XCTAssertEqual(package.manifestName, manifest.name)
         XCTAssert(graph.reachableProducts.contains(where: { $0.name == "SwiftPM" }))
     }
 

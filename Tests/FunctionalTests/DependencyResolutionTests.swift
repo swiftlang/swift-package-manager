@@ -8,20 +8,20 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import XCTest
-
-import TSCBasic
 import Commands
-import SPMTestSupport
+import PackageModel
 import SourceControl
+import SPMTestSupport
+import TSCBasic
 import Workspace
+import XCTest
 
 class DependencyResolutionTests: XCTestCase {
     func testInternalSimple() {
         fixture(name: "DependencyResolution/Internal/Simple") { prefix in
             XCTAssertBuilds(prefix)
 
-            let output = try Process.checkNonZeroExit(args: prefix.appending(components: ".build", Resources.default.toolchain.triple.tripleString, "debug", "Foo").pathString)
+            let output = try Process.checkNonZeroExit(args: prefix.appending(components: ".build", UserToolchain.default.triple.tripleString, "debug", "Foo").pathString)
             XCTAssertEqual(output, "Foo\nBar\n")
         }
     }
@@ -36,7 +36,7 @@ class DependencyResolutionTests: XCTestCase {
         fixture(name: "DependencyResolution/Internal/Complex") { prefix in
             XCTAssertBuilds(prefix)
 
-            let output = try Process.checkNonZeroExit(args: prefix.appending(components: ".build", Resources.default.toolchain.triple.tripleString, "debug", "Foo").pathString)
+            let output = try Process.checkNonZeroExit(args: prefix.appending(components: ".build", UserToolchain.default.triple.tripleString, "debug", "Foo").pathString)
             XCTAssertEqual(output, "meiow Baz\n")
         }
     }
@@ -52,7 +52,7 @@ class DependencyResolutionTests: XCTestCase {
 
             let packageRoot = prefix.appending(component: "Bar")
             XCTAssertBuilds(packageRoot)
-            XCTAssertFileExists(prefix.appending(components: "Bar", ".build", Resources.default.toolchain.triple.tripleString, "debug", "Bar"))
+            XCTAssertFileExists(prefix.appending(components: "Bar", ".build", UserToolchain.default.triple.tripleString, "debug", "Bar"))
             let path = try SwiftPMProduct.packagePath(for: "Foo", packageRoot: packageRoot)
             XCTAssert(try GitRepository(path: path).getTags().contains("1.2.3"))
         }
@@ -61,7 +61,7 @@ class DependencyResolutionTests: XCTestCase {
     func testExternalComplex() {
         fixture(name: "DependencyResolution/External/Complex") { prefix in
             XCTAssertBuilds(prefix.appending(component: "app"))
-            let output = try Process.checkNonZeroExit(args: prefix.appending(components: "app", ".build", Resources.default.toolchain.triple.tripleString, "debug", "Dealer").pathString)
+            let output = try Process.checkNonZeroExit(args: prefix.appending(components: "app", ".build", UserToolchain.default.triple.tripleString, "debug", "Dealer").pathString)
             XCTAssertEqual(output, "♣︎K\n♣︎Q\n♣︎J\n♣︎10\n♣︎9\n♣︎8\n♣︎7\n♣︎6\n♣︎5\n♣︎4\n")
         }
     }

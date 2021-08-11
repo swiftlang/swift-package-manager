@@ -23,52 +23,6 @@ public enum ManifestParseError: Swift.Error, Equatable {
     case runtimeManifestErrors([String])
 }
 
-/// Resources required for manifest loading.
-///
-/// These requirements are abstracted out to make it easier to add support for
-/// using the package manager with alternate toolchains in the future.
-public protocol ManifestResourceProvider {
-    /// The path of the swift compiler.
-    var swiftCompiler: AbsolutePath { get }
-
-    /// The path of the library resources.
-    var libDir: AbsolutePath { get }
-
-    /// The path to SDK root.
-    ///
-    /// If provided, it will be passed to the swift interpreter.
-    var sdkRoot: AbsolutePath? { get }
-
-    /// The bin directory.
-    var binDir: AbsolutePath? { get }
-
-    /// Extra flags to pass the Swift compiler.
-    var swiftCompilerFlags: [String] { get }
-
-    /// XCTest Location
-    var xctestLocation: AbsolutePath? { get }
-}
-
-/// Default implemention for the resource provider.
-public extension ManifestResourceProvider {
-
-    var sdkRoot: AbsolutePath? {
-        return nil
-    }
-
-    var binDir: AbsolutePath? {
-        return nil
-    }
-
-    var swiftCompilerFlags: [String] {
-        return []
-    }
-
-    var xctestLocation: AbsolutePath? {
-        return nil
-    }
-}
-
 /// Protocol for the manifest loader interface.
 public protocol ManifestLoaderProtocol {
     /// Load the manifest for the package at `path`.
@@ -124,7 +78,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
     private static var _hostTriple = ThreadSafeBox<Triple>()
     private static var _packageDescriptionMinimumDeploymentTarget = ThreadSafeBox<String>()
 
-    private let resources: ManifestResourceProvider
+    private let toolchain: ToolchainConfiguration
     private let serializedDiagnostics: Bool
     private let isManifestSandboxEnabled: Bool
     private let delegate: ManifestLoaderDelegate?
@@ -137,14 +91,14 @@ public final class ManifestLoader: ManifestLoaderProtocol {
     private let operationQueue: OperationQueue
 
     public init(
-        manifestResources: ManifestResourceProvider,
+        toolchain: ToolchainConfiguration,
         serializedDiagnostics: Bool = false,
         isManifestSandboxEnabled: Bool = true,
         cacheDir: AbsolutePath? = nil,
         delegate: ManifestLoaderDelegate? = nil,
         extraManifestFlags: [String] = []
     ) {
-        self.resources = manifestResources
+        self.toolchain = toolchain
         self.serializedDiagnostics = serializedDiagnostics
         self.isManifestSandboxEnabled = isManifestSandboxEnabled
         self.delegate = delegate
@@ -157,6 +111,26 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         self.operationQueue.maxConcurrentOperationCount = Concurrency.maxOperations
     }
 
+    // deprecated 8/2021
+    @available(*, deprecated, message: "use non-deprecated constructor instead")
+    public convenience init(
+        manifestResources: ToolchainConfiguration,
+        serializedDiagnostics: Bool = false,
+        isManifestSandboxEnabled: Bool = true,
+        cacheDir: AbsolutePath? = nil,
+        delegate: ManifestLoaderDelegate? = nil,
+        extraManifestFlags: [String] = []
+    ) {
+        self.init(
+            toolchain: manifestResources,
+            serializedDiagnostics: serializedDiagnostics,
+            isManifestSandboxEnabled: isManifestSandboxEnabled,
+            cacheDir: cacheDir,
+            delegate: delegate,
+            extraManifestFlags: extraManifestFlags
+        )
+    }
+
     /// Loads a root manifest from a path using the resources associated with a particular `swiftc` executable.
     ///
     /// - Parameters:
@@ -166,6 +140,8 @@ public final class ManifestLoader: ManifestLoaderProtocol {
     ///   - diagnostics: Optional.  The diagnostics engine.
     ///   - on: The dispatch queue to perform asynchronous operations on.
     ///   - completion: The completion handler .
+    // deprecated 8/2021
+    @available(*, deprecated, message: "use workspace API instead")
     public static func loadRootManifest(
         at path: AbsolutePath,
         swiftCompiler: AbsolutePath,
@@ -177,8 +153,8 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         completion: @escaping (Result<Manifest, Error>) -> Void
     ) {
         do {
-            let resources = try UserManifestResources(swiftCompiler: swiftCompiler, swiftCompilerFlags: swiftCompilerFlags)
-            let loader = ManifestLoader(manifestResources: resources)
+            let toolchain = ToolchainConfiguration(swiftCompiler: swiftCompiler, swiftCompilerFlags: swiftCompilerFlags)
+            let loader = ManifestLoader(toolchain: toolchain)
             let toolsVersion = try ToolsVersionLoader().load(at: path, fileSystem: fileSystem)
             let packageLocation = fileSystem.isFile(path) ? path.parentDirectory : path
             let packageIdentity = identityResolver.resolveIdentity(for: packageLocation)
@@ -713,14 +689,14 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         let moduleCachePath = (ProcessEnv.vars["SWIFTPM_MODULECACHE_OVERRIDE"] ?? ProcessEnv.vars["SWIFTPM_TESTS_MODULECACHE"]).flatMap{ AbsolutePath.init($0) }
 
         var cmd: [String] = []
-        cmd += [resources.swiftCompiler.pathString]
+        cmd += [self.toolchain.swiftCompiler.pathString]
         cmd += verbosity.ccArgs
 
         let macOSPackageDescriptionPath: AbsolutePath
         // If we got the binDir that means we could be developing SwiftPM in Xcode
         // which produces a framework for dynamic package products.
         let packageFrameworkPath = runtimePath.appending(component: "PackageFrameworks")
-        if resources.binDir != nil, localFileSystem.exists(packageFrameworkPath)  {
+        if self.toolchain.binDir != nil, localFileSystem.exists(packageFrameworkPath)  {
             cmd += [
                 "-F", packageFrameworkPath.pathString,
                 "-framework", "PackageDescription",
@@ -746,7 +722,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         // Use the same minimum deployment target as the PackageDescription library (with a fallback of 10.15).
 #if os(macOS)
         let triple = Self._hostTriple.memoize {
-            Triple.getHostTriple(usingSwiftCompiler: resources.swiftCompiler)
+            Triple.getHostTriple(usingSwiftCompiler: self.toolchain.swiftCompiler)
         }
 
         let version = try Self._packageDescriptionMinimumDeploymentTarget.memoize {
@@ -756,7 +732,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 #endif
 
         // Add any extra flags required as indicated by the ManifestLoader.
-        cmd += resources.swiftCompilerFlags
+        cmd += self.toolchain.swiftCompilerFlags
 
         cmd += self.interpreterFlags(for: toolsVersion)
         if let moduleCachePath = moduleCachePath {
@@ -879,7 +855,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         cmd += ["-swift-version", toolsVersion.swiftLanguageVersion.rawValue]
         cmd += ["-I", runtimePath.pathString]
       #if os(macOS)
-        if let sdkRoot = resources.sdkRoot ?? self.sdkRoot() {
+        if let sdkRoot = self.toolchain.sdkRoot ?? self.sdkRoot() {
             cmd += ["-sdk", sdkRoot.pathString]
         }
       #endif
@@ -890,18 +866,18 @@ public final class ManifestLoader: ManifestLoaderProtocol {
     /// Returns the runtime path given the manifest version and path to libDir.
     private func runtimePath(for version: ToolsVersion) -> AbsolutePath {
         // Bin dir will be set when developing swiftpm without building all of the runtimes.
-        if let binDir = resources.binDir {
+        if let binDir = self.toolchain.binDir {
             return binDir
         }
         
         // Otherwise we use the standard location of the manifest API in the toolchain, if it exists.
-        let manifestAPIDir = resources.libDir.appending(component: "ManifestAPI")
+        let manifestAPIDir = self.toolchain.libDir.appending(component: "ManifestAPI")
         if localFileSystem.exists(manifestAPIDir) {
             return manifestAPIDir
         }
         
         // Otherwise, fall back on the old location (this would indicate that we're using an old toolchain).
-        return resources.libDir.appending(version.runtimeSubpath)
+        return self.toolchain.libDir.appending(version.runtimeSubpath)
     }
 
     /// Returns path to the manifest database inside the given cache directory.

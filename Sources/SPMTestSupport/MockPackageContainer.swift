@@ -92,7 +92,7 @@ public class MockPackageContainer: PackageContainer {
         dependencies: [String: [Dependency]] = [:]
     ) {
         self.package = package
-        self._versions = dependencies.keys.compactMap(Version.init(string:)).sorted()
+        self._versions = dependencies.keys.compactMap(Version.init(_:)).sorted()
         self.dependencies = dependencies
     }
 }

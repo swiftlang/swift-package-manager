@@ -2106,7 +2106,7 @@ public class MockContainer: PackageContainer {
     ) {
         self.package = package
         self.dependencies = dependencies
-        let versions = dependencies.keys.compactMap(Version.init(string:))
+        let versions = dependencies.keys.compactMap(Version.init(_:))
         self._versions = versions
             .sorted()
             .map(BoundVersion.version)

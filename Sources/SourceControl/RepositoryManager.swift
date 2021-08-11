@@ -27,7 +27,7 @@ public protocol RepositoryManagerDelegate: AnyObject {
     func handleWillUpdate(handle: RepositoryManager.RepositoryHandle)
 
     /// Called when a repository has finished updating from its remote.
-    func handleDidUpdate(handle: RepositoryManager.RepositoryHandle)
+    func handleDidUpdate(handle: RepositoryManager.RepositoryHandle, duration: DispatchTimeInterval)
 
     /// Called every time the progress of a repository fetch operation updates.
     func fetchingRepository(from repository: String, objectsFetched: Int, totalObjectsToFetch: Int)

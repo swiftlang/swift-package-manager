@@ -461,18 +461,18 @@ extension PackageDependency.SourceControl.Requirement {
 
         case "range":
             let lowerBoundString = try json.get(String.self, forKey: "lowerBound")
-            guard let lowerBound = Version(string: lowerBoundString) else {
+            guard let lowerBound = Version(lowerBoundString) else {
                 throw InternalError("invalid version \(lowerBoundString)")
             }
             let upperBoundString = try json.get(String.self, forKey: "upperBound")
-            guard let upperBound = Version(string: upperBoundString) else {
+            guard let upperBound = Version(upperBoundString) else {
                 throw InternalError("invalid version \(upperBoundString)")
             }
             self = .range(lowerBound ..< upperBound)
 
         case "exact":
             let versionString = try json.get(String.self, forKey: "identifier")
-            guard let version = Version(string: versionString) else {
+            guard let version = Version(versionString) else {
                 throw InternalError("invalid version \(versionString)")
             }
             self = .exact(version)
@@ -489,18 +489,18 @@ extension PackageDependency.Registry.Requirement {
         switch type {
         case "range":
             let lowerBoundString = try json.get(String.self, forKey: "lowerBound")
-            guard let lowerBound = Version(string: lowerBoundString) else {
+            guard let lowerBound = Version(lowerBoundString) else {
                 throw InternalError("invalid version \(lowerBoundString)")
             }
             let upperBoundString = try json.get(String.self, forKey: "upperBound")
-            guard let upperBound = Version(string: upperBoundString) else {
+            guard let upperBound = Version(upperBoundString) else {
                 throw InternalError("invalid version \(upperBoundString)")
             }
             self = .range(lowerBound ..< upperBound)
 
         case "exact":
             let versionString = try json.get(String.self, forKey: "identifier")
-            guard let version = Version(string: versionString) else {
+            guard let version = Version(versionString) else {
                 throw InternalError("invalid version \(versionString)")
             }
             self = .exact(version)
