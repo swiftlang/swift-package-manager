@@ -16,7 +16,7 @@ import TSCBasic
 /// using the package manager with alternate toolchains in the future.
 public struct ToolchainConfiguration {
     /// The path of the swift compiler.
-    public var swiftCompiler: AbsolutePath
+    public var swiftCompilerPath: AbsolutePath
 
     /// Extra arguments to pass the Swift compiler (defaults to the empty string).
     public var swiftCompilerFlags: [String]
@@ -24,29 +24,48 @@ public struct ToolchainConfiguration {
     /// Environment to pass to the Swift compiler (defaults to the inherited environment).
     public var swiftCompilerEnvironment: [String: String]
 
-    /// The path of the library resources.
-    public var libDir: AbsolutePath
-
-    /// The bin directory.
-    public var binDir: AbsolutePath?
+    /// SwiftPM library paths.
+    public var swiftPMLibrariesLocation: SwiftPMLibrariesLocation
 
     /// The path to SDK root.
     ///
     /// If provided, it will be passed to the swift interpreter.
-    public var sdkRoot: AbsolutePath?
+    public var sdkRootPath: AbsolutePath?
 
     /// XCTest Location
-    public var xctestLocation: AbsolutePath?
+    public var xctestPath: AbsolutePath?
 
     /// Creates the set of manifest resources associated with a `swiftc` executable.
     ///
     /// - Parameters:
-    ///     - swiftCompiler: The absolute path of the associated `swiftc` executable.
-    ///     - swiftCompilerFlags: Extra flags to pass the Swift compiler.: Extra flags to pass the Swift compiler.
-    ///     - libDir: The path of the library resources.
-    ///     - binDir: The bin directory.
-    ///     - sdkRoot: The path to SDK root.
-    ///     - xctestLocation: XCTest Location
+    ///     - swiftCompilerPath: The absolute path of the associated swift compiler  executable (`swiftc`).
+    ///     - swiftCompilerFlags: Extra flags to pass to the Swift compiler.
+    ///     - swiftCompilerEnvironment: Environment variables to pass to the Swift compiler.
+    ///     - swiftPMLibrariesRootPath: Custom path for SwiftPM libraries. Computed based on the compiler path by default.
+    ///     - sdkRootPath: Optional path to SDK root.
+    ///     - xctestPath: Optional path to XCTest.
+    public init(
+        swiftCompilerPath: AbsolutePath,
+        swiftCompilerFlags: [String] = [],
+        swiftCompilerEnvironment: [String: String] = ProcessEnv.vars,
+        swiftPMLibrariesLocation: SwiftPMLibrariesLocation? = nil,
+        sdkRootPath: AbsolutePath? = nil,
+        xctestPath: AbsolutePath? = nil
+    ) {
+        let swiftPMLibrariesLocation = swiftPMLibrariesLocation ?? {
+            return .init(swiftCompilerPath: swiftCompilerPath)
+        }()
+
+        self.swiftCompilerPath = swiftCompilerPath
+        self.swiftCompilerFlags = swiftCompilerFlags
+        self.swiftCompilerEnvironment = swiftCompilerEnvironment
+        self.swiftPMLibrariesLocation = swiftPMLibrariesLocation
+        self.sdkRootPath = sdkRootPath
+        self.xctestPath = xctestPath
+    }
+
+    // deprecated 8/2021
+    @available(*, deprecated, message: "use non-deprecated initializer instead")
     public init(
         swiftCompiler: AbsolutePath,
         swiftCompilerFlags: [String] = [],
@@ -56,16 +75,37 @@ public struct ToolchainConfiguration {
         sdkRoot: AbsolutePath? = nil,
         xctestLocation: AbsolutePath? = nil
     ) {
-        self.swiftCompiler = swiftCompiler
-        self.swiftCompilerFlags = swiftCompilerFlags
-        self.swiftCompilerEnvironment = swiftCompilerEnvironment
-        self.libDir = libDir ?? Self.libDir(forBinDir: swiftCompiler.parentDirectory)
-        self.binDir = binDir
-        self.sdkRoot = sdkRoot
-        self.xctestLocation = xctestLocation
+        self.init(
+            swiftCompilerPath: swiftCompiler,
+            swiftCompilerFlags: swiftCompilerFlags,
+            swiftCompilerEnvironment: swiftCompilerEnvironment,
+            swiftPMLibrariesLocation: libDir.map { .init(root: $0) },
+            sdkRootPath: sdkRoot,
+            xctestPath: xctestLocation
+        )
     }
+}
 
-    public static func libDir(forBinDir binDir: AbsolutePath) -> AbsolutePath {
-        return binDir.parentDirectory.appending(components: "lib", "swift", "pm")
+extension ToolchainConfiguration {
+    public struct SwiftPMLibrariesLocation {
+        public var manifestAPI: AbsolutePath
+        public var pluginAPI: AbsolutePath
+
+        public init(manifestAPI: AbsolutePath, pluginAPI: AbsolutePath) {
+            self.manifestAPI = manifestAPI
+            self.pluginAPI = pluginAPI
+        }
+
+        public init(root: AbsolutePath) {
+            self.init(
+                manifestAPI: root.appending(component: "ManifestAPI"),
+                pluginAPI: root.appending(component: "PluginAPI")
+            )
+        }
+
+        fileprivate init(swiftCompilerPath: AbsolutePath) {
+            let rootPath = swiftCompilerPath.parentDirectory.parentDirectory.appending(components: "lib", "swift", "pm")
+            self.init(root: rootPath)
+        }
     }
 }

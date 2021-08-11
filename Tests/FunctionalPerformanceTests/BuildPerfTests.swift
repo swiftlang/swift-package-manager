@@ -21,7 +21,7 @@ class BuildPerfTests: XCTestCasePerf {
     @discardableResult
     func execute(args: [String] = [], packagePath: AbsolutePath) throws -> (stdout: String, stderr: String) {
         // FIXME: We should pass the SWIFT_EXEC at lower level.
-        return try SwiftPMProduct.SwiftBuild.execute(args + [], packagePath: packagePath, env: ["SWIFT_EXEC": ToolchainConfiguration.default.swiftCompiler.pathString])
+        return try SwiftPMProduct.SwiftBuild.execute(args + [], packagePath: packagePath, env: ["SWIFT_EXEC": ToolchainConfiguration.default.swiftCompilerPath.pathString])
     }
 
     func clean(packagePath: AbsolutePath) throws {

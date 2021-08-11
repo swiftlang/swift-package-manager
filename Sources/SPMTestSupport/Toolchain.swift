@@ -35,10 +35,9 @@ extension ToolchainConfiguration {
         get {
             let toolchain = UserToolchain.default
             return .init(
-                swiftCompiler: toolchain.configuration.swiftCompiler,
+                swiftCompilerPath: toolchain.configuration.swiftCompilerPath,
                 swiftCompilerFlags: [],
-                libDir: toolchain.configuration.libDir,
-                binDir: toolchain.configuration.binDir
+                swiftPMLibrariesLocation: toolchain.configuration.swiftPMLibrariesLocation
             )
         }
     }

@@ -90,8 +90,10 @@ public struct Destination: Encodable, Equatable {
         environment: [String:String] = ProcessEnv.vars
     ) throws -> Destination {
         // Select the correct binDir.
-        let customBinDir = ProcessEnv
-            .vars["SWIFTPM_CUSTOM_BINDIR"]
+        if ProcessEnv.vars["SWIFTPM_CUSTOM_BINDIR"] != nil {
+            print("SWIFTPM_CUSTOM_BINDIR was deprecated in favor of SWIFTPM_CUSTOM_BIN_DIR")
+        }
+        let customBinDir = (ProcessEnv.vars["SWIFTPM_CUSTOM_BIN_DIR"] ?? ProcessEnv.vars["SWIFTPM_CUSTOM_BINDIR"])
             .flatMap{ try? AbsolutePath(validating: $0) }
         let binDir = try customBinDir ?? binDir ?? Destination.hostBinDir(
             originalWorkingDirectory: originalWorkingDirectory)

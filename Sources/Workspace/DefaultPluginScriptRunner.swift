@@ -40,7 +40,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
     
     public var hostTriple: Triple {
         return Self._hostTriple.memoize {
-            Triple.getHostTriple(usingSwiftCompiler: self.toolchain.swiftCompiler)
+            Triple.getHostTriple(usingSwiftCompiler: self.toolchain.swiftCompilerPath)
         }
     }
 
@@ -48,28 +48,25 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
     fileprivate func compile(sources: Sources, toolsVersion: ToolsVersion, cacheDir: AbsolutePath) throws -> AbsolutePath {
         // FIXME: Much of this is copied from the ManifestLoader and should be consolidated.
 
-        // Bin dir will be set when developing swiftpm without building all of the runtimes.
-        let runtimePath = self.toolchain.binDir ?? self.toolchain.libDir.appending(component: "PluginAPI")
+        let runtimePath = self.toolchain.swiftPMLibrariesLocation.pluginAPI
 
         // Compile the package plugin script.
-        var command = [self.toolchain.swiftCompiler.pathString]
+        var command = [self.toolchain.swiftCompilerPath.pathString]
 
         // FIXME: Workaround for the module cache bug that's been haunting Swift CI
         // <rdar://problem/48443680>
         let moduleCachePath = ProcessEnv.vars["SWIFTPM_MODULECACHE_OVERRIDE"] ?? ProcessEnv.vars["SWIFTPM_TESTS_MODULECACHE"]
 
-        // If we got the binDir that means we could be developing SwiftPM in Xcode
-        // which produces a framework for dynamic package products.
-        let packageFrameworkPath = runtimePath.appending(component: "PackageFrameworks")
-
         let macOSPackageDescriptionPath: AbsolutePath
-        if self.toolchain.binDir != nil, localFileSystem.exists(packageFrameworkPath) {
+        // if runtimePath is set to "PackageFrameworks" that means we could be developing SwiftPM in Xcode
+        // which produces a framework for dynamic package products.
+        if runtimePath.basename == "PackageFrameworks" {
             command += [
-                "-F", packageFrameworkPath.pathString,
+                "-F", runtimePath.pathString,
                 "-framework", "PackagePlugin",
-                "-Xlinker", "-rpath", "-Xlinker", packageFrameworkPath.pathString,
+                "-Xlinker", "-rpath", "-Xlinker", runtimePath.pathString,
             ]
-            macOSPackageDescriptionPath = packageFrameworkPath.appending(RelativePath("PackagePlugin.framework/PackagePlugin"))
+            macOSPackageDescriptionPath = runtimePath.appending(RelativePath("PackagePlugin.framework/PackagePlugin"))
         } else {
             command += [
                 "-L", runtimePath.pathString,
@@ -99,9 +96,15 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
         command += self.toolchain.swiftCompilerFlags
 
         command += ["-swift-version", toolsVersion.swiftLanguageVersion.rawValue]
-        command += ["-I", runtimePath.pathString]
+        // if runtimePath is set to "PackageFrameworks" that means we could be developing SwiftPM in Xcode
+        // which produces a framework for dynamic package products.
+        if runtimePath.basename == "PackageFrameworks" {
+            command += ["-I", runtimePath.parentDirectory.pathString]
+        } else {
+            command += ["-I", runtimePath.pathString]
+        }
         #if os(macOS)
-        if let sdkRoot = self.toolchain.sdkRoot ?? self.sdkRoot() {
+        if let sdkRoot = self.toolchain.sdkRootPath ?? self.sdkRoot() {
             command += ["-sdk", sdkRoot.pathString]
         }
         #endif
