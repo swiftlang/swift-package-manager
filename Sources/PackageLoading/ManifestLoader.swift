@@ -140,6 +140,8 @@ public final class ManifestLoader: ManifestLoaderProtocol {
     ///   - diagnostics: Optional.  The diagnostics engine.
     ///   - on: The dispatch queue to perform asynchronous operations on.
     ///   - completion: The completion handler .
+    // deprecated 8/2021
+    @available(*, deprecated, message: "use workspace API instead")
     public static func loadRootManifest(
         at path: AbsolutePath,
         swiftCompiler: AbsolutePath,
@@ -151,7 +153,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         completion: @escaping (Result<Manifest, Error>) -> Void
     ) {
         do {
-            let toolchain = try ToolchainConfiguration(swiftCompiler: swiftCompiler, swiftCompilerFlags: swiftCompilerFlags)
+            let toolchain = ToolchainConfiguration(swiftCompiler: swiftCompiler, swiftCompilerFlags: swiftCompilerFlags)
             let loader = ManifestLoader(toolchain: toolchain)
             let toolsVersion = try ToolsVersionLoader().load(at: path, fileSystem: fileSystem)
             let packageLocation = fileSystem.isFile(path) ? path.parentDirectory : path

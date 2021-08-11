@@ -104,7 +104,7 @@ struct APIDigesterBaselineDumper {
         try workingCopy.checkout(revision: baselineRevision)
 
         // Create the workspace for this package.
-        let workspace = Workspace.create(
+        let workspace = try Workspace(
             forRootPackage: baselinePackageRoot,
             manifestLoader: manifestLoader,
             repositoryManager: repositoryManager
