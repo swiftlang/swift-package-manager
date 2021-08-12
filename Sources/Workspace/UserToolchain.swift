@@ -301,7 +301,7 @@ public final class UserToolchain: Toolchain {
                 : [])
         + destination.extraSwiftCFlags
     }
-    
+
     // MARK: - initializer
 
     public init(destination: Destination, environment: [String: String] = ProcessEnv.vars) throws {
@@ -448,6 +448,12 @@ public final class UserToolchain: Toolchain {
                 manifestAPI: applicationPath,
                 pluginAPI: applicationPath
             )
+        }
+
+        // this tests if we are debugging / testing SwiftPM with CMake / bootstrap
+        let cmakeLibrariesPath = applicationPath.parentDirectory.appending(components: "lib", "swift", "pm")
+        if localFileSystem.exists(cmakeLibrariesPath) {
+            return .init(root: cmakeLibrariesPath)
         }
 
         // default case - no custom location which will use the one from the toolchain
