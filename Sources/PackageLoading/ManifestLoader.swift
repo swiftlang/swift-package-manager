@@ -322,6 +322,8 @@ public final class ManifestLoader: ManifestLoaderProtocol {
     }
 
     private func validateProducts(_ manifest: Manifest, diagnostics: DiagnosticsEngine?) throws {
+        let execNames = manifest.products.filter { $0.type == .executable }.map { $0.name }.map { $0.lowercased() }
+        
         for product in manifest.products {
             // Check that the product contains targets.
             guard !product.targets.isEmpty else {
@@ -331,6 +333,12 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
             // Check that the product references existing targets.
             for target in product.targets {
+                // Check if this target has the same name as an executable product name (by case-insensitive comparison)
+                if manifest.toolsVersion >= .v5_5,
+                   execNames.contains(target.lowercased()) {
+                    try diagnostics.emit(.sameTargetAndProductName(targetName: target, productNames: execNames))
+                }
+                
                 if !manifest.targetMap.keys.contains(target) {
                     try diagnostics.emit(.productTargetNotFound(productName: product.name, targetName: target, validTargets: manifest.targetMap.keys.sorted()))
                 }
@@ -910,6 +918,10 @@ extension TSCBasic.Diagnostic.Message {
 
     static func productTargetNotFound(productName: String, targetName: String, validTargets: [String]) -> Self {
         .error("target '\(targetName)' referenced in product '\(productName)' could not be found; valid targets are: '\(validTargets.joined(separator: "', '"))'")
+    }
+    
+    static func sameTargetAndProductName(targetName: String, productNames: [String]) -> Self {
+        .error("target '\(targetName)' should have a different (case-insensitive) name from products: [\(productNames.joined(separator: ", "))].")
     }
 
     static func invalidBinaryProductType(productName: String) -> Self {

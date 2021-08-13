@@ -65,6 +65,76 @@ class PackageDescription5_5LoadingTests: PackageDescriptionLoadingTests {
         }
     }
     
+    func testTargetNameAcrossProductDecls() throws {
+        let manifest = """
+        import PackageDescription
+        let package = Package(
+            name: "Host",
+            products: [
+                .executable(name: "host", targets: ["HostExecutable"]),
+                .library(name: "libHost", targets: ["Host"]),
+            ],
+            dependencies: [
+            ],
+            targets: [
+                .target(
+                    name: "HostExecutable",
+                    dependencies: ["Host"]
+                ),
+                .target(
+                    name: "Host",
+                    dependencies: []
+                ),
+                .testTarget(
+                    name: "HostTests",
+                    dependencies: ["Host"]),
+            ]
+        )
+
+        """
+        XCTAssertManifestLoadThrows(manifest, packageKind: .root, onCatch: { (err, result) in
+            result.check(diagnostic: .equal("target 'Host' should have a different (case-insensitive) name from products: [host]."), behavior: .error)
+        })
+    }
+    
+    func testTargetNameInProductDecl() throws {
+        let manifest = """
+            import PackageDescription
+            let package = Package(
+                name: "xyz",
+                products: [
+                    .executable(name: "foo", targets: ["Foo"]),
+                    .library(name: "Foo", targets: ["FooKit"]),
+                ],
+                targets: [
+                    .target(name: "Foo"),
+                    .target(name: "FooKit"),
+                ]
+            )
+            """
+        
+        XCTAssertManifestLoadThrows(manifest, packageKind: .root, onCatch: { (err, result) in
+            result.check(diagnostic: .equal("target 'Foo' should have a different (case-insensitive) name from products: [foo]."), behavior: .error)
+        })
+    }
+    
+    func testTargetNameWithNonExecutableProduct() throws {
+        let manifest = """
+            import PackageDescription
+            let package = Package(
+                name: "xyz",
+                products: [
+                    .library(name: "foo", targets: ["Foo"]),
+                ],
+                targets: [
+                    .target(name: "Foo"),
+                ]
+            )
+            """
+        
+        XCTAssertManifestLoadNoThrows(manifest, packageKind: .root)
+    }
+    
     func testPluginsAreUnavailable() throws {
         let stream = BufferedOutputByteStream()
         stream <<< """
