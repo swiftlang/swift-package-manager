@@ -34,10 +34,10 @@ struct APIDigesterBaselineDumper {
     let inputBuildParameters: BuildParameters
 
     /// The manifest loader.
-    let manifestLoader: ManifestLoaderProtocol
+    //let manifestLoader: ManifestLoaderProtocol
 
     /// The repository manager.
-    let repositoryManager: RepositoryManager
+    //let repositoryManager: RepositoryManager
 
     /// The API digester tool.
     let apiDigesterTool: SwiftAPIDigester
@@ -49,16 +49,16 @@ struct APIDigesterBaselineDumper {
         baselineRevision: Revision,
         packageRoot: AbsolutePath,
         buildParameters: BuildParameters,
-        manifestLoader: ManifestLoaderProtocol,
-        repositoryManager: RepositoryManager,
+        //manifestLoader: ManifestLoaderProtocol,
+        //repositoryManager: RepositoryManager,
         apiDigesterTool: SwiftAPIDigester,
         diags: DiagnosticsEngine
     ) {
         self.baselineRevision = baselineRevision
         self.packageRoot = packageRoot
         self.inputBuildParameters = buildParameters
-        self.manifestLoader = manifestLoader
-        self.repositoryManager = repositoryManager
+        //self.manifestLoader = manifestLoader
+        //self.repositoryManager = repositoryManager
         self.apiDigesterTool = apiDigesterTool
         self.diags = diags
     }
@@ -93,8 +93,9 @@ struct APIDigesterBaselineDumper {
         }
 
         // Clone the current package in a sandbox and checkout the baseline revision.
+        let repositoryProvider = GitRepositoryProvider()
         let specifier = RepositorySpecifier(url: baselinePackageRoot.pathString)
-        let workingCopy = try repositoryManager.provider.createWorkingCopy(
+        let workingCopy = try repositoryProvider.createWorkingCopy(
             repository: specifier,
             sourcePath: packageRoot,
             at: baselinePackageRoot,
@@ -105,9 +106,9 @@ struct APIDigesterBaselineDumper {
 
         // Create the workspace for this package.
         let workspace = try Workspace(
-            forRootPackage: baselinePackageRoot,
-            manifestLoader: manifestLoader,
-            repositoryManager: repositoryManager
+            forRootPackage: baselinePackageRoot//,
+            //manifestLoader: manifestLoader,
+            //repositoryManager: repositoryManager
         )
 
         let graph = try workspace.loadPackageGraph(

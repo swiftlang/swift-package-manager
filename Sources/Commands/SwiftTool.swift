@@ -459,14 +459,14 @@ public class SwiftTool {
         return try getPackageRoot().appending(component: "Packages")
     }
 
-    func resolvedFilePath() throws -> AbsolutePath {
+    func resolvedVersionsFilePath() throws -> AbsolutePath {
         if let multiRootPackageDataFile = options.multirootPackageDataFile {
             return multiRootPackageDataFile.appending(components: "xcshareddata", "swiftpm", "Package.resolved")
         }
         return try getPackageRoot().appending(component: "Package.resolved")
     }
 
-    func configFilePath() throws -> AbsolutePath {
+    func mirrorsConfigFilePath() throws -> AbsolutePath {
         // Look for the override in the environment.
         if let envPath = ProcessEnv.vars["SWIFTPM_MIRROR_CONFIG"] {
             return try AbsolutePath(validating: envPath)
@@ -479,15 +479,15 @@ public class SwiftTool {
         return try getPackageRoot().appending(components: ".swiftpm", "config")
     }
 
-    func getSwiftPMConfig() throws -> Workspace.Configuration {
-        return try _swiftpmConfig.get()
+    func getMirrorsConfig() throws -> Workspace.Configuration {
+        return try _mirrorsConfig.get()
     }
 
-    private lazy var _swiftpmConfig: Result<Workspace.Configuration, Swift.Error> = {
-        return Result(catching: { try Workspace.Configuration(path: try configFilePath()) })
+    private lazy var _mirrorsConfig: Result<Workspace.Configuration, Swift.Error> = {
+        return Result(catching: { try Workspace.Configuration(path: try mirrorsConfigFilePath(), fileSystem: localFileSystem) })
     }()
-    
-    func resolvedNetrcFilePath() throws -> AbsolutePath? {
+
+    func netrcFilePath() throws -> AbsolutePath? {
         guard options.netrc ||
                 options.netrcFilePath != nil ||
                 options.netrcOptional else { return nil }
@@ -551,21 +551,21 @@ public class SwiftTool {
         let cachePath = self.options.useRepositoriesCache ? try self.getCachePath() : .none
         _  = try self.getConfigPath() // TODO: actually use this in the workspace 
         let isXcodeBuildSystemEnabled = self.options.buildSystem == .xcode
-        let workspace = Workspace(
+        let workspace = try Workspace(
+            fileSystem: localFileSystem,
             dataPath: buildPath,
             editablesPath: try editablesPath(),
-            pinsFile: try resolvedFilePath(),
-            manifestLoader: try getManifestLoader(),
-            toolsVersionLoader: ToolsVersionLoader(),
-            delegate: delegate,
-            config: try getSwiftPMConfig(),
-            repositoryProvider: provider,
-            netrcFilePath: try resolvedNetrcFilePath(),
+            resolvedVersionsFilePath: try resolvedVersionsFilePath(),
+            cachePath: cachePath,
+            netrcFilePath: try netrcFilePath(),
+            mirrors: self.getMirrorsConfig().mirrors,
+            customManifestLoader: try getManifestLoader(), // FIXME: doe we really need to customize it?
+            customRepositoryProvider: provider, // FIXME: doe we really need to customize it?
             additionalFileRules: isXcodeBuildSystemEnabled ? FileRuleDescription.xcbuildFileTypes : FileRuleDescription.swiftpmFileTypes,
-            isResolverPrefetchingEnabled: options.shouldEnableResolverPrefetching,
-            skipUpdate: options.skipDependencyUpdate,
-            enableResolverTrace: options.enableResolverTrace,
-            cachePath: cachePath
+            resolverUpdateEnabled: !options.skipDependencyUpdate,
+            resolverPrefetchingEnabled: options.shouldEnableResolverPrefetching,
+            resolverTracingEnabled: options.enableResolverTrace,
+            delegate: delegate
         )
         _workspace = workspace
         _workspaceDelegate = delegate

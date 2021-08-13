@@ -24,6 +24,7 @@ public final class DependencyMirrors {
 
     private var index: [String: String]
     private var reverseIndex: [String: String]
+    private let lock = Lock()
 
     private init(_ mirrors: [Mirror]) {
         self.index = Dictionary(mirrors.map({ ($0.original, $0.mirror) }), uniquingKeysWith: { first, _ in first })
@@ -32,22 +33,26 @@ public final class DependencyMirrors {
 
     /// Sets a mirror URL for the given URL.
     public func set(mirrorURL: String, forURL url: String) {
-        self.index[url] = mirrorURL
-        self.reverseIndex[mirrorURL] = url
+        self.lock.withLock {
+            self.index[url] = mirrorURL
+            self.reverseIndex[mirrorURL] = url
+        }
     }
 
     /// Unsets a mirror for the given URL.
     /// - Parameter originalOrMirrorURL: The original URL or the mirrored URL
     /// - Throws: `Error.mirrorNotFound` if no mirror exists for the provided URL.
     public func unset(originalOrMirrorURL: String) throws {
-        if let value = self.index[originalOrMirrorURL] {
-            self.index[originalOrMirrorURL] = nil
-            self.reverseIndex[value] = nil
-        } else if let mirror = self.index.first(where: { $0.value == originalOrMirrorURL }) {
-            self.index[mirror.key] = nil
-            self.reverseIndex[originalOrMirrorURL] = nil
-        } else {
-            throw Error.mirrorNotFound
+        try self.lock.withLock {
+            if let value = self.index[originalOrMirrorURL] {
+                self.index[originalOrMirrorURL] = nil
+                self.reverseIndex[value] = nil
+            } else if let mirror = self.index.first(where: { $0.value == originalOrMirrorURL }) {
+                self.index[mirror.key] = nil
+                self.reverseIndex[originalOrMirrorURL] = nil
+            } else {
+                throw Error.mirrorNotFound
+            }
         }
     }
 
@@ -55,7 +60,9 @@ public final class DependencyMirrors {
     /// - Parameter url: The original URL
     /// - Returns: The mirrored URL, if one exists.
     public func mirrorURL(for url: String) -> String? {
-        return self.index[url]
+        self.lock.withLock {
+            return self.index[url]
+        }
     }
 
     /// Returns the effective URL for a package dependency URL.
@@ -69,9 +76,10 @@ public final class DependencyMirrors {
     /// - Parameter url: The mirror URL
     /// - Returns: The original URL, if one exists.
     public func originalURL(for url: String) -> String? {
-        return self.reverseIndex[url]
+        self.lock.withLock {
+            return self.reverseIndex[url]
+        }
     }
-
 }
 
 extension DependencyMirrors: Collection {

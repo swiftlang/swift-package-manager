@@ -19,7 +19,7 @@ extension Workspace {
     /// Manages a package workspace's configuration.
     public final class Configuration {
         /// The path to the mirrors file.
-        private let configFile: AbsolutePath?
+        public let configFile: AbsolutePath?
 
         /// The filesystem to manage the mirrors file on.
         private var fileSystem: FileSystem?
@@ -35,16 +35,22 @@ extension Workspace {
         /// The mirrors.
         public private(set) var mirrors: DependencyMirrors = DependencyMirrors()
 
+
+        @available(*, deprecated)
+        public convenience init(path: AbsolutePath, fs: FileSystem = localFileSystem) throws {
+            try self.init(path: path, fileSystem: fs)
+        }
+
         /// Creates a new, persisted package configuration with a configuration file.
         /// - Parameters:
         ///   - path: A path to the configuration file.
-        ///   - fs: The filesystem on which the configuration file is located.
+        ///   - fileSystem: The filesystem on which the configuration file is located.
         /// - Throws: `StringError` if the configuration file is corrupted or malformed.
-        public init(path: AbsolutePath, fs: FileSystem = localFileSystem) throws {
+        public init(path: AbsolutePath, fileSystem: FileSystem) throws {
             self.configFile = path
-            self.fileSystem = fs
+            self.fileSystem = fileSystem
             let persistence = SimplePersistence(
-                fileSystem: fs,
+                fileSystem: fileSystem,
                 schemaVersion: Self.schemaVersion,
                 statePath: path,
                 prettyPrint: true
@@ -59,11 +65,11 @@ extension Workspace {
         }
 
         /// Initializes a new, ephemeral package configuration.
-        public init() {
+        /*public init() {
             self.configFile = nil
             self.fileSystem = nil
             self.persistence = nil
-        }
+        }*/
 
         /// Load the configuration from disk.
         public func restoreState() throws {

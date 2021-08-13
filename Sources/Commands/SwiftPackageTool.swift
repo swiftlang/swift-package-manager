@@ -364,13 +364,13 @@ extension SwiftPackageTool {
             try buildOp.build()
 
             // Dump JSON for the baseline package.
-            let workspace = try swiftTool.getActiveWorkspace()
+            //let workspace = try swiftTool.getActiveWorkspace()
             let baselineDumper = try APIDigesterBaselineDumper(
                 baselineRevision: baselineRevision,
                 packageRoot: swiftTool.getPackageRoot(),
                 buildParameters: buildOp.buildParameters,
-                manifestLoader: workspace.manifestLoader,
-                repositoryManager: workspace.repositoryManager,
+                //manifestLoader: workspace.manifestLoader,
+                //repositoryManager: workspace.repositoryManager,
                 apiDigesterTool: apiDigesterTool,
                 diags: swiftTool.diagnostics
             )
@@ -886,7 +886,7 @@ extension SwiftPackageTool.Config {
         var mirrorURL: String
         
         func run(_ swiftTool: SwiftTool) throws {
-            let config = try swiftTool.getSwiftPMConfig()
+            let config = try swiftTool.getMirrorsConfig()
 
             if packageURL != nil {
                 swiftTool.diagnostics.emit(
@@ -920,7 +920,7 @@ extension SwiftPackageTool.Config {
         var mirrorURL: String?
         
         func run(_ swiftTool: SwiftTool) throws {
-            let config = try swiftTool.getSwiftPMConfig()
+            let config = try swiftTool.getMirrorsConfig()
 
             if packageURL != nil {
                 swiftTool.diagnostics.emit(
@@ -951,7 +951,7 @@ extension SwiftPackageTool.Config {
         var originalURL: String?
 
         func run(_ swiftTool: SwiftTool) throws {
-            let config = try swiftTool.getSwiftPMConfig()
+            let config = try swiftTool.getMirrorsConfig()
 
             if packageURL != nil {
                 swiftTool.diagnostics.emit(

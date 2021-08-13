@@ -31,8 +31,7 @@ public final class MockWorkspace {
     public var repoProvider: InMemoryGitRepositoryProvider
     public let delegate = MockWorkspaceDelegate()
     let toolsVersion: ToolsVersion
-    let skipUpdate: Bool
-    let enablePubGrub: Bool
+    let resolverUpdateEnabled: Bool
 
     public init(
         sandbox: AbsolutePath,
@@ -44,15 +43,14 @@ public final class MockWorkspace {
         roots: [MockPackage],
         packages: [MockPackage],
         toolsVersion: ToolsVersion = ToolsVersion.currentToolsVersion,
-        skipUpdate: Bool = false,
-        enablePubGrub: Bool = true
+        resolverUpdateEnabled: Bool = true
     ) throws {
         self.sandbox = sandbox
         self.fs = fs
         self.httpClient = httpClient ?? HTTPClient.mock(fileSystem: fs)
         self.archiver = archiver
         self.checksumAlgorithm = checksumAlgorithm
-        self.config = try config ?? Workspace.Configuration(path: sandbox.appending(component: "swiftpm"), fs: fs)
+        self.config = try config ?? Workspace.Configuration(path: sandbox.appending(component: "swiftpm"), fileSystem: fs)
         self.identityResolver = DefaultIdentityResolver(locationMapper: self.config.mirrors.effectiveURL(for:))
         self.roots = roots
         self.packages = packages
@@ -60,8 +58,7 @@ public final class MockWorkspace {
         self.manifestLoader = MockManifestLoader(manifests: [:])
         self.repoProvider = InMemoryGitRepositoryProvider()
         self.toolsVersion = toolsVersion
-        self.skipUpdate = skipUpdate
-        self.enablePubGrub = enablePubGrub
+        self.resolverUpdateEnabled = resolverUpdateEnabled
 
         try self.create()
     }
@@ -154,32 +151,33 @@ public final class MockWorkspace {
         self.manifestLoader = MockManifestLoader(manifests: manifests)
     }
 
-    public func getOrCreateWorkspace() -> Workspace {
-        if let workspace = _workspace {
+    public func getOrCreateWorkspace() throws -> Workspace {
+        if let workspace = self._workspace {
             return workspace
         }
 
-        self._workspace = Workspace(
+        let workspace = try Workspace(
+            fileSystem: self.fs,
             dataPath: self.sandbox.appending(component: ".build"),
             editablesPath: self.sandbox.appending(component: "edits"),
-            pinsFile: self.sandbox.appending(component: "Package.resolved"),
-            manifestLoader: self.manifestLoader,
-            currentToolsVersion: self.toolsVersion,
-            toolsVersionLoader: ToolsVersionLoader(),
-            delegate: self.delegate,
-            config: self.config,
-            fileSystem: self.fs,
-            repositoryProvider: self.repoProvider,
-            identityResolver: self.identityResolver,
-            httpClient: self.httpClient,
-            archiver: self.archiver,
-            checksumAlgorithm: self.checksumAlgorithm,
-            isResolverPrefetchingEnabled: true,
-            enablePubgrubResolver: self.enablePubGrub,
-            skipUpdate: self.skipUpdate,
-            cachePath: localFileSystem.swiftPMCacheDirectory.appending(component: "repositories")
+            resolvedVersionsFilePath: self.sandbox.appending(component: "Package.resolved"),
+            cachePath: self.fs.swiftPMCacheDirectory,
+            mirrors: self.config.mirrors,
+            customToolsVersion: self.toolsVersion,
+            customManifestLoader: self.manifestLoader,
+            customRepositoryProvider: self.repoProvider,
+            customIdentityResolver: self.identityResolver,
+            customHTTPClient: self.httpClient,
+            customArchiver: self.archiver,
+            customChecksumAlgorithm: self.checksumAlgorithm,
+            resolverUpdateEnabled: self.resolverUpdateEnabled,
+            resolverPrefetchingEnabled: true,
+            delegate: self.delegate
         )
-        return self._workspace!
+
+        self._workspace = workspace
+
+        return workspace
     }
 
     private var _workspace: Workspace?
@@ -199,15 +197,17 @@ public final class MockWorkspace {
         checkoutBranch: String? = nil,
         _ result: (DiagnosticsEngine) -> Void
     ) {
-        let ws = self.getOrCreateWorkspace()
         let diagnostics = DiagnosticsEngine()
-        ws.edit(
-            packageName: packageName,
-            path: path,
-            revision: revision,
-            checkoutBranch: checkoutBranch,
-            diagnostics: diagnostics
-        )
+        diagnostics.wrap {
+            let ws = try self.getOrCreateWorkspace()
+            ws.edit(
+                packageName: packageName,
+                path: path,
+                revision: revision,
+                checkoutBranch: checkoutBranch,
+                diagnostics: diagnostics
+            )
+        }
         result(diagnostics)
     }
 
@@ -217,10 +217,10 @@ public final class MockWorkspace {
         forceRemove: Bool = false,
         _ result: (DiagnosticsEngine) -> Void
     ) {
-        let ws = self.getOrCreateWorkspace()
         let diagnostics = DiagnosticsEngine()
         let rootInput = PackageGraphRootInput(packages: rootPaths(for: roots))
         diagnostics.wrap {
+            let ws = try self.getOrCreateWorkspace()
             try ws.unedit(packageName: packageName, forceRemove: forceRemove, root: rootInput, diagnostics: diagnostics)
         }
         result(diagnostics)
@@ -228,9 +228,9 @@ public final class MockWorkspace {
 
     public func checkResolve(pkg: String, roots: [String], version: TSCUtility.Version, _ result: (DiagnosticsEngine) -> Void) {
         let diagnostics = DiagnosticsEngine()
-        let workspace = self.getOrCreateWorkspace()
         let rootInput = PackageGraphRootInput(packages: rootPaths(for: roots))
         diagnostics.wrap {
+            let workspace = try self.getOrCreateWorkspace()
             try workspace.resolve(packageName: pkg, root: rootInput, version: version, branch: nil, revision: nil, diagnostics: diagnostics)
         }
         result(diagnostics)
@@ -238,15 +238,19 @@ public final class MockWorkspace {
 
     public func checkClean(_ result: (DiagnosticsEngine) -> Void) {
         let diagnostics = DiagnosticsEngine()
-        let workspace = self.getOrCreateWorkspace()
-        workspace.clean(with: diagnostics)
+        diagnostics.wrap {
+            let workspace = try self.getOrCreateWorkspace()
+            workspace.clean(with: diagnostics)
+        }
         result(diagnostics)
     }
 
     public func checkReset(_ result: (DiagnosticsEngine) -> Void) {
         let diagnostics = DiagnosticsEngine()
-        let workspace = self.getOrCreateWorkspace()
-        workspace.reset(with: diagnostics)
+        diagnostics.wrap {
+            let workspace = try self.getOrCreateWorkspace()
+            workspace.reset(with: diagnostics)
+        }
         result(diagnostics)
     }
 
@@ -256,13 +260,13 @@ public final class MockWorkspace {
         packages: [String] = [],
         _ result: (DiagnosticsEngine) -> Void
     ) {
-        let dependencies = deps.map { $0.convert(baseURL: packagesDir, identityResolver: self.identityResolver) }
         let diagnostics = DiagnosticsEngine()
-        let workspace = self.getOrCreateWorkspace()
-        let rootInput = PackageGraphRootInput(
-            packages: rootPaths(for: roots), dependencies: dependencies
-        )
-        _ = diagnostics.wrap {
+        diagnostics.wrap {
+            let dependencies = deps.map { $0.convert(baseURL: packagesDir, identityResolver: self.identityResolver) }
+            let rootInput = PackageGraphRootInput(
+                packages: rootPaths(for: roots), dependencies: dependencies
+            )
+            let workspace = try self.getOrCreateWorkspace()
             try workspace.updateDependencies(root: rootInput, packages: packages, diagnostics: diagnostics)
         }
         result(diagnostics)
@@ -274,13 +278,13 @@ public final class MockWorkspace {
         _ result: ([(PackageReference, Workspace.PackageStateChange)]?, DiagnosticsEngine) -> Void
     ) {
         let dependencies = deps.map { $0.convert(baseURL: packagesDir, identityResolver: self.identityResolver) }
-        let diagnostics = DiagnosticsEngine()
-        let workspace = self.getOrCreateWorkspace()
         let rootInput = PackageGraphRootInput(
             packages: rootPaths(for: roots), dependencies: dependencies
         )
-        let changes = diagnostics.wrap {
-             try workspace.updateDependencies(root: rootInput, diagnostics: diagnostics, dryRun: true)
+        let diagnostics = DiagnosticsEngine()
+        let changes = diagnostics.wrap { () -> [(PackageReference, Workspace.PackageStateChange)]? in
+            let workspace = try self.getOrCreateWorkspace()
+            return try workspace.updateDependencies(root: rootInput, diagnostics: diagnostics, dryRun: true)
         } ?? nil
         result(changes, diagnostics)
     }
@@ -301,11 +305,11 @@ public final class MockWorkspace {
         _ result: (PackageGraph, DiagnosticsEngine) -> Void
     ) {
         let diagnostics = DiagnosticsEngine()
-        let workspace = self.getOrCreateWorkspace()
         let rootInput = PackageGraphRootInput(
             packages: rootPaths(for: roots), dependencies: dependencies
         )
         do {
+            let workspace = try self.getOrCreateWorkspace()
             let graph = try workspace.loadPackageGraph(
                 rootInput: rootInput, forceResolvedVersions: forceResolvedVersions, diagnostics: diagnostics
             )
@@ -331,11 +335,11 @@ public final class MockWorkspace {
         _ result: (DiagnosticsEngine) -> Void
     ) {
         let diagnostics = DiagnosticsEngine()
-        let workspace = self.getOrCreateWorkspace()
         let rootInput = PackageGraphRootInput(
             packages: rootPaths(for: roots), dependencies: dependencies
         )
         _ = diagnostics.wrap {
+            let workspace = try self.getOrCreateWorkspace()
             try workspace.loadPackageGraph(
                 rootInput: rootInput, forceResolvedVersions: forceResolvedVersions, diagnostics: diagnostics
             )
@@ -350,7 +354,7 @@ public final class MockWorkspace {
 
     public func checkPrecomputeResolution(_ check: (ResolutionPrecomputationResult) -> Void) throws {
         let diagnostics = DiagnosticsEngine()
-        let workspace = self.getOrCreateWorkspace()
+        let workspace = try self.getOrCreateWorkspace()
         let pinsStore = try workspace.pinsStore.load()
 
         let rootInput = PackageGraphRootInput(packages: rootPaths(for: roots.map { $0.name }), dependencies: [])
@@ -374,7 +378,7 @@ public final class MockWorkspace {
         managedDependencies: [ManagedDependency] = [],
         managedArtifacts: [ManagedArtifact] = []
     ) throws {
-        let workspace = self.getOrCreateWorkspace()
+        let workspace = try self.getOrCreateWorkspace()
         let pinsStore = try workspace.pinsStore.load()
 
         for (ref, state) in pins {
@@ -396,7 +400,7 @@ public final class MockWorkspace {
     }
 
     public func resetState() throws {
-        let workspace = self.getOrCreateWorkspace()
+        let workspace = try self.getOrCreateWorkspace()
         try workspace.resetState()
     }
 
@@ -508,7 +512,7 @@ public final class MockWorkspace {
     ) throws {
         let dependencies = deps.map { $0.convert(baseURL: packagesDir, identityResolver: self.identityResolver) }
         let diagnostics = DiagnosticsEngine()
-        let workspace = self.getOrCreateWorkspace()
+        let workspace = try self.getOrCreateWorkspace()
         let rootInput = PackageGraphRootInput(
             packages: rootPaths(for: roots), dependencies: dependencies
         )
@@ -520,7 +524,7 @@ public final class MockWorkspace {
 
     public func checkManagedDependencies(file: StaticString = #file, line: UInt = #line, _ result: (ManagedDependencyResult) throws -> Void) {
         do {
-            let workspace = self.getOrCreateWorkspace()
+            let workspace = try self.getOrCreateWorkspace()
             try result(ManagedDependencyResult(workspace.state.dependencies))
         } catch {
             XCTFail("Failed with error \(error)", file: file, line: line)
@@ -529,7 +533,7 @@ public final class MockWorkspace {
 
     public func checkManagedArtifacts(file: StaticString = #file, line: UInt = #line, _ result: (ManagedArtifactResult) throws -> Void) {
         do {
-            let workspace = self.getOrCreateWorkspace()
+            let workspace = try self.getOrCreateWorkspace()
             try result(ManagedArtifactResult(workspace.state.artifacts))
         } catch {
             XCTFail("Failed with error \(error)", file: file, line: line)
@@ -579,7 +583,7 @@ public final class MockWorkspace {
 
     public func checkResolved(file: StaticString = #file, line: UInt = #line, _ result: (ResolvedResult) throws -> Void) {
         do {
-            let workspace = self.getOrCreateWorkspace()
+            let workspace = try self.getOrCreateWorkspace()
             try result(ResolvedResult(workspace.pinsStore.load()))
         } catch {
             XCTFail("Failed with error \(error)", file: file, line: line)
