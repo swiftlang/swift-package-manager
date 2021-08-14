@@ -60,13 +60,13 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
         let macOSPackageDescriptionPath: AbsolutePath
         // if runtimePath is set to "PackageFrameworks" that means we could be developing SwiftPM in Xcode
         // which produces a framework for dynamic package products.
-        if runtimePath.basename == "PackageFrameworks" {
+        if runtimePath.extension == "framework" {
             command += [
-                "-F", runtimePath.pathString,
+                "-F", runtimePath.parentDirectory.pathString,
                 "-framework", "PackagePlugin",
-                "-Xlinker", "-rpath", "-Xlinker", runtimePath.pathString,
+                "-Xlinker", "-rpath", "-Xlinker", runtimePath.parentDirectory.pathString,
             ]
-            macOSPackageDescriptionPath = runtimePath.appending(RelativePath("PackagePlugin.framework/PackagePlugin"))
+            macOSPackageDescriptionPath = runtimePath.appending(component: "PackagePlugin")
         } else {
             command += [
                 "-L", runtimePath.pathString,
@@ -79,7 +79,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
             #endif
 
             // note: this is not correct for all platforms, but we only actually use it on macOS.
-            macOSPackageDescriptionPath = runtimePath.appending(RelativePath("libPackagePlugin.dylib"))
+            macOSPackageDescriptionPath = runtimePath.appending(component: "libPackagePlugin.dylib")
         }
 
         // Use the same minimum deployment target as the PackageDescription library (with a fallback of 10.15).
@@ -98,8 +98,8 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
         command += ["-swift-version", toolsVersion.swiftLanguageVersion.rawValue]
         // if runtimePath is set to "PackageFrameworks" that means we could be developing SwiftPM in Xcode
         // which produces a framework for dynamic package products.
-        if runtimePath.basename == "PackageFrameworks" {
-            command += ["-I", runtimePath.parentDirectory.pathString]
+        if runtimePath.extension == "framework" {
+            command += ["-I", runtimePath.parentDirectory.parentDirectory.pathString]
         } else {
             command += ["-I", runtimePath.pathString]
         }

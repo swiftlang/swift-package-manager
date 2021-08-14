@@ -385,20 +385,20 @@ public final class UserToolchain: Toolchain {
             }
         }
 
-        let customSwiftPMLibrariesLocation = try Self.deriveCustomSwiftPMLibrariesLocation(swiftCompilerPath: swiftCompilerPath, destination: destination)
+        let swiftPMLibrariesLocation = try Self.deriveSwiftPMLibrariesLocation(swiftCompilerPath: swiftCompilerPath, destination: destination)
 
         let xctestPath = Self.deriveXCTestPath()
 
         self.configuration = .init(
             swiftCompilerPath: swiftCompilers.manifest,
             swiftCompilerFlags: self.extraSwiftCFlags,
-            swiftPMLibrariesLocation: customSwiftPMLibrariesLocation,
+            swiftPMLibrariesLocation: swiftPMLibrariesLocation,
             sdkRootPath: self.destination.sdk,
             xctestPath: xctestPath
         )
     }
 
-    private static func deriveCustomSwiftPMLibrariesLocation(
+    private static func deriveSwiftPMLibrariesLocation(
         swiftCompilerPath: AbsolutePath,
         destination: Destination
     ) throws -> ToolchainConfiguration.SwiftPMLibrariesLocation? {
@@ -443,8 +443,8 @@ public final class UserToolchain: Toolchain {
         let pluginFrameworksPath = applicationPath.appending(components: "PackageFrameworks", "PackagePlugin.framework")
         if localFileSystem.exists(manifestFrameworksPath) && localFileSystem.exists(pluginFrameworksPath) {
             return .init(
-                manifestAPI: manifestFrameworksPath.parentDirectory,
-                pluginAPI: pluginFrameworksPath.parentDirectory
+                manifestAPI: manifestFrameworksPath,
+                pluginAPI: pluginFrameworksPath
             )
         }
 
@@ -456,8 +456,8 @@ public final class UserToolchain: Toolchain {
             )
         }
 
-        // default case - no custom location which will use the one from the toolchain
-        return nil
+        // we are using a SwiftPM outside a toolchain, use the compiler path to compute the location
+        return .init(swiftCompilerPath: swiftCompilerPath)
     }
 
     // TODO: why is this only required on Windows? is there something better we can do?

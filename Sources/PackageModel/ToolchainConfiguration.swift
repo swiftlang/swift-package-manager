@@ -103,7 +103,7 @@ extension ToolchainConfiguration {
             )
         }
 
-        fileprivate init(swiftCompilerPath: AbsolutePath) {
+        public init(swiftCompilerPath: AbsolutePath) {
             let rootPath = swiftCompilerPath.parentDirectory.parentDirectory.appending(components: "lib", "swift", "pm")
             self.init(root: rootPath)
         }
