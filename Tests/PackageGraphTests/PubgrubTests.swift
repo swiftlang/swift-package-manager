@@ -1902,11 +1902,11 @@ final class PubGrubBacktrackTests: XCTestCase {
 fileprivate extension CheckoutState {
     /// Creates a checkout state with the given version and a mocked revision.
     static func version(_ version: Version) -> CheckoutState {
-        CheckoutState(revision: Revision(identifier: "<fake-ident>"), version: version)
+        .version(version, revision: Revision(identifier: "<fake-ident>"))
     }
 
     static func branch(_ branch: String, revision: String) -> CheckoutState {
-        CheckoutState(revision: Revision(identifier: revision), branch: branch)
+        .branch(branch, revision: Revision(identifier: revision))
     }
 }
 

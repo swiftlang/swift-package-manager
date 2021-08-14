@@ -33,7 +33,7 @@ final class PinsStoreTests: XCTestCase {
         let fooRef = PackageReference.remote(identity: foo, location: fooRepo.url)
         let barRef = PackageReference.remote(identity: bar, location: barRepo.url)
 
-        let state = CheckoutState(revision: revision, version: v1)
+        let state = CheckoutState.version(v1, revision: revision)
         let pin = PinsStore.Pin(packageRef: fooRef, state: state)
         // We should be able to round trip from JSON.
         XCTAssertEqual(try PinsStore.Pin(json: pin.toJSON()), pin)
@@ -67,7 +67,7 @@ final class PinsStoreTests: XCTestCase {
         store.pin(packageRef: fooRef, state: state)
         store.pin(
             packageRef: fooRef,
-            state: CheckoutState(revision: revision, version: "1.0.2")
+            state: CheckoutState.version("1.0.2", revision: revision)
         )
         store.pin(packageRef: barRef, state: state)
         try store.saveState()
@@ -79,7 +79,7 @@ final class PinsStoreTests: XCTestCase {
         do {
             store.pin(
                 packageRef: barRef,
-                state: CheckoutState(revision: revision, branch: "develop")
+                state: CheckoutState.branch("develop", revision: revision)
             )
             try store.saveState()
             store = try PinsStore(pinsFile: pinsFile, fileSystem: fs, mirrors: .init())
@@ -93,7 +93,7 @@ final class PinsStoreTests: XCTestCase {
 
         // Test revision pin.
         do {
-            store.pin(packageRef: barRef, state: CheckoutState(revision: revision))
+            store.pin(packageRef: barRef, state: .revision(revision))
             try store.saveState()
             store = try PinsStore(pinsFile: pinsFile, fileSystem: fs, mirrors: .init())
 
@@ -155,7 +155,7 @@ final class PinsStoreTests: XCTestCase {
         let foo = PackageIdentity(path: fooPath)
         let fooRef = PackageReference.remote(identity: foo, location: fooPath.pathString)
         let revision = Revision(identifier: "81513c8fd220cf1ed1452b98060cd80d3725c5b7")
-        store.pin(packageRef: fooRef, state: CheckoutState(revision: revision, version: v1))
+        store.pin(packageRef: fooRef, state: .version(v1, revision: revision))
 
         XCTAssert(!fs.exists(pinsFile))
 
@@ -190,11 +190,11 @@ final class PinsStoreTests: XCTestCase {
         let store = try PinsStore(pinsFile: pinsFile, fileSystem: fileSystem, mirrors: mirrors)
 
         store.pin(packageRef: .remote(identity: fooIdentity, location: fooMirroredURL),
-                  state: CheckoutState(revision: .init(identifier: "foo-revision"), version: v1))
+                  state: .version(v1, revision: .init(identifier: "foo-revision")))
         store.pin(packageRef: .remote(identity: barMirroredIdentity, location: barMirroredURL),
-                  state: CheckoutState(revision: .init(identifier: "bar-revision"), version: v1))
+                  state: .version(v1, revision: .init(identifier: "bar-revision")))
         store.pin(packageRef: .remote(identity: bazIdentity, location: bazURL),
-                  state: CheckoutState(revision: .init(identifier: "baz-revision"), version: v1))
+                  state: .version(v1, revision: .init(identifier: "baz-revision")))
 
 
         try store.saveState()

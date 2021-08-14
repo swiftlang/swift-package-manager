@@ -683,3 +683,31 @@ public final class MockWorkspaceDelegate: WorkspaceDelegate {
         }
     }
 }
+
+extension CheckoutState {
+    public var version: Version? {
+        get {
+            switch self {
+            case .revision:
+                return .none
+            case .version(let version, _):
+                return version
+            case .branch:
+                return .none
+            }
+        }
+    }
+
+    public var branch: String? {
+        get {
+            switch self {
+            case .revision:
+                return .none
+            case .version:
+                return .none
+            case .branch(let branch, _):
+                return branch
+            }
+        }
+    }
+}

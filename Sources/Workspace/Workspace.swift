@@ -1455,10 +1455,15 @@ extension Workspace {
         switch managedDependency.state {
         case .checkout(let checkoutState):
             packageKind = .remote
-            version = checkoutState.version
+            switch checkoutState {
+            case .version(let checkoutVersion, _):
+                version = checkoutVersion
+            default:
+                version = .none
+            }
         case .edited, .local:
             packageKind = .local
-            version = nil
+            version = .none
         }
 
         // Get the path of the package.
@@ -2355,11 +2360,9 @@ extension Workspace {
 
                 // If we have a branch and we shouldn't be updating the
                 // branches, use the revision from pin instead (if present).
-                if branch != nil {
-                    if let pin = pinsStore.pins.first(where: { $0.packageRef == packageRef }),
-                        !updateBranches,
-                        pin.state.branch == branch {
-                        revision = pin.state.revision
+                if branch != nil, !updateBranches {
+                    if case .branch(branch, let pinRevision) = pinsStore.pins.first(where: { $0.packageRef == packageRef })?.state {
+                        revision = pinRevision
                     }
                 }
 
@@ -2367,7 +2370,12 @@ extension Workspace {
                 if let currentDependency = currentDependency {
                     // If current state and new state are equal, we don't need
                     // to do anything.
-                    let newState = CheckoutState(revision: revision, branch: branch)
+                    let newState: CheckoutState
+                    if let branch = branch {
+                        newState = .branch(branch, revision: revision)
+                    } else {
+                        newState = .revision(revision)
+                    }
                     if case .checkout(let checkoutState) = currentDependency.state, checkoutState == newState {
                         packageStateChanges[packageRef.location] = (packageRef, .unchanged)
                     } else {
@@ -2382,7 +2390,7 @@ extension Workspace {
 
             case .version(let version):
                 if let currentDependency = currentDependency {
-                    if case .checkout(let checkoutState) = currentDependency.state, checkoutState.version == version {
+                    if case .checkout(let checkoutState) = currentDependency.state, case .version(version, _) = checkoutState {
                         packageStateChanges[packageRef.location] = (packageRef, .unchanged)
                     } else {
                         let newState = PackageStateChange.State(requirement: .version(version), products: products)
@@ -2664,10 +2672,13 @@ extension Workspace {
                 throw InternalError("unable to get tag for \(package) \(version); available versions \(try container.versionsDescending())")
             }
             let revision = try container.getRevision(forTag: tag)
-            checkoutState = CheckoutState(revision: revision, version: version)
+            checkoutState = .version(version, revision: revision)
 
-        case .revision(let revision, let branch):
-            checkoutState = CheckoutState(revision: revision, branch: branch)
+        case .revision(let revision, .none):
+            checkoutState = .revision(revision)
+
+        case .revision(let revision, .some(let branch)):
+            checkoutState = .branch(branch, revision: revision)
 
         case .unversioned:
             state.dependencies.add(ManagedDependency.local(packageRef: package))

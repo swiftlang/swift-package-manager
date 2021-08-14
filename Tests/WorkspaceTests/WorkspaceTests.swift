@@ -833,8 +833,8 @@ final class WorkspaceTests: XCTestCase {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         let bPath = RelativePath("B")
-        let v1_5 = CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5")
-        let v2 = CheckoutState(revision: Revision(identifier: "hello"), version: "2.0.0")
+        let v1_5 = CheckoutState.version("1.0.5", revision: Revision(identifier: "hello"))
+        let v2 = CheckoutState.version("2.0.0", revision: Revision(identifier: "hello"))
 
         let workspace = try MockWorkspace(
             sandbox: sandbox,
@@ -873,7 +873,7 @@ final class WorkspaceTests: XCTestCase {
         let fs = InMemoryFileSystem()
         let bPath = RelativePath("B")
         let v1Requirement: MockDependency.Requirement = .range("1.0.0" ..< "2.0.0")
-        let v1 = CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.0")
+        let v1 = CheckoutState.version("1.0.0", revision: Revision(identifier: "hello"))
 
         let workspace = try MockWorkspace(
             sandbox: sandbox,
@@ -930,7 +930,7 @@ final class WorkspaceTests: XCTestCase {
         let cPath = RelativePath("C")
         let v1Requirement: MockDependency.Requirement = .range("1.0.0" ..< "2.0.0")
         let branchRequirement: MockDependency.Requirement = .branch("master")
-        let v1_5 = CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5")
+        let v1_5 = CheckoutState.version("1.0.5", revision: Revision(identifier: "hello"))
 
         let workspace = try MockWorkspace(
             sandbox: sandbox,
@@ -989,7 +989,7 @@ final class WorkspaceTests: XCTestCase {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         let cPath = RelativePath("C")
-        let v1_5 = CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5")
+        let v1_5 = CheckoutState.version("1.0.5", revision: Revision(identifier: "hello"))
 
         let testWorkspace = try MockWorkspace(
             sandbox: sandbox,
@@ -1040,7 +1040,7 @@ final class WorkspaceTests: XCTestCase {
         let bPath = RelativePath("B")
         let v1Requirement: MockDependency.Requirement = .range("1.0.0" ..< "2.0.0")
         let masterRequirement: MockDependency.Requirement = .branch("master")
-        let v1_5 = CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5")
+        let v1_5 = CheckoutState.version("1.0.5", revision: Revision(identifier: "hello"))
 
         let workspace = try MockWorkspace(
             sandbox: sandbox,
@@ -1102,7 +1102,7 @@ final class WorkspaceTests: XCTestCase {
         let cPath = RelativePath("C")
         let v1Requirement: MockDependency.Requirement = .range("1.0.0" ..< "2.0.0")
         //let localRequirement: MockDependency.Requirement = .localPackage
-        let v1_5 = CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5")
+        let v1_5 = CheckoutState.version("1.0.5", revision: Revision(identifier: "hello"))
 
         let workspace = try MockWorkspace(
             sandbox: sandbox,
@@ -1164,8 +1164,8 @@ final class WorkspaceTests: XCTestCase {
         let cPath = RelativePath("C")
         let v1Requirement: MockDependency.Requirement = .range("1.0.0" ..< "2.0.0")
         //let localRequirement: MockDependency.Requirement = .localPackage
-        let v1_5 = CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5")
-        let master = CheckoutState(revision: Revision(identifier: "master"), branch: "master")
+        let v1_5 = CheckoutState.version("1.0.5", revision: Revision(identifier: "hello"))
+        let master = CheckoutState.branch("master", revision: Revision(identifier: "master"))
 
         let workspace = try MockWorkspace(
             sandbox: sandbox,
@@ -1227,7 +1227,7 @@ final class WorkspaceTests: XCTestCase {
         let cPath = RelativePath("C")
         let v1Requirement: MockDependency.Requirement = .range("1.0.0" ..< "2.0.0")
         let v2Requirement: MockDependency.Requirement = .range("2.0.0" ..< "3.0.0")
-        let v1_5 = CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5")
+        let v1_5 = CheckoutState.version("1.0.5", revision: Revision(identifier: "hello"))
 
         let workspace = try MockWorkspace(
             sandbox: sandbox,
@@ -1285,8 +1285,8 @@ final class WorkspaceTests: XCTestCase {
         let cPath = RelativePath("C")
         let v1Requirement: MockDependency.Requirement = .range("1.0.0" ..< "2.0.0")
         let v2Requirement: MockDependency.Requirement = .range("2.0.0" ..< "3.0.0")
-        let v1_5 = CheckoutState(revision: Revision(identifier: "hello"), version: "1.0.5")
-        let v2 = CheckoutState(revision: Revision(identifier: "hello"), version: "2.0.0")
+        let v1_5 = CheckoutState.version("1.0.5", revision: Revision(identifier: "hello"))
+        let v2 = CheckoutState.version("2.0.0", revision: Revision(identifier: "hello"))
 
         let workspace = try MockWorkspace(
             sandbox: sandbox,
@@ -3681,7 +3681,7 @@ final class WorkspaceTests: XCTestCase {
 
             let fooRepo = workspace.repoProvider.specifierMap[RepositorySpecifier(url: fooPin.packageRef.location)]!
             let revision = try fooRepo.resolveRevision(tag: "1.0.0")
-            let newState = CheckoutState(revision: revision, version: "1.0.0")
+            let newState = CheckoutState.version("1.0.0", revision: revision)
 
             pinsStore.pin(packageRef: fooPin.packageRef, state: newState)
             try pinsStore.saveState()
@@ -4625,7 +4625,7 @@ final class WorkspaceTests: XCTestCase {
         let aRef = PackageReference.remote(identity: PackageIdentity(url: aURL), location: aURL)
         let aRepo = workspace.repoProvider.specifierMap[RepositorySpecifier(url: aURL)]!
         let aRevision = try aRepo.resolveRevision(tag: "1.0.0")
-        let aState = CheckoutState(revision: aRevision, version: "1.0.0")
+        let aState = CheckoutState.version("1.0.0", revision: aRevision)
 
         try workspace.set(
             pins: [aRef: aState],
@@ -5019,7 +5019,7 @@ final class WorkspaceTests: XCTestCase {
         let aRef = PackageReference.remote(identity: PackageIdentity(url: aURL), location: aURL)
         let aRepo = workspace.repoProvider.specifierMap[RepositorySpecifier(url: aURL)]!
         let aRevision = try aRepo.resolveRevision(tag: "1.0.0")
-        let aState = CheckoutState(revision: aRevision, version: "1.0.0")
+        let aState = CheckoutState.version("1.0.0", revision: aRevision)
         let aDependency = ManagedDependency(packageRef: aRef, subpath: RelativePath("A"), checkoutState: aState)
 
         try workspace.set(
@@ -5429,7 +5429,7 @@ final class WorkspaceTests: XCTestCase {
         let aRef = PackageReference.remote(identity: PackageIdentity(url: aURL), location: aURL)
         let aRepo = workspace.repoProvider.specifierMap[RepositorySpecifier(url: aURL)]!
         let aRevision = try aRepo.resolveRevision(tag: "1.0.0")
-        let aState = CheckoutState(revision: aRevision, version: "1.0.0")
+        let aState = CheckoutState.version("1.0.0", revision: aRevision)
         let aDependency = ManagedDependency(packageRef: aRef, subpath: RelativePath("A"), checkoutState: aState)
 
         try workspace.set(

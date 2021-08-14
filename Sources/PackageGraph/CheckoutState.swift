@@ -15,50 +15,44 @@ import TSCUtility
 /// A checkout state represents the current state of a repository.
 ///
 /// A state will always has a revision. It can also have a branch or a version but not both.
-public struct CheckoutState: Equatable, Hashable {
+public enum CheckoutState: Equatable, Hashable {
+
+    case revision(Revision)
+    case version(Version, revision: Revision)
+    case branch(String, revision: Revision)
 
     /// The revision of the checkout.
-    public let revision: Revision
-
-    /// The version of the checkout, if known.
-    public let version: Version?
-
-    /// The branch of the checkout, if known.
-    public let branch: String?
-
-    /// Create a checkout state with given data. It is invalid to provide both version and branch.
-    ///
-    /// This is deliberately fileprivate so CheckoutState is not initialized
-    /// with both version and branch. All other initializers should delegate to it.
-    fileprivate init(revision: Revision, version: Version?, branch: String?) {
-        assert(version == nil || branch == nil, "Can't set both branch and version.")
-        self.revision = revision
-        self.version = version
-        self.branch = branch
-    }
-
-    /// Create a checkout state with given revision and branch.
-    public init(revision: Revision, branch: String? = nil) {
-        self.init(revision: revision, version: nil, branch: branch)
-    }
-
-    /// Create a checkout state with given revision and version.
-    public init(revision: Revision, version: Version) {
-        self.init(revision: revision, version: version, branch: nil)
+    public var revision: Revision {
+        get {
+            switch self {
+            case .revision(let revision):
+                return revision
+            case .version(_, let revision):
+                return revision
+            case .branch(_, let revision):
+                return revision
+            }
+        }
     }
 
     public var isBranchOrRevisionBased: Bool {
-        return version == nil
+        switch self {
+        case .revision, .branch:
+            return true
+        case .version:
+            return false
+        }
     }
 
     /// Returns requirement induced by this state.
     public var requirement: PackageRequirement {
-        if let version = version {
-            return .versionSet(.exact(version))
-        } else if let branch = branch {
-            return .revision(branch)
-        } else {
+        switch self {
+        case .revision(let revision):
             return .revision(revision.identifier)
+        case .version(let version, _):
+            return .versionSet(.exact(version))
+        case .branch(let branch, _):
+            return .revision(branch)
         }
     }
 }
@@ -67,7 +61,14 @@ public struct CheckoutState: Equatable, Hashable {
 
 extension CheckoutState: CustomStringConvertible {
     public var description: String {
-        return version?.description ?? branch ?? revision.identifier
+        switch self {
+        case .revision(let revision):
+            return revision.identifier
+        case .version(let version, _):
+            return version.description
+        case .branch(let branch, _):
+            return branch
+        }
     }
 }
 
@@ -75,19 +76,47 @@ extension CheckoutState: CustomStringConvertible {
 
 extension CheckoutState: JSONMappable, JSONSerializable {
     public init(json: JSON) throws {
-       self.init(
-           revision: try json.get("revision"),
-           version: json.get("version"),
-           branch: json.get("branch")
-        )
+        let revision: Revision = try json.get("revision")
+        let version: Version? = json.get("version")
+        let branch: String? = json.get("branch")
+
+        switch (version, branch) {
+        case (.none, .none):
+            self = .revision(revision)
+        case (.some(let version), .none):
+            self = .version(version, revision: revision)
+        case (.none, .some(let branch)):
+            self = .branch(branch, revision: revision)
+        case (.some(_), .some(_)):
+            preconditionFailure("Can't set both branch and version.")
+        }
     }
 
     public func toJSON() -> JSON {
-       return .init([
-           "revision": revision.identifier,
-           "version": version.toJSON(),
-           "branch": branch.toJSON(),
-       ])
+        let revision: Revision
+        let version: Version?
+        let branch: String?
+
+        switch self {
+        case .revision(let _revision):
+            revision = _revision
+            version = nil
+            branch = nil
+        case .version(let _version, let _revision):
+            revision = _revision
+            version = _version
+            branch = nil
+        case .branch(let _branch, let _revision):
+            revision = _revision
+            version = nil
+            branch = _branch
+        }
+
+        return .init([
+            "revision": revision.identifier,
+            "version": version.toJSON(),
+            "branch": branch.toJSON(),
+        ])
     }
 }
 
