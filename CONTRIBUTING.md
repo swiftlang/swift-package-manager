@@ -170,9 +170,9 @@ Clone the following repositories beside the SwiftPM directory:
 
 7. [swift-collections] and check out tag with the [latest version](https://github.com/apple/swift-collections/tags).
 
-    For example, if the latest tag is 0.0.4:
+    For example, if the latest tag is 0.0.5:
     ```sh
-    $> git clone https://github.com/apple/swift-collections --branch 0.0.4
+    $> git clone https://github.com/apple/swift-collections --branch 0.0.5
     ```
 
 [swift-argument-parser]: https://github.com/apple/swift-argument-parser
