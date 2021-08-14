@@ -432,6 +432,12 @@ public final class UserToolchain: Toolchain {
 
         let applicationPath = destination.binDir
 
+        // this is the normal case when using the toolchain
+        let librariesPath = applicationPath.parentDirectory.appending(components: "lib", "swift", "pm")
+        if localFileSystem.exists(librariesPath) {
+            return .init(root: librariesPath)
+        }
+
         // this tests if we are debugging / testing SwiftPM with Xcode
         let manifestFrameworksPath = applicationPath.appending(components: "PackageFrameworks", "PackageDescription.framework")
         let pluginFrameworksPath = applicationPath.appending(components: "PackageFrameworks", "PackagePlugin.framework")
@@ -448,12 +454,6 @@ public final class UserToolchain: Toolchain {
                 manifestAPI: applicationPath,
                 pluginAPI: applicationPath
             )
-        }
-
-        // this tests if we are debugging / testing SwiftPM with CMake / bootstrap
-        let cmakeLibrariesPath = applicationPath.parentDirectory.appending(components: "lib", "swift", "pm")
-        if localFileSystem.exists(cmakeLibrariesPath) {
-            return .init(root: cmakeLibrariesPath)
         }
 
         // default case - no custom location which will use the one from the toolchain
