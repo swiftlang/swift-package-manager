@@ -138,9 +138,11 @@ final class WorkspaceTests: XCTestCase {
                 let sandbox = path.appending(component: "ws")
                 return try Workspace(
                     fileSystem: fs,
-                    dataPath: sandbox.appending(component: ".build"),
-                    editablesPath: sandbox.appending(component: "edits"),
-                    resolvedVersionsFilePath: sandbox.appending(component: "Package.resolved"),
+                    location: .init(
+                        workingDirectory: sandbox.appending(component: ".build"),
+                        editsDirectory: sandbox.appending(component: "edits"),
+                        resolvedVersionsFilePath: sandbox.appending(component: "Package.resolved")
+                    ),
                     cachePath: fs.swiftPMCacheDirectory.appending(component: "repositories"),
                     customManifestLoader: manifestLoader,
                     delegate: MockWorkspaceDelegate()
@@ -1699,19 +1701,19 @@ final class WorkspaceTests: XCTestCase {
 
         // Drop a build artifact in data directory.
         let ws = try workspace.getOrCreateWorkspace()
-        let buildArtifact = ws.dataPath.appending(component: "test.o")
+        let buildArtifact = ws.location.workingDirectory.appending(component: "test.o")
         try fs.writeFileContents(buildArtifact, bytes: "Hi")
 
         // Sanity checks.
         XCTAssert(fs.exists(buildArtifact))
-        XCTAssert(fs.exists(ws.checkoutsPath))
+        XCTAssert(fs.exists(ws.location.checkoutsDirectory))
 
         // Check clean.
         workspace.checkClean { diagnostics in
             // Only the build artifact should be removed.
             XCTAssertFalse(fs.exists(buildArtifact))
-            XCTAssert(fs.exists(ws.checkoutsPath))
-            XCTAssert(fs.exists(ws.dataPath))
+            XCTAssert(fs.exists(ws.location.checkoutsDirectory))
+            XCTAssert(fs.exists(ws.location.workingDirectory))
 
             XCTAssertNoDiagnostics(diagnostics)
         }
@@ -1726,8 +1728,8 @@ final class WorkspaceTests: XCTestCase {
         workspace.checkReset { diagnostics in
             // Only the build artifact should be removed.
             XCTAssertFalse(fs.exists(buildArtifact))
-            XCTAssertFalse(fs.exists(ws.checkoutsPath))
-            XCTAssertFalse(fs.exists(ws.dataPath))
+            XCTAssertFalse(fs.exists(ws.location.checkoutsDirectory))
+            XCTAssertFalse(fs.exists(ws.location.workingDirectory))
 
             XCTAssertNoDiagnostics(diagnostics)
         }
@@ -2042,7 +2044,7 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertNoDiagnostics(diagnostics)
         }
 
-        try fs.removeFileTree(workspace.getOrCreateWorkspace().checkoutsPath)
+        try fs.removeFileTree(workspace.getOrCreateWorkspace().location.checkoutsDirectory)
 
         workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
             PackageGraphTester(graph) { result in
@@ -2212,7 +2214,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         // Edit foo.
-        let fooPath = try workspace.getOrCreateWorkspace().editablesPath.appending(component: "Foo")
+        let fooPath = try workspace.getOrCreateWorkspace().location.editsDirectory.appending(component: "Foo")
         workspace.checkEdit(packageName: "Foo") { diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
         }
@@ -2303,7 +2305,7 @@ final class WorkspaceTests: XCTestCase {
         workspace.checkPackageGraph(roots: ["Root"]) { _, _ in }
 
         // Edit foo.
-        let fooPath = try workspace.getOrCreateWorkspace().editablesPath.appending(component: "Foo")
+        let fooPath = try workspace.getOrCreateWorkspace().location.editsDirectory.appending(component: "Foo")
         workspace.checkEdit(packageName: "Foo") { diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
         }
@@ -4095,7 +4097,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         // Edit foo.
-        let fooPath = try workspace.getOrCreateWorkspace().editablesPath.appending(component: "Foo")
+        let fooPath = try workspace.getOrCreateWorkspace().location.editsDirectory.appending(component: "Foo")
         workspace.checkEdit(packageName: "Foo") { diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
         }

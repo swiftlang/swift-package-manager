@@ -158,9 +158,11 @@ public final class MockWorkspace {
 
         let workspace = try Workspace(
             fileSystem: self.fs,
-            dataPath: self.sandbox.appending(component: ".build"),
-            editablesPath: self.sandbox.appending(component: "edits"),
-            resolvedVersionsFilePath: self.sandbox.appending(component: "Package.resolved"),
+            location: .init (
+                workingDirectory: self.sandbox.appending(component: ".build"),
+                editsDirectory: self.sandbox.appending(component: "edits"),
+                resolvedVersionsFilePath: self.sandbox.appending(component: "Package.resolved")
+            ),
             cachePath: self.fs.swiftPMCacheDirectory,
             mirrors: self.config.mirrors,
             customToolsVersion: self.toolsVersion,

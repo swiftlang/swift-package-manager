@@ -364,13 +364,10 @@ extension SwiftPackageTool {
             try buildOp.build()
 
             // Dump JSON for the baseline package.
-            //let workspace = try swiftTool.getActiveWorkspace()
             let baselineDumper = try APIDigesterBaselineDumper(
                 baselineRevision: baselineRevision,
                 packageRoot: swiftTool.getPackageRoot(),
                 buildParameters: buildOp.buildParameters,
-                //manifestLoader: workspace.manifestLoader,
-                //repositoryManager: workspace.repositoryManager,
                 apiDigesterTool: apiDigesterTool,
                 diags: swiftTool.diagnostics
             )

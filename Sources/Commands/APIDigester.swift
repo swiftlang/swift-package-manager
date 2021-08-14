@@ -33,12 +33,6 @@ struct APIDigesterBaselineDumper {
     /// The input build parameters.
     let inputBuildParameters: BuildParameters
 
-    /// The manifest loader.
-    //let manifestLoader: ManifestLoaderProtocol
-
-    /// The repository manager.
-    //let repositoryManager: RepositoryManager
-
     /// The API digester tool.
     let apiDigesterTool: SwiftAPIDigester
 
@@ -49,8 +43,6 @@ struct APIDigesterBaselineDumper {
         baselineRevision: Revision,
         packageRoot: AbsolutePath,
         buildParameters: BuildParameters,
-        //manifestLoader: ManifestLoaderProtocol,
-        //repositoryManager: RepositoryManager,
         apiDigesterTool: SwiftAPIDigester,
         diags: DiagnosticsEngine
     ) {
@@ -106,9 +98,7 @@ struct APIDigesterBaselineDumper {
 
         // Create the workspace for this package.
         let workspace = try Workspace(
-            forRootPackage: baselinePackageRoot//,
-            //manifestLoader: manifestLoader,
-            //repositoryManager: repositoryManager
+            forRootPackage: baselinePackageRoot
         )
 
         let graph = try workspace.loadPackageGraph(
@@ -124,7 +114,7 @@ struct APIDigesterBaselineDumper {
 
         // Update the data path input build parameters so it's built in the sandbox.
         var buildParameters = inputBuildParameters
-        buildParameters.dataPath = workspace.dataPath
+        buildParameters.dataPath = workspace.location.workingDirectory
 
         // Build the baseline module.
         let buildOp = BuildOperation(

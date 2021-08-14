@@ -160,9 +160,8 @@ public class Workspace {
     /// The delegate interface.
     fileprivate weak var delegate: WorkspaceDelegate?
 
-    /// The path of the workspace data.
-    // public visibility for plugins
-    public let dataPath: AbsolutePath
+    /// The workspace location.
+    public let location: Location
 
     /// The mirrors config.
     fileprivate let mirrors: DependencyMirrors
@@ -174,21 +173,6 @@ public class Workspace {
     /// The Pins store. The pins file will be created when first pin is added to pins store.
     // public visibility for testing
     public let pinsStore: LoadableResult<PinsStore>
-
-    /// The path to the Package.resolved file for this workspace.
-    fileprivate let resolvedVersionsFilePath: AbsolutePath
-
-    /// The path for working repository clones (checkouts).
-    // internal visibility for testing
-    internal let checkoutsPath: AbsolutePath
-
-    /// The path for downloaded binary artifacts.
-    // internal visibility for testing
-    internal let artifactsPath: AbsolutePath
-
-    /// The path where packages which are put in edit mode are checked out.
-    // internal visibility for testing
-    internal let editablesPath: AbsolutePath
 
     /// The file system on which the workspace will operate.
     fileprivate let fileSystem: FileSystem
@@ -253,7 +237,7 @@ public class Workspace {
     ///
     /// - Parameters:
     ///   - fileSystem: The file system to use.
-    ///   - dataPath: Path to working directory for this workspace.
+    ///   - location: Workspace location configuration.
     ///   - editablesPath: Path to store the editable versions of dependencies.
     ///   - resolvedVersionsFilePath: Path to the Package.resolved file.
     ///   - cachePath: Path to the shared cache.
@@ -274,15 +258,10 @@ public class Workspace {
     ///   - delegate: Delegate for workspace events
     public init(
         fileSystem: FileSystem,
-
-        dataPath: AbsolutePath,
-        editablesPath: AbsolutePath,
-        resolvedVersionsFilePath: AbsolutePath,
-
+        location: Location,
         cachePath: AbsolutePath? = .none,
         netrcFilePath: AbsolutePath? = .none,
         mirrors: DependencyMirrors? = .none,
-
         customToolsVersion: ToolsVersion? = .none,
         customManifestLoader: ManifestLoaderProtocol? = .none,
         customRepositoryManager: RepositoryManager? = .none,
@@ -302,7 +281,7 @@ public class Workspace {
         let toolsVersionLoader = ToolsVersionLoader()
         let manifestLoader = try customManifestLoader ?? ManifestLoader(toolchain: UserToolchain(destination: .hostDestination()).configuration)
         let repositoryProvider = customRepositoryProvider ?? GitRepositoryProvider()
-        let repositoriesPath = dataPath.appending(component: "repositories")
+        let repositoriesPath = location.workingDirectory.appending(component: "repositories")
         let repositoriesCachePath = cachePath.map { $0.appending(component: "repositories") }
         let repositoryManager = customRepositoryManager ?? RepositoryManager(
             path: repositoriesPath,
@@ -327,31 +306,19 @@ public class Workspace {
         let resolverTracingEnabled = resolverTracingEnabled ?? false
 
         // initialize
+        self.fileSystem = fileSystem
+        self.location = location
         self.delegate = delegate
-        self.dataPath = dataPath
         self.mirrors = mirrors
-        self.editablesPath = editablesPath
+        self.netrcFilePath = netrcFilePath
         self.manifestLoader = manifestLoader
         self.currentToolsVersion = currentToolsVersion
         self.toolsVersionLoader = toolsVersionLoader
         self.httpClient = httpClient
-        self.netrcFilePath = netrcFilePath
         self.archiver = archiver
-        self.checksumAlgorithm = checksumAlgorithm
-
-        self.resolvedVersionsFilePath = resolvedVersionsFilePath
-        self.resolverUpdateEnabled = resolverUpdateEnabled
-        self.resolverPrefetchingEnabled = resolverPrefetchingEnabled
-        self.resolverTracingEnabled = resolverTracingEnabled
-
-        self.additionalFileRules = additionalFileRules
-
         self.repositoryManager = repositoryManager
-
-        self.checkoutsPath = self.dataPath.appending(component: "checkouts")
-        self.artifactsPath = self.dataPath.appending(component: "artifacts")
-
         self.identityResolver = identityResolver
+        self.checksumAlgorithm = checksumAlgorithm
 
         self.containerProvider = RepositoryPackageContainerProvider(
             repositoryManager: repositoryManager,
@@ -360,12 +327,17 @@ public class Workspace {
             currentToolsVersion: currentToolsVersion,
             toolsVersionLoader: toolsVersionLoader
         )
-        self.fileSystem = fileSystem
 
         self.pinsStore = LoadableResult {
-            try PinsStore(pinsFile: resolvedVersionsFilePath, fileSystem: fileSystem, mirrors: mirrors)
+            try PinsStore(pinsFile: location.resolvedVersionsFilePath, fileSystem: fileSystem, mirrors: mirrors)
         }
-        self.state = WorkspaceState(dataPath: dataPath, fileSystem: fileSystem)
+
+        self.additionalFileRules = additionalFileRules
+        self.resolverUpdateEnabled = resolverUpdateEnabled
+        self.resolverPrefetchingEnabled = resolverPrefetchingEnabled
+        self.resolverTracingEnabled = resolverTracingEnabled
+
+        self.state = WorkspaceState(dataPath: self.location.workingDirectory, fileSystem: fileSystem)
     }
 
     // deprecated 8/2021
@@ -399,9 +371,11 @@ public class Workspace {
         let fileSystem = fileSystem ?? localFileSystem
         try! self.init(
             fileSystem: fileSystem,
-            dataPath: dataPath,
-            editablesPath: editablesPath,
-            resolvedVersionsFilePath: pinsFile,
+            location: .init(
+                workingDirectory: dataPath,
+                editsDirectory: editablesPath,
+                resolvedVersionsFilePath: pinsFile
+            ),
             cachePath: cachePath,
             netrcFilePath: netrcFilePath,
             mirrors: config?.mirrors,
@@ -471,9 +445,7 @@ public class Workspace {
         let mirrorsPath = packagePath.appending(components: ".swiftpm", "config")
         try self .init(
             fileSystem: fileSystem,
-            dataPath: packagePath.appending(component: ".build"),
-            editablesPath: packagePath.appending(component: "Packages"),
-            resolvedVersionsFilePath: packagePath.appending(component: "Package.resolved"),
+            location: .init(forRootPackage: packagePath),
             mirrors: try Workspace.Configuration(path: mirrorsPath, fileSystem: fileSystem).mirrors,
             customManifestLoader: customManifestLoader,
             delegate: delegate
@@ -630,28 +602,28 @@ extension Workspace {
         // These are the things we don't want to remove while cleaning.
         let protectedAssets = [
             repositoryManager.path,
-            checkoutsPath,
-            artifactsPath,
+            self.location.checkoutsDirectory,
+            self.location.artifactsDirectory,
             state.path,
         ].map({ path -> String in
             // Assert that these are present inside data directory.
-            assert(path.parentDirectory == dataPath)
+            assert(path.parentDirectory == self.location.workingDirectory)
             return path.basename
         })
 
         // If we have no data yet, we're done.
-        guard fileSystem.exists(dataPath) else {
+        guard fileSystem.exists(self.location.workingDirectory) else {
             return
         }
 
-        guard let contents = diagnostics.wrap({ try fileSystem.getDirectoryContents(dataPath) }) else {
+        guard let contents = diagnostics.wrap({ try fileSystem.getDirectoryContents(self.location.workingDirectory) }) else {
             return
         }
 
         // Remove all but protected paths.
         let contentsToRemove = Set(contents).subtracting(protectedAssets)
         for name in contentsToRemove {
-            try? fileSystem.removeFileTree(dataPath.appending(RelativePath(name)))
+            try? fileSystem.removeFileTree(self.location.workingDirectory.appending(RelativePath(name)))
         }
     }
 
@@ -674,7 +646,7 @@ extension Workspace {
     ///       and notes.
     public func reset(with diagnostics: DiagnosticsEngine) {
         let removed = diagnostics.wrap {
-            try fileSystem.chmod(.userWritable, path: checkoutsPath, options: [.recursive, .onlyFiles])
+            try fileSystem.chmod(.userWritable, path: self.location.checkoutsDirectory, options: [.recursive, .onlyFiles])
             // Reset state.
             try self.resetState()
         }
@@ -682,7 +654,7 @@ extension Workspace {
         guard removed else { return }
         repositoryManager.reset()
         try? manifestLoader.resetCache()
-        try? fileSystem.removeFileTree(dataPath)
+        try? fileSystem.removeFileTree(self.location.workingDirectory)
     }
 
     // FIXME: @testable internal
@@ -1022,7 +994,7 @@ extension Workspace {
 
         // If a path is provided then we use it as destination. If not, we
         // use the folder with packageName inside editablesPath.
-        let destination = path ?? editablesPath.appending(component: packageName)
+        let destination = path ?? self.location.editsDirectory.appending(component: packageName)
 
         // If there is something present at the destination, we confirm it has
         // a valid manifest with name same as the package we are trying to edit.
@@ -1081,10 +1053,10 @@ extension Workspace {
 
         // For unmanaged dependencies, create the symlink under editables dir.
         if let path = path {
-            try fileSystem.createDirectory(editablesPath)
+            try fileSystem.createDirectory(self.location.editsDirectory)
             // FIXME: We need this to work with InMem file system too.
             if !(fileSystem is InMemoryFileSystem) {
-                let symLinkPath = editablesPath.appending(component: packageName)
+                let symLinkPath = self.location.editsDirectory.appending(component: packageName)
 
                 // Cleanup any existing symlink.
                 if fileSystem.isSymlink(symLinkPath) {
@@ -1100,7 +1072,7 @@ extension Workspace {
 
         // Remove the existing checkout.
         do {
-            let oldCheckoutPath = checkoutsPath.appending(dependency.subpath)
+            let oldCheckoutPath = self.location.checkoutsDirectory.appending(dependency.subpath)
             try fileSystem.chmod(.userWritable, path: oldCheckoutPath, options: [.recursive, .onlyFiles])
             try fileSystem.removeFileTree(oldCheckoutPath)
         }
@@ -1136,7 +1108,7 @@ extension Workspace {
         }
 
         // Form the edit working repo path.
-        let path = editablesPath.appending(dependency.subpath)
+        let path = self.location.editsDirectory.appending(dependency.subpath)
         // Check for uncommited and unpushed changes if force removal is off.
         if !forceRemove {
             let workingCopy = try repositoryManager.provider.openWorkingCopy(at: path)
@@ -1152,8 +1124,8 @@ extension Workspace {
             try fileSystem.removeFileTree(path)
         }
         // If this was the last editable dependency, remove the editables directory too.
-        if fileSystem.exists(editablesPath), try fileSystem.getDirectoryContents(editablesPath).isEmpty {
-            try fileSystem.removeFileTree(editablesPath)
+        if fileSystem.exists(self.location.editsDirectory), try fileSystem.getDirectoryContents(self.location.editsDirectory).isEmpty {
+            try fileSystem.removeFileTree(self.location.editsDirectory)
         }
 
         if let checkoutState = dependency.basedOn?.checkoutState {
@@ -1389,7 +1361,7 @@ extension Workspace {
     public func watchResolvedFile() throws {
         // Return if we're already watching it.
         guard self.resolvedFileWatcher == nil else { return }
-        self.resolvedFileWatcher = try ResolvedFileWatcher(resolvedFile: self.resolvedVersionsFilePath) { [weak self] in
+        self.resolvedFileWatcher = try ResolvedFileWatcher(resolvedFile: self.location.resolvedVersionsFilePath) { [weak self] in
             self?.delegate?.resolvedFileChanged()
         }
     }
@@ -1398,8 +1370,8 @@ extension Workspace {
     fileprivate func createCacheDirectories(with diagnostics: DiagnosticsEngine) {
         do {
             try fileSystem.createDirectory(repositoryManager.path, recursive: true)
-            try fileSystem.createDirectory(checkoutsPath, recursive: true)
-            try fileSystem.createDirectory(artifactsPath, recursive: true)
+            try fileSystem.createDirectory(self.location.checkoutsDirectory, recursive: true)
+            try fileSystem.createDirectory(self.location.artifactsDirectory, recursive: true)
         } catch {
             diagnostics.emit(error)
         }
@@ -1413,9 +1385,9 @@ extension Workspace {
     public func path(to dependency: ManagedDependency) -> AbsolutePath {
         switch dependency.state {
         case .checkout:
-            return checkoutsPath.appending(dependency.subpath)
+            return self.location.checkoutsDirectory.appending(dependency.subpath)
         case .edited(let path):
-            return path ?? editablesPath.appending(dependency.subpath)
+            return path ?? self.location.editsDirectory.appending(dependency.subpath)
         case .local:
             return AbsolutePath(dependency.packageRef.location)
         }
@@ -1713,8 +1685,8 @@ extension Workspace {
                 }
             }
 
-            for directory in try fileSystem.getDirectoryContents(artifactsPath) {
-                let directoryPath = artifactsPath.appending(component: directory)
+            for directory in try fileSystem.getDirectoryContents(self.location.artifactsDirectory) {
+                let directoryPath = self.location.artifactsDirectory.appending(component: directory)
                 if try fileSystem.isDirectory(directoryPath) && fileSystem.getDirectoryContents(directoryPath).isEmpty {
                     try fileSystem.removeFileTree(directoryPath)
                 }
@@ -1854,8 +1826,8 @@ extension Workspace {
             group.enter()
             defer { group.leave() }
 
-            let parentDirectory =  self.artifactsPath.appending(component: artifact.packageRef.name)
-            let tempExtractionDirectory = self.artifactsPath.appending(components: "extract", artifact.targetName)
+            let parentDirectory =  self.location.artifactsDirectory.appending(component: artifact.packageRef.name)
+            let tempExtractionDirectory = self.location.artifactsDirectory.appending(components: "extract", artifact.targetName)
 
             do {
                 try fileSystem.createDirectory(parentDirectory, recursive: true)
@@ -2048,10 +2020,10 @@ extension Workspace {
         )
 
         if precomputationResult.isRequired {
-            if !fileSystem.exists(self.resolvedVersionsFilePath) {
-                diagnostics.emit(error: "a resolved file is required when automatic dependency resolution is disabled and should be placed at \(self.resolvedVersionsFilePath.pathString)")
+            if !fileSystem.exists(self.location.resolvedVersionsFilePath) {
+                diagnostics.emit(error: "a resolved file is required when automatic dependency resolution is disabled and should be placed at \(self.location.resolvedVersionsFilePath.pathString)")
             } else {
-                diagnostics.emit(error: "an out-of-date resolved file was detected at \(self.resolvedVersionsFilePath.pathString), which is not allowed when automatic dependency resolution is disabled; please make sure to update the file to reflect the changes in dependencies")
+                diagnostics.emit(error: "an out-of-date resolved file was detected at \(self.location.resolvedVersionsFilePath.pathString), which is not allowed when automatic dependency resolution is disabled; please make sure to update the file to reflect the changes in dependencies")
             }
         }
 
@@ -2501,7 +2473,7 @@ extension Workspace {
             delegates.append(WorkspaceDependencyResolverDelegate(workspaceDelegate))
         }
         if self.resolverTracingEnabled {
-            delegates.append(try TracingDependencyResolverDelegate(path: self.dataPath.appending(components: "resolver.trace")))
+            delegates.append(try TracingDependencyResolverDelegate(path: self.location.workingDirectory.appending(components: "resolver.trace")))
         }
         let delegate = !delegates.isEmpty ? MultiplexResolverDelegate(delegates) : nil
 
@@ -2648,7 +2620,7 @@ extension Workspace {
     private func fetch(package: PackageReference) throws -> AbsolutePath {
         // If we already have it, fetch to update the repo from its remote.
         if let dependency = state.dependencies[forURL: package.location] {
-            let path = checkoutsPath.appending(dependency.subpath)
+            let path = self.location.checkoutsDirectory.appending(dependency.subpath)
 
             // Make sure the directory is not missing (we will have to clone again
             // if not).
@@ -2680,7 +2652,7 @@ extension Workspace {
         }
 
         // Clone the repository into the checkouts.
-        let path = checkoutsPath.appending(component: package.repository.basename)
+        let path = self.location.checkoutsDirectory.appending(component: package.repository.basename)
 
         try fileSystem.chmod(.userWritable, path: path, options: [.recursive, .onlyFiles])
         try fileSystem.removeFileTree(path)
@@ -2724,7 +2696,7 @@ extension Workspace {
         // Write the state record.
         state.dependencies.add(ManagedDependency(
             packageRef: package,
-            subpath: path.relative(to: checkoutsPath),
+            subpath: path.relative(to: self.location.checkoutsDirectory),
             checkoutState: checkoutState))
         try state.saveState()
 
@@ -2807,7 +2779,7 @@ extension Workspace {
         }
 
         // Remove the checkout.
-        let dependencyPath = checkoutsPath.appending(dependencyToRemove.subpath)
+        let dependencyPath = self.location.checkoutsDirectory.appending(dependencyToRemove.subpath)
         let workingCopy = try repositoryManager.provider.openWorkingCopy(at: dependencyPath)
         guard !workingCopy.hasUncommittedChanges() else {
             throw WorkspaceDiagnostics.UncommitedChanges(repositoryPath: dependencyPath)

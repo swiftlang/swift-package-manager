@@ -16,10 +16,60 @@ import TSCUtility
 import PackageGraph
 
 extension Workspace {
+    /// Workspace location configuration
+    public struct Location {
+        /// Path to working directory for this workspace.
+        public var workingDirectory: AbsolutePath
+
+        /// Path to store the editable versions of dependencies.
+        public var editsDirectory: AbsolutePath
+
+        /// Path to the Package.resolved file.
+        public var resolvedVersionsFilePath: AbsolutePath
+
+        /// Path to working repository clones (checkouts).
+        public var checkoutsDirectory: AbsolutePath {
+            self.workingDirectory.appending(component: "checkouts")
+        }
+
+        // Path for downloaded binary artifacts.
+        public var artifactsDirectory: AbsolutePath {
+            self.workingDirectory.appending(component: "artifacts")
+        }
+
+        /// Create a new workspace location.
+        ///
+        /// - Parameters:
+        ///   - workingDirectory: Path to working directory for this workspace.
+        ///   - editsDirectory: Path to store the editable versions of dependencies.
+        ///   - resolvedVersionsFile: Path to the Package.resolved file.
+        public init(
+            workingDirectory: AbsolutePath,
+            editsDirectory: AbsolutePath,
+            resolvedVersionsFilePath: AbsolutePath)
+        {
+            self.workingDirectory = workingDirectory
+            self.editsDirectory = editsDirectory
+            self.resolvedVersionsFilePath = resolvedVersionsFilePath
+        }
+
+        /// Create a new workspace location.
+        ///
+        /// - Parameters:
+        ///   - rootPath: Path to the root of the package, from which other locations can be derived.
+        public init(forRootPackage rootPath: AbsolutePath) {
+            self.init(
+                workingDirectory: rootPath.appending(component: ".build"),
+                editsDirectory: rootPath.appending(component: "Packages"),
+                resolvedVersionsFilePath: rootPath.appending(component: "Package.resolved")
+            )
+        }
+    }
+
     /// Manages a package workspace's configuration.
     public final class Configuration {
         /// The path to the mirrors file.
-        public let configFile: AbsolutePath?
+        private let configFile: AbsolutePath?
 
         /// The filesystem to manage the mirrors file on.
         private var fileSystem: FileSystem?
@@ -63,13 +113,6 @@ extension Workspace {
                 throw StringError("Configuration file is corrupted or malformed; fix or delete the file to continue: \(error)")
             }
         }
-
-        /// Initializes a new, ephemeral package configuration.
-        /*public init() {
-            self.configFile = nil
-            self.fileSystem = nil
-            self.persistence = nil
-        }*/
 
         /// Load the configuration from disk.
         public func restoreState() throws {
