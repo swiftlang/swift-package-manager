@@ -79,7 +79,7 @@ final class PinsStoreTests: XCTestCase {
         do {
             store.pin(
                 packageRef: barRef,
-                state: CheckoutState.branch("develop", revision: revision)
+                state: CheckoutState.branch(name: "develop", revision: revision)
             )
             try store.saveState()
             store = try PinsStore(pinsFile: pinsFile, fileSystem: fs, mirrors: .init())

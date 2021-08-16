@@ -723,7 +723,7 @@ final class PackageToolTests: XCTestCase {
             do {
                 try execute("resolve", "bar", "--branch", "YOLO")
                 let pinsStore = try PinsStore(pinsFile: pinsFile, fileSystem: localFileSystem, mirrors: .init())
-                let state = CheckoutState.branch("YOLO", revision: yoloRevision)
+                let state = CheckoutState.branch(name: "YOLO", revision: yoloRevision)
                 let identity = PackageIdentity(path: barPath)
                 XCTAssertEqual(pinsStore.pinsMap[identity]?.state, state)
             }

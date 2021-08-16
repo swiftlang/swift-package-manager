@@ -1165,7 +1165,7 @@ final class WorkspaceTests: XCTestCase {
         let v1Requirement: MockDependency.Requirement = .range("1.0.0" ..< "2.0.0")
         //let localRequirement: MockDependency.Requirement = .localPackage
         let v1_5 = CheckoutState.version("1.0.5", revision: Revision(identifier: "hello"))
-        let master = CheckoutState.branch("master", revision: Revision(identifier: "master"))
+        let master = CheckoutState.branch(name: "master", revision: Revision(identifier: "master"))
 
         let workspace = try MockWorkspace(
             sandbox: sandbox,

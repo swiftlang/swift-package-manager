@@ -1906,7 +1906,7 @@ fileprivate extension CheckoutState {
     }
 
     static func branch(_ branch: String, revision: String) -> CheckoutState {
-        .branch(branch, revision: Revision(identifier: revision))
+        .branch(name: branch, revision: Revision(identifier: revision))
     }
 }
 

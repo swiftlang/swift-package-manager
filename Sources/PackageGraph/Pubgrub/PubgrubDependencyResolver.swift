@@ -1060,7 +1060,6 @@ private final class PubGrubPackageContainer {
         default:
             return .none
         }
-        //return self.pinsMap[self.underlying.package.identity]?.state.version
     }
 
     /// Returns the numbers of versions that are satisfied by the given version requirement.

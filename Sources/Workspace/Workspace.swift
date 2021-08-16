@@ -2372,7 +2372,7 @@ extension Workspace {
                     // to do anything.
                     let newState: CheckoutState
                     if let branch = branch {
-                        newState = .branch(branch, revision: revision)
+                        newState = .branch(name: branch, revision: revision)
                     } else {
                         newState = .revision(revision)
                     }
@@ -2678,7 +2678,7 @@ extension Workspace {
             checkoutState = .revision(revision)
 
         case .revision(let revision, .some(let branch)):
-            checkoutState = .branch(branch, revision: revision)
+            checkoutState = .branch(name: branch, revision: revision)
 
         case .unversioned:
             state.dependencies.add(ManagedDependency.local(packageRef: package))

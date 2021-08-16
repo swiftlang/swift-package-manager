@@ -19,7 +19,7 @@ public enum CheckoutState: Equatable, Hashable {
 
     case revision(Revision)
     case version(Version, revision: Revision)
-    case branch(String, revision: Revision)
+    case branch(name: String, revision: Revision)
 
     /// The revision of the checkout.
     public var revision: Revision {
@@ -86,7 +86,7 @@ extension CheckoutState: JSONMappable, JSONSerializable {
         case (.some(let version), .none):
             self = .version(version, revision: revision)
         case (.none, .some(let branch)):
-            self = .branch(branch, revision: revision)
+            self = .branch(name: branch, revision: revision)
         case (.some(_), .some(_)):
             preconditionFailure("Can't set both branch and version.")
         }
