@@ -25,7 +25,7 @@ public final class MockWorkspace {
     public let checksumAlgorithm: MockHashAlgorithm
     let roots: [MockPackage]
     let packages: [MockPackage]
-    public let config: Workspace.Configuration
+    public let mirrors: DependencyMirrors
     let identityResolver: IdentityResolver
     public var manifestLoader: MockManifestLoader
     public var repoProvider: InMemoryGitRepositoryProvider
@@ -39,7 +39,7 @@ public final class MockWorkspace {
         httpClient: HTTPClient? = nil,
         archiver: MockArchiver = MockArchiver(),
         checksumAlgorithm: MockHashAlgorithm = MockHashAlgorithm(),
-        config: Workspace.Configuration? = nil,
+        mirrors: DependencyMirrors? = nil,
         roots: [MockPackage],
         packages: [MockPackage],
         toolsVersion: ToolsVersion = ToolsVersion.currentToolsVersion,
@@ -50,8 +50,8 @@ public final class MockWorkspace {
         self.httpClient = httpClient ?? HTTPClient.mock(fileSystem: fs)
         self.archiver = archiver
         self.checksumAlgorithm = checksumAlgorithm
-        self.config = try config ?? Workspace.Configuration(path: sandbox.appending(component: "swiftpm"), fileSystem: fs)
-        self.identityResolver = DefaultIdentityResolver(locationMapper: self.config.mirrors.effectiveURL(for:))
+        self.mirrors = mirrors ?? DependencyMirrors()
+        self.identityResolver = DefaultIdentityResolver(locationMapper: self.mirrors.effectiveURL(for:))
         self.roots = roots
         self.packages = packages
 
@@ -158,13 +158,14 @@ public final class MockWorkspace {
 
         let workspace = try Workspace(
             fileSystem: self.fs,
-            location: .init (
+            location: .init(
                 workingDirectory: self.sandbox.appending(component: ".build"),
                 editsDirectory: self.sandbox.appending(component: "edits"),
-                resolvedVersionsFilePath: self.sandbox.appending(component: "Package.resolved"),
-                sharedCacheDirectory: self.fs.swiftPMCacheDirectory
+                resolvedVersionsFile: self.sandbox.appending(component: "Package.resolved"),
+                sharedCacheDirectory: self.fs.swiftPMCacheDirectory,
+                sharedConfigurationDirectory: self.fs.swiftPMConfigDirectory
             ),
-            mirrors: self.config.mirrors,
+            mirrors: self.mirrors,
             customToolsVersion: self.toolsVersion,
             customManifestLoader: self.manifestLoader,
             customRepositoryProvider: self.repoProvider,

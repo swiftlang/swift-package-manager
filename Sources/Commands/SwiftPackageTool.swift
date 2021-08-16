@@ -685,7 +685,7 @@ extension SwiftPackageTool {
 
             case .set(let value):
                 guard let toolsVersion = ToolsVersion(string: value) else {
-                    // FIXME: Probably lift this error defination to ToolsVersion.
+                    // FIXME: Probably lift this error definition to ToolsVersion.
                     throw ToolsVersionLoader.Error.malformedToolsVersionSpecification(.versionSpecifier(.isMisspelt(value)))
                 }
                 try rewriteToolsVersionSpecification(toDefaultManifestIn: pkg, specifying: toolsVersion, fileSystem: localFileSystem)
@@ -895,8 +895,9 @@ extension SwiftPackageTool.Config {
                 throw ExitCode.failure
             }
 
-            config.mirrors.set(mirrorURL: mirrorURL, forURL: originalURL)
-            try config.saveState()
+            try config.applyLocal { mirrors in
+                mirrors.set(mirrorURL: mirrorURL, forURL: originalURL)
+            }
         }
     }
 
@@ -929,8 +930,9 @@ extension SwiftPackageTool.Config {
                 throw ExitCode.failure
             }
 
-            try config.mirrors.unset(originalOrMirrorURL: originalOrMirrorURL)
-            try config.saveState()
+            try config.applyLocal { mirrors in
+                try mirrors.unset(originalOrMirrorURL: originalOrMirrorURL)
+            }
         }
     }
 

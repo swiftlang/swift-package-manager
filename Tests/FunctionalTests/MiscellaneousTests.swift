@@ -626,6 +626,23 @@ class MiscellaneousTestCase: XCTestCase {
                 XCTAssertTrue(output.stdout.contains("Build complete!"), output.stdout)
             }
         }
+    }
 
+    func testCustomCachePath() {
+        fixture(name: "Miscellaneous/Simple") { path in
+            let customCachePath = path.appending(components: "custom", "cache")
+            XCTAssertFalse(localFileSystem.exists(customCachePath))
+            try SwiftPMProduct.SwiftBuild.execute(["--cache-path", customCachePath.pathString], packagePath: path)
+            XCTAssertTrue(localFileSystem.exists(customCachePath))
+        }
+    }
+
+    func testCustomConfigPath() {
+        fixture(name: "Miscellaneous/Simple") { path in
+            let customConfigPath = path.appending(components: "custom", "config")
+            XCTAssertFalse(localFileSystem.exists(customConfigPath))
+            try SwiftPMProduct.SwiftBuild.execute(["--config-path", customConfigPath.pathString], packagePath: path)
+            XCTAssertTrue(localFileSystem.exists(customConfigPath))
+        }
     }
 }

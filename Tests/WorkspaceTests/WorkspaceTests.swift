@@ -136,12 +136,7 @@ final class WorkspaceTests: XCTestCase {
                 let sandbox = path.appending(component: "ws")
                 return try Workspace(
                     fileSystem: fs,
-                    location: .init(
-                        workingDirectory: sandbox.appending(component: ".build"),
-                        editsDirectory: sandbox.appending(component: "edits"),
-                        resolvedVersionsFilePath: sandbox.appending(component: "Package.resolved"),
-                        sharedCacheDirectory: fs.swiftPMCacheDirectory.appending(component: "repositories")
-                    ),
+                    location: .init(forRootPackage: sandbox, fileSystem: fs),
                     customManifestLoader: manifestLoader,
                     delegate: MockWorkspaceDelegate()
                 )
@@ -3393,15 +3388,14 @@ final class WorkspaceTests: XCTestCase {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let config = try Workspace.Configuration(path: sandbox.appending(component: "swiftpm"), fileSystem: fs)
-        config.mirrors.set(mirrorURL: sandbox.appending(components: "pkgs", "Baz").pathString, forURL: sandbox.appending(components: "pkgs", "Bar").pathString)
-        config.mirrors.set(mirrorURL: sandbox.appending(components: "pkgs", "Baz").pathString, forURL: sandbox.appending(components: "pkgs", "Bam").pathString)
-        try config.saveState()
+        let mirrors = DependencyMirrors()
+        mirrors.set(mirrorURL: sandbox.appending(components: "pkgs", "Baz").pathString, forURL: sandbox.appending(components: "pkgs", "Bar").pathString)
+        mirrors.set(mirrorURL: sandbox.appending(components: "pkgs", "Baz").pathString, forURL: sandbox.appending(components: "pkgs", "Bam").pathString)
 
         let workspace = try MockWorkspace(
             sandbox: sandbox,
             fs: fs,
-            config: config,
+            mirrors: mirrors,
             roots: [
                 MockPackage(
                     name: "Foo",
