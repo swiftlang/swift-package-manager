@@ -14,7 +14,7 @@ import PackageDescription
 import class Foundation.ProcessInfo
 
 // We default to a 10.10 minimum deployment target for clients of libSwiftPM,
-// but allow overriding it when building for a toolchain.
+// but allow overriding it when building for a toolchain. test.
 
 let macOSPlatform: SupportedPlatform
 if let deploymentTarget = ProcessInfo.processInfo.environment["SWIFTPM_MACOS_DEPLOYMENT_TARGET"] {
@@ -90,13 +90,13 @@ let package = Package(
             type: .dynamic,
             targets: ["PackageDescription"]
         ),
-        
+
         .library(
             name: "PackagePlugin",
             type: .dynamic,
             targets: ["PackagePlugin"]
         ),
-        
+
         .library(
             name: "PackageCollectionsModel",
             targets: ["PackageCollectionsModel"]
@@ -172,7 +172,7 @@ let package = Package(
             dependencies: ["SwiftToolsSupport-auto", "Basics", "PackageLoading", "PackageModel", "SourceControl"]),
 
         // MARK: Package Collections
-        
+
         .target(
             /** Package collections models */
             name: "PackageCollectionsModel",
