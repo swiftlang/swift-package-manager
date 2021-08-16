@@ -38,7 +38,7 @@ final class WorkspaceConfigurationTests: XCTestCase {
                 """
         }
 
-        let config = try Workspace.Configuration(path: configFile, fs: fs)
+        let config = try Workspace.Configuration(path: configFile, fileSystem: fs)
 
         XCTAssertEqual(config.mirrors.mirrorURL(for: "https://github.com/apple/swift-argument-parser.git"), "https://github.com/mona/swift-argument-parser.git")
         XCTAssertEqual(config.mirrors.originalURL(for: "https://github.com/mona/swift-argument-parser.git"), "https://github.com/apple/swift-argument-parser.git")
@@ -47,7 +47,7 @@ final class WorkspaceConfigurationTests: XCTestCase {
     func testThrowsMirrorNotFound() throws {
         let fs = InMemoryFileSystem()
         let configFile = AbsolutePath("/.swiftpm/config")
-        let config = try Workspace.Configuration(path: configFile, fs: fs)
+        let config = try Workspace.Configuration(path: configFile, fileSystem: fs)
 
         XCTAssertThrows(DependencyMirrors.Error.mirrorNotFound) {
             try config.mirrors.unset(originalOrMirrorURL: "https://github.com/apple/swift-argument-parser.git")
@@ -57,7 +57,7 @@ final class WorkspaceConfigurationTests: XCTestCase {
     func testEmptyMirrors() throws {
         let fs = InMemoryFileSystem()
         let configFile = AbsolutePath("/.swiftpm/config")
-        let config = try Workspace.Configuration(path: configFile, fs: fs)
+        let config = try Workspace.Configuration(path: configFile, fileSystem: fs)
 
         try config.saveState()
         XCTAssertFalse(fs.exists(configFile))

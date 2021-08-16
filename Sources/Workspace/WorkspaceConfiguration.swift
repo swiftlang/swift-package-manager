@@ -16,6 +16,72 @@ import TSCUtility
 import PackageGraph
 
 extension Workspace {
+    /// Workspace location configuration
+    public struct Location {
+        /// Path to working directory for this workspace.
+        public var workingDirectory: AbsolutePath
+
+        /// Path to store the editable versions of dependencies.
+        public var editsDirectory: AbsolutePath
+
+        /// Path to the Package.resolved file.
+        public var resolvedVersionsFilePath: AbsolutePath
+
+        /// Path to the shared cache
+        public var sharedCacheDirectory: AbsolutePath?
+
+        /// Path to the repositories shared cache.
+        public var repositoriesSharedCacheDirectory: AbsolutePath? {
+            self.sharedCacheDirectory.map { $0.appending(component: "repositories") }
+        }
+
+        /// Path to the repositories clones.
+        public var repositoriesDirectory: AbsolutePath {
+            self.workingDirectory.appending(component: "repositories")
+        }
+
+        /// Path to the repository checkouts.
+        public var repositoriesCheckoutsDirectory: AbsolutePath {
+            self.workingDirectory.appending(component: "checkouts")
+        }
+
+        /// Path to the downloaded binary artifacts.
+        public var artifactsDirectory: AbsolutePath {
+            self.workingDirectory.appending(component: "artifacts")
+        }
+
+        /// Create a new workspace location.
+        ///
+        /// - Parameters:
+        ///   - workingDirectory: Path to working directory for this workspace.
+        ///   - editsDirectory: Path to store the editable versions of dependencies.
+        ///   - resolvedVersionsFile: Path to the Package.resolved file.
+        ///   - sharedCachePath: Path to the sharedCache
+        public init(
+            workingDirectory: AbsolutePath,
+            editsDirectory: AbsolutePath,
+            resolvedVersionsFilePath: AbsolutePath,
+            sharedCacheDirectory: AbsolutePath? = .none
+        ) {
+            self.workingDirectory = workingDirectory
+            self.editsDirectory = editsDirectory
+            self.resolvedVersionsFilePath = resolvedVersionsFilePath
+            self.sharedCacheDirectory = sharedCacheDirectory
+        }
+
+        /// Create a new workspace location.
+        ///
+        /// - Parameters:
+        ///   - rootPath: Path to the root of the package, from which other locations can be derived.
+        public init(forRootPackage rootPath: AbsolutePath) {
+            self.init(
+                workingDirectory: rootPath.appending(component: ".build"),
+                editsDirectory: rootPath.appending(component: "Packages"),
+                resolvedVersionsFilePath: rootPath.appending(component: "Package.resolved")
+            )
+        }
+    }
+
     /// Manages a package workspace's configuration.
     public final class Configuration {
         /// The path to the mirrors file.
@@ -35,16 +101,22 @@ extension Workspace {
         /// The mirrors.
         public private(set) var mirrors: DependencyMirrors = DependencyMirrors()
 
+
+        @available(*, deprecated)
+        public convenience init(path: AbsolutePath, fs: FileSystem = localFileSystem) throws {
+            try self.init(path: path, fileSystem: fs)
+        }
+
         /// Creates a new, persisted package configuration with a configuration file.
         /// - Parameters:
         ///   - path: A path to the configuration file.
-        ///   - fs: The filesystem on which the configuration file is located.
+        ///   - fileSystem: The filesystem on which the configuration file is located.
         /// - Throws: `StringError` if the configuration file is corrupted or malformed.
-        public init(path: AbsolutePath, fs: FileSystem = localFileSystem) throws {
+        public init(path: AbsolutePath, fileSystem: FileSystem) throws {
             self.configFile = path
-            self.fileSystem = fs
+            self.fileSystem = fileSystem
             let persistence = SimplePersistence(
-                fileSystem: fs,
+                fileSystem: fileSystem,
                 schemaVersion: Self.schemaVersion,
                 statePath: path,
                 prettyPrint: true
@@ -56,13 +128,6 @@ extension Workspace {
             } catch SimplePersistence.Error.restoreFailure(_, let error) {
                 throw StringError("Configuration file is corrupted or malformed; fix or delete the file to continue: \(error)")
             }
-        }
-
-        /// Initializes a new, ephemeral package configuration.
-        public init() {
-            self.configFile = nil
-            self.fileSystem = nil
-            self.persistence = nil
         }
 
         /// Load the configuration from disk.

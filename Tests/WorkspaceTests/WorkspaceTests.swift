@@ -17,7 +17,7 @@ import SourceControl
 import SPMBuildCore
 import TSCBasic
 import TSCUtility
-import Workspace
+@testable import Workspace
 import Basics
 
 import SPMTestSupport
@@ -107,7 +107,7 @@ final class WorkspaceTests: XCTestCase {
             result.check(dependency: "quix", at: .checkout(.version("1.2.0")))
         }
 
-        let stateFile = workspace.getOrCreateWorkspace().state.path
+        let stateFile = try workspace.getOrCreateWorkspace().state.path
 
         // Remove state file and check we can get the state back automatically.
         try fs.removeFileTree(stateFile)
@@ -136,13 +136,16 @@ final class WorkspaceTests: XCTestCase {
                 let manifestLoader = ManifestLoader(toolchain: ToolchainConfiguration.default)
 
                 let sandbox = path.appending(component: "ws")
-                return Workspace(
-                    dataPath: sandbox.appending(component: ".build"),
-                    editablesPath: sandbox.appending(component: "edits"),
-                    pinsFile: sandbox.appending(component: "Package.resolved"),
-                    manifestLoader: manifestLoader,
-                    delegate: MockWorkspaceDelegate(),
-                    cachePath: fs.swiftPMCacheDirectory.appending(component: "repositories")
+                return try Workspace(
+                    fileSystem: fs,
+                    location: .init(
+                        workingDirectory: sandbox.appending(component: ".build"),
+                        editsDirectory: sandbox.appending(component: "edits"),
+                        resolvedVersionsFilePath: sandbox.appending(component: "Package.resolved"),
+                        sharedCacheDirectory: fs.swiftPMCacheDirectory.appending(component: "repositories")
+                    ),
+                    customManifestLoader: manifestLoader,
+                    delegate: MockWorkspaceDelegate()
                 )
             }
 
@@ -1697,20 +1700,20 @@ final class WorkspaceTests: XCTestCase {
         }
 
         // Drop a build artifact in data directory.
-        let ws = workspace.getOrCreateWorkspace()
-        let buildArtifact = ws.dataPath.appending(component: "test.o")
+        let ws = try workspace.getOrCreateWorkspace()
+        let buildArtifact = ws.location.workingDirectory.appending(component: "test.o")
         try fs.writeFileContents(buildArtifact, bytes: "Hi")
 
         // Sanity checks.
         XCTAssert(fs.exists(buildArtifact))
-        XCTAssert(fs.exists(ws.checkoutsPath))
+        XCTAssert(fs.exists(ws.location.repositoriesCheckoutsDirectory))
 
         // Check clean.
         workspace.checkClean { diagnostics in
             // Only the build artifact should be removed.
             XCTAssertFalse(fs.exists(buildArtifact))
-            XCTAssert(fs.exists(ws.checkoutsPath))
-            XCTAssert(fs.exists(ws.dataPath))
+            XCTAssert(fs.exists(ws.location.repositoriesCheckoutsDirectory))
+            XCTAssert(fs.exists(ws.location.workingDirectory))
 
             XCTAssertNoDiagnostics(diagnostics)
         }
@@ -1725,8 +1728,8 @@ final class WorkspaceTests: XCTestCase {
         workspace.checkReset { diagnostics in
             // Only the build artifact should be removed.
             XCTAssertFalse(fs.exists(buildArtifact))
-            XCTAssertFalse(fs.exists(ws.checkoutsPath))
-            XCTAssertFalse(fs.exists(ws.dataPath))
+            XCTAssertFalse(fs.exists(ws.location.repositoriesCheckoutsDirectory))
+            XCTAssertFalse(fs.exists(ws.location.workingDirectory))
 
             XCTAssertNoDiagnostics(diagnostics)
         }
@@ -2041,7 +2044,7 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertNoDiagnostics(diagnostics)
         }
 
-        try fs.removeFileTree(workspace.getOrCreateWorkspace().checkoutsPath)
+        try fs.removeFileTree(workspace.getOrCreateWorkspace().location.repositoriesCheckoutsDirectory)
 
         workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
             PackageGraphTester(graph) { result in
@@ -2211,7 +2214,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         // Edit foo.
-        let fooPath = workspace.getOrCreateWorkspace().editablesPath.appending(component: "Foo")
+        let fooPath = try workspace.getOrCreateWorkspace().location.editsDirectory.appending(component: "Foo")
         workspace.checkEdit(packageName: "Foo") { diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
         }
@@ -2302,7 +2305,7 @@ final class WorkspaceTests: XCTestCase {
         workspace.checkPackageGraph(roots: ["Root"]) { _, _ in }
 
         // Edit foo.
-        let fooPath = workspace.getOrCreateWorkspace().editablesPath.appending(component: "Foo")
+        let fooPath = try workspace.getOrCreateWorkspace().location.editsDirectory.appending(component: "Foo")
         workspace.checkEdit(packageName: "Foo") { diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
         }
@@ -2348,7 +2351,7 @@ final class WorkspaceTests: XCTestCase {
         let deps: [MockDependency] = [
             .scm(path: "./Foo", requirement: .upToNextMajor(from: "1.0.0"), products: .specific(["Foo"])),
         ]
-        let ws = workspace.getOrCreateWorkspace()
+        let ws = try workspace.getOrCreateWorkspace()
 
         // Load the graph and edit foo.
         workspace.checkPackageGraph(deps: deps) { graph, diagnostics in
@@ -2793,7 +2796,7 @@ final class WorkspaceTests: XCTestCase {
                     versions: ["1.5.0"]
                 ),
             ],
-            skipUpdate: true
+            resolverUpdateEnabled: false
         )
 
         // Run update and remove all events.
@@ -3314,7 +3317,7 @@ final class WorkspaceTests: XCTestCase {
             result.check(dependency: "foo", at: .local)
         }
         do {
-            let ws = workspace.getOrCreateWorkspace()
+            let ws = try workspace.getOrCreateWorkspace()
             XCTAssertNotNil(ws.state.dependencies[forURL: "/tmp/ws/pkgs/Foo"])
         }
 
@@ -3328,7 +3331,7 @@ final class WorkspaceTests: XCTestCase {
             result.check(dependency: "foo", at: .local)
         }
         do {
-            let ws = workspace.getOrCreateWorkspace()
+            let ws = try workspace.getOrCreateWorkspace()
             XCTAssertNotNil(ws.state.dependencies[forURL: "/tmp/ws/pkgs/Nested/Foo"])
         }
     }
@@ -3392,7 +3395,7 @@ final class WorkspaceTests: XCTestCase {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        let config = try Workspace.Configuration(path: sandbox.appending(component: "swiftpm"), fs: fs)
+        let config = try Workspace.Configuration(path: sandbox.appending(component: "swiftpm"), fileSystem: fs)
         config.mirrors.set(mirrorURL: sandbox.appending(components: "pkgs", "Baz").pathString, forURL: sandbox.appending(components: "pkgs", "Bar").pathString)
         config.mirrors.set(mirrorURL: sandbox.appending(components: "pkgs", "Baz").pathString, forURL: sandbox.appending(components: "pkgs", "Bam").pathString)
         try config.saveState()
@@ -3584,7 +3587,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         do {
-            let ws = workspace.getOrCreateWorkspace()
+            let ws = try workspace.getOrCreateWorkspace()
             XCTAssertNotNil(ws.state.dependencies[forURL: "/tmp/ws/pkgs/Foo"])
         }
 
@@ -3608,7 +3611,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         do {
-            let ws = workspace.getOrCreateWorkspace()
+            let ws = try workspace.getOrCreateWorkspace()
             XCTAssertNotNil(ws.state.dependencies[forURL: "/tmp/ws/pkgs/Nested/Foo"])
         }
     }
@@ -3675,7 +3678,7 @@ final class WorkspaceTests: XCTestCase {
 
         // Change pin of foo to something else.
         do {
-            let ws = workspace.getOrCreateWorkspace()
+            let ws = try workspace.getOrCreateWorkspace()
             let pinsStore = try ws.pinsStore.load()
             let fooPin = pinsStore.pins.first(where: { $0.packageRef.identity.description == "foo" })!
 
@@ -3827,7 +3830,7 @@ final class WorkspaceTests: XCTestCase {
         let packagePath = AbsolutePath(#file).parentDirectory.parentDirectory.parentDirectory
 
         let diagnostics = DiagnosticsEngine()
-        let workspace = try Workspace(forRootPackage: packagePath, toolchain: UserToolchain.default)
+        let workspace = try Workspace(forRootPackage: packagePath, customToolchain: UserToolchain.default)
 
         // From here the API should be simple and straightforward:
         let manifest = try tsc_await {
@@ -4094,7 +4097,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         // Edit foo.
-        let fooPath = workspace.getOrCreateWorkspace().editablesPath.appending(component: "Foo")
+        let fooPath = try workspace.getOrCreateWorkspace().location.editsDirectory.appending(component: "Foo")
         workspace.checkEdit(packageName: "Foo") { diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
         }
@@ -4211,8 +4214,7 @@ final class WorkspaceTests: XCTestCase {
                     toolsVersion: .v5_2
                 ),
             ],
-            toolsVersion: .v5_2,
-            enablePubGrub: true
+            toolsVersion: .v5_2
         )
 
         // Load the graph.
@@ -4248,7 +4250,7 @@ final class WorkspaceTests: XCTestCase {
             packages: []
         )
 
-        let ws = workspace.getOrCreateWorkspace()
+        let ws = try workspace.getOrCreateWorkspace()
 
         // Checks the valid case.
         do {
