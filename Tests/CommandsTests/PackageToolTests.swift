@@ -723,7 +723,7 @@ final class PackageToolTests: XCTestCase {
             do {
                 try execute("resolve", "bar", "--branch", "YOLO")
                 let pinsStore = try PinsStore(pinsFile: pinsFile, fileSystem: localFileSystem, mirrors: .init())
-                let state = CheckoutState(revision: yoloRevision, branch: "YOLO")
+                let state = CheckoutState.branch(name: "YOLO", revision: yoloRevision)
                 let identity = PackageIdentity(path: barPath)
                 XCTAssertEqual(pinsStore.pinsMap[identity]?.state, state)
             }
@@ -732,7 +732,7 @@ final class PackageToolTests: XCTestCase {
             do {
                 try execute("resolve", "bar", "--revision", yoloRevision.identifier)
                 let pinsStore = try PinsStore(pinsFile: pinsFile, fileSystem: localFileSystem, mirrors: .init())
-                let state = CheckoutState(revision: yoloRevision)
+                let state = CheckoutState.revision(yoloRevision)
                 let identity = PackageIdentity(path: barPath)
                 XCTAssertEqual(pinsStore.pinsMap[identity]?.state, state)
             }

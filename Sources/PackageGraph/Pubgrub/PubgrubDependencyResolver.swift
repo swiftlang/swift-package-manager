@@ -346,8 +346,8 @@ public struct PubgrubDependencyResolver {
             // latest commit on that branch. Note that if this revision-based dependency is
             // already a commit, then its pin entry doesn't matter in practice.
             let revisionForDependencies: String
-            if let pin = pinsMap[package.identity], pin.state.branch == revision {
-                revisionForDependencies = pin.state.revision.identifier
+            if case .branch(revision, let pinRevision) = pinsMap[package.identity]?.state {
+                revisionForDependencies = pinRevision.identifier
 
                 // Mark the package as overridden with the pinned revision and record the branch as well.
                 overriddenPackages[package] = (version: .revision(revisionForDependencies, branch: revision), products: constraint.products)
@@ -1054,7 +1054,12 @@ private final class PubGrubPackageContainer {
 
     /// Returns the pinned version for this package, if any.
     var pinnedVersion: Version? {
-        return self.pinsMap[self.underlying.package.identity]?.state.version
+        switch self.pinsMap[self.underlying.package.identity]?.state {
+        case .version(let version, _):
+            return version
+        default:
+            return .none
+        }
     }
 
     /// Returns the numbers of versions that are satisfied by the given version requirement.
