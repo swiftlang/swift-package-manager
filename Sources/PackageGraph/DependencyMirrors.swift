@@ -87,19 +87,27 @@ extension DependencyMirrors: Collection {
     public typealias Element = String
 
     public var startIndex: Index {
-        self.index.startIndex
+        self.lock.withLock {
+            self.index.startIndex
+        }
     }
 
     public var endIndex: Index {
-        self.index.endIndex
+        self.lock.withLock {
+            self.index.endIndex
+        }
     }
 
     public subscript(index: Index) -> Element {
-        self.index[index].value
+        self.lock.withLock {
+            self.index[index].value
+        }
     }
 
     public func index(after index: Index) -> Index {
-        self.index.index(after: index)
+        self.lock.withLock {
+            self.index.index(after: index)
+        }
     }
 }
 

@@ -161,9 +161,9 @@ public final class MockWorkspace {
             location: .init (
                 workingDirectory: self.sandbox.appending(component: ".build"),
                 editsDirectory: self.sandbox.appending(component: "edits"),
-                resolvedVersionsFilePath: self.sandbox.appending(component: "Package.resolved")
+                resolvedVersionsFilePath: self.sandbox.appending(component: "Package.resolved"),
+                sharedCacheDirectory: self.fs.swiftPMCacheDirectory
             ),
-            cachePath: self.fs.swiftPMCacheDirectory,
             mirrors: self.config.mirrors,
             customToolsVersion: self.toolsVersion,
             customManifestLoader: self.manifestLoader,

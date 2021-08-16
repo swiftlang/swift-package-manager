@@ -556,9 +556,9 @@ public class SwiftTool {
             location: .init(
                 workingDirectory: buildPath,
                 editsDirectory: try editablesPath(),
-                resolvedVersionsFilePath: try resolvedVersionsFilePath()
+                resolvedVersionsFilePath: try resolvedVersionsFilePath(),
+                sharedCacheDirectory: cachePath
             ),
-            cachePath: cachePath,
             netrcFilePath: try netrcFilePath(),
             mirrors: self.getMirrorsConfig().mirrors,
             customManifestLoader: try getManifestLoader(), // FIXME: doe we really need to customize it?

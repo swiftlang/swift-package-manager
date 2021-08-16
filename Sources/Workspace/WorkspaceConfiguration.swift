@@ -27,12 +27,25 @@ extension Workspace {
         /// Path to the Package.resolved file.
         public var resolvedVersionsFilePath: AbsolutePath
 
-        /// Path to working repository clones (checkouts).
-        public var checkoutsDirectory: AbsolutePath {
+        /// Path to the shared cache
+        public var sharedCacheDirectory: AbsolutePath?
+
+        /// Path to the repositories shared cache.
+        public var repositoriesSharedCacheDirectory: AbsolutePath? {
+            self.sharedCacheDirectory.map { $0.appending(component: "repositories") }
+        }
+
+        /// Path to the repositories clones.
+        public var repositoriesDirectory: AbsolutePath {
+            self.workingDirectory.appending(component: "repositories")
+        }
+
+        /// Path to the repository checkouts.
+        public var repositoriesCheckoutsDirectory: AbsolutePath {
             self.workingDirectory.appending(component: "checkouts")
         }
 
-        // Path for downloaded binary artifacts.
+        /// Path to the downloaded binary artifacts.
         public var artifactsDirectory: AbsolutePath {
             self.workingDirectory.appending(component: "artifacts")
         }
@@ -43,14 +56,17 @@ extension Workspace {
         ///   - workingDirectory: Path to working directory for this workspace.
         ///   - editsDirectory: Path to store the editable versions of dependencies.
         ///   - resolvedVersionsFile: Path to the Package.resolved file.
+        ///   - sharedCachePath: Path to the sharedCache
         public init(
             workingDirectory: AbsolutePath,
             editsDirectory: AbsolutePath,
-            resolvedVersionsFilePath: AbsolutePath)
-        {
+            resolvedVersionsFilePath: AbsolutePath,
+            sharedCacheDirectory: AbsolutePath? = .none
+        ) {
             self.workingDirectory = workingDirectory
             self.editsDirectory = editsDirectory
             self.resolvedVersionsFilePath = resolvedVersionsFilePath
+            self.sharedCacheDirectory = sharedCacheDirectory
         }
 
         /// Create a new workspace location.

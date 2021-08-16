@@ -108,7 +108,7 @@ public struct PubgrubDependencyResolver {
     /// Should resolver prefetch the containers.
     private let prefetchingEnabled: Bool
 
-    /// Skip updating containers while fetching them.
+    /// Update containers while fetching them.
     private let updateEnabled: Bool
 
     /// Resolver delegate

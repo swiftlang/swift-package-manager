@@ -211,7 +211,7 @@ public class Workspace {
     /// Enable prefetching containers in resolver.
     fileprivate let resolverPrefetchingEnabled: Bool
 
-    /// Skip updating containers while fetching them.
+    /// Update containers while fetching them.
     fileprivate let resolverUpdateEnabled: Bool
 
     /// Write dependency resolver trace to a file.
@@ -238,9 +238,6 @@ public class Workspace {
     /// - Parameters:
     ///   - fileSystem: The file system to use.
     ///   - location: Workspace location configuration.
-    ///   - editablesPath: Path to store the editable versions of dependencies.
-    ///   - resolvedVersionsFilePath: Path to the Package.resolved file.
-    ///   - cachePath: Path to the shared cache.
     ///   - netrcFilePath: Path tot he netrc file.
     ///   - mirrors: Dependencies mirrors.
     ///   - customToolsVersion: A custom tools version.
@@ -259,7 +256,6 @@ public class Workspace {
     public init(
         fileSystem: FileSystem,
         location: Location,
-        cachePath: AbsolutePath? = .none,
         netrcFilePath: AbsolutePath? = .none,
         mirrors: DependencyMirrors? = .none,
         customToolsVersion: ToolsVersion? = .none,
@@ -281,14 +277,12 @@ public class Workspace {
         let toolsVersionLoader = ToolsVersionLoader()
         let manifestLoader = try customManifestLoader ?? ManifestLoader(toolchain: UserToolchain(destination: .hostDestination()).configuration)
         let repositoryProvider = customRepositoryProvider ?? GitRepositoryProvider()
-        let repositoriesPath = location.workingDirectory.appending(component: "repositories")
-        let repositoriesCachePath = cachePath.map { $0.appending(component: "repositories") }
         let repositoryManager = customRepositoryManager ?? RepositoryManager(
-            path: repositoriesPath,
+            path: location.repositoriesDirectory,
             provider: repositoryProvider,
             delegate: delegate.map(WorkspaceRepositoryManagerDelegate.init(workspaceDelegate:)),
             fileSystem: fileSystem,
-            cachePath: repositoriesCachePath)
+            cachePath: location.repositoriesSharedCacheDirectory)
         let httpClient = customHTTPClient ?? HTTPClient()
         let archiver = customArchiver ?? ZipArchiver()
         let mirrors = mirrors ?? DependencyMirrors()
@@ -374,9 +368,9 @@ public class Workspace {
             location: .init(
                 workingDirectory: dataPath,
                 editsDirectory: editablesPath,
-                resolvedVersionsFilePath: pinsFile
+                resolvedVersionsFilePath: pinsFile,
+                sharedCacheDirectory: cachePath
             ),
-            cachePath: cachePath,
             netrcFilePath: netrcFilePath,
             mirrors: config?.mirrors,
             customToolsVersion: currentToolsVersion,
@@ -602,7 +596,7 @@ extension Workspace {
         // These are the things we don't want to remove while cleaning.
         let protectedAssets = [
             repositoryManager.path,
-            self.location.checkoutsDirectory,
+            self.location.repositoriesCheckoutsDirectory,
             self.location.artifactsDirectory,
             state.path,
         ].map({ path -> String in
@@ -646,7 +640,7 @@ extension Workspace {
     ///       and notes.
     public func reset(with diagnostics: DiagnosticsEngine) {
         let removed = diagnostics.wrap {
-            try fileSystem.chmod(.userWritable, path: self.location.checkoutsDirectory, options: [.recursive, .onlyFiles])
+            try fileSystem.chmod(.userWritable, path: self.location.repositoriesCheckoutsDirectory, options: [.recursive, .onlyFiles])
             // Reset state.
             try self.resetState()
         }
@@ -1072,7 +1066,7 @@ extension Workspace {
 
         // Remove the existing checkout.
         do {
-            let oldCheckoutPath = self.location.checkoutsDirectory.appending(dependency.subpath)
+            let oldCheckoutPath = self.location.repositoriesCheckoutsDirectory.appending(dependency.subpath)
             try fileSystem.chmod(.userWritable, path: oldCheckoutPath, options: [.recursive, .onlyFiles])
             try fileSystem.removeFileTree(oldCheckoutPath)
         }
@@ -1370,7 +1364,7 @@ extension Workspace {
     fileprivate func createCacheDirectories(with diagnostics: DiagnosticsEngine) {
         do {
             try fileSystem.createDirectory(repositoryManager.path, recursive: true)
-            try fileSystem.createDirectory(self.location.checkoutsDirectory, recursive: true)
+            try fileSystem.createDirectory(self.location.repositoriesCheckoutsDirectory, recursive: true)
             try fileSystem.createDirectory(self.location.artifactsDirectory, recursive: true)
         } catch {
             diagnostics.emit(error)
@@ -1385,7 +1379,7 @@ extension Workspace {
     public func path(to dependency: ManagedDependency) -> AbsolutePath {
         switch dependency.state {
         case .checkout:
-            return self.location.checkoutsDirectory.appending(dependency.subpath)
+            return self.location.repositoriesCheckoutsDirectory.appending(dependency.subpath)
         case .edited(let path):
             return path ?? self.location.editsDirectory.appending(dependency.subpath)
         case .local:
@@ -2620,7 +2614,7 @@ extension Workspace {
     private func fetch(package: PackageReference) throws -> AbsolutePath {
         // If we already have it, fetch to update the repo from its remote.
         if let dependency = state.dependencies[forURL: package.location] {
-            let path = self.location.checkoutsDirectory.appending(dependency.subpath)
+            let path = self.location.repositoriesCheckoutsDirectory.appending(dependency.subpath)
 
             // Make sure the directory is not missing (we will have to clone again
             // if not).
@@ -2652,7 +2646,7 @@ extension Workspace {
         }
 
         // Clone the repository into the checkouts.
-        let path = self.location.checkoutsDirectory.appending(component: package.repository.basename)
+        let path = self.location.repositoriesCheckoutsDirectory.appending(component: package.repository.basename)
 
         try fileSystem.chmod(.userWritable, path: path, options: [.recursive, .onlyFiles])
         try fileSystem.removeFileTree(path)
@@ -2696,7 +2690,7 @@ extension Workspace {
         // Write the state record.
         state.dependencies.add(ManagedDependency(
             packageRef: package,
-            subpath: path.relative(to: self.location.checkoutsDirectory),
+            subpath: path.relative(to: self.location.repositoriesCheckoutsDirectory),
             checkoutState: checkoutState))
         try state.saveState()
 
@@ -2779,7 +2773,7 @@ extension Workspace {
         }
 
         // Remove the checkout.
-        let dependencyPath = self.location.checkoutsDirectory.appending(dependencyToRemove.subpath)
+        let dependencyPath = self.location.repositoriesCheckoutsDirectory.appending(dependencyToRemove.subpath)
         let workingCopy = try repositoryManager.provider.openWorkingCopy(at: dependencyPath)
         guard !workingCopy.hasUncommittedChanges() else {
             throw WorkspaceDiagnostics.UncommitedChanges(repositoryPath: dependencyPath)

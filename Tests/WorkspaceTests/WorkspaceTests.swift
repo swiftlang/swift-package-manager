@@ -141,9 +141,9 @@ final class WorkspaceTests: XCTestCase {
                     location: .init(
                         workingDirectory: sandbox.appending(component: ".build"),
                         editsDirectory: sandbox.appending(component: "edits"),
-                        resolvedVersionsFilePath: sandbox.appending(component: "Package.resolved")
+                        resolvedVersionsFilePath: sandbox.appending(component: "Package.resolved"),
+                        sharedCacheDirectory: fs.swiftPMCacheDirectory.appending(component: "repositories")
                     ),
-                    cachePath: fs.swiftPMCacheDirectory.appending(component: "repositories"),
                     customManifestLoader: manifestLoader,
                     delegate: MockWorkspaceDelegate()
                 )
@@ -1706,13 +1706,13 @@ final class WorkspaceTests: XCTestCase {
 
         // Sanity checks.
         XCTAssert(fs.exists(buildArtifact))
-        XCTAssert(fs.exists(ws.location.checkoutsDirectory))
+        XCTAssert(fs.exists(ws.location.repositoriesCheckoutsDirectory))
 
         // Check clean.
         workspace.checkClean { diagnostics in
             // Only the build artifact should be removed.
             XCTAssertFalse(fs.exists(buildArtifact))
-            XCTAssert(fs.exists(ws.location.checkoutsDirectory))
+            XCTAssert(fs.exists(ws.location.repositoriesCheckoutsDirectory))
             XCTAssert(fs.exists(ws.location.workingDirectory))
 
             XCTAssertNoDiagnostics(diagnostics)
@@ -1728,7 +1728,7 @@ final class WorkspaceTests: XCTestCase {
         workspace.checkReset { diagnostics in
             // Only the build artifact should be removed.
             XCTAssertFalse(fs.exists(buildArtifact))
-            XCTAssertFalse(fs.exists(ws.location.checkoutsDirectory))
+            XCTAssertFalse(fs.exists(ws.location.repositoriesCheckoutsDirectory))
             XCTAssertFalse(fs.exists(ws.location.workingDirectory))
 
             XCTAssertNoDiagnostics(diagnostics)
@@ -2044,7 +2044,7 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertNoDiagnostics(diagnostics)
         }
 
-        try fs.removeFileTree(workspace.getOrCreateWorkspace().location.checkoutsDirectory)
+        try fs.removeFileTree(workspace.getOrCreateWorkspace().location.repositoriesCheckoutsDirectory)
 
         workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
             PackageGraphTester(graph) { result in

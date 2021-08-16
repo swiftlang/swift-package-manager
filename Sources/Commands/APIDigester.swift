@@ -49,8 +49,6 @@ struct APIDigesterBaselineDumper {
         self.baselineRevision = baselineRevision
         self.packageRoot = packageRoot
         self.inputBuildParameters = buildParameters
-        //self.manifestLoader = manifestLoader
-        //self.repositoryManager = repositoryManager
         self.apiDigesterTool = apiDigesterTool
         self.diags = diags
     }
