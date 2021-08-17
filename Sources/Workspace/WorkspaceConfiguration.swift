@@ -315,6 +315,52 @@ extension Workspace.Configuration {
     }
 }
 
+// MARK: - Authentication
+
+extension Workspace.Configuration {
+    public struct Netrc {
+        private let path: AbsolutePath
+        private let fileSystem: FileSystem
+
+        public init(path: AbsolutePath, fileSystem: FileSystem) {
+            self.path = path
+            self.fileSystem = fileSystem
+        }
+
+        public func get() throws -> AuthorizationProvider {
+            return try Self.load(self.path, fileSystem: self.fileSystem)
+        }
+
+        private static func load(_ path: AbsolutePath, fileSystem: FileSystem) throws -> AuthorizationProvider {
+            let netrc = try TSCUtility.Netrc.load(fromFileAtPath: path).get()
+            return NetrcAuthorizationProvider(netrc)
+        }
+
+        struct NetrcAuthorizationProvider: AuthorizationProvider {
+            private let underlying: TSCUtility.Netrc
+
+            init(_ underlying: TSCUtility.Netrc) {
+                self.underlying = underlying
+            }
+
+            func authentication(for url: Foundation.URL) -> (user: String, password: String)? {
+                return self.machine(for: url).map { (user: $0.login, password: $0.password) }
+            }
+
+            private func machine(for url: Foundation.URL) -> TSCUtility.Netrc.Machine? {
+                if let machine = self.underlying.machines.first(where: { $0.name.lowercased() == url.host?.lowercased() }) {
+                    return machine
+                }
+                if let machine = self.underlying.machines.first(where: { $0.isDefault }) {
+                    return machine
+                }
+                return .none
+            }
+        }
+    }
+}
+
+
 // MARK: - Deprecated 8/20201
 
 extension Workspace {
