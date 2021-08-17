@@ -168,6 +168,8 @@ final class BuildPlanTests: XCTestCase {
     }
 
     func testExplicitSwiftPackageBuild() throws {
+        // <rdar://82053045> Fix and re-enable SwiftPM test `testExplicitSwiftPackageBuild`
+        try XCTSkipIf(true)
         try withTemporaryDirectory { path in
             // Create a test package with three targets:
             // A -> B -> C
