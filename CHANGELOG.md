@@ -151,10 +151,10 @@ Swift 3.0
 [#1489]: https://github.com/apple/swift-package-manager/pull/1489
 [#1604]: https://github.com/apple/swift-package-manager/pull/1604
 [#2937]: https://github.com/apple/swift-package-manager/pull/2937
+[#3280]: https://github.com/apple/swift-package-manager/pull/3280
 [#3292]: https://github.com/apple/swift-package-manager/pull/3292
 [#3310]: https://github.com/apple/swift-package-manager/pull/3310
 [#3316]: https://github.com/apple/swift-package-manager/pull/3316
 [#3410]: https://github.com/apple/swift-package-manager/pull/3410
-[#3280]: https://github.com/apple/swift-package-manager/pull/3280
 [#3641]: https://github.com/apple/swift-package-manager/pull/3641
 [#3649]: https://github.com/apple/swift-package-manager/pull/3649
