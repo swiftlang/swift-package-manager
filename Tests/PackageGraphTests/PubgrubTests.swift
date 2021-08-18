@@ -8,13 +8,15 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-import Basics
-@testable import PackageGraph
+import XCTest
+
+import TSCBasic
 import PackageLoading
 @testable import PackageModel
+@testable import PackageGraph
 import SourceControl
-import TSCBasic
-import XCTest
+
+
 
 // There's some useful helper utilities defined below for easier testing:
 //
@@ -2153,7 +2155,7 @@ class DependencyGraphBuilder {
     }
 
     func create(
-        dependencies: Basics.OrderedDictionary<String, (PackageRequirement, ProductFilter)>
+        dependencies: OrderedDictionary<String, (PackageRequirement, ProductFilter)>
     ) -> [PackageContainerConstraint] {
         return dependencies.map {
             PackageContainerConstraint(package: reference(for: $0), requirement: $1.0, products: $1.1)
@@ -2164,7 +2166,7 @@ class DependencyGraphBuilder {
         _ package: String,
         at version: Version,
         toolsVersion: ToolsVersion? = nil,
-        with dependencies: KeyValuePairs<String, Basics.OrderedDictionary<String, (PackageRequirement, ProductFilter)>> = [:]
+        with dependencies: KeyValuePairs<String, OrderedDictionary<String, (PackageRequirement, ProductFilter)>> = [:]
     ) {
         serve(package, at: .version(version), toolsVersion: toolsVersion, with: dependencies)
     }
@@ -2173,7 +2175,7 @@ class DependencyGraphBuilder {
         _ package: String,
         at version: BoundVersion,
         toolsVersion: ToolsVersion? = nil,
-        with dependencies: KeyValuePairs<String, Basics.OrderedDictionary<String, (PackageRequirement, ProductFilter)>> = [:]
+        with dependencies: KeyValuePairs<String, OrderedDictionary<String, (PackageRequirement, ProductFilter)>> = [:]
     ) {
         let packageReference = reference(for: package)
         let container = self.containers[package] ?? MockContainer(package: packageReference)
