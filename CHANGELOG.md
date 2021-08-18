@@ -1,32 +1,48 @@
 Note: This is in reverse chronological order, so newer entries are added to the top.
 
 Swift 5.6
- -----------
- * [#3649]
-     Semantic version dependencies can now be resolved against Git tag names that contain only major and minor version identifiers.  A tag with the form `X.Y` will be treated as `X.Y.0`. This improves compatibility with existing repositories.
+-----------
+* [#3649]
+
+  Semantic version dependencies can now be resolved against Git tag names that contain only major and minor version identifiers.  A tag with the form `X.Y` will be treated as `X.Y.0`. This improves compatibility with existing repositories.
+
+* [#3486]
+
+  Both parsing and comparison of semantic versions now strictly follow the [Semantic Versioning 2.0.0 specification](https://semver.org). 
+  
+  The parsing logic now treats the first "-" in a version string as the delimiter between the version core and the pre-release identifiers, _only_ if there is no preceding "+". Otherwise, it's treated as part of a build metadata identifier.
+  
+  The comparison logic now ignores build metadata identifiers, and treats 2 semantic versions as equal if and only if they're equal in their major, minor, patch versions and pre-release identifiers.
 
 * [#3641]
-     Soft deprecate `.package(name:, url:)` dependency syntax in favour of `.package(url:)`, given that an explicit `name` attribute is no longer needed for target depedendencies lookup.
+
+  Soft deprecate `.package(name:, url:)` dependency syntax in favour of `.package(url:)`, given that an explicit `name` attribute is no longer needed for target depedendencies lookup.
 
 * [#3641]
-    Adding a dependency requirement can now be done with the convenience initializer `.package(url: String, exact: Version)`.
+
+  Adding a dependency requirement can now be done with the convenience initializer `.package(url: String, exact: Version)`.
 
 Swift 5.5
- -----------
+-----------
 * [#3410]
-    In a package that specifies a minimum tools version of 5.5, `@main` can now be used in a single-source file executable as long as the name of the source file isn't `main.swift`.  To work around special compiler semantics with single-file modules, SwiftPM now passes `-parse-as-library` when compiling an executable module that contains a single Swift source file whose name is not `main.swift`.
+
+  In a package that specifies a minimum tools version of 5.5, `@main` can now be used in a single-source file executable as long as the name of the source file isn't `main.swift`.  To work around special compiler semantics with single-file modules, SwiftPM now passes `-parse-as-library` when compiling an executable module that contains a single Swift source file whose name is not `main.swift`.
 
 * [#3310]
-    Adding a dependency requirement can now be done with the convenience initializer `.package(url: String, revision: String)`.
+
+  Adding a dependency requirement can now be done with the convenience initializer `.package(url: String, revision: String)`.
 
 * [#3292]
-    Adding a dependency requirement can now be done with the convenience initializer `.package(url: String, branch: String)`.
+
+  Adding a dependency requirement can now be done with the convenience initializer `.package(url: String, branch: String)`.
 
 * [#3280]
-    A more intuitive `.product(name:, package:)` target depedendency syntax is now accepted, where `package` is the package identifier as defined by the package URL.
+
+  A more intuitive `.product(name:, package:)` target depedendency syntax is now accepted, where `package` is the package identifier as defined by the package URL.
 
 * [#3316]
-    Test targets can now link against executable targets as if they were libraries, so that they can test any data strutures or algorithms in them.  All the code in the executable except for the main entry point itself is available to the unit test.  Separate executables are still linked, and can be tested as a subprocess in the same way as before.  This feature is available to tests defined in packages that have a tools version of `5.5` or newer. 
+
+  Test targets can now link against executable targets as if they were libraries, so that they can test any data strutures or algorithms in them.  All the code in the executable except for the main entry point itself is available to the unit test.  Separate executables are still linked, and can be tested as a subprocess in the same way as before.  This feature is available to tests defined in packages that have a tools version of `5.5` or newer. 
 
 Swift 5.4
 -----------
@@ -156,5 +172,6 @@ Swift 3.0
 [#3310]: https://github.com/apple/swift-package-manager/pull/3310
 [#3316]: https://github.com/apple/swift-package-manager/pull/3316
 [#3410]: https://github.com/apple/swift-package-manager/pull/3410
+[#3486]: https://github.com/apple/swift-package-manager/pull/3486
 [#3641]: https://github.com/apple/swift-package-manager/pull/3641
 [#3649]: https://github.com/apple/swift-package-manager/pull/3649
