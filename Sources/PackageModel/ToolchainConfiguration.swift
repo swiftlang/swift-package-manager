@@ -10,30 +10,30 @@
 
 import TSCBasic
 
-/// Toolchain configuration required for evaluation os swift code such as the manifests or plugins
+/// Toolchain configuration required for evaluation of swift code such as the manifests or plugins
 ///
 /// These requirements are abstracted out to make it easier to add support for
 /// using the package manager with alternate toolchains in the future.
 public struct ToolchainConfiguration {
     /// The path of the swift compiler.
-    public let swiftCompiler: AbsolutePath
+    public var swiftCompiler: AbsolutePath
 
-    /// Extra flags to pass the Swift compiler.
-    public let swiftCompilerFlags: [String]
+    /// Extra arguments to pass the Swift compiler (defaults to the empty string).
+    public var swiftCompilerFlags: [String]
 
     /// The path of the library resources.
-    public let libDir: AbsolutePath
+    public var libDir: AbsolutePath
 
     /// The bin directory.
-    public let binDir: AbsolutePath?
+    public var binDir: AbsolutePath?
 
     /// The path to SDK root.
     ///
     /// If provided, it will be passed to the swift interpreter.
-    public let sdkRoot: AbsolutePath?
+    public var sdkRoot: AbsolutePath?
 
     /// XCTest Location
-    public let xctestLocation: AbsolutePath?
+    public var xctestLocation: AbsolutePath?
 
     /// Creates the set of manifest resources associated with a `swiftc` executable.
     ///
