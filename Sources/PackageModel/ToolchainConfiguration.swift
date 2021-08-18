@@ -21,6 +21,9 @@ public struct ToolchainConfiguration {
     /// Extra arguments to pass the Swift compiler (defaults to the empty string).
     public var swiftCompilerFlags: [String]
 
+    /// Environment to pass to the Swift compiler (defaults to the inherited environment).
+    public var swiftCompilerEnvironment: [String: String]
+
     /// The path of the library resources.
     public var libDir: AbsolutePath
 
@@ -47,6 +50,7 @@ public struct ToolchainConfiguration {
     public init(
         swiftCompiler: AbsolutePath,
         swiftCompilerFlags: [String] = [],
+        swiftCompilerEnvironment: [String: String] = ProcessEnv.vars,
         libDir: AbsolutePath? = nil,
         binDir: AbsolutePath? = nil,
         sdkRoot: AbsolutePath? = nil,
@@ -54,6 +58,7 @@ public struct ToolchainConfiguration {
     ) {
         self.swiftCompiler = swiftCompiler
         self.swiftCompilerFlags = swiftCompilerFlags
+        self.swiftCompilerEnvironment = swiftCompilerEnvironment
         self.libDir = libDir ?? Self.libDir(forBinDir: swiftCompiler.parentDirectory)
         self.binDir = binDir
         self.sdkRoot = sdkRoot

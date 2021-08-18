@@ -763,7 +763,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             cmd += ["-o", compiledManifestFile.pathString]
 
             // Compile the manifest.
-            let compilerResult = try Process.popen(arguments: cmd)
+            let compilerResult = try Process.popen(arguments: cmd, environment: toolchain.swiftCompilerEnvironment)
             let compilerOutput = try (compilerResult.utf8Output() + compilerResult.utf8stderrOutput()).spm_chuzzle()
             result.compilerOutput = compilerOutput
 

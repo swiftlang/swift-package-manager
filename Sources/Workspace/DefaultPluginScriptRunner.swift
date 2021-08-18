@@ -114,7 +114,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
         let compiledExec = cacheDir.appending(component: "compiled-plugin")
         command += ["-o", compiledExec.pathString]
 
-        let result = try Process.popen(arguments: command)
+        let result = try Process.popen(arguments: command, environment: toolchain.swiftCompilerEnvironment)
         let output = try (result.utf8Output() + result.utf8stderrOutput()).spm_chuzzle() ?? ""
         if result.exitStatus != .terminated(code: 0) {
             // TODO: Make this a proper error.
