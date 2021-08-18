@@ -6,7 +6,7 @@ Swift 5.6
      Semantic version dependencies can now be resolved against Git tag names that contain only major and minor version identifiers.  A tag with the form `X.Y` will be treated as `X.Y.0`. This improves compatibility with existing repositories.
 
 * [#3641]
-     Soft deprecate `.pacakge(name:, url:)` dependency syntax in favour of `.pacakge(url:)`, given that an explciit `name` attribute is no longer needed for target depedendencies lookup.
+     Soft deprecate `.package(name:, url:)` dependency syntax in favour of `.package(url:)`, given that an explicit `name` attribute is no longer needed for target depedendencies lookup.
 
 * [#3641]
     Adding a dependency requirement can now be done with the convenience initializer `.package(url: String, exact: Version)`.
