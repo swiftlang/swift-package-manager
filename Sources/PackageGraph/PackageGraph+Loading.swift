@@ -612,7 +612,7 @@ fileprivate func findCycle(
     successors: (GraphLoadingNode) throws -> [GraphLoadingNode]
 ) rethrows -> (path: [Manifest], cycle: [Manifest])? {
     // Ordered set to hold the current traversed path.
-    var path = Basics.OrderedSet<Manifest>()
+    var path = OrderedSet<Manifest>()
 
     // Function to visit nodes recursively.
     // FIXME: Convert to stack.
@@ -621,7 +621,7 @@ fileprivate func findCycle(
       _ successors: (GraphLoadingNode) throws -> [GraphLoadingNode]
     ) rethrows -> (path: [Manifest], cycle: [Manifest])? {
         // If this node is already in the current path then we have found a cycle.
-        if !path.append(node.manifest).inserted {
+        if !path.append(node.manifest) {
             let index = path.firstIndex(of: node.manifest)! // forced unwrap safe
             return (Array(path[path.startIndex..<index]), Array(path[index..<path.endIndex]))
         }
