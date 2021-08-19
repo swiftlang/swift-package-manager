@@ -137,7 +137,8 @@ extension Package.Dependency {
     /// are especially useful during development of a new package or when working
     /// on multiple tightly coupled packages.
     ///
-    /// - Parameter path: The path of the package.
+    /// - Parameters
+    ///   - path: The file system path to the package.
     public static func package(
         path: String
     ) -> Package.Dependency {
@@ -152,9 +153,9 @@ extension Package.Dependency {
     /// on multiple tightly coupled packages.
     ///
     /// - Parameters
-    ///   - name: The name of the Swift package or `nil` to deduce the name from path.
-    ///   - path: The local path to the package.
-    @available(_PackageDescription, introduced: 5.2, deprecated: 5.6, message: "use package(path:) instead")
+    ///   - name: The name of the Swift package, used only for target dependencies lookup.
+    ///   - path: The file system path to the package.
+    @available(_PackageDescription, introduced: 5.2)
     public static func package(
         name: String,
         path: String

@@ -100,16 +100,16 @@ fileprivate struct DescribedPackage: Encodable {
     
     /// Represents a package dependency for the sole purpose of generating a description.
     enum DescribedPackageDependency: Encodable {
-        case fileSystem(path: AbsolutePath)
-        case sourceControl(location: String, requirement: PackageDependency.SourceControl.Requirement)
+        case fileSystem(identity: PackageIdentity, path: AbsolutePath)
+        case sourceControl(identity: PackageIdentity, location: String, requirement: PackageDependency.SourceControl.Requirement)
         case registry(identity: PackageIdentity, requirement: PackageDependency.Registry.Requirement)
 
         init(from dependency: PackageDependency) {
             switch dependency {
             case .fileSystem(let settings):
-                self = .fileSystem(path: settings.path)
+                self = .fileSystem(identity: settings.identity, path: settings.path)
             case .sourceControl(let settings):
-                self = .sourceControl(location: settings.location, requirement: settings.requirement)
+                self = .sourceControl(identity: settings.identity, location: settings.location, requirement: settings.requirement)
             case .registry(let settings):
                 self = .registry(identity: settings.identity, requirement: settings.requirement)
             }
@@ -132,11 +132,13 @@ fileprivate struct DescribedPackage: Encodable {
         public func encode(to encoder: Encoder) throws {
             var container = encoder.container(keyedBy: CodingKeys.self)
             switch self {
-            case .fileSystem(let path):
+            case .fileSystem(let identity, let path):
                 try container.encode(Kind.fileSystem, forKey: .type)
+                try container.encode(identity, forKey: .identity)
                 try container.encode(path, forKey: .path)
-            case .sourceControl(let location, let requirement):
+            case .sourceControl(let identity, let location, let requirement):
                 try container.encode(Kind.sourceControl, forKey: .type)
+                try container.encode(identity, forKey: .identity)
                 try container.encode(location, forKey: .url)
                 try container.encode(requirement, forKey: .requirement)
             case .registry(let identity, let requirement):
