@@ -589,7 +589,7 @@ def build_swiftpm_with_swiftpm(args, integrated_swift_driver):
 
     if args.bootstrap:
         note("Building SwiftPM (with a freshly built swift-build)")
-        swiftpm_args.append("SWIFTPM_PD_LIBS=" + os.path.join(args.bootstrap_dir, "pm"))
+        swiftpm_args.append("SWIFTPM_CUSTOM_LIBS_DIR=" + os.path.join(args.bootstrap_dir, "pm"))
         swiftpm_args.append(os.path.join(args.bootstrap_dir, "bin/swift-build"))
     else:
         note("Building SwiftPM (with a prebuilt swift-build)")

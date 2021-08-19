@@ -268,7 +268,7 @@ public final class PackageEditorContext {
 
         // Create toolchain.
         let hostToolchain = try UserToolchain(destination: .hostDestination())
-        self.manifestLoader = ManifestLoader(manifestResources: hostToolchain.manifestResources)
+        self.manifestLoader = ManifestLoader(manifestResources: hostToolchain.configuration)
 
         let repositoriesPath = buildDir.appending(component: "repositories")
         self.repositoryManager = RepositoryManager(

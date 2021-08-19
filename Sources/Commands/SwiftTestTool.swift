@@ -1039,10 +1039,9 @@ fileprivate func constructTestEnvironment(
         let codecovProfile = buildParameters.buildPath.appending(components: "codecov", "default%m.profraw")
         env["LLVM_PROFILE_FILE"] = codecovProfile.pathString
     }
-
   #if !os(macOS)
 #if os(Windows)
-    if let location = toolchain.manifestResources.xctestLocation {
+    if let location = toolchain.configuration.xctestPath {
       env["Path"] = "\(location.pathString);\(env["Path"] ?? "")"
     }
 #endif

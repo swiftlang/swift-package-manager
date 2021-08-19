@@ -136,7 +136,7 @@ public struct SwiftRunTool: SwiftCommand {
             let arguments = buildOp.buildPlan!.createREPLArguments()
             print("Launching Swift REPL with arguments: \(arguments.joined(separator: " "))")
             try run(
-                swiftTool.getToolchain().swiftInterpreter,
+                swiftTool.getToolchain().swiftInterpreterPath,
                 originalWorkingDirectory: swiftTool.originalWorkingDirectory,
                 arguments: arguments)
 
@@ -171,7 +171,7 @@ public struct SwiftRunTool: SwiftCommand {
             if let executable = options.executable, isValidSwiftFilePath(executable) {
                 swiftTool.diagnostics.emit(.runFileDeprecation)
                 // Redirect execution to the toolchain's swift executable.
-                let swiftInterpreterPath = try swiftTool.getToolchain().swiftInterpreter
+                let swiftInterpreterPath = try swiftTool.getToolchain().swiftInterpreterPath
                 // Prepend the script to interpret to the arguments.
                 let arguments = [executable] + options.arguments
                 try run(
