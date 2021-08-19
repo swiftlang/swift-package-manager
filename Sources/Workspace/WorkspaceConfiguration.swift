@@ -101,6 +101,7 @@ extension Workspace {
 }
 
 // MARK: - Default locations
+
 extension Workspace {
     /// Workspace default locations utilities
     public struct DefaultLocations {
@@ -136,15 +137,10 @@ extension Workspace {
 
 // MARK: - Mirrors
 
-// FIXME
-public enum Configurations {
-    public enum Configuration {}
-}
-
-extension Configurations.Configuration {
-    public struct WorkspaceMirrors {
-        private let localMirrors: Mirrors
-        private let sharedMirrors: Mirrors?
+extension Workspace.Configuration {
+    public struct Mirrors {
+        private let localMirrors: MirrorsStorage
+        private let sharedMirrors: MirrorsStorage?
         private let fileSystem: FileSystem
 
         private var _mirrors: DependencyMirrors
@@ -213,7 +209,6 @@ extension Configurations.Configuration {
             return self.mirrors
         }
 
-        // 👀 is this correct, or should we merge?
         // mutating the state we hold since we are passing it by reference to the workspace
         // access should be done using a lock
         private func computeMirrors() throws {
@@ -221,22 +216,23 @@ extension Configurations.Configuration {
                 self._mirrors.removeAll()
 
                 // prefer local mirrors to shared ones
-                let local = try self.localMirrors.mirrors()
+                let local = try self.localMirrors.get()
                 if !local.isEmpty {
                     self._mirrors.append(contentsOf: local)
                     return
                 }
 
                 // use shared if local was not found or empty
-                let shared = try self.sharedMirrors?.mirrors() ?? [:]
-                if !shared.isEmpty {
+                if let shared = try self.sharedMirrors?.get(), !shared.isEmpty {
                     self._mirrors.append(contentsOf: shared)
                 }
             }
         }
     }
+}
 
-    public struct Mirrors {
+extension Workspace.Configuration {
+    public struct MirrorsStorage {
         private let path: AbsolutePath
         private let fileSystem: FileSystem
         private let deleteWhenEmpty: Bool
@@ -248,7 +244,7 @@ extension Configurations.Configuration {
         }
 
         /// The mirrors in this configuration
-        public func mirrors() throws -> DependencyMirrors {
+        public func get() throws -> DependencyMirrors {
             guard self.fileSystem.exists(self.path) else {
                 return DependencyMirrors()
             }
@@ -319,11 +315,11 @@ extension Configurations.Configuration {
     }
 }
 
-// MARK: - Deprecated
+// MARK: - Deprecated 8/20201
 
 extension Workspace {
     /// Manages a package workspace's configuration.
-    @available(*, deprecated, message: "use Configuration.Mirrors instead")
+    // FIXME change into enum after deprecation grace period
     public final class Configuration {
         /// The path to the mirrors file.
         private let configFile: AbsolutePath?
@@ -352,6 +348,7 @@ extension Workspace {
         ///   - path: A path to the configuration file.
         ///   - fileSystem: The filesystem on which the configuration file is located.
         /// - Throws: `StringError` if the configuration file is corrupted or malformed.
+        @available(*, deprecated, message: "use Configuration.Mirrors instead")
         public init(path: AbsolutePath, fileSystem: FileSystem) throws {
             self.configFile = path
             self.fileSystem = fileSystem
@@ -371,6 +368,7 @@ extension Workspace {
         }
 
         /// Load the configuration from disk.
+        @available(*, deprecated, message: "use Configuration.Mirrors instead")
         public func restoreState() throws {
             _ = try self.persistence?.restoreState(self)
         }
@@ -380,6 +378,7 @@ extension Workspace {
         /// If the configuration is empty, any persisted configuration file is removed.
         ///
         /// - Throws: If the configuration couldn't be persisted.
+        @available(*, deprecated, message: "use Configuration.Mirrors instead")
         public func saveState() throws {
             guard let persistence = self.persistence else { return }
 

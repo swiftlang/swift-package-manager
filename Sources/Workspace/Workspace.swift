@@ -16,7 +16,6 @@ import PackageLoading
 import PackageModel
 import PackageGraph
 import SourceControl
-import PackageCollections
 
 /// Enumeration of the different reasons for which the resolver needs to be run.
 public enum WorkspaceResolveReason: Equatable {
@@ -453,7 +452,7 @@ public class Workspace {
         try self .init(
             fileSystem: fileSystem,
             location: location,
-            mirrors: try Configurations.Configuration.WorkspaceMirrors(
+            mirrors: try Configuration.Mirrors(
                 forRootPackage: packagePath,
                 sharedMirrorFile: location.sharedMirrorsConfigurationFile,
                 fileSystem: fileSystem

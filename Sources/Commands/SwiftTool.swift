@@ -453,7 +453,7 @@ public class SwiftTool {
     }
 
     private func editsDirectory() throws -> AbsolutePath {
-        // 👀 is multiroot-data-file in use?
+        // TODO: replace multiroot-data-file with explicit overrides
         if let multiRootPackageDataFile = options.multirootPackageDataFile {
             return multiRootPackageDataFile.appending(component: "Packages")
         }
@@ -461,14 +461,14 @@ public class SwiftTool {
     }
 
     private func resolvedVersionsFile() throws -> AbsolutePath {
-        // 👀 is multiroot-data-file in use?
+        // TODO: replace multiroot-data-file with explicit overrides
         if let multiRootPackageDataFile = options.multirootPackageDataFile {
             return multiRootPackageDataFile.appending(components: "xcshareddata", "swiftpm", "Package.resolved")
         }
         return try Workspace.DefaultLocations.resolvedVersionsFile(forRootPackage: self.getPackageRoot())
     }
 
-    func getMirrorsConfig(sharedConfigurationDirectory: AbsolutePath? = nil) throws -> Configurations.Configuration.WorkspaceMirrors {
+    func getMirrorsConfig(sharedConfigurationDirectory: AbsolutePath? = nil) throws -> Workspace.Configuration.Mirrors {
         let sharedConfigurationDirectory = try sharedConfigurationDirectory ?? self.getSharedConfigurationDirectory()
         let sharedMirrorFile = sharedConfigurationDirectory.map { Workspace.DefaultLocations.mirrorsConfigurationFile(at: $0) }
         return try .init(
@@ -479,14 +479,14 @@ public class SwiftTool {
     }
 
     private func mirrorsConfigFile() throws -> AbsolutePath {
-        // 👀 does this make sense now that we a global configuration as well? or should we at least rename it?
+        // TODO: does this make sense now that we a global configuration as well? or should we at least rename it?
         // Look for the override in the environment.
         if let envPath = ProcessEnv.vars["SWIFTPM_MIRROR_CONFIG"] {
             return try AbsolutePath(validating: envPath)
         }
 
         // Otherwise, use the default path.
-        // 👀 is multiroot-data-file in use?
+        // TODO: replace multiroot-data-file with explicit overrides
         if let multiRootPackageDataFile = options.multirootPackageDataFile {
             // migrate from legacy location
             let legacyPath = multiRootPackageDataFile.appending(components: "xcshareddata", "swiftpm", "config")

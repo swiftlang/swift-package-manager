@@ -8,13 +8,11 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-import XCTest
-
+import SPMTestSupport
 import TSCBasic
 import TSCUtility
-import SPMTestSupport
-
 import Workspace
+import XCTest
 
 final class MirrorsConfigurationTests: XCTestCase {
     func testLoadingSchema1() throws {
@@ -38,8 +36,8 @@ final class MirrorsConfigurationTests: XCTestCase {
                 """
         }
 
-        let config = Configurations.Configuration.Mirrors(path: configFile, fileSystem: fs, deleteWhenEmpty: true)
-        let mirrors = try config.mirrors()
+        let config = Workspace.Configuration.MirrorsStorage(path: configFile, fileSystem: fs, deleteWhenEmpty: true)
+        let mirrors = try config.get()
 
         XCTAssertEqual(mirrors.mirrorURL(for: originalURL),mirrorURL)
         XCTAssertEqual(mirrors.originalURL(for: mirrorURL), originalURL)
@@ -49,8 +47,8 @@ final class MirrorsConfigurationTests: XCTestCase {
         let fs = InMemoryFileSystem()
         let configFile = AbsolutePath("/config/mirrors.json")
 
-        let config = Configurations.Configuration.Mirrors(path: configFile, fileSystem: fs, deleteWhenEmpty: true)
-        let mirrors = try config.mirrors()
+        let config = Workspace.Configuration.MirrorsStorage(path: configFile, fileSystem: fs, deleteWhenEmpty: true)
+        let mirrors = try config.get()
 
         XCTAssertThrows(StringError("Mirror not found for 'https://github.com/apple/swift-argument-parser.git'")) {
             try mirrors.unset(originalOrMirrorURL: "https://github.com/apple/swift-argument-parser.git")
@@ -61,7 +59,7 @@ final class MirrorsConfigurationTests: XCTestCase {
         let fs = InMemoryFileSystem()
         let configFile = AbsolutePath("/config/mirrors.json")
 
-        let config = Configurations.Configuration.Mirrors(path: configFile, fileSystem: fs, deleteWhenEmpty: true)
+        let config = Workspace.Configuration.MirrorsStorage(path: configFile, fileSystem: fs, deleteWhenEmpty: true)
 
         try config.apply{ _ in }
         XCTAssertFalse(fs.exists(configFile))
@@ -84,7 +82,7 @@ final class MirrorsConfigurationTests: XCTestCase {
         let fs = InMemoryFileSystem()
         let configFile = AbsolutePath("/config/mirrors.json")
 
-        let config = Configurations.Configuration.Mirrors(path: configFile, fileSystem: fs, deleteWhenEmpty: false)
+        let config = Workspace.Configuration.MirrorsStorage(path: configFile, fileSystem: fs, deleteWhenEmpty: false)
 
         try config.apply{ _ in }
         XCTAssertFalse(fs.exists(configFile))
@@ -101,7 +99,7 @@ final class MirrorsConfigurationTests: XCTestCase {
             try mirrors.unset(originalOrMirrorURL: originalURL)
         }
         XCTAssertTrue(fs.exists(configFile))
-        XCTAssertTrue(try config.mirrors().isEmpty)
+        XCTAssertTrue(try config.get().isEmpty)
     }
 
     func testLocalAndShared() throws {
@@ -109,7 +107,7 @@ final class MirrorsConfigurationTests: XCTestCase {
         let localConfigFile = AbsolutePath("/config/local-mirrors.json")
         let sharedConfigFile = AbsolutePath("/config/shared-mirrors.json")
 
-        let config = try Configurations.Configuration.WorkspaceMirrors(
+        let config = try Workspace.Configuration.Mirrors(
             localMirrorFile: localConfigFile,
             sharedMirrorFile: sharedConfigFile,
             fileSystem: fs

@@ -19,7 +19,6 @@ public final class DependencyMirrors: Equatable {
     private var reverseIndex: [String: String]
     private let lock = Lock()
 
-    // 👀 better name?
     public var mapping: [String: String] {
         self.lock.withLock {
             return self.index
