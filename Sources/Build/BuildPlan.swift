@@ -11,6 +11,7 @@
 import Basics
 import Foundation
 import LLBuildManifest
+import OrderedCollections
 import PackageGraph
 import PackageLoading
 import PackageModel
@@ -2046,7 +2047,7 @@ public class BuildPlan {
         }
 
         // Build cache
-        var cflagsCache: OrderedSet<String> = []
+        var cflagsCache: OrderedCollections.OrderedSet<String> = []
         var libsCache: [String] = []
         for tuple in ret {
             for cFlag in tuple.cFlags {

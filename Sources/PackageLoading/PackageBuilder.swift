@@ -10,6 +10,7 @@
 
 import Basics
 import Dispatch
+import OrderedCollections
 import PackageModel
 import TSCBasic
 
@@ -1156,11 +1157,11 @@ public final class PackageBuilder {
 
     /// Collects the products defined by a package.
     private func constructProducts(_ targets: [Target]) throws -> [Product] {
-        var products = OrderedSet<KeyedPair<Product, String>>()
+        var products = OrderedCollections.OrderedSet<KeyedPair<Product, String>>()
 
         /// Helper method to append to products array.
         func append(_ product: Product) {
-            let inserted = products.append(KeyedPair(product, key: product.name))
+            let inserted = products.append(KeyedPair(product, key: product.name)).inserted
             if !inserted {
                 self.observabilityScope.emit(.duplicateProduct(product: product))
             }

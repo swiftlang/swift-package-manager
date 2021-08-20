@@ -9,6 +9,7 @@
  */
 
 import Basics
+import OrderedCollections
 @testable import PackageGraph
 import PackageLoading
 @testable import PackageModel
@@ -2800,7 +2801,7 @@ class DependencyGraphBuilder {
     }
 
     func create(
-        dependencies: OrderedDictionary<String, (PackageRequirement, ProductFilter)>
+        dependencies: OrderedCollections.OrderedDictionary<String, (PackageRequirement, ProductFilter)>
     ) -> [PackageContainerConstraint] {
         var refDependencies = OrderedDictionary<PackageReference, (PackageRequirement, ProductFilter)>()
         for dependency in dependencies {
@@ -2821,7 +2822,7 @@ class DependencyGraphBuilder {
         _ package: String,
         at version: Version,
         toolsVersion: ToolsVersion? = nil,
-        with dependencies: KeyValuePairs<String, OrderedDictionary<String, (PackageRequirement, ProductFilter)>> = [:]
+        with dependencies: KeyValuePairs<String, OrderedCollections.OrderedDictionary<String, (PackageRequirement, ProductFilter)>> = [:]
     ) {
         self.serve(package, at: .version(version), toolsVersion: toolsVersion, with: dependencies)
     }
@@ -2830,7 +2831,7 @@ class DependencyGraphBuilder {
         _ package: String,
         at version: BoundVersion,
         toolsVersion: ToolsVersion? = nil,
-        with dependencies: KeyValuePairs<String, OrderedDictionary<String, (PackageRequirement, ProductFilter)>> = [:]
+        with dependencies: KeyValuePairs<String, OrderedCollections.OrderedDictionary<String, (PackageRequirement, ProductFilter)>> = [:]
     ) {
         let packageReference = reference(for: package)
         self.serve(

@@ -9,6 +9,7 @@
  */
 
 import Basics
+import OrderedCollections
 import PackageLoading
 import PackageModel
 import TSCBasic
@@ -20,7 +21,7 @@ extension PackageGraph {
         root: PackageGraphRoot,
         identityResolver: IdentityResolver,
         additionalFileRules: [FileRuleDescription] = [],
-        externalManifests: OrderedDictionary<PackageIdentity, (manifest: Manifest, fs: FileSystem)>,
+        externalManifests: OrderedCollections.OrderedDictionary<PackageIdentity, (manifest: Manifest, fs: FileSystem)>,
         requiredDependencies: Set<PackageReference> = [],
         unsafeAllowedPackages: Set<PackageReference> = [],
         binaryArtifacts: [BinaryArtifact] = [],
@@ -247,7 +248,7 @@ private func createResolvedPackages(
             metadata: package.diagnosticsMetadata
         )
 
-        var dependencies = OrderedDictionary<PackageIdentity, ResolvedPackageBuilder>()
+        var dependencies = OrderedCollections.OrderedDictionary<PackageIdentity, ResolvedPackageBuilder>()
         var dependenciesByNameForTargetDependencyResolution = [String: ResolvedPackageBuilder]()
 
         // Establish the manifest-declared package dependencies.
@@ -647,7 +648,7 @@ fileprivate func findCycle(
     successors: (GraphLoadingNode) throws -> [GraphLoadingNode]
 ) rethrows -> (path: [Manifest], cycle: [Manifest])? {
     // Ordered set to hold the current traversed path.
-    var path = OrderedSet<Manifest>()
+    var path = OrderedCollections.OrderedSet<Manifest>()
 
     // Function to visit nodes recursively.
     // FIXME: Convert to stack.
@@ -656,7 +657,7 @@ fileprivate func findCycle(
       _ successors: (GraphLoadingNode) throws -> [GraphLoadingNode]
     ) rethrows -> (path: [Manifest], cycle: [Manifest])? {
         // If this node is already in the current path then we have found a cycle.
-        if !path.append(node.manifest) {
+        if !path.append(node.manifest).inserted {
             let index = path.firstIndex(of: node.manifest)! // forced unwrap safe
             return (Array(path[path.startIndex..<index]), Array(path[index..<path.endIndex]))
         }

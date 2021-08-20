@@ -138,6 +138,7 @@ let package = Package(
         .target(
             name: "Basics",
             dependencies: [
+                .product(name: "OrderedCollections", package: "swift-collections"),
                 .product(name: "SwiftToolsSupport-auto", package: "swift-tools-support-core"),
                 .product(name: "SystemPackage", package: "swift-system"),
             ],
@@ -259,7 +260,7 @@ let package = Package(
             ],
             exclude: ["CMakeLists.txt"]
         ),
-        
+
         .target(
             name: "PackageFingerprint",
             dependencies: [
@@ -572,6 +573,7 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         .package(url: "https://github.com/apple/swift-driver.git", .branch(relatedDependenciesBranch)),
         .package(url: "https://github.com/apple/swift-crypto.git", .upToNextMinor(from: minimumCryptoVersion)),
         .package(url: "https://github.com/apple/swift-system.git", .upToNextMinor(from: "1.1.1")),
+        .package(url: "https://github.com/apple/swift-collections.git", .upToNextMinor(from: "1.0.1")),
     ]
 } else {
     package.dependencies += [
@@ -580,5 +582,6 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         .package(path: "../swift-driver"),
         .package(path: "../swift-crypto"),
         .package(path: "../swift-system"),
+        .package(path: "../swift-collections"),
     ]
 }
