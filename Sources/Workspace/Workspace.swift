@@ -238,8 +238,8 @@ public class Workspace {
     /// - Parameters:
     ///   - fileSystem: The file system to use.
     ///   - location: Workspace location configuration.
-    ///   - netrcFilePath: Path tot he netrc file.
     ///   - mirrors: Dependencies mirrors.
+    ///   - netrcFilePath: Path tot he netrc file.
     ///   - customToolsVersion: A custom tools version.
     ///   - customManifestLoader: A custom manifest loader.
     ///   - customRepositoryManager: A custom repository manager.
@@ -256,8 +256,8 @@ public class Workspace {
     public init(
         fileSystem: FileSystem,
         location: Location,
-        netrcFilePath: AbsolutePath? = .none,
         mirrors: DependencyMirrors? = .none,
+        netrcFilePath: AbsolutePath? = .none,
         customToolsVersion: ToolsVersion? = .none,
         customManifestLoader: ManifestLoaderProtocol? = .none,
         customRepositoryManager: RepositoryManager? = .none,
@@ -270,19 +270,25 @@ public class Workspace {
         resolverUpdateEnabled: Bool? = .none,
         resolverPrefetchingEnabled: Bool? = .none,
         resolverTracingEnabled: Bool? = .none,
+        sharedRepositoriesCacheEnabled: Bool? = .none,
         delegate: WorkspaceDelegate? = .none
     ) throws {
         // defaults
         let currentToolsVersion = customToolsVersion ?? ToolsVersion.currentToolsVersion
         let toolsVersionLoader = ToolsVersionLoader()
-        let manifestLoader = try customManifestLoader ?? ManifestLoader(toolchain: UserToolchain(destination: .hostDestination()).configuration)
+        let manifestLoader = try customManifestLoader ?? ManifestLoader(
+            toolchain: UserToolchain(destination: .hostDestination()).configuration,
+            cacheDir: location.sharedManifestsCacheDirectory
+        )
         let repositoryProvider = customRepositoryProvider ?? GitRepositoryProvider()
+        let sharedRepositoriesCacheEnabled = sharedRepositoriesCacheEnabled ?? true
         let repositoryManager = customRepositoryManager ?? RepositoryManager(
             path: location.repositoriesDirectory,
             provider: repositoryProvider,
             delegate: delegate.map(WorkspaceRepositoryManagerDelegate.init(workspaceDelegate:)),
             fileSystem: fileSystem,
-            cachePath: location.repositoriesSharedCacheDirectory)
+            cachePath: sharedRepositoriesCacheEnabled ? location.sharedRepositoriesCacheDirectory : .none
+        )
         let httpClient = customHTTPClient ?? HTTPClient()
         let archiver = customArchiver ?? ZipArchiver()
         let mirrors = mirrors ?? DependencyMirrors()
@@ -298,6 +304,7 @@ public class Workspace {
         let resolverUpdateEnabled = resolverUpdateEnabled ?? true
         let resolverPrefetchingEnabled = resolverPrefetchingEnabled ?? false
         let resolverTracingEnabled = resolverTracingEnabled ?? false
+
 
         // initialize
         self.fileSystem = fileSystem
@@ -323,7 +330,7 @@ public class Workspace {
         )
 
         self.pinsStore = LoadableResult {
-            try PinsStore(pinsFile: location.resolvedVersionsFilePath, fileSystem: fileSystem, mirrors: mirrors)
+            try PinsStore(pinsFile: location.resolvedVersionsFile, fileSystem: fileSystem, mirrors: mirrors)
         }
 
         self.additionalFileRules = additionalFileRules
@@ -368,11 +375,12 @@ public class Workspace {
             location: .init(
                 workingDirectory: dataPath,
                 editsDirectory: editablesPath,
-                resolvedVersionsFilePath: pinsFile,
-                sharedCacheDirectory: cachePath
+                resolvedVersionsFile: pinsFile,
+                sharedCacheDirectory: cachePath,
+                sharedConfigurationDirectory: nil // legacy
             ),
-            netrcFilePath: netrcFilePath,
             mirrors: config?.mirrors,
+            netrcFilePath: netrcFilePath,
             customToolsVersion: currentToolsVersion,
             customManifestLoader: manifestLoader,
             customRepositoryManager: repositoryManager,
@@ -409,7 +417,11 @@ public class Workspace {
         delegate: WorkspaceDelegate? = .none
     ) throws {
         let fileSystem = fileSystem ?? localFileSystem
-        let manifestLoader = ManifestLoader(toolchain: customToolchain.configuration)
+        let location = Location(forRootPackage: packagePath, fileSystem: fileSystem)
+        let manifestLoader = ManifestLoader(
+            toolchain: customToolchain.configuration,
+            cacheDir: location.sharedManifestsCacheDirectory
+        )
         try self.init(
             fileSystem: fileSystem,
             forRootPackage: packagePath,
@@ -436,11 +448,15 @@ public class Workspace {
         delegate: WorkspaceDelegate? =  .none
     ) throws {
         let fileSystem = fileSystem ?? localFileSystem
-        let mirrorsPath = packagePath.appending(components: ".swiftpm", "config")
+        let location = Location(forRootPackage: packagePath, fileSystem: fileSystem)
         try self .init(
             fileSystem: fileSystem,
-            location: .init(forRootPackage: packagePath),
-            mirrors: try Workspace.Configuration(path: mirrorsPath, fileSystem: fileSystem).mirrors,
+            location: location,
+            mirrors: try Configuration.Mirrors(
+                forRootPackage: packagePath,
+                sharedMirrorFile: location.sharedMirrorsConfigurationFile,
+                fileSystem: fileSystem
+            ).mirrors,
             customManifestLoader: customManifestLoader,
             delegate: delegate
         )
@@ -451,7 +467,6 @@ public class Workspace {
     ///
     /// The root package path is used to compute the build directory and other
     /// default paths.
-    // FIXME: this one is kind of messy to backwards support, hopefully we can remove quickly
     // deprecated 8/2021
     @available(*, deprecated, message: "use initializer instead")
     public static func create(
@@ -1355,7 +1370,7 @@ extension Workspace {
     public func watchResolvedFile() throws {
         // Return if we're already watching it.
         guard self.resolvedFileWatcher == nil else { return }
-        self.resolvedFileWatcher = try ResolvedFileWatcher(resolvedFile: self.location.resolvedVersionsFilePath) { [weak self] in
+        self.resolvedFileWatcher = try ResolvedFileWatcher(resolvedFile: self.location.resolvedVersionsFile) { [weak self] in
             self?.delegate?.resolvedFileChanged()
         }
     }
@@ -2019,10 +2034,10 @@ extension Workspace {
         )
 
         if precomputationResult.isRequired {
-            if !fileSystem.exists(self.location.resolvedVersionsFilePath) {
-                diagnostics.emit(error: "a resolved file is required when automatic dependency resolution is disabled and should be placed at \(self.location.resolvedVersionsFilePath.pathString)")
+            if !fileSystem.exists(self.location.resolvedVersionsFile) {
+                diagnostics.emit(error: "a resolved file is required when automatic dependency resolution is disabled and should be placed at \(self.location.resolvedVersionsFile.pathString)")
             } else {
-                diagnostics.emit(error: "an out-of-date resolved file was detected at \(self.location.resolvedVersionsFilePath.pathString), which is not allowed when automatic dependency resolution is disabled; please make sure to update the file to reflect the changes in dependencies")
+                diagnostics.emit(error: "an out-of-date resolved file was detected at \(self.location.resolvedVersionsFile.pathString), which is not allowed when automatic dependency resolution is disabled; please make sure to update the file to reflect the changes in dependencies")
             }
         }
 

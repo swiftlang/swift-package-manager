@@ -921,7 +921,7 @@ final class PackageToolTests: XCTestCase {
             let fs = localFileSystem
             let packageRoot = prefix.appending(component: "Foo")
             let configOverride = prefix.appending(component: "configoverride")
-            let configFile = packageRoot.appending(components: ".swiftpm", "config")
+            let configFile = Workspace.DefaultLocations.mirrorsConfigurationFile(forRootPackage: packageRoot)
 
             fs.createEmptyFiles(at: packageRoot, files:
                 "/Sources/Foo/Foo.swift",
@@ -975,7 +975,7 @@ final class PackageToolTests: XCTestCase {
                 try execute(["config", "get-mirror", "--original-url", "git@github.com:apple/swift-package-manager.git"], packagePath: packageRoot)
             }
 
-            check(stderr: "error: mirror not found\n") {
+            check(stderr: "error: Mirror not found for 'foo'\n") {
                 try execute(["config", "unset-mirror", "--original-url", "foo"], packagePath: packageRoot)
             }
         }
