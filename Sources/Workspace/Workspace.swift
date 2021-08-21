@@ -200,7 +200,7 @@ public class Workspace {
     /// The http client used for downloading binary artifacts.
     fileprivate let httpClient: HTTPClient
 
-    fileprivate let netrcFilePath: AbsolutePath?
+    fileprivate let authorizationProvider: AuthorizationProvider?
 
     /// The downloader used for unarchiving binary artifacts.
     fileprivate let archiver: Archiver
@@ -239,7 +239,7 @@ public class Workspace {
     ///   - fileSystem: The file system to use.
     ///   - location: Workspace location configuration.
     ///   - mirrors: Dependencies mirrors.
-    ///   - netrcFilePath: Path tot he netrc file.
+    ///   - authorizationProvider: Provider of authentication information.
     ///   - customToolsVersion: A custom tools version.
     ///   - customManifestLoader: A custom manifest loader.
     ///   - customRepositoryManager: A custom repository manager.
@@ -249,15 +249,16 @@ public class Workspace {
     ///   - customArchiver: A custom archiver.
     ///   - customChecksumAlgorithm: A custom checksum algorithm.
     ///   - additionalFileRules: File rules to determine resource handling behavior.
-    ///   - resolverUpdateEnabled: Enables the dependencies resolver automatic version update check, relying only on the resolved version file
-    ///   - resolverPrefetchingEnabled: Enables the dependencies resolver prefetching based on the resolved version file
-    ///   - resolverTracingEnabled:Enables the dependencies resolver tracing
+    ///   - resolverUpdateEnabled: Enables the dependencies resolver automatic version update check.  Enabled by default. When disabled the resolver relies only on the resolved version file
+    ///   - resolverPrefetchingEnabled: Enables the dependencies resolver prefetching based on the resolved version file.  Enabled by default..
+    ///   - resolverTracingEnabled: Enables the dependencies resolver tracing.  Disabled by default..
+    ///   - sharedRepositoriesCacheEnabled: Enables the shared repository cache. Enabled by default..
     ///   - delegate: Delegate for workspace events
     public init(
         fileSystem: FileSystem,
         location: Location,
         mirrors: DependencyMirrors? = .none,
-        netrcFilePath: AbsolutePath? = .none,
+        authorizationProvider: AuthorizationProvider? = .none,
         customToolsVersion: ToolsVersion? = .none,
         customManifestLoader: ManifestLoaderProtocol? = .none,
         customRepositoryManager: RepositoryManager? = .none,
@@ -311,7 +312,7 @@ public class Workspace {
         self.location = location
         self.delegate = delegate
         self.mirrors = mirrors
-        self.netrcFilePath = netrcFilePath
+        self.authorizationProvider = authorizationProvider
         self.manifestLoader = manifestLoader
         self.currentToolsVersion = currentToolsVersion
         self.toolsVersionLoader = toolsVersionLoader
@@ -380,7 +381,9 @@ public class Workspace {
                 sharedConfigurationDirectory: nil // legacy
             ),
             mirrors: config?.mirrors,
-            netrcFilePath: netrcFilePath,
+            authorizationProvider: netrcFilePath.map {
+                try Configuration.Netrc(path: $0, fileSystem: fileSystem).get()
+            },
             customToolsVersion: currentToolsVersion,
             customManifestLoader: manifestLoader,
             customRepositoryManager: repositoryManager,
@@ -1771,9 +1774,6 @@ extension Workspace {
         let tempDiagnostics = DiagnosticsEngine()
         let result = ThreadSafeArrayStore<ManagedArtifact>()
 
-        // FIXME: should this handle the error more gracefully?
-        let authProvider: AuthorizationProviding? = try? Netrc.load(fromFileAtPath: netrcFilePath).get()
-
         // zip files to download
         // stored in a thread-safe way as we may fetch more from "artifactbundleindex" files
         let zipArtifacts = ThreadSafeArrayStore<RemoteArtifact>(artifacts.filter { $0.url.pathExtension.lowercased() == "zip" })
@@ -1787,7 +1787,7 @@ extension Workspace {
                 group.enter()
                 var request = HTTPClient.Request(method: .get, url: indexFile.url)
                 request.options.validResponseCodes = [200]
-                request.options.authorizationProvider = authProvider?.authorization(for:)
+                request.options.authorizationProvider = self.authorizationProvider?.httpAuthorizationHeader(for:)
                 self.httpClient.execute(request) { result in
                     defer { group.leave() }
 
@@ -1858,7 +1858,7 @@ extension Workspace {
 
             group.enter()
             var request = HTTPClient.Request.download(url: artifact.url, fileSystem: self.fileSystem, destination: archivePath)
-            request.options.authorizationProvider = authProvider?.authorization(for:)
+            request.options.authorizationProvider = self.authorizationProvider?.httpAuthorizationHeader(for:)
             request.options.validResponseCodes = [200]
             self.httpClient.execute(
                 request,

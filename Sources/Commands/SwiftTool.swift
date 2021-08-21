@@ -508,22 +508,32 @@ public class SwiftTool {
         return newPath
     }
 
+    func getAuthorizationProvider() throws -> AuthorizationProvider? {
+        // currently only single provider: netrc
+        return try self.getNetrcConfig()?.get()
+    }
+
+    func getNetrcConfig() throws -> Workspace.Configuration.Netrc? {
+        guard options.netrc || options.netrcFilePath != nil || options.netrcOptional else {
+            return .none
+        }
+
+        let netrcFilePath = try self.netrcFilePath()
+        return netrcFilePath.map { .init(path: $0, fileSystem: localFileSystem) }
+    }
+
     private func netrcFilePath() throws -> AbsolutePath? {
-        guard options.netrc ||
-                options.netrcFilePath != nil ||
-                options.netrcOptional else { return nil }
-        
-        let resolvedPath: AbsolutePath = options.netrcFilePath ?? AbsolutePath("\(NSHomeDirectory())/.netrc")
-        guard localFileSystem.exists(resolvedPath) else {
+        let netrcFilePath = options.netrcFilePath ?? localFileSystem.homeDirectory.appending(component: ".netrc")
+        guard localFileSystem.exists(netrcFilePath) else {
             if !options.netrcOptional {
-                diagnostics.emit(error: "Cannot find mandatory .netrc file at \(resolvedPath.pathString).  To make .netrc file optional, use --netrc-optional flag.")
+                diagnostics.emit(error: "Cannot find mandatory .netrc file at \(netrcFilePath). To make .netrc file optional, use --netrc-optional flag.")
                 throw ExitCode.failure
             } else {
-                diagnostics.emit(warning: "Did not find optional .netrc file at \(resolvedPath.pathString).")
+                diagnostics.emit(warning: "Did not find optional .netrc file at \(netrcFilePath).")
                 return .none
             }
         }
-        return resolvedPath
+        return netrcFilePath
     }
 
     private func getSharedCacheDirectory() throws -> AbsolutePath? {
@@ -582,7 +592,7 @@ public class SwiftTool {
                 sharedConfigurationDirectory: sharedConfigurationDirectory
             ),
             mirrors: self.getMirrorsConfig(sharedConfigurationDirectory: sharedConfigurationDirectory).mirrors,
-            netrcFilePath: self.netrcFilePath(),
+            authorizationProvider: self.getAuthorizationProvider(),
             customManifestLoader: self.getManifestLoader(), // FIXME: doe we really need to customize it?
             customRepositoryProvider: provider, // FIXME: doe we really need to customize it?
             additionalFileRules: isXcodeBuildSystemEnabled ? FileRuleDescription.xcbuildFileTypes : FileRuleDescription.swiftpmFileTypes,
