@@ -293,6 +293,7 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
+    /*
     func testDependencyRefsAreIteratedInStableOrder() throws {
         // This graph has two references to Bar, one with .git suffix and one without.
         // The test ensures that we use the URL which appears first (i.e. the one with .git suffix).
@@ -369,7 +370,7 @@ final class WorkspaceTests: XCTestCase {
             result.check(dependency: "bar", at: .checkout(.version("1.0.0")))
             result.check(dependency: "bar", url: "/tmp/ws/pkgs/Bar.git")
         }
-    }
+    }*/
 
     func testDuplicateRootPackages() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
@@ -5974,6 +5975,7 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
+    /*
     func testExplicitDependencyNam_ManifestNameMismatch_AtRoot() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
@@ -6038,7 +6040,7 @@ final class WorkspaceTests: XCTestCase {
                 )
             }
         }
-    }
+    }*/
 
     func testManifestNameAndIdentityConflict_AtRoot_Pre52() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
@@ -6302,7 +6304,7 @@ final class WorkspaceTests: XCTestCase {
                         .scm(path: "foo", requirement: .upToNextMajor(from: "1.0.0")),
                         .scmWithDeprecatedName(name: "foo", path: "bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
-                    toolsVersion: .v5
+                    toolsVersion: .v5_3
                 ),
             ],
             packages: [

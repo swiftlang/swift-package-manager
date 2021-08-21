@@ -1108,6 +1108,7 @@ class PackageGraphTests: XCTestCase {
         }
     }
 
+    /*
     func testInvalidExplicitPackageDependencyName() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Foo/Sources/Foo/foo.swift",
@@ -1151,7 +1152,7 @@ class PackageGraphTests: XCTestCase {
                 location: "'Foo' /Foo"
             )
         }
-    }
+    }*/
 
     func testConditionalTargetDependency() throws {
         let fs = InMemoryFileSystem(emptyFiles:
@@ -1885,7 +1886,8 @@ class PackageGraphTests: XCTestCase {
             XCTAssert(diagnostics.diagnostics.isEmpty, "\(diagnostics.diagnostics)")
         }
     }
-    
+
+    /*
     func testTargetDependencies_Post52_ManifestNameNotMatchedWithURL() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Foo/Sources/Foo/foo.swift",
@@ -1950,6 +1952,7 @@ class PackageGraphTests: XCTestCase {
             XCTAssert(diagnostics.diagnostics.isEmpty, "\(diagnostics.diagnostics)")
         }
     }
+    */
 }
 
 

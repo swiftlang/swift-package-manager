@@ -35,6 +35,7 @@ public final class ResolvedPackage: ObjectIdentifierProtocol {
 
     /// The name of the package as entered in the manifest.
     /// This should rarely be used beyond presentation purposes
+    //@available(*, deprecated)
     public var manifestName: String {
         return self.underlyingPackage.manifestName
     }

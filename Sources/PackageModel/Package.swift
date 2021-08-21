@@ -60,6 +60,7 @@ public final class Package: ObjectIdentifierProtocol, Encodable {
 
     /// The name of the package as entered in the manifest.
     /// This should rarely be used beyond presentation purposes
+    //@available(*, deprecated)
     public var manifestName: String {
         return manifest.name
     }
