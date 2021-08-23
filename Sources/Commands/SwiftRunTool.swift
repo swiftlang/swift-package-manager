@@ -198,6 +198,8 @@ public struct SwiftRunTool: SwiftCommand {
                 try run(executablePath,
                         originalWorkingDirectory: swiftTool.originalWorkingDirectory,
                         arguments: options.arguments)
+            } catch Diagnostics.fatalError {
+                throw ExitCode.failure
             } catch let error as RunError {
                 swiftTool.diagnostics.emit(error)
                 throw ExitCode.failure
