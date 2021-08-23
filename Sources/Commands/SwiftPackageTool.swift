@@ -265,26 +265,23 @@ extension SwiftPackageTool {
                 : swiftFormatFlags
 
             // Process each target in the root package.
-            for target in package.targets {
-                for file in target.sources.paths {
-                    // Only process Swift sources.
-                    guard let ext = file.extension, ext == SupportedLanguageExtension.swift.rawValue else {
-                        continue
-                    }
-
-                    let args = [swiftFormat.pathString] + formatOptions + [file.pathString]
-                    print("Running:", args.map{ $0.spm_shellEscaped() }.joined(separator: " "))
-
-                    let result = try Process.popen(arguments: args)
-                    let output = try (result.utf8Output() + result.utf8stderrOutput())
-
-                    if result.exitStatus != .terminated(code: 0) {
-                        print("Non-zero exit", result.exitStatus)
-                    }
-                    if !output.isEmpty {
-                        print(output)
-                    }
+            let paths = package.targets.flatMap { target in
+                target.sources.paths.filter { file in
+                    file.extension == SupportedLanguageExtension.swift.rawValue
                 }
+            }.map { $0.pathString }
+
+            let args = [swiftFormat.pathString] + formatOptions + [rootManifest.path.pathString] + paths
+            print("Running:", args.map{ $0.spm_shellEscaped() }.joined(separator: " "))
+
+            let result = try Process.popen(arguments: args)
+            let output = try (result.utf8Output() + result.utf8stderrOutput())
+
+            if result.exitStatus != .terminated(code: 0) {
+                print("Non-zero exit", result.exitStatus)
+            }
+            if !output.isEmpty {
+                print(output)
             }
         }
     }
