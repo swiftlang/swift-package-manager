@@ -11,6 +11,7 @@
 import Basics
 import Foundation
 import TSCBasic
+import PackageRegistry
 
 // MARK: - Location
 
@@ -60,6 +61,11 @@ extension Workspace {
         /// Path to the shared cache.
         public var sharedMirrorsConfigurationFile: AbsolutePath? {
             self.sharedConfigurationDirectory.map { DefaultLocations.mirrorsConfigurationFile(at: $0) }
+        }
+
+        /// Path to the shared registries configuration.
+        public var sharedRegistriesConfigurationFile: AbsolutePath? {
+            self.sharedConfigurationDirectory.map { DefaultLocations.registriesConfigurationFile(at: $0) }
         }
 
         /// Create a new workspace location.
@@ -127,6 +133,10 @@ extension Workspace {
 
         public static func mirrorsConfigurationFile(at path: AbsolutePath) -> AbsolutePath {
             path.appending(component: "mirrors.json")
+        }
+
+        public static func registriesConfigurationFile(at path: AbsolutePath) -> AbsolutePath {
+            path.appending(component: "registries.json")
         }
 
         public static func manifestsDirectory(at path: AbsolutePath) -> AbsolutePath {
@@ -360,6 +370,141 @@ extension Workspace.Configuration {
     }
 }
 
+// MARK: - Registries
+
+extension Workspace.Configuration {
+    public class Registries {
+        private let localRegistries: RegistriesStorage
+        private let sharedRegistries: RegistriesStorage?
+        private let fileSystem: FileSystem
+
+        private var _configuration = RegistryConfiguration()
+        private let lock = Lock()
+
+        /// The registry configuration
+        public var configuration: RegistryConfiguration {
+            self.lock.withLock {
+                return self._configuration
+            }
+        }
+
+        /// Initialize the workspace registries configuration
+        ///
+        /// - Parameters:
+        ///   - localRegistriesFile: Path to the workspace registries configuration file
+        ///   - sharedRegistriesFile: Path to the shared registries configuration file, defaults to the standard location.
+        ///   - fileSystem: The file system to use.
+        public init(
+            localRegistriesFile: AbsolutePath,
+            sharedRegistriesFile: AbsolutePath?,
+            fileSystem: FileSystem
+        ) throws {
+            self.localRegistries = .init(path: localRegistriesFile, fileSystem: fileSystem, deleteWhenEmpty: true)
+            self.sharedRegistries = sharedRegistriesFile.map { .init(path: $0, fileSystem: fileSystem, deleteWhenEmpty: false) }
+            self.fileSystem = fileSystem
+            try self.computeRegistries()
+        }
+
+        @discardableResult
+        public func applyLocal(handler: (inout RegistryConfiguration) throws -> Void) throws -> RegistryConfiguration {
+            try self.localRegistries.apply(handler: handler)
+            try self.computeRegistries()
+            return self.configuration
+        }
+
+        @discardableResult
+        public func applyShared(handler: (inout RegistryConfiguration) throws -> Void) throws -> RegistryConfiguration {
+            guard let sharedRegistries = self.sharedRegistries else {
+                throw InternalError("shared registries not configured")
+            }
+            try sharedRegistries.apply(handler: handler)
+            try self.computeRegistries()
+            return self.configuration
+        }
+
+        // mutating the state we hold since we are passing it by reference to the workspace
+        // access should be done using a lock
+        private func computeRegistries() throws {
+            try self.lock.withLock {
+                var configuration = RegistryConfiguration()
+
+                if let sharedConfiguration = try sharedRegistries?.get() {
+                    configuration.merge(sharedConfiguration)
+                }
+
+                let localConfiguration = try localRegistries.get()
+                configuration.merge(localConfiguration)
+
+                self._configuration = configuration
+            }
+        }
+    }
+}
+
+extension Workspace.Configuration {
+    private struct RegistriesStorage {
+        private let path: AbsolutePath
+        private let fileSystem: FileSystem
+        private let deleteWhenEmpty: Bool
+
+        public init(path: AbsolutePath, fileSystem: FileSystem, deleteWhenEmpty: Bool) {
+            self.path = path
+            self.fileSystem = fileSystem
+            self.deleteWhenEmpty = deleteWhenEmpty
+        }
+
+        public func get() throws -> RegistryConfiguration {
+            return try self.fileSystem.withLock(on: self.path.parentDirectory, type: .shared) {
+                return try Self.load(self.path, fileSystem: self.fileSystem)
+            }
+        }
+
+        @discardableResult
+        public func apply(handler: (inout RegistryConfiguration) throws -> Void) throws -> RegistryConfiguration {
+            if !self.fileSystem.exists(self.path.parentDirectory) {
+                try self.fileSystem.createDirectory(self.path.parentDirectory, recursive: true)
+            }
+            return try self.fileSystem.withLock(on: self.path.parentDirectory, type: .exclusive) {
+                let configuration = try Self.load(self.path, fileSystem: self.fileSystem)
+                var updatedConfiguration = configuration
+                try handler(&updatedConfiguration)
+                if updatedConfiguration != configuration {
+                    try Self.save(updatedConfiguration, to: self.path, fileSystem: self.fileSystem, deleteWhenEmpty: self.deleteWhenEmpty)
+                }
+                return updatedConfiguration
+            }
+        }
+
+        private static func load(_ path: AbsolutePath, fileSystem: FileSystem) throws -> RegistryConfiguration {
+            guard fileSystem.exists(path) else {
+                return RegistryConfiguration()
+            }
+
+            let data: Data = try fileSystem.readFileContents(path)
+            let decoder = JSONDecoder.makeWithDefaults()
+            return try decoder.decode(RegistryConfiguration.self, from: data)
+        }
+
+        private static func save(_ configuration: RegistryConfiguration, to path: AbsolutePath, fileSystem: FileSystem, deleteWhenEmpty: Bool) throws {
+            if configuration.isEmpty {
+                if deleteWhenEmpty && fileSystem.exists(path)  {
+                    // deleteWhenEmpty is a backward compatibility mode
+                    return try fileSystem.removeFileTree(path)
+                } else if !fileSystem.exists(path)  {
+                    // nothing to do
+                    return
+                }
+            }
+
+            let encoder = JSONEncoder.makeWithDefaults()
+            let data = try encoder.encode(configuration)
+            if !fileSystem.exists(path.parentDirectory) {
+                try fileSystem.createDirectory(path.parentDirectory, recursive: true)
+            }
+            try fileSystem.writeFileContents(path, data: data)
+        }
+    }
+}
 
 // MARK: - Deprecated 8/20201
 

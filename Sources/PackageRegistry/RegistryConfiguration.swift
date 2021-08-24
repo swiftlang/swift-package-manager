@@ -34,6 +34,20 @@ public struct RegistryConfiguration: Hashable {
         self.defaultRegistry = nil
         self.scopedRegistries = [:]
     }
+
+    public var isEmpty: Bool {
+        return self.defaultRegistry == nil && self.scopedRegistries.isEmpty
+    }
+
+    public mutating func merge(_ other: RegistryConfiguration) {
+        if let defaultRegistry = other.defaultRegistry {
+            self.defaultRegistry = defaultRegistry
+        }
+
+        for (scope, registry) in other.scopedRegistries {
+            self.scopedRegistries[scope] = registry
+        }
+    }
 }
 
 // MARK: - Codable

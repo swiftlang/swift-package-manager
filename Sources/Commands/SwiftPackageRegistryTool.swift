@@ -92,20 +92,20 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
 
             // TODO: Require login if password is specified
 
-            let path = try swiftTool.getRegistryConfigurationPath(fileSystem: localFileSystem, global: global)
-
-            var configuration = RegistryConfiguration()
-            if localFileSystem.exists(path) {
-                configuration = try RegistryConfiguration.readFromJSONFile(in: localFileSystem, at: path)
+            let set: (inout RegistryConfiguration) throws -> Void = { configuration in
+                if let scope = scope {
+                    configuration.scopedRegistries[scope] = .init(url: url)
+                } else {
+                    configuration.defaultRegistry = .init(url: url)
+                }
             }
 
-            if let scope = scope {
-                configuration.scopedRegistries[scope] = .init(url: url)
+            let configuration = try swiftTool.getRegistriesConfig()
+            if global {
+                try configuration.applyShared(handler: set)
             } else {
-                configuration.defaultRegistry = .init(url: url)
+                try configuration.applyLocal(handler: set)
             }
-
-            try configuration.writeToJSONFile(in: localFileSystem, at: path)
 
             // TODO: Add login and password to .netrc
         }
@@ -125,56 +125,45 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
         var scope: String?
 
         func run(_ swiftTool: SwiftTool) throws {
-            let path = try swiftTool.getRegistryConfigurationPath(fileSystem: localFileSystem, global: global)
-            var configuration = try RegistryConfiguration.readFromJSONFile(in: localFileSystem, at: path)
-
-            if let scope = scope {
-                guard let _ = configuration.scopedRegistries[scope] else {
-                    throw RegistryConfigurationError.missingScope(scope)
+            let unset: (inout RegistryConfiguration) throws -> Void = { configuration in
+                if let scope = scope {
+                    guard let _ = configuration.scopedRegistries[scope] else {
+                        throw RegistryConfigurationError.missingScope(scope)
+                    }
+                    configuration.scopedRegistries.removeValue(forKey: scope)
+                } else {
+                    guard let _ = configuration.defaultRegistry else {
+                        throw RegistryConfigurationError.missingScope()
+                    }
+                    configuration.defaultRegistry = nil
                 }
-                configuration.scopedRegistries.removeValue(forKey: scope)
-            } else {
-                guard let _ = configuration.defaultRegistry else {
-                    throw RegistryConfigurationError.missingScope()
-                }
-                configuration.defaultRegistry = nil
             }
 
-            try configuration.writeToJSONFile(in: localFileSystem, at: path)
+            let configuration = try swiftTool.getRegistriesConfig()
+            if global {
+                try configuration.applyShared(handler: unset)
+            } else {
+                try configuration.applyLocal(handler: unset)
+            }
         }
     }
 }
 
 // MARK: -
 
-private extension Decodable {
-    static func readFromJSONFile(in fileSystem: FileSystem, at path: AbsolutePath) throws -> Self {
-        let content = try fileSystem.readFileContents(path)
-        let decoder = JSONDecoder.makeWithDefaults()
-        return try decoder.decode(Self.self, from: Data(content.contents))
-    }
-}
-
-private extension Encodable {
-    func writeToJSONFile(in fileSystem: FileSystem, at path: AbsolutePath) throws {
-        let encoder = JSONEncoder.makeWithDefaults()
-        let data = try encoder.encode(self)
-        try fileSystem.writeFileContents(path, bytes: ByteString(data), atomically: true)
-    }
-}
 
 private extension SwiftTool {
-    func getRegistryConfigurationPath(fileSystem: FileSystem, global: Bool) throws -> AbsolutePath {
-        let filename = "registries.json"
-        if global {
-            return try fileSystem.getOrCreateSwiftPMConfigDirectory().appending(component: filename)
-        } else {
-            let directory = try configFilePath()
-            if !fileSystem.exists(directory) {
-                try fileSystem.createDirectory(directory, recursive: true)
-            }
+    func getRegistriesConfig(sharedConfigurationDirectory: AbsolutePath? = nil) throws -> Workspace.Configuration.Registries {
+        let sharedConfigurationDirectory = try sharedConfigurationDirectory ?? self.getSharedConfigurationDirectory()
+        let sharedRegistriesFile = sharedConfigurationDirectory.map { Workspace.DefaultLocations.registriesConfigurationFile(at: $0) }
+        return try .init(
+            localRegistriesFile: self.registriesConfigFile(),
+            sharedRegistriesFile: sharedRegistriesFile,
+            fileSystem: localFileSystem
+        )
+    }
 
-            return directory.appending(component: filename)
-        }
+    func registriesConfigFile() throws -> AbsolutePath {
+        try self.getPackageRoot().appending(components: ".swiftpm", "config", "registries.json")
     }
 }
