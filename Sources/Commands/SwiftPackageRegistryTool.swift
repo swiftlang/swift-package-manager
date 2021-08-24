@@ -102,9 +102,9 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
 
             let configuration = try swiftTool.getRegistriesConfig()
             if global {
-                try configuration.applyShared(handler: set)
+                try configuration.updateShared(with: set)
             } else {
-                try configuration.applyLocal(handler: set)
+                try configuration.updateLocal(with: set)
             }
 
             // TODO: Add login and password to .netrc
@@ -141,9 +141,9 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
 
             let configuration = try swiftTool.getRegistriesConfig()
             if global {
-                try configuration.applyShared(handler: unset)
+                try configuration.updateShared(with: unset)
             } else {
-                try configuration.applyLocal(handler: unset)
+                try configuration.updateLocal(with: unset)
             }
         }
     }
