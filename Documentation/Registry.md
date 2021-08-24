@@ -658,7 +658,7 @@ Location: https://packages.example.com/mona/LinkedList/1.1.1/Package.swift
 ### 4.4. Download source archive
 
 A client MAY send a `GET` request
-for a URI matching the expression `/{scope}/{name}/{version}`
+for a URI matching the expression `/{scope}/{name}/{version}.zip`
 to retrieve a release's source archive.
 A client SHOULD set the `Accept` header with the value
 `application/vnd.swift.registry.v1+zip`
