@@ -148,56 +148,9 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
         guard isVerbose else { return }
 
         queue.sync {
-            self.stdoutStream <<< "Running resolver because "
-
-            switch reason {
-            case .forced:
-                self.stdoutStream <<< "it was forced"
-            case .newPackages(let packages):
-                let dependencies = packages.lazy.map({ "'\($0.location)'" }).joined(separator: ", ")
-                self.stdoutStream <<< "the following dependencies were added: \(dependencies)"
-            case .packageRequirementChange(let package, let state, let requirement):
-                self.stdoutStream <<< "dependency '\(package.name)' was "
-
-                switch state {
-                case .checkout(let checkoutState)?:
-                    switch checkoutState.requirement {
-                    case .versionSet(.exact(let version)):
-                        self.stdoutStream <<< "resolved to '\(version)'"
-                    case .versionSet(_):
-                        // Impossible
-                        break
-                    case .revision(let revision):
-                        self.stdoutStream <<< "resolved to '\(revision)'"
-                    case .unversioned:
-                        self.stdoutStream <<< "unversioned"
-                    }
-                case .edited?:
-                    self.stdoutStream <<< "edited"
-                case .local?:
-                    self.stdoutStream <<< "versioned"
-                case nil:
-                    self.stdoutStream <<< "root"
-                }
-
-                self.stdoutStream <<< " but now has a "
-
-                switch requirement {
-                case .versionSet:
-                    self.stdoutStream <<< "different version-based"
-                case .revision:
-                    self.stdoutStream <<< "different revision-based"
-                case .unversioned:
-                    self.stdoutStream <<< "unversioned"
-                }
-
-                self.stdoutStream <<< " requirement."
-            default:
-                self.stdoutStream <<< " requirements have changed."
-            }
-
+            self.stdoutStream <<< Workspace.format(workspaceResolveReason: reason)
             self.stdoutStream <<< "\n"
-            stdoutStream.flush()
+            self.stdoutStream.flush()
         }
     }
 

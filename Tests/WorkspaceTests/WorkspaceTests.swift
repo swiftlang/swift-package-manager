@@ -3685,7 +3685,7 @@ final class WorkspaceTests: XCTestCase {
         // Check force resolve. This should produce an error because the resolved file is out-of-date.
         workspace.checkPackageGraphFailure(roots: ["Root"], forceResolvedVersions: true) { diagnostics in
             DiagnosticsEngineTester(diagnostics) { result in
-                result.check(diagnostic: "an out-of-date resolved file was detected at /tmp/ws/Package.resolved, which is not allowed when automatic dependency resolution is disabled; please make sure to update the file to reflect the changes in dependencies", checkContains: true, behavior: .error)
+                result.check(diagnostic: "an out-of-date resolved file was detected at /tmp/ws/Package.resolved, which is not allowed when automatic dependency resolution is disabled; please make sure to update the file to reflect the changes in dependencies. Running resolver because  requirements have changed.", checkContains: true, behavior: .error)
             }
         }
         workspace.checkManagedDependencies { result in
@@ -3769,9 +3769,9 @@ final class WorkspaceTests: XCTestCase {
         )
 
         workspace.checkPackageGraphFailure(roots: ["Root"], forceResolvedVersions: true) { diagnostics in
-            DiagnosticsEngineTester(diagnostics) { result in
-                result.check(diagnostic: "a resolved file is required when automatic dependency resolution is disabled and should be placed at /tmp/ws/Package.resolved", checkContains: true, behavior: .error)
-            }
+            guard let diagnostic = diagnostics.diagnostics.first else { return XCTFail("unexpectedly got no diagnostics") }
+            // rdar://82544922 (`WorkspaceResolveReason` is non-deterministic)
+            XCTAssertTrue(diagnostic.message.text.hasPrefix("a resolved file is required when automatic dependency resolution is disabled and should be placed at /tmp/ws/Package.resolved. Running resolver because the following dependencies were added:"), "unexpected diagnostic message")
         }
     }
 
