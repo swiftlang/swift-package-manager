@@ -261,7 +261,7 @@ extension SwiftPackageTool {
 
             // Use the user provided flags or default to formatting mode.
             let formatOptions = swiftFormatFlags.isEmpty
-                ? ["--mode", "format", "--in-place"]
+                ? ["--mode", "format", "--in-place", "--parallel"]
                 : swiftFormatFlags
 
             // Process each target in the root package.
