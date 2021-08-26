@@ -493,10 +493,26 @@ extension SwiftPackageTool {
     struct DumpSymbolGraph: SwiftCommand {
         static let configuration = CommandConfiguration(
             abstract: "Dump Symbol Graph")
+        static let defaultMinimumAccessLevel = AccessLevel.public
 
         @OptionGroup(_hiddenFromHelp: true)
         var swiftOptions: SwiftToolOptions
-        
+
+        @Flag(help: "Pretty-print the output JSON.")
+        var prettyPrint = false
+
+        @Flag(help: "Skip members inherited through classes or default implementations.")
+        var skipSynthesizedMembers = false
+
+        @Option(help: "Include symbols with this access level or more. Possible values: \(AccessLevel.allValueStrings.joined(separator: " | "))")
+        var minimumAccessLevel = defaultMinimumAccessLevel
+
+        @Flag(help: "Skip emitting doc comments for members inherited through classes or default implementations.")
+        var skipInheritedDocs = false
+
+        @Flag(help: "Add symbols with SPI information to the symbol graph.")
+        var includeSPISymbols = false
+
         func run(_ swiftTool: SwiftTool) throws {
             let symbolGraphExtract = try SymbolGraphExtract(
                 tool: swiftTool.getToolchain().getSymbolGraphExtract())
@@ -508,7 +524,12 @@ extension SwiftPackageTool {
             try buildOp.build()
 
             try symbolGraphExtract.dumpSymbolGraph(
-                buildPlan: buildOp.buildPlan!
+                buildPlan: buildOp.buildPlan!,
+                prettyPrint: prettyPrint,
+                skipSynthesisedMembers: skipSynthesizedMembers,
+                minimumAccessLevel: minimumAccessLevel,
+                skipInheritedDocs: skipInheritedDocs,
+                includeSPISymbols: includeSPISymbols
             )
         }
     }
