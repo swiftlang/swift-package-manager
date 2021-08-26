@@ -229,11 +229,11 @@ def parse_test_args(args):
     """Parses and cleans arguments necessary for the test action."""
     parse_build_args(args)
 
-def get_swiftc_path(args):
+def get_swiftc_path(args, skip_overrides=False):
     """Returns the path to the Swift compiler."""
-    if args.swiftc_path:
+    if not skip_overrides and args.swiftc_path:
         swiftc_path = os.path.abspath(args.swiftc_path)
-    elif os.getenv("SWIFT_EXEC"):
+    elif not skip_overrides and os.getenv("SWIFT_EXEC"):
         swiftc_path = os.path.realpath(os.getenv("SWIFT_EXEC"))
     elif platform.system() == 'Darwin':
         swiftc_path = call_output(
@@ -478,12 +478,18 @@ def build_with_cmake(args, cmake_args, source_path, build_dir):
         # Ensure we are not sharing the module cache with concurrent builds in CI
         swift_flags += ' -module-cache-path "{}"'.format(os.path.join(build_dir, 'module-cache'))
 
+        swiftc_path = args.swiftc_path
+        # If we are cross-compiling, we assume any override for the compiler is for the target and
+        # skip passing it for the first stage which is building for the host
+        if args.cross_compile_hosts:
+            swiftc_path = get_swiftc_path(args, skip_overrides=True)
+
         cmd = [
             args.cmake_path, "-G", "Ninja",
             "-DCMAKE_MAKE_PROGRAM=%s" % args.ninja_path,
             "-DCMAKE_BUILD_TYPE:=Debug",
             "-DCMAKE_Swift_FLAGS=" + swift_flags,
-            "-DCMAKE_Swift_COMPILER:=%s" % (args.swiftc_path),
+            "-DCMAKE_Swift_COMPILER:=%s" % (swiftc_path),
         ] + cmake_args + [source_path]
 
         if args.verbose:
