@@ -217,8 +217,16 @@ enum ManifestJSONParser {
             // FIXME: SwiftPM can't handle file locations with file:// scheme so we need to
             // strip that. We need to design a Location data structure for SwiftPM.
             let location = String(dependencyLocation.dropFirst(filePrefix.count))
-            if location.first != "/" {
-                throw ManifestParseError.invalidManifestFormat("file:// URLs cannot be relative, did you mean to use `.package(path:)`?", diagnosticFile: nil)
+            let hostnameComponent = location.prefix(while: { $0 != "/" })
+            guard hostnameComponent.isEmpty else {
+              if hostnameComponent == ".." {
+                throw ManifestParseError.invalidManifestFormat(
+                  "file:// URLs cannot be relative, did you mean to use '.package(path:)'?", diagnosticFile: nil
+                )
+              }
+              throw ManifestParseError.invalidManifestFormat(
+                "file:// URLs with hostnames are not supported, are you missing a '/'?", diagnosticFile: nil
+              )
             }
             return AbsolutePath(location).pathString
         } else if URL.scheme(dependencyLocation) == nil {
