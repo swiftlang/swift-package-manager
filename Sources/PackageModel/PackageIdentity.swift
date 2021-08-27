@@ -78,20 +78,6 @@ extension PackageIdentity: Codable {
     }
 }
 
-extension PackageIdentity: JSONMappable, JSONSerializable {
-    public init(json: JSON) throws {
-        guard case .string(let string) = json else {
-            throw JSON.MapError.typeMismatch(key: "", expected: String.self, json: json)
-        }
-
-        self.init(string)
-    }
-
-    public func toJSON() -> JSON {
-        return .string(self.description)
-    }
-}
-
 // MARK: -
 
 extension PackageIdentity {

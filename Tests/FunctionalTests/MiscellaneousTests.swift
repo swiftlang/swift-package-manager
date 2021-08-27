@@ -624,7 +624,6 @@ class MiscellaneousTestCase: XCTestCase {
                 XCTAssertTrue(output.stdout.contains("Build complete!"))
             }
 
-
             do {
                 // take foo out of edit mode
                 let output = try executeSwiftPackage(appPath, extraArgs: ["unedit", "Foo"])

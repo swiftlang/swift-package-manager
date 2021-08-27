@@ -344,6 +344,7 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
 /// This is the root class for bridging the manifest & SCM systems into the
 /// interfaces used by the `DependencyResolver` algorithm.
 public class RepositoryPackageContainerProvider: PackageContainerProvider {
+    let fileSystem: FileSystem
     let repositoryManager: RepositoryManager
     let manifestLoader: ManifestLoaderProtocol
     let identityResolver: IdentityResolver
@@ -363,12 +364,14 @@ public class RepositoryPackageContainerProvider: PackageContainerProvider {
     ///   - currentToolsVersion: The current tools version in use.
     ///   - toolsVersionLoader: The tools version loader.
     public init(
+        fileSystem: FileSystem,
         repositoryManager: RepositoryManager,
         identityResolver: IdentityResolver,
         manifestLoader: ManifestLoaderProtocol,
         currentToolsVersion: ToolsVersion = ToolsVersion.currentToolsVersion,
         toolsVersionLoader: ToolsVersionLoaderProtocol = ToolsVersionLoader()
     ) {
+        self.fileSystem = fileSystem
         self.repositoryManager = repositoryManager
         self.identityResolver = identityResolver
         self.manifestLoader = manifestLoader
@@ -391,7 +394,7 @@ public class RepositoryPackageContainerProvider: PackageContainerProvider {
                     manifestLoader: self.manifestLoader,
                     toolsVersionLoader: self.toolsVersionLoader,
                     currentToolsVersion: self.currentToolsVersion,
-                    fileSystem: self.repositoryManager.fileSystem)
+                    fileSystem: self.fileSystem)
                 completion(.success(container))
             }
         }

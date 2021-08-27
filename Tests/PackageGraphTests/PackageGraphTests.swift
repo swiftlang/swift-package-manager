@@ -1279,8 +1279,10 @@ class PackageGraphTests: XCTestCase {
     }
 
     func testPinsStoreIsResilientAgainstDupes() throws {
-        let json = try JSON(string: """
+        let json = """
               {
+                "version": 1,
+                "object": {
                   "pins": [
                     {
                       "package": "Yams",
@@ -1301,12 +1303,15 @@ class PackageGraphTests: XCTestCase {
                       }
                     }
                   ]
+                }
               }
-        """)
+        """
 
-        let fs = InMemoryFileSystem(emptyFiles: [])
-        let store = try PinsStore(pinsFile: AbsolutePath("/pins"), fileSystem: fs, mirrors: .init())
-        XCTAssertThrows(StringError("duplicated entry for package \"Yams\""), { try store.restore(from: json) })
+        let fs = InMemoryFileSystem(files: ["/pins": ByteString(encodingAsUTF8: json)])
+        
+        XCTAssertThrows(StringError("Package.resolved file is corrupted or malformed; fix or delete the file to continue: duplicated entry for package \"Yams\""), {
+            _ = try PinsStore(pinsFile: AbsolutePath("/pins"), fileSystem: fs, mirrors: .init())
+        })
     }
 
     func testTargetDependencies_Pre52() throws {

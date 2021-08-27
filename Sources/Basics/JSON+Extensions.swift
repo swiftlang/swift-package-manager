@@ -11,6 +11,7 @@
 import class Foundation.DateFormatter
 import class Foundation.JSONDecoder
 import class Foundation.JSONEncoder
+import TSCBasic
 
 #if os(macOS) || os(iOS) || os(tvOS) || os(watchOS)
 extension DateFormatter {
@@ -110,5 +111,13 @@ extension JSONEncoder {
         encoder.outputFormatting = outputFormatting
         encoder.dateEncodingStrategy = dateEncodingStrategy
         return encoder
+    }
+}
+
+extension JSONDecoder {
+    public func decode<T: Decodable>(path: AbsolutePath, fileSystem: FileSystem, `as` kind: T.Type) throws -> T {
+        try fileSystem.readFileContents(path).withData { data in
+            try self.decode(kind, from: data)
+        }
     }
 }
