@@ -1108,52 +1108,6 @@ class PackageGraphTests: XCTestCase {
         }
     }
 
-    /*
-    func testInvalidExplicitPackageDependencyName() throws {
-        let fs = InMemoryFileSystem(emptyFiles:
-            "/Foo/Sources/Foo/foo.swift",
-            "/Bar/Sources/Baar/bar.swift"
-        )
-
-        let diagnostics = DiagnosticsEngine()
-        _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
-            manifests: [
-                Manifest.createV4Manifest(
-                    name: "Foo",
-                    path: "/Foo",
-                    packageKind: .root,
-                    packageLocation: "/Foo",
-                    dependencies: [
-                        .scm(deprecatedName: "Baar", location: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
-                    ],
-                    targets: [
-                        TargetDescription(name: "Foo", dependencies: ["Baar"]),
-                    ]),
-                Manifest.createV4Manifest(
-                    name: "Bar",
-                    path: "/Bar",
-                    packageKind: .local,
-                    packageLocation: "/Bar",
-                    products: [
-                        ProductDescription(name: "Baar", type: .library(.automatic), targets: ["Baar"])
-                    ],
-                    targets: [
-                        TargetDescription(name: "Baar"),
-                    ]),
-            ]
-        )
-
-        DiagnosticsEngineTester(diagnostics, ignoreNotes: true) { result in
-            result.check(
-                diagnostic: """
-                    'foo' dependency on '/Bar' has an explicit name 'Baar' which does not match the name 'Bar' set for '/Bar'
-                    """,
-                behavior: .error,
-                location: "'Foo' /Foo"
-            )
-        }
-    }*/
-
     func testConditionalTargetDependency() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Foo/Sources/Foo/source.swift",
@@ -1886,73 +1840,6 @@ class PackageGraphTests: XCTestCase {
             XCTAssert(diagnostics.diagnostics.isEmpty, "\(diagnostics.diagnostics)")
         }
     }
-
-    /*
-    func testTargetDependencies_Post52_ManifestNameNotMatchedWithURL() throws {
-        let fs = InMemoryFileSystem(emptyFiles:
-            "/Foo/Sources/Foo/foo.swift",
-            "/Bar/Sources/Bar/bar.swift"
-        )
-
-        let manifests = try [
-            Manifest.createManifest(
-                name: "Foo",
-                path: "/Foo",
-                packageKind: .root,
-                packageLocation: "/Foo",
-                v: .v5_2,
-                dependencies: [
-                    .scm(deprecatedName: "Bar", location: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
-                ],
-                targets: [
-                    TargetDescription(name: "Foo", dependencies: ["ProductBar"]),
-                ]),
-            Manifest.createManifest(
-                name: "Some-Bar",
-                path: "/Bar",
-                packageKind: .local,
-                packageLocation: "/Bar",
-                v: .v5_2,
-                products: [
-                    ProductDescription(name: "ProductBar", type: .library(.automatic), targets: ["Bar"])
-                ],
-                targets: [
-                    TargetDescription(name: "Bar"),
-                ]),
-        ]
-
-        do {
-            let diagnostics = DiagnosticsEngine()
-            _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics, manifests: manifests)
-            DiagnosticsEngineTester(diagnostics, ignoreNotes: true) { result in
-                result.check(
-                    diagnostic: """
-                        'foo' dependency on '/Bar' has an explicit name 'Bar' which does not match the name 'Some-Bar' set for '/Bar'
-                        """,
-                    behavior: .error,
-                    location: "'Foo' /Foo"
-                )
-            }
-        }
-
-        // fix it
-
-        do {
-            let fixedManifests = [
-                try manifests[0].withDependencies([
-                    .scm(deprecatedName: "Some-Bar", location: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
-                ]).withTargets([
-                    TargetDescription(name: "Foo", dependencies: [.product(name: "ProductBar", package: "Some-Bar")]),
-                ]),
-                manifests[1] // same
-            ]
-
-            let diagnostics = DiagnosticsEngine()
-            _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics, manifests: fixedManifests)
-            XCTAssert(diagnostics.diagnostics.isEmpty, "\(diagnostics.diagnostics)")
-        }
-    }
-    */
 }
 
 
