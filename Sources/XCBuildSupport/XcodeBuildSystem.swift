@@ -149,6 +149,7 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
         var settings: [String: String] = [:]
         // Always specify the path of the effective Swift compiler, which was determined in the same way as for the native build system.
         settings["SWIFT_EXEC"] = buildParameters.toolchain.swiftCompiler.pathString
+        settings["LIBRARY_SEARCH_PATHS"] = "$(inherited) \(buildParameters.toolchain.toolchainLibDir.pathString)"
         // Optionally also set the list of architectures to build for.
         if !buildParameters.archs.isEmpty {
             settings["ARCHS"] = buildParameters.archs.joined(separator: " ")
