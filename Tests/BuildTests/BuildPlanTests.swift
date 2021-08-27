@@ -1020,7 +1020,7 @@ final class BuildPlanTests: XCTestCase {
                     packageKind: .root,
                     packageLocation: "/Pkg",
                     dependencies: [
-                        .scm(location: "Clibgit", requirement: .upToNextMajor(from: "1.0.0"))
+                        .scm(location: "/Clibgit", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     targets: [
                         TargetDescription(name: "exe", dependencies: []),
