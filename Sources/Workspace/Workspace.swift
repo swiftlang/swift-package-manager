@@ -1425,7 +1425,8 @@ extension Workspace {
     // FIXME: this logic should be changed to use identity instead of location once identity is unique
     public func loadDependencyManifests(
         root: PackageGraphRoot,
-        diagnostics: DiagnosticsEngine
+        diagnostics: DiagnosticsEngine,
+        automaticallyAddManagedDependencies: Bool = false
     ) throws -> DependencyManifests {
         // Utility Just because a raw tuple cannot be hashable.
         struct Key: Hashable {
@@ -1476,6 +1477,13 @@ extension Workspace {
         let allManifestsWithPossibleDuplicates = try topologicalSort(inputPairs) { pair in
             // optimization: preload manifest we know about in parallel
             let dependenciesRequired = pair.item.dependenciesRequired(for: pair.key.productFilter)
+            // prepopulate managed dependencies if we are asked to do so
+            if automaticallyAddManagedDependencies {
+                dependenciesRequired.filter { $0.isLocal }.forEach { dependency in
+                    state.dependencies.add(ManagedDependency.local(packageRef: dependency.createPackageRef()))
+                }
+                diagnostics.wrap { try state.saveState() }
+            }
             let dependenciesRequiredURLs = dependenciesRequired.map{ $0.location }.filter { !loadedManifests.keys.contains($0) }
             // note: loadManifest emits diagnostics in case it fails
             let dependenciesRequiredManifests = try temp_await { self.loadManifests(forURLs: dependenciesRequiredURLs, diagnostics: diagnostics, completion: $0) }
@@ -2013,19 +2021,7 @@ extension Workspace {
             }
         }
 
-        // Save state for local packages, if any.
-        //
-        // FIXME: This will only work for top-level local packages right now.
-        for rootManifest in rootManifests.values {
-            let dependencies = rootManifest.dependencies.filter{ $0.isLocal }
-            for localPackage in dependencies {
-                let package = localPackage.createPackageRef()
-                state.dependencies.add(ManagedDependency.local(packageRef: package))
-            }
-        }
-        diagnostics.wrap { try state.saveState() }
-
-        let currentManifests = try self.loadDependencyManifests(root: graphRoot, diagnostics: diagnostics)
+        let currentManifests = try self.loadDependencyManifests(root: graphRoot, diagnostics: diagnostics, automaticallyAddManagedDependencies: true)
 
         let precomputationResult = try precomputeResolution(
             root: graphRoot,
