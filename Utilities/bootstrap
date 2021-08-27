@@ -593,6 +593,12 @@ def build_swiftpm_with_swiftpm(args, integrated_swift_driver):
 
     swiftpm_args.append("--disable-sandbox")
 
+    # Enforce resolved versions to avoid stray dependencies that aren't local.
+    swiftpm_args.append("--force-resolved-versions")
+    # Any leftover resolved file from a run without `SWIFTCI_USE_LOCAL_DEPS` needs to be deleted.
+    if os.path.exists("Package.resolved"):
+        os.remove("Package.resolved")
+
     if integrated_swift_driver:
         swiftpm_args.append("--use-integrated-swift-driver")
 
