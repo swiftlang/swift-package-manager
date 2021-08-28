@@ -1,9 +1,9 @@
 /*
  This source file is part of the Swift.org open source project
- 
+
  Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
- 
+
  See http://swift.org/LICENSE.txt for license information
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
@@ -16,14 +16,14 @@ import TSCBasic
 
 public final class PinsStore {
     public typealias PinsMap = [PackageIdentity: PinsStore.Pin]
-    
+
     public struct Pin: Equatable {
         /// The package reference of the pinned dependency.
         public let packageRef: PackageReference
-        
+
         /// The pinned state.
         public let state: CheckoutState
-        
+
         public init(packageRef: PackageReference, state: CheckoutState) {
             self.packageRef = packageRef
             self.state = state
@@ -31,18 +31,21 @@ public final class PinsStore {
     }
 
     private let mirrors: DependencyMirrors
-    
-    /// The pins map.
-    public fileprivate(set) var pinsMap: PinsMap
-    
-    /// The current pins.
-    public var pins: AnySequence<Pin> {
-        return AnySequence<Pin>(pinsMap.values)
-    }
 
     /// storage
     private let storage: PinsStorage
-    
+    private let _pins: ThreadSafeKeyValueStore<PackageIdentity, PinsStore.Pin>
+
+    /// The current pins.
+
+    public var pinsMap: PinsMap {
+        self._pins.get()
+    }
+
+    public var pins: AnySequence<Pin> {
+        return AnySequence<Pin>(self.pinsMap.values)
+    }
+
     /// Create a new pins store.
     ///
     /// - Parameters:
@@ -51,17 +54,17 @@ public final class PinsStore {
     public init(pinsFile: AbsolutePath, fileSystem: FileSystem, mirrors: DependencyMirrors) throws {
         self.storage = .init(path: pinsFile, fileSystem: fileSystem)
         self.mirrors = mirrors
-        
+
         do {
-            self.pinsMap = try self.storage.load(mirrors: mirrors)
+            self._pins = .init(try self.storage.load(mirrors: mirrors))
         } catch {
-            self.pinsMap = [:]
+            self._pins = .init()
             // FIXME: delete the file?
             // FIXME: warning instead of error?
             throw StringError("Package.resolved file is corrupted or malformed; fix or delete the file to continue: \(error)")
         }
     }
-    
+
     /// Pin a repository at a version.
     ///
     /// This method does not automatically write to state file.
@@ -75,24 +78,24 @@ public final class PinsStore {
             state: state
         ))
     }
-    
+
     /// Add a pin.
     ///
     /// This will replace any previous pin with same package name.
     public func add(_ pin: Pin) {
-        self.pinsMap[pin.packageRef.identity] = pin
+        self._pins[pin.packageRef.identity] = pin
     }
-    
+
     /// Unpin all of the currently pinned dependencies.
     ///
     /// This method does not automatically write to state file.
     public func unpinAll() {
         // Reset the pins map.
-        self.pinsMap = [:]
+        self._pins.clear()
     }
-    
+
     public func saveState() throws {
-        try self.storage.save(pins: self.pinsMap, mirrors: self.mirrors, removeIfEmpty: true)
+        try self.storage.save(pins: self._pins.get(), mirrors: self.mirrors, removeIfEmpty: true)
     }
 }
 
@@ -108,13 +111,14 @@ fileprivate struct PinsStorage {
         self.path = path
         self.fileSystem = fileSystem
     }
-    
+
     func load(mirrors: DependencyMirrors) throws -> PinsStore.PinsMap {
         if !self.fileSystem.exists(self.path) {
             return [:]
         }
-        
-        return try self.fileSystem.withLock(on: self.path, type: .shared) {
+
+        // 👀 do we want a lock file here? safer but pretty noisy
+        //return try self.fileSystem.withLock(on: self.path, type: .shared) {
             let version = try self.decoder.decode(path: self.path, fileSystem: self.fileSystem, as: Version.self)
             switch version.version {
             case 1:
@@ -128,15 +132,15 @@ fileprivate struct PinsStorage {
             default:
                 throw InternalError("unknown RepositoryManager version: \(version)")
             }
-        }
+        //}
     }
-    
+
     func save(pins: PinsStore.PinsMap, mirrors: DependencyMirrors, removeIfEmpty: Bool) throws {
         if !self.fileSystem.exists(self.path.parentDirectory) {
             try self.fileSystem.createDirectory(self.path.parentDirectory)
         }
-        
-        try self.fileSystem.withLock(on: self.path, type: .exclusive) {
+        // 👀 do we want a lock file here? safer but pretty noisy
+        //try self.fileSystem.withLock(on: self.path, type: .exclusive) {
             // Remove the pins file if there are zero pins to save.
             //
             // This can happen if all dependencies are path-based or edited
@@ -145,48 +149,51 @@ fileprivate struct PinsStorage {
                 try self.fileSystem.removeFileTree(self.path)
                 return
             }
-            
+
             let container = V1(pins: pins, mirrors: mirrors)
             let data = try self.encoder.encode(container)
             try self.fileSystem.writeFileContents(self.path, data: data)
-        }
+        //}
     }
-    
+
     func reset() throws {
         if !self.fileSystem.exists(self.path.parentDirectory) {
             return
         }
-        try self.fileSystem.withLock(on: self.path, type: .exclusive) {
+        // 👀 do we want a lock file here? safer but pretty noisy
+        //try self.fileSystem.withLock(on: self.path, type: .exclusive) {
             try self.fileSystem.removeFileTree(self.path)
-        }
+        //}
     }
-    
+
     // version reader
     struct Version: Codable {
         let version: Int
     }
-    
+
     // v1 storage format
     struct V1: Codable {
         let version: Int
         let object: Container
-        
+
         init (pins: PinsStore.PinsMap, mirrors: DependencyMirrors) {
             self.version = 1
             self.object = .init(
-                pins: pins.values.map{ Pin($0, mirrors: mirrors) }
+                pins: pins.values
+                    .sorted(by: { $0.packageRef.identity < $1.packageRef.identity })
+                    .map{ Pin($0, mirrors: mirrors) }
             )
         }
-        
+
         struct Container: Codable {
             var pins: [Pin]
         }
-        
+
         struct Pin: Codable {
             let package: String?
             let repositoryURL: String
             let state: CheckoutInfo
-            
+
             init(_ pin: PinsStore.Pin, mirrors: DependencyMirrors) {
                 self.package = pin.packageRef.name
                 // rdar://52529014, rdar://52529011: pin file should store the original location but remap when loading
@@ -194,12 +201,12 @@ fileprivate struct PinsStorage {
                 self.state = .init(pin.state)
             }
         }
-        
+
         struct CheckoutInfo: Codable {
             let revision: String
             let branch: String?
             let version: String?
-            
+
             init(_ state: CheckoutState) {
                 switch state {
                 case .version(let version, let revision):

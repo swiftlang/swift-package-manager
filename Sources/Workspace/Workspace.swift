@@ -1092,7 +1092,6 @@ extension Workspace {
 
         // Save the new state.
         state.dependencies.add(dependency.editedDependency(subpath: RelativePath(packageName), unmanagedPath: path))
-        print(state.dependencies)
         try state.saveState()
     }
 

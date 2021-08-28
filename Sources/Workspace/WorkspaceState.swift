@@ -95,10 +95,12 @@ fileprivate struct WorkspaceStateStorage {
             switch version.version {
             case 1,2,3,4:
                 let v4 = try self.decoder.decode(path: self.path, fileSystem: self.fileSystem, as: V4.self)
-                return (
-                    dependencies: .init(dependencyMap: v4.object.dependencies.mapValues { .init($0) }),
-                    artifacts: .init(artifactMap: v4.object.artifacts.mapValues { $0.mapValues{ .init($0) } })
-                )
+                let dependencyMap = Dictionary(uniqueKeysWithValues: v4.object.dependencies.map{ ($0.packageRef.location, ManagedDependency($0)) })
+                let artifactsByPackagePath = Dictionary(grouping: v4.object.artifacts, by: { $0.packageRef.location })
+                let artifactMap = artifactsByPackagePath.mapValues{ artifacts in
+                    Dictionary(uniqueKeysWithValues: artifacts.map({ ($0.targetName, ManagedArtifact($0)) }))
+                }
+                return (dependencies: .init(dependencyMap: dependencyMap), artifacts: .init(artifactMap: artifactMap))
             default:
                 throw InternalError("unknown RepositoryManager version: \(version)")
             }
@@ -148,15 +150,14 @@ fileprivate struct WorkspaceStateStorage {
         init (dependencies: ManagedDependencies, artifacts: ManagedArtifacts) {
             self.version = 4
             self.object = .init(
-                // FIXME: make dependencyMap and artifactMap private
-                dependencies: dependencies.dependencyMap.mapValues { .init($0) },
-                artifacts: artifacts.artifactMap.mapValues { $0.mapValues{ .init($0) } }
+                dependencies: dependencies.map { .init($0) },
+                artifacts: artifacts.map {.init($0) }
             )
         }
 
         struct Container: Codable {
-            var dependencies: [String: Dependency]
-            var artifacts: [String: [String: Artifact]]
+            var dependencies: [Dependency]
+            var artifacts: [Artifact]
         }
 
         final class Dependency: Codable {

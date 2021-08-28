@@ -34,9 +34,6 @@ final class PinsStoreTests: XCTestCase {
         let barRef = PackageReference.remote(identity: bar, location: barRepo.url)
 
         let state = CheckoutState.version(v1, revision: revision)
-        //let pin = PinsStore.Pin(packageRef: fooRef, state: state)
-        // We should be able to round trip from JSON.
-        //XCTAssertEqual(try PinsStore.Pin(json: pin.toJSON()), pin)
 
         let fs = InMemoryFileSystem()
         let pinsFile = AbsolutePath("/pinsfile.txt")

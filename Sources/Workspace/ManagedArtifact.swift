@@ -8,7 +8,6 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-
 import PackageGraph
 import PackageModel
 import SourceControl
@@ -108,7 +107,7 @@ extension ManagedArtifact.Source: CustomStringConvertible {
 public final class ManagedArtifacts {
 
     /// A mapping from package url, to target name, to ManagedArtifact.
-    internal var artifactMap: [String: [String: ManagedArtifact]]
+    private var artifactMap: [String: [String: ManagedArtifact]]
 
     internal var artifacts: AnyCollection<ManagedArtifact> {
         AnyCollection(artifactMap.values.lazy.flatMap({ $0.values }))
@@ -162,4 +161,3 @@ extension ManagedArtifacts: CustomStringConvertible {
         "<ManagedArtifacts: \(Array(artifacts))>"
     }
 }
-
