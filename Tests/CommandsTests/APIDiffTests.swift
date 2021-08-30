@@ -29,7 +29,16 @@ final class APIDiffTests: XCTestCase {
         environment["SWIFTPM_TESTS_PACKAGECACHE"] = "1"
         return try SwiftPMProduct.SwiftPackage.execute(args, packagePath: packagePath, env: environment)
     }
-
+    
+    func skipIfApiDigesterUnsupportedOrUnset() throws {
+        try skipIfApiDigesterUnsupported()
+        // The following is added to separate out the integration point testing of the API
+        // diff digester with SwiftPM from the functionality tests of the digester itself
+        guard ProcessEnv.vars["SWIFTPM_TEST_API_DIFF_OUTPUT"] == "1" else {
+            throw XCTSkip("Env var SWIFTPM_TEST_API_DIFF_OUTPUT must be set to test the output")
+        }
+    }
+    
     func skipIfApiDigesterUnsupported() throws {
       // swift-api-digester is required to run tests.
       guard (try? UserToolchain.default.getSwiftAPIDigester()) != nil else {
@@ -44,8 +53,26 @@ final class APIDiffTests: XCTestCase {
       }
     }
 
-    func testSimpleAPIDiff() throws {
+    func testInvokeAPIDiffDigester() throws {
         try skipIfApiDigesterUnsupported()
+        fixture(name: "Miscellaneous/APIDiff/") { prefix in
+            let packageRoot = prefix.appending(component: "Foo")
+            // Overwrite the existing decl.
+            try localFileSystem.writeFileContents(packageRoot.appending(component: "Foo.swift")) {
+                $0 <<< "public let foo = 42"
+            }
+            XCTAssertThrowsError(try execute(["diagnose-api-breaking-changes", "1.2.3"], packagePath: packageRoot)) { error in
+                guard case SwiftPMProductError.executionFailure(error: _, output: let output, stderr: _) = error else {
+                    XCTFail("Unexpected error")
+                    return
+                }
+                XCTAssertFalse(output.isEmpty)
+            }
+        }
+    }
+    
+    func testSimpleAPIDiff() throws {
+        try skipIfApiDigesterUnsupportedOrUnset()
         fixture(name: "Miscellaneous/APIDiff/") { prefix in
             let packageRoot = prefix.appending(component: "Foo")
             // Overwrite the existing decl.
@@ -64,7 +91,7 @@ final class APIDiffTests: XCTestCase {
     }
 
     func testMultiTargetAPIDiff() throws {
-        try skipIfApiDigesterUnsupported()
+        try skipIfApiDigesterUnsupportedOrUnset()
         fixture(name: "Miscellaneous/APIDiff/") { prefix in
             let packageRoot = prefix.appending(component: "Bar")
             try localFileSystem.writeFileContents(packageRoot.appending(components: "Sources", "Baz", "Baz.swift")) {
@@ -88,7 +115,7 @@ final class APIDiffTests: XCTestCase {
     }
 
     func testBreakageAllowlist() throws {
-        try skipIfApiDigesterUnsupported()
+        try skipIfApiDigesterUnsupportedOrUnset()
         fixture(name: "Miscellaneous/APIDiff/") { prefix in
             let packageRoot = prefix.appending(component: "Bar")
             try localFileSystem.writeFileContents(packageRoot.appending(components: "Sources", "Baz", "Baz.swift")) {
@@ -119,7 +146,7 @@ final class APIDiffTests: XCTestCase {
     }
 
     func testCheckVendedModulesOnly() throws {
-        try skipIfApiDigesterUnsupported()
+        try skipIfApiDigesterUnsupportedOrUnset()
         fixture(name: "Miscellaneous/APIDiff/") { prefix in
             let packageRoot = prefix.appending(component: "NonAPILibraryTargets")
             try localFileSystem.writeFileContents(packageRoot.appending(components: "Sources", "Foo", "Foo.swift")) {
@@ -155,7 +182,7 @@ final class APIDiffTests: XCTestCase {
     }
 
     func testFilters() throws {
-        try skipIfApiDigesterUnsupported()
+        try skipIfApiDigesterUnsupportedOrUnset()
         fixture(name: "Miscellaneous/APIDiff/") { prefix in
             let packageRoot = prefix.appending(component: "NonAPILibraryTargets")
             try localFileSystem.writeFileContents(packageRoot.appending(components: "Sources", "Foo", "Foo.swift")) {
@@ -227,7 +254,7 @@ final class APIDiffTests: XCTestCase {
     }
 
     func testAPIDiffOfModuleWithCDependency() throws {
-        try skipIfApiDigesterUnsupported()
+        try skipIfApiDigesterUnsupportedOrUnset()
         fixture(name: "Miscellaneous/APIDiff/") { prefix in
             let packageRoot = prefix.appending(component: "CTargetDep")
             // Overwrite the existing decl.
@@ -263,7 +290,7 @@ final class APIDiffTests: XCTestCase {
     }
 
     func testNoBreakingChanges() throws {
-        try skipIfApiDigesterUnsupported()
+        try skipIfApiDigesterUnsupportedOrUnset()
         fixture(name: "Miscellaneous/APIDiff/") { prefix in
             let packageRoot = prefix.appending(component: "Bar")
             // Introduce an API-compatible change
@@ -277,7 +304,7 @@ final class APIDiffTests: XCTestCase {
     }
 
     func testAPIDiffAfterAddingNewTarget() throws {
-        try skipIfApiDigesterUnsupported()
+        try skipIfApiDigesterUnsupportedOrUnset()
         fixture(name: "Miscellaneous/APIDiff/") { prefix in
             let packageRoot = prefix.appending(component: "Bar")
             try localFileSystem.createDirectory(packageRoot.appending(components: "Sources", "Foo"))
@@ -311,7 +338,7 @@ final class APIDiffTests: XCTestCase {
     }
 
     func testBadTreeish() throws {
-        try skipIfApiDigesterUnsupported()
+        try skipIfApiDigesterUnsupportedOrUnset()
         fixture(name: "Miscellaneous/APIDiff/") { prefix in
             let packageRoot = prefix.appending(component: "Foo")
             XCTAssertThrowsError(try execute(["diagnose-api-breaking-changes", "7.8.9"], packagePath: packageRoot)) { error in
@@ -325,7 +352,7 @@ final class APIDiffTests: XCTestCase {
     }
 
     func testBranchUpdate() throws {
-        try skipIfApiDigesterUnsupported()
+        try skipIfApiDigesterUnsupportedOrUnset()
         try withTemporaryDirectory { baselineDir in
             fixture(name: "Miscellaneous/APIDiff/") { prefix in
                 let packageRoot = prefix.appending(component: "Foo")
@@ -363,7 +390,7 @@ final class APIDiffTests: XCTestCase {
     }
 
     func testBaselineDirOverride() throws {
-        try skipIfApiDigesterUnsupported()
+        try skipIfApiDigesterUnsupportedOrUnset()
         fixture(name: "Miscellaneous/APIDiff/") { prefix in
             let packageRoot = prefix.appending(component: "Foo")
             // Overwrite the existing decl.
@@ -390,7 +417,7 @@ final class APIDiffTests: XCTestCase {
     }
 
     func testRegenerateBaseline() throws {
-       try skipIfApiDigesterUnsupported()
+       try skipIfApiDigesterUnsupportedOrUnset()
         fixture(name: "Miscellaneous/APIDiff/") { prefix in
             let packageRoot = prefix.appending(component: "Foo")
             // Overwrite the existing decl.
