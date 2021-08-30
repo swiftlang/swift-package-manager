@@ -135,6 +135,10 @@ extension Workspace {
             path.appending(component: "mirrors.json")
         }
 
+        public static func registriesConfigurationFile(forRootPackage rootPath: AbsolutePath) -> AbsolutePath {
+            registriesConfigurationFile(at: configurationDirectory(forRootPackage: rootPath))
+        }
+
         public static func registriesConfigurationFile(at path: AbsolutePath) -> AbsolutePath {
             path.appending(component: "registries.json")
         }

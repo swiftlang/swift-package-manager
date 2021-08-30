@@ -536,7 +536,7 @@ public class SwiftTool {
         return netrcFilePath
     }
 
-    func getSharedCacheDirectory() throws -> AbsolutePath? {
+    private func getSharedCacheDirectory() throws -> AbsolutePath? {
         if let explicitCachePath = options.cachePath {
             // Create the explicit cache path if necessary
             if !localFileSystem.exists(explicitCachePath) {
@@ -553,7 +553,7 @@ public class SwiftTool {
         }
     }
 
-    func getSharedConfigurationDirectory() throws -> AbsolutePath? {
+    private func getSharedConfigurationDirectory() throws -> AbsolutePath? {
         if let explicitConfigPath = options.configPath {
             // Create the explicit config path if necessary
             if !localFileSystem.exists(explicitConfigPath) {

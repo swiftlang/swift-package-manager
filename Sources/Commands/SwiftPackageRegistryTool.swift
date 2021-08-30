@@ -153,17 +153,18 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
 
 
 private extension SwiftTool {
-    func getRegistriesConfig(sharedConfigurationDirectory: AbsolutePath? = nil) throws -> Workspace.Configuration.Registries {
-        let sharedConfigurationDirectory = try sharedConfigurationDirectory ?? self.getSharedConfigurationDirectory()
-        let sharedRegistriesFile = sharedConfigurationDirectory.map { Workspace.DefaultLocations.registriesConfigurationFile(at: $0) }
+    func getRegistriesConfig() throws -> Workspace.Configuration.Registries {
+        let localRegistriesFile = try Workspace.DefaultLocations.registriesConfigurationFile(forRootPackage: self.getPackageRoot())
+
+        let workspace = try getActiveWorkspace()
+        let sharedRegistriesFile = workspace.location.sharedConfigurationDirectory.map {
+            Workspace.DefaultLocations.registriesConfigurationFile(at: $0)
+        }
+
         return try .init(
-            localRegistriesFile: self.registriesConfigFile(),
+            localRegistriesFile: localRegistriesFile,
             sharedRegistriesFile: sharedRegistriesFile,
             fileSystem: localFileSystem
         )
-    }
-
-    func registriesConfigFile() throws -> AbsolutePath {
-        try self.getPackageRoot().appending(components: ".swiftpm", "config", "registries.json")
     }
 }
