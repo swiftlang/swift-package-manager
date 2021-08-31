@@ -497,7 +497,7 @@ final class PackageToolTests: XCTestCase {
             let resultPath = root.appending(component: "result.json")
             _ = try execute(["show-dependencies", "--format", "json", "--output-path", resultPath.pathString ], packagePath: root)
 
-            XCTAssert(fs.exists(resultPath))
+            XCTAssertFileExists(resultPath)
             let jsonOutput = try fs.readFileContents(resultPath)
             let json = try JSON(bytes: jsonOutput)
 
@@ -513,7 +513,7 @@ final class PackageToolTests: XCTestCase {
             try fs.createDirectory(path)
             _ = try execute(["init", "--type", "empty"], packagePath: path)
 
-            XCTAssert(fs.exists(path.appending(component: "Package.swift")))
+            XCTAssertFileExists(path.appending(component: "Package.swift"))
             XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Sources")), [])
             XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Tests")), [])
         }
@@ -532,11 +532,9 @@ final class PackageToolTests: XCTestCase {
             let versionSpecifier = "\(version.major).\(version.minor)"
             XCTAssertMatch(contents, .prefix("// swift-tools-version:\(version < .v5_4 ? "" : " ")\(versionSpecifier)\n"))
 
-            XCTAssertTrue(fs.exists(manifest))
+            XCTAssertFileExists(manifest)
             XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Sources").appending(component: "Foo")), ["main.swift"])
-            XCTAssertEqual(
-                try fs.getDirectoryContents(path.appending(component: "Tests")).sorted(),
-                ["FooTests"])
+            XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Tests")).sorted(), ["FooTests"])
         }
     }
 
@@ -547,11 +545,9 @@ final class PackageToolTests: XCTestCase {
             try fs.createDirectory(path)
             _ = try execute(["init"], packagePath: path)
 
-            XCTAssert(fs.exists(path.appending(component: "Package.swift")))
+            XCTAssertFileExists(path.appending(component: "Package.swift"))
             XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Sources").appending(component: "Foo")), ["Foo.swift"])
-            XCTAssertEqual(
-                try fs.getDirectoryContents(path.appending(component: "Tests")).sorted(),
-                ["FooTests"])
+            XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Tests")).sorted(), ["FooTests"])
         }
     }
 
@@ -568,11 +564,9 @@ final class PackageToolTests: XCTestCase {
             let versionSpecifier = "\(version.major).\(version.minor)"
             XCTAssertMatch(contents, .prefix("// swift-tools-version:\(version < .v5_4 ? "" : " ")\(versionSpecifier)\n"))
 
-            XCTAssertTrue(fs.exists(manifest))
+            XCTAssertFileExists(manifest)
             XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Sources").appending(component: "CustomName")), ["main.swift"])
-            XCTAssertEqual(
-                try fs.getDirectoryContents(path.appending(component: "Tests")).sorted(),
-                ["CustomNameTests"])
+            XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Tests")).sorted(), ["CustomNameTests"])
         }
     }
 
@@ -592,10 +586,10 @@ final class PackageToolTests: XCTestCase {
 
             // We should see it now in packages directory.
             let editsPath = fooPath.appending(components: "Packages", "bar")
-            XCTAssert(localFileSystem.isDirectory(editsPath))
+            XCTAssertDirectoryExists(editsPath)
 
             let bazEditsPath = fooPath.appending(components: "Packages", "baz")
-            XCTAssert(localFileSystem.isDirectory(bazEditsPath))
+            XCTAssertDirectoryExists(bazEditsPath)
             // Removing baz externally should just emit an warning and not a build failure.
             try localFileSystem.removeFileTree(bazEditsPath)
 
@@ -668,7 +662,7 @@ final class PackageToolTests: XCTestCase {
 
             // Clean, and check for removal of the build directory but not Packages.
             _ = try execute(["clean"], packagePath: packageRoot)
-            XCTAssert(!localFileSystem.exists(binFile))
+            XCTAssertNoSuchPath(binFile)
             // Clean again to ensure we get no error.
             _ = try execute(["clean"], packagePath: packageRoot)
         }
@@ -687,7 +681,7 @@ final class PackageToolTests: XCTestCase {
             // Clean, and check for removal of the build directory but not Packages.
 
             _ = try execute(["clean"], packagePath: packageRoot)
-            XCTAssert(!localFileSystem.exists(binFile))
+            XCTAssertNoSuchPath(binFile)
             XCTAssertFalse(try localFileSystem.getDirectoryContents(buildPath.appending(component: "repositories")).isEmpty)
 
             // Fully clean.
@@ -711,7 +705,7 @@ final class PackageToolTests: XCTestCase {
             try execute("update")
 
             let pinsFile = fooPath.appending(component: "Package.resolved")
-            XCTAssert(localFileSystem.exists(pinsFile))
+            XCTAssertFileExists(pinsFile)
 
             // Update bar repo.
             let barPath = prefix.appending(component: "bar")
@@ -768,7 +762,7 @@ final class PackageToolTests: XCTestCase {
 
             // We should see a pin file now.
             let pinsFile = fooPath.appending(component: "Package.resolved")
-            XCTAssert(localFileSystem.exists(pinsFile))
+            XCTAssertFileExists(pinsFile)
 
             // Test pins file.
             do {

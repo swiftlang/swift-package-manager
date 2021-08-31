@@ -38,7 +38,7 @@ class InitTests: XCTestCase {
 
             // Verify basic file system content that we expect in the package
             let manifest = path.appending(component: "Package.swift")
-            XCTAssertTrue(fs.exists(manifest))
+            XCTAssertFileExists(manifest)
             let manifestContents = try localFileSystem.readFileContents(manifest).description
             let version = InitPackage.newPackageToolsVersion
             let versionSpecifier = "\(version.major).\(version.minor)"
@@ -70,21 +70,19 @@ class InitTests: XCTestCase {
             
             // Verify basic file system content that we expect in the package
             let manifest = path.appending(component: "Package.swift")
-            XCTAssertTrue(fs.exists(manifest))
+            XCTAssertFileExists(manifest)
             let manifestContents = try localFileSystem.readFileContents(manifest).description
             let version = InitPackage.newPackageToolsVersion
             let versionSpecifier = "\(version.major).\(version.minor)"
             XCTAssertMatch(manifestContents, .prefix("// swift-tools-version:\(version < .v5_4 ? "" : " ")\(versionSpecifier)\n"))
             
             let readme = path.appending(component: "README.md")
-            XCTAssertTrue(fs.exists(readme))
+            XCTAssertFileExists(readme)
             let readmeContents = try localFileSystem.readFileContents(readme).description
             XCTAssertMatch(readmeContents, .prefix("# Foo\n"))
 
             XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Sources").appending(component: "Foo")), ["main.swift"])
-            XCTAssertEqual(
-                try fs.getDirectoryContents(path.appending(component: "Tests")).sorted(),
-                ["FooTests"])
+            XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Tests")).sorted(), ["FooTests"])
             
             // If we have a compiler that supports `-entry-point-function-name`, we try building it (we need that flag now).
             #if swift(>=5.5)
@@ -117,23 +115,21 @@ class InitTests: XCTestCase {
 
             // Verify basic file system content that we expect in the package
             let manifest = path.appending(component: "Package.swift")
-            XCTAssertTrue(fs.exists(manifest))
+            XCTAssertFileExists(manifest)
             let manifestContents = try localFileSystem.readFileContents(manifest).description
             let version = InitPackage.newPackageToolsVersion
             let versionSpecifier = "\(version.major).\(version.minor)"
             XCTAssertMatch(manifestContents, .prefix("// swift-tools-version:\(version < .v5_4 ? "" : " ")\(versionSpecifier)\n"))
 
             let readme = path.appending(component: "README.md")
-            XCTAssertTrue(fs.exists(readme))
+            XCTAssertFileExists(readme)
             let readmeContents = try localFileSystem.readFileContents(readme).description
             XCTAssertMatch(readmeContents, .prefix("# Foo\n"))
 
             XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Sources").appending(component: "Foo")), ["Foo.swift"])
 
             let tests = path.appending(component: "Tests")
-            XCTAssertEqual(
-                try fs.getDirectoryContents(tests).sorted(),
-                ["FooTests"])
+            XCTAssertEqual(try fs.getDirectoryContents(tests).sorted(), ["FooTests"])
 
             let testFile = tests.appending(component: "FooTests").appending(component: "FooTests.swift")
             let testFileContents = try localFileSystem.readFileContents(testFile).description
@@ -170,7 +166,7 @@ class InitTests: XCTestCase {
 
             // Verify basic file system content that we expect in the package
             let manifest = path.appending(component: "Package.swift")
-            XCTAssertTrue(fs.exists(manifest))
+            XCTAssertFileExists(manifest)
             let manifestContents = try localFileSystem.readFileContents(manifest).description
             let version = InitPackage.newPackageToolsVersion
             let versionSpecifier = "\(version.major).\(version.minor)"
@@ -201,7 +197,7 @@ class InitTests: XCTestCase {
 
             // Verify basic file system content that we expect in the package
             let manifest = path.appending(component: "Package.swift")
-            XCTAssertTrue(fs.exists(manifest))
+            XCTAssertFileExists(manifest)
             let manifestContents = try localFileSystem.readFileContents(manifest).description
             let version = InitPackage.newPackageToolsVersion
             let versionSpecifier = "\(version.major).\(version.minor)"
@@ -213,13 +209,13 @@ class InitTests: XCTestCase {
     
     func testInitPackageNonc99Directory() throws {
         try withTemporaryDirectory(removeTreeOnDeinit: true) { tempDirPath in
-            XCTAssertTrue(localFileSystem.isDirectory(tempDirPath))
+            XCTAssertDirectoryExists(tempDirPath)
             
             // Create a directory with non c99name.
             let packageRoot = tempDirPath.appending(component: "some-package")
             let packageName = packageRoot.basename
             try localFileSystem.createDirectory(packageRoot)
-            XCTAssertTrue(localFileSystem.isDirectory(packageRoot))
+            XCTAssertDirectoryExists(packageRoot)
             
             // Create the package
             let initPackage = try InitPackage(name: packageName, destinationPath: packageRoot, packageType: InitPackage.PackageType.library)
@@ -235,11 +231,11 @@ class InitTests: XCTestCase {
     
     func testNonC99NameExecutablePackage() throws {
         try withTemporaryDirectory(removeTreeOnDeinit: true) { tempDirPath in
-            XCTAssertTrue(localFileSystem.isDirectory(tempDirPath))
+            XCTAssertDirectoryExists(tempDirPath)
             
             let packageRoot = tempDirPath.appending(component: "Foo")
             try localFileSystem.createDirectory(packageRoot)
-            XCTAssertTrue(localFileSystem.isDirectory(packageRoot))
+            XCTAssertDirectoryExists(packageRoot)
             
             // Create package with non c99name.
             let initPackage = try InitPackage(name: "package-name", destinationPath: packageRoot, packageType: InitPackage.PackageType.executable)

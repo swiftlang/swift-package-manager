@@ -411,7 +411,7 @@ final class APIDiffTests: XCTestCase {
                 }
                 XCTAssertMatch(output, .contains("1 breaking change detected in Foo"))
                 XCTAssertMatch(output, .contains("💔 API breakage: func foo() has been removed"))
-                XCTAssertTrue(localFileSystem.exists(baselineDir.appending(components: revision.identifier, "Foo.json")))
+                XCTAssertFileExists(baselineDir.appending(components: revision.identifier, "Foo.json"))
             }
         }
     }
@@ -446,7 +446,7 @@ final class APIDiffTests: XCTestCase {
                 }
                 XCTAssertMatch(output, .contains("1 breaking change detected in Foo"))
                 XCTAssertMatch(output, .contains("💔 API breakage: func foo() has been removed"))
-                XCTAssertTrue(localFileSystem.exists(fooBaselinePath))
+                XCTAssertFileExists(fooBaselinePath)
                 XCTAssertNotEqual((try! localFileSystem.readFileContents(fooBaselinePath)).description, "Old Baseline")
             }
         }
