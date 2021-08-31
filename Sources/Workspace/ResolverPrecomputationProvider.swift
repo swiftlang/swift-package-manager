@@ -24,7 +24,7 @@ enum ResolverPrecomputationError: Error {
     /// Represents the error when a different requirement of a package was requested.
     case differentRequirement(
         package: PackageReference,
-        state: ManagedDependency.State?,
+        state: Workspace.ManagedDependency.State?,
         requirement: PackageRequirement
     )
 }
@@ -92,7 +92,7 @@ private struct LocalPackageContainer: PackageContainer {
     let package: PackageReference
     let manifest: Manifest
     /// The managed dependency if the package is not a root package.
-    let dependency: ManagedDependency?
+    let dependency: Workspace.ManagedDependency?
     let currentToolsVersion: ToolsVersion
 
     func versionsAscending() throws -> [Version] {
@@ -111,7 +111,7 @@ private struct LocalPackageContainer: PackageContainer {
             return false
         }
     }
-    
+
     func toolsVersion(for version: Version) throws -> ToolsVersion {
         return currentToolsVersion
     }
@@ -122,8 +122,8 @@ private struct LocalPackageContainer: PackageContainer {
 
     func getDependencies(at version: Version, productFilter: ProductFilter) throws -> [PackageContainerConstraint] {
         // Because of the implementation of `reversedVersions`, we should only get the exact same version.
-        guard case .version(version, revision: _) = dependency?.checkoutState else {
-            throw InternalError("expected version, but checkout state was \(String(describing: dependency?.checkoutState))")
+        guard case .checkout(.version(version, revision: _)) = dependency?.state else {
+            throw InternalError("expected version checkout state, but state was \(String(describing: dependency?.state))")
         }
         return try manifest.dependencyConstraints(productFilter: productFilter)
     }
@@ -131,8 +131,8 @@ private struct LocalPackageContainer: PackageContainer {
     func getDependencies(at revisionString: String, productFilter: ProductFilter) throws -> [PackageContainerConstraint] {
         // Return the dependencies if the checkout state matches the revision.
         let revision = Revision(identifier: revisionString)
-        switch dependency?.checkoutState {
-        case .branch(_, revision: revision), .revision(revision):
+        switch dependency?.state {
+        case .checkout(.branch(_, revision: revision)), .checkout(.revision(revision)):
             return try manifest.dependencyConstraints(productFilter: productFilter)
         default:
             throw ResolverPrecomputationError.differentRequirement(
@@ -145,7 +145,7 @@ private struct LocalPackageContainer: PackageContainer {
 
     func getUnversionedDependencies(productFilter: ProductFilter) throws -> [PackageContainerConstraint] {
         // Throw an error when the dependency is not unversioned to fail resolution.
-        guard dependency?.state.isCheckout != true else {
+        guard dependency?.isCheckout != true else {
             throw ResolverPrecomputationError.differentRequirement(
                 package: package,
                 state: dependency?.state,
@@ -166,7 +166,7 @@ private struct LocalPackageContainer: PackageContainer {
     }
 }
 
-private extension ManagedDependency.State {
+private extension Workspace.ManagedDependency.State {
     var checkout: CheckoutState? {
         switch self {
         case .checkout(let state):

@@ -405,7 +405,7 @@ public final class MockWorkspace {
 
     public func set(
         pins: [PackageReference: CheckoutState] = [:],
-        managedDependencies: [ManagedDependency] = [],
+        managedDependencies: [Workspace.ManagedDependency] = [],
         managedArtifacts: [Workspace.ManagedArtifact] = []
     ) throws {
         let workspace = try self.getOrCreateWorkspace()
@@ -426,7 +426,7 @@ public final class MockWorkspace {
             workspace.state.artifacts.add(artifact)
         }
 
-        try workspace.state.saveState()
+        try workspace.state.save()
     }
 
     public func resetState() throws {
@@ -447,15 +447,19 @@ public final class MockWorkspace {
     }
 
     public struct ManagedDependencyResult {
-        public let managedDependencies: ManagedDependencies
+        public let managedDependencies: Workspace.ManagedDependencies
 
-        public init(_ managedDependencies: ManagedDependencies) {
+        public init(_ managedDependencies: Workspace.ManagedDependencies) {
             self.managedDependencies = managedDependencies
         }
 
         public func check(notPresent name: String, file: StaticString = #file, line: UInt = #line) {
-            let dependency = self.managedDependencies[forNameOrIdentity: name]
-            XCTAssert(dependency == nil, "Unexpectedly found \(name) in managed dependencies", file: file, line: line)
+            self.check(notPresent: .plain(name), file: file, line: line)
+        }
+
+        public func check(notPresent dependencyId: PackageIdentity, file: StaticString = #file, line: UInt = #line) {
+            let dependency = self.managedDependencies[dependencyId]
+            XCTAssertNil(dependency, "Unexpectedly found \(dependencyId) in managed dependencies", file: file, line: line)
         }
 
         public func checkEmpty(file: StaticString = #file, line: UInt = #line) {
@@ -463,8 +467,12 @@ public final class MockWorkspace {
         }
 
         public func check(dependency name: String, at state: State, file: StaticString = #file, line: UInt = #line) {
-            guard let dependency = managedDependencies[forNameOrIdentity: name] else {
-                XCTFail("\(name) does not exists", file: file, line: line)
+            self.check(dependency: .plain(name), at: state, file: file, line: line)
+        }
+
+        public func check(dependency dependencyId: PackageIdentity, at state: State, file: StaticString = #file, line: UInt = #line) {
+            guard let dependency = managedDependencies[dependencyId] else {
+                XCTFail("\(dependencyId) does not exists", file: file, line: line)
                 return
             }
             switch state {
@@ -478,8 +486,9 @@ public final class MockWorkspace {
                     XCTAssertEqual(dependency.checkoutState?.branch, branch, file: file, line: line)
                 }
             case .edited(let path):
-                if dependency.state != .edited(path) {
+                guard case .edited(_,  unmanagedPath: path) = dependency.state else {
                     XCTFail("Expected edited dependency; found '\(dependency.state)' instead", file: file, line: line)
+                    return
                 }
             case .local:
                 if dependency.state != .local {
@@ -757,8 +766,8 @@ extension CheckoutState {
     }
 }
 
-fileprivate extension PackageReference.Kind {
-    var displayName: String {
+extension PackageReference.Kind {
+    fileprivate var displayName: String {
         switch self {
         case .root:
             return "root"
@@ -769,5 +778,14 @@ fileprivate extension PackageReference.Kind {
         case .remoteSourceControl:
             return "remoteSourceControl"
         }
+    }
+}
+
+extension Workspace.ManagedDependency {
+    fileprivate var checkoutState: CheckoutState? {
+        if case .checkout(let checkoutState) = state {
+            return checkoutState
+        }
+        return .none
     }
 }
