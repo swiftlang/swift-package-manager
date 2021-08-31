@@ -379,7 +379,7 @@ public final class MockWorkspace {
     public func set(
         pins: [PackageReference: CheckoutState] = [:],
         managedDependencies: [ManagedDependency] = [],
-        managedArtifacts: [ManagedArtifact] = []
+        managedArtifacts: [Workspace.ManagedArtifact] = []
     ) throws {
         let workspace = try self.getOrCreateWorkspace()
         let pinsStore = try workspace.pinsStore.load()
@@ -463,36 +463,44 @@ public final class MockWorkspace {
     }
 
     public struct ManagedArtifactResult {
-        public let managedArtifacts: ManagedArtifacts
+        public let managedArtifacts: Workspace.ManagedArtifacts
 
-        public init(_ managedArtifacts: ManagedArtifacts) {
+        public init(_ managedArtifacts: Workspace.ManagedArtifacts) {
             self.managedArtifacts = managedArtifacts
         }
 
+        public func checkNotPresent(packageName: String, targetName: String, file: StaticString = #file, line: UInt = #line) {
+            self.checkNotPresent(packageIdentity: .plain(packageName), targetName: targetName, file : file, line: line)
+        }
+
         public func checkNotPresent(
-            packageName: String,
+            packageIdentity: PackageIdentity,
             targetName: String,
             file: StaticString = #file,
             line: UInt = #line
         ) {
-            let artifact = self.managedArtifacts[packageName: packageName, targetName: targetName]
-            XCTAssert(artifact == nil, "Unexpectedly found \(packageName).\(targetName) in managed artifacts", file: file, line: line)
+            let artifact = self.managedArtifacts[packageIdentity: packageIdentity, targetName: targetName]
+            XCTAssert(artifact == nil, "Unexpectedly found \(packageIdentity).\(targetName) in managed artifacts", file: file, line: line)
         }
 
         public func checkEmpty(file: StaticString = #file, line: UInt = #line) {
             XCTAssertEqual(self.managedArtifacts.count, 0, file: file, line: line)
         }
 
+        public func check(packageName: String, targetName: String, source: Workspace.ManagedArtifact.Source, path: AbsolutePath, file: StaticString = #file, line: UInt = #line) {
+            self.check(packageIdentity: .plain(packageName), targetName: targetName, source: source, path: path, file: file, line: line)
+        }
+
         public func check(
-            packageName: String,
+            packageIdentity: PackageIdentity,
             targetName: String,
-            source: ManagedArtifact.Source,
+            source: Workspace.ManagedArtifact.Source,
             path: AbsolutePath,
             file: StaticString = #file,
             line: UInt = #line
         ) {
-            guard let artifact = managedArtifacts[packageName: packageName, targetName: targetName] else {
-                XCTFail("\(packageName).\(targetName) does not exists", file: file, line: line)
+            guard let artifact = managedArtifacts[packageIdentity: packageIdentity, targetName: targetName] else {
+                XCTFail("\(packageIdentity).\(targetName) does not exists", file: file, line: line)
                 return
             }
             XCTAssertEqual(artifact.path, path)
