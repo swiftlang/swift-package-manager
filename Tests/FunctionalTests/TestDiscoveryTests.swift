@@ -79,7 +79,7 @@ class TestDiscoveryTests: XCTestCase {
             try localFileSystem.writeFileContents(manifestPath, bytes: ByteString("fatalError(\"should not be called\")".utf8))
             let (stdout, _) = try executeSwiftTest(path, extraArgs: ["--enable-test-discovery"])
             XCTAssertMatch(stdout, .contains("Merging module Simple"))
-            XCTAssertNoMatch(stdout.contains("Executed 1 test"))
+            XCTAssertNoMatch(stdout, .contains("Executed 1 test"))
         }
         #endif
     }
