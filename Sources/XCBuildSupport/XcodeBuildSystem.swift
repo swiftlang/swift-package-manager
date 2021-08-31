@@ -96,9 +96,15 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
             subset.pifTargetName
         ]
 
-        let buildParamsFile = try createBuildParametersFile()
-        if let buildParamsFile = buildParamsFile {
-            arguments += ["--buildParametersFile", buildParamsFile.pathString]
+        let buildParamsFile: AbsolutePath?
+        // Do not generate a build parameters file if a custom one has been passed.
+        if !buildParameters.xcbuildFlags.contains("--buildParametersFile") {
+            buildParamsFile = try createBuildParametersFile()
+            if let buildParamsFile = buildParamsFile {
+                arguments += ["--buildParametersFile", buildParamsFile.pathString]
+            }
+        } else {
+            buildParamsFile = nil
         }
 
         arguments += buildParameters.xcbuildFlags
@@ -134,7 +140,7 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
         }
     }
 
-    func createBuildParametersFile() throws -> AbsolutePath? {
+    func createBuildParametersFile() throws -> AbsolutePath {
         // Generate the run destination parameters.
         let runDestination = XCBBuildParameters.RunDestination(
             platform: "macosx",
