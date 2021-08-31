@@ -46,6 +46,7 @@ public final class ThreadSafeKeyValueStore<Key, Value> where Key: Hashable {
         }
     }
 
+    @discardableResult
     public func removeValue(forKey key: Key) -> Value? {
         self.lock.withLock {
             self.underlying.removeValue(forKey: key)

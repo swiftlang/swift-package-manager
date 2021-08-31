@@ -246,24 +246,3 @@ extension ProductFilter: Codable {
         }
     }
 }
-
-// MARK: - JSON
-
-extension ProductFilter: JSONSerializable, JSONMappable {
-    public func toJSON() -> JSON {
-        switch self {
-        case .everything:
-            return "all".toJSON()
-        case .specific(let products):
-            return products.sorted().toJSON()
-        }
-    }
-
-    public init(json: JSON) throws {
-        if let products = try? [String](json: json) {
-            self = .specific(Set(products))
-        } else {
-            self = .everything
-        }
-    }
-}

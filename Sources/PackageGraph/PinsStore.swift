@@ -6,12 +6,13 @@
 
  See http://swift.org/LICENSE.txt for license information
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
-*/
+ */
 
-import TSCBasic
-import TSCUtility
-import SourceControl
+import Basics
+import Foundation
 import PackageModel
+import SourceControl
+import TSCBasic
 
 public final class PinsStore {
     public typealias PinsMap = [PackageIdentity: PinsStore.Pin]
@@ -23,56 +24,43 @@ public final class PinsStore {
         /// The pinned state.
         public let state: CheckoutState
 
-        public init(
-            packageRef: PackageReference,
-            state: CheckoutState
-        ) {
+        public init(packageRef: PackageReference, state: CheckoutState) {
             self.packageRef = packageRef
             self.state = state
         }
     }
 
-    /// The schema version of the resolved file.
-    ///
-    /// * 1: Initial version.
-    static let schemaVersion: Int = 1
-
-    /// The path to the pins file.
-    private let pinsFile: AbsolutePath
-
-    /// The filesystem to manage the pin file on.
-    private var fileSystem: FileSystem
-
     private let mirrors: DependencyMirrors
 
-    /// The pins map.
-    public fileprivate(set) var pinsMap: PinsMap
+    /// storage
+    private let storage: PinsStorage
+    private let _pins: ThreadSafeKeyValueStore<PackageIdentity, PinsStore.Pin>
 
     /// The current pins.
-    public var pins: AnySequence<Pin> {
-        return AnySequence<Pin>(pinsMap.values)
+
+    public var pinsMap: PinsMap {
+        self._pins.get()
     }
 
-    fileprivate let persistence: SimplePersistence
+    public var pins: AnySequence<Pin> {
+        return AnySequence<Pin>(self.pinsMap.values)
+    }
 
     /// Create a new pins store.
     ///
     /// - Parameters:
     ///   - pinsFile: Path to the pins file.
     ///   - fileSystem: The filesystem to manage the pin file on.
-    public init(pinsFile: AbsolutePath, fileSystem: FileSystem, mirrors: DependencyMirrors) throws {
-        self.pinsFile = pinsFile
-        self.fileSystem = fileSystem
-        self.persistence = SimplePersistence(
-            fileSystem: fileSystem,
-            schemaVersion: PinsStore.schemaVersion,
-            statePath: pinsFile,
-            prettyPrint: true)
-        self.pinsMap = [:]
+    public init(pinsFile: AbsolutePath, workingDirectory: AbsolutePath, fileSystem: FileSystem, mirrors: DependencyMirrors) throws {
+        self.storage = .init(path: pinsFile, workingDirectory: workingDirectory, fileSystem: fileSystem)
         self.mirrors = mirrors
+
         do {
-            _ = try self.persistence.restoreState(self)
-        } catch SimplePersistence.Error.restoreFailure(_, let error) {
+            self._pins = .init(try self.storage.load(mirrors: mirrors))
+        } catch {
+            self._pins = .init()
+            // FIXME: delete the file?
+            // FIXME: warning instead of error?
             throw StringError("Package.resolved file is corrupted or malformed; fix or delete the file to continue: \(error)")
         }
     }
@@ -84,21 +72,18 @@ public final class PinsStore {
     /// - Parameters:
     ///   - packageRef: The package reference to pin.
     ///   - state: The state to pin at.
-    public func pin(
-        packageRef: PackageReference,
-        state: CheckoutState
-    ) {
-        self.pinsMap[packageRef.identity] = Pin(
+    public func pin(packageRef: PackageReference, state: CheckoutState) {
+        self.add(.init(
             packageRef: packageRef,
             state: state
-        )
+        ))
     }
 
     /// Add a pin.
     ///
     /// This will replace any previous pin with same package name.
     public func add(_ pin: Pin) {
-        self.pinsMap[pin.packageRef.identity] = pin
+        self._pins[pin.packageRef.identity] = pin
     }
 
     /// Unpin all of the currently pinned dependencies.
@@ -106,71 +91,166 @@ public final class PinsStore {
     /// This method does not automatically write to state file.
     public func unpinAll() {
         // Reset the pins map.
-        self.pinsMap = [:]
+        self._pins.clear()
     }
 
     public func saveState() throws {
-        if self.pinsMap.isEmpty {
+        try self.storage.save(pins: self._pins.get(), mirrors: self.mirrors, removeIfEmpty: true)
+    }
+}
+
+// MARK: - Serialization
+
+fileprivate struct PinsStorage {
+    private let path: AbsolutePath
+    private let lockFilePath: AbsolutePath
+    private let fileSystem: FileSystem
+    private let encoder = JSONEncoder.makeWithDefaults()
+    private let decoder = JSONDecoder.makeWithDefaults()
+
+    init(path: AbsolutePath, workingDirectory: AbsolutePath, fileSystem: FileSystem) {
+        self.path = path
+        self.lockFilePath = workingDirectory.appending(component: path.basename)
+        self.fileSystem = fileSystem
+    }
+
+    func load(mirrors: DependencyMirrors) throws -> PinsStore.PinsMap {
+        if !self.fileSystem.exists(self.path) {
+            return [:]
+        }
+
+        return try self.fileSystem.withLock(on: self.lockFilePath, type: .shared) {
+            let version = try self.decoder.decode(path: self.path, fileSystem: self.fileSystem, as: Version.self)
+            switch version.version {
+            case 1:
+                let v1 = try decoder.decode(path: self.path, fileSystem: self.fileSystem, as: V1.self)
+                return try v1.object.pins.map{ try PinsStore.Pin($0, mirrors: mirrors) }.reduce(into: [PackageIdentity: PinsStore.Pin]()) { partial, iterator in
+                    if partial.keys.contains(iterator.packageRef.identity) {
+                        throw StringError("duplicated entry for package \"\(iterator.packageRef.name)\"")
+                    }
+                    partial[iterator.packageRef.identity] = iterator
+                }
+            default:
+                throw InternalError("unknown RepositoryManager version: \(version)")
+            }
+        }
+    }
+
+    func save(pins: PinsStore.PinsMap, mirrors: DependencyMirrors, removeIfEmpty: Bool) throws {
+        if !self.fileSystem.exists(self.path.parentDirectory) {
+            try self.fileSystem.createDirectory(self.path.parentDirectory)
+        }
+        try self.fileSystem.withLock(on: self.lockFilePath, type: .exclusive) {
             // Remove the pins file if there are zero pins to save.
             //
             // This can happen if all dependencies are path-based or edited
             // dependencies.
-            return try self.fileSystem.removeFileTree(pinsFile)
+            if removeIfEmpty && pins.isEmpty {
+                try self.fileSystem.removeFileTree(self.path)
+                return
+            }
+
+            let container = V1(pins: pins, mirrors: mirrors)
+            let data = try self.encoder.encode(container)
+            try self.fileSystem.writeFileContents(self.path, data: data)
+        }
+    }
+
+    func reset() throws {
+        if !self.fileSystem.exists(self.path.parentDirectory) {
+            return
+        }
+        try self.fileSystem.withLock(on: self.lockFilePath, type: .exclusive) {
+            try self.fileSystem.removeFileTree(self.path)
+        }
+    }
+
+    // version reader
+    struct Version: Codable {
+        let version: Int
+    }
+
+    // v1 storage format
+    struct V1: Codable {
+        let version: Int
+        let object: Container
+
+        init (pins: PinsStore.PinsMap, mirrors: DependencyMirrors) {
+            self.version = 1
+            self.object = .init(
+                pins: pins.values
+                    .sorted(by: { $0.packageRef.identity < $1.packageRef.identity })
+                    .map{ Pin($0, mirrors: mirrors) }
+            )
         }
 
-        try self.persistence.saveState(self)
+        struct Container: Codable {
+            var pins: [Pin]
+        }
+
+        struct Pin: Codable {
+            let package: String?
+            let repositoryURL: String
+            let state: CheckoutInfo
+
+            init(_ pin: PinsStore.Pin, mirrors: DependencyMirrors) {
+                self.package = pin.packageRef.name
+                // rdar://52529014, rdar://52529011: pin file should store the original location but remap when loading
+                self.repositoryURL = mirrors.originalURL(for: pin.packageRef.location) ?? pin.packageRef.location
+                self.state = .init(pin.state)
+            }
+        }
+
+        struct CheckoutInfo: Codable {
+            let revision: String
+            let branch: String?
+            let version: String?
+
+            init(_ state: CheckoutState) {
+                switch state {
+                case .version(let version, let revision):
+                    self.version = version.description
+                    self.branch = nil
+                    self.revision = revision.identifier
+                case .branch(let branch, let revision):
+                    self.version = nil
+                    self.branch = branch
+                    self.revision = revision.identifier
+                case .revision(let revision):
+                    self.version = nil
+                    self.branch = nil
+                    self.revision = revision.identifier
+                }
+            }
+        }
     }
 }
 
-// MARK: - JSON
-
-extension PinsStore: JSONSerializable {
-    /// Saves the current state of pins.
-    public func toJSON() -> JSON {
+extension PinsStore.Pin {
+    fileprivate init(_ pin: PinsStorage.V1.Pin, mirrors: DependencyMirrors) throws {
         // rdar://52529014, rdar://52529011: pin file should store the original location but remap when loading
-        let pinsWithOriginalLocations = self.pins.map { pin -> Pin in
-            let url = self.mirrors.originalURL(for: pin.packageRef.location) ?? pin.packageRef.location
-            let identity = PackageIdentity(url: url) // FIXME: pin store should also encode identity
-            return Pin(packageRef: .init(identity: identity, kind: pin.packageRef.kind, location: url, name: pin.packageRef.name), state: pin.state)
-        }
-        return JSON([
-            "pins": pinsWithOriginalLocations.sorted(by: { $0.packageRef.identity < $1.packageRef.identity }).toJSON(),
-        ])
-    }
-}
-
-extension PinsStore.Pin: JSONMappable, JSONSerializable {
-    /// Create an instance from JSON data.
-    public init(json: JSON) throws {
-        let name: String? = json.get("package")
-        let url: String = try json.get("repositoryURL")
+        let url = mirrors.effectiveURL(for: pin.repositoryURL)
         let identity = PackageIdentity(url: url) // FIXME: pin store should also encode identity
-        let ref = PackageReference.remote(identity: identity, location: url)
-        self.packageRef = name.flatMap(ref.with(newName:)) ?? ref
-        self.state = try json.get("state")
-    }
-
-    /// Convert the pin to JSON.
-    public func toJSON() -> JSON {
-        return .init([
-            "package": self.packageRef.name.toJSON(),
-            "repositoryURL": self.packageRef.location,
-            "state": self.state
-        ])
+        var packageRef = PackageReference.remote(identity: identity, location: url)
+        if let newName = pin.package {
+            packageRef = packageRef.with(newName: newName)
+        }
+        self.init(
+            packageRef: packageRef,
+            state: try .init(pin.state)
+        )
     }
 }
 
-// MARK: - SimplePersistanceProtocol
-
-extension PinsStore: SimplePersistanceProtocol {
-    public func restore(from json: JSON) throws {
-        let pins: [Pin] = try json.get("pins")
-        // rdar://52529014, rdar://52529011: pin file should store the original location but remap when loading
-        let pinsWithMirroredLocations = pins.map { pin -> Pin in
-            let url = self.mirrors.effectiveURL(for: pin.packageRef.location)
-            let identity = PackageIdentity(url: url) // FIXME: pin store should also encode identity
-            return Pin(packageRef: .init(identity: identity, kind: pin.packageRef.kind, location: url, name: pin.packageRef.name), state: pin.state)
+extension CheckoutState {
+    fileprivate init(_ state: PinsStorage.V1.CheckoutInfo) throws {
+        let revision: Revision = .init(identifier: state.revision)
+        if let branch = state.branch {
+            self = .branch(name: branch, revision: revision)
+        } else if let version = state.version {
+            self = try .version(Version(versionString: version), revision: revision)
+        } else {
+            self = .revision(revision)
         }
-        self.pinsMap = try Dictionary(pinsWithMirroredLocations.map({ ($0.packageRef.identity, $0) }), uniquingKeysWith: { first, _ in throw StringError("duplicated entry for package \"\(first.packageRef.name)\"") })
     }
 }

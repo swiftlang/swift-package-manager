@@ -8,18 +8,17 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-import TSCBasic
 import PackageGraph
 import PackageModel
 import SourceControl
+import TSCBasic
 import TSCUtility
 
 /// An individual managed dependency.
 ///
 /// Each dependency will have a checkout containing the sources at a
 /// particular revision, and may have an associated version.
-public final class ManagedDependency {
-
+public class ManagedDependency {
     /// Represents the state of the managed dependency.
     public enum State: Equatable {
 
@@ -104,7 +103,7 @@ public final class ManagedDependency {
         )
     }
 
-    private init(
+    internal init(
         packageRef: PackageReference,
         state: State,
         subpath: RelativePath,
@@ -132,91 +131,24 @@ public final class ManagedDependency {
     /// was *not* in edit state.
     ///
     /// - Parameters:
-    ///     - subpath: The subpath inside the editables directory.
+    ///     - subpath: The subpath inside the editable directory.
     ///     - unmanagedPath: A custom absolute path instead of the subpath.
     public func editedDependency(subpath: RelativePath, unmanagedPath: AbsolutePath?) -> ManagedDependency {
         return ManagedDependency(basedOn: self, subpath: subpath, unmanagedPath: unmanagedPath)
     }
 }
 
-// MARK: - JSON
-
-extension ManagedDependency: JSONMappable, JSONSerializable, CustomStringConvertible {
-    public convenience init(json: JSON) throws {
-        try self.init(
-            packageRef: json.get("packageRef"),
-            state: json.get("state"),
-            subpath: RelativePath(json.get("subpath")),
-            basedOn: json.get("basedOn")
-        )
-    }
-
-    public func toJSON() -> JSON {
-        return .init([
-            "packageRef": packageRef.toJSON(),
-            "subpath": subpath,
-            "basedOn": basedOn.toJSON(),
-            "state": state
-        ])
-    }
-
+extension ManagedDependency: CustomStringConvertible {
     public var description: String {
-        return "<ManagedDependency: \(packageRef.name) \(state)>"
+        return "<ManagedDependency: \(self.packageRef.name) \(self.state)>"
     }
 }
 
-extension ManagedDependency.State: JSONMappable, JSONSerializable {
-    public func toJSON() -> JSON {
-        switch self {
-        case .checkout(let checkoutState):
-            return .init([
-                "name": "checkout",
-                "checkoutState": checkoutState,
-            ])
-        case .edited(let path):
-            return .init([
-                "name": "edited",
-                "path": path.toJSON(),
-            ])
-        case .local:
-            return .init([
-                "name": "local",
-            ])
-        }
-    }
 
-    public init(json: JSON) throws {
-        let name: String = try json.get("name")
-        switch name {
-        case "checkout":
-            self = try .checkout(json.get("checkoutState"))
-        case "edited":
-            let path: String? = json.get("path")
-            self = .edited(path.map({AbsolutePath($0)}))
-        case "local":
-            self = .local
-        default:
-            throw JSON.MapError.custom(key: nil, message: "Invalid state \(name)")
-        }
-    }
-
-    public var description: String {
-        switch self {
-        case .checkout(let checkout):
-            return "\(checkout)"
-        case .edited:
-            return "edited"
-        case .local:
-            return "local"
-        }
-    }
-}
-
-// MARK: -
+// MARK: - ManagedDependencies
 
 /// A collection of managed dependencies.
 public final class ManagedDependencies {
-
     /// The dependencies keyed by the package URL.
     private var dependencyMap: [String: ManagedDependency]
 
@@ -240,11 +172,11 @@ public final class ManagedDependencies {
     }
 
     public func add(_ dependency: ManagedDependency) {
-        dependencyMap[dependency.packageRef.location] = dependency
+        self.dependencyMap[dependency.packageRef.location] = dependency
     }
 
     public func remove(forURL url: String) {
-        dependencyMap[url] = nil
+        self.dependencyMap[url] = nil
     }
 }
 
@@ -253,31 +185,19 @@ extension ManagedDependencies: Collection {
     public typealias Element = ManagedDependency
 
     public var startIndex: Index {
-        dependencyMap.startIndex
+        self.dependencyMap.startIndex
     }
 
     public var endIndex: Index {
-        dependencyMap.endIndex
+        self.dependencyMap.endIndex
     }
 
     public subscript(index: Index) -> Element {
-        dependencyMap[index].value
+        self.dependencyMap[index].value
     }
 
     public func index(after index: Index) -> Index {
-        dependencyMap.index(after: index)
-    }
-}
-
-extension ManagedDependencies: JSONMappable, JSONSerializable {
-    public convenience init(json: JSON) throws {
-        let dependencies = try Array<ManagedDependency>(json: json)
-        let dependencyMap = Dictionary(uniqueKeysWithValues: dependencies.lazy.map({ ($0.packageRef.location, $0) }))
-        self.init(dependencyMap: dependencyMap)
-    }
-
-    public func toJSON() -> JSON {
-        dependencyMap.values.toJSON()
+        self.dependencyMap.index(after: index)
     }
 }
 

@@ -284,10 +284,10 @@ public class Workspace {
         let repositoryProvider = customRepositoryProvider ?? GitRepositoryProvider()
         let sharedRepositoriesCacheEnabled = sharedRepositoriesCacheEnabled ?? true
         let repositoryManager = customRepositoryManager ?? RepositoryManager(
+            fileSystem: fileSystem,
             path: location.repositoriesDirectory,
             provider: repositoryProvider,
             delegate: delegate.map(WorkspaceRepositoryManagerDelegate.init(workspaceDelegate:)),
-            fileSystem: fileSystem,
             cachePath: sharedRepositoriesCacheEnabled ? location.sharedRepositoriesCacheDirectory : .none
         )
         let httpClient = customHTTPClient ?? HTTPClient()
@@ -323,6 +323,7 @@ public class Workspace {
         self.checksumAlgorithm = checksumAlgorithm
 
         self.containerProvider = RepositoryPackageContainerProvider(
+            fileSystem: fileSystem,
             repositoryManager: repositoryManager,
             identityResolver: self.identityResolver,
             manifestLoader: manifestLoader,
@@ -331,7 +332,12 @@ public class Workspace {
         )
 
         self.pinsStore = LoadableResult {
-            try PinsStore(pinsFile: location.resolvedVersionsFile, fileSystem: fileSystem, mirrors: mirrors)
+            try PinsStore(
+                pinsFile: location.resolvedVersionsFile,
+                workingDirectory: location.workingDirectory,
+                fileSystem: fileSystem,
+                mirrors: mirrors
+            )
         }
 
         self.additionalFileRules = additionalFileRules
@@ -613,10 +619,10 @@ extension Workspace {
 
         // These are the things we don't want to remove while cleaning.
         let protectedAssets = [
-            repositoryManager.path,
+            self.repositoryManager.path,
             self.location.repositoriesCheckoutsDirectory,
             self.location.artifactsDirectory,
-            state.path,
+            self.state.storagePath,
         ].map({ path -> String in
             // Assert that these are present inside data directory.
             assert(path.parentDirectory == self.location.workingDirectory)
@@ -664,7 +670,7 @@ extension Workspace {
         }
 
         guard removed else { return }
-        repositoryManager.reset()
+        try? repositoryManager.reset()
         try? manifestLoader.resetCache()
         try? fileSystem.removeFileTree(self.location.workingDirectory)
     }
@@ -723,7 +729,7 @@ extension Workspace {
             // the pins for the input packages so only those packages are updated.
             pinsMap = pinsStore.pinsMap.filter{ !packages.contains($0.value.packageRef.name) }
         }
-        
+
         // Resolve the dependencies.
         let resolver = try self.createResolver(pinsMap: pinsMap)
         self.activeResolver = resolver
@@ -920,7 +926,7 @@ extension Workspace {
             })
         }
     }
-    
+
     public func loadRootPackage(
         at path: AbsolutePath,
         diagnostics: DiagnosticsEngine,
@@ -1123,7 +1129,7 @@ extension Workspace {
         let path = self.location.editsDirectory.appending(dependency.subpath)
         // Check for uncommited and unpushed changes if force removal is off.
         if !forceRemove {
-            let workingCopy = try repositoryManager.provider.openWorkingCopy(at: path)
+            let workingCopy = try repositoryManager.openWorkingCopy(at: path)
             guard !workingCopy.hasUncommittedChanges() else {
                 throw WorkspaceDiagnostics.UncommitedChanges(repositoryPath: path)
             }
@@ -1180,7 +1186,9 @@ extension Workspace {
                 pinsStore.pin(dependency)
             }
         }
-        diagnostics.wrap({ try pinsStore.saveState() })
+        diagnostics.wrap{
+            try pinsStore.saveState()
+        }
 
         // Ask resolved file watcher to update its value so we don't fire
         // an extra event if the file was modified by us.
@@ -1205,7 +1213,8 @@ fileprivate extension PinsStore {
 
         self.pin(
             packageRef: dependency.packageRef,
-            state: checkoutState)
+            state: checkoutState
+        )
     }
 }
 
@@ -1381,7 +1390,7 @@ extension Workspace {
     /// Create the cache directories.
     fileprivate func createCacheDirectories(with diagnostics: DiagnosticsEngine) {
         do {
-            try fileSystem.createDirectory(repositoryManager.path, recursive: true)
+            try fileSystem.createDirectory(self.repositoryManager.path, recursive: true)
             try fileSystem.createDirectory(self.location.repositoriesCheckoutsDirectory, recursive: true)
             try fileSystem.createDirectory(self.location.artifactsDirectory, recursive: true)
         } catch {
@@ -1997,7 +2006,7 @@ extension Workspace {
         for pin in pinsStore.pins {
             containerProvider.getContainer(for: pin.packageRef, skipUpdate: true, on: .sharedConcurrent, completion: { _ in })
         }
-        
+
         // Compute the pins that we need to actually clone.
         //
         // We require cloning if there is no checkout or if the checkout doesn't
@@ -2639,7 +2648,7 @@ extension Workspace {
             // if not).
             fetch: if fileSystem.isDirectory(path) {
                 // Fetch the checkout in case there are updates available.
-                let workingCopy = try repositoryManager.provider.openWorkingCopy(at: path)
+                let workingCopy = try repositoryManager.openWorkingCopy(at: path)
 
                 // Ensure that the alternative object store is still valid.
                 //
@@ -2696,7 +2705,7 @@ extension Workspace {
         let path = try fetch(package: package)
 
         // Check out the given revision.
-        let workingCopy = try repositoryManager.provider.openWorkingCopy(at: path)
+        let workingCopy = try repositoryManager.openWorkingCopy(at: path)
 
         // Inform the delegate.
         delegate?.willCheckOut(repository: package.repository.url, revision: checkoutState.description, at: path)
@@ -2796,7 +2805,7 @@ extension Workspace {
 
         // Remove the checkout.
         let dependencyPath = self.location.repositoriesCheckoutsDirectory.appending(dependencyToRemove.subpath)
-        let workingCopy = try repositoryManager.provider.openWorkingCopy(at: dependencyPath)
+        let workingCopy = try repositoryManager.openWorkingCopy(at: dependencyPath)
         guard !workingCopy.hasUncommittedChanges() else {
             throw WorkspaceDiagnostics.UncommitedChanges(repositoryPath: dependencyPath)
         }

@@ -87,33 +87,3 @@ extension PackageReference: CustomStringConvertible {
     }
 }
 
-extension PackageReference: JSONMappable, JSONSerializable {
-    public init(json: JSON) throws {
-        self.name = try json.get("name")
-        self.identity = try json.get("identity")
-        // Support previous version of PackageReference that contained an `path` property. 1/2021
-        if let location: String = json.get("location") {
-            self.location = location
-        } else if let location: String = json.get("path") {
-            self.location = location
-        } else {
-            throw InternalError("unknown package reference location")
-        }
-
-        // Support previous version of PackageReference that contained an `isLocal` property.
-        if let isLocal: Bool = json.get("isLocal") {
-            self.kind = isLocal ? .local : .remote
-        } else {
-            self.kind = try Kind(rawValue: json.get("kind"))!
-        }
-    }
-
-    public func toJSON() -> JSON {
-        return .init([
-            "name": self.name,
-            "identity": self.identity,
-            "location": self.location,
-            "kind": self.kind.rawValue,
-        ])
-    }
-}
