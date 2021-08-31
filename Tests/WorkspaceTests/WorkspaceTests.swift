@@ -781,7 +781,7 @@ final class WorkspaceTests: XCTestCase {
         )
 
         try workspace.checkPrecomputeResolution { result in
-            XCTAssertEqual(result.diagnostics.hasErrors, false)
+            XCTAssertEqual(result.diagnostics.hasErrors, false, result.diagnostics.description)
             XCTAssertEqual(result.result.isRequired, false)
         }
     }
@@ -4173,7 +4173,7 @@ final class WorkspaceTests: XCTestCase {
 
             let diagnostics = DiagnosticsEngine()
             let checksum = ws.checksum(forBinaryArtifactAt: binaryPath, diagnostics: diagnostics)
-            XCTAssertTrue(!diagnostics.hasErrors)
+            XCTAssertTrue(!diagnostics.hasErrors, diagnostics.description)
             XCTAssertEqual(workspace.checksumAlgorithm.hashes.map { $0.contents }, [[0xAA, 0xBB, 0xCC]])
             XCTAssertEqual(checksum, "ccbbaa")
         }
@@ -4340,7 +4340,7 @@ final class WorkspaceTests: XCTestCase {
         )
 
         workspace.checkPackageGraph(roots: ["Foo"]) { graph, diagnostics in
-            XCTAssertTrue(diagnostics.diagnostics.isEmpty, diagnostics.description)
+            XCTAssertNoDiagnostics(diagnostics)
             XCTAssert(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/A")))
             XCTAssert(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/B")))
             XCTAssertEqual(downloads.map { $0.key.absoluteString }.sorted(), [
@@ -4750,7 +4750,7 @@ final class WorkspaceTests: XCTestCase {
         )
 
         workspace.checkPackageGraph(roots: ["Foo"]) { graph, diagnostics in
-            XCTAssertTrue(diagnostics.diagnostics.isEmpty, diagnostics.description)
+            XCTAssertNoDiagnostics(diagnostics)
             XCTAssert(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/A")))
             XCTAssertEqual(workspace.checksumAlgorithm.hashes.map{ $0.hexadecimalRepresentation }.sorted(), [
                 ByteString([0xA1]).hexadecimalRepresentation,
@@ -4775,7 +4775,7 @@ final class WorkspaceTests: XCTestCase {
         // do it again
 
         workspace.checkPackageGraph(roots: ["Foo"]) { graph, diagnostics in
-            XCTAssertTrue(diagnostics.diagnostics.isEmpty, diagnostics.description)
+            XCTAssertNoDiagnostics(diagnostics)
             XCTAssert(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/A")))
 
             XCTAssertEqual(workspace.checksumAlgorithm.hashes.map{ $0.hexadecimalRepresentation }.sorted(), [
@@ -5130,7 +5130,7 @@ final class WorkspaceTests: XCTestCase {
         )
 
         workspace.checkPackageGraph(roots: ["Foo"]) { graph, diagnostics in
-            XCTAssertTrue(diagnostics.diagnostics.isEmpty, diagnostics.description)
+            XCTAssertNoDiagnostics(diagnostics)
             XCTAssert(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/A")))
             XCTAssert(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/B")))
             XCTAssertEqual(downloads.map { $0.key.absoluteString }.sorted(), [
@@ -5833,9 +5833,7 @@ final class WorkspaceTests: XCTestCase {
         )
 
         workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
-            DiagnosticsEngineTester(diagnostics) { result in
-                XCTAssert(diagnostics.diagnostics.isEmpty, diagnostics.description)
-            }
+            XCTAssertNoDiagnostics(diagnostics)
         }
     }
 
@@ -5890,9 +5888,7 @@ final class WorkspaceTests: XCTestCase {
         )
 
         workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
-            DiagnosticsEngineTester(diagnostics) { result in
-                XCTAssert(diagnostics.diagnostics.isEmpty, diagnostics.description)
-            }
+            XCTAssertNoDiagnostics(diagnostics)
         }
     }
 
@@ -5947,9 +5943,7 @@ final class WorkspaceTests: XCTestCase {
         )
 
         workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
-            DiagnosticsEngineTester(diagnostics) { result in
-                XCTAssert(diagnostics.diagnostics.isEmpty, diagnostics.description)
-            }
+            XCTAssertNoDiagnostics(diagnostics)
         }
     }
 
@@ -6070,9 +6064,7 @@ final class WorkspaceTests: XCTestCase {
         )
 
         workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
-            DiagnosticsEngineTester(diagnostics) { result in
-                XCTAssert(diagnostics.diagnostics.isEmpty, diagnostics.description)
-            }
+            XCTAssertNoDiagnostics(diagnostics)
         }
     }
 
