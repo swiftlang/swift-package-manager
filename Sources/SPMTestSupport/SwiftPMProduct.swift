@@ -15,6 +15,7 @@ import TSCBasic
 public enum SwiftPMProduct: Product {
     case SwiftBuild
     case SwiftPackage
+    case SwiftPackageRegistry
     case SwiftTest
     case SwiftRun
     case XCTestHelper
@@ -26,6 +27,8 @@ public enum SwiftPMProduct: Product {
             return RelativePath("swift-build")
         case .SwiftPackage:
             return RelativePath("swift-package")
+        case .SwiftPackageRegistry:
+            return RelativePath("swift-package-registry")
         case .SwiftTest:
             return RelativePath("swift-test")
         case .SwiftRun:

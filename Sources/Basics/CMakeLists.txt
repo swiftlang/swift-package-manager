@@ -17,6 +17,7 @@ add_library(Basics
   HTPClient+URLSession.swift
   HTTPClient.swift
   JSON+Extensions.swift
+  JSONDecoder+Extensions.swift
   Sandbox.swift
   SwiftVersion.swift
   SQLiteBackedCache.swift
