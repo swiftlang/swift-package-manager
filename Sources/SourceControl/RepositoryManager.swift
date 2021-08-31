@@ -59,7 +59,8 @@ public class RepositoryManager {
 
     /// storage
     private let storage: RepositoryManagerStorage
-    private var repositories = ThreadSafeKeyValueStore<String, RepositoryManager.RepositoryHandle>()
+    private var repositories = [String: RepositoryManager.RepositoryHandle]()
+    private var repositoriesLock = Lock()
 
     /// Create a new empty manager.
     ///
@@ -95,9 +96,9 @@ public class RepositoryManager {
 
         // Load the state from disk, if possible.
         do {
-            self.repositories = .init(try self.storage.load(manager: self))
+            self.repositories = try self.storage.load(manager: self)
         } catch {
-            self.repositories = .init()
+            self.repositories = [:]
             try? self.storage.reset()
             // FIXME: We should emit a warning here using the diagnostic engine.
             TSCBasic.stderrStream.write("warning: unable to restore checkouts state: \(error)")
@@ -122,11 +123,18 @@ public class RepositoryManager {
         on queue: DispatchQueue,
         completion: @escaping LookupCompletion
     ) {
+        // Dispatch the action we want to take on the serial queue of the handle.
         self.lookupQueue.addOperation {
             // First look for the handle.
             let handle = self.getHandle(for: repository)
-            // Dispatch the action we want to take on the serial queue of the handle.
+            let repositoryPath = self.path.appending(handle.subpath)
+
             handle.withStatusLock {
+                // state file / storage resiliency
+                if handle.status == .available && !self.storage.fileExists() {
+                    handle.status = .error
+                }
+
                 let result: LookupResult
 
                 switch handle.status {
@@ -154,10 +162,9 @@ public class RepositoryManager {
 
                         return handle
                     })
-                case .pending, .uninitialized, .cached, .error:
+                case .pending, .uninitialized, .error:
                     let start = DispatchTime.now()
-                    let isCached = handle.status == .cached
-                    let repositoryPath = self.path.appending(handle.subpath)
+
                     // Change the state to pending.
                     handle.status = .pending
                     // Make sure destination is free.
@@ -165,6 +172,7 @@ public class RepositoryManager {
 
                     // Inform delegate.
                     queue.async {
+                        let isCached = self.cachePath.map{ self.fileSystem.exists($0.appending(handle.subpath)) } ?? false
                         let details = FetchDetails(fromCache: isCached, updatedCache: false)
                         self.delegate?.fetchingWillBegin(handle: handle, fetchDetails: details)
                     }
@@ -197,9 +205,10 @@ public class RepositoryManager {
                         //
                         // We do this so we don't have to read the other
                         // handles when saving the state of this handle.
-                        //try self.put(handle.repository.url, handle)
-                        self.repositories[handle.repository.url] = handle
-                        try self.saveState()
+                        try self.repositoriesLock.withLock {
+                            self.repositories[handle.repository.url] = handle
+                            try self.storage.save(repositories: self.repositories)
+                        }
                     } catch {
                         // FIXME: Handle failure gracefully, somehow.
                         fatalError("unable to save manager state \(error)")
@@ -272,22 +281,13 @@ public class RepositoryManager {
     ///
     /// Note: This method is thread safe.
     private func getHandle(for repository: RepositorySpecifier) -> RepositoryHandle {
-        // check if file was deleted / state mismatch
-        if !self.repositories.isEmpty && !self.storage.fileExists() {
-            self.repositories.clear()
+        self.repositoriesLock.withLock {
+            return self.repositories.memoize(key: repository.url) {
+                let subpath = RelativePath(repository.fileSystemIdentifier)
+                let handle = RepositoryHandle(manager: self, repository: repository, subpath: subpath)
+                return handle
+            }
         }
-        if let handle = self.repositories[repository.url] {
-            return handle
-        }
-
-        let subpath = RelativePath(repository.fileSystemIdentifier)
-        if let cachePath = self.cachePath, self.fileSystem.exists(cachePath.appending(subpath)) {
-            let handle = RepositoryHandle(manager: self, repository: repository, subpath: subpath)
-            handle.status = .cached
-            return handle
-        }
-
-        return RepositoryHandle(manager: self, repository: repository, subpath: subpath)
     }
 
     /// Open a repository from a handle.
@@ -313,25 +313,27 @@ public class RepositoryManager {
 
     /// Removes the repository.
     public func remove(repository: RepositorySpecifier) throws {
-        // If repository isn't present, we're done.
-        guard let handle = self.repositories[repository.url] else {
-            return
+        try self.repositoriesLock.withLock {
+            // If repository isn't present, we're done.
+            guard let handle = self.repositories.removeValue(forKey: repository.url) else {
+                return
+            }
+            try self.storage.save(repositories: self.repositories)
+
+            let repositoryPath = self.path.appending(handle.subpath)
+            try self.fileSystem.removeFileTree(repositoryPath)
         }
-
-        let repositoryPath = self.path.appending(handle.subpath)
-        try self.fileSystem.removeFileTree(repositoryPath)
-
-        self.repositories.removeValue(forKey: repository.url)
-        try self.saveState()
     }
 
     /// Reset the repository manager.
     ///
     /// Note: This also removes the cloned repositories from the disk.
     public func reset() throws {
-        self.repositories.clear()
-        try self.storage.reset()
-        try self.fileSystem.removeFileTree(self.path)
+        try self.repositoriesLock.withLock {
+            self.repositories.removeAll()
+            try self.storage.reset()
+            try self.fileSystem.removeFileTree(self.path)
+        }
     }
 
     /// Sets up the cache directories if they don't already exist.
@@ -352,10 +354,6 @@ public class RepositoryManager {
             }
         }
     }
-
-    func saveState() throws {
-        try self.storage.save(repositories: self.repositories.get())
-    }
 }
 
 extension RepositoryManager {
@@ -372,7 +370,7 @@ extension RepositoryManager {
             case available
 
             /// The repository is available in the cache
-            case cached
+            //case cached
 
             /// The repository was unable to be fetched.
             case error
