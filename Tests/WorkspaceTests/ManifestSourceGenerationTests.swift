@@ -42,7 +42,7 @@ class ManifestSourceGenerationTests: XCTestCase {
             
             // Check that the tools version was serialized properly.
             let versionSpacing = (toolsVersion >= .v5_4) ? " " : ""
-            XCTAssertTrue(newContents.hasPrefix("// swift-tools-version:\(versionSpacing)\(toolsVersion.major).\(toolsVersion.minor)"), newContents)
+            XCTAssertMatch(newContents, .prefix("// swift-tools-version:\(versionSpacing)\(toolsVersion.major).\(toolsVersion.minor)"))
             
             // Write out the generated manifest to replace the old manifest file contents, and load it again.
             try fs.writeFileContents(packageDir.appending(component: Manifest.filename), bytes: ByteString(encodingAsUTF8: newContents))

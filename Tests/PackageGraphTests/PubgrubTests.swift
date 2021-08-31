@@ -15,6 +15,7 @@ import PackageLoading
 @testable import PackageModel
 @testable import PackageGraph
 import SourceControl
+import SPMTestSupport
 
 
 
@@ -1155,11 +1156,11 @@ final class PubgrubTests: XCTestCase {
             ("bar", .version("2.0.1")),
         ])
 
-        XCTAssertTrue(delegate.events.contains("willResolve 'foo'"), "\(delegate.events)")
-        XCTAssertTrue(delegate.events.contains("didResolve 'foo' at '1.1.0'"), "\(delegate.events)")
-        XCTAssertTrue(delegate.events.contains("willResolve 'bar'"), "\(delegate.events)")
-        XCTAssertTrue(delegate.events.contains("didResolve 'bar' at '2.0.1'"), "\(delegate.events)")
-        XCTAssertTrue(delegate.events.contains("solved: 'bar' at '2.0.1', 'foo' at '1.1.0'"), "\(delegate.events)")
+        XCTAssertMatch(delegate.events, ["willResolve 'foo'"])
+        XCTAssertMatch(delegate.events, ["didResolve 'foo' at '1.1.0'"])
+        XCTAssertMatch(delegate.events, ["willResolve 'bar'"])
+        XCTAssertMatch(delegate.events, ["didResolve 'bar' at '2.0.1'"])
+        XCTAssertMatch(delegate.events, ["solved: 'bar' at '2.0.1', 'foo' at '1.1.0'"])
     }
 }
 

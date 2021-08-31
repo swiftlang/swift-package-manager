@@ -84,8 +84,8 @@ final class APIDiffTests: XCTestCase {
                     XCTFail("Unexpected error")
                     return
                 }
-                XCTAssertTrue(output.contains("1 breaking change detected in Foo"))
-                XCTAssertTrue(output.contains("💔 API breakage: func foo() has been removed"))
+                XCTAssertMatch(output, .contains("1 breaking change detected in Foo"))
+                XCTAssertMatch(output, .contains("💔 API breakage: func foo() has been removed"))
             }
         }
     }
@@ -105,11 +105,11 @@ final class APIDiffTests: XCTestCase {
                     XCTFail("Unexpected error")
                     return
                 }
-                XCTAssertTrue(output.contains("2 breaking changes detected in Qux"))
-                XCTAssertTrue(output.contains("💔 API breakage: class Qux has generic signature change from <T> to <T, U>"))
-                XCTAssertTrue(output.contains("💔 API breakage: var Qux.x has been removed"))
-                XCTAssertTrue(output.contains("1 breaking change detected in Baz"))
-                XCTAssertTrue(output.contains("💔 API breakage: func bar() has been removed"))
+                XCTAssertMatch(output, .contains("2 breaking changes detected in Qux"))
+                XCTAssertMatch(output, .contains("💔 API breakage: class Qux has generic signature change from <T> to <T, U>"))
+                XCTAssertMatch(output, .contains("💔 API breakage: var Qux.x has been removed"))
+                XCTAssertMatch(output, .contains("1 breaking change detected in Baz"))
+                XCTAssertMatch(output, .contains("💔 API breakage: func bar() has been removed"))
             }
         }
     }
@@ -135,11 +135,11 @@ final class APIDiffTests: XCTestCase {
                     XCTFail("Unexpected error")
                     return
                 }
-                XCTAssertTrue(output.contains("1 breaking change detected in Qux"))
-                XCTAssertFalse(output.contains("💔 API breakage: class Qux has generic signature change from <T> to <T, U>"))
-                XCTAssertTrue(output.contains("💔 API breakage: var Qux.x has been removed"))
-                XCTAssertTrue(output.contains("1 breaking change detected in Baz"))
-                XCTAssertTrue(output.contains("💔 API breakage: func bar() has been removed"))
+                XCTAssertMatch(output, .contains("1 breaking change detected in Qux"))
+                XCTAssertNoMatch(output, .contains("💔 API breakage: class Qux has generic signature change from <T> to <T, U>"))
+                XCTAssertMatch(output, .contains("💔 API breakage: var Qux.x has been removed"))
+                XCTAssertMatch(output, .contains("1 breaking change detected in Baz"))
+                XCTAssertMatch(output, .contains("💔 API breakage: func bar() has been removed"))
             }
 
         }
@@ -166,17 +166,17 @@ final class APIDiffTests: XCTestCase {
                     XCTFail("Unexpected error")
                     return
                 }
-                XCTAssertTrue(output.contains("1 breaking change detected in Foo"))
-                XCTAssertTrue(output.contains("💔 API breakage: struct Foo has been removed"))
-                XCTAssertTrue(output.contains("1 breaking change detected in Bar"))
-                XCTAssertTrue(output.contains("💔 API breakage: func bar() has been removed"))
-                XCTAssertTrue(output.contains("1 breaking change detected in Baz"))
-                XCTAssertTrue(output.contains("💔 API breakage: enumelement Baz.b has been added as a new enum case"))
+                XCTAssertMatch(output, .contains("1 breaking change detected in Foo"))
+                XCTAssertMatch(output, .contains("💔 API breakage: struct Foo has been removed"))
+                XCTAssertMatch(output, .contains("1 breaking change detected in Bar"))
+                XCTAssertMatch(output, .contains("💔 API breakage: func bar() has been removed"))
+                XCTAssertMatch(output, .contains("1 breaking change detected in Baz"))
+                XCTAssertMatch(output, .contains("💔 API breakage: enumelement Baz.b has been added as a new enum case"))
 
                 // Qux is not part of a library product, so any API changes should be ignored
-                XCTAssertFalse(output.contains("2 breaking changes detected in Qux"))
-                XCTAssertFalse(output.contains("💔 API breakage: class Qux has generic signature change from <T> to <T, U>"))
-                XCTAssertFalse(output.contains("💔 API breakage: var Qux.x has been removed"))
+                XCTAssertNoMatch(output, .contains("2 breaking changes detected in Qux"))
+                XCTAssertNoMatch(output, .contains("💔 API breakage: class Qux has generic signature change from <T> to <T, U>"))
+                XCTAssertNoMatch(output, .contains("💔 API breakage: var Qux.x has been removed"))
             }
         }
     }
@@ -204,16 +204,16 @@ final class APIDiffTests: XCTestCase {
                     return
                 }
 
-                XCTAssertTrue(output.contains("1 breaking change detected in Foo"))
-                XCTAssertTrue(output.contains("💔 API breakage: struct Foo has been removed"))
-                XCTAssertTrue(output.contains("1 breaking change detected in Bar"))
-                XCTAssertTrue(output.contains("💔 API breakage: func bar() has been removed"))
+                XCTAssertMatch(output, .contains("1 breaking change detected in Foo"))
+                XCTAssertMatch(output, .contains("💔 API breakage: struct Foo has been removed"))
+                XCTAssertMatch(output, .contains("1 breaking change detected in Bar"))
+                XCTAssertMatch(output, .contains("💔 API breakage: func bar() has been removed"))
 
-                XCTAssertFalse(output.contains("1 breaking change detected in Baz"))
-                XCTAssertFalse(output.contains("💔 API breakage: enumelement Baz.b has been added as a new enum case"))
-                XCTAssertFalse(output.contains("2 breaking changes detected in Qux"))
-                XCTAssertFalse(output.contains("💔 API breakage: class Qux has generic signature change from <T> to <T, U>"))
-                XCTAssertFalse(output.contains("💔 API breakage: var Qux.x has been removed"))
+                XCTAssertNoMatch(output, .contains("1 breaking change detected in Baz"))
+                XCTAssertNoMatch(output, .contains("💔 API breakage: enumelement Baz.b has been added as a new enum case"))
+                XCTAssertNoMatch(output, .contains("2 breaking changes detected in Qux"))
+                XCTAssertNoMatch(output, .contains("💔 API breakage: class Qux has generic signature change from <T> to <T, U>"))
+                XCTAssertNoMatch(output, .contains("💔 API breakage: var Qux.x has been removed"))
             }
 
             // Diff a target which didn't have a baseline generated as part of the first invocation
@@ -224,16 +224,16 @@ final class APIDiffTests: XCTestCase {
                     return
                 }
 
-                XCTAssertTrue(output.contains("1 breaking change detected in Baz"))
-                XCTAssertTrue(output.contains("💔 API breakage: enumelement Baz.b has been added as a new enum case"))
+                XCTAssertMatch(output, .contains("1 breaking change detected in Baz"))
+                XCTAssertMatch(output, .contains("💔 API breakage: enumelement Baz.b has been added as a new enum case"))
 
-                XCTAssertFalse(output.contains("1 breaking change detected in Foo"))
-                XCTAssertFalse(output.contains("💔 API breakage: struct Foo has been removed"))
-                XCTAssertFalse(output.contains("1 breaking change detected in Bar"))
-                XCTAssertFalse(output.contains("💔 API breakage: func bar() has been removed"))
-                XCTAssertFalse(output.contains("2 breaking changes detected in Qux"))
-                XCTAssertFalse(output.contains("💔 API breakage: class Qux has generic signature change from <T> to <T, U>"))
-                XCTAssertFalse(output.contains("💔 API breakage: var Qux.x has been removed"))
+                XCTAssertNoMatch(output, .contains("1 breaking change detected in Foo"))
+                XCTAssertNoMatch(output, .contains("💔 API breakage: struct Foo has been removed"))
+                XCTAssertNoMatch(output, .contains("1 breaking change detected in Bar"))
+                XCTAssertNoMatch(output, .contains("💔 API breakage: func bar() has been removed"))
+                XCTAssertNoMatch(output, .contains("2 breaking changes detected in Qux"))
+                XCTAssertNoMatch(output, .contains("💔 API breakage: class Qux has generic signature change from <T> to <T, U>"))
+                XCTAssertNoMatch(output, .contains("💔 API breakage: var Qux.x has been removed"))
             }
 
             // Test diagnostics
@@ -245,10 +245,10 @@ final class APIDiffTests: XCTestCase {
                     return
                 }
 
-                XCTAssertTrue(stderr.contains("error: no such product 'NotAProduct'"))
-                XCTAssertTrue(stderr.contains("error: no such target 'NotATarget'"))
-                XCTAssertTrue(stderr.contains("'Exec' is not a library product"))
-                XCTAssertTrue(stderr.contains("'Exec' is not a library target"))
+                XCTAssertMatch(stderr, .contains("error: no such product 'NotAProduct'"))
+                XCTAssertMatch(stderr, .contains("error: no such target 'NotATarget'"))
+                XCTAssertMatch(stderr, .contains("'Exec' is not a library product"))
+                XCTAssertMatch(stderr, .contains("'Exec' is not a library target"))
             }
         }
     }
@@ -273,8 +273,8 @@ final class APIDiffTests: XCTestCase {
                     XCTFail("Unexpected error")
                     return
                 }
-                XCTAssertTrue(output.contains("1 breaking change detected in Bar"))
-                XCTAssertTrue(output.contains("💔 API breakage: func bar() has return type change from Swift.Int to Swift.String"))
+                XCTAssertMatch(output, .contains("1 breaking change detected in Bar"))
+                XCTAssertMatch(output, .contains("💔 API breakage: func bar() has return type change from Swift.Int to Swift.String"))
             }
 
             // Report an error if we explicitly ask to diff a C-family target
@@ -284,7 +284,7 @@ final class APIDiffTests: XCTestCase {
                     return
                 }
 
-                XCTAssertTrue(stderr.contains("error: 'Foo' is not a Swift language target"))
+                XCTAssertMatch(stderr, .contains("error: 'Foo' is not a Swift language target"))
             }
         }
     }
@@ -298,8 +298,8 @@ final class APIDiffTests: XCTestCase {
                 $0 <<< "public func bar() -> Int { 100 }"
             }
             let (output, _) = try execute(["diagnose-api-breaking-changes", "1.2.3"], packagePath: packageRoot)
-            XCTAssertTrue(output.contains("No breaking changes detected in Baz"))
-            XCTAssertTrue(output.contains("No breaking changes detected in Qux"))
+            XCTAssertMatch(output, .contains("No breaking changes detected in Baz"))
+            XCTAssertMatch(output, .contains("No breaking changes detected in Qux"))
         }
     }
 
@@ -331,9 +331,9 @@ final class APIDiffTests: XCTestCase {
                 """
             }
             let (output, _) = try execute(["diagnose-api-breaking-changes", "1.2.3"], packagePath: packageRoot)
-            XCTAssertTrue(output.contains("No breaking changes detected in Baz"))
-            XCTAssertTrue(output.contains("No breaking changes detected in Qux"))
-            XCTAssertTrue(output.contains("Skipping Foo because it does not exist in the baseline"))
+            XCTAssertMatch(output, .contains("No breaking changes detected in Baz"))
+            XCTAssertMatch(output, .contains("No breaking changes detected in Qux"))
+            XCTAssertMatch(output, .contains("Skipping Foo because it does not exist in the baseline"))
         }
     }
 
@@ -346,7 +346,7 @@ final class APIDiffTests: XCTestCase {
                     XCTFail("Unexpected error")
                     return
                 }
-                XCTAssertTrue(stderr.contains("error: Couldn’t get revision"))
+                XCTAssertMatch(stderr, .contains("error: Couldn’t get revision"))
             }
         }
     }
@@ -370,8 +370,8 @@ final class APIDiffTests: XCTestCase {
                         XCTFail("Unexpected error")
                         return
                     }
-                    XCTAssertTrue(output.contains("1 breaking change detected in Foo"))
-                    XCTAssertTrue(output.contains("💔 API breakage: func foo() has been removed"))
+                    XCTAssertMatch(output, .contains("1 breaking change detected in Foo"))
+                    XCTAssertMatch(output, .contains("💔 API breakage: func foo() has been removed"))
                 }
 
                 // Update `main` and ensure the baseline is regenerated.
@@ -384,7 +384,7 @@ final class APIDiffTests: XCTestCase {
                 try repo.checkout(revision: .init(identifier: "feature"))
                 let (output, _) = try execute(["diagnose-api-breaking-changes", "main", "--baseline-dir", baselineDir.pathString],
                                               packagePath: packageRoot)
-                XCTAssertTrue(output.contains("No breaking changes detected in Foo"))
+                XCTAssertMatch(output, .contains("No breaking changes detected in Foo"))
             }
         }
     }
@@ -409,8 +409,8 @@ final class APIDiffTests: XCTestCase {
                     XCTFail("Unexpected error")
                     return
                 }
-                XCTAssertTrue(output.contains("1 breaking change detected in Foo"))
-                XCTAssertTrue(output.contains("💔 API breakage: func foo() has been removed"))
+                XCTAssertMatch(output, .contains("1 breaking change detected in Foo"))
+                XCTAssertMatch(output, .contains("💔 API breakage: func foo() has been removed"))
                 XCTAssertTrue(localFileSystem.exists(baselineDir.appending(components: revision.identifier, "Foo.json")))
             }
         }
@@ -444,8 +444,8 @@ final class APIDiffTests: XCTestCase {
                     XCTFail("Unexpected error")
                     return
                 }
-                XCTAssertTrue(output.contains("1 breaking change detected in Foo"))
-                XCTAssertTrue(output.contains("💔 API breakage: func foo() has been removed"))
+                XCTAssertMatch(output, .contains("1 breaking change detected in Foo"))
+                XCTAssertMatch(output, .contains("💔 API breakage: func foo() has been removed"))
                 XCTAssertTrue(localFileSystem.exists(fooBaselinePath))
                 XCTAssertNotEqual((try! localFileSystem.readFileContents(fooBaselinePath)).description, "Old Baseline")
             }
@@ -459,7 +459,7 @@ final class APIDiffTests: XCTestCase {
                 XCTFail("Unexpected error")
                 return
             }
-            XCTAssertTrue(output.contains("`swift package experimental-api-diff` has been renamed to `swift package diagnose-api-breaking-changes`"))
+            XCTAssertMatch(output, .contains("`swift package experimental-api-diff` has been renamed to `swift package diagnose-api-breaking-changes`"))
         }
     }
 }

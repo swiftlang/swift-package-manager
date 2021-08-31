@@ -44,7 +44,7 @@ final class IncrementalBuildTests: XCTestCase {
             // Check various things that we expect to see in the full build log.
             // FIXME:  This is specific to the format of the log output, which
             // is quite unfortunate but not easily avoidable at the moment.
-            XCTAssertTrue(fullLog.contains("Compiling CLibrarySources Foo.c"))
+            XCTAssertMatch(fullLog, .contains("Compiling CLibrarySources Foo.c"))
 
             let llbuildManifest = prefix.appending(components: ".build", "debug.yaml")
 
@@ -61,7 +61,7 @@ final class IncrementalBuildTests: XCTestCase {
 
             // Now build again.  This should be an incremental build.
             let (log2, _) = try executeSwiftBuild(prefix)
-            XCTAssertTrue(log2.contains("Compiling CLibrarySources Foo.c"))
+            XCTAssertMatch(log2, .contains("Compiling CLibrarySources Foo.c"))
 
             // Read the second llbuild manifest.
             let llbuildContents2 = try localFileSystem.readFileContents(llbuildManifest)
@@ -69,7 +69,7 @@ final class IncrementalBuildTests: XCTestCase {
             // Now build again without changing anything.  This should be a null
             // build.
             let (log3, _) = try executeSwiftBuild(prefix)
-            XCTAssertFalse(log3.contains("Compiling CLibrarySources Foo.c"))
+            XCTAssertNoMatch(log3, .contains("Compiling CLibrarySources Foo.c"))
 
             // Read the third llbuild manifest.
             let llbuildContents3 = try localFileSystem.readFileContents(llbuildManifest)
@@ -87,7 +87,7 @@ final class IncrementalBuildTests: XCTestCase {
 
             // Now build again.  This should be an incremental build.
             let (log4, _) = try executeSwiftBuild(prefix)
-            XCTAssertTrue(log4.contains("Compiling CLibrarySources Foo.c"))
+            XCTAssertMatch(log4, .contains("Compiling CLibrarySources Foo.c"))
         }
     }
 
@@ -100,27 +100,27 @@ final class IncrementalBuildTests: XCTestCase {
 
             // Perform a full build.
             let log1 = try build()
-            XCTAssertTrue(log1.contains("Compiling Library"), log1)
+            XCTAssertMatch(log1, .contains("Compiling Library"))
 
             // Ensure manifest caching kicks in.
             let log2 =  try build()
-            XCTAssertTrue(log2.contains("Planning build"), log2)
+            XCTAssertMatch(log2, .contains("Planning build"))
 
             // Check that we're not re-planning when nothing has changed.
             let log3 = try build()
-            XCTAssertFalse(log3.contains("Planning build"), log3)
+            XCTAssertNoMatch(log3, .contains("Planning build"))
 
             // Check that we do run planning when a new source file is added.
             let sourceFile = prefix.appending(components: "Sources", "Library", "new.swift")
             try localFileSystem.writeFileContents(sourceFile, bytes: "")
             let log4 = try build()
-            XCTAssertTrue(log4.contains("Compiling Library"), log4)
-            XCTAssertTrue(log4.contains("Planning build"), log4)
+            XCTAssertMatch(log4, .contains("Compiling Library"))
+            XCTAssertMatch(log4, .contains("Planning build"))
 
             // Check that we don't run planning when a source file is modified.
             try localFileSystem.writeFileContents(sourceFile, bytes: "\n\n\n\n")
             let log5 = try build()
-            XCTAssertFalse(log5.contains("Planning build"), log5)
+            XCTAssertNoMatch(log5, .contains("Planning build"))
         }
     }
 
@@ -133,11 +133,11 @@ final class IncrementalBuildTests: XCTestCase {
 
             // Perform a full build.
             let log1 = try build()
-            XCTAssertTrue(log1.contains("Compiling Library"), log1)
+            XCTAssertMatch(log1, .contains("Compiling Library"))
 
             // Ensure manifest caching does not kick in.
             let log2 = try build()
-            XCTAssertFalse(log2.contains("Planning build"), log2)
+            XCTAssertNoMatch(log2, .contains("Planning build"))
         }
     }
 }
