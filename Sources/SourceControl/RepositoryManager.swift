@@ -98,7 +98,6 @@ public class RepositoryManager {
             self.repositories = .init(try self.storage.load(manager: self))
         } catch {
             self.repositories = .init()
-            // 👀 delete the file okay?
             try? self.storage.reset()
             // FIXME: We should emit a warning here using the diagnostic engine.
             TSCBasic.stderrStream.write("warning: unable to restore checkouts state: \(error)")

@@ -157,7 +157,7 @@ final class PackageToolTests: XCTestCase {
     }
 
     func testDescribe() throws {
-        
+
         fixture(name: "Miscellaneous/ExeTest") { prefix in
             // Generate the JSON description.
             let jsonResult = try SwiftPMProduct.SwiftPackage.executeProcess(["describe", "--type=json"], packagePath: prefix)
@@ -177,7 +177,7 @@ final class PackageToolTests: XCTestCase {
             let jsonResult = try SwiftPMProduct.SwiftPackage.executeProcess(["describe", "--type=json"], packagePath: prefix)
             let jsonOutput = try jsonResult.utf8Output()
             let json = try JSON(bytes: ByteString(encodingAsUTF8: jsonOutput))
-            
+
             // Check that the JSON description contains what we expect it to.
             XCTAssertEqual(json["name"]?.string, "SwiftCMixed")
             XCTAssertEqual(json["path"]?.string?.hasPrefix("/"), true)
@@ -213,7 +213,7 @@ final class PackageToolTests: XCTestCase {
                     chunks.append(line + "\n")
                 }
             }.filter{ !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
-            
+
             // Check that the text description contains what we expect it to.
             // FIXME: This is a bit inelegant, but any errors are easy to reason about.
             let textChunk0 = try XCTUnwrap(textChunks[0])
@@ -270,7 +270,7 @@ final class PackageToolTests: XCTestCase {
         }
 
     }
-    
+
     func testDescribePackageUsingPlugins() throws {
         fixture(name: "Miscellaneous/Plugins/MySourceGenPlugin") { prefix in
             // Generate the JSON description.
@@ -343,14 +343,14 @@ final class PackageToolTests: XCTestCase {
     func testShowDependencies_dotFormat_sr12016() throws {
         // Confirm that SR-12016 is resolved.
         // See https://bugs.swift.org/browse/SR-12016
-        
+
         let fileSystem = InMemoryFileSystem(emptyFiles: [
             "/PackageA/Sources/TargetA/main.swift",
             "/PackageB/Sources/TargetB/B.swift",
             "/PackageC/Sources/TargetC/C.swift",
             "/PackageD/Sources/TargetD/D.swift",
         ])
-        
+
         let manifestA = Manifest.createManifest(
             name: "PackageA",
             path: "/PackageA",
@@ -368,7 +368,7 @@ final class PackageToolTests: XCTestCase {
                 try .init(name: "TargetA", dependencies: ["PackageB", "PackageC"])
             ]
         )
-        
+
         let manifestB = Manifest.createManifest(
             name: "PackageB",
             path: "/PackageB",
@@ -386,7 +386,7 @@ final class PackageToolTests: XCTestCase {
                 try .init(name: "TargetB", dependencies: ["PackageC", "PackageD"])
             ]
         )
-        
+
         let manifestC = Manifest.createManifest(
             name: "PackageC",
             path: "/PackageC",
@@ -403,7 +403,7 @@ final class PackageToolTests: XCTestCase {
                 try .init(name: "TargetC", dependencies: ["PackageD"])
             ]
         )
-        
+
         let manifestD = Manifest.createManifest(
             name: "PackageD",
             path: "/PackageD",
@@ -417,17 +417,17 @@ final class PackageToolTests: XCTestCase {
                 try .init(name: "TargetD")
             ]
         )
-        
+
         let diagnostics = DiagnosticsEngine()
         let graph = try loadPackageGraph(fs: fileSystem,
                                          diagnostics: diagnostics,
                                          manifests: [manifestA, manifestB, manifestC, manifestD])
         XCTAssertNoDiagnostics(diagnostics)
-        
+
         let output = BufferedOutputByteStream()
         dumpDependenciesOf(rootPackage: graph.rootPackages[0], mode: .dot, on: output)
         let dotFormat = output.bytes.description
-        
+
         var alreadyPutOut: Set<Substring> = []
         for line in dotFormat.split(whereSeparator: { $0.isNewline }) {
             if alreadyPutOut.contains(line) {
@@ -435,7 +435,7 @@ final class PackageToolTests: XCTestCase {
             }
             alreadyPutOut.insert(line)
         }
-        
+
         let expectedLines: [Substring] = [
             #""/PackageA" [label="packagea\n/PackageA\nunspecified"]"#,
             #""/PackageB" [label="packageb\n/PackageB\nunspecified"]"#,
@@ -496,7 +496,7 @@ final class PackageToolTests: XCTestCase {
 
             let resultPath = root.appending(component: "result.json")
             _ = try execute(["show-dependencies", "--format", "json", "--output-path", resultPath.pathString ], packagePath: root)
-            
+
             XCTAssert(fs.exists(resultPath))
             let jsonOutput = try fs.readFileContents(resultPath)
             let json = try JSON(bytes: jsonOutput)
@@ -722,7 +722,7 @@ final class PackageToolTests: XCTestCase {
             // Try to pin bar at a branch.
             do {
                 try execute("resolve", "bar", "--branch", "YOLO")
-                let pinsStore = try PinsStore(pinsFile: pinsFile, fileSystem: localFileSystem, mirrors: .init())
+                let pinsStore = try PinsStore(pinsFile: pinsFile, workingDirectory: prefix, fileSystem: localFileSystem, mirrors: .init())
                 let state = CheckoutState.branch(name: "YOLO", revision: yoloRevision)
                 let identity = PackageIdentity(path: barPath)
                 XCTAssertEqual(pinsStore.pinsMap[identity]?.state, state)
@@ -731,7 +731,7 @@ final class PackageToolTests: XCTestCase {
             // Try to pin bar at a revision.
             do {
                 try execute("resolve", "bar", "--revision", yoloRevision.identifier)
-                let pinsStore = try PinsStore(pinsFile: pinsFile, fileSystem: localFileSystem, mirrors: .init())
+                let pinsStore = try PinsStore(pinsFile: pinsFile, workingDirectory: prefix, fileSystem: localFileSystem, mirrors: .init())
                 let state = CheckoutState.revision(yoloRevision)
                 let identity = PackageIdentity(path: barPath)
                 XCTAssertEqual(pinsStore.pinsMap[identity]?.state, state)
@@ -772,7 +772,7 @@ final class PackageToolTests: XCTestCase {
 
             // Test pins file.
             do {
-                let pinsStore = try PinsStore(pinsFile: pinsFile, fileSystem: localFileSystem, mirrors: .init())
+                let pinsStore = try PinsStore(pinsFile: pinsFile, workingDirectory: prefix, fileSystem: localFileSystem, mirrors: .init())
                 XCTAssertEqual(pinsStore.pins.map{$0}.count, 2)
                 for pkg in ["bar", "baz"] {
                     let path = try SwiftPMProduct.packagePath(for: pkg, packageRoot: fooPath)
@@ -791,7 +791,7 @@ final class PackageToolTests: XCTestCase {
             // Try to pin bar.
             do {
                 try execute("resolve", "bar")
-                let pinsStore = try PinsStore(pinsFile: pinsFile, fileSystem: localFileSystem, mirrors: .init())
+                let pinsStore = try PinsStore(pinsFile: pinsFile, workingDirectory: prefix, fileSystem: localFileSystem, mirrors: .init())
                 let identity = PackageIdentity(path: barPath)
                 XCTAssertEqual(pinsStore.pinsMap[identity]?.state.version, "1.2.3")
             }
@@ -815,7 +815,7 @@ final class PackageToolTests: XCTestCase {
             // We should be able to revert to a older version.
             do {
                 try execute("resolve", "bar", "--version", "1.2.3")
-                let pinsStore = try PinsStore(pinsFile: pinsFile, fileSystem: localFileSystem, mirrors: .init())
+                let pinsStore = try PinsStore(pinsFile: pinsFile, workingDirectory: prefix, fileSystem: localFileSystem, mirrors: .init())
                 let identity = PackageIdentity(path: barPath)
                 XCTAssertEqual(pinsStore.pinsMap[identity]?.state.version, "1.2.3")
                 try checkBar(5)
@@ -980,7 +980,7 @@ final class PackageToolTests: XCTestCase {
             }
         }
     }
-    
+
     func testPackageLoadingCommandPathResilience() throws {
       #if os(macOS)
         fixture(name: "ValidLayouts/SingleModule") { prefix in
@@ -998,13 +998,13 @@ final class PackageToolTests: XCTestCase {
                     })
                     try localFileSystem.chmod(.executable, path: fakeCmdPath)
                 }
-                
+
                 // Invoke `swift-package`, passing in the overriding `PATH` environment variable.
                 let packageRoot = prefix.appending(component: "Library")
                 let patchedPATH = fakeBinDir.pathString + ":" + ProcessInfo.processInfo.environment["PATH"]!
                 let result = try SwiftPMProduct.SwiftPackage.executeProcess(["dump-package"], packagePath: packageRoot, env: ["PATH": patchedPATH])
                 let textOutput = try result.utf8Output() + result.utf8stderrOutput()
-                
+
                 // Check that the wrong tools weren't invoked.  We can't just check the exit code because of fallbacks.
                 XCTAssertNoMatch(textOutput, .contains("wrong xcrun invoked"))
                 XCTAssertNoMatch(textOutput, .contains("wrong sandbox-exec invoked"))

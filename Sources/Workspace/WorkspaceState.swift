@@ -48,7 +48,6 @@ public final class WorkspaceState {
         } catch {
             self.dependencies = ManagedDependencies()
             self.artifacts = ManagedArtifacts()
-            // 👀 delete the file okay?
             try? self.storage.reset()
             // FIXME: We should emit a warning here using the diagnostic engine.
             TSCBasic.stderrStream.write("warning: unable to restore workspace state: \(error)")

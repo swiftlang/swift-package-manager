@@ -332,7 +332,12 @@ public class Workspace {
         )
 
         self.pinsStore = LoadableResult {
-            try PinsStore(pinsFile: location.resolvedVersionsFile, fileSystem: fileSystem, mirrors: mirrors)
+            try PinsStore(
+                pinsFile: location.resolvedVersionsFile,
+                workingDirectory: location.workingDirectory,
+                fileSystem: fileSystem,
+                mirrors: mirrors
+            )
         }
 
         self.additionalFileRules = additionalFileRules
@@ -724,7 +729,7 @@ extension Workspace {
             // the pins for the input packages so only those packages are updated.
             pinsMap = pinsStore.pinsMap.filter{ !packages.contains($0.value.packageRef.name) }
         }
-        
+
         // Resolve the dependencies.
         let resolver = try self.createResolver(pinsMap: pinsMap)
         self.activeResolver = resolver
@@ -921,7 +926,7 @@ extension Workspace {
             })
         }
     }
-    
+
     public func loadRootPackage(
         at path: AbsolutePath,
         diagnostics: DiagnosticsEngine,
@@ -2001,7 +2006,7 @@ extension Workspace {
         for pin in pinsStore.pins {
             containerProvider.getContainer(for: pin.packageRef, skipUpdate: true, on: .sharedConcurrent, completion: { _ in })
         }
-        
+
         // Compute the pins that we need to actually clone.
         //
         // We require cloning if there is no checkout or if the checkout doesn't

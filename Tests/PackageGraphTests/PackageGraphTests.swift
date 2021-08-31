@@ -601,7 +601,7 @@ class PackageGraphTests: XCTestCase {
             result.check(diagnostic: "product 'Foo' is declared in the same package 'foo' and can't be used as a dependency for target 'FooTests'.", behavior: .error, location: "'Foo' /Foo")
         }
     }
-    
+
     func testExecutableTargetDependency() throws {
         let fs = InMemoryFileSystem(emptyFiles:
                 "/XYZ/Sources/XYZ/main.swift",
@@ -624,7 +624,7 @@ class PackageGraphTests: XCTestCase {
         )
         DiagnosticsEngineTester(diagnostics) { _ in }
     }
-    
+
     func testSameProductAndTargetNames() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Foo/Sources/Foo/src.swift",
@@ -1308,9 +1308,9 @@ class PackageGraphTests: XCTestCase {
         """
 
         let fs = InMemoryFileSystem(files: ["/pins": ByteString(encodingAsUTF8: json)])
-        
+
         XCTAssertThrows(StringError("Package.resolved file is corrupted or malformed; fix or delete the file to continue: duplicated entry for package \"Yams\""), {
-            _ = try PinsStore(pinsFile: AbsolutePath("/pins"), fileSystem: fs, mirrors: .init())
+            _ = try PinsStore(pinsFile: AbsolutePath("/pins"), workingDirectory: .root, fileSystem: fs, mirrors: .init())
         })
     }
 

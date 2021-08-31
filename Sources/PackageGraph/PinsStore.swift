@@ -51,8 +51,8 @@ public final class PinsStore {
     /// - Parameters:
     ///   - pinsFile: Path to the pins file.
     ///   - fileSystem: The filesystem to manage the pin file on.
-    public init(pinsFile: AbsolutePath, fileSystem: FileSystem, mirrors: DependencyMirrors) throws {
-        self.storage = .init(path: pinsFile, fileSystem: fileSystem)
+    public init(pinsFile: AbsolutePath, workingDirectory: AbsolutePath, fileSystem: FileSystem, mirrors: DependencyMirrors) throws {
+        self.storage = .init(path: pinsFile, workingDirectory: workingDirectory, fileSystem: fileSystem)
         self.mirrors = mirrors
 
         do {
@@ -103,12 +103,14 @@ public final class PinsStore {
 
 fileprivate struct PinsStorage {
     private let path: AbsolutePath
+    private let lockFilePath: AbsolutePath
     private let fileSystem: FileSystem
     private let encoder = JSONEncoder.makeWithDefaults()
     private let decoder = JSONDecoder.makeWithDefaults()
 
-    init(path: AbsolutePath, fileSystem: FileSystem) {
+    init(path: AbsolutePath, workingDirectory: AbsolutePath, fileSystem: FileSystem) {
         self.path = path
+        self.lockFilePath = workingDirectory.appending(component: path.basename)
         self.fileSystem = fileSystem
     }
 
@@ -117,8 +119,7 @@ fileprivate struct PinsStorage {
             return [:]
         }
 
-        // 👀 do we want a lock file here? safer but pretty noisy
-        //return try self.fileSystem.withLock(on: self.path, type: .shared) {
+        return try self.fileSystem.withLock(on: self.lockFilePath, type: .shared) {
             let version = try self.decoder.decode(path: self.path, fileSystem: self.fileSystem, as: Version.self)
             switch version.version {
             case 1:
@@ -132,15 +133,14 @@ fileprivate struct PinsStorage {
             default:
                 throw InternalError("unknown RepositoryManager version: \(version)")
             }
-        //}
+        }
     }
 
     func save(pins: PinsStore.PinsMap, mirrors: DependencyMirrors, removeIfEmpty: Bool) throws {
         if !self.fileSystem.exists(self.path.parentDirectory) {
             try self.fileSystem.createDirectory(self.path.parentDirectory)
         }
-        // 👀 do we want a lock file here? safer but pretty noisy
-        //try self.fileSystem.withLock(on: self.path, type: .exclusive) {
+        try self.fileSystem.withLock(on: self.lockFilePath, type: .exclusive) {
             // Remove the pins file if there are zero pins to save.
             //
             // This can happen if all dependencies are path-based or edited
@@ -153,17 +153,16 @@ fileprivate struct PinsStorage {
             let container = V1(pins: pins, mirrors: mirrors)
             let data = try self.encoder.encode(container)
             try self.fileSystem.writeFileContents(self.path, data: data)
-        //}
+        }
     }
 
     func reset() throws {
         if !self.fileSystem.exists(self.path.parentDirectory) {
             return
         }
-        // 👀 do we want a lock file here? safer but pretty noisy
-        //try self.fileSystem.withLock(on: self.path, type: .exclusive) {
+        try self.fileSystem.withLock(on: self.lockFilePath, type: .exclusive) {
             try self.fileSystem.removeFileTree(self.path)
-        //}
+        }
     }
 
     // version reader
