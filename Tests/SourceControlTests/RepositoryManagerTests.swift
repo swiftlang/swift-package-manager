@@ -278,8 +278,8 @@ class RepositoryManagerTests: XCTestCase {
                 let checkoutPath = path.appending(component: "checkout")
                 _ = try! handle.createWorkingCopy(at: checkoutPath, editable: false)
 
-                XCTAssert(localFileSystem.exists(checkoutPath.appending(component: "README.txt")))
-                XCTAssert(localFileSystem.exists(checkoutPath))
+                XCTAssertDirectoryExists(checkoutPath)
+                XCTAssertFileExists(checkoutPath.appending(component: "README.txt"))
                 lookupExpectation.fulfill()
             }
 

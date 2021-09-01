@@ -251,7 +251,7 @@ class MiscellaneousTestCase: XCTestCase {
           }
 
           // Check the xUnit output.
-          XCTAssertTrue(localFileSystem.exists(xUnitOutput))
+          XCTAssertFileExists(xUnitOutput)
           let contents = try localFileSystem.readFileContents(xUnitOutput).description
           XCTAssertMatch(contents, .contains("tests=\"3\" failures=\"1\""))
         }
@@ -616,7 +616,7 @@ class MiscellaneousTestCase: XCTestCase {
 
             // put foo into edit mode
             _ = try executeSwiftPackage(appPath, extraArgs: ["edit", "Foo"])
-            XCTAssertTrue(localFileSystem.exists(appPath.appending(components: ["Packages", "Foo"])))
+            XCTAssertDirectoryExists(appPath.appending(components: ["Packages", "Foo"]))
 
             do {
                 // build again in edit mode
@@ -628,7 +628,7 @@ class MiscellaneousTestCase: XCTestCase {
                 // take foo out of edit mode
                 let output = try executeSwiftPackage(appPath, extraArgs: ["unedit", "Foo"])
                 XCTAssertTrue(output.stdout.contains("Creating working copy for \(prefix)/Foo"), output.stdout)
-                XCTAssertFalse(localFileSystem.exists(appPath.appending(components: ["Packages", "Foo"])))
+                XCTAssertNoSuchPath(appPath.appending(components: ["Packages", "Foo"]))
             }
 
             // build again in edit mode
@@ -642,18 +642,18 @@ class MiscellaneousTestCase: XCTestCase {
     func testCustomCachePath() {
         fixture(name: "Miscellaneous/Simple") { path in
             let customCachePath = path.appending(components: "custom", "cache")
-            XCTAssertFalse(localFileSystem.exists(customCachePath))
+            XCTAssertNoSuchPath(customCachePath)
             try SwiftPMProduct.SwiftBuild.execute(["--cache-path", customCachePath.pathString], packagePath: path)
-            XCTAssertTrue(localFileSystem.exists(customCachePath))
+            XCTAssertDirectoryExists(customCachePath)
         }
     }
 
     func testCustomConfigPath() {
         fixture(name: "Miscellaneous/Simple") { path in
             let customConfigPath = path.appending(components: "custom", "config")
-            XCTAssertFalse(localFileSystem.exists(customConfigPath))
+            XCTAssertNoSuchPath(customConfigPath)
             try SwiftPMProduct.SwiftBuild.execute(["--config-path", customConfigPath.pathString], packagePath: path)
-            XCTAssertTrue(localFileSystem.exists(customConfigPath))
+            XCTAssertDirectoryExists(customConfigPath)
         }
     }
 }

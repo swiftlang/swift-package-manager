@@ -111,7 +111,7 @@ final class WorkspaceTests: XCTestCase {
         try fs.removeFileTree(stateFile)
 
         workspace.checkPackageGraph(roots: ["Foo"], deps: deps) { _, _ in }
-        XCTAssertTrue(fs.exists(stateFile))
+        XCTAssertTrue(fs.exists(stateFile), "workspace state file should exist")
 
         // Remove state file and check we get back to a clean state.
         try fs.removeFileTree(workspace.getOrCreateWorkspace().state.storagePath)

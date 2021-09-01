@@ -91,7 +91,7 @@ final class PackageEditorTests: XCTestCase {
             )
             """)
 
-        XCTAssertTrue(fs.exists(AbsolutePath("/pkg/Sources/baz/baz.swift")))
-        XCTAssertTrue(fs.exists(AbsolutePath("/pkg/Tests/bazTests/bazTests.swift")))
+        XCTAssertFileExists(AbsolutePath("/pkg/Sources/baz/baz.swift"))
+        XCTAssertFileExists(AbsolutePath("/pkg/Tests/bazTests/bazTests.swift"))
     }
 }

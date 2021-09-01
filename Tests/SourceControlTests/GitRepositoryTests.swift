@@ -43,7 +43,7 @@ class GitRepositoryTests: XCTestCase {
             try! provider.fetch(repository: repoSpec, to: testCheckoutPath)
 
             // Verify the checkout was made.
-            XCTAssert(localFileSystem.exists(testCheckoutPath))
+            XCTAssertDirectoryExists(testCheckoutPath)
 
             // Test the repository interface.
             let repository = provider.open(repository: repoSpec, at: testCheckoutPath)
@@ -291,10 +291,10 @@ class GitRepositoryTests: XCTestCase {
                 let workingCopy = try provider.openWorkingCopy(at: path)
                 try workingCopy.checkout(tag: "test-tag")
                 XCTAssertEqual(try workingCopy.getCurrentRevision(), currentRevision)
-                XCTAssert(localFileSystem.exists(path.appending(component: "test.txt")))
+                XCTAssertFileExists(path.appending(component: "test.txt"))
                 try workingCopy.checkout(tag: "initial")
                 XCTAssertEqual(try workingCopy.getCurrentRevision(), initialRevision)
-                XCTAssert(!localFileSystem.exists(path.appending(component: "test.txt")))
+                XCTAssertNoSuchPath(path.appending(component: "test.txt"))
             }
         }
     }
@@ -539,7 +539,7 @@ class GitRepositoryTests: XCTestCase {
 
             // Checkout the first tag which doesn't has submodule.
             try fooWorkingRepo.checkout(tag: "1.0.0")
-            XCTAssertFalse(localFileSystem.exists(fooWorkingPath.appending(component: "bar")))
+            XCTAssertNoSuchPath(fooWorkingPath.appending(component: "bar"))
 
             // Add submodule to foo and tag it as 1.0.1
             try foo.checkout(newBranch: "submodule")
@@ -553,10 +553,10 @@ class GitRepositoryTests: XCTestCase {
             try fooWorkingRepo.fetch()
             // Checkout the tag with submodule and expect submodules files to be present.
             try fooWorkingRepo.checkout(tag: "1.0.1")
-            XCTAssertTrue(localFileSystem.exists(fooWorkingPath.appending(components: "bar", "hello.txt")))
+            XCTAssertFileExists(fooWorkingPath.appending(components: "bar", "hello.txt"))
             // Checkout the tag without submodule and ensure that the submodule files are gone.
             try fooWorkingRepo.checkout(tag: "1.0.0")
-            XCTAssertFalse(localFileSystem.exists(fooWorkingPath.appending(components: "bar")))
+            XCTAssertNoSuchPath(fooWorkingPath.appending(components: "bar"))
 
             // Add something to bar.
             try localFileSystem.writeFileContents(barPath.appending(component: "bar.txt"), bytes: "hello")
@@ -575,13 +575,13 @@ class GitRepositoryTests: XCTestCase {
             try fooWorkingRepo.fetch()
             // We should see the new file we added in the submodule.
             try fooWorkingRepo.checkout(tag: "1.0.2")
-            XCTAssertTrue(localFileSystem.exists(fooWorkingPath.appending(components: "bar", "hello.txt")))
-            XCTAssertTrue(localFileSystem.exists(fooWorkingPath.appending(components: "bar", "bar.txt")))
-            XCTAssertTrue(localFileSystem.exists(fooWorkingPath.appending(components: "bar", "baz", "hello.txt")))
+            XCTAssertFileExists(fooWorkingPath.appending(components: "bar", "hello.txt"))
+            XCTAssertFileExists(fooWorkingPath.appending(components: "bar", "bar.txt"))
+            XCTAssertFileExists(fooWorkingPath.appending(components: "bar", "baz", "hello.txt"))
 
             // Sanity check.
             try fooWorkingRepo.checkout(tag: "1.0.0")
-            XCTAssertFalse(localFileSystem.exists(fooWorkingPath.appending(components: "bar")))
+            XCTAssertNoSuchPath(fooWorkingPath.appending(components: "bar"))
         }
     }
 
@@ -678,11 +678,11 @@ class GitRepositoryTests: XCTestCase {
             // Clone off a checkout.
             let checkoutPath = path.appending(component: "checkout")
             let checkoutRepo = try provider.createWorkingCopy(repository: repoSpec, sourcePath: testClonePath, at: checkoutPath, editable: false)
-            XCTAssertFalse(localFileSystem.exists(checkoutPath.appending(component: "file.swift")))
+            XCTAssertNoSuchPath(checkoutPath.appending(component: "file.swift"))
 
             // Try to check out the `main` branch.
             try checkoutRepo.checkout(revision: Revision(identifier: "newMain"))
-            XCTAssertTrue(localFileSystem.exists(checkoutPath.appending(component: "file.swift")))
+            XCTAssertFileExists(checkoutPath.appending(component: "file.swift"))
 
             // The following will throw if HEAD was set incorrectly and we didn't do a no-checkout clone.
             XCTAssertNoThrow(try checkoutRepo.getCurrentRevision())
