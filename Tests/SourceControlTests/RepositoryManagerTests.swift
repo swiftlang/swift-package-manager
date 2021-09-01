@@ -355,6 +355,8 @@ class RepositoryManagerTests: XCTestCase {
             // Avoid a crasher that seems to happen only on macOS 10.15, but leave an environment variable for testing.
             try XCTSkipUnless(ProcessEnv.vars["SWIFTPM_ENABLE_FLAKY_REPOSITORYMANAGERTESTS"] == "1", "skipping test that sometimes crashes in CI (rdar://70540298)")
         }
+
+        try XCTSkipIf(true, "test became racy")
         
         fixture(name: "DependencyResolution/External/Simple") { prefix in
             let cachePath = prefix.appending(component: "cache")
