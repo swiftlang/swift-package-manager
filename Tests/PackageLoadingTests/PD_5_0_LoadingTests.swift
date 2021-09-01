@@ -593,7 +593,7 @@ class PackageDescription5_0LoadingTests: PackageDescriptionLoadingTests {
             XCTAssertEqual(manifest.name, "Trivial")
 
             let moduleTraceJSON = try XCTUnwrap(try localFileSystem.readFileContents(moduleTraceFilePath).validDescription)
-            XCTAssert(moduleTraceJSON.contains("PackageDescription"))
+            XCTAssertMatch(moduleTraceJSON, .contains("PackageDescription"))
         }
     }
 }

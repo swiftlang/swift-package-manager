@@ -18,9 +18,9 @@ class TestDiscoveryTests: XCTestCase {
         fixture(name: "Miscellaneous/TestDiscovery/Simple") { path in
             let (stdout, _) = try executeSwiftBuild(path)
             #if os(macOS)
-            XCTAssertTrue(stdout.contains("Merging module Simple"), stdout)
+            XCTAssertMatch(stdout, .contains("Merging module Simple"))
             #else
-            XCTAssertTrue(stdout.contains("Merging module Simple"), stdout)
+            XCTAssertMatch(stdout, .contains("Merging module Simple"))
             #endif
         }
     }
@@ -29,11 +29,11 @@ class TestDiscoveryTests: XCTestCase {
         fixture(name: "Miscellaneous/TestDiscovery/Simple") { path in
             let (stdout, stderr) = try executeSwiftTest(path)
             #if os(macOS)
-            XCTAssertTrue(stdout.contains("Merging module Simple"), stdout)
-            XCTAssertTrue(stderr.contains("Executed 2 tests"), stderr)
+            XCTAssertMatch(stdout, .contains("Merging module Simple"))
+            XCTAssertMatch(stderr, .contains("Executed 2 tests"))
             #else
-            XCTAssertTrue(stdout.contains("Merging module Simple"), stdout)
-            XCTAssertTrue(stdout.contains("Executed 2 tests"), stdout)
+            XCTAssertMatch(stdout, .contains("Merging module Simple"))
+            XCTAssertMatch(stdout, .contains("Executed 2 tests"))
             #endif
         }
     }
@@ -42,11 +42,11 @@ class TestDiscoveryTests: XCTestCase {
         fixture(name: "Miscellaneous/TestDiscovery/hello world") { path in
             let (stdout, stderr) = try executeSwiftTest(path)
             #if os(macOS)
-            XCTAssertTrue(stdout.contains("Merging module hello_world"), stdout)
-            XCTAssertTrue(stderr.contains("Executed 1 test"), stderr)
+            XCTAssertMatch(stdout, .contains("Merging module hello_world"))
+            XCTAssertMatch(stderr, .contains("Executed 1 test"))
             #else
-            XCTAssertTrue(stdout.contains("Merging module hello_world"), stdout)
-            XCTAssertTrue(stdout.contains("Executed 1 test"), stdout)
+            XCTAssertMatch(stdout, .contains("Merging module hello_world"))
+            XCTAssertMatch(stdout, .contains("Executed 1 test"))
             #endif
         }
     }
@@ -61,9 +61,9 @@ class TestDiscoveryTests: XCTestCase {
                 let manifestPath = path.appending(components: "Tests", name)
                 try localFileSystem.writeFileContents(manifestPath, bytes: ByteString("print(\"\(random)\")".utf8))
                 let (stdout, _) = try executeSwiftTest(path)
-                XCTAssertTrue(stdout.contains("Merging module Simple"), stdout)
-                XCTAssertFalse(stdout.contains("Executed 1 test"), stdout)
-                XCTAssertTrue(stdout.contains(random), stdout)
+                XCTAssertMatch(stdout, .contains("Merging module Simple"))
+                XCTAssertNoMatch(stdout, .contains("Executed 1 test"))
+                XCTAssertMatch(stdout, .contains(random))
             }
         }
         #endif
@@ -78,8 +78,8 @@ class TestDiscoveryTests: XCTestCase {
             let manifestPath = path.appending(components: "Tests", name)
             try localFileSystem.writeFileContents(manifestPath, bytes: ByteString("fatalError(\"should not be called\")".utf8))
             let (stdout, _) = try executeSwiftTest(path, extraArgs: ["--enable-test-discovery"])
-            XCTAssertTrue(stdout.contains("Merging module Simple"), stdout)
-            XCTAssertFalse(stdout.contains("Executed 1 test"), stdout)
+            XCTAssertMatch(stdout, .contains("Merging module Simple"))
+            XCTAssertNoMatch(stdout, .contains("Executed 1 test"))
         }
         #endif
     }
@@ -90,15 +90,15 @@ class TestDiscoveryTests: XCTestCase {
         #else
         fixture(name: "Miscellaneous/TestDiscovery/Extensions") { path in
             let (stdout, _) = try executeSwiftTest(path, extraArgs: ["--enable-test-discovery"])
-            XCTAssertTrue(stdout.contains("Merging module Simple"), stdout)
-            XCTAssertTrue(stdout.contains("SimpleTests1.testExample1"), stdout)
-            XCTAssertTrue(stdout.contains("SimpleTests1.testExample1_a"), stdout)
-            XCTAssertTrue(stdout.contains("SimpleTests2.testExample2"), stdout)
-            XCTAssertTrue(stdout.contains("SimpleTests2.testExample2_a"), stdout)
-            XCTAssertTrue(stdout.contains("SimpleTests4.testExample"), stdout)
-            XCTAssertTrue(stdout.contains("SimpleTests4.testExample1"), stdout)
-            XCTAssertTrue(stdout.contains("SimpleTests4.testExample2"), stdout)
-            XCTAssertTrue(stdout.contains("Executed 7 tests"), stdout)
+            XCTAssertMatch(stdout, .contains("Merging module Simple"))
+            XCTAssertMatch(stdout, .contains("SimpleTests1.testExample1"))
+            XCTAssertMatch(stdout, .contains("SimpleTests1.testExample1_a"))
+            XCTAssertMatch(stdout, .contains("SimpleTests2.testExample2"))
+            XCTAssertMatch(stdout, .contains("SimpleTests2.testExample2_a"))
+            XCTAssertMatch(stdout, .contains("SimpleTests4.testExample"))
+            XCTAssertMatch(stdout, .contains("SimpleTests4.testExample1"))
+            XCTAssertMatch(stdout, .contains("SimpleTests4.testExample2"))
+            XCTAssertMatch(stdout, .contains("Executed 7 tests"))
         }
         #endif
     }

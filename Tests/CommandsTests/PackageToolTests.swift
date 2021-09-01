@@ -35,17 +35,17 @@ final class PackageToolTests: XCTestCase {
 
     func testUsage() throws {
         let stdout = try execute(["-help"]).stdout
-        XCTAssert(stdout.contains("USAGE: swift package"), "got stdout:\n" + stdout)
+        XCTAssertMatch(stdout, .contains("USAGE: swift package"))
     }
 
     func testSeeAlso() throws {
         let stdout = try execute(["--help"]).stdout
-        XCTAssert(stdout.contains("SEE ALSO: swift build, swift run, swift test"), "got stdout:\n" + stdout)
+        XCTAssertMatch(stdout, .contains("SEE ALSO: swift build, swift run, swift test"))
     }
 
     func testVersion() throws {
         let stdout = try execute(["--version"]).stdout
-        XCTAssert(stdout.contains("Swift Package Manager"), "got stdout:\n" + stdout)
+        XCTAssertMatch(stdout, .contains("Swift Package Manager"))
     }
 
     func testNetrcFile() throws {
@@ -61,12 +61,12 @@ final class PackageToolTests: XCTestCase {
                 try execute(["--netrc-file", netrcPath.pathString, "resolve"], packagePath: packageRoot)
                 // file does not exist, but is optional
                 let textOutput = try execute(["--netrc-file", "/foo", "--netrc-optional", "resolve"], packagePath: packageRoot).stderr
-                XCTAssert(textOutput.contains("warning: Did not find optional .netrc file at /foo."))
+                XCTAssertMatch(textOutput, .contains("warning: Did not find optional .netrc file at /foo."))
 
                 // required file does not exist, will throw
                 try execute(["--netrc-file", "/foo", "resolve"], packagePath: packageRoot)
             } catch {
-                XCTAssert(String(describing: error).contains("Cannot find mandatory .netrc file at /foo"), "\(error)")
+                XCTAssertMatch(String(describing: error), .contains("Cannot find mandatory .netrc file at /foo"))
             }
         }
 
@@ -78,17 +78,17 @@ final class PackageToolTests: XCTestCase {
                 } else {
                     // file does not exist, but is optional
                     let textOutput = try execute(["--netrc", "--netrc-optional", "resolve"], packagePath: packageRoot)
-                    XCTAssert(textOutput.stderr.contains("Did not find optional .netrc file at \(localFileSystem.homeDirectory)/.netrc."))
+                    XCTAssertMatch(textOutput.stderr, .contains("Did not find optional .netrc file at \(localFileSystem.homeDirectory)/.netrc."))
 
                     // file does not exist, but is optional
                     let textOutput2 = try execute(["--netrc-optional", "resolve"], packagePath: packageRoot)
-                    XCTAssert(textOutput2.stderr.contains("Did not find optional .netrc file at \(localFileSystem.homeDirectory)/.netrc."))
+                    XCTAssertMatch(textOutput2.stderr, .contains("Did not find optional .netrc file at \(localFileSystem.homeDirectory)/.netrc."))
 
                     // required file does not exist, will throw
                     try execute(["--netrc", "resolve"], packagePath: packageRoot)
                 }
             } catch {
-                XCTAssert(String(describing: error).contains("Cannot find mandatory .netrc file at \(localFileSystem.homeDirectory)/.netrc"))
+                XCTAssertMatch(String(describing: error), .contains("Cannot find mandatory .netrc file at \(localFileSystem.homeDirectory)/.netrc"))
             }
         }
     }
@@ -180,8 +180,8 @@ final class PackageToolTests: XCTestCase {
 
             // Check that the JSON description contains what we expect it to.
             XCTAssertEqual(json["name"]?.string, "SwiftCMixed")
-            XCTAssertEqual(json["path"]?.string?.hasPrefix("/"), true)
-            XCTAssertEqual(json["path"]?.string?.hasSuffix("/" + prefix.basename), true)
+            XCTAssertMatch(json["path"]?.string, .prefix("/"))
+            XCTAssertMatch(json["path"]?.string, .suffix("/" + prefix.basename))
             XCTAssertEqual(json["targets"]?.array?.count, 3)
             let jsonTarget0 = try XCTUnwrap(json["targets"]?.array?[0])
             XCTAssertEqual(jsonTarget0["name"]?.stringValue, "SeaLib")
@@ -217,42 +217,42 @@ final class PackageToolTests: XCTestCase {
             // Check that the text description contains what we expect it to.
             // FIXME: This is a bit inelegant, but any errors are easy to reason about.
             let textChunk0 = try XCTUnwrap(textChunks[0])
-            XCTAssert(textChunk0.contains("Name: SwiftCMixed"), textChunk0)
-            XCTAssert(textChunk0.contains("Path: /"), textChunk0)
-            XCTAssert(textChunk0.contains("/" + prefix.basename + "\n"), textChunk0)
-            XCTAssert(textChunk0.contains("Tools version: 4.2"), textChunk0)
-            XCTAssert(textChunk0.contains("Products:"), textChunk0)
+            XCTAssertMatch(textChunk0, .contains("Name: SwiftCMixed"))
+            XCTAssertMatch(textChunk0, .contains("Path: /"))
+            XCTAssertMatch(textChunk0, .contains("/" + prefix.basename + "\n"))
+            XCTAssertMatch(textChunk0, .contains("Tools version: 4.2"))
+            XCTAssertMatch(textChunk0, .contains("Products:"))
             let textChunk1 = try XCTUnwrap(textChunks[1])
-            XCTAssert(textChunk1.contains("Name: SeaExec"), textChunk1)
-            XCTAssert(textChunk1.contains("Type:\n        Executable"), textChunk1)
-            XCTAssert(textChunk1.contains("Targets:\n        SeaExec"), textChunk1)
+            XCTAssertMatch(textChunk1, .contains("Name: SeaExec"))
+            XCTAssertMatch(textChunk1, .contains("Type:\n        Executable"))
+            XCTAssertMatch(textChunk1, .contains("Targets:\n        SeaExec"))
             let textChunk2 = try XCTUnwrap(textChunks[2])
-            XCTAssert(textChunk2.contains("Name: CExec"), textChunk2)
-            XCTAssert(textChunk2.contains("Type:\n        Executable"), textChunk2)
-            XCTAssert(textChunk2.contains("Targets:\n        CExec"), textChunk2)
+            XCTAssertMatch(textChunk2, .contains("Name: CExec"))
+            XCTAssertMatch(textChunk2, .contains("Type:\n        Executable"))
+            XCTAssertMatch(textChunk2, .contains("Targets:\n        CExec"))
             let textChunk3 = try XCTUnwrap(textChunks[3])
-            XCTAssert(textChunk3.contains("Targets:"), textChunk3)
+            XCTAssertMatch(textChunk3, .contains("Targets:"))
             let textChunk4 = try XCTUnwrap(textChunks[4])
-            XCTAssert(textChunk4.contains("Name: SeaLib"), textChunk4)
-            XCTAssert(textChunk4.contains("C99name: SeaLib"), textChunk4)
-            XCTAssert(textChunk4.contains("Type: library"), textChunk4)
-            XCTAssert(textChunk4.contains("Module type: ClangTarget"), textChunk4)
-            XCTAssert(textChunk4.contains("Path: Sources/SeaLib"), textChunk4)
-            XCTAssert(textChunk4.contains("Sources:\n        Foo.c"), textChunk4)
+            XCTAssertMatch(textChunk4, .contains("Name: SeaLib"))
+            XCTAssertMatch(textChunk4, .contains("C99name: SeaLib"))
+            XCTAssertMatch(textChunk4, .contains("Type: library"))
+            XCTAssertMatch(textChunk4, .contains("Module type: ClangTarget"))
+            XCTAssertMatch(textChunk4, .contains("Path: Sources/SeaLib"))
+            XCTAssertMatch(textChunk4, .contains("Sources:\n        Foo.c"))
             let textChunk5 = try XCTUnwrap(textChunks[5])
-            XCTAssert(textChunk5.contains("Name: SeaExec"), textChunk5)
-            XCTAssert(textChunk5.contains("C99name: SeaExec"), textChunk5)
-            XCTAssert(textChunk5.contains("Type: executable"), textChunk5)
-            XCTAssert(textChunk5.contains("Module type: SwiftTarget"), textChunk5)
-            XCTAssert(textChunk5.contains("Path: Sources/SeaExec"), textChunk5)
-            XCTAssert(textChunk5.contains("Sources:\n        main.swift"), textChunk5)
+            XCTAssertMatch(textChunk5, .contains("Name: SeaExec"))
+            XCTAssertMatch(textChunk5, .contains("C99name: SeaExec"))
+            XCTAssertMatch(textChunk5, .contains("Type: executable"))
+            XCTAssertMatch(textChunk5, .contains("Module type: SwiftTarget"))
+            XCTAssertMatch(textChunk5, .contains("Path: Sources/SeaExec"))
+            XCTAssertMatch(textChunk5, .contains("Sources:\n        main.swift"))
             let textChunk6 = try XCTUnwrap(textChunks[6])
-            XCTAssert(textChunk6.contains("Name: CExec"), textChunk6)
-            XCTAssert(textChunk6.contains("C99name: CExec"), textChunk6)
-            XCTAssert(textChunk6.contains("Type: executable"), textChunk6)
-            XCTAssert(textChunk6.contains("Module type: ClangTarget"), textChunk6)
-            XCTAssert(textChunk6.contains("Path: Sources/CExec"), textChunk6)
-            XCTAssert(textChunk6.contains("Sources:\n        main.c"), textChunk6)
+            XCTAssertMatch(textChunk6, .contains("Name: CExec"))
+            XCTAssertMatch(textChunk6, .contains("C99name: CExec"))
+            XCTAssertMatch(textChunk6, .contains("Type: executable"))
+            XCTAssertMatch(textChunk6, .contains("Module type: ClangTarget"))
+            XCTAssertMatch(textChunk6, .contains("Path: Sources/CExec"))
+            XCTAssertMatch(textChunk6, .contains("Sources:\n        main.c"))
         }
 
         fixture(name: "DependencyResolution/External/Simple/Bar") { prefix in
@@ -528,9 +528,9 @@ final class PackageToolTests: XCTestCase {
 
             let manifest = path.appending(component: "Package.swift")
             let contents = try localFileSystem.readFileContents(manifest).description
-			let version = InitPackage.newPackageToolsVersion
+            let version = InitPackage.newPackageToolsVersion
             let versionSpecifier = "\(version.major).\(version.minor)"
-            XCTAssertTrue(contents.hasPrefix("// swift-tools-version:\(version < .v5_4 ? "" : " ")\(versionSpecifier)\n"))
+            XCTAssertMatch(contents, .prefix("// swift-tools-version:\(version < .v5_4 ? "" : " ")\(versionSpecifier)\n"))
 
             XCTAssertTrue(fs.exists(manifest))
             XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Sources").appending(component: "Foo")), ["main.swift"])
@@ -564,9 +564,9 @@ final class PackageToolTests: XCTestCase {
 
             let manifest = path.appending(component: "Package.swift")
             let contents = try localFileSystem.readFileContents(manifest).description
-			let version = InitPackage.newPackageToolsVersion
-			let versionSpecifier = "\(version.major).\(version.minor)"
-			XCTAssertTrue(contents.hasPrefix("// swift-tools-version:\(version < .v5_4 ? "" : " ")\(versionSpecifier)\n"))
+            let version = InitPackage.newPackageToolsVersion
+            let versionSpecifier = "\(version.major).\(version.minor)"
+            XCTAssertMatch(contents, .prefix("// swift-tools-version:\(version < .v5_4 ? "" : " ")\(versionSpecifier)\n"))
 
             XCTAssertTrue(fs.exists(manifest))
             XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Sources").appending(component: "CustomName")), ["main.swift"])
