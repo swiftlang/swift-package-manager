@@ -589,7 +589,7 @@ class PackageDescription5_0LoadingTests: PackageDescriptionLoadingTests {
                 diagnostics: diagnostics
             )
 
-            XCTAssertTrue(diagnostics.diagnostics.isEmpty)
+            XCTAssertNoDiagnostics(diagnostics)
             XCTAssertEqual(manifest.name, "Trivial")
 
             let moduleTraceJSON = try XCTUnwrap(try localFileSystem.readFileContents(moduleTraceFilePath).validDescription)

@@ -1036,7 +1036,9 @@ class PackageGraphTests: XCTestCase {
             ]
         )
 
-        XCTAssertTrue(diagnostics.diagnostics.contains(where: { $0.description.contains("multiple products named 'Bar' in: 'bar', 'baz'") }), "\(diagnostics.diagnostics)")
+        DiagnosticsEngineTester(diagnostics, ignoreNotes: true) { result in
+            result.check(diagnostic: "multiple products named 'Bar' in: 'bar', 'baz'", behavior: .error)
+        }
     }
 
     func testUnsafeFlags() throws {
@@ -1275,7 +1277,7 @@ class PackageGraphTests: XCTestCase {
             ]
         )
 
-        XCTAssert(diagnostics.diagnostics.isEmpty, "\(diagnostics.diagnostics)")
+        XCTAssertNoDiagnostics(diagnostics)
     }
 
     func testPinsStoreIsResilientAgainstDupes() throws {
@@ -1350,7 +1352,7 @@ class PackageGraphTests: XCTestCase {
             ]
         )
 
-        XCTAssert(diagnostics.diagnostics.isEmpty, "\(diagnostics.diagnostics)")
+        XCTAssertNoDiagnostics(diagnostics)
     }
 
     func testTargetDependencies_Pre52_UnknownProduct() throws {
@@ -1436,7 +1438,7 @@ class PackageGraphTests: XCTestCase {
             ]
         )
 
-        XCTAssert(diagnostics.diagnostics.isEmpty, "\(diagnostics.diagnostics)")
+        XCTAssertNoDiagnostics(diagnostics)
     }
 
     func testTargetDependencies_Post52_UnknownProduct() throws {
@@ -1545,7 +1547,7 @@ class PackageGraphTests: XCTestCase {
 
             let diagnostics = DiagnosticsEngine()
             _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics, manifests: fixedManifests)
-            XCTAssert(diagnostics.diagnostics.isEmpty, "\(diagnostics.diagnostics)")
+            XCTAssertNoDiagnostics(diagnostics)
         }
     }
 
@@ -1611,7 +1613,7 @@ class PackageGraphTests: XCTestCase {
 
             let diagnostics = DiagnosticsEngine()
             _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics, manifests: fixedManifests)
-            XCTAssert(diagnostics.diagnostics.isEmpty, "\(diagnostics.diagnostics)")
+            XCTAssertNoDiagnostics(diagnostics)
         }
     }
 
@@ -1674,7 +1676,7 @@ class PackageGraphTests: XCTestCase {
 
             let diagnostics = DiagnosticsEngine()
             _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics, manifests: fixedManifests)
-            XCTAssert(diagnostics.diagnostics.isEmpty, "\(diagnostics.diagnostics)")
+            XCTAssertNoDiagnostics(diagnostics)
         }
     }
 
@@ -1737,7 +1739,7 @@ class PackageGraphTests: XCTestCase {
 
             let diagnostics = DiagnosticsEngine()
             _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics, manifests: fixedManifests)
-            XCTAssert(diagnostics.diagnostics.isEmpty, "\(diagnostics.diagnostics)")
+            XCTAssertNoDiagnostics(diagnostics)
         }
     }
 
@@ -1778,7 +1780,7 @@ class PackageGraphTests: XCTestCase {
 
         let diagnostics = DiagnosticsEngine()
         _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics, manifests: manifests)
-        XCTAssert(diagnostics.diagnostics.isEmpty, "\(diagnostics.diagnostics)")
+        XCTAssertNoDiagnostics(diagnostics)
     }
 
     // test backwards compatibility 5.2 < 5.4
@@ -1842,7 +1844,7 @@ class PackageGraphTests: XCTestCase {
 
             let diagnostics = DiagnosticsEngine()
             _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics, manifests: fixedManifests)
-            XCTAssert(diagnostics.diagnostics.isEmpty, "\(diagnostics.diagnostics)")
+            XCTAssertNoDiagnostics(diagnostics)
         }
     }
 }
