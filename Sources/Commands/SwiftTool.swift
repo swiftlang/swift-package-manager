@@ -838,6 +838,9 @@ public class SwiftTool {
             // Create custom toolchain if present.
             if let customDestination = self.options.customCompileDestination {
                 destination = try Destination(fromFile: customDestination)
+            } else if let target = self.options.customCompileTriple,
+                      let targetDestination = Destination.defaultDestination(for: target, host: hostDestination) {
+                destination = targetDestination
             } else {
                 // Otherwise use the host toolchain.
                 destination = hostDestination
@@ -854,18 +857,6 @@ public class SwiftTool {
         }
         if let sdk = self.options.customCompileSDK {
             destination.sdk = sdk
-        } else if let target = destination.target, target.isWASI() {
-            // Set default SDK path when target is WASI whose SDK is embeded
-            // in Swift toolchain
-            do {
-                let compilers = try UserToolchain.determineSwiftCompilers(binDir: destination.binDir)
-                destination.sdk = compilers.compile
-                    .parentDirectory // bin
-                    .parentDirectory // usr
-                    .appending(components: "share", "wasi-sysroot")
-            } catch {
-                return .failure(error)
-            }
         }
         destination.archs = options.archs
 
