@@ -1672,8 +1672,8 @@ extension Workspace {
         }
 
         for artifact in manifestArtifacts.local {
-            let existingArtifact = state.artifacts[
-                packageURL: artifact.packageRef.location,
+            let existingArtifact = self.state.artifacts[
+                packageIdentity: artifact.packageRef.identity,
                 targetName: artifact.targetName
             ]
 
@@ -1686,8 +1686,8 @@ extension Workspace {
         }
 
         for artifact in manifestArtifacts.remote {
-            let existingArtifact = state.artifacts[
-                packageURL: artifact.packageRef.location,
+            let existingArtifact = self.state.artifacts[
+                packageIdentity: artifact.packageRef.identity,
                 targetName: artifact.targetName
             ]
 
@@ -1712,7 +1712,7 @@ extension Workspace {
         // Remove the artifacts and directories which are not needed anymore.
         diagnostics.wrap {
             for artifact in artifactsToRemove {
-                state.artifacts.remove(packageURL: artifact.packageRef.location, targetName: artifact.targetName)
+                state.artifacts.remove(packageIdentity: artifact.packageRef.identity, targetName: artifact.targetName)
 
                 if case .remote = artifact.source {
                     try fileSystem.removeFileTree(artifact.path)
@@ -2878,7 +2878,7 @@ private struct ArchiveIndexFile: Decodable {
     }
 }
 
-private extension ManagedArtifact {
+private extension Workspace.ManagedArtifact {
     var originURL: String? {
         switch self.source {
         case .remote(let url, _):

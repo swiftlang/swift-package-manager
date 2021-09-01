@@ -21,7 +21,7 @@ public final class WorkspaceState {
     public private(set) var dependencies: ManagedDependencies
 
     /// The artifacts managed by the Workspace.
-    public private(set) var artifacts: ManagedArtifacts
+    public private(set) var artifacts: Workspace.ManagedArtifacts
 
     /// Path to the state file.
     public let storagePath: AbsolutePath
@@ -47,7 +47,7 @@ public final class WorkspaceState {
             self.artifacts = storedState.artifacts
         } catch {
             self.dependencies = ManagedDependencies()
-            self.artifacts = ManagedArtifacts()
+            self.artifacts = Workspace.ManagedArtifacts()
             try? self.storage.reset()
             // FIXME: We should emit a warning here using the diagnostic engine.
             TSCBasic.stderrStream.write("warning: unable to restore workspace state: \(error)")
@@ -57,7 +57,7 @@ public final class WorkspaceState {
 
     func reset() throws {
         self.dependencies = ManagedDependencies()
-        self.artifacts = ManagedArtifacts()
+        self.artifacts = Workspace.ManagedArtifacts()
         try self.saveState()
     }
 
@@ -84,7 +84,7 @@ fileprivate struct WorkspaceStateStorage {
         self.fileSystem = fileSystem
     }
 
-    func load() throws -> (dependencies: ManagedDependencies, artifacts: ManagedArtifacts){
+    func load() throws -> (dependencies: ManagedDependencies, artifacts: Workspace.ManagedArtifacts){
         if !self.fileSystem.exists(self.path) {
             return (dependencies: .init(), artifacts: .init())
         }
@@ -95,18 +95,15 @@ fileprivate struct WorkspaceStateStorage {
             case 1,2,3,4:
                 let v4 = try self.decoder.decode(path: self.path, fileSystem: self.fileSystem, as: V4.self)
                 let dependencyMap = Dictionary(uniqueKeysWithValues: v4.object.dependencies.map{ ($0.packageRef.location, ManagedDependency($0)) })
-                let artifactsByPackagePath = Dictionary(grouping: v4.object.artifacts, by: { $0.packageRef.location })
-                let artifactMap = artifactsByPackagePath.mapValues{ artifacts in
-                    Dictionary(uniqueKeysWithValues: artifacts.map({ ($0.targetName, ManagedArtifact($0)) }))
-                }
-                return (dependencies: .init(dependencyMap: dependencyMap), artifacts: .init(artifactMap: artifactMap))
+                let artifacts = v4.object.artifacts.map{ Workspace.ManagedArtifact($0) }
+                return (dependencies: .init(dependencyMap: dependencyMap), artifacts: .init(artifacts))
             default:
                 throw InternalError("unknown RepositoryManager version: \(version)")
             }
         }
     }
 
-    func save(dependencies: ManagedDependencies, artifacts: ManagedArtifacts) throws {
+    func save(dependencies: ManagedDependencies, artifacts: Workspace.ManagedArtifacts) throws {
         if !self.fileSystem.exists(self.path.parentDirectory) {
             try self.fileSystem.createDirectory(self.path.parentDirectory)
         }
@@ -146,7 +143,7 @@ fileprivate struct WorkspaceStateStorage {
         let version: Int
         let object: Container
 
-        init (dependencies: ManagedDependencies, artifacts: ManagedArtifacts) {
+        init (dependencies: ManagedDependencies, artifacts: Workspace.ManagedArtifacts) {
             self.version = 4
             self.object = .init(
                 dependencies: dependencies.map { .init($0) },
@@ -248,7 +245,7 @@ fileprivate struct WorkspaceStateStorage {
             let source: Source
             let path: String
 
-            init(_ artifact: ManagedArtifact) {
+            init(_ artifact: Workspace.ManagedArtifact) {
                 self.packageRef = .init(artifact.packageRef)
                 self.targetName = artifact.targetName
                 self.source = .init(underlying: artifact.source)
@@ -256,9 +253,9 @@ fileprivate struct WorkspaceStateStorage {
             }
 
             struct Source: Codable {
-                let underlying: ManagedArtifact.Source
+                let underlying: Workspace.ManagedArtifact.Source
 
-                init(underlying: ManagedArtifact.Source) {
+                init(underlying: Workspace.ManagedArtifact.Source) {
                     self.underlying = underlying
                 }
 
@@ -324,7 +321,7 @@ extension ManagedDependency {
     }
 }
 
-extension ManagedArtifact {
+extension Workspace.ManagedArtifact {
     fileprivate init(_ artifact: WorkspaceStateStorage.V4.Artifact) {
         self.init(
             packageRef: .init(artifact.packageRef),

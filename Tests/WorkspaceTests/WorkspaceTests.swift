@@ -4044,7 +4044,7 @@ final class WorkspaceTests: XCTestCase {
     func testTargetBasedDependency() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
-        
+
         let barProducts: [MockProduct]
         #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
         barProducts = [MockProduct(name: "Bar", targets: ["Bar"]), MockProduct(name: "BarUnused", targets: ["BarUnused"])]
@@ -4365,7 +4365,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         workspace.checkManagedArtifacts { result in
-            result.check(packageName: "A",
+            result.check(packageIdentity: .plain("a"),
                          targetName: "A1",
                          source: .remote(
                             url: "https://a.com/a1.zip",
@@ -4373,7 +4373,7 @@ final class WorkspaceTests: XCTestCase {
                          ),
                          path: workspace.artifactsDir.appending(components: "A", "A1.xcframework")
             )
-            result.check(packageName: "A",
+            result.check(packageIdentity: .plain("a"),
                          targetName: "A2",
                          source: .remote(
                             url: "https://a.com/a2.zip",
@@ -4381,7 +4381,7 @@ final class WorkspaceTests: XCTestCase {
                          ),
                          path: workspace.artifactsDir.appending(components: "A", "A2.xcframework")
             )
-            result.check(packageName: "B",
+            result.check(packageIdentity: .plain("b"),
                          targetName: "B",
                          source: .remote(
                             url: "https://b.com/b.zip",
@@ -4547,7 +4547,7 @@ final class WorkspaceTests: XCTestCase {
             pins: [aRef: aState],
             managedDependencies: [],
             managedArtifacts: [
-                ManagedArtifact(
+                .init(
                     packageRef: aRef,
                     targetName: "A1",
                     source: .remote(
@@ -4556,7 +4556,7 @@ final class WorkspaceTests: XCTestCase {
                     ),
                     path: workspace.artifactsDir.appending(components: "A", "A1.xcframework")
                 ),
-                ManagedArtifact(
+                .init(
                     packageRef: aRef,
                     targetName: "A3",
                     source: .remote(
@@ -4565,7 +4565,7 @@ final class WorkspaceTests: XCTestCase {
                     ),
                     path: workspace.artifactsDir.appending(components: "A", "A3.xcframework")
                 ),
-                ManagedArtifact(
+                .init(
                     packageRef: aRef,
                     targetName: "A4",
                     source: .remote(
@@ -4574,7 +4574,7 @@ final class WorkspaceTests: XCTestCase {
                     ),
                     path: workspace.artifactsDir.appending(components: "A", "A4.xcframework")
                 ),
-                ManagedArtifact(
+                .init(
                     packageRef: aRef,
                     targetName: "A5",
                     source: .remote(
@@ -4583,7 +4583,7 @@ final class WorkspaceTests: XCTestCase {
                     ),
                     path: workspace.artifactsDir.appending(components: "A", "A5.xcframework")
                 ),
-                ManagedArtifact(
+                .init(
                     packageRef: aRef,
                     targetName: "A6",
                     source: .local,
@@ -4622,7 +4622,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         workspace.checkManagedArtifacts { result in
-            result.check(packageName: "A",
+            result.check(packageIdentity: .plain("a"),
                          targetName: "A1",
                          source: .remote(
                             url: "https://a.com/a1.zip",
@@ -4630,7 +4630,7 @@ final class WorkspaceTests: XCTestCase {
                          ),
                          path: workspace.artifactsDir.appending(components: "A", "A1.xcframework")
             )
-            result.check(packageName: "A",
+            result.check(packageIdentity: .plain("a"),
                          targetName: "A2",
                          source: .remote(
                             url: "https://a.com/a2.zip",
@@ -4639,13 +4639,13 @@ final class WorkspaceTests: XCTestCase {
                          path: workspace.artifactsDir.appending(components: "A", "A2.xcframework")
             )
             result.checkNotPresent(packageName: "A", targetName: "A3")
-            result.check(packageName: "A",
+            result.check(packageIdentity: .plain("a"),
                          targetName: "A4",
                          source: .local,
                          path: a4FrameworkPath
             )
             result.checkNotPresent(packageName: "A", targetName: "A5")
-            result.check(packageName: "B",
+            result.check(packageIdentity: .plain("b"),
                          targetName: "B",
                          source: .remote(
                             url: "https://b.com/b.zip",
@@ -4792,7 +4792,7 @@ final class WorkspaceTests: XCTestCase {
         XCTAssertEqual(
             downloads.map { $0.1 }.sorted(),
             archiver.extractions.map { $0.archivePath }.sorted()
-        )        
+        )
     }
 
     func testArtifactDownloaderOrArchiverError() throws {
@@ -4942,7 +4942,7 @@ final class WorkspaceTests: XCTestCase {
             pins: [aRef: aState],
             managedDependencies: [aDependency],
             managedArtifacts: [
-                ManagedArtifact(
+                .init(
                     packageRef: aRef,
                     targetName: "A",
                     source: .remote(
@@ -5161,7 +5161,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         workspace.checkManagedArtifacts { result in
-            result.check(packageName: "A",
+            result.check(packageIdentity: .plain("a"),
                          targetName: "A1",
                          source: .remote(
                             url: "https://a.com/a1.zip",
@@ -5169,7 +5169,7 @@ final class WorkspaceTests: XCTestCase {
                          ),
                          path: workspace.artifactsDir.appending(components: "A", "A1.artifactbundle")
             )
-            result.check(packageName: "A",
+            result.check(packageIdentity: .plain("a"),
                          targetName: "A2",
                          source: .remote(
                             url: "https://a.com/a2/a2.zip",
@@ -5177,7 +5177,7 @@ final class WorkspaceTests: XCTestCase {
                          ),
                          path: workspace.artifactsDir.appending(components: "A", "A2.artifactbundle")
             )
-            result.check(packageName: "B",
+            result.check(packageIdentity: .plain("b"),
                          targetName: "B",
                          source: .remote(
                             url: "https://b.com/b.zip",
@@ -5352,7 +5352,7 @@ final class WorkspaceTests: XCTestCase {
             pins: [aRef: aState],
             managedDependencies: [aDependency],
             managedArtifacts: [
-                ManagedArtifact(
+                .init(
                     packageRef: aRef,
                     targetName: "A",
                     source: .remote(
