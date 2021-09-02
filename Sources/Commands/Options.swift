@@ -238,11 +238,9 @@ public struct SwiftToolOptions: ParsableArguments {
           inversion: .prefixedEnableDisable,
           help: "Enable code coverage")
     var shouldEnableCodeCoverage: Bool = false
-
-    // TODO: Does disable-automatic-resolution alias force-resolved-versions?
     
     /// Use Package.resolved file for resolving dependencies.
-    @Flag(name: [.long, .customLong("disable-automatic-resolution")], help: "Disable automatic resolution if Package.resolved file is out-of-date")
+    @Flag(name: [.long, .customLong("disable-automatic-resolution"), .customLong("only-use-versions-from-resolved-file")], help: "Only use versions from the Package.resolved file and fail resolution if it is out-of-date")
     var forceResolvedVersions: Bool = false
 
     // @Flag works best when there is a default value present
