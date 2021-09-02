@@ -2038,11 +2038,13 @@ extension Workspace {
             pinsStore: pinsStore
         )
 
-        if precomputationResult.isRequired {
+        if case let .required(reason) = precomputationResult {
+            let reasonString = Self.format(workspaceResolveReason: reason)
+
             if !fileSystem.exists(self.location.resolvedVersionsFile) {
-                diagnostics.emit(error: "a resolved file is required when automatic dependency resolution is disabled and should be placed at \(self.location.resolvedVersionsFile.pathString)")
+                diagnostics.emit(error: "a resolved file is required when automatic dependency resolution is disabled and should be placed at \(self.location.resolvedVersionsFile.pathString). \(reasonString)")
             } else {
-                diagnostics.emit(error: "an out-of-date resolved file was detected at \(self.location.resolvedVersionsFile.pathString), which is not allowed when automatic dependency resolution is disabled; please make sure to update the file to reflect the changes in dependencies")
+                diagnostics.emit(error: "an out-of-date resolved file was detected at \(self.location.resolvedVersionsFile.pathString), which is not allowed when automatic dependency resolution is disabled; please make sure to update the file to reflect the changes in dependencies. \(reasonString)")
             }
         }
 
@@ -2818,6 +2820,58 @@ extension Workspace {
 
         // Save the state.
         try state.saveState()
+    }
+
+    public static func format(workspaceResolveReason reason: WorkspaceResolveReason) -> String {
+        var result = "Running resolver because "
+
+        switch reason {
+        case .forced:
+            result.append("it was forced")
+        case .newPackages(let packages):
+            let dependencies = packages.lazy.map({ "'\($0.location)'" }).joined(separator: ", ")
+            result.append("the following dependencies were added: \(dependencies)")
+        case .packageRequirementChange(let package, let state, let requirement):
+            result.append("dependency '\(package.name)' was ")
+
+            switch state {
+            case .checkout(let checkoutState)?:
+                switch checkoutState.requirement {
+                case .versionSet(.exact(let version)):
+                    result.append("resolved to '\(version)'")
+                case .versionSet(_):
+                    // Impossible
+                    break
+                case .revision(let revision):
+                    result.append("resolved to '\(revision)'")
+                case .unversioned:
+                    result.append("unversioned")
+                }
+            case .edited?:
+                result.append("edited")
+            case .local?:
+                result.append("versioned")
+            case nil:
+                result.append("root")
+            }
+
+            result.append(" but now has a ")
+
+            switch requirement {
+            case .versionSet:
+                result.append("different version-based")
+            case .revision:
+                result.append("different revision-based")
+            case .unversioned:
+                result.append("unversioned")
+            }
+
+            result.append(" requirement.")
+        default:
+            result.append(" requirements have changed.")
+        }
+
+        return result
     }
 }
 
