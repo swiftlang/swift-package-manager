@@ -355,8 +355,6 @@ class RepositoryManagerTests: XCTestCase {
             // Avoid a crasher that seems to happen only on macOS 10.15, but leave an environment variable for testing.
             try XCTSkipUnless(ProcessEnv.vars["SWIFTPM_ENABLE_FLAKY_REPOSITORYMANAGERTESTS"] == "1", "skipping test that sometimes crashes in CI (rdar://70540298)")
         }
-
-        try XCTSkipIf(true, "test became racy")
         
         fixture(name: "DependencyResolution/External/Simple") { prefix in
             let cachePath = prefix.appending(component: "cache")
@@ -388,6 +386,7 @@ class RepositoryManagerTests: XCTestCase {
             XCTAssertEqual(delegate.didFetch[0].fetchDetails,
                            RepositoryManager.FetchDetails(fromCache: false, updatedCache: true))
 
+            // removing the repositories path to force re-fetch
             try localFileSystem.removeFileTree(repositoriesPath)
 
             // fetch packages from the cache
@@ -398,10 +397,11 @@ class RepositoryManagerTests: XCTestCase {
             XCTAssertEqual(delegate.willFetch[1].fetchDetails,
                            RepositoryManager.FetchDetails(fromCache: true, updatedCache: false))
             XCTAssertEqual(delegate.didFetch[1].fetchDetails,
-                           RepositoryManager.FetchDetails(fromCache: false, updatedCache: true))
+                           RepositoryManager.FetchDetails(fromCache: true, updatedCache: true))
 
-            try localFileSystem.removeFileTree(repositoriesPath)
+            //  reset the state on disk
             try localFileSystem.removeFileTree(cachePath)
+            try localFileSystem.removeFileTree(repositoriesPath)
 
             // fetch packages and populate cache
             delegate.willFetchGroup?.enter()
@@ -413,6 +413,13 @@ class RepositoryManagerTests: XCTestCase {
                            RepositoryManager.FetchDetails(fromCache: false, updatedCache: false))
             XCTAssertEqual(delegate.didFetch[2].fetchDetails,
                            RepositoryManager.FetchDetails(fromCache: false, updatedCache: true))
+
+            // update packages from the cache
+            delegate.willUpdateGroup?.enter()
+            delegate.willUpdateGroup?.enter()
+            _ = try manager.lookup(repository: repo)
+            XCTAssertEqual(delegate.willUpdate[0].fileSystemIdentifier, repo.fileSystemIdentifier)
+            XCTAssertEqual(delegate.didUpdate[0].fileSystemIdentifier, repo.fileSystemIdentifier)
         }
     }
 

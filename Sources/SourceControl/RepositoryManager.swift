@@ -231,8 +231,8 @@ public class RepositoryManager {
     /// - Returns: Details about the performed fetch.
     @discardableResult
     func fetchAndPopulateCache(handle: RepositoryHandle, repositoryPath: AbsolutePath) throws -> FetchDetails {
-        var updatedCache = false
-        var fromCache = false
+        var cacheUsed = false
+        var cacheUpdated = false
 
         // We are expecting handle.repository.url to always be a resolved absolute path.
         let isLocal = (try? AbsolutePath(validating: handle.repository.url)) != nil
@@ -248,29 +248,29 @@ public class RepositoryManager {
                         if (fileSystem.exists(cachedRepositoryPath)) {
                             let repo = try self.provider.open(repository: handle.repository, at: cachedRepositoryPath)
                             try repo.fetch()
+                            cacheUsed = true
                         } else {
                             try self.provider.fetch(repository: handle.repository, to: cachedRepositoryPath)
                         }
-                        updatedCache = true
+                        cacheUpdated = true
                         // Copy the repository from the cache into the repository path.
+                        try fileSystem.createDirectory(repositoryPath.parentDirectory, recursive: true)
                         try self.provider.copy(from: cachedRepositoryPath, to: repositoryPath)
-                        fromCache = true
                     }
                 }
             } catch {
+                cacheUsed = false
                 // Fetch without populating the cache in the case of an error.
                 print("Skipping cache due to an error: \(error)")
                 // It is possible that we already created the directory before failing, so clear leftover data if present.
                 try fileSystem.removeFileTree(repositoryPath)
                 try self.provider.fetch(repository: handle.repository, to: repositoryPath)
-                fromCache = false
             }
         } else {
             // Fetch without populating the cache when no `cachePath` is set.
             try self.provider.fetch(repository: handle.repository, to: repositoryPath)
-            fromCache = false
         }
-        return FetchDetails(fromCache: fromCache, updatedCache: updatedCache)
+        return FetchDetails(fromCache: cacheUsed, updatedCache: cacheUpdated)
     }
 
     public func openWorkingCopy(at path: AbsolutePath) throws -> WorkingCheckout {
