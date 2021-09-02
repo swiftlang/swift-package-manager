@@ -100,22 +100,32 @@ fileprivate extension SourceCodeFragment {
     
     /// Instantiates a SourceCodeFragment to represent a single platform.
     init(from platform: PlatformDescription) {
-        // NOTE: This could be cleaned up to use the nicer version accessors.
-        switch platform.platformName {
-        case "macos":
-            self.init(enum: "macOS", string: platform.version)
-        case "maccatalyst":
-            self.init(enum: "macCatalyst", string: platform.version)
-        case "ios":
-            self.init(enum: "iOS", string: platform.version)
-        case "tvos":
-            self.init(enum: "tvOS", string: platform.version)
-        case "watchos":
-            self.init(enum: "watchOS", string: platform.version)
-        case "driverkit":
-            self.init(enum: "DriverKit", string: platform.version)
-        default:
-            self.init(enum: platform.platformName, string: platform.version)
+        // Provides knowledge about what the current version of PackageDescription provides.
+        struct PlatformManifestRepresentation {
+            var manifestName: String
+            var knownVersions: Set<String>
+        }
+        let platformManifestReps = [
+            "macos": PlatformManifestRepresentation(manifestName: "macOS", knownVersions: ["10.10", "10.11", "10.12", "10.13", "10.14", "10.15", "11", "12"]),
+            "maccatalyst": PlatformManifestRepresentation(manifestName: "macCatalyst", knownVersions: ["13", "14", "15"]),
+            "ios": PlatformManifestRepresentation(manifestName: "iOS", knownVersions: ["8", "9", "10", "11", "12", "13", "14", "15"]),
+            "tvos": PlatformManifestRepresentation(manifestName: "tvOS", knownVersions: ["9", "10", "11", "12", "13", "14", "15"]),
+            "watchos": PlatformManifestRepresentation(manifestName: "watchOS", knownVersions: ["2", "3", "4", "5", "6", "7", "8"]),
+            "driverkit": PlatformManifestRepresentation(manifestName: "driverKit", knownVersions: ["19", "20", "21"]),
+        ]
+        
+        // See if we have a versioned platform manifest representation for this platform.
+        if let platformManifestRep = platformManifestReps[platform.platformName] {
+            let simplifiedVersion = platform.version.spm_dropSuffix(".0")
+            let versionSubnode = platformManifestRep.knownVersions.contains(simplifiedVersion)
+                ? SourceCodeFragment(enum: "v" + simplifiedVersion.replacingOccurrences(of: ".", with: "_"))
+                : SourceCodeFragment(string: platform.version)
+            self.init(enum: platformManifestRep.manifestName, subnodes: [versionSubnode])
+        }
+        else {
+            // We don't have a versioned platform, so emit the platform without version numbers. But in debug builds we assert.
+            assert(false, "unhandled plaform \(platform.platformName) in manifest source generation")
+            self.init(enum: platform.platformName)
         }
     }
     

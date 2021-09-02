@@ -16,8 +16,9 @@ import Workspace
 
 class ManifestSourceGenerationTests: XCTestCase {
     
-    /// Private function that writes the contents of a package manifest to a temporary package directory and then loads it, then serializes the loaded manifest back out again and loads it once again, after which it compares that no information was lost.
-    private func testManifestWritingRoundTrip(manifestContents: String, toolsVersion: ToolsVersion, fs: FileSystem = localFileSystem) throws {
+    /// Private function that writes the contents of a package manifest to a temporary package directory and then loads it, then serializes the loaded manifest back out again and loads it once again, after which it compares that no information was lost. Returns the newly generated manifest.
+    @discardableResult
+    private func testManifestWritingRoundTrip(manifestContents: String, toolsVersion: ToolsVersion, fs: FileSystem = localFileSystem) throws -> String {
         try withTemporaryDirectory { packageDir in
             // Write the original manifest file contents, and load it.
             try fs.writeFileContents(packageDir.appending(component: Manifest.filename), bytes: ByteString(encodingAsUTF8: manifestContents))
@@ -74,6 +75,9 @@ class ManifestSourceGenerationTests: XCTestCase {
             XCTAssertEqual(newManifest.swiftLanguageVersions, manifest.swiftLanguageVersions, failureDetails)
             XCTAssertEqual(newManifest.cLanguageStandard, manifest.cLanguageStandard, failureDetails)
             XCTAssertEqual(newManifest.cxxLanguageStandard, manifest.cxxLanguageStandard, failureDetails)
+            
+            // Return the new contents for additional checking.
+            return newContents
         }
     }
 
@@ -283,5 +287,25 @@ class ManifestSourceGenerationTests: XCTestCase {
             )
             """
         try testManifestWritingRoundTrip(manifestContents: manifestContents, toolsVersion: .v5_6)
+    }
+
+    func testPlatformVersions() throws {
+        let manifestContents = """
+            // swift-tools-version:5.5
+            import PackageDescription
+
+            let package = Package(
+                name: "Plugins",
+                platforms: [
+                    .macOS(.v10_14),
+                    .iOS(.v13),
+                    .driverKit("42")
+                ]
+            )
+            """
+        let writtenContents = try testManifestWritingRoundTrip(manifestContents: manifestContents, toolsVersion: .v5_6)
+        XCTAssert(writtenContents.contains(".macOS(.v10_14)"), "didn't find expected contents in \(writtenContents)")
+        XCTAssert(writtenContents.contains(".iOS(.v13)"), "didn't find expected contents in \(writtenContents)")
+        XCTAssert(writtenContents.contains(".driverKit(\"42\")"), "didn't find expected contents in \(writtenContents)")
     }
 }
