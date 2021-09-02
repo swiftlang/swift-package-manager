@@ -554,7 +554,7 @@ extension LLBuildManifestBuilder {
 
             case .product(let product, _):
                 switch product.type {
-                case .executable, .library(.dynamic):
+                case .executable, .snippet, .library(.dynamic):
                     guard let planProduct = plan.productMap[product] else {
                         throw InternalError("unknown product \(product)")
                     }
@@ -673,7 +673,7 @@ extension LLBuildManifestBuilder {
 
             case .product(let product, _):
                 switch product.type {
-                case .executable, .library(.dynamic):
+                case .executable, .snippet, .library(.dynamic):
                     guard let planProduct = plan.productMap[product] else {
                         throw InternalError("unknown product \(product)")
                     }
@@ -852,7 +852,7 @@ extension ResolvedProduct {
             return "\(name)-\(config).a"
         case .library(.automatic):
             throw InternalError("automatic library not supported")
-        case .executable:
+        case .executable, .snippet:
             return "\(name)-\(config).exe"
         case .plugin:
             throw InternalError("unexpectedly asked for the llbuild target name of a plugin product")

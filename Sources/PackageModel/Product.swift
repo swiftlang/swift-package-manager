@@ -49,7 +49,7 @@ public class Product: Codable {
 }
 
 /// The type of product.
-public enum ProductType: Equatable {
+public enum ProductType: Equatable, Hashable {
 
     /// The type of library.
     public enum LibraryType: String, Codable {
@@ -69,6 +69,9 @@ public enum ProductType: Equatable {
 
     /// An executable product.
     case executable
+
+    /// An executable code snippet.
+    case snippet
     
     /// An plugin product.
     case plugin
@@ -153,6 +156,8 @@ extension ProductType: CustomStringConvertible {
         switch self {
         case .executable:
             return "executable"
+        case .snippet:
+            return "snippet"
         case .test:
             return "test"
         case .library(let type):
@@ -185,7 +190,7 @@ extension ProductFilter: CustomStringConvertible {
 
 extension ProductType: Codable {
     private enum CodingKeys: String, CodingKey {
-        case library, executable, plugin, test
+        case library, executable, snippet, plugin, test
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -196,6 +201,8 @@ extension ProductType: Codable {
             try unkeyedContainer.encode(a1)
         case .executable:
             try container.encodeNil(forKey: .executable)
+        case .snippet:
+            try container.encodeNil(forKey: .snippet)
         case .plugin:
             try container.encodeNil(forKey: .plugin)
         case .test:
@@ -217,6 +224,8 @@ extension ProductType: Codable {
             self = .test
         case .executable:
             self = .executable
+        case .snippet:
+            self = .snippet
         case .plugin:
             self = .plugin
         }

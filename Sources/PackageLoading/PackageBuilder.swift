@@ -592,7 +592,23 @@ public final class PackageBuilder {
             let path = try findPath(for: target)
             return PotentialModule(name: target.name, path: path, type: target.type)
         })
-        return try createModules(potentialTargets)
+
+        let targets = try createModules(potentialTargets)
+
+        let snippetTargets: [Target]
+
+        if self.manifest.packageKind == .root {
+            // Snippets: depend on all available library targets in the package.
+            // TODO: Do we need to filter out targets that aren't available on the host platform?
+            let snippetDependencies = targets
+                .filter { $0.type == .library }
+                .map { Target.Dependency.target($0, conditions: []) }
+            snippetTargets = try createSnippetTargets(dependencies: snippetDependencies)
+        } else {
+            snippetTargets = []
+        }
+
+        return targets + snippetTargets
     }
 
     // Create targets from the provided potential targets.
@@ -719,6 +735,7 @@ public final class PackageBuilder {
                 diagnostics.emit(.targetHasNoSources(targetPath: potentialModule.path.pathString, target: potentialModule.name))
             }
         }
+
         return targets.values.map{ $0 }.sorted{ $0.name > $1.name  }
     }
 
@@ -1231,7 +1248,7 @@ public final class PackageBuilder {
             switch product.type {
             case .library, .test:
                 break
-            case .executable:
+            case .executable, .snippet:
                 guard self.validateExecutableProduct(product, with: targets) else {
                     continue
                 }
@@ -1254,7 +1271,7 @@ public final class PackageBuilder {
                 switch product.type {
                 case .library, .plugin, .test:
                     return []
-                case .executable:
+                case .executable, .snippet:
                     return product.targets
                 }
             })
@@ -1300,6 +1317,12 @@ public final class PackageBuilder {
                 append(replProduct)
             }
         }
+
+        // Create implicit snippet products
+        targets
+            .filter { $0.type == .snippet }
+            .map { Product(name: $0.name, type: .snippet, targets: [$0]) }
+            .forEach(append)
 
         return products.map{ $0.item }
     }
@@ -1428,5 +1451,41 @@ extension Sources {
             return file.hasPrefix("main.") && String(file.filter({$0 == "."})).count == 1
         }
         return isLibrary ? .library : .executable
+    }
+}
+
+// MARK: - Snippets
+
+extension PackageBuilder {
+    fileprivate func createSnippetTargets(dependencies: [Target.Dependency]) throws -> [Target] {
+        let snippetsDirectory = packagePath.appending(component: "Snippets")
+        guard fileSystem.isDirectory(snippetsDirectory) else {
+            return []
+        }
+
+        return try walk(snippetsDirectory)
+            .filter { fileSystem.isFile($0) && $0.extension == "swift" }
+            .map { sourceFile in
+                let name = sourceFile.basenameWithoutExt
+                let sources = Sources(paths: [sourceFile], root: sourceFile.parentDirectory)
+                let buildSettings: BuildSettings.AssignmentTable
+
+                do {
+                    let targetDescription = try TargetDescription(name: name,
+                                                                  dependencies: dependencies.map { TargetDescription.Dependency.target(name: $0.name) },
+                                                                  path: sourceFile.parentDirectory.pathString,
+                                                                  sources: [sourceFile.pathString],
+                                                                  type: .executable)
+                    buildSettings = try self.buildSettings(for: targetDescription, targetRoot: sourceFile.parentDirectory)
+                }
+
+                return SwiftTarget(name: name,
+                                   platforms: self.platforms(),
+                                   type: .snippet,
+                                   sources: sources,
+                                   dependencies: dependencies,
+                                   swiftVersion: try swiftVersion(),
+                                   buildSettings: buildSettings)
+            }
     }
 }

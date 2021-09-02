@@ -28,6 +28,7 @@ public class Target: ObjectIdentifierProtocol, PolymorphicCodableProtocol {
         case test
         case binary
         case plugin
+        case snippet
     }
 
     /// A reference to a product from a target dependency.

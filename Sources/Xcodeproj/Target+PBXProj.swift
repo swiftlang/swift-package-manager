@@ -41,7 +41,7 @@ extension ResolvedTarget {
             return "com.apple.product-type.bundle.unit-test"
         case .library:
             return "com.apple.product-type.framework"
-        case .executable:
+        case .executable, .snippet:
             return "com.apple.product-type.tool"
         case .systemModule, .binary, .plugin:
             fatalError()
@@ -54,7 +54,7 @@ extension ResolvedTarget {
             return "compiled.mach-o.wrapper.cfbundle"
         case .library:
             return "wrapper.framework"
-        case .executable:
+        case .executable, .snippet:
             return "compiled.mach-o.executable"
         case .systemModule, .binary, .plugin:
             fatalError()
@@ -67,7 +67,7 @@ extension ResolvedTarget {
             return RelativePath("\(c99name).xctest")
         case .library:
             return RelativePath("\(c99name).framework")
-        case .executable:
+        case .executable, .snippet:
             return RelativePath(name)
         case .systemModule, .binary, .plugin:
             fatalError()
@@ -79,7 +79,7 @@ extension ResolvedTarget {
         case .library:
             // you can go without a lib prefix, but something unexpected will break
             return "'lib$(TARGET_NAME)'"
-        case .test, .executable:
+        case .test, .executable, .snippet:
             return "'$(TARGET_NAME)'"
         case .systemModule, .binary, .plugin:
             fatalError()
