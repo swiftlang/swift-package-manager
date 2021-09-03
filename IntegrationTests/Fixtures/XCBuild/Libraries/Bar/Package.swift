@@ -5,7 +5,7 @@ import PackageDescription
 let package = Package(
     name: "Bar",
     products: [
-        .library(name: "BarLibProduct", type: .dynamic, targets: ["BarLib"]),
+        .library(name: "BarLib", type: .dynamic, targets: ["BarLib"]),
     ],
     targets: [
         .target(name: "BarLib"),
