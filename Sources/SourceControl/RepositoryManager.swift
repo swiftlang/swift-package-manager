@@ -169,10 +169,10 @@ public class RepositoryManager {
                     handle.status = .pending
                     // Make sure destination is free.
                     try? self.fileSystem.removeFileTree(repositoryPath)
-
+                    let isCached = self.cachePath.map{ self.fileSystem.exists($0.appending(handle.subpath)) } ?? false
+                    
                     // Inform delegate.
                     queue.async {
-                        let isCached = self.cachePath.map{ self.fileSystem.exists($0.appending(handle.subpath)) } ?? false
                         let details = FetchDetails(fromCache: isCached, updatedCache: false)
                         self.delegate?.fetchingWillBegin(handle: handle, fetchDetails: details)
                     }
