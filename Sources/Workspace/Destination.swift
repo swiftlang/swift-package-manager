@@ -178,6 +178,24 @@ public struct Destination: Encodable, Equatable {
     }
     /// Cache storage for sdk platform path.
     private static var _sdkPlatformFrameworkPath: (fwk: AbsolutePath, lib: AbsolutePath)? = nil
+
+    /// Returns a default destination of a given target environment
+    public static func defaultDestination(for triple: Triple, host: Destination) -> Destination? {
+        if triple.isWASI() {
+            let wasiSysroot = host.binDir
+                .parentDirectory // usr
+                .appending(components: "share", "wasi-sysroot")
+            return Destination(
+                target: triple,
+                sdk: wasiSysroot,
+                binDir: host.binDir,
+                extraCCFlags: [],
+                extraSwiftCFlags: [],
+                extraCPPFlags: []
+            )
+        }
+        return nil
+    }
 }
 
 extension Destination {
