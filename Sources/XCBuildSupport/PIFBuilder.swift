@@ -366,11 +366,19 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         }
     }
 
+    private func targetName(for product: ResolvedProduct) -> String {
+        return Self.targetName(for: product.name)
+    }
+
+    static func targetName(for productName: String) -> String {
+        return "\(productName)_\(String(productName.hash, radix: 16, uppercase: true))_PackageProduct"
+    }
+
     private func addMainModuleTarget(for product: ResolvedProduct) {
         let productType: PIF.Target.ProductType = product.type == .executable ? .executable : .unitTest
         let pifTarget = addTarget(
             guid: product.pifTargetGUID,
-            name: product.name,
+            name: targetName(for: product),
             productType: productType,
             productName: product.name
         )
@@ -486,7 +494,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         // depends.
         let pifTarget = addTarget(
             guid: product.pifTargetGUID,
-            name: product.name,
+            name: targetName(for: product),
             productType: productType,
             productName: pifTargetProductName
         )

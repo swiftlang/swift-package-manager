@@ -80,14 +80,14 @@ class PIFBuilderTests: XCTestCase {
             let projectNames = pif.workspace.projects.map({ $0.name })
             XCTAssertEqual(projectNames, ["A", "B", "Aggregate"])
             let projectATargetNames = pif.workspace.projects[0].targets.map({ $0.name })
-            XCTAssertEqual(projectATargetNames, ["aexe", "alib", "A2", "A3"])
+            XCTAssertEqual(projectATargetNames, ["aexe_79CC9E117_PackageProduct", "alib_79D40CF5C_PackageProduct", "A2", "A3"])
             let targetAExeDependencies = pif.workspace.projects[0].targets[0].dependencies
             XCTAssertEqual(targetAExeDependencies.map{ $0.targetGUID }, ["PACKAGE-PRODUCT:blib", "PACKAGE-TARGET:A2", "PACKAGE-TARGET:A3"])
             let projectBTargetNames = pif.workspace.projects[1].targets.map({ $0.name })
             #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
             XCTAssertEqual(projectBTargetNames, ["blib", "B2"])
             #else
-            XCTAssertEqual(projectBTargetNames, ["bexe", "blib", "B2"])
+            XCTAssertEqual(projectBTargetNames, ["bexe_7ADFD1428_PackageProduct", "blib_7AE74026D_PackageProduct", "B2"])
             #endif
         }
     }
@@ -435,7 +435,7 @@ class PIFBuilderTests: XCTestCase {
                 // Root Swift executable target
 
                 project.checkTarget("PACKAGE-PRODUCT:foo") { target in
-                    XCTAssertEqual(target.name, "foo")
+                    XCTAssertEqual(target.name, "foo_1EF26F7F_PackageProduct")
                     XCTAssertEqual(target.productType, .executable)
                     XCTAssertEqual(target.productName, "foo")
                     XCTAssertEqual(target.dependencies, [
@@ -508,7 +508,7 @@ class PIFBuilderTests: XCTestCase {
                 // Root Clang executable target
 
                 project.checkTarget("PACKAGE-PRODUCT:cfoo") { target in
-                    XCTAssertEqual(target.name, "cfoo")
+                    XCTAssertEqual(target.name, "cfoo_7BF40D05B_PackageProduct")
                     XCTAssertEqual(target.productType, .executable)
                     XCTAssertEqual(target.productName, "cfoo")
                     XCTAssertEqual(target.dependencies, [])
@@ -572,7 +572,7 @@ class PIFBuilderTests: XCTestCase {
                 // Non-root Swift executable target
 
                 project.checkTarget("PACKAGE-PRODUCT:bar") { target in
-                    XCTAssertEqual(target.name, "bar")
+                    XCTAssertEqual(target.name, "bar_1ECDA8F8_PackageProduct")
                     XCTAssertEqual(target.productType, .executable)
                     XCTAssertEqual(target.productName, "bar")
                     XCTAssertEqual(target.dependencies, ["PACKAGE-TARGET:BarLib"])
@@ -627,7 +627,7 @@ class PIFBuilderTests: XCTestCase {
                 // Non-root Clang executable target
 
                 project.checkTarget("PACKAGE-PRODUCT:cbar") { target in
-                    XCTAssertEqual(target.name, "cbar")
+                    XCTAssertEqual(target.name, "cbar_7BEFB595C_PackageProduct")
                     XCTAssertEqual(target.productType, .executable)
                     XCTAssertEqual(target.productName, "cbar")
                     XCTAssertEqual(target.dependencies, [])
@@ -984,7 +984,7 @@ class PIFBuilderTests: XCTestCase {
         PIFTester(pif) { workspace in
             workspace.checkProject("PACKAGE:/Foo") { project in
                 project.checkTarget("PACKAGE-PRODUCT:FooLib1") { target in
-                    XCTAssertEqual(target.name, "FooLib1")
+                    XCTAssertEqual(target.name, "FooLib1_32B0F01AD0DD0FF3_PackageProduct")
                     XCTAssertEqual(target.productType, .packageProduct)
                     XCTAssertEqual(target.productName, "libFooLib1.a")
                     XCTAssertEqual(target.dependencies, [
@@ -1021,7 +1021,7 @@ class PIFBuilderTests: XCTestCase {
                 }
 
                 project.checkTarget("PACKAGE-PRODUCT:FooLib2") { target in
-                    XCTAssertEqual(target.name, "FooLib2")
+                    XCTAssertEqual(target.name, "FooLib2_32B0F01AD0DD1074_PackageProduct")
                     XCTAssertEqual(target.productType, .packageProduct)
                     XCTAssertEqual(target.productName, "libFooLib2.a")
                     XCTAssertEqual(target.dependencies, [
@@ -1058,7 +1058,7 @@ class PIFBuilderTests: XCTestCase {
 
             workspace.checkProject("PACKAGE:/Bar") { project in
                 project.checkTarget("PACKAGE-PRODUCT:BarLib") { target in
-                    XCTAssertEqual(target.name, "BarLib")
+                    XCTAssertEqual(target.name, "BarLib_175D063FAE17B2_PackageProduct")
                     XCTAssertEqual(target.productType, .framework)
                     XCTAssertEqual(target.productName, "BarLib.framework")
                     XCTAssertEqual(target.dependencies, ["PACKAGE-TARGET:BarLib"])
@@ -1447,7 +1447,7 @@ class PIFBuilderTests: XCTestCase {
         PIFTester(pif) { workspace in
             workspace.checkProject("PACKAGE:/Bar") { project in
                 project.checkTarget("PACKAGE-PRODUCT:BarLib") { target in
-                    XCTAssertEqual(target.name, "BarLib")
+                    XCTAssertEqual(target.name, "BarLib_175D063FAE17B2_PackageProduct")
                     XCTAssertEqual(target.productType, .dynamicLibrary)
                     XCTAssertEqual(target.productName, "libBarLib.dylib")
                 }
@@ -1493,7 +1493,7 @@ class PIFBuilderTests: XCTestCase {
         PIFTester(pif) { workspace in
             workspace.checkProject("PACKAGE:/Bar") { project in
                 project.checkTarget("PACKAGE-PRODUCT:BarLib") { target in
-                    XCTAssertEqual(target.name, "BarLib")
+                    XCTAssertEqual(target.name, "BarLib_175D063FAE17B2_PackageProduct")
                     
                     target.checkBuildConfiguration("Debug") { configuration in
                         configuration.checkBuildSettings { settings in
