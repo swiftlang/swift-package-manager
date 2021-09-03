@@ -112,7 +112,9 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
         if let moduleCachePath = moduleCachePath {
             command += ["-module-cache-path", moduleCachePath]
         }
-
+        
+        command += ["-parse-as-library"]
+        
         command += sources.paths.map { $0.pathString }
         let compiledExec = cacheDir.appending(component: "compiled-plugin")
         command += ["-o", compiledExec.pathString]

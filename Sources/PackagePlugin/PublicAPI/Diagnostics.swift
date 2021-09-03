@@ -11,22 +11,23 @@
 /// Emits errors, warnings, and remarks to be shown as a result of running the
 /// plugin. After emitting one or more errors, the plugin should return a
 /// non-zero exit code.
-public final class DiagnosticsEmitter {
-    // This prevents a DiagnosticsEmitter from being instantiated by the script.
+public final class Diagnostics {
+    
+    // This prevents a Diagnostics from being instantiated by the script.
     internal init() {}
 
     /// Emits an error with the specified message and optional file path and line number..
-    public func emit(error message: String, file: Path? = nil, line: Int? = nil) {
+    public static func error(_ message: String, file: Path? = nil, line: Int? = nil) {
         output.diagnostics.append(Diagnostic(severity: .error, message: message, file: file, line: line))
     }
 
     /// Emits a warning with the specified message and optional file path and line number..
-    public func emit(warning message: String, file: Path? = nil, line: Int? = nil) {
+    public static func warning(_ message: String, file: Path? = nil, line: Int? = nil) {
         output.diagnostics.append(Diagnostic(severity: .warning, message: message, file: file, line: line))
     }
 
     /// Emits a remark with the specified message and optional file path and line number..
-    public func emit(remark message: String, file: Path? = nil, line: Int? = nil) {
+    public static func remark(_ message: String, file: Path? = nil, line: Int? = nil) {
         output.diagnostics.append(Diagnostic(severity: .remark, message: message, file: file, line: line))
     }
 }
