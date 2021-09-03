@@ -216,7 +216,7 @@ private func createResolvedPackages(
 
     // Create a map of package builders keyed by the package identity.
     // This is guaranteed to be unique so we can use spm_createDictionary
-    let packageMapByIdentity: [PackageIdentity: ResolvedPackageBuilder] = packageBuilders.spm_createDictionary{
+    let packagesByIdentity: [PackageIdentity: ResolvedPackageBuilder] = packageBuilders.spm_createDictionary{
         return ($0.package.identity, $0)
     }
 
@@ -242,7 +242,7 @@ private func createResolvedPackages(
             }
 
             // Otherwise, look it up by its identity.
-            if let resolvedPackage = packageMapByIdentity[dependency.identity] {
+            if let resolvedPackage = packagesByIdentity[dependency.identity] {
                 // check if this resolved package already listed in the dependencies
                 // this means that the dependencies share the same identity
                 // FIXME: this works but the way we find out about this is based on a side effect, need to improve it
@@ -255,16 +255,24 @@ private func createResolvedPackages(
                     return diagnostics.emit(error, location: package.diagnosticLocation)
                 }
 
-                // check if the resolved package url is the same as the dependency one
+                // check if the resolved package location is the same as the dependency one
                 // if not, this means that the dependencies share the same identity
-                // FIXME: this works but the way we find out about this is based on a side effect, need to improve it
+                // which only allowed when overriding
                 if resolvedPackage.package.manifest.packageLocation != dependencyLocation && !resolvedPackage.allowedToOverride {
                     let error = PackageGraphError.dependencyAlreadySatisfiedByIdentifier(
                         package: package.identity.description,
                         dependencyLocation: dependencyLocation,
                         otherDependencyURL: resolvedPackage.package.manifest.packageLocation,
                         identity: dependency.identity)
-                    return diagnostics.emit(error, location: package.diagnosticLocation)
+                    // 9/2021 this is currently emitting a warning only to support
+                    // backwards compatibility with older versions of SwiftPM that had too weak of a validation
+                    // we will upgrade this to an error in a few versions to tighten up the validation
+                    if dependency.explicitNameForTargetDependencyResolutionOnly == .none ||
+                        resolvedPackage.package.manifestName == dependency.explicitNameForTargetDependencyResolutionOnly {
+                        diagnostics.emit(.warning(error.description + ". this will be upgraded to an error in future versions of SwiftPM."), location: package.diagnosticLocation)
+                    } else {
+                        return diagnostics.emit(error, location: package.diagnosticLocation)
+                    }
                 }
 
                 // checks if two dependencies have the same explicit name which can cause target based dependency package lookup issue
