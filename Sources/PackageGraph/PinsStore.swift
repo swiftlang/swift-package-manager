@@ -122,11 +122,19 @@ fileprivate struct PinsStorage {
         return try self.fileSystem.withLock(on: self.lockFilePath, type: .shared) {
             let version = try self.decoder.decode(path: self.path, fileSystem: self.fileSystem, as: Version.self)
             switch version.version {
-            case 1:
+            case V1.version:
                 let v1 = try decoder.decode(path: self.path, fileSystem: self.fileSystem, as: V1.self)
                 return try v1.object.pins.map{ try PinsStore.Pin($0, mirrors: mirrors) }.reduce(into: [PackageIdentity: PinsStore.Pin]()) { partial, iterator in
                     if partial.keys.contains(iterator.packageRef.identity) {
                         throw StringError("duplicated entry for package \"\(iterator.packageRef.name)\"")
+                    }
+                    partial[iterator.packageRef.identity] = iterator
+                }
+            case V2.version:
+                let v2 = try decoder.decode(path: self.path, fileSystem: self.fileSystem, as: V2.self)
+                return try v2.pins.map{ try PinsStore.Pin($0, mirrors: mirrors) }.reduce(into: [PackageIdentity: PinsStore.Pin]()) { partial, iterator in
+                    if partial.keys.contains(iterator.packageRef.identity) {
+                        throw StringError("duplicated entry for package \"\(iterator.packageRef.identity)\"")
                     }
                     partial[iterator.packageRef.identity] = iterator
                 }
@@ -150,7 +158,7 @@ fileprivate struct PinsStorage {
                 return
             }
 
-            let container = V1(pins: pins, mirrors: mirrors)
+            let container = V2(pins: pins, mirrors: mirrors)
             let data = try self.encoder.encode(container)
             try self.fileSystem.writeFileContents(self.path, data: data)
         }
@@ -172,11 +180,13 @@ fileprivate struct PinsStorage {
 
     // v1 storage format
     struct V1: Codable {
+        static let version = 1
+
         let version: Int
         let object: Container
 
         init (pins: PinsStore.PinsMap, mirrors: DependencyMirrors) {
-            self.version = 1
+            self.version = Self.version
             self.object = .init(
                 pins: pins.values
                     .sorted(by: { $0.packageRef.identity < $1.packageRef.identity })
@@ -200,27 +210,55 @@ fileprivate struct PinsStorage {
                 self.state = .init(pin.state)
             }
         }
+    }
 
-        struct CheckoutInfo: Codable {
-            let revision: String
-            let branch: String?
-            let version: String?
+    // v2 storage format
+    struct V2: Codable {
+        static let version = 2
 
-            init(_ state: CheckoutState) {
-                switch state {
-                case .version(let version, let revision):
-                    self.version = version.description
-                    self.branch = nil
-                    self.revision = revision.identifier
-                case .branch(let branch, let revision):
-                    self.version = nil
-                    self.branch = branch
-                    self.revision = revision.identifier
-                case .revision(let revision):
-                    self.version = nil
-                    self.branch = nil
-                    self.revision = revision.identifier
-                }
+        let version: Int
+        let pins: [Pin]
+
+        init (pins: PinsStore.PinsMap, mirrors: DependencyMirrors) {
+            self.version = Self.version
+            self.pins = pins.values
+                .sorted(by: { $0.packageRef.identity < $1.packageRef.identity })
+                .map{ Pin($0, mirrors: mirrors) }
+        }
+
+        struct Pin: Codable {
+            let identity: PackageIdentity
+            let location: String
+            let state: CheckoutInfo
+
+            init(_ pin: PinsStore.Pin, mirrors: DependencyMirrors) {
+                self.identity = pin.packageRef.identity
+                // rdar://52529014, rdar://52529011: pin file should store the original location but remap when loading
+                self.location = mirrors.originalURL(for: pin.packageRef.location) ?? pin.packageRef.location
+                self.state = .init(pin.state)
+            }
+        }
+    }
+
+    struct CheckoutInfo: Codable {
+        let revision: String
+        let branch: String?
+        let version: String?
+
+        init(_ state: CheckoutState) {
+            switch state {
+            case .version(let version, let revision):
+                self.version = version.description
+                self.branch = nil
+                self.revision = revision.identifier
+            case .branch(let branch, let revision):
+                self.version = nil
+                self.branch = branch
+                self.revision = revision.identifier
+            case .revision(let revision):
+                self.version = nil
+                self.branch = nil
+                self.revision = revision.identifier
             }
         }
     }
@@ -242,8 +280,21 @@ extension PinsStore.Pin {
     }
 }
 
+extension PinsStore.Pin {
+    fileprivate init(_ pin: PinsStorage.V2.Pin, mirrors: DependencyMirrors) throws {
+        // rdar://52529014, rdar://52529011: pin file should store the original location but remap when loading
+        let url = mirrors.effectiveURL(for: pin.location)
+        let identity = pin.identity
+        let packageRef = PackageReference.remote(identity: identity, location: url)
+        self.init(
+            packageRef: packageRef,
+            state: try .init(pin.state)
+        )
+    }
+}
+
 extension CheckoutState {
-    fileprivate init(_ state: PinsStorage.V1.CheckoutInfo) throws {
+    fileprivate init(_ state: PinsStorage.CheckoutInfo) throws {
         let revision: Revision = .init(identifier: state.revision)
         if let branch = state.branch {
             self = .branch(name: branch, revision: revision)

@@ -188,11 +188,16 @@ final class PinsStoreTests: XCTestCase {
 
         store.pin(packageRef: .remote(identity: fooIdentity, location: fooMirroredURL),
                   state: .version(v1, revision: .init(identifier: "foo-revision")))
-        store.pin(packageRef: .remote(identity: barMirroredIdentity, location: barMirroredURL),
+        store.pin(packageRef: .remote(identity: barIdentity, location: barMirroredURL),
                   state: .version(v1, revision: .init(identifier: "bar-revision")))
         store.pin(packageRef: .remote(identity: bazIdentity, location: bazURL),
                   state: .version(v1, revision: .init(identifier: "baz-revision")))
 
+        XCTAssert(store.pinsMap.count == 3)
+        XCTAssertEqual(store.pinsMap[fooIdentity]!.packageRef.location, fooMirroredURL)
+        XCTAssertEqual(store.pinsMap[barIdentity]!.packageRef.location, barMirroredURL)
+        XCTAssertNil(store.pinsMap[barMirroredIdentity])
+        XCTAssertEqual(store.pinsMap[bazIdentity]!.packageRef.location, bazURL)
 
         try store.saveState()
         XCTAssert(fileSystem.exists(pinsFile))
@@ -207,8 +212,6 @@ final class PinsStoreTests: XCTestCase {
         // Load the store again from disk, with mirrors
         let store3 = try PinsStore(pinsFile: pinsFile, workingDirectory: .root, fileSystem: fileSystem, mirrors: mirrors)
         XCTAssert(store3.pinsMap.count == 3)
-        XCTAssertEqual(store3.pinsMap[fooIdentity]!.packageRef.location, fooMirroredURL)
-        XCTAssertEqual(store3.pinsMap[barMirroredIdentity]!.packageRef.location, barMirroredURL)
-        XCTAssertEqual(store3.pinsMap[bazIdentity]!.packageRef.location, bazURL)
+        XCTAssertEqual(store3.pinsMap, store.pinsMap)
     }
 }
