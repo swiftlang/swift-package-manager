@@ -8,14 +8,31 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-/// Constructs commands to run during the build, including command lines,
+/// A command to run during the build, including executable, command lines,
 /// environment variables, initial working directory, etc. All paths should
 /// be based on the ones passed to the plugin in the target build context.
-public final class CommandConstructor {
+public enum Command {
     
-    /// Prevents the CommandConstructor from being instantiated by the script.
-    internal init() {}
+    case _buildCommand(
+        displayName: String?,
+        executable: Path,
+        arguments: [String],
+        environment: [String: String] = [:],
+        workingDirectory: Path? = nil,
+        inputFiles: [Path] = [],
+        outputFiles: [Path] = [])
+    
+    case _prebuildCommand(
+        displayName: String?,
+        executable: Path,
+        arguments: [String],
+        environment: [String: String] = [:],
+        workingDirectory: Path? = nil,
+        outputFilesDirectory: Path)
+}
 
+public extension Command {
+    
     /// Creates a command to run during the build. The executable should be a
     /// tool returned by `TargetBuildContext.tool(named:)`, and any paths in
     /// the arguments list as well as in the input and output lists should be
@@ -41,15 +58,15 @@ public final class CommandConstructor {
     ///     input files cause the command to be rerun.
     ///   - outputFiles: Output files that should be processed further according
     ///     to the rules defined by the build system.
-    public func addBuildCommand(
+    static func buildCommand(
         displayName: String?,
         executable: Path,
         arguments: [String],
         environment: [String: String] = [:],
         inputFiles: [Path] = [],
         outputFiles: [Path] = []
-    ) {
-        output.buildCommands.append(BuildCommand(displayName: displayName, executable: executable, arguments: arguments, environment: environment, workingDirectory: nil, inputFiles: inputFiles, outputFiles: outputFiles))
+    ) -> Command {
+        return _buildCommand(displayName: displayName, executable: executable, arguments: arguments, environment: environment, workingDirectory: nil, inputFiles: inputFiles, outputFiles: outputFiles)
     }
 
     /// Creates a command to run during the build. The executable should be a
@@ -79,7 +96,7 @@ public final class CommandConstructor {
     ///   - outputFiles: Output files that should be processed further according
     ///     to the rules defined by the build system.
     @available(*, unavailable, message: "specifying the initial working directory for a command is not yet supported")
-    public func addBuildCommand(
+    static func buildCommand(
         displayName: String?,
         executable: Path,
         arguments: [String],
@@ -87,8 +104,8 @@ public final class CommandConstructor {
         workingDirectory: Path? = nil,
         inputFiles: [Path] = [],
         outputFiles: [Path] = []
-    ) {
-        output.buildCommands.append(BuildCommand(displayName: displayName, executable: executable, arguments: arguments, environment: environment, workingDirectory: workingDirectory, inputFiles: inputFiles, outputFiles: outputFiles))
+    ) -> Command {
+        return _buildCommand(displayName: displayName, executable: executable, arguments: arguments, environment: environment, workingDirectory: workingDirectory, inputFiles: inputFiles, outputFiles: outputFiles)
     }
 
     /// Creates a command to run before the build. The executable should be a
@@ -120,14 +137,14 @@ public final class CommandConstructor {
     ///   - environment: Any custom environment assignments for the subprocess.
     ///   - outputFilesDirectory: A directory into which the command can write
     ///     output files that should be processed further.
-    public func addPrebuildCommand(
+    static func prebuildCommand(
         displayName: String?,
         executable: Path,
         arguments: [String],
         environment: [String: String] = [:],
         outputFilesDirectory: Path
-    ) {
-        output.prebuildCommands.append(PrebuildCommand(displayName: displayName, executable: executable, arguments: arguments, environment: environment, workingDirectory: nil, outputFilesDirectory: outputFilesDirectory))
+    ) -> Command {
+       return  _prebuildCommand(displayName: displayName, executable: executable, arguments: arguments, environment: environment, workingDirectory: nil, outputFilesDirectory: outputFilesDirectory)
     }
 
     /// Creates a command to run before the build. The executable should be a
@@ -161,14 +178,14 @@ public final class CommandConstructor {
     ///   - outputFilesDirectory: A directory into which the command can write
     ///     output files that should be processed further.
     @available(*, unavailable, message: "specifying the initial working directory for a command is not yet supported")
-    public func createPrebuildCommand(
+    static func prebuildCommand(
         displayName: String?,
         executable: Path,
         arguments: [String],
         environment: [String: String] = [:],
         workingDirectory: Path? = nil,
         outputFilesDirectory: Path
-    ) {
-        output.prebuildCommands.append(PrebuildCommand(displayName: displayName, executable: executable, arguments: arguments, environment: environment, workingDirectory: workingDirectory, outputFilesDirectory: outputFilesDirectory))
+    ) -> Command {
+        return _prebuildCommand(displayName: displayName, executable: executable, arguments: arguments, environment: environment, workingDirectory: workingDirectory, outputFilesDirectory: outputFilesDirectory)
     }
 }
