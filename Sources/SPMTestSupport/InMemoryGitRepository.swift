@@ -385,7 +385,7 @@ public final class InMemoryGitRepositoryProvider: RepositoryProvider {
     /// Add a repository to this provider. Only the repositories added with this interface can be operated on
     /// with this provider.
     public func add(specifier: RepositorySpecifier, repository: InMemoryGitRepository) {
-        // Save the repository in specifer map.
+        // Save the repository in specifier map.
         specifierMap[specifier] = repository
     }
 
@@ -398,7 +398,7 @@ public final class InMemoryGitRepositoryProvider: RepositoryProvider {
     // Note: These methods use force unwrap (instead of throwing) to honor their preconditions.
 
     public func fetch(repository: RepositorySpecifier, to path: AbsolutePath) throws {
-        let repo = specifierMap[RepositorySpecifier(url: repository.url.spm_dropGitSuffix())]!
+        let repo = specifierMap[RepositorySpecifier(url: repository.url)]!
         fetchedMap[path] = try repo.copy()
         add(specifier: RepositorySpecifier(url: path.asURL.absoluteString), repository: repo)
     }

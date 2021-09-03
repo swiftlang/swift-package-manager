@@ -35,30 +35,6 @@ public extension PackageDependency {
                            productFilter: productFilter)
     }
 
-    // backwards compatibility with existing tests
-    static func local(identity: PackageIdentity? = nil,
-                      deprecatedName: String? = nil,
-                      path: String,
-                      productFilter: ProductFilter = .everything
-    ) -> Self {
-        return .fileSystem(identity: identity,
-                           deprecatedName: deprecatedName,
-                           path: AbsolutePath(path),
-                           productFilter: productFilter)
-    }
-
-    // backwards compatibility with existing tests
-    static func local(identity: PackageIdentity? = nil,
-                      deprecatedName: String? = nil,
-                      path: AbsolutePath,
-                      productFilter: ProductFilter = .everything
-    ) -> Self {
-        return .fileSystem(identity: identity,
-                           deprecatedName: deprecatedName,
-                           path: path,
-                           productFilter: productFilter)
-    }
-
     static func sourceControl(identity: PackageIdentity? = nil,
                               deprecatedName: String? = nil,
                               location: String,

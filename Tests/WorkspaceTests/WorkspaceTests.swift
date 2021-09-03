@@ -6417,6 +6417,165 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
+    func testDuplicateTransitiveIdentityGitHubURLs() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    targets: [
+                        MockTarget(name: "RootTarget", dependencies: [
+                            .product(name: "FooProduct", package: "foo"),
+                            .product(name: "BarProduct", package: "bar")
+                        ]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        .sourceControl(url: "https://github.com/foo/foo.git", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(path: "bar", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    toolsVersion: .v5_6
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "FooPackage",
+                    url: "https://github.com/foo/foo.git",
+                    targets: [
+                        MockTarget(name: "FooTarget"),
+                    ],
+                    products: [
+                        MockProduct(name: "FooProduct", targets: ["FooTarget"]),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                MockPackage(
+                    name: "BarPackage",
+                    path: "bar",
+                    targets: [
+                        MockTarget(name: "BarTarget", dependencies: [
+                            .product(name: "FooProduct", package: "foo"),
+                        ]),
+                    ],
+                    products: [
+                        MockProduct(name: "BarProduct", targets: ["BarTarget"]),
+                    ],
+                    dependencies: [
+                        .sourceControl(url: "git@github.com:foo/foo.git", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                // this package never gets loaded since its identity is the same as "FooPackage"
+                MockPackage(
+                    name: "FooPackage",
+                    url: "git@github.com:foo/foo.git",
+                    targets: [
+                        MockTarget(name: "FooTarget"),
+                    ],
+                    products: [
+                        MockProduct(name: "FooProduct", targets: ["FooTarget"]),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+            ]
+        )
+
+        // FIXME: this should not emit an error/warning - we should reconcile the URLS styles
+        workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
+            DiagnosticsEngineTester(diagnostics) { result in
+                result.check(
+                    diagnostic: "'bar' dependency on 'git@github.com:foo/foo.git' conflicts with dependency on 'https://github.com/foo/foo.git' which has the same identity 'foo'. this will be upgraded to an error in future versions of SwiftPM.",
+                    behavior: .warning,
+                    location: "'BarPackage' /tmp/ws/pkgs/bar"
+                )
+            }
+        }
+    }
+
+    func testDuplicateTransitiveIdentityUnfamiliarURLs() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    targets: [
+                        MockTarget(name: "RootTarget", dependencies: [
+                            .product(name: "FooProduct", package: "foo"),
+                            .product(name: "BarProduct", package: "bar")
+                        ]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        .sourceControl(url: "https://github.com/foo/foo.git", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(path: "bar", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    toolsVersion: .v5_6
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "FooPackage",
+                    url: "https://github.com/foo/foo.git",
+                    targets: [
+                        MockTarget(name: "FooTarget"),
+                    ],
+                    products: [
+                        MockProduct(name: "FooProduct", targets: ["FooTarget"]),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                MockPackage(
+                    name: "BarPackage",
+                    path: "bar",
+                    targets: [
+                        MockTarget(name: "BarTarget", dependencies: [
+                            .product(name: "FooProduct", package: "foo"),
+                        ]),
+                    ],
+                    products: [
+                        MockProduct(name: "BarProduct", targets: ["BarTarget"]),
+                    ],
+                    dependencies: [
+                        .sourceControl(url: "https://github.com/foo-moved/foo.git", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                // this package never gets loaded since its identity is the same as "FooPackage"
+                MockPackage(
+                    name: "FooPackage",
+                    url: "https://github.com/foo-moved/foo.git",
+                    targets: [
+                        MockTarget(name: "FooTarget"),
+                    ],
+                    products: [
+                        MockProduct(name: "FooProduct", targets: ["FooTarget"]),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+            ]
+        )
+
+        // 9/2021 this is currently emitting a warning only to support backwards compatibility
+        // we will upgrade this to an error in a few versions to tighten up the validation
+        workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
+            DiagnosticsEngineTester(diagnostics) { result in
+                result.check(
+                    diagnostic: "'bar' dependency on 'https://github.com/foo-moved/foo.git' conflicts with dependency on 'https://github.com/foo/foo.git' which has the same identity 'foo'. this will be upgraded to an error in future versions of SwiftPM.",
+                    behavior: .warning,
+                    location: "'BarPackage' /tmp/ws/pkgs/bar"
+                )
+            }
+        }
+    }
+
     func testDuplicateNestedTransitiveIdentityWithNames() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()

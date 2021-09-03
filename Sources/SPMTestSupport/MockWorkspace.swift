@@ -80,7 +80,12 @@ public final class MockWorkspace {
     }
 
     private func url(for package: MockPackage) -> String {
-        return self.packagesDir.appending(RelativePath(package.path ?? package.name)).pathString
+        switch package.location {
+        case .fileSystem(let path):
+            return self.packagesDir.appending(path).pathString
+        case .sourceControl(let url):
+            return url
+        }
     }
 
     private func create() throws {
@@ -95,10 +100,27 @@ public final class MockWorkspace {
         var manifests: [MockManifestLoader.Key: Manifest] = [:]
 
         func create(package: MockPackage, basePath: AbsolutePath, packageKind: PackageReference.Kind) throws {
-            let packagePath = basePath.appending(RelativePath(package.path ?? package.name))
+            let packagePath: AbsolutePath
+            switch package.location {
+            case .fileSystem(let path):
+                packagePath = basePath.appending(path)
+            case .sourceControl(let url):
+                packagePath = basePath.appending(RelativePath(url.spm_mangledToC99ExtendedIdentifier()))
+            }
 
-            let packageLocation = (packageKind == .root ? packagePath : self.packagesDir.appending(RelativePath(package.path ?? package.name))).pathString
-            let specifier = RepositorySpecifier(url: packageLocation)
+            let packageLocation: String
+            let specifier: RepositorySpecifier
+            switch (packageKind, package.location) {
+            case (.root, _):
+                packageLocation = packagePath.pathString
+                specifier = RepositorySpecifier(url: packageLocation)
+            case (_, .fileSystem(let path)):
+                packageLocation = self.packagesDir.appending(path).pathString
+                specifier = RepositorySpecifier(url: packageLocation)
+            case (_, .sourceControl(let url)):
+                packageLocation = url
+                specifier = RepositorySpecifier(url: url)
+            }
 
             // Create targets on disk.
             let repo = self.repoProvider.specifierMap[specifier] ?? InMemoryGitRepository(path: packagePath, fs: self.fs as! InMemoryFileSystem)
@@ -118,7 +140,7 @@ public final class MockWorkspace {
             let manifestPath = packagePath.appending(component: Manifest.filename)
             for version in versions {
                 let v = version.flatMap(Version.init(_:))
-                manifests[.init(url: packageLocation, version: v)] = Manifest(
+                manifests[.init(url: specifier.url, version: v)] = Manifest(
                     name: package.name,
                     path: manifestPath,
                     packageKind: packageKind,
