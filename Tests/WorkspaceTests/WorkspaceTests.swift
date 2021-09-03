@@ -5658,7 +5658,7 @@ final class WorkspaceTests: XCTestCase {
         ])
     }
 
-    func testDuplicateDependencyIdentityAtRoot() throws {
+    func testDuplicateDependencyIdentityWithNameAtRoot() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -5678,6 +5678,68 @@ final class WorkspaceTests: XCTestCase {
                     dependencies: [
                         .scmWithDeprecatedName(name: "FooUtilityPackage", path: "foo/utility", requirement: .upToNextMajor(from: "1.0.0")),
                         .scmWithDeprecatedName(name: "BarUtilityPackage", path: "bar/utility", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    toolsVersion: .v5
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "FooUtilityPackage",
+                    path: "foo/utility",
+                    targets: [
+                        MockTarget(name: "FooTarget"),
+                    ],
+                    products: [
+                        MockProduct(name: "FooProduct", targets: ["FooTarget"]),
+                    ],
+                    versions: ["1.0.0", "2.0.0"]
+                ),
+                // this package never gets loaded since the dependency declaration identity is the same as "FooPackage"
+                MockPackage(
+                    name: "BarUtilityPackage",
+                    path: "bar/utility",
+                    targets: [
+                        MockTarget(name: "BarTarget"),
+                    ],
+                    products: [
+                        MockProduct(name: "BarProduct", targets: ["BarTarget"]),
+                    ],
+                    versions: ["1.0.0", "2.0.0"]
+                ),
+            ]
+        )
+
+        workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
+            DiagnosticsEngineTester(diagnostics) { result in
+                result.check(
+                    diagnostic: "'root' dependency on '/tmp/ws/pkgs/bar/utility' conflicts with dependency on '/tmp/ws/pkgs/foo/utility' which has the same identity 'utility'",
+                    behavior: .error,
+                    location: "'Root' /tmp/ws/roots/Root"
+                )
+            }
+        }
+    }
+
+    func testDuplicateDependencyIdentityWithoutNameAtRoot() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    targets: [
+                        MockTarget(name: "RootTarget", dependencies: [
+                            .product(name: "FooProduct", package: "FooUtilityPackage"),
+                            .product(name: "BarProduct", package: "BarUtilityPackage")
+                        ]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        .scm(path: "foo/utility", requirement: .upToNextMajor(from: "1.0.0")),
+                        .scm(path: "bar/utility", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     toolsVersion: .v5
                 ),
@@ -6257,8 +6319,6 @@ final class WorkspaceTests: XCTestCase {
             ]
         )
 
-        // FIXME: rdar://72940946
-        // we need to improve this situation or diagnostics when working on identity
         workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
             DiagnosticsEngineTester(diagnostics) { result in
                 result.check(
@@ -6282,8 +6342,8 @@ final class WorkspaceTests: XCTestCase {
                     name: "Root",
                     targets: [
                         MockTarget(name: "RootTarget", dependencies: [
-                            .product(name: "FooUtilityProduct", package: "FooUtilityPackage"),
-                            .product(name: "BarProduct", package: "BarPackage")
+                            .product(name: "FooUtilityProduct", package: "utility"),
+                            .product(name: "BarProduct", package: "bar")
                         ]),
                     ],
                     products: [],
@@ -6311,7 +6371,7 @@ final class WorkspaceTests: XCTestCase {
                     path: "bar",
                     targets: [
                         MockTarget(name: "BarTarget", dependencies: [
-                            .product(name: "OtherUtilityProduct", package: "OtherUtilityPackage"),
+                            .product(name: "OtherUtilityProduct", package: "utility"),
                         ]),
                     ],
                     products: [
@@ -6337,12 +6397,19 @@ final class WorkspaceTests: XCTestCase {
             ]
         )
 
-        // FIXME: rdar://72940946
-        // we need to improve this situation or diagnostics when working on identity
+        // 9/2021 this is currently emitting a warning only to support backwards compatibility
+        // we will upgrade this to an error in a few versions to tighten up the validation
         workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
             DiagnosticsEngineTester(diagnostics) { result in
                 result.check(
-                    diagnostic: "product 'OtherUtilityProduct' required by package 'bar' target 'BarTarget' not found in package 'OtherUtilityPackage'.",
+                    diagnostic: "'bar' dependency on '/tmp/ws/pkgs/other-foo/utility' conflicts with dependency on '/tmp/ws/pkgs/foo/utility' which has the same identity 'utility'. this will be upgraded to an error in future versions of SwiftPM.",
+                    behavior: .warning,
+                    location: "'BarPackage' /tmp/ws/pkgs/bar"
+                )
+                // FIXME: rdar://72940946
+                // we need to improve this situation or diagnostics when working on identity
+                result.check(
+                    diagnostic: "product 'OtherUtilityProduct' required by package 'bar' target 'BarTarget' not found in package 'utility'.",
                     behavior: .error,
                     location: "'BarPackage' /tmp/ws/pkgs/bar"
                 )
@@ -6420,10 +6487,10 @@ final class WorkspaceTests: XCTestCase {
             ]
         )
 
-        // FIXME: rdar://72940946
-        // we need to improve this situation or diagnostics when working on identity
         workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
             DiagnosticsEngineTester(diagnostics) { result in
+                // FIXME: rdar://72940946
+                // we need to improve this situation or diagnostics when working on identity
                 result.check(
                     diagnostic: "cyclic dependency declaration found: Root -> FooUtilityPackage -> BarPackage -> FooUtilityPackage",
                     behavior: .error,
@@ -6505,10 +6572,10 @@ final class WorkspaceTests: XCTestCase {
             ]
         )
 
-        // FIXME: rdar://72940946
-        // we need to improve this situation or diagnostics when working on identity
         workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
             DiagnosticsEngineTester(diagnostics) { result in
+                // FIXME: rdar://72940946
+                // we need to improve this situation or diagnostics when working on identity
                 result.check(
                     diagnostic: "cyclic dependency declaration found: Root -> FooUtilityPackage -> BarPackage -> FooUtilityPackage",
                     behavior: .error,
@@ -6573,10 +6640,10 @@ final class WorkspaceTests: XCTestCase {
             ]
         )
 
-        // FIXME: rdar://72940946
-        // we need to improve this situation or diagnostics when working on identity
         workspace.checkPackageGraph(roots: ["foo"]) { graph, diagnostics in
             DiagnosticsEngineTester(diagnostics) { result in
+                // FIXME: rdar://72940946
+                // we need to improve this situation or diagnostics when working on identity
                 result.check(
                     diagnostic: "cyclic dependency declaration found: Root -> BarPackage -> Root",
                     behavior: .error,
