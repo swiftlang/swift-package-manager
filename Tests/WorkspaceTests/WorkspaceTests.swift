@@ -2075,6 +2075,7 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
+    @available(*, deprecated)
     func testEditDependency() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
@@ -2183,6 +2184,7 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
+    @available(*, deprecated)
     func testMissingEditCanRestoreOriginalCheckout() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
@@ -2241,6 +2243,7 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
+    @available(*, deprecated)
     func testCanUneditRemovedDependencies() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
@@ -2307,6 +2310,7 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
+    @available(*, deprecated)
     func testDependencyResolutionWithEdit() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
@@ -2428,7 +2432,7 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testPrefetchingWithOverridenPackage() throws {
+    func testPrefetchingWithOverriddenPackage() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -2598,6 +2602,7 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
+    @available(*, deprecated)
     func testResolutionFailureWithEditedDependency() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
@@ -2727,6 +2732,7 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
+    @available(*, deprecated) // for editing part, rest should stay
     func testLocalDependencyBasics() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
@@ -3940,6 +3946,7 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
+    @available(*, deprecated)
     func testEditDependencyHadOverridableConstraints() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()

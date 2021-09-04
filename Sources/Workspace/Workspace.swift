@@ -515,22 +515,10 @@ extension Workspace {
     ///       created from the revision provided.
     ///     - diagnostics: The diagnostics engine that reports errors, warnings
     ///       and notes.
-    public func edit(
-        packageName: String,
-        path: AbsolutePath? = nil,
-        revision: Revision? = nil,
-        checkoutBranch: String? = nil,
-        diagnostics: DiagnosticsEngine
-    ) {
-        do {
-            try _edit(
-                packageName: packageName,
-                path: path,
-                revision: revision,
-                checkoutBranch: checkoutBranch,
-                diagnostics: diagnostics)
-        } catch {
-            diagnostics.emit(error)
+    @available(*, deprecated, message: "edit functionality is deprecated in favor of local overrides")
+    public func edit(packageName: String, path: AbsolutePath? = nil, revision: Revision? = nil, checkoutBranch: String? = nil, diagnostics: DiagnosticsEngine) {
+        diagnostics.wrap {
+            try self._deprecatedEdit(packageName: packageName, path: path, revision: revision, checkoutBranch: checkoutBranch, diagnostics: diagnostics)
         }
     }
 
@@ -546,18 +534,9 @@ extension Workspace {
     ///     - root: The workspace root. This is used to resolve the dependencies post unediting.
     ///     - diagnostics: The diagnostics engine that reports errors, warnings
     ///           and notes.
-    public func unedit(
-        packageName: String,
-        forceRemove: Bool,
-        root: PackageGraphRootInput,
-        diagnostics: DiagnosticsEngine
-    ) throws {
-        guard let dependency = state.dependencies[forNameOrIdentity: packageName] else {
-            diagnostics.emit(.dependencyNotFound(packageName: packageName))
-            return
-        }
-
-        try unedit(dependency: dependency, forceRemove: forceRemove, root: root, diagnostics: diagnostics)
+    @available(*, deprecated, message: "edit functionality is deprecated in favor of local overrides")
+    public func unedit(packageName: String, forceRemove: Bool, root: PackageGraphRootInput, diagnostics: DiagnosticsEngine) throws {
+        try self._deprecatedUnedit(packageName: packageName, forceRemove: forceRemove, root: root, diagnostics: diagnostics)
     }
 
     /// Resolve a package at the given state.
@@ -993,7 +972,7 @@ extension Workspace {
     }
 
     /// Edit implementation.
-    fileprivate func _edit(
+    public func _deprecatedEdit(
         packageName: String,
         path: AbsolutePath? = nil,
         revision: Revision? = nil,
@@ -1101,13 +1080,25 @@ extension Workspace {
     }
 
     /// Unedit a managed dependency. See public API unedit(packageName:forceRemove:).
-    fileprivate func unedit(
+    public func _deprecatedUnedit(
+        packageName: String,
+        forceRemove: Bool,
+        root: PackageGraphRootInput? = nil,
+        diagnostics: DiagnosticsEngine
+    ) throws {
+        guard let dependency = state.dependencies[forNameOrIdentity: packageName] else {
+            diagnostics.emit(.dependencyNotFound(packageName: packageName))
+            return
+        }
+        try self._deprecatedUnedit(dependency: dependency, forceRemove: forceRemove, root: root, diagnostics: diagnostics)
+    }
+
+    fileprivate func _deprecatedUnedit(
         dependency: ManagedDependency,
         forceRemove: Bool,
         root: PackageGraphRootInput? = nil,
         diagnostics: DiagnosticsEngine
     ) throws {
-
         // Compute if we need to force remove.
         var forceRemove = forceRemove
 
@@ -2563,7 +2554,7 @@ extension Workspace {
                     // Note: We don't resolve the dependencies when unediting
                     // here because we expect this method to be called as part
                     // of some other resolve operation (i.e. resolve, update, etc).
-                    try unedit(dependency: dependency, forceRemove: true, diagnostics: diagnostics)
+                    try self._deprecatedUnedit(dependency: dependency, forceRemove: true, diagnostics: diagnostics)
 
                     diagnostics.emit(.editedDependencyMissing(packageName: dependency.packageRef.name))
 
