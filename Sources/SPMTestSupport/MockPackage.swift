@@ -9,11 +9,12 @@
  */
 
 import PackageModel
+import TSCBasic
 
 public struct MockPackage {
     public let name: String
     public let platforms: [PlatformDescription]
-    public let path: String?
+    public let location: Location
     public let targets: [MockTarget]
     public let products: [MockProduct]
     public let dependencies: [MockDependency]
@@ -33,7 +34,27 @@ public struct MockPackage {
     ) {
         self.name = name
         self.platforms = platforms
-        self.path = path
+        self.location = .fileSystem(path: RelativePath(path ?? name))
+        self.targets = targets
+        self.products = products
+        self.dependencies = dependencies
+        self.versions = versions
+        self.toolsVersion = toolsVersion
+    }
+
+    public init(
+        name: String,
+        platforms: [PlatformDescription] = [],
+        url: String,
+        targets: [MockTarget],
+        products: [MockProduct],
+        dependencies: [MockDependency] = [],
+        versions: [String?] = [],
+        toolsVersion: ToolsVersion? = nil
+    ) {
+        self.name = name
+        self.platforms = platforms
+        self.location = .sourceControl(url: url)
         self.targets = targets
         self.products = products
         self.dependencies = dependencies
@@ -52,5 +73,10 @@ public struct MockPackage {
             ],
             versions: ["1.0.0"]
         )
+    }
+
+    public enum Location {
+        case fileSystem(path: RelativePath)
+        case sourceControl(url: String)
     }
 }

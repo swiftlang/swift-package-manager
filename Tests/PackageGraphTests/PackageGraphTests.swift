@@ -1128,7 +1128,7 @@ class PackageGraphTests: XCTestCase {
                     path: "/Foo",
                     packageLocation: "/Foo",
                     dependencies: [
-                        .local(path: "/Biz"),
+                        .fileSystem(path: "/Biz"),
                     ],
                     targets: [
                         TargetDescription(name: "Foo", dependencies: [

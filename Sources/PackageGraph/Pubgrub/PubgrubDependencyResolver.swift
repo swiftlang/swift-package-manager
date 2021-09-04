@@ -230,7 +230,7 @@ public struct PubgrubDependencyResolver {
                 return (package: package, binding: details.binding, products: details.products)
             }
 
-        // Add overriden packages to the result.
+        // Add overridden packages to the result.
         for (package, override) in state.overriddenPackages {
             // TODO: replace with async/await when available
             let container = try temp_await { provider.getContainer(for: package, completion: $0) }
