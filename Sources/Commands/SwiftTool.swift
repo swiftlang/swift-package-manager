@@ -572,7 +572,7 @@ public class SwiftTool {
         let root = try getWorkspaceRoot()
 
         if options.forceResolvedVersions {
-            try workspace.resolveToResolvedVersion(root: root, diagnostics: diagnostics)
+            try workspace.resolveBasedOnResolvedVersionsFile(root: root, diagnostics: diagnostics)
         } else {
             try workspace.resolve(root: root, diagnostics: diagnostics)
         }

@@ -607,10 +607,15 @@ extension Workspace {
         let constraint = PackageContainerConstraint(package: dependency.packageRef, requirement: requirement, products: .nothing)
 
         // Run the resolution.
-        try self._resolve(root: root, forceResolution: false, extraConstraints: [constraint], diagnostics: diagnostics)
+        try self.resolve(
+            root: root,
+            forceResolution: false,
+            constraints: [constraint],
+            diagnostics: diagnostics
+        )
     }
 
-    /// Cleans the build artefacts from workspace data.
+    /// Cleans the build artifacts from workspace data.
     ///
     /// - Parameters:
     ///     - diagnostics: The diagnostics engine that reports errors, warnings
@@ -809,16 +814,17 @@ extension Workspace {
         // Perform dependency resolution, if required.
         let manifests: DependencyManifests
         if forceResolvedVersions {
-            manifests = try self._resolveToResolvedVersion(
+            manifests = try self.resolveBasedOnResolvedVersionsFile(
                 root: root,
                 explicitProduct: explicitProduct,
                 diagnostics: diagnostics
             )
         } else {
-            manifests = try self._resolve(
+            manifests = try self.resolve(
                 root: root,
                 explicitProduct: explicitProduct,
                 forceResolution: false,
+                constraints: [],
                 diagnostics: diagnostics
             )
         }
@@ -868,7 +874,12 @@ extension Workspace {
         forceResolution: Bool = false,
         diagnostics: DiagnosticsEngine
     ) throws {
-        try self._resolve(root: root, forceResolution: forceResolution, diagnostics: diagnostics)
+        try self.resolve(
+            root: root,
+            forceResolution: forceResolution,
+            constraints: [],
+            diagnostics: diagnostics
+        )
     }
 
     /// Loads and returns manifests at the given paths.
@@ -1966,15 +1977,17 @@ extension Workspace {
 
 extension Workspace {
 
+    @available(*, deprecated, message: "renamed to resolveBasedOnResolvedVersionsFile")
+    public func resolveToResolvedVersion(root: PackageGraphRootInput,diagnostics: DiagnosticsEngine) throws {
+        try self.resolveBasedOnResolvedVersionsFile(root: root, diagnostics: diagnostics)
+    }
+
     /// Resolves the dependencies according to the entries present in the Package.resolved file.
     ///
     /// This method bypasses the dependency resolution and resolves dependencies
     /// according to the information in the resolved file.
-    public func resolveToResolvedVersion(
-        root: PackageGraphRootInput,
-        diagnostics: DiagnosticsEngine
-    ) throws {
-        try self._resolveToResolvedVersion(root: root, diagnostics: diagnostics)
+    public func resolveBasedOnResolvedVersionsFile(root: PackageGraphRootInput, diagnostics: DiagnosticsEngine) throws {
+        try self.resolveBasedOnResolvedVersionsFile(root: root, explicitProduct: .none, diagnostics: diagnostics)
     }
 
     /// Resolves the dependencies according to the entries present in the Package.resolved file.
@@ -1982,13 +1995,13 @@ extension Workspace {
     /// This method bypasses the dependency resolution and resolves dependencies
     /// according to the information in the resolved file.
     @discardableResult
-    fileprivate func _resolveToResolvedVersion(
+    fileprivate func resolveBasedOnResolvedVersionsFile(
         root: PackageGraphRootInput,
-        explicitProduct: String? = nil,
+        explicitProduct: String?,
         diagnostics: DiagnosticsEngine
     ) throws -> DependencyManifests {
         // Ensure the cache path exists.
-        createCacheDirectories(with: diagnostics)
+        self.createCacheDirectories(with: diagnostics)
 
         // FIXME: this should not block
         let rootManifests = try temp_await { self.loadRootManifests(packages: root.packages, diagnostics: diagnostics, completion: $0) }
@@ -2032,10 +2045,11 @@ extension Workspace {
 
         let currentManifests = try self.loadDependencyManifests(root: graphRoot, diagnostics: diagnostics, automaticallyAddManagedDependencies: true)
 
-        let precomputationResult = try precomputeResolution(
+        let precomputationResult = try self.precomputeResolution(
             root: graphRoot,
             dependencyManifests: currentManifests,
-            pinsStore: pinsStore
+            pinsStore: pinsStore,
+            constraints: []
         )
 
         if case let .required(reason) = precomputationResult {
@@ -2060,18 +2074,18 @@ extension Workspace {
     /// imposed outside of manifest and pins file. E.g., when using a command
     /// like `$ swift package resolve foo --version 1.0.0`.
     @discardableResult
-    fileprivate func _resolve(
+    fileprivate func resolve(
         root: PackageGraphRootInput,
         explicitProduct: String? = nil,
         forceResolution: Bool,
-        extraConstraints: [PackageContainerConstraint] = [],
+        constraints: [PackageContainerConstraint],
         diagnostics: DiagnosticsEngine,
         retryOnPackagePathMismatch: Bool = true,
         resetPinsStoreOnFailure: Bool = true
     ) throws -> DependencyManifests {
 
         // Ensure the cache path exists and validate that edited dependencies.
-        createCacheDirectories(with: diagnostics)
+        self.createCacheDirectories(with: diagnostics)
 
         // FIXME: this should not block
         // Load the root manifests and currently checked out manifests.
@@ -2098,14 +2112,14 @@ extension Workspace {
         // there are extra constraints.
         if !missingPackageURLs.isEmpty {
             delegate?.willResolveDependencies(reason: .newPackages(packages: Array(missingPackageURLs)))
-        } else if !extraConstraints.isEmpty || forceResolution {
+        } else if !constraints.isEmpty || forceResolution {
             delegate?.willResolveDependencies(reason: .forced)
         } else {
-            let result = try precomputeResolution(
+            let result = try self.precomputeResolution(
                 root: graphRoot,
                 dependencyManifests: currentManifests,
                 pinsStore: pinsStore,
-                extraConstraints: extraConstraints
+                constraints: constraints
             )
 
             switch result {
@@ -2122,17 +2136,17 @@ extension Workspace {
         }
 
         // Create the constraints.
-        var constraints = [PackageContainerConstraint]()
-        constraints += currentManifests.editedPackagesConstraints()
-        constraints += try graphRoot.constraints() + extraConstraints
+        var computedConstraints = [PackageContainerConstraint]()
+        computedConstraints += currentManifests.editedPackagesConstraints()
+        computedConstraints += try graphRoot.constraints() + constraints
 
         // Perform dependency resolution.
         let resolver = try createResolver(pinsMap: pinsStore.pinsMap)
         self.activeResolver = resolver
 
-        let result = resolveDependencies(
+        let result = self.resolveDependencies(
             resolver: resolver,
-            constraints: constraints,
+            constraints: computedConstraints,
             diagnostics: diagnostics)
 
         // Reset the active resolver.
@@ -2163,11 +2177,11 @@ extension Workspace {
             if retryOnPackagePathMismatch {
                 // Retry resolution which will most likely resolve correctly now since
                 // we have the manifest files of all the dependencies.
-                return try self._resolve(
+                return try self.resolve(
                     root: root,
                     explicitProduct: explicitProduct,
                     forceResolution: forceResolution,
-                    extraConstraints: extraConstraints,
+                    constraints: constraints,
                     diagnostics: diagnostics,
                     retryOnPackagePathMismatch: false,
                     resetPinsStoreOnFailure: resetPinsStoreOnFailure
@@ -2180,11 +2194,11 @@ extension Workspace {
                 pinsStore.unpinAll()
                 try pinsStore.saveState()
                 // try again with pins reset
-                return try self._resolve(
+                return try self.resolve(
                     root: root,
                     explicitProduct: explicitProduct,
                     forceResolution: forceResolution,
-                    extraConstraints: extraConstraints,
+                    constraints: constraints,
                     diagnostics: diagnostics,
                     retryOnPackagePathMismatch: false,
                     resetPinsStoreOnFailure: false
@@ -2228,18 +2242,18 @@ extension Workspace {
         root: PackageGraphRoot,
         dependencyManifests: DependencyManifests,
         pinsStore: PinsStore,
-        extraConstraints: [PackageContainerConstraint] = []
+        constraints: [PackageContainerConstraint]
     ) throws -> ResolutionPrecomputationResult {
-        let constraints =
+        let computedConstraints =
             try root.constraints() +
             // Include constraints from the manifests in the graph root.
             root.manifests.values.flatMap{ try $0.dependencyConstraints(productFilter: .everything) } +
             dependencyManifests.dependencyConstraints() +
-            extraConstraints
+            constraints
 
         let precomputationProvider = ResolverPrecomputationProvider(root: root, dependencyManifests: dependencyManifests)
         let resolver = PubgrubDependencyResolver(provider: precomputationProvider, pinsMap: pinsStore.pinsMap)
-        let result = resolver.solve(constraints: constraints)
+        let result = resolver.solve(constraints: computedConstraints)
 
         switch result {
         case .success:

@@ -392,7 +392,7 @@ public final class MockWorkspace {
             root: root,
             dependencyManifests: dependencyManifests,
             pinsStore: pinsStore,
-            extraConstraints: []
+            constraints: []
         )
 
         check(ResolutionPrecomputationResult(result: result, diagnostics: diagnostics))
