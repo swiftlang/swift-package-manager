@@ -22,7 +22,7 @@ import struct Foundation.URLQueryItem
 import Dispatch
 
 public enum RegistryError: Error {
-    case registryNotConfigured(scope: String)
+    case registryNotConfigured(scope: PackageIdentity.Scope)
     case invalidPackage(PackageReference)
     case invalidOperation
     case invalidResponse
@@ -69,7 +69,7 @@ public final class RegistryManager {
         }
 
         var components = URLComponents(url: registry.url, resolvingAgainstBaseURL: true)
-        components?.appendPathComponents(scope, name)
+        components?.appendPathComponents("\(scope)", "\(name)")
 
         guard let url = components?.url else {
             return completion(.failure(RegistryError.invalidURL))
@@ -123,7 +123,7 @@ public final class RegistryManager {
         }
 
         var components = URLComponents(url: registry.url, resolvingAgainstBaseURL: true)
-        components?.appendPathComponents(scope, name, "\(version)", "Package.swift")
+        components?.appendPathComponents("\(scope)", "\(name)", "\(version)", "Package.swift")
         if let swiftLanguageVersion = swiftLanguageVersion {
             components?.queryItems = [
                 URLQueryItem(name: "swift-version", value: swiftLanguageVersion.rawValue)
@@ -207,7 +207,7 @@ public final class RegistryManager {
         }
 
         var components = URLComponents(url: registry.url, resolvingAgainstBaseURL: true)
-        components?.appendPathComponents(scope, name, "\(version).zip")
+        components?.appendPathComponents("\(scope)", "\(name)", "\(version).zip")
 
         guard let url = components?.url else {
             return completion(.failure(RegistryError.invalidURL))

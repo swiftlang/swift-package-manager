@@ -9,10 +9,9 @@
 */
 
 import Foundation
+import PackageModel
 
 public struct RegistryConfiguration: Hashable {
-    public typealias Scope = String
-
     public enum Version: Int, Codable {
         case v1 = 1
     }
@@ -20,7 +19,7 @@ public struct RegistryConfiguration: Hashable {
     public static let version: Version = .v1
 
     public var defaultRegistry: Registry?
-    public var scopedRegistries: [Scope: Registry]
+    public var scopedRegistries: [PackageIdentity.Scope: Registry]
 
     public init() {
         self.defaultRegistry = nil
@@ -41,7 +40,7 @@ public struct RegistryConfiguration: Hashable {
         }
     }
     
-    public func registry(for scope: Scope) -> Registry? {
+    public func registry(for scope: PackageIdentity.Scope) -> Registry? {
         return scopedRegistries[scope] ?? defaultRegistry
     }
 }
@@ -79,9 +78,10 @@ extension RegistryConfiguration: Codable {
 
             self.defaultRegistry = try nestedContainer.decodeIfPresent(Registry.self, forKey: .default)
 
-            var scopedRegistries: [Scope: Registry] = [:]
+            var scopedRegistries: [PackageIdentity.Scope: Registry] = [:]
             for key in nestedContainer.allKeys where key != .default {
-                scopedRegistries[key.stringValue] = try nestedContainer.decode(Registry.self, forKey: key)
+                let scope = try PackageIdentity.Scope(validating: key.stringValue)
+                scopedRegistries[scope] = try nestedContainer.decode(Registry.self, forKey: key)
             }
             self.scopedRegistries = scopedRegistries
         case nil:
@@ -99,7 +99,7 @@ extension RegistryConfiguration: Codable {
         try nestedContainer.encodeIfPresent(defaultRegistry, forKey: .default)
 
         for (scope, registry) in scopedRegistries {
-            let key = ScopeCodingKey(stringValue: scope)
+            let key = ScopeCodingKey(stringValue: scope.description)
             try nestedContainer.encode(registry, forKey: key)
         }
     }
