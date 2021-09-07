@@ -28,6 +28,9 @@ public class XCBuildDelegate {
     /// True if any progress output was emitted.
     fileprivate var didEmitProgressOutput: Bool = false
 
+    /// True if any output was parsed.
+    fileprivate(set) var didParseAnyOutput: Bool = false
+
     public init(
         buildSystem: SPMBuildCore.BuildSystem,
         diagnostics: DiagnosticsEngine,
@@ -50,6 +53,8 @@ public class XCBuildDelegate {
 
 extension XCBuildDelegate: XCBuildOutputParserDelegate {
     public func xcBuildOutputParser(_ parser: XCBuildOutputParser, didParse message: XCBuildMessage) {
+        self.didParseAnyOutput = true
+
         switch message {
         case .taskStarted(let info):
             queue.async {
@@ -110,6 +115,7 @@ extension XCBuildDelegate: XCBuildOutputParserDelegate {
     }
 
     public func xcBuildOutputParser(_ parser: XCBuildOutputParser, didFailWith error: Error) {
+        self.didParseAnyOutput = true
         let message = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         diagnostics.emit(.xcbuildOutputParsingError(message))
     }
