@@ -206,7 +206,7 @@ public struct SwiftTestTool: SwiftCommand {
     
     public func run(_ swiftTool: SwiftTool) throws {
         // Validate commands arguments
-        try validateArguments(diagnostics: swiftTool.diagnostics)
+        try validateArguments(diagnostics: ObservabilitySystem.makeDiagnosticsEngine())
 
         switch options.mode {
         case .listTests:
@@ -225,7 +225,7 @@ public struct SwiftTestTool: SwiftCommand {
             let workspace = try swiftTool.getActiveWorkspace()
             let root = try swiftTool.getWorkspaceRoot()
             let rootManifests = try temp_await {
-                workspace.loadRootManifests(packages: root.packages, diagnostics: swiftTool.diagnostics, completion: $0)                
+                workspace.loadRootManifests(packages: root.packages, diagnostics: ObservabilitySystem.makeDiagnosticsEngine(), completion: $0)
             }
             guard let rootManifest = rootManifests.values.first else {
                 throw StringError("invalid manifests at \(root.packages)")
@@ -272,7 +272,7 @@ public struct SwiftTestTool: SwiftCommand {
             case .regex, .specific, .skip:
                 // If old specifier `-s` option was used, emit deprecation notice.
                 if case .specific = options.testCaseSpecifier {
-                    swiftTool.diagnostics.emit(warning: "'--specifier' option is deprecated; use '--filter' instead")
+                    DiagnosticsEmitter().emit(warning: "'--specifier' option is deprecated; use '--filter' instead")
                 }
 
                 // Find the tests we need to run.
@@ -283,7 +283,7 @@ public struct SwiftTestTool: SwiftCommand {
 
                 // If there were no matches, emit a warning.
                 if tests.isEmpty {
-                    swiftTool.diagnostics.emit(.noMatchingTests)
+                    DiagnosticsEmitter().emit(.noMatchingTests)
                     xctestArg = "''"
                 } else {
                     xctestArg = tests.map { $0.specifier }.joined(separator: ",")
@@ -295,7 +295,7 @@ public struct SwiftTestTool: SwiftCommand {
                 xctestArg: xctestArg,
                 processSet: swiftTool.processSet,
                 toolchain: toolchain,
-                diagnostics: swiftTool.diagnostics,
+                diagnostics: ObservabilitySystem.makeDiagnosticsEngine(),
                 options: swiftOptions,
                 buildParameters: buildParameters
             )
@@ -321,7 +321,7 @@ public struct SwiftTestTool: SwiftCommand {
 
             // If there were no matches, emit a warning and exit.
             if tests.isEmpty {
-                swiftTool.diagnostics.emit(.noMatchingTests)
+                DiagnosticsEmitter().emit(.noMatchingTests)
                 return
             }
 
@@ -338,7 +338,7 @@ public struct SwiftTestTool: SwiftCommand {
                 toolchain: toolchain,
                 xUnitOutput: options.xUnitOutput,
                 numJobs: options.numberOfWorkers ?? ProcessInfo.processInfo.activeProcessorCount,
-                diagnostics: swiftTool.diagnostics,
+                diagnostics: ObservabilitySystem.makeDiagnosticsEngine(),
                 options: swiftOptions,
                 buildParameters: buildParameters,
                 outputStream: swiftTool.outputStream
@@ -360,7 +360,7 @@ public struct SwiftTestTool: SwiftCommand {
         let workspace = try swiftTool.getActiveWorkspace()
         let root = try swiftTool.getWorkspaceRoot()
         let rootManifests = try temp_await {
-            workspace.loadRootManifests(packages: root.packages, diagnostics: swiftTool.diagnostics, completion: $0)
+            workspace.loadRootManifests(packages: root.packages, diagnostics: ObservabilitySystem.makeDiagnosticsEngine(), completion: $0)
         }
         guard let rootManifest = rootManifests.values.first else {
             throw StringError("invalid manifests at \(root.packages)")
@@ -1124,8 +1124,8 @@ final class XUnitGenerator {
     }
 }
 
-private extension Diagnostic.Message {
-    static var noMatchingTests: Diagnostic.Message {
+private extension DiagnosticMessage {
+    static var noMatchingTests: Self {
         .warning("No matching test cases were run")
     }
 }

@@ -8,13 +8,13 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import XCTest
-
-import TSCBasic
+import Basics
 import PackageGraph
-import SPMTestSupport
 import PackageModel
+import SPMTestSupport
+import TSCBasic
 import Xcodeproj
+import XCTest
 
 class PackageGraphTests: XCTestCase {
     func testBasics() throws {
@@ -33,8 +33,8 @@ class PackageGraphTests: XCTestCase {
             "/Overrides.xcconfig"
         )
 
-        let diagnostics = DiagnosticsEngine()
-        let g = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        let observability = ObservabilitySystem.bootstrapForTesting()
+        let g = try loadPackageGraph(fs: fs,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Foo",
@@ -70,11 +70,19 @@ class PackageGraphTests: XCTestCase {
                     ]),
             ]
         )
-        XCTAssertNoDiagnostics(diagnostics)
+        XCTAssertNoDiagnostics(observability.diagnostics)
 
         let options = XcodeprojOptions(xcconfigOverrides: AbsolutePath("/Overrides.xcconfig"))
 
-        let project = try xcodeProject(xcodeprojPath: AbsolutePath.root.appending(component: "xcodeproj"), graph: g, extraDirs: [], extraFiles: [], options: options, fileSystem: fs, diagnostics: diagnostics)
+        let project = try xcodeProject(
+            xcodeprojPath: AbsolutePath.root.appending(component: "xcodeproj"),
+            graph: g,
+            extraDirs: [],
+            extraFiles: [],
+            options: options,
+            fileSystem: fs,
+            diagnostics: ObservabilitySystem.makeDiagnosticsEngine()
+        )
 
         XcodeProjectTester(project) { result in
             result.check(projectDir: "Bar")
@@ -196,8 +204,8 @@ class PackageGraphTests: XCTestCase {
             "/Foo/Sources/Foo/source.swift"
         )
 
-        let diagnostics = DiagnosticsEngine()
-        let g = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        let observability = ObservabilitySystem.bootstrapForTesting()
+        let g = try loadPackageGraph(fs: fs,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Foo",
@@ -211,9 +219,17 @@ class PackageGraphTests: XCTestCase {
                     ]),
             ]
         )
-        XCTAssertNoDiagnostics(diagnostics)
+        XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let project = try xcodeProject(xcodeprojPath: AbsolutePath("/Foo/build").appending(component: "xcodeproj"), graph: g, extraDirs: [], extraFiles: [], options: XcodeprojOptions(), fileSystem: fs, diagnostics: diagnostics)
+        let project = try xcodeProject(
+            xcodeprojPath: AbsolutePath("/Foo/build").appending(component: "xcodeproj"),
+            graph: g,
+            extraDirs: [],
+            extraFiles: [],
+            options: XcodeprojOptions(),
+            fileSystem: fs,
+            diagnostics: ObservabilitySystem.makeDiagnosticsEngine()
+        )
         XcodeProjectTester(project) { result in
             result.check(target: "Foo") { targetResult in
                 targetResult.check(productType: .framework)
@@ -236,8 +252,8 @@ class PackageGraphTests: XCTestCase {
             "/Bar/Sources/swift/main.swift"
         )
 
-        let diagnostics = DiagnosticsEngine()
-        let g = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        let observability = ObservabilitySystem.bootstrapForTesting()
+        let g = try loadPackageGraph(fs: fs,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Bar",
@@ -250,9 +266,17 @@ class PackageGraphTests: XCTestCase {
                     ]),
             ]
         )
-        XCTAssertNoDiagnostics(diagnostics)
+        XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let project = try xcodeProject(xcodeprojPath: AbsolutePath("/Bar/build").appending(component: "xcodeproj"), graph: g, extraDirs: [], extraFiles: [], options: XcodeprojOptions(), fileSystem: fs, diagnostics: diagnostics)
+        let project = try xcodeProject(
+            xcodeprojPath: AbsolutePath("/Bar/build").appending(component: "xcodeproj"),
+            graph: g,
+            extraDirs: [],
+            extraFiles: [],
+            options: XcodeprojOptions(),
+            fileSystem: fs,
+            diagnostics: ObservabilitySystem.makeDiagnosticsEngine()
+        )
         XcodeProjectTester(project) { result in
             result.check(target: "swift") { targetResult in
                 XCTAssertEqual(targetResult.target.buildSettings.common.OTHER_SWIFT_FLAGS ?? [], [
@@ -278,8 +302,8 @@ class PackageGraphTests: XCTestCase {
             "/Pkg/Tests/LibraryTests/aTest.swift"
         )
 
-        let diagnostics = DiagnosticsEngine()
-        let g = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        let observability = ObservabilitySystem.bootstrapForTesting()
+        let g = try loadPackageGraph(fs: fs,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Pkg",
@@ -292,9 +316,17 @@ class PackageGraphTests: XCTestCase {
                     ]),
             ]
         )
-        XCTAssertNoDiagnostics(diagnostics)
+        XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let project = try xcodeProject(xcodeprojPath: AbsolutePath.root.appending(component: "xcodeproj"), graph: g, extraDirs: [], extraFiles: [], options: XcodeprojOptions(), fileSystem: fs, diagnostics: diagnostics)
+        let project = try xcodeProject(
+            xcodeprojPath: AbsolutePath.root.appending(component: "xcodeproj"),
+            graph: g,
+            extraDirs: [],
+            extraFiles: [],
+            options: XcodeprojOptions(),
+            fileSystem: fs,
+            diagnostics: ObservabilitySystem.makeDiagnosticsEngine()
+        )
 
         XcodeProjectTester(project) { result in
             result.check(projectDir: "Pkg")
@@ -340,8 +372,8 @@ class PackageGraphTests: XCTestCase {
             "/end"
         )
 
-        let diagnostics = DiagnosticsEngine()
-        let graph = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        let observability = ObservabilitySystem.bootstrapForTesting()
+        let graph = try loadPackageGraph(fs: fs,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Foo",
@@ -361,7 +393,7 @@ class PackageGraphTests: XCTestCase {
                     ]),
             ]
         )
-        XCTAssertNoDiagnostics(diagnostics)
+        XCTAssertNoDiagnostics(observability.diagnostics)
 
         let generatedSchemes = try SchemesGenerator(
             graph: graph,
@@ -392,8 +424,8 @@ class PackageGraphTests: XCTestCase {
                 "/end"
             )
 
-            let diagnostics = DiagnosticsEngine()
-            let graph = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
+            let observability = ObservabilitySystem.bootstrapForTesting()
+            let graph = try loadPackageGraph(fs: fs,
                 manifests: [
                     Manifest.createV4Manifest(
                         name: "Foo",
@@ -405,10 +437,18 @@ class PackageGraphTests: XCTestCase {
                         ]),
                 ]
             )
-            XCTAssertNoDiagnostics(diagnostics)
+            XCTAssertNoDiagnostics(observability.diagnostics)
 
-            let project = try xcodeProject(xcodeprojPath: AbsolutePath("/Foo").appending(component: "xcodeproj"), graph: graph, extraDirs: [], extraFiles: [], options: XcodeprojOptions(), fileSystem: fs, diagnostics: diagnostics)
-            XCTAssertNoDiagnostics(diagnostics)
+            let project = try xcodeProject(
+                xcodeprojPath: AbsolutePath("/Foo").appending(component: "xcodeproj"),
+                graph: graph,
+                extraDirs: [],
+                extraFiles: [],
+                options: XcodeprojOptions(),
+                fileSystem: fs,
+                diagnostics: ObservabilitySystem.makeDiagnosticsEngine()
+            )
+            XCTAssertNoDiagnostics(observability.diagnostics)
 
             XcodeProjectTester(project) { result in
                 result.check(target: "a") { targetResult in

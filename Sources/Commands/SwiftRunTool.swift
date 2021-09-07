@@ -101,7 +101,7 @@ public struct SwiftRunTool: SwiftCommand {
 
     public func run(_ swiftTool: SwiftTool) throws {
         if options.shouldBuildTests && options.shouldSkipBuild {
-            swiftTool.diagnostics.emit(
+            DiagnosticsEmitter().emit(
               .mutuallyExclusiveArgumentsError(arguments: ["--build-tests", "--skip-build"]))
             throw ExitCode.failure
         }
@@ -122,7 +122,7 @@ public struct SwiftRunTool: SwiftCommand {
                 cacheBuildManifest: false,
                 packageGraphLoader: graphLoader,
                 pluginInvoker: { _ in [:] },
-                diagnostics: swiftTool.diagnostics,
+                diagnostics: ObservabilitySystem.makeDiagnosticsEngine(),
                 outputStream: swiftTool.outputStream
             )
 
@@ -162,14 +162,14 @@ public struct SwiftRunTool: SwiftCommand {
                 let lldbPath = try swiftTool.getToolchain().getLLDB()
                 try exec(path: lldbPath.pathString, args: ["--", pathRelativeToWorkingDirectory.pathString] + options.arguments)
             } catch let error as RunError {
-                swiftTool.diagnostics.emit(error)
+                DiagnosticsEmitter().emit(error)
                 throw ExitCode.failure
             }
 
         case .run:
             // Detect deprecated uses of swift run to interpret scripts.
             if let executable = options.executable, isValidSwiftFilePath(executable) {
-                swiftTool.diagnostics.emit(.runFileDeprecation)
+                DiagnosticsEmitter().emit(.runFileDeprecation)
                 // Redirect execution to the toolchain's swift executable.
                 let swiftInterpreterPath = try swiftTool.getToolchain().swiftInterpreterPath
                 // Prepend the script to interpret to the arguments.
@@ -201,7 +201,7 @@ public struct SwiftRunTool: SwiftCommand {
             } catch Diagnostics.fatalError {
                 throw ExitCode.failure
             } catch let error as RunError {
-                swiftTool.diagnostics.emit(error)
+                DiagnosticsEmitter().emit(error)
                 throw ExitCode.failure
             }
         }
@@ -271,8 +271,8 @@ public struct SwiftRunTool: SwiftCommand {
     public init() {}
 }
 
-private extension Diagnostic.Message {
-    static var runFileDeprecation: Diagnostic.Message {
+private extension DiagnosticMessage {
+    static var runFileDeprecation: Self {
         .warning("'swift run file.swift' command to interpret swift files is deprecated; use 'swift file.swift' instead")
     }
 }

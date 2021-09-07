@@ -8,12 +8,12 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import XCTest
-import SPMTestSupport
-
-import TSCBasic
+import Basics
 import PackageModel
 import PackageLoading
+import SPMTestSupport
+import TSCBasic
+import XCTest
 
 class TargetSourcesBuilderTests: XCTestCase {
     func testBasicFileContentsComputation() throws {
@@ -43,17 +43,17 @@ class TargetSourcesBuilderTests: XCTestCase {
             "/some/path/toBeCopied/cool/hello.swift",
         ])
 
-        let diags = DiagnosticsEngine()
+        let observability = ObservabilitySystem.bootstrapForTesting()
 
         let builder = TargetSourcesBuilder(
-            packageName: "",
+            packageIdentity: .plain("test"),
+            packageLocation: "test",
             packagePath: .root,
             target: target,
             path: .root,
             defaultLocalization: nil,
             toolsVersion: .v5,
-            fs: fs,
-            diags: diags
+            fileSystem: fs
         )
 
         let contents = builder.computeContents().map{ $0.pathString }.sorted()
@@ -68,7 +68,7 @@ class TargetSourcesBuilderTests: XCTestCase {
             "/some/path/toBeCopied",
         ])
 
-        XCTAssertNoDiagnostics(diags)
+        XCTAssertNoDiagnostics(observability.diagnostics)
     }
 
     func testDirectoryWithExt() throws {
@@ -87,17 +87,17 @@ class TargetSourcesBuilderTests: XCTestCase {
             "/Hello.something/hello.txt",
         ])
 
-        let diags = DiagnosticsEngine()
+        let observability = ObservabilitySystem.bootstrapForTesting()
 
         let builder = TargetSourcesBuilder(
-            packageName: "",
+            packageIdentity: .plain("test"),
+            packageLocation: "test",
             packagePath: .root,
             target: target,
             path: .root,
             defaultLocalization: nil,
             toolsVersion: .v5_3,
-            fs: fs,
-            diags: diags
+            fileSystem: fs
         )
 
         let contents = builder.computeContents().map{ $0.pathString }.sorted()
@@ -106,7 +106,7 @@ class TargetSourcesBuilderTests: XCTestCase {
             "/Hello.something",
         ])
 
-        XCTAssertNoDiagnostics(diags)
+        XCTAssertNoDiagnostics(observability.diagnostics)
     }
 
     func testBasicRuleApplication() throws {
@@ -196,9 +196,9 @@ class TargetSourcesBuilderTests: XCTestCase {
             )
 
             build(target: target, toolsVersion: .v5_3, fs: fs) { _, _, _, _, diagnostics in
-                diagnostics.check(diagnostic: "multiple resources named 'foo.txt' in target 'Foo'", behavior: .error)
-                diagnostics.checkUnordered(diagnostic: "found 'Resources/foo.txt'", behavior: .note)
-                diagnostics.checkUnordered(diagnostic: "found 'Resources/Sub/foo.txt'", behavior: .note)
+                diagnostics.check(diagnostic: "multiple resources named 'foo.txt' in target 'Foo'", severity: .error, context: "'test' /test")
+                diagnostics.checkUnordered(diagnostic: "found 'Resources/foo.txt'", severity: .note, context: "'test' /test")
+                diagnostics.checkUnordered(diagnostic: "found 'Resources/Sub/foo.txt'", severity: .note, context: "'test' /test")
             }
         }
 
@@ -216,9 +216,9 @@ class TargetSourcesBuilderTests: XCTestCase {
             )
 
             build(target: target, toolsVersion: .v5_3, fs: fs) { _, _, _, _, diagnostics in
-                diagnostics.check(diagnostic: "multiple resources named 'foo.txt' in target 'Foo'", behavior: .error)
-                diagnostics.checkUnordered(diagnostic: "found 'Processed/foo.txt'", behavior: .note)
-                diagnostics.checkUnordered(diagnostic: "found 'Copied/foo.txt'", behavior: .note)
+                diagnostics.check(diagnostic: "multiple resources named 'foo.txt' in target 'Foo'", severity: .error, context: "'test' /test")
+                diagnostics.checkUnordered(diagnostic: "found 'Processed/foo.txt'", severity: .note, context: "'test' /test")
+                diagnostics.checkUnordered(diagnostic: "found 'Copied/foo.txt'", severity: .note, context: "'test' /test")
             }
         }
 
@@ -254,9 +254,9 @@ class TargetSourcesBuilderTests: XCTestCase {
             )
 
             build(target: target, toolsVersion: .v5_3, fs: fs) { _, _, _, _, diagnostics in
-                diagnostics.check(diagnostic: "multiple resources named 'Copy' in target 'Foo'", behavior: .error)
-                diagnostics.checkUnordered(diagnostic: "found 'A/Copy'", behavior: .note)
-                diagnostics.checkUnordered(diagnostic: "found 'B/Copy'", behavior: .note)
+                diagnostics.check(diagnostic: "multiple resources named 'Copy' in target 'Foo'", severity: .error, context: "'test' /test")
+                diagnostics.checkUnordered(diagnostic: "found 'A/Copy'", severity: .note, context: "'test' /test")
+                diagnostics.checkUnordered(diagnostic: "found 'B/Copy'", severity: .note, context: "'test' /test")
             }
         }
 
@@ -274,9 +274,9 @@ class TargetSourcesBuilderTests: XCTestCase {
             )
 
             build(target: target, toolsVersion: .v5_3, fs: fs) { _, _, _, _, diagnostics in
-                diagnostics.check(diagnostic: "multiple resources named 'en.lproj/foo.txt' in target 'Foo'", behavior: .error)
-                diagnostics.checkUnordered(diagnostic: "found 'A/en.lproj/foo.txt'", behavior: .note)
-                diagnostics.checkUnordered(diagnostic: "found 'B/EN.lproj/foo.txt'", behavior: .note)
+                diagnostics.check(diagnostic: "multiple resources named 'en.lproj/foo.txt' in target 'Foo'", severity: .error, context: "'test' /test")
+                diagnostics.checkUnordered(diagnostic: "found 'A/en.lproj/foo.txt'", severity: .note, context: "'test' /test")
+                diagnostics.checkUnordered(diagnostic: "found 'B/EN.lproj/foo.txt'", severity: .note, context: "'test' /test")
             }
         }
 
@@ -294,7 +294,7 @@ class TargetSourcesBuilderTests: XCTestCase {
             )
 
             build(target: target, toolsVersion: .v5_3, fs: fs) { _, _, _, _, diagnostics in
-                diagnostics.check(diagnostic: "resource 'B/en.lproj' in target 'Foo' conflicts with other localization directories", behavior: .error)
+                diagnostics.check(diagnostic: "resource 'B/en.lproj' in target 'Foo' conflicts with other localization directories", severity: .error, context: "'test' /test")
             }
         }
     }
@@ -324,7 +324,7 @@ class TargetSourcesBuilderTests: XCTestCase {
         )
 
         build(target: target, toolsVersion: .v5_3, fs: fs) { _, _, _, _, diagnostics in
-            diagnostics.check(diagnostic: "localization directory 'Processed/en.lproj' in target 'Foo' contains sub-directories, which is forbidden", behavior: .error)
+            diagnostics.check(diagnostic: "localization directory 'Processed/en.lproj' in target 'Foo' contains sub-directories, which is forbidden", severity: .error, context: "'test' /test")
         }
     }
 
@@ -343,7 +343,9 @@ class TargetSourcesBuilderTests: XCTestCase {
                     resource 'Resources/en.lproj/Localizable.strings' in target 'Foo' is in a localization directory \
                     and has an explicit localization declaration
                     """),
-                behavior: .error)
+                severity: .error,
+                context: "'test' /test"
+            )
         }
     }
 
@@ -367,7 +369,9 @@ class TargetSourcesBuilderTests: XCTestCase {
         build(target: target, defaultLocalization: "fr", toolsVersion: .v5_3, fs: fs) { _, _, _, _, diagnostics in
             diagnostics.check(
                 diagnostic: .contains("resource 'Icon.png' in target 'Foo' is missing the default localization 'fr'"),
-                behavior: .warning)
+                severity: .warning,
+                context: "'test' /test"
+            )
         }
     }
 
@@ -392,16 +396,20 @@ class TargetSourcesBuilderTests: XCTestCase {
         build(target: target, toolsVersion: .v5_3, fs: fs) { _, _, _, _, diagnostics in
             diagnostics.checkUnordered(
                 diagnostic: .contains("resource 'Localizable.strings' in target 'Foo' has both localized and un-localized variants"),
-                behavior: .warning)
+                severity: .warning,
+                context: "'test' /test")
             diagnostics.checkUnordered(
                 diagnostic: .contains("resource 'Storyboard.storyboard' in target 'Foo' has both localized and un-localized variants"),
-                behavior: .warning)
+                severity: .warning,
+                context: "'test' /test")
             diagnostics.checkUnordered(
                 diagnostic: .contains("resource 'Image.png' in target 'Foo' has both localized and un-localized variants"),
-                behavior: .warning)
+                severity: .warning,
+                context: "'test' /test")
             diagnostics.checkUnordered(
                 diagnostic: .contains("resource 'Icon.png' in target 'Foo' has both localized and un-localized variants"),
-                behavior: .warning)
+                severity: .warning,
+                context: "'test' /test")
         }
     }
 
@@ -467,7 +475,9 @@ class TargetSourcesBuilderTests: XCTestCase {
             build(target: target, toolsVersion: .v5_3, fs: fs) { _, _, _, _, diagnostics in
                 diagnostics.check(
                     diagnostic: .contains("resource 'Resources/Processed/Info.plist' in target 'Foo' is forbidden"),
-                    behavior: .error)
+                    severity: .error,
+                    context: "'test' /test"
+                )
             }
         }
 
@@ -483,7 +493,9 @@ class TargetSourcesBuilderTests: XCTestCase {
             build(target: target, toolsVersion: .v5_3, fs: fs) { _, _, _, _, diagnostics in
                 diagnostics.check(
                     diagnostic: .contains("resource 'Resources/Copied/Info.plist' in target 'Foo' is forbidden"),
-                    behavior: .error)
+                    severity: .error,
+                    context: "'test' /test"
+                )
             }
         }
     }
@@ -496,25 +508,25 @@ class TargetSourcesBuilderTests: XCTestCase {
         fs: FileSystem,
         file: StaticString = #file,
         line: UInt = #line,
-        checker: (Sources, [Resource], [AbsolutePath], [AbsolutePath], DiagnosticsEngineResult) -> ()
+        checker: (Sources, [Resource], [AbsolutePath], [AbsolutePath], DiagnosticsTestResult) -> ()
     ) {
-        let diagnostics = DiagnosticsEngine()
+        let observability = ObservabilitySystem.bootstrapForTesting()
         let builder = TargetSourcesBuilder(
-            packageName: "",
+            packageIdentity: .plain("test"),
+            packageLocation: "/test",
             packagePath: .root,
             target: target,
             path: .root,
             defaultLocalization: defaultLocalization,
             additionalFileRules: additionalFileRules,
             toolsVersion: toolsVersion,
-            fs: fs,
-            diags: diagnostics
+            fileSystem: fs
         )
 
         do {
             let (sources, resources, headers, others) = try builder.run()
 
-            DiagnosticsEngineTester(diagnostics, file: file, line: line) { diagnostics in
+            testDiagnostics(observability.diagnostics, file: file, line: line) { diagnostics in
                 checker(sources, resources, headers, others, diagnostics)
             }
         } catch {
@@ -539,22 +551,22 @@ class TargetSourcesBuilderTests: XCTestCase {
             "/Bar.swift"
         ])
 
-        let diags = DiagnosticsEngine()
+        let observability = ObservabilitySystem.bootstrapForTesting()
 
         let _ = TargetSourcesBuilder(
-            packageName: "",
+            packageIdentity: .plain("test"),
+            packageLocation: "/test",
             packagePath: .root,
             target: target,
             path: .root,
             defaultLocalization: nil,
             toolsVersion: .v5,
-            fs: fs,
-            diags: diags
+            fileSystem: fs
         )
 
-        DiagnosticsEngineTester(diags) { result in
-            result.checkUnordered(diagnostic: "Invalid Exclude '/fileOutsideRoot.py': File not found.", behavior: .warning)
-            result.checkUnordered(diagnostic: "Invalid Exclude '/fakeDir': File not found.", behavior: .warning)
+        testDiagnostics(observability.diagnostics) { result in
+            result.checkUnordered(diagnostic: "Invalid Exclude '/fileOutsideRoot.py': File not found.", severity: .warning, context: "'test' /test")
+            result.checkUnordered(diagnostic: "Invalid Exclude '/fakeDir': File not found.", severity: .warning, context: "'test' /test")
         }
     }
     
@@ -576,23 +588,23 @@ class TargetSourcesBuilderTests: XCTestCase {
             "/Bar.swift"
         ])
 
-        let diags = DiagnosticsEngine()
+        let observability = ObservabilitySystem.bootstrapForTesting()
 
         let builder = TargetSourcesBuilder(
-            packageName: "",
+            packageIdentity: .plain("test"),
+            packageLocation: "/test",
             packagePath: .root,
             target: target,
             path: .root,
             defaultLocalization: nil,
             toolsVersion: .v5,
-            fs: fs,
-            diags: diags
+            fileSystem: fs
         )
         _ = try builder.run()
 
-        DiagnosticsEngineTester(diags) { result in
-            result.checkUnordered(diagnostic: "Invalid Resource '../../../Fake.txt': File not found.", behavior: .warning)
-            result.checkUnordered(diagnostic: "Invalid Resource 'NotReal': File not found.", behavior: .warning)
+        testDiagnostics(observability.diagnostics) { result in
+            result.checkUnordered(diagnostic: "Invalid Resource '../../../Fake.txt': File not found.", severity: .warning, context: "'test' /test")
+            result.checkUnordered(diagnostic: "Invalid Resource 'NotReal': File not found.", severity: .warning, context: "'test' /test")
         }
     }
     
@@ -615,23 +627,23 @@ class TargetSourcesBuilderTests: XCTestCase {
             "/Bar.swift"
         ])
 
-        let diags = DiagnosticsEngine()
+        let observability = ObservabilitySystem.bootstrapForTesting()
 
         let _ = TargetSourcesBuilder(
-            packageName: "",
+            packageIdentity: .plain("test"),
+            packageLocation: "/test",
             packagePath: .root,
             target: target,
             path: .root,
             defaultLocalization: nil,
             toolsVersion: .v5,
-            fs: fs,
-            diags: diags
+            fileSystem: fs
         )
 
-        DiagnosticsEngineTester(diags) { result in
-            result.checkUnordered(diagnostic: "Invalid Source '/InvalidPackage.swift': File not found.", behavior: .warning)
-            result.checkUnordered(diagnostic: "Invalid Source '/DoesNotExist.swift': File not found.", behavior: .warning)
-            result.checkUnordered(diagnostic: "Invalid Source '/Tests/InvalidPackageTests/InvalidPackageTests.swift': File not found.", behavior: .warning)
+        testDiagnostics(observability.diagnostics) { result in
+            result.checkUnordered(diagnostic: "Invalid Source '/InvalidPackage.swift': File not found.", severity: .warning, context: "'test' /test")
+            result.checkUnordered(diagnostic: "Invalid Source '/DoesNotExist.swift': File not found.", severity: .warning, context: "'test' /test")
+            result.checkUnordered(diagnostic: "Invalid Source '/Tests/InvalidPackageTests/InvalidPackageTests.swift': File not found.", severity: .warning, context: "'test' /test")
         }
     }
 
@@ -652,22 +664,22 @@ class TargetSourcesBuilderTests: XCTestCase {
             "/Foo.xcdatamodel"
         ])
 
-        let diags = DiagnosticsEngine()
+        let observability = ObservabilitySystem.bootstrapForTesting()
 
         let builder = TargetSourcesBuilder(
-            packageName: "",
+            packageIdentity: .plain("test"),
+            packageLocation: "/test",
             packagePath: .root,
             target: target,
             path: .root,
             defaultLocalization: nil,
             toolsVersion: .v5_5,
-            fs: fs,
-            diags: diags
+            fileSystem: fs
         )
         _ = try builder.run()
 
-        DiagnosticsEngineTester(diags) { result in
-            result.check(diagnostic: "found 1 file(s) which are unhandled; explicitly declare them as resources or exclude from the target\n    /Foo.xcdatamodel\n", behavior: .warning)
+        testDiagnostics(observability.diagnostics) { result in
+            result.check(diagnostic: "found 1 file(s) which are unhandled; explicitly declare them as resources or exclude from the target\n    /Foo.xcdatamodel\n", severity: .warning, context: "'test' /test")
         }
     }
 
@@ -688,21 +700,21 @@ class TargetSourcesBuilderTests: XCTestCase {
             "/Foo.docc"
         ])
 
-        let diags = DiagnosticsEngine()
+        let observability = ObservabilitySystem.bootstrapForTesting()
 
         let builder = TargetSourcesBuilder(
-            packageName: "",
+            packageIdentity: .plain("test"),
+            packageLocation: "test",
             packagePath: .root,
             target: target,
             path: .root,
             defaultLocalization: nil,
             additionalFileRules: FileRuleDescription.swiftpmFileTypes,
             toolsVersion: .v5_5,
-            fs: fs,
-            diags: diags
+            fileSystem: fs
         )
         _ = try builder.run()
 
-        XCTAssertNoDiagnostics(diags)
+        XCTAssertNoDiagnostics(observability.diagnostics)
     }
 }

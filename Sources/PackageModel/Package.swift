@@ -13,6 +13,7 @@ import TSCUtility
 
 // Re-export Version from PackageModel, since it is a key part of the model.
 @_exported import struct TSCUtility.Version
+import Basics
 
 /// The basic package representation.
 ///
@@ -106,8 +107,15 @@ public final class Package: ObjectIdentifierProtocol, Encodable {
 }
 
 extension Package {
+    @available(*, deprecated, message: "use DiagnosticsContext instead")
     public var diagnosticLocation: DiagnosticLocation {
         return PackageLocation.Local(name: self.manifest.name, packagePath: self.path)
+    }
+}
+
+extension Package {
+    public var diagnosticsContext: DiagnosticsContext {
+        return PackageDiagnosticsContext(identity: self.identity, location: self.manifest.packageLocation)
     }
 }
 
@@ -127,5 +135,19 @@ extension Package.Error: CustomStringConvertible {
             }
             return string
         }
+    }
+}
+
+public struct PackageDiagnosticsContext: DiagnosticsContext {
+    public init(identity: PackageIdentity, location: String) {
+        self.identity = identity
+        self.location = location
+    }
+
+    public let identity: PackageIdentity
+    public let location: String
+
+    public var description: String {
+        return "'\(identity)' \(location)"
     }
 }

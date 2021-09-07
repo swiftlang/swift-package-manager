@@ -15,6 +15,7 @@ import PackageGraph
 import TSCBasic
 import TSCUtility
 
+public typealias Diagnostic = TSCBasic.Diagnostic
 
 extension PackageGraph {
 

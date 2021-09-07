@@ -9,8 +9,8 @@
 */
 
 import Basics
-import PackageModel
 import PackageLoading
+import PackageModel
 import SPMTestSupport
 import TSCBasic
 import TSCUtility
@@ -466,8 +466,8 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             """
 
         XCTAssertManifestLoadThrows(manifest) { _, diagnostics in
-            diagnostics.check(diagnostic: .regex("duplicate dependency 'foo(1|2)'"), behavior: .error)
-            diagnostics.check(diagnostic: .regex("duplicate dependency 'foo(1|2)'"), behavior: .error)
+            diagnostics.check(diagnostic: .regex("duplicate dependency 'foo(1|2)'"), severity: .error)
+            diagnostics.check(diagnostic: .regex("duplicate dependency 'foo(1|2)'"), severity: .error)
         }
     }
 
@@ -740,7 +740,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             """
 
         XCTAssertManifestLoadThrows(manifest) { _, diagnostics in
-            diagnostics.check(diagnostic: "target 'B' referenced in product 'Product' could not be found; valid targets are: 'A', 'C', 'b'", behavior: .error)
+            diagnostics.check(diagnostic: "target 'B' referenced in product 'Product' could not be found; valid targets are: 'A', 'C', 'b'", severity: .error)
         }
     }
 
@@ -793,7 +793,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                     """
             }
 
-            let diagnostics = DiagnosticsEngine()
+            let observability = ObservabilitySystem.bootstrapForTesting()
             let delegate = ManifestTestDelegate()
             let manifestLoader = ManifestLoader(toolchain: ToolchainConfiguration.default, cacheDir: path, delegate: delegate)
             let identityResolver = DefaultIdentityResolver()
@@ -826,7 +826,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                                     toolsVersion: .v4_2,
                                     identityResolver: identityResolver,
                                     fileSystem: localFileSystem,
-                                    diagnostics: diagnostics,
+                                    diagnostics: ObservabilitySystem.makeDiagnosticsEngine(),
                                     on: .global()) { result in
                     defer { sync.leave() }
 
@@ -845,8 +845,8 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             }
 
             XCTAssertEqual(delegate.loaded.count, total+1)
-            XCTAssertFalse(diagnostics.hasWarnings, diagnostics.description)
-            XCTAssertFalse(diagnostics.hasErrors, diagnostics.description)
+            XCTAssertFalse(observability.hasWarningDiagnostics, observability.diagnostics.description)
+            XCTAssertFalse(observability.hasErrorDiagnostics, observability.diagnostics.description)
         }
     }
 
@@ -855,7 +855,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
         let total = 1000
         try testWithTemporaryDirectory { path in
 
-            let diagnostics = DiagnosticsEngine()
+            let observability = ObservabilitySystem.bootstrapForTesting()
             let delegate = ManifestTestDelegate()
             let manifestLoader = ManifestLoader(toolchain: ToolchainConfiguration.default, cacheDir: path, delegate: delegate)
             let identityResolver = DefaultIdentityResolver()
@@ -890,7 +890,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                                     toolsVersion: .v4_2,
                                     identityResolver: identityResolver,
                                     fileSystem: localFileSystem,
-                                    diagnostics: diagnostics,
+                                    diagnostics: ObservabilitySystem.makeDiagnosticsEngine(),
                                     on: .global()) { result in
                     defer { sync.leave() }
 
@@ -909,8 +909,8 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             }
 
             XCTAssertEqual(delegate.loaded.count, total)
-            XCTAssertFalse(diagnostics.hasWarnings, diagnostics.description)
-            XCTAssertFalse(diagnostics.hasErrors, diagnostics.description)
+            XCTAssertFalse(observability.hasWarningDiagnostics, observability.diagnostics.description)
+            XCTAssertFalse(observability.hasErrorDiagnostics, observability.diagnostics.description)
         }
     }
 

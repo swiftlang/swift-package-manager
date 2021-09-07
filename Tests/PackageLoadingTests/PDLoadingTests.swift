@@ -8,13 +8,13 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-import XCTest
-
+import Basics
+import PackageLoading
+import PackageModel
+import SPMTestSupport
 import TSCBasic
 import TSCUtility
-import SPMTestSupport
-import PackageModel
-import PackageLoading
+import XCTest
 
 class PackageDescriptionLoadingTests: XCTestCase {
     let manifestLoader = ManifestLoader(toolchain: ToolchainConfiguration.default)
@@ -109,21 +109,21 @@ class PackageDescriptionLoadingTests: XCTestCase {
         packageKind: PackageReference.Kind = .local,
         file: StaticString = #file,
         line: UInt = #line,
-        onSuccess: ((Manifest, DiagnosticsEngineResult) -> Void)? = nil
+        onSuccess: ((Manifest, DiagnosticsTestResult) -> Void)? = nil
     ) {
-        let diagnostics = DiagnosticsEngine()
+        let observability = ObservabilitySystem.bootstrapForTesting()
         
         do {
             let manifest = try loadManifest(
                 contents,
                 toolsVersion: toolsVersion ?? self.toolsVersion,
                 packageKind: packageKind,
-                diagnostics: diagnostics,
+                diagnostics: ObservabilitySystem.makeDiagnosticsEngine(),
                 file: file,
                 line: line)
             
             if let onSuccess = onSuccess {
-                DiagnosticsEngineTester(diagnostics) { result in
+                testDiagnostics(observability.diagnostics) { result in
                     onSuccess(manifest, result)
                 }
             }
@@ -138,23 +138,23 @@ class PackageDescriptionLoadingTests: XCTestCase {
         packageKind: PackageReference.Kind = .local,
         file: StaticString = #file,
         line: UInt = #line,
-        onCatch: ((Error, DiagnosticsEngineResult) -> Void)? = nil
+        onCatch: ((Error, DiagnosticsTestResult) -> Void)? = nil
     ) {
-        let diagnostics = DiagnosticsEngine()
+        let observability = ObservabilitySystem.bootstrapForTesting()
         
         do {
             let manifest = try loadManifest(
                 contents,
                 toolsVersion: toolsVersion ?? self.toolsVersion,
                 packageKind: packageKind,
-                diagnostics: diagnostics,
+                diagnostics: ObservabilitySystem.makeDiagnosticsEngine(),
                 file: file,
                 line: line)
             
             XCTFail("Unexpected success: \(manifest)", file: file, line: line)
         } catch {
             if let onCatch = onCatch {
-                DiagnosticsEngineTester(diagnostics, file: file, line: line) { result in
+                testDiagnostics(observability.diagnostics, file: file, line: line) { result in
                     onCatch(error, result)
                 }
             }
@@ -168,7 +168,7 @@ class PackageDescriptionLoadingTests: XCTestCase {
         packageKind: PackageReference.Kind = .local,
         file: StaticString = #file,
         line: UInt = #line,
-        onCatch: ((DiagnosticsEngineResult) -> Void)? = nil
+        onCatch: ((DiagnosticsTestResult) -> Void)? = nil
     ) {
         XCTAssertManifestLoadThrows(contents, toolsVersion: toolsVersion, file: file, line: line) { error, result in
             if let typedError = error as? E, typedError == expectedError {

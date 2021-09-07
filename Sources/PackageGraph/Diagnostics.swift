@@ -8,14 +8,14 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import TSCBasic
+import Basics
 
-extension Diagnostic.Message {
-    static func unusedDependency(_ name: String) -> Diagnostic.Message {
+extension DiagnosticMessage {
+    static func unusedDependency(_ name: String) -> Self {
         .warning("dependency '\(name)' is not used by any target")
     }
 
-    static func productUsesUnsafeFlags(product: String, target: String) -> Diagnostic.Message {
+    static func productUsesUnsafeFlags(product: String, target: String) -> Self {
         .error("the target '\(target)' in product '\(product)' contains unsafe build flags")
     }
 }

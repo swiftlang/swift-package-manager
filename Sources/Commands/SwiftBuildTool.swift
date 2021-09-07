@@ -101,7 +101,7 @@ public struct SwiftBuildTool: SwiftCommand {
         checkClangVersion()
       #endif
 
-        guard let subset = options.buildSubset(diagnostics: swiftTool.diagnostics)
+        guard let subset = options.buildSubset(diagnostics: ObservabilitySystem.makeDiagnosticsEngine())
             else { throw ExitCode.failure }
         let buildSystem = try swiftTool.createBuildSystem(explicitProduct: options.product)
         do {
@@ -128,10 +128,17 @@ public struct SwiftBuildTool: SwiftCommand {
     public init() {}
 }
 
+// FIXME: remove when further cleaning DiagnosticsEngine
 extension Diagnostic.Message {
     //FIXME: Can we move this functionality into the argument parser?
     /// Diagnostic error when a command is run with several arguments that are mutually exclusive.
     static func mutuallyExclusiveArgumentsError(arguments: [String]) -> Diagnostic.Message {
         .error(arguments.map{ "'\($0)'" }.spm_localizedJoin(type: .conjunction) + " are mutually exclusive")
+    }
+}
+
+extension DiagnosticMessage {
+    static func mutuallyExclusiveArgumentsError(arguments: [String]) -> Self {
+        .error(Diagnostic.Message.mutuallyExclusiveArgumentsError(arguments: arguments).text)
     }
 }

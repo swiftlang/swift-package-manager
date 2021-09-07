@@ -8,12 +8,12 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import XCTest
-
-import TSCBasic
+import Basics
 import PackageGraph
 import PackageModel
 import SPMTestSupport
+import TSCBasic
+import XCTest
 
 class PackageGraphTests: XCTestCase {
 
@@ -27,8 +27,8 @@ class PackageGraphTests: XCTestCase {
             "/Baz/Tests/BazTests/source.swift"
         )
 
-        let diagnostics = DiagnosticsEngine()
-        let g = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        let observability = ObservabilitySystem.bootstrapForTesting()
+        let g = try loadPackageGraph(fs: fs,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Foo",
@@ -67,7 +67,7 @@ class PackageGraphTests: XCTestCase {
             ]
         )
 
-        XCTAssertNoDiagnostics(diagnostics)
+        XCTAssertNoDiagnostics(observability.diagnostics)
         PackageGraphTester(g) { result in
             result.check(packages: "Bar", "Foo", "Baz")
             result.check(targets: "Bar", "Foo", "Baz", "FooDep")
@@ -94,8 +94,8 @@ class PackageGraphTests: XCTestCase {
             "/Bar/Source/CBar/module.modulemap"
         )
 
-        let diagnostics = DiagnosticsEngine()
-        let g = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        let observability = ObservabilitySystem.bootstrapForTesting()
+        let g = try loadPackageGraph(fs: fs,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Foo",
@@ -122,7 +122,7 @@ class PackageGraphTests: XCTestCase {
             ]
         )
 
-        XCTAssertNoDiagnostics(diagnostics)
+        XCTAssertNoDiagnostics(observability.diagnostics)
         PackageGraphTester(g) { result in
             result.check(packages: "Bar", "Foo")
             result.check(targets: "Bar", "CBar", "Foo")
@@ -138,8 +138,8 @@ class PackageGraphTests: XCTestCase {
             "/Baz/Sources/Baz/source.swift"
         )
 
-        let diagnostics = DiagnosticsEngine()
-        _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        let observability = ObservabilitySystem.bootstrapForTesting()
+        _ = try loadPackageGraph(fs: fs,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Foo",
@@ -180,8 +180,8 @@ class PackageGraphTests: XCTestCase {
             ]
         )
 
-        DiagnosticsEngineTester(diagnostics) { result in
-            result.check(diagnostic: "cyclic dependency declaration found: Foo -> Bar -> Baz -> Bar", behavior: .error)
+        testDiagnostics(observability.diagnostics) { result in
+            result.check(diagnostic: "cyclic dependency declaration found: Foo -> Bar -> Baz -> Bar", severity: .error)
         }
     }
 
@@ -192,8 +192,8 @@ class PackageGraphTests: XCTestCase {
             "/Baz/Sources/Baz/source.swift"
         )
 
-        let diagnostics = DiagnosticsEngine()
-        _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        let observability = ObservabilitySystem.bootstrapForTesting()
+        _ = try loadPackageGraph(fs: fs,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Foo",
@@ -208,8 +208,8 @@ class PackageGraphTests: XCTestCase {
             ]
         )
 
-        DiagnosticsEngineTester(diagnostics) { result in
-            result.check(diagnostic: "cyclic dependency declaration found: Foo -> Foo", behavior: .error)
+        testDiagnostics(observability.diagnostics) { result in
+            result.check(diagnostic: "cyclic dependency declaration found: Foo -> Foo", severity: .error)
         }
     }
 
@@ -223,8 +223,8 @@ class PackageGraphTests: XCTestCase {
             "/Bar/Tests/BarTests/source.swift"
         )
 
-        let diagnostics = DiagnosticsEngine()
-        let g = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        let observability = ObservabilitySystem.bootstrapForTesting()
+        let g = try loadPackageGraph(fs: fs,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Bar",
@@ -251,7 +251,7 @@ class PackageGraphTests: XCTestCase {
             ]
         )
 
-        XCTAssertNoDiagnostics(diagnostics)
+        XCTAssertNoDiagnostics(observability.diagnostics)
         PackageGraphTester(g) { result in
             result.check(packages: "Bar", "Foo")
             result.check(targets: "Bar", "Foo")
@@ -265,8 +265,8 @@ class PackageGraphTests: XCTestCase {
             "/Bar/Sources/Bar/source.swift"
         )
 
-        let diagnostics = DiagnosticsEngine()
-        _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        let observability = ObservabilitySystem.bootstrapForTesting()
+        _ = try loadPackageGraph(fs: fs,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Foo",
@@ -288,8 +288,8 @@ class PackageGraphTests: XCTestCase {
             ]
         )
 
-        DiagnosticsEngineTester(diagnostics) { result in
-            result.check(diagnostic: "multiple targets named 'Bar' in: 'bar', 'foo'", behavior: .error)
+        testDiagnostics(observability.diagnostics) { result in
+            result.check(diagnostic: "multiple targets named 'Bar' in: 'bar', 'foo'", severity: .error)
         }
     }
 
@@ -301,8 +301,8 @@ class PackageGraphTests: XCTestCase {
             "/First/Sources/First/source.swift"
         )
 
-        let diagnostics = DiagnosticsEngine()
-        _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        let observability = ObservabilitySystem.bootstrapForTesting()
+        _ = try loadPackageGraph(fs: fs,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Fourth",
@@ -349,8 +349,8 @@ class PackageGraphTests: XCTestCase {
             ]
         )
 
-        DiagnosticsEngineTester(diagnostics) { result in
-            result.check(diagnostic: "multiple targets named 'First' in: 'first', 'fourth', 'second', 'third'", behavior: .error)
+        testDiagnostics(observability.diagnostics) { result in
+            result.check(diagnostic: "multiple targets named 'First' in: 'first', 'fourth', 'second', 'third'", severity: .error)
         }
     }
 
@@ -362,8 +362,8 @@ class PackageGraphTests: XCTestCase {
             "/First/Sources/Foo/source.swift"
         )
 
-        let diagnostics = DiagnosticsEngine()
-        _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        let observability = ObservabilitySystem.bootstrapForTesting()
+        _ = try loadPackageGraph(fs: fs,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Fourth",
@@ -410,9 +410,9 @@ class PackageGraphTests: XCTestCase {
             ]
         )
 
-        DiagnosticsEngineTester(diagnostics) { result in
-            result.check(diagnostic: "multiple targets named 'Bar' in: 'fourth', 'third'", behavior: .error)
-            result.check(diagnostic: "multiple targets named 'Foo' in: 'first', 'second'", behavior: .error)
+        testDiagnostics(observability.diagnostics) { result in
+            result.check(diagnostic: "multiple targets named 'Bar' in: 'fourth', 'third'", severity: .error)
+            result.check(diagnostic: "multiple targets named 'Foo' in: 'first', 'second'", severity: .error)
         }
     }
 
@@ -424,8 +424,8 @@ class PackageGraphTests: XCTestCase {
             "/First/Sources/First/source.swift"
         )
 
-        let diagnostics = DiagnosticsEngine()
-        _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        let observability = ObservabilitySystem.bootstrapForTesting()
+        _ = try loadPackageGraph(fs: fs,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Fourth",
@@ -479,8 +479,8 @@ class PackageGraphTests: XCTestCase {
             ]
         )
 
-        DiagnosticsEngineTester(diagnostics) { result in
-            result.check(diagnostic: "multiple targets named 'First' in: 'first', 'fourth'", behavior: .error)
+        testDiagnostics(observability.diagnostics) { result in
+            result.check(diagnostic: "multiple targets named 'First' in: 'first', 'fourth'", severity: .error)
         }
     }
 
@@ -490,8 +490,8 @@ class PackageGraphTests: XCTestCase {
             "/Bar/Sources/Bar/source.txt"
         )
 
-        let diagnostics = DiagnosticsEngine()
-        _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        let observability = ObservabilitySystem.bootstrapForTesting()
+        _ = try loadPackageGraph(fs: fs,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Foo",
@@ -516,9 +516,9 @@ class PackageGraphTests: XCTestCase {
             ]
         )
 
-        DiagnosticsEngineTester(diagnostics) { result in
-            result.check(diagnostic: "Source files for target Bar should be located under /Bar/Sources/Bar", behavior: .warning, location: "'Bar' /Bar")
-            result.check(diagnostic: "target 'Bar' referenced in product 'Bar' is empty", behavior: .error, location: "'Bar' /Bar")
+        testDiagnostics(observability.diagnostics) { result in
+            result.check(diagnostic: "Source files for target Bar should be located under /Bar/Sources/Bar", severity: .warning, context: "'bar' /Bar")
+            result.check(diagnostic: "target 'Bar' referenced in product 'Bar' is empty", severity: .error, context: "'bar' /Bar")
         }
     }
 
@@ -527,8 +527,8 @@ class PackageGraphTests: XCTestCase {
             "/Foo/Sources/FooTarget/foo.swift"
         )
 
-        let diagnostics = DiagnosticsEngine()
-        _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        let observability = ObservabilitySystem.bootstrapForTesting()
+        _ = try loadPackageGraph(fs: fs,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Foo",
@@ -540,8 +540,8 @@ class PackageGraphTests: XCTestCase {
             ]
         )
 
-        DiagnosticsEngineTester(diagnostics) { result in
-            result.check(diagnostic: "product 'Barx' required by package 'foo' target 'FooTarget' not found.", behavior: .error, location: "'Foo' /Foo")
+        testDiagnostics(observability.diagnostics) { result in
+            result.check(diagnostic: "product 'Barx' required by package 'foo' target 'FooTarget' not found.", severity: .error, context: "'foo' /Foo")
         }
     }
 
@@ -551,8 +551,8 @@ class PackageGraphTests: XCTestCase {
             "/Foo/Tests/FooTests/source.swift"
         )
 
-        let diagnostics = DiagnosticsEngine()
-        _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        let observability = ObservabilitySystem.bootstrapForTesting()
+        _ = try loadPackageGraph(fs: fs,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Foo",
@@ -568,8 +568,8 @@ class PackageGraphTests: XCTestCase {
             ]
         )
 
-        DiagnosticsEngineTester(diagnostics) { result in
-            result.check(diagnostic: "product 'Foo' is declared in the same package 'foo' and can't be used as a dependency for target 'FooTests'.", behavior: .error, location: "'Foo' /Foo")
+        testDiagnostics(observability.diagnostics) { result in
+            result.check(diagnostic: "product 'Foo' is declared in the same package 'foo' and can't be used as a dependency for target 'FooTests'.", severity: .error, context: "'foo' /Foo")
         }
     }
 
@@ -578,9 +578,8 @@ class PackageGraphTests: XCTestCase {
                 "/XYZ/Sources/XYZ/main.swift",
                 "/XYZ/Tests/XYZTests/tests.swift"
         )
-        let diagnostics = DiagnosticsEngine()
+        let observability = ObservabilitySystem.bootstrapForTesting()
         _ = try loadPackageGraph(fs: fs,
-                                 diagnostics: diagnostics,
                                  manifests: [
                     Manifest.createV4Manifest(
                         name: "XYZ",
@@ -592,7 +591,7 @@ class PackageGraphTests: XCTestCase {
                         ]),
                     ]
         )
-        DiagnosticsEngineTester(diagnostics) { _ in }
+        testDiagnostics(observability.diagnostics) { _ in }
     }
 
     func testSameProductAndTargetNames() throws {
@@ -601,8 +600,8 @@ class PackageGraphTests: XCTestCase {
             "/Foo/Tests/FooTests/source.swift"
         )
 
-        let diagnostics = DiagnosticsEngine()
-        _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        let observability = ObservabilitySystem.bootstrapForTesting()
+        _ = try loadPackageGraph(fs: fs,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Foo",
@@ -617,7 +616,7 @@ class PackageGraphTests: XCTestCase {
                     ]),
             ]
         )
-        DiagnosticsEngineTester(diagnostics) { _ in }
+        testDiagnostics(observability.diagnostics) { _ in }
     }
 
     func testProductDependencyNotFoundWithName() throws {
@@ -625,8 +624,8 @@ class PackageGraphTests: XCTestCase {
             "/Foo/Sources/FooTarget/foo.swift"
         )
 
-        let diagnostics = DiagnosticsEngine()
-        _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        let observability = ObservabilitySystem.bootstrapForTesting()
+        _ = try loadPackageGraph(fs: fs,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Foo",
@@ -640,8 +639,8 @@ class PackageGraphTests: XCTestCase {
             ]
         )
 
-        DiagnosticsEngineTester(diagnostics) { result in
-            result.check(diagnostic: "product 'Barx' required by package 'foo' target 'FooTarget' not found in package 'Bar'.", behavior: .error, location: "'Foo' /Foo")
+        testDiagnostics(observability.diagnostics) { result in
+            result.check(diagnostic: "product 'Barx' required by package 'foo' target 'FooTarget' not found in package 'Bar'.", severity: .error, context: "'foo' /Foo")
         }
     }
 
@@ -650,8 +649,8 @@ class PackageGraphTests: XCTestCase {
             "/Foo/Sources/FooTarget/foo.swift"
         )
 
-        let diagnostics = DiagnosticsEngine()
-        _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        let observability = ObservabilitySystem.bootstrapForTesting()
+        _ = try loadPackageGraph(fs: fs,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Foo",
@@ -665,8 +664,8 @@ class PackageGraphTests: XCTestCase {
             ]
         )
 
-        DiagnosticsEngineTester(diagnostics) { result in
-            result.check(diagnostic: "product 'Barx' required by package 'foo' target 'FooTarget' not found.", behavior: .error, location: "'Foo' /Foo")
+        testDiagnostics(observability.diagnostics) { result in
+            result.check(diagnostic: "product 'Barx' required by package 'foo' target 'FooTarget' not found.", severity: .error, context: "'foo' /Foo")
         }
     }
 
@@ -678,8 +677,8 @@ class PackageGraphTests: XCTestCase {
             "/FizPath/Sources/FizLib/fiz.swift"
         )
 
-        let diagnostics = DiagnosticsEngine()
-        _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        let observability = ObservabilitySystem.bootstrapForTesting()
+        _ = try loadPackageGraph(fs: fs,
             manifests: [
                 Manifest.createManifest(
                     name: "Foo",
@@ -729,27 +728,27 @@ class PackageGraphTests: XCTestCase {
             ]
         )
 
-        DiagnosticsEngineTester(diagnostics) { result in
+        testDiagnostics(observability.diagnostics) { result in
             result.checkUnordered(
                 diagnostic: """
                 dependency 'BarLib' in target 'Foo' requires explicit declaration; reference the package in the target dependency with '.product(name: "BarLib", package: "Bar")'
                 """,
-                behavior: .error,
-                location: "'Foo' /Foo"
+                severity: .error,
+                context: "'foo' /Foo"
             )
             result.checkUnordered(
                 diagnostic: """
                 dependency 'Biz' in target 'Foo' requires explicit declaration; reference the package in the target dependency with '.product(name: "Biz", package: "BizPath")'
                 """,
-                behavior: .error,
-                location: "'Foo' /Foo"
+                severity: .error,
+                context: "'foo' /Foo"
             )
             result.checkUnordered(
                 diagnostic: """
                 dependency 'FizLib' in target 'Foo' requires explicit declaration; reference the package in the target dependency with '.product(name: "FizLib", package: "FizPath")'
                 """,
-                behavior: .error,
-                location: "'Foo' /Foo"
+                severity: .error,
+                context: "'foo' /Foo"
             )
         }
     }
@@ -760,8 +759,8 @@ class PackageGraphTests: XCTestCase {
             "/Bar/Sources/Bar/bar.swift"
         )
 
-        let diagnostics = DiagnosticsEngine()
-        _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        let observability = ObservabilitySystem.bootstrapForTesting()
+        _ = try loadPackageGraph(fs: fs,
             manifests: [
                 Manifest.createManifest(
                     name: "Foo",
@@ -788,7 +787,7 @@ class PackageGraphTests: XCTestCase {
         )
 
         // Expect no diagnostics.
-        DiagnosticsEngineTester(diagnostics) { _ in }
+        testDiagnostics(observability.diagnostics) { _ in }
     }
 
     func testUnusedDependency() throws {
@@ -799,8 +798,8 @@ class PackageGraphTests: XCTestCase {
             "/Biz/Sources/Biz/main.swift"
         )
 
-        let diagnostics = DiagnosticsEngine()
-        _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        let observability = ObservabilitySystem.bootstrapForTesting()
+        _ = try loadPackageGraph(fs: fs,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Foo",
@@ -847,10 +846,10 @@ class PackageGraphTests: XCTestCase {
             ]
         )
 
-        DiagnosticsEngineTester(diagnostics) { result in
-            result.check(diagnostic: "dependency 'baz' is not used by any target", behavior: .warning)
+        testDiagnostics(observability.diagnostics) { result in
+            result.check(diagnostic: "dependency 'baz' is not used by any target", severity: .warning)
             #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
-            result.check(diagnostic: "dependency 'biz' is not used by any target", behavior: .warning)
+            result.check(diagnostic: "dependency 'biz' is not used by any target", severity: .warning)
             #endif
         }
     }
@@ -861,8 +860,8 @@ class PackageGraphTests: XCTestCase {
             "/Bar/Sources/Bar/main.swift"
         )
 
-        let diagnostics = DiagnosticsEngine()
-        _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        let observability = ObservabilitySystem.bootstrapForTesting()
+        _ = try loadPackageGraph(fs: fs,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Bar",
@@ -883,7 +882,7 @@ class PackageGraphTests: XCTestCase {
         )
 
         // We don't expect any unused dependency diagnostics from a system module package.
-        DiagnosticsEngineTester(diagnostics) { _ in }
+        testDiagnostics(observability.diagnostics) { _ in }
     }
 
     func testDuplicateInterPackageTargetNames() throws {
@@ -895,8 +894,8 @@ class PackageGraphTests: XCTestCase {
             "/Dep2/Sources/Bam/bam.swift"
         )
 
-        let diagnostics = DiagnosticsEngine()
-        _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        let observability = ObservabilitySystem.bootstrapForTesting()
+        _ = try loadPackageGraph(fs: fs,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Start",
@@ -937,8 +936,8 @@ class PackageGraphTests: XCTestCase {
             ]
         )
 
-        DiagnosticsEngineTester(diagnostics) { result in
-            result.check(diagnostic: "multiple targets named 'Foo' in: 'dep2', 'start'", behavior: .error)
+        testDiagnostics(observability.diagnostics) { result in
+            result.check(diagnostic: "multiple targets named 'Foo' in: 'dep2', 'start'", severity: .error)
         }
     }
 
@@ -949,8 +948,8 @@ class PackageGraphTests: XCTestCase {
             "/Baz/Sources/Baz/baz.swift"
         )
 
-        let diagnostics = DiagnosticsEngine()
-        _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        let observability = ObservabilitySystem.bootstrapForTesting()
+        _ = try loadPackageGraph(fs: fs,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Foo",
@@ -986,8 +985,8 @@ class PackageGraphTests: XCTestCase {
             ]
         )
 
-        DiagnosticsEngineTester(diagnostics, ignoreNotes: true) { result in
-            result.check(diagnostic: "multiple products named 'Bar' in: 'bar', 'baz'", behavior: .error)
+        testDiagnostics(observability.diagnostics, ignoreNotes: true) { result in
+            result.check(diagnostic: "multiple products named 'Bar' in: 'bar', 'baz'", severity: .error)
         }
     }
 
@@ -1002,8 +1001,8 @@ class PackageGraphTests: XCTestCase {
             "<end>"
         )
 
-        let diagnostics = DiagnosticsEngine()
-        _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        let observability = ObservabilitySystem.bootstrapForTesting()
+        _ = try loadPackageGraph(fs: fs,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Foo",
@@ -1050,11 +1049,11 @@ class PackageGraphTests: XCTestCase {
             ]
         )
 
-        XCTAssertEqual(diagnostics.diagnostics.count, 3)
-        DiagnosticsEngineTester(diagnostics, ignoreNotes: true) { result in
-            result.checkUnordered(diagnostic: .contains("the target 'Bar2' in product 'TransitiveBar' contains unsafe build flags"), behavior: .error)
-            result.checkUnordered(diagnostic: .contains("the target 'Bar' in product 'Bar' contains unsafe build flags"), behavior: .error)
-            result.checkUnordered(diagnostic: .contains("the target 'Bar2' in product 'Bar' contains unsafe build flags"), behavior: .error)
+        XCTAssertEqual(observability.diagnostics.count, 3)
+        testDiagnostics(observability.diagnostics, ignoreNotes: true) { result in
+            result.checkUnordered(diagnostic: .contains("the target 'Bar2' in product 'TransitiveBar' contains unsafe build flags"), severity: .error)
+            result.checkUnordered(diagnostic: .contains("the target 'Bar' in product 'Bar' contains unsafe build flags"), severity: .error)
+            result.checkUnordered(diagnostic: .contains("the target 'Bar2' in product 'Bar' contains unsafe build flags"), severity: .error)
         }
     }
 
@@ -1066,10 +1065,9 @@ class PackageGraphTests: XCTestCase {
             "/Biz/Sources/Biz/source.swift"
         )
 
-        let diagnostics = DiagnosticsEngine()
+        let observability = ObservabilitySystem.bootstrapForTesting()
         let graph = try loadPackageGraph(
             fs: fs,
-            diagnostics: diagnostics,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Foo",
@@ -1110,7 +1108,7 @@ class PackageGraphTests: XCTestCase {
             ]
         )
 
-        XCTAssertNoDiagnostics(diagnostics)
+        XCTAssertNoDiagnostics(observability.diagnostics)
         PackageGraphTester(graph) { result in
             result.check(targets: "Foo", "Bar", "Baz", "Biz")
             result.checkTarget("Foo") { result in
@@ -1149,10 +1147,9 @@ class PackageGraphTests: XCTestCase {
             "/Transitive/Sources/TransitiveUnused/TransitiveUnused.swift"
         )
 
-        let diagnostics = DiagnosticsEngine()
+        let observability = ObservabilitySystem.bootstrapForTesting()
         _ = try loadPackageGraph(
             fs: fs,
-            diagnostics: diagnostics,
             manifests: [
                 Manifest.createManifest(
                     name: "Root",
@@ -1220,7 +1217,7 @@ class PackageGraphTests: XCTestCase {
             ]
         )
 
-        XCTAssertNoDiagnostics(diagnostics)
+        XCTAssertNoDiagnostics(observability.diagnostics)
     }
 
     func testPinsStoreIsResilientAgainstDupes() throws {
@@ -1265,8 +1262,8 @@ class PackageGraphTests: XCTestCase {
             "/Bar/Sources/Bar/bar.swift"
         )
 
-        let diagnostics = DiagnosticsEngine()
-        _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        let observability = ObservabilitySystem.bootstrapForTesting()
+        _ = try loadPackageGraph(fs: fs,
             manifests: [
                 Manifest.createManifest(
                     name: "Foo",
@@ -1293,7 +1290,7 @@ class PackageGraphTests: XCTestCase {
             ]
         )
 
-        XCTAssertNoDiagnostics(diagnostics)
+        XCTAssertNoDiagnostics(observability.diagnostics)
     }
 
     func testTargetDependencies_Pre52_UnknownProduct() throws {
@@ -1302,8 +1299,8 @@ class PackageGraphTests: XCTestCase {
             "/Bar/Sources/Bar/bar.swift"
         )
 
-        let diagnostics = DiagnosticsEngine()
-        _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        let observability = ObservabilitySystem.bootstrapForTesting()
+        _ = try loadPackageGraph(fs: fs,
             manifests: [
                 Manifest.createManifest(
                     name: "Foo",
@@ -1330,13 +1327,13 @@ class PackageGraphTests: XCTestCase {
             ]
         )
 
-        DiagnosticsEngineTester(diagnostics, ignoreNotes: true) { result in
+        testDiagnostics(observability.diagnostics, ignoreNotes: true) { result in
             result.check(
                 diagnostic: """
                     product 'Unknown' required by package 'foo' target 'Foo' not found.
                     """,
-                behavior: .error,
-                location: "'Foo' /Foo"
+                severity: .error,
+                context: "'foo' /Foo"
             )
         }
     }
@@ -1347,8 +1344,8 @@ class PackageGraphTests: XCTestCase {
             "/Bar/Sources/Bar/bar.swift"
         )
 
-        let diagnostics = DiagnosticsEngine()
-        _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        let observability = ObservabilitySystem.bootstrapForTesting()
+        _ = try loadPackageGraph(fs: fs,
             manifests: [
                 Manifest.createManifest(
                     name: "Foo",
@@ -1375,7 +1372,7 @@ class PackageGraphTests: XCTestCase {
             ]
         )
 
-        XCTAssertNoDiagnostics(diagnostics)
+        XCTAssertNoDiagnostics(observability.diagnostics)
     }
 
     func testTargetDependencies_Post52_UnknownProduct() throws {
@@ -1384,8 +1381,8 @@ class PackageGraphTests: XCTestCase {
             "/Bar/Sources/Bar/bar.swift"
         )
 
-        let diagnostics = DiagnosticsEngine()
-        _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
+        let observability = ObservabilitySystem.bootstrapForTesting()
+        _ = try loadPackageGraph(fs: fs,
             manifests: [
                 Manifest.createManifest(
                     name: "Foo",
@@ -1412,13 +1409,13 @@ class PackageGraphTests: XCTestCase {
             ]
         )
 
-        DiagnosticsEngineTester(diagnostics, ignoreNotes: true) { result in
+        testDiagnostics(observability.diagnostics, ignoreNotes: true) { result in
             result.check(
                 diagnostic: """
                     product 'Unknown' required by package 'foo' target 'Foo' not found.
                     """,
-                behavior: .error,
-                location: "'Foo' /Foo"
+                severity: .error,
+                context: "'foo' /Foo"
             )
         }
     }
@@ -1455,15 +1452,15 @@ class PackageGraphTests: XCTestCase {
         ]
 
         do {
-            let diagnostics = DiagnosticsEngine()
-            _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics, manifests: manifests)
-            DiagnosticsEngineTester(diagnostics, ignoreNotes: true) { result in
+            let observability = ObservabilitySystem.bootstrapForTesting()
+            _ = try loadPackageGraph(fs: fs, manifests: manifests)
+            testDiagnostics(observability.diagnostics, ignoreNotes: true) { result in
                 result.check(
                     diagnostic: """
                         dependency 'ProductBar' in target 'Foo' requires explicit declaration; reference the package in the target dependency with '.product(name: "ProductBar", package: "Bar")'
                         """,
-                    behavior: .error,
-                    location: "'Foo' /Foo"
+                    severity: .error,
+                    context: "'foo' /Foo"
                 )
             }
         }
@@ -1478,9 +1475,9 @@ class PackageGraphTests: XCTestCase {
                 manifests[1] // same
             ]
 
-            let diagnostics = DiagnosticsEngine()
-            _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics, manifests: fixedManifests)
-            XCTAssertNoDiagnostics(diagnostics)
+            let observability = ObservabilitySystem.bootstrapForTesting()
+            _ = try loadPackageGraph(fs: fs, manifests: fixedManifests)
+            XCTAssertNoDiagnostics(observability.diagnostics)
         }
     }
 
@@ -1518,15 +1515,15 @@ class PackageGraphTests: XCTestCase {
         ]
 
         do {
-            let diagnostics = DiagnosticsEngine()
-            _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics, manifests: manifests)
-            DiagnosticsEngineTester(diagnostics, ignoreNotes: true) { result in
+            let observability = ObservabilitySystem.bootstrapForTesting()
+            _ = try loadPackageGraph(fs: fs, manifests: manifests)
+            testDiagnostics(observability.diagnostics, ignoreNotes: true) { result in
                 result.check(
                     diagnostic: """
                         dependency 'ProductBar' in target 'Foo' requires explicit declaration; reference the package in the target dependency with '.product(name: "ProductBar", package: "Bar")'
                         """,
-                    behavior: .error,
-                    location: "'Foo' /Foo"
+                    severity: .error,
+                    context: "'foo' /Foo"
                 )
             }
         }
@@ -1542,9 +1539,9 @@ class PackageGraphTests: XCTestCase {
                 manifests[1] // same
             ]
 
-            let diagnostics = DiagnosticsEngine()
-            _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics, manifests: fixedManifests)
-            XCTAssertNoDiagnostics(diagnostics)
+            let observability = ObservabilitySystem.bootstrapForTesting()
+            _ = try loadPackageGraph(fs: fs, manifests: fixedManifests)
+            XCTAssertNoDiagnostics(observability.diagnostics)
         }
     }
 
@@ -1580,15 +1577,15 @@ class PackageGraphTests: XCTestCase {
         ]
 
         do {
-            let diagnostics = DiagnosticsEngine()
-            _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics, manifests: manifests)
-            DiagnosticsEngineTester(diagnostics, ignoreNotes: true) { result in
+            let observability = ObservabilitySystem.bootstrapForTesting()
+            _ = try loadPackageGraph(fs: fs, manifests: manifests)
+            testDiagnostics(observability.diagnostics, ignoreNotes: true) { result in
                 result.check(
                     diagnostic: """
                         dependency 'Bar' in target 'Foo' requires explicit declaration; reference the package in the target dependency with '.product(name: "Bar", package: "Some-Bar")'
                         """,
-                    behavior: .error,
-                    location: "'Foo' /Foo"
+                    severity: .error,
+                    context: "'foo' /Foo"
                 )
             }
         }
@@ -1603,9 +1600,9 @@ class PackageGraphTests: XCTestCase {
                 manifests[1] // same
             ]
 
-            let diagnostics = DiagnosticsEngine()
-            _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics, manifests: fixedManifests)
-            XCTAssertNoDiagnostics(diagnostics)
+            let observability = ObservabilitySystem.bootstrapForTesting()
+            _ = try loadPackageGraph(fs: fs, manifests: fixedManifests)
+            XCTAssertNoDiagnostics(observability.diagnostics)
         }
     }
 
@@ -1641,15 +1638,15 @@ class PackageGraphTests: XCTestCase {
         ]
 
         do {
-            let diagnostics = DiagnosticsEngine()
-            _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics, manifests: manifests)
-            DiagnosticsEngineTester(diagnostics, ignoreNotes: true) { result in
+            let observability = ObservabilitySystem.bootstrapForTesting()
+            _ = try loadPackageGraph(fs: fs, manifests: manifests)
+            testDiagnostics(observability.diagnostics, ignoreNotes: true) { result in
                 result.check(
                     diagnostic: """
                         dependency 'ProductBar' in target 'Foo' requires explicit declaration; reference the package in the target dependency with '.product(name: "ProductBar", package: "Some-Bar")'
                         """,
-                    behavior: .error,
-                    location: "'Foo' /Foo"
+                    severity: .error,
+                    context: "'foo' /Foo"
                 )
             }
         }
@@ -1664,9 +1661,9 @@ class PackageGraphTests: XCTestCase {
                 manifests[1] // same
             ]
 
-            let diagnostics = DiagnosticsEngine()
-            _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics, manifests: fixedManifests)
-            XCTAssertNoDiagnostics(diagnostics)
+            let observability = ObservabilitySystem.bootstrapForTesting()
+            _ = try loadPackageGraph(fs: fs, manifests: fixedManifests)
+            XCTAssertNoDiagnostics(observability.diagnostics)
         }
     }
 
@@ -1703,9 +1700,9 @@ class PackageGraphTests: XCTestCase {
                 ]),
         ]
 
-        let diagnostics = DiagnosticsEngine()
-        _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics, manifests: manifests)
-        XCTAssertNoDiagnostics(diagnostics)
+        let observability = ObservabilitySystem.bootstrapForTesting()
+        _ = try loadPackageGraph(fs: fs, manifests: manifests)
+        XCTAssertNoDiagnostics(observability.diagnostics)
     }
 
     // test backwards compatibility 5.2 < 5.4
@@ -1742,15 +1739,15 @@ class PackageGraphTests: XCTestCase {
         ]
 
         do {
-            let diagnostics = DiagnosticsEngine()
-            _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics, manifests: manifests)
-            DiagnosticsEngineTester(diagnostics, ignoreNotes: true) { result in
+            let observability = ObservabilitySystem.bootstrapForTesting()
+            _ = try loadPackageGraph(fs: fs, manifests: manifests)
+            testDiagnostics(observability.diagnostics, ignoreNotes: true) { result in
                 result.check(
                     diagnostic: """
                         dependency 'ProductBar' in target 'Foo' requires explicit declaration; reference the package in the target dependency with '.product(name: "ProductBar", package: "Bar")'
                         """,
-                    behavior: .error,
-                    location: "'Foo' /Foo"
+                    severity: .error,
+                    context: "'foo' /Foo"
                 )
             }
         }
@@ -1765,9 +1762,9 @@ class PackageGraphTests: XCTestCase {
                 manifests[1] // same
             ]
 
-            let diagnostics = DiagnosticsEngine()
-            _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics, manifests: fixedManifests)
-            XCTAssertNoDiagnostics(diagnostics)
+            let observability = ObservabilitySystem.bootstrapForTesting()
+            _ = try loadPackageGraph(fs: fs, manifests: fixedManifests)
+            XCTAssertNoDiagnostics(observability.diagnostics)
         }
     }
 }

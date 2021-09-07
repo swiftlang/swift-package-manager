@@ -8,9 +8,10 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import Basics
+import PackageGraph
 import PackageModel
 import TSCBasic
-import PackageGraph
 
 fileprivate extension TerminalController {
     func clearScreen() {
@@ -95,7 +96,7 @@ struct CardStack {
                 case let .pop(error):
                     cards.removeLast()
                     if let error = error {
-                        swiftTool.diagnostics.emit(error: error.localizedDescription)
+                        DiagnosticsEmitter().emit(error: error.localizedDescription)
                         needsToClearScreen = false
                     } else {
                         needsToClearScreen = !cards.isEmpty

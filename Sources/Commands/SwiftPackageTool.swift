@@ -84,7 +84,7 @@ extension SwiftPackageTool {
         var swiftOptions: SwiftToolOptions
         
         func run(_ swiftTool: SwiftTool) throws {
-            try swiftTool.getActiveWorkspace().clean(with: swiftTool.diagnostics)
+            try swiftTool.getActiveWorkspace().clean(with: ObservabilitySystem.makeDiagnosticsEngine())
         }
     }
 
@@ -96,7 +96,7 @@ extension SwiftPackageTool {
         var swiftOptions: SwiftToolOptions
 
         func run(_ swiftTool: SwiftTool) throws {
-            try swiftTool.getActiveWorkspace().purgeCache(with: swiftTool.diagnostics)
+            try swiftTool.getActiveWorkspace().purgeCache(with: ObservabilitySystem.makeDiagnosticsEngine())
         }
     }
     
@@ -108,7 +108,7 @@ extension SwiftPackageTool {
         var swiftOptions: SwiftToolOptions
         
         func run(_ swiftTool: SwiftTool) throws {
-            try swiftTool.getActiveWorkspace().reset(with: swiftTool.diagnostics)
+            try swiftTool.getActiveWorkspace().reset(with: ObservabilitySystem.makeDiagnosticsEngine())
         }
     }
     
@@ -132,26 +132,26 @@ extension SwiftPackageTool {
             let changes = try workspace.updateDependencies(
                 root: swiftTool.getWorkspaceRoot(),
                 packages: packages,
-                diagnostics: swiftTool.diagnostics,
+                diagnostics: ObservabilitySystem.makeDiagnosticsEngine(),
                 dryRun: dryRun
             )
 
             // try to load the graph which will emit any errors
-            if !swiftTool.diagnostics.hasErrors {
+            if !ObservabilitySystem.errorsReported {
                 _ = try workspace.loadPackageGraph(
                     rootInput: swiftTool.getWorkspaceRoot(),
-                    diagnostics: swiftTool.diagnostics
+                    diagnostics: ObservabilitySystem.makeDiagnosticsEngine()
                 )
             }
 
-            if let pinsStore = swiftTool.diagnostics.wrap({ try workspace.pinsStore.load() }), let changes = changes, dryRun {
+            if let pinsStore = DiagnosticsEmitter().trap({ try workspace.pinsStore.load() }), let changes = changes, dryRun {
                 logPackageChanges(changes: changes, pins: pinsStore, on: swiftTool.outputStream)
             }
 
             if !dryRun {
                 // Throw if there were errors when loading the graph.
                 // The actual errors will be printed before exiting.
-                guard !swiftTool.diagnostics.hasErrors else {
+                guard !ObservabilitySystem.errorsReported else {
                     throw ExitCode.failure
                 }
             }
@@ -173,7 +173,7 @@ extension SwiftPackageTool {
             let root = try swiftTool.getWorkspaceRoot()
 
             let rootManifests = try temp_await {
-                workspace.loadRootManifests(packages: root.packages, diagnostics: swiftTool.diagnostics, completion: $0)
+                workspace.loadRootManifests(packages: root.packages, diagnostics: ObservabilitySystem.makeDiagnosticsEngine(), completion: $0)
             }
             guard let rootManifest = rootManifests.values.first else {
                 throw StringError("invalid manifests at \(root.packages)")
@@ -185,7 +185,7 @@ extension SwiftPackageTool {
                 productFilter: .everything,
                 path: try swiftTool.getPackageRoot(),
                 xcTestMinimumDeploymentTargets: MinimumDeploymentTarget.default.xcTestMinimumDeploymentTargets,
-                diagnostics: swiftTool.diagnostics
+                fileSystem: localFileSystem
             )
             let package = try builder.construct()
             describe(package, in: type, on: swiftTool.outputStream)
@@ -244,7 +244,7 @@ extension SwiftPackageTool {
             let workspace = try swiftTool.getActiveWorkspace()
             let root = try swiftTool.getWorkspaceRoot()
             let rootManifests = try temp_await {
-                workspace.loadRootManifests(packages: root.packages, diagnostics: swiftTool.diagnostics, completion: $0)
+                workspace.loadRootManifests(packages: root.packages, diagnostics: ObservabilitySystem.makeDiagnosticsEngine(), completion: $0)
             }
             guard let rootManifest = rootManifests.values.first else {
                 throw StringError("invalid manifests at \(root.packages)")
@@ -256,7 +256,7 @@ extension SwiftPackageTool {
                 productFilter: .everything,
                 path: try swiftTool.getPackageRoot(),
                 xcTestMinimumDeploymentTargets: [:], // Minimum deployment target does not matter for this operation.
-                diagnostics: swiftTool.diagnostics
+                fileSystem: localFileSystem
             )
             let package = try builder.construct()
 
@@ -356,7 +356,7 @@ extension SwiftPackageTool {
 
             let packageGraph = try buildOp.getPackageGraph()
             let modulesToDiff = try determineModulesToDiff(packageGraph: packageGraph,
-                                                           diagnostics: swiftTool.diagnostics)
+                                                           diagnostics: ObservabilitySystem.makeDiagnosticsEngine())
 
             // Build the current package.
             try buildOp.build()
@@ -367,7 +367,7 @@ extension SwiftPackageTool {
                 packageRoot: swiftTool.getPackageRoot(),
                 buildParameters: buildOp.buildParameters,
                 apiDigesterTool: apiDigesterTool,
-                diags: swiftTool.diagnostics
+                diags: ObservabilitySystem.makeDiagnosticsEngine()
             )
 
             let baselineDir = try baselineDumper.emitAPIBaseline(
@@ -409,11 +409,11 @@ extension SwiftPackageTool {
                 .subtracting(skippedModules)
                 .subtracting(results.map(\.moduleName))
             for failedModule in failedModules {
-                swiftTool.diagnostics.emit(.error("failed to read API digester output for \(failedModule)"))
+                DiagnosticsEmitter().emit(.error("failed to read API digester output for \(failedModule)"))
             }
 
             for result in results.get() {
-                printComparisonResult(result, diagnosticsEngine: swiftTool.diagnostics)
+                printComparisonResult(result, diagnosticsEngine: ObservabilitySystem.makeDiagnosticsEngine())
             }
 
             guard failedModules.isEmpty && results.get().allSatisfy(\.hasNoAPIBreakingChanges) else {
@@ -551,7 +551,7 @@ extension SwiftPackageTool {
             let root = try swiftTool.getWorkspaceRoot()
 
             let rootManifests = try temp_await {
-                workspace.loadRootManifests(packages: root.packages, diagnostics: swiftTool.diagnostics, completion: $0)
+                workspace.loadRootManifests(packages: root.packages, diagnostics: ObservabilitySystem.makeDiagnosticsEngine(), completion: $0)
             }
             guard let rootManifest = rootManifests.values.first else {
                 throw StringError("invalid manifests at \(root.packages)")
@@ -576,7 +576,7 @@ extension SwiftPackageTool {
         func run(_ swiftTool: SwiftTool) throws {
             let graph = try swiftTool.loadPackageGraph(createMultipleTestProducts: true)
             let parameters = try PIFBuilderParameters(swiftTool.buildParameters())
-            let builder = PIFBuilder(graph: graph, parameters: parameters, diagnostics: swiftTool.diagnostics)
+            let builder = PIFBuilder(graph: graph, parameters: parameters, diagnostics: ObservabilitySystem.makeDiagnosticsEngine())
             let pif = try builder.generatePIF(preservePIFModelStructure: preserveStructure)
             print(pif)
         }
@@ -611,7 +611,7 @@ extension SwiftPackageTool {
                 path: path,
                 revision: revision,
                 checkoutBranch: checkoutBranch,
-                diagnostics: swiftTool.diagnostics)
+                diagnostics: ObservabilitySystem.makeDiagnosticsEngine())
         }
     }
 
@@ -637,7 +637,7 @@ extension SwiftPackageTool {
                 packageName: packageName,
                 forceRemove: shouldForceRemove,
                 root: swiftTool.getWorkspaceRoot(),
-                diagnostics: swiftTool.diagnostics
+                diagnostics: ObservabilitySystem.makeDiagnosticsEngine()
             )
         }
     }
@@ -737,10 +737,10 @@ extension SwiftPackageTool {
             let workspace = try swiftTool.getActiveWorkspace()
             let checksum = workspace.checksum(
                 forBinaryArtifactAt: path,
-                diagnostics: swiftTool.diagnostics
+                diagnostics: ObservabilitySystem.makeDiagnosticsEngine()
             )
 
-            guard !swiftTool.diagnostics.hasErrors else {
+            guard !ObservabilitySystem.errorsReported else {
                 throw ExitCode.failure
             }
 
@@ -834,7 +834,7 @@ extension SwiftPackageTool {
         }
 
         func run(_ swiftTool: SwiftTool) throws {
-            swiftTool.diagnostics.emit(.warning("Xcode can open and build Swift Packages directly. 'generate-xcodeproj' is no longer needed and will be deprecated soon."))
+            DiagnosticsEmitter().emit(.warning("Xcode can open and build Swift Packages directly. 'generate-xcodeproj' is no longer needed and will be deprecated soon."))
 
             let graph = try swiftTool.loadPackageGraph()
 
@@ -863,7 +863,7 @@ extension SwiftPackageTool {
                 xcodeprojPath: xcodeprojPath,
                 graph: graph,
                 options: genOptions,
-                diagnostics: swiftTool.diagnostics
+                diagnostics: ObservabilitySystem.makeDiagnosticsEngine()
             )
 
             print("generated:", xcodeprojPath.prettyPath(cwd: swiftTool.originalWorkingDirectory))
@@ -871,7 +871,7 @@ extension SwiftPackageTool {
             // Run the file watcher if requested.
             if options.enableAutogeneration {
                 try WatchmanHelper(
-                    diagnostics: swiftTool.diagnostics,
+                    diagnostics: ObservabilitySystem.makeDiagnosticsEngine(),
                     watchmanScriptsDir: swiftTool.buildPath.appending(component: "watchman"),
                     packageRoot: swiftTool.packageRoot!
                 ).runXcodeprojWatcher(xcodeprojOptions())
@@ -909,12 +909,12 @@ extension SwiftPackageTool.Config {
             let config = try swiftTool.getMirrorsConfig()
 
             if packageURL != nil {
-                swiftTool.diagnostics.emit(
+                DiagnosticsEmitter().emit(
                     warning: "'--package-url' option is deprecated; use '--original-url' instead")
             }
 
             guard let originalURL = packageURL ?? originalURL else {
-                swiftTool.diagnostics.emit(.missingRequiredArg("--original-url"))
+                DiagnosticsEmitter().emit(.missingRequiredArg("--original-url"))
                 throw ExitCode.failure
             }
 
@@ -944,12 +944,12 @@ extension SwiftPackageTool.Config {
             let config = try swiftTool.getMirrorsConfig()
 
             if packageURL != nil {
-                swiftTool.diagnostics.emit(
+                DiagnosticsEmitter().emit(
                     warning: "'--package-url' option is deprecated; use '--original-url' instead")
             }
 
             guard let originalOrMirrorURL = packageURL ?? originalURL ?? mirrorURL else {
-                swiftTool.diagnostics.emit(.missingRequiredArg("--original-url or --mirror-url"))
+                DiagnosticsEmitter().emit(.missingRequiredArg("--original-url or --mirror-url"))
                 throw ExitCode.failure
             }
 
@@ -976,12 +976,12 @@ extension SwiftPackageTool.Config {
             let config = try swiftTool.getMirrorsConfig()
 
             if packageURL != nil {
-                swiftTool.diagnostics.emit(
+                DiagnosticsEmitter().emit(
                     warning: "'--package-url' option is deprecated; use '--original-url' instead")
             }
 
             guard let originalURL = packageURL ?? originalURL else {
-                swiftTool.diagnostics.emit(.missingRequiredArg("--original-url"))
+                DiagnosticsEmitter().emit(.missingRequiredArg("--original-url"))
                 throw ExitCode.failure
             }
 
@@ -1031,8 +1031,8 @@ extension SwiftPackageTool {
                     version: resolveOptions.version,
                     branch: resolveOptions.branch,
                     revision: resolveOptions.revision,
-                    diagnostics: swiftTool.diagnostics)
-                if swiftTool.diagnostics.hasErrors {
+                    diagnostics: ObservabilitySystem.makeDiagnosticsEngine())
+                if ObservabilitySystem.errorsReported {
                     throw ExitCode.failure
                 }
             } else {
@@ -1052,7 +1052,7 @@ extension SwiftPackageTool {
         var resolveOptions: ResolveOptions
         
         func run(_ swiftTool: SwiftTool) throws {
-            swiftTool.diagnostics.emit(warning: "'fetch' command is deprecated; use 'resolve' instead")
+            DiagnosticsEmitter().emit(warning: "'fetch' command is deprecated; use 'resolve' instead")
             
             let resolveCommand = Resolve(swiftOptions: _swiftOptions, resolveOptions: _resolveOptions)
             try resolveCommand.run(swiftTool)
@@ -1219,12 +1219,12 @@ extension SwiftPackageTool {
     }
 }
 
-private extension Diagnostic.Message {
-    static var missingRequiredSubcommand: Diagnostic.Message {
+private extension DiagnosticMessage {
+    static var missingRequiredSubcommand: Self {
         .error("missing required subcommand; use --help to list available subcommands")
     }
 
-    static func missingRequiredArg(_ argument: String) -> Diagnostic.Message {
+    static func missingRequiredArg(_ argument: String) -> Self {
         .error("missing required argument \(argument)")
     }
 }

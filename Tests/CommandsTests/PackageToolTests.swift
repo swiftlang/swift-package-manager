@@ -8,6 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import Basics
 import Commands
 import Foundation
 import PackageGraph
@@ -415,11 +416,12 @@ final class PackageToolTests: XCTestCase {
             ]
         )
 
-        let diagnostics = DiagnosticsEngine()
-        let graph = try loadPackageGraph(fs: fileSystem,
-                                         diagnostics: diagnostics,
-                                         manifests: [manifestA, manifestB, manifestC, manifestD])
-        XCTAssertNoDiagnostics(diagnostics)
+        let observability = ObservabilitySystem.bootstrapForTesting()
+        let graph = try loadPackageGraph(
+            fs: fileSystem,
+            manifests: [manifestA, manifestB, manifestC, manifestD]
+        )
+        XCTAssertNoDiagnostics(observability.diagnostics)
 
         let output = BufferedOutputByteStream()
         dumpDependenciesOf(rootPackage: graph.rootPackages[0], mode: .dot, on: output)
@@ -879,13 +881,12 @@ final class PackageToolTests: XCTestCase {
     func testWatchmanXcodeprojgen() throws {
         try testWithTemporaryDirectory { path in
             let fs = localFileSystem
-            let diagnostics = DiagnosticsEngine()
 
             let scriptsDir = path.appending(component: "scripts")
             let packageRoot = path.appending(component: "root")
 
             let helper = WatchmanHelper(
-                diagnostics: diagnostics,
+                diagnostics: ObservabilitySystem.makeDiagnosticsEngine(),
                 watchmanScriptsDir: scriptsDir,
                 packageRoot: packageRoot)
 

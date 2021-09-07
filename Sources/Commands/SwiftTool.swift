@@ -238,18 +238,6 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
     func resolvedFileChanged() {}
 }
 
-/// Handler for the main DiagnosticsEngine used by the SwiftTool class.
-private final class DiagnosticsEngineHandler {
-    /// The default instance.
-    static let `default` = DiagnosticsEngineHandler()
-
-    private init() {}
-
-    func diagnosticsHandler(_ diagnostic: Diagnostic) {
-        diagnostic.print()
-    }
-}
-
 protocol SwiftCommand: ParsableCommand {
     var swiftOptions: SwiftToolOptions { get }
 
@@ -260,7 +248,7 @@ extension SwiftCommand {
     public func run() throws {
         let swiftTool = try SwiftTool(options: swiftOptions)
         try self.run(swiftTool)
-        if swiftTool.diagnostics.hasErrors || swiftTool.executionStatus == .failure {
+        if ObservabilitySystem.errorsReported || swiftTool.executionStatus == .failure {
             throw ExitCode.failure
         }
     }
@@ -291,7 +279,7 @@ public class SwiftTool {
         let packages: [AbsolutePath]
 
         if let workspace = options.multirootPackageDataFile {
-            packages = try XcodeWorkspaceLoader(diagnostics: diagnostics).load(workspace: workspace)
+            packages = try XcodeWorkspaceLoader(diagnostics: ObservabilitySystem.makeDiagnosticsEngine()).load(workspace: workspace)
         } else {
             packages = [try getPackageRoot()]
         }
@@ -312,10 +300,6 @@ public class SwiftTool {
     /// The interrupt handler.
     let interruptHandler: InterruptHandler
 
-    /// The diagnostics engine.
-    let diagnostics: DiagnosticsEngine = DiagnosticsEngine(
-        handlers: [DiagnosticsEngineHandler.default.diagnosticsHandler])
-
     /// The execution status of the tool.
     var executionStatus: ExecutionStatus = .success
 
@@ -334,15 +318,18 @@ public class SwiftTool {
     ///
     /// - parameter args: The command line arguments to be passed to this tool.
     public init(options: SwiftToolOptions) throws {
+        // first, bootstrap the observability system
+        ObservabilitySystem.bootstrapGlobal(factory: SwiftToolObservability())
+
         // Capture the original working directory ASAP.
         guard let cwd = localFileSystem.currentWorkingDirectory else {
-            diagnostics.emit(error: "couldn't determine the current working directory")
+            DiagnosticsEmitter().emit(error: "couldn't determine the current working directory")
             throw ExitCode.failure
         }
         originalWorkingDirectory = cwd
 
         do {
-            try Self.postprocessArgParserResult(options: options, diagnostics: diagnostics)
+            try Self.postprocessArgParserResult(options: options, diagnostics: ObservabilitySystem.makeDiagnosticsEngine())
             self.options = options
             
             // Honor package-path option is provided.
@@ -390,7 +377,7 @@ public class SwiftTool {
             self.buildSystemRef = buildSystemRef
 
         } catch {
-            diagnostics.emit(error)
+            DiagnosticsEmitter().emit(error)
             throw ExitCode.failure
         }
 
@@ -511,10 +498,10 @@ public class SwiftTool {
         let netrcFilePath = options.netrcFilePath ?? localFileSystem.homeDirectory.appending(component: ".netrc")
         guard localFileSystem.exists(netrcFilePath) else {
             if !options.netrcOptional {
-                diagnostics.emit(error: "Cannot find mandatory .netrc file at \(netrcFilePath). To make .netrc file optional, use --netrc-optional flag.")
+                DiagnosticsEmitter().emit(error: "Cannot find mandatory .netrc file at \(netrcFilePath). To make .netrc file optional, use --netrc-optional flag.")
                 throw ExitCode.failure
             } else {
-                diagnostics.emit(warning: "Did not find optional .netrc file at \(netrcFilePath).")
+                DiagnosticsEmitter().emit(warning: "Did not find optional .netrc file at \(netrcFilePath).")
                 return .none
             }
         }
@@ -533,7 +520,7 @@ public class SwiftTool {
         do {
             return try localFileSystem.getOrCreateSwiftPMCacheDirectory()
         } catch {
-            self.diagnostics.emit(warning: "Failed creating default cache location, \(error)")
+            DiagnosticsEmitter().emit(warning: "Failed creating default cache location, \(error)")
             return .none
         }
     }
@@ -550,7 +537,7 @@ public class SwiftTool {
         do {
             return try localFileSystem.getOrCreateSwiftPMConfigDirectory()
         } catch {
-            self.diagnostics.emit(warning: "Failed creating default configuration location, \(error)")
+            DiagnosticsEmitter().emit(warning: "Failed creating default configuration location, \(error)")
             return .none
         }
     }
@@ -562,7 +549,7 @@ public class SwiftTool {
         }
 
         let isVerbose = options.verbosity != 0
-        let delegate = ToolWorkspaceDelegate(self.outputStream, isVerbose: isVerbose, diagnostics: diagnostics)
+        let delegate = ToolWorkspaceDelegate(self.outputStream, isVerbose: isVerbose, diagnostics: ObservabilitySystem.makeDiagnosticsEngine())
         let provider = GitRepositoryProvider(processSet: processSet)
         let sharedCacheDirectory =  try self.getSharedCacheDirectory()
         let sharedConfigurationDirectory = try self.getSharedConfigurationDirectory()
@@ -603,14 +590,14 @@ public class SwiftTool {
         let root = try getWorkspaceRoot()
 
         if options.forceResolvedVersions {
-            try workspace.resolveBasedOnResolvedVersionsFile(root: root, diagnostics: diagnostics)
+            try workspace.resolveBasedOnResolvedVersionsFile(root: root, diagnostics: ObservabilitySystem.makeDiagnosticsEngine())
         } else {
-            try workspace.resolve(root: root, diagnostics: diagnostics)
+            try workspace.resolve(root: root, diagnostics: ObservabilitySystem.makeDiagnosticsEngine())
         }
 
         // Throw if there were errors when loading the graph.
         // The actual errors will be printed before exiting.
-        guard !diagnostics.hasErrors else {
+        guard !ObservabilitySystem.errorsReported else {
             throw ExitCode.failure
         }
     }
@@ -635,12 +622,12 @@ public class SwiftTool {
                 createMultipleTestProducts: createMultipleTestProducts,
                 createREPLProduct: createREPLProduct,
                 forceResolvedVersions: options.forceResolvedVersions,
-                diagnostics: diagnostics
+                diagnostics: ObservabilitySystem.makeDiagnosticsEngine()
             )
 
             // Throw if there were errors when loading the graph.
             // The actual errors will be printed before exiting.
-            guard !diagnostics.hasErrors else {
+            guard !ObservabilitySystem.errorsReported else {
                 throw ExitCode.failure
             }
             return graph
@@ -676,13 +663,18 @@ public class SwiftTool {
             // with a map of the names of tools available to each plugin. In particular this would not work with any
             // binary targets.
             let builtToolsDir = dataDir.appending(components: try self._hostToolchain.get().triple.tripleString, buildEnvironment.configuration.dirname)
-            let diagnostics = DiagnosticsEngine()
             
             // Create the cache directory, if needed.
             try localFileSystem.createDirectory(cacheDir, recursive: true)
 
             // Ask the graph to invoke plugins, and return the result.
-            let result = try graph.invokePlugins(outputDir: outputDir, builtToolsDir: builtToolsDir, pluginScriptRunner: pluginScriptRunner, diagnostics: diagnostics, fileSystem: localFileSystem)
+            let result = try graph.invokePlugins(
+                outputDir: outputDir,
+                builtToolsDir: builtToolsDir,
+                pluginScriptRunner: pluginScriptRunner,
+                diagnostics: ObservabilitySystem.makeDiagnosticsEngine(),
+                fileSystem: localFileSystem
+            )
             return result
         }
         catch {
@@ -734,7 +726,7 @@ public class SwiftTool {
             cacheBuildManifest: cacheBuildManifest && self.canUseCachedBuildManifest(),
             packageGraphLoader: graphLoader,
             pluginInvoker: { _ in [:] },
-            diagnostics: diagnostics,
+            diagnostics: ObservabilitySystem.makeDiagnosticsEngine(),
             outputStream: self.outputStream
         )
 
@@ -754,7 +746,7 @@ public class SwiftTool {
                 cacheBuildManifest: self.canUseCachedBuildManifest(),
                 packageGraphLoader: graphLoader,
                 pluginInvoker: pluginInvoker,
-                diagnostics: diagnostics,
+                diagnostics: ObservabilitySystem.makeDiagnosticsEngine(),
                 outputStream: self.outputStream
             )
         case .xcode:
@@ -764,7 +756,7 @@ public class SwiftTool {
                 buildParameters: buildParameters ?? self.buildParameters(),
                 packageGraphLoader: graphLoader,
                 isVerbose: verbosity != .concise,
-                diagnostics: diagnostics,
+                diagnostics: ObservabilitySystem.makeDiagnosticsEngine(),
                 outputStream: self.outputStream
             )
         }
@@ -974,29 +966,38 @@ extension DispatchTimeInterval {
 
 // MARK: - Diagnostics
 
-extension Diagnostic {
+struct SwiftToolObservability: ObservabilityFactory {
+    var diagnosticsHandler: DiagnosticsHandler = { diagnostic in
+        diagnostic.print()
+    }
+}
+
+extension Basics.Diagnostic {
     func print() {
         let writer = InteractiveWriter.stderr
 
-        if !(self.location is UnknownLocation) {
-            writer.write(self.location.description)
+        if let context = self.context {
+            writer.write(context.description)
             writer.write(": ")
         }
 
-        switch self.message.behavior {
+        // 👀 levels
+        switch self.severity {
         case .error:
             writer.write("error: ", inColor: .red, bold: true)
         case .warning:
             writer.write("warning: ", inColor: .yellow, bold: true)
         case .note:
             writer.write("note: ", inColor: .yellow, bold: true)
-        case .remark:
-            writer.write("remark: ", inColor: .yellow, bold: true)
-        case .ignored:
-            break
+        case .info:
+            writer.write("info: ", inColor: .yellow, bold: true)
+        //case .remark:
+        //    writer.write("remark: ", inColor: .yellow, bold: true)
+        //case .ignored:
+        //    break
         }
 
-        writer.write(self.description)
+        writer.write(self.message)
         writer.write("\n")
     }
 }
@@ -1006,10 +1007,12 @@ extension Diagnostic {
 /// If underlying stream is a not tty, the string will be written in without any
 /// formatting.
 private final class InteractiveWriter {
+
     /// The standard error writer.
-    static let stderr = InteractiveWriter(stream: TSCBasic.stderrStream)
+    static let stderr = InteractiveWriter(stream: stderrStream)
+
     /// The standard output writer.
-    static let stdout = InteractiveWriter(stream: TSCBasic.stdoutStream)
+    static let stdout = InteractiveWriter(stream: stdoutStream)
 
     /// The terminal controller, if present.
     let term: TerminalController?
@@ -1033,4 +1036,3 @@ private final class InteractiveWriter {
         }
     }
 }
-

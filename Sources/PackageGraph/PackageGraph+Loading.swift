@@ -27,10 +27,9 @@ extension PackageGraph {
         unsafeAllowedPackages: Set<PackageReference> = [],
         binaryArtifacts: [BinaryArtifact] = [],
         xcTestMinimumDeploymentTargets: [PackageModel.Platform:PlatformVersion] = MinimumDeploymentTarget.default.xcTestMinimumDeploymentTargets,
-        diagnostics: DiagnosticsEngine,
-        fileSystem: FileSystem = localFileSystem,
         shouldCreateMultipleTestProducts: Bool = false,
-        createREPLProduct: Bool = false
+        createREPLProduct: Bool = false,
+        fileSystem: FileSystem
     ) throws -> PackageGraph {
 
         // Create a map of the manifests, keyed by their identity.
@@ -68,7 +67,7 @@ extension PackageGraph {
 
         // Detect cycles in manifest dependencies.
         if let cycle = findCycle(inputManifests, successors: successors) {
-            diagnostics.emit(PackageGraphError.cycleDetected(cycle))
+            DiagnosticsEmitter().emit(PackageGraphError.cycleDetected(cycle))
             // Break the cycle so we can build a partial package graph.
             allNodes = inputManifests.filter({ $0.manifest != cycle.cycle[0] })
         } else {
@@ -101,32 +100,30 @@ extension PackageGraph {
             //
             // FIXME: Lift this out of the manifest.
             let packagePath = manifest.path.parentDirectory
-            let diagnosticsLocation = PackageLocation.Local(name: manifest.name, packagePath: packagePath)
-            diagnostics.with(location: diagnosticsLocation) { diagnostics in
-                diagnostics.wrap {
-                    // Create a package from the manifest and sources.
-                    let builder = PackageBuilder(
-                        identity: node.identity,
-                        manifest: manifest,
-                        productFilter: node.productFilter,
-                        path: packagePath,
-                        additionalFileRules: additionalFileRules,
-                        binaryArtifacts: binaryArtifacts,
-                        xcTestMinimumDeploymentTargets: xcTestMinimumDeploymentTargets,
-                        fileSystem: fileSystem,
-                        diagnostics: diagnostics,
-                        shouldCreateMultipleTestProducts: shouldCreateMultipleTestProducts,
-                        createREPLProduct: manifest.packageKind == .root ? createREPLProduct : false
-                    )
-                    let package = try builder.construct()
-                    manifestToPackage[manifest] = package
+            let diagnosticsContext = PackageDiagnosticsContext(identity: node.identity, location: node.manifest.packageLocation)
+            let diagnosticsEmitter = DiagnosticsEmitter(context: diagnosticsContext)
+            diagnosticsEmitter.trap {
+                // Create a package from the manifest and sources.
+                let builder = PackageBuilder(
+                    identity: node.identity,
+                    manifest: manifest,
+                    productFilter: node.productFilter,
+                    path: packagePath,
+                    additionalFileRules: additionalFileRules,
+                    binaryArtifacts: binaryArtifacts,
+                    xcTestMinimumDeploymentTargets: xcTestMinimumDeploymentTargets,
+                    shouldCreateMultipleTestProducts: shouldCreateMultipleTestProducts,
+                    createREPLProduct: manifest.packageKind == .root ? createREPLProduct : false,
+                    fileSystem: fileSystem
+                )
+                let package = try builder.construct()
+                manifestToPackage[manifest] = package
 
-                    // Throw if any of the non-root package is empty.
-                    if package.targets.isEmpty // System packages have targets in the package but not the manifest.
-                        && package.manifest.targets.isEmpty // An unneeded dependency will not have loaded anything from the manifest.
-                        && manifest.packageKind != .root {
-                            throw PackageGraphError.noModules(package)
-                    }
+                // Throw if any of the non-root package is empty.
+                if package.targets.isEmpty // System packages have targets in the package but not the manifest.
+                    && package.manifest.targets.isEmpty // An unneeded dependency will not have loaded anything from the manifest.
+                    && manifest.packageKind != .root {
+                    throw PackageGraphError.noModules(package)
                 }
             }
         }
@@ -137,12 +134,11 @@ extension PackageGraph {
             identityResolver: identityResolver,
             manifestToPackage: manifestToPackage,
             rootManifestSet: rootManifestSet,
-            unsafeAllowedPackages: unsafeAllowedPackages,
-            diagnostics: diagnostics
+            unsafeAllowedPackages: unsafeAllowedPackages
         )
 
         let rootPackages = resolvedPackages.filter{ rootManifestSet.contains($0.manifest) }
-        checkAllDependenciesAreUsed(rootPackages, diagnostics)
+        checkAllDependenciesAreUsed(rootPackages)
 
         return try PackageGraph(
             rootPackages: rootPackages,
@@ -152,7 +148,7 @@ extension PackageGraph {
     }
 }
 
-private func checkAllDependenciesAreUsed(_ rootPackages: [ResolvedPackage], _ diagnostics: DiagnosticsEngine) {
+private func checkAllDependenciesAreUsed(_ rootPackages: [ResolvedPackage]) {
     for package in rootPackages {
         // List all dependency products dependent on by the package targets.
         let productDependencies: Set<ResolvedProduct> = Set(package.targets.flatMap({ target in
@@ -166,6 +162,7 @@ private func checkAllDependenciesAreUsed(_ rootPackages: [ResolvedPackage], _ di
             })
         }))
 
+        let diagnosticsEmitter =  DiagnosticsEmitter()
         for dependency in package.dependencies {
             // We continue if the dependency contains executable products to make sure we don't
             // warn on a valid use-case for a lone dependency: swift run dependency executables.
@@ -181,8 +178,8 @@ private func checkAllDependenciesAreUsed(_ rootPackages: [ResolvedPackage], _ di
             }
 
             let dependencyIsUsed = dependency.products.contains(where: productDependencies.contains)
-            if !dependencyIsUsed && !diagnostics.hasErrors {
-                diagnostics.emit(.unusedDependency(dependency.identity.description))
+            if !dependencyIsUsed && !ObservabilitySystem.errorsReported {
+                diagnosticsEmitter.emit(.unusedDependency(dependency.identity.description))
             }
         }
     }
@@ -195,8 +192,7 @@ private func createResolvedPackages(
     manifestToPackage: [Manifest: Package],
     // FIXME: This shouldn't be needed once <rdar://problem/33693433> is fixed.
     rootManifestSet: Set<Manifest>,
-    unsafeAllowedPackages: Set<PackageReference>,
-    diagnostics: DiagnosticsEngine
+    unsafeAllowedPackages: Set<PackageReference>
 ) throws -> [ResolvedPackage] {
 
     // Create package builder objects from the input manifests.
@@ -241,6 +237,8 @@ private func createResolvedPackages(
                 fatalError("registry based dependencies not implemented yet")
             }
 
+            let diagnosticsEmitter = DiagnosticsEmitter(context: package.diagnosticsContext)
+
             // Otherwise, look it up by its identity.
             if let resolvedPackage = packagesByIdentity[dependency.identity] {
                 // check if this resolved package already listed in the dependencies
@@ -252,7 +250,7 @@ private func createResolvedPackages(
                         dependencyLocation: dependencyLocation,
                         otherDependencyURL: resolvedPackage.package.manifest.packageLocation,
                         identity: dependency.identity)
-                    return diagnostics.emit(error, location: package.diagnosticLocation)
+                    return diagnosticsEmitter.emit(error)
                 }
 
                 // check if the resolved package location is the same as the dependency one
@@ -269,9 +267,9 @@ private func createResolvedPackages(
                     // we will upgrade this to an error in a few versions to tighten up the validation
                     if dependency.explicitNameForTargetDependencyResolutionOnly == .none ||
                         resolvedPackage.package.manifestName == dependency.explicitNameForTargetDependencyResolutionOnly {
-                        diagnostics.emit(.warning(error.description + ". this will be escalated to an error in future versions of SwiftPM."), location: package.diagnosticLocation)
+                        diagnosticsEmitter.emit(.warning(error.description + ". this will be escalated to an error in future versions of SwiftPM."))
                     } else {
-                        return diagnostics.emit(error, location: package.diagnosticLocation)
+                        return diagnosticsEmitter.emit(error)
                     }
                 }
 
@@ -283,7 +281,7 @@ private func createResolvedPackages(
                             dependencyLocation: dependencyLocation,
                             otherDependencyURL: previouslyResolvedPackage.package.manifest.packageLocation,
                             name: explicitDependencyName)
-                        return diagnostics.emit(error, location: package.diagnosticLocation)
+                        return diagnosticsEmitter.emit(error)
                     }
                 }
 
@@ -294,7 +292,7 @@ private func createResolvedPackages(
                         dependencyLocation: dependencyLocation,
                         otherDependencyURL: previouslyResolvedPackage.package.manifest.packageLocation,
                         name: dependency.identity.description)
-                    return diagnostics.emit(error, location: package.diagnosticLocation)
+                    return diagnosticsEmitter.emit(error)
                 }
 
                 let nameForTargetDependencyResolution = dependency.explicitNameForTargetDependencyResolutionOnly ?? dependency.identity.description
@@ -307,7 +305,7 @@ private func createResolvedPackages(
         packageBuilder.dependencies = dependencies
 
         // Create target builders for each target in the package.
-        let targetBuilders = package.targets.map({ ResolvedTargetBuilder(target: $0, diagnostics: diagnostics) })
+        let targetBuilders = package.targets.map{ ResolvedTargetBuilder(target: $0) }
         packageBuilder.targets = targetBuilders
 
         // Establish dependencies between the targets. A target can only depend on another target present in the same package.
@@ -351,7 +349,7 @@ private func createResolvedPackages(
             .map{ $0.package.identity.description }
             .sorted()
 
-        diagnostics.emit(PackageGraphError.duplicateProduct(product: productName, packages: packages))
+        DiagnosticsEmitter().emit(PackageGraphError.duplicateProduct(product: productName, packages: packages))
     }
 
     // Remove the duplicate products from the builders.
@@ -368,6 +366,7 @@ private func createResolvedPackages(
     // Do another pass and establish product dependencies of each target.
     for packageBuilder in packageBuilders {
         let package = packageBuilder.package
+        let diagnosticsEmitter = DiagnosticsEmitter(context: package.diagnosticsContext)
 
         // Get all implicit system library dependencies in this package.
         let implicitSystemTargetDeps = packageBuilder.dependencies
@@ -401,7 +400,7 @@ private func createResolvedPackages(
                     // This avoids flooding the diagnostics with product not
                     // found errors when there are more important errors to
                     // resolve (like authentication issues).
-                    if !diagnostics.hasErrors {
+                    if !ObservabilitySystem.errorsReported {
                         // Emit error if a product (not target) declared in the package is also a productRef (dependency)
                         let declProductsAsDependency = package.products.filter { product in
                             product.name == productRef.name
@@ -416,7 +415,7 @@ private func createResolvedPackages(
                             dependencyPackageName: productRef.package,
                             dependencyProductInDecl: !declProductsAsDependency.isEmpty
                         )
-                        diagnostics.emit(error, location: package.diagnosticLocation)
+                        diagnosticsEmitter.emit(error)
                     }
                     continue
                 }
@@ -439,7 +438,7 @@ private func createResolvedPackages(
                             targetName: targetBuilder.target.name,
                             packageIdentifier: referencedPackageName
                         )
-                        diagnostics.emit(error, location: package.diagnosticLocation)
+                        diagnosticsEmitter.emit(error)
                     }
                 }
 
@@ -457,7 +456,7 @@ private func createResolvedPackages(
                 .map{ $0.package.identity.description }
                 .sorted()
             if packages.count > 1 {
-                diagnostics.emit(ModuleError.duplicateModule(targetName, packages))
+                DiagnosticsEmitter().emit(ModuleError.duplicateModule(targetName, packages))
             }
         }
     }
@@ -533,12 +532,8 @@ private final class ResolvedTargetBuilder: ResolvedBuilder<ResolvedTarget> {
     /// The target dependencies of this target.
     var dependencies: [Dependency] = []
 
-    /// The diagnostics engine.
-    let diagnostics: DiagnosticsEngine
-
-    init(target: Target, diagnostics: DiagnosticsEngine) {
+    init(target: Target) {
         self.target = target
-        self.diagnostics = diagnostics
     }
 
     func diagnoseInvalidUseOfUnsafeFlags(_ product: ResolvedProduct) throws {
@@ -547,7 +542,7 @@ private final class ResolvedTargetBuilder: ResolvedBuilder<ResolvedTarget> {
             let declarations = target.underlyingTarget.buildSettings.assignments.keys
             for decl in declarations {
                 if BuildSettings.Declaration.unsafeSettings.contains(decl) {
-                    diagnostics.emit(.productUsesUnsafeFlags(product: product.name, target: target.name))
+                    DiagnosticsEmitter().emit(.productUsesUnsafeFlags(product: product.name, target: target.name))
                     break
                 }
             }
