@@ -139,7 +139,7 @@ fileprivate struct PinsStorage {
                     partial[iterator.packageRef.identity] = iterator
                 }
             default:
-                throw StringError("unknown '\(Self.self)' version '\(version.version)' at '\(self.path)'.")
+                throw StringError("unknown 'PinsStorage' version '\(version.version)' at '\(self.path)'.")
             }
         }
     }

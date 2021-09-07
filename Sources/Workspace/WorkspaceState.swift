@@ -98,7 +98,7 @@ fileprivate struct WorkspaceStateStorage {
                 let artifacts = v4.object.artifacts.map{ Workspace.ManagedArtifact($0) }
                 return (dependencies: .init(dependencyMap: dependencyMap), artifacts: .init(artifacts))
             default:
-                throw StringError("unknown '\(Self.self)' version '\(version.version)' at '\(self.path)'")
+                throw StringError("unknown 'WorkspaceStateStorage' version '\(version.version)' at '\(self.path)'")
             }
         }
     }
