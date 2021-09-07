@@ -100,7 +100,6 @@ public struct Diagnostic: CustomStringConvertible, Equatable {
         self.underlying.message
     }
 
-
     public var data: CustomStringConvertible? {
         self.underlying.data
     }

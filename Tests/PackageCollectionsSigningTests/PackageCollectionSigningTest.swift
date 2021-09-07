@@ -254,7 +254,7 @@ class PackageCollectionSigningTests: XCTestCase {
 
                 // Specify `trustedRootCertsDir`
                 do {
-                    let signing = PackageCollectionSigning(trustedRootCertsDir: tmp.asURL, callbackQueue: callbackQueue, diagnosticsEngine: diagnosticsEngine)
+                    let signing = PackageCollectionSigning(trustedRootCertsDir: tmp.asURL, callbackQueue: callbackQueue, diagnosticsEngine: ObservabilitySystem.makeDiagnosticsEngine())
                     // Sign the collection
                     let signedCollection = try tsc_await { callback in
                         signing.sign(collection: collection, certChainPaths: certChainPaths, certPrivateKeyPath: privateKeyPath.asURL, certPolicyKey: certPolicyKey, callback: callback)
@@ -269,7 +269,7 @@ class PackageCollectionSigningTests: XCTestCase {
                 // Another way is to pass in `additionalTrustedRootCerts`
                 do {
                     let signing = PackageCollectionSigning(additionalTrustedRootCerts: [rootCAData.base64EncodedString()],
-                                                           callbackQueue: callbackQueue, diagnosticsEngine: diagnosticsEngine)
+                                                           callbackQueue: callbackQueue, diagnosticsEngine: ObservabilitySystem.makeDiagnosticsEngine())
                     // Sign the collection
                     let signedCollection = try tsc_await { callback in
                         signing.sign(collection: collection, certChainPaths: certChainPaths, certPrivateKeyPath: privateKeyPath.asURL, certPolicyKey: certPolicyKey, callback: callback)
@@ -346,7 +346,7 @@ class PackageCollectionSigningTests: XCTestCase {
 
                 // Specify `trustedRootCertsDir`
                 do {
-                    let signing = PackageCollectionSigning(trustedRootCertsDir: tmp.asURL, callbackQueue: callbackQueue, diagnosticsEngine: diagnosticsEngine)
+                    let signing = PackageCollectionSigning(trustedRootCertsDir: tmp.asURL, callbackQueue: callbackQueue, diagnosticsEngine: ObservabilitySystem.makeDiagnosticsEngine())
                     // Sign the collection
                     let signedCollection = try tsc_await { callback in
                         signing.sign(collection: collection, certChainPaths: certChainPaths, certPrivateKeyPath: privateKeyPath.asURL, certPolicyKey: certPolicyKey, callback: callback)
@@ -361,7 +361,7 @@ class PackageCollectionSigningTests: XCTestCase {
                 // Another way is to pass in `additionalTrustedRootCerts`
                 do {
                     let signing = PackageCollectionSigning(additionalTrustedRootCerts: [rootCAData.base64EncodedString()],
-                                                           callbackQueue: callbackQueue, diagnosticsEngine: diagnosticsEngine)
+                                                           callbackQueue: callbackQueue, diagnosticsEngine: ObservabilitySystem.makeDiagnosticsEngine())
                     // Sign the collection
                     let signedCollection = try tsc_await { callback in
                         signing.sign(collection: collection, certChainPaths: certChainPaths, certPrivateKeyPath: privateKeyPath.asURL, certPolicyKey: certPolicyKey, callback: callback)
@@ -438,7 +438,7 @@ class PackageCollectionSigningTests: XCTestCase {
 
                 // Specify `trustedRootCertsDir`
                 do {
-                    let signing = PackageCollectionSigning(trustedRootCertsDir: tmp.asURL, callbackQueue: callbackQueue, diagnosticsEngine: diagnosticsEngine)
+                    let signing = PackageCollectionSigning(trustedRootCertsDir: tmp.asURL, callbackQueue: callbackQueue, diagnosticsEngine: ObservabilitySystem.makeDiagnosticsEngine())
                     // Sign the collection
                     let signedCollection = try tsc_await { callback in
                         signing.sign(collection: collection, certChainPaths: certChainPaths, certPrivateKeyPath: privateKeyPath.asURL, certPolicyKey: certPolicyKey, callback: callback)
@@ -453,7 +453,7 @@ class PackageCollectionSigningTests: XCTestCase {
                 // Another way is to pass in `additionalTrustedRootCerts`
                 do {
                     let signing = PackageCollectionSigning(additionalTrustedRootCerts: [rootCAData.base64EncodedString()],
-                                                           callbackQueue: callbackQueue, diagnosticsEngine: diagnosticsEngine)
+                                                           callbackQueue: callbackQueue, diagnosticsEngine: ObservabilitySystem.makeDiagnosticsEngine())
                     // Sign the collection
                     let signedCollection = try tsc_await { callback in
                         signing.sign(collection: collection, certChainPaths: certChainPaths, certPrivateKeyPath: privateKeyPath.asURL, certPolicyKey: certPolicyKey, callback: callback)
@@ -508,7 +508,7 @@ class PackageCollectionSigningTests: XCTestCase {
             // On other platforms we have to specify `trustedRootCertsDir` so the Apple root cert is trusted
             try withTemporaryDirectory { tmp in
                 try localFileSystem.copy(from: rootCAPath, to: tmp.appending(components: "AppleIncRoot.cer"))
-                let signing = PackageCollectionSigning(trustedRootCertsDir: tmp.asURL, callbackQueue: callbackQueue, diagnosticsEngine: diagnosticsEngine)
+                let signing = PackageCollectionSigning(trustedRootCertsDir: tmp.asURL, callbackQueue: callbackQueue, diagnosticsEngine: ObservabilitySystem.makeDiagnosticsEngine())
                 // Sign the collection
                 let signedCollection = try tsc_await { callback in
                     signing.sign(collection: collection, certChainPaths: certChainPaths, certPrivateKeyPath: privateKeyPath.asURL, certPolicyKey: certPolicyKey, callback: callback)
@@ -563,7 +563,7 @@ class PackageCollectionSigningTests: XCTestCase {
             // On other platforms we have to specify `trustedRootCertsDir` so the Apple root cert is trusted
             try withTemporaryDirectory { tmp in
                 try localFileSystem.copy(from: rootCAPath, to: tmp.appending(components: "AppleIncRoot.cer"))
-                let signing = PackageCollectionSigning(trustedRootCertsDir: tmp.asURL, callbackQueue: callbackQueue, diagnosticsEngine: diagnosticsEngine)
+                let signing = PackageCollectionSigning(trustedRootCertsDir: tmp.asURL, callbackQueue: callbackQueue, diagnosticsEngine: ObservabilitySystem.makeDiagnosticsEngine())
                 // Sign the collection
                 let signedCollection = try tsc_await { callback in
                     signing.sign(collection: collection, certChainPaths: certChainPaths, certPrivateKeyPath: privateKeyPath.asURL, certPolicyKey: certPolicyKey, callback: callback)
@@ -618,7 +618,7 @@ class PackageCollectionSigningTests: XCTestCase {
             // On other platforms we have to specify `trustedRootCertsDir` so the Apple root cert is trusted
             try withTemporaryDirectory { tmp in
                 try localFileSystem.copy(from: rootCAPath, to: tmp.appending(components: "AppleIncRoot.cer"))
-                let signing = PackageCollectionSigning(trustedRootCertsDir: tmp.asURL, callbackQueue: callbackQueue, diagnosticsEngine: diagnosticsEngine)
+                let signing = PackageCollectionSigning(trustedRootCertsDir: tmp.asURL, callbackQueue: callbackQueue, diagnosticsEngine: ObservabilitySystem.makeDiagnosticsEngine())
                 // Sign the collection
                 let signedCollection = try tsc_await { callback in
                     signing.sign(collection: collection, certChainPaths: certChainPaths, certPrivateKeyPath: privateKeyPath.asURL, certPolicyKey: certPolicyKey, callback: callback)

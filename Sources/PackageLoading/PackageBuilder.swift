@@ -1170,8 +1170,7 @@ public final class PackageBuilder {
           #if os(Linux)
             // FIXME: Ignore C language test targets on linux for now.
             if target is ClangTarget {
-                diagnostics.emit(.unsupportedCTestTarget(
-                    package: manifest.name, target: target.name))
+                self.diagnosticsEmitter.emit(.unsupportedCTestTarget(package: manifest.name, target: target.name))
                 return false
             }
           #endif

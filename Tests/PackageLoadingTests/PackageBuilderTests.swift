@@ -138,7 +138,7 @@ class PackageBuilderTests: XCTestCase {
             package.checkProduct("MyPackage") { _ in }
 
           #if os(Linux)
-            diagnostics.check(diagnostic: "ignoring target 'MyPackageTests' in package 'MyPackage'; C language in tests is not yet supported", severity: .warning)
+            diagnostics.check(diagnostic: "ignoring target 'MyPackageTests' in package 'MyPackage'; C language in tests is not yet supported", severity: .warning, context: "'' /")
           #elseif os(macOS) || os(Android)
             package.checkProduct("MyPackagePackageTests") { _ in }
           #endif

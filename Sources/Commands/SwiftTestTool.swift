@@ -239,7 +239,7 @@ public struct SwiftTestTool: SwiftCommand {
             // to be removed in future releases
             // deprecation warning is emitted by validateArguments
             #if os(Linux)
-            swiftTool.diagnostics.emit(warning: "can't discover tests on Linux; please use this option on macOS instead")
+            DiagnosticsEmitter().emit(warning: "can't discover tests on Linux; please use this option on macOS instead")
             #endif
             let graph = try swiftTool.loadPackageGraph()
             let testProducts = try buildTestsIfNeeded(swiftTool: swiftTool)

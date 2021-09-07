@@ -147,7 +147,7 @@ class CertificatePolicyTests: XCTestCase {
             try withTemporaryDirectory { tmp in
                 try localFileSystem.copy(from: rootCAPath, to: tmp.appending(components: "AppleIncRoot.cer"))
                 let policy = DefaultCertificatePolicy(trustedRootCertsDir: tmp.asURL, additionalTrustedRootCerts: nil,
-                                                      callbackQueue: callbackQueue, diagnosticsEngine: diagnosticsEngine)
+                                                      callbackQueue: callbackQueue, diagnosticsEngine: ObservabilitySystem.makeDiagnosticsEngine())
                 XCTAssertThrowsError(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) }) { error in
                     guard CertificatePolicyError.invalidCertChain == error as? CertificatePolicyError else {
                         return XCTFail("Expected CertificatePolicyError.invalidCertChain")
@@ -200,21 +200,21 @@ class CertificatePolicyTests: XCTestCase {
                 // Specify `trustedRootCertsDir`
                 do {
                     let policy = DefaultCertificatePolicy(trustedRootCertsDir: tmp.asURL, additionalTrustedRootCerts: nil,
-                                                          callbackQueue: callbackQueue, diagnosticsEngine: diagnosticsEngine)
+                                                          callbackQueue: callbackQueue, diagnosticsEngine: ObservabilitySystem.makeDiagnosticsEngine())
                     XCTAssertNoThrow(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) })
                 }
 
                 // Another way is to pass in `additionalTrustedRootCerts`
                 do {
                     let policy = DefaultCertificatePolicy(trustedRootCertsDir: nil, additionalTrustedRootCerts: [rootCA],
-                                                          callbackQueue: callbackQueue, diagnosticsEngine: diagnosticsEngine)
+                                                          callbackQueue: callbackQueue, diagnosticsEngine: ObservabilitySystem.makeDiagnosticsEngine())
                     XCTAssertNoThrow(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) })
                 }
 
                 // What if the same cert is in both `trustedRootCertsDir` and `additionalTrustedRootCerts`?
                 do {
                     let policy = DefaultCertificatePolicy(trustedRootCertsDir: tmp.asURL, additionalTrustedRootCerts: [rootCA],
-                                                          callbackQueue: callbackQueue, diagnosticsEngine: diagnosticsEngine)
+                                                          callbackQueue: callbackQueue, diagnosticsEngine: ObservabilitySystem.makeDiagnosticsEngine())
                     XCTAssertNoThrow(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) })
                 }
             }
@@ -265,21 +265,21 @@ class CertificatePolicyTests: XCTestCase {
                 // Specify `trustedRootCertsDir`
                 do {
                     let policy = AppleSwiftPackageCollectionCertificatePolicy(trustedRootCertsDir: tmp.asURL, additionalTrustedRootCerts: nil,
-                                                                              callbackQueue: callbackQueue, diagnosticsEngine: diagnosticsEngine)
+                                                                              callbackQueue: callbackQueue, diagnosticsEngine: ObservabilitySystem.makeDiagnosticsEngine())
                     XCTAssertNoThrow(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) })
                 }
 
                 // Another way is to pass in `additionalTrustedRootCerts`
                 do {
                     let policy = AppleSwiftPackageCollectionCertificatePolicy(trustedRootCertsDir: nil, additionalTrustedRootCerts: [rootCA],
-                                                                              callbackQueue: callbackQueue, diagnosticsEngine: diagnosticsEngine)
+                                                                              callbackQueue: callbackQueue, diagnosticsEngine: ObservabilitySystem.makeDiagnosticsEngine())
                     XCTAssertNoThrow(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) })
                 }
 
                 // What if the same cert is in both `trustedRootCertsDir` and `additionalTrustedRootCerts`?
                 do {
                     let policy = AppleSwiftPackageCollectionCertificatePolicy(trustedRootCertsDir: tmp.asURL, additionalTrustedRootCerts: [rootCA],
-                                                                              callbackQueue: callbackQueue, diagnosticsEngine: diagnosticsEngine)
+                                                                              callbackQueue: callbackQueue, diagnosticsEngine: ObservabilitySystem.makeDiagnosticsEngine())
                     XCTAssertNoThrow(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) })
                 }
             }
@@ -330,21 +330,21 @@ class CertificatePolicyTests: XCTestCase {
                 // Specify `trustedRootCertsDir`
                 do {
                     let policy = AppleDistributionCertificatePolicy(trustedRootCertsDir: tmp.asURL, additionalTrustedRootCerts: nil,
-                                                                    callbackQueue: callbackQueue, diagnosticsEngine: diagnosticsEngine)
+                                                                    callbackQueue: callbackQueue, diagnosticsEngine: ObservabilitySystem.makeDiagnosticsEngine())
                     XCTAssertNoThrow(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) })
                 }
 
                 // Another way is to pass in `additionalTrustedRootCerts`
                 do {
                     let policy = AppleDistributionCertificatePolicy(trustedRootCertsDir: nil, additionalTrustedRootCerts: [rootCA],
-                                                                    callbackQueue: callbackQueue, diagnosticsEngine: diagnosticsEngine)
+                                                                    callbackQueue: callbackQueue, diagnosticsEngine: ObservabilitySystem.makeDiagnosticsEngine())
                     XCTAssertNoThrow(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) })
                 }
 
                 // What if the same cert is in both `trustedRootCertsDir` and `additionalTrustedRootCerts`?
                 do {
                     let policy = AppleDistributionCertificatePolicy(trustedRootCertsDir: tmp.asURL, additionalTrustedRootCerts: [rootCA],
-                                                                    callbackQueue: callbackQueue, diagnosticsEngine: diagnosticsEngine)
+                                                                    callbackQueue: callbackQueue, diagnosticsEngine: ObservabilitySystem.makeDiagnosticsEngine())
                     XCTAssertNoThrow(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) })
                 }
             }
@@ -400,14 +400,14 @@ class CertificatePolicyTests: XCTestCase {
                 // Subject user ID matches
                 do {
                     let policy = DefaultCertificatePolicy(trustedRootCertsDir: tmp.asURL, additionalTrustedRootCerts: nil, expectedSubjectUserID: expectedSubjectUserID,
-                                                          callbackQueue: callbackQueue, diagnosticsEngine: diagnosticsEngine)
+                                                          callbackQueue: callbackQueue, diagnosticsEngine: ObservabilitySystem.makeDiagnosticsEngine())
                     XCTAssertNoThrow(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) })
                 }
                 // Subject user ID does not match
                 do {
                     let mismatchSubjectUserID = "\(expectedSubjectUserID)-2"
                     let policy = DefaultCertificatePolicy(trustedRootCertsDir: tmp.asURL, additionalTrustedRootCerts: nil, expectedSubjectUserID: mismatchSubjectUserID,
-                                                          callbackQueue: callbackQueue, diagnosticsEngine: diagnosticsEngine)
+                                                          callbackQueue: callbackQueue, diagnosticsEngine: ObservabilitySystem.makeDiagnosticsEngine())
                     XCTAssertThrowsError(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) }) { error in
                         guard CertificatePolicyError.subjectUserIDMismatch == error as? CertificatePolicyError else {
                             return XCTFail("Expected CertificatePolicyError.subjectUserIDMismatch")
@@ -469,7 +469,7 @@ class CertificatePolicyTests: XCTestCase {
                 do {
                     let policy = AppleSwiftPackageCollectionCertificatePolicy(trustedRootCertsDir: tmp.asURL, additionalTrustedRootCerts: nil,
                                                                               expectedSubjectUserID: expectedSubjectUserID,
-                                                                              callbackQueue: callbackQueue, diagnosticsEngine: diagnosticsEngine)
+                                                                              callbackQueue: callbackQueue, diagnosticsEngine: ObservabilitySystem.makeDiagnosticsEngine())
                     XCTAssertNoThrow(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) })
                 }
                 // Subject user ID does not match
@@ -477,7 +477,7 @@ class CertificatePolicyTests: XCTestCase {
                     let mismatchSubjectUserID = "\(expectedSubjectUserID)-2"
                     let policy = AppleSwiftPackageCollectionCertificatePolicy(trustedRootCertsDir: tmp.asURL, additionalTrustedRootCerts: nil,
                                                                               expectedSubjectUserID: mismatchSubjectUserID,
-                                                                              callbackQueue: callbackQueue, diagnosticsEngine: diagnosticsEngine)
+                                                                              callbackQueue: callbackQueue, diagnosticsEngine: ObservabilitySystem.makeDiagnosticsEngine())
                     XCTAssertThrowsError(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) }) { error in
                         guard CertificatePolicyError.subjectUserIDMismatch == error as? CertificatePolicyError else {
                             return XCTFail("Expected CertificatePolicyError.subjectUserIDMismatch")
@@ -538,14 +538,14 @@ class CertificatePolicyTests: XCTestCase {
                 // Subject user ID matches
                 do {
                     let policy = AppleDistributionCertificatePolicy(trustedRootCertsDir: tmp.asURL, additionalTrustedRootCerts: nil, expectedSubjectUserID: expectedSubjectUserID,
-                                                                    callbackQueue: callbackQueue, diagnosticsEngine: diagnosticsEngine)
+                                                                    callbackQueue: callbackQueue, diagnosticsEngine: ObservabilitySystem.makeDiagnosticsEngine())
                     XCTAssertNoThrow(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) })
                 }
                 // Subject user ID does not match
                 do {
                     let mismatchSubjectUserID = "\(expectedSubjectUserID)-2"
                     let policy = AppleDistributionCertificatePolicy(trustedRootCertsDir: tmp.asURL, additionalTrustedRootCerts: nil, expectedSubjectUserID: mismatchSubjectUserID,
-                                                                    callbackQueue: callbackQueue, diagnosticsEngine: diagnosticsEngine)
+                                                                    callbackQueue: callbackQueue, diagnosticsEngine: ObservabilitySystem.makeDiagnosticsEngine())
                     XCTAssertThrowsError(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) }) { error in
                         guard CertificatePolicyError.subjectUserIDMismatch == error as? CertificatePolicyError else {
                             return XCTFail("Expected CertificatePolicyError.subjectUserIDMismatch")
