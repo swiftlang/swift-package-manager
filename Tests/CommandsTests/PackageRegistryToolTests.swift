@@ -161,6 +161,23 @@ final class PackageRegistryToolTests: XCTestCase {
         }
     }
 
+    func testSetInvalidScope() throws {
+        fixture(name: "DependencyResolution/External/Simple") { prefix in
+            let packageRoot = prefix.appending(component: "Bar")
+            let configurationFilePath = packageRoot.appending(RelativePath(".swiftpm/configuration/registries.json"))
+
+            XCTAssertFalse(localFileSystem.exists(configurationFilePath))
+
+            // Set default registry
+            do {
+                let result = try execute(["set", "--scope", "_invalid_", "\(defaultRegistryBaseURL)"], packagePath: packageRoot)
+                XCTAssertNotEqual(result.exitStatus, .terminated(code: 0))
+            }
+
+            XCTAssertFalse(localFileSystem.exists(configurationFilePath))
+        }
+    }
+
     func testUnsetMissingEntry() throws {
         fixture(name: "DependencyResolution/External/Simple") { prefix in
             let packageRoot = prefix.appending(component: "Bar")
