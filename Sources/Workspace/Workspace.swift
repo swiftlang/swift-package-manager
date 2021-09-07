@@ -1619,9 +1619,8 @@ extension Workspace {
         diagnostics: DiagnosticsEngine,
         completion: @escaping (Result<Manifest, Error>) -> Void
     ) {
-        // Load the manifest, bracketed by the calls to the delegate callbacks. The delegate callback is only passed any diagnostics emited during the parsing of the manifest, but they are also forwarded up to the caller.
+        // Load the manifest, bracketed by the calls to the delegate callbacks.
         delegate?.willLoadManifest(packagePath: packagePath, url: packageLocation, version: version, packageKind: packageKind)
-        let manifestDiagnostics = DiagnosticsEngine(handlers: [{diagnostics.emit($0)}])
         diagnostics.with(location: PackageLocation.Local(packagePath: packagePath)) { diagnostics in
             do {
                 // Load the tools version for the package.
@@ -1631,6 +1630,8 @@ extension Workspace {
                 try toolsVersion.validateToolsVersion(currentToolsVersion, packagePath: packagePath.pathString)
 
                 // Load the manifest.
+                // The delegate callback is only passed any diagnostics emitted during the parsing of the manifest, but they are also forwarded up to the caller.
+                let manifestLoadingDiagnostics = DiagnosticsEngine(handlers: [{diagnostics.emit($0)}])
                 manifestLoader.load(at: packagePath,
                                     packageIdentity: packageIdentity,
                                     packageKind: packageKind,
@@ -1640,20 +1641,17 @@ extension Workspace {
                                     toolsVersion: toolsVersion,
                                     identityResolver: self.identityResolver,
                                     fileSystem: localFileSystem,
-                                    diagnostics: diagnostics,
+                                    diagnostics: manifestLoadingDiagnostics,
                                     on: .sharedConcurrent) { result in
 
                     switch result {
+                    // Diagnostics.fatalError indicates that a more specific diagnostic has already been added.
+                    case .failure(Diagnostics.fatalError):
+                        break
                     case .failure(let error):
-                        // Diagnostics.fatalError indicates that a more specific diagnostic has already been added.
-                        switch error {
-                        case Diagnostics.fatalError:
-                            break
-                        default:
-                            diagnostics.emit(error)
-                        }
+                        diagnostics.emit(error)
                     case .success(let manifest):
-                        self.delegate?.didLoadManifest(packagePath: packagePath, url: packageLocation, version: version, packageKind: packageKind, manifest: manifest, diagnostics: manifestDiagnostics.diagnostics)
+                        self.delegate?.didLoadManifest(packagePath: packagePath, url: packageLocation, version: version, packageKind: packageKind, manifest: manifest, diagnostics: manifestLoadingDiagnostics.diagnostics)
                     }
                     completion(result)
                 }
