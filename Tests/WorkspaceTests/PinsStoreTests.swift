@@ -106,38 +106,98 @@ final class PinsStoreTests: XCTestCase {
         let fs = InMemoryFileSystem()
         let pinsFile = AbsolutePath("/pinsfile.txt")
 
-        try fs.writeFileContents(pinsFile) {
-            $0 <<< """
-                {
-                  "object": {
-                    "pins": [
-                      {
-                        "package": "Clang_C",
-                        "repositoryURL": "https://github.com/something/Clang_C.git",
-                        "state": {
-                          "branch": null,
-                          "revision": "90a9574276f0fd17f02f58979423c3fd4d73b59e",
-                          "version": "1.0.2",
-                        }
-                      },
-                      {
-                        "package": "Commandant",
-                        "repositoryURL": "https://github.com/something/Commandant.git",
-                        "state": {
-                          "branch": null,
-                          "revision": "c281992c31c3f41c48b5036c5a38185eaec32626",
-                          "version": "0.12.0"
-                        }
-                      }
-                    ]
+        try fs.writeFileContents(pinsFile, string:
+            """
+            {
+              "version": 1,
+              "object": {
+                "pins": [
+                  {
+                    "package": "Clang_C",
+                    "repositoryURL": "https://github.com/something/Clang_C.git",
+                    "state": {
+                      "branch": null,
+                      "revision": "90a9574276f0fd17f02f58979423c3fd4d73b59e",
+                      "version": "1.0.2",
+                    }
                   },
-                  "version": 1
-                }
-                """
-        }
+                  {
+                    "package": "Commandant",
+                    "repositoryURL": "https://github.com/something/Commandant.git",
+                    "state": {
+                      "branch": null,
+                      "revision": "c281992c31c3f41c48b5036c5a38185eaec32626",
+                      "version": "0.12.0"
+                    }
+                  }
+                ]
+              }
+            }
+            """
+        )
 
         let store = try PinsStore(pinsFile: pinsFile, workingDirectory: .root, fileSystem: fs, mirrors: .init())
         XCTAssertEqual(store.pinsMap.keys.map { $0.description }.sorted(), ["clang_c", "commandant"])
+    }
+
+    func testLoadingSchema2() throws {
+        let fs = InMemoryFileSystem()
+        let pinsFile = AbsolutePath("/pinsfile.txt")
+
+        try fs.writeFileContents(pinsFile, string:
+            """
+            {
+                "version": 2,
+                "pins": [
+                  {
+                    "identity": "clang_c",
+                    "location": "https://github.com/something/Clang_C.git",
+                    "state": {
+                      "branch": null,
+                      "revision": "90a9574276f0fd17f02f58979423c3fd4d73b59e",
+                      "version": "1.0.2",
+                    }
+                  },
+                  {
+                    "identity": "commandant",
+                    "location": "https://github.com/something/Commandant.git",
+                    "state": {
+                      "branch": null,
+                      "revision": "c281992c31c3f41c48b5036c5a38185eaec32626",
+                      "version": "0.12.0"
+                    }
+                  }
+                ]
+            }
+            """
+        )
+
+        let store = try PinsStore(pinsFile: pinsFile, workingDirectory: .root, fileSystem: fs, mirrors: .init())
+        XCTAssertEqual(store.pinsMap.keys.map { $0.description }.sorted(), ["clang_c", "commandant"])
+    }
+
+    func testLoadingUnknownSchemaVersion() throws {
+        let fs = InMemoryFileSystem()
+        let pinsFile = AbsolutePath("/pinsfile.txt")
+
+        let version = -1
+        try fs.writeFileContents(pinsFile, string: "{ \"version\": \(version) }");
+
+        XCTAssertThrowsError(try PinsStore(pinsFile: pinsFile, workingDirectory: .root, fileSystem: fs, mirrors: .init()), "error expected", { error in
+            XCTAssertEqual("\(error)", "Package.resolved file is corrupted or malformed; fix or delete the file to continue: unknown 'PinsStorage' version '\(version)' at '\(pinsFile)'.")
+        })
+
+    }
+
+    func testLoadingBadFormat() throws {
+        let fs = InMemoryFileSystem()
+        let pinsFile = AbsolutePath("/pinsfile.txt")
+
+        try fs.writeFileContents(pinsFile, string: "boom")
+
+        XCTAssertThrowsError(try PinsStore(pinsFile: pinsFile, workingDirectory: .root, fileSystem: fs, mirrors: .init()), "error expected", { error in
+            XCTAssertMatch("\(error)", .contains("Package.resolved file is corrupted or malformed; fix or delete the file to continue"))
+        })
     }
 
     func testEmptyPins() throws {

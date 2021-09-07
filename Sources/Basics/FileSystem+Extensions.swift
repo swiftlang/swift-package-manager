@@ -11,6 +11,7 @@
 import class Foundation.FileManager
 import struct Foundation.Data
 import TSCBasic
+import PackageDescription
 
 // MARK: - user level
 
@@ -118,8 +119,19 @@ extension FileSystem {
     public func readFileContents(_ path: AbsolutePath) throws -> Data {
         return try Data(self.readFileContents(path).contents)
     }
-
+    
+    public func readFileContents(_ path: AbsolutePath) throws -> String {
+        guard let string = try String(data: self.readFileContents(path), encoding: .utf8) else {
+            throw StringError("invalid UTF8 string")
+        }
+        return string
+    }
+    
     public func writeFileContents(_ path: AbsolutePath, data: Data) throws {
-        return try self.writeFileContents(path, bytes: ByteString(data))
+        return try self.writeFileContents(path, bytes: .init(data))
+    }
+    
+    public func writeFileContents(_ path: AbsolutePath, string: String) throws {
+        return try self.writeFileContents(path, bytes: .init(encodingAsUTF8: string))
     }
 }

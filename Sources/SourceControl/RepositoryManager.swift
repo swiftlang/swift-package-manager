@@ -469,7 +469,7 @@ fileprivate struct RepositoryManagerStorage {
                 let v1 = try self.decoder.decode(path: self.path, fileSystem: self.fileSystem, as: V1.self)
                 return try v1.object.repositories.mapValues{ try .init($0, manager: manager) }
             default:
-                throw InternalError("unknown RepositoryManager version: \(version)")
+                throw StringError("unknown '\(Self.self)' version '\(version.version)' at '\(self.path)'")
             }
         }
     }
