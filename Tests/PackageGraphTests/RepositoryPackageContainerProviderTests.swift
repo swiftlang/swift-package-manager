@@ -429,9 +429,8 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
         do {
             let manifest = Manifest.createManifest(
                 name: "Foo",
-                path: "/Foo",
+                path: .init("/Foo"),
                 packageKind: .root,
-                packageLocation: "/Foo",
                 v: .v5,
                 dependencies: dependencies,
                 products: products,
@@ -453,9 +452,8 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
         do {
             let manifest = Manifest.createManifest(
                 name: "Foo",
-                path: "/Foo",
+                path: .init("/Foo"),
                 packageKind: .local,
-                packageLocation: "/Foo",
                 v: .v5,
                 dependencies: dependencies,
                 products: products,
@@ -477,9 +475,8 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
         do {
             let manifest = Manifest.createManifest(
                 name: "Foo",
-                path: "/Foo",
+                path: .init("/Foo"),
                 packageKind: .root,
-                packageLocation: "/Foo",
                 v: .v5_2,
                 dependencies: dependencies,
                 products: products,
@@ -501,9 +498,8 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
         do {
             let manifest = Manifest.createManifest(
                 name: "Foo",
-                path: "/Foo",
+                path: .init("/Foo"),
                 packageKind: .local,
-                packageLocation: "/Foo",
                 v: .v5_2,
                 dependencies: dependencies,
                 products: products,
@@ -549,9 +545,8 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
             // Create a container provider, configured with a mock manifest loader that will return the package manifest.
             let manifest = Manifest.createV4Manifest(
                 name: packageDir.basename,
-                path: packageDir.pathString,
+                path: packageDir,
                 packageKind: .root,
-                packageLocation: packageDir.pathString,
                 targets: [
                     try TargetDescription(name: packageDir.basename, path: packageDir.pathString),
                 ]
@@ -615,9 +610,8 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
             let version = Version(1, 0, 0)
             let manifest = Manifest.createManifest(
                 name: packageDirectory.basename,
-                path: packageDirectory.pathString,
+                path: packageDirectory,
                 packageKind: .root,
-                packageLocation: packageDirectory.pathString,
                 v: .v5_2,
                 dependencies: [
                     .scm(

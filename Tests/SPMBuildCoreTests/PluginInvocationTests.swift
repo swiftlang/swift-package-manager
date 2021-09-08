@@ -32,9 +32,8 @@ class PluginInvocationTests: XCTestCase {
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Foo",
-                    path: "/Foo",
+                    path: .init("/Foo"),
                     packageKind: .root,
-                    packageLocation: "/Foo",
                     products: [
                         ProductDescription(
                             name: "Foo",

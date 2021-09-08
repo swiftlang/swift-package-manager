@@ -41,9 +41,8 @@ class PIFBuilderTests: XCTestCase {
                 manifests: [
                     Manifest.createManifest(
                         name: "B",
-                        path: "/B",
+                        path: .init("/B"),
                         packageKind: .remote,
-                        packageLocation: "/B",
                         v: .v5_2,
                         products: [
                             .init(name: "bexe", type: .executable, targets: ["B1"]),
@@ -55,9 +54,8 @@ class PIFBuilderTests: XCTestCase {
                         ]),
                     Manifest.createManifest(
                         name: "A",
-                        path: "/A",
+                        path: .init("/A"),
                         packageKind: .root,
-                        packageLocation: "/A",
                         v: .v5_2,
                         dependencies: [
                             .scm(location: "/B", requirement: .branch("master")),
@@ -113,9 +111,8 @@ class PIFBuilderTests: XCTestCase {
             manifests: [
                 Manifest.createManifest(
                     name: "Foo",
-                    path: "/Foo",
+                    path: .init("/Foo"),
                     packageKind: .root,
-                    packageLocation: "/Foo",
                     defaultLocalization: "fr",
                     v: .v5_2,
                     dependencies: [
@@ -127,9 +124,8 @@ class PIFBuilderTests: XCTestCase {
                     ]),
                 Manifest.createManifest(
                     name: "Bar",
-                    path: "/Bar",
+                    path: .init("/Bar"),
                     packageKind: .remote,
-                    packageLocation: "/Bar",
                     platforms: [
                         PlatformDescription(name: "macos", version: "10.14"),
                         PlatformDescription(name: "ios", version: "12"),
@@ -383,9 +379,8 @@ class PIFBuilderTests: XCTestCase {
             manifests: [
                 Manifest.createManifest(
                     name: "Foo",
-                    path: "/Foo",
+                    path: .init("/Foo"),
                     packageKind: .root,
-                    packageLocation: "/Foo",
                     v: .v5_2,
                     swiftLanguageVersions: [.v4_2, .v5],
                     dependencies: [
@@ -407,9 +402,8 @@ class PIFBuilderTests: XCTestCase {
                     ]),
                 Manifest.createManifest(
                     name: "Bar",
-                    path: "/Bar",
+                    path: .init("/Bar"),
                     packageKind: .remote,
-                    packageLocation: "/Bar",
                     v: .v4_2,
                     cLanguageStandard: "c11",
                     cxxLanguageStandard: "c++14",
@@ -717,9 +711,8 @@ class PIFBuilderTests: XCTestCase {
             manifests: [
                 Manifest.createManifest(
                     name: "Foo",
-                    path: "/Foo",
+                    path: .init("/Foo"),
                     packageKind: .root,
-                    packageLocation: "/Foo",
                     v: .v5_2,
                     swiftLanguageVersions: [.v4_2, .v5],
                     dependencies: [
@@ -741,9 +734,8 @@ class PIFBuilderTests: XCTestCase {
                     ]),
                 Manifest.createManifest(
                     name: "Bar",
-                    path: "/Bar",
+                    path: .init("/Bar"),
                     packageKind: .remote,
-                    packageLocation: "/Bar",
                     v: .v4_2,
                     cLanguageStandard: "c11",
                     cxxLanguageStandard: "c++14",
@@ -945,9 +937,8 @@ class PIFBuilderTests: XCTestCase {
             manifests: [
                 Manifest.createManifest(
                     name: "Foo",
-                    path: "/Foo",
+                    path: .init("/Foo"),
                     packageKind: .root,
-                    packageLocation: "/Foo",
                     v: .v5_2,
                     swiftLanguageVersions: [.v4_2, .v5],
                     dependencies: [
@@ -966,7 +957,7 @@ class PIFBuilderTests: XCTestCase {
                     ]),
                 Manifest.createManifest(
                     name: "Bar",
-                    path: "/Bar",
+                    path: .init("/Bar"),
                     packageKind: .remote,
                     packageLocation: "/Bar",
                     v: .v4_2,
@@ -1143,9 +1134,8 @@ class PIFBuilderTests: XCTestCase {
             manifests: [
                 Manifest.createManifest(
                     name: "Foo",
-                    path: "/Foo",
+                    path: .init("/Foo"),
                     packageKind: .root,
-                    packageLocation: "/Foo",
                     v: .v5_2,
                     cxxLanguageStandard: "c++14",
                     swiftLanguageVersions: [.v4_2, .v5],
@@ -1161,9 +1151,8 @@ class PIFBuilderTests: XCTestCase {
                     ]),
                 Manifest.createManifest(
                     name: "Bar",
-                    path: "/Bar",
+                    path: .init("/Bar"),
                     packageKind: .remote,
-                    packageLocation: "/Bar",
                     v: .v4_2,
                     cLanguageStandard: "c11",
                     swiftLanguageVersions: [.v4_2],
@@ -1433,9 +1422,8 @@ class PIFBuilderTests: XCTestCase {
             manifests: [
                 Manifest.createManifest(
                     name: "Bar",
-                    path: "/Bar",
+                    path: .init("/Bar"),
                     packageKind: .root,
-                    packageLocation: "/Bar",
                     v: .v4_2,
                     cLanguageStandard: "c11",
                     swiftLanguageVersions: [.v4_2],
@@ -1480,9 +1468,8 @@ class PIFBuilderTests: XCTestCase {
             manifests: [
                 Manifest.createManifest(
                     name: "Bar",
-                    path: "/Bar",
+                    path: .init("/Bar"),
                     packageKind: .root,
-                    packageLocation: "/Bar",
                     v: .v4_2,
                     cLanguageStandard: "c11",
                     swiftLanguageVersions: [.v4_2],
@@ -1531,9 +1518,8 @@ class PIFBuilderTests: XCTestCase {
             manifests: [
                 Manifest.createManifest(
                     name: "Foo",
-                    path: "/Foo",
+                    path: .init("/Foo"),
                     packageKind: .root,
-                    packageLocation: "/Foo",
                     v: .v5_2,
                     cxxLanguageStandard: "c++14",
                     swiftLanguageVersions: [.v4_2, .v5],
@@ -1644,9 +1630,8 @@ class PIFBuilderTests: XCTestCase {
             manifests: [
                 Manifest.createManifest(
                     name: "Foo",
-                    path: "/Foo",
+                    path: .init("/Foo"),
                     packageKind: .root,
-                    packageLocation: "/Foo",
                     v: .v5_3,
                     products: [
                         .init(name: "FooLib", type: .library(.automatic), targets: ["FooLib"]),
@@ -1710,7 +1695,7 @@ class PIFBuilderTests: XCTestCase {
             manifests: [
                 Manifest.createManifest(
                     name: "Foo",
-                    path: "/Foo",
+                    path: .init("/Foo"),
                     packageKind: .root,
                     packageLocation: "/Foo",
                     v: .v5_3,
@@ -1920,9 +1905,8 @@ class PIFBuilderTests: XCTestCase {
             manifests: [
                 Manifest.createManifest(
                     name: "Foo",
-                    path: "/Foo",
+                    path: .init("/Foo"),
                     packageKind: .root,
-                    packageLocation: "/Foo",
                     v: .v5,
                     products: [
                         .init(name: "FooLib", type: .library(.automatic), targets: ["FooLib"]),
@@ -2140,9 +2124,8 @@ class PIFBuilderTests: XCTestCase {
             manifests: [
                 Manifest.createManifest(
                     name: "Foo",
-                    path: "/Foo",
+                    path: .init("/Foo"),
                     packageKind: .root,
-                    packageLocation: "/Foo",
                     v: .v5_3,
                     targets: [
                         .init(name: "foo", dependencies: [
@@ -2205,7 +2188,7 @@ class PIFBuilderTests: XCTestCase {
             manifests: [
                 Manifest.createManifest(
                     name: "Foo",
-                    path: "/Foo",
+                    path: .init("/Foo"),
                     packageKind: .root,
                     packageLocation: "/Foo",
                     platforms: [
@@ -2249,9 +2232,8 @@ class PIFBuilderTests: XCTestCase {
             manifests: [
                 Manifest.createManifest(
                     name: "MyLib",
-                    path: "/MyLib",
+                    path: .init("/MyLib"),
                     packageKind: .root,
-                    packageLocation: "/MyLib",
                     v: .v5,
                     products: [
                         .init(name: "MyLib", type: .library(.automatic), targets: ["MyLib"]),
