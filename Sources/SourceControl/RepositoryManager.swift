@@ -170,7 +170,7 @@ public class RepositoryManager {
                     // Make sure destination is free.
                     try? self.fileSystem.removeFileTree(repositoryPath)
                     let isCached = self.cachePath.map{ self.fileSystem.exists($0.appending(handle.subpath)) } ?? false
-                    
+
                     // Inform delegate.
                     queue.async {
                         let details = FetchDetails(fromCache: isCached, updatedCache: false)
@@ -469,7 +469,7 @@ fileprivate struct RepositoryManagerStorage {
                 let v1 = try self.decoder.decode(path: self.path, fileSystem: self.fileSystem, as: V1.self)
                 return try v1.object.repositories.mapValues{ try .init($0, manager: manager) }
             default:
-                throw InternalError("unknown RepositoryManager version: \(version)")
+                throw StringError("unknown 'RepositoryManagerStorage' version '\(version.version)' at '\(self.path)'")
             }
         }
     }
