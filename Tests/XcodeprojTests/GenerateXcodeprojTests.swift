@@ -39,9 +39,8 @@ class GenerateXcodeprojTests: XCTestCase {
               manifests: [
                   Manifest.createV4Manifest(
                       name: "Foo",
-                      path: packagePath.pathString,
+                      path: packagePath,
                       packageKind: .root,
-                      packageLocation: packagePath.pathString,
                       targets: [
                           TargetDescription(name: "DummyModuleName"),
                       ])
@@ -91,9 +90,8 @@ class GenerateXcodeprojTests: XCTestCase {
                 manifests: [
                     Manifest.createV4Manifest(
                         name: "Bar",
-                        path: packagePath.pathString,
+                        path: packagePath,
                         packageKind: .root,
-                        packageLocation: packagePath.pathString,
                         targets: [
                             TargetDescription(name: "Bar"),
                         ])
@@ -126,9 +124,8 @@ class GenerateXcodeprojTests: XCTestCase {
                 manifests: [
                     Manifest.createV4Manifest(
                         name: "Modules",
-                        path: packagePath.pathString,
+                        path: packagePath,
                         packageKind: .root,
-                        packageLocation: packagePath.pathString,
                         targets: [
                             TargetDescription(name: "Modules"),
                         ])
@@ -162,9 +159,8 @@ class GenerateXcodeprojTests: XCTestCase {
                 manifests: [
                     Manifest.createV4Manifest(
                         name: "Foo",
-                        path: packagePath.pathString,
+                        path: packagePath,
                         packageKind: .root,
-                        packageLocation: packagePath.pathString,
                         targets: [
                             TargetDescription(name: "DummyModule"),
                         ])
@@ -197,9 +193,8 @@ class GenerateXcodeprojTests: XCTestCase {
                 manifests: [
                     Manifest.createV4Manifest(
                         name: "Foo",
-                        path: packagePath.pathString,
+                        path: packagePath,
                         packageKind: .root,
-                        packageLocation: packagePath.pathString,
                         targets: [
                             TargetDescription(name: "DummyModule"),
                         ])
@@ -231,9 +226,8 @@ class GenerateXcodeprojTests: XCTestCase {
                 manifests: [
                     Manifest.createV4Manifest(
                         name: "Foo",
-                        path: packagePath.pathString,
+                        path: packagePath,
                         packageKind: .root,
-                        packageLocation: packagePath.pathString,
                         targets: [
                             TargetDescription(name: "DummyModule"),
                         ])
@@ -269,9 +263,8 @@ class GenerateXcodeprojTests: XCTestCase {
                 manifests: [
                     Manifest.createV4Manifest(
                         name: "Foo",
-                        path: packagePath.pathString,
+                        path: packagePath,
                         packageKind: .root,
-                        packageLocation: packagePath.pathString,
                         targets: [
                             TargetDescription(name: "DummyModule"),
                         ])
@@ -312,9 +305,8 @@ class GenerateXcodeprojTests: XCTestCase {
                 manifests: [
                     Manifest.createV4Manifest(
                         name: "Foo",
-                        path: packagePath.pathString,
+                        path: packagePath,
                         packageKind: .root,
-                        packageLocation: packagePath.pathString,
                         targets: [
                             TargetDescription(name: "DummyModule"),
                         ])
@@ -354,8 +346,7 @@ class GenerateXcodeprojTests: XCTestCase {
                 manifests: [
                     Manifest.createV4Manifest(
                         name: "Foo",
-                        path: fooPackagePath.pathString,
-                        packageLocation: fooPackagePath.pathString,
+                        path: fooPackagePath,
                         dependencies: [
                             .fileSystem(path: barPackagePath)
                         ],
@@ -366,9 +357,8 @@ class GenerateXcodeprojTests: XCTestCase {
                         ]),
                     Manifest.createV4Manifest(
                         name: "Bar",
-                        path: barPackagePath.pathString,
+                        path: barPackagePath,
                         packageKind: .remote,
-                        packageLocation: barPackagePath.pathString,
                         products: [
                             ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar1"])
                         ],

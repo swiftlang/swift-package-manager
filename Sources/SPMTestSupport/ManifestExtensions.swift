@@ -15,9 +15,9 @@ import TSCUtility
 public extension Manifest {
     static func createV4Manifest(
         name: String,
-        path: String = "/",
+        path: AbsolutePath = .root,
         packageKind: PackageReference.Kind = .root,
-        packageLocation: String = "/",
+        packageLocation: String? = nil,
         version: TSCUtility.Version? = nil,
         toolsVersion: ToolsVersion = .v4,
         pkgConfig: String? = nil,
@@ -31,9 +31,9 @@ public extension Manifest {
     ) -> Manifest {
         return Manifest(
             name: name,
-            path: AbsolutePath(path).appending(component: Manifest.filename),
+            path: path.appending(component: Manifest.filename),
             packageKind: packageKind,
-            packageLocation: packageLocation,
+            packageLocation: packageLocation ?? path.pathString,
             platforms: [],
             version: version,
             toolsVersion: toolsVersion,
@@ -50,9 +50,9 @@ public extension Manifest {
 
     static func createManifest(
         name: String,
-        path: String = "/",
+        path: AbsolutePath = .root,
         packageKind: PackageReference.Kind = .root,
-        packageLocation: String = "/",
+        packageLocation: String? = nil,
         defaultLocalization: String? = nil,
         platforms: [PlatformDescription] = [],
         version: TSCUtility.Version? = nil,
@@ -68,9 +68,9 @@ public extension Manifest {
     ) -> Manifest {
         return Manifest(
             name: name,
-            path: AbsolutePath(path).appending(component: Manifest.filename),
+            path: path.appending(component: Manifest.filename),
             packageKind: packageKind,
-            packageLocation: packageLocation,
+            packageLocation: packageLocation ?? path.pathString,
             defaultLocalization: defaultLocalization,
             platforms: platforms,
             version: version,
