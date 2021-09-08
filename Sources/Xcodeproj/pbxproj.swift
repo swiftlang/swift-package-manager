@@ -78,7 +78,7 @@ public func xcodeProject(
         let compilePhase = pdTarget.addSourcesBuildPhase()
         compilePhase.addBuildFile(fileRef: manifestFileRef)
 
-        var interpreterFlags = manifestLoader.interpreterFlags(for: package.manifest.toolsVersion)
+        var interpreterFlags = manifestLoader.interpreterFlags(for: package.path, toolsVersion: package.manifest.toolsVersion)
         if !interpreterFlags.isEmpty {
             // Patch the interpreter flags to use Xcode supported toolchain macro instead of the resolved path.
             interpreterFlags[3] = "$(TOOLCHAIN_DIR)/usr/lib/swift/pm/ManifestAPI"

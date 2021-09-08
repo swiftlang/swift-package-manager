@@ -611,4 +611,70 @@ class PackageDescription5_0LoadingTests: PackageDescriptionLoadingTests {
             }
         }
     }
+
+    func testManifestLoaderCustomLibraryDirectory() throws {
+        try testWithTemporaryDirectory { path in
+            let fs = localFileSystem
+
+            class CustomManifestResources: ManifestResourceProvider {
+                var swiftCompiler: AbsolutePath
+                var libDir: AbsolutePath
+                var binDir: AbsolutePath?
+                var sdkRoot: AbsolutePath?
+                
+                init(swiftCompiler: AbsolutePath, libDir: AbsolutePath, binDir: AbsolutePath?, sdkRoot: AbsolutePath?) {
+                    self.swiftCompiler = swiftCompiler
+                    self.libDir = libDir
+                    self.binDir = binDir
+                    self.sdkRoot = sdkRoot
+                }
+                
+                func libraryDirectory(for packagePath: AbsolutePath, toolsVersion: ToolsVersion) -> AbsolutePath {
+                    return self.libDir
+                }
+            }
+
+            let packagePath = path.appending(component: "pkg")
+            let manifestPath = packagePath.appending(component: "Package.swift")
+            try fs.writeFileContents(manifestPath) { stream in
+                stream <<< """
+                // swift-tools-version:5
+                import PackageDescription
+                
+                let package = Package(
+                    name: "Trivial",
+                    targets: [
+                        .target(
+                            name: "foo",
+                            dependencies: []),
+                    ]
+                )
+                """
+            }
+
+            let customResources = CustomManifestResources(
+                swiftCompiler: Resources.default.swiftCompiler,
+                libDir: Resources.default.libDir,
+                binDir: Resources.default.binDir,
+                sdkRoot: Resources.default.sdkRoot)
+            let manifestLoader = ManifestLoader(
+                manifestResources: customResources,
+                serializedDiagnostics: true,
+                isManifestSandboxEnabled: false,
+                cacheDir: nil)
+
+            let diagnostics = DiagnosticsEngine()
+            let manifest = try manifestLoader.load(
+                at: manifestPath.parentDirectory,
+                packageKind: .local,
+                packageLocation: manifestPath.pathString,
+                toolsVersion: .v5,
+                fileSystem: fs,
+                diagnostics: diagnostics
+            )
+
+            XCTAssertTrue(diagnostics.diagnostics.isEmpty)
+            XCTAssertEqual(manifest.name, "Trivial")
+        }
+    }
 }

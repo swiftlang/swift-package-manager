@@ -33,6 +33,9 @@ public protocol ManifestResourceProvider {
 
     /// The path of the library resources.
     var libDir: AbsolutePath { get }
+    
+    /// The path of the directory containing the PackageDescription module and library to use for the package and tools version.
+    func libraryDirectory(for packagePath: AbsolutePath, toolsVersion: ToolsVersion) -> AbsolutePath
 
     /// The path to SDK root.
     ///
@@ -61,6 +64,10 @@ public extension ManifestResourceProvider {
 
     var binDir: AbsolutePath? {
         return nil
+    }
+    
+    func libraryDirectory(for packagePath: AbsolutePath, toolsVersion: ToolsVersion) -> AbsolutePath {
+        return self.libDir.appending(component: "ManifestAPI")
     }
 
     var swiftCompilerFlags: [String] {
@@ -722,6 +729,8 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             toolsVersion: ToolsVersion,
             manifestParseResult: inout ManifestParseResult
         ) throws {
+            let packagePath = manifestPath.parentDirectory
+
             self.delegate?.willParse(manifest: manifestPath)
 
             // The compiler has special meaning for files with extensions like .ll, .bc etc.
@@ -735,7 +744,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             // and validates it.
 
             // Compute the path to runtime we need to load.
-            let runtimePath = self.runtimePath(for: toolsVersion)
+            let runtimePath = self.runtimePath(for: packagePath, toolsVersion: toolsVersion)
 
             // FIXME: Workaround for the module cache bug that's been haunting Swift CI
             // <rdar://problem/48443680>
@@ -787,7 +796,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             // Add any extra flags required as indicated by the ManifestLoader.
             cmd += resources.swiftCompilerFlags
 
-            cmd += self.interpreterFlags(for: toolsVersion)
+            cmd += self.interpreterFlags(for: packagePath, toolsVersion: toolsVersion)
             if let moduleCachePath = moduleCachePath {
                 cmd += ["-module-cache-path", moduleCachePath.pathString]
             }
@@ -929,10 +938,11 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
     /// Returns the interpreter flags for a manifest.
     public func interpreterFlags(
-        for toolsVersion: ToolsVersion
+        for packagePath: AbsolutePath,
+        toolsVersion: ToolsVersion
     ) -> [String] {
         var cmd = [String]()
-        let runtimePath = self.runtimePath(for: toolsVersion)
+        let runtimePath = self.runtimePath(for: packagePath, toolsVersion: toolsVersion)
         cmd += ["-swift-version", toolsVersion.swiftLanguageVersion.rawValue]
         cmd += ["-I", runtimePath.pathString]
       #if os(macOS)
@@ -945,20 +955,23 @@ public final class ManifestLoader: ManifestLoaderProtocol {
     }
 
     /// Returns the runtime path given the manifest version and path to libDir.
-    private func runtimePath(for version: ToolsVersion) -> AbsolutePath {
+    private func runtimePath(
+        for packagePath: AbsolutePath,
+        toolsVersion: ToolsVersion
+    ) -> AbsolutePath {
         // Bin dir will be set when developing swiftpm without building all of the runtimes.
         if let binDir = resources.binDir {
             return binDir
         }
         
-        // Otherwise we use the standard location of the manifest API in the toolchain, if it exists.
-        let manifestAPIDir = resources.libDir.appending(component: "ManifestAPI")
-        if localFileSystem.exists(manifestAPIDir) {
-            return manifestAPIDir
+        // Otherwise we use the standard location of the manifest API returned by the resource provider.
+        let runtimeDir = resources.libraryDirectory(for: packagePath, toolsVersion: toolsVersion)
+        if localFileSystem.exists(runtimeDir) {
+            return runtimeDir
         }
         
         // Otherwise, fall back on the old location (this would indicate that we're using an old toolchain).
-        return resources.libDir.appending(version.runtimeSubpath)
+        return resources.libDir.appending(toolsVersion.runtimeSubpath)
     }
 
     /// Returns path to the manifest database inside the given cache directory.

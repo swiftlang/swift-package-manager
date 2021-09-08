@@ -1239,7 +1239,7 @@ extension Workspace {
               toolsVersion >= ToolsVersion.minimumRequired else {
             return []
         }
-        return manifestLoader.interpreterFlags(for: toolsVersion)
+        return manifestLoader.interpreterFlags(for: packagePath, toolsVersion: toolsVersion)
     }
 
     /// Load the manifests for the current dependency tree.
