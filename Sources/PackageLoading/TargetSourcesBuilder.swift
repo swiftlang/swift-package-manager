@@ -152,7 +152,7 @@ public struct TargetSourcesBuilder {
         var pathToRule: [AbsolutePath: Rule] = [:]
 
         for path in contents {
-            pathToRule[path] = findRule(for: path)
+            pathToRule[path] = try findRule(for: path)
         }
 
         // Emit an error if we found files without a matching rule in
@@ -197,7 +197,7 @@ public struct TargetSourcesBuilder {
     }
 
     /// Find the rule for the given path.
-    private func findRule(for path: AbsolutePath) -> Rule {
+    private func findRule(for path: AbsolutePath) throws -> Rule {
         var matchedRule: Rule = Rule(rule: .none, localization: nil)
 
         // First match any resources explicitly declared in the manifest file.
@@ -213,8 +213,11 @@ public struct TargetSourcesBuilder {
 
         // Match any sources explicitly declared in the manifest file.
         if let declaredSources = self.declaredSources {
+            var pathIsDeclared = false
+            let pathShouldBeDeclared = rules.filter { $0.rule == .compile }.contains(where: { $0.match(path: path, toolsVersion: toolsVersion) })
             for sourcePath in declaredSources {
                 if path.isDescendantOfOrEqual(to: sourcePath) {
+                    pathIsDeclared = true
                     if matchedRule.rule != .none {
                         self.observabilityScope.emit(error: "duplicate rule found for file at '\(path)'")
                     }
@@ -235,6 +238,11 @@ public struct TargetSourcesBuilder {
                     break
                 }
             }
+            if !pathIsDeclared,
+                pathShouldBeDeclared,
+               toolsVersion <= ToolsVersion.v5_5 {
+                throw ModuleError.sourceNotDeclared(path: path, target: target.name)
+             }
         }
 
         // We haven't found a rule using that's explicitly declared in the manifest

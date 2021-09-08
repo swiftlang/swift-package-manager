@@ -396,6 +396,29 @@ class PackageBuilderTests: XCTestCase {
         }
     }
 
+    func testMissingSourceDeclaration() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/foo.swift",
+            "/Sources/bar/bar.swift"
+        )
+        
+        let manifest = Manifest.createV4Manifest(
+            name: "pkg",
+            toolsVersion: .v5_5,
+            targets: [
+                try TargetDescription(
+                    name: "foo",
+                    path: "Sources",
+                    sources: ["foo.swift"]),
+                try TargetDescription(
+                    name: "bar")
+            ]
+        )
+        PackageBuilderTester(manifest, in: fs) { package, diagnotics in
+            diagnotics.check(diagnostic: "/Sources/bar/bar.swift is not part of declared sources for target 'foo'. If it shouldn't be, make sure target directories do not overlap.", behavior: .error)
+        }
+    }
+    
     func testExecutableTargets() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Sources/exec1/exec.swift",
@@ -658,7 +681,7 @@ class PackageBuilderTests: XCTestCase {
             package.checkProduct("exe") { _ in }
         }
     }
-
+   
     func testCustomTargetPathsOverlap() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/target/bar/bar.swift",

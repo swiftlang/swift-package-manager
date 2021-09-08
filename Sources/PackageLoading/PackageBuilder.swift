@@ -48,6 +48,9 @@ public enum ModuleError: Swift.Error {
     /// The public headers directory is at an invalid path.
     case invalidPublicHeadersDirectory(String)
 
+    /// The path is not declared as sources for a given target when it should be.
+    case sourceNotDeclared(path: AbsolutePath, target: String)
+
     /// The sources of a target are overlapping with another target.
     case overlappingSources(target: String, sources: [AbsolutePath])
 
@@ -94,6 +97,8 @@ extension ModuleError: CustomStringConvertible {
                 " -> " + cycle.cycle[0]
         case .invalidPublicHeadersDirectory(let name):
             return "public headers (\"include\") directory path for '\(name)' is invalid or not contained in the target"
+        case .sourceNotDeclared(let path, let target):
+            return "\(path.pathString) is not part of declared sources for target '\(target)'. If it shouldn't be, make sure target directories do not overlap."
         case .overlappingSources(let target, let sources):
             return "target '\(target)' has sources overlapping sources: " +
                 sources.map({ $0.description }).joined(separator: ", ")
