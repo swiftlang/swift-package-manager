@@ -1255,13 +1255,19 @@ public final class ProductBuildDescription {
 
         // Embed the swift stdlib library path inside tests and executables on Darwin.
         if containsSwiftTargets {
+          let useStdlibRpath: Bool
           switch product.type {
-          case .library, .plugin: break
+          case .library(let type):
+            useStdlibRpath = type == .dynamic
           case .test, .executable:
-              if buildParameters.triple.isDarwin() {
-                  let stdlib = buildParameters.toolchain.macosSwiftStdlib
-                  args += ["-Xlinker", "-rpath", "-Xlinker", stdlib.pathString]
-              }
+            useStdlibRpath = true
+          case .plugin:
+            throw InternalError("unexpectedly asked to generate linker arguments for a plugin product")
+          }
+
+          if useStdlibRpath && buildParameters.triple.isDarwin() {
+            let stdlib = buildParameters.toolchain.macosSwiftStdlib
+            args += ["-Xlinker", "-rpath", "-Xlinker", stdlib.pathString]
           }
         }
 
