@@ -27,10 +27,7 @@ private struct GitShellHelper {
     /// Private function to invoke the Git tool with its default environment and given set of arguments.  The specified
     /// failure message is used only in case of error.  This function waits for the invocation to finish and returns the
     /// output as a string.
-    func run(_ args: [String],
-             environment: [String: String] = Git.environment,
-             outputRedirection: Process.OutputRedirection = .collect) throws -> String
-    {
+    func run(_ args: [String], environment: [String: String] = Git.environment, outputRedirection: Process.OutputRedirection = .collect) throws -> String {
         let process = Process(arguments: [Git.tool] + args, environment: environment, outputRedirection: outputRedirection)
         let result: ProcessResult
         do {
@@ -71,26 +68,29 @@ public struct GitRepositoryProvider: RepositoryProvider {
                          repository: RepositorySpecifier,
                          failureMessage: String = "",
                          progress: FetchProgress.Handler? = nil) throws -> String {
-        do {
-            if let progress = progress {
-                let outputRedirection = Process.OutputRedirection.stream {
-                    _ in
-                } stderr: {
+        if let progress = progress {
+            var stdoutBytes: [UInt8] = [], stderrBytes: [UInt8] = []
+            do {
+                // Capture stdout and stderr from the Git subprocess invocation, but also pass along stderr to the handler. We count on it being line-buffered.
+                let outputHandler = Process.OutputRedirection.stream(stdout: { stdoutBytes += $0 }, stderr: {
+                    stderrBytes += $0
                     GitFetchProgress.gitFetchStatusFilter($0, progress: progress)
-                }
-                return try self.git.run(args + ["--progress"], environment: environment, outputRedirection: outputRedirection)
-            } else {
-                return try self.git.run(args, environment: environment)
+                })
+                return try self.git.run(args + ["--progress"], environment: environment, outputRedirection: outputHandler)
             }
-        } catch let error as GitShellError {
-            throw GitCloneError(repository: repository, message: failureMessage, result: error.result)
+            catch let error as GitShellError {
+                let result = ProcessResult(arguments: error.result.arguments, environment: error.result.environment, exitStatus: error.result.exitStatus, output: .success(stdoutBytes), stderrOutput: .success(stderrBytes))
+                throw GitCloneError(repository: repository, message: failureMessage, result: result)
+            }
+        }
+        else {
+            do {
+                return try self.git.run(args, environment: environment)
+            } catch let error as GitShellError {
+                throw GitCloneError(repository: repository, message: failureMessage, result: error.result)
+            }
         }
     }
-
-    public func fetch(repository: RepositorySpecifier, to path: AbsolutePath) throws {
-        try fetch(repository: repository, to: path, progress: nil)
-    }
-
 
     public func fetch(repository: RepositorySpecifier, to path: AbsolutePath, progress: FetchProgress.Handler? = nil) throws {
         // Perform a bare clone.
@@ -323,19 +323,27 @@ public final class GitRepository: Repository, WorkingCheckout {
                          environment: [String: String] = Git.environment,
                          failureMessage: String = "",
                          progress: FetchProgress.Handler? = nil) throws -> String {
-        do {
-            if let progress = progress {
-                let outputRedirection = Process.OutputRedirection.stream {
-                    _ in
-                } stderr: {
+        if let progress = progress {
+            var stdoutBytes: [UInt8] = [], stderrBytes: [UInt8] = []
+            do {
+                // Capture stdout and stderr from the Git subprocess invocation, but also pass along stderr to the handler. We count on it being line-buffered.
+                let outputHandler = Process.OutputRedirection.stream(stdout: { stdoutBytes += $0 }, stderr: {
+                    stderrBytes += $0
                     GitFetchProgress.gitFetchStatusFilter($0, progress: progress)
-                }
-                return try self.git.run(["-C", self.path.pathString] + args, environment: environment, outputRedirection: outputRedirection)
-            } else {
-                return try self.git.run(["-C", self.path.pathString] + args, environment: environment)
+                })
+                return try self.git.run(["-C", self.path.pathString] + args, environment: environment, outputRedirection: outputHandler)
             }
-        } catch let error as GitShellError {
-            throw GitRepositoryError(path: self.path, message: failureMessage, result: error.result)
+            catch let error as GitShellError {
+                let result = ProcessResult(arguments: error.result.arguments, environment: error.result.environment, exitStatus: error.result.exitStatus, output: .success(stdoutBytes), stderrOutput: .success(stderrBytes))
+                throw GitRepositoryError(path: self.path, message: failureMessage, result: result)
+            }
+        }
+        else {
+            do {
+                return try self.git.run(["-C", self.path.pathString] + args, environment: environment)
+            } catch let error as GitShellError {
+                throw GitRepositoryError(path: self.path, message: failureMessage, result: error.result)
+            }
         }
     }
 

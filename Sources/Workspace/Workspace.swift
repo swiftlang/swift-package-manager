@@ -94,35 +94,6 @@ public protocol WorkspaceDelegate: AnyObject {
     func fetchingRepository(from repository: String, objectsFetched: Int, totalObjectsToFetch: Int)
 }
 
-public extension WorkspaceDelegate {
-    func willLoadManifest(packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind) {}
-    func didLoadManifest(packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind, manifest: Manifest?, diagnostics: [Diagnostic]) {}
-    func willClone(repository url: String, to path: AbsolutePath) {
-        cloning(repository: url)
-    }
-    func didClone(repository url: String, to path: AbsolutePath, error: Diagnostic?) {}
-    func cloning(repository: String) {}
-    func willCheckOut(repository url: String, revision: String, at path: AbsolutePath) {
-        checkingOut(repository: url, atReference: revision, to: path)
-    }
-    func didCheckOut(repository url: String, revision: String, at path: AbsolutePath, error: Diagnostic?) {}
-    func checkingOut(repository: String, atReference: String, to path: AbsolutePath) {}
-    func repositoryWillUpdate(_ repository: String) {}
-    func repositoryDidUpdate(_ repository: String) {}
-    func willResolveDependencies(reason: WorkspaceResolveReason) {}
-    func dependenciesUpToDate() {}
-    func resolvedFileChanged() {}
-
-    func downloadingBinaryArtifact(from url: String, bytesDownloaded: Int64, totalBytesToDownload: Int64?) {}
-    func fetchingRepository(from repository: String, objectsFetched: Int, totalObjectsToFetch: Int) {}
-
-    func didDownloadBinaryArtifacts() {}
-
-    func fetchingWillBegin(repository: String) {}
-    func fetchingDidFinish(repository: String, diagnostic: Diagnostic?) {}
-
-}
-
 private class WorkspaceRepositoryManagerDelegate: RepositoryManagerDelegate {
     unowned let workspaceDelegate: WorkspaceDelegate
 

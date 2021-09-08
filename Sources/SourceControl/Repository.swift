@@ -47,33 +47,12 @@ extension RepositorySpecifier: CustomStringConvertible {
     }
 }
 
-extension RepositorySpecifier: JSONMappable, JSONSerializable {
-    public init(json: JSON) throws {
-        guard case .string(let url) = json else {
-            throw JSON.MapError.custom(key: nil, message: "expected string, got \(json)")
-        }
-        self.url = url
-    }
-
-    public func toJSON() -> JSON {
-        return .string(url)
-    }
-}
-
 /// A repository provider.
 ///
 /// This protocol defines the lower level interface used to to access
 /// repositories. High-level clients should access repositories via a
 /// `RepositoryManager`.
 public protocol RepositoryProvider {
-    /// Fetch the complete repository at the given location to `path`.
-    ///
-    /// - Parameters:
-    ///   - repository: The specifier of the repository to fetch.
-    ///   - path: The destination path for the fetch.
-    /// - Throws: If there is any error fetching the repository.
-    func fetch(repository: RepositorySpecifier, to path: AbsolutePath) throws
-
     /// Fetch the complete repository at the given location to `path`.
     ///
     /// - Parameters:
@@ -132,20 +111,6 @@ public protocol RepositoryProvider {
     ///   - sourcePath: the source path.
     ///   - destinationPath: the destination  path.
     func copy(from sourcePath: AbsolutePath, to destinationPath: AbsolutePath) throws
-}
-
-extension RepositoryProvider {
-    public func checkoutExists(at path: AbsolutePath) throws -> Bool {
-        fatalError("Unimplemented")
-    }
-
-    public func copy(from sourcePath: AbsolutePath, to destinationPath: AbsolutePath) throws {
-        fatalError("Unimplemented")
-    }
-
-    public func fetch(repository: RepositorySpecifier, to path: AbsolutePath, progress: FetchProgress.Handler?) throws {
-        try fetch(repository: repository, to: path)
-    }
 }
 
 /// Abstract repository operations.
@@ -288,15 +253,6 @@ public struct Revision: Hashable {
 
     public init(identifier: String) {
         self.identifier = identifier
-    }
-}
-
-extension Revision: JSONMappable {
-    public init(json: JSON) throws {
-        guard case .string(let identifier) = json else {
-            throw JSON.MapError.custom(key: nil, message: "expected string, got \(json)")
-        }
-        self.init(identifier: identifier)
     }
 }
 

@@ -646,6 +646,9 @@ public final class MockWorkspaceDelegate: WorkspaceDelegate {
         self.append("fetching repo: \(repository)")
     }
 
+    public func fetchingRepository(from repository: String, objectsFetched: Int, totalObjectsToFetch: Int) {
+    }
+    
     public func fetchingDidFinish(repository: String, fetchDetails: RepositoryManager.FetchDetails?, diagnostic: Diagnostic?, duration: DispatchTimeInterval) {
         self.append("finished fetching repo: \(repository)")
     }
