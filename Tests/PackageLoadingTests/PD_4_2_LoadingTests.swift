@@ -497,23 +497,43 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
         }
     }
 
-    func testURLContainsNotAbsolutePath() throws {
-        let manifest = """
-        import PackageDescription
-        let package = Package(
-            name: "Trivial",
-            dependencies: [
-                .package(url: "file://../best", from: "1.0.0"),
-            ],
-            targets: [
-                .target(
-                    name: "foo",
-                    dependencies: []),
-            ]
-        )
-        """
+    func testFileURLsWithHostnames() throws {
+        enum ExpectedError {
+          case relativePath
+          case unsupportedHostname
 
-        XCTAssertManifestLoadThrows(ManifestParseError.invalidManifestFormat("file:// URLs cannot be relative, did you mean to use `.package(path:)`?", diagnosticFile: nil), manifest)
+          var manifestError: ManifestParseError {
+            switch self {
+            case .relativePath:
+              return .invalidManifestFormat("file:// URLs cannot be relative, did you mean to use '.package(path:)'?", diagnosticFile: nil)
+            case .unsupportedHostname:
+              return .invalidManifestFormat("file:// URLs with hostnames are not supported, are you missing a '/'?", diagnosticFile: nil)
+            }
+          }
+        }
+
+        let urls: [(String, ExpectedError)] = [
+          ("file://../best", .relativePath), // Possible attempt at a relative path.
+          ("file://somehost/bar", .unsupportedHostname), // Obviously non-local.
+          ("file://localhost/bar", .unsupportedHostname), // Local but non-trivial (e.g. on Windows, this is a UNC path).
+        ]
+        for (url, expectedError) in urls {
+            let manifest = """
+            import PackageDescription
+            let package = Package(
+                name: "Trivial",
+                dependencies: [
+                    .package(url: "\(url)", from: "1.0.0"),
+                ],
+                targets: [
+                    .target(
+                        name: "foo",
+                        dependencies: []),
+                ]
+            )
+            """
+            XCTAssertManifestLoadThrows(expectedError.manifestError, manifest)
+        }
     }
 
     func testCacheInvalidationOnEnv() throws {

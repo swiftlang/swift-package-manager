@@ -590,8 +590,8 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             stream <<< packageIdentity
             stream <<< manifestContents
             stream <<< toolsVersion.description
-            for key in env.keys.sorted(by: >) {
-                stream <<< key <<< env[key]! // forced unwrap safe
+            for (key, value) in env.sorted(by: { $0.key > $1.key }) {
+                stream <<< key <<< value
             }
             stream <<< swiftpmVersion
             return stream.bytes.sha256Checksum
@@ -689,21 +689,20 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         let moduleCachePath = (ProcessEnv.vars["SWIFTPM_MODULECACHE_OVERRIDE"] ?? ProcessEnv.vars["SWIFTPM_TESTS_MODULECACHE"]).flatMap{ AbsolutePath.init($0) }
 
         var cmd: [String] = []
-        cmd += [self.toolchain.swiftCompiler.pathString]
+        cmd += [self.toolchain.swiftCompilerPath.pathString]
         cmd += verbosity.ccArgs
 
         let macOSPackageDescriptionPath: AbsolutePath
-        // If we got the binDir that means we could be developing SwiftPM in Xcode
+        // if runtimePath is set to "PackageFrameworks" that means we could be developing SwiftPM in Xcode
         // which produces a framework for dynamic package products.
-        let packageFrameworkPath = runtimePath.appending(component: "PackageFrameworks")
-        if self.toolchain.binDir != nil, localFileSystem.exists(packageFrameworkPath)  {
+        if runtimePath.extension == "framework" {
             cmd += [
-                "-F", packageFrameworkPath.pathString,
+                "-F", runtimePath.parentDirectory.pathString,
                 "-framework", "PackageDescription",
-                "-Xlinker", "-rpath", "-Xlinker", packageFrameworkPath.pathString,
+                "-Xlinker", "-rpath", "-Xlinker", runtimePath.parentDirectory.pathString,
             ]
 
-            macOSPackageDescriptionPath = packageFrameworkPath.appending(RelativePath("PackageDescription.framework/PackageDescription"))
+            macOSPackageDescriptionPath = runtimePath.appending(component: "PackageDescription")
         } else {
             cmd += [
                 "-L", runtimePath.pathString,
@@ -716,13 +715,13 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 #endif
 
             // note: this is not correct for all platforms, but we only actually use it on macOS.
-            macOSPackageDescriptionPath = runtimePath.appending(RelativePath("libPackageDescription.dylib"))
+            macOSPackageDescriptionPath = runtimePath.appending(component: "libPackageDescription.dylib")
         }
 
         // Use the same minimum deployment target as the PackageDescription library (with a fallback of 10.15).
 #if os(macOS)
         let triple = Self._hostTriple.memoize {
-            Triple.getHostTriple(usingSwiftCompiler: self.toolchain.swiftCompiler)
+            Triple.getHostTriple(usingSwiftCompiler: self.toolchain.swiftCompilerPath)
         }
 
         let version = try Self._packageDescriptionMinimumDeploymentTarget.memoize {
@@ -763,7 +762,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             cmd += ["-o", compiledManifestFile.pathString]
 
             // Compile the manifest.
-            let compilerResult = try Process.popen(arguments: cmd)
+            let compilerResult = try Process.popen(arguments: cmd, environment: toolchain.swiftCompilerEnvironment)
             let compilerOutput = try (compilerResult.utf8Output() + compilerResult.utf8stderrOutput()).spm_chuzzle()
             result.compilerOutput = compilerOutput
 
@@ -853,9 +852,15 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         var cmd = [String]()
         let runtimePath = self.runtimePath(for: toolsVersion)
         cmd += ["-swift-version", toolsVersion.swiftLanguageVersion.rawValue]
-        cmd += ["-I", runtimePath.pathString]
+        // if runtimePath is set to "PackageFrameworks" that means we could be developing SwiftPM in Xcode
+        // which produces a framework for dynamic package products.
+        if runtimePath.extension == "framework" {
+            cmd += ["-I", runtimePath.parentDirectory.parentDirectory.pathString]
+        } else {
+            cmd += ["-I", runtimePath.pathString]
+        }
       #if os(macOS)
-        if let sdkRoot = self.toolchain.sdkRoot ?? self.sdkRoot() {
+        if let sdkRoot = self.toolchain.sdkRootPath ?? self.sdkRoot() {
             cmd += ["-sdk", sdkRoot.pathString]
         }
       #endif
@@ -865,19 +870,14 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
     /// Returns the runtime path given the manifest version and path to libDir.
     private func runtimePath(for version: ToolsVersion) -> AbsolutePath {
-        // Bin dir will be set when developing swiftpm without building all of the runtimes.
-        if let binDir = self.toolchain.binDir {
-            return binDir
-        }
-        
-        // Otherwise we use the standard location of the manifest API in the toolchain, if it exists.
-        let manifestAPIDir = self.toolchain.libDir.appending(component: "ManifestAPI")
+        let manifestAPIDir = self.toolchain.swiftPMLibrariesLocation.manifestAPI
         if localFileSystem.exists(manifestAPIDir) {
             return manifestAPIDir
         }
-        
-        // Otherwise, fall back on the old location (this would indicate that we're using an old toolchain).
-        return self.toolchain.libDir.appending(version.runtimeSubpath)
+
+        // FIXME: how do we test this?
+        // Fall back on the old location (this would indicate that we're using an old toolchain).
+        return self.toolchain.swiftPMLibrariesLocation.manifestAPI.parentDirectory.appending(version.runtimeSubpath)
     }
 
     /// Returns path to the manifest database inside the given cache directory.

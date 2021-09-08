@@ -176,13 +176,14 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
         let p = AbsolutePath.root.appending(component: "repoManager")
         try fs.createDirectory(p, recursive: true)
         let repositoryManager = RepositoryManager(
+            fileSystem: fs,
             path: p,
             provider: inMemRepoProvider,
-            delegate: MockResolverDelegate(),
-            fileSystem: fs
+            delegate: MockResolverDelegate()
         )
 
         let provider = RepositoryPackageContainerProvider(
+            fileSystem: fs,
             repositoryManager: repositoryManager,
             identityResolver: DefaultIdentityResolver(),
             manifestLoader: MockManifestLoader(manifests: [:])
@@ -227,14 +228,15 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
         let p = AbsolutePath.root.appending(component: "repoManager")
         try fs.createDirectory(p, recursive: true)
         let repositoryManager = RepositoryManager(
+            fileSystem: fs,
             path: p,
             provider: inMemRepoProvider,
-            delegate: MockResolverDelegate(),
-            fileSystem: fs
+            delegate: MockResolverDelegate()
         )
 
         func createProvider(_ currentToolsVersion: ToolsVersion) -> RepositoryPackageContainerProvider {
             return RepositoryPackageContainerProvider(
+                fileSystem: fs,
                 repositoryManager: repositoryManager,
                 identityResolver: DefaultIdentityResolver(),
                 manifestLoader: MockManifestLoader(manifests: [:]),
@@ -311,13 +313,14 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
         let p = AbsolutePath.root.appending(component: "repoManager")
         try fs.createDirectory(p, recursive: true)
         let repositoryManager = RepositoryManager(
+            fileSystem: fs,
             path: p,
             provider: inMemRepoProvider,
-            delegate: MockResolverDelegate(),
-            fileSystem: fs
+            delegate: MockResolverDelegate()
         )
 
         let provider = RepositoryPackageContainerProvider(
+            fileSystem: fs,
             repositoryManager: repositoryManager,
             identityResolver: DefaultIdentityResolver(),
             manifestLoader: MockManifestLoader(manifests: [:])
@@ -358,13 +361,14 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
         let p = AbsolutePath.root.appending(component: "repoManager")
         try fs.createDirectory(p, recursive: true)
         let repositoryManager = RepositoryManager(
+            fileSystem: fs,
             path: p,
             provider: inMemRepoProvider,
-            delegate: MockResolverDelegate(),
-            fileSystem: fs
+            delegate: MockResolverDelegate()
         )
 
         let provider = RepositoryPackageContainerProvider(
+            fileSystem: fs,
             repositoryManager: repositoryManager,
             identityResolver: DefaultIdentityResolver(),
             manifestLoader: MockManifestLoader(manifests: [:])
@@ -540,7 +544,7 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
 
             // Create a repository manager for it.
             let repoProvider = GitRepositoryProvider()
-            let repositoryManager = RepositoryManager(path: packageDir, provider: repoProvider, delegate: nil, fileSystem: localFileSystem)
+            let repositoryManager = RepositoryManager(fileSystem: localFileSystem, path: packageDir, provider: repoProvider, delegate: nil)
 
             // Create a container provider, configured with a mock manifest loader that will return the package manifest.
             let manifest = Manifest.createV4Manifest(
@@ -552,9 +556,12 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
                     try TargetDescription(name: packageDir.basename, path: packageDir.pathString),
                 ]
             )
-            let containerProvider = RepositoryPackageContainerProvider(repositoryManager: repositoryManager,
-                                                                       identityResolver: DefaultIdentityResolver(),
-                                                                       manifestLoader: MockManifestLoader(manifests: [.init(url: packageDir.pathString, version: nil): manifest]))
+            let containerProvider = RepositoryPackageContainerProvider(
+                fileSystem: localFileSystem,
+                repositoryManager: repositoryManager,
+                identityResolver: DefaultIdentityResolver(),
+                manifestLoader: MockManifestLoader(manifests: [.init(url: packageDir.pathString, version: nil): manifest])
+            )
 
             // Get a hold of the container for the test package.
             let packageRef = PackageReference.remote(identity: PackageIdentity(path: packageDir), location: packageDir.pathString)
@@ -599,10 +606,10 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
 
             let repositoryProvider = GitRepositoryProvider()
             let repositoryManager = RepositoryManager(
+                fileSystem: localFileSystem,
                 path: packageDirectory,
                 provider: repositoryProvider,
-                delegate: nil,
-                fileSystem: localFileSystem
+                delegate: nil
             )
 
             let version = Version(1, 0, 0)
@@ -628,6 +635,7 @@ class RepositoryPackageContainerProviderTests: XCTestCase {
                 ]
             )
             let containerProvider = RepositoryPackageContainerProvider(
+                fileSystem: localFileSystem,
                 repositoryManager: repositoryManager,
                 identityResolver: DefaultIdentityResolver(),
                 manifestLoader: MockManifestLoader(

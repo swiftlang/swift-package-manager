@@ -29,52 +29,52 @@ class GenerateXcodeprojTests: XCTestCase {
     func testXcodebuildCanParseIt() throws {
       #if os(macOS)
       try testWithTemporaryDirectory { dstdir in
-            let packagePath = dstdir.appending(component: "foo")
-            let modulePath = packagePath.appending(components: "Sources", "DummyModuleName")
-            try makeDirectories(modulePath)
-            try localFileSystem.writeFileContents(modulePath.appending(component: "source.swift"), bytes: "")
+          let packagePath = dstdir.appending(component: "foo")
+          let modulePath = packagePath.appending(components: "Sources", "DummyModuleName")
+          try makeDirectories(modulePath)
+          try localFileSystem.writeFileContents(modulePath.appending(component: "source.swift"), bytes: "")
 
-            let diagnostics = DiagnosticsEngine()
-            let graph = try loadPackageGraph(fs: localFileSystem, diagnostics: diagnostics,
-                manifests: [
-                    Manifest.createV4Manifest(
-                        name: "Foo",
-                        path: packagePath.pathString,
-                        packageKind: .root,
-                        packageLocation: packagePath.pathString,
-                        targets: [
-                            TargetDescription(name: "DummyModuleName"),
-                        ])
-                ]
-            )
-            XCTAssertNoDiagnostics(diagnostics)
+          let diagnostics = DiagnosticsEngine()
+          let graph = try loadPackageGraph(fs: localFileSystem, diagnostics: diagnostics,
+              manifests: [
+                  Manifest.createV4Manifest(
+                      name: "Foo",
+                      path: packagePath.pathString,
+                      packageKind: .root,
+                      packageLocation: packagePath.pathString,
+                      targets: [
+                          TargetDescription(name: "DummyModuleName"),
+                      ])
+              ]
+          )
+          XCTAssertNoDiagnostics(diagnostics)
 
-            let projectName = "DummyProjectName"
-            let outpath = Xcodeproj.buildXcodeprojPath(outputDir: dstdir, projectName: projectName)
-            try Xcodeproj.generate(projectName: projectName, xcodeprojPath: outpath, graph: graph, options: XcodeprojOptions(), diagnostics: diagnostics)
+          let projectName = "DummyProjectName"
+          let outpath = Xcodeproj.buildXcodeprojPath(outputDir: dstdir, projectName: projectName)
+          try Xcodeproj.generate(projectName: projectName, xcodeprojPath: outpath, graph: graph, options: XcodeprojOptions(), diagnostics: diagnostics)
 
-            XCTAssertDirectoryExists(outpath)
-            XCTAssertEqual(outpath, dstdir.appending(component: projectName + ".xcodeproj"))
+          XCTAssertDirectoryExists(outpath)
+          XCTAssertEqual(outpath, dstdir.appending(component: projectName + ".xcodeproj"))
 
-            // We can only validate this on OS X.
-            // Don't allow TOOLCHAINS to be overriden here, as it breaks the test below.
-            let output = try Process.checkNonZeroExit(
-                args: "env", "-u", "TOOLCHAINS", "xcodebuild", "-list", "-project", outpath.pathString).spm_chomp()
+          // We can only validate this on OS X.
+          // Don't allow TOOLCHAINS to be overriden here, as it breaks the test below.
+          let output = try Process.checkNonZeroExit(
+              args: "env", "-u", "TOOLCHAINS", "xcodebuild", "-list", "-project", outpath.pathString).spm_chomp()
 
-            XCTAssertTrue(output.contains("""
-               Information about project "DummyProjectName":
-                   Targets:
-                       DummyModuleName
+          XCTAssertMatch(output, .contains("""
+             Information about project "DummyProjectName":
+                 Targets:
+                     DummyModuleName
 
-                   Build Configurations:
-                       Debug
-                       Release
+                 Build Configurations:
+                     Debug
+                     Release
 
-                   If no build configuration is specified and -scheme is not passed then "Release" is used.
+                 If no build configuration is specified and -scheme is not passed then "Release" is used.
 
-                   Schemes:
-                       Foo-Package
-               """), output)
+                 Schemes:
+                     Foo-Package
+             """))
         }
       #endif
     }
@@ -357,7 +357,7 @@ class GenerateXcodeprojTests: XCTestCase {
                         path: fooPackagePath.pathString,
                         packageLocation: fooPackagePath.pathString,
                         dependencies: [
-                            .local(path: barPackagePath)
+                            .fileSystem(path: barPackagePath)
                         ],
                         targets: [
                             TargetDescription(name: "Foo", dependencies: [

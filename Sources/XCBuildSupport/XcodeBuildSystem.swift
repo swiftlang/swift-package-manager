@@ -96,19 +96,30 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
             subset.pifTargetName
         ]
 
-        let buildParamsFile = try createBuildParametersFile()
-        if let buildParamsFile = buildParamsFile {
-            arguments += ["--buildParametersFile", buildParamsFile.pathString]
+        let buildParamsFile: AbsolutePath?
+        // Do not generate a build parameters file if a custom one has been passed.
+        if !buildParameters.xcbuildFlags.contains("--buildParametersFile") {
+            buildParamsFile = try createBuildParametersFile()
+            if let buildParamsFile = buildParamsFile {
+                arguments += ["--buildParametersFile", buildParamsFile.pathString]
+            }
+        } else {
+            buildParamsFile = nil
         }
 
         arguments += buildParameters.xcbuildFlags
 
         let delegate = createBuildDelegate()
         var hasStdout = false
+        var stdoutBuffer: [UInt8] = []
         var stderrBuffer: [UInt8] = []
         let redirection: Process.OutputRedirection = .stream(stdout: { bytes in
             hasStdout = hasStdout || !bytes.isEmpty
             delegate.parse(bytes: bytes)
+
+            if !delegate.didParseAnyOutput {
+                stdoutBuffer.append(contentsOf: bytes)
+            }
         }, stderr: { bytes in
             stderrBuffer.append(contentsOf: bytes)
         })
@@ -122,19 +133,23 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
         }
 
         guard result.exitStatus == .terminated(code: 0) else {
-            throw Diagnostics.fatalError
-        }
-        
-        if !hasStdout {
-            if !stderrBuffer.isEmpty {
-                diagnostics.emit(StringError(String(decoding: stderrBuffer, as: UTF8.self)))
+            if hasStdout {
+                if !delegate.didParseAnyOutput {
+                    diagnostics.emit(StringError(String(decoding: stdoutBuffer, as: UTF8.self)))
+                }
             } else {
-                diagnostics.emit(StringError("Unknown error: stdout and stderr are empty"))
+                if !stderrBuffer.isEmpty {
+                    diagnostics.emit(StringError(String(decoding: stderrBuffer, as: UTF8.self)))
+                } else {
+                    diagnostics.emit(StringError("Unknown error: stdout and stderr are empty"))
+                }
             }
+
+            throw Diagnostics.fatalError
         }
     }
 
-    func createBuildParametersFile() throws -> AbsolutePath? {
+    func createBuildParametersFile() throws -> AbsolutePath {
         // Generate the run destination parameters.
         let runDestination = XCBBuildParameters.RunDestination(
             platform: "macosx",
@@ -149,6 +164,7 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
         var settings: [String: String] = [:]
         // Always specify the path of the effective Swift compiler, which was determined in the same way as for the native build system.
         settings["SWIFT_EXEC"] = buildParameters.toolchain.swiftCompiler.pathString
+        settings["LIBRARY_SEARCH_PATHS"] = "$(inherited) \(buildParameters.toolchain.toolchainLibDir.pathString)/swift/macosx"
         // Optionally also set the list of architectures to build for.
         if !buildParameters.archs.isEmpty {
             settings["ARCHS"] = buildParameters.archs.joined(separator: " ")

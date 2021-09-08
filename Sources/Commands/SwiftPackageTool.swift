@@ -22,6 +22,7 @@ import Xcodeproj
 import XCBuildSupport
 import Workspace
 import Foundation
+import PackageModel
 
 /// swift-package tool namespace
 public struct SwiftPackageTool: ParsableCommand {
@@ -59,7 +60,7 @@ public struct SwiftPackageTool: ParsableCommand {
             ComputeChecksum.self,
             ArchiveSource.self,
             CompletionTool.self,
-        ],
+        ] + (ProcessInfo.processInfo.environment["SWIFTPM_ENABLE_SNIPPETS"] == "1" ? [Learn.self] : [ParsableCommand.Type]()),
         helpNames: [.short, .long, .customLong("help", withSingleDash: true)])
 
     @OptionGroup()
@@ -261,30 +262,27 @@ extension SwiftPackageTool {
 
             // Use the user provided flags or default to formatting mode.
             let formatOptions = swiftFormatFlags.isEmpty
-                ? ["--mode", "format", "--in-place"]
+                ? ["--mode", "format", "--in-place", "--parallel"]
                 : swiftFormatFlags
 
             // Process each target in the root package.
-            for target in package.targets {
-                for file in target.sources.paths {
-                    // Only process Swift sources.
-                    guard let ext = file.extension, ext == SupportedLanguageExtension.swift.rawValue else {
-                        continue
-                    }
-
-                    let args = [swiftFormat.pathString] + formatOptions + [file.pathString]
-                    print("Running:", args.map{ $0.spm_shellEscaped() }.joined(separator: " "))
-
-                    let result = try Process.popen(arguments: args)
-                    let output = try (result.utf8Output() + result.utf8stderrOutput())
-
-                    if result.exitStatus != .terminated(code: 0) {
-                        print("Non-zero exit", result.exitStatus)
-                    }
-                    if !output.isEmpty {
-                        print(output)
-                    }
+            let paths = package.targets.flatMap { target in
+                target.sources.paths.filter { file in
+                    file.extension == SupportedLanguageExtension.swift.rawValue
                 }
+            }.map { $0.pathString }
+
+            let args = [swiftFormat.pathString] + formatOptions + [rootManifest.path.pathString] + paths
+            print("Running:", args.map{ $0.spm_shellEscaped() }.joined(separator: " "))
+
+            let result = try Process.popen(arguments: args)
+            let output = try (result.utf8Output() + result.utf8stderrOutput())
+
+            if result.exitStatus != .terminated(code: 0) {
+                print("Non-zero exit", result.exitStatus)
+            }
+            if !output.isEmpty {
+                print(output)
             }
         }
     }
@@ -364,13 +362,10 @@ extension SwiftPackageTool {
             try buildOp.build()
 
             // Dump JSON for the baseline package.
-            let workspace = try swiftTool.getActiveWorkspace()
             let baselineDumper = try APIDigesterBaselineDumper(
                 baselineRevision: baselineRevision,
                 packageRoot: swiftTool.getPackageRoot(),
                 buildParameters: buildOp.buildParameters,
-                manifestLoader: workspace.manifestLoader,
-                repositoryManager: workspace.repositoryManager,
                 apiDigesterTool: apiDigesterTool,
                 diags: swiftTool.diagnostics
             )
@@ -499,10 +494,26 @@ extension SwiftPackageTool {
     struct DumpSymbolGraph: SwiftCommand {
         static let configuration = CommandConfiguration(
             abstract: "Dump Symbol Graph")
+        static let defaultMinimumAccessLevel = AccessLevel.public
 
         @OptionGroup(_hiddenFromHelp: true)
         var swiftOptions: SwiftToolOptions
-        
+
+        @Flag(help: "Pretty-print the output JSON.")
+        var prettyPrint = false
+
+        @Flag(help: "Skip members inherited through classes or default implementations.")
+        var skipSynthesizedMembers = false
+
+        @Option(help: "Include symbols with this access level or more. Possible values: \(AccessLevel.allValueStrings.joined(separator: " | "))")
+        var minimumAccessLevel = defaultMinimumAccessLevel
+
+        @Flag(help: "Skip emitting doc comments for members inherited through classes or default implementations.")
+        var skipInheritedDocs = false
+
+        @Flag(help: "Add symbols with SPI information to the symbol graph.")
+        var includeSPISymbols = false
+
         func run(_ swiftTool: SwiftTool) throws {
             let symbolGraphExtract = try SymbolGraphExtract(
                 tool: swiftTool.getToolchain().getSymbolGraphExtract())
@@ -514,7 +525,12 @@ extension SwiftPackageTool {
             try buildOp.build()
 
             try symbolGraphExtract.dumpSymbolGraph(
-                buildPlan: buildOp.buildPlan!
+                buildPlan: buildOp.buildPlan!,
+                prettyPrint: prettyPrint,
+                skipSynthesisedMembers: skipSynthesizedMembers,
+                minimumAccessLevel: minimumAccessLevel,
+                skipInheritedDocs: skipInheritedDocs,
+                includeSPISymbols: includeSPISymbols
             )
         }
     }
@@ -642,7 +658,7 @@ extension SwiftPackageTool {
             dumpDependenciesOf(rootPackage: graph.rootPackages[0], mode: format, on: stream)
         }
     }
-    
+
     struct ToolsVersionCommand: SwiftCommand {
         static let configuration = CommandConfiguration(
             commandName: "tools-version",
@@ -688,7 +704,7 @@ extension SwiftPackageTool {
 
             case .set(let value):
                 guard let toolsVersion = ToolsVersion(string: value) else {
-                    // FIXME: Probably lift this error defination to ToolsVersion.
+                    // FIXME: Probably lift this error definition to ToolsVersion.
                     throw ToolsVersionLoader.Error.malformedToolsVersionSpecification(.versionSpecifier(.isMisspelt(value)))
                 }
                 try rewriteToolsVersionSpecification(toDefaultManifestIn: pkg, specifying: toolsVersion, fileSystem: localFileSystem)
@@ -886,7 +902,7 @@ extension SwiftPackageTool.Config {
         var mirrorURL: String
         
         func run(_ swiftTool: SwiftTool) throws {
-            let config = try swiftTool.getSwiftPMConfig()
+            let config = try swiftTool.getMirrorsConfig()
 
             if packageURL != nil {
                 swiftTool.diagnostics.emit(
@@ -898,8 +914,9 @@ extension SwiftPackageTool.Config {
                 throw ExitCode.failure
             }
 
-            config.mirrors.set(mirrorURL: mirrorURL, forURL: originalURL)
-            try config.saveState()
+            try config.applyLocal { mirrors in
+                mirrors.set(mirrorURL: mirrorURL, forURL: originalURL)
+            }
         }
     }
 
@@ -920,7 +937,7 @@ extension SwiftPackageTool.Config {
         var mirrorURL: String?
         
         func run(_ swiftTool: SwiftTool) throws {
-            let config = try swiftTool.getSwiftPMConfig()
+            let config = try swiftTool.getMirrorsConfig()
 
             if packageURL != nil {
                 swiftTool.diagnostics.emit(
@@ -932,8 +949,9 @@ extension SwiftPackageTool.Config {
                 throw ExitCode.failure
             }
 
-            try config.mirrors.unset(originalOrMirrorURL: originalOrMirrorURL)
-            try config.saveState()
+            try config.applyLocal { mirrors in
+                try mirrors.unset(originalOrMirrorURL: originalOrMirrorURL)
+            }
         }
     }
 
@@ -951,7 +969,7 @@ extension SwiftPackageTool.Config {
         var originalURL: String?
 
         func run(_ swiftTool: SwiftTool) throws {
-            let config = try swiftTool.getSwiftPMConfig()
+            let config = try swiftTool.getMirrorsConfig()
 
             if packageURL != nil {
                 swiftTool.diagnostics.emit(
@@ -1050,6 +1068,7 @@ extension SwiftPackageTool {
             case generateFishScript = "generate-fish-script"
             case listDependencies = "list-dependencies"
             case listExecutables = "list-executables"
+            case listSnippets = "list-snippets"
         }
 
         /// A dummy version of the root `swift` command, to act as a parent
@@ -1095,7 +1114,103 @@ extension SwiftPackageTool {
                     stdoutStream <<< "\(executable.name)\n"
                 }
                 stdoutStream.flush()
+            case .listSnippets:
+                let graph = try swiftTool.loadPackageGraph()
+                let package = graph.rootPackages[0].underlyingPackage
+                let executables = package.targets.filter { $0.type == .snippet }
+                for executable in executables {
+                    stdoutStream <<< "\(executable.name)\n"
+                }
+                stdoutStream.flush()
             }
+        }
+    }
+}
+
+extension SwiftPackageTool {
+    struct Learn: SwiftCommand {
+
+        @OptionGroup()
+        var swiftOptions: SwiftToolOptions
+
+        static let configuration = CommandConfiguration(abstract: "Learn about Swift and this package")
+
+        func files(in directory: AbsolutePath, fileExtension: String? = nil) throws -> [AbsolutePath] {
+            guard localFileSystem.isDirectory(directory) else {
+                return []
+            }
+
+            let files = try localFileSystem.getDirectoryContents(directory)
+                .map { directory.appending(RelativePath($0)) }
+                .filter { localFileSystem.isFile($0) }
+
+            guard let fileExtension = fileExtension else {
+                return files
+            }
+
+            return files.filter { $0.extension == fileExtension }
+        }
+
+        func subdirectories(in directory: AbsolutePath) throws -> [AbsolutePath] {
+            guard localFileSystem.isDirectory(directory) else {
+                return []
+            }
+            return try localFileSystem.getDirectoryContents(directory)
+                .map { directory.appending(RelativePath($0)) }
+                .filter { localFileSystem.isDirectory($0) }
+        }
+
+        func loadSnippetsAndSnippetGroups(from package: ResolvedPackage) throws -> [SnippetGroup] {
+            let snippetsDirectory = package.path.appending(component: "Snippets")
+            guard localFileSystem.isDirectory(snippetsDirectory) else {
+                return []
+            }
+
+            let topLevelSnippets = try files(in: snippetsDirectory, fileExtension: "swift")
+                .map { try Snippet(parsing: $0) }
+
+            let topLevelSnippetGroup = SnippetGroup(name: "Getting Started",
+                                                    baseDirectory: snippetsDirectory,
+                                                    snippets: topLevelSnippets,
+                                                    explanation: "")
+
+            let subdirectoryGroups = try subdirectories(in: snippetsDirectory)
+                .map { subdirectory -> SnippetGroup in
+                    let snippets = try files(in: subdirectory, fileExtension: "swift")
+                        .map { try Snippet(parsing: $0) }
+
+                    let explanationFile = subdirectory.appending(component: "Explanation.md")
+
+                    let snippetGroupExplanation: String
+                    if localFileSystem.isFile(explanationFile) {
+                        snippetGroupExplanation = try String(contentsOf: explanationFile.asURL)
+                    } else {
+                        snippetGroupExplanation = ""
+                    }
+
+                    return SnippetGroup(name: subdirectory.basename,
+                                        baseDirectory: subdirectory,
+                                        snippets: snippets,
+                                        explanation: snippetGroupExplanation)
+                }
+
+            let snippetGroups = [topLevelSnippetGroup] + subdirectoryGroups.sorted {
+                $0.baseDirectory.basename < $1.baseDirectory.basename
+            }
+
+            return snippetGroups.filter { !$0.snippets.isEmpty }
+        }
+
+        func run(_ swiftTool: SwiftTool) throws {
+            let graph = try swiftTool.loadPackageGraph()
+            let package = graph.rootPackages[0]
+            print(package.products.map { $0.description })
+
+            let snippetGroups = try loadSnippetsAndSnippetGroups(from: package)
+
+            var cardStack = CardStack(package: package, snippetGroups: snippetGroups, swiftTool: swiftTool)
+
+            cardStack.run()
         }
     }
 }

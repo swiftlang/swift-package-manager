@@ -205,34 +205,30 @@ private func createResolvedPackages(
             return nil
         }
         let isAllowedToVendUnsafeProducts = unsafeAllowedPackages.contains{ $0.location == package.manifest.packageLocation }
+        let allowedToOverride = rootManifestSet.contains(node.manifest)
         return ResolvedPackageBuilder(
             package,
             productFilter: node.productFilter,
-            isAllowedToVendUnsafeProducts: isAllowedToVendUnsafeProducts
+            isAllowedToVendUnsafeProducts: isAllowedToVendUnsafeProducts,
+            allowedToOverride: allowedToOverride
         )
     }
 
     // Create a map of package builders keyed by the package identity.
     // This is guaranteed to be unique so we can use spm_createDictionary
-    let packageMapByIdentity: [PackageIdentity: ResolvedPackageBuilder] = packageBuilders.spm_createDictionary{
+    let packagesByIdentity: [PackageIdentity: ResolvedPackageBuilder] = packageBuilders.spm_createDictionary{
         return ($0.package.identity, $0)
     }
-
-    // in case packages have same manifest name this map can miss packages which will lead to missing product errors
-    // our plan is to deprecate the use of manifest + dependency explicit name in target dependency lookup and instead lean 100% on identity
-    // which means this map would go away too
-    let packageMapByNameForTargetDependencyResolutionOnly = packageBuilders.reduce(into: [String: ResolvedPackageBuilder](), { partial, item in
-        partial[item.package.manifestName] = item
-    })
 
     // Scan and validate the dependencies
     for packageBuilder in packageBuilders {
         let package = packageBuilder.package
 
         var dependencies = [ResolvedPackageBuilder]()
+        var dependenciesByNameForTargetDependencyResolution = [String: ResolvedPackageBuilder]()
+
         // Establish the manifest-declared package dependencies.
         package.manifest.dependenciesRequired(for: packageBuilder.productFilter).forEach { dependency in
-            let dependencyIdentity = dependency.identity
             // FIXME: change this validation logic to use identity instead of location
             let dependencyLocation: String
             switch dependency {
@@ -245,57 +241,65 @@ private func createResolvedPackages(
                 fatalError("registry based dependencies not implemented yet")
             }
 
-            // Use the package name to lookup the dependency. The package name will be present in packages with tools version >= 5.2.
-            if let explicitDependencyName = dependency.explicitNameForTargetDependencyResolutionOnly, let resolvedPackage = packageMapByNameForTargetDependencyResolutionOnly[explicitDependencyName] {
-                guard !dependencies.contains(resolvedPackage) else {
-                    // check if this resolvedPackage already listed in the dependencies
-                    // this means that the dependencies share the same name
-                    // FIXME: this works but the way we find out about this is based on a side effect, need to improve it when working on identity
-                    let error = PackageGraphError.dependencyAlreadySatisfiedByName(
-                        package: package.identity.description,
-                        dependencyLocation: dependencyLocation,
-                        otherDependencyURL: resolvedPackage.package.manifest.packageLocation,
-                        name: explicitDependencyName)
-                    return diagnostics.emit(error, location: package.diagnosticLocation)
-                }
-                return dependencies.append(resolvedPackage)
-            }
-
             // Otherwise, look it up by its identity.
-            if let resolvedPackage = packageMapByIdentity[dependencyIdentity] {
-                // check if this resolvedPackage already listed in the dependencies
+            if let resolvedPackage = packagesByIdentity[dependency.identity] {
+                // check if this resolved package already listed in the dependencies
                 // this means that the dependencies share the same identity
-                // FIXME: this works but the way we find out about this is based on a side effect, need to improve it when working on identity
+                // FIXME: this works but the way we find out about this is based on a side effect, need to improve it
                 guard !dependencies.contains(resolvedPackage) else {
                     let error = PackageGraphError.dependencyAlreadySatisfiedByIdentifier(
                         package: package.identity.description,
                         dependencyLocation: dependencyLocation,
                         otherDependencyURL: resolvedPackage.package.manifest.packageLocation,
-                        identity: dependencyIdentity)
+                        identity: dependency.identity)
                     return diagnostics.emit(error, location: package.diagnosticLocation)
                 }
-                // check that the explicit package dependency name matches the package name.
-                if let explicitDependencyName = dependency.explicitNameForTargetDependencyResolutionOnly, resolvedPackage.package.manifestName != explicitDependencyName {
-                    // check if this resolvedPackage url is the same as the dependency one
-                    // if not, this means that the dependencies share the same identity
-                    // FIXME: this works but the way we find out about this is based on a side effect, need to improve it when working on identity
-                    if resolvedPackage.package.manifest.packageLocation != dependencyLocation {
-                        let error = PackageGraphError.dependencyAlreadySatisfiedByIdentifier(
-                            package: package.identity.description,
-                            dependencyLocation: dependencyLocation,
-                            otherDependencyURL: resolvedPackage.package.manifest.packageLocation,
-                            identity: dependencyIdentity)
-                        return diagnostics.emit(error, location: package.diagnosticLocation)
-                    } else  {
-                        let error = PackageGraphError.incorrectPackageDependencyName(
-                            package: package.identity.description,
-                            dependencyName: explicitDependencyName,
-                            dependencyLocation: dependencyLocation,
-                            resolvedPackageManifestName: resolvedPackage.package.manifestName,
-                            resolvedPackageURL: resolvedPackage.package.manifest.packageLocation)
+
+                // check if the resolved package location is the same as the dependency one
+                // if not, this means that the dependencies share the same identity
+                // which only allowed when overriding
+                if resolvedPackage.package.manifest.packageLocation != dependencyLocation && !resolvedPackage.allowedToOverride {
+                    let error = PackageGraphError.dependencyAlreadySatisfiedByIdentifier(
+                        package: package.identity.description,
+                        dependencyLocation: dependencyLocation,
+                        otherDependencyURL: resolvedPackage.package.manifest.packageLocation,
+                        identity: dependency.identity)
+                    // 9/2021 this is currently emitting a warning only to support
+                    // backwards compatibility with older versions of SwiftPM that had too weak of a validation
+                    // we will upgrade this to an error in a few versions to tighten up the validation
+                    if dependency.explicitNameForTargetDependencyResolutionOnly == .none ||
+                        resolvedPackage.package.manifestName == dependency.explicitNameForTargetDependencyResolutionOnly {
+                        diagnostics.emit(.warning(error.description + ". this will be upgraded to an error in future versions of SwiftPM."), location: package.diagnosticLocation)
+                    } else {
                         return diagnostics.emit(error, location: package.diagnosticLocation)
                     }
                 }
+
+                // checks if two dependencies have the same explicit name which can cause target based dependency package lookup issue
+                if let explicitDependencyName = dependency.explicitNameForTargetDependencyResolutionOnly {
+                    if let previouslyResolvedPackage = dependenciesByNameForTargetDependencyResolution[explicitDependencyName] {
+                        let error = PackageGraphError.dependencyAlreadySatisfiedByName(
+                            package: package.identity.description,
+                            dependencyLocation: dependencyLocation,
+                            otherDependencyURL: previouslyResolvedPackage.package.manifest.packageLocation,
+                            name: explicitDependencyName)
+                        return diagnostics.emit(error, location: package.diagnosticLocation)
+                    }
+                }
+
+                // checks if two dependencies have the same implicit (identity based) name which can cause target based dependency package lookup issue
+                if let previouslyResolvedPackage = dependenciesByNameForTargetDependencyResolution[dependency.identity.description] {
+                    let error = PackageGraphError.dependencyAlreadySatisfiedByName(
+                        package: package.identity.description,
+                        dependencyLocation: dependencyLocation,
+                        otherDependencyURL: previouslyResolvedPackage.package.manifest.packageLocation,
+                        name: dependency.identity.description)
+                    return diagnostics.emit(error, location: package.diagnosticLocation)
+                }
+
+                let nameForTargetDependencyResolution = dependency.explicitNameForTargetDependencyResolutionOnly ?? dependency.identity.description
+                dependenciesByNameForTargetDependencyResolution[nameForTargetDependencyResolution] = resolvedPackage
+                
                 dependencies.append(resolvedPackage)
             }
         }
@@ -588,10 +592,13 @@ private final class ResolvedPackageBuilder: ResolvedBuilder<ResolvedPackage> {
 
     let isAllowedToVendUnsafeProducts: Bool
 
-    init(_ package: Package, productFilter: ProductFilter, isAllowedToVendUnsafeProducts: Bool) {
+    let allowedToOverride: Bool
+
+    init(_ package: Package, productFilter: ProductFilter, isAllowedToVendUnsafeProducts: Bool, allowedToOverride: Bool) {
         self.package = package
         self.productFilter = productFilter
         self.isAllowedToVendUnsafeProducts = isAllowedToVendUnsafeProducts
+        self.allowedToOverride = allowedToOverride
     }
 
     override func constructImpl() throws -> ResolvedPackage {

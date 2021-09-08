@@ -601,7 +601,7 @@ class PackageGraphTests: XCTestCase {
             result.check(diagnostic: "product 'Foo' is declared in the same package 'foo' and can't be used as a dependency for target 'FooTests'.", behavior: .error, location: "'Foo' /Foo")
         }
     }
-    
+
     func testExecutableTargetDependency() throws {
         let fs = InMemoryFileSystem(emptyFiles:
                 "/XYZ/Sources/XYZ/main.swift",
@@ -624,7 +624,7 @@ class PackageGraphTests: XCTestCase {
         )
         DiagnosticsEngineTester(diagnostics) { _ in }
     }
-    
+
     func testSameProductAndTargetNames() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Foo/Sources/Foo/src.swift",
@@ -1036,7 +1036,9 @@ class PackageGraphTests: XCTestCase {
             ]
         )
 
-        XCTAssertTrue(diagnostics.diagnostics.contains(where: { $0.description.contains("multiple products named 'Bar' in: 'bar', 'baz'") }), "\(diagnostics.diagnostics)")
+        DiagnosticsEngineTester(diagnostics, ignoreNotes: true) { result in
+            result.check(diagnostic: "multiple products named 'Bar' in: 'bar', 'baz'", behavior: .error)
+        }
     }
 
     func testUnsafeFlags() throws {
@@ -1108,51 +1110,6 @@ class PackageGraphTests: XCTestCase {
         }
     }
 
-    func testInvalidExplicitPackageDependencyName() throws {
-        let fs = InMemoryFileSystem(emptyFiles:
-            "/Foo/Sources/Foo/foo.swift",
-            "/Bar/Sources/Baar/bar.swift"
-        )
-
-        let diagnostics = DiagnosticsEngine()
-        _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
-            manifests: [
-                Manifest.createV4Manifest(
-                    name: "Foo",
-                    path: "/Foo",
-                    packageKind: .root,
-                    packageLocation: "/Foo",
-                    dependencies: [
-                        .scm(deprecatedName: "Baar", location: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
-                    ],
-                    targets: [
-                        TargetDescription(name: "Foo", dependencies: ["Baar"]),
-                    ]),
-                Manifest.createV4Manifest(
-                    name: "Bar",
-                    path: "/Bar",
-                    packageKind: .local,
-                    packageLocation: "/Bar",
-                    products: [
-                        ProductDescription(name: "Baar", type: .library(.automatic), targets: ["Baar"])
-                    ],
-                    targets: [
-                        TargetDescription(name: "Baar"),
-                    ]),
-            ]
-        )
-
-        DiagnosticsEngineTester(diagnostics, ignoreNotes: true) { result in
-            result.check(
-                diagnostic: """
-                    'foo' dependency on '/Bar' has an explicit name 'Baar' which does not match the name 'Bar' set for '/Bar'
-                    """,
-                behavior: .error,
-                location: "'Foo' /Foo"
-            )
-        }
-    }
-
     func testConditionalTargetDependency() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Foo/Sources/Foo/source.swift",
@@ -1171,7 +1128,7 @@ class PackageGraphTests: XCTestCase {
                     path: "/Foo",
                     packageLocation: "/Foo",
                     dependencies: [
-                        .local(path: "/Biz"),
+                        .fileSystem(path: "/Biz"),
                     ],
                     targets: [
                         TargetDescription(name: "Foo", dependencies: [
@@ -1320,12 +1277,14 @@ class PackageGraphTests: XCTestCase {
             ]
         )
 
-        XCTAssert(diagnostics.diagnostics.isEmpty, "\(diagnostics.diagnostics)")
+        XCTAssertNoDiagnostics(diagnostics)
     }
 
     func testPinsStoreIsResilientAgainstDupes() throws {
-        let json = try JSON(string: """
+        let json = """
               {
+                "version": 1,
+                "object": {
                   "pins": [
                     {
                       "package": "Yams",
@@ -1346,12 +1305,15 @@ class PackageGraphTests: XCTestCase {
                       }
                     }
                   ]
+                }
               }
-        """)
+        """
 
-        let fs = InMemoryFileSystem(emptyFiles: [])
-        let store = try PinsStore(pinsFile: AbsolutePath("/pins"), fileSystem: fs, mirrors: .init())
-        XCTAssertThrows(StringError("duplicated entry for package \"Yams\""), { try store.restore(from: json) })
+        let fs = InMemoryFileSystem(files: ["/pins": ByteString(encodingAsUTF8: json)])
+
+        XCTAssertThrows(StringError("Package.resolved file is corrupted or malformed; fix or delete the file to continue: duplicated entry for package \"Yams\""), {
+            _ = try PinsStore(pinsFile: AbsolutePath("/pins"), workingDirectory: .root, fileSystem: fs, mirrors: .init())
+        })
     }
 
     func testTargetDependencies_Pre52() throws {
@@ -1390,7 +1352,7 @@ class PackageGraphTests: XCTestCase {
             ]
         )
 
-        XCTAssert(diagnostics.diagnostics.isEmpty, "\(diagnostics.diagnostics)")
+        XCTAssertNoDiagnostics(diagnostics)
     }
 
     func testTargetDependencies_Pre52_UnknownProduct() throws {
@@ -1476,7 +1438,7 @@ class PackageGraphTests: XCTestCase {
             ]
         )
 
-        XCTAssert(diagnostics.diagnostics.isEmpty, "\(diagnostics.diagnostics)")
+        XCTAssertNoDiagnostics(diagnostics)
     }
 
     func testTargetDependencies_Post52_UnknownProduct() throws {
@@ -1585,7 +1547,7 @@ class PackageGraphTests: XCTestCase {
 
             let diagnostics = DiagnosticsEngine()
             _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics, manifests: fixedManifests)
-            XCTAssert(diagnostics.diagnostics.isEmpty, "\(diagnostics.diagnostics)")
+            XCTAssertNoDiagnostics(diagnostics)
         }
     }
 
@@ -1651,7 +1613,7 @@ class PackageGraphTests: XCTestCase {
 
             let diagnostics = DiagnosticsEngine()
             _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics, manifests: fixedManifests)
-            XCTAssert(diagnostics.diagnostics.isEmpty, "\(diagnostics.diagnostics)")
+            XCTAssertNoDiagnostics(diagnostics)
         }
     }
 
@@ -1714,7 +1676,7 @@ class PackageGraphTests: XCTestCase {
 
             let diagnostics = DiagnosticsEngine()
             _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics, manifests: fixedManifests)
-            XCTAssert(diagnostics.diagnostics.isEmpty, "\(diagnostics.diagnostics)")
+            XCTAssertNoDiagnostics(diagnostics)
         }
     }
 
@@ -1777,7 +1739,7 @@ class PackageGraphTests: XCTestCase {
 
             let diagnostics = DiagnosticsEngine()
             _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics, manifests: fixedManifests)
-            XCTAssert(diagnostics.diagnostics.isEmpty, "\(diagnostics.diagnostics)")
+            XCTAssertNoDiagnostics(diagnostics)
         }
     }
 
@@ -1818,7 +1780,7 @@ class PackageGraphTests: XCTestCase {
 
         let diagnostics = DiagnosticsEngine()
         _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics, manifests: manifests)
-        XCTAssert(diagnostics.diagnostics.isEmpty, "\(diagnostics.diagnostics)")
+        XCTAssertNoDiagnostics(diagnostics)
     }
 
     // test backwards compatibility 5.2 < 5.4
@@ -1882,72 +1844,7 @@ class PackageGraphTests: XCTestCase {
 
             let diagnostics = DiagnosticsEngine()
             _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics, manifests: fixedManifests)
-            XCTAssert(diagnostics.diagnostics.isEmpty, "\(diagnostics.diagnostics)")
-        }
-    }
-    
-    func testTargetDependencies_Post52_ManifestNameNotMatchedWithURL() throws {
-        let fs = InMemoryFileSystem(emptyFiles:
-            "/Foo/Sources/Foo/foo.swift",
-            "/Bar/Sources/Bar/bar.swift"
-        )
-
-        let manifests = try [
-            Manifest.createManifest(
-                name: "Foo",
-                path: "/Foo",
-                packageKind: .root,
-                packageLocation: "/Foo",
-                v: .v5_2,
-                dependencies: [
-                    .scm(deprecatedName: "Bar", location: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
-                ],
-                targets: [
-                    TargetDescription(name: "Foo", dependencies: ["ProductBar"]),
-                ]),
-            Manifest.createManifest(
-                name: "Some-Bar",
-                path: "/Bar",
-                packageKind: .local,
-                packageLocation: "/Bar",
-                v: .v5_2,
-                products: [
-                    ProductDescription(name: "ProductBar", type: .library(.automatic), targets: ["Bar"])
-                ],
-                targets: [
-                    TargetDescription(name: "Bar"),
-                ]),
-        ]
-
-        do {
-            let diagnostics = DiagnosticsEngine()
-            _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics, manifests: manifests)
-            DiagnosticsEngineTester(diagnostics, ignoreNotes: true) { result in
-                result.check(
-                    diagnostic: """
-                        'foo' dependency on '/Bar' has an explicit name 'Bar' which does not match the name 'Some-Bar' set for '/Bar'
-                        """,
-                    behavior: .error,
-                    location: "'Foo' /Foo"
-                )
-            }
-        }
-
-        // fix it
-
-        do {
-            let fixedManifests = [
-                try manifests[0].withDependencies([
-                    .scm(deprecatedName: "Some-Bar", location: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
-                ]).withTargets([
-                    TargetDescription(name: "Foo", dependencies: [.product(name: "ProductBar", package: "Some-Bar")]),
-                ]),
-                manifests[1] // same
-            ]
-
-            let diagnostics = DiagnosticsEngine()
-            _ = try loadPackageGraph(fs: fs, diagnostics: diagnostics, manifests: fixedManifests)
-            XCTAssert(diagnostics.diagnostics.isEmpty, "\(diagnostics.diagnostics)")
+            XCTAssertNoDiagnostics(diagnostics)
         }
     }
 }

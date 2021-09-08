@@ -552,8 +552,10 @@ class TargetSourcesBuilderTests: XCTestCase {
             diags: diags
         )
 
-        XCTAssertEqual(diags.diagnostics.count, 2)
-        diags.diagnostics.forEach { XCTAssert($0.description.contains("Invalid Exclude")) }
+        DiagnosticsEngineTester(diags) { result in
+            result.checkUnordered(diagnostic: "Invalid Exclude '/fileOutsideRoot.py': File not found.", behavior: .warning)
+            result.checkUnordered(diagnostic: "Invalid Exclude '/fakeDir': File not found.", behavior: .warning)
+        }
     }
     
     func testMissingResource() throws {
@@ -588,8 +590,10 @@ class TargetSourcesBuilderTests: XCTestCase {
         )
         _ = try builder.run()
 
-        XCTAssertEqual(diags.diagnostics.count, 2)
-        diags.diagnostics.forEach { XCTAssert($0.description.contains("Invalid Resource")) }
+        DiagnosticsEngineTester(diags) { result in
+            result.checkUnordered(diagnostic: "Invalid Resource '../../../Fake.txt': File not found.", behavior: .warning)
+            result.checkUnordered(diagnostic: "Invalid Resource 'NotReal': File not found.", behavior: .warning)
+        }
     }
     
     func testMissingSource() throws {
@@ -624,8 +628,11 @@ class TargetSourcesBuilderTests: XCTestCase {
             diags: diags
         )
 
-        XCTAssertEqual(diags.diagnostics.count, 3)
-        diags.diagnostics.forEach { XCTAssert($0.description.contains("Invalid Source")) }
+        DiagnosticsEngineTester(diags) { result in
+            result.checkUnordered(diagnostic: "Invalid Source '/InvalidPackage.swift': File not found.", behavior: .warning)
+            result.checkUnordered(diagnostic: "Invalid Source '/DoesNotExist.swift': File not found.", behavior: .warning)
+            result.checkUnordered(diagnostic: "Invalid Source '/Tests/InvalidPackageTests/InvalidPackageTests.swift': File not found.", behavior: .warning)
+        }
     }
 
     func testXcodeSpecificResourcesAreNotIncludedByDefault() throws {
@@ -659,7 +666,9 @@ class TargetSourcesBuilderTests: XCTestCase {
         )
         _ = try builder.run()
 
-        XCTAssertEqual(diags.diagnostics.map { $0.description }, ["found 1 file(s) which are unhandled; explicitly declare them as resources or exclude from the target\n    /Foo.xcdatamodel\n"])
+        DiagnosticsEngineTester(diags) { result in
+            result.check(diagnostic: "found 1 file(s) which are unhandled; explicitly declare them as resources or exclude from the target\n    /Foo.xcdatamodel\n", behavior: .warning)
+        }
     }
 
     func testDocCFilesDoNotCauseWarningOutsideXCBuild() throws {
@@ -694,6 +703,6 @@ class TargetSourcesBuilderTests: XCTestCase {
         )
         _ = try builder.run()
 
-        XCTAssertTrue(diags.diagnostics.isEmpty)
+        XCTAssertNoDiagnostics(diags)
     }
 }

@@ -172,56 +172,9 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
         guard isVerbose else { return }
 
         queue.sync {
-            self.stdoutStream <<< "Running resolver because "
-
-            switch reason {
-            case .forced:
-                self.stdoutStream <<< "it was forced"
-            case .newPackages(let packages):
-                let dependencies = packages.lazy.map({ "'\($0.location)'" }).joined(separator: ", ")
-                self.stdoutStream <<< "the following dependencies were added: \(dependencies)"
-            case .packageRequirementChange(let package, let state, let requirement):
-                self.stdoutStream <<< "dependency '\(package.name)' was "
-
-                switch state {
-                case .checkout(let checkoutState)?:
-                    switch checkoutState.requirement {
-                    case .versionSet(.exact(let version)):
-                        self.stdoutStream <<< "resolved to '\(version)'"
-                    case .versionSet(_):
-                        // Impossible
-                        break
-                    case .revision(let revision):
-                        self.stdoutStream <<< "resolved to '\(revision)'"
-                    case .unversioned:
-                        self.stdoutStream <<< "unversioned"
-                    }
-                case .edited?:
-                    self.stdoutStream <<< "edited"
-                case .local?:
-                    self.stdoutStream <<< "versioned"
-                case nil:
-                    self.stdoutStream <<< "root"
-                }
-
-                self.stdoutStream <<< " but now has a "
-
-                switch requirement {
-                case .versionSet:
-                    self.stdoutStream <<< "different version-based"
-                case .revision:
-                    self.stdoutStream <<< "different revision-based"
-                case .unversioned:
-                    self.stdoutStream <<< "unversioned"
-                }
-
-                self.stdoutStream <<< " requirement."
-            default:
-                self.stdoutStream <<< " requirements have changed."
-            }
-
+            self.stdoutStream <<< Workspace.format(workspaceResolveReason: reason)
             self.stdoutStream <<< "\n"
-            stdoutStream.flush()
+            self.stdoutStream.flush()
         }
     }
 
@@ -488,90 +441,121 @@ public class SwiftTool {
         }
     }
 
-    func editablesPath() throws -> AbsolutePath {
+    private func editsDirectory() throws -> AbsolutePath {
+        // TODO: replace multiroot-data-file with explicit overrides
         if let multiRootPackageDataFile = options.multirootPackageDataFile {
             return multiRootPackageDataFile.appending(component: "Packages")
         }
-        return try getPackageRoot().appending(component: "Packages")
+        return try Workspace.DefaultLocations.editsDirectory(forRootPackage: self.getPackageRoot())
     }
 
-    func resolvedFilePath() throws -> AbsolutePath {
+    private func resolvedVersionsFile() throws -> AbsolutePath {
+        // TODO: replace multiroot-data-file with explicit overrides
         if let multiRootPackageDataFile = options.multirootPackageDataFile {
             return multiRootPackageDataFile.appending(components: "xcshareddata", "swiftpm", "Package.resolved")
         }
-        return try getPackageRoot().appending(component: "Package.resolved")
+        return try Workspace.DefaultLocations.resolvedVersionsFile(forRootPackage: self.getPackageRoot())
     }
 
-    func configFilePath() throws -> AbsolutePath {
+    func getMirrorsConfig(sharedConfigurationDirectory: AbsolutePath? = nil) throws -> Workspace.Configuration.Mirrors {
+        let sharedConfigurationDirectory = try sharedConfigurationDirectory ?? self.getSharedConfigurationDirectory()
+        let sharedMirrorFile = sharedConfigurationDirectory.map { Workspace.DefaultLocations.mirrorsConfigurationFile(at: $0) }
+        return try .init(
+            localMirrorFile: self.mirrorsConfigFile(),
+            sharedMirrorFile: sharedMirrorFile,
+            fileSystem: localFileSystem
+        )
+    }
+
+    private func mirrorsConfigFile() throws -> AbsolutePath {
+        // TODO: does this make sense now that we a global configuration as well? or should we at least rename it?
         // Look for the override in the environment.
         if let envPath = ProcessEnv.vars["SWIFTPM_MIRROR_CONFIG"] {
             return try AbsolutePath(validating: envPath)
         }
 
         // Otherwise, use the default path.
+        // TODO: replace multiroot-data-file with explicit overrides
         if let multiRootPackageDataFile = options.multirootPackageDataFile {
-            return multiRootPackageDataFile.appending(components: "xcshareddata", "swiftpm", "config")
+            // migrate from legacy location
+            let legacyPath = multiRootPackageDataFile.appending(components: "xcshareddata", "swiftpm", "config")
+            let newPath = multiRootPackageDataFile.appending(components: "xcshareddata", "swiftpm", "configuration", "mirrors.json")
+            if localFileSystem.exists(legacyPath) {
+                try localFileSystem.createDirectory(newPath.parentDirectory, recursive: true)
+                try localFileSystem.move(from: legacyPath, to: newPath)
+            }
+            return newPath
         }
-        return try getPackageRoot().appending(components: ".swiftpm", "config")
+
+        // migrate from legacy location
+        let legacyPath = try self.getPackageRoot().appending(components: ".swiftpm", "config")
+        let newPath = try Workspace.DefaultLocations.mirrorsConfigurationFile(forRootPackage: self.getPackageRoot())
+        if localFileSystem.exists(legacyPath) {
+            try localFileSystem.createDirectory(newPath.parentDirectory, recursive: true)
+            try localFileSystem.move(from: legacyPath, to: newPath)
+        }
+        return newPath
     }
 
-    func getSwiftPMConfig() throws -> Workspace.Configuration {
-        return try _swiftpmConfig.get()
+    func getAuthorizationProvider() throws -> AuthorizationProvider? {
+        // currently only single provider: netrc
+        return try self.getNetrcConfig()?.get()
     }
 
-    private lazy var _swiftpmConfig: Result<Workspace.Configuration, Swift.Error> = {
-        return Result(catching: { try Workspace.Configuration(path: try configFilePath()) })
-    }()
-    
-    func resolvedNetrcFilePath() throws -> AbsolutePath? {
-        guard options.netrc ||
-                options.netrcFilePath != nil ||
-                options.netrcOptional else { return nil }
-        
-        let resolvedPath: AbsolutePath = options.netrcFilePath ?? AbsolutePath("\(NSHomeDirectory())/.netrc")
-        guard localFileSystem.exists(resolvedPath) else {
+    func getNetrcConfig() throws -> Workspace.Configuration.Netrc? {
+        guard options.netrc || options.netrcFilePath != nil || options.netrcOptional else {
+            return .none
+        }
+
+        let netrcFilePath = try self.netrcFilePath()
+        return netrcFilePath.map { .init(path: $0, fileSystem: localFileSystem) }
+    }
+
+    private func netrcFilePath() throws -> AbsolutePath? {
+        let netrcFilePath = options.netrcFilePath ?? localFileSystem.homeDirectory.appending(component: ".netrc")
+        guard localFileSystem.exists(netrcFilePath) else {
             if !options.netrcOptional {
-                diagnostics.emit(error: "Cannot find mandatory .netrc file at \(resolvedPath.pathString).  To make .netrc file optional, use --netrc-optional flag.")
+                diagnostics.emit(error: "Cannot find mandatory .netrc file at \(netrcFilePath). To make .netrc file optional, use --netrc-optional flag.")
                 throw ExitCode.failure
             } else {
-                diagnostics.emit(warning: "Did not find optional .netrc file at \(resolvedPath.pathString).")
-                return nil
+                diagnostics.emit(warning: "Did not find optional .netrc file at \(netrcFilePath).")
+                return .none
             }
         }
-        return resolvedPath
+        return netrcFilePath
     }
 
-    private func getCachePath(fileSystem: FileSystem = localFileSystem) throws -> AbsolutePath? {
+    private func getSharedCacheDirectory() throws -> AbsolutePath? {
         if let explicitCachePath = options.cachePath {
             // Create the explicit cache path if necessary
-            if !fileSystem.exists(explicitCachePath) {
-                try fileSystem.createDirectory(explicitCachePath, recursive: true)
+            if !localFileSystem.exists(explicitCachePath) {
+                try localFileSystem.createDirectory(explicitCachePath, recursive: true)
             }
             return explicitCachePath
         }
 
         do {
-            return try fileSystem.getOrCreateSwiftPMCacheDirectory()
+            return try localFileSystem.getOrCreateSwiftPMCacheDirectory()
         } catch {
-            self.diagnostics.emit(warning: "Failed creating default cache locations, \(error)")
-            return nil
+            self.diagnostics.emit(warning: "Failed creating default cache location, \(error)")
+            return .none
         }
     }
 
-    private func getConfigPath(fileSystem: FileSystem = localFileSystem) throws -> AbsolutePath? {
+    private func getSharedConfigurationDirectory() throws -> AbsolutePath? {
         if let explicitConfigPath = options.configPath {
             // Create the explicit config path if necessary
-            if !fileSystem.exists(explicitConfigPath) {
-                try fileSystem.createDirectory(explicitConfigPath, recursive: true)
+            if !localFileSystem.exists(explicitConfigPath) {
+                try localFileSystem.createDirectory(explicitConfigPath, recursive: true)
             }
             return explicitConfigPath
         }
 
         do {
-            return try fileSystem.getOrCreateSwiftPMConfigDirectory()
+            return try localFileSystem.getOrCreateSwiftPMConfigDirectory()
         } catch {
-            self.diagnostics.emit(warning: "Failed creating default config locations, \(error)")
-            return nil
+            self.diagnostics.emit(warning: "Failed creating default configuration location, \(error)")
+            return .none
         }
     }
 
@@ -584,24 +568,28 @@ public class SwiftTool {
         let isVerbose = options.verbosity != 0
         let delegate = ToolWorkspaceDelegate(self.stdoutStream, isVerbose: isVerbose, diagnostics: diagnostics)
         let provider = GitRepositoryProvider(processSet: processSet)
-        let cachePath = self.options.useRepositoriesCache ? try self.getCachePath() : .none
-        _  = try self.getConfigPath() // TODO: actually use this in the workspace 
+        let sharedCacheDirectory =  try self.getSharedCacheDirectory()
+        let sharedConfigurationDirectory = try self.getSharedConfigurationDirectory()
         let isXcodeBuildSystemEnabled = self.options.buildSystem == .xcode
-        let workspace = Workspace(
-            dataPath: buildPath,
-            editablesPath: try editablesPath(),
-            pinsFile: try resolvedFilePath(),
-            manifestLoader: try getManifestLoader(),
-            toolsVersionLoader: ToolsVersionLoader(),
-            delegate: delegate,
-            config: try getSwiftPMConfig(),
-            repositoryProvider: provider,
-            netrcFilePath: try resolvedNetrcFilePath(),
+        let workspace = try Workspace(
+            fileSystem: localFileSystem,
+            location: .init(
+                workingDirectory: buildPath,
+                editsDirectory: self.editsDirectory(),
+                resolvedVersionsFile: self.resolvedVersionsFile(),
+                sharedCacheDirectory: sharedCacheDirectory,
+                sharedConfigurationDirectory: sharedConfigurationDirectory
+            ),
+            mirrors: self.getMirrorsConfig(sharedConfigurationDirectory: sharedConfigurationDirectory).mirrors,
+            authorizationProvider: self.getAuthorizationProvider(),
+            customManifestLoader: self.getManifestLoader(), // FIXME: doe we really need to customize it?
+            customRepositoryProvider: provider, // FIXME: doe we really need to customize it?
             additionalFileRules: isXcodeBuildSystemEnabled ? FileRuleDescription.xcbuildFileTypes : FileRuleDescription.swiftpmFileTypes,
-            isResolverPrefetchingEnabled: options.shouldEnableResolverPrefetching,
-            skipUpdate: options.skipDependencyUpdate,
-            enableResolverTrace: options.enableResolverTrace,
-            cachePath: cachePath
+            resolverUpdateEnabled: !options.skipDependencyUpdate,
+            resolverPrefetchingEnabled: options.shouldEnableResolverPrefetching,
+            resolverTracingEnabled: options.enableResolverTrace,
+            sharedRepositoriesCacheEnabled: self.options.useRepositoriesCache,
+            delegate: delegate
         )
         _workspace = workspace
         _workspaceDelegate = delegate
@@ -674,7 +662,7 @@ public class SwiftTool {
             // The `plugins` directory is inside the workspace's main data directory, and contains all temporary
             // files related to all plugins in the workspace.
             let buildEnvironment = try buildParameters().buildEnvironment
-            let dataDir = try self.getActiveWorkspace().dataPath
+            let dataDir = try self.getActiveWorkspace().location.workingDirectory
             let pluginsDir = dataDir.appending(component: "plugins")
             
             // The `cache` directory is in the plugins directory and is where the plugin script runner caches
@@ -839,6 +827,9 @@ public class SwiftTool {
             // Create custom toolchain if present.
             if let customDestination = self.options.customCompileDestination {
                 destination = try Destination(fromFile: customDestination)
+            } else if let target = self.options.customCompileTriple,
+                      let targetDestination = Destination.defaultDestination(for: target, host: hostDestination) {
+                destination = targetDestination
             } else {
                 // Otherwise use the host toolchain.
                 destination = hostDestination
@@ -855,18 +846,6 @@ public class SwiftTool {
         }
         if let sdk = self.options.customCompileSDK {
             destination.sdk = sdk
-        } else if let target = destination.target, target.isWASI() {
-            // Set default SDK path when target is WASI whose SDK is embeded
-            // in Swift toolchain
-            do {
-                let compilers = try UserToolchain.determineSwiftCompilers(binDir: destination.binDir)
-                destination.sdk = compilers.compile
-                    .parentDirectory // bin
-                    .parentDirectory // usr
-                    .appending(components: "share", "wasi-sysroot")
-            } catch {
-                return .failure(error)
-            }
         }
         destination.archs = options.archs
 
@@ -892,16 +871,16 @@ public class SwiftTool {
             switch (self.options.shouldDisableManifestCaching, self.options.manifestCachingMode) {
             case (true, _):
                 // backwards compatibility
-                cachePath = nil
+                cachePath = .none
             case (false, .none):
-                cachePath = nil
+                cachePath = .none
             case (false, .local):
                 cachePath = self.buildPath
             case (false, .shared):
-                cachePath = try self.getCachePath().map{ $0.appending(component: "manifests") }
+                cachePath = try self.getSharedCacheDirectory().map{ Workspace.DefaultLocations.manifestsDirectory(at: $0) }
             }
 
-            var  extraManifestFlags = self.options.manifestFlags
+            var extraManifestFlags = self.options.manifestFlags
             // Disable the implicit concurrency import if the compiler in use supports it to avoid warnings if we are building against an older SDK that does not contain a Concurrency module.
             if SwiftTargetBuildDescription.checkSupportedFrontendFlags(flags: ["disable-implicit-concurrency-module-import"], fs: localFileSystem) {
                 extraManifestFlags += ["-Xfrontend", "-disable-implicit-concurrency-module-import"]

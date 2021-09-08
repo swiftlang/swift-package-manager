@@ -194,49 +194,41 @@ private struct WorkspaceDependencyResolverDelegate: DependencyResolverDelegate {
 /// This class does *not* support concurrent operations.
 public class Workspace {
     /// The delegate interface.
-    public weak var delegate: WorkspaceDelegate?
+    fileprivate weak var delegate: WorkspaceDelegate?
 
-    /// The path of the workspace data.
-    public let dataPath: AbsolutePath
+    /// The workspace location.
+    public let location: Location
 
-    /// The swiftpm config.
-    fileprivate let config: Workspace.Configuration
+    /// The mirrors config.
+    fileprivate let mirrors: DependencyMirrors
 
     /// The current persisted state of the workspace.
+    // public visibility for testing
     public let state: WorkspaceState
 
     /// The Pins store. The pins file will be created when first pin is added to pins store.
+    // public visibility for testing
     public let pinsStore: LoadableResult<PinsStore>
 
-    /// The path to the Package.resolved file for this workspace.
-    public let resolvedFile: AbsolutePath
-
-    /// The path for working repository clones (checkouts).
-    public let checkoutsPath: AbsolutePath
-
-    /// The path for downloaded binary artifacts.
-    public let artifactsPath: AbsolutePath
-
-    /// The path where packages which are put in edit mode are checked out.
-    public let editablesPath: AbsolutePath
-
     /// The file system on which the workspace will operate.
-    fileprivate var fileSystem: FileSystem
+    fileprivate let fileSystem: FileSystem
 
     /// The manifest loader to use.
-    public let manifestLoader: ManifestLoaderProtocol
+    fileprivate let manifestLoader: ManifestLoaderProtocol
 
     /// The tools version currently in use.
     fileprivate let currentToolsVersion: ToolsVersion
 
     /// The manifest loader to use.
-    fileprivate let toolsVersionLoader: ToolsVersionLoaderProtocol
+    fileprivate var toolsVersionLoader: ToolsVersionLoaderProtocol
 
     /// The repository manager.
-    public let repositoryManager: RepositoryManager
+    // var for backwards compatibility with deprecated initializers, remove with them
+    fileprivate var repositoryManager: RepositoryManager
 
     /// Utility to resolve package identifiers
-    public let identityResolver: IdentityResolver
+    // var for backwards compatibility with deprecated initializers, remove with them
+    fileprivate var identityResolver: IdentityResolver
 
     /// The package container provider.
     fileprivate let containerProvider: RepositoryPackageContainerProvider
@@ -244,7 +236,7 @@ public class Workspace {
     /// The http client used for downloading binary artifacts.
     fileprivate let httpClient: HTTPClient
 
-    fileprivate let netrcFilePath: AbsolutePath?
+    fileprivate let authorizationProvider: AuthorizationProvider?
 
     /// The downloader used for unarchiving binary artifacts.
     fileprivate let archiver: Archiver
@@ -253,36 +245,148 @@ public class Workspace {
     fileprivate let checksumAlgorithm: HashAlgorithm
 
     /// Enable prefetching containers in resolver.
-    fileprivate let isResolverPrefetchingEnabled: Bool
+    fileprivate let resolverPrefetchingEnabled: Bool
 
-    /// Skip updating containers while fetching them.
-    fileprivate let skipUpdate: Bool
+    /// Update containers while fetching them.
+    fileprivate let resolverUpdateEnabled: Bool
+
+    /// Write dependency resolver trace to a file.
+    fileprivate let resolverTracingEnabled: Bool
+
+    fileprivate let additionalFileRules: [FileRuleDescription]
+
+    // state
 
     /// The active package resolver. This is set during a dependency resolution operation.
     fileprivate var activeResolver: PubgrubDependencyResolver?
 
-    /// Write dependency resolver trace to a file.
-    fileprivate let enableResolverTrace: Bool
-
     fileprivate var resolvedFileWatcher: ResolvedFileWatcher?
 
-    fileprivate let additionalFileRules: [FileRuleDescription]
-
     /// Create a new package workspace.
+    ///
+    /// This initializer is designed for use cases when the workspace needs to be highly customized such as testing.
+    /// In other cases, use the other, more straight forward, initializers
     ///
     /// This will automatically load the persisted state for the package, if
     /// present. If the state isn't present then a default state will be
     /// constructed.
     ///
     /// - Parameters:
-    ///   - dataPath: The path for the workspace data files.
-    ///   - editablesPath: The path where editable packages should be placed.
-    ///   - pinsFile: The path to pins file. If pins file is not present, it will be created.
-    ///   - manifestLoader: The manifest loader.
-    ///   - fileSystem: The file system to operate on.
-    ///   - repositoryProvider: The repository provider to use in repository manager.
-    /// - Throws: If the state was present, but could not be loaded.
+    ///   - fileSystem: The file system to use.
+    ///   - location: Workspace location configuration.
+    ///   - mirrors: Dependencies mirrors.
+    ///   - authorizationProvider: Provider of authentication information.
+    ///   - customToolsVersion: A custom tools version.
+    ///   - customManifestLoader: A custom manifest loader.
+    ///   - customRepositoryManager: A custom repository manager.
+    ///   - customRepositoryProvider: A custom repository provider.
+    ///   - customIdentityResolver: A custom identity resolver.
+    ///   - customHTTPClient: A custom http client.
+    ///   - customArchiver: A custom archiver.
+    ///   - customChecksumAlgorithm: A custom checksum algorithm.
+    ///   - additionalFileRules: File rules to determine resource handling behavior.
+    ///   - resolverUpdateEnabled: Enables the dependencies resolver automatic version update check.  Enabled by default. When disabled the resolver relies only on the resolved version file
+    ///   - resolverPrefetchingEnabled: Enables the dependencies resolver prefetching based on the resolved version file.  Enabled by default..
+    ///   - resolverTracingEnabled: Enables the dependencies resolver tracing.  Disabled by default..
+    ///   - sharedRepositoriesCacheEnabled: Enables the shared repository cache. Enabled by default..
+    ///   - delegate: Delegate for workspace events
     public init(
+        fileSystem: FileSystem,
+        location: Location,
+        mirrors: DependencyMirrors? = .none,
+        authorizationProvider: AuthorizationProvider? = .none,
+        customToolsVersion: ToolsVersion? = .none,
+        customManifestLoader: ManifestLoaderProtocol? = .none,
+        customRepositoryManager: RepositoryManager? = .none,
+        customRepositoryProvider: RepositoryProvider? = .none,
+        customIdentityResolver: IdentityResolver? = .none,
+        customHTTPClient: HTTPClient? = .none,
+        customArchiver: Archiver? = .none,
+        customChecksumAlgorithm: HashAlgorithm? = .none,
+        additionalFileRules: [FileRuleDescription]? = .none,
+        resolverUpdateEnabled: Bool? = .none,
+        resolverPrefetchingEnabled: Bool? = .none,
+        resolverTracingEnabled: Bool? = .none,
+        sharedRepositoriesCacheEnabled: Bool? = .none,
+        delegate: WorkspaceDelegate? = .none
+    ) throws {
+        // defaults
+        let currentToolsVersion = customToolsVersion ?? ToolsVersion.currentToolsVersion
+        let toolsVersionLoader = ToolsVersionLoader()
+        let manifestLoader = try customManifestLoader ?? ManifestLoader(
+            toolchain: UserToolchain(destination: .hostDestination()).configuration,
+            cacheDir: location.sharedManifestsCacheDirectory
+        )
+        let repositoryProvider = customRepositoryProvider ?? GitRepositoryProvider()
+        let sharedRepositoriesCacheEnabled = sharedRepositoriesCacheEnabled ?? true
+        let repositoryManager = customRepositoryManager ?? RepositoryManager(
+            fileSystem: fileSystem,
+            path: location.repositoriesDirectory,
+            provider: repositoryProvider,
+            delegate: delegate.map(WorkspaceRepositoryManagerDelegate.init(workspaceDelegate:)),
+            cachePath: sharedRepositoriesCacheEnabled ? location.sharedRepositoriesCacheDirectory : .none
+        )
+        let httpClient = customHTTPClient ?? HTTPClient()
+        let archiver = customArchiver ?? ZipArchiver()
+        let mirrors = mirrors ?? DependencyMirrors()
+        let identityResolver = customIdentityResolver ?? DefaultIdentityResolver(locationMapper: mirrors.effectiveURL(for:))
+        var checksumAlgorithm = customChecksumAlgorithm ?? SHA256()
+        #if canImport(CryptoKit)
+        if checksumAlgorithm is SHA256, #available(macOS 10.15, *) {
+            checksumAlgorithm = CryptoKitSHA256()
+        }
+        #endif
+
+        let additionalFileRules = additionalFileRules ?? []
+        let resolverUpdateEnabled = resolverUpdateEnabled ?? true
+        let resolverPrefetchingEnabled = resolverPrefetchingEnabled ?? false
+        let resolverTracingEnabled = resolverTracingEnabled ?? false
+
+
+        // initialize
+        self.fileSystem = fileSystem
+        self.location = location
+        self.delegate = delegate
+        self.mirrors = mirrors
+        self.authorizationProvider = authorizationProvider
+        self.manifestLoader = manifestLoader
+        self.currentToolsVersion = currentToolsVersion
+        self.toolsVersionLoader = toolsVersionLoader
+        self.httpClient = httpClient
+        self.archiver = archiver
+        self.repositoryManager = repositoryManager
+        self.identityResolver = identityResolver
+        self.checksumAlgorithm = checksumAlgorithm
+
+        self.containerProvider = RepositoryPackageContainerProvider(
+            fileSystem: fileSystem,
+            repositoryManager: repositoryManager,
+            identityResolver: self.identityResolver,
+            manifestLoader: manifestLoader,
+            currentToolsVersion: currentToolsVersion,
+            toolsVersionLoader: toolsVersionLoader
+        )
+
+        self.pinsStore = LoadableResult {
+            try PinsStore(
+                pinsFile: location.resolvedVersionsFile,
+                workingDirectory: location.workingDirectory,
+                fileSystem: fileSystem,
+                mirrors: mirrors
+            )
+        }
+
+        self.additionalFileRules = additionalFileRules
+        self.resolverUpdateEnabled = resolverUpdateEnabled
+        self.resolverPrefetchingEnabled = resolverPrefetchingEnabled
+        self.resolverTracingEnabled = resolverTracingEnabled
+
+        self.state = WorkspaceState(dataPath: self.location.workingDirectory, fileSystem: fileSystem)
+    }
+
+    // deprecated 8/2021
+    @available(*, deprecated, message: "use non-deprecated initializer instead")
+    public convenience init(
         dataPath: AbsolutePath,
         editablesPath: AbsolutePath,
         pinsFile: AbsolutePath,
@@ -306,72 +410,38 @@ public class Workspace {
         enableResolverTrace: Bool? = nil,
         cachePath: AbsolutePath? = nil
     ) {
-        // defaults
-        let currentToolsVersion = currentToolsVersion ?? ToolsVersion.currentToolsVersion
-        let toolsVersionLoader = toolsVersionLoader ?? ToolsVersionLoader()
-        let config = config ?? Workspace.Configuration()
+        // try! safe in this case since the new initializer will only throw when creating a manifest loader
+        // which is passed explicitly in this case. this initializer will go away soon in any case.
         let fileSystem = fileSystem ?? localFileSystem
-        let repositoryProvider = repositoryProvider ?? GitRepositoryProvider()
-        let httpClient = httpClient ?? HTTPClient()
-        let archiver = archiver ?? ZipArchiver()
-        var checksumAlgorithm = checksumAlgorithm ?? SHA256()
-        #if canImport(CryptoKit)
-        if checksumAlgorithm is SHA256, #available(macOS 10.15, *) {
-            checksumAlgorithm = CryptoKitSHA256()
-        }
-        #endif
-        let additionalFileRules = additionalFileRules ?? []
-        let isResolverPrefetchingEnabled = isResolverPrefetchingEnabled ?? false
-        let skipUpdate = skipUpdate ?? false
-        let enableResolverTrace = enableResolverTrace ?? false
-
-        // initialize
-        self.delegate = delegate
-        self.dataPath = dataPath
-        self.config = config
-        self.editablesPath = editablesPath
-        self.manifestLoader = manifestLoader
-        self.currentToolsVersion = currentToolsVersion
-        self.toolsVersionLoader = toolsVersionLoader
-        self.httpClient = httpClient
-        self.netrcFilePath = netrcFilePath
-        self.archiver = archiver
-
-        self.checksumAlgorithm = checksumAlgorithm
-        self.isResolverPrefetchingEnabled = isResolverPrefetchingEnabled
-        self.skipUpdate = skipUpdate
-        self.enableResolverTrace = enableResolverTrace
-        self.resolvedFile = pinsFile
-        self.additionalFileRules = additionalFileRules
-
-        let repositoriesPath = self.dataPath.appending(component: "repositories")
-        let repositoriesCachePath = cachePath.map { $0.appending(component: "repositories") }
-        let repositoryManager = repositoryManager ?? RepositoryManager(
-            path: repositoriesPath,
-            provider: repositoryProvider,
-            delegate: delegate.map(WorkspaceRepositoryManagerDelegate.init(workspaceDelegate:)),
+        try! self.init(
             fileSystem: fileSystem,
-            cachePath: repositoriesCachePath)
-        self.repositoryManager = repositoryManager
-
-        self.checkoutsPath = self.dataPath.appending(component: "checkouts")
-        self.artifactsPath = self.dataPath.appending(component: "artifacts")
-
-        self.identityResolver = identityResolver ?? DefaultIdentityResolver(locationMapper: config.mirrors.effectiveURL(for:))
-
-        self.containerProvider = RepositoryPackageContainerProvider(
-            repositoryManager: repositoryManager,
-            identityResolver: self.identityResolver,
-            manifestLoader: manifestLoader,
-            currentToolsVersion: currentToolsVersion,
-            toolsVersionLoader: toolsVersionLoader
+            location: .init(
+                workingDirectory: dataPath,
+                editsDirectory: editablesPath,
+                resolvedVersionsFile: pinsFile,
+                sharedCacheDirectory: cachePath,
+                sharedConfigurationDirectory: nil // legacy
+            ),
+            mirrors: config?.mirrors,
+            authorizationProvider: netrcFilePath.map {
+                try Configuration.Netrc(path: $0, fileSystem: fileSystem).get()
+            },
+            customToolsVersion: currentToolsVersion,
+            customManifestLoader: manifestLoader,
+            customRepositoryManager: repositoryManager,
+            customRepositoryProvider: repositoryProvider,
+            customIdentityResolver: identityResolver,
+            customHTTPClient: httpClient,
+            customArchiver: archiver,
+            customChecksumAlgorithm: checksumAlgorithm,
+            additionalFileRules: additionalFileRules,
+            resolverUpdateEnabled: skipUpdate.map{ !$0 },
+            resolverPrefetchingEnabled: isResolverPrefetchingEnabled,
+            resolverTracingEnabled: enableResolverTrace
         )
-        self.fileSystem = fileSystem
-
-        self.pinsStore = LoadableResult {
-            try PinsStore(pinsFile: pinsFile, fileSystem: fileSystem, mirrors: config.mirrors)
+        if let toolsVersionLoader = toolsVersionLoader {
+            self.toolsVersionLoader = toolsVersionLoader
         }
-        self.state = WorkspaceState(dataPath: dataPath, fileSystem: fileSystem)
     }
 
     /// A convenience method for creating a workspace for the given root
@@ -381,23 +451,26 @@ public class Workspace {
     /// default paths.
     ///
     /// - Parameters:
+    ///   - fileSystem: The file system to use, defaults to local file system.
     ///   - forRootPackage: The path for the root package.
-    ///   - toolchain: A custom toolchain.
-    ///   - repositoryManager: A custom repository manager.
+    ///   - customToolchain: A custom toolchain.
     ///   - delegate: Delegate for workspace events
     public convenience init(
+        fileSystem: FileSystem? = .none,
         forRootPackage packagePath: AbsolutePath,
-        toolchain: UserToolchain? = nil,
-        repositoryManager: RepositoryManager? = nil,
-        delegate: WorkspaceDelegate? = nil
+        customToolchain: UserToolchain,
+        delegate: WorkspaceDelegate? = .none
     ) throws {
-        let toolchain = try toolchain ?? UserToolchain(destination: .hostDestination())
-        let manifestLoader = ManifestLoader(toolchain: toolchain.configuration)
-
+        let fileSystem = fileSystem ?? localFileSystem
+        let location = Location(forRootPackage: packagePath, fileSystem: fileSystem)
+        let manifestLoader = ManifestLoader(
+            toolchain: customToolchain.configuration,
+            cacheDir: location.sharedManifestsCacheDirectory
+        )
         try self.init(
+            fileSystem: fileSystem,
             forRootPackage: packagePath,
-            manifestLoader: manifestLoader,
-            repositoryManager: repositoryManager,
+            customManifestLoader: manifestLoader,
             delegate: delegate
         )
     }
@@ -409,23 +482,27 @@ public class Workspace {
     /// default paths.
     ///
     /// - Parameters:
+    ///   - fileSystem: The file system to use, defaults to local file system.
     ///   - forRootPackage: The path for the root package.
-    ///   - manifestLoader: A custom manifest loader.
-    ///   - repositoryManager: A custom repository manager.
+    ///   - customManifestLoader: A custom manifest loader.
     ///   - delegate: Delegate for workspace events
     public convenience init(
+        fileSystem: FileSystem? = .none,
         forRootPackage packagePath: AbsolutePath,
-        manifestLoader: ManifestLoaderProtocol,
-        repositoryManager: RepositoryManager? = nil,
-        delegate: WorkspaceDelegate? = nil
+        customManifestLoader: ManifestLoaderProtocol? =  .none,
+        delegate: WorkspaceDelegate? =  .none
     ) throws {
-
-        self .init(
-            dataPath: packagePath.appending(component: ".build"),
-            editablesPath: packagePath.appending(component: "Packages"),
-            pinsFile: packagePath.appending(component: "Package.resolved"),
-            manifestLoader: manifestLoader,
-            repositoryManager: repositoryManager,
+        let fileSystem = fileSystem ?? localFileSystem
+        let location = Location(forRootPackage: packagePath, fileSystem: fileSystem)
+        try self .init(
+            fileSystem: fileSystem,
+            location: location,
+            mirrors: try Configuration.Mirrors(
+                forRootPackage: packagePath,
+                sharedMirrorFile: location.sharedMirrorsConfigurationFile,
+                fileSystem: fileSystem
+            ).mirrors,
+            customManifestLoader: customManifestLoader,
             delegate: delegate
         )
     }
@@ -435,9 +512,8 @@ public class Workspace {
     ///
     /// The root package path is used to compute the build directory and other
     /// default paths.
-    // FIXME: this one is kind of messy to backwards support, hopefully we can remove quickly
     // deprecated 8/2021
-    @available(*, deprecated, message: "use constructor instead")
+    @available(*, deprecated, message: "use initializer instead")
     public static func create(
         forRootPackage packagePath: AbsolutePath,
         manifestLoader: ManifestLoaderProtocol,
@@ -445,12 +521,18 @@ public class Workspace {
         delegate: WorkspaceDelegate? = nil,
         identityResolver: IdentityResolver? = nil
     ) -> Workspace {
-        return try! .init(forRootPackage: packagePath,
-                     manifestLoader: manifestLoader,
-                     repositoryManager: repositoryManager,
-                     delegate: delegate//,
-                     //identityResolver: identityResolver
+        let workspace = try! Workspace(forRootPackage: packagePath,
+                                       customManifestLoader: manifestLoader,
+                                       //repositoryManager: repositoryManager,
+                                       delegate: delegate
         )
+        if let repositoryManager = repositoryManager {
+            workspace.repositoryManager = repositoryManager
+        }
+        if let identityResolver = identityResolver {
+            workspace.identityResolver = identityResolver
+        }
+        return workspace
     }
 }
 
@@ -573,29 +655,29 @@ extension Workspace {
 
         // These are the things we don't want to remove while cleaning.
         let protectedAssets = [
-            repositoryManager.path,
-            checkoutsPath,
-            artifactsPath,
-            state.path,
+            self.repositoryManager.path,
+            self.location.repositoriesCheckoutsDirectory,
+            self.location.artifactsDirectory,
+            self.state.storagePath,
         ].map({ path -> String in
             // Assert that these are present inside data directory.
-            assert(path.parentDirectory == dataPath)
+            assert(path.parentDirectory == self.location.workingDirectory)
             return path.basename
         })
 
         // If we have no data yet, we're done.
-        guard fileSystem.exists(dataPath) else {
+        guard fileSystem.exists(self.location.workingDirectory) else {
             return
         }
 
-        guard let contents = diagnostics.wrap({ try fileSystem.getDirectoryContents(dataPath) }) else {
+        guard let contents = diagnostics.wrap({ try fileSystem.getDirectoryContents(self.location.workingDirectory) }) else {
             return
         }
 
         // Remove all but protected paths.
         let contentsToRemove = Set(contents).subtracting(protectedAssets)
         for name in contentsToRemove {
-            try? fileSystem.removeFileTree(dataPath.appending(RelativePath(name)))
+            try? fileSystem.removeFileTree(self.location.workingDirectory.appending(RelativePath(name)))
         }
     }
 
@@ -618,15 +700,15 @@ extension Workspace {
     ///       and notes.
     public func reset(with diagnostics: DiagnosticsEngine) {
         let removed = diagnostics.wrap {
-            try fileSystem.chmod(.userWritable, path: checkoutsPath, options: [.recursive, .onlyFiles])
+            try fileSystem.chmod(.userWritable, path: self.location.repositoriesCheckoutsDirectory, options: [.recursive, .onlyFiles])
             // Reset state.
             try self.resetState()
         }
 
         guard removed else { return }
-        repositoryManager.reset()
+        try? repositoryManager.reset()
         try? manifestLoader.resetCache()
-        try? fileSystem.removeFileTree(dataPath)
+        try? fileSystem.removeFileTree(self.location.workingDirectory)
     }
 
     // FIXME: @testable internal
@@ -683,7 +765,7 @@ extension Workspace {
             // the pins for the input packages so only those packages are updated.
             pinsMap = pinsStore.pinsMap.filter{ !packages.contains($0.value.packageRef.name) }
         }
-        
+
         // Resolve the dependencies.
         let resolver = try self.createResolver(pinsMap: pinsMap)
         self.activeResolver = resolver
@@ -880,7 +962,7 @@ extension Workspace {
             })
         }
     }
-    
+
     public func loadRootPackage(
         at path: AbsolutePath,
         diagnostics: DiagnosticsEngine,
@@ -966,7 +1048,7 @@ extension Workspace {
 
         // If a path is provided then we use it as destination. If not, we
         // use the folder with packageName inside editablesPath.
-        let destination = path ?? editablesPath.appending(component: packageName)
+        let destination = path ?? self.location.editsDirectory.appending(component: packageName)
 
         // If there is something present at the destination, we confirm it has
         // a valid manifest with name same as the package we are trying to edit.
@@ -1025,10 +1107,10 @@ extension Workspace {
 
         // For unmanaged dependencies, create the symlink under editables dir.
         if let path = path {
-            try fileSystem.createDirectory(editablesPath)
+            try fileSystem.createDirectory(self.location.editsDirectory)
             // FIXME: We need this to work with InMem file system too.
             if !(fileSystem is InMemoryFileSystem) {
-                let symLinkPath = editablesPath.appending(component: packageName)
+                let symLinkPath = self.location.editsDirectory.appending(component: packageName)
 
                 // Cleanup any existing symlink.
                 if fileSystem.isSymlink(symLinkPath) {
@@ -1044,7 +1126,7 @@ extension Workspace {
 
         // Remove the existing checkout.
         do {
-            let oldCheckoutPath = checkoutsPath.appending(dependency.subpath)
+            let oldCheckoutPath = self.location.repositoriesCheckoutsDirectory.appending(dependency.subpath)
             try fileSystem.chmod(.userWritable, path: oldCheckoutPath, options: [.recursive, .onlyFiles])
             try fileSystem.removeFileTree(oldCheckoutPath)
         }
@@ -1080,10 +1162,10 @@ extension Workspace {
         }
 
         // Form the edit working repo path.
-        let path = editablesPath.appending(dependency.subpath)
+        let path = self.location.editsDirectory.appending(dependency.subpath)
         // Check for uncommited and unpushed changes if force removal is off.
         if !forceRemove {
-            let workingCopy = try repositoryManager.provider.openWorkingCopy(at: path)
+            let workingCopy = try repositoryManager.openWorkingCopy(at: path)
             guard !workingCopy.hasUncommittedChanges() else {
                 throw WorkspaceDiagnostics.UncommitedChanges(repositoryPath: path)
             }
@@ -1096,8 +1178,8 @@ extension Workspace {
             try fileSystem.removeFileTree(path)
         }
         // If this was the last editable dependency, remove the editables directory too.
-        if fileSystem.exists(editablesPath), try fileSystem.getDirectoryContents(editablesPath).isEmpty {
-            try fileSystem.removeFileTree(editablesPath)
+        if fileSystem.exists(self.location.editsDirectory), try fileSystem.getDirectoryContents(self.location.editsDirectory).isEmpty {
+            try fileSystem.removeFileTree(self.location.editsDirectory)
         }
 
         if let checkoutState = dependency.basedOn?.checkoutState {
@@ -1140,7 +1222,9 @@ extension Workspace {
                 pinsStore.pin(dependency)
             }
         }
-        diagnostics.wrap({ try pinsStore.saveState() })
+        diagnostics.wrap{
+            try pinsStore.saveState()
+        }
 
         // Ask resolved file watcher to update its value so we don't fire
         // an extra event if the file was modified by us.
@@ -1165,7 +1249,8 @@ fileprivate extension PinsStore {
 
         self.pin(
             packageRef: dependency.packageRef,
-            state: checkoutState)
+            state: checkoutState
+        )
     }
 }
 
@@ -1260,7 +1345,7 @@ extension Workspace {
             requiredIdentities = inputIdentities.union(requiredIdentities)
 
             let availableIdentities: Set<PackageReference> = Set(manifestsMap.map {
-                let url = workspace.config.mirrors.effectiveURL(for: $0.1.packageLocation)
+                let url = workspace.mirrors.effectiveURL(for: $0.1.packageLocation)
                 return PackageReference(identity: $0.key, kind: $0.1.packageKind, location: url)
             })
             // We should never have loaded a manifest we don't need.
@@ -1333,7 +1418,7 @@ extension Workspace {
     public func watchResolvedFile() throws {
         // Return if we're already watching it.
         guard self.resolvedFileWatcher == nil else { return }
-        self.resolvedFileWatcher = try ResolvedFileWatcher(resolvedFile: self.resolvedFile) { [weak self] in
+        self.resolvedFileWatcher = try ResolvedFileWatcher(resolvedFile: self.location.resolvedVersionsFile) { [weak self] in
             self?.delegate?.resolvedFileChanged()
         }
     }
@@ -1341,9 +1426,9 @@ extension Workspace {
     /// Create the cache directories.
     fileprivate func createCacheDirectories(with diagnostics: DiagnosticsEngine) {
         do {
-            try fileSystem.createDirectory(repositoryManager.path, recursive: true)
-            try fileSystem.createDirectory(checkoutsPath, recursive: true)
-            try fileSystem.createDirectory(artifactsPath, recursive: true)
+            try fileSystem.createDirectory(self.repositoryManager.path, recursive: true)
+            try fileSystem.createDirectory(self.location.repositoriesCheckoutsDirectory, recursive: true)
+            try fileSystem.createDirectory(self.location.artifactsDirectory, recursive: true)
         } catch {
             diagnostics.emit(error)
         }
@@ -1357,9 +1442,9 @@ extension Workspace {
     public func path(to dependency: ManagedDependency) -> AbsolutePath {
         switch dependency.state {
         case .checkout:
-            return checkoutsPath.appending(dependency.subpath)
+            return self.location.repositoriesCheckoutsDirectory.appending(dependency.subpath)
         case .edited(let path):
-            return path ?? editablesPath.appending(dependency.subpath)
+            return path ?? self.location.editsDirectory.appending(dependency.subpath)
         case .local:
             return AbsolutePath(dependency.packageRef.location)
         }
@@ -1385,7 +1470,8 @@ extension Workspace {
     // FIXME: this logic should be changed to use identity instead of location once identity is unique
     public func loadDependencyManifests(
         root: PackageGraphRoot,
-        diagnostics: DiagnosticsEngine
+        diagnostics: DiagnosticsEngine,
+        automaticallyAddManagedDependencies: Bool = false
     ) throws -> DependencyManifests {
         // Utility Just because a raw tuple cannot be hashable.
         struct Key: Hashable {
@@ -1436,6 +1522,13 @@ extension Workspace {
         let allManifestsWithPossibleDuplicates = try topologicalSort(inputPairs) { pair in
             // optimization: preload manifest we know about in parallel
             let dependenciesRequired = pair.item.dependenciesRequired(for: pair.key.productFilter)
+            // prepopulate managed dependencies if we are asked to do so
+            if automaticallyAddManagedDependencies {
+                dependenciesRequired.filter { $0.isLocal }.forEach { dependency in
+                    state.dependencies.add(ManagedDependency.local(packageRef: dependency.createPackageRef()))
+                }
+                diagnostics.wrap { try state.saveState() }
+            }
             let dependenciesRequiredURLs = dependenciesRequired.map{ $0.location }.filter { !loadedManifests.keys.contains($0) }
             // note: loadManifest emits diagnostics in case it fails
             let dependenciesRequiredManifests = try temp_await { self.loadManifests(forURLs: dependenciesRequiredURLs, diagnostics: diagnostics, completion: $0) }
@@ -1491,10 +1584,15 @@ extension Workspace {
         switch managedDependency.state {
         case .checkout(let checkoutState):
             packageKind = .remote
-            version = checkoutState.version
+            switch checkoutState {
+            case .version(let checkoutVersion, _):
+                version = checkoutVersion
+            default:
+                version = .none
+            }
         case .edited, .local:
             packageKind = .local
-            version = nil
+            version = .none
         }
 
         // Get the path of the package.
@@ -1610,8 +1708,8 @@ extension Workspace {
         }
 
         for artifact in manifestArtifacts.local {
-            let existingArtifact = state.artifacts[
-                packageURL: artifact.packageRef.location,
+            let existingArtifact = self.state.artifacts[
+                packageIdentity: artifact.packageRef.identity,
                 targetName: artifact.targetName
             ]
 
@@ -1624,8 +1722,8 @@ extension Workspace {
         }
 
         for artifact in manifestArtifacts.remote {
-            let existingArtifact = state.artifacts[
-                packageURL: artifact.packageRef.location,
+            let existingArtifact = self.state.artifacts[
+                packageIdentity: artifact.packageRef.identity,
                 targetName: artifact.targetName
             ]
 
@@ -1650,15 +1748,15 @@ extension Workspace {
         // Remove the artifacts and directories which are not needed anymore.
         diagnostics.wrap {
             for artifact in artifactsToRemove {
-                state.artifacts.remove(packageURL: artifact.packageRef.location, targetName: artifact.targetName)
+                state.artifacts.remove(packageIdentity: artifact.packageRef.identity, targetName: artifact.targetName)
 
                 if case .remote = artifact.source {
                     try fileSystem.removeFileTree(artifact.path)
                 }
             }
 
-            for directory in try fileSystem.getDirectoryContents(artifactsPath) {
-                let directoryPath = artifactsPath.appending(component: directory)
+            for directory in try fileSystem.getDirectoryContents(self.location.artifactsDirectory) {
+                let directoryPath = self.location.artifactsDirectory.appending(component: directory)
                 if try fileSystem.isDirectory(directoryPath) && fileSystem.getDirectoryContents(directoryPath).isEmpty {
                     try fileSystem.removeFileTree(directoryPath)
                 }
@@ -1729,9 +1827,6 @@ extension Workspace {
         let tempDiagnostics = DiagnosticsEngine()
         let result = ThreadSafeArrayStore<ManagedArtifact>()
 
-        // FIXME: should this handle the error more gracefully?
-        let authProvider: AuthorizationProviding? = try? Netrc.load(fromFileAtPath: netrcFilePath).get()
-
         // zip files to download
         // stored in a thread-safe way as we may fetch more from "artifactbundleindex" files
         let zipArtifacts = ThreadSafeArrayStore<RemoteArtifact>(artifacts.filter { $0.url.pathExtension.lowercased() == "zip" })
@@ -1745,7 +1840,7 @@ extension Workspace {
                 group.enter()
                 var request = HTTPClient.Request(method: .get, url: indexFile.url)
                 request.options.validResponseCodes = [200]
-                request.options.authorizationProvider = authProvider?.authorization(for:)
+                request.options.authorizationProvider = self.authorizationProvider?.httpAuthorizationHeader(for:)
                 self.httpClient.execute(request) { result in
                     defer { group.leave() }
 
@@ -1798,8 +1893,8 @@ extension Workspace {
             group.enter()
             defer { group.leave() }
 
-            let parentDirectory =  self.artifactsPath.appending(component: artifact.packageRef.name)
-            let tempExtractionDirectory = self.artifactsPath.appending(components: "extract", artifact.targetName)
+            let parentDirectory =  self.location.artifactsDirectory.appending(component: artifact.packageRef.name)
+            let tempExtractionDirectory = self.location.artifactsDirectory.appending(components: "extract", artifact.targetName)
 
             do {
                 try fileSystem.createDirectory(parentDirectory, recursive: true)
@@ -1816,7 +1911,7 @@ extension Workspace {
 
             group.enter()
             var request = HTTPClient.Request.download(url: artifact.url, fileSystem: self.fileSystem, destination: archivePath)
-            request.options.authorizationProvider = authProvider?.authorization(for:)
+            request.options.authorizationProvider = self.authorizationProvider?.httpAuthorizationHeader(for:)
             request.options.validResponseCodes = [200]
             self.httpClient.execute(
                 request,
@@ -1947,7 +2042,7 @@ extension Workspace {
         for pin in pinsStore.pins {
             containerProvider.getContainer(for: pin.packageRef, skipUpdate: true, on: .sharedConcurrent, completion: { _ in })
         }
-        
+
         // Compute the pins that we need to actually clone.
         //
         // We require cloning if there is no checkout or if the checkout doesn't
@@ -1971,19 +2066,7 @@ extension Workspace {
             }
         }
 
-        // Save state for local packages, if any.
-        //
-        // FIXME: This will only work for top-level local packages right now.
-        for rootManifest in rootManifests.values {
-            let dependencies = rootManifest.dependencies.filter{ $0.isLocal }
-            for localPackage in dependencies {
-                let package = localPackage.createPackageRef()
-                state.dependencies.add(ManagedDependency.local(packageRef: package))
-            }
-        }
-        diagnostics.wrap { try state.saveState() }
-
-        let currentManifests = try self.loadDependencyManifests(root: graphRoot, diagnostics: diagnostics)
+        let currentManifests = try self.loadDependencyManifests(root: graphRoot, diagnostics: diagnostics, automaticallyAddManagedDependencies: true)
 
         let precomputationResult = try precomputeResolution(
             root: graphRoot,
@@ -1991,11 +2074,13 @@ extension Workspace {
             pinsStore: pinsStore
         )
 
-        if precomputationResult.isRequired {
-            if !fileSystem.exists(resolvedFile) {
-                diagnostics.emit(error: "a resolved file is required when automatic dependency resolution is disabled and should be placed at \(resolvedFile.pathString)")
+        if case let .required(reason) = precomputationResult {
+            let reasonString = Self.format(workspaceResolveReason: reason)
+
+            if !fileSystem.exists(self.location.resolvedVersionsFile) {
+                diagnostics.emit(error: "a resolved file is required when automatic dependency resolution is disabled and should be placed at \(self.location.resolvedVersionsFile.pathString). \(reasonString)")
             } else {
-                diagnostics.emit(error: "an out-of-date resolved file was detected at \(resolvedFile.pathString), which is not allowed when automatic dependency resolution is disabled; please make sure to update the file to reflect the changes in dependencies")
+                diagnostics.emit(error: "an out-of-date resolved file was detected at \(self.location.resolvedVersionsFile.pathString), which is not allowed when automatic dependency resolution is disabled; please make sure to update the file to reflect the changes in dependencies. \(reasonString)")
             }
         }
 
@@ -2391,11 +2476,9 @@ extension Workspace {
 
                 // If we have a branch and we shouldn't be updating the
                 // branches, use the revision from pin instead (if present).
-                if branch != nil {
-                    if let pin = pinsStore.pins.first(where: { $0.packageRef == packageRef }),
-                        !updateBranches,
-                        pin.state.branch == branch {
-                        revision = pin.state.revision
+                if branch != nil, !updateBranches {
+                    if case .branch(branch, let pinRevision) = pinsStore.pins.first(where: { $0.packageRef == packageRef })?.state {
+                        revision = pinRevision
                     }
                 }
 
@@ -2403,7 +2486,12 @@ extension Workspace {
                 if let currentDependency = currentDependency {
                     // If current state and new state are equal, we don't need
                     // to do anything.
-                    let newState = CheckoutState(revision: revision, branch: branch)
+                    let newState: CheckoutState
+                    if let branch = branch {
+                        newState = .branch(name: branch, revision: revision)
+                    } else {
+                        newState = .revision(revision)
+                    }
                     if case .checkout(let checkoutState) = currentDependency.state, checkoutState == newState {
                         packageStateChanges[packageRef.location] = (packageRef, .unchanged)
                     } else {
@@ -2418,7 +2506,7 @@ extension Workspace {
 
             case .version(let version):
                 if let currentDependency = currentDependency {
-                    if case .checkout(let checkoutState) = currentDependency.state, checkoutState.version == version {
+                    if case .checkout(let checkoutState) = currentDependency.state, case .version(version, _) = checkoutState {
                         packageStateChanges[packageRef.location] = (packageRef, .unchanged)
                     } else {
                         let newState = PackageStateChange.State(requirement: .version(version), products: products)
@@ -2444,16 +2532,16 @@ extension Workspace {
         if let workspaceDelegate = self.delegate {
             delegates.append(WorkspaceDependencyResolverDelegate(workspaceDelegate))
         }
-        if self.enableResolverTrace {
-            delegates.append(try TracingDependencyResolverDelegate(path: self.dataPath.appending(components: "resolver.trace")))
+        if self.resolverTracingEnabled {
+            delegates.append(try TracingDependencyResolverDelegate(path: self.location.workingDirectory.appending(components: "resolver.trace")))
         }
         let delegate = !delegates.isEmpty ? MultiplexResolverDelegate(delegates) : nil
 
         return PubgrubDependencyResolver(
             provider: containerProvider,
             pinsMap: pinsMap,
-            isPrefetchingEnabled: isResolverPrefetchingEnabled,
-            skipUpdate: skipUpdate,
+            updateEnabled: self.resolverUpdateEnabled,
+            prefetchingEnabled: self.resolverPrefetchingEnabled,
             delegate: delegate
         )
     }
@@ -2480,7 +2568,7 @@ extension Workspace {
     }
 
     /// Validates that all the edited dependencies are still present in the file system.
-    /// If some checkout dependency is reomved form the file system, clone it again.
+    /// If some checkout dependency is removed form the file system, clone it again.
     /// If some edited dependency is removed from the file system, mark it as unedited and
     /// fallback on the original checkout.
     fileprivate func fixManagedDependencies(with diagnostics: DiagnosticsEngine) {
@@ -2592,13 +2680,13 @@ extension Workspace {
     private func fetch(package: PackageReference) throws -> AbsolutePath {
         // If we already have it, fetch to update the repo from its remote.
         if let dependency = state.dependencies[forURL: package.location] {
-            let path = checkoutsPath.appending(dependency.subpath)
+            let path = self.location.repositoriesCheckoutsDirectory.appending(dependency.subpath)
 
             // Make sure the directory is not missing (we will have to clone again
             // if not).
             fetch: if fileSystem.isDirectory(path) {
                 // Fetch the checkout in case there are updates available.
-                let workingCopy = try repositoryManager.provider.openWorkingCopy(at: path)
+                let workingCopy = try repositoryManager.openWorkingCopy(at: path)
 
                 // Ensure that the alternative object store is still valid.
                 //
@@ -2624,7 +2712,7 @@ extension Workspace {
         }
 
         // Clone the repository into the checkouts.
-        let path = checkoutsPath.appending(component: package.repository.basename)
+        let path = self.location.repositoriesCheckoutsDirectory.appending(component: package.repository.basename)
 
         try fileSystem.chmod(.userWritable, path: path, options: [.recursive, .onlyFiles])
         try fileSystem.removeFileTree(path)
@@ -2655,7 +2743,7 @@ extension Workspace {
         let path = try fetch(package: package)
 
         // Check out the given revision.
-        let workingCopy = try repositoryManager.provider.openWorkingCopy(at: path)
+        let workingCopy = try repositoryManager.openWorkingCopy(at: path)
 
         // Inform the delegate.
         delegate?.willCheckOut(repository: package.repository.url, revision: checkoutState.description, at: path)
@@ -2668,7 +2756,7 @@ extension Workspace {
         // Write the state record.
         state.dependencies.add(ManagedDependency(
             packageRef: package,
-            subpath: path.relative(to: checkoutsPath),
+            subpath: path.relative(to: self.location.repositoriesCheckoutsDirectory),
             checkoutState: checkoutState))
         try state.saveState()
 
@@ -2700,10 +2788,13 @@ extension Workspace {
                 throw InternalError("unable to get tag for \(package) \(version); available versions \(try container.versionsDescending())")
             }
             let revision = try container.getRevision(forTag: tag)
-            checkoutState = CheckoutState(revision: revision, version: version)
+            checkoutState = .version(version, revision: revision)
 
-        case .revision(let revision, let branch):
-            checkoutState = CheckoutState(revision: revision, branch: branch)
+        case .revision(let revision, .none):
+            checkoutState = .revision(revision)
+
+        case .revision(let revision, .some(let branch)):
+            checkoutState = .branch(name: branch, revision: revision)
 
         case .unversioned:
             state.dependencies.add(ManagedDependency.local(packageRef: package))
@@ -2751,8 +2842,8 @@ extension Workspace {
         }
 
         // Remove the checkout.
-        let dependencyPath = checkoutsPath.appending(dependencyToRemove.subpath)
-        let workingCopy = try repositoryManager.provider.openWorkingCopy(at: dependencyPath)
+        let dependencyPath = self.location.repositoriesCheckoutsDirectory.appending(dependencyToRemove.subpath)
+        let workingCopy = try repositoryManager.openWorkingCopy(at: dependencyPath)
         guard !workingCopy.hasUncommittedChanges() else {
             throw WorkspaceDiagnostics.UncommitedChanges(repositoryPath: dependencyPath)
         }
@@ -2765,6 +2856,58 @@ extension Workspace {
 
         // Save the state.
         try state.saveState()
+    }
+
+    public static func format(workspaceResolveReason reason: WorkspaceResolveReason) -> String {
+        var result = "Running resolver because "
+
+        switch reason {
+        case .forced:
+            result.append("it was forced")
+        case .newPackages(let packages):
+            let dependencies = packages.lazy.map({ "'\($0.location)'" }).joined(separator: ", ")
+            result.append("the following dependencies were added: \(dependencies)")
+        case .packageRequirementChange(let package, let state, let requirement):
+            result.append("dependency '\(package.name)' was ")
+
+            switch state {
+            case .checkout(let checkoutState)?:
+                switch checkoutState.requirement {
+                case .versionSet(.exact(let version)):
+                    result.append("resolved to '\(version)'")
+                case .versionSet(_):
+                    // Impossible
+                    break
+                case .revision(let revision):
+                    result.append("resolved to '\(revision)'")
+                case .unversioned:
+                    result.append("unversioned")
+                }
+            case .edited?:
+                result.append("edited")
+            case .local?:
+                result.append("versioned")
+            case nil:
+                result.append("root")
+            }
+
+            result.append(" but now has a ")
+
+            switch requirement {
+            case .versionSet:
+                result.append("different version-based")
+            case .revision:
+                result.append("different revision-based")
+            case .unversioned:
+                result.append("unversioned")
+            }
+
+            result.append(" requirement.")
+        default:
+            result.append(" requirements have changed.")
+        }
+
+        return result
     }
 }
 
@@ -2825,7 +2968,7 @@ private struct ArchiveIndexFile: Decodable {
     }
 }
 
-private extension ManagedArtifact {
+private extension Workspace.ManagedArtifact {
     var originURL: String? {
         switch self.source {
         case .remote(let url, _):

@@ -1,6 +1,7 @@
 import TSCBasic
 import TSCUtility
 import SPMBuildCore
+import Foundation
 
 public enum DestinationError: Swift.Error {
     /// Couldn't find the Xcode installation.
@@ -90,8 +91,10 @@ public struct Destination: Encodable, Equatable {
         environment: [String:String] = ProcessEnv.vars
     ) throws -> Destination {
         // Select the correct binDir.
-        let customBinDir = ProcessEnv
-            .vars["SWIFTPM_CUSTOM_BINDIR"]
+        if ProcessEnv.vars["SWIFTPM_CUSTOM_BINDIR"] != nil {
+            print("SWIFTPM_CUSTOM_BINDIR was deprecated in favor of SWIFTPM_CUSTOM_BIN_DIR")
+        }
+        let customBinDir = (ProcessEnv.vars["SWIFTPM_CUSTOM_BIN_DIR"] ?? ProcessEnv.vars["SWIFTPM_CUSTOM_BINDIR"])
             .flatMap{ try? AbsolutePath(validating: $0) }
         let binDir = try customBinDir ?? binDir ?? Destination.hostBinDir(
             originalWorkingDirectory: originalWorkingDirectory)
@@ -175,36 +178,56 @@ public struct Destination: Encodable, Equatable {
     }
     /// Cache storage for sdk platform path.
     private static var _sdkPlatformFrameworkPath: (fwk: AbsolutePath, lib: AbsolutePath)? = nil
+
+    /// Returns a default destination of a given target environment
+    public static func defaultDestination(for triple: Triple, host: Destination) -> Destination? {
+        if triple.isWASI() {
+            let wasiSysroot = host.binDir
+                .parentDirectory // usr
+                .appending(components: "share", "wasi-sysroot")
+            return Destination(
+                target: triple,
+                sdk: wasiSysroot,
+                binDir: host.binDir,
+                extraCCFlags: [],
+                extraSwiftCFlags: [],
+                extraCPPFlags: []
+            )
+        }
+        return nil
+    }
 }
 
 extension Destination {
-
     /// Load a Destination description from a JSON representation from disk.
     public init(fromFile path: AbsolutePath, fileSystem: FileSystem = localFileSystem) throws {
-        let json = try JSON(bytes: fileSystem.readFileContents(path))
-        try self.init(json: json)
+        let decoder = JSONDecoder.makeWithDefaults()
+        let version = try decoder.decode(path: path, fileSystem: fileSystem, as: VersionInfo.self)
+        // Check schema version.
+        guard version.version == 1 else {
+            throw DestinationError.invalidSchemaVersion
+        }
+        let destination = try decoder.decode(path: path, fileSystem: fileSystem, as: DestinationInfo.self)
+        try self.init(
+            target: destination.target.map{ try Triple($0) },
+            sdk: destination.sdk,
+            binDir: destination.binDir,
+            extraCCFlags: destination.extraCCFlags,
+            extraSwiftCFlags: destination.extraSwiftCFlags,
+            extraCPPFlags: destination.extraCCFlags
+        )
     }
 }
 
-extension Destination: JSONMappable {
+fileprivate struct VersionInfo: Codable {
+    let version: Int
+}
 
-    /// The current schema version.
-    static let schemaVersion = 1
-
-    public init(json: JSON) throws {
-
-        // Check schema version.
-        guard try json.get("version") == Destination.schemaVersion else {
-            throw DestinationError.invalidSchemaVersion
-        }
-
-        try self.init(
-            target: Triple(json.get("target")),
-            sdk: AbsolutePath(json.get("sdk")),
-            binDir: AbsolutePath(json.get("toolchain-bin-dir")),
-            extraCCFlags: json.get("extra-cc-flags"),
-            extraSwiftCFlags: json.get("extra-swiftc-flags"),
-            extraCPPFlags: json.get("extra-cpp-flags")
-        )
-    }
+fileprivate struct DestinationInfo: Codable {
+    let target: String?
+    let sdk: AbsolutePath?
+    let binDir: AbsolutePath
+    let extraCCFlags: [String]
+    let extraSwiftCFlags: [String]
+    let extraCPPFlags: [String]
 }

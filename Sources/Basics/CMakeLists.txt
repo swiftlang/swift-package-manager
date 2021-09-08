@@ -7,6 +7,7 @@
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
 add_library(Basics
+  AuthorizationProvider.swift
   ByteString+Extensions.swift
   ConcurrencyHelpers.swift
   Dictionary+Extensions.swift
@@ -16,6 +17,7 @@ add_library(Basics
   HTPClient+URLSession.swift
   HTTPClient.swift
   JSON+Extensions.swift
+  JSONDecoder+Extensions.swift
   Sandbox.swift
   SwiftVersion.swift
   SQLiteBackedCache.swift

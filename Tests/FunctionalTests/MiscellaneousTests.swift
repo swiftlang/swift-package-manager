@@ -219,9 +219,9 @@ class MiscellaneousTestCase: XCTestCase {
             _ = try SwiftPMProduct.SwiftTest.execute([], packagePath: prefix)
           } catch SwiftPMProductError.executionFailure(_, let output, let stderr) {
             #if os(macOS)
-              XCTAssertTrue(stderr.contains("Executed 2 tests"))
+              XCTAssertMatch(stderr, .contains("Executed 2 tests"))
             #else
-              XCTAssertTrue(output.contains("Executed 2 tests"))
+              XCTAssertMatch(output, .contains("Executed 2 tests"))
             #endif
           }
 
@@ -229,11 +229,11 @@ class MiscellaneousTestCase: XCTestCase {
             // Run tests in parallel.
             _ = try SwiftPMProduct.SwiftTest.execute(["--parallel"], packagePath: prefix)
           } catch SwiftPMProductError.executionFailure(_, let output, _) {
-            XCTAssert(output.contains("testExample1"))
-            XCTAssert(output.contains("testExample2"))
-            XCTAssert(!output.contains("'ParallelTestsTests' passed"))
-            XCTAssert(output.contains("'ParallelTestsFailureTests' failed"))
-            XCTAssert(output.contains("[3/3]"))
+            XCTAssertMatch(output, .contains("testExample1"))
+            XCTAssertMatch(output, .contains("testExample2"))
+            XCTAssertNoMatch(output, .contains("'ParallelTestsTests' passed"))
+            XCTAssertMatch(output, .contains("'ParallelTestsFailureTests' failed"))
+            XCTAssertMatch(output, .contains("[3/3]"))
           }
 
           let xUnitOutput = prefix.appending(component: "result.xml")
@@ -243,17 +243,17 @@ class MiscellaneousTestCase: XCTestCase {
                 ["--parallel", "--verbose", "--xunit-output", xUnitOutput.pathString],
                 packagePath: prefix)
           } catch SwiftPMProductError.executionFailure(_, let output, _) {
-            XCTAssert(output.contains("testExample1"))
-            XCTAssert(output.contains("testExample2"))
-            XCTAssert(output.contains("'ParallelTestsTests' passed"))
-            XCTAssert(output.contains("'ParallelTestsFailureTests' failed"))
-            XCTAssert(output.contains("[3/3]"))
+            XCTAssertMatch(output, .contains("testExample1"))
+            XCTAssertMatch(output, .contains("testExample2"))
+            XCTAssertMatch(output, .contains("'ParallelTestsTests' passed"))
+            XCTAssertMatch(output, .contains("'ParallelTestsFailureTests' failed"))
+            XCTAssertMatch(output, .contains("[3/3]"))
           }
 
           // Check the xUnit output.
-          XCTAssertTrue(localFileSystem.exists(xUnitOutput))
+          XCTAssertFileExists(xUnitOutput)
           let contents = try localFileSystem.readFileContents(xUnitOutput).description
-          XCTAssertTrue(contents.contains("tests=\"3\" failures=\"1\""))
+          XCTAssertMatch(contents, .contains("tests=\"3\" failures=\"1\""))
         }
     }
 
@@ -566,7 +566,19 @@ class MiscellaneousTestCase: XCTestCase {
                 XCTAssertMatch(stdout, .contains("Hello, world"))
                 XCTAssertMatch(stdout, .contains("Hello, planet"))
             } catch {
+                #if os(macOS) && arch(arm64)
+                // Add some logging but ignore the failure for an environment being investigated.
+                let (stdout, stderr) = try executeSwiftTest(prefix, extraArgs: ["-v"])
+                print("testTestsCanLinkAgainstExecutable failed")
+                print("ENV:\n")
+                for (k, v) in ProcessEnv.vars.sorted(by: { $0.key < $1.key }) {
+                    print("  \(k)=\(v)")
+                }
+                print("STDOUT:\n\(stdout)")
+                print("STDERR:\n\(stderr)")
+                #else
                 XCTFail("\(error)")
+                #endif
             }
         }
     }
@@ -604,7 +616,7 @@ class MiscellaneousTestCase: XCTestCase {
 
             // put foo into edit mode
             _ = try executeSwiftPackage(appPath, extraArgs: ["edit", "Foo"])
-            XCTAssertTrue(localFileSystem.exists(appPath.appending(components: ["Packages", "Foo"])))
+            XCTAssertDirectoryExists(appPath.appending(components: ["Packages", "Foo"]))
 
             do {
                 // build again in edit mode
@@ -612,12 +624,11 @@ class MiscellaneousTestCase: XCTestCase {
                 XCTAssertTrue(output.stdout.contains("Build complete!"))
             }
 
-
             do {
                 // take foo out of edit mode
                 let output = try executeSwiftPackage(appPath, extraArgs: ["unedit", "Foo"])
                 XCTAssertTrue(output.stdout.contains("Creating working copy for \(prefix)/Foo"), output.stdout)
-                XCTAssertFalse(localFileSystem.exists(appPath.appending(components: ["Packages", "Foo"])))
+                XCTAssertNoSuchPath(appPath.appending(components: ["Packages", "Foo"]))
             }
 
             // build again in edit mode
@@ -626,6 +637,23 @@ class MiscellaneousTestCase: XCTestCase {
                 XCTAssertTrue(output.stdout.contains("Build complete!"), output.stdout)
             }
         }
+    }
 
+    func testCustomCachePath() {
+        fixture(name: "Miscellaneous/Simple") { path in
+            let customCachePath = path.appending(components: "custom", "cache")
+            XCTAssertNoSuchPath(customCachePath)
+            try SwiftPMProduct.SwiftBuild.execute(["--cache-path", customCachePath.pathString], packagePath: path)
+            XCTAssertDirectoryExists(customCachePath)
+        }
+    }
+
+    func testCustomConfigPath() {
+        fixture(name: "Miscellaneous/Simple") { path in
+            let customConfigPath = path.appending(components: "custom", "config")
+            XCTAssertNoSuchPath(customConfigPath)
+            try SwiftPMProduct.SwiftBuild.execute(["--config-path", customConfigPath.pathString], packagePath: path)
+            XCTAssertDirectoryExists(customConfigPath)
+        }
     }
 }

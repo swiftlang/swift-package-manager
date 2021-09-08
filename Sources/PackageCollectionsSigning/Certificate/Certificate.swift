@@ -181,7 +181,7 @@ final class BoringSSLCertificate {
     }
 
     private func keyType(of key: UnsafeMutablePointer<EVP_PKEY>) throws -> KeyType {
-        let algorithm = CCryptoBoringSSL_OBJ_obj2nid(self.underlying.pointee.cert_info.pointee.key.pointee.algor.pointee.algorithm)
+        let algorithm = CCryptoBoringSSL_EVP_PKEY_id(key)
 
         switch algorithm {
         case NID_rsaEncryption:

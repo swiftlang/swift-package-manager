@@ -334,7 +334,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
 
     private func addTarget(for product: ResolvedProduct) {
         switch product.type {
-        case .executable, .test:
+        case .executable, .snippet, .test:
             addMainModuleTarget(for: product)
         case .library:
             addLibraryTarget(for: product)
@@ -349,7 +349,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
             try self.addLibraryTarget(for: target)
         case .systemModule:
             try self.addSystemTarget(for: target)
-        case .executable, .test:
+        case .executable, .snippet, .test:
             // Skip executable module targets and test module targets (they will have been dealt with as part of the
             // products to which they belong).
             return
@@ -1384,6 +1384,8 @@ extension ProductType {
         switch self {
         case .executable:
             return .executable
+        case .snippet:
+            return .snippet
         case .test:
             return .test
         case .library:

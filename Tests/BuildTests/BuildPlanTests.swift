@@ -169,6 +169,8 @@ final class BuildPlanTests: XCTestCase {
     }
 
     func testExplicitSwiftPackageBuild() throws {
+        // <rdar://82053045> Fix and re-enable SwiftPM test `testExplicitSwiftPackageBuild`
+        try XCTSkipIf(true)
         try withTemporaryDirectory { path in
             // Create a test package with three targets:
             // A -> B -> C
@@ -725,8 +727,8 @@ final class BuildPlanTests: XCTestCase {
             let llbuild = LLBuildManifestBuilder(plan)
             try llbuild.generateManifest(at: yaml)
             let contents = try localFileSystem.readFileContents(yaml).description
-            XCTAssertTrue(contents.contains("-std=gnu99\",\"-c\",\"/Pkg/Sources/lib/lib.c"))
-            XCTAssertTrue(contents.contains("-std=c++1z\",\"-c\",\"/Pkg/Sources/lib/libx.cpp"))
+            XCTAssertMatch(contents, .contains(#"-std=gnu99","-c","/Pkg/Sources/lib/lib.c"#))
+            XCTAssertMatch(contents, .contains(#"-std=c++1z","-c","/Pkg/Sources/lib/libx.cpp"#))
         }
     }
 
@@ -992,15 +994,15 @@ final class BuildPlanTests: XCTestCase {
 
         // Check that the first target (single source file not named main) has -parse-as-library.
         let exe1 = try result.target(for: "exe1").swiftTarget().emitCommandLine()
-        XCTAssertMatch(exe1, ["-parse-as-library", .anySequence])
+        XCTAssertMatch(exe1, ["-parse-as-library"])
 
         // Check that the second target (single source file named main) does not have -parse-as-library.
         let exe2 = try result.target(for: "exe2").swiftTarget().emitCommandLine()
-        XCTAssertNoMatch(exe2, ["-parse-as-library", .anySequence])
+        XCTAssertNoMatch(exe2, ["-parse-as-library"])
 
         // Check that the third target (multiple source files) does not have -parse-as-library.
         let exe3 = try result.target(for: "exe3").swiftTarget().emitCommandLine()
-        XCTAssertNoMatch(exe3, ["-parse-as-library", .anySequence])
+        XCTAssertNoMatch(exe3, ["-parse-as-library"])
     }
 
     func testCModule() throws {
@@ -1018,7 +1020,7 @@ final class BuildPlanTests: XCTestCase {
                     packageKind: .root,
                     packageLocation: "/Pkg",
                     dependencies: [
-                        .scm(location: "Clibgit", requirement: .upToNextMajor(from: "1.0.0"))
+                        .scm(location: "/Clibgit", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     targets: [
                         TargetDescription(name: "exe", dependencies: []),
@@ -1088,9 +1090,9 @@ final class BuildPlanTests: XCTestCase {
         let linkArgs = try result.buildProduct(for: "exe").linkArguments()
 
       #if os(macOS)
-        XCTAssertTrue(linkArgs.contains("-lc++"))
+        XCTAssertMatch(linkArgs, ["-lc++"])
       #else
-        XCTAssertTrue(linkArgs.contains("-lstdc++"))
+        XCTAssertMatch(linkArgs, ["-lstdc++"])
       #endif
     }
 
@@ -2202,10 +2204,10 @@ final class BuildPlanTests: XCTestCase {
             let llbuild = LLBuildManifestBuilder(plan)
             try llbuild.generateManifest(at: yaml)
             let contents = try localFileSystem.readFileContents(yaml).description
-            XCTAssertTrue(contents.contains("""
+            XCTAssertMatch(contents, .contains("""
                     inputs: ["/PkgA/Sources/swiftlib/lib.swift","/path/to/build/debug/exe"]
                     outputs: ["/path/to/build/debug/swiftlib.build/lib.swift.o","/path/to/build/debug/
-                """), contents)
+                """))
         }
     }
 
@@ -2512,10 +2514,10 @@ final class BuildPlanTests: XCTestCase {
 
         let resourceAccessor = fooTarget.sources.first{ $0.basename == "resource_bundle_accessor.swift" }!
         let contents = try fs.readFileContents(resourceAccessor).cString
-        XCTAssertTrue(contents.contains("extension Foundation.Bundle"), contents)
+        XCTAssertMatch(contents, .contains("extension Foundation.Bundle"))
         // Assert that `Bundle.main` is executed in the compiled binary (and not during compilation)
         // See https://bugs.swift.org/browse/SR-14555 and https://github.com/apple/swift-package-manager/pull/2972/files#r623861646
-        XCTAssertTrue(contents.contains("let mainPath = Bundle.main."), contents)
+        XCTAssertMatch(contents, .contains("let mainPath = Bundle.main."))
 
         let barTarget = try result.target(for: "Bar").swiftTarget()
         XCTAssertEqual(barTarget.objects.map{ $0.pathString }, [
@@ -2552,11 +2554,11 @@ final class BuildPlanTests: XCTestCase {
             )
 
             let exe = try result.target(for: "exe").swiftTarget().compileArguments()
-            XCTAssertTrue(exe.contains("-static-stdlib"))
+            XCTAssertMatch(exe, ["-static-stdlib"])
             let lib = try result.target(for: "lib").swiftTarget().compileArguments()
-            XCTAssertTrue(lib.contains("-static-stdlib"))
+            XCTAssertMatch(lib, ["-static-stdlib"])
             let link = try result.buildProduct(for: "exe").linkArguments()
-            XCTAssertTrue(link.contains("-static-stdlib"))
+            XCTAssertMatch(link, ["-static-stdlib"])
         }
     }
 
@@ -2854,15 +2856,15 @@ final class BuildPlanTests: XCTestCase {
         result.checkTargetsCount(3)
 
         let exe = try result.target(for: "exe").swiftTarget().compileArguments()
-        XCTAssertTrue(exe.contains("-sanitize=\(expectedName)"))
+        XCTAssertMatch(exe, ["-sanitize=\(expectedName)"])
 
         let lib = try result.target(for: "lib").swiftTarget().compileArguments()
-        XCTAssertTrue(lib.contains("-sanitize=\(expectedName)"))
+        XCTAssertMatch(lib, ["-sanitize=\(expectedName)"])
 
         let clib  = try result.target(for: "clib").clangTarget().basicArguments()
-        XCTAssertTrue(clib.contains("-fsanitize=\(expectedName)"))
+        XCTAssertMatch(clib, ["-fsanitize=\(expectedName)"])
 
-        XCTAssertTrue(try result.buildProduct(for: "exe").linkArguments().contains("-sanitize=\(expectedName)"))
+        XCTAssertMatch(try result.buildProduct(for: "exe").linkArguments(), ["-sanitize=\(expectedName)"])
     }
 }
 

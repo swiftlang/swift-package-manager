@@ -139,7 +139,7 @@ func XCTAssertXcodeBuild(project: AbsolutePath, file: StaticString = #file, line
             env["TOOLCHAINS"] = "default"
         }
         let xcconfig = project.appending(component: "overrides.xcconfig")
-        let swiftCompilerPath = ToolchainConfiguration.default.swiftCompiler
+        let swiftCompilerPath = ToolchainConfiguration.default.swiftCompilerPath
 
         // Override path to the Swift compiler.
         let stream = BufferedOutputByteStream()

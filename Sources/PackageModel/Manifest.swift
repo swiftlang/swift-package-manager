@@ -168,7 +168,7 @@ public final class Manifest: ObjectIdentifierProtocol {
     /// Returns the package dependencies required for a particular products filter.
     public func dependenciesRequired(for productFilter: ProductFilter) -> [PackageDependency] {
         #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
-        // If we have already calcualted it, returned the cached value.
+        // If we have already calculated it, returned the cached value.
         if let dependencies = self._requiredDependencies[productFilter] {
             return self.dependencies
         } else {

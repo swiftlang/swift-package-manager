@@ -8,12 +8,13 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
+import Basics
 import Dispatch
-import PackageModel
 import PackageGraph
+import PackageModel
+import SourceControl
 import TSCBasic
 import TSCUtility
-import SourceControl
 
 /// Enumeration of the different errors that can arise from the `ResolverPrecomputationProvider` provider.
 enum ResolverPrecomputationError: Error {
@@ -95,7 +96,7 @@ private struct LocalPackageContainer: PackageContainer {
     let currentToolsVersion: ToolsVersion
 
     func versionsAscending() throws -> [Version] {
-        if let version = dependency?.state.checkout?.version {
+        if case .version(let version, revision: _) = dependency?.state.checkout {
             return [version]
         } else {
             return []
@@ -121,23 +122,25 @@ private struct LocalPackageContainer: PackageContainer {
 
     func getDependencies(at version: Version, productFilter: ProductFilter) throws -> [PackageContainerConstraint] {
         // Because of the implementation of `reversedVersions`, we should only get the exact same version.
-        precondition(dependency?.checkoutState?.version == version)
+        guard case .version(version, revision: _) = dependency?.checkoutState else {
+            throw InternalError("expected version, but checkout state was \(String(describing: dependency?.checkoutState))")
+        }
         return try manifest.dependencyConstraints(productFilter: productFilter)
     }
 
-    func getDependencies(at revision: String, productFilter: ProductFilter) throws -> [PackageContainerConstraint] {
+    func getDependencies(at revisionString: String, productFilter: ProductFilter) throws -> [PackageContainerConstraint] {
         // Return the dependencies if the checkout state matches the revision.
-        if let checkoutState = dependency?.checkoutState,
-            checkoutState.version == nil,
-            checkoutState.revision.identifier == revision {
+        let revision = Revision(identifier: revisionString)
+        switch dependency?.checkoutState {
+        case .branch(_, revision: revision), .revision(revision):
             return try manifest.dependencyConstraints(productFilter: productFilter)
+        default:
+            throw ResolverPrecomputationError.differentRequirement(
+                package: self.package,
+                state: self.dependency?.state,
+                requirement: .revision(revisionString)
+            )
         }
-
-        throw ResolverPrecomputationError.differentRequirement(
-            package: self.package,
-            state: self.dependency?.state,
-            requirement: .revision(revision)
-        )
     }
 
     func getUnversionedDependencies(productFilter: ProductFilter) throws -> [PackageContainerConstraint] {

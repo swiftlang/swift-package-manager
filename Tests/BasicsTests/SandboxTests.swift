@@ -9,6 +9,7 @@
  */
 
 @testable import Basics
+import SPMTestSupport
 import TSCBasic
 import TSCUtility
 import XCTest
@@ -32,7 +33,7 @@ final class SandboxTest: XCTestCase {
             guard case ProcessResult.Error.nonZeroExit(let result) = error else {
                 return XCTFail("invalid error \(error)")
             }
-            XCTAssertTrue(try! result.utf8stderrOutput().contains("Operation not permitted"), try! result.utf8stderrOutput())
+            XCTAssertMatch(try! result.utf8stderrOutput(), .contains("Operation not permitted"))
         }
     }
 
@@ -58,7 +59,7 @@ final class SandboxTest: XCTestCase {
                 guard case ProcessResult.Error.nonZeroExit(let result) = error else {
                     return XCTFail("invalid error \(error)")
                 }
-                XCTAssertTrue(try! result.utf8stderrOutput().contains("Operation not permitted") ,try! result.utf8stderrOutput())
+                XCTAssertMatch(try! result.utf8stderrOutput(), .contains("Operation not permitted"))
             }
         }
     }
@@ -77,7 +78,7 @@ final class SandboxTest: XCTestCase {
                 guard case ProcessResult.Error.nonZeroExit(let result) = error else {
                     return XCTFail("invalid error \(error)")
                 }
-                XCTAssertTrue(try! result.utf8stderrOutput().contains("Operation not permitted"), try! result.utf8stderrOutput())
+                XCTAssertMatch(try! result.utf8stderrOutput(), .contains("Operation not permitted"))
             }
         }
     }

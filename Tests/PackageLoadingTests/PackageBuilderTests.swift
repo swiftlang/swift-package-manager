@@ -2135,7 +2135,7 @@ class PackageBuilderTests: XCTestCase {
             name: "Foo",
             v: .v5,
             dependencies: [
-                .local(path: "/Biz"),
+                .fileSystem(path: "/Biz"),
             ],
             targets: [
                 try TargetDescription(

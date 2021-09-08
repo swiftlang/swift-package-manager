@@ -280,7 +280,7 @@ public struct BuildParameters: Encodable {
     /// Returns the path to the binary of a product for the current build parameters, relative to the build directory.
     public func binaryRelativePath(for product: ResolvedProduct) -> RelativePath {
         switch product.type {
-        case .executable:
+        case .executable, .snippet:
             return RelativePath("\(product.name)\(triple.executableExtension)")
         case .library(.static):
             return RelativePath("lib\(product.name)\(triple.staticLibraryExtension)")

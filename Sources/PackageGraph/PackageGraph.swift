@@ -21,9 +21,6 @@ enum PackageGraphError: Swift.Error {
     /// The product dependency not found.
     case productDependencyNotFound(package: String, targetName: String, dependencyProductName: String, dependencyPackageName: String?, dependencyProductInDecl: Bool)
 
-    /// The package dependency name does not match the package name.
-    case incorrectPackageDependencyName(package: String, dependencyName: String, dependencyLocation: String, resolvedPackageManifestName: String, resolvedPackageURL: String)
-
     /// The package dependency already satisfied by a different dependency package
     case dependencyAlreadySatisfiedByIdentifier(package: String, dependencyLocation: String, otherDependencyURL: String, identity: PackageIdentity)
 
@@ -58,7 +55,7 @@ public struct PackageGraph {
 
     /// Returns all the targets in the graph, regardless if they are reachable from the root targets or not.
     public let allTargets: Set<ResolvedTarget>
- 
+
     /// Returns all the products in the graph, regardless if they are reachable from the root targets or not.
     public let allProducts: Set<ResolvedProduct>
 
@@ -79,17 +76,18 @@ public struct PackageGraph {
         return rootPackages.contains(package)
     }
 
+    private let targetsToPackages: [ResolvedTarget: ResolvedPackage]
     /// Returns the package that contains the target, or nil if the target isn't in the graph.
     public func package(for target: ResolvedTarget) -> ResolvedPackage? {
         return self.targetsToPackages[target]
     }
-    private let targetsToPackages: [ResolvedTarget: ResolvedPackage]
 
-    /// Returns the package that contains the product, or nil if the product isn't in the graph.
-     public func package(for product: ResolvedProduct) -> ResolvedPackage? {
-         return self.productsToPackages[product]
-     }
+
     private let productsToPackages: [ResolvedProduct: ResolvedPackage]
+    /// Returns the package that contains the product, or nil if the product isn't in the graph.
+    public func package(for product: ResolvedProduct) -> ResolvedPackage? {
+        return self.productsToPackages[product]
+    }
 
     /// All root and root dependency packages provided as input to the graph.
     public let inputPackages: [ResolvedPackage]
@@ -189,8 +187,8 @@ extension PackageGraphError: CustomStringConvertible {
 
         case .cycleDetected(let cycle):
             return "cyclic dependency declaration found: " +
-                (cycle.path + cycle.cycle).map({ $0.name }).joined(separator: " -> ") +
-                " -> " + cycle.cycle[0].name
+            (cycle.path + cycle.cycle).map({ $0.name }).joined(separator: " -> ") +
+            " -> " + cycle.cycle[0].name
 
         case .productDependencyNotFound(let package, let targetName, let dependencyProductName, let dependencyPackageName, let dependencyProductInDecl):
             if dependencyProductInDecl {
@@ -198,12 +196,6 @@ extension PackageGraphError: CustomStringConvertible {
             } else {
                 return "product '\(dependencyProductName)' required by package '\(package)' target '\(targetName)' \(dependencyPackageName.map{ "not found in package '\($0)'" } ?? "not found")."
             }
-        case .incorrectPackageDependencyName(let package, let dependencyName, let dependencyURL, let resolvedPackageManifestName, let resolvedPackageURL):
-            return """
-                '\(package)' dependency on '\(dependencyURL)' has an explicit name '\(dependencyName)' which does not match the \
-                name '\(resolvedPackageManifestName)' set for '\(resolvedPackageURL)'
-                """
-
         case .dependencyAlreadySatisfiedByIdentifier(let package, let dependencyURL, let otherDependencyURL, let identity):
             return "'\(package)' dependency on '\(dependencyURL)' conflicts with dependency on '\(otherDependencyURL)' which has the same identity '\(identity)'"
 
@@ -211,10 +203,10 @@ extension PackageGraphError: CustomStringConvertible {
             return "'\(package)' dependency on '\(dependencyURL)' conflicts with dependency on '\(otherDependencyURL)' which has the same explicit name '\(name)'"
 
         case .productDependencyMissingPackage(
-                let productName,
-                let targetName,
-                let packageIdentifier
-            ):
+            let productName,
+            let targetName,
+            let packageIdentifier
+        ):
 
             let solution = """
             reference the package in the target dependency with '.product(name: "\(productName)", package: \

@@ -136,7 +136,7 @@ public struct SwiftRunTool: SwiftCommand {
             let arguments = buildOp.buildPlan!.createREPLArguments()
             print("Launching Swift REPL with arguments: \(arguments.joined(separator: " "))")
             try run(
-                swiftTool.getToolchain().swiftInterpreter,
+                swiftTool.getToolchain().swiftInterpreterPath,
                 originalWorkingDirectory: swiftTool.originalWorkingDirectory,
                 arguments: arguments)
 
@@ -171,7 +171,7 @@ public struct SwiftRunTool: SwiftCommand {
             if let executable = options.executable, isValidSwiftFilePath(executable) {
                 swiftTool.diagnostics.emit(.runFileDeprecation)
                 // Redirect execution to the toolchain's swift executable.
-                let swiftInterpreterPath = try swiftTool.getToolchain().swiftInterpreter
+                let swiftInterpreterPath = try swiftTool.getToolchain().swiftInterpreterPath
                 // Prepend the script to interpret to the arguments.
                 let arguments = [executable] + options.arguments
                 try run(
@@ -198,6 +198,8 @@ public struct SwiftRunTool: SwiftCommand {
                 try run(executablePath,
                         originalWorkingDirectory: swiftTool.originalWorkingDirectory,
                         arguments: options.arguments)
+            } catch Diagnostics.fatalError {
+                throw ExitCode.failure
             } catch let error as RunError {
                 swiftTool.diagnostics.emit(error)
                 throw ExitCode.failure
@@ -208,7 +210,7 @@ public struct SwiftRunTool: SwiftCommand {
     /// Returns the path to the correct executable based on options.
     private func findProductName(in graph: PackageGraph) throws -> String {
         if let executable = options.executable {
-            let executableExists = graph.allProducts.contains { $0.type == .executable && $0.name == executable }
+            let executableExists = graph.allProducts.contains { ($0.type == .executable || $0.type == .snippet) && $0.name == executable }
             guard executableExists else {
                 throw RunError.executableNotFound(executable)
             }
@@ -218,7 +220,7 @@ public struct SwiftRunTool: SwiftCommand {
         // If the executable is implicit, search through root products.
         let rootExecutables = graph.rootPackages
             .flatMap { $0.products }
-            .filter { $0.type == .executable }
+            .filter { $0.type == .executable || $0.type == .snippet }
             .map { $0.name }
 
         // Error out if the package contains no executables.
