@@ -27,13 +27,17 @@ public struct PIFBuilderParameters {
     /// Whether to create dylibs for dynamic library products.
     public let shouldCreateDylibForDynamicProducts: Bool
 
+    /// The path to the library directory of the active toolchain.
+    public let toolchainLibDir: AbsolutePath
+
     /// Creates a `PIFBuilderParameters` instance.
     /// - Parameters:
     ///   - enableTestability: Whether or not build for testability is enabled.
     ///   - shouldCreateDylibForDynamicProducts: Whether to create dylibs for dynamic library products.
-    public init(enableTestability: Bool, shouldCreateDylibForDynamicProducts: Bool) {
+    public init(enableTestability: Bool, shouldCreateDylibForDynamicProducts: Bool, toolchainLibDir: AbsolutePath) {
         self.enableTestability = enableTestability
         self.shouldCreateDylibForDynamicProducts = shouldCreateDylibForDynamicProducts
+        self.toolchainLibDir = toolchainLibDir
     }
 }
 
@@ -395,6 +399,10 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         settings[.SWIFT_FORCE_STATIC_LINK_STDLIB] = "NO"
         settings[.SWIFT_FORCE_DYNAMIC_LINK_STDLIB] = "YES"
 
+        if product.type == .executable || product.type == .test {
+            settings[.LIBRARY_SEARCH_PATHS] = ["$(inherited)", "\(parameters.toolchainLibDir.pathString)/swift/macosx"]
+        }
+
         // Tests can have a custom deployment target based on the minimum supported by XCTest.
         if mainTarget.underlyingTarget.type == .test {
             settings[.MACOSX_DEPLOYMENT_TARGET] = mainTarget.underlyingTarget.deploymentTarget(for: .macOS)
@@ -518,6 +526,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
             settings[.DEFINES_MODULE] = "YES"
             settings[.SKIP_INSTALL] = "NO"
             settings[.INSTALL_PATH] = "/usr/local/lib"
+            settings[.LIBRARY_SEARCH_PATHS] = ["$(inherited)", "\(parameters.toolchainLibDir.pathString)/swift/macosx"]
 
             if !parameters.shouldCreateDylibForDynamicProducts {
                 settings[.GENERATE_INFOPLIST_FILE] = "YES"

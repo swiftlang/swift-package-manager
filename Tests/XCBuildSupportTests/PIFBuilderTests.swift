@@ -480,6 +480,7 @@ class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.SWIFT_FORCE_STATIC_LINK_STDLIB], "NO")
                             XCTAssertEqual(settings[.SWIFT_VERSION], "5")
                             XCTAssertEqual(settings[.TARGET_NAME], "foo")
+                            XCTAssertEqual(settings[.LIBRARY_SEARCH_PATHS], ["$(inherited)", "/toolchain/lib/swift/macosx"])
                         }
                     }
 
@@ -503,6 +504,7 @@ class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.SWIFT_FORCE_STATIC_LINK_STDLIB], "NO")
                             XCTAssertEqual(settings[.SWIFT_VERSION], "5")
                             XCTAssertEqual(settings[.TARGET_NAME], "foo")
+                            XCTAssertEqual(settings[.LIBRARY_SEARCH_PATHS], ["$(inherited)", "/toolchain/lib/swift/macosx"])
                         }
                     }
 
@@ -539,6 +541,7 @@ class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.SWIFT_FORCE_DYNAMIC_LINK_STDLIB], "YES")
                             XCTAssertEqual(settings[.SWIFT_FORCE_STATIC_LINK_STDLIB], "NO")
                             XCTAssertEqual(settings[.TARGET_NAME], "cfoo")
+                            XCTAssertEqual(settings[.LIBRARY_SEARCH_PATHS], ["$(inherited)", "/toolchain/lib/swift/macosx"])
                         }
                     }
 
@@ -562,6 +565,7 @@ class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.SWIFT_FORCE_DYNAMIC_LINK_STDLIB], "YES")
                             XCTAssertEqual(settings[.SWIFT_FORCE_STATIC_LINK_STDLIB], "NO")
                             XCTAssertEqual(settings[.TARGET_NAME], "cfoo")
+                            XCTAssertEqual(settings[.LIBRARY_SEARCH_PATHS], ["$(inherited)", "/toolchain/lib/swift/macosx"])
                         }
                     }
 
@@ -598,6 +602,7 @@ class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.SWIFT_FORCE_STATIC_LINK_STDLIB], "NO")
                             XCTAssertEqual(settings[.SWIFT_VERSION], "4.2")
                             XCTAssertEqual(settings[.TARGET_NAME], "bar")
+                            XCTAssertEqual(settings[.LIBRARY_SEARCH_PATHS], ["$(inherited)", "/toolchain/lib/swift/macosx"])
                         }
                     }
 
@@ -618,6 +623,7 @@ class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.SWIFT_FORCE_STATIC_LINK_STDLIB], "NO")
                             XCTAssertEqual(settings[.SWIFT_VERSION], "4.2")
                             XCTAssertEqual(settings[.TARGET_NAME], "bar")
+                            XCTAssertEqual(settings[.LIBRARY_SEARCH_PATHS], ["$(inherited)", "/toolchain/lib/swift/macosx"])
                         }
                     }
 
@@ -653,6 +659,7 @@ class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.SWIFT_FORCE_DYNAMIC_LINK_STDLIB], "YES")
                             XCTAssertEqual(settings[.SWIFT_FORCE_STATIC_LINK_STDLIB], "NO")
                             XCTAssertEqual(settings[.TARGET_NAME], "cbar")
+                            XCTAssertEqual(settings[.LIBRARY_SEARCH_PATHS], ["$(inherited)", "/toolchain/lib/swift/macosx"])
                         }
                     }
 
@@ -675,6 +682,7 @@ class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.SWIFT_FORCE_DYNAMIC_LINK_STDLIB], "YES")
                             XCTAssertEqual(settings[.SWIFT_FORCE_STATIC_LINK_STDLIB], "NO")
                             XCTAssertEqual(settings[.TARGET_NAME], "cbar")
+                            XCTAssertEqual(settings[.LIBRARY_SEARCH_PATHS], ["$(inherited)", "/toolchain/lib/swift/macosx"])
                         }
                     }
 
@@ -1086,6 +1094,7 @@ class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.SKIP_INSTALL], "NO")
                             XCTAssertEqual(settings[.TARGET_BUILD_DIR], "$(TARGET_BUILD_DIR)/PackageFrameworks")
                             XCTAssertEqual(settings[.TARGET_NAME], "BarLib")
+                            XCTAssertEqual(settings[.LIBRARY_SEARCH_PATHS], ["$(inherited)", "/toolchain/lib/swift/macosx"])
                         }
                     }
 
@@ -1109,6 +1118,7 @@ class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.TARGET_BUILD_DIR], "$(TARGET_BUILD_DIR)/PackageFrameworks")
                             XCTAssertEqual(settings[.TARGET_NAME], "BarLib")
                             XCTAssertEqual(settings[.USES_SWIFTPM_UNSAFE_FLAGS], "NO")
+                            XCTAssertEqual(settings[.LIBRARY_SEARCH_PATHS], ["$(inherited)", "/toolchain/lib/swift/macosx"])
                         }
                     }
 
@@ -2295,7 +2305,8 @@ extension PIFBuilderParameters {
     ) -> Self {
         PIFBuilderParameters(
             enableTestability: false,
-            shouldCreateDylibForDynamicProducts: shouldCreateDylibForDynamicProducts
+            shouldCreateDylibForDynamicProducts: shouldCreateDylibForDynamicProducts,
+            toolchainLibDir: AbsolutePath("/toolchain/lib")
         )
     }
 }

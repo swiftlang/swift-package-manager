@@ -162,9 +162,14 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
         
         // Generate a table of any overriding build settings.
         var settings: [String: String] = [:]
+        // An error with determining the override should not be fatal here.
+        settings["CC"] = try? buildParameters.toolchain.getClangCompiler().pathString
         // Always specify the path of the effective Swift compiler, which was determined in the same way as for the native build system.
         settings["SWIFT_EXEC"] = buildParameters.toolchain.swiftCompiler.pathString
-        settings["LIBRARY_SEARCH_PATHS"] = "$(inherited) \(buildParameters.toolchain.toolchainLibDir.pathString)/swift/macosx"
+        settings["LIBRARY_SEARCH_PATHS"] = "$(inherited) \(buildParameters.toolchain.toolchainLibDir.pathString)"
+        settings["OTHER_CFLAGS"] = "$(inherited) \(buildParameters.toolchain.extraCCFlags.joined(separator: " "))"
+        settings["OTHER_CPLUSPLUSFLAGS"] = "$(inherited) \(buildParameters.toolchain.extraCPPFlags.joined(separator: " "))"
+        settings["OTHER_SWIFT_FLAGS"] = "$(inherited) \(buildParameters.toolchain.extraSwiftCFlags.joined(separator: " "))"
         // Optionally also set the list of architectures to build for.
         if !buildParameters.archs.isEmpty {
             settings["ARCHS"] = buildParameters.archs.joined(separator: " ")
@@ -173,7 +178,7 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
         // Generate the build parameters.
         let params = XCBBuildParameters(
             configurationName: buildParameters.configuration.xcbuildName,
-            overrides: .init(commandLine: .init(table: settings)),
+            overrides: .init(synthesized: .init(table: settings)),
             activeRunDestination: runDestination
         )
 
@@ -235,7 +240,7 @@ struct XCBBuildParameters: Encodable {
     }
 
     struct SettingsOverride: Encodable {
-        var commandLine: XCBSettingsTable? = nil
+        var synthesized: XCBSettingsTable? = nil
     }
 
     var configurationName: String
@@ -256,7 +261,8 @@ extension PIFBuilderParameters {
     public init(_ buildParameters: BuildParameters) {
         self.init(
             enableTestability: buildParameters.enableTestability,
-            shouldCreateDylibForDynamicProducts: buildParameters.shouldCreateDylibForDynamicProducts
+            shouldCreateDylibForDynamicProducts: buildParameters.shouldCreateDylibForDynamicProducts,
+            toolchainLibDir: buildParameters.toolchain.toolchainLibDir
         )
     }
 }
