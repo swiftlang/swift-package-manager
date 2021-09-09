@@ -13,13 +13,9 @@ import PackageModel
 import TSCBasic
 import TSCUtility
 
-extension DiagnosticMessage {
+extension Basics.Diagnostic {
     static func targetHasNoSources(targetPath: String, target: String) -> Self {
         .warning("Source files for target \(target) should be located under \(targetPath)")
-    }
-
-    static func manifestLoading(output: String, diagnosticFile: AbsolutePath?) -> Self {
-        .warning(ManifestLoadingDiagnostic(output: output, diagnosticFile: diagnosticFile))
     }
 
     static func targetNameHasIncorrectCase(target: String) -> Self {
@@ -98,7 +94,7 @@ extension DiagnosticMessage {
     }
 
     static func fileReference(path: RelativePath) -> Self {
-        .note("found '\(path)'")
+        .info("found '\(path)'")
     }
 
     static func infoPlistResourceConflict(
@@ -145,9 +141,17 @@ extension DiagnosticMessage {
     }
 }
 
-public struct ManifestLoadingDiagnostic: DiagnosticData {
-    public let output: String
-    public let diagnosticFile: AbsolutePath?
-
-    public var description: String { output }
+extension DiagnosticsMetadata {
+    public var manifestLoadingDiagnosticFile: AbsolutePath? {
+        get {
+            self[ManifestLoadingDiagnosticFileKey.self]
+        }
+        set {
+            self[ManifestLoadingDiagnosticFileKey.self] = newValue
+        }
+    }
+    
+    enum ManifestLoadingDiagnosticFileKey: DiagnosticsMetadataKey {
+        typealias Value = AbsolutePath
+    }
 }

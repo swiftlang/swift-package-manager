@@ -976,25 +976,20 @@ extension Basics.Diagnostic {
     func print() {
         let writer = InteractiveWriter.stderr
 
-        if let context = self.context {
-            writer.write(context.description)
+        if let diagnosticLocation = self.metadata?.diagnosticLocation {
+            writer.write(diagnosticLocation)
             writer.write(": ")
         }
 
-        // 👀 levels
         switch self.severity {
         case .error:
             writer.write("error: ", inColor: .red, bold: true)
         case .warning:
             writer.write("warning: ", inColor: .yellow, bold: true)
-        case .note:
-            writer.write("note: ", inColor: .yellow, bold: true)
         case .info:
-            writer.write("info: ", inColor: .yellow, bold: true)
-        //case .remark:
-        //    writer.write("remark: ", inColor: .yellow, bold: true)
-        //case .ignored:
-        //    break
+            writer.write("info: ", inColor: .white, bold: true)
+        case .debug:
+            writer.write("info: ", inColor: .white, bold: true)
         }
 
         writer.write(self.message)
@@ -1033,6 +1028,18 @@ private final class InteractiveWriter {
         } else {
             stream <<< string
             stream.flush()
+        }
+    }
+}
+
+extension DiagnosticsMetadata {
+    public var diagnosticLocation: String? {
+        if let stringLocation = self.stringLocation {
+            return stringLocation
+        } else if let packageIdentity = self.packageIdentity, let packageLocation = self.packageLocation {
+            return "'\(packageIdentity)' \(packageLocation)"
+        } else {
+            return .none
         }
     }
 }

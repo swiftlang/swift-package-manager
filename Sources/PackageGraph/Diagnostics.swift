@@ -10,7 +10,7 @@
 
 import Basics
 
-extension DiagnosticMessage {
+extension Basics.Diagnostic {
     static func unusedDependency(_ name: String) -> Self {
         .warning("dependency '\(name)' is not used by any target")
     }

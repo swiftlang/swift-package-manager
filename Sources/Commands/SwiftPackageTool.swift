@@ -1219,7 +1219,7 @@ extension SwiftPackageTool {
     }
 }
 
-private extension DiagnosticMessage {
+private extension Basics.Diagnostic {
     static var missingRequiredSubcommand: Self {
         .error("missing required subcommand; use --help to list available subcommands")
     }

@@ -2091,30 +2091,44 @@ final class WorkspaceTests: XCTestCase {
         workspace.checkPackageGraph(roots: ["Foo"]) { _, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
         }
+
+
         workspace.checkPackageGraphFailure(roots: ["Bar"]) { diagnostics in
             testDiagnostics(diagnostics) { result in
+                // TODO: clean this up when migrating to new diagnostics API
+                var expectedMetadata = DiagnosticsMetadata()
+                expectedMetadata.stringLocation = "/tmp/ws/roots/Bar"
+
                 result.check(
                     diagnostic: .equal("package 'bar' is using Swift tools version 4.1.0 but the installed version is 4.0.0"),
                     severity: .error,
-                    context: "/tmp/ws/roots/Bar"
+                    metadata: expectedMetadata
                 )
             }
         }
         workspace.checkPackageGraphFailure(roots: ["Foo", "Bar"]) { diagnostics in
+            // TODO: clean this up when migrating to new diagnostics API
+            var expectedMetadata = DiagnosticsMetadata()
+            expectedMetadata.stringLocation = "/tmp/ws/roots/Bar"
+
             testDiagnostics(diagnostics) { result in
                 result.check(
                     diagnostic: .equal("package 'bar' is using Swift tools version 4.1.0 but the installed version is 4.0.0"),
                     severity: .error,
-                    context: "/tmp/ws/roots/Bar"
+                    metadata: expectedMetadata
                 )
             }
         }
         workspace.checkPackageGraphFailure(roots: ["Baz"]) { diagnostics in
             testDiagnostics(diagnostics) { result in
+                // TODO: clean this up when migrating to new diagnostics API
+                var expectedMetadata = DiagnosticsMetadata()
+                expectedMetadata.stringLocation = "/tmp/ws/roots/Baz"
+
                 result.check(
                     diagnostic: .equal("package 'baz' is using Swift tools version 3.1.0 which is no longer supported; consider using '// swift-tools-version:4.0' to specify the current tools version"),
                     severity: .error,
-                    context: "/tmp/ws/roots/Baz"
+                    metadata: expectedMetadata
                 )
             }
         }
@@ -5759,7 +5773,7 @@ final class WorkspaceTests: XCTestCase {
                 result.check(
                     diagnostic: "'root' dependency on '/tmp/ws/pkgs/bar/utility' conflicts with dependency on '/tmp/ws/pkgs/foo/utility' which has the same identity 'utility'",
                     severity: .error,
-                    context: "'root' /tmp/ws/roots/Root"
+                    metadata: .packageMetadata(identity: .plain("root"), location: "/tmp/ws/roots/Root")
                 )
             }
         }
@@ -5821,7 +5835,7 @@ final class WorkspaceTests: XCTestCase {
                 result.check(
                     diagnostic: "'root' dependency on '/tmp/ws/pkgs/bar/utility' conflicts with dependency on '/tmp/ws/pkgs/foo/utility' which has the same identity 'utility'",
                     severity: .error,
-                    context: "'root' /tmp/ws/roots/Root"
+                    metadata: .packageMetadata(identity: .plain("root"), location: "/tmp/ws/roots/Root")
                 )
             }
         }
@@ -5883,7 +5897,7 @@ final class WorkspaceTests: XCTestCase {
                 result.check(
                     diagnostic: "'root' dependency on '/tmp/ws/pkgs/bar' conflicts with dependency on '/tmp/ws/pkgs/foo' which has the same explicit name 'FooPackage'",
                     severity: .error,
-                    context: "'root' /tmp/ws/roots/Root"
+                    metadata: .packageMetadata(identity: .plain("root"), location: "/tmp/ws/roots/Root")
                 )
             }
         }
@@ -6109,12 +6123,12 @@ final class WorkspaceTests: XCTestCase {
                 result.check(
                     diagnostic: "dependency 'FooProduct' in target 'RootTarget' requires explicit declaration; reference the package in the target dependency with '.product(name: \"FooProduct\", package: \"foo\")'",
                     severity: .error,
-                    context: "'root' /tmp/ws/roots/Root"
+                    metadata: .packageMetadata(identity: .plain("root"), location: "/tmp/ws/roots/Root")
                 )
                 result.check(
                     diagnostic: "dependency 'BarProduct' in target 'RootTarget' requires explicit declaration; reference the package in the target dependency with '.product(name: \"BarProduct\", package: \"bar\")'",
                     severity: .error,
-                    context: "'root' /tmp/ws/roots/Root"
+                    metadata: .packageMetadata(identity: .plain("root"), location: "/tmp/ws/roots/Root")
                 )
             }
         }
@@ -6230,7 +6244,7 @@ final class WorkspaceTests: XCTestCase {
                 result.check(
                     diagnostic: "'root' dependency on '/tmp/ws/pkgs/bar' conflicts with dependency on '/tmp/ws/pkgs/foo' which has the same explicit name 'foo'",
                     severity: .error,
-                    context: "'root' /tmp/ws/roots/Root"
+                    metadata: .packageMetadata(identity: .plain("root"), location: "/tmp/ws/roots/Root")
                 )
             }
         }
@@ -6291,7 +6305,7 @@ final class WorkspaceTests: XCTestCase {
                 result.check(
                     diagnostic: "'root' dependency on '/tmp/ws/pkgs/bar' conflicts with dependency on '/tmp/ws/pkgs/foo' which has the same explicit name 'foo'",
                     severity: .error,
-                    context: "'root' /tmp/ws/roots/Root"
+                    metadata: .packageMetadata(identity: .plain("root"), location: "/tmp/ws/roots/Root")
                 )
             }
         }
@@ -6369,7 +6383,7 @@ final class WorkspaceTests: XCTestCase {
                 result.check(
                     diagnostic: "'bar' dependency on '/tmp/ws/pkgs/other/utility' conflicts with dependency on '/tmp/ws/pkgs/foo/utility' which has the same identity 'utility'",
                     severity: .error,
-                    context: "'bar' /tmp/ws/pkgs/bar"
+                    metadata: .packageMetadata(identity: .plain("bar"), location: "/tmp/ws/pkgs/bar")
                 )
             }
         }
@@ -6449,14 +6463,14 @@ final class WorkspaceTests: XCTestCase {
                 result.check(
                     diagnostic: "'bar' dependency on '/tmp/ws/pkgs/other-foo/utility' conflicts with dependency on '/tmp/ws/pkgs/foo/utility' which has the same identity 'utility'. this will be escalated to an error in future versions of SwiftPM.",
                     severity: .warning,
-                    context: "'bar' /tmp/ws/pkgs/bar"
+                    metadata: .packageMetadata(identity: .plain("bar"), location: "/tmp/ws/pkgs/bar")
                 )
                 // FIXME: rdar://72940946
                 // we need to improve this situation or diagnostics when working on identity
                 result.check(
                     diagnostic: "product 'OtherUtilityProduct' required by package 'bar' target 'BarTarget' not found in package 'utility'.",
                     severity: .error,
-                    context: "'bar' /tmp/ws/pkgs/bar"
+                    metadata: .packageMetadata(identity: .plain("bar"), location: "/tmp/ws/pkgs/bar")
                 )
             }
         }
@@ -6824,7 +6838,7 @@ final class WorkspaceTests: XCTestCase {
                 result.check(
                     diagnostic: "'bar' dependency on 'https://github.com/foo-moved/foo.git' conflicts with dependency on 'https://github.com/foo/foo.git' which has the same identity 'foo'. this will be escalated to an error in future versions of SwiftPM.",
                     severity: .warning,
-                    context: "'bar' /tmp/ws/pkgs/bar"
+                    metadata: .packageMetadata(identity: .plain("bar"), location: "/tmp/ws/pkgs/bar")
                 )
             }
         }

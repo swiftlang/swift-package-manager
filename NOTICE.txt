@@ -26,8 +26,7 @@ components that this product depends on.
 
 -------------------------------------------------------------------------------
 
-
-This dependency resolver is influenced by Dart project (pub tool).
+The dependency resolver is influenced by Dart project (pub tool).
 
   * LICENSE (BSD 3-Clause "New" or "Revised" License):
     * https://github.com/dart-lang/pub/blob/master/LICENSE
@@ -53,3 +52,32 @@ This product contains a derivation of OpenSSL's OCSP implementation, found under
     * https://www.apache.org/licenses/LICENSE-2.0
   * HOMEPAGE:
     * https://github.com/openssl/openssl
+
+---
+
+The observability system is influenced by SwiftLog project.
+
+  * LICENSE (Apache License 2.0):
+    * https://www.apache.org/licenses/LICENSE-2.0
+  * HOMEPAGE:
+    * https://github.com/apple/swift-log
+
+---
+
+The observability system is influenced by SwiftMetrics project.
+
+  * LICENSE (Apache License 2.0):
+    * https://www.apache.org/licenses/LICENSE-2.0
+  * HOMEPAGE:
+    * https://github.com/apple/swift-metrics
+
+---
+
+The observability system is influenced by SwiftDistributedTracing project.
+
+  * LICENSE (Apache License 2.0):
+    * https://www.apache.org/licenses/LICENSE-2.0
+  * HOMEPAGE:
+    * https://github.com/apple/swift-distributed-tracing-baggage
+
+---

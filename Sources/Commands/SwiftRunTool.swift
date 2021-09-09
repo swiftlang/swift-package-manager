@@ -271,7 +271,7 @@ public struct SwiftRunTool: SwiftCommand {
     public init() {}
 }
 
-private extension DiagnosticMessage {
+private extension Basics.Diagnostic {
     static var runFileDeprecation: Self {
         .warning("'swift run file.swift' command to interpret swift files is deprecated; use 'swift file.swift' instead")
     }

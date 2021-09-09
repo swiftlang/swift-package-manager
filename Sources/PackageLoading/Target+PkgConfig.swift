@@ -266,30 +266,3 @@ public struct PkgConfigDiagnosticLocation: DiagnosticLocation {
     }
 }
 
-// FIXME: Kill this.
-public struct PkgConfigGenericDiagnostic: DiagnosticData {
-    public let error: String
-
-    public init(error: String) {
-        self.error = error
-    }
-
-    public var description: String {
-        return error
-    }
-}
-
-// FIXME: Kill this.
-public struct PkgConfigHintDiagnostic: DiagnosticData {
-    public let pkgConfigName: String
-    public let installText: String
-
-    public init(pkgConfigName: String, installText: String) {
-        self.pkgConfigName = pkgConfigName
-        self.installText = installText
-    }
-
-    public var description: String {
-        return "you may be able to install \(pkgConfigName) using your system-packager:\n\(installText)"
-    }
-}

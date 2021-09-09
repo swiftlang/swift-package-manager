@@ -100,8 +100,7 @@ extension PackageGraph {
             //
             // FIXME: Lift this out of the manifest.
             let packagePath = manifest.path.parentDirectory
-            let diagnosticsContext = PackageDiagnosticsContext(identity: node.identity, location: node.manifest.packageLocation)
-            let diagnosticsEmitter = DiagnosticsEmitter(context: diagnosticsContext)
+            let diagnosticsEmitter = DiagnosticsEmitter(metadata: .packageMetadata(identity: node.identity, location: node.manifest.packageLocation))
             diagnosticsEmitter.trap {
                 // Create a package from the manifest and sources.
                 let builder = PackageBuilder(
@@ -237,7 +236,7 @@ private func createResolvedPackages(
                 fatalError("registry based dependencies not implemented yet")
             }
 
-            let diagnosticsEmitter = DiagnosticsEmitter(context: package.diagnosticsContext)
+            let diagnosticsEmitter = DiagnosticsEmitter(metadata: package.diagnosticsMetadata)
 
             // Otherwise, look it up by its identity.
             if let resolvedPackage = packagesByIdentity[dependency.identity] {
@@ -366,7 +365,7 @@ private func createResolvedPackages(
     // Do another pass and establish product dependencies of each target.
     for packageBuilder in packageBuilders {
         let package = packageBuilder.package
-        let diagnosticsEmitter = DiagnosticsEmitter(context: package.diagnosticsContext)
+        let diagnosticsEmitter = DiagnosticsEmitter(metadata: package.diagnosticsMetadata)
 
         // Get all implicit system library dependencies in this package.
         let implicitSystemTargetDeps = packageBuilder.dependencies

@@ -281,7 +281,7 @@ public final class PackageBuilder {
         self.shouldCreateMultipleTestProducts = shouldCreateMultipleTestProducts
         self.createREPLProduct = createREPLProduct
         self.warnAboutImplicitExecutableTargets = warnAboutImplicitExecutableTargets
-        self.diagnosticsEmitter = DiagnosticsEmitter(context: PackageDiagnosticsContext(identity: self.identity, location: self.manifest.packageLocation))
+        self.diagnosticsEmitter = DiagnosticsEmitter(metadata: .packageMetadata(identity: self.identity, location: self.manifest.packageLocation))
         self.fileSystem = fileSystem
     }
 

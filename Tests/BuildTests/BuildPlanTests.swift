@@ -1624,7 +1624,11 @@ final class BuildPlanTests: XCTestCase {
             fileSystem: fileSystem
         )
 
-       XCTAssertTrue(observability.diagnostics.contains(where: { ($0.data is PkgConfigHintDiagnostic) }))
+        guard let diagnostic = observability.diagnostics.first else {
+            return XCTFail("Expected a diagnostic")
+        }
+        XCTAssertMatch(diagnostic.message, .contains("you may be able to install BTarget using your system-packager"))
+        XCTAssertEqual(diagnostic.severity, .warning)
     }
 
     func testPkgConfigGenericDiagnostic() throws {
@@ -1662,7 +1666,7 @@ final class BuildPlanTests: XCTestCase {
 
         XCTAssertEqual(diagnostic.message, "couldn't find pc file for BTarget")
         XCTAssertEqual(diagnostic.severity, .warning)
-        XCTAssertEqual(diagnostic.context?.description, "'BTarget' BTarget.pc")
+        XCTAssertEqual(diagnostic.metadata?.stringLocation, "'BTarget' BTarget.pc")
     }
 
     func testWindowsTarget() throws {

@@ -78,7 +78,7 @@ public struct TargetSourcesBuilder {
 
         self.fileSystem = fileSystem
 
-        self.diagnosticsEmitter = DiagnosticsEmitter(context: PackageDiagnosticsContext(identity: packageIdentity, location: packageLocation))
+        self.diagnosticsEmitter = DiagnosticsEmitter(metadata: .packageMetadata(identity: packageIdentity, location: packageLocation))
 
         let declaredSources = target.sources?.map{ path.appending(RelativePath($0)) }
         if let declaredSources = declaredSources {
@@ -650,7 +650,7 @@ extension TargetDescription.Resource.Rule {
     }
 }
 
-extension DiagnosticMessage {
+extension Basics.Diagnostic {
     static func symlinkInSources(symlink: RelativePath, targetName: String) -> Self {
         .warning("ignoring symlink at '\(symlink)' in target '\(targetName)'")
     }

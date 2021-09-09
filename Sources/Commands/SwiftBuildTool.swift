@@ -137,7 +137,7 @@ extension Diagnostic.Message {
     }
 }
 
-extension DiagnosticMessage {
+extension Basics.Diagnostic {
     static func mutuallyExclusiveArgumentsError(arguments: [String]) -> Self {
         .error(Diagnostic.Message.mutuallyExclusiveArgumentsError(arguments: arguments).text)
     }

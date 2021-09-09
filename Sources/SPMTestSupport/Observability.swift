@@ -111,8 +111,8 @@ public class DiagnosticsTestResult {
 
     public func check(
         diagnostic message: StringPattern,
-        severity: DiagnosticMessage.Severity,
-        context: String? = nil,
+        severity: Basics.Diagnostic.Severity,
+        metadata: DiagnosticsMetadata? = .none,
         file: StaticString = #file,
         line: UInt = #line
     ) {
@@ -124,13 +124,13 @@ public class DiagnosticsTestResult {
 
         XCTAssertMatch(diagnostic.message, message, file: file, line: line)
         XCTAssertEqual(diagnostic.severity, severity, file: file, line: line)
-        XCTAssertEqual(diagnostic.context?.description, context?.description, file: file, line: line)
+        XCTAssertEqual(diagnostic.metadata, metadata, file: file, line: line)
     }
 
     public func checkUnordered(
         diagnostic diagnosticPattern: StringPattern,
-        severity: DiagnosticMessage.Severity,
-        context: String? = nil,
+        severity: Basics.Diagnostic.Severity,
+        metadata: DiagnosticsMetadata? = .none,
         file: StaticString = #file,
         line: UInt = #line
     ) {
@@ -143,15 +143,10 @@ public class DiagnosticsTestResult {
             return XCTFail("No diagnostics match \(diagnosticPattern)", file: file, line: line)
         } else if matching.count == 1, let diagnostic = matching.first, let index = self.uncheckedDiagnostics.firstIndex(where: { $0 == diagnostic }) {
             XCTAssertEqual(diagnostic.severity, severity, file: file, line: line)
-            XCTAssertEqual(diagnostic.context?.description, context?.description, file: file, line: line)
+            XCTAssertEqual(diagnostic.metadata, metadata, file: file, line: line)
             self.uncheckedDiagnostics.remove(at: index)
-        } else {
-            if let index = matching.firstIndex(where: { diagnostic in
-                diagnostic.severity == severity &&
-                diagnostic.context?.description == context?.description
-            }) {
-                self.uncheckedDiagnostics.remove(at: index)
-            }
+        } else if let index = self.uncheckedDiagnostics.firstIndex(where: { diagnostic in diagnostic.severity == severity && diagnostic.metadata == metadata}) {
+            self.uncheckedDiagnostics.remove(at: index)
         }
     }
 }

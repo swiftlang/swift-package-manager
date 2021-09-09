@@ -14,6 +14,9 @@ import TSCUtility
 typealias TSCDiagnostic = TSCBasic.Diagnostic
 
 // this could become a struct when we remove the "errorsReported" pattern
+
+// designed after https://github.com/apple/swift-log
+// designed after https://github.com/apple/swift-metrics
 public class ObservabilitySystem {
 
     // global
@@ -84,24 +87,14 @@ public protocol ObservabilityFactory {
 public typealias DiagnosticsHandler = (Diagnostic) -> Void
 
 public struct Diagnostic: CustomStringConvertible, Equatable {
-    public let context: DiagnosticsContext?
-    private let underlying: DiagnosticMessage
+    public let severity: Severity
+    public let message: String
+    public internal (set) var metadata: DiagnosticsMetadata?
 
-    public init(context: DiagnosticsContext?, message underlying: DiagnosticMessage) {
-        self.context = context
-        self.underlying = underlying
-    }
-
-    public var severity: DiagnosticMessage.Severity {
-        self.underlying.severity
-    }
-
-    public var message: String {
-        self.underlying.message
-    }
-
-    public var data: CustomStringConvertible? {
-        self.underlying.data
+    public init(severity: Severity, message: String, metadata: DiagnosticsMetadata?) {
+        self.severity = severity
+        self.message = message
+        self.metadata = metadata
     }
 
     public var description: String {
@@ -109,57 +102,119 @@ public struct Diagnostic: CustomStringConvertible, Equatable {
     }
 
     public static func == (lhs: Diagnostic, rhs: Diagnostic) -> Bool {
-        if lhs.context?.description != rhs.context?.description {
+        if lhs.severity != rhs.severity {
             return false
         }
-        if lhs.underlying != rhs.underlying {
+        if lhs.message != rhs.message {
             return false
         }
+        // FIXME
+        /*
+         if lhs.metadata != rhs.metadata {
+         return false
+         }*/
         return true
+    }
+
+    public static func error(_ message: String, metadata: DiagnosticsMetadata? = .none) -> Self {
+        Self(severity: .error, message: message, metadata: metadata)
+    }
+
+    public static func error(_ message: CustomStringConvertible, metadata: DiagnosticsMetadata? = .none) -> Self {
+        Self(severity: .error, message: message.description, metadata: metadata)
+    }
+
+    public static func warning(_ message: String, metadata: DiagnosticsMetadata? = .none) -> Self {
+        Self(severity: .warning, message: message, metadata: metadata)
+    }
+
+    public static func warning(_ message: CustomStringConvertible, metadata: DiagnosticsMetadata? = .none) -> Self {
+        Self(severity: .warning, message: message.description, metadata: metadata)
+    }
+
+    public static func info(_ message: String, metadata: DiagnosticsMetadata? = .none) -> Self {
+        Self(severity: .info, message: message, metadata: metadata)
+    }
+
+    public static func info(_ message: CustomStringConvertible, metadata: DiagnosticsMetadata? = .none) -> Self {
+        Self(severity: .info, message: message.description, metadata: metadata)
+    }
+
+    public enum Severity: Equatable {
+        case error
+        case warning
+        case info
+        case debug
     }
 }
 
 // TODO: consider using @autoclosure to delay potentially expensive evaluation of data when some diagnostics may be filtered out
 public struct DiagnosticsEmitter {
-    public let context: DiagnosticsContext?
+    public let metadata: DiagnosticsMetadata?
     private let handler: DiagnosticsHandler
 
-    public init(context: DiagnosticsContext? = .none) {
-        self.context = context
+    public init(metadata: DiagnosticsMetadata? = .none) {
+        self.metadata = metadata
         self.handler = ObservabilitySystem.global.diagnosticsHandler
     }
 
     public func emit(_ diagnostic: Diagnostic) {
+        var diagnostic = diagnostic
+        switch (self.metadata, diagnostic.metadata) {
+        case (.none, .none):
+            break // no change
+        case (.some(let emitterMetadata), .some(let diagnosticMetadata)):
+            diagnostic.metadata = emitterMetadata.merging(diagnosticMetadata)
+        case (.some(let emitterMetadata), .none):
+            diagnostic.metadata = emitterMetadata
+        case (.none, .some(_)):
+            break // no change
+        }
+
         self.handler(diagnostic)
     }
 
-    public func emit(_ message: DiagnosticMessage) {
-        self.emit(.init(context: self.context, message: message))
+    /*
+     public func emit(_ message: DiagnosticMessage) {
+     self.emit(severity: message.severity, message: message.text, metadata: message.metadata)
+     }*/
+
+    public func emit(severity: Diagnostic.Severity, message: String, metadata: DiagnosticsMetadata? = .none) {
+        self.emit(.init(severity: severity, message: message, metadata: metadata))
     }
 
-    public func emit(severity: DiagnosticMessage.Severity, message: String, data: CustomStringConvertible? = .none) {
-        self.emit(.init(context: self.context, message: .init(severity: severity, message: message, data: data)))
+    public func emit(error message: String, metadata: DiagnosticsMetadata? = .none) {
+        self.emit(.error(message, metadata: metadata))
     }
 
-    public func emit(error message: String, data: CustomStringConvertible? = .none) {
-        self.emit(.error(message, data: data))
-    }
-
-    public func emit(_ error: Error, data: CustomStringConvertible? = .none) {
+    public func emit(_ error: Error, metadata: DiagnosticsMetadata? = .none) {
+        var metadata = metadata
         // FIXME: this brings in the TSC API still
-        if self.context == nil, let errorProvidingLocation = error as? DiagnosticLocationProviding, let diagnosticLocation = errorProvidingLocation.diagnosticLocation {
-            let context = DiagnosticLocationWrapper(diagnosticLocation)
-            return DiagnosticsEmitter(context: context).emit(error)
+        if let errorProvidingLocation = error as? DiagnosticLocationProviding, let diagnosticLocation = errorProvidingLocation.diagnosticLocation {
+            metadata = metadata ?? DiagnosticsMetadata()
+            metadata?.stringLocation = diagnosticLocation.description
         }
-        self.emit(.error(error, data: data))
+
+        let message: String
+        // FIXME: this brings in the TSC API still
+        // FIXME: string interpolation seems brittle
+        if let diagnosticData = error as? DiagnosticData {
+            message = "\(diagnosticData)"
+        } else if let convertible = error as? DiagnosticDataConvertible {
+            message = "\(convertible.diagnosticData)"
+        } else {
+            message = "\(error)"
+        }
+
+        self.emit(severity: .error, message: message, metadata: metadata)
     }
 
-    public func emit(warning message: String, data: CustomStringConvertible? = .none) {
-        self.emit(.warning(message, data: data))
+    public func emit(warning message: String, metadata: DiagnosticsMetadata? = .none) {
+        self.emit(severity: .warning, message: message, metadata: metadata)
     }
 
-    public func emit(info message: String, data: CustomStringConvertible? = .none) {
-        self.emit(.info(message, data: data))
+    public func emit(info message: String, metadata: DiagnosticsMetadata? = .none) {
+        self.emit(severity: .info, message: message, metadata: metadata)
     }
 
     public func trap<T>(_ closure: () throws -> T) -> T? {
@@ -172,121 +227,174 @@ public struct DiagnosticsEmitter {
     }
 }
 
-public struct DiagnosticMessage: Equatable {
-    let severity: Severity
-    let message: String
-    // 👀 TODO: not sure if this is used very much, but it we need it this could/should be changed to more structured metadata model
-    let data: CustomStringConvertible?
+// MARK: - DiagnosticsMetadata
 
-    public static func error(_ message: String, data: CustomStringConvertible? = .none) -> Self {
-        Self(severity: .error, message: message, data: data)
-    }
+// designed after https://github.com/apple/swift-distributed-tracing-baggage
 
-    public static func error(_ message: CustomStringConvertible, data: CustomStringConvertible? = .none) -> Self {
-        Self(severity: .error, message: message.description, data: data)
-    }
+/// Provides type-safe access to the DiagnosticsMetadata's values.
+/// This API should ONLY be used inside of accessor implementations.
+///
+/// End users should use "accessors" the key's author MUST define rather than using this subscript, following this pattern:
+///
+///     extension DiagnosticsMetadata {
+///       var testID: String? {
+///         get {
+///           self[TestIDKey.self]
+///         }
+///         set {
+///           self[TestIDKey.self] = newValue
+///         }
+///       }
+///     }
+///
+///     enum TestIDKey: DiagnosticsMetadataKey {
+///         typealias Value = String
+///     }
+///
+/// This is in order to enforce a consistent style across projects and also allow for fine grained control over
+/// who may set and who may get such property. Just access control to the Key type itself lacks such fidelity.
+///
+/// Note that specific baggage and context types MAY (and usually do), offer also a way to set baggage values,
+/// however in the most general case it is not required, as some frameworks may only be able to offer reading.
 
-    public static func error(_ error: Error, data: CustomStringConvertible? = .none) -> Self {
-        let message: String
-        // FIXME: this brings in the TSC API still
-        // FIXME: string interpolation seems brittle
-        if let diagnosticData = error as? DiagnosticData {
-            message = "\(diagnosticData)"
-        } else if let convertible = error as? DiagnosticDataConvertible {
-            message = "\(convertible.diagnosticData)"
-        } else {
-            message = "\(error)"
+// FIXME: we currently requires that Value conforms to CustomStringConvertible which sucks
+// ideally Value would conform to Equatable but that has generic requirement
+// luckily, this is about to change so we can clean this up soon
+public struct DiagnosticsMetadata: Equatable {
+    private var _storage = [AnyKey: CustomStringConvertible]()
+
+    public init() {}
+
+    public subscript<Key: DiagnosticsMetadataKey>(_ key: Key.Type) -> Key.Value? {
+        get {
+            guard let value = self._storage[AnyKey(key)] else { return nil }
+            // safe to force-cast as this subscript is the only way to set a value.
+            return (value as! Key.Value)
         }
-        return Self(severity: .error, message: message, data: data)
+        set {
+            self._storage[AnyKey(key)] = newValue
+        }
     }
 
-    public static func warning(_ message: String, data: CustomStringConvertible? = .none) -> Self {
-        Self(severity: .warning, message: message, data: data)
+    /// The number of items in the baggage.
+    public var count: Int {
+        self._storage.count
     }
 
-    public static func warning(_ message: CustomStringConvertible, data: CustomStringConvertible? = .none) -> Self {
-        Self(severity: .warning, message: message.description, data: data)
+    /// A Boolean value that indicates whether the baggage is empty.
+    public var isEmpty: Bool {
+        self._storage.isEmpty
     }
 
-    public static func info(_ message: String, data: CustomStringConvertible? = .none) -> Self {
-        Self(severity: .info, message: message, data: data)
+    /// Iterate through all items in this `DiagnosticsMetadata` by invoking the given closure for each item.
+    ///
+    /// The order of those invocations is NOT guaranteed and should not be relied on.
+    ///
+    /// - Parameter body: The closure to be invoked for each item stored in this `DiagnosticsMetadata`,
+    /// passing the type-erased key and the associated value.
+    public func forEach(_ body: (AnyKey, CustomStringConvertible) throws -> Void) rethrows {
+        try self._storage.forEach { key, value in
+            try body(key, value)
+        }
     }
 
-    public static func info(_ message: CustomStringConvertible, data: CustomStringConvertible? = .none) -> Self {
-        Self(severity: .info, message: message.description, data: data)
+    public func merging(_ other: DiagnosticsMetadata) -> DiagnosticsMetadata {
+        var merged = DiagnosticsMetadata()
+        self.forEach { (key, value) in
+            merged._storage[key] = value
+        }
+        other.forEach { (key, value) in
+            merged._storage[key] = value
+        }
+        return merged
     }
 
-    public static func note(_ message: CustomStringConvertible, data: CustomStringConvertible? = .none) -> Self {
-        // 👀 do we need info and note?
-        Self(severity: .note, message: message.description, data: data)
-    }
-
-    public enum Severity: Equatable {
-        case error
-        case warning
-        // 👀 do we need info and note?
-        case info
-        case note
-    }
-
-    public static func == (lhs: DiagnosticMessage, rhs: DiagnosticMessage) -> Bool {
-        if lhs.severity != rhs.severity {
+    // FIXME: this currently requires that Value conforms to CustomStringConvertible which sucks
+    // ideally Value would conform to Equatable but that has generic requirement
+    // luckily, this is about to change so we can clean this up soon
+    public static func == (lhs: DiagnosticsMetadata, rhs: DiagnosticsMetadata) -> Bool {
+        if lhs.count != rhs.count {
             return false
         }
-        if lhs.message != rhs.message {
-            return false
+
+        var equals = true
+        lhs.forEach { (key, value) in
+            if rhs._storage[key]?.description != value.description {
+                equals = false
+                return
+            }
         }
-        if lhs.data?.description != rhs.data?.description {
-            return false
+
+        return equals
+    }
+
+    /// A type-erased `DiagnosticsMetadataKey` used when iterating through the `DiagnosticsMetadata` using its `forEach` method.
+    public struct AnyKey {
+        /// The key's type represented erased to an `Any.Type`.
+        public let keyType: Any.Type
+
+        init<Key: DiagnosticsMetadataKey>(_ keyType: Key.Type) {
+            self.keyType = keyType
         }
-        return true
     }
 }
 
-// 👀 TODO: this could/should be changed to more structured metadata model
-public protocol DiagnosticsContext: CustomStringConvertible {}
+public protocol DiagnosticsMetadataKey {
+    /// The type of value uniquely identified by this key.
+    associatedtype Value: CustomStringConvertible
+}
 
-public struct StringDiagnosticsContext: DiagnosticsContext{
-    public private (set) var description: String
+extension DiagnosticsMetadata.AnyKey: Hashable {
+    public static func == (lhs: Self, rhs: Self) -> Bool {
+        ObjectIdentifier(lhs.keyType) == ObjectIdentifier(rhs.keyType)
+    }
 
-    public init(_ description: String) {
-        self.description = description
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(ObjectIdentifier(self.keyType))
     }
 }
+
+// MARK: - Compatibility with TSC Diagnostics APIs
+
 
 @available(*, deprecated, message: "temporary for transition DiagnosticsEngine -> DiagnosticsEmitter")
 extension Diagnostic {
     init?(_ diagnostic: TSCDiagnostic) {
+        var metadata: DiagnosticsMetadata?
+        if diagnostic.location is UnknownLocation {
+            metadata = .none
+        } else {
+            metadata = DiagnosticsMetadata()
+            metadata?.stringLocation = diagnostic.location.description
+        }
+
         switch diagnostic.behavior {
         case .error:
-            self = .init(context: DiagnosticLocationWrapper(diagnostic.location), message: .error(diagnostic.message.text, data: diagnostic.message.data))
+            self = .error(diagnostic.message.text, metadata: metadata)
         case .warning:
-            self = .init(context: DiagnosticLocationWrapper(diagnostic.location), message: .warning(diagnostic.message.text, data: diagnostic.message.data))
+            self = .warning(diagnostic.message.text, metadata: metadata)
         case .note:
-            self = .init(context: DiagnosticLocationWrapper(diagnostic.location), message: .note(diagnostic.message.text, data: diagnostic.message.data))
+            self = .info(diagnostic.message.text, metadata: metadata)
         case .remark:
-            // 👀 remark mapped to info here, do we need all these levels?
-            self = .init(context: DiagnosticLocationWrapper(diagnostic.location), message: .info(diagnostic.message.text, data: diagnostic.message.data))
+            self = .info(diagnostic.message.text, metadata: metadata)
         case .ignored:
-            // 👀 is this okay?
             return nil
         }
     }
 }
 
 @available(*, deprecated, message: "temporary for transition DiagnosticsEngine -> DiagnosticsEmitter")
-struct DiagnosticLocationWrapper: DiagnosticsContext {
-    let location: DiagnosticLocation
-
-    init?(_ location: DiagnosticLocation) {
-        if location is UnknownLocation {
-            return nil
-        } else {
-            self.location = location
+extension DiagnosticsMetadata {
+    public var stringLocation: String? {
+        get {
+            self[StringLocation.self]
+        }
+        set {
+            self[StringLocation.self] = newValue
         }
     }
 
-    var description: String {
-        self.location.description
+    enum StringLocation: DiagnosticsMetadataKey {
+        typealias Value = String
     }
 }

@@ -465,7 +465,12 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         if let compilerOutput = result.compilerOutput {
             // FIXME: Temporary workaround to filter out debug output from integrated Swift driver. [rdar://73710910]
             if !(compilerOutput.hasPrefix("<unknown>:0: remark: new Swift driver at") && compilerOutput.hasSuffix("will be used")) {
-                diagnostics?.emit(.warning(ManifestLoadingDiagnostic(output: compilerOutput, diagnosticFile: result.diagnosticFile)))
+                let metadata = result.diagnosticFile.map { diagnosticFile -> DiagnosticsMetadata in
+                    var metadata = DiagnosticsMetadata()
+                    metadata.manifestLoadingDiagnosticFile = diagnosticFile
+                    return metadata
+                }
+                DiagnosticsEmitter().emit(.warning(compilerOutput, metadata: metadata))
             }
         }
 

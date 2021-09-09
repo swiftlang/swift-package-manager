@@ -114,8 +114,8 @@ extension Package {
 }
 
 extension Package {
-    public var diagnosticsContext: DiagnosticsContext {
-        return PackageDiagnosticsContext(identity: self.identity, location: self.manifest.packageLocation)
+    public var diagnosticsMetadata: DiagnosticsMetadata {
+        return .packageMetadata(identity: self.identity, location: self.manifest.packageLocation)
     }
 }
 
@@ -138,16 +138,41 @@ extension Package.Error: CustomStringConvertible {
     }
 }
 
-public struct PackageDiagnosticsContext: DiagnosticsContext {
-    public init(identity: PackageIdentity, location: String) {
-        self.identity = identity
-        self.location = location
+extension DiagnosticsMetadata {
+    public static func packageMetadata(identity: PackageIdentity, location: String) -> DiagnosticsMetadata {
+        var metadata = DiagnosticsMetadata()
+        metadata.packageIdentity = identity
+        metadata.packageLocation = location
+        return metadata
     }
+}
 
-    public let identity: PackageIdentity
-    public let location: String
+extension DiagnosticsMetadata {
+    public var packageIdentity: PackageIdentity? {
+        get {
+            self[PackageIdentityKey.self]
+        }
+        set {
+            self[PackageIdentityKey.self] = newValue
+        }
+    }
+    
+    enum PackageIdentityKey: DiagnosticsMetadataKey {
+        typealias Value = PackageIdentity
+    }
+}
 
-    public var description: String {
-        return "'\(identity)' \(location)"
+extension DiagnosticsMetadata {
+    public var packageLocation: String? {
+        get {
+            self[PackageLocationKey.self]
+        }
+        set {
+            self[PackageLocationKey.self] = newValue
+        }
+    }
+    
+    enum PackageLocationKey: DiagnosticsMetadataKey {
+        typealias Value = String
     }
 }

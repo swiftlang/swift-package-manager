@@ -1124,7 +1124,7 @@ final class XUnitGenerator {
     }
 }
 
-private extension DiagnosticMessage {
+private extension Basics.Diagnostic {
     static var noMatchingTests: Self {
         .warning("No matching test cases were run")
     }
