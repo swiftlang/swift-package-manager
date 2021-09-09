@@ -102,7 +102,7 @@ private class MockRepositories: RepositoryProvider {
         self.manifestLoader = MockManifestLoader(manifests: allManifests)
     }
 
-    func fetch(repository: RepositorySpecifier, to path: AbsolutePath) throws {
+    func fetch(repository: RepositorySpecifier, to path: AbsolutePath, progressHandler: FetchProgress.Handler? = nil) throws {
         // No-op.
         assert(self.repositories.index(forKey: repository.url) != nil)
     }
@@ -135,6 +135,9 @@ private class MockResolverDelegate: RepositoryManagerDelegate {
         self.fetched += [handle.repository]
     }
 
+    func fetchingRepository(from repository: String, objectsFetched: Int, totalObjectsToFetch: Int) {
+    }
+    
     func fetchingDidFinish(handle: RepositoryManager.RepositoryHandle, fetchDetails: RepositoryManager.FetchDetails?, error: Swift.Error?, duration: DispatchTimeInterval) {
     }
 

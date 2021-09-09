@@ -57,9 +57,10 @@ public protocol RepositoryProvider {
     ///
     /// - Parameters:
     ///   - repository: The specifier of the repository to fetch.
-    ///   - path: The destination path for the fetch.
+    ///   - path: The destiantion path for the fetch.
+    ///   - progress: Reports the progress of the current fetch operation.
     /// - Throws: If there is any error fetching the repository.
-    func fetch(repository: RepositorySpecifier, to path: AbsolutePath) throws
+    func fetch(repository: RepositorySpecifier, to path: AbsolutePath, progressHandler: FetchProgress.Handler?) throws
 
     /// Open the given repository.
     ///
@@ -152,6 +153,11 @@ public protocol Repository {
     /// - Throws: If an error occurs while performing the fetch operation.
     func fetch() throws
 
+    /// Fetch and update the repository from its remote.
+    ///
+    /// - Throws: If an error occurs while performing the fetch operation.
+    func fetch(progress: FetchProgress.Handler?) throws
+
     /// Returns true if the given revision exists.
     func exists(revision: Revision) -> Bool
 
@@ -186,6 +192,12 @@ public protocol Repository {
     ///
     /// - Throws: If an error occurs accessing the revision.
     func openFileView(tag: String) throws -> FileSystem
+}
+
+extension Repository {
+    public func fetch(progress: FetchProgress.Handler?) throws {
+        try fetch()
+    }
 }
 
 /// An editable checkout of a repository (i.e. a working copy) on the local file
@@ -242,4 +254,16 @@ public struct Revision: Hashable {
     public init(identifier: String) {
         self.identifier = identifier
     }
+}
+
+public protocol FetchProgress {
+    typealias Handler = (FetchProgress) -> Void
+
+    var message: String { get }
+    var step: Int { get }
+    var totalSteps: Int? { get }
+    /// The current download progress including the unit
+    var downloadProgress: String? { get }
+    /// The current download speed including the unit
+    var downloadSpeed: String? { get }
 }

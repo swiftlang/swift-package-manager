@@ -60,7 +60,7 @@ private class DummyRepositoryProvider: RepositoryProvider {
     private var _numClones = 0
     private var _numFetches = 0
 
-    func fetch(repository: RepositorySpecifier, to path: AbsolutePath) throws {
+    func fetch(repository: RepositorySpecifier, to path: AbsolutePath, progressHandler: FetchProgress.Handler? = nil) throws {
         assert(!localFileSystem.exists(path))
         try localFileSystem.createDirectory(path.parentDirectory, recursive: true)
         try localFileSystem.writeFileContents(path, bytes: ByteString(encodingAsUTF8: repository.url))
@@ -220,6 +220,9 @@ private class DummyRepositoryManagerDelegate: RepositoryManagerDelegate {
         self.willFetchGroup?.leave()
     }
 
+    func fetchingRepository(from repository: String, objectsFetched: Int, totalObjectsToFetch: Int) {
+    }
+    
     func fetchingDidFinish(handle: RepositoryManager.RepositoryHandle, fetchDetails: RepositoryManager.FetchDetails?, error: Swift.Error?, duration: DispatchTimeInterval) {
         self.fetchedLock.withLock {
             _didFetch += [(repository: handle.repository, fetchDetails: fetchDetails)]
