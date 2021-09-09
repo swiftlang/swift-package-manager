@@ -185,7 +185,7 @@ public class RepositoryManager {
                     var fetchDetails: FetchDetails? = nil
                     do {
                         // Start fetching.
-                        fetchDetails = try self.fetchAndPopulateCache(handle: handle, repositoryPath: repositoryPath, on: queue)
+                        fetchDetails = try self.fetchAndPopulateCache(handle: handle, repositoryPath: repositoryPath, delegateQueue: queue)
 
                         // Update status to available.
                         handle.status = .available
@@ -233,13 +233,13 @@ public class RepositoryManager {
     /// - Throws:
     /// - Returns: Details about the performed fetch.
     @discardableResult
-    func fetchAndPopulateCache(handle: RepositoryHandle, repositoryPath: AbsolutePath, on queue: DispatchQueue) throws -> FetchDetails {
+    func fetchAndPopulateCache(handle: RepositoryHandle, repositoryPath: AbsolutePath, delegateQueue: DispatchQueue) throws -> FetchDetails {
         var cacheUsed = false
         var cacheUpdated = false
 
         func updateFetchProgress(progress: FetchProgress) -> Void {
             if let total = progress.totalSteps {
-                queue.async {
+                delegateQueue.async {
                     self.delegate?.fetchingRepository(from: handle.repository.url,
                                                       objectsFetched: progress.step,
                                                       totalObjectsToFetch: total)
