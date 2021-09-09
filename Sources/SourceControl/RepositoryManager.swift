@@ -238,8 +238,8 @@ public class RepositoryManager {
         var cacheUpdated = false
 
         func updateFetchProgress(progress: FetchProgress) -> Void {
-            queue.async {
-                if let total = progress.totalSteps {
+            if let total = progress.totalSteps {
+                queue.async {
                     self.delegate?.fetchingRepository(from: handle.repository.url,
                                                       objectsFetched: progress.step,
                                                       totalObjectsToFetch: total)
