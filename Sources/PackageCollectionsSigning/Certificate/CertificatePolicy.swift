@@ -100,7 +100,7 @@ extension CertificatePolicy {
     }
 
     #elseif os(Linux) || os(Windows) || os(Android)
-    typealias BoringSSLVerifyCallback = @convention(c) (CInt, UnsafeMutablePointer<X509_STORE_CTX>?) -> CInt
+    typealias BoringSSLVerifyCallback = @convention(c) (CInt, OpaquePointer?) -> CInt
 
     /// Verifies a certificate chain.
     ///
