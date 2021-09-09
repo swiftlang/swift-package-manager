@@ -49,7 +49,7 @@ public class LLBuildManifestBuilder {
 
     // MARK:- Generate Manifest
     /// Generate manifest at the given path.
-    public func generateManifest(at path: AbsolutePath) throws {
+    public func generateManifest(at path: AbsolutePath) throws -> BuildManifest {
         manifest.createTarget(TargetKind.main.targetName)
         manifest.createTarget(TargetKind.test.targetName)
         manifest.defaultTarget = TargetKind.main.targetName
@@ -82,14 +82,8 @@ public class LLBuildManifestBuilder {
             try self.createProductCommand(description)
         }
 
-        // Output a dot graph
-        if buildParameters.printManifestGraphviz {
-            var serializer = DOTManifestSerializer(manifest: manifest)
-            serializer.writeDOT(to: &stdoutStream)
-            stdoutStream.flush()
-        }
-
         try ManifestWriter().write(manifest, at: path)
+        return manifest
     }
 
     func addNode(_ node: Node, toTarget targetKind: TargetKind) {

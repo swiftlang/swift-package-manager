@@ -123,7 +123,7 @@ public struct SwiftRunTool: SwiftCommand {
                 packageGraphLoader: graphLoader,
                 pluginInvoker: { _ in [:] },
                 diagnostics: swiftTool.diagnostics,
-                stdoutStream: swiftTool.stdoutStream
+                outputStream: swiftTool.outputStream
             )
 
             // Save the instance so it can be cancelled from the int handler.

@@ -133,15 +133,18 @@ class GenerateXcodeprojTests: XCTestCase {
             )
             XCTAssertNoDiagnostics(diagnostics)
 
-            let warningStream = BufferedOutputByteStream()
             _ = try xcodeProject(
                 xcodeprojPath: AbsolutePath.root.appending(component: "xcodeproj"),
                 graph: graph, extraDirs: [], extraFiles: [],
                 options: XcodeprojOptions(), fileSystem: localFileSystem,
-                diagnostics: diagnostics, warningStream: warningStream)
+                diagnostics: diagnostics
+            )
 
-            let warnings = warningStream.bytes.description
-            XCTAssertMatch(warnings, .contains("warning: Target 'Modules' conflicts with required framework filenames, rename this target to avoid conflicts."))
+            DiagnosticsEngineTester(diagnostics) { result in
+                result.check(
+                    diagnostic: .contains("Target 'Modules' conflicts with required framework filenames, rename this target to avoid conflicts."),
+                    behavior: .warning)
+            }
         }
     }
 

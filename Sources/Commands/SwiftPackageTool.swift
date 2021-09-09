@@ -145,7 +145,7 @@ extension SwiftPackageTool {
             }
 
             if let pinsStore = swiftTool.diagnostics.wrap({ try workspace.pinsStore.load() }), let changes = changes, dryRun {
-                logPackageChanges(changes: changes, pins: pinsStore)
+                logPackageChanges(changes: changes, pins: pinsStore, on: swiftTool.outputStream)
             }
 
             if !dryRun {
@@ -188,7 +188,7 @@ extension SwiftPackageTool {
                 diagnostics: swiftTool.diagnostics
             )
             let package = try builder.construct()
-            describe(package, in: type, on: stdoutStream)
+            describe(package, in: type, on: swiftTool.outputStream)
         }
     }
 
@@ -369,9 +369,13 @@ extension SwiftPackageTool {
                 apiDigesterTool: apiDigesterTool,
                 diags: swiftTool.diagnostics
             )
-            let baselineDir = try baselineDumper.emitAPIBaseline(for: modulesToDiff,
-                                                                 at: overrideBaselineDir,
-                                                                 force: regenerateBaseline)
+
+            let baselineDir = try baselineDumper.emitAPIBaseline(
+                for: modulesToDiff,
+                at: overrideBaselineDir,
+                force: regenerateBaseline,
+                outputStream: swiftTool.outputStream
+            )
 
             let results = ThreadSafeArrayStore<SwiftAPIDigester.ComparisonResult>()
             let group = DispatchGroup()
@@ -654,7 +658,7 @@ extension SwiftPackageTool {
 
         func run(_ swiftTool: SwiftTool) throws {
             let graph = try swiftTool.loadPackageGraph()
-            let stream = try outputPath.map { try LocalFileOutputByteStream($0) } ?? TSCBasic.stdoutStream.stream
+            let stream = try outputPath.map { try LocalFileOutputByteStream($0) } ?? swiftTool.outputStream
             dumpDependenciesOf(rootPackage: graph.rootPackages[0], mode: format, on: stream)
         }
     }
@@ -740,8 +744,8 @@ extension SwiftPackageTool {
                 throw ExitCode.failure
             }
 
-            stdoutStream <<< checksum <<< "\n"
-            stdoutStream.flush()
+            swiftTool.outputStream <<< checksum <<< "\n"
+            swiftTool.outputStream.flush()
         }
     }
 
@@ -777,12 +781,12 @@ extension SwiftPackageTool {
 
             if destination.contains(packageRoot) {
                 let relativePath = destination.relative(to: packageRoot)
-                stdoutStream <<< "Created \(relativePath.pathString)" <<< "\n"
+                swiftTool.outputStream <<< "Created \(relativePath.pathString)" <<< "\n"
             } else {
-                stdoutStream <<< "Created \(destination.pathString)" <<< "\n"
+                swiftTool.outputStream <<< "Created \(destination.pathString)" <<< "\n"
             }
 
-            stdoutStream.flush()
+            swiftTool.outputStream.flush()
         }
     }
 }
@@ -1105,23 +1109,23 @@ extension SwiftPackageTool {
                 print(script)
             case .listDependencies:
                 let graph = try swiftTool.loadPackageGraph()
-                dumpDependenciesOf(rootPackage: graph.rootPackages[0], mode: .flatlist)
+                dumpDependenciesOf(rootPackage: graph.rootPackages[0], mode: .flatlist, on: swiftTool.outputStream)
             case .listExecutables:
                 let graph = try swiftTool.loadPackageGraph()
                 let package = graph.rootPackages[0].underlyingPackage
                 let executables = package.targets.filter { $0.type == .executable }
                 for executable in executables {
-                    stdoutStream <<< "\(executable.name)\n"
+                    swiftTool.outputStream <<< "\(executable.name)\n"
                 }
-                stdoutStream.flush()
+                swiftTool.outputStream.flush()
             case .listSnippets:
                 let graph = try swiftTool.loadPackageGraph()
                 let package = graph.rootPackages[0].underlyingPackage
                 let executables = package.targets.filter { $0.type == .snippet }
                 for executable in executables {
-                    stdoutStream <<< "\(executable.name)\n"
+                    swiftTool.outputStream <<< "\(executable.name)\n"
                 }
-                stdoutStream.flush()
+                swiftTool.outputStream.flush()
             }
         }
     }
@@ -1229,7 +1233,7 @@ private extension Diagnostic.Message {
 /// - Parameter changes: Changes to log
 /// - Parameter pins: PinsStore with currently pinned packages to compare changed packages to.
 /// - Parameter stream: Stream used for logging
-fileprivate func logPackageChanges(changes: [(PackageReference, Workspace.PackageStateChange)], pins: PinsStore, on stream: OutputByteStream = TSCBasic.stdoutStream) {
+fileprivate func logPackageChanges(changes: [(PackageReference, Workspace.PackageStateChange)], pins: PinsStore, on stream: OutputByteStream) {
     let changes = changes.filter { $0.1 != .unchanged }
     
     stream <<< "\n"

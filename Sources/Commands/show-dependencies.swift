@@ -12,7 +12,7 @@ import TSCBasic
 import PackageModel
 import PackageGraph
 
-public func dumpDependenciesOf(rootPackage: ResolvedPackage, mode: ShowDependenciesMode, on stream: OutputByteStream = stdoutStream) {
+public func dumpDependenciesOf(rootPackage: ResolvedPackage, mode: ShowDependenciesMode, on stream: OutputByteStream) {
     let dumper: DependenciesDumper
     switch mode {
     case .text:

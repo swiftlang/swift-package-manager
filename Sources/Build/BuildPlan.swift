@@ -35,14 +35,6 @@ extension BuildParameters {
         return buildPath.appending(component: "ModuleCache")
     }
 
-    /// Checks if stdout stream is tty.
-    fileprivate static var isTTY: Bool = {
-        guard let stream = stdoutStream.stream as? LocalFileOutputByteStream else {
-            return false
-        }
-        return TerminalController.isTTY(stream)
-    }()
-
     /// Extra flags to pass to Swift compiler.
     public var swiftCompilerFlags: [String] {
         var flags = self.flags.cCompilerFlags.flatMap({ ["-Xcc", $0] })
@@ -779,7 +771,7 @@ public final class SwiftTargetBuildDescription {
         }
 
         // Add arguments to colorize output if stdout is tty
-        if BuildParameters.isTTY {
+        if buildParameters.isTTY {
             args += ["-color-diagnostics"]
         }
 

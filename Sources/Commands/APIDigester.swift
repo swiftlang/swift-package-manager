@@ -54,9 +54,12 @@ struct APIDigesterBaselineDumper {
     }
 
     /// Emit the API baseline files and return the path to their directory.
-    func emitAPIBaseline(for modulesToDiff: Set<String>,
-                         at baselineDir: AbsolutePath?,
-                         force: Bool) throws -> AbsolutePath {
+    func emitAPIBaseline(
+        for modulesToDiff: Set<String>,
+        at baselineDir: AbsolutePath?,
+        force: Bool,
+        outputStream: OutputByteStream
+    ) throws -> AbsolutePath {
         var modulesToDiff = modulesToDiff
         let apiDiffDir = inputBuildParameters.apiDiff
         let baselineDir = (baselineDir ?? apiDiffDir).appending(component: baselineRevision.identifier)
@@ -121,7 +124,7 @@ struct APIDigesterBaselineDumper {
             packageGraphLoader: { graph },
             pluginInvoker: { _ in [:] },
             diagnostics: diags,
-            stdoutStream: stdoutStream
+            outputStream: outputStream
         )
 
         try buildOp.build()

@@ -126,7 +126,7 @@ do {
         try editor.addTarget(options: .init(manifestPath: manifest, targetName: targetOptions.name, targetType: .regular))
 
     case .help:
-        parser.printUsage(on: stdoutStream)
+        parser.printUsage(on: swiftTool.outputStream)
     }
 
 } catch {
