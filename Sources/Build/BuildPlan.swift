@@ -743,7 +743,8 @@ public final class SwiftTargetBuildDescription {
         // when we link the executable, we will ask the linker to rename the entry point
         // symbol to just `_main` again (or if the linker doesn't support it, we'll
         // generate a source containing a redirect).
-        if target.type == .executable && !isTestTarget && toolsVersion >= .v5_5 {
+        if (target.type == .executable || target.type == .snippet)
+           && !isTestTarget && toolsVersion >= .v5_5 {
             // We only do this if the linker supports it, as indicated by whether we
             // can construct the linker flags. In the future we will use a generated
             // code stub for the cases in which the linker doesn't support it, so that
