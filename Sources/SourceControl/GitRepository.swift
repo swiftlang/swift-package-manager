@@ -1098,7 +1098,7 @@ public enum GitFetchProgress: FetchProgress {
     static func gitFetchStatusFilter(_ bytes: [UInt8], progress: FetchProgress.Handler) {
         guard let string = String(bytes: bytes, encoding: .utf8) else { return }
         let lines = string
-            .split { $0 == "\r" || $0 == "\n"  }
+            .split { $0.isNewline }
             .map { String($0) }
 
         for line in lines {
