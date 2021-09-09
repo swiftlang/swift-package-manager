@@ -74,7 +74,7 @@ public struct GitRepositoryProvider: RepositoryProvider {
                 // Capture stdout and stderr from the Git subprocess invocation, but also pass along stderr to the handler. We count on it being line-buffered.
                 let outputHandler = Process.OutputRedirection.stream(stdout: { stdoutBytes += $0 }, stderr: {
                     stderrBytes += $0
-                    GitFetchProgress.gitFetchStatusFilter($0, progress: progress)
+                    GitProgressParser.gitFetchStatusFilter($0, progress: progress)
                 })
                 return try self.git.run(args + ["--progress"], environment: environment, outputRedirection: outputHandler)
             }
@@ -329,7 +329,7 @@ public final class GitRepository: Repository, WorkingCheckout {
                 // Capture stdout and stderr from the Git subprocess invocation, but also pass along stderr to the handler. We count on it being line-buffered.
                 let outputHandler = Process.OutputRedirection.stream(stdout: { stdoutBytes += $0 }, stderr: {
                     stderrBytes += $0
-                    GitFetchProgress.gitFetchStatusFilter($0, progress: progress)
+                    GitProgressParser.gitFetchStatusFilter($0, progress: progress)
                 })
                 return try self.git.run(["-C", self.path.pathString] + args, environment: environment, outputRedirection: outputHandler)
             }
@@ -964,7 +964,7 @@ public struct GitCloneError: Error, CustomStringConvertible, DiagnosticLocationP
     }
 }
 
-public enum GitFetchProgress: FetchProgress {
+public enum GitProgressParser: FetchProgress {
     case enumeratingObjects(currentObjects: Int)
     case countingObjects(progress: Double, currentObjects: Int, totalObjects: Int)
     case compressingObjects(progress: Double, currentObjects: Int, totalObjects: Int)
@@ -994,7 +994,7 @@ public enum GitFetchProgress: FetchProgress {
     static let regex = try? RegEx(pattern: pattern)
 
     init?(from string: String) {
-        guard let matches = GitFetchProgress.regex?.matchGroups(in: string).first, matches.count == 20 else { return nil }
+        guard let matches = GitProgressParser.regex?.matchGroups(in: string).first, matches.count == 20 else { return nil }
 
         if matches[0] == "Enumerating objects" {
             guard let currentObjects = Int(matches[1]) else { return nil }
@@ -1102,7 +1102,7 @@ public enum GitFetchProgress: FetchProgress {
             .map { String($0) }
 
         for line in lines {
-            if let status = GitFetchProgress(from: line) {
+            if let status = GitProgressParser(from: line) {
                 switch status {
                 case .receivingObjects:
                     progress(status)
