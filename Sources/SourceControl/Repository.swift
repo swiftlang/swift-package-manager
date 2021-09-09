@@ -60,7 +60,7 @@ public protocol RepositoryProvider {
     ///   - path: The destiantion path for the fetch.
     ///   - progress: Reports the progress of the current fetch operation.
     /// - Throws: If there is any error fetching the repository.
-    func fetch(repository: RepositorySpecifier, to path: AbsolutePath, progress: FetchProgress.Handler?) throws
+    func fetch(repository: RepositorySpecifier, to path: AbsolutePath, progressHandler: FetchProgress.Handler?) throws
 
     /// Open the given repository.
     ///

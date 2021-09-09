@@ -263,7 +263,7 @@ public class RepositoryManager {
                             try repo.fetch(progress: updateFetchProgress(progress:))
                             cacheUsed = true
                         } else {
-                            try self.provider.fetch(repository: handle.repository, to: cachedRepositoryPath, progress: updateFetchProgress(progress:))
+                            try self.provider.fetch(repository: handle.repository, to: cachedRepositoryPath, progressHandler: updateFetchProgress(progress:))
                         }
                         cacheUpdated = true
                         // Copy the repository from the cache into the repository path.
@@ -277,11 +277,11 @@ public class RepositoryManager {
                 print("Skipping cache due to an error: \(error)")
                 // It is possible that we already created the directory before failing, so clear leftover data if present.
                 try fileSystem.removeFileTree(repositoryPath)
-                try self.provider.fetch(repository: handle.repository, to: repositoryPath, progress: updateFetchProgress(progress:))
+                try self.provider.fetch(repository: handle.repository, to: repositoryPath, progressHandler: updateFetchProgress(progress:))
             }
         } else {
             // Fetch without populating the cache when no `cachePath` is set.
-            try self.provider.fetch(repository: handle.repository, to: repositoryPath, progress: updateFetchProgress(progress:))
+            try self.provider.fetch(repository: handle.repository, to: repositoryPath, progressHandler: updateFetchProgress(progress:))
         }
         return FetchDetails(fromCache: cacheUsed, updatedCache: cacheUpdated)
     }

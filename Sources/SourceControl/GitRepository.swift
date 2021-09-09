@@ -92,7 +92,7 @@ public struct GitRepositoryProvider: RepositoryProvider {
         }
     }
 
-    public func fetch(repository: RepositorySpecifier, to path: AbsolutePath, progress: FetchProgress.Handler? = nil) throws {
+    public func fetch(repository: RepositorySpecifier, to path: AbsolutePath, progressHandler: FetchProgress.Handler? = nil) throws {
         // Perform a bare clone.
         //
         // NOTE: We intentionally do not create a shallow clone here; the
@@ -106,7 +106,7 @@ public struct GitRepositoryProvider: RepositoryProvider {
         try self.callGit("clone", "-c", "core.symlinks=true", "--mirror", repository.url, path.pathString,
                          repository: repository,
                          failureMessage: "Failed to clone repository \(repository.url)",
-                         progress: progress)
+                         progress: progressHandler)
     }
     
     public func isValidDirectory(_ directory: String) -> Bool {

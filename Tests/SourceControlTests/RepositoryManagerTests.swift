@@ -60,7 +60,7 @@ private class DummyRepositoryProvider: RepositoryProvider {
     private var _numClones = 0
     private var _numFetches = 0
 
-    func fetch(repository: RepositorySpecifier, to path: AbsolutePath, progress: FetchProgress.Handler? = nil) throws {
+    func fetch(repository: RepositorySpecifier, to path: AbsolutePath, progressHandler: FetchProgress.Handler? = nil) throws {
         assert(!localFileSystem.exists(path))
         try localFileSystem.createDirectory(path.parentDirectory, recursive: true)
         try localFileSystem.writeFileContents(path, bytes: ByteString(encodingAsUTF8: repository.url))
