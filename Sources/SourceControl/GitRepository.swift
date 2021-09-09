@@ -74,7 +74,7 @@ public struct GitRepositoryProvider: RepositoryProvider {
                 // Capture stdout and stderr from the Git subprocess invocation, but also pass along stderr to the handler. We count on it being line-buffered.
                 let outputHandler = Process.OutputRedirection.stream(stdout: { stdoutBytes += $0 }, stderr: {
                     stderrBytes += $0
-                    GitProgressParser.gitFetchStatusFilter($0, progress: progress)
+                    gitFetchStatusFilter($0, progress: progress)
                 })
                 return try self.git.run(args + ["--progress"], environment: environment, outputRedirection: outputHandler)
             }
@@ -329,7 +329,7 @@ public final class GitRepository: Repository, WorkingCheckout {
                 // Capture stdout and stderr from the Git subprocess invocation, but also pass along stderr to the handler. We count on it being line-buffered.
                 let outputHandler = Process.OutputRedirection.stream(stdout: { stdoutBytes += $0 }, stderr: {
                     stderrBytes += $0
-                    GitProgressParser.gitFetchStatusFilter($0, progress: progress)
+                    gitFetchStatusFilter($0, progress: progress)
                 })
                 return try self.git.run(["-C", self.path.pathString] + args, environment: environment, outputRedirection: outputHandler)
             }
@@ -1093,22 +1093,22 @@ public enum GitProgressParser: FetchProgress {
             return nil
         }
     }
+}
 
-    /// Processes stdout output and calls the progress callback with `GitStatus` objects.
-    static func gitFetchStatusFilter(_ bytes: [UInt8], progress: FetchProgress.Handler) {
-        guard let string = String(bytes: bytes, encoding: .utf8) else { return }
-        let lines = string
-            .split { $0.isNewline }
-            .map { String($0) }
+/// Processes stdout output and calls the progress callback with `GitStatus` objects.
+fileprivate func gitFetchStatusFilter(_ bytes: [UInt8], progress: FetchProgress.Handler) {
+    guard let string = String(bytes: bytes, encoding: .utf8) else { return }
+    let lines = string
+        .split { $0.isNewline }
+        .map { String($0) }
 
-        for line in lines {
-            if let status = GitProgressParser(from: line) {
-                switch status {
-                case .receivingObjects:
-                    progress(status)
-                default:
-                    continue
-                }
+    for line in lines {
+        if let status = GitProgressParser(from: line) {
+            switch status {
+            case .receivingObjects:
+                progress(status)
+            default:
+                continue
             }
         }
     }
