@@ -111,7 +111,13 @@ struct CoreCertificate {
 
 #elseif os(Linux) || os(Windows) || os(Android)
 final class BoringSSLCertificate {
-    private let underlying: OpaquePointer
+    #if CRYPTO_v2
+    typealias Pointer = OpaquePointer
+    #else
+    typealias Pointer = UnsafeMutablePointer<X509>
+    #endif
+    
+    private let underlying: Pointer
 
     deinit {
         CCryptoBoringSSL_X509_free(self.underlying)
@@ -119,7 +125,7 @@ final class BoringSSLCertificate {
 
     init(derEncoded data: Data) throws {
         let bytes = data.copyBytes()
-        let x509 = try bytes.withUnsafeBufferPointer { (ptr: UnsafeBufferPointer<UInt8>) throws -> OpaquePointer in
+        let x509 = try bytes.withUnsafeBufferPointer { (ptr: UnsafeBufferPointer<UInt8>) throws -> Pointer in
             var pointer = ptr.baseAddress
             guard let x509 = CCryptoBoringSSL_d2i_X509(nil, &pointer, numericCast(ptr.count)) else {
                 throw CertificateError.initializationFailure
@@ -129,7 +135,7 @@ final class BoringSSLCertificate {
         self.underlying = x509
     }
 
-    func withUnsafeMutablePointer<R>(_ body: (OpaquePointer) throws -> R) rethrows -> R {
+    func withUnsafeMutablePointer<R>(_ body: (Pointer) throws -> R) rethrows -> R {
         return try body(self.underlying)
     }
 
@@ -195,8 +201,14 @@ final class BoringSSLCertificate {
 }
 
 private extension CertificateName {
-    init(x509Name: OpaquePointer) {
-        func getStringValue(from name: OpaquePointer, of nid: CInt) -> String? {
+    #if CRYPTO_v2
+    typealias Pointer = OpaquePointer
+    #else
+    typealias Pointer = UnsafeMutablePointer<X509_NAME>
+    #endif
+    
+    init(x509Name: Pointer) {
+        func getStringValue(from name: Pointer, of nid: CInt) -> String? {
             let index = CCryptoBoringSSL_X509_NAME_get_index_by_NID(name, nid, -1)
             guard index >= 0 else {
                 return nil

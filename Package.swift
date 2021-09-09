@@ -53,6 +53,12 @@ automatic linking type with `-auto` suffix appended to product's name.
 */
 let autoProducts = [swiftPMProduct, swiftPMDataModelProduct]
 
+let minimumCryptoVersion: Version = "1.1.4"
+let swiftSettings: [SwiftSetting] = [
+    // Uncomment this define when using swift-crypto 2.x
+//    .define("CRYPTO_v2"),
+]
+
 let package = Package(
     name: "SwiftPM",
     platforms: [
@@ -183,7 +189,8 @@ let package = Package(
         .target(
              /** Package collections signing */
              name: "PackageCollectionsSigning",
-             dependencies: ["PackageCollectionsModel", "PackageCollectionsSigningLibc", "Crypto", "Basics"]),
+             dependencies: ["PackageCollectionsModel", "PackageCollectionsSigningLibc", "Crypto", "Basics"],
+             swiftSettings: swiftSettings),
 
         .target(
             /** Data structures and support for package collections */
@@ -368,7 +375,7 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         // dependency version changes here with those projects.
         .package(url: "https://github.com/apple/swift-argument-parser.git", .upToNextMinor(from: "0.4.3")),
         .package(url: "https://github.com/apple/swift-driver.git", .branch(relatedDependenciesBranch)),
-        .package(url: "https://github.com/apple/swift-crypto.git", .upToNextMinor(from: "1.1.4")),
+        .package(url: "https://github.com/apple/swift-crypto.git", .upToNextMinor(from: minimumCryptoVersion)),
     ]
 } else {
     package.dependencies += [
