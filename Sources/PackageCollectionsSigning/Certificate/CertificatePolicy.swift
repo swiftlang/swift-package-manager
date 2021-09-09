@@ -182,7 +182,7 @@ extension CertificatePolicy {
                 // Certs could have unknown critical extensions and cause them to be rejected.
                 // Check if they are tolerable.
                 if errorCode == X509_V_ERR_UNHANDLED_CRITICAL_EXTENSION {
-                    guard let cert = ctx?.pointee.current_cert else {
+                    guard let ctx = ctx, let cert = CCryptoBoringSSL_X509_STORE_CTX_get_current_cert(ctx) else {
                         return result
                     }
 
