@@ -345,7 +345,7 @@ struct LegacyPackageIdentity: PackageIdentityProvider, Equatable {
 ///   ```
 ///   file:///Users/mona/LinkedList → /Users/mona/LinkedList
 ///   ```
-struct CanonicalPackageIdentity: PackageIdentityProvider, Equatable {
+public struct CanonicalPackageIdentity: PackageIdentityProvider, Equatable {
     /// A textual representation of this instance.
     public let description: String
 
