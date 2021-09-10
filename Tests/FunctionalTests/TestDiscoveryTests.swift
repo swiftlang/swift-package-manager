@@ -18,9 +18,9 @@ class TestDiscoveryTests: XCTestCase {
         fixture(name: "Miscellaneous/TestDiscovery/Simple") { path in
             let (stdout, _) = try executeSwiftBuild(path)
             #if os(macOS)
-            XCTAssertMatch(stdout, .contains("Merging module Simple"))
+            XCTAssertMatch(stdout, .contains("module Simple"))
             #else
-            XCTAssertMatch(stdout, .contains("Merging module Simple"))
+            XCTAssertMatch(stdout, .contains("module Simple"))
             #endif
         }
     }
@@ -29,10 +29,10 @@ class TestDiscoveryTests: XCTestCase {
         fixture(name: "Miscellaneous/TestDiscovery/Simple") { path in
             let (stdout, stderr) = try executeSwiftTest(path)
             #if os(macOS)
-            XCTAssertMatch(stdout, .contains("Merging module Simple"))
+            XCTAssertMatch(stdout, .contains("module Simple"))
             XCTAssertMatch(stderr, .contains("Executed 2 tests"))
             #else
-            XCTAssertMatch(stdout, .contains("Merging module Simple"))
+            XCTAssertMatch(stdout, .contains("module Simple"))
             XCTAssertMatch(stdout, .contains("Executed 2 tests"))
             #endif
         }
@@ -42,10 +42,10 @@ class TestDiscoveryTests: XCTestCase {
         fixture(name: "Miscellaneous/TestDiscovery/hello world") { path in
             let (stdout, stderr) = try executeSwiftTest(path)
             #if os(macOS)
-            XCTAssertMatch(stdout, .contains("Merging module hello_world"))
+            XCTAssertMatch(stdout, .contains("module hello_world"))
             XCTAssertMatch(stderr, .contains("Executed 1 test"))
             #else
-            XCTAssertMatch(stdout, .contains("Merging module hello_world"))
+            XCTAssertMatch(stdout, .contains("module hello_world"))
             XCTAssertMatch(stdout, .contains("Executed 1 test"))
             #endif
         }
@@ -61,7 +61,7 @@ class TestDiscoveryTests: XCTestCase {
                 let manifestPath = path.appending(components: "Tests", name)
                 try localFileSystem.writeFileContents(manifestPath, bytes: ByteString("print(\"\(random)\")".utf8))
                 let (stdout, _) = try executeSwiftTest(path)
-                XCTAssertMatch(stdout, .contains("Merging module Simple"))
+                XCTAssertMatch(stdout, .contains("module Simple"))
                 XCTAssertNoMatch(stdout, .contains("Executed 1 test"))
                 XCTAssertMatch(stdout, .contains(random))
             }
@@ -78,7 +78,7 @@ class TestDiscoveryTests: XCTestCase {
             let manifestPath = path.appending(components: "Tests", name)
             try localFileSystem.writeFileContents(manifestPath, bytes: ByteString("fatalError(\"should not be called\")".utf8))
             let (stdout, _) = try executeSwiftTest(path, extraArgs: ["--enable-test-discovery"])
-            XCTAssertMatch(stdout, .contains("Merging module Simple"))
+            XCTAssertMatch(stdout, .contains("module Simple"))
             XCTAssertNoMatch(stdout, .contains("Executed 1 test"))
         }
         #endif
@@ -90,7 +90,7 @@ class TestDiscoveryTests: XCTestCase {
         #else
         fixture(name: "Miscellaneous/TestDiscovery/Extensions") { path in
             let (stdout, _) = try executeSwiftTest(path, extraArgs: ["--enable-test-discovery"])
-            XCTAssertMatch(stdout, .contains("Merging module Simple"))
+            XCTAssertMatch(stdout, .contains("module Simple"))
             XCTAssertMatch(stdout, .contains("SimpleTests1.testExample1"))
             XCTAssertMatch(stdout, .contains("SimpleTests1.testExample1_a"))
             XCTAssertMatch(stdout, .contains("SimpleTests2.testExample2"))
