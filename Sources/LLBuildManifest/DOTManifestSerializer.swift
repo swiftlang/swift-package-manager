@@ -38,7 +38,7 @@ public struct DOTManifestSerializer {
                           .replacingOccurrences(of: "\\", with: "\\\\") + "\""
     }
 
-    public mutating func writeDOT<Stream: TextOutputStream>(to stream: inout Stream) {
+    public mutating func writeDOT(to stream: OutputByteStream) {
         stream.write("digraph Jobs {\n")
         for (name, command) in manifest.commands {
             let jobName = quoteName(label(for: command))

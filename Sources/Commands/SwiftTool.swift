@@ -8,30 +8,28 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
+import ArgumentParser
+import Basics
+import Build
+import Dispatch
 import func Foundation.NSUserName
 import class Foundation.ProcessInfo
 import func Foundation.NSHomeDirectory
-import Dispatch
-
-import ArgumentParser
-import TSCLibc
-import TSCBasic
-import TSCUtility
-
 import PackageModel
 import PackageGraph
 import SourceControl
 import SPMBuildCore
-import Build
-import XCBuildSupport
+import TSCBasic
+import TSCLibc
+import TSCUtility
 import Workspace
-import Basics
+import XCBuildSupport
 
 typealias Diagnostic = TSCBasic.Diagnostic
 
 private class ToolWorkspaceDelegate: WorkspaceDelegate {
     /// The stream to use for reporting progress.
-    private let stdoutStream: ThreadSafeOutputByteStream
+    private let outputStream: ThreadSafeOutputByteStream
 
     /// The progress animation for downloads.
     private let downloadAnimation: NinjaProgressAnimation
@@ -61,26 +59,26 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
     private let queue = DispatchQueue(label: "org.swift.swiftpm.commands.tool-workspace-delegate")
     private let diagnostics: DiagnosticsEngine
 
-    init(_ stdoutStream: OutputByteStream, isVerbose: Bool, diagnostics: DiagnosticsEngine) {
+    init(_ outputStream: OutputByteStream, isVerbose: Bool, diagnostics: DiagnosticsEngine) {
         // FIXME: Implement a class convenience initializer that does this once they are supported
         // https://forums.swift.org/t/allow-self-x-in-class-convenience-initializers/15924
-        self.stdoutStream = stdoutStream as? ThreadSafeOutputByteStream ?? ThreadSafeOutputByteStream(stdoutStream)
-        self.downloadAnimation = NinjaProgressAnimation(stream: self.stdoutStream)
-        self.fetchAnimation = NinjaProgressAnimation(stream: self.stdoutStream)
+        self.outputStream = outputStream as? ThreadSafeOutputByteStream ?? ThreadSafeOutputByteStream(outputStream)
+        self.downloadAnimation = NinjaProgressAnimation(stream: self.outputStream)
+        self.fetchAnimation = NinjaProgressAnimation(stream: self.outputStream)
         self.isVerbose = isVerbose
         self.diagnostics = diagnostics
     }
 
     func fetchingWillBegin(repository: String, fetchDetails: RepositoryManager.FetchDetails?) {
         queue.async {
-            self.stdoutStream <<< "Fetching \(repository)"
+            self.outputStream <<< "Fetching \(repository)"
             if let fetchDetails = fetchDetails {
                 if fetchDetails.fromCache {
-                    self.stdoutStream <<< " from cache"
+                    self.outputStream <<< " from cache"
                 }
             }
-            self.stdoutStream <<< "\n"
-            self.stdoutStream.flush()
+            self.outputStream <<< "\n"
+            self.outputStream.flush()
         }
     }
 
@@ -98,41 +96,41 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
                 self.fetchProgress.removeAll()
             }
 
-            self.stdoutStream <<< "Fetched \(repository) (\(duration.descriptionInSeconds))"
-            self.stdoutStream <<< "\n"
-            self.stdoutStream.flush()
+            self.outputStream <<< "Fetched \(repository) (\(duration.descriptionInSeconds))"
+            self.outputStream <<< "\n"
+            self.outputStream.flush()
         }
     }
 
     func repositoryWillUpdate(_ repository: String) {
         queue.async {
-            self.stdoutStream <<< "Updating \(repository)"
-            self.stdoutStream <<< "\n"
-            self.stdoutStream.flush()
+            self.outputStream <<< "Updating \(repository)"
+            self.outputStream <<< "\n"
+            self.outputStream.flush()
         }
     }
 
     func repositoryDidUpdate(_ repository: String, duration: DispatchTimeInterval) {
         queue.async {
-            self.stdoutStream <<< "Updated \(repository) (\(duration.descriptionInSeconds))"
-            self.stdoutStream <<< "\n"
-            self.stdoutStream.flush()
+            self.outputStream <<< "Updated \(repository) (\(duration.descriptionInSeconds))"
+            self.outputStream <<< "\n"
+            self.outputStream.flush()
         }
     }
 
     func dependenciesUpToDate() {
         queue.async {
-            self.stdoutStream <<< "Everything is already up-to-date"
-            self.stdoutStream <<< "\n"
-            self.stdoutStream.flush()
+            self.outputStream <<< "Everything is already up-to-date"
+            self.outputStream <<< "\n"
+            self.outputStream.flush()
         }
     }
 
     func willCreateWorkingCopy(repository: String, at path: AbsolutePath) {
         queue.async {
-            self.stdoutStream <<< "Creating working copy for \(repository)"
-            self.stdoutStream <<< "\n"
-            self.stdoutStream.flush()
+            self.outputStream <<< "Creating working copy for \(repository)"
+            self.outputStream <<< "\n"
+            self.outputStream.flush()
         }
     }
 
@@ -145,26 +143,26 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
             return // error will be printed before hand
         }
         queue.async {
-            self.stdoutStream <<< "Working copy of \(repository) resolved at \(revision)"
-            self.stdoutStream <<< "\n"
-            self.stdoutStream.flush()
+            self.outputStream <<< "Working copy of \(repository) resolved at \(revision)"
+            self.outputStream <<< "\n"
+            self.outputStream.flush()
         }
     }
 
     func removing(repository: String) {
         queue.async {
-            self.stdoutStream <<< "Removing \(repository)"
-            self.stdoutStream <<< "\n"
-            self.stdoutStream.flush()
+            self.outputStream <<< "Removing \(repository)"
+            self.outputStream <<< "\n"
+            self.outputStream.flush()
         }
     }
 
     func warning(message: String) {
         // FIXME: We should emit warnings through the diagnostic engine.
         queue.async {
-            self.stdoutStream <<< "warning: " <<< message
-            self.stdoutStream <<< "\n"
-            self.stdoutStream.flush()
+            self.outputStream <<< "warning: " <<< message
+            self.outputStream <<< "\n"
+            self.outputStream.flush()
         }
     }
 
@@ -172,25 +170,25 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
         guard isVerbose else { return }
 
         queue.sync {
-            self.stdoutStream <<< Workspace.format(workspaceResolveReason: reason)
-            self.stdoutStream <<< "\n"
-            self.stdoutStream.flush()
+            self.outputStream <<< Workspace.format(workspaceResolveReason: reason)
+            self.outputStream <<< "\n"
+            self.outputStream.flush()
         }
     }
 
     func willComputeVersion(package: PackageIdentity, location: String) {
         queue.async {
-            self.stdoutStream <<< "Computing version for \(location)"
-            self.stdoutStream <<< "\n"
-            self.stdoutStream.flush()
+            self.outputStream <<< "Computing version for \(location)"
+            self.outputStream <<< "\n"
+            self.outputStream.flush()
         }
     }
 
     func didComputeVersion(package: PackageIdentity, location: String, version: String, duration: DispatchTimeInterval) {
         queue.async {
-            self.stdoutStream <<< "Computed \(location) at \(version) (\(duration.descriptionInSeconds))"
-            self.stdoutStream <<< "\n"
-            self.stdoutStream.flush()
+            self.outputStream <<< "Computed \(location) at \(version) (\(duration.descriptionInSeconds))"
+            self.outputStream <<< "\n"
+            self.outputStream.flush()
         }
     }
 
@@ -241,22 +239,19 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
 
 /// Handler for the main DiagnosticsEngine used by the SwiftTool class.
 private final class DiagnosticsEngineHandler {
-    /// The standard output stream.
-    var stdoutStream = TSCBasic.stdoutStream
-
     /// The default instance.
     static let `default` = DiagnosticsEngineHandler()
 
     private init() {}
 
     func diagnosticsHandler(_ diagnostic: Diagnostic) {
-        print(diagnostic: diagnostic, stdoutStream: stderrStream)
+        diagnostic.print()
     }
 }
 
 protocol SwiftCommand: ParsableCommand {
     var swiftOptions: SwiftToolOptions { get }
-  
+
     func run(_ swiftTool: SwiftTool) throws
 }
 
@@ -285,7 +280,7 @@ public class SwiftTool {
     /// Helper function to get package root or throw error if it is not found.
     func getPackageRoot() throws -> AbsolutePath {
         guard let packageRoot = packageRoot else {
-            throw Error.rootManifestFileNotFound
+            throw StringError("Could not find \(Manifest.filename) in this directory or any of its parent directories.")
         }
         return packageRoot
     }
@@ -324,7 +319,7 @@ public class SwiftTool {
     var executionStatus: ExecutionStatus = .success
 
     /// The stream to print standard output on.
-    fileprivate(set) var stdoutStream: OutputByteStream = TSCBasic.stdoutStream
+    fileprivate(set) var outputStream: OutputByteStream = TSCBasic.stdoutStream
 
     /// Holds the currently active workspace.
     ///
@@ -355,9 +350,9 @@ public class SwiftTool {
             }
 
             // Force building with the native build system on other platforms than macOS.
-          #if !os(macOS)
+#if !os(macOS)
             self.options._buildSystem = .native
-          #endif
+#endif
 
             let processSet = ProcessSet()
             let buildSystemRef = BuildSystemRef()
@@ -366,35 +361,35 @@ public class SwiftTool {
                 processSet.terminate()
                 buildSystemRef.buildSystem?.cancel()
 
-              #if os(Windows)
+#if os(Windows)
                 // Exit as if by signal()
                 TerminateProcess(GetCurrentProcess(), 3)
-              #elseif os(macOS) || os(OpenBSD)
+#elseif os(macOS) || os(OpenBSD)
                 // Install the default signal handler.
                 var action = sigaction()
                 action.__sigaction_u.__sa_handler = SIG_DFL
                 sigaction(SIGINT, &action, nil)
                 kill(getpid(), SIGINT)
-              #elseif os(Android)
+#elseif os(Android)
                 // Install the default signal handler.
                 var action = sigaction()
                 action.sa_handler = SIG_DFL
                 sigaction(SIGINT, &action, nil)
                 kill(getpid(), SIGINT)
-              #else
+#else
                 var action = sigaction()
                 action.__sigaction_handler = unsafeBitCast(
                     SIG_DFL,
                     to: sigaction.__Unnamed_union___sigaction_handler.self)
                 sigaction(SIGINT, &action, nil)
                 kill(getpid(), SIGINT)
-              #endif
+#endif
             }
             self.processSet = processSet
             self.buildSystemRef = buildSystemRef
 
         } catch {
-            handle(error: error)
+            diagnostics.emit(error)
             throw ExitCode.failure
         }
 
@@ -404,8 +399,8 @@ public class SwiftTool {
 
         self.packageRoot = packageRoot
         self.buildPath = getEnvBuildPath(workingDir: cwd) ??
-            customBuildPath ??
-            (packageRoot ?? cwd).appending(component: ".build")
+        customBuildPath ??
+        (packageRoot ?? cwd).appending(component: ".build")
         
         // Setup the globals.
         verbosity = Verbosity(rawValue: options.verbosity)
@@ -430,11 +425,11 @@ public class SwiftTool {
         }
 
         // --enable-test-discovery should never be called on darwin based platforms
-        #if canImport(Darwin)
+#if canImport(Darwin)
         if options.enableTestDiscovery {
             diagnostics.emit(warning: "'--enable-test-discovery' option is deprecated; tests are automatically discovered on all platforms")
         }
-        #endif
+#endif
 
         if options.shouldDisableManifestCaching {
             diagnostics.emit(warning: "'--disable-package-manifest-caching' option is deprecated; use '--manifest-caching' instead")
@@ -566,7 +561,7 @@ public class SwiftTool {
         }
 
         let isVerbose = options.verbosity != 0
-        let delegate = ToolWorkspaceDelegate(self.stdoutStream, isVerbose: isVerbose, diagnostics: diagnostics)
+        let delegate = ToolWorkspaceDelegate(self.outputStream, isVerbose: isVerbose, diagnostics: diagnostics)
         let provider = GitRepositoryProvider(processSet: processSet)
         let sharedCacheDirectory =  try self.getSharedCacheDirectory()
         let sharedConfigurationDirectory = try self.getSharedConfigurationDirectory()
@@ -598,8 +593,7 @@ public class SwiftTool {
 
     /// Start redirecting the standard output stream to the standard error stream.
     func redirectStdoutToStderr() {
-        self.stdoutStream = TSCBasic.stderrStream
-        DiagnosticsEngineHandler.default.stdoutStream = TSCBasic.stderrStream
+        self.outputStream = TSCBasic.stderrStream
     }
 
     /// Resolve the dependencies.
@@ -711,8 +705,8 @@ public class SwiftTool {
 
         let buildParameters = try self.buildParameters()
         let haveBuildManifestAndDescription =
-            localFileSystem.exists(buildParameters.llbuildManifest) &&
-            localFileSystem.exists(buildParameters.buildDescriptionPath)
+        localFileSystem.exists(buildParameters.llbuildManifest) &&
+        localFileSystem.exists(buildParameters.buildDescriptionPath)
 
         if !haveBuildManifestAndDescription {
             return false
@@ -740,7 +734,7 @@ public class SwiftTool {
             packageGraphLoader: graphLoader,
             pluginInvoker: { _ in [:] },
             diagnostics: diagnostics,
-            stdoutStream: self.stdoutStream
+            outputStream: self.outputStream
         )
 
         // Save the instance so it can be cancelled from the int handler.
@@ -760,7 +754,7 @@ public class SwiftTool {
                 packageGraphLoader: graphLoader,
                 pluginInvoker: pluginInvoker,
                 diagnostics: diagnostics,
-                stdoutStream: stdoutStream
+                outputStream: self.outputStream
             )
         case .xcode:
             let graphLoader = { try self.loadPackageGraph(explicitProduct: explicitProduct, createMultipleTestProducts: true) }
@@ -770,7 +764,7 @@ public class SwiftTool {
                 packageGraphLoader: graphLoader,
                 isVerbose: verbosity != .concise,
                 diagnostics: diagnostics,
-                stdoutStream: stdoutStream
+                outputStream: self.outputStream
             )
         }
 
@@ -789,11 +783,25 @@ public class SwiftTool {
             let toolchain = try self.getToolchain()
             let triple = toolchain.triple
 
+            /// Checks if stdout stream is tty.
+            let isTTY: Bool = {
+                let stream: OutputByteStream
+                if let threadSafeStream = self.outputStream as? ThreadSafeOutputByteStream {
+                    stream = threadSafeStream.stream
+                } else {
+                    stream = self.outputStream
+                }
+                guard let fileStream = stream as? LocalFileOutputByteStream else {
+                    return false
+                }
+                return TerminalController.isTTY(fileStream)
+            }()
+
             // Use "apple" as the subdirectory because in theory Xcode build system
             // can be used to build for any Apple platform and it has it's own
             // conventions for build subpaths based on platforms.
             let dataPath = buildPath.appending(
-                 component: options.buildSystem == .xcode ? "apple" : triple.tripleString)
+                component: options.buildSystem == .xcode ? "apple" : triple.tripleString)
             return BuildParameters(
                 dataPath: dataPath,
                 configuration: options.configuration,
@@ -813,7 +821,8 @@ public class SwiftTool {
                 useExplicitModuleBuild: options.useExplicitModuleBuild,
                 isXcodeBuildSystemEnabled: options.buildSystem == .xcode,
                 printManifestGraphviz: options.printManifestGraphviz,
-                forceTestDiscovery: options.enableTestDiscovery // backwards compatibility, remove with --enable-test-discovery
+                forceTestDiscovery: options.enableTestDiscovery, // backwards compatibility, remove with --enable-test-discovery
+                isTTY: isTTY
             )
         })
     }()
@@ -861,7 +870,7 @@ public class SwiftTool {
     private lazy var _hostToolchain: Result<UserToolchain, Swift.Error> = {
         return Result(catching: {
             try UserToolchain(destination: Destination.hostDestination(
-                        originalWorkingDirectory: self.originalWorkingDirectory))
+                originalWorkingDirectory: self.originalWorkingDirectory))
         })
     }()
 
@@ -953,10 +962,74 @@ extension DispatchTimeInterval {
             return String(format: "%.2f", Double(value)/Double(1_000_000_000)) + "s"
         case .never:
             return "n/a"
-        #if os(macOS) || os(iOS) || os(tvOS) || os(watchOS)
+#if os(macOS) || os(iOS) || os(tvOS) || os(watchOS)
         @unknown default:
             return "n/a"
-        #endif
+#endif
         }
     }
 }
+
+
+// MARK: - Diagnostics
+
+extension Diagnostic {
+    func print() {
+        let writer = InteractiveWriter.stderr
+
+        if !(self.location is UnknownLocation) {
+            writer.write(self.location.description)
+            writer.write(": ")
+        }
+
+        switch self.message.behavior {
+        case .error:
+            writer.write("error: ", inColor: .red, bold: true)
+        case .warning:
+            writer.write("warning: ", inColor: .yellow, bold: true)
+        case .note:
+            writer.write("note: ", inColor: .yellow, bold: true)
+        case .remark:
+            writer.write("remark: ", inColor: .yellow, bold: true)
+        case .ignored:
+            break
+        }
+
+        writer.write(self.description)
+        writer.write("\n")
+    }
+}
+
+/// This class is used to write on the underlying stream.
+///
+/// If underlying stream is a not tty, the string will be written in without any
+/// formatting.
+private final class InteractiveWriter {
+    /// The standard error writer.
+    static let stderr = InteractiveWriter(stream: TSCBasic.stderrStream)
+    /// The standard output writer.
+    static let stdout = InteractiveWriter(stream: TSCBasic.stdoutStream)
+
+    /// The terminal controller, if present.
+    let term: TerminalController?
+
+    /// The output byte stream reference.
+    let stream: OutputByteStream
+
+    /// Create an instance with the given stream.
+    init(stream: OutputByteStream) {
+        self.term = TerminalController(stream: stream)
+        self.stream = stream
+    }
+
+    /// Write the string to the contained terminal or stream.
+    func write(_ string: String, inColor color: TerminalController.Color = .noColor, bold: Bool = false) {
+        if let term = term {
+            term.write(string, inColor: color, bold: bold)
+        } else {
+            stream <<< string
+            stream.flush()
+        }
+    }
+}
+

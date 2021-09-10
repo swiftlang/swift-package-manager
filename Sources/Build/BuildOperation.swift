@@ -52,8 +52,8 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     /// The loaded package graph.
     private var packageGraph: PackageGraph?
 
-    /// The stdout stream for the build delegate.
-    let stdoutStream: OutputByteStream
+    /// The output stream for the build delegate.
+    let outputStream: OutputByteStream
 
     public var builtTestProducts: [BuiltTestProduct] {
         (try? getBuildDescription())?.builtTestProducts ?? []
@@ -65,14 +65,14 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         packageGraphLoader: @escaping () throws -> PackageGraph,
         pluginInvoker: @escaping (PackageGraph) throws -> [ResolvedTarget: [PluginInvocationResult]],
         diagnostics: DiagnosticsEngine,
-        stdoutStream: OutputByteStream
+        outputStream: OutputByteStream
     ) {
         self.buildParameters = buildParameters
         self.cacheBuildManifest = cacheBuildManifest
         self.packageGraphLoader = packageGraphLoader
         self.pluginInvoker = pluginInvoker
         self.diagnostics = diagnostics
-        self.stdoutStream = stdoutStream
+        self.outputStream = outputStream
     }
 
     public func getPackageGraph() throws -> PackageGraph {
@@ -121,7 +121,8 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     /// Perform a build using the given build description and subset.
     public func build(subset: BuildSubset) throws {
         // Create the build system.
-        let buildSystem = try createBuildSystem(with: getBuildDescription())
+        let buildDescription = try self.getBuildDescription()
+        let buildSystem = try createBuildSystem(with: buildDescription)
         self.buildSystem = buildSystem
 
         // Perform the build.
@@ -194,9 +195,21 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             diagnostics: diagnostics
         )
         self.buildPlan = plan
+
+        let (buildDescription, buildManifest) = try BuildDescription.create(with: plan)
+
+        // FIXME: ideally this would be done outside of the planning phase,
+        // but it would require deeper changes in how we serialize BuildDescription
+        // Output a dot graph
+        if buildParameters.printManifestGraphviz {
+            // FIXME: this seems like the wrong place to print
+            var serializer = DOTManifestSerializer(manifest: buildManifest)
+            serializer.writeDOT(to: self.outputStream)
+            self.outputStream.flush()
+        }
         
         // Finally create the llbuild manifest from the plan.
-        return try BuildDescription.create(with: plan)
+        return buildDescription
     }
 
     /// Build the package structure target.
@@ -220,8 +233,8 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         // Figure out which progress bar we have to use during the build.
         let isVerbose = verbosity != .concise
         let progressAnimation: ProgressAnimationProtocol = isVerbose
-            ? MultiLineNinjaProgressAnimation(stream: self.stdoutStream)
-            : NinjaProgressAnimation(stream: self.stdoutStream)
+            ? MultiLineNinjaProgressAnimation(stream: self.outputStream)
+            : NinjaProgressAnimation(stream: self.outputStream)
 
         let bctx = BuildExecutionContext(
             buildParameters,
@@ -235,7 +248,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             buildSystem: self,
             bctx: bctx,
             diagnostics: diagnostics,
-            outputStream: self.stdoutStream,
+            outputStream: self.outputStream,
             progressAnimation: progressAnimation,
             delegate: self.delegate
         )
@@ -294,10 +307,10 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 }
 
 extension BuildDescription {
-    static func create(with plan: BuildPlan) throws -> BuildDescription {
+    static func create(with plan: BuildPlan) throws -> (BuildDescription, BuildManifest) {
         // Generate the llbuild manifest.
         let llbuild = LLBuildManifestBuilder(plan)
-        try llbuild.generateManifest(at: plan.buildParameters.llbuildManifest)
+        let buildManifest = try llbuild.generateManifest(at: plan.buildParameters.llbuildManifest)
 
         let swiftCommands = llbuild.manifest.getCmdToolMap(kind: SwiftCompilerTool.self)
         let swiftFrontendCommands = llbuild.manifest.getCmdToolMap(kind: SwiftFrontendTool.self)
@@ -317,7 +330,7 @@ extension BuildDescription {
             recursive: true
         )
         try buildDescription.write(to: plan.buildParameters.buildDescriptionPath)
-        return buildDescription
+        return (buildDescription, buildManifest)
     }
 }
 

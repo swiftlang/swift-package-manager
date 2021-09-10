@@ -2213,7 +2213,7 @@ class DependencyGraphBuilder {
     }
 
     func create(pinsMap: PinsStore.PinsMap = [:], log: Bool = false) -> PubgrubDependencyResolver {
-        let delegate = log ? TracingDependencyResolverDelegate(stream: stdoutStream) : nil
+        let delegate = log ? TracingDependencyResolverDelegate(stream: TSCBasic.stdoutStream) : nil
         return self.create(pinsMap: pinsMap, delegate: delegate)
     }
 

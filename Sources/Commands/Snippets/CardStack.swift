@@ -35,7 +35,7 @@ struct CardStack {
     private var needsToClearScreen = true
 
     init(package: ResolvedPackage, snippetGroups: [SnippetGroup], swiftTool: SwiftTool) {
-        self.terminal = TerminalController(stream: stdoutStream)!
+        self.terminal = TerminalController(stream: swiftTool.outputStream)!
         self.cards = [TopCard(package: package, snippetGroups: snippetGroups, swiftTool: swiftTool)]
         self.swiftTool = swiftTool
     }

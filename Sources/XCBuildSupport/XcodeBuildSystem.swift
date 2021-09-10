@@ -25,8 +25,8 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
     private var packageGraph: PackageGraph?
     private var pifBuilder: PIFBuilder?
 
-    /// The stdout stream for the build delegate.
-    let stdoutStream: OutputByteStream
+    /// The output stream for the build delegate.
+    let outputStream: OutputByteStream
 
     /// The delegate used by the build system.
     public weak var delegate: SPMBuildCore.BuildSystemDelegate?
@@ -58,13 +58,13 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
         packageGraphLoader: @escaping () throws -> PackageGraph,
         isVerbose: Bool,
         diagnostics: DiagnosticsEngine,
-        stdoutStream: OutputByteStream
+        outputStream: OutputByteStream
     ) throws {
         self.buildParameters = buildParameters
         self.packageGraphLoader = packageGraphLoader
         self.isVerbose = isVerbose
         self.diagnostics = diagnostics
-        self.stdoutStream = stdoutStream
+        self.outputStream = outputStream
 
         if let xcbuildTool = ProcessEnv.vars["XCBUILD_TOOL"] {
             xcbuildPath = try AbsolutePath(validating: xcbuildTool)
@@ -196,12 +196,12 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
     /// Returns a new instance of `XCBuildDelegate` for a build operation.
     private func createBuildDelegate() -> XCBuildDelegate {
         let progressAnimation: ProgressAnimationProtocol = isVerbose
-            ? VerboseProgressAnimation(stream: stdoutStream)
-            : MultiLinePercentProgressAnimation(stream: stdoutStream, header: "")
+            ? VerboseProgressAnimation(stream: self.outputStream)
+            : MultiLinePercentProgressAnimation(stream: self.outputStream, header: "")
         let delegate = XCBuildDelegate(
             buildSystem: self,
             diagnostics: diagnostics,
-            outputStream: stdoutStream,
+            outputStream: self.outputStream,
             progressAnimation: progressAnimation)
         delegate.isVerbose = isVerbose
         return delegate
