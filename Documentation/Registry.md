@@ -595,7 +595,7 @@ whose filename matches the following regular expression pattern:
 \APackage@swift-(\d+)(?:\.(\d+))?(?:\.(\d+))?.swift\z
 ```
 
-Each link value SHOULD have the `alternative` relation type,
+Each link value SHOULD have the `alternate` relation type,
 a `filename` attribute set to the version-specific package manifest filename
 (for example, `Package@swift-4.swift`), and
 a `swift-tools-version` attribute set to the [Swift tools version]
