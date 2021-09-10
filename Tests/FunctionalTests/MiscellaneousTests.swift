@@ -33,9 +33,11 @@ class MiscellaneousTestCase: XCTestCase {
             let (output, _) = try executeSwiftBuild(prefix.appending(component: "Bar"))
             XCTAssertMatch(output, .regex("Computed .* at 1\\.2\\.3"))
             XCTAssertMatch(output, .contains("Compiling Foo Foo.swift"))
-            XCTAssertMatch(output, .contains("Merging module Foo"))
+            XCTAssertMatch(output, .or(.contains("Merging module Foo"),
+                                       .contains("Emitting module Foo")))
             XCTAssertMatch(output, .contains("Compiling Bar main.swift"))
-            XCTAssertMatch(output, .contains("Merging module Bar"))
+            XCTAssertMatch(output, .or(.contains("Merging module Bar"),
+                                      .contains("Emitting module Bar")))
             XCTAssertMatch(output, .contains("Linking Bar"))
         }
     }

@@ -729,6 +729,8 @@ fileprivate struct CommandTaskTracker {
                 return "Linking \(targetName)"
             case "merge-module":
                 return "Merging module \(targetName)"
+            case "emit-module":
+                return "Emitting module \(targetName)"
             case "generate-dsym":
                 return "Generating \(targetName) dSYM"
             case "generate-pch":
