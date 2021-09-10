@@ -258,7 +258,7 @@ private func createResolvedPackages(
                 // check if the resolved package location is the same as the dependency one
                 // if not, this means that the dependencies share the same identity
                 // which only allowed when overriding
-                if resolvedPackage.package.manifest.packageLocation != dependencyLocation && !resolvedPackage.allowedToOverride {
+                if !LocationComparator.areEqual(resolvedPackage.package.manifest.packageLocation, dependencyLocation) && !resolvedPackage.allowedToOverride {
                     let error = PackageGraphError.dependencyAlreadySatisfiedByIdentifier(
                         package: package.identity.description,
                         dependencyLocation: dependencyLocation,
@@ -269,7 +269,7 @@ private func createResolvedPackages(
                     // we will upgrade this to an error in a few versions to tighten up the validation
                     if dependency.explicitNameForTargetDependencyResolutionOnly == .none ||
                         resolvedPackage.package.manifestName == dependency.explicitNameForTargetDependencyResolutionOnly {
-                        diagnostics.emit(.warning(error.description + ". this will be upgraded to an error in future versions of SwiftPM."), location: package.diagnosticLocation)
+                        diagnostics.emit(.warning(error.description + ". this will be escalated to an error in future versions of SwiftPM."), location: package.diagnosticLocation)
                     } else {
                         return diagnostics.emit(error, location: package.diagnosticLocation)
                     }
@@ -652,3 +652,23 @@ fileprivate func findCycle(
     // Couldn't find any cycle in the graph.
     return nil
 }
+
+
+// TODO: model package location better / encapsulate into a new type (PackageLocation) so that such comparison is reusable
+// additionally move and rename CanonicalPackageIdentity to become a detail function of the PackageLocation abstraction, as it is not used otherwise
+struct LocationComparator {
+    static func areEqual(_ lhs: String, _ rhs: String) -> Bool {
+        if lhs == rhs {
+            return true
+        }
+
+        let canonicalLHS = CanonicalPackageIdentity(lhs)
+        let canonicalRHS = CanonicalPackageIdentity(rhs)
+        if canonicalLHS == canonicalRHS {
+            return true
+        }
+
+        return false
+    }
+}
+
