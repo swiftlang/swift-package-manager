@@ -14,7 +14,6 @@ import PackageModel
 import SourceControl
 import TSCBasic
 import TSCUtility
-import Foundation
 
 extension PackageGraph {
 
