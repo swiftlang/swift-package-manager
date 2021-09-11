@@ -191,7 +191,7 @@ public struct TargetSourcesBuilder {
         // First match any resources explicitly declared in the manifest file.
         for declaredResource in target.resources {
             let resourcePath = self.targetPath.appending(RelativePath(declaredResource.path))
-            if path.contains(resourcePath) {
+            if path.isDescendantOfOrEqual(to: resourcePath) {
                 if matchedRule.rule != .none {
                     diags.emit(.error("duplicate resource rule '\(declaredResource.rule)' found for file at '\(path)'"))
                 }
@@ -202,7 +202,7 @@ public struct TargetSourcesBuilder {
         // Match any sources explicitly declared in the manifest file.
         if let declaredSources = self.declaredSources {
             for sourcePath in declaredSources {
-                if path.contains(sourcePath) {
+                if path.isDescendantOfOrEqual(to: sourcePath) {
                     if matchedRule.rule != .none {
                         diags.emit(.error("duplicate rule found for file at '\(path)'"))
                     }

@@ -49,6 +49,7 @@ public class LLBuildManifestBuilder {
 
     // MARK:- Generate Manifest
     /// Generate manifest at the given path.
+    @discardableResult
     public func generateManifest(at path: AbsolutePath) throws -> BuildManifest {
         manifest.createTarget(TargetKind.main.targetName)
         manifest.createTarget(TargetKind.test.targetName)

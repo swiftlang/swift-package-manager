@@ -546,7 +546,7 @@ public final class PackageBuilder {
 
                 let path = packagePath.appending(relativeSubPath)
                 // Make sure the target is inside the package root.
-                guard path.contains(packagePath) else {
+                guard path.isDescendantOfOrEqual(to: packagePath) else {
                     throw ModuleError.targetOutsidePackage(package: self.manifest.name, target: target.name)
                 }
                 if fileSystem.isDirectory(path) {
@@ -797,7 +797,7 @@ public final class PackageBuilder {
         // Compute the path to public headers directory.
         let publicHeaderComponent = manifestTarget.publicHeadersPath ?? ClangTarget.defaultPublicHeadersComponent
         let publicHeadersPath = potentialModule.path.appending(try RelativePath(validating: publicHeaderComponent))
-        guard publicHeadersPath.contains(potentialModule.path) else {
+        guard publicHeadersPath.isDescendantOfOrEqual(to: potentialModule.path) else {
             throw ModuleError.invalidPublicHeadersDirectory(potentialModule.name)
         }
 
@@ -937,7 +937,7 @@ public final class PackageBuilder {
 
                 // Ensure that the search path is contained within the package.
                 let subpath = try RelativePath(validating: setting.value[0])
-                guard targetRoot.appending(subpath).contains(packagePath) else {
+                guard targetRoot.appending(subpath).isDescendantOfOrEqual(to: packagePath) else {
                     throw ModuleError.invalidHeaderSearchPath(subpath.pathString)
                 }
 
@@ -1127,12 +1127,12 @@ public final class PackageBuilder {
             // If the target root's parent directory is inside the package, start
             // search there. Otherwise, we start search from the target root.
             var searchPath = target.sources.root.parentDirectory
-            if !searchPath.contains(packagePath) {
+            if !searchPath.isDescendantOfOrEqual(to: packagePath) {
                 searchPath = target.sources.root
             }
 
             while true {
-                assert(searchPath.contains(packagePath), "search path \(searchPath) is outside the package \(packagePath)")
+                assert(searchPath.isDescendantOfOrEqual(to: packagePath), "search path \(searchPath) is outside the package \(packagePath)")
                 // If we have already searched this path, skip.
                 if !pathsSearched.contains(searchPath) {
                     SwiftTarget.testManifestNames.forEach { name in

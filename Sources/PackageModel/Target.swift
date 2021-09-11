@@ -428,7 +428,7 @@ public final class ClangTarget: Target {
         dependencies: [Target.Dependency] = [],
         buildSettings: BuildSettings.AssignmentTable = .init()
     ) {
-        assert(includeDir.contains(sources.root), "\(includeDir) should be contained in the source root \(sources.root)")
+        assert(includeDir.isDescendantOfOrEqual(to: sources.root), "\(includeDir) should be contained in the source root \(sources.root)")
         self.isCXX = sources.containsCXXFiles
         self.cLanguageStandard = cLanguageStandard
         self.cxxLanguageStandard = cxxLanguageStandard
