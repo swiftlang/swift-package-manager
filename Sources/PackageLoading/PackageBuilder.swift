@@ -1001,7 +1001,8 @@ public final class PackageBuilder {
 
         /// Add each declared platform to the supported platforms list.
         for platform in manifest.platforms {
-            let declaredPlatform = platformRegistry.platformByName[platform.platformName]!
+            let declaredPlatform = platformRegistry.platformByName[platform.platformName]
+                ?? PackageModel.Platform.custom(name: platform.platformName, oldestSupportedVersion: platform.version)
             var version = PlatformVersion(platform.version)
 
             if let xcTestMinimumDeploymentTarget = xcTestMinimumDeploymentTargets[declaredPlatform], isTest, version < xcTestMinimumDeploymentTarget {

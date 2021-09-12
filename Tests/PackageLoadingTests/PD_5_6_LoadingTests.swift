@@ -112,4 +112,45 @@ class PackageDescription5_6LoadingTests: PackageDescriptionLoadingTests {
             XCTAssertEqual(manifest.targets[0].sources, ["CountMeIn.swift"])
         }
     }
+
+    func testCustomPlatforms() throws {
+        // One custom platform.
+        var stream = BufferedOutputByteStream()
+        stream <<< """
+            import PackageDescription
+            let package = Package(
+               name: "Foo",
+               platforms: [
+                   .custom("customos", versionString: "1.0"),
+               ]
+            )
+            """
+
+        loadManifest(stream.bytes) { manifest in
+            XCTAssertEqual(manifest.platforms, [
+                PlatformDescription(name: "customos", version: "1.0"),
+            ])
+        }
+
+        // Two custom platforms.
+        stream = BufferedOutputByteStream()
+        stream <<< """
+            import PackageDescription
+            let package = Package(
+               name: "Foo",
+               platforms: [
+                   .custom("customos", versionString: "1.0"),
+                   .custom("anothercustomos", versionString: "2.3"),
+               ]
+            )
+            """
+
+        loadManifest(stream.bytes) { manifest in
+            XCTAssertEqual(manifest.platforms, [
+                PlatformDescription(name: "customos", version: "1.0"),
+                PlatformDescription(name: "anothercustomos", version: "2.3"),
+            ])
+        }
+
+    }
 }

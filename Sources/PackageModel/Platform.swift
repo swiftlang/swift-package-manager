@@ -24,7 +24,11 @@ public struct Platform: Equatable, Hashable, Codable {
         self.name = name
         self.oldestSupportedVersion = oldestSupportedVersion
     }
-    
+
+    public static func custom(name: String, oldestSupportedVersion: String) -> Platform {
+        return Platform(name: name, oldestSupportedVersion: PlatformVersion(oldestSupportedVersion))
+    }
+
     public static let macOS: Platform = Platform(name: "macos", oldestSupportedVersion: "10.10")
     public static let macCatalyst: Platform = Platform(name: "maccatalyst", oldestSupportedVersion: "13.0")
     public static let iOS: Platform = Platform(name: "ios", oldestSupportedVersion: "9.0")
