@@ -779,7 +779,7 @@ extension SwiftPackageTool {
 
             try repository.archive(to: destination)
 
-            if destination.contains(packageRoot) {
+            if destination.isDescendantOfOrEqual(to: packageRoot) {
                 let relativePath = destination.relative(to: packageRoot)
                 swiftTool.outputStream <<< "Created \(relativePath.pathString)" <<< "\n"
             } else {
