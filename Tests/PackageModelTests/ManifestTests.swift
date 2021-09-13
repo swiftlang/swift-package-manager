@@ -22,8 +22,9 @@ class ManifestTests: XCTestCase {
         let targets = [
             try TargetDescription(name: "Foo", dependencies: ["Bar"]),
             try TargetDescription(name: "Bar", dependencies: ["Baz"]),
-            try TargetDescription(name: "Baz", dependencies: []),
+            try TargetDescription(name: "Baz", dependencies: ["MyPlugin"]),
             try TargetDescription(name: "FooBar", dependencies: []),
+            try TargetDescription(name: "MyPlugin", type: .plugin, pluginCapability: .buildTool)
         ]
 
         do {
@@ -41,6 +42,7 @@ class ManifestTests: XCTestCase {
                 "Baz",
                 "Foo",
                 "FooBar",
+                "MyPlugin"
             ])
         }
 
