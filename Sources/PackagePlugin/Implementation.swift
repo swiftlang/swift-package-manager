@@ -54,7 +54,9 @@ extension Plugin {
         switch context.pluginAction {
         case .createBuildToolCommands:
             // Check that the plugin conforms to `BuildToolPlugin`, and get the commands.
-            guard let plugin = plugin as? BuildToolPlugin else { throw PluginDeserializationError.malformedInputJSON("...") }
+            guard let plugin = plugin as? BuildToolPlugin else {
+                throw PluginDeserializationError.malformedInputJSON("Plugin declared with `buildTool` capability but doesn't conform to `BuildToolPlugin` protocol")
+            }
             let commands = try plugin.createBuildCommands(context: context)
             
             // Convert the commands to the encodable output representation SwiftPM currently expects.
