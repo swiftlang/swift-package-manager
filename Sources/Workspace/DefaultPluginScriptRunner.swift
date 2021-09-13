@@ -113,6 +113,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
             command += ["-module-cache-path", moduleCachePath]
         }
         
+        // Parse the plugin as a library so that `@main` is supported even though there might be only a single source file.
         command += ["-parse-as-library"]
         
         command += sources.paths.map { $0.pathString }
