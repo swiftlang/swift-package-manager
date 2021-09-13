@@ -282,6 +282,6 @@ class ManifestSourceGenerationTests: XCTestCase {
                 ]
             )
             """
-        try testManifestWritingRoundTrip(manifestContents: manifestContents, toolsVersion: .v5_6)
+        try testManifestWritingRoundTrip(manifestContents: manifestContents, toolsVersion: .v5_5)
     }
 }
