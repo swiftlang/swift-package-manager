@@ -68,12 +68,13 @@ extension Plugin {
             }
         }
 
-        // Emit the output from the plugin for SwiftPM to read.
+        // Encoding the output struct from the plugin for SwiftPM to read.
         let encoder = JSONEncoder()
         let outputData = try! encoder.encode(output)
+        
+        // On stdout, write a zero byte followed by the JSON data — this is what libSwiftPM expects to see. Anything before the last zero byte is treated as freeform output from the plugin (such as debug output from `print` statements). Since `FileHandle.write()` doesn't obey buffering we first have to flush any existing output.
         fputc(0, stdout)
-        fputs(String(data: outputData, encoding: .utf8)!, stdout)
-        fflush(stdout)
+        fwrite([UInt8](outputData), 1, outputData.count, stdout)
     }
 }
 
