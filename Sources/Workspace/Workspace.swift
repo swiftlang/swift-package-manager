@@ -1777,8 +1777,7 @@ extension Workspace {
             for target in manifest.targets where target.type == .binary {
                 if let path = target.path {
                     // TODO: find a better way to get the base path (not via the manifest)
-                    // the target path is validated earlier to be within the package directory
-                    let absolutePath = manifest.path.parentDirectory.appending(RelativePath(path))
+                    let absolutePath = try manifest.path.parentDirectory.appending(RelativePath(validating: path))
                     localArtifacts.append(
                         .local(
                             packageRef: packageReference,
