@@ -1,6 +1,7 @@
 import PackagePlugin
  
-@main struct MyPlugin: BuildToolPlugin {
+@main
+struct MyPlugin: BuildToolPlugin {
     
     func createBuildCommands(context: TargetBuildContext) throws -> [Command] {
         let inputFiles = context.inputFiles.filter({ $0.path.extension == "dat" })
