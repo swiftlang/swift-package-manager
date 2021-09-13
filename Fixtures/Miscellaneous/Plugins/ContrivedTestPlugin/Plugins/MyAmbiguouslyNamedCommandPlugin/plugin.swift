@@ -1,6 +1,7 @@
 import PackagePlugin
  
-@main struct MyPlugin: BuildToolPlugin {
+@main
+struct MyPlugin: BuildToolPlugin {
     
     func createBuildCommands(context: TargetBuildContext) throws -> [Command] {
         var commands: [Command] = []
