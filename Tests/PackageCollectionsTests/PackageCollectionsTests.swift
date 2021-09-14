@@ -1178,7 +1178,7 @@ final class PackageCollectionsTests: XCTestCase {
             XCTAssertEqual(list.count, mockCollections.count, "list count should match")
         }
 
-        let metadata = try tsc_await { callback in packageCollections.getPackageMetadata(mockPackage.identity, callback: callback) }
+        let metadata = try tsc_await { callback in packageCollections.getPackageMetadata(identity: mockPackage.identity, location: mockPackage.location, callback: callback) }
 
         let expectedCollections = Set(mockCollections.filter { $0.packages.map { $0.identity }.contains(mockPackage.identity) }.map { $0.identifier })
         XCTAssertEqual(Set(metadata.collections), expectedCollections, "collections should match")
@@ -1216,7 +1216,7 @@ final class PackageCollectionsTests: XCTestCase {
             XCTAssertEqual(list.count, mockCollections.count, "list count should match")
         }
 
-        let metadata = try tsc_await { callback in packageCollections.getPackageMetadata(mockPackage.identity, callback: callback) }
+        let metadata = try tsc_await { callback in packageCollections.getPackageMetadata(identity: mockPackage.identity, location: mockPackage.location, callback: callback) }
 
         let expectedCollections = Set(mockCollections.filter { $0.packages.map { $0.identity }.contains(mockPackage.identity) }.map { $0.identifier })
         XCTAssertEqual(Set(metadata.collections), expectedCollections, "collections should match")
@@ -1255,7 +1255,7 @@ final class PackageCollectionsTests: XCTestCase {
         }
 
         let collectionIdentifiers: Set<Model.CollectionIdentifier> = [mockCollections.last!.identifier]
-        let metadata = try tsc_await { callback in packageCollections.getPackageMetadata(mockPackage.identity, collections: collectionIdentifiers, callback: callback) }
+        let metadata = try tsc_await { callback in packageCollections.getPackageMetadata(identity: mockPackage.identity, location: mockPackage.location, collections: collectionIdentifiers, callback: callback) }
         XCTAssertEqual(Set(metadata.collections), collectionIdentifiers, "collections should match")
 
         let expectedMetadata = PackageCollections.mergedPackageMetadata(package: mockPackage, basicMetadata: nil)
@@ -1373,7 +1373,7 @@ final class PackageCollectionsTests: XCTestCase {
             XCTAssertEqual(list.count, 0, "list should be empty")
         }
 
-        XCTAssertThrowsError(try tsc_await { callback in packageCollections.getPackageMetadata(mockPackage.identity, callback: callback) }, "expected error") { error in
+        XCTAssertThrowsError(try tsc_await { callback in packageCollections.getPackageMetadata(identity: mockPackage.identity, location: mockPackage.location, callback: callback) }, "expected error") { error in
             XCTAssert(error is NotFoundError)
         }
     }
@@ -1404,7 +1404,7 @@ final class PackageCollectionsTests: XCTestCase {
             XCTAssertEqual(list.count, mockCollections.count, "list count should match")
         }
 
-        let metadata = try tsc_await { callback in packageCollections.getPackageMetadata(mockPackage.identity, callback: callback) }
+        let metadata = try tsc_await { callback in packageCollections.getPackageMetadata(identity: mockPackage.identity, location: mockPackage.location, callback: callback) }
 
         let expectedCollections = Set(mockCollections.filter { $0.packages.map { $0.identity }.contains(mockPackage.identity) }.map { $0.identifier })
         XCTAssertEqual(Set(metadata.collections), expectedCollections, "collections should match")
@@ -1459,7 +1459,7 @@ final class PackageCollectionsTests: XCTestCase {
         }
 
         // Despite metadata provider error we should still get back data from storage
-        let metadata = try tsc_await { callback in packageCollections.getPackageMetadata(mockPackage.identity, callback: callback) }
+        let metadata = try tsc_await { callback in packageCollections.getPackageMetadata(identity: mockPackage.identity, location: mockPackage.location, callback: callback) }
         let expectedMetadata = PackageCollections.mergedPackageMetadata(package: mockPackage, basicMetadata: nil)
         XCTAssertEqual(metadata.package, expectedMetadata, "package should match")
 
@@ -1496,7 +1496,7 @@ final class PackageCollectionsTests: XCTestCase {
         sync.wait()
 
         let start = Date()
-        let metadata = try tsc_await { callback in packageCollections.getPackageMetadata(mockPackage.identity, callback: callback) }
+        let metadata = try tsc_await { callback in packageCollections.getPackageMetadata(identity: mockPackage.identity, location: mockPackage.location, callback: callback) }
         XCTAssertNotNil(metadata)
         let delta = Date().timeIntervalSince(start)
         XCTAssert(delta < 1.0, "should fetch quickly, took \(delta)")

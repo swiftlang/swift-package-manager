@@ -111,6 +111,7 @@ public protocol PackageCollectionsProtocol {
     /// - Parameters:
     ///   - reference: The package reference
     ///   - callback: The closure to invoke when result becomes available
+    @available(*, deprecated, message: "user getPackageMetadata(identity:) instead")
     func getPackageMetadata(
         _ reference: PackageReference,
         callback: @escaping (Result<PackageCollectionsModel.PackageMetadata, Error>) -> Void
@@ -126,8 +127,42 @@ public protocol PackageCollectionsProtocol {
     ///   - collections: Optional. If specified, only look for package in these collections. Data from the most recently
     ///                  processed collection will be used.
     ///   - callback: The closure to invoke when result becomes available
+    @available(*, deprecated, message: "user getPackageMetadata(identity:) instead")
     func getPackageMetadata(
         _ reference: PackageReference,
+        collections: Set<PackageCollectionsModel.CollectionIdentifier>?,
+        callback: @escaping (Result<PackageCollectionsModel.PackageMetadata, Error>) -> Void
+    )
+
+    /// Returns metadata for the package identified by the given `PackageIdentity`, along with the
+    /// identifiers of `PackageCollection`s where the package is found.
+    ///
+    /// A failure is returned if the package is not found.
+    ///
+    /// - Parameters:
+    ///   - identity: The package identity
+    ///   - location: The package location (optional for deduplication)
+    ///   - callback: The closure to invoke when result becomes available
+    func getPackageMetadata(
+        identity: PackageIdentity,
+        location: String?,
+        callback: @escaping (Result<PackageCollectionsModel.PackageMetadata, Error>) -> Void
+    )
+
+    /// Returns metadata for the package identified by the given `PackageIdentity`, along with the
+    /// identifiers of `PackageCollection`s where the package is found.
+    ///
+    /// A failure is returned if the package is not found.
+    ///
+    /// - Parameters:
+    ///   - identity: The package identity
+    ///   - location: The package location (optional for deduplication)
+    ///   - collections: Optional. If specified, only look for package in these collections. Data from the most recently
+    ///                  processed collection will be used.
+    ///   - callback: The closure to invoke when result becomes available
+    func getPackageMetadata(
+        identity: PackageIdentity,
+        location: String?,
         collections: Set<PackageCollectionsModel.CollectionIdentifier>?,
         callback: @escaping (Result<PackageCollectionsModel.PackageMetadata, Error>) -> Void
     )

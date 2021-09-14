@@ -353,15 +353,17 @@ public struct PackageCollections: PackageCollectionsProtocol {
     public func getPackageMetadata(_ reference: PackageReference,
                                    collections: Set<PackageCollectionsModel.CollectionIdentifier>?,
                                    callback: @escaping (Result<PackageCollectionsModel.PackageMetadata, Error>) -> Void) {
-        self.getPackageMetadata(reference.identity, collections: nil, callback: callback)
+        self.getPackageMetadata(identity: reference.identity, location: reference.location, collections: .none, callback: callback)
     }
 
-    public func getPackageMetadata(_ identity: PackageIdentity,
+    public func getPackageMetadata(identity: PackageIdentity,
+                                   location: String? = .none,
                                    callback: @escaping (Result<PackageCollectionsModel.PackageMetadata, Error>) -> Void) {
-        self.getPackageMetadata(identity, collections: nil, callback: callback)
+        self.getPackageMetadata(identity: identity, location: location, collections: .none, callback: callback)
     }
 
-    public func getPackageMetadata(_ identity: PackageIdentity,
+    public func getPackageMetadata(identity: PackageIdentity,
+                                   location: String? = .none,
                                    collections: Set<PackageCollectionsModel.CollectionIdentifier>?,
                                    callback: @escaping (Result<PackageCollectionsModel.PackageMetadata, Error>) -> Void) {
         guard Self.isSupportedPlatform else {
@@ -369,7 +371,7 @@ public struct PackageCollections: PackageCollectionsProtocol {
         }
 
         // first find in storage
-        self.findPackage(identity: identity, collections: collections) { result in
+        self.findPackage(identity: identity, location: location, collections: collections) { result in
             switch result {
             case .failure(let error):
                 callback(.failure(error))
@@ -532,6 +534,7 @@ public struct PackageCollections: PackageCollectionsProtocol {
     }
 
     func findPackage(identity: PackageIdentity,
+                     location: String?,
                      collections: Set<PackageCollectionsModel.CollectionIdentifier>?,
                      callback: @escaping (Result<PackageCollectionsModel.PackageSearchResult.Item, Error>) -> Void) {
         self.storage.sources.list { result in
@@ -551,10 +554,16 @@ public struct PackageCollections: PackageCollectionsProtocol {
                     case .failure(let error):
                         callback(.failure(error))
                     case .success(let packagesCollections):
-                        // A package identity can be associated with multiple repository URLs
-                        let matches = packagesCollections.packages.filter { $0.identity == identity }
+                        let matches: [PackageCollectionsModel.Package]
+                        if let location = location {
+                            // A package identity can be associated with multiple repository URLs
+                            matches = packagesCollections.packages.filter { CanonicalPackageIdentity($0.location) == CanonicalPackageIdentity(location) }
+                        }
+                        else {
+                            matches = packagesCollections.packages
+                        }
                         guard let package = matches.first else {
-                            return callback(.failure(NotFoundError("\(identity)")))
+                            return callback(.failure(NotFoundError("\(identity), \(location ?? "none")")))
                         }
                         callback(.success(.init(package: package, collections: packagesCollections.collections)))
                     }
