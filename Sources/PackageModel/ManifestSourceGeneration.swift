@@ -115,7 +115,7 @@ fileprivate extension SourceCodeFragment {
         case "driverkit":
             self.init(enum: "DriverKit", string: platform.version)
         default:
-            self.init(enum: platform.platformName, string: platform.version)
+            self.init(enum: "custom", subnodes: [ .init(string: platform.platformName), .init(key: "versionString", string: platform.version) ])
         }
     }
     
