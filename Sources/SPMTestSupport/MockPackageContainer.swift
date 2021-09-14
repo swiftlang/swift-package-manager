@@ -79,11 +79,13 @@ public class MockPackageContainer: PackageContainer {
         var dependencies: [String: [Dependency]] = [:]
         for (version, deps) in dependenciesByVersion {
             dependencies[version.description] = deps.map {
-                let ref = PackageReference.remote(identity: PackageIdentity(url: $0.container), location: "/\($0.container)")
+                let path = AbsolutePath("/\($0.container)")
+                let ref = PackageReference.localSourceControl(identity: .init(path: path), path: path)
                 return (ref, .versionSet($0.versionRequirement))
             }
         }
-        let ref = PackageReference.remote(identity: PackageIdentity(url: name), location: "/\(name)")
+        let path = AbsolutePath("/\(name)")
+        let ref = PackageReference.localSourceControl(identity: .init(path: path), path: path)
         self.init(package: ref, dependencies: dependencies)
     }
 

@@ -593,7 +593,7 @@ public final class PackageBuilder {
 
         let snippetTargets: [Target]
 
-        if self.manifest.packageKind == .root {
+        if self.manifest.packageKind.isRoot {
             // Snippets: depend on all available library targets in the package.
             // TODO: Do we need to filter out targets that aren't available on the host platform?
             let snippetDependencies = targets
@@ -1254,7 +1254,7 @@ public final class PackageBuilder {
 
         // Add implicit executables - for root packages only.
 
-        if self.manifest.packageKind == .root {
+        if self.manifest.packageKind.isRoot {
             // Compute the list of targets which are being used in an
             // executable product so we don't create implicit executables
             // for them.

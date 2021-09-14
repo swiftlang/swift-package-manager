@@ -83,14 +83,22 @@ extension PackageCollectionsModel {
         /// The package's programming languages
         public let languages: Set<String>?
 
+        // deprecated 9/21
         @available(*, deprecated, message: "use identity and location instead")
         public var reference: PackageReference {
-            return .init(identity: self.identity, kind: .remote, location: self.location, name: nil)
+            guard let url = URL(string: self.location) else {
+                fatalError("invalid url \(self.location)")
+            }
+            return .init(identity: self.identity, kind: .remoteSourceControl(url), name: nil)
         }
 
+        // deprecated 9/21
         @available(*, deprecated, message: "use identity and location instead")
         public var repository: RepositorySpecifier {
-            return .init(url: self.location)
+            guard let url = URL(string: self.location) else {
+                fatalError("invalid url \(self.location)")
+            }
+            return .init(url: url)
         }
 
         /// Initializes a `Package`

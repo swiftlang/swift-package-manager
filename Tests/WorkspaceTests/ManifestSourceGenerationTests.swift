@@ -28,7 +28,7 @@ class ManifestSourceGenerationTests: XCTestCase {
             let manifest = try tsc_await {
                 manifestLoader.load(at: packageDir,
                                     packageIdentity: .plain("Root"),
-                                    packageKind: .root,
+                                    packageKind: .root(packageDir),
                                     packageLocation: packageDir.pathString,
                                     version: nil,
                                     revision: nil,
@@ -51,7 +51,7 @@ class ManifestSourceGenerationTests: XCTestCase {
             let newManifest = try tsc_await {
                 manifestLoader.load(at: packageDir,
                                     packageIdentity: .plain("Root"),
-                                    packageKind: .root,
+                                    packageKind: .root(packageDir),
                                     packageLocation: packageDir.pathString,
                                     version: nil,
                                     revision: nil,

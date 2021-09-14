@@ -178,6 +178,12 @@ public final class ManagedDependencies {
     public func remove(forURL url: String) {
         self.dependencyMap[url] = nil
     }
+
+    public func remove(forIdentity identity: PackageIdentity) {
+        if let dependency = self[forIdentity: identity] {
+            self.remove(forURL: dependency.packageRef.location)
+        }
+    }
 }
 
 extension ManagedDependencies: Collection {

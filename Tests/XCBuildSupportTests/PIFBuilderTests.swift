@@ -9,9 +9,10 @@
 */
 
 import Basics
+import Foundation
 import PackageGraph
-@testable import PackageLoading
 import PackageModel
+@testable import PackageLoading
 import SPMBuildCore
 import SPMTestSupport
 import TSCBasic
@@ -38,11 +39,10 @@ class PIFBuilderTests: XCTestCase {
             let graph = try loadPackageGraph(
                 fs: fs,
                 manifests: [
-                    Manifest.createManifest(
+                    Manifest.createLocalSourceControlManifest(
                         name: "B",
                         path: .init("/B"),
-                        packageKind: .remote,
-                        v: .v5_2,
+                        toolsVersion: .v5_2,
                         products: [
                             .init(name: "bexe", type: .executable, targets: ["B1"]),
                             .init(name: "blib", type: .library(.static), targets: ["B2"]),
@@ -51,13 +51,12 @@ class PIFBuilderTests: XCTestCase {
                             .init(name: "B2", dependencies: []),
                             .init(name: "B1", dependencies: ["B2"]),
                         ]),
-                    Manifest.createManifest(
+                    Manifest.createRootManifest(
                         name: "A",
                         path: .init("/A"),
-                        packageKind: .root,
-                        v: .v5_2,
+                        toolsVersion: .v5_2,
                         dependencies: [
-                            .scm(location: "/B", requirement: .branch("master")),
+                            .localSourceControl(path: .init("/B"), requirement: .branch("master")),
                         ],
                         products: [
                             .init(name: "alib", type: .library(.static), targets: ["A2"]),
@@ -110,27 +109,26 @@ class PIFBuilderTests: XCTestCase {
                 Manifest.createManifest(
                     name: "Foo",
                     path: .init("/Foo"),
-                    packageKind: .root,
+                    packageKind: .root(.init("/Foo")),
                     defaultLocalization: "fr",
-                    v: .v5_2,
+                    toolsVersion: .v5_2,
                     dependencies: [
-                        .scm(location: "/Bar", requirement: .branch("master")),
+                        .localSourceControl(path: .init("/Bar"), requirement: .branch("master")),
                     ],
                     targets: [
                         .init(name: "foo", dependencies: [.product(name: "BarLib", package: "Bar")]),
                         .init(name: "FooTests", type: .test),
                     ]),
-                Manifest.createManifest(
+                Manifest.createLocalSourceControlManifest(
                     name: "Bar",
                     path: .init("/Bar"),
-                    packageKind: .remote,
                     platforms: [
                         PlatformDescription(name: "macos", version: "10.14"),
                         PlatformDescription(name: "ios", version: "12"),
                         PlatformDescription(name: "tvos", version: "11"),
                         PlatformDescription(name: "watchos", version: "6"),
                     ],
-                    v: .v5_2,
+                    toolsVersion: .v5_2,
                     products: [
                         .init(name: "BarLib", type: .library(.automatic), targets: ["BarLib"]),
                     ],
@@ -374,14 +372,13 @@ class PIFBuilderTests: XCTestCase {
         let graph = try loadPackageGraph(
             fs: fs,
             manifests: [
-                Manifest.createManifest(
+                Manifest.createRootManifest(
                     name: "Foo",
                     path: .init("/Foo"),
-                    packageKind: .root,
-                    v: .v5_2,
+                    toolsVersion: .v5_2,
                     swiftLanguageVersions: [.v4_2, .v5],
                     dependencies: [
-                        .scm(location: "/Bar", requirement: .branch("master")),
+                        .localSourceControl(path: .init("/Bar"), requirement: .branch("master")),
                     ],
                     targets: [
                         .init(name: "foo", dependencies: [
@@ -397,11 +394,10 @@ class PIFBuilderTests: XCTestCase {
                             .product(name: "BarLib", package: "Bar"),
                         ])
                     ]),
-                Manifest.createManifest(
+                Manifest.createLocalSourceControlManifest(
                     name: "Bar",
                     path: .init("/Bar"),
-                    packageKind: .remote,
-                    v: .v4_2,
+                    toolsVersion: .v4_2,
                     cLanguageStandard: "c11",
                     cxxLanguageStandard: "c++14",
                     swiftLanguageVersions: [.v4_2],
@@ -705,14 +701,13 @@ class PIFBuilderTests: XCTestCase {
         let graph = try loadPackageGraph(
             fs: fs,
             manifests: [
-                Manifest.createManifest(
+                Manifest.createRootManifest(
                     name: "Foo",
                     path: .init("/Foo"),
-                    packageKind: .root,
-                    v: .v5_2,
+                    toolsVersion: .v5_2,
                     swiftLanguageVersions: [.v4_2, .v5],
                     dependencies: [
-                        .scm(location: "/Bar", requirement: .branch("master")),
+                        .localSourceControl(path: .init("/Bar"), requirement: .branch("master")),
                     ],
                     targets: [
                         .init(name: "FooTests", dependencies: [
@@ -728,11 +723,10 @@ class PIFBuilderTests: XCTestCase {
                             .product(name: "BarLib", package: "Bar"),
                         ])
                     ]),
-                Manifest.createManifest(
+                Manifest.createLocalSourceControlManifest(
                     name: "Bar",
                     path: .init("/Bar"),
-                    packageKind: .remote,
-                    v: .v4_2,
+                    toolsVersion: .v4_2,
                     cLanguageStandard: "c11",
                     cxxLanguageStandard: "c++14",
                     swiftLanguageVersions: [.v4_2],
@@ -930,14 +924,13 @@ class PIFBuilderTests: XCTestCase {
         let graph = try loadPackageGraph(
             fs: fs,
             manifests: [
-                Manifest.createManifest(
+                Manifest.createRootManifest(
                     name: "Foo",
                     path: .init("/Foo"),
-                    packageKind: .root,
-                    v: .v5_2,
+                    toolsVersion: .v5_2,
                     swiftLanguageVersions: [.v4_2, .v5],
                     dependencies: [
-                        .scm(location: "/Bar", requirement: .branch("master")),
+                        .localSourceControl(path: .init("/Bar"), requirement: .branch("master")),
                     ],
                     products: [
                         .init(name: "FooLib1", type: .library(.static), targets: ["FooLib1"]),
@@ -950,12 +943,10 @@ class PIFBuilderTests: XCTestCase {
                         ]),
                         .init(name: "SystemLib", type: .system, pkgConfig: "Foo"),
                     ]),
-                Manifest.createManifest(
+                Manifest.createLocalSourceControlManifest(
                     name: "Bar",
                     path: .init("/Bar"),
-                    packageKind: .remote,
-                    packageLocation: "/Bar",
-                    v: .v4_2,
+                    toolsVersion: .v4_2,
                     cLanguageStandard: "c11",
                     cxxLanguageStandard: "c++14",
                     swiftLanguageVersions: [.v4_2],
@@ -1126,15 +1117,14 @@ class PIFBuilderTests: XCTestCase {
         let graph = try loadPackageGraph(
             fs: fs,
             manifests: [
-                Manifest.createManifest(
+                Manifest.createRootManifest(
                     name: "Foo",
                     path: .init("/Foo"),
-                    packageKind: .root,
-                    v: .v5_2,
+                    toolsVersion: .v5_2,
                     cxxLanguageStandard: "c++14",
                     swiftLanguageVersions: [.v4_2, .v5],
                     dependencies: [
-                        .scm(location: "/Bar", requirement: .branch("master")),
+                        .localSourceControl(path: .init("/Bar"), requirement: .branch("master")),
                     ],
                     targets: [
                         .init(name: "FooLib1", dependencies: ["SystemLib", "FooLib2"]),
@@ -1143,11 +1133,10 @@ class PIFBuilderTests: XCTestCase {
                         ]),
                         .init(name: "SystemLib", type: .system, pkgConfig: "Foo"),
                     ]),
-                Manifest.createManifest(
+                Manifest.createLocalSourceControlManifest(
                     name: "Bar",
                     path: .init("/Bar"),
-                    packageKind: .remote,
-                    v: .v4_2,
+                    toolsVersion: .v4_2,
                     cLanguageStandard: "c11",
                     swiftLanguageVersions: [.v4_2],
                     products: [
@@ -1413,11 +1402,10 @@ class PIFBuilderTests: XCTestCase {
         let graph = try loadPackageGraph(
             fs: fs,
             manifests: [
-                Manifest.createManifest(
+                Manifest.createRootManifest(
                     name: "Bar",
                     path: .init("/Bar"),
-                    packageKind: .root,
-                    v: .v4_2,
+                    toolsVersion: .v4_2,
                     cLanguageStandard: "c11",
                     swiftLanguageVersions: [.v4_2],
                     products: [
@@ -1461,8 +1449,8 @@ class PIFBuilderTests: XCTestCase {
                 Manifest.createManifest(
                     name: "Bar",
                     path: .init("/Bar"),
-                    packageKind: .root,
-                    v: .v4_2,
+                    packageKind: .root(.init("/Bar")),
+                    toolsVersion: .v4_2,
                     cLanguageStandard: "c11",
                     swiftLanguageVersions: [.v4_2],
                     products: [
@@ -1507,11 +1495,10 @@ class PIFBuilderTests: XCTestCase {
         let graph = try loadPackageGraph(
             fs: fs,
             manifests: [
-                Manifest.createManifest(
+                Manifest.createRootManifest(
                     name: "Foo",
                     path: .init("/Foo"),
-                    packageKind: .root,
-                    v: .v5_2,
+                    toolsVersion: .v5_2,
                     cxxLanguageStandard: "c++14",
                     swiftLanguageVersions: [.v4_2, .v5],
                     targets: [
@@ -1618,11 +1605,10 @@ class PIFBuilderTests: XCTestCase {
         let graph = try loadPackageGraph(
             fs: fs,
             manifests: [
-                Manifest.createManifest(
+                Manifest.createRootManifest(
                     name: "Foo",
                     path: .init("/Foo"),
-                    packageKind: .root,
-                    v: .v5_3,
+                    toolsVersion: .v5_3,
                     products: [
                         .init(name: "FooLib", type: .library(.automatic), targets: ["FooLib"]),
                     ],
@@ -1682,12 +1668,10 @@ class PIFBuilderTests: XCTestCase {
         let graph = try loadPackageGraph(
             fs: fs,
             manifests: [
-                Manifest.createManifest(
+                Manifest.createRootManifest(
                     name: "Foo",
                     path: .init("/Foo"),
-                    packageKind: .root,
-                    packageLocation: "/Foo",
-                    v: .v5_3,
+                    toolsVersion: .v5_3,
                     products: [
                         .init(name: "FooLib", type: .library(.automatic), targets: ["FooLib"]),
                     ],
@@ -1891,11 +1875,10 @@ class PIFBuilderTests: XCTestCase {
         let graph = try loadPackageGraph(
             fs: fs,
             manifests: [
-                Manifest.createManifest(
+                Manifest.createRootManifest(
                     name: "Foo",
                     path: .init("/Foo"),
-                    packageKind: .root,
-                    v: .v5,
+                    toolsVersion: .v5,
                     products: [
                         .init(name: "FooLib", type: .library(.automatic), targets: ["FooLib"]),
                     ],
@@ -2112,8 +2095,8 @@ class PIFBuilderTests: XCTestCase {
                 Manifest.createManifest(
                     name: "Foo",
                     path: .init("/Foo"),
-                    packageKind: .root,
-                    v: .v5_3,
+                    packageKind: .root(.init("/Foo")),
+                    toolsVersion: .v5_3,
                     targets: [
                         .init(name: "foo", dependencies: [
                             .target(name: "FooLib1", condition: .init(platformNames: ["macos"])),
@@ -2173,15 +2156,13 @@ class PIFBuilderTests: XCTestCase {
         let graph = try loadPackageGraph(
             fs: fs,
             manifests: [
-                Manifest.createManifest(
+                Manifest.createRootManifest(
                     name: "Foo",
                     path: .init("/Foo"),
-                    packageKind: .root,
-                    packageLocation: "/Foo",
                     platforms: [
                         PlatformDescription(name: "macos", version: "10.14", options: ["best"]),
                     ],
-                    v: .v5_3,
+                    toolsVersion: .v5_3,
                     targets: [
                         .init(name: "foo", dependencies: []),
                     ]),
@@ -2216,11 +2197,10 @@ class PIFBuilderTests: XCTestCase {
         let graph = try loadPackageGraph(
             fs: fs,
             manifests: [
-                Manifest.createManifest(
+                Manifest.createRootManifest(
                     name: "MyLib",
                     path: .init("/MyLib"),
-                    packageKind: .root,
-                    v: .v5,
+                    toolsVersion: .v5,
                     products: [
                         .init(name: "MyLib", type: .library(.automatic), targets: ["MyLib"]),
                     ],

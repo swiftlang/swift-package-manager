@@ -87,7 +87,7 @@ struct APIDigesterBaselineDumper {
 
         // Clone the current package in a sandbox and checkout the baseline revision.
         let repositoryProvider = GitRepositoryProvider()
-        let specifier = RepositorySpecifier(url: baselinePackageRoot.pathString)
+        let specifier = RepositorySpecifier(path: baselinePackageRoot)
         let workingCopy = try repositoryProvider.createWorkingCopy(
             repository: specifier,
             sourcePath: packageRoot,

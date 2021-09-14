@@ -14,6 +14,7 @@ import TSCUtility
 import PackageModel
 import Foundation
 import SourceControl
+import PackageDescription
 
 enum ManifestJSONParser {
     private static let filePrefix = "file://"
@@ -35,7 +36,7 @@ enum ManifestJSONParser {
     static func parse(
         v4 jsonString: String,
         toolsVersion: ToolsVersion,
-        packageLocation: String,
+        packageKind: PackageReference.Kind,
         identityResolver: IdentityResolver,
         fileSystem: FileSystem
     ) throws -> ManifestJSONParser.Result {
@@ -59,7 +60,7 @@ enum ManifestJSONParser {
             try Self.parseDependency(
                 json: $0,
                 toolsVersion: toolsVersion,
-                packageLocation: packageLocation,
+                packageKind: packageKind,
                 identityResolver: identityResolver,
                 fileSystem: fileSystem
             )
@@ -87,7 +88,7 @@ enum ManifestJSONParser {
     private static func parseDependency(
         json: JSON,
         toolsVersion: ToolsVersion,
-        packageLocation: String,
+        packageKind: PackageReference.Kind,
         identityResolver: IdentityResolver,
         fileSystem: TSCBasic.FileSystem
     ) throws -> PackageDependency {
@@ -98,7 +99,7 @@ enum ManifestJSONParser {
                 let name: String? = kindJSON.get("name")
                 let path: String = try kindJSON.get("path")
                 return try Self.makeFileSystemDependency(
-                    packageLocation: packageLocation,
+                    packageKind: packageKind,
                     at: path,
                     name: name,
                     identityResolver: identityResolver,
@@ -109,7 +110,7 @@ enum ManifestJSONParser {
                 let requirementJSON: JSON = try kindJSON.get("requirement")
                 let requirement = try PackageDependency.SourceControl.Requirement(v4: requirementJSON)
                 return try Self.makeSourceControlDependency(
-                    packageLocation: packageLocation,
+                    packageKind: packageKind,
                     at: location,
                     name: name,
                     requirement: requirement,
@@ -134,7 +135,7 @@ enum ManifestJSONParser {
             switch requirementType {
             case "localPackage":
                 return try Self.makeFileSystemDependency(
-                    packageLocation: packageLocation,
+                    packageKind: packageKind,
                     at: url,
                     name: name,
                     identityResolver: identityResolver,
@@ -143,7 +144,7 @@ enum ManifestJSONParser {
             default:
                 let requirement = try PackageDependency.SourceControl.Requirement(v4: requirementJSON)
                 return try Self.makeSourceControlDependency(
-                    packageLocation: packageLocation,
+                    packageKind: packageKind,
                     at: url,
                     name: name,
                     requirement: requirement,
@@ -154,20 +155,20 @@ enum ManifestJSONParser {
     }
 
     private static func makeFileSystemDependency(
-        packageLocation: String,
+        packageKind: PackageReference.Kind,
         at location: String,
         name: String?,
         identityResolver: IdentityResolver,
         fileSystem: TSCBasic.FileSystem
     ) throws -> PackageDependency {
-        let location = try fixDependencyLocation(fileSystem: fileSystem, packageLocation: packageLocation, dependencyLocation: location)
+        let location = try fixDependencyLocation(fileSystem: fileSystem, packageKind: packageKind, dependencyLocation: location)
         let path: AbsolutePath
         do {
             path = try AbsolutePath(validating: location)
         } catch PathValidationError.invalidAbsolutePath(let path) {
             throw ManifestParseError.invalidManifestFormat("'\(path)' is not a valid path for path-based dependencies; use relative or absolute path instead.", diagnosticFile: nil)
         }
-        let identity = identityResolver.resolveIdentity(for: path)
+        let identity = try identityResolver.resolveIdentity(for: path)
         return .fileSystem(identity: identity,
                            nameForTargetDependencyResolutionOnly: name,
                            path: path,
@@ -175,38 +176,63 @@ enum ManifestJSONParser {
     }
 
     private static func makeSourceControlDependency(
-        packageLocation: String,
+        packageKind: PackageReference.Kind,
         at location: String,
         name: String?,
         requirement: PackageDependency.SourceControl.Requirement,
         identityResolver: IdentityResolver,
         fileSystem: TSCBasic.FileSystem
     ) throws -> PackageDependency {
-        var location = try fixDependencyLocation(fileSystem: fileSystem, packageLocation: packageLocation, dependencyLocation: location)
-        // a remote package that specifies a location and no identity is deemed to be from source control (git)
+        // cleans up variants of path based location
+        var location = try fixDependencyLocation(fileSystem: fileSystem, packageKind: packageKind, dependencyLocation: location)
+        // location mapping (aka mirrors) if any
+        location = identityResolver.mappedLocation(for: location)
         // a package in a git location, may be a remote URL or on disk
-        // if local, validate location is in fact a git repo
-        if let localPath = try? AbsolutePath(validating: location), fileSystem.exists(localPath) {
-            let gitRepoProvider = GitRepositoryProvider()
-            guard gitRepoProvider.isValidDirectory(location) else {
-                throw StringError("Cannot clone from local directory \(localPath)\nPlease git init or use \"path:\" for \(location)")
+        if let localPath = try? AbsolutePath(validating: location) {
+            // if exists, validate location is in fact a git repo
+            // there is a case to be made to throw early (here) if the path does not exists
+            // but many of our tests assume they can pass a non existent path
+            if fileSystem.exists(localPath) {
+                let gitRepoProvider = GitRepositoryProvider()
+                guard gitRepoProvider.isValidDirectory(location) else {
+                    throw StringError("Cannot clone from local directory \(localPath)\nPlease git init or use \"path:\" for \(location)")
+                }
             }
+            // in the future this will check with the registries for the identity of the URL
+            let identity = try identityResolver.resolveIdentity(for: localPath)
+            return .localSourceControl(
+                identity: identity,
+                nameForTargetDependencyResolutionOnly: name,
+                path: localPath,
+                requirement: requirement,
+                productFilter: .everything
+            )
+        } else if let url = URL(string: location){
+            // in the future this will check with the registries for the identity of the URL
+            let identity = try identityResolver.resolveIdentity(for: url)
+            return .remoteSourceControl(
+                identity: identity,
+                nameForTargetDependencyResolutionOnly: name,
+                url: url,
+                requirement: requirement,
+                productFilter: .everything
+            )
+        } else {
+            throw StringError("invalid location: \(location)")
         }
-
-        // location mapping (aka mirrors)
-        location = identityResolver.resolveLocation(from: location)
-        // in the future this will check with the registries for the identity of the URL
-        let identity = identityResolver.resolveIdentity(for: location)
-        return .sourceControl(identity: identity,
-                              nameForTargetDependencyResolutionOnly: name,
-                              location: location,
-                              requirement: requirement,
-                              productFilter: .everything)
     }
 
-    private static func fixDependencyLocation(fileSystem: TSCBasic.FileSystem, packageLocation: String, dependencyLocation: String) throws -> String {
-        // If base URL is remote (http/ssh), we can't do any "fixing".
-        if URL.scheme(packageLocation) != nil {
+    private static func fixDependencyLocation(fileSystem: TSCBasic.FileSystem, packageKind: PackageReference.Kind, dependencyLocation: String) throws -> String {
+        let packagePath: AbsolutePath
+        switch packageKind {
+        case .root(let path):
+            packagePath = path
+        case .fileSystem(let path):
+            packagePath = path
+        case .localSourceControl(let path):
+            packagePath = path
+        case .remoteSourceControl:
+            // nothing to fix
             return dependencyLocation
         }
 
@@ -232,7 +258,7 @@ enum ManifestJSONParser {
         } else if URL.scheme(dependencyLocation) == nil {
             // If the dependency URL is not remote, try to "fix" it.
             // If the URL has no scheme, we treat it as a path (either absolute or relative to the base URL).
-            return AbsolutePath(dependencyLocation, relativeTo: AbsolutePath(packageLocation)).pathString
+            return AbsolutePath(dependencyLocation, relativeTo: packagePath).pathString
         }
 
         return dependencyLocation

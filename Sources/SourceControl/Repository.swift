@@ -8,16 +8,31 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import Foundation
 import TSCBasic
 
 /// Specifies a repository address.
-public struct RepositorySpecifier: Hashable, Codable {
+public struct RepositorySpecifier: Hashable {
     /// The URL of the repository.
-    public let url: String
+    // FIXME: transition url to location
+    public var url: String {
+        self.location.description
+    }
 
-    /// Create a specifier.
-    public init(url: String) {
-        self.url = url
+    public let location: Location
+
+    public init(location: Location) {
+        self.location = location
+    }
+
+    /// Create a specifier based on a path.
+    public init(path: AbsolutePath) {
+        self.init(location: .path(path))
+    }
+
+    /// Create a specifier on a URL.
+    public init(url: URL) {
+        self.init(location: .url(url))
     }
 
     /// A unique identifier for this specifier.
@@ -28,22 +43,36 @@ public struct RepositorySpecifier: Hashable, Codable {
         // Use first 8 chars of a stable hash.
         let suffix = ByteString(encodingAsUTF8: url).sha256Checksum.prefix(8)
 
-        return "\(basename)-\(suffix)"
+        return "\(self.basename)-\(suffix)"
     }
 
     /// Returns the cleaned basename for the specifier.
     public var basename: String {
-        var basename = url.components(separatedBy: "/").last(where: { !$0.isEmpty }) ?? ""
+        var basename = self.location.description.components(separatedBy: "/").last(where: { !$0.isEmpty }) ?? ""
         if basename.hasSuffix(".git") {
             basename = String(basename.dropLast(4))
         }
         return basename
     }
+
+    public enum Location: Hashable, CustomStringConvertible {
+        case path(AbsolutePath)
+        case url(URL)
+
+        public var description: String {
+            switch self {
+            case .path(let path):
+                return path.pathString
+            case .url(let url):
+                return url.absoluteString
+            }
+        }
+    }
 }
 
 extension RepositorySpecifier: CustomStringConvertible {
     public var description: String {
-        return url
+        return self.location.description
     }
 }
 

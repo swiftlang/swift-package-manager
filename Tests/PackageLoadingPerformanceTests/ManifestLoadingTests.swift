@@ -37,8 +37,7 @@ class ManifestLoadingPerfTests: XCTestCasePerf {
                 for _ in 0..<N {
                     let manifest = try! self.manifestLoader.load(
                         at: path,
-                        packageKind: .root,
-                        packageLocation: "/Trivial",
+                        packageKind: .root(.init("/Trivial")),
                         toolsVersion: .v4_2,
                         fileSystem: localFileSystem
                     )
@@ -71,8 +70,7 @@ class ManifestLoadingPerfTests: XCTestCasePerf {
                 for _ in 0..<N {
                     let manifest = try! self.manifestLoader.load(
                         at: path,
-                        packageKind: .root,
-                        packageLocation: "/Trivial",
+                        packageKind: .root(.init("/Trivial")),
                         toolsVersion: .v4_2,
                         fileSystem: localFileSystem
                     )

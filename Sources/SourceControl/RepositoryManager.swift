@@ -550,9 +550,19 @@ extension RepositoryManager.RepositoryHandle {
         guard let status = Status(rawValue: repository.status) else {
             throw StringError("unknown status :\(repository.status)")
         }
+        // FIXME: encode the type
+        let repositorySpecifier: RepositorySpecifier
+        if let path = try? AbsolutePath(validating: repository.repositoryURL) {
+            repositorySpecifier = .init(path: path)
+        } else if let url = URL(string: repository.repositoryURL) {
+            repositorySpecifier = .init(url: url)
+        } else {
+            throw StringError("invalid location :\(repository.repositoryURL)")
+        }
+
         self.init(
             manager: manager,
-            repository: RepositorySpecifier(url: repository.repositoryURL),
+            repository: repositorySpecifier,
             subpath: RelativePath(repository.subpath),
             status: status
         )

@@ -341,12 +341,14 @@ public struct PackageCollections: PackageCollectionsProtocol {
 
     // MARK: - Package Metadata
 
+    // deprecated 9/21
     @available(*, deprecated, message: "user identity based API instead")
     public func getPackageMetadata(_ reference: PackageReference,
                                    callback: @escaping (Result<PackageCollectionsModel.PackageMetadata, Error>) -> Void) {
         self.getPackageMetadata(reference, collections: nil, callback: callback)
     }
 
+    // deprecated 9/21
     @available(*, deprecated, message: "user identity based API instead")
     public func getPackageMetadata(_ reference: PackageReference,
                                    collections: Set<PackageCollectionsModel.CollectionIdentifier>?,

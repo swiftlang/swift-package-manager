@@ -255,7 +255,7 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
                 serializationOkay = false
             }
 
-            return .init(identity: .init(url: package.url.absoluteString),
+            return .init(identity: .init(url: package.url),
                          location: package.url.absoluteString,
                          summary: package.summary,
                          keywords: package.keywords,

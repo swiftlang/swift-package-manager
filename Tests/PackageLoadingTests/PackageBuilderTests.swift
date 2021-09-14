@@ -24,8 +24,9 @@ class PackageBuilderTests: XCTestCase {
             "/Sources/foo/.Bar.swift",
             "/Sources/foo/Foo.swift")
 
-        let manifest = Manifest.createV4Manifest(
+        let manifest = Manifest.createRootManifest(
             name: "pkg",
+            path: .root,
             targets: [
                 try TargetDescription(name: "foo"),
             ]
@@ -43,8 +44,9 @@ class PackageBuilderTests: XCTestCase {
             "/Sources/foo/main.swift",
             "/Sources/foo/main.c")
 
-        let manifest = Manifest.createV4Manifest(
+        let manifest = Manifest.createRootManifest(
             name: "pkg",
+            path: .root,
             targets: [
                 try TargetDescription(name: "foo"),
             ]
@@ -69,15 +71,16 @@ class PackageBuilderTests: XCTestCase {
             try fs.createSymbolicLink(linkPath, pointingAt: linkDestPath, relative: false)
             try fs.removeFileTree(linkDestPath)
 
-            let manifest = Manifest.createV4Manifest(
+            let manifest = Manifest.createRootManifest(
                 name: "pkg",
+                path: .root,
                 targets: [
                     try TargetDescription(name: "foo"),
                 ]
             )
 
             PackageBuilderTester(manifest, path: path, in: fs) { package, diagnostics in
-                var expectedMetadata = ObservabilityMetadata.packageMetadata(identity: .init(url: manifest.packageLocation), location: manifest.packageLocation)
+                var expectedMetadata = ObservabilityMetadata.packageMetadata(identity: .init(urlString: manifest.packageLocation), location: manifest.packageLocation)
                 expectedMetadata.targetName = manifest.targets.first!.name
                 diagnostics.check(
                     diagnostic: "ignoring broken symlink \(linkPath)",
@@ -102,7 +105,7 @@ class PackageBuilderTests: XCTestCase {
             // Create a symlink to foo.
             try fs.createSymbolicLink(bar, pointingAt: foo, relative: false)
 
-            let manifest = Manifest.createV4Manifest(
+            let manifest = Manifest.createRootManifest(
                 name: "pkg",
                 targets: [
                     try TargetDescription(name: "bar"),
@@ -120,7 +123,7 @@ class PackageBuilderTests: XCTestCase {
             "/Sources/MyPackage/main.swift",
             "/Tests/MyPackageTests/abc.c")
 
-        let manifest = Manifest.createV4Manifest(
+        let manifest = Manifest.createRootManifest(
             name: "MyPackage",
             targets: [
                 try TargetDescription(name: "MyPackage"),
@@ -163,7 +166,7 @@ class PackageBuilderTests: XCTestCase {
             "/Package.swift",
             "/Packages/MyPackage/main.c")
 
-        let manifest = Manifest.createV4Manifest(
+        let manifest = Manifest.createRootManifest(
             name: "pkg",
             targets: [
                 try TargetDescription(name: "pkg"),
@@ -186,7 +189,7 @@ class PackageBuilderTests: XCTestCase {
             "/Sources/Foo/Package@swift-1.swift")
 
         let name = "Foo"
-        let manifest = Manifest.createV4Manifest(
+        let manifest = Manifest.createRootManifest(
             name: name,
             targets: [
                 try TargetDescription(name: name),
@@ -207,7 +210,7 @@ class PackageBuilderTests: XCTestCase {
             "/Sources/clib/clib.c"
         )
 
-        let manifest = Manifest.createV4Manifest(
+        let manifest = Manifest.createRootManifest(
             name: "MyPackage",
             targets: [
                 try TargetDescription(name: "clib"),
@@ -233,7 +236,7 @@ class PackageBuilderTests: XCTestCase {
             "/done"
         )
 
-        let manifest = Manifest.createV4Manifest(
+        let manifest = Manifest.createRootManifest(
             name: "MyPackage",
             targets: [
                 try TargetDescription(
@@ -245,7 +248,7 @@ class PackageBuilderTests: XCTestCase {
             ]
         )
         PackageBuilderTester(manifest, in: fs) { package, diags in
-            var expectedMetadata = ObservabilityMetadata.packageMetadata(identity: .init(url: manifest.packageLocation), location: manifest.packageLocation)
+            var expectedMetadata = ObservabilityMetadata.packageMetadata(identity: .init(urlString: manifest.packageLocation), location: manifest.packageLocation)
             expectedMetadata.targetName = manifest.targets.first!.name
             diags.check(
                 diagnostic: "found duplicate sources declaration in the package manifest: /Sources/clib",
@@ -270,7 +273,7 @@ class PackageBuilderTests: XCTestCase {
             "/done"
         )
 
-        let manifest = Manifest.createV4Manifest(
+        let manifest = Manifest.createRootManifest(
             name: "MyPackage",
             targets: [
                 try TargetDescription(
@@ -316,7 +319,7 @@ class PackageBuilderTests: XCTestCase {
             "/done"
         )
 
-        let manifest = Manifest.createV4Manifest(
+        let manifest = Manifest.createRootManifest(
             name: "MyPackage",
             targets: [
                 try TargetDescription(
@@ -341,7 +344,7 @@ class PackageBuilderTests: XCTestCase {
             "/Sources/foo/foo.swift"
         )
 
-        var manifest = Manifest.createV4Manifest(
+        var manifest = Manifest.createRootManifest(
             name: "pkg",
             products: [
                 ProductDescription(name: "exec", type: .executable, targets: ["exec", "foo"]),
@@ -359,7 +362,7 @@ class PackageBuilderTests: XCTestCase {
             }
         }
 
-        manifest = Manifest.createV4Manifest(
+        manifest = Manifest.createRootManifest(
             name: "pkg",
             products: [],
             targets: [
@@ -377,7 +380,7 @@ class PackageBuilderTests: XCTestCase {
 
         // If we already have an explicit product, we shouldn't create an
         // implicit one.
-        manifest = Manifest.createV4Manifest(
+        manifest = Manifest.createRootManifest(
             name: "pkg",
             products: [
                 ProductDescription(name: "exec1", type: .executable, targets: ["exec"]),
@@ -404,7 +407,7 @@ class PackageBuilderTests: XCTestCase {
         )
         
         // Check that an explicitly declared target without a main source file works.
-        var manifest = Manifest.createV4Manifest(
+        var manifest = Manifest.createRootManifest(
             name: "pkg",
             toolsVersion: .v5_5,
             products: [
@@ -424,7 +427,7 @@ class PackageBuilderTests: XCTestCase {
         }
 
         // Check that products are inferred for explicitly declared executable targets.
-        manifest = Manifest.createV4Manifest(
+        manifest = Manifest.createRootManifest(
             name: "pkg",
             toolsVersion: .v5_5,
             products: [],
@@ -442,7 +445,7 @@ class PackageBuilderTests: XCTestCase {
         }
 
         // Check that products are not inferred if there is an explicit executable product.
-        manifest = Manifest.createV4Manifest(
+        manifest = Manifest.createRootManifest(
             name: "pkg",
             toolsVersion: .v5_5,
             products: [
@@ -462,7 +465,7 @@ class PackageBuilderTests: XCTestCase {
         }
 
         // Check that an explicitly declared target with a main source file still works.
-        manifest = Manifest.createV4Manifest(
+        manifest = Manifest.createRootManifest(
             name: "pkg",
             toolsVersion: .v5_5,
             products: [
@@ -482,7 +485,7 @@ class PackageBuilderTests: XCTestCase {
         }
 
         // Check that a inferred target with a main source file still works but yields a warning.
-        manifest = Manifest.createV4Manifest(
+        manifest = Manifest.createRootManifest(
             name: "pkg",
             toolsVersion: .v5_5,
             products: [
@@ -497,7 +500,7 @@ class PackageBuilderTests: XCTestCase {
             diagnostics.check(
                 diagnostic: "'exec2' was identified as an executable target given the presence of a 'main.swift' file. Starting with tools version 5.4.0 executable targets should be declared as 'executableTarget()'",
                 severity: .warning,
-                metadata: .packageMetadata(identity: .init(url: manifest.packageLocation), location: manifest.packageLocation)
+                metadata: .packageMetadata(identity: .init(urlString: manifest.packageLocation), location: manifest.packageLocation)
             )
             package.checkModule("lib") { _ in }
             package.checkModule("exec2") { _ in }
@@ -515,7 +518,7 @@ class PackageBuilderTests: XCTestCase {
                 "/swift/tests/footests.swift"
             )
 
-            let manifest = Manifest.createV4Manifest(
+            let manifest = Manifest.createRootManifest(
                 name: "pkg",
                 targets: [
                     try TargetDescription(name: "exe", path: "swift/exe"),
@@ -547,7 +550,7 @@ class PackageBuilderTests: XCTestCase {
             "/pkg/footests.swift"
         )
 
-        let manifest = Manifest.createV4Manifest(
+        let manifest = Manifest.createRootManifest(
             name: "pkg",
             targets: [
                 try TargetDescription(
@@ -582,7 +585,7 @@ class PackageBuilderTests: XCTestCase {
             "/swift/tests/footests.swift"
         )
 
-        let manifest = Manifest.createV4Manifest(
+        let manifest = Manifest.createRootManifest(
             name: "pkg",
             targets: [
                 try TargetDescription(
@@ -611,7 +614,7 @@ class PackageBuilderTests: XCTestCase {
             "/bar/bar/fixture/fix2.swift"
         )
 
-        let manifest = Manifest.createV4Manifest(
+        let manifest = Manifest.createRootManifest(
             name: "pkg",
             targets: [
                 try TargetDescription(
@@ -665,7 +668,7 @@ class PackageBuilderTests: XCTestCase {
             "/target/bar/Tests/barTests.swift"
         )
 
-        var manifest = Manifest.createV4Manifest(
+        var manifest = Manifest.createRootManifest(
             name: "pkg",
             targets: [
                 try TargetDescription(
@@ -681,7 +684,7 @@ class PackageBuilderTests: XCTestCase {
             diagnotics.check(diagnostic: "target 'barTests' has sources overlapping sources: /target/bar/Tests/barTests.swift", severity: .error)
         }
 
-        manifest = Manifest.createV4Manifest(
+        manifest = Manifest.createRootManifest(
             name: "pkg",
             targets: [
                 try TargetDescription(
@@ -722,7 +725,7 @@ class PackageBuilderTests: XCTestCase {
             "/Sources/Bar/Bar.c"
         )
 
-        let manifest = Manifest.createV4Manifest(
+        let manifest = Manifest.createRootManifest(
             name: "Foo",
             targets: [
                 try TargetDescription(
@@ -764,7 +767,7 @@ class PackageBuilderTests: XCTestCase {
                                     "/Sources/Bar/Bar.c"
         )
 
-        let manifest = Manifest.createV4Manifest(
+        let manifest = Manifest.createRootManifest(
             name: "Foo",
             targets: [
                 try TargetDescription(
@@ -787,7 +790,7 @@ class PackageBuilderTests: XCTestCase {
             "/Tests/ATests/Foo.swift",
             "/Tests/TheTestOfA/Foo.swift")
 
-        let manifest = Manifest.createV4Manifest(
+        let manifest = Manifest.createRootManifest(
             name: "Foo",
             targets: [
                 try TargetDescription(name: "A"),
@@ -834,7 +837,7 @@ class PackageBuilderTests: XCTestCase {
             "/Tests/barTests/bar.swift"
         )
 
-        let manifest = Manifest.createV4Manifest(
+        let manifest = Manifest.createRootManifest(
             name: "pkg",
             targets: [
                 try TargetDescription(name: "foo"),
@@ -872,7 +875,7 @@ class PackageBuilderTests: XCTestCase {
             "/Sources/Baz/Baz.swift")
 
         // Direct.
-        var manifest = Manifest.createV4Manifest(
+        var manifest = Manifest.createRootManifest(
             name: "pkg",
             targets: [
                 try TargetDescription(name: "Foo", dependencies: ["Bar"]),
@@ -896,7 +899,7 @@ class PackageBuilderTests: XCTestCase {
         }
 
         // Transitive.
-        manifest = Manifest.createV4Manifest(
+        manifest = Manifest.createRootManifest(
             name: "pkg",
             targets: [
                 try TargetDescription(name: "Foo", dependencies: ["Bar"]),
@@ -930,7 +933,7 @@ class PackageBuilderTests: XCTestCase {
             "/Sources/Bar/Bar.swift",
             "/Sources/Baz/Baz.swift")
 
-        let manifest = Manifest.createV4Manifest(
+        let manifest = Manifest.createRootManifest(
             name: "pkg",
             targets: [
                 try TargetDescription(name: "Bar"),
@@ -966,7 +969,7 @@ class PackageBuilderTests: XCTestCase {
             let fs = InMemoryFileSystem(emptyFiles:
                 "/Foo.swift")
 
-            let manifest = Manifest.createV4Manifest(
+            let manifest = Manifest.createRootManifest(
                 name: "pkg",
                 targets: [
                     try TargetDescription(name: "Random"),
@@ -981,7 +984,7 @@ class PackageBuilderTests: XCTestCase {
             let fs = InMemoryFileSystem(emptyFiles:
                 "/src/pkg/Foo.swift")
             // Reference an invalid dependency.
-            let manifest = Manifest.createV4Manifest(
+            let manifest = Manifest.createRootManifest(
                 name: "pkg",
                 targets: [
                     try TargetDescription(name: "pkg", dependencies: [.target(name: "Foo")]),
@@ -995,7 +998,7 @@ class PackageBuilderTests: XCTestCase {
         do {
             let fs = InMemoryFileSystem(emptyFiles:
                 "/Sources/pkg/Foo.swift")
-            let manifest = Manifest.createV4Manifest(
+            let manifest = Manifest.createRootManifest(
                 name: "pkg",
                 targets: [
                     try TargetDescription(name: "pkg", dependencies: []),
@@ -1011,7 +1014,7 @@ class PackageBuilderTests: XCTestCase {
             let fs = InMemoryFileSystem(emptyFiles:
                 "/Source/pkg/Foo.swift")
             // Reference self in dependencies.
-            let manifest = Manifest.createV4Manifest(
+            let manifest = Manifest.createRootManifest(
                 name: "pkg",
                 targets: [
                     try TargetDescription(name: "pkg", dependencies: [.target(name: "pkg")]),
@@ -1026,7 +1029,7 @@ class PackageBuilderTests: XCTestCase {
             let fs = InMemoryFileSystem(emptyFiles:
                 "/Source/pkg/Foo.swift")
             // Reference invalid target.
-            let manifest = Manifest.createV4Manifest(
+            let manifest = Manifest.createRootManifest(
                 name: "pkg",
                 targets: [
                     try TargetDescription(name: "foo"),
@@ -1040,7 +1043,7 @@ class PackageBuilderTests: XCTestCase {
         do {
             let fs = InMemoryFileSystem()
             // Binary target.
-            let manifest = Manifest.createV4Manifest(
+            let manifest = Manifest.createRootManifest(
                 name: "pkg",
                 targets: [
                     try TargetDescription(name: "foo", url: "https://foo.com/foo.zip", type: .binary, checksum: "checksum"),
@@ -1060,7 +1063,7 @@ class PackageBuilderTests: XCTestCase {
                 "/Sources/pkg3/Foo.swift"
             )
             // Cyclic dependency.
-            var manifest = Manifest.createV4Manifest(
+            var manifest = Manifest.createRootManifest(
                 name: "pkg",
                 targets: [
                     try TargetDescription(name: "pkg1", dependencies: ["pkg2"]),
@@ -1072,7 +1075,7 @@ class PackageBuilderTests: XCTestCase {
                 diagnostics.check(diagnostic: "cyclic dependency declaration found: pkg1 -> pkg2 -> pkg3 -> pkg1", severity: .error)
             }
 
-            manifest = Manifest.createV4Manifest(
+            manifest = Manifest.createRootManifest(
                 name: "pkg",
                 targets: [
                     try TargetDescription(name: "pkg1", dependencies: ["pkg2"]),
@@ -1091,7 +1094,7 @@ class PackageBuilderTests: XCTestCase {
                 "/Sources/pkg1/Foo.swift",
                 "/Sources/pkg2/readme.txt")
 
-            let manifest = Manifest.createV4Manifest(
+            let manifest = Manifest.createRootManifest(
                 name: "pkg",
                 targets: [
                     try TargetDescription(name: "pkg1", dependencies: ["pkg2"]),
@@ -1102,7 +1105,7 @@ class PackageBuilderTests: XCTestCase {
                 diagnostics.check(
                     diagnostic: "Source files for target pkg2 should be located under /Sources/pkg2",
                     severity: .warning,
-                    metadata: .packageMetadata(identity: .init(url: manifest.packageLocation), location: manifest.packageLocation)
+                    metadata: .packageMetadata(identity: .init(urlString: manifest.packageLocation), location: manifest.packageLocation)
                 )
                 package.checkModule("pkg1") { module in
                     module.check(c99name: "pkg1", type: .library)
@@ -1116,7 +1119,7 @@ class PackageBuilderTests: XCTestCase {
                 "/Sources/Foo/Foo.c",
                 "/Sources/Bar/Bar.c")
 
-            var manifest = Manifest.createV4Manifest(
+            var manifest = Manifest.createRootManifest(
                 name: "Foo",
                 targets: [
                     try TargetDescription(name: "Foo", publicHeadersPath: "../inc"),
@@ -1127,7 +1130,7 @@ class PackageBuilderTests: XCTestCase {
                 diagnostics.check(diagnostic: "public headers (\"include\") directory path for 'Foo' is invalid or not contained in the target", severity: .error)
             }
 
-            manifest = Manifest.createV4Manifest(
+            manifest = Manifest.createRootManifest(
                 name: "Foo",
                 targets: [
                     try TargetDescription(name: "Bar", publicHeadersPath: "inc/../../../foo"),
@@ -1143,7 +1146,7 @@ class PackageBuilderTests: XCTestCase {
                 "/pkg/Sources/Foo/Foo.c",
                 "/foo/Bar.c")
 
-            let manifest = Manifest.createV4Manifest(
+            let manifest = Manifest.createRootManifest(
                 name: "Foo",
                 targets: [
                     try TargetDescription(name: "Foo", path: "../foo"),
@@ -1158,7 +1161,7 @@ class PackageBuilderTests: XCTestCase {
                 "/pkg/Sources/Foo/Foo.c",
                 "/foo/Bar.c")
 
-            let manifest = Manifest.createV4Manifest(
+            let manifest = Manifest.createRootManifest(
                 name: "Foo",
                 targets: [
                     try TargetDescription(name: "Foo", path: "/foo"),
@@ -1174,7 +1177,7 @@ class PackageBuilderTests: XCTestCase {
                 "/pkg/Sources/Foo/Foo.c",
                 "/foo/Bar.c")
 
-            let manifest = Manifest.createV4Manifest(
+            let manifest = Manifest.createRootManifest(
                 name: "Foo",
                 targets: [
                     try TargetDescription(name: "Foo", path: "~/foo"),
@@ -1192,7 +1195,7 @@ class PackageBuilderTests: XCTestCase {
             "/Sources/exec/main.swift",
             "/Sources/lib/lib.swift")
 
-        let manifest = Manifest.createV4Manifest(
+        let manifest = Manifest.createRootManifest(
             name: "pkg",
             targets: [
                 try TargetDescription(name: "lib", dependencies: ["exec"]),
@@ -1219,7 +1222,7 @@ class PackageBuilderTests: XCTestCase {
             "/Sources/main.swift"
         )
 
-        var manifest = Manifest.createV4Manifest(
+        var manifest = Manifest.createRootManifest(
             name: "pkg",
             pkgConfig: "foo"
         )
@@ -1233,7 +1236,7 @@ class PackageBuilderTests: XCTestCase {
         fs = InMemoryFileSystem(emptyFiles:
             "/Sources/Foo/main.c"
         )
-        manifest = Manifest.createV4Manifest(
+        manifest = Manifest.createRootManifest(
             name: "pkg",
             providers: [.brew(["foo"])]
         )
@@ -1249,7 +1252,7 @@ class PackageBuilderTests: XCTestCase {
         let fs = InMemoryFileSystem(emptyFiles:
             "/module.modulemap")
 
-        let manifest = Manifest.createV4Manifest(name: "SystemModulePackage")
+        let manifest = Manifest.createRootManifest(name: "SystemModulePackage")
         PackageBuilderTester(manifest, in: fs) { package, _ in
             package.checkModule("SystemModulePackage") { module in
                 module.check(c99name: "SystemModulePackage", type: .systemModule)
@@ -1265,7 +1268,7 @@ class PackageBuilderTests: XCTestCase {
         )
 
         func createManifest(swiftVersions: [SwiftLanguageVersion]?) throws -> Manifest {
-            return Manifest.createV4Manifest(
+            return Manifest.createRootManifest(
                 name: "pkg",
                 swiftLanguageVersions: swiftVersions,
                 targets: [
@@ -1327,7 +1330,7 @@ class PackageBuilderTests: XCTestCase {
                 "/Source/Foo/Foo.swift",
                 "/src/Bar/Bar.swift")
 
-            let manifest = Manifest.createV4Manifest(
+            let manifest = Manifest.createRootManifest(
                 name: "pkg",
                 targets: [
                     try TargetDescription(name: "Foo", dependencies: ["Bar"]),
@@ -1347,7 +1350,7 @@ class PackageBuilderTests: XCTestCase {
                 "/Tests/FooTests/Foo.swift",
                 "/Source/BarTests/Foo.swift")
 
-            var manifest = Manifest.createV4Manifest(
+            var manifest = Manifest.createRootManifest(
                 name: "pkg",
                 targets: [
                     try TargetDescription(name: "BarTests", type: .test),
@@ -1359,7 +1362,7 @@ class PackageBuilderTests: XCTestCase {
             }
 
             // We should be able to fix this by using custom paths.
-            manifest = Manifest.createV4Manifest(
+            manifest = Manifest.createRootManifest(
                 name: "pkg",
                 targets: [
                     try TargetDescription(name: "BarTests", path: "Source/BarTests", type: .test),
@@ -1381,7 +1384,7 @@ class PackageBuilderTests: XCTestCase {
     func testSpecifiedCustomPathDoesNotExist() throws {
         let fs = InMemoryFileSystem(emptyFiles: "/Foo.swift")
 
-        let manifest = Manifest.createV4Manifest(
+        let manifest = Manifest.createRootManifest(
             name: "Foo",
             targets: [
                 try TargetDescription(name: "Foo", path: "./NotExist")
@@ -1399,7 +1402,7 @@ class PackageBuilderTests: XCTestCase {
             "/src/A/Foo.swift",
             "/src/ATests/Foo.swift")
 
-        let manifest = Manifest.createV4Manifest(
+        let manifest = Manifest.createRootManifest(
             name: "Foo",
             targets: [
                 try TargetDescription(name: "A"),
@@ -1428,7 +1431,7 @@ class PackageBuilderTests: XCTestCase {
             "/Sources/bar/bar.swift"
         )
 
-        let manifest = Manifest.createV4Manifest(
+        let manifest = Manifest.createRootManifest(
             name: "pkg",
             targets: [
                 try TargetDescription(
@@ -1453,7 +1456,7 @@ class PackageBuilderTests: XCTestCase {
             "/Sources/foo/foo.swift"
         )
 
-        let manifest = Manifest.createV4Manifest(
+        let manifest = Manifest.createRootManifest(
             name: "pkg",
             products: [
                 ProductDescription(name: "foo", type: .library(.automatic), targets: ["foo"]),
@@ -1476,12 +1479,12 @@ class PackageBuilderTests: XCTestCase {
             diagnostics.check(
                 diagnostic: "ignoring duplicate product 'foo' (static)",
                 severity: .warning,
-                metadata: .packageMetadata(identity: .init(url: manifest.packageLocation), location: manifest.packageLocation)
+                metadata: .packageMetadata(identity: .init(urlString: manifest.packageLocation), location: manifest.packageLocation)
             )
             diagnostics.check(
                 diagnostic: "ignoring duplicate product 'foo' (dynamic)",
                 severity: .warning,
-                metadata: .packageMetadata(identity: .init(url: manifest.packageLocation), location: manifest.packageLocation)
+                metadata: .packageMetadata(identity: .init(urlString: manifest.packageLocation), location: manifest.packageLocation)
             )
         }
     }
@@ -1493,7 +1496,7 @@ class PackageBuilderTests: XCTestCase {
             "/Sources/bar/main.swift"
         )
 
-        let manifest = Manifest.createV4Manifest(
+        let manifest = Manifest.createRootManifest(
             name: "SystemModulePackage",
             targets: [
                 try TargetDescription(name: "foo"),
@@ -1508,7 +1511,7 @@ class PackageBuilderTests: XCTestCase {
             diagnostics.check(
                 diagnostic: "ignoring declared target(s) 'foo, bar' in the system package",
                 severity: .warning,
-                metadata: .packageMetadata(identity: .init(url: manifest.packageLocation), location: manifest.packageLocation)
+                metadata: .packageMetadata(identity: .init(urlString: manifest.packageLocation), location: manifest.packageLocation)
             )
         }
     }
@@ -1519,7 +1522,7 @@ class PackageBuilderTests: XCTestCase {
             "/Sources/bar/bar.swift"
         )
 
-        let manifest = Manifest.createV4Manifest(
+        let manifest = Manifest.createRootManifest(
             name: "pkg",
             products: [
                 ProductDescription(name: "foo", type: .library(.automatic), targets: ["foo"]),
@@ -1551,7 +1554,7 @@ class PackageBuilderTests: XCTestCase {
             "/Sources/bar/bar.swift"
         )
 
-        var manifest = Manifest.createV4Manifest(
+        var manifest = Manifest.createRootManifest(
             name: "SystemModulePackage",
             products: [
                 ProductDescription(name: "foo", type: .library(.automatic), targets: ["foo", "bar"]),
@@ -1567,11 +1570,11 @@ class PackageBuilderTests: XCTestCase {
             diagnostics.check(
                 diagnostic: "system library product foo shouldn't have a type and contain only one target",
                 severity: .error,
-                metadata: .packageMetadata(identity: .init(url: manifest.packageLocation), location: manifest.packageLocation)
+                metadata: .packageMetadata(identity: .init(urlString: manifest.packageLocation), location: manifest.packageLocation)
             )
         }
 
-        manifest = Manifest.createV4Manifest(
+        manifest = Manifest.createRootManifest(
             name: "SystemModulePackage",
             products: [
                 ProductDescription(name: "foo", type: .library(.static), targets: ["foo"]),
@@ -1587,11 +1590,11 @@ class PackageBuilderTests: XCTestCase {
             diagnostics.check(
                 diagnostic: "system library product foo shouldn't have a type and contain only one target",
                 severity: .error,
-                metadata: .packageMetadata(identity: .init(url: manifest.packageLocation), location: manifest.packageLocation)
+                metadata: .packageMetadata(identity: .init(urlString: manifest.packageLocation), location: manifest.packageLocation)
             )
         }
         
-        manifest = Manifest.createV4Manifest(
+        manifest = Manifest.createRootManifest(
             name: "bar",
             products: [
                 ProductDescription(name: "bar", type: .library(.automatic), targets: ["bar"])
@@ -1616,7 +1619,7 @@ class PackageBuilderTests: XCTestCase {
             "/Sources/FooLib2/lib.swift"
         )
 
-        let manifest = Manifest.createV4Manifest(
+        let manifest = Manifest.createRootManifest(
             name: "MyPackage",
             products: [
                 ProductDescription(name: "foo1", type: .executable, targets: ["FooLib1"]),
@@ -1641,7 +1644,7 @@ class PackageBuilderTests: XCTestCase {
                     a 'main.swift' file
                     """,
                 severity: .error,
-                metadata: .packageMetadata(identity: .init(url: manifest.packageLocation), location: manifest.packageLocation)
+                metadata: .packageMetadata(identity: .init(urlString: manifest.packageLocation), location: manifest.packageLocation)
             )
             diagnostics.check(
                 diagnostic: """
@@ -1649,12 +1652,12 @@ class PackageBuilderTests: XCTestCase {
                     'main.swift' file
                     """,
                 severity: .error,
-                metadata: .packageMetadata(identity: .init(url: manifest.packageLocation), location: manifest.packageLocation)
+                metadata: .packageMetadata(identity: .init(urlString: manifest.packageLocation), location: manifest.packageLocation)
             )
             diagnostics.check(
                 diagnostic: "executable product 'foo3' should not have more than one executable target",
                 severity: .error,
-                metadata: .packageMetadata(identity: .init(url: manifest.packageLocation), location: manifest.packageLocation)
+                metadata: .packageMetadata(identity: .init(urlString: manifest.packageLocation), location: manifest.packageLocation)
             )
         }
     }
@@ -1664,7 +1667,7 @@ class PackageBuilderTests: XCTestCase {
             "/Sources/exe/main.swift"
         )
 
-        let manifest = Manifest.createV4Manifest(
+        let manifest = Manifest.createRootManifest(
             name: "Pkg",
             targets: [
                 try TargetDescription(name: "exe"),
@@ -1677,7 +1680,7 @@ class PackageBuilderTests: XCTestCase {
             diagnostics.check(
                 diagnostic: "unable to synthesize a REPL product as there are no library targets in the package",
                 severity: .error,
-                metadata: .packageMetadata(identity: .init(url: manifest.packageLocation), location: manifest.packageLocation)
+                metadata: .packageMetadata(identity: .init(urlString: manifest.packageLocation), location: manifest.packageLocation)
             )
         }
     }
@@ -1692,12 +1695,12 @@ class PackageBuilderTests: XCTestCase {
         )
 
         // One platform with an override.
-        var manifest = Manifest.createManifest(
+        var manifest = Manifest.createRootManifest(
             name: "pkg",
             platforms: [
                 PlatformDescription(name: "macos", version: "10.12", options: ["option1"]),
             ],
-            v: .v5,
+            toolsVersion: .v5,
             targets: [
                 try TargetDescription(name: "foo", type: .system),
                 try TargetDescription(name: "cbar"),
@@ -1751,13 +1754,13 @@ class PackageBuilderTests: XCTestCase {
         }
 
         // Two platforms with overrides.
-        manifest = Manifest.createManifest(
+        manifest = Manifest.createRootManifest(
             name: "pkg",
             platforms: [
                 PlatformDescription(name: "macos", version: "10.12"),
                 PlatformDescription(name: "tvos", version: "10.0"),
             ],
-            v: .v5,
+            toolsVersion: .v5,
             targets: [
                 try TargetDescription(name: "foo", type: .system),
                 try TargetDescription(name: "cbar"),
@@ -1798,12 +1801,12 @@ class PackageBuilderTests: XCTestCase {
         )
 
         // One custom platform.
-        var manifest = Manifest.createManifest(
+        var manifest = Manifest.createRootManifest(
             name: "pkg",
             platforms: [
                 PlatformDescription(name: "customos", version: "1.0"),
             ],
-            v: .v5_6,
+            toolsVersion: .v5_6,
             targets: [
                 try TargetDescription(name: "foo", type: .system),
             ]
@@ -1834,13 +1837,13 @@ class PackageBuilderTests: XCTestCase {
         }
 
         // Two platforms with overrides.
-        manifest = Manifest.createManifest(
+        manifest = Manifest.createRootManifest(
             name: "pkg",
             platforms: [
                 PlatformDescription(name: "customos", version: "1.0"),
                 PlatformDescription(name: "anothercustomos", version: "2.3"),
             ],
-            v: .v5_6,
+            toolsVersion: .v5_6,
             targets: [
                 try TargetDescription(name: "foo", type: .system),
             ]
@@ -1864,9 +1867,9 @@ class PackageBuilderTests: XCTestCase {
             "/Sources/lib/include/lib.h"
         )
 
-        let manifest = Manifest.createManifest(
+        let manifest = Manifest.createRootManifest(
             name: "pkg",
-            v: .v4_2,
+            toolsVersion: .v4_2,
             targets: [
                 try TargetDescription(name: "lib", dependencies: []),
             ]
@@ -1888,9 +1891,9 @@ class PackageBuilderTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.bootstrapForTesting()
-        let manifest = Manifest.createManifest(
+        let manifest = Manifest.createRootManifest(
             name: "Pkg",
-            v: .v5,
+            toolsVersion: .v5,
             targets: [
                 try TargetDescription(name: "lib", dependencies: []),
             ]
@@ -1912,9 +1915,9 @@ class PackageBuilderTests: XCTestCase {
             "/Sources/lib/include/lib.h"
         )
 
-        let manifest = Manifest.createManifest(
+        let manifest = Manifest.createRootManifest(
             name: "pkg",
-            v: .v5_2,
+            toolsVersion: .v5_2,
             targets: [
                 try TargetDescription(name: "lib", dependencies: [], path: "./Sources/lib", sources: ["."]),
             ]
@@ -1937,9 +1940,9 @@ class PackageBuilderTests: XCTestCase {
             "/Sources/lib/include/lib.h"
         )
 
-        let manifest = Manifest.createManifest(
+        let manifest = Manifest.createRootManifest(
             name: "pkg",
-            v: .v5_3,
+            toolsVersion: .v5_3,
             targets: [
                 try TargetDescription(name: "lib", dependencies: [], path: "./Sources/lib", sources: ["."]),
             ]
@@ -1963,9 +1966,9 @@ class PackageBuilderTests: XCTestCase {
             "/Sources/cbar/include/bar.h"
         )
 
-        let manifest = Manifest.createManifest(
+        let manifest = Manifest.createRootManifest(
             name: "pkg",
-            v: .v5,
+            toolsVersion: .v5,
             targets: [
                 try TargetDescription(
                     name: "cbar",
@@ -2074,9 +2077,9 @@ class PackageBuilderTests: XCTestCase {
             "/Sources/bar/include/bar.h"
         )
 
-        let manifest = Manifest.createManifest(
+        let manifest = Manifest.createRootManifest(
             name: "pkg",
-            v: .v5,
+            toolsVersion: .v5,
             targets: [
                 try TargetDescription(
                     name: "foo",
@@ -2147,9 +2150,9 @@ class PackageBuilderTests: XCTestCase {
             "/pkg/Sources/exe/main.swift"
         )
 
-        let manifest1 = Manifest.createManifest(
+        let manifest1 = Manifest.createRootManifest(
             name: "pkg",
-            v: .v5,
+            toolsVersion: .v5,
             targets: [
                 try TargetDescription(
                     name: "exe",
@@ -2164,9 +2167,9 @@ class PackageBuilderTests: XCTestCase {
             diagnostics.check(diagnostic: "invalid relative path '/Sources/headers'; relative path should not begin with '/' or '~'", severity: .error)
         }
 
-        let manifest2 = Manifest.createManifest(
+        let manifest2 = Manifest.createRootManifest(
             name: "pkg",
-            v: .v5,
+            toolsVersion: .v5,
             targets: [
                 try TargetDescription(
                     name: "exe",
@@ -2189,11 +2192,11 @@ class PackageBuilderTests: XCTestCase {
             "/Bar/Sources/Bar/bar.swift"
         )
 
-        let manifest = Manifest.createManifest(
+        let manifest = Manifest.createRootManifest(
             name: "Foo",
-            v: .v5,
+            toolsVersion: .v5,
             dependencies: [
-                .scm(location: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                .localSourceControl(path: .init("/Bar"), requirement: .upToNextMajor(from: "1.0.0")),
             ],
             targets: [
                 try TargetDescription(
@@ -2214,12 +2217,12 @@ class PackageBuilderTests: XCTestCase {
             diagnostics.checkUnordered(
                 diagnostic: "invalid duplicate target dependency declaration 'Bar' in target 'Foo' from package 'Foo'",
                 severity: .warning,
-                metadata: .packageMetadata(identity: .init(url: manifest.packageLocation), location: manifest.packageLocation)
+                metadata: .packageMetadata(identity: .init(urlString: manifest.packageLocation), location: manifest.packageLocation)
             )
             diagnostics.checkUnordered(
                 diagnostic: "invalid duplicate target dependency declaration 'Foo2' in target 'Foo' from package 'Foo'",
                 severity: .warning,
-                metadata: .packageMetadata(identity: .init(url: manifest.packageLocation), location: manifest.packageLocation)
+                metadata: .packageMetadata(identity: .init(urlString: manifest.packageLocation), location: manifest.packageLocation)
             )
         }
     }
@@ -2231,11 +2234,11 @@ class PackageBuilderTests: XCTestCase {
             "/Sources/Baz/baz.swift"
         )
 
-        let manifest = Manifest.createManifest(
+        let manifest = Manifest.createRootManifest(
             name: "Foo",
-            v: .v5,
+            toolsVersion: .v5,
             dependencies: [
-                .fileSystem(path: "/Biz"),
+                .fileSystem(path: .init("/Biz")),
             ],
             targets: [
                 try TargetDescription(
@@ -2295,9 +2298,9 @@ class PackageBuilderTests: XCTestCase {
             "/Foo/Sources/Foo/Resources/en.lproj/Localizable.strings"
         )
 
-        let manifest = Manifest.createManifest(
+        let manifest = Manifest.createRootManifest(
             name: "Foo",
-            v: .v5_3,
+            toolsVersion: .v5_3,
             targets: [
                 try TargetDescription(name: "Foo", resources: [
                     .init(rule: .process, path: "Resources")
@@ -2319,9 +2322,9 @@ class PackageBuilderTests: XCTestCase {
             "/Foo/Sources/Foo/Foo.metal"
         )
 
-        let manifest = Manifest.createManifest(
+        let manifest = Manifest.createRootManifest(
             name: "Foo",
-            v: .v5_3,
+            toolsVersion: .v5_3,
             targets: [
                 try TargetDescription(name: "Foo"),
             ]
@@ -2381,7 +2384,7 @@ final class PackageBuilderTester {
         do {
             // FIXME: We should allow customizing root package boolean.
             let builder = PackageBuilder(
-                identity: PackageIdentity(url: manifest.packageLocation), // FIXME
+                identity: PackageIdentity(urlString: manifest.packageLocation),
                 manifest: manifest,
                 productFilter: .everything,
                 path: path,

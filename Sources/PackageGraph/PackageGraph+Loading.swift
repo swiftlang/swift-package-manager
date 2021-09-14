@@ -36,7 +36,7 @@ extension PackageGraph {
 
         // Create a map of the manifests, keyed by their identity.
         let rootManifestsMap = root.manifests
-        let externalManifestsMap = externalManifests.map{ (identityResolver.resolveIdentity(for: $0.packageLocation), $0) }
+        let externalManifestsMap = try externalManifests.map{ (try identityResolver.resolveIdentity(for: $0.packageKind), $0) }
         let manifestMap = rootManifestsMap.merging(externalManifestsMap, uniquingKeysWith: { lhs, rhs in
             return lhs
         })
@@ -116,7 +116,7 @@ extension PackageGraph {
                     binaryArtifacts: binaryArtifacts,
                     xcTestMinimumDeploymentTargets: xcTestMinimumDeploymentTargets,
                     shouldCreateMultipleTestProducts: shouldCreateMultipleTestProducts,
-                    createREPLProduct: manifest.packageKind == .root ? createREPLProduct : false,
+                    createREPLProduct: manifest.packageKind.isRoot ? createREPLProduct : false,
                     fileSystem: fileSystem
                 )
                 let package = try builder.construct()
@@ -125,7 +125,7 @@ extension PackageGraph {
                 // Throw if any of the non-root package is empty.
                 if package.targets.isEmpty // System packages have targets in the package but not the manifest.
                     && package.manifest.targets.isEmpty // An unneeded dependency will not have loaded anything from the manifest.
-                    && manifest.packageKind != .root {
+                    && !manifest.packageKind.isRoot {
                     throw PackageGraphError.noModules(package)
                 }
             }
@@ -204,7 +204,7 @@ private func createResolvedPackages(
         guard let package = manifestToPackage[node.manifest] else {
             return nil
         }
-        let isAllowedToVendUnsafeProducts = unsafeAllowedPackages.contains{ $0.location == package.manifest.packageLocation }
+        let isAllowedToVendUnsafeProducts = unsafeAllowedPackages.contains{ $0.kind == package.manifest.packageKind }
         let allowedToOverride = rootManifestSet.contains(node.manifest)
         return ResolvedPackageBuilder(
             package,
@@ -240,7 +240,12 @@ private func createResolvedPackages(
             case .fileSystem(let settings):
                 dependencyLocation = settings.path.pathString
             case .sourceControl(let settings):
-                dependencyLocation = settings.location
+                switch settings.location {
+                case .local(let path):
+                    dependencyLocation = path.pathString
+                case .remote(let url):
+                    dependencyLocation = url.absoluteString
+                }
             case .registry:
                 // FIXME
                 fatalError("registry based dependencies not implemented yet")
