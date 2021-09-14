@@ -49,15 +49,12 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
         try self.cache?.close()
     }
 
-    func get(_ reference: PackageReference, callback: @escaping (Result<Model.PackageBasicMetadata, Error>) -> Void) {
-        guard reference.kind == .remote else {
-            return callback(.failure(Errors.invalidReferenceType(reference)))
-        }
-        guard let baseURL = Self.apiURL(reference.location) else {
-            return callback(.failure(Errors.invalidGitURL(reference.location)))
+    func get(identity: PackageIdentity, location: String, callback: @escaping (Result<Model.PackageBasicMetadata, Error>) -> Void) {
+        guard let baseURL = Self.apiURL(location) else {
+            return callback(.failure(Errors.invalidGitURL(location)))
         }
 
-        if let cached = try? self.cache?.get(key: reference.identity.description) {
+        if let cached = try? self.cache?.get(key: identity.description) {
             if cached.dispatchTime + DispatchTimeInterval.seconds(self.configuration.cacheTTLInSeconds) > DispatchTime.now() {
                 return callback(.success(cached.package))
             }
@@ -157,9 +154,9 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
                     )
 
                     do {
-                        try self.cache?.put(key: reference.identity.description, value: CacheValue(package: model, timestamp: DispatchTime.now()), replace: true)
+                        try self.cache?.put(key: identity.description, value: CacheValue(package: model, timestamp: DispatchTime.now()), replace: true)
                     } catch {
-                        self.diagnosticsEngine?.emit(.warning("Failed to save GitHub metadata for package \(reference) to cache: \(error)"))
+                        self.diagnosticsEngine?.emit(.warning("Failed to save GitHub metadata for package \(identity) to cache: \(error)"))
                     }
 
                     callback(.success(model))
@@ -170,13 +167,13 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
         }
     }
 
-    func getAuthTokenType(for reference: PackageReference) -> AuthTokenType? {
-        guard reference.kind == .remote, let baseURL = Self.apiURL(reference.location) else {
+    func getAuthTokenType(for location: String) -> AuthTokenType? {
+        guard let baseURL = Self.apiURL(location) else {
             return nil
         }
 
         return baseURL.host.flatMap { host in
-            self.getAuthTokenType(for: host)
+            self.getAuthTokenType(forHost: host)
         }
     }
 
@@ -206,7 +203,7 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
         options.validResponseCodes = validResponseCodes
         options.authorizationProvider = { url in
             url.host.flatMap { host in
-                let tokenType = self.getAuthTokenType(for: host)
+                let tokenType = self.getAuthTokenType(forHost: host)
                 return self.configuration.authTokens()?[tokenType].flatMap { token in
                     "token \(token)"
                 }
@@ -215,7 +212,8 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
         return options
     }
 
-    private func getAuthTokenType(for host: String) -> AuthTokenType {
+    
+    private func getAuthTokenType(forHost host: String) -> AuthTokenType {
         let host = host.hasPrefix(Self.apiHostPrefix) ? String(host.dropFirst(Self.apiHostPrefix.count)) : host
         return .github(host)
     }

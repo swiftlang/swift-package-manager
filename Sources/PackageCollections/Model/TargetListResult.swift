@@ -33,8 +33,11 @@ extension PackageCollectionsModel.TargetListResult {
     public struct Package: Hashable, Encodable {
         public typealias Version = PackageCollectionsModel.TargetListResult.PackageVersion
 
-        /// Package's repository address
-        public let repository: RepositorySpecifier
+        /// Package's identity
+        public let identity: PackageIdentity
+
+        /// Package's location
+        public let location: String
 
         /// Package description
         public let summary: String?

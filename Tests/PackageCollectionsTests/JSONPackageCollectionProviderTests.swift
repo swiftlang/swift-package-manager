@@ -56,7 +56,8 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             XCTAssertEqual(collection.packages.count, 2)
 
             let package = collection.packages.first!
-            XCTAssertEqual(package.repository, .init(url: "https://www.example.com/repos/RepoOne.git"))
+            XCTAssertEqual(package.identity, .init(url: "https://www.example.com/repos/RepoOne.git"))
+            XCTAssertEqual(package.location, "https://www.example.com/repos/RepoOne.git")
             XCTAssertEqual(package.summary, "Package One")
             XCTAssertEqual(package.keywords, ["sample package"])
             XCTAssertEqual(package.readmeURL, URL(string: "https://www.example.com/repos/RepoOne/README")!)
@@ -76,7 +77,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             XCTAssertEqual(version.license, .init(type: .Apache2_0, url: URL(string: "https://www.example.com/repos/RepoOne/LICENSE")!))
             XCTAssertNotNil(version.createdAt)
             XCTAssertFalse(collection.isSigned)
-
+            
             // "1.8.3" is originally "v1.8.3"
             XCTAssertEqual(["2.1.0", "1.8.3"], collection.packages[1].versions.map { $0.version.description })
         }
@@ -100,7 +101,8 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             XCTAssertEqual(collection.packages.count, 2)
 
             let package = collection.packages.first!
-            XCTAssertEqual(package.repository, .init(url: "https://www.example.com/repos/RepoOne.git"))
+            XCTAssertEqual(package.identity, .init(url: "https://www.example.com/repos/RepoOne.git"))
+            XCTAssertEqual(package.location, "https://www.example.com/repos/RepoOne.git")
             XCTAssertEqual(package.summary, "Package One")
             XCTAssertEqual(package.keywords, ["sample package"])
             XCTAssertEqual(package.readmeURL, URL(string: "https://www.example.com/repos/RepoOne/README")!)
@@ -396,7 +398,8 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             XCTAssertEqual(collection.packages.count, 2)
 
             let package = collection.packages.first!
-            XCTAssertEqual(package.repository, .init(url: "https://www.example.com/repos/RepoOne.git"))
+            XCTAssertEqual(package.identity, .init(url: "https://www.example.com/repos/RepoOne.git"))
+            XCTAssertEqual(package.location, "https://www.example.com/repos/RepoOne.git")
             XCTAssertEqual(package.summary, "Package One")
             XCTAssertEqual(package.keywords, ["sample package"])
             XCTAssertEqual(package.readmeURL, URL(string: "https://www.example.com/repos/RepoOne/README")!)
@@ -463,7 +466,8 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             XCTAssertEqual(collection.createdBy?.name, "Jane Doe")
             XCTAssertEqual(collection.packages.count, 2)
             let package = collection.packages.first!
-            XCTAssertEqual(package.repository, .init(url: "https://www.example.com/repos/RepoOne.git"))
+            XCTAssertEqual(package.identity, .init(url: "https://www.example.com/repos/RepoOne.git"))
+            XCTAssertEqual(package.location, "https://www.example.com/repos/RepoOne.git")
             XCTAssertEqual(package.summary, "Package One")
             XCTAssertEqual(package.keywords, ["sample package"])
             XCTAssertEqual(package.readmeURL, URL(string: "https://www.example.com/repos/RepoOne/README")!)
@@ -598,7 +602,8 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             XCTAssertEqual(collection.createdBy?.name, "Jane Doe")
             XCTAssertEqual(collection.packages.count, 2)
             let package = collection.packages.first!
-            XCTAssertEqual(package.repository, .init(url: "https://www.example.com/repos/RepoOne.git"))
+            XCTAssertEqual(package.identity, .init(url: "https://www.example.com/repos/RepoOne.git"))
+            XCTAssertEqual(package.location, "https://www.example.com/repos/RepoOne.git")
             XCTAssertEqual(package.summary, "Package One")
             XCTAssertEqual(package.keywords, ["sample package"])
             XCTAssertEqual(package.readmeURL, URL(string: "https://www.example.com/repos/RepoOne/README")!)
@@ -665,7 +670,8 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             XCTAssertEqual(collection.createdBy?.name, "Jane Doe")
             XCTAssertEqual(collection.packages.count, 2)
             let package = collection.packages.first!
-            XCTAssertEqual(package.repository, .init(url: "https://www.example.com/repos/RepoOne.git"))
+            XCTAssertEqual(package.identity, .init(url: "https://www.example.com/repos/RepoOne.git"))
+            XCTAssertEqual(package.location, "https://www.example.com/repos/RepoOne.git")
             XCTAssertEqual(package.summary, "Package One")
             XCTAssertEqual(package.keywords, ["sample package"])
             XCTAssertEqual(package.readmeURL, URL(string: "https://www.example.com/repos/RepoOne/README")!)
@@ -739,7 +745,8 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             XCTAssertEqual(collection.createdBy?.name, "Jane Doe")
             XCTAssertEqual(collection.packages.count, 2)
             let package = collection.packages.first!
-            XCTAssertEqual(package.repository, .init(url: "https://www.example.com/repos/RepoOne.git"))
+            XCTAssertEqual(package.identity, .init(url: "https://www.example.com/repos/RepoOne.git"))
+            XCTAssertEqual(package.location, "https://www.example.com/repos/RepoOne.git")
             XCTAssertEqual(package.summary, "Package One")
             XCTAssertEqual(package.keywords, ["sample package"])
             XCTAssertEqual(package.readmeURL, URL(string: "https://www.example.com/repos/RepoOne/README")!)

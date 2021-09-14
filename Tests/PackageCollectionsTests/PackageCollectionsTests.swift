@@ -587,7 +587,7 @@ final class PackageCollectionsTests: XCTestCase {
         let mockPackage = mockCollections.last!.packages.last!
         let mockMetadata = makeMockPackageBasicMetadata()
         let collectionProviders = [PackageCollectionsModel.CollectionSourceType.json: MockCollectionsProvider(mockCollections)]
-        let metadataProvider = MockMetadataProvider([mockPackage.reference: mockMetadata])
+        let metadataProvider = MockMetadataProvider([mockPackage.identity: mockMetadata])
         let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
 
         try mockCollections.forEach { collection in
@@ -609,7 +609,7 @@ final class PackageCollectionsTests: XCTestCase {
         let mockPackage = mockCollections.last!.packages.last!
         let mockMetadata = makeMockPackageBasicMetadata()
         let collectionProviders = [PackageCollectionsModel.CollectionSourceType.json: MockCollectionsProvider(mockCollections)]
-        let metadataProvider = MockMetadataProvider([mockPackage.reference: mockMetadata])
+        let metadataProvider = MockMetadataProvider([mockPackage.identity: mockMetadata])
         let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
 
         try mockCollections.forEach { collection in
@@ -637,7 +637,7 @@ final class PackageCollectionsTests: XCTestCase {
         let mockPackage = mockCollections.last!.packages.last!
         let mockMetadata = makeMockPackageBasicMetadata()
         let collectionProviders = [PackageCollectionsModel.CollectionSourceType.json: MockCollectionsProvider(mockCollections)]
-        let metadataProvider = MockMetadataProvider([mockPackage.reference: mockMetadata])
+        let metadataProvider = MockMetadataProvider([mockPackage.identity: mockMetadata])
         let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
 
         let sync = DispatchGroup()
@@ -689,7 +689,9 @@ final class PackageCollectionsTests: XCTestCase {
                                                                   license: nil,
                                                                   createdAt: nil)
 
-        let mockPackage = PackageCollectionsModel.Package(repository: .init(url: "https://packages.mock/\(UUID().uuidString)"),
+        let url = "https://packages.mock/\(UUID().uuidString)"
+        let mockPackage = PackageCollectionsModel.Package(identity: .init(url: url),
+                                                          location: url,
                                                           summary: UUID().uuidString,
                                                           keywords: [UUID().uuidString, UUID().uuidString],
                                                           versions: [mockVersion],
@@ -753,14 +755,14 @@ final class PackageCollectionsTests: XCTestCase {
 
         do {
             // search by package repository url
-            let searchResult = try tsc_await { callback in packageCollections.findPackages(mockPackage.repository.url, callback: callback) }
+            let searchResult = try tsc_await { callback in packageCollections.findPackages(mockPackage.location, callback: callback) }
             XCTAssertEqual(searchResult.items.count, 1, "list count should match")
             XCTAssertEqual(searchResult.items.first?.collections.sorted(), expectedCollectionsIdentifiers, "collections should match")
         }
 
         do {
-            // search by package repository url base name
-            let searchResult = try tsc_await { callback in packageCollections.findPackages(mockPackage.repository.basename, callback: callback) }
+            // search by package identity
+            let searchResult = try tsc_await { callback in packageCollections.findPackages(mockPackage.identity.description, callback: callback) }
             XCTAssertEqual(searchResult.items.count, 1, "list count should match")
             XCTAssertEqual(searchResult.items.first?.collections.sorted(), expectedCollectionsIdentifiers, "collections should match")
         }
@@ -814,7 +816,7 @@ final class PackageCollectionsTests: XCTestCase {
 
         // search by package name
         let start = Date()
-        let repoName = mockCollections.last!.packages.last!.repository.basename
+        let repoName = mockCollections.last!.packages.last!.identity.description
         let searchResult = try tsc_await { callback in packageCollections.findPackages(repoName, callback: callback) }
         XCTAssert(searchResult.items.count > 0, "should get results")
         let delta = Date().timeIntervalSince(start)
@@ -854,7 +856,9 @@ final class PackageCollectionsTests: XCTestCase {
                                                                   license: nil,
                                                                   createdAt: nil)
 
-        let mockPackage = PackageCollectionsModel.Package(repository: RepositorySpecifier(url: "https://packages.mock/\(UUID().uuidString)"),
+        let mockPackageURL = "https://packages.mock/\(UUID().uuidString)"
+        let mockPackage = PackageCollectionsModel.Package(identity: .init(url: mockPackageURL),
+                                                          location: mockPackageURL,
                                                           summary: UUID().uuidString,
                                                           keywords: [UUID().uuidString, UUID().uuidString],
                                                           versions: [mockVersion],
@@ -899,7 +903,7 @@ final class PackageCollectionsTests: XCTestCase {
             // search by exact target name
             let searchResult = try tsc_await { callback in packageCollections.findTargets(mockTargets.first!.name, searchType: .exactMatch, callback: callback) }
             XCTAssertEqual(searchResult.items.count, 1, "list count should match")
-            XCTAssertEqual(searchResult.items.first?.packages.map { $0.repository }, [mockPackage.repository], "packages should match")
+            XCTAssertEqual(searchResult.items.first?.packages.map { $0.identity }, [mockPackage.identity], "packages should match")
             XCTAssertEqual(searchResult.items.first?.packages.flatMap { $0.collections }.sorted(), expectedCollectionsIdentifiers, "collections should match")
         }
 
@@ -907,7 +911,7 @@ final class PackageCollectionsTests: XCTestCase {
             // search by prefix target name
             let searchResult = try tsc_await { callback in packageCollections.findTargets(String(mockTargets.first!.name.prefix(mockTargets.first!.name.count - 1)), searchType: .prefix, callback: callback) }
             XCTAssertEqual(searchResult.items.count, 1, "list count should match")
-            XCTAssertEqual(searchResult.items.first?.packages.map { $0.repository }, [mockPackage.repository], "packages should match")
+            XCTAssertEqual(searchResult.items.first?.packages.map { $0.identity }, [mockPackage.identity], "packages should match")
             XCTAssertEqual(searchResult.items.first?.packages.flatMap { $0.collections }.sorted(), expectedCollectionsIdentifiers, "collections should match")
         }
 
@@ -1139,11 +1143,11 @@ final class PackageCollectionsTests: XCTestCase {
         XCTAssertEqual(Set(targetsList.map { $0.target.name }), expectedTargets, "targets should match")
 
         let targetsPackagesList = Set(targetsList.flatMap { $0.packages })
-        let expectedPackages = Set(mockCollections.flatMap { $0.packages.filter { !$0.versions.filter { !expectedTargets.isDisjoint(with: $0.defaultManifest!.targets.map { $0.name }) }.isEmpty } }.map { $0.reference })
-        XCTAssertEqual(targetsPackagesList.count, expectedPackages.count, "pacakges should match")
+        let expectedPackages = Set(mockCollections.flatMap { $0.packages.filter { !$0.versions.filter { !expectedTargets.isDisjoint(with: $0.defaultManifest!.targets.map { $0.name }) }.isEmpty } }.map { $0.identity })
+        XCTAssertEqual(targetsPackagesList.count, expectedPackages.count, "packages should match")
 
         let targetsCollectionsList = Set(targetsList.flatMap { $0.packages.flatMap { $0.collections } })
-        let expectedCollections = Set(mockCollections.filter { !$0.packages.filter { expectedPackages.contains($0.reference) }.isEmpty }.map { $0.identifier })
+        let expectedCollections = Set(mockCollections.filter { !$0.packages.filter { expectedPackages.contains($0.identity) }.isEmpty }.map { $0.identifier })
         XCTAssertEqual(targetsCollectionsList, expectedCollections, "collections should match")
     }
 
@@ -1158,7 +1162,7 @@ final class PackageCollectionsTests: XCTestCase {
         let mockPackage = mockCollections.last!.packages.last!
         let mockMetadata = makeMockPackageBasicMetadata()
         let collectionProviders = [PackageCollectionsModel.CollectionSourceType.json: MockCollectionsProvider(mockCollections)]
-        let metadataProvider = MockMetadataProvider([mockPackage.reference: mockMetadata])
+        let metadataProvider = MockMetadataProvider([mockPackage.identity: mockMetadata])
         let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
 
         do {
@@ -1174,9 +1178,9 @@ final class PackageCollectionsTests: XCTestCase {
             XCTAssertEqual(list.count, mockCollections.count, "list count should match")
         }
 
-        let metadata = try tsc_await { callback in packageCollections.getPackageMetadata(mockPackage.reference, callback: callback) }
+        let metadata = try tsc_await { callback in packageCollections.getPackageMetadata(mockPackage.identity, callback: callback) }
 
-        let expectedCollections = Set(mockCollections.filter { $0.packages.map { $0.reference }.contains(mockPackage.reference) }.map { $0.identifier })
+        let expectedCollections = Set(mockCollections.filter { $0.packages.map { $0.identity }.contains(mockPackage.identity) }.map { $0.identifier })
         XCTAssertEqual(Set(metadata.collections), expectedCollections, "collections should match")
 
         let expectedMetadata = PackageCollections.mergedPackageMetadata(package: mockPackage, basicMetadata: mockMetadata)
@@ -1212,9 +1216,9 @@ final class PackageCollectionsTests: XCTestCase {
             XCTAssertEqual(list.count, mockCollections.count, "list count should match")
         }
 
-        let metadata = try tsc_await { callback in packageCollections.getPackageMetadata(mockPackage.reference, callback: callback) }
+        let metadata = try tsc_await { callback in packageCollections.getPackageMetadata(mockPackage.identity, callback: callback) }
 
-        let expectedCollections = Set(mockCollections.filter { $0.packages.map { $0.reference }.contains(mockPackage.reference) }.map { $0.identifier })
+        let expectedCollections = Set(mockCollections.filter { $0.packages.map { $0.identity }.contains(mockPackage.identity) }.map { $0.identifier })
         XCTAssertEqual(Set(metadata.collections), expectedCollections, "collections should match")
 
         let expectedMetadata = PackageCollections.mergedPackageMetadata(package: mockPackage, basicMetadata: nil)
@@ -1251,7 +1255,7 @@ final class PackageCollectionsTests: XCTestCase {
         }
 
         let collectionIdentifiers: Set<Model.CollectionIdentifier> = [mockCollections.last!.identifier]
-        let metadata = try tsc_await { callback in packageCollections.getPackageMetadata(mockPackage.reference, collections: collectionIdentifiers, callback: callback) }
+        let metadata = try tsc_await { callback in packageCollections.getPackageMetadata(mockPackage.identity, collections: collectionIdentifiers, callback: callback) }
         XCTAssertEqual(Set(metadata.collections), collectionIdentifiers, "collections should match")
 
         let expectedMetadata = PackageCollections.mergedPackageMetadata(package: mockPackage, basicMetadata: nil)
@@ -1295,7 +1299,9 @@ final class PackageCollectionsTests: XCTestCase {
                                                     createdAt: Date())
         }
 
-        let mockPackage = PackageCollectionsModel.Package(repository: RepositorySpecifier(url: "https://package-\(packageId)"),
+        let mockPackageURL = "https://package-\(packageId)"
+        let mockPackage = PackageCollectionsModel.Package(identity: .init(url: mockPackageURL),
+                                                          location: mockPackageURL,
                                                           summary: "package \(packageId) description",
                                                           keywords: [UUID().uuidString],
                                                           versions: versions,
@@ -1317,8 +1323,8 @@ final class PackageCollectionsTests: XCTestCase {
 
         let metadata = PackageCollections.mergedPackageMetadata(package: mockPackage, basicMetadata: mockMetadata)
 
-        XCTAssertEqual(metadata.reference, mockPackage.reference, "reference should match")
-        XCTAssertEqual(metadata.repository, mockPackage.repository, "repository should match")
+        XCTAssertEqual(metadata.identity, mockPackage.identity, "identity should match")
+        XCTAssertEqual(metadata.location, mockPackage.location, "location should match")
         XCTAssertEqual(metadata.summary, mockMetadata.summary, "summary should match")
         XCTAssertEqual(metadata.keywords, mockMetadata.keywords, "keywords should match")
         mockPackage.versions.forEach { version in
@@ -1359,7 +1365,7 @@ final class PackageCollectionsTests: XCTestCase {
         let mockPackage = makeMockCollections().first!.packages.first!
         let mockMetadata = makeMockPackageBasicMetadata()
         let collectionProviders = [PackageCollectionsModel.CollectionSourceType.json: MockCollectionsProvider([])]
-        let metadataProvider = MockMetadataProvider([mockPackage.reference: mockMetadata])
+        let metadataProvider = MockMetadataProvider([mockPackage.identity: mockMetadata])
         let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
 
         do {
@@ -1367,7 +1373,7 @@ final class PackageCollectionsTests: XCTestCase {
             XCTAssertEqual(list.count, 0, "list should be empty")
         }
 
-        XCTAssertThrowsError(try tsc_await { callback in packageCollections.getPackageMetadata(mockPackage.reference, callback: callback) }, "expected error") { error in
+        XCTAssertThrowsError(try tsc_await { callback in packageCollections.getPackageMetadata(mockPackage.identity, callback: callback) }, "expected error") { error in
             XCTAssert(error is NotFoundError)
         }
     }
@@ -1398,9 +1404,9 @@ final class PackageCollectionsTests: XCTestCase {
             XCTAssertEqual(list.count, mockCollections.count, "list count should match")
         }
 
-        let metadata = try tsc_await { callback in packageCollections.getPackageMetadata(mockPackage.reference, callback: callback) }
+        let metadata = try tsc_await { callback in packageCollections.getPackageMetadata(mockPackage.identity, callback: callback) }
 
-        let expectedCollections = Set(mockCollections.filter { $0.packages.map { $0.reference }.contains(mockPackage.reference) }.map { $0.identifier })
+        let expectedCollections = Set(mockCollections.filter { $0.packages.map { $0.identity }.contains(mockPackage.identity) }.map { $0.identifier })
         XCTAssertEqual(Set(metadata.collections), expectedCollections, "collections should match")
 
         let expectedMetadata = PackageCollections.mergedPackageMetadata(package: mockPackage, basicMetadata: nil)
@@ -1416,11 +1422,11 @@ final class PackageCollectionsTests: XCTestCase {
         struct BrokenMetadataProvider: PackageMetadataProvider {
             var name: String = "BrokenMetadataProvider"
 
-            func get(_ reference: PackageReference, callback: @escaping (Result<PackageCollectionsModel.PackageBasicMetadata, Error>) -> Void) {
+            func get(identity: PackageIdentity, location: String, callback: @escaping (Result<PackageCollectionsModel.PackageBasicMetadata, Error>) -> Void) {
                 callback(.failure(TerribleThing()))
             }
 
-            func getAuthTokenType(for reference: PackageReference) -> AuthTokenType? {
+            func getAuthTokenType(for location: String) -> AuthTokenType? {
                 nil
             }
 
@@ -1453,7 +1459,7 @@ final class PackageCollectionsTests: XCTestCase {
         }
 
         // Despite metadata provider error we should still get back data from storage
-        let metadata = try tsc_await { callback in packageCollections.getPackageMetadata(mockPackage.reference, callback: callback) }
+        let metadata = try tsc_await { callback in packageCollections.getPackageMetadata(mockPackage.identity, callback: callback) }
         let expectedMetadata = PackageCollections.mergedPackageMetadata(package: mockPackage, basicMetadata: nil)
         XCTAssertEqual(metadata.package, expectedMetadata, "package should match")
 
@@ -1477,7 +1483,7 @@ final class PackageCollectionsTests: XCTestCase {
         let mockPackage = mockCollections.last!.packages.last!
         let mockMetadata = makeMockPackageBasicMetadata()
         let collectionProviders = [PackageCollectionsModel.CollectionSourceType.json: MockCollectionsProvider(mockCollections)]
-        let metadataProvider = MockMetadataProvider([mockPackage.reference: mockMetadata])
+        let metadataProvider = MockMetadataProvider([mockPackage.identity: mockMetadata])
         let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: collectionProviders, metadataProvider: metadataProvider)
 
         let sync = DispatchGroup()
@@ -1490,7 +1496,7 @@ final class PackageCollectionsTests: XCTestCase {
         sync.wait()
 
         let start = Date()
-        let metadata = try tsc_await { callback in packageCollections.getPackageMetadata(mockPackage.reference, callback: callback) }
+        let metadata = try tsc_await { callback in packageCollections.getPackageMetadata(mockPackage.identity, callback: callback) }
         XCTAssertNotNil(metadata)
         let delta = Date().timeIntervalSince(start)
         XCTAssert(delta < 1.0, "should fetch quickly, took \(delta)")
@@ -1529,7 +1535,9 @@ final class PackageCollectionsTests: XCTestCase {
                                                                   license: nil,
                                                                   createdAt: nil)
 
-        let mockPackage = PackageCollectionsModel.Package(repository: .init(url: "https://packages.mock/\(UUID().uuidString)"),
+        let mockPackageURL = "https://packages.mock/\(UUID().uuidString)"
+        let mockPackage = PackageCollectionsModel.Package(identity: .init(url: mockPackageURL),
+                                                          location: mockPackageURL,
                                                           summary: UUID().uuidString,
                                                           keywords: [UUID().uuidString, UUID().uuidString],
                                                           versions: [mockVersion],
@@ -1570,25 +1578,25 @@ final class PackageCollectionsTests: XCTestCase {
 
         do {
             let fetchCollections = Set(mockCollections.map { $0.identifier } + [mockCollection.identifier, mockCollection2.identifier])
-            let expectedPackages = Set(mockCollections.flatMap { $0.packages.map { $0.reference } } + [mockPackage.reference])
+            let expectedPackages = Set(mockCollections.flatMap { $0.packages.map { $0.identity } } + [mockPackage.identity])
             let expectedCollections = Set([mockCollection.identifier, mockCollection2.identifier])
 
             let searchResult = try tsc_await { callback in packageCollections.listPackages(collections: fetchCollections, callback: callback) }
             XCTAssertEqual(searchResult.items.count, expectedPackages.count, "list count should match")
-            XCTAssertEqual(Set(searchResult.items.map { $0.package.reference }), expectedPackages, "items should match")
-            XCTAssertEqual(Set(searchResult.items.first(where: { $0.package.reference == mockPackage.reference })?.collections ?? []), expectedCollections, "collections should match")
+            XCTAssertEqual(Set(searchResult.items.map { $0.package.identity }), expectedPackages, "items should match")
+            XCTAssertEqual(Set(searchResult.items.first(where: { $0.package.identity == mockPackage.identity })?.collections ?? []), expectedCollections, "collections should match")
         }
 
         // Call API for specific collections
         do {
             let fetchCollections = Set([mockCollections[0].identifier, mockCollection.identifier, mockCollection2.identifier])
-            let expectedPackages = Set(mockCollections[0].packages.map { $0.reference } + [mockPackage.reference])
+            let expectedPackages = Set(mockCollections[0].packages.map { $0.identity } + [mockPackage.identity])
             let expectedCollections = Set([mockCollection.identifier, mockCollection2.identifier])
 
             let searchResult = try tsc_await { callback in packageCollections.listPackages(collections: fetchCollections, callback: callback) }
             XCTAssertEqual(searchResult.items.count, expectedPackages.count, "list count should match")
-            XCTAssertEqual(Set(searchResult.items.map { $0.package.reference }), expectedPackages, "items should match")
-            XCTAssertEqual(Set(searchResult.items.first(where: { $0.package.reference == mockPackage.reference })?.collections ?? []), expectedCollections, "collections should match")
+            XCTAssertEqual(Set(searchResult.items.map { $0.package.identity }), expectedPackages, "items should match")
+            XCTAssertEqual(Set(searchResult.items.first(where: { $0.package.identity == mockPackage.identity })?.collections ?? []), expectedCollections, "collections should match")
         }
     }
 }

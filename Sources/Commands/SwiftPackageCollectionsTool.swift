@@ -196,7 +196,7 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
                         try JSONEncoder.makeWithDefaults().print(results.items)
                     } else {
                         results.items.forEach {
-                            print("\($0.package.repository.url): \($0.package.summary ?? "")")
+                            print("\($0.package.identity): \($0.package.summary ?? "")")
                         }
                     }
 
@@ -208,7 +208,7 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
                         try JSONEncoder.makeWithDefaults().print(packages)
                     } else {
                         packages.forEach {
-                            print("\($0.repository.url): \($0.summary ?? "")")
+                            print("\($0.identity): \($0.summary ?? "")")
                         }
                     }
                 }
@@ -314,7 +314,7 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
                         let description = optionalRow("Description", collection.overview)
                         let keywords = optionalRow("Keywords", collection.keywords?.joined(separator: ", "))
                         let createdAt = optionalRow("Created At", DateFormatter().string(from: collection.createdAt))
-                        let packages = collection.packages.map { "\($0.repository.url)" }.joined(separator: "\n\(indent(levels: 2))")
+                        let packages = collection.packages.map { "\($0.identity)" }.joined(separator: "\n\(indent(levels: 2))")
 
                         if jsonOptions.json {
                             try JSONEncoder.makeWithDefaults().print(collection)
