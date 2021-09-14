@@ -77,7 +77,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             XCTAssertEqual(version.license, .init(type: .Apache2_0, url: URL(string: "https://www.example.com/repos/RepoOne/LICENSE")!))
             XCTAssertNotNil(version.createdAt)
             XCTAssertFalse(collection.isSigned)
-            
+
             // "1.8.3" is originally "v1.8.3"
             XCTAssertEqual(["2.1.0", "1.8.3"], collection.packages[1].versions.map { $0.version.description })
         }

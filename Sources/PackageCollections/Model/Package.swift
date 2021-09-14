@@ -83,6 +83,16 @@ extension PackageCollectionsModel {
         /// The package's programming languages
         public let languages: Set<String>?
 
+        @available(*, deprecated, message: "use identity and location instead")
+        public var reference: PackageReference {
+            return .init(identity: self.identity, kind: .remote, location: self.location, name: nil)
+        }
+
+        @available(*, deprecated, message: "use identity and location instead")
+        public var repository: RepositorySpecifier {
+            return .init(url: self.location)
+        }
+
         /// Initializes a `Package`
         init(
             identity: PackageIdentity,

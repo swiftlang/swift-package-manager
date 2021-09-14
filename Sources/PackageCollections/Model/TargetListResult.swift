@@ -47,6 +47,11 @@ extension PackageCollectionsModel.TargetListResult {
 
         /// Package collections that contain this package and at least one of the `versions`
         public let collections: [PackageCollectionsModel.CollectionIdentifier]
+
+        @available(*, deprecated, message: "use identity and location instead")
+        public var repository: RepositorySpecifier {
+            return .init(url: self.location)
+        }
     }
 }
 
