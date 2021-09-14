@@ -2393,7 +2393,7 @@ extension Workspace {
     ) throws -> [(PackageReference, PackageStateChange)] {
         // Load pins store and managed dependendencies.
         let pinsStore = try self.pinsStore.load()
-        var packageStateChanges: [String: (PackageReference, PackageStateChange)] = [:]
+        var packageStateChanges: [PackageIdentity: (PackageReference, PackageStateChange)] = [:]
 
         // Set the states from resolved dependencies results.
         for (packageRef, binding, products) in resolvedDependencies {
@@ -2416,7 +2416,7 @@ extension Workspace {
                 }) {
                     currentDependency = editedDependency
                     let originalReference = editedDependency.basedOn!.packageRef // forced unwrap safe
-                    packageStateChanges[originalReference.location] = (originalReference, .unchanged)
+                    packageStateChanges[originalReference.identity] = (originalReference, .unchanged)
                 } else {
                     currentDependency = nil
                 }
@@ -2435,14 +2435,14 @@ extension Workspace {
                 if let currentDependency = currentDependency {
                     switch currentDependency.state {
                     case .local, .edited:
-                        packageStateChanges[packageRef.location] = (packageRef, .unchanged)
+                        packageStateChanges[packageRef.identity] = (packageRef, .unchanged)
                     case .checkout:
                         let newState = PackageStateChange.State(requirement: .unversioned, products: products)
-                        packageStateChanges[packageRef.location] = (packageRef, .updated(newState))
+                        packageStateChanges[packageRef.identity] = (packageRef, .updated(newState))
                     }
                 } else {
                     let newState = PackageStateChange.State(requirement: .unversioned, products: products)
-                    packageStateChanges[packageRef.location] = (packageRef, .added(newState))
+                    packageStateChanges[packageRef.identity] = (packageRef, .added(newState))
                 }
 
             case .revision(let identifier, let branch):
@@ -2475,34 +2475,34 @@ extension Workspace {
                         newState = .revision(revision)
                     }
                     if case .checkout(let checkoutState) = currentDependency.state, checkoutState == newState {
-                        packageStateChanges[packageRef.location] = (packageRef, .unchanged)
+                        packageStateChanges[packageRef.identity] = (packageRef, .unchanged)
                     } else {
                         // Otherwise, we need to update this dependency to this revision.
                         let newState = PackageStateChange.State(requirement: .revision(revision, branch: branch), products: products)
-                        packageStateChanges[packageRef.location] = (packageRef, .updated(newState))
+                        packageStateChanges[packageRef.identity] = (packageRef, .updated(newState))
                     }
                 } else {
                     let newState = PackageStateChange.State(requirement: .revision(revision, branch: branch), products: products)
-                    packageStateChanges[packageRef.location] = (packageRef, .added(newState))
+                    packageStateChanges[packageRef.identity] = (packageRef, .added(newState))
                 }
 
             case .version(let version):
                 if let currentDependency = currentDependency {
                     if case .checkout(let checkoutState) = currentDependency.state, case .version(version, _) = checkoutState {
-                        packageStateChanges[packageRef.location] = (packageRef, .unchanged)
+                        packageStateChanges[packageRef.identity] = (packageRef, .unchanged)
                     } else {
                         let newState = PackageStateChange.State(requirement: .version(version), products: products)
-                        packageStateChanges[packageRef.location] = (packageRef, .updated(newState))
+                        packageStateChanges[packageRef.identity] = (packageRef, .updated(newState))
                     }
                 } else {
                     let newState = PackageStateChange.State(requirement: .version(version), products: products)
-                    packageStateChanges[packageRef.location] = (packageRef, .added(newState))
+                    packageStateChanges[packageRef.identity] = (packageRef, .added(newState))
                 }
             }
         }
         // Set the state of any old package that might have been removed.
-        for packageRef in state.dependencies.lazy.map({ $0.packageRef }) where packageStateChanges[packageRef.location] == nil {
-            packageStateChanges[packageRef.location] = (packageRef, .removed)
+        for packageRef in state.dependencies.lazy.map({ $0.packageRef }) where packageStateChanges[packageRef.identity] == nil {
+            packageStateChanges[packageRef.identity] = (packageRef, .removed)
         }
 
         return Array(packageStateChanges.values)
