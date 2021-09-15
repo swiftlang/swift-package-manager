@@ -6779,14 +6779,15 @@ final class WorkspaceTests: XCTestCase {
                     """
             }
 
-            let manifestLoader = ManifestLoader(toolchain: ToolchainConfiguration.default)
+            let manifestLoader = ManifestLoader(manifestResources: Resources.default)
             let sandbox = path.appending(component: "ws")
-            let workspace = try Workspace(
-                fileSystem: fs,
-                location: .init(forRootPackage: sandbox, fileSystem: fs),
-                customManifestLoader: manifestLoader,
-                delegate: MockWorkspaceDelegate()
-            )
+            let workspace = Workspace(
+                dataPath: sandbox.appending(component: ".build"),
+                editablesPath: sandbox.appending(component: "edits"),
+                pinsFile: sandbox.appending(component: "Package.resolved"),
+                manifestLoader: manifestLoader,
+                delegate: MockWorkspaceDelegate(),
+                cachePath: fs.swiftPMCacheDirectory.appending(component: "repositories"))
 
             do {
                 let diagnostics = DiagnosticsEngine()
