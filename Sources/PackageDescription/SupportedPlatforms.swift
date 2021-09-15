@@ -19,6 +19,11 @@ public struct Platform: Encodable, Equatable {
         self.name = name
     }
     
+    @available(_PackageDescription, introduced: 5.6)
+    public static func custom(_ platformName: String) -> Platform {
+        return Platform(name: platformName)
+    }
+    
     /// The macOS platform.
     public static let macOS: Platform = Platform(name: "macos")
     
@@ -212,6 +217,16 @@ public struct SupportedPlatform: Encodable, Equatable {
     @available(_PackageDescription, introduced: 5.5)
     public static func driverKit(_ versionString: String) -> SupportedPlatform {
         return SupportedPlatform(platform: .driverKit, version: SupportedPlatform.DriverKitVersion(string: versionString).version)
+    }
+    
+    /// Configures the minimum deployment target version for custom platforms.
+    ///
+    /// - Since: First available in PackageDescription 5.6
+    ///
+    /// - Parameter version: The minimum deployment target that the package supports.
+    @available(_PackageDescription, introduced: 5.6)
+    public static func custom(_ platformName: String,  versionString: String) -> SupportedPlatform {
+        return SupportedPlatform(platform: .custom(platformName), version: versionString)
     }
 }
 

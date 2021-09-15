@@ -1763,6 +1763,69 @@ class PackageBuilderTests: XCTestCase {
         }
     }
 
+    func testCustomPlatforms() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/foo/module.modulemap"
+        )
+
+        // One custom platform.
+        var manifest = Manifest.createManifest(
+            name: "pkg",
+            platforms: [
+                PlatformDescription(name: "customos", version: "1.0"),
+            ],
+            v: .v5_6,
+            targets: [
+                try TargetDescription(name: "foo", type: .system),
+            ]
+        )
+
+        // default platforms will be auto-added during package build
+        var expectedPlatforms = [
+            "linux": "0.0",
+            "macos": "10.10",
+            "maccatalyst": "13.0",
+            "ios": "9.0",
+            "tvos": "9.0",
+            "driverkit": "19.0",
+            "watchos": "2.0",
+            "android": "0.0",
+            "windows": "0.0",
+            "wasi": "0.0",
+            "openbsd": "0.0",
+        ]
+
+        // add our custom expectations
+        expectedPlatforms["customos"] = "1.0"
+
+        PackageBuilderTester(manifest, in: fs) { package, _ in
+            package.checkModule("foo") { t in
+                t.checkPlatforms(expectedPlatforms)
+            }
+        }
+
+        // Two platforms with overrides.
+        manifest = Manifest.createManifest(
+            name: "pkg",
+            platforms: [
+                PlatformDescription(name: "customos", version: "1.0"),
+                PlatformDescription(name: "anothercustomos", version: "2.3"),
+            ],
+            v: .v5_6,
+            targets: [
+                try TargetDescription(name: "foo", type: .system),
+            ]
+        )
+
+        expectedPlatforms["anothercustomos"] = "2.3"
+
+        PackageBuilderTester(manifest, in: fs) { package, _ in
+            package.checkModule("foo") { t in
+                t.checkPlatforms(expectedPlatforms)
+            }
+        }
+    }
+
     func testAsmIsIgnoredInV4_2Manifest() throws {
         // .s is not considered a valid source in 4.2 manifest.
         let fs = InMemoryFileSystem(emptyFiles:
