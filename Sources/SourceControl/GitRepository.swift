@@ -482,7 +482,6 @@ public final class GitRepository: Repository, WorkingCheckout {
         try self.lock.withLock {
             try callGit("archive",
                         "--format", "zip",
-                        "--prefix", path.basenameWithoutExt,
                         "--output", path.pathString,
                         "HEAD",
                         failureMessage: "Couldn’t create an archive")
