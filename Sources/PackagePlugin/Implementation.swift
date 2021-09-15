@@ -102,10 +102,7 @@ struct PrebuildCommand: Encodable {
 }
 
 struct Diagnostic: Encodable {
-    enum Severity: String, Encodable {
-        case error, warning, remark
-    }
-    let severity: Severity
+    let severity: Diagnostics.Severity
     let message: String
     let file: Path?
     let line: Int?
