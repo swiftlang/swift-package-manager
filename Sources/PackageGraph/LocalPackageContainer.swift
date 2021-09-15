@@ -42,7 +42,7 @@ public final class LocalPackageContainer: PackageContainer {
             let toolsVersion = try self.toolsVersionLoader.load(at: AbsolutePath(self.package.location), fileSystem: self.fileSystem)
 
             // Validate the tools version.
-            try toolsVersion.validateToolsVersion(self.currentToolsVersion, packagePath: self.package.location)
+            try toolsVersion.validateToolsVersion(self.currentToolsVersion, packageIdentity: self.package.identity)
 
             // Load the manifest.
             // FIXME: this should not block
