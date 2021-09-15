@@ -76,7 +76,8 @@ func makeMockCollections(count: Int = Int.random(in: 50 ... 100), maxPackages: I
                                                                createdAt: Date())
             }
 
-            return PackageCollectionsModel.Package(repository: RepositorySpecifier(url: "https://package-\(packageIndex)"),
+            return PackageCollectionsModel.Package(identity: .init(url: "https://package-\(packageIndex)"),
+                                                   location: "https://package-\(packageIndex)",
                                                    summary: "package \(packageIndex) description",
                                                    keywords: (0 ..< Int.random(in: 1 ... 3)).map { "keyword \($0)" },
                                                    versions: versions,
@@ -151,21 +152,21 @@ struct MockCollectionsProvider: PackageCollectionProvider {
 struct MockMetadataProvider: PackageMetadataProvider {
     var name: String = "MockMetadataProvider"
 
-    let packages: [PackageReference: PackageCollectionsModel.PackageBasicMetadata]
+    let packages: [PackageIdentity: PackageCollectionsModel.PackageBasicMetadata]
 
-    init(_ packages: [PackageReference: PackageCollectionsModel.PackageBasicMetadata]) {
+    init(_ packages: [PackageIdentity: PackageCollectionsModel.PackageBasicMetadata]) {
         self.packages = packages
     }
 
-    func get(_ reference: PackageReference, callback: @escaping (Result<PackageCollectionsModel.PackageBasicMetadata, Error>) -> Void) {
-        if let package = self.packages[reference] {
+    func get(identity: PackageIdentity, location: String, callback: @escaping (Result<PackageCollectionsModel.PackageBasicMetadata, Error>) -> Void) {
+        if let package = self.packages[identity] {
             callback(.success(package))
         } else {
-            callback(.failure(NotFoundError("\(reference)")))
+            callback(.failure(NotFoundError("\(identity)")))
         }
     }
 
-    func getAuthTokenType(for reference: PackageReference) -> AuthTokenType? {
+    func getAuthTokenType(for location: String) -> AuthTokenType? {
         nil
     }
 

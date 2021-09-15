@@ -23,15 +23,16 @@ protocol PackageMetadataProvider: Closable {
     /// Retrieves metadata for a package at the given repository address.
     ///
     /// - Parameters:
-    ///   - reference: The package's reference
+    ///   - identity: The package's identity
+    ///   - location: The package's location
     ///   - callback: The closure to invoke when result becomes available
-    func get(_ reference: PackageReference, callback: @escaping (Result<PackageCollectionsModel.PackageBasicMetadata, Error>) -> Void)
+    func get(identity: PackageIdentity, location: String, callback: @escaping (Result<PackageCollectionsModel.PackageBasicMetadata, Error>) -> Void)
 
     /// Returns `AuthTokenType` for a package.
     ///
     /// - Parameters:
-    ///   - reference: The package's reference
-    func getAuthTokenType(for reference: PackageReference) -> AuthTokenType?
+    ///   - location: The package's location
+    func getAuthTokenType(for location: String) -> AuthTokenType?
 }
 
 extension Model {

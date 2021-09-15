@@ -196,7 +196,7 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
                         try JSONEncoder.makeWithDefaults().print(results.items)
                     } else {
                         results.items.forEach {
-                            print("\($0.package.repository.url): \($0.package.summary ?? "")")
+                            print("\($0.package.identity): \($0.package.summary ?? "")")
                         }
                     }
 
@@ -208,7 +208,7 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
                         try JSONEncoder.makeWithDefaults().print(packages)
                     } else {
                         packages.forEach {
-                            print("\($0.repository.url): \($0.summary ?? "")")
+                            print("\($0.identity): \($0.summary ?? "")")
                         }
                     }
                 }
@@ -265,10 +265,9 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
         mutating func run() throws {
             try with { collections in
                 let identity = PackageIdentity(url: packageURL)
-                let reference = PackageReference.remote(identity: identity, location: packageURL)
 
                 do { // assume URL is for a package in an imported collection
-                    let result = try tsc_await { collections.getPackageMetadata(reference, callback: $0) }
+                    let result = try tsc_await { collections.getPackageMetadata(identity: identity, location: packageURL, callback: $0) }
 
                     if let versionString = version {
                         guard let version = TSCUtility.Version(versionString), let result = result.package.versions.first(where: { $0.version == version }), let printedResult = printVersion(result) else {
@@ -314,7 +313,7 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
                         let description = optionalRow("Description", collection.overview)
                         let keywords = optionalRow("Keywords", collection.keywords?.joined(separator: ", "))
                         let createdAt = optionalRow("Created At", DateFormatter().string(from: collection.createdAt))
-                        let packages = collection.packages.map { "\($0.repository.url)" }.joined(separator: "\n\(indent(levels: 2))")
+                        let packages = collection.packages.map { "\($0.identity)" }.joined(separator: "\n\(indent(levels: 2))")
 
                         if jsonOptions.json {
                             try JSONEncoder.makeWithDefaults().print(collection)

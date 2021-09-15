@@ -259,7 +259,8 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
                 serializationOkay = false
             }
 
-            return .init(repository: RepositorySpecifier(url: package.url.absoluteString),
+            return .init(identity: .init(url: package.url.absoluteString),
+                         location: package.url.absoluteString,
                          summary: package.summary,
                          keywords: package.keywords,
                          versions: versions,

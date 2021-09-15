@@ -314,18 +314,18 @@ public struct PackageCollections: PackageCollectionsProtocol {
             case .failure(let error):
                 callback(.failure(error))
             case .success(let collections):
-                var packageCollections = [PackageReference: (package: Model.Package, collections: Set<Model.CollectionIdentifier>)]()
+                var packageCollections = [PackageIdentity: (package: Model.Package, collections: Set<Model.CollectionIdentifier>)]()
                 // Use package data from the most recently processed collection
                 collections.sorted(by: { $0.lastProcessedAt > $1.lastProcessedAt }).forEach { collection in
                     collection.packages.forEach { package in
-                        var entry = packageCollections.removeValue(forKey: package.reference)
+                        var entry = packageCollections.removeValue(forKey: package.identity)
                         if entry == nil {
                             entry = (package, .init())
                         }
 
                         if var entry = entry {
                             entry.collections.insert(collection.identifier)
-                            packageCollections[package.reference] = entry
+                            packageCollections[package.identity] = entry
                         }
                     }
                 }
@@ -333,7 +333,7 @@ public struct PackageCollections: PackageCollectionsProtocol {
                 let result = PackageCollectionsModel.PackageSearchResult(
                     items: packageCollections.sorted { $0.value.package.displayName < $1.value.package.displayName }
                         .map { entry in
-                            .init(package: entry.value.package, collections: Array(entry.value.collections))
+                        .init(package: entry.value.package, collections: Array(entry.value.collections))
                         }
                 )
                 callback(.success(result))
@@ -343,12 +343,27 @@ public struct PackageCollections: PackageCollectionsProtocol {
 
     // MARK: - Package Metadata
 
+    @available(*, deprecated, message: "user identity based API instead")
     public func getPackageMetadata(_ reference: PackageReference,
                                    callback: @escaping (Result<PackageCollectionsModel.PackageMetadata, Error>) -> Void) {
         self.getPackageMetadata(reference, collections: nil, callback: callback)
     }
 
+    @available(*, deprecated, message: "user identity based API instead")
     public func getPackageMetadata(_ reference: PackageReference,
+                                   collections: Set<PackageCollectionsModel.CollectionIdentifier>?,
+                                   callback: @escaping (Result<PackageCollectionsModel.PackageMetadata, Error>) -> Void) {
+        self.getPackageMetadata(identity: reference.identity, location: reference.location, collections: .none, callback: callback)
+    }
+
+    public func getPackageMetadata(identity: PackageIdentity,
+                                   location: String? = .none,
+                                   callback: @escaping (Result<PackageCollectionsModel.PackageMetadata, Error>) -> Void) {
+        self.getPackageMetadata(identity: identity, location: location, collections: .none, callback: callback)
+    }
+
+    public func getPackageMetadata(identity: PackageIdentity,
+                                   location: String? = .none,
                                    collections: Set<PackageCollectionsModel.CollectionIdentifier>?,
                                    callback: @escaping (Result<PackageCollectionsModel.PackageMetadata, Error>) -> Void) {
         guard Self.isSupportedPlatform else {
@@ -356,19 +371,20 @@ public struct PackageCollections: PackageCollectionsProtocol {
         }
 
         // first find in storage
-        self.findPackage(reference: reference, collections: collections) { result in
+        self.findPackage(identity: identity, location: location, collections: collections) { result in
             switch result {
             case .failure(let error):
                 callback(.failure(error))
             case .success(let packageSearchResult):
+
                 // then try to get more metadata from provider (optional)
-                let authTokenType = self.metadataProvider.getAuthTokenType(for: reference)
+                let authTokenType = self.metadataProvider.getAuthTokenType(for: packageSearchResult.package.location)
                 let isAuthTokenConfigured = authTokenType.flatMap { self.configuration.authTokens()?[$0] } != nil
 
-                self.metadataProvider.get(reference) { result in
+                self.metadataProvider.get(identity: packageSearchResult.package.identity, location: packageSearchResult.package.location) { result in
                     switch result {
                     case .failure(let error):
-                        self.diagnosticsEngine?.emit(warning: "Failed fetching information about \(reference) from \(self.metadataProvider.name): \(error)")
+                        self.diagnosticsEngine?.emit(warning: "Failed fetching information about \(identity) from \(self.metadataProvider.name): \(error)")
 
                         let provider: PackageMetadataProviderContext?
                         switch error {
@@ -517,7 +533,8 @@ public struct PackageCollections: PackageCollectionsProtocol {
         }
     }
 
-    func findPackage(reference: PackageReference,
+    func findPackage(identity: PackageIdentity,
+                     location: String?,
                      collections: Set<PackageCollectionsModel.CollectionIdentifier>?,
                      callback: @escaping (Result<PackageCollectionsModel.PackageSearchResult.Item, Error>) -> Void) {
         self.storage.sources.list { result in
@@ -530,17 +547,23 @@ public struct PackageCollections: PackageCollectionsProtocol {
                     collectionIdentifiers = collectionIdentifiers.filter { collections.contains($0) }
                 }
                 if collectionIdentifiers.isEmpty {
-                    return callback(.failure(NotFoundError("\(reference)")))
+                    return callback(.failure(NotFoundError("\(identity)")))
                 }
-                self.storage.collections.findPackage(identifier: reference.identity, collectionIdentifiers: collectionIdentifiers) { findPackageResult in
+                self.storage.collections.findPackage(identifier: identity, collectionIdentifiers: collectionIdentifiers) { findPackageResult in
                     switch findPackageResult {
                     case .failure(let error):
                         callback(.failure(error))
                     case .success(let packagesCollections):
-                        // A package identity can be associated with multiple repository URLs
-                        let matches = packagesCollections.packages.filter { $0.reference.canonicalLocation == reference.canonicalLocation }
+                        let matches: [PackageCollectionsModel.Package]
+                        if let location = location {
+                            // A package identity can be associated with multiple repository URLs
+                            matches = packagesCollections.packages.filter { CanonicalPackageIdentity($0.location) == CanonicalPackageIdentity(location) }
+                        }
+                        else {
+                            matches = packagesCollections.packages
+                        }
                         guard let package = matches.first else {
-                            return callback(.failure(NotFoundError("\(reference)")))
+                            return callback(.failure(NotFoundError("\(identity), \(location ?? "none")")))
                         }
                         callback(.success(.init(package: package, collections: packagesCollections.collections)))
                     }
@@ -550,22 +573,22 @@ public struct PackageCollections: PackageCollectionsProtocol {
     }
 
     private func targetListResultFromCollections(_ collections: [Model.Collection]) -> Model.TargetListResult {
-        var packageCollections = [PackageReference: (package: Model.Package, collections: Set<Model.CollectionIdentifier>)]()
-        var targetsPackages = [String: (target: Model.Target, packages: Set<PackageReference>)]()
+        var packageCollections = [PackageIdentity: (package: Model.Package, collections: Set<Model.CollectionIdentifier>)]()
+        var targetsPackages = [String: (target: Model.Target, packages: Set<PackageIdentity>)]()
 
         collections.forEach { collection in
             collection.packages.forEach { package in
                 // Avoid copy-on-write: remove entry from dictionary before mutating
-                var entry = packageCollections.removeValue(forKey: package.reference) ?? (package, .init())
+                var entry = packageCollections.removeValue(forKey: package.identity) ?? (package, .init())
                 entry.collections.insert(collection.identifier)
-                packageCollections[package.reference] = entry
+                packageCollections[package.identity] = entry
 
                 package.versions.forEach { version in
                     version.manifests.values.forEach { manifest in
                         manifest.targets.forEach { target in
                             // Avoid copy-on-write: remove entry from dictionary before mutating
                             var entry = targetsPackages.removeValue(forKey: target.name) ?? (target: target, packages: .init())
-                            entry.packages.insert(package.reference)
+                            entry.packages.insert(package.identity)
                             targetsPackages[target.name] = entry
                         }
                     }
@@ -586,7 +609,8 @@ public struct PackageCollections: PackageCollectionsProtocol {
                             )
                         }
                     }
-                    return .init(repository: pair.package.repository,
+                    return .init(identity: pair.package.identity,
+                                 location: pair.package.location,
                                  summary: pair.package.summary,
                                  versions: versions,
                                  collections: Array(pair.collections))
@@ -614,7 +638,8 @@ public struct PackageCollections: PackageCollectionsProtocol {
         versions.sort(by: >)
 
         return Model.Package(
-            repository: package.repository,
+            identity: package.identity,
+            location: package.location,
             summary: basicMetadata?.summary ?? package.summary,
             keywords: basicMetadata?.keywords ?? package.keywords,
             versions: versions,
@@ -632,11 +657,5 @@ private struct UnknownProvider: Error {
 
     init(_ sourceType: Model.CollectionSourceType) {
         self.sourceType = sourceType
-    }
-}
-
-private extension PackageReference {
-    var canonicalLocation: String {
-        (self.location.hasSuffix(".git") ? String(self.location.dropLast(4)) : self.location).lowercased()
     }
 }
