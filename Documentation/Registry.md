@@ -10,7 +10,7 @@
   - [3.5. API versioning](#35-api-versioning)
   - [3.6. Package identification](#36-package-identification)
     - [3.6.1 Package scope](#361-package-scope)
-    - [3.6.2 Package name](#362-package-name)
+    - [3.6.2. Package name](#362-package-name)
 - [4. Endpoints](#4-endpoints)
   - [4.1. List package releases](#41-list-package-releases)
   - [4.2. Fetch information about a package release](#42-fetch-information-about-a-package-release)
@@ -21,13 +21,13 @@
   - [4.4. Download source archive](#44-download-source-archive)
     - [4.4.1. Integrity verification](#441-integrity-verification)
     - [4.4.2. Download locations](#442-download-locations)
-  - [4.5 Lookup package identifiers registered for a URL](#45-lookup-package-identifiers-registered-for-a-url)
+  - [4.5. Lookup package identifiers registered for a URL](#45-lookup-package-identifiers-registered-for-a-url)
   - [4.6. Create a package release](#46-create-a-package-release)
-    - [4.6.1 Source archive](#461-source-archive)
+    - [4.6.1. Source archive](#461-source-archive)
     - [4.6.2. Package release metadata](#462-package-release-metadata)
-    - [4.6.3 Synchronous and asynchronous publication](#463-synchronous-and-asynchronous-publication)
-      - [4.6.3.1 Synchronous publication](#4631-synchronous-publication)
-      - [4.6.3.2 Asynchronous publication](#4632-asynchronous-publication)
+    - [4.6.3. Synchronous and asynchronous publication](#463-synchronous-and-asynchronous-publication)
+      - [4.6.3.1. Synchronous publication](#4631-synchronous-publication)
+      - [4.6.3.2. Asynchronous publication](#4632-asynchronous-publication)
 - [5. Normative References](#5-normative-references)
 - [6. Informative References](#6-informative-references)
 - [Appendix A - OpenAPI Document](#appendix-a---openapi-document)
@@ -256,7 +256,7 @@ A valid package scope matches the following regular expression pattern:
 Package scopes are case-insensitive
 (for example, `mona` ≍ `MONA`).
 
-#### 3.6.2 Package name
+#### 3.6.2. Package name
 
 A package's *name* uniquely identifies a package in a scope.
 A package name consists of alphanumeric characters, underscores, and hyphens.
@@ -765,7 +765,7 @@ Digest: sha-256=a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812
 
 <a name="endpoint-5"></a>
 
-### 4.5 Lookup package identifiers registered for a URL
+### 4.5. Lookup package identifiers registered for a URL
 
 A client MAY send a `GET` request
 for a URI matching the expression `/identifiers{?url}`
@@ -925,7 +925,7 @@ A server MAY respond either synchronously or asynchronously.
 For more information,
 see [4.6.4](#464-synchronous-and-asynchronous-publication).
 
-#### 4.6.1 Source archive
+#### 4.6.1. Source archive
 
 A client MUST include a multipart section named `source-archive`
 containing the source archive for a release.
@@ -1031,7 +1031,7 @@ Content-Language: en
 }
 ```
 
-#### 4.6.3 Synchronous and asynchronous publication
+#### 4.6.3. Synchronous and asynchronous publication
 
 A server MAY respond to a request to publish a new package release
 either synchronously or asynchronously.
@@ -1048,7 +1048,7 @@ Accept: application/vnd.swift.registry.v1
 Prefer: respond-async, wait=300
 ```
 
-##### 4.6.3.1 Synchronous publication
+##### 4.6.3.1. Synchronous publication
 
 If processing is done synchronously,
 the server MUST respond with a status code of `201` (Created)
@@ -1064,7 +1064,7 @@ Location: https://packages.example.com/github.com/mona/LinkedList/1.1.1
 
 A client MAY set a timeout to guarantee a timely response to each request.
 
-##### 4.6.3.2 Asynchronous publication
+##### 4.6.3.2. Asynchronous publication
 
 If processing is done asynchronously,
 the server MUST respond with a status code of `202` (Accepted)
