@@ -572,7 +572,11 @@ public final class SwiftTargetBuildDescription {
         case .executable:
             guard toolsVersion >= .v5_5 else { return false }
             let sources = self.sources
-            return sources.count == 1 && sources.first?.basename != "main.swift"
+            return (sources.count == 1
+                && sources.first?.basename != "main.swift"
+                && sources.first?.basename != "main.md"
+                && sources.first?.basename != "main.rst"
+                && sources.first?.basename != "main.tex")
         default:
             return false
         }

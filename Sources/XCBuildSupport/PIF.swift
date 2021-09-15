@@ -1192,6 +1192,13 @@ extension PIF.FileReference {
         case "y", "ym", "ymm", "ypp", "yp", "yxx":
             return "sourcecode.yacc"
 
+        case "md":
+            return "net.daringfireball.markdown"
+        case "rst":
+            return "org.python.restructuredtext"
+        case "tex":
+            return "org.tug.tex"
+
         case "xcassets":
             return "folder.assetcatalog"
         case "storyboard":
