@@ -38,9 +38,8 @@ class PackageGraphTests: XCTestCase {
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Foo",
-                    path: "/Foo",
+                    path: .init("/Foo"),
                     packageKind: .local,
-                    packageLocation: "/Foo",
                     products: [
                         ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo"])
                     ],
@@ -57,11 +56,10 @@ class PackageGraphTests: XCTestCase {
                     ]),
                 Manifest.createV4Manifest(
                     name: "Bar",
-                    path: "/Bar",
+                    path: .init("/Bar"),
                     packageKind: .root,
-                    packageLocation: "/Bar",
                     dependencies: [
-                        .scm(name: "Foo", location: "/Foo", requirement: .upToNextMajor(from: "1.0.0"))
+                        .scm(location: "/Foo", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     targets: [
                         TargetDescription(name: "Bar", dependencies: ["Foo"]),
@@ -203,9 +201,8 @@ class PackageGraphTests: XCTestCase {
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Foo",
-                    path: "/Foo",
+                    path: .init("/Foo"),
                     packageKind: .root,
-                    packageLocation: "/Foo",
                     products: [
                         ProductDescription(name: "Bar", type: .library(.dynamic), targets: ["Foo"])
                     ],
@@ -244,9 +241,8 @@ class PackageGraphTests: XCTestCase {
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Bar",
-                    path: "/Bar",
+                    path: .init("/Bar"),
                     packageKind: .root,
-                    packageLocation: "/Bar",
                     targets: [
                         TargetDescription(name: "Sea", dependencies: []),
                         TargetDescription(name: "Sea2", dependencies: []),
@@ -287,9 +283,8 @@ class PackageGraphTests: XCTestCase {
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Pkg",
-                    path: "/Pkg",
+                    path: .init("/Pkg"),
                     packageKind: .root,
-                    packageLocation: "/Pkg",
                     targets: [
                         TargetDescription(name: "HelperTool", dependencies: []),
                         TargetDescription(name: "Library", dependencies: []),
@@ -350,9 +345,8 @@ class PackageGraphTests: XCTestCase {
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Foo",
-                    path: "/Foo",
+                    path: .init("/Foo"),
                     packageKind: .root,
-                    packageLocation: "/Foo",
                     targets: [
                         TargetDescription(name: "a"),
                         TargetDescription(name: "b", dependencies: ["a"]),
@@ -403,9 +397,8 @@ class PackageGraphTests: XCTestCase {
                 manifests: [
                     Manifest.createV4Manifest(
                         name: "Foo",
-                        path: "/Foo",
+                        path: .init("/Foo"),
                         packageKind: .root,
-                        packageLocation: "/Foo",
                         swiftLanguageVersions: [SwiftLanguageVersion(string: swiftVersion)!],
                         targets: [
                             TargetDescription(name: "a"),

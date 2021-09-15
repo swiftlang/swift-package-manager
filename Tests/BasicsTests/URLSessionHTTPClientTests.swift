@@ -244,7 +244,7 @@ final class URLSessionHTTPClientTest: XCTestCase {
                 completion: { result in
                     switch result {
                     case .success:
-                        XCTAssert(localFileSystem.exists(destination))
+                        XCTAssertFileExists(destination)
                         let bytes = ByteString(Array(repeating: 0xBE, count: 512) + Array(repeating: 0xEF, count: 512))
                         XCTAssertEqual(try! localFileSystem.readFileContents(destination), bytes)
                     case .failure(let error):
@@ -307,7 +307,7 @@ final class URLSessionHTTPClientTest: XCTestCase {
                 completion: { result in
                     switch result {
                     case .success:
-                        XCTAssert(localFileSystem.exists(destination))
+                        XCTAssertFileExists(destination)
                         let bytes = ByteString(Array(repeating: 0xBE, count: 512) + Array(repeating: 0xEF, count: 512))
                         XCTAssertEqual(try! localFileSystem.readFileContents(destination), bytes)
                     case .failure(let error):
@@ -371,7 +371,7 @@ final class URLSessionHTTPClientTest: XCTestCase {
                 completion: { result in
                     switch result {
                     case .success:
-                        XCTAssert(localFileSystem.exists(destination))
+                        XCTAssertFileExists(destination)
                         let bytes = ByteString(Array(repeating: 0xBE, count: 512) + Array(repeating: 0xEF, count: 512))
                         XCTAssertEqual(try! localFileSystem.readFileContents(destination), bytes)
                     case .failure(let error):

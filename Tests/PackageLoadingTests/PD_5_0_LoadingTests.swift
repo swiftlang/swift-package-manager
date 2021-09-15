@@ -362,7 +362,7 @@ class PackageDescription5_0LoadingTests: PackageDescriptionLoadingTests {
             }
 
             let loader = ManifestLoader(
-                manifestResources: Resources.default,
+                toolchain: ToolchainConfiguration.default,
                 serializedDiagnostics: true,
                 cacheDir: path)
 
@@ -545,6 +545,55 @@ class PackageDescription5_0LoadingTests: PackageDescriptionLoadingTests {
             XCTAssertEqual(manifest.toolsVersion, .v5)
             XCTAssertEqual(manifest.targets, [])
             XCTAssertEqual(manifest.dependencies, [])
+        }
+    }
+
+    func testManifestLoaderEnvironment() throws {
+        try testWithTemporaryDirectory { path in
+            let fs = localFileSystem
+
+            let packagePath = path.appending(component: "pkg")
+            let manifestPath = packagePath.appending(component: "Package.swift")
+            try fs.writeFileContents(manifestPath) { stream in
+                stream <<< """
+                // swift-tools-version:5
+                import PackageDescription
+
+                let package = Package(
+                    name: "Trivial",
+                    targets: [
+                        .target(
+                            name: "foo",
+                            dependencies: []),
+                    ]
+                )
+                """
+            }
+
+            let moduleTraceFilePath = path.appending(component: "swift-module-trace")
+            var toolchain = ToolchainConfiguration.default
+            toolchain.swiftCompilerEnvironment["SWIFT_LOADED_MODULE_TRACE_FILE"] = moduleTraceFilePath.pathString
+            let manifestLoader = ManifestLoader(
+                toolchain: toolchain,
+                serializedDiagnostics: true,
+                isManifestSandboxEnabled: false,
+                cacheDir: nil)
+
+            let diagnostics = DiagnosticsEngine()
+            let manifest = try manifestLoader.load(
+                at: manifestPath.parentDirectory,
+                packageKind: .local,
+                packageLocation: manifestPath.pathString,
+                toolsVersion: .v5,
+                fileSystem: fs,
+                diagnostics: diagnostics
+            )
+
+            XCTAssertNoDiagnostics(diagnostics)
+            XCTAssertEqual(manifest.name, "Trivial")
+
+            let moduleTraceJSON = try XCTUnwrap(try localFileSystem.readFileContents(moduleTraceFilePath).validDescription)
+            XCTAssertMatch(moduleTraceJSON, .contains("PackageDescription"))
         }
     }
 }

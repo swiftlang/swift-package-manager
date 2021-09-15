@@ -49,7 +49,8 @@ public class LLBuildManifestBuilder {
 
     // MARK:- Generate Manifest
     /// Generate manifest at the given path.
-    public func generateManifest(at path: AbsolutePath) throws {
+    @discardableResult
+    public func generateManifest(at path: AbsolutePath) throws -> BuildManifest {
         manifest.createTarget(TargetKind.main.targetName)
         manifest.createTarget(TargetKind.test.targetName)
         manifest.defaultTarget = TargetKind.main.targetName
@@ -82,14 +83,8 @@ public class LLBuildManifestBuilder {
             try self.createProductCommand(description)
         }
 
-        // Output a dot graph
-        if buildParameters.printManifestGraphviz {
-            var serializer = DOTManifestSerializer(manifest: manifest)
-            serializer.writeDOT(to: &stdoutStream)
-            stdoutStream.flush()
-        }
-
         try ManifestWriter().write(manifest, at: path)
+        return manifest
     }
 
     func addNode(_ node: Node, toTarget targetKind: TargetKind) {
@@ -554,7 +549,7 @@ extension LLBuildManifestBuilder {
 
             case .product(let product, _):
                 switch product.type {
-                case .executable, .library(.dynamic):
+                case .executable, .snippet, .library(.dynamic):
                     guard let planProduct = plan.productMap[product] else {
                         throw InternalError("unknown product \(product)")
                     }
@@ -673,7 +668,7 @@ extension LLBuildManifestBuilder {
 
             case .product(let product, _):
                 switch product.type {
-                case .executable, .library(.dynamic):
+                case .executable, .snippet, .library(.dynamic):
                     guard let planProduct = plan.productMap[product] else {
                         throw InternalError("unknown product \(product)")
                     }
@@ -852,7 +847,7 @@ extension ResolvedProduct {
             return "\(name)-\(config).a"
         case .library(.automatic):
             throw InternalError("automatic library not supported")
-        case .executable:
+        case .executable, .snippet:
             return "\(name)-\(config).exe"
         case .plugin:
             throw InternalError("unexpectedly asked for the llbuild target name of a plugin product")

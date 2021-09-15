@@ -126,10 +126,7 @@ let package = Package(
 
         .target(
             name: "Basics",
-            dependencies: [
-                .product(name: "OrderedCollections", package: "swift-collections"),
-                "SwiftToolsSupport-auto"
-            ]),
+            dependencies: ["SwiftToolsSupport-auto"]),
 
         .target(
             /** The llbuild manifest model */
@@ -137,9 +134,15 @@ let package = Package(
             dependencies: ["SwiftToolsSupport-auto", "Basics"]),
 
         .target(
+            /** Package registry support */
+            name: "PackageRegistry",
+            dependencies: ["SwiftToolsSupport-auto", "Basics", "PackageLoading", "PackageModel"]),
+
+        .target(
             /** Source control operations */
             name: "SourceControl",
             dependencies: ["SwiftToolsSupport-auto", "Basics"]),
+
         .target(
             /** Shim for llbuild library */
             name: "SPMLLBuild",
@@ -161,7 +164,7 @@ let package = Package(
         .target(
             /** Data structures and support for complete package graphs */
             name: "PackageGraph",
-            dependencies: ["SwiftToolsSupport-auto", "Basics", "PackageLoading", "PackageModel", "SourceControl"]),
+            dependencies: ["SwiftToolsSupport-auto", "Basics", "PackageLoading", "PackageModel", "PackageRegistry", "SourceControl"]),
 
         // MARK: Package Collections
 
@@ -238,6 +241,10 @@ let package = Package(
             name: "swift-package-collection",
             dependencies: ["Commands"]),
         .target(
+            /** Interact with package registry */
+            name: "swift-package-registry",
+            dependencies: ["Commands"]),
+        .target(
             /** Shim tool to find test names on OS X */
             name: "swiftpm-xctest-helper",
             dependencies: [],
@@ -262,7 +269,7 @@ let package = Package(
             dependencies: ["Build", "SPMTestSupport"]),
         .testTarget(
             name: "CommandsTests",
-            dependencies: ["swift-build", "swift-package", "swift-test", "swift-run", "Commands", "Workspace", "SPMTestSupport", "Build"]),
+            dependencies: ["swift-build", "swift-package", "swift-test", "swift-run", "Commands", "Workspace", "SPMTestSupport", "Build", "SourceControl"]),
         .testTarget(
             name: "WorkspaceTests",
             dependencies: ["Workspace", "SPMTestSupport"]),
@@ -303,6 +310,9 @@ let package = Package(
         .testTarget(
             name: "PackageCollectionsTests",
             dependencies: ["PackageCollections", "SPMTestSupport"]),
+        .testTarget(
+            name: "PackageRegistryTests",
+            dependencies: ["SPMTestSupport", "PackageRegistry"]),
         .testTarget(
             name: "SourceControlTests",
             dependencies: ["SourceControl", "SPMTestSupport"]),
@@ -359,7 +369,6 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         .package(url: "https://github.com/apple/swift-argument-parser.git", .upToNextMinor(from: "0.4.3")),
         .package(url: "https://github.com/apple/swift-driver.git", .branch(relatedDependenciesBranch)),
         .package(url: "https://github.com/apple/swift-crypto.git", .upToNextMinor(from: "1.1.4")),
-        .package(url: "https://github.com/apple/swift-collections.git", .upToNextMinor(from: "0.0.4")),
     ]
 } else {
     package.dependencies += [
@@ -367,6 +376,5 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         .package(path: "../swift-argument-parser"),
         .package(path: "../swift-driver"),
         .package(path: "../swift-crypto"),
-        .package(path: "../swift-collections"),
     ]
 }

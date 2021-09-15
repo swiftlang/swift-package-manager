@@ -271,7 +271,7 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
                     let result = try tsc_await { collections.getPackageMetadata(reference, callback: $0) }
 
                     if let versionString = version {
-                        guard let version = TSCUtility.Version(string: versionString), let result = result.package.versions.first(where: { $0.version == version }), let printedResult = printVersion(result) else {
+                        guard let version = TSCUtility.Version(versionString), let result = result.package.versions.first(where: { $0.version == version }), let printedResult = printVersion(result) else {
                             throw CollectionsError.invalidVersionString(versionString)
                         }
 

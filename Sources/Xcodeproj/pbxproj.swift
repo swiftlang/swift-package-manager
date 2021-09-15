@@ -44,7 +44,8 @@ public func pbxproj(
         extraFiles: extraFiles,
         options: options,
         fileSystem: fileSystem,
-        diagnostics: diagnostics)
+        diagnostics: diagnostics
+    )
 }
 
 // FIXME: Handle case insensitive filesystems.
@@ -61,8 +62,7 @@ public func xcodeProject(
     extraFiles: [AbsolutePath],
     options: XcodeprojOptions,
     fileSystem: FileSystem,
-    diagnostics: DiagnosticsEngine,
-    warningStream: OutputByteStream = stdoutStream
+    diagnostics: DiagnosticsEngine
 ) throws -> Xcode.Project {
 
     // Create the project.
@@ -385,7 +385,7 @@ public func xcodeProject(
         // FIXME: We should factor this out.
         let productType: Xcode.Target.ProductType
         switch target.type {
-        case .executable:
+        case .executable, .snippet:
             productType = .executable
         case .library:
             productType = .framework
@@ -397,9 +397,8 @@ public func xcodeProject(
 
         // Warn if the target name is invalid.
         if target.type == .library && invalidXcodeModuleNames.contains(target.c99name) {
-            warningStream <<< ("warning: Target '\(target.name)' conflicts with required framework filenames, rename " +
-                "this target to avoid conflicts.\n")
-            warningStream.flush()
+            diagnostics.emit(.warning("Target '\(target.name)' conflicts with required framework filenames, rename " +
+                                      "this target to avoid conflicts."))
         }
 
         // Create a Xcode target for the target.

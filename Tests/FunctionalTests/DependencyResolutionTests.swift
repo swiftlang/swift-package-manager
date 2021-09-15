@@ -8,20 +8,20 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import XCTest
-
-import TSCBasic
 import Commands
-import SPMTestSupport
+import PackageModel
 import SourceControl
+import SPMTestSupport
+import TSCBasic
 import Workspace
+import XCTest
 
 class DependencyResolutionTests: XCTestCase {
     func testInternalSimple() {
         fixture(name: "DependencyResolution/Internal/Simple") { prefix in
             XCTAssertBuilds(prefix)
 
-            let output = try Process.checkNonZeroExit(args: prefix.appending(components: ".build", Resources.default.toolchain.triple.tripleString, "debug", "Foo").pathString)
+            let output = try Process.checkNonZeroExit(args: prefix.appending(components: ".build", UserToolchain.default.triple.tripleString, "debug", "Foo").pathString)
             XCTAssertEqual(output, "Foo\nBar\n")
         }
     }
@@ -36,7 +36,7 @@ class DependencyResolutionTests: XCTestCase {
         fixture(name: "DependencyResolution/Internal/Complex") { prefix in
             XCTAssertBuilds(prefix)
 
-            let output = try Process.checkNonZeroExit(args: prefix.appending(components: ".build", Resources.default.toolchain.triple.tripleString, "debug", "Foo").pathString)
+            let output = try Process.checkNonZeroExit(args: prefix.appending(components: ".build", UserToolchain.default.triple.tripleString, "debug", "Foo").pathString)
             XCTAssertEqual(output, "meiow Baz\n")
         }
     }
@@ -52,7 +52,7 @@ class DependencyResolutionTests: XCTestCase {
 
             let packageRoot = prefix.appending(component: "Bar")
             XCTAssertBuilds(packageRoot)
-            XCTAssertFileExists(prefix.appending(components: "Bar", ".build", Resources.default.toolchain.triple.tripleString, "debug", "Bar"))
+            XCTAssertFileExists(prefix.appending(components: "Bar", ".build", UserToolchain.default.triple.tripleString, "debug", "Bar"))
             let path = try SwiftPMProduct.packagePath(for: "Foo", packageRoot: packageRoot)
             XCTAssert(try GitRepository(path: path).getTags().contains("1.2.3"))
         }
@@ -61,7 +61,7 @@ class DependencyResolutionTests: XCTestCase {
     func testExternalComplex() {
         fixture(name: "DependencyResolution/External/Complex") { prefix in
             XCTAssertBuilds(prefix.appending(component: "app"))
-            let output = try Process.checkNonZeroExit(args: prefix.appending(components: "app", ".build", Resources.default.toolchain.triple.tripleString, "debug", "Dealer").pathString)
+            let output = try Process.checkNonZeroExit(args: prefix.appending(components: "app", ".build", UserToolchain.default.triple.tripleString, "debug", "Dealer").pathString)
             XCTAssertEqual(output, "♣︎K\n♣︎Q\n♣︎J\n♣︎10\n♣︎9\n♣︎8\n♣︎7\n♣︎6\n♣︎5\n♣︎4\n")
         }
     }
@@ -71,7 +71,7 @@ class DependencyResolutionTests: XCTestCase {
             // Tests the convenience init .package(url: , branch: )
             let app = prefix.appending(component: "Bar")
             let result = try SwiftPMProduct.SwiftBuild.executeProcess([], packagePath: app)
-            XCTAssert(result.exitStatus == .terminated(code: 0))
+            XCTAssertEqual(result.exitStatus, .terminated(code: 0))
         }
     }
 
@@ -91,14 +91,14 @@ class DependencyResolutionTests: XCTestCase {
             // run with no mirror
             do {
                 let output = try executeSwiftPackage(appPath, extraArgs: ["show-dependencies"])
-                XCTAssertTrue(output.stdout.contains("Fetching \(prefix.pathString)/Foo\n"), output.stdout)
-                XCTAssertTrue(output.stdout.contains("Fetching \(prefix.pathString)/Bar\n"), output.stdout)
-                XCTAssertTrue(output.stdout.contains("foo<\(prefix.pathString)/Foo@unspecified"), output.stdout)
-                XCTAssertTrue(output.stdout.contains("bar<\(prefix.pathString)/Bar@unspecified"), output.stdout)
+                XCTAssertMatch(output.stdout, .contains("Fetching \(prefix.pathString)/Foo\n"))
+                XCTAssertMatch(output.stdout, .contains("Fetching \(prefix.pathString)/Bar\n"))
+                XCTAssertMatch(output.stdout, .contains("foo<\(prefix.pathString)/Foo@unspecified"))
+                XCTAssertMatch(output.stdout, .contains("bar<\(prefix.pathString)/Bar@unspecified"))
 
                 let pins = try String(bytes: localFileSystem.readFileContents(appPinsPath).contents, encoding: .utf8)!
-                XCTAssertTrue(pins.contains("\"\(prefix.pathString)/Foo\""), pins)
-                XCTAssertTrue(pins.contains("\"\(prefix.pathString)/Bar\""), pins)
+                XCTAssertMatch(pins, .contains("\"\(prefix.pathString)/Foo\""))
+                XCTAssertMatch(pins, .contains("\"\(prefix.pathString)/Bar\""))
 
                 XCTAssertBuilds(appPath)
             }
@@ -115,19 +115,19 @@ class DependencyResolutionTests: XCTestCase {
             // run with mirror
             do {
                 let output = try executeSwiftPackage(appPath, extraArgs: ["show-dependencies"])
-                XCTAssertTrue(output.stdout.contains("Fetching \(prefix.pathString)/Foo\n"), output.stdout)
-                XCTAssertTrue(output.stdout.contains("Fetching \(prefix.pathString)/BarMirror\n"), output.stdout)
-                XCTAssertFalse(output.stdout.contains("Fetching \(prefix.pathString)/Bar\n"), output.stdout)
+                XCTAssertMatch(output.stdout, .contains("Fetching \(prefix.pathString)/Foo\n"))
+                XCTAssertMatch(output.stdout, .contains("Fetching \(prefix.pathString)/BarMirror\n"))
+                XCTAssertNoMatch(output.stdout, .contains("Fetching \(prefix.pathString)/Bar\n"))
 
-                XCTAssertTrue(output.stdout.contains("foo<\(prefix.pathString)/Foo@unspecified"), output.stdout)
-                XCTAssertTrue(output.stdout.contains("barmirror<\(prefix.pathString)/BarMirror@unspecified"), output.stdout)
-                XCTAssertFalse(output.stdout.contains("bar<\(prefix.pathString)/Bar@unspecified"), output.stdout)
+                XCTAssertMatch(output.stdout, .contains("foo<\(prefix.pathString)/Foo@unspecified"))
+                XCTAssertMatch(output.stdout, .contains("barmirror<\(prefix.pathString)/BarMirror@unspecified"))
+                XCTAssertNoMatch(output.stdout, .contains("bar<\(prefix.pathString)/Bar@unspecified"))
 
                 // rdar://52529014 mirrors should not be reflected in pins file
                 let pins = try String(bytes: localFileSystem.readFileContents(appPinsPath).contents, encoding: .utf8)!
-                XCTAssertTrue(pins.contains("\"\(prefix.pathString)/Foo\""), pins)
-                XCTAssertTrue(pins.contains("\"\(prefix.pathString)/Bar\""), pins)
-                XCTAssertFalse(pins.contains("\"\(prefix.pathString)/BarMirror\""), pins)
+                XCTAssertMatch(pins, .contains("\"\(prefix.pathString)/Foo\""))
+                XCTAssertMatch(pins, .contains("\"\(prefix.pathString)/Bar\""))
+                XCTAssertNoMatch(pins, .contains("\"\(prefix.pathString)/BarMirror\""))
 
                 XCTAssertBuilds(appPath)
             }

@@ -8,23 +8,21 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import TSCBasic
-import SPMTestSupport
-import XCTest
-import TSCUtility
 import Commands
+import PackageModel
+import SPMTestSupport
+import TSCBasic
+import TSCUtility
 import Workspace
+import XCTest
 
 class SwiftPMXCTestHelperTests: XCTestCase {
     func testBasicXCTestHelper() throws {
-        // <rdar://problem/70382477> Fix and re-enable tests which run `swift test` on newly created packages
-        try XCTSkipIf(true)
-
       #if os(macOS)
         fixture(name: "Miscellaneous/SwiftPMXCTestHelper") { prefix in
             // Build the package.
             XCTAssertBuilds(prefix)
-            let triple = Resources.default.toolchain.triple
+            let triple = UserToolchain.default.triple
             XCTAssertFileExists(prefix.appending(components: ".build", triple.tripleString, "debug", "SwiftPMXCTestHelper.swiftmodule"))
             // Run swift-test on package.
             XCTAssertSwiftTest(prefix)
@@ -42,7 +40,7 @@ class SwiftPMXCTestHelperTests: XCTestCase {
               ] as Array<Dictionary<String, Any>>]] as Array<Dictionary<String, Any>>
             ] as Dictionary<String, Any> as NSDictionary
             // Run the XCTest helper tool and check result.
-            XCTAssertXCTestHelper(prefix.appending(components: ".build", Resources.default.toolchain.triple.tripleString, "debug", "SwiftPMXCTestHelperPackageTests.xctest"), testCases: testCases)
+            XCTAssertXCTestHelper(prefix.appending(components: ".build", UserToolchain.default.triple.tripleString, "debug", "SwiftPMXCTestHelperPackageTests.xctest"), testCases: testCases)
         }
       #endif
     }
@@ -52,7 +50,7 @@ class SwiftPMXCTestHelperTests: XCTestCase {
 #if os(macOS)
 func XCTAssertXCTestHelper(_ bundlePath: AbsolutePath, testCases: NSDictionary) {
     do {
-        let env = ["DYLD_FRAMEWORK_PATH": Resources.default.sdkPlatformFrameworksPath.pathString]
+        let env = ["DYLD_FRAMEWORK_PATH": ToolchainConfiguration.default.sdkPlatformFrameworksPath.pathString]
         let outputFile = bundlePath.parentDirectory.appending(component: "tests.txt")
         let _ = try SwiftPMProduct.XCTestHelper.execute([bundlePath.pathString, outputFile.pathString], env: env)
         guard let data = NSData(contentsOfFile: outputFile.pathString) else {

@@ -403,6 +403,8 @@ extension PackageModel.ProductType {
             self = .executable
         case .plugin:
             self = .plugin
+        case .snippet:
+            self = .snippet
         case .test:
             self = .test
         }

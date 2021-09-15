@@ -8,13 +8,13 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import XCTest
-
+import Commands
+import PackageModel
+import SPMBuildCore
 import SPMTestSupport
 import TSCBasic
-import SPMBuildCore
-import Commands
 import Workspace
+import XCTest
 
 struct BuildResult {
     let binPath: AbsolutePath
@@ -43,17 +43,17 @@ final class BuildToolTests: XCTestCase {
     
     func testUsage() throws {
         let stdout = try execute(["-help"]).stdout
-        XCTAssert(stdout.contains("USAGE: swift build"), "got stdout:\n" + stdout)
+        XCTAssertMatch(stdout, .contains("USAGE: swift build"))
     }
 
     func testSeeAlso() throws {
         let stdout = try execute(["--help"]).stdout
-        XCTAssert(stdout.contains("SEE ALSO: swift run, swift package, swift test"), "got stdout:\n" + stdout)
+        XCTAssertMatch(stdout, .contains("SEE ALSO: swift run, swift package, swift test"))
     }
 
     func testVersion() throws {
         let stdout = try execute(["--version"]).stdout
-        XCTAssert(stdout.contains("Swift Package Manager"), "got stdout:\n" + stdout)
+        XCTAssertMatch(stdout, .contains("Swift Package Manager"))
     }
 
     func testCreatingSanitizers() throws {
@@ -67,15 +67,14 @@ final class BuildToolTests: XCTestCase {
             _ = try Sanitizer(argument: "invalid")
             XCTFail("Should have failed to create Sanitizer")
         } catch let error as StringError {
-            XCTAssertEqual(
-                error.description, "valid sanitizers: address, thread, undefined, scudo")
+            XCTAssertEqual(error.description, "valid sanitizers: address, thread, undefined, scudo")
         }
     }
 
     func testBinPathAndSymlink() throws {
         fixture(name: "ValidLayouts/SingleModule/ExecutableNew") { path in
             let fullPath = resolveSymlinks(path)
-            let targetPath = fullPath.appending(components: ".build", Resources.default.toolchain.triple.tripleString)
+            let targetPath = fullPath.appending(components: ".build", UserToolchain.default.triple.tripleString)
             let xcbuildTargetPath = fullPath.appending(components: ".build", "apple")
             XCTAssertEqual(try execute(["--show-bin-path"], packagePath: fullPath).stdout,
                            "\(targetPath.appending(component: "debug").pathString)\n")
@@ -109,8 +108,8 @@ final class BuildToolTests: XCTestCase {
 
             do {
                 let result = try build(["--product", "exec1"], packagePath: fullPath)
-                XCTAssert(result.binContents.contains("exec1"))
-                XCTAssert(!result.binContents.contains("exec2.build"))
+                XCTAssertMatch(result.binContents, ["exec1"])
+                XCTAssertNoMatch(result.binContents, ["exec2.build"])
             } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
                 XCTFail(stderr)
             }
@@ -123,8 +122,8 @@ final class BuildToolTests: XCTestCase {
 
             do {
                 let result = try build(["--target", "exec2"], packagePath: fullPath)
-                XCTAssert(result.binContents.contains("exec2.build"))
-                XCTAssert(!result.binContents.contains("exec1"))
+                XCTAssertMatch(result.binContents, ["exec2.build"])
+                XCTAssertNoMatch(result.binContents, ["exec1"])
             } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
                 XCTFail(stderr)
             }
@@ -178,21 +177,21 @@ final class BuildToolTests: XCTestCase {
             let fullPath = resolveSymlinks(path)
             do {
                 let result = try build(["--product", "ClangExecSingleFile"], packagePath: fullPath)
-                XCTAssert(result.binContents.contains("ClangExecSingleFile"))
+                XCTAssertMatch(result.binContents, ["ClangExecSingleFile"])
             } catch SwiftPMProductError.executionFailure(_, let stdout, let stderr) {
                 XCTFail(stdout + "\n" + stderr)
             }
 
             do {
                 let result = try build(["--product", "SwiftExecSingleFile"], packagePath: fullPath)
-                XCTAssert(result.binContents.contains("SwiftExecSingleFile"))
+                XCTAssertMatch(result.binContents, ["SwiftExecSingleFile"])
             } catch SwiftPMProductError.executionFailure(_, let stdout, let stderr) {
                 XCTFail(stdout + "\n" + stderr)
             }
 
             do {
                 let result = try build(["--product", "SwiftExecMultiFile"], packagePath: fullPath)
-                XCTAssert(result.binContents.contains("SwiftExecMultiFile"))
+                XCTAssertMatch(result.binContents, ["SwiftExecMultiFile"])
             } catch SwiftPMProductError.executionFailure(_, let stdout, let stderr) {
                 XCTFail(stdout + "\n" + stderr)
             }
@@ -205,10 +204,10 @@ final class BuildToolTests: XCTestCase {
 
             do {
                 let result = try build([], packagePath: aPath)
-                XCTAssert(!result.binContents.contains("bexec"))
-                XCTAssert(!result.binContents.contains("BTarget2.build"))
-                XCTAssert(!result.binContents.contains("cexec"))
-                XCTAssert(!result.binContents.contains("CTarget.build"))
+                XCTAssertNoMatch(result.binContents, ["bexec"])
+                XCTAssertNoMatch(result.binContents, ["BTarget2.build"])
+                XCTAssertNoMatch(result.binContents, ["cexec"])
+                XCTAssertNoMatch(result.binContents, ["CTarget.build"])
             } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
                 XCTFail(stderr)
             }
@@ -217,25 +216,25 @@ final class BuildToolTests: XCTestCase {
 
             do {
                 let result = try build(["--product", "bexec"], packagePath: aPath)
-                XCTAssert(result.binContents.contains("BTarget2.build"))
-                XCTAssert(result.binContents.contains("bexec"))
-                XCTAssert(!result.binContents.contains("aexec"))
-                XCTAssert(!result.binContents.contains("ATarget.build"))
-                XCTAssert(!result.binContents.contains("BLibrary.a"))
+                XCTAssertMatch(result.binContents, ["BTarget2.build"])
+                XCTAssertMatch(result.binContents, ["bexec"])
+                XCTAssertNoMatch(result.binContents, ["aexec"])
+                XCTAssertNoMatch(result.binContents, ["ATarget.build"])
+                XCTAssertNoMatch(result.binContents, ["BLibrary.a"])
 
                 // FIXME: We create the modulemap during build planning, hence this uglyness.
                 let bTargetBuildDir = ((try? localFileSystem.getDirectoryContents(result.binPath.appending(component: "BTarget1.build"))) ?? []).filter{ $0 != moduleMapFilename }
-                XCTAssertEqual(bTargetBuildDir, [])
+                XCTAssertTrue(bTargetBuildDir.isEmpty, "bTargetBuildDir should be empty")
 
-                XCTAssert(!result.binContents.contains("cexec"))
-                XCTAssert(!result.binContents.contains("CTarget.build"))
+                XCTAssertNoMatch(result.binContents, ["cexec"])
+                XCTAssertNoMatch(result.binContents, ["CTarget.build"])
 
                 // Also make sure we didn't emit parseable module interfaces
                 // (do this here to avoid doing a second build in
                 // testParseableInterfaces().
-                XCTAssert(!result.binContents.contains("ATarget.swiftinterface"))
-                XCTAssert(!result.binContents.contains("BTarget.swiftinterface"))
-                XCTAssert(!result.binContents.contains("CTarget.swiftinterface"))
+                XCTAssertNoMatch(result.binContents, ["ATarget.swiftinterface"])
+                XCTAssertNoMatch(result.binContents, ["BTarget.swiftinterface"])
+                XCTAssertNoMatch(result.binContents, ["CTarget.swiftinterface"])
             } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
                 XCTFail(stderr)
             }
@@ -246,8 +245,8 @@ final class BuildToolTests: XCTestCase {
         fixture(name: "Miscellaneous/ParseableInterfaces") { path in
             do {
                 let result = try build(["--enable-parseable-module-interfaces"], packagePath: path)
-                XCTAssert(result.binContents.contains("A.swiftinterface"))
-                XCTAssert(result.binContents.contains("B.swiftinterface"))
+                XCTAssertMatch(result.binContents, ["A.swiftinterface"])
+                XCTAssertMatch(result.binContents, ["B.swiftinterface"])
             } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
                 XCTFail(stderr)
             }
@@ -258,8 +257,8 @@ final class BuildToolTests: XCTestCase {
         fixture(name: "Miscellaneous/LibraryEvolution") { path in
             do {
                 let result = try build([], packagePath: path)
-                XCTAssert(result.binContents.contains("A.swiftinterface"))
-                XCTAssert(result.binContents.contains("B.swiftinterface"))
+                XCTAssertMatch(result.binContents, ["A.swiftinterface"])
+                XCTAssertMatch(result.binContents, ["B.swiftinterface"])
             } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
                 XCTFail(stderr)
             }
@@ -277,7 +276,7 @@ final class BuildToolTests: XCTestCase {
             do {
                 let result = try execute([], packagePath: path)
                 // test second time, to make sure message is presented even when nothing to build (cached)
-                XCTAssertTrue(result.stdout.contains("[0/0] Build complete!"), result.stdout)
+                XCTAssertMatch(result.stdout, .contains("[0/0] Build complete!"))
             }
         }
     }
@@ -291,7 +290,7 @@ final class BuildToolTests: XCTestCase {
             let defaultOutput = try execute(["-c", "debug", "-v"], packagePath: path).stdout
             
             // Look for certain things in the output from XCBuild.
-            XCTAssert(defaultOutput.contains("-target \(Resources.default.toolchain.triple.tripleString)"), defaultOutput)
+            XCTAssertMatch(defaultOutput, .contains("-target \(UserToolchain.default.triple.tripleString)"))
         }
     }
 
@@ -302,12 +301,12 @@ final class BuildToolTests: XCTestCase {
         fixture(name: "ValidLayouts/SingleModule/ExecutableNew") { path in
             // Try building using XCBuild without specifying overrides.  This should succeed, and should use the default compiler path.
             let defaultOutput = try execute(["-c", "debug", "-v"], packagePath: path).stdout
-            XCTAssert(defaultOutput.contains(Resources.default.swiftCompiler.pathString), defaultOutput)
+            XCTAssertMatch(defaultOutput, .contains(ToolchainConfiguration.default.swiftCompilerPath.pathString))
 
             // Now try building using XCBuild while specifying a faulty compiler override.  This should fail.  Note that we need to set the executable to use for the manifest itself to the default one, since it defaults to SWIFT_EXEC if not provided.
             var overriddenOutput = ""
             do {
-                overriddenOutput = try execute(["-c", "debug", "-v"], environment: ["SWIFT_EXEC": "/usr/bin/false", "SWIFT_EXEC_MANIFEST": Resources.default.swiftCompiler.pathString], packagePath: path).stdout
+                overriddenOutput = try execute(["-c", "debug", "-v"], environment: ["SWIFT_EXEC": "/usr/bin/false", "SWIFT_EXEC_MANIFEST": ToolchainConfiguration.default.swiftCompilerPath.pathString], packagePath: path).stdout
                 XCTFail("unexpected success (was SWIFT_EXEC not overridden properly?)")
             }
             catch SwiftPMProductError.executionFailure(let error, let stdout, _) {
@@ -322,7 +321,7 @@ final class BuildToolTests: XCTestCase {
             catch {
                 XCTFail("`swift build' failed in an unexpected manner")
             }
-            XCTAssert(overriddenOutput.contains("/usr/bin/false"), overriddenOutput)
+            XCTAssertMatch(overriddenOutput, .contains("/usr/bin/false"))
         }
     }
 

@@ -21,7 +21,7 @@ class ManifestSourceGenerationTests: XCTestCase {
         try withTemporaryDirectory { packageDir in
             // Write the original manifest file contents, and load it.
             try fs.writeFileContents(packageDir.appending(component: Manifest.filename), bytes: ByteString(encodingAsUTF8: manifestContents))
-            let manifestLoader = ManifestLoader(manifestResources: Resources.default)
+            let manifestLoader = ManifestLoader(toolchain: ToolchainConfiguration.default)
             let identityResolver = DefaultIdentityResolver()
             let manifest = try tsc_await {
                 manifestLoader.load(at: packageDir,
@@ -42,7 +42,7 @@ class ManifestSourceGenerationTests: XCTestCase {
             
             // Check that the tools version was serialized properly.
             let versionSpacing = (toolsVersion >= .v5_4) ? " " : ""
-            XCTAssertTrue(newContents.hasPrefix("// swift-tools-version:\(versionSpacing)\(toolsVersion.major).\(toolsVersion.minor)"), newContents)
+            XCTAssertMatch(newContents, .prefix("// swift-tools-version:\(versionSpacing)\(toolsVersion.major).\(toolsVersion.minor)"))
             
             // Write out the generated manifest to replace the old manifest file contents, and load it again.
             try fs.writeFileContents(packageDir.appending(component: Manifest.filename), bytes: ByteString(encodingAsUTF8: newContents))
@@ -282,6 +282,6 @@ class ManifestSourceGenerationTests: XCTestCase {
                 ]
             )
             """
-        try testManifestWritingRoundTrip(manifestContents: manifestContents, toolsVersion: .v5_5)
+        try testManifestWritingRoundTrip(manifestContents: manifestContents, toolsVersion: .v5_6)
     }
 }

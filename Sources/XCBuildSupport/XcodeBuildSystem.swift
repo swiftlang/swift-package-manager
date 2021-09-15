@@ -25,8 +25,8 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
     private var packageGraph: PackageGraph?
     private var pifBuilder: PIFBuilder?
 
-    /// The stdout stream for the build delegate.
-    let stdoutStream: OutputByteStream
+    /// The output stream for the build delegate.
+    let outputStream: OutputByteStream
 
     /// The delegate used by the build system.
     public weak var delegate: SPMBuildCore.BuildSystemDelegate?
@@ -58,13 +58,13 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
         packageGraphLoader: @escaping () throws -> PackageGraph,
         isVerbose: Bool,
         diagnostics: DiagnosticsEngine,
-        stdoutStream: OutputByteStream
+        outputStream: OutputByteStream
     ) throws {
         self.buildParameters = buildParameters
         self.packageGraphLoader = packageGraphLoader
         self.isVerbose = isVerbose
         self.diagnostics = diagnostics
-        self.stdoutStream = stdoutStream
+        self.outputStream = outputStream
 
         if let xcbuildTool = ProcessEnv.vars["XCBUILD_TOOL"] {
             xcbuildPath = try AbsolutePath(validating: xcbuildTool)
@@ -96,19 +96,30 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
             subset.pifTargetName
         ]
 
-        let buildParamsFile = try createBuildParametersFile()
-        if let buildParamsFile = buildParamsFile {
-            arguments += ["--buildParametersFile", buildParamsFile.pathString]
+        let buildParamsFile: AbsolutePath?
+        // Do not generate a build parameters file if a custom one has been passed.
+        if !buildParameters.xcbuildFlags.contains("--buildParametersFile") {
+            buildParamsFile = try createBuildParametersFile()
+            if let buildParamsFile = buildParamsFile {
+                arguments += ["--buildParametersFile", buildParamsFile.pathString]
+            }
+        } else {
+            buildParamsFile = nil
         }
 
         arguments += buildParameters.xcbuildFlags
 
         let delegate = createBuildDelegate()
         var hasStdout = false
+        var stdoutBuffer: [UInt8] = []
         var stderrBuffer: [UInt8] = []
         let redirection: Process.OutputRedirection = .stream(stdout: { bytes in
             hasStdout = hasStdout || !bytes.isEmpty
             delegate.parse(bytes: bytes)
+
+            if !delegate.didParseAnyOutput {
+                stdoutBuffer.append(contentsOf: bytes)
+            }
         }, stderr: { bytes in
             stderrBuffer.append(contentsOf: bytes)
         })
@@ -122,19 +133,23 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
         }
 
         guard result.exitStatus == .terminated(code: 0) else {
-            throw Diagnostics.fatalError
-        }
-        
-        if !hasStdout {
-            if !stderrBuffer.isEmpty {
-                diagnostics.emit(StringError(String(decoding: stderrBuffer, as: UTF8.self)))
+            if hasStdout {
+                if !delegate.didParseAnyOutput {
+                    diagnostics.emit(StringError(String(decoding: stdoutBuffer, as: UTF8.self)))
+                }
             } else {
-                diagnostics.emit(StringError("Unknown error: stdout and stderr are empty"))
+                if !stderrBuffer.isEmpty {
+                    diagnostics.emit(StringError(String(decoding: stderrBuffer, as: UTF8.self)))
+                } else {
+                    diagnostics.emit(StringError("Unknown error: stdout and stderr are empty"))
+                }
             }
+
+            throw Diagnostics.fatalError
         }
     }
 
-    func createBuildParametersFile() throws -> AbsolutePath? {
+    func createBuildParametersFile() throws -> AbsolutePath {
         // Generate the run destination parameters.
         let runDestination = XCBBuildParameters.RunDestination(
             platform: "macosx",
@@ -147,8 +162,14 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
         
         // Generate a table of any overriding build settings.
         var settings: [String: String] = [:]
+        // An error with determining the override should not be fatal here.
+        settings["CC"] = try? buildParameters.toolchain.getClangCompiler().pathString
         // Always specify the path of the effective Swift compiler, which was determined in the same way as for the native build system.
         settings["SWIFT_EXEC"] = buildParameters.toolchain.swiftCompiler.pathString
+        settings["LIBRARY_SEARCH_PATHS"] = "$(inherited) \(buildParameters.toolchain.toolchainLibDir.pathString)"
+        settings["OTHER_CFLAGS"] = "$(inherited) \(buildParameters.toolchain.extraCCFlags.joined(separator: " "))"
+        settings["OTHER_CPLUSPLUSFLAGS"] = "$(inherited) \(buildParameters.toolchain.extraCPPFlags.joined(separator: " "))"
+        settings["OTHER_SWIFT_FLAGS"] = "$(inherited) \(buildParameters.toolchain.extraSwiftCFlags.joined(separator: " "))"
         // Optionally also set the list of architectures to build for.
         if !buildParameters.archs.isEmpty {
             settings["ARCHS"] = buildParameters.archs.joined(separator: " ")
@@ -157,7 +178,7 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
         // Generate the build parameters.
         let params = XCBBuildParameters(
             configurationName: buildParameters.configuration.xcbuildName,
-            overrides: .init(commandLine: .init(table: settings)),
+            overrides: .init(synthesized: .init(table: settings)),
             activeRunDestination: runDestination
         )
 
@@ -175,12 +196,12 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
     /// Returns a new instance of `XCBuildDelegate` for a build operation.
     private func createBuildDelegate() -> XCBuildDelegate {
         let progressAnimation: ProgressAnimationProtocol = isVerbose
-            ? VerboseProgressAnimation(stream: stdoutStream)
-            : MultiLinePercentProgressAnimation(stream: stdoutStream, header: "")
+            ? VerboseProgressAnimation(stream: self.outputStream)
+            : MultiLinePercentProgressAnimation(stream: self.outputStream, header: "")
         let delegate = XCBuildDelegate(
             buildSystem: self,
             diagnostics: diagnostics,
-            outputStream: stdoutStream,
+            outputStream: self.outputStream,
             progressAnimation: progressAnimation)
         delegate.isVerbose = isVerbose
         return delegate
@@ -219,7 +240,7 @@ struct XCBBuildParameters: Encodable {
     }
 
     struct SettingsOverride: Encodable {
-        var commandLine: XCBSettingsTable? = nil
+        var synthesized: XCBSettingsTable? = nil
     }
 
     var configurationName: String
@@ -240,7 +261,8 @@ extension PIFBuilderParameters {
     public init(_ buildParameters: BuildParameters) {
         self.init(
             enableTestability: buildParameters.enableTestability,
-            shouldCreateDylibForDynamicProducts: buildParameters.shouldCreateDylibForDynamicProducts
+            shouldCreateDylibForDynamicProducts: buildParameters.shouldCreateDylibForDynamicProducts,
+            toolchainLibDir: buildParameters.toolchain.toolchainLibDir
         )
     }
 }
@@ -248,7 +270,9 @@ extension PIFBuilderParameters {
 extension BuildSubset {
     var pifTargetName: String {
         switch self {
-        case .target(let name), .product(let name):
+        case .product(let name):
+            return PackagePIFProjectBuilder.targetName(for: name)
+        case .target(let name):
             return name
         case .allExcludingTests:
             return PIFBuilder.allExcludingTestsTargetName

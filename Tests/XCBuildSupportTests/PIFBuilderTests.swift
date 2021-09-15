@@ -41,9 +41,8 @@ class PIFBuilderTests: XCTestCase {
                 manifests: [
                     Manifest.createManifest(
                         name: "B",
-                        path: "/B",
+                        path: .init("/B"),
                         packageKind: .remote,
-                        packageLocation: "/B",
                         v: .v5_2,
                         products: [
                             .init(name: "bexe", type: .executable, targets: ["B1"]),
@@ -55,12 +54,11 @@ class PIFBuilderTests: XCTestCase {
                         ]),
                     Manifest.createManifest(
                         name: "A",
-                        path: "/A",
+                        path: .init("/A"),
                         packageKind: .root,
-                        packageLocation: "/A",
                         v: .v5_2,
                         dependencies: [
-                            .scm(name: "B", location: "/B", requirement: .branch("master")),
+                            .scm(location: "/B", requirement: .branch("master")),
                         ],
                         products: [
                             .init(name: "alib", type: .library(.static), targets: ["A2"]),
@@ -82,14 +80,14 @@ class PIFBuilderTests: XCTestCase {
             let projectNames = pif.workspace.projects.map({ $0.name })
             XCTAssertEqual(projectNames, ["A", "B", "Aggregate"])
             let projectATargetNames = pif.workspace.projects[0].targets.map({ $0.name })
-            XCTAssertEqual(projectATargetNames, ["aexe", "alib", "A2", "A3"])
+            XCTAssertEqual(projectATargetNames, ["aexe_79CC9E117_PackageProduct", "alib_79D40CF5C_PackageProduct", "A2", "A3"])
             let targetAExeDependencies = pif.workspace.projects[0].targets[0].dependencies
             XCTAssertEqual(targetAExeDependencies.map{ $0.targetGUID }, ["PACKAGE-PRODUCT:blib", "PACKAGE-TARGET:A2", "PACKAGE-TARGET:A3"])
             let projectBTargetNames = pif.workspace.projects[1].targets.map({ $0.name })
             #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
             XCTAssertEqual(projectBTargetNames, ["blib", "B2"])
             #else
-            XCTAssertEqual(projectBTargetNames, ["bexe", "blib", "B2"])
+            XCTAssertEqual(projectBTargetNames, ["bexe_7ADFD1428_PackageProduct", "blib_7AE74026D_PackageProduct", "B2"])
             #endif
         }
     }
@@ -113,13 +111,12 @@ class PIFBuilderTests: XCTestCase {
             manifests: [
                 Manifest.createManifest(
                     name: "Foo",
-                    path: "/Foo",
+                    path: .init("/Foo"),
                     packageKind: .root,
-                    packageLocation: "/Foo",
                     defaultLocalization: "fr",
                     v: .v5_2,
                     dependencies: [
-                        .scm(name: "Bar", location: "/Bar", requirement: .branch("master")),
+                        .scm(location: "/Bar", requirement: .branch("master")),
                     ],
                     targets: [
                         .init(name: "foo", dependencies: [.product(name: "BarLib", package: "Bar")]),
@@ -127,9 +124,8 @@ class PIFBuilderTests: XCTestCase {
                     ]),
                 Manifest.createManifest(
                     name: "Bar",
-                    path: "/Bar",
+                    path: .init("/Bar"),
                     packageKind: .remote,
-                    packageLocation: "/Bar",
                     platforms: [
                         PlatformDescription(name: "macos", version: "10.14"),
                         PlatformDescription(name: "ios", version: "12"),
@@ -383,13 +379,12 @@ class PIFBuilderTests: XCTestCase {
             manifests: [
                 Manifest.createManifest(
                     name: "Foo",
-                    path: "/Foo",
+                    path: .init("/Foo"),
                     packageKind: .root,
-                    packageLocation: "/Foo",
                     v: .v5_2,
                     swiftLanguageVersions: [.v4_2, .v5],
                     dependencies: [
-                        .scm(name: "Bar", location: "/Bar", requirement: .branch("master")),
+                        .scm(location: "/Bar", requirement: .branch("master")),
                     ],
                     targets: [
                         .init(name: "foo", dependencies: [
@@ -407,9 +402,8 @@ class PIFBuilderTests: XCTestCase {
                     ]),
                 Manifest.createManifest(
                     name: "Bar",
-                    path: "/Bar",
+                    path: .init("/Bar"),
                     packageKind: .remote,
-                    packageLocation: "/Bar",
                     v: .v4_2,
                     cLanguageStandard: "c11",
                     cxxLanguageStandard: "c++14",
@@ -441,7 +435,7 @@ class PIFBuilderTests: XCTestCase {
                 // Root Swift executable target
 
                 project.checkTarget("PACKAGE-PRODUCT:foo") { target in
-                    XCTAssertEqual(target.name, "foo")
+                    XCTAssertEqual(target.name, "foo_1EF26F7F_PackageProduct")
                     XCTAssertEqual(target.productType, .executable)
                     XCTAssertEqual(target.productName, "foo")
                     XCTAssertEqual(target.dependencies, [
@@ -480,6 +474,7 @@ class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.SWIFT_FORCE_STATIC_LINK_STDLIB], "NO")
                             XCTAssertEqual(settings[.SWIFT_VERSION], "5")
                             XCTAssertEqual(settings[.TARGET_NAME], "foo")
+                            XCTAssertEqual(settings[.LIBRARY_SEARCH_PATHS], ["$(inherited)", "/toolchain/lib/swift/macosx"])
                         }
                     }
 
@@ -503,6 +498,7 @@ class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.SWIFT_FORCE_STATIC_LINK_STDLIB], "NO")
                             XCTAssertEqual(settings[.SWIFT_VERSION], "5")
                             XCTAssertEqual(settings[.TARGET_NAME], "foo")
+                            XCTAssertEqual(settings[.LIBRARY_SEARCH_PATHS], ["$(inherited)", "/toolchain/lib/swift/macosx"])
                         }
                     }
 
@@ -512,7 +508,7 @@ class PIFBuilderTests: XCTestCase {
                 // Root Clang executable target
 
                 project.checkTarget("PACKAGE-PRODUCT:cfoo") { target in
-                    XCTAssertEqual(target.name, "cfoo")
+                    XCTAssertEqual(target.name, "cfoo_7BF40D05B_PackageProduct")
                     XCTAssertEqual(target.productType, .executable)
                     XCTAssertEqual(target.productName, "cfoo")
                     XCTAssertEqual(target.dependencies, [])
@@ -539,6 +535,7 @@ class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.SWIFT_FORCE_DYNAMIC_LINK_STDLIB], "YES")
                             XCTAssertEqual(settings[.SWIFT_FORCE_STATIC_LINK_STDLIB], "NO")
                             XCTAssertEqual(settings[.TARGET_NAME], "cfoo")
+                            XCTAssertEqual(settings[.LIBRARY_SEARCH_PATHS], ["$(inherited)", "/toolchain/lib/swift/macosx"])
                         }
                     }
 
@@ -562,6 +559,7 @@ class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.SWIFT_FORCE_DYNAMIC_LINK_STDLIB], "YES")
                             XCTAssertEqual(settings[.SWIFT_FORCE_STATIC_LINK_STDLIB], "NO")
                             XCTAssertEqual(settings[.TARGET_NAME], "cfoo")
+                            XCTAssertEqual(settings[.LIBRARY_SEARCH_PATHS], ["$(inherited)", "/toolchain/lib/swift/macosx"])
                         }
                     }
 
@@ -574,7 +572,7 @@ class PIFBuilderTests: XCTestCase {
                 // Non-root Swift executable target
 
                 project.checkTarget("PACKAGE-PRODUCT:bar") { target in
-                    XCTAssertEqual(target.name, "bar")
+                    XCTAssertEqual(target.name, "bar_1ECDA8F8_PackageProduct")
                     XCTAssertEqual(target.productType, .executable)
                     XCTAssertEqual(target.productName, "bar")
                     XCTAssertEqual(target.dependencies, ["PACKAGE-TARGET:BarLib"])
@@ -598,6 +596,7 @@ class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.SWIFT_FORCE_STATIC_LINK_STDLIB], "NO")
                             XCTAssertEqual(settings[.SWIFT_VERSION], "4.2")
                             XCTAssertEqual(settings[.TARGET_NAME], "bar")
+                            XCTAssertEqual(settings[.LIBRARY_SEARCH_PATHS], ["$(inherited)", "/toolchain/lib/swift/macosx"])
                         }
                     }
 
@@ -618,6 +617,7 @@ class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.SWIFT_FORCE_STATIC_LINK_STDLIB], "NO")
                             XCTAssertEqual(settings[.SWIFT_VERSION], "4.2")
                             XCTAssertEqual(settings[.TARGET_NAME], "bar")
+                            XCTAssertEqual(settings[.LIBRARY_SEARCH_PATHS], ["$(inherited)", "/toolchain/lib/swift/macosx"])
                         }
                     }
 
@@ -627,7 +627,7 @@ class PIFBuilderTests: XCTestCase {
                 // Non-root Clang executable target
 
                 project.checkTarget("PACKAGE-PRODUCT:cbar") { target in
-                    XCTAssertEqual(target.name, "cbar")
+                    XCTAssertEqual(target.name, "cbar_7BEFB595C_PackageProduct")
                     XCTAssertEqual(target.productType, .executable)
                     XCTAssertEqual(target.productName, "cbar")
                     XCTAssertEqual(target.dependencies, [])
@@ -653,6 +653,7 @@ class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.SWIFT_FORCE_DYNAMIC_LINK_STDLIB], "YES")
                             XCTAssertEqual(settings[.SWIFT_FORCE_STATIC_LINK_STDLIB], "NO")
                             XCTAssertEqual(settings[.TARGET_NAME], "cbar")
+                            XCTAssertEqual(settings[.LIBRARY_SEARCH_PATHS], ["$(inherited)", "/toolchain/lib/swift/macosx"])
                         }
                     }
 
@@ -675,6 +676,7 @@ class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.SWIFT_FORCE_DYNAMIC_LINK_STDLIB], "YES")
                             XCTAssertEqual(settings[.SWIFT_FORCE_STATIC_LINK_STDLIB], "NO")
                             XCTAssertEqual(settings[.TARGET_NAME], "cbar")
+                            XCTAssertEqual(settings[.LIBRARY_SEARCH_PATHS], ["$(inherited)", "/toolchain/lib/swift/macosx"])
                         }
                     }
 
@@ -709,13 +711,12 @@ class PIFBuilderTests: XCTestCase {
             manifests: [
                 Manifest.createManifest(
                     name: "Foo",
-                    path: "/Foo",
+                    path: .init("/Foo"),
                     packageKind: .root,
-                    packageLocation: "/Foo",
                     v: .v5_2,
                     swiftLanguageVersions: [.v4_2, .v5],
                     dependencies: [
-                        .scm(name: "Bar", location: "/Bar", requirement: .branch("master")),
+                        .scm(location: "/Bar", requirement: .branch("master")),
                     ],
                     targets: [
                         .init(name: "FooTests", dependencies: [
@@ -733,9 +734,8 @@ class PIFBuilderTests: XCTestCase {
                     ]),
                 Manifest.createManifest(
                     name: "Bar",
-                    path: "/Bar",
+                    path: .init("/Bar"),
                     packageKind: .remote,
-                    packageLocation: "/Bar",
                     v: .v4_2,
                     cLanguageStandard: "c11",
                     cxxLanguageStandard: "c++14",
@@ -937,13 +937,12 @@ class PIFBuilderTests: XCTestCase {
             manifests: [
                 Manifest.createManifest(
                     name: "Foo",
-                    path: "/Foo",
+                    path: .init("/Foo"),
                     packageKind: .root,
-                    packageLocation: "/Foo",
                     v: .v5_2,
                     swiftLanguageVersions: [.v4_2, .v5],
                     dependencies: [
-                        .scm(name: "Bar", location: "/Bar", requirement: .branch("master")),
+                        .scm(location: "/Bar", requirement: .branch("master")),
                     ],
                     products: [
                         .init(name: "FooLib1", type: .library(.static), targets: ["FooLib1"]),
@@ -958,7 +957,7 @@ class PIFBuilderTests: XCTestCase {
                     ]),
                 Manifest.createManifest(
                     name: "Bar",
-                    path: "/Bar",
+                    path: .init("/Bar"),
                     packageKind: .remote,
                     packageLocation: "/Bar",
                     v: .v4_2,
@@ -985,7 +984,7 @@ class PIFBuilderTests: XCTestCase {
         PIFTester(pif) { workspace in
             workspace.checkProject("PACKAGE:/Foo") { project in
                 project.checkTarget("PACKAGE-PRODUCT:FooLib1") { target in
-                    XCTAssertEqual(target.name, "FooLib1")
+                    XCTAssertEqual(target.name, "FooLib1_32B0F01AD0DD0FF3_PackageProduct")
                     XCTAssertEqual(target.productType, .packageProduct)
                     XCTAssertEqual(target.productName, "libFooLib1.a")
                     XCTAssertEqual(target.dependencies, [
@@ -1022,7 +1021,7 @@ class PIFBuilderTests: XCTestCase {
                 }
 
                 project.checkTarget("PACKAGE-PRODUCT:FooLib2") { target in
-                    XCTAssertEqual(target.name, "FooLib2")
+                    XCTAssertEqual(target.name, "FooLib2_32B0F01AD0DD1074_PackageProduct")
                     XCTAssertEqual(target.productType, .packageProduct)
                     XCTAssertEqual(target.productName, "libFooLib2.a")
                     XCTAssertEqual(target.dependencies, [
@@ -1059,7 +1058,7 @@ class PIFBuilderTests: XCTestCase {
 
             workspace.checkProject("PACKAGE:/Bar") { project in
                 project.checkTarget("PACKAGE-PRODUCT:BarLib") { target in
-                    XCTAssertEqual(target.name, "BarLib")
+                    XCTAssertEqual(target.name, "BarLib_175D063FAE17B2_PackageProduct")
                     XCTAssertEqual(target.productType, .framework)
                     XCTAssertEqual(target.productName, "BarLib.framework")
                     XCTAssertEqual(target.dependencies, ["PACKAGE-TARGET:BarLib"])
@@ -1086,6 +1085,7 @@ class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.SKIP_INSTALL], "NO")
                             XCTAssertEqual(settings[.TARGET_BUILD_DIR], "$(TARGET_BUILD_DIR)/PackageFrameworks")
                             XCTAssertEqual(settings[.TARGET_NAME], "BarLib")
+                            XCTAssertEqual(settings[.LIBRARY_SEARCH_PATHS], ["$(inherited)", "/toolchain/lib/swift/macosx"])
                         }
                     }
 
@@ -1109,6 +1109,7 @@ class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.TARGET_BUILD_DIR], "$(TARGET_BUILD_DIR)/PackageFrameworks")
                             XCTAssertEqual(settings[.TARGET_NAME], "BarLib")
                             XCTAssertEqual(settings[.USES_SWIFTPM_UNSAFE_FLAGS], "NO")
+                            XCTAssertEqual(settings[.LIBRARY_SEARCH_PATHS], ["$(inherited)", "/toolchain/lib/swift/macosx"])
                         }
                     }
 
@@ -1133,14 +1134,13 @@ class PIFBuilderTests: XCTestCase {
             manifests: [
                 Manifest.createManifest(
                     name: "Foo",
-                    path: "/Foo",
+                    path: .init("/Foo"),
                     packageKind: .root,
-                    packageLocation: "/Foo",
                     v: .v5_2,
                     cxxLanguageStandard: "c++14",
                     swiftLanguageVersions: [.v4_2, .v5],
                     dependencies: [
-                        .scm(name: "Bar", location: "/Bar", requirement: .branch("master")),
+                        .scm(location: "/Bar", requirement: .branch("master")),
                     ],
                     targets: [
                         .init(name: "FooLib1", dependencies: ["SystemLib", "FooLib2"]),
@@ -1151,9 +1151,8 @@ class PIFBuilderTests: XCTestCase {
                     ]),
                 Manifest.createManifest(
                     name: "Bar",
-                    path: "/Bar",
+                    path: .init("/Bar"),
                     packageKind: .remote,
-                    packageLocation: "/Bar",
                     v: .v4_2,
                     cLanguageStandard: "c11",
                     swiftLanguageVersions: [.v4_2],
@@ -1423,9 +1422,8 @@ class PIFBuilderTests: XCTestCase {
             manifests: [
                 Manifest.createManifest(
                     name: "Bar",
-                    path: "/Bar",
+                    path: .init("/Bar"),
                     packageKind: .root,
-                    packageLocation: "/Bar",
                     v: .v4_2,
                     cLanguageStandard: "c11",
                     swiftLanguageVersions: [.v4_2],
@@ -1449,7 +1447,7 @@ class PIFBuilderTests: XCTestCase {
         PIFTester(pif) { workspace in
             workspace.checkProject("PACKAGE:/Bar") { project in
                 project.checkTarget("PACKAGE-PRODUCT:BarLib") { target in
-                    XCTAssertEqual(target.name, "BarLib")
+                    XCTAssertEqual(target.name, "BarLib_175D063FAE17B2_PackageProduct")
                     XCTAssertEqual(target.productType, .dynamicLibrary)
                     XCTAssertEqual(target.productName, "libBarLib.dylib")
                 }
@@ -1470,9 +1468,8 @@ class PIFBuilderTests: XCTestCase {
             manifests: [
                 Manifest.createManifest(
                     name: "Bar",
-                    path: "/Bar",
+                    path: .init("/Bar"),
                     packageKind: .root,
-                    packageLocation: "/Bar",
                     v: .v4_2,
                     cLanguageStandard: "c11",
                     swiftLanguageVersions: [.v4_2],
@@ -1496,7 +1493,7 @@ class PIFBuilderTests: XCTestCase {
         PIFTester(pif) { workspace in
             workspace.checkProject("PACKAGE:/Bar") { project in
                 project.checkTarget("PACKAGE-PRODUCT:BarLib") { target in
-                    XCTAssertEqual(target.name, "BarLib")
+                    XCTAssertEqual(target.name, "BarLib_175D063FAE17B2_PackageProduct")
                     
                     target.checkBuildConfiguration("Debug") { configuration in
                         configuration.checkBuildSettings { settings in
@@ -1521,9 +1518,8 @@ class PIFBuilderTests: XCTestCase {
             manifests: [
                 Manifest.createManifest(
                     name: "Foo",
-                    path: "/Foo",
+                    path: .init("/Foo"),
                     packageKind: .root,
-                    packageLocation: "/Foo",
                     v: .v5_2,
                     cxxLanguageStandard: "c++14",
                     swiftLanguageVersions: [.v4_2, .v5],
@@ -1634,9 +1630,8 @@ class PIFBuilderTests: XCTestCase {
             manifests: [
                 Manifest.createManifest(
                     name: "Foo",
-                    path: "/Foo",
+                    path: .init("/Foo"),
                     packageKind: .root,
-                    packageLocation: "/Foo",
                     v: .v5_3,
                     products: [
                         .init(name: "FooLib", type: .library(.automatic), targets: ["FooLib"]),
@@ -1700,7 +1695,7 @@ class PIFBuilderTests: XCTestCase {
             manifests: [
                 Manifest.createManifest(
                     name: "Foo",
-                    path: "/Foo",
+                    path: .init("/Foo"),
                     packageKind: .root,
                     packageLocation: "/Foo",
                     v: .v5_3,
@@ -1910,9 +1905,8 @@ class PIFBuilderTests: XCTestCase {
             manifests: [
                 Manifest.createManifest(
                     name: "Foo",
-                    path: "/Foo",
+                    path: .init("/Foo"),
                     packageKind: .root,
-                    packageLocation: "/Foo",
                     v: .v5,
                     products: [
                         .init(name: "FooLib", type: .library(.automatic), targets: ["FooLib"]),
@@ -2130,9 +2124,8 @@ class PIFBuilderTests: XCTestCase {
             manifests: [
                 Manifest.createManifest(
                     name: "Foo",
-                    path: "/Foo",
+                    path: .init("/Foo"),
                     packageKind: .root,
-                    packageLocation: "/Foo",
                     v: .v5_3,
                     targets: [
                         .init(name: "foo", dependencies: [
@@ -2195,7 +2188,7 @@ class PIFBuilderTests: XCTestCase {
             manifests: [
                 Manifest.createManifest(
                     name: "Foo",
-                    path: "/Foo",
+                    path: .init("/Foo"),
                     packageKind: .root,
                     packageLocation: "/Foo",
                     platforms: [
@@ -2239,9 +2232,8 @@ class PIFBuilderTests: XCTestCase {
             manifests: [
                 Manifest.createManifest(
                     name: "MyLib",
-                    path: "/MyLib",
+                    path: .init("/MyLib"),
                     packageKind: .root,
-                    packageLocation: "/MyLib",
                     v: .v5,
                     products: [
                         .init(name: "MyLib", type: .library(.automatic), targets: ["MyLib"]),
@@ -2295,7 +2287,8 @@ extension PIFBuilderParameters {
     ) -> Self {
         PIFBuilderParameters(
             enableTestability: false,
-            shouldCreateDylibForDynamicProducts: shouldCreateDylibForDynamicProducts
+            shouldCreateDylibForDynamicProducts: shouldCreateDylibForDynamicProducts,
+            toolchainLibDir: AbsolutePath("/toolchain/lib")
         )
     }
 }

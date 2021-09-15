@@ -29,52 +29,51 @@ class GenerateXcodeprojTests: XCTestCase {
     func testXcodebuildCanParseIt() throws {
       #if os(macOS)
       try testWithTemporaryDirectory { dstdir in
-            let packagePath = dstdir.appending(component: "foo")
-            let modulePath = packagePath.appending(components: "Sources", "DummyModuleName")
-            try makeDirectories(modulePath)
-            try localFileSystem.writeFileContents(modulePath.appending(component: "source.swift"), bytes: "")
+          let packagePath = dstdir.appending(component: "foo")
+          let modulePath = packagePath.appending(components: "Sources", "DummyModuleName")
+          try makeDirectories(modulePath)
+          try localFileSystem.writeFileContents(modulePath.appending(component: "source.swift"), bytes: "")
 
-            let diagnostics = DiagnosticsEngine()
-            let graph = try loadPackageGraph(fs: localFileSystem, diagnostics: diagnostics,
-                manifests: [
-                    Manifest.createV4Manifest(
-                        name: "Foo",
-                        path: packagePath.pathString,
-                        packageKind: .root,
-                        packageLocation: packagePath.pathString,
-                        targets: [
-                            TargetDescription(name: "DummyModuleName"),
-                        ])
-                ]
-            )
-            XCTAssertNoDiagnostics(diagnostics)
+          let diagnostics = DiagnosticsEngine()
+          let graph = try loadPackageGraph(fs: localFileSystem, diagnostics: diagnostics,
+              manifests: [
+                  Manifest.createV4Manifest(
+                      name: "Foo",
+                      path: packagePath,
+                      packageKind: .root,
+                      targets: [
+                          TargetDescription(name: "DummyModuleName"),
+                      ])
+              ]
+          )
+          XCTAssertNoDiagnostics(diagnostics)
 
-            let projectName = "DummyProjectName"
-            let outpath = Xcodeproj.buildXcodeprojPath(outputDir: dstdir, projectName: projectName)
-            try Xcodeproj.generate(projectName: projectName, xcodeprojPath: outpath, graph: graph, options: XcodeprojOptions(), diagnostics: diagnostics)
+          let projectName = "DummyProjectName"
+          let outpath = Xcodeproj.buildXcodeprojPath(outputDir: dstdir, projectName: projectName)
+          try Xcodeproj.generate(projectName: projectName, xcodeprojPath: outpath, graph: graph, options: XcodeprojOptions(), diagnostics: diagnostics)
 
-            XCTAssertDirectoryExists(outpath)
-            XCTAssertEqual(outpath, dstdir.appending(component: projectName + ".xcodeproj"))
+          XCTAssertDirectoryExists(outpath)
+          XCTAssertEqual(outpath, dstdir.appending(component: projectName + ".xcodeproj"))
 
-            // We can only validate this on OS X.
-            // Don't allow TOOLCHAINS to be overriden here, as it breaks the test below.
-            let output = try Process.checkNonZeroExit(
-                args: "env", "-u", "TOOLCHAINS", "xcodebuild", "-list", "-project", outpath.pathString).spm_chomp()
+          // We can only validate this on OS X.
+          // Don't allow TOOLCHAINS to be overriden here, as it breaks the test below.
+          let output = try Process.checkNonZeroExit(
+              args: "env", "-u", "TOOLCHAINS", "xcodebuild", "-list", "-project", outpath.pathString).spm_chomp()
 
-            XCTAssertTrue(output.contains("""
-               Information about project "DummyProjectName":
-                   Targets:
-                       DummyModuleName
+          XCTAssertMatch(output, .contains("""
+             Information about project "DummyProjectName":
+                 Targets:
+                     DummyModuleName
 
-                   Build Configurations:
-                       Debug
-                       Release
+                 Build Configurations:
+                     Debug
+                     Release
 
-                   If no build configuration is specified and -scheme is not passed then "Release" is used.
+                 If no build configuration is specified and -scheme is not passed then "Release" is used.
 
-                   Schemes:
-                       Foo-Package
-               """), output)
+                 Schemes:
+                     Foo-Package
+             """))
         }
       #endif
     }
@@ -91,9 +90,8 @@ class GenerateXcodeprojTests: XCTestCase {
                 manifests: [
                     Manifest.createV4Manifest(
                         name: "Bar",
-                        path: packagePath.pathString,
+                        path: packagePath,
                         packageKind: .root,
-                        packageLocation: packagePath.pathString,
                         targets: [
                             TargetDescription(name: "Bar"),
                         ])
@@ -126,9 +124,8 @@ class GenerateXcodeprojTests: XCTestCase {
                 manifests: [
                     Manifest.createV4Manifest(
                         name: "Modules",
-                        path: packagePath.pathString,
+                        path: packagePath,
                         packageKind: .root,
-                        packageLocation: packagePath.pathString,
                         targets: [
                             TargetDescription(name: "Modules"),
                         ])
@@ -136,15 +133,18 @@ class GenerateXcodeprojTests: XCTestCase {
             )
             XCTAssertNoDiagnostics(diagnostics)
 
-            let warningStream = BufferedOutputByteStream()
             _ = try xcodeProject(
                 xcodeprojPath: AbsolutePath.root.appending(component: "xcodeproj"),
                 graph: graph, extraDirs: [], extraFiles: [],
                 options: XcodeprojOptions(), fileSystem: localFileSystem,
-                diagnostics: diagnostics, warningStream: warningStream)
+                diagnostics: diagnostics
+            )
 
-            let warnings = warningStream.bytes.description
-            XCTAssertMatch(warnings, .contains("warning: Target 'Modules' conflicts with required framework filenames, rename this target to avoid conflicts."))
+            DiagnosticsEngineTester(diagnostics) { result in
+                result.check(
+                    diagnostic: .contains("Target 'Modules' conflicts with required framework filenames, rename this target to avoid conflicts."),
+                    behavior: .warning)
+            }
         }
     }
 
@@ -162,9 +162,8 @@ class GenerateXcodeprojTests: XCTestCase {
                 manifests: [
                     Manifest.createV4Manifest(
                         name: "Foo",
-                        path: packagePath.pathString,
+                        path: packagePath,
                         packageKind: .root,
-                        packageLocation: packagePath.pathString,
                         targets: [
                             TargetDescription(name: "DummyModule"),
                         ])
@@ -197,9 +196,8 @@ class GenerateXcodeprojTests: XCTestCase {
                 manifests: [
                     Manifest.createV4Manifest(
                         name: "Foo",
-                        path: packagePath.pathString,
+                        path: packagePath,
                         packageKind: .root,
-                        packageLocation: packagePath.pathString,
                         targets: [
                             TargetDescription(name: "DummyModule"),
                         ])
@@ -231,9 +229,8 @@ class GenerateXcodeprojTests: XCTestCase {
                 manifests: [
                     Manifest.createV4Manifest(
                         name: "Foo",
-                        path: packagePath.pathString,
+                        path: packagePath,
                         packageKind: .root,
-                        packageLocation: packagePath.pathString,
                         targets: [
                             TargetDescription(name: "DummyModule"),
                         ])
@@ -269,9 +266,8 @@ class GenerateXcodeprojTests: XCTestCase {
                 manifests: [
                     Manifest.createV4Manifest(
                         name: "Foo",
-                        path: packagePath.pathString,
+                        path: packagePath,
                         packageKind: .root,
-                        packageLocation: packagePath.pathString,
                         targets: [
                             TargetDescription(name: "DummyModule"),
                         ])
@@ -312,9 +308,8 @@ class GenerateXcodeprojTests: XCTestCase {
                 manifests: [
                     Manifest.createV4Manifest(
                         name: "Foo",
-                        path: packagePath.pathString,
+                        path: packagePath,
                         packageKind: .root,
-                        packageLocation: packagePath.pathString,
                         targets: [
                             TargetDescription(name: "DummyModule"),
                         ])
@@ -354,10 +349,9 @@ class GenerateXcodeprojTests: XCTestCase {
                 manifests: [
                     Manifest.createV4Manifest(
                         name: "Foo",
-                        path: fooPackagePath.pathString,
-                        packageLocation: fooPackagePath.pathString,
+                        path: fooPackagePath,
                         dependencies: [
-                            .local(name: "Bar", path: barPackagePath)
+                            .fileSystem(path: barPackagePath)
                         ],
                         targets: [
                             TargetDescription(name: "Foo", dependencies: [
@@ -366,9 +360,8 @@ class GenerateXcodeprojTests: XCTestCase {
                         ]),
                     Manifest.createV4Manifest(
                         name: "Bar",
-                        path: barPackagePath.pathString,
+                        path: barPackagePath,
                         packageKind: .remote,
-                        packageLocation: barPackagePath.pathString,
                         products: [
                             ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar1"])
                         ],

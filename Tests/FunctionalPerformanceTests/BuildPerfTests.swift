@@ -8,19 +8,20 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import XCTest
 import Commands
+import PackageModel
 import SPMTestSupport
 import TSCBasic
 import TSCUtility
 import Workspace
+import XCTest
 
 class BuildPerfTests: XCTestCasePerf {
 
     @discardableResult
     func execute(args: [String] = [], packagePath: AbsolutePath) throws -> (stdout: String, stderr: String) {
         // FIXME: We should pass the SWIFT_EXEC at lower level.
-        return try SwiftPMProduct.SwiftBuild.execute(args + [], packagePath: packagePath, env: ["SWIFT_EXEC": Resources.default.swiftCompiler.pathString])
+        return try SwiftPMProduct.SwiftBuild.execute(args + [], packagePath: packagePath, env: ["SWIFT_EXEC": ToolchainConfiguration.default.swiftCompilerPath.pathString])
     }
 
     func clean(packagePath: AbsolutePath) throws {
@@ -54,7 +55,7 @@ class BuildPerfTests: XCTestCasePerf {
     func runFullBuildTest(for name: String, app appString: String? = nil, product productString: String) {
         fixture(name: name) { prefix in
             let app = prefix.appending(components: (appString ?? ""))
-            let triple = Resources.default.toolchain.triple
+            let triple = UserToolchain.default.triple
             let product = app.appending(components: ".build", triple.tripleString, "debug", productString)
             try self.execute(packagePath: app)
             measure {
@@ -68,7 +69,7 @@ class BuildPerfTests: XCTestCasePerf {
     func runNullBuildTest(for name: String, app appString: String? = nil, product productString: String) {
         fixture(name: name) { prefix in
             let app = prefix.appending(components: (appString ?? ""))
-            let triple = Resources.default.toolchain.triple
+            let triple = UserToolchain.default.triple
             let product = app.appending(components: ".build", triple.tripleString, "debug", productString)
             try self.execute(packagePath: app)
             measure {

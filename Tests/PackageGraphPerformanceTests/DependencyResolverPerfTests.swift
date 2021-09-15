@@ -25,27 +25,27 @@ private let v1Range: VersionSetSpecifier = .range("1.0.0" ..< "2.0.0")
 
 class DependencyResolverRealWorldPerfTests: XCTestCasePerf {
     func testKituraPubGrub_X100() throws {
-        #if os(macOS)
+#if os(macOS)
         try runPackageTestPubGrub(name: "kitura.json", N: 100)
-        #endif
+#endif
     }
 
     func testZewoPubGrub_X100() throws {
-        #if os(macOS)
+#if os(macOS)
         try runPackageTestPubGrub(name: "ZewoHTTPServer.json", N: 100)
-        #endif
+#endif
     }
 
     func testPerfectPubGrub_X100() throws {
-        #if os(macOS)
+#if os(macOS)
         try runPackageTestPubGrub(name: "PerfectHTTPServer.json", N: 100)
-        #endif
+#endif
     }
 
     func testSourceKittenPubGrub_X100() throws {
-        #if os(macOS)
+#if os(macOS)
         try runPackageTestPubGrub(name: "SourceKitten.json", N: 100)
-        #endif
+#endif
     }
 
     func runPackageTestPubGrub(name: String, N: Int = 1) throws {
@@ -78,5 +78,114 @@ class DependencyResolverRealWorldPerfTests: XCTestCasePerf {
         let jsonString = try localFileSystem.readFileContents(input)
         let json = try JSON(bytes: jsonString)
         return MockDependencyGraph(json)
+    }
+}
+
+
+// MARK: - JSON
+
+public extension MockDependencyGraph {
+    init(_ json: JSON) {
+        guard case .dictionary(let dict) = json else { fatalError() }
+        guard case .string(let name)? = dict["name"] else { fatalError() }
+        guard case .array(let constraints)? = dict["constraints"] else { fatalError() }
+        guard case .array(let containers)? = dict["containers"] else { fatalError() }
+        guard case .dictionary(let result)? = dict["result"] else { fatalError() }
+
+        self.init(
+            name: name,
+            constraints: constraints.map(PackageContainerConstraint.init(json:)),
+            containers: containers.map(MockPackageContainer.init(json:)),
+            result: Dictionary(uniqueKeysWithValues: result.map { value in
+                let (container, version) = value
+                guard case .string(let str) = version else { fatalError() }
+                let package = PackageReference.remote(identity: PackageIdentity(url: container.lowercased()), location: "/\(container)")
+                return (package, Version(str)!)
+            })
+        )
+    }
+}
+
+private extension MockPackageContainer {
+    convenience init(json: JSON) {
+        guard case .dictionary(let dict) = json else { fatalError() }
+        guard case .string(let identifier)? = dict["identifier"] else { fatalError() }
+        guard case .dictionary(let versions)? = dict["versions"] else { fatalError() }
+
+        var depByVersion: [Version: [(container: String, versionRequirement: VersionSetSpecifier)]] = [:]
+        for (version, deps) in versions {
+            guard case .array(let depArray) = deps else { fatalError() }
+            depByVersion[Version(version)!] = depArray
+                .map(PackageContainerConstraint.init(json:))
+                .map { constraint in
+                    switch constraint.requirement {
+                    case .versionSet(let versionSet):
+                        return (constraint.package.identity.description, versionSet)
+                    case .unversioned:
+                        fatalError()
+                    case .revision:
+                        fatalError()
+                    }
+                }
+        }
+
+        self.init(name: identifier, dependenciesByVersion: depByVersion)
+    }
+}
+
+private extension MockPackageContainer.Constraint {
+    init(json: JSON) {
+        guard case .dictionary(let dict) = json else { fatalError() }
+        guard case .string(let identifier)? = dict["identifier"] else { fatalError() }
+        guard let requirement = dict["requirement"] else { fatalError() }
+        let products: ProductFilter = try! JSON(dict).get("products")
+        let ref = PackageReference.remote(identity: PackageIdentity(url: identifier), location: "")
+        self.init(package: ref, versionRequirement: VersionSetSpecifier(requirement), products: products)
+    }
+}
+
+private extension VersionSetSpecifier {
+    init(_ json: JSON) {
+        switch json {
+        case .string(let str):
+            switch str {
+            case "any": self = .any
+            case "empty": self = .empty
+            default: fatalError()
+            }
+        case .array(let arr):
+            switch arr.count {
+            case 1:
+                guard case .string(let str) = arr[0] else { fatalError() }
+                self = .exact(Version(str)!)
+            case 2:
+                let versions = arr.map { json -> Version in
+                    guard case .string(let str) = json else { fatalError() }
+                    return Version(str)!
+                }
+                self = .range(versions[0] ..< versions[1])
+            default: fatalError()
+            }
+        default: fatalError()
+        }
+    }
+}
+
+extension ProductFilter: JSONSerializable, JSONMappable {
+    public func toJSON() -> JSON {
+        switch self {
+        case .everything:
+            return "all".toJSON()
+        case .specific(let products):
+            return products.sorted().toJSON()
+        }
+    }
+
+    public init(json: JSON) throws {
+        if let products = try? [String](json: json) {
+            self = .specific(Set(products))
+        } else {
+            self = .everything
+        }
     }
 }

@@ -34,7 +34,7 @@ extension Diagnostic.Message {
         switch product.type {
         case .library(.automatic):
             typeString = ""
-        case .executable, .plugin, .test,
+        case .executable, .snippet, .plugin, .test,
              .library(.dynamic), .library(.static):
             typeString = " (\(product.type))"
         }

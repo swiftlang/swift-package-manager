@@ -9,13 +9,20 @@
 add_library(Commands
   APIDigester.swift
   Describe.swift
-  Error.swift
   GenerateLinuxMain.swift
   MultiRootSupport.swift
   Options.swift
   show-dependencies.swift
+  Snippets/CardEvent.swift
+  Snippets/Cards/SnippetCard.swift
+  Snippets/Cards/SnippetGroupCard.swift
+  Snippets/Cards/TopCard.swift
+  Snippets/CardStack.swift
+  Snippets/Card.swift
+  Snippets/Colorful.swift
   SwiftBuildTool.swift
   SwiftPackageCollectionsTool.swift
+  SwiftPackageRegistryTool.swift
   SwiftPackageTool.swift
   SwiftRunTool.swift
   SwiftTestTool.swift

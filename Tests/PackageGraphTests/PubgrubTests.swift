@@ -8,13 +8,16 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-import Basics
-@testable import PackageGraph
+import XCTest
+
+import TSCBasic
 import PackageLoading
 @testable import PackageModel
+@testable import PackageGraph
 import SourceControl
-import TSCBasic
-import XCTest
+import SPMTestSupport
+
+
 
 // There's some useful helper utilities defined below for easier testing:
 //
@@ -370,7 +373,7 @@ final class PubgrubTests: XCTestCase {
     func testResolverUnitPropagation() throws {
         let solver1 = PubgrubDependencyResolver(provider: emptyProvider)
         let state1 = PubgrubDependencyResolver.State(root: rootNode)
-        
+
         // no known incompatibilities should result in no satisfaction checks
         try solver1.propagate(state: state1, node: .root(package: "root"))
 
@@ -995,7 +998,7 @@ final class PubgrubTests: XCTestCase {
         builder.serve("b", at: v1)
         builder.serve("b", at: v1_1)
         builder.serve("c", at: v1, with: ["c": ["b": (.versionSet(.range(v1_1..<v2)), .specific(["b"]))]])
-        
+
         let dependencies = builder.create(dependencies: [
             "c": (.versionSet(v1Range), .specific(["c"])),
             "a": (.versionSet(v1Range), .specific(["a"])),
@@ -1153,11 +1156,11 @@ final class PubgrubTests: XCTestCase {
             ("bar", .version("2.0.1")),
         ])
 
-        XCTAssertTrue(delegate.events.contains("willResolve 'foo'"), "\(delegate.events)")
-        XCTAssertTrue(delegate.events.contains("didResolve 'foo' at '1.1.0'"), "\(delegate.events)")
-        XCTAssertTrue(delegate.events.contains("willResolve 'bar'"), "\(delegate.events)")
-        XCTAssertTrue(delegate.events.contains("didResolve 'bar' at '2.0.1'"), "\(delegate.events)")
-        XCTAssertTrue(delegate.events.contains("solved: 'bar' at '2.0.1', 'foo' at '1.1.0'"), "\(delegate.events)")
+        XCTAssertMatch(delegate.events, ["willResolve 'foo'"])
+        XCTAssertMatch(delegate.events, ["didResolve 'foo' at '1.1.0'"])
+        XCTAssertMatch(delegate.events, ["willResolve 'bar'"])
+        XCTAssertMatch(delegate.events, ["didResolve 'bar' at '2.0.1'"])
+        XCTAssertMatch(delegate.events, ["solved: 'bar' at '2.0.1', 'foo' at '1.1.0'"])
     }
 }
 
@@ -1291,7 +1294,7 @@ final class PubGrubDiagnosticsTests: XCTestCase {
             "foopkg": (.versionSet(v2Range), .specific(["foopkg"])),
         ])
         let result = resolver.solve(constraints: dependencies)
-        
+
         XCTAssertEqual(result.errorMsg, """
             Dependencies could not be resolved because no versions of 'foopkg' match the requirement 2.0.0..<3.0.0 and root depends on 'foopkg' 2.0.0..<3.0.0.
             """)
@@ -1358,7 +1361,7 @@ final class PubGrubDiagnosticsTests: XCTestCase {
             "foo": (.versionSet(v1Range), .specific(["foo"])),
         ])
         let result = resolver.solve(constraints: dependencies)
-        
+
         XCTAssertEqual(result.errorMsg, """
           Dependencies could not be resolved because root depends on 'foo' 1.0.0..<2.0.0.
           'foo' cannot be used because 'foo' < 1.1.0 cannot be used (1).
@@ -1368,7 +1371,7 @@ final class PubGrubDiagnosticsTests: XCTestCase {
              (1) As a result, 'foo' < 1.1.0 cannot be used because 'foo' < 1.1.0 depends on 'b' 1.0.0..<2.0.0.
         """)
     }
-    
+
     func testConflict1() {
         builder.serve("foo", at: v1, with: ["foo": ["config": (.versionSet(v1Range), .specific(["config"]))]])
         builder.serve("bar", at: v1, with: ["bar": ["config": (.versionSet(v2Range), .specific(["config"]))]])
@@ -1535,7 +1538,7 @@ final class PubGrubDiagnosticsTests: XCTestCase {
         ])
 
         let result = resolver.solve(constraints: dependencies)
-        
+
         XCTAssertEqual(result.errorMsg, """
             Dependencies could not be resolved because root depends on 'a' 1.0.0..<2.0.0 and root depends on 'b' 2.0.0..<3.0.0.
             'a' >= 1.0.0 practically depends on 'b' 1.0.0..<2.0.0 because 'a' >= 1.1.0 depends on 'b' 1.0.0..<2.0.0.
@@ -1686,7 +1689,7 @@ final class PubGrubDiagnosticsTests: XCTestCase {
             "root": (.unversioned, .everything)
         ])
         let result = resolver.solve(constraints: dependencies)
-        
+
         XCTAssertEqual(
             result.errorMsg,
             """
@@ -1900,11 +1903,11 @@ final class PubGrubBacktrackTests: XCTestCase {
 fileprivate extension CheckoutState {
     /// Creates a checkout state with the given version and a mocked revision.
     static func version(_ version: Version) -> CheckoutState {
-        CheckoutState(revision: Revision(identifier: "<fake-ident>"), version: version)
+        .version(version, revision: Revision(identifier: "<fake-ident>"))
     }
 
     static func branch(_ branch: String, revision: String) -> CheckoutState {
-        CheckoutState(revision: Revision(identifier: revision), branch: branch)
+        .branch(name: branch, revision: Revision(identifier: revision))
     }
 }
 
@@ -2011,13 +2014,13 @@ public class MockContainer: PackageContainer {
         if let toolsVersion = try? self.toolsVersion(for: version) {
             return self.toolsVersion == toolsVersion
         }
-        
+
         return (try? self.toolsVersionsAppropriateVersionsDescending().contains(version)) ?? false
     }
-    
+
     public func toolsVersion(for version: Version) throws -> ToolsVersion {
         struct NotFound: Error {}
-        
+
         guard let version = versionsToolsVersions[version] else {
             throw NotFound()
         }
@@ -2104,7 +2107,7 @@ public class MockContainer: PackageContainer {
     ) {
         self.package = package
         self.dependencies = dependencies
-        let versions = dependencies.keys.compactMap(Version.init(string:))
+        let versions = dependencies.keys.compactMap(Version.init(_:))
         self._versions = versions
             .sorted()
             .map(BoundVersion.version)
@@ -2153,7 +2156,7 @@ class DependencyGraphBuilder {
     }
 
     func create(
-        dependencies: Basics.OrderedDictionary<String, (PackageRequirement, ProductFilter)>
+        dependencies: OrderedDictionary<String, (PackageRequirement, ProductFilter)>
     ) -> [PackageContainerConstraint] {
         return dependencies.map {
             PackageContainerConstraint(package: reference(for: $0), requirement: $1.0, products: $1.1)
@@ -2164,7 +2167,7 @@ class DependencyGraphBuilder {
         _ package: String,
         at version: Version,
         toolsVersion: ToolsVersion? = nil,
-        with dependencies: KeyValuePairs<String, Basics.OrderedDictionary<String, (PackageRequirement, ProductFilter)>> = [:]
+        with dependencies: KeyValuePairs<String, OrderedDictionary<String, (PackageRequirement, ProductFilter)>> = [:]
     ) {
         serve(package, at: .version(version), toolsVersion: toolsVersion, with: dependencies)
     }
@@ -2173,7 +2176,7 @@ class DependencyGraphBuilder {
         _ package: String,
         at version: BoundVersion,
         toolsVersion: ToolsVersion? = nil,
-        with dependencies: KeyValuePairs<String, Basics.OrderedDictionary<String, (PackageRequirement, ProductFilter)>> = [:]
+        with dependencies: KeyValuePairs<String, OrderedDictionary<String, (PackageRequirement, ProductFilter)>> = [:]
     ) {
         let packageReference = reference(for: package)
         let container = self.containers[package] ?? MockContainer(package: packageReference)
@@ -2199,7 +2202,7 @@ class DependencyGraphBuilder {
     /// Creates a pins store with the given pins.
     func create(pinsStore pins: [String: (CheckoutState, ProductFilter)]) -> PinsStore {
         let fs = InMemoryFileSystem()
-        let store = try! PinsStore(pinsFile: AbsolutePath("/tmp/Package.resolved"), fileSystem: fs, mirrors: .init())
+        let store = try! PinsStore(pinsFile: AbsolutePath("/tmp/Package.resolved"), workingDirectory: .root, fileSystem: fs, mirrors: .init())
 
         for (package, pin) in pins {
             store.pin(packageRef: reference(for: package), state: pin.0)
@@ -2210,7 +2213,7 @@ class DependencyGraphBuilder {
     }
 
     func create(pinsMap: PinsStore.PinsMap = [:], log: Bool = false) -> PubgrubDependencyResolver {
-        let delegate = log ? TracingDependencyResolverDelegate(stream: stdoutStream) : nil
+        let delegate = log ? TracingDependencyResolverDelegate(stream: TSCBasic.stdoutStream) : nil
         return self.create(pinsMap: pinsMap, delegate: delegate)
     }
 

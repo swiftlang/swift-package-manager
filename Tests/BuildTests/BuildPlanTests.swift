@@ -16,9 +16,10 @@ import SPMTestSupport
 import SwiftDriver
 import TSCBasic
 import TSCUtility
+import Workspace
 import XCTest
 
-let hostTriple = Resources.default.toolchain.triple
+let hostTriple = UserToolchain.default.triple
 #if os(macOS)
     let defaultTargetTriple: String = hostTriple.tripleString(forPlatformVersion: "10.10")
 #else
@@ -108,9 +109,8 @@ final class BuildPlanTests: XCTestCase {
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Pkg",
-                    path: "/Pkg",
+                    path: .init("/Pkg"),
                     packageKind: .root,
-                    packageLocation: "/Pkg",
                     targets: [
                         TargetDescription(name: "exe", dependencies: ["lib"]),
                         TargetDescription(name: "lib", dependencies: []),
@@ -168,6 +168,8 @@ final class BuildPlanTests: XCTestCase {
     }
 
     func testExplicitSwiftPackageBuild() throws {
+        // <rdar://82053045> Fix and re-enable SwiftPM test `testExplicitSwiftPackageBuild`
+        try XCTSkipIf(true)
         try withTemporaryDirectory { path in
             // Create a test package with three targets:
             // A -> B -> C
@@ -211,7 +213,7 @@ final class BuildPlanTests: XCTestCase {
                 manifests: [
                     Manifest.createV4Manifest(
                         name: "ExplicitTest",
-                        path: testDirPath.description,
+                        path: testDirPath,
                         packageKind: .root,
                         packageLocation: "/ExplicitTest",
                         targets: [
@@ -227,8 +229,8 @@ final class BuildPlanTests: XCTestCase {
                     buildParameters: mockBuildParameters(
                         buildPath: buildDirPath,
                         config: .release,
-                        toolchain: Resources.default.toolchain,
-                        destinationTriple: Resources.default.toolchain.triple,
+                        toolchain: UserToolchain.default,
+                        destinationTriple: UserToolchain.default.triple,
                         useExplicitModuleBuild: true
                     ),
                     graph: graph,
@@ -271,8 +273,7 @@ final class BuildPlanTests: XCTestCase {
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Pkg",
-                    path: "/Pkg",
-                    packageLocation: "/Pkg",
+                    path: .init("/Pkg"),
                     dependencies: [
                         .scm(location: "/ExtPkg", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
@@ -293,9 +294,8 @@ final class BuildPlanTests: XCTestCase {
                 ),
                 Manifest.createV4Manifest(
                     name: "ExtPkg",
-                    path: "/ExtPkg",
+                    path: .init("/ExtPkg"),
                     packageKind: .remote,
-                    packageLocation: "/ExtPkg",
                     products: [
                         ProductDescription(name: "ExtLib", type: .library(.automatic), targets: ["ExtLib"]),
                     ],
@@ -374,9 +374,8 @@ final class BuildPlanTests: XCTestCase {
             manifests: [
                 Manifest.createV4Manifest(
                     name: "A",
-                    path: "/A",
+                    path: .init("/A"),
                     packageKind: .root,
-                    packageLocation: "/A",
                     dependencies: [
                         .scm(location: "/B", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
@@ -386,9 +385,8 @@ final class BuildPlanTests: XCTestCase {
                     ]),
                 Manifest.createV4Manifest(
                     name: "B",
-                    path: "/B",
+                    path: .init("/B"),
                     packageKind: .local,
-                    packageLocation: "/B",
                     products: [
                         ProductDescription(name: "BLibrary", type: .library(.automatic), targets: ["BTarget"]),
                     ],
@@ -428,9 +426,8 @@ final class BuildPlanTests: XCTestCase {
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Pkg",
-                    path: "/Pkg",
+                    path: .init("/Pkg"),
                     packageKind: .root,
-                    packageLocation: "/Pkg",
                     targets: [
                         TargetDescription(name: "exe", dependencies: []),
                     ]),
@@ -481,9 +478,8 @@ final class BuildPlanTests: XCTestCase {
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Pkg",
-                    path: "/Pkg",
+                    path: .init("/Pkg"),
                     packageKind: .root,
-                    packageLocation: "/Pkg",
                     dependencies: [
                         .scm(location: "/ExtPkg", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
@@ -493,9 +489,8 @@ final class BuildPlanTests: XCTestCase {
                     ]),
                 Manifest.createV4Manifest(
                     name: "ExtPkg",
-                    path: "/ExtPkg",
+                    path: .init("/ExtPkg"),
                     packageKind: .local,
-                    packageLocation: "/ExtPkg",
                     products: [
                         ProductDescription(name: "ExtPkg", type: .library(.automatic), targets: ["extlib"]),
                     ],
@@ -594,8 +589,7 @@ final class BuildPlanTests: XCTestCase {
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Pkg",
-                    path: "/Pkg",
-                    packageLocation: "/Pkg",
+                    path: .init("/Pkg"),
                     dependencies: [
                         .scm(location: "/ExtPkg", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
@@ -615,9 +609,8 @@ final class BuildPlanTests: XCTestCase {
                     ]),
                 Manifest.createV4Manifest(
                     name: "ExtPkg",
-                    path: "/ExtPkg",
+                    path: .init("/ExtPkg"),
                     packageKind: .remote,
-                    packageLocation: "/ExtPkg",
                     products: [
                         ProductDescription(name: "ExtPkg", type: .library(.automatic), targets: ["ExtLib"]),
                     ],
@@ -680,9 +673,8 @@ final class BuildPlanTests: XCTestCase {
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Pkg",
-                    path: "/Pkg",
+                    path: .init("/Pkg"),
                     packageKind: .root,
-                    packageLocation: "/Pkg",
                     cLanguageStandard: "gnu99",
                     cxxLanguageStandard: "c++1z",
                     targets: [
@@ -724,8 +716,8 @@ final class BuildPlanTests: XCTestCase {
             let llbuild = LLBuildManifestBuilder(plan)
             try llbuild.generateManifest(at: yaml)
             let contents = try localFileSystem.readFileContents(yaml).description
-            XCTAssertTrue(contents.contains("-std=gnu99\",\"-c\",\"/Pkg/Sources/lib/lib.c"))
-            XCTAssertTrue(contents.contains("-std=c++1z\",\"-c\",\"/Pkg/Sources/lib/libx.cpp"))
+            XCTAssertMatch(contents, .contains(#"-std=gnu99","-c","/Pkg/Sources/lib/lib.c"#))
+            XCTAssertMatch(contents, .contains(#"-std=c++1z","-c","/Pkg/Sources/lib/libx.cpp"#))
         }
     }
 
@@ -741,9 +733,8 @@ final class BuildPlanTests: XCTestCase {
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Pkg",
-                    path: "/Pkg",
+                    path: .init("/Pkg"),
                     packageKind: .root,
-                    packageLocation: "/Pkg",
                     targets: [
                         TargetDescription(name: "exe", dependencies: ["lib"]),
                         TargetDescription(name: "lib", dependencies: []),
@@ -810,9 +801,8 @@ final class BuildPlanTests: XCTestCase {
             manifests: [
                 Manifest.createManifest(
                     name: "Pkg",
-                    path: "/Pkg",
+                    path: .init("/Pkg"),
                     packageKind: .root,
-                    packageLocation: "/Pkg",
                     v: .v5,
                     targets: [
                         TargetDescription(name: "exe", dependencies: ["lib"]),
@@ -850,9 +840,8 @@ final class BuildPlanTests: XCTestCase {
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Pkg",
-                    path: "/Pkg",
+                    path: .init("/Pkg"),
                     packageKind: .root,
-                    packageLocation: "/Pkg",
                     dependencies: [
                         .scm(location: "/Dep", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
@@ -863,9 +852,8 @@ final class BuildPlanTests: XCTestCase {
                     ]),
                 Manifest.createV4Manifest(
                     name: "Dep",
-                    path: "/Dep",
+                    path: .init("/Dep"),
                     packageKind: .local,
-                    packageLocation: "/Dep",
                     products: [
                         ProductDescription(name: "Dep", type: .library(.automatic), targets: ["Dep"]),
                     ],
@@ -900,9 +888,8 @@ final class BuildPlanTests: XCTestCase {
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Pkg",
-                    path: "/Pkg",
+                    path: .init("/Pkg"),
                     packageKind: .root,
-                    packageLocation: "/Pkg",
                     targets: [
                         TargetDescription(name: "Foo", dependencies: []),
                         TargetDescription(name: "FooTests", dependencies: ["Foo"], type: .test),
@@ -966,9 +953,8 @@ final class BuildPlanTests: XCTestCase {
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Pkg",
-                    path: "/Pkg",
+                    path: .init("/Pkg"),
                     packageKind: .root,
-                    packageLocation: "/Pkg",
                     toolsVersion: .v5_5,
                     targets: [
                         TargetDescription(name: "exe1", type: .executable),
@@ -991,15 +977,15 @@ final class BuildPlanTests: XCTestCase {
 
         // Check that the first target (single source file not named main) has -parse-as-library.
         let exe1 = try result.target(for: "exe1").swiftTarget().emitCommandLine()
-        XCTAssertMatch(exe1, ["-parse-as-library", .anySequence])
+        XCTAssertMatch(exe1, ["-parse-as-library"])
 
         // Check that the second target (single source file named main) does not have -parse-as-library.
         let exe2 = try result.target(for: "exe2").swiftTarget().emitCommandLine()
-        XCTAssertNoMatch(exe2, ["-parse-as-library", .anySequence])
+        XCTAssertNoMatch(exe2, ["-parse-as-library"])
 
         // Check that the third target (multiple source files) does not have -parse-as-library.
         let exe3 = try result.target(for: "exe3").swiftTarget().emitCommandLine()
-        XCTAssertNoMatch(exe3, ["-parse-as-library", .anySequence])
+        XCTAssertNoMatch(exe3, ["-parse-as-library"])
     }
 
     func testCModule() throws {
@@ -1013,20 +999,19 @@ final class BuildPlanTests: XCTestCase {
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Pkg",
-                    path: "/Pkg",
+                    path: .init("/Pkg"),
                     packageKind: .root,
-                    packageLocation: "/Pkg",
                     dependencies: [
-                        .scm(location: "Clibgit", requirement: .upToNextMajor(from: "1.0.0"))
+                        .scm(location: "/Clibgit", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     targets: [
                         TargetDescription(name: "exe", dependencies: []),
                     ]),
                 Manifest.createV4Manifest(
                     name: "Clibgit",
-                    path: "/Clibgit",
-                    packageKind: .local,
-                    packageLocation: "/Clibgit"),
+                    path: .init("/Clibgit"),
+                    packageKind: .local
+                ),
             ]
         )
         XCTAssertNoDiagnostics(diagnostics)
@@ -1070,9 +1055,8 @@ final class BuildPlanTests: XCTestCase {
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Pkg",
-                    path: "/Pkg",
+                    path: .init("/Pkg"),
                     packageKind: .root,
-                    packageLocation: "/Pkg",
                     targets: [
                         TargetDescription(name: "lib", dependencies: []),
                         TargetDescription(name: "exe", dependencies: ["lib"]),
@@ -1087,9 +1071,9 @@ final class BuildPlanTests: XCTestCase {
         let linkArgs = try result.buildProduct(for: "exe").linkArguments()
 
       #if os(macOS)
-        XCTAssertTrue(linkArgs.contains("-lc++"))
+        XCTAssertMatch(linkArgs, ["-lc++"])
       #else
-        XCTAssertTrue(linkArgs.contains("-lstdc++"))
+        XCTAssertMatch(linkArgs, ["-lstdc++"])
       #endif
     }
 
@@ -1104,9 +1088,8 @@ final class BuildPlanTests: XCTestCase {
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Bar",
-                    path: "/Bar",
+                    path: .init("/Bar"),
                     packageKind: .local,
-                    packageLocation: "/Bar",
                     products: [
                         ProductDescription(name: "Bar-Baz", type: .library(.dynamic), targets: ["Bar"]),
                     ],
@@ -1115,9 +1098,8 @@ final class BuildPlanTests: XCTestCase {
                     ]),
                 Manifest.createV4Manifest(
                     name: "Foo",
-                    path: "/Foo",
+                    path: .init("/Foo"),
                     packageKind: .root,
-                    packageLocation: "/Foo",
                     dependencies: [
                         .scm(location: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
@@ -1153,6 +1135,7 @@ final class BuildPlanTests: XCTestCase {
             "-Xlinker", "-install_name", "-Xlinker", "@rpath/libBar-Baz.dylib",
             "-Xlinker", "-rpath", "-Xlinker", "@loader_path",
             "@/path/to/build/debug/Bar-Baz.product/Objects.LinkFileList",
+            "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift/macosx",
             "-target", defaultTargetTriple,
             "-Xlinker", "-add_ast_path", "-Xlinker", "/path/to/build/debug/Bar.swiftmodule"
         ])
@@ -1197,9 +1180,8 @@ final class BuildPlanTests: XCTestCase {
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Pkg",
-                    path: "/Pkg",
+                    path: .init("/Pkg"),
                     packageKind: .root,
-                    packageLocation: "/Pkg",
                     products: [
                         ProductDescription(name: "lib", type: .library(.dynamic), targets: ["lib"]),
                     ],
@@ -1233,6 +1215,7 @@ final class BuildPlanTests: XCTestCase {
                 "-Xlinker", "-install_name", "-Xlinker", "@rpath/liblib.dylib",
                 "-Xlinker", "-rpath", "-Xlinker", "@loader_path",
                 "@/path/to/build/debug/lib.product/Objects.LinkFileList",
+                "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift/macosx",
                 "-target", defaultTargetTriple,
                 "-Xlinker", "-add_ast_path", "-Xlinker", "/path/to/build/debug/lib.swiftmodule",
             ]
@@ -1261,9 +1244,8 @@ final class BuildPlanTests: XCTestCase {
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Pkg",
-                    path: "/Pkg",
+                    path: .init("/Pkg"),
                     packageKind: .root,
-                    packageLocation: "/Pkg",
                     products: [
                         ProductDescription(name: "lib", type: .library(.dynamic), targets: ["lib"]),
                     ],
@@ -1325,9 +1307,8 @@ final class BuildPlanTests: XCTestCase {
             manifests: [
                 Manifest.createV4Manifest(
                     name: "A",
-                    path: "/A",
+                    path: .init("/A"),
                     packageKind: .root,
-                    packageLocation: "/A",
                     dependencies: [
                         .scm(location: "/B", requirement: .upToNextMajor(from: "1.0.0")),
                         .scm(location: "/C", requirement: .upToNextMajor(from: "1.0.0")),
@@ -1340,9 +1321,8 @@ final class BuildPlanTests: XCTestCase {
                     ]),
                 Manifest.createV4Manifest(
                     name: "B",
-                    path: "/B",
+                    path: .init("/B"),
                     packageKind: .local,
-                    packageLocation: "/B",
                     products: [
                         ProductDescription(name: "BLibrary", type: .library(.static), targets: ["BTarget1"]),
                         ProductDescription(name: "bexec", type: .executable, targets: ["BTarget2"]),
@@ -1353,9 +1333,8 @@ final class BuildPlanTests: XCTestCase {
                     ]),
                 Manifest.createV4Manifest(
                     name: "C",
-                    path: "/C",
+                    path: .init("/C"),
                     packageKind: .local,
-                    packageLocation: "/C",
                     products: [
                         ProductDescription(name: "cexec", type: .executable, targets: ["CTarget"])
                     ],
@@ -1417,8 +1396,7 @@ final class BuildPlanTests: XCTestCase {
             manifests: [
                 Manifest.createV4Manifest(
                     name: "A",
-                    path: "/A",
-                    packageLocation: "/A",
+                    path: .init("/A"),
                     dependencies: [
                         .scm(location: "/B", requirement: .upToNextMajor(from: "1.0.0")),
                         .scm(location: "/C", requirement: .upToNextMajor(from: "1.0.0")),
@@ -1445,9 +1423,8 @@ final class BuildPlanTests: XCTestCase {
                 ),
                 Manifest.createV4Manifest(
                     name: "B",
-                    path: "/B",
+                    path: .init("/B"),
                     packageKind: .remote,
-                    packageLocation: "/B",
                     products: [
                         ProductDescription(name: "BLibrary1", type: .library(.static), targets: ["BTarget1"]),
                         ProductDescription(name: "BLibrary2", type: .library(.static), targets: ["BTarget2"]),
@@ -1465,9 +1442,8 @@ final class BuildPlanTests: XCTestCase {
                 ),
                 Manifest.createV4Manifest(
                     name: "C",
-                    path: "/C",
+                    path: .init("/C"),
                     packageKind: .remote,
-                    packageLocation: "/C",
                     products: [
                         ProductDescription(name: "CLibrary", type: .library(.static), targets: ["CTarget"])
                     ],
@@ -1537,10 +1513,9 @@ final class BuildPlanTests: XCTestCase {
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Pkg",
-                    path: "/Pkg",
-                    packageKind: .root,
-                    packageLocation: "/Pkg"
-                ),
+                    path: .init("/Pkg"),
+                    packageKind: .root
+                )
             ]
         )
         XCTAssertNoDiagnostics(diagnostics)
@@ -1563,9 +1538,8 @@ final class BuildPlanTests: XCTestCase {
             manifests: [
                 Manifest.createV4Manifest(
                     name: "A",
-                    path: "/A",
+                    path: .init("/A"),
                     packageKind: .root,
-                    packageLocation: "/A",
                     targets: [
                         TargetDescription(name: "ATarget", dependencies: ["BTarget"]),
                         TargetDescription(
@@ -1599,9 +1573,8 @@ final class BuildPlanTests: XCTestCase {
             manifests: [
                 Manifest.createV4Manifest(
                     name: "A",
-                    path: "/A",
+                    path: .init("/A"),
                     packageKind: .root,
-                    packageLocation: "/A",
                     targets: [
                         TargetDescription(name: "ATarget", dependencies: ["BTarget"]),
                         TargetDescription(
@@ -1636,9 +1609,8 @@ final class BuildPlanTests: XCTestCase {
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Pkg",
-                    path: "/Pkg",
+                    path: .init("/Pkg"),
                     packageKind: .root,
-                    packageLocation: "/Pkg",
                     targets: [
                     TargetDescription(name: "exe", dependencies: ["lib"]),
                     TargetDescription(name: "lib", dependencies: []),
@@ -1689,9 +1661,8 @@ final class BuildPlanTests: XCTestCase {
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Pkg",
-                    path: "/Pkg",
+                    path: .init("/Pkg"),
                     packageKind: .root,
-                    packageLocation: "/Pkg",
                     targets: [
                         TargetDescription(name: "app", dependencies: ["lib"]),
                         TargetDescription(name: "lib", dependencies: []),
@@ -1780,9 +1751,8 @@ final class BuildPlanTests: XCTestCase {
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Pkg",
-                    path: "/Pkg",
+                    path: .init("/Pkg"),
                     packageKind: .root,
-                    packageLocation: "/Pkg",
                     targets: [
                         TargetDescription(name: "exe", dependencies: ["lib"]),
                         TargetDescription(name: "lib", dependencies: []),
@@ -1823,9 +1793,8 @@ final class BuildPlanTests: XCTestCase {
             manifests: [
                 Manifest.createManifest(
                     name: "A",
-                    path: "/A",
+                    path: .init("/A"),
                     packageKind: .root,
-                    packageLocation: "/A",
                     platforms: [
                         PlatformDescription(name: "macos", version: "10.13"),
                     ],
@@ -1838,9 +1807,8 @@ final class BuildPlanTests: XCTestCase {
                     ]),
                 Manifest.createManifest(
                     name: "B",
-                    path: "/B",
+                    path: .init("/B"),
                     packageKind: .local,
-                    packageLocation: "/B",
                     platforms: [
                         PlatformDescription(name: "macos", version: "10.12"),
                     ],
@@ -1885,9 +1853,8 @@ final class BuildPlanTests: XCTestCase {
             manifests: [
                 Manifest.createManifest(
                     name: "A",
-                    path: "/A",
+                    path: .init("/A"),
                     packageKind: .root,
-                    packageLocation: "/A",
                     platforms: [
                         PlatformDescription(name: "macos", version: "10.13"),
                         PlatformDescription(name: "ios", version: "10"),
@@ -1901,9 +1868,8 @@ final class BuildPlanTests: XCTestCase {
                     ]),
                 Manifest.createManifest(
                     name: "B",
-                    path: "/B",
+                    path: .init("/B"),
                     packageKind: .local,
-                    packageLocation: "/B",
                     platforms: [
                         PlatformDescription(name: "macos", version: "10.14"),
                         PlatformDescription(name: "ios", version: "11"),
@@ -1951,9 +1917,8 @@ final class BuildPlanTests: XCTestCase {
 
         let aManifest = Manifest.createManifest(
             name: "A",
-            path: "/A",
+            path: .init("/A"),
             packageKind: .root,
-            packageLocation: "/A",
             v: .v5,
             dependencies: [
                 .scm(location: "/B", requirement: .upToNextMajor(from: "1.0.0")),
@@ -1998,9 +1963,8 @@ final class BuildPlanTests: XCTestCase {
 
         let bManifest = Manifest.createManifest(
             name: "B",
-            path: "/B",
+            path: .init("/B"),
             packageKind: .local,
-            packageLocation: "/B",
             v: .v5,
             products: [
                 ProductDescription(name: "Dep", type: .library(.automatic), targets: ["t1", "t2"]),
@@ -2080,9 +2044,8 @@ final class BuildPlanTests: XCTestCase {
 
         let aManifest = Manifest.createManifest(
             name: "A",
-            path: "/A",
+            path: .init("/A"),
             packageKind: .root,
-            packageLocation: "/A",
             v: .v5,
             targets: [
                 try TargetDescription(name: "exe", dependencies: []),
@@ -2107,6 +2070,53 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertMatch(exe, [.anySequence, "-L", "/path/to/foo", "-L/path/to/foo", "-Xlinker", "-rpath=foo", "-Xlinker", "-rpath", "-Xlinker", "foo", "-L", "/fake/path/lib"])
     }
 
+    func testUserToolchainCompileFlags() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Pkg/Sources/exe/main.swift",
+            "/Pkg/Sources/lib/lib.c",
+            "/Pkg/Sources/lib/include/lib.h"
+        )
+
+        let diagnostics = DiagnosticsEngine()
+        let graph = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
+            manifests: [
+                Manifest.createV4Manifest(
+                    name: "Pkg",
+                    path: .init("/Pkg"),
+                    packageKind: .root,
+                    targets: [
+                        TargetDescription(name: "exe", dependencies: ["lib"]),
+                        TargetDescription(name: "lib", dependencies: []),
+                    ]),
+            ]
+        )
+        XCTAssertNoDiagnostics(diagnostics)
+
+        let userDestination = Destination(sdk: AbsolutePath("/fake/sdk"),
+            binDir: UserToolchain.default.destination.binDir,
+            extraCCFlags: ["-I/fake/sdk/sysroot", "-clang-flag-from-json"],
+            extraSwiftCFlags: ["-swift-flag-from-json"])
+        let mockToolchain = try UserToolchain(destination: userDestination)
+        let extraBuildParameters = mockBuildParameters(toolchain: mockToolchain,
+            flags: BuildFlags(xcc: ["-clang-command-line-flag"], xswiftc: ["-swift-command-line-flag"]))
+        let result = BuildPlanResult(plan: try BuildPlan(buildParameters: extraBuildParameters, graph: graph, diagnostics: diagnostics, fileSystem: fs))
+        result.checkProductsCount(1)
+        result.checkTargetsCount(2)
+
+        let lib = try result.target(for: "lib").clangTarget()
+        var args: [StringPattern] = ["-fmodules-cache-path=/path/to/build/debug/ModuleCache"]
+      #if os(macOS)
+        args += ["-isysroot"]
+      #else
+        args += ["--sysroot"]
+      #endif
+        args += ["/fake/sdk", "-I/fake/sdk/sysroot", "-clang-flag-from-json", "-clang-command-line-flag"]
+        XCTAssertMatch(lib.basicArguments(), args)
+
+        let exe = try result.target(for: "exe").swiftTarget().compileArguments()
+        XCTAssertMatch(exe, ["-module-cache-path", "/path/to/build/debug/ModuleCache", .anySequence, "-swift-flag-from-json", "-Xcc", "-clang-command-line-flag", "-swift-command-line-flag"])
+    }
+
     func testExecBuildTimeDependency() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/PkgA/Sources/exe/main.swift",
@@ -2119,9 +2129,8 @@ final class BuildPlanTests: XCTestCase {
             manifests: [
                 Manifest.createV4Manifest(
                     name: "PkgA",
-                    path: "/PkgA",
+                    path: .init("/PkgA"),
                     packageKind: .local,
-                    packageLocation: "/PkgA",
                     products: [
                         ProductDescription(name: "swiftlib", type: .library(.automatic), targets: ["swiftlib"]),
                         ProductDescription(name: "exe", type: .executable, targets: ["exe"])
@@ -2132,9 +2141,8 @@ final class BuildPlanTests: XCTestCase {
                     ]),
                 Manifest.createV4Manifest(
                     name: "PkgB",
-                    path: "/PkgB",
+                    path: .init("/PkgB"),
                     packageKind: .root,
-                    packageLocation: "/PkgB",
                     dependencies: [
                         .scm(location: "/PkgA", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
@@ -2153,10 +2161,10 @@ final class BuildPlanTests: XCTestCase {
             let llbuild = LLBuildManifestBuilder(plan)
             try llbuild.generateManifest(at: yaml)
             let contents = try localFileSystem.readFileContents(yaml).description
-            XCTAssertTrue(contents.contains("""
+            XCTAssertMatch(contents, .contains("""
                     inputs: ["/PkgA/Sources/swiftlib/lib.swift","/path/to/build/debug/exe"]
                     outputs: ["/path/to/build/debug/swiftlib.build/lib.swift.o","/path/to/build/debug/
-                """), contents)
+                """))
         }
     }
 
@@ -2172,9 +2180,8 @@ final class BuildPlanTests: XCTestCase {
             manifests: [
                 Manifest.createV4Manifest(
                     name: "PkgA",
-                    path: "/PkgA",
+                    path: .init("/PkgA"),
                     packageKind: .root,
-                    packageLocation: "/PkgA",
                     targets: [
                         TargetDescription(name: "Foo", dependencies: []),
                         TargetDescription(name: "Bar", dependencies: ["Foo"]),
@@ -2227,9 +2234,8 @@ final class BuildPlanTests: XCTestCase {
             manifests: [
                 Manifest.createV4Manifest(
                     name: "PkgA",
-                    path: "/PkgA",
+                    path: .init("/PkgA"),
                     packageKind: .root,
-                    packageLocation: "/PkgA",
                     dependencies: [
                         .scm(location: "/PkgB", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
@@ -2238,9 +2244,8 @@ final class BuildPlanTests: XCTestCase {
                     ]),
                 Manifest.createV4Manifest(
                     name: "PkgB",
-                    path: "/PkgB",
+                    path: .init("/PkgB"),
                     packageKind: .local,
-                    packageLocation: "/PkgB",
                     products: [
                         ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo"]),
                     ],
@@ -2295,9 +2300,8 @@ final class BuildPlanTests: XCTestCase {
             manifests: [
                 Manifest.createV4Manifest(
                     name: "PkgA",
-                    path: "/PkgA",
+                    path: .init("/PkgA"),
                     packageKind: .root,
-                    packageLocation: "/PkgA",
                     dependencies: [
                         .scm(location: "/PkgB", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
@@ -2306,9 +2310,8 @@ final class BuildPlanTests: XCTestCase {
                     ]),
                 Manifest.createV4Manifest(
                     name: "PkgB",
-                    path: "/PkgB",
+                    path: .init("/PkgB"),
                     packageKind: .local,
-                    packageLocation: "/PkgB",
                     products: [
                         ProductDescription(name: "Foo", type: .library(.dynamic), targets: ["Foo"]),
                     ],
@@ -2363,9 +2366,8 @@ final class BuildPlanTests: XCTestCase {
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Pkg",
-                    path: "/Pkg",
+                    path: .init("/Pkg"),
                     packageKind: .root,
-                    packageLocation: "/Pkg",
                     targets: [
                         TargetDescription(name: "exe", dependencies: ["lib"]),
                         TargetDescription(name: "lib", dependencies: []),
@@ -2425,9 +2427,8 @@ final class BuildPlanTests: XCTestCase {
             manifests: [
                 Manifest.createManifest(
                     name: "PkgA",
-                    path: "/PkgA",
+                    path: .init("/PkgA"),
                     packageKind: .root,
-                    packageLocation: "/PkgA",
                     v: .v5_2,
                     targets: [
                         TargetDescription(
@@ -2463,10 +2464,10 @@ final class BuildPlanTests: XCTestCase {
 
         let resourceAccessor = fooTarget.sources.first{ $0.basename == "resource_bundle_accessor.swift" }!
         let contents = try fs.readFileContents(resourceAccessor).cString
-        XCTAssertTrue(contents.contains("extension Foundation.Bundle"), contents)
+        XCTAssertMatch(contents, .contains("extension Foundation.Bundle"))
         // Assert that `Bundle.main` is executed in the compiled binary (and not during compilation)
         // See https://bugs.swift.org/browse/SR-14555 and https://github.com/apple/swift-package-manager/pull/2972/files#r623861646
-        XCTAssertTrue(contents.contains("let mainPath = Bundle.main."), contents)
+        XCTAssertMatch(contents, .contains("let mainPath = Bundle.main."))
 
         let barTarget = try result.target(for: "Bar").swiftTarget()
         XCTAssertEqual(barTarget.objects.map{ $0.pathString }, [
@@ -2485,9 +2486,8 @@ final class BuildPlanTests: XCTestCase {
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Pkg",
-                    path: "/Pkg",
+                    path: .init("/Pkg"),
                     packageKind: .root,
-                    packageLocation: "/Pkg",
                     targets: [
                         TargetDescription(name: "exe", dependencies: ["lib"]),
                         TargetDescription(name: "lib", dependencies: []),
@@ -2503,11 +2503,11 @@ final class BuildPlanTests: XCTestCase {
             )
 
             let exe = try result.target(for: "exe").swiftTarget().compileArguments()
-            XCTAssertTrue(exe.contains("-static-stdlib"))
+            XCTAssertMatch(exe, ["-static-stdlib"])
             let lib = try result.target(for: "lib").swiftTarget().compileArguments()
-            XCTAssertTrue(lib.contains("-static-stdlib"))
+            XCTAssertMatch(lib, ["-static-stdlib"])
             let link = try result.buildProduct(for: "exe").linkArguments()
-            XCTAssertTrue(link.contains("-static-stdlib"))
+            XCTAssertMatch(link, ["-static-stdlib"])
         }
     }
 
@@ -2591,9 +2591,8 @@ final class BuildPlanTests: XCTestCase {
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Pkg",
-                    path: "/Pkg",
+                    path: .init("/Pkg"),
                     packageKind: .root,
-                    packageLocation: "/Pkg",
                     products: [
                         ProductDescription(name: "exe", type: .executable, targets: ["exe"]),
                         ProductDescription(name: "Library", type: .library(.dynamic), targets: ["Library"]),
@@ -2702,9 +2701,8 @@ final class BuildPlanTests: XCTestCase {
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Pkg",
-                    path: "/Pkg",
+                    path: .init("/Pkg"),
                     packageKind: .root,
-                    packageLocation: "/Pkg",
                     products: [
                         ProductDescription(name: "exe", type: .executable, targets: ["exe"]),
                     ],
@@ -2778,9 +2776,8 @@ final class BuildPlanTests: XCTestCase {
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Pkg",
-                    path: "/Pkg",
+                    path: .init("/Pkg"),
                     packageKind: .root,
-                    packageLocation: "/Pkg",
                     targets: [
                         TargetDescription(name: "exe", dependencies: ["lib", "clib"]),
                         TargetDescription(name: "lib", dependencies: []),
@@ -2805,15 +2802,15 @@ final class BuildPlanTests: XCTestCase {
         result.checkTargetsCount(3)
 
         let exe = try result.target(for: "exe").swiftTarget().compileArguments()
-        XCTAssertTrue(exe.contains("-sanitize=\(expectedName)"))
+        XCTAssertMatch(exe, ["-sanitize=\(expectedName)"])
 
         let lib = try result.target(for: "lib").swiftTarget().compileArguments()
-        XCTAssertTrue(lib.contains("-sanitize=\(expectedName)"))
+        XCTAssertMatch(lib, ["-sanitize=\(expectedName)"])
 
         let clib  = try result.target(for: "clib").clangTarget().basicArguments()
-        XCTAssertTrue(clib.contains("-fsanitize=\(expectedName)"))
+        XCTAssertMatch(clib, ["-fsanitize=\(expectedName)"])
 
-        XCTAssertTrue(try result.buildProduct(for: "exe").linkArguments().contains("-sanitize=\(expectedName)"))
+        XCTAssertMatch(try result.buildProduct(for: "exe").linkArguments(), ["-sanitize=\(expectedName)"])
     }
 }
 

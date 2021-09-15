@@ -284,9 +284,10 @@ public struct SwiftTestTool: SwiftCommand {
                 // If there were no matches, emit a warning.
                 if tests.isEmpty {
                     swiftTool.diagnostics.emit(.noMatchingTests)
+                    xctestArg = "''"
+                } else {
+                    xctestArg = tests.map { $0.specifier }.joined(separator: ",")
                 }
-
-                xctestArg = tests.map { $0.specifier }.joined(separator: ",")
             }
 
             let runner = TestRunner(
@@ -339,9 +340,10 @@ public struct SwiftTestTool: SwiftCommand {
                 numJobs: options.numberOfWorkers ?? ProcessInfo.processInfo.activeProcessorCount,
                 diagnostics: swiftTool.diagnostics,
                 options: swiftOptions,
-                buildParameters: buildParameters
+                buildParameters: buildParameters,
+                outputStream: swiftTool.outputStream
             )
-            try runner.run(tests)
+            try runner.run(tests, outputStream: swiftTool.outputStream)
 
             if !runner.ranSuccessfully {
                 swiftTool.executionStatus = .failure
@@ -760,7 +762,8 @@ final class ParallelTestRunner {
         numJobs: Int,
         diagnostics: DiagnosticsEngine,
         options: SwiftToolOptions,
-        buildParameters: BuildParameters
+        buildParameters: BuildParameters,
+        outputStream: OutputByteStream
     ) {
         self.bundlePaths = bundlePaths
         self.processSet = processSet
@@ -770,9 +773,9 @@ final class ParallelTestRunner {
         self.diagnostics = diagnostics
 
         if ProcessEnv.vars["SWIFTPM_TEST_RUNNER_PROGRESS_BAR"] == "lit" {
-            progressAnimation = PercentProgressAnimation(stream: stdoutStream, header: "Testing:")
+            progressAnimation = PercentProgressAnimation(stream: outputStream, header: "Testing:")
         } else {
-            progressAnimation = NinjaProgressAnimation(stream: stdoutStream)
+            progressAnimation = NinjaProgressAnimation(stream: outputStream)
         }
 
         self.options = options
@@ -808,7 +811,7 @@ final class ParallelTestRunner {
     }
 
     /// Executes the tests spawning parallel workers. Blocks calling thread until all workers are finished.
-    func run(_ tests: [UnitTest]) throws {
+    func run(_ tests: [UnitTest], outputStream: OutputByteStream) throws {
         assert(!tests.isEmpty, "There should be at least one test to execute.")
         // Enqueue all the tests.
         try enqueueTests(tests)
@@ -867,7 +870,7 @@ final class ParallelTestRunner {
         // Print test results.
         for test in processedTests {
             if !test.success || shouldOutputSuccess {
-                print(test)
+                print(test, outputStream: outputStream)
             }
         }
 
@@ -878,13 +881,13 @@ final class ParallelTestRunner {
     }
 
     // Print a test result.
-    private func print(_ test: TestResult) {
-        stdoutStream <<< "\n"
-        stdoutStream <<< test.output
+    private func print(_ test: TestResult, outputStream: OutputByteStream) {
+        outputStream <<< "\n"
+        outputStream <<< test.output
         if !test.output.isEmpty {
-            stdoutStream <<< "\n"
+            outputStream <<< "\n"
         }
-        stdoutStream.flush()
+        outputStream.flush()
     }
 }
 
@@ -1038,10 +1041,9 @@ fileprivate func constructTestEnvironment(
         let codecovProfile = buildParameters.buildPath.appending(components: "codecov", "default%m.profraw")
         env["LLVM_PROFILE_FILE"] = codecovProfile.pathString
     }
-
   #if !os(macOS)
 #if os(Windows)
-    if let location = toolchain.manifestResources.xctestLocation {
+    if let location = toolchain.configuration.xctestPath {
       env["Path"] = "\(location.pathString);\(env["Path"] ?? "")"
     }
 #endif

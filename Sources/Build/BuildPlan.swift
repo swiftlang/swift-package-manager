@@ -35,14 +35,6 @@ extension BuildParameters {
         return buildPath.appending(component: "ModuleCache")
     }
 
-    /// Checks if stdout stream is tty.
-    fileprivate static var isTTY: Bool = {
-        guard let stream = stdoutStream.stream as? LocalFileOutputByteStream else {
-            return false
-        }
-        return TerminalController.isTTY(stream)
-    }()
-
     /// Extra flags to pass to Swift compiler.
     public var swiftCompilerFlags: [String] {
         var flags = self.flags.cCompilerFlags.flatMap({ ["-Xcc", $0] })
@@ -330,7 +322,6 @@ public final class ClangTargetBuildDescription {
             args += ["-fobjc-arc"]
         }
         args += buildParameters.targetTripleArgs(for: target)
-        args += buildParameters.toolchain.extraCCFlags
         args += ["-g"]
         if buildParameters.triple.isWindows() {
             args += ["-gcodeview"]
@@ -373,6 +364,7 @@ public final class ClangTargetBuildDescription {
             args += ["-include", resourceAccessorHeaderFile.pathString]
         }
 
+        args += buildParameters.toolchain.extraCCFlags
         // User arguments (from -Xcc and -Xcxx below) should follow generated arguments to allow user overrides
         args += buildParameters.flags.cCompilerFlags
 
@@ -724,7 +716,6 @@ public final class SwiftTargetBuildDescription {
         }
 
         args += buildParameters.indexStoreArguments(for: target)
-        args += buildParameters.toolchain.extraSwiftCFlags
         args += optimizationArguments
         args += testingArguments
         args += ["-g"]
@@ -744,7 +735,8 @@ public final class SwiftTargetBuildDescription {
         // when we link the executable, we will ask the linker to rename the entry point
         // symbol to just `_main` again (or if the linker doesn't support it, we'll
         // generate a source containing a redirect).
-        if target.type == .executable && !isTestTarget && toolsVersion >= .v5_5 {
+        if (target.type == .executable || target.type == .snippet)
+           && !isTestTarget && toolsVersion >= .v5_5 {
             // We only do this if the linker supports it, as indicated by whether we
             // can construct the linker flags. In the future we will use a generated
             // code stub for the cases in which the linker doesn't support it, so that
@@ -779,7 +771,7 @@ public final class SwiftTargetBuildDescription {
         }
 
         // Add arguments to colorize output if stdout is tty
-        if BuildParameters.isTTY {
+        if buildParameters.isTTY {
             args += ["-color-diagnostics"]
         }
 
@@ -791,6 +783,7 @@ public final class SwiftTargetBuildDescription {
             args += ["-emit-module-interface-path", parseableModuleInterfaceOutputPath.pathString]
         }
 
+        args += buildParameters.toolchain.extraSwiftCFlags
         // User arguments (from -Xswiftc) should follow generated arguments to allow user overrides
         args += buildParameters.swiftCompilerFlags
         return args
@@ -907,7 +900,6 @@ public final class SwiftTargetBuildDescription {
         result += ["-swift-version", swiftVersion.rawValue]
 
         result += buildParameters.indexStoreArguments(for: target)
-        result += buildParameters.toolchain.extraSwiftCFlags
         result += optimizationArguments
         result += testingArguments
         result += ["-g"]
@@ -919,6 +911,7 @@ public final class SwiftTargetBuildDescription {
         result += buildParameters.sanitizers.compileSwiftFlags()
         result += ["-parseable-output"]
         result += self.buildSettingsFlags()
+        result += buildParameters.toolchain.extraSwiftCFlags
         result += buildParameters.swiftCompilerFlags
         return result
     }
@@ -1165,7 +1158,6 @@ public final class ProductBuildDescription {
     /// The arguments to link and create this product.
     public func linkArguments() throws -> [String] {
         var args = [buildParameters.toolchain.swiftCompiler.pathString]
-        args += buildParameters.toolchain.extraSwiftCFlags
         args += buildParameters.sanitizers.linkSwiftFlags()
         args += additionalFlags
 
@@ -1215,7 +1207,7 @@ public final class ProductBuildDescription {
                 let relativePath = "@rpath/\(buildParameters.binaryRelativePath(for: product).pathString)"
                 args += ["-Xlinker", "-install_name", "-Xlinker", relativePath]
             }
-        case .executable:
+        case .executable, .snippet:
             // Link the Swift stdlib statically, if requested.
             if buildParameters.shouldLinkStaticSwiftStdlib {
                 if buildParameters.triple.isDarwin() {
@@ -1255,13 +1247,19 @@ public final class ProductBuildDescription {
 
         // Embed the swift stdlib library path inside tests and executables on Darwin.
         if containsSwiftTargets {
+          let useStdlibRpath: Bool
           switch product.type {
-          case .library, .plugin: break
-          case .test, .executable:
-              if buildParameters.triple.isDarwin() {
-                  let stdlib = buildParameters.toolchain.macosSwiftStdlib
-                  args += ["-Xlinker", "-rpath", "-Xlinker", stdlib.pathString]
-              }
+          case .library(let type):
+            useStdlibRpath = type == .dynamic
+          case .test, .executable, .snippet:
+            useStdlibRpath = true
+          case .plugin:
+            throw InternalError("unexpectedly asked to generate linker arguments for a plugin product")
+          }
+
+          if useStdlibRpath && buildParameters.triple.isDarwin() {
+            let stdlib = buildParameters.toolchain.macosSwiftStdlib
+            args += ["-Xlinker", "-rpath", "-Xlinker", stdlib.pathString]
           }
         }
 
@@ -1286,6 +1284,7 @@ public final class ProductBuildDescription {
         // building for Darwin in debug configuration.
         args += swiftASTs.flatMap{ ["-Xlinker", "-add_ast_path", "-Xlinker", $0.pathString] }
 
+        args += buildParameters.toolchain.extraSwiftCFlags
         // User arguments (from -Xlinker and -Xswiftc) should follow generated arguments to allow user overrides
         args += buildParameters.linkerFlags
         args += stripInvalidArguments(buildParameters.swiftCompilerFlags)
@@ -1732,7 +1731,7 @@ public class BuildPlan {
                 switch product.type {
                 case .library(.automatic), .library(.static), .plugin:
                     return product.targets.map { .target($0, conditions: []) }
-                case .library(.dynamic), .test, .executable:
+                case .library(.dynamic), .test, .executable, .snippet:
                     return []
                 }
             }
@@ -1754,7 +1753,7 @@ public class BuildPlan {
                 // In tool version .v5_5 or greater, we also include executable modules implemented in Swift in
                 // any test products... this is to allow testing of executables.  Note that they are also still
                 // built as separate products that the test can invoke as subprocesses.
-                case .executable:
+                case .executable, .snippet:
                     if product.targets.contains(target) {
                         staticTargets.append(target)
                     } else if product.type == .test && target.underlyingTarget is SwiftTarget {
@@ -1987,7 +1986,7 @@ public class BuildPlan {
         }
 
         // Build cache
-        var cflagsCache: Basics.OrderedSet<String> = []
+        var cflagsCache: OrderedSet<String> = []
         var libsCache: [String] = []
         for tuple in ret {
             for cFlag in tuple.cFlags {

@@ -69,9 +69,6 @@ public enum ModuleError: Swift.Error {
     /// Default localization not set in the presence of localized resources.
     case defaultLocalizationNotSet
 
-    /// A plugin target was declared but the feature flag isn't enabled.
-    case pluginTargetRequiresFeatureFlag(target: String)
-
     /// A plugin target didn't declare a capability.
     case pluginCapabilityNotDeclared(target: String)
 }
@@ -118,8 +115,6 @@ extension ModuleError: CustomStringConvertible {
             return "invalid header search path '\(path)'; header search path should not be outside the package root"
         case .defaultLocalizationNotSet:
             return "manifest property 'defaultLocalization' not set; it is required in the presence of localized resources"
-        case .pluginTargetRequiresFeatureFlag(let target):
-            return "plugin target '\(target)' cannot be used because the feature isn't enabled (set SWIFTPM_ENABLE_PLUGINS=1 in environment)"
         case .pluginCapabilityNotDeclared(let target):
             return "plugin target '\(target)' doesn't have a 'capability' property"
         }
@@ -244,14 +239,10 @@ public final class PackageBuilder {
     /// Temporary parameter controlling whether to warn about implicit executable targets when tools version is 5.4.
     private let warnAboutImplicitExecutableTargets: Bool
 
-    /// Temporary parameter controlling whether to allow package plugin targets (during bring-up, before proposal is accepted).
-    /// This is set if SWIFTPM_ENABLE_PLUGINS=1 or if the feature is enabled in the initializer (for use by unit tests).
-    private let allowPluginTargets: Bool
-    
     /// Create the special REPL product for this package.
     private let createREPLProduct: Bool
 
-    /// The additionla file detection rules.
+    /// The additional file detection rules.
     private let additionalFileRules: [FileRuleDescription]
 
     /// Minimum deployment target of XCTest per platform.
@@ -280,7 +271,6 @@ public final class PackageBuilder {
         diagnostics: DiagnosticsEngine,
         shouldCreateMultipleTestProducts: Bool = false,
         warnAboutImplicitExecutableTargets: Bool = true,
-        allowPluginTargets: Bool = false,
         createREPLProduct: Bool = false
     ) {
         self.identity = identity
@@ -293,44 +283,8 @@ public final class PackageBuilder {
         self.fileSystem = fileSystem
         self.diagnostics = diagnostics
         self.shouldCreateMultipleTestProducts = shouldCreateMultipleTestProducts
-        self.allowPluginTargets = allowPluginTargets || ProcessEnv.vars["SWIFTPM_ENABLE_PLUGINS"] == "1"
         self.createREPLProduct = createREPLProduct
         self.warnAboutImplicitExecutableTargets = warnAboutImplicitExecutableTargets
-    }
-
-    // deprecated 3/21, remove once clients migrated over
-    @available(*, deprecated, message: "use loadRootPackage instead")
-    public static func loadPackage(
-        at path: AbsolutePath,
-        kind: PackageReference.Kind = .root,
-        swiftCompiler: AbsolutePath,
-        swiftCompilerFlags: [String],
-        xcTestMinimumDeploymentTargets: [PackageModel.Platform:PlatformVersion]
-            = MinimumDeploymentTarget.default.xcTestMinimumDeploymentTargets,
-        identityResolver: IdentityResolver,
-        diagnostics: DiagnosticsEngine,
-        on queue: DispatchQueue,
-        completion: @escaping (Result<Package, Error>) -> Void
-    ) {
-        ManifestLoader.loadManifest(at: path,
-                                    kind: kind,
-                                    swiftCompiler: swiftCompiler,
-                                    swiftCompilerFlags: swiftCompilerFlags,
-                                    identityResolver: identityResolver,
-                                    on: queue) { result in
-            let result = result.tryMap { manifest -> Package in
-                let identity = identityResolver.resolveIdentity(for: manifest.packageLocation)
-                let builder = PackageBuilder(
-                    identity: identity,
-                    manifest: manifest,
-                    productFilter: .everything,
-                    path: path,
-                    xcTestMinimumDeploymentTargets: xcTestMinimumDeploymentTargets,
-                    diagnostics: diagnostics)
-                return try builder.construct()
-            }
-            completion(result)
-        }
     }
 
     /// Loads a root package from a path using the resources associated with a particular `swiftc` executable.
@@ -342,6 +296,8 @@ public final class PackageBuilder {
     ///   - diagnostics: Optional.  The diagnostics engine.
     ///   - on: The dispatch queue to perform asynchronous operations on.
     ///   - completion: The completion handler .
+    // deprecated 8/2021
+    @available(*, deprecated, message: "use workspace API instead")
     public static func loadRootPackage(
         at path: AbsolutePath,
         swiftCompiler: AbsolutePath,
@@ -590,7 +546,7 @@ public final class PackageBuilder {
 
                 let path = packagePath.appending(relativeSubPath)
                 // Make sure the target is inside the package root.
-                guard path.contains(packagePath) else {
+                guard path.isDescendantOfOrEqual(to: packagePath) else {
                     throw ModuleError.targetOutsidePackage(package: self.manifest.name, target: target.name)
                 }
                 if fileSystem.isDirectory(path) {
@@ -636,7 +592,23 @@ public final class PackageBuilder {
             let path = try findPath(for: target)
             return PotentialModule(name: target.name, path: path, type: target.type)
         })
-        return try createModules(potentialTargets)
+
+        let targets = try createModules(potentialTargets)
+
+        let snippetTargets: [Target]
+
+        if self.manifest.packageKind == .root {
+            // Snippets: depend on all available library targets in the package.
+            // TODO: Do we need to filter out targets that aren't available on the host platform?
+            let snippetDependencies = targets
+                .filter { $0.type == .library }
+                .map { Target.Dependency.target($0, conditions: []) }
+            snippetTargets = try createSnippetTargets(dependencies: snippetDependencies)
+        } else {
+            snippetTargets = []
+        }
+
+        return targets + snippetTargets
     }
 
     // Create targets from the provided potential targets.
@@ -763,6 +735,7 @@ public final class PackageBuilder {
                 diagnostics.emit(.targetHasNoSources(targetPath: potentialModule.path.pathString, target: potentialModule.name))
             }
         }
+
         return targets.values.map{ $0 }.sorted{ $0.name > $1.name  }
     }
 
@@ -824,7 +797,7 @@ public final class PackageBuilder {
         // Compute the path to public headers directory.
         let publicHeaderComponent = manifestTarget.publicHeadersPath ?? ClangTarget.defaultPublicHeadersComponent
         let publicHeadersPath = potentialModule.path.appending(try RelativePath(validating: publicHeaderComponent))
-        guard publicHeadersPath.contains(potentialModule.path) else {
+        guard publicHeadersPath.isDescendantOfOrEqual(to: potentialModule.path) else {
             throw ModuleError.invalidPublicHeadersDirectory(potentialModule.name)
         }
 
@@ -857,9 +830,6 @@ public final class PackageBuilder {
         
         // Deal with package plugin targets.
         if potentialModule.type == .plugin {
-            guard allowPluginTargets else {
-                throw ModuleError.pluginTargetRequiresFeatureFlag(target: manifestTarget.name)
-            }
             guard let declaredCapability = manifestTarget.pluginCapability else {
                 throw ModuleError.pluginCapabilityNotDeclared(target: manifestTarget.name)
             }
@@ -967,7 +937,7 @@ public final class PackageBuilder {
 
                 // Ensure that the search path is contained within the package.
                 let subpath = try RelativePath(validating: setting.value[0])
-                guard targetRoot.appending(subpath).contains(packagePath) else {
+                guard targetRoot.appending(subpath).isDescendantOfOrEqual(to: packagePath) else {
                     throw ModuleError.invalidHeaderSearchPath(subpath.pathString)
                 }
 
@@ -1157,12 +1127,12 @@ public final class PackageBuilder {
             // If the target root's parent directory is inside the package, start
             // search there. Otherwise, we start search from the target root.
             var searchPath = target.sources.root.parentDirectory
-            if !searchPath.contains(packagePath) {
+            if !searchPath.isDescendantOfOrEqual(to: packagePath) {
                 searchPath = target.sources.root
             }
 
             while true {
-                assert(searchPath.contains(packagePath), "search path \(searchPath) is outside the package \(packagePath)")
+                assert(searchPath.isDescendantOfOrEqual(to: packagePath), "search path \(searchPath) is outside the package \(packagePath)")
                 // If we have already searched this path, skip.
                 if !pathsSearched.contains(searchPath) {
                     SwiftTarget.testManifestNames.forEach { name in
@@ -1190,11 +1160,11 @@ public final class PackageBuilder {
 
     /// Collects the products defined by a package.
     private func constructProducts(_ targets: [Target]) throws -> [Product] {
-        var products = Basics.OrderedSet<KeyedPair<Product, String>>()
+        var products = OrderedSet<KeyedPair<Product, String>>()
 
         /// Helper method to append to products array.
         func append(_ product: Product) {
-            let inserted = products.append(KeyedPair(product, key: product.name)).inserted
+            let inserted = products.append(KeyedPair(product, key: product.name))
             if !inserted {
                 diagnostics.emit(
                     .duplicateProduct(product: product),
@@ -1278,7 +1248,7 @@ public final class PackageBuilder {
             switch product.type {
             case .library, .test:
                 break
-            case .executable:
+            case .executable, .snippet:
                 guard self.validateExecutableProduct(product, with: targets) else {
                     continue
                 }
@@ -1301,7 +1271,7 @@ public final class PackageBuilder {
                 switch product.type {
                 case .library, .plugin, .test:
                     return []
-                case .executable:
+                case .executable, .snippet:
                     return product.targets
                 }
             })
@@ -1347,6 +1317,12 @@ public final class PackageBuilder {
                 append(replProduct)
             }
         }
+
+        // Create implicit snippet products
+        targets
+            .filter { $0.type == .snippet }
+            .map { Product(name: $0.name, type: .snippet, targets: [$0]) }
+            .forEach(append)
 
         return products.map{ $0.item }
     }
@@ -1475,5 +1451,41 @@ extension Sources {
             return file.hasPrefix("main.") && String(file.filter({$0 == "."})).count == 1
         }
         return isLibrary ? .library : .executable
+    }
+}
+
+// MARK: - Snippets
+
+extension PackageBuilder {
+    fileprivate func createSnippetTargets(dependencies: [Target.Dependency]) throws -> [Target] {
+        let snippetsDirectory = packagePath.appending(component: "Snippets")
+        guard fileSystem.isDirectory(snippetsDirectory) else {
+            return []
+        }
+
+        return try walk(snippetsDirectory)
+            .filter { fileSystem.isFile($0) && $0.extension == "swift" }
+            .map { sourceFile in
+                let name = sourceFile.basenameWithoutExt
+                let sources = Sources(paths: [sourceFile], root: sourceFile.parentDirectory)
+                let buildSettings: BuildSettings.AssignmentTable
+
+                do {
+                    let targetDescription = try TargetDescription(name: name,
+                                                                  dependencies: dependencies.map { TargetDescription.Dependency.target(name: $0.name) },
+                                                                  path: sourceFile.parentDirectory.pathString,
+                                                                  sources: [sourceFile.pathString],
+                                                                  type: .executable)
+                    buildSettings = try self.buildSettings(for: targetDescription, targetRoot: sourceFile.parentDirectory)
+                }
+
+                return SwiftTarget(name: name,
+                                   platforms: self.platforms(),
+                                   type: .snippet,
+                                   sources: sources,
+                                   dependencies: dependencies,
+                                   swiftVersion: try swiftVersion(),
+                                   buildSettings: buildSettings)
+            }
     }
 }

@@ -24,20 +24,14 @@ import Workspace
 /// Helper for emitting a JSON API baseline for a module.
 struct APIDigesterBaselineDumper {
 
-    /// The git treeish to emit a baseline for.
-    let baselineTreeish: String
+    /// The revision to emit a baseline for.
+    let baselineRevision: Revision
 
     /// The root package path.
     let packageRoot: AbsolutePath
 
     /// The input build parameters.
     let inputBuildParameters: BuildParameters
-
-    /// The manifest loader.
-    let manifestLoader: ManifestLoaderProtocol
-
-    /// The repository manager.
-    let repositoryManager: RepositoryManager
 
     /// The API digester tool.
     let apiDigesterTool: SwiftAPIDigester
@@ -46,30 +40,29 @@ struct APIDigesterBaselineDumper {
     let diags: DiagnosticsEngine
 
     init(
-        baselineTreeish: String,
+        baselineRevision: Revision,
         packageRoot: AbsolutePath,
         buildParameters: BuildParameters,
-        manifestLoader: ManifestLoaderProtocol,
-        repositoryManager: RepositoryManager,
         apiDigesterTool: SwiftAPIDigester,
         diags: DiagnosticsEngine
     ) {
-        self.baselineTreeish = baselineTreeish
+        self.baselineRevision = baselineRevision
         self.packageRoot = packageRoot
         self.inputBuildParameters = buildParameters
-        self.manifestLoader = manifestLoader
-        self.repositoryManager = repositoryManager
         self.apiDigesterTool = apiDigesterTool
         self.diags = diags
     }
 
     /// Emit the API baseline files and return the path to their directory.
-    func emitAPIBaseline(for modulesToDiff: Set<String>,
-                         at baselineDir: AbsolutePath?,
-                         force: Bool) throws -> AbsolutePath {
+    func emitAPIBaseline(
+        for modulesToDiff: Set<String>,
+        at baselineDir: AbsolutePath?,
+        force: Bool,
+        outputStream: OutputByteStream
+    ) throws -> AbsolutePath {
         var modulesToDiff = modulesToDiff
         let apiDiffDir = inputBuildParameters.apiDiff
-        let baselineDir = (baselineDir ?? apiDiffDir).appending(component: baselineTreeish)
+        let baselineDir = (baselineDir ?? apiDiffDir).appending(component: baselineRevision.identifier)
         let baselinePath: (String)->AbsolutePath = { module in
             baselineDir.appending(component: module + ".json")
         }
@@ -87,27 +80,26 @@ struct APIDigesterBaselineDumper {
         }
 
         // Setup a temporary directory where we can checkout and build the baseline treeish.
-        let baselinePackageRoot = apiDiffDir.appending(component: "\(baselineTreeish)-checkout")
+        let baselinePackageRoot = apiDiffDir.appending(component: "\(baselineRevision.identifier)-checkout")
         if localFileSystem.exists(baselinePackageRoot) {
             try localFileSystem.removeFileTree(baselinePackageRoot)
         }
 
         // Clone the current package in a sandbox and checkout the baseline revision.
+        let repositoryProvider = GitRepositoryProvider()
         let specifier = RepositorySpecifier(url: baselinePackageRoot.pathString)
-        let workingCopy = try repositoryManager.provider.createWorkingCopy(
+        let workingCopy = try repositoryProvider.createWorkingCopy(
             repository: specifier,
             sourcePath: packageRoot,
             at: baselinePackageRoot,
             editable: false
         )
 
-        try workingCopy.checkout(revision: Revision(identifier: baselineTreeish))
+        try workingCopy.checkout(revision: baselineRevision)
 
         // Create the workspace for this package.
-        let workspace = Workspace.create(
-            forRootPackage: baselinePackageRoot,
-            manifestLoader: manifestLoader,
-            repositoryManager: repositoryManager
+        let workspace = try Workspace(
+            forRootPackage: baselinePackageRoot
         )
 
         let graph = try workspace.loadPackageGraph(
@@ -123,7 +115,7 @@ struct APIDigesterBaselineDumper {
 
         // Update the data path input build parameters so it's built in the sandbox.
         var buildParameters = inputBuildParameters
-        buildParameters.dataPath = workspace.dataPath
+        buildParameters.dataPath = workspace.location.workingDirectory
 
         // Build the baseline module.
         let buildOp = BuildOperation(
@@ -132,7 +124,7 @@ struct APIDigesterBaselineDumper {
             packageGraphLoader: { graph },
             pluginInvoker: { _ in [:] },
             diagnostics: diags,
-            stdoutStream: stdoutStream
+            outputStream: outputStream
         )
 
         try buildOp.build()

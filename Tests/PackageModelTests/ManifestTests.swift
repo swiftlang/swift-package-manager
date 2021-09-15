@@ -22,16 +22,16 @@ class ManifestTests: XCTestCase {
         let targets = [
             try TargetDescription(name: "Foo", dependencies: ["Bar"]),
             try TargetDescription(name: "Bar", dependencies: ["Baz"]),
-            try TargetDescription(name: "Baz", dependencies: []),
+            try TargetDescription(name: "Baz", dependencies: ["MyPlugin"]),
             try TargetDescription(name: "FooBar", dependencies: []),
+            try TargetDescription(name: "MyPlugin", type: .plugin, pluginCapability: .buildTool)
         ]
 
         do {
             let manifest = Manifest.createManifest(
                 name: "Foo",
-                path: "/Foo",
+                path: .init("/Foo"),
                 packageKind: .root,
-                packageLocation: "/Foo",
                 v: .v5_2,
                 products: products,
                 targets: targets
@@ -42,15 +42,15 @@ class ManifestTests: XCTestCase {
                 "Baz",
                 "Foo",
                 "FooBar",
+                "MyPlugin"
             ])
         }
 
         do {
             let manifest = Manifest.createManifest(
                 name: "Foo",
-                path: "/Foo",
+                path: .init("/Foo"),
                 packageKind: .local,
-                packageLocation: "/Foo",
                 v: .v5_2,
                 products: products,
                 targets: targets
@@ -67,7 +67,7 @@ class ManifestTests: XCTestCase {
     }
 
     func testRequiredDependencies() throws {
-        let dependencies: [PackageDependencyDescription] = [
+        let dependencies: [PackageDependency] = [
             .scm(location: "/Bar1", requirement: .upToNextMajor(from: "1.0.0")),
             .scm(location: "/Bar2", requirement: .upToNextMajor(from: "1.0.0")),
             .scm(location: "/Bar3", requirement: .upToNextMajor(from: "1.0.0")),
@@ -86,9 +86,8 @@ class ManifestTests: XCTestCase {
         do {
             let manifest = Manifest.createManifest(
                 name: "Foo",
-                path: "/Foo",
+                path: .init("/Foo"),
                 packageKind: .root,
-                packageLocation: "/Foo",
                 v: .v5,
                 dependencies: dependencies,
                 products: products,
@@ -105,9 +104,8 @@ class ManifestTests: XCTestCase {
         do {
             let manifest = Manifest.createManifest(
                 name: "Foo",
-                path: "/Foo",
+                path: .init("/Foo"),
                 packageKind: .local,
-                packageLocation: "/Foo",
                 v: .v5,
                 dependencies: dependencies,
                 products: products,
@@ -124,9 +122,8 @@ class ManifestTests: XCTestCase {
         do {
             let manifest = Manifest.createManifest(
                 name: "Foo",
-                path: "/Foo",
+                path: .init("/Foo"),
                 packageKind: .root,
-                packageLocation: "/Foo",
                 v: .v5_2,
                 dependencies: dependencies,
                 products: products,
@@ -143,9 +140,8 @@ class ManifestTests: XCTestCase {
         do {
             let manifest = Manifest.createManifest(
                 name: "Foo",
-                path: "/Foo",
+                path: .init("/Foo"),
                 packageKind: .local,
-                packageLocation: "/Foo",
                 v: .v5_2,
                 dependencies: dependencies,
                 products: products,

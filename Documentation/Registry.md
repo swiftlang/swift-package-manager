@@ -22,6 +22,12 @@
     - [4.4.1. Integrity verification](#441-integrity-verification)
     - [4.4.2. Download locations](#442-download-locations)
   - [4.5 Lookup package identifiers registered for a URL](#45-lookup-package-identifiers-registered-for-a-url)
+  - [4.6. Create a package release](#46-create-a-package-release)
+    - [4.6.1 Source archive](#461-source-archive)
+    - [4.6.2. Package release metadata](#462-package-release-metadata)
+    - [4.6.3 Synchronous and asynchronous publication](#463-synchronous-and-asynchronous-publication)
+      - [4.6.3.1 Synchronous publication](#4631-synchronous-publication)
+      - [4.6.3.2 Asynchronous publication](#4632-asynchronous-publication)
 - [5. Normative References](#5-normative-references)
 - [6. Informative References](#6-informative-references)
 - [Appendix A - OpenAPI Document](#appendix-a---openapi-document)
@@ -270,13 +276,14 @@ Package names are case-insensitive
 
 A server MUST respond to the following endpoints:
 
-| Link                 | Method   | Path                                                      | Description                                       |
-| -------------------- | -------- | --------------------------------------------------------- | ------------------------------------------------- |
-| [\[1\]](#endpoint-1) | `GET`    | `/{scope}/{name}`                                         | List package releases                             |
-| [\[2\]](#endpoint-2) | `GET`    | `/{scope}/{name}/{version}`                               | Fetch information about a package release         |
-| [\[3\]](#endpoint-3) | `GET`    | `/{scope}/{name}/{version}/Package.swift{?swift-version}` | Fetch manifest for a package release              |
-| [\[4\]](#endpoint-4) | `GET`    | `/{scope}/{name}/{version}.zip`                           | Download source archive for a package release     |
-| [\[5\]](#endpoint-5) | `GET`    | `/identifiers{?url}`                                      | Lookup package identifiers registered for a URL   |
+| Link                 | Method | Path                                                      | Description                                       |
+| -------------------- | ------ | --------------------------------------------------------- | ------------------------------------------------- |
+| [\[1\]](#endpoint-1) | `GET`  | `/{scope}/{name}`                                         | List package releases                             |
+| [\[2\]](#endpoint-2) | `GET`  | `/{scope}/{name}/{version}`                               | Fetch metadata for a package release              |
+| [\[3\]](#endpoint-3) | `GET`  | `/{scope}/{name}/{version}/Package.swift{?swift-version}` | Fetch manifest for a package release              |
+| [\[4\]](#endpoint-4) | `GET`  | `/{scope}/{name}/{version}.zip`                           | Download source archive for a package release     |
+| [\[5\]](#endpoint-5) | `GET`  | `/identifiers{?url}`                                      | Lookup package identifiers registered for a URL   |
+| [\[6\]](#endpoint-6) | `PUT`  | `/{scope}/{name}/{version}`                               | Create a package release                          |
 
 A server SHOULD also respond to `HEAD` requests
 for each of the specified endpoints.
@@ -798,6 +805,372 @@ nested at a top-level `identifiers` key.
 It is RECOMMENDED for clients and servers to support
 caching as described by [RFC 7234].
 
+<a name="endpoint-6"></a>
+
+### 4.6. Create a package release
+
+A client MAY send a `PUT` request
+for a URI matching the expression
+`/{scope}/{name}/{version}`
+to publish a release of a package.
+A client MUST provide a body encoded as multipart form data
+with the following sections:
+
+| Key               | Content-Type       | Description                               | Requirement Level |
+| ----------------- | ------------------ | ----------------------------------------- | ----------------- |
+| `source-archive`  | `application/zip`  | The source archive of the package.        | REQUIRED          |
+| `metadata`        | `application/json` | Additional information about the release. | OPTIONAL          |
+
+A client MUST set a `Content-Type` header with the value `multipart/form-data`,
+and a `Content-Length` header with the total size of the body in bytes.
+A client SHOULD set the `Accept` header with the value
+`application/vnd.swift.registry.v1+json`.
+
+```http
+PUT /mona/LinkedList?version=1.1.1 HTTP/1.1
+Host: packages.example.com
+Accept: application/vnd.swift.registry.v1+json
+Content-Type: multipart/form-data;boundary="boundary"
+Content-Length: 336
+Expect: 100-continue
+
+--boundary
+Content-Disposition: form-data; name="source-archive"
+Content-Type: application/zip
+Content-Length: 32
+Content-Transfer-Encoding: base64
+
+gHUFBgAAAAAAAAAAAAAAAAAAAAAAAA==
+
+--boundary
+Content-Disposition: form-data; name="metadata"
+Content-Type: application/json
+Content-Transfer-Encoding: quoted-printable
+Content-Length: 3
+
+{ }
+
+```
+
+A server SHOULD require a client to perform authentication
+for any requests to create a package release.
+Use of multi-factor authentication is RECOMMENDED.
+
+A client MAY publish releases in any order.
+For example,
+if a package has existing `1.0.0` and `2.0.0` releases,
+a client MAY publish a new `1.0.1` or `1.1.0` release.
+
+Once a release has been published,
+any resources associated with that release,
+including its source archive,
+MUST NOT change.
+
+If a release already exists for a package at the specified version,
+the server SHOULD respond with a status code of `409` (Conflict).
+
+```http
+HTTP/1.1 409 Conflict
+Content-Version: 1
+Content-Type: application/problem+json
+Content-Language: en
+
+{
+   "detail": "a release with version 1.0.0 already exists"
+}
+```
+
+It is RECOMMENDED that a server institute policies
+for publishing new releases of a package
+after a scope is transferred to a new owner.
+For example,
+the next release of an existing package is published with a new major version,
+or only after a period of 45 days after transfer.
+
+If the client provides an `Expect` header,
+a server SHOULD check that the request can succeed
+before responding with a status code of `100 (Continue)`.
+A server that doesn't support expectations
+SHOULD respond with a status code of `417 (Expectation Failed)`.
+In response,
+a client MAY remove the `Expect` header and retry the request.
+
+```http
+HTTP/1.1 417 (Expectation Failed)
+Content-Version: 1
+Content-Type: application/problem+json
+Content-Language: en
+
+{
+   "detail": "expectations aren't supported"
+}
+```
+
+Support for this endpoint is OPTIONAL.
+A server SHOULD indicate that publishing isn't supported
+by responding with a status code of `405` (Method Not Allowed).
+
+```http
+HTTP/1.1 405 (Method Not Allowed)
+Content-Version: 1
+Content-Type: application/problem+json
+Content-Language: en
+
+{
+   "detail": "publishing isn't supported"
+}
+```
+
+A server MAY respond either synchronously or asynchronously.
+For more information,
+see [4.6.4](#464-synchronous-and-asynchronous-publication).
+
+#### 4.6.1 Source archive
+
+A client MUST include a multipart section named `source-archive`
+containing the source archive for a release.
+A client SHOULD set a `Content-Type` header with the value `application/zip`
+and a `Content-Length` header with the size of the Zip archive in bytes.
+
+```http
+--boundary
+Content-Disposition: form-data; name="source-archive"
+Content-Type: application/zip
+Content-Length: 32
+Content-Transfer-Encoding: base64
+
+gHUFBgAAAAAAAAAAAAAAAAAAAAAAAA==
+```
+
+A client SHOULD use the `swift package archive-source` tool
+to create a source archive for the release.
+
+A server MAY analyze a package to
+assess its viability,
+perform security testing,
+or otherwise evaluate software quality.
+A server MAY refuse to publish a package release for any reason
+by responding with a status code of `422` (Unprocessable Entity).
+
+```http
+HTTP/1.1 422 Unprocessable Entity
+Content-Version: 1
+Content-Type: application/problem+json
+Content-Language: en
+
+{
+   "detail": "package doesn't contain a valid manifest (Package.swift) file"
+}
+```
+
+A server SHOULD use the `swift package compute-checksum` tool
+to compute the checksum that's provided in response to
+a client's subsequent request to [download the source archive](#endpoint-4)
+for the release.
+
+#### 4.6.2. Package release metadata
+
+A client MAY include a multipart section named `metadata`
+containing additional information about the release.
+A client SHOULD set a `Content-Type` header with the value `application/json`
+and a `Content-Length` header with the size of the JSON document in bytes.
+It is RECOMMENDED that package release metadata be represented in [JSON-LD]
+according to a structured data standard,
+as discussed in [4.2.1](#421-package-release-metadata-data-standards).
+
+```http
+--boundary
+Content-Disposition: form-data; name="metadata"
+Content-Type: application/json
+Content-Length: 620
+Content-Transfer-Encoding: quoted-printable
+
+{
+  "@context": ["http://schema.org/"],
+  "@type": "SoftwareSourceCode",
+  "name": "LinkedList",
+  "description": "One thing links to another.",
+  "keywords": ["data-structure", "collection"],
+  "version": "1.1.1",
+  "codeRepository": "https://github.com/mona/LinkedList",
+  "license": "https://www.apache.org/licenses/LICENSE-2.0",
+  "programmingLanguage": {
+    "@type": "ComputerLanguage",
+    "name": "Swift",
+    "url": "https://swift.org"
+  },
+  "author": {
+      "@type": "Person",
+      "@id": "https://github.com/mona",
+      "givenName": "Mona",
+      "middleName": "Lisa",
+      "familyName": "Octocat"
+  }
+}
+
+```
+
+If a client doesn't provide a `metadata` section,
+a server MAY populate the metadata for a release.
+A client MAY request that a server not populate metadata automatically
+by sending an empty JSON object (`{}`) as its request body.
+
+If a client provides an invalid JSON document,
+the server SHOULD respond with a status code of
+`422` (Unprocessable Entity) or `413` (Payload Too Large)
+and MAY communicate validation error details in the response body.
+
+```http
+HTTP/1.1 422 Unprocessable Entity
+Content-Version: 1
+Content-Type: application/problem+json
+Content-Language: en
+
+{
+   "detail": "invalid JSON provided for release metadata"
+}
+```
+
+#### 4.6.3 Synchronous and asynchronous publication
+
+A server MAY respond to a request to publish a new package release
+either synchronously or asynchronously.
+
+A client MAY indicate their preference for asynchronous processing
+with a `Prefer` header field containing the token `respond-async`
+and an optional `wait` preference,
+as described by [RFC 7240].
+
+```http
+PUT /mona/LinkedList/1.1.1 HTTP/1.1
+Host: packages.example.com
+Accept: application/vnd.swift.registry.v1
+Prefer: respond-async, wait=300
+```
+
+##### 4.6.3.1 Synchronous publication
+
+If processing is done synchronously,
+the server MUST respond with a status code of `201` (Created)
+to indicate that the package release was published.
+This response SHOULD also contain
+a `Location` header with a URL to the new release.
+
+```http
+HTTP/1.1 201 Created
+Content-Version: 1
+Location: https://packages.example.com/github.com/mona/LinkedList/1.1.1
+```
+
+A client MAY set a timeout to guarantee a timely response to each request.
+
+##### 4.6.3.2 Asynchronous publication
+
+If processing is done asynchronously,
+the server MUST respond with a status code of `202` (Accepted)
+to acknowledge that the request is being processed.
+This response MUST contain a `Location` header
+with a URL that the client can poll for progress updates
+and SHOULD contain a `Retry-After` header
+with an estimate of when processing is expected to finish.
+A server MAY locate the status resource endpoint at a URI of its choosing.
+However,
+the use of a non-sequential, randomly-generated identifier is RECOMMENDED.
+
+```http
+HTTP/1.1 202 Accepted
+Content-Version: 1
+Location: https://packages.example.com/submissions/90D8CC77-A576-47AE-A531-D6402C4E33BC
+Retry-After: 120
+```
+
+A client MAY send a `GET` request
+to the location provided by the server in response to a publish request
+to see the current status of that process.
+
+```http
+GET /submissions/90D8CC77-A576-47AE-A531-D6402C4E33BC HTTP/1.1
+Host: packages.example.com
+Accept: application/vnd.swift.registry.v1
+```
+
+If the asynchronous publish request is still processing,
+the server SHOULD respond with a status code of `202` (Accepted) and
+a `Retry-After` header with an estimate of when processing should finish.
+A server MAY include additional details in the response body.
+
+```http
+HTTP/1.1 202 Accepted
+Content-Version: 1
+Content-Type: application/json
+Retry-After: 120
+
+{
+  "status": "Processing (2/3 steps complete)",
+  "steps": {
+    {"name": "Validate metadata", "status": "complete"},
+    {"name": "Verify package manifest", "status": "complete"},
+    {"name": "Scan for vulnerabilities", "status": "pending"}
+  }
+}
+```
+
+If the asynchronous publish request is finished processing successfully,
+the server SHOULD respond with a status code of `301` (Moved Permanently)
+and a `Location` header with a URL to the package release.
+
+```http
+HTTP/1.1 301 Moved Permanently
+Content-Version: 1
+Location: https://packages.example.com/mona/LinkedList/1.1.1
+```
+
+If the asynchronous publish request failed,
+the server SHOULD respond with an appropriate client error status code (`4xx`).
+
+```http
+HTTP/1.1 400 Bad Request
+Content-Version: 1
+Content-Type: application/problem+json
+Content-Language: en
+Location: https://packages.example.com/submissions/90D8CC77-A576-47AE-A531-D6402C4E33BC
+
+{
+   "detail": "invalid package"
+}
+```
+
+A client MAY send a `DELETE` request
+to the location provided by the server in response to a publish request
+to cancel that process.
+
+If a request to publish a new package release were to fail,
+a server MUST communicate that failure in the same way
+if sending an immediate response
+as it would if responding to a client polling for status.
+
+If a client makes a request to publish a package release
+to a server that is asynchronously processing a request to publish that release,
+the server MUST respond with a status code of `409` (Conflict)
+
+```http
+HTTP/1.1 409 Conflict
+Content-Version: 1
+Content-Type: application/problem+json
+Content-Language: en
+Location: https://packages.example.com/submissions/90D8CC77-A576-47AE-A531-D6402C4E33BC
+
+{
+   "detail": "already processing a request to publish this package version"
+}
+```
+
+If a client makes a request to publish a package release
+to a server that finished processing a failed request to publish that release,
+the server SHOULD try publishing that release again.
+A server MAY refuse to fulfill a subsequent request to publish a package release
+by responding with a status code of `409` (Conflict).
+
 ## 5. Normative References
 
 * [RFC 2119]: Key words for use in RFCs to Indicate Requirement Levels
@@ -808,10 +1181,13 @@ caching as described by [RFC 7234].
 * [RFC 5843]: Additional Hash Algorithms for HTTP Instance Digests
 * [RFC 6249]: Metalink/HTTP: Mirrors and Hashes
 * [RFC 6570]: URI Template
+* [RFC 7159]: The JavaScript Object Notation (JSON) Data Interchange Format
 * [RFC 7230]: Hypertext Transfer Protocol (HTTP/1.1): Message Syntax and Routing
 * [RFC 7231]: Hypertext Transfer Protocol (HTTP/1.1): Semantics and Content
 * [RFC 7233]: Hypertext Transfer Protocol (HTTP/1.1): Range Requests
 * [RFC 7234]: Hypertext Transfer Protocol (HTTP/1.1): Caching
+* [RFC 7240]: Prefer Header for HTTP
+* [RFC 7578]: Returning Values from Forms: multipart/form-data
 * [RFC 7807]: Problem Details for HTTP APIs
 * [RFC 8288]: Web Linking
 * [SemVer]: Semantic Versioning
@@ -910,6 +1286,49 @@ paths:
               examples:
                 default:
                   $ref: "#/components/examples/metadata"
+        4XX:
+          $ref: "#/components/responses/problemDetails"
+    put:
+      tags:
+        - Release
+      summary: Publish package release
+      operationId: publishPackageRelease
+      parameters:
+        - name: Content-Type
+          in: header
+          schema:
+            type: string
+            enum:
+              - application/vnd.swift.registry.v1+json
+      responses:
+        "100":
+          description: ""
+        "201":
+          description: ""
+          headers:
+            Content-Version:
+              $ref: "#/components/headers/contentVersion"
+            Content-Length:
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/releases"
+              examples:
+                default:
+                  $ref: "#/components/examples/releases"
+        "202":
+          description: ""
+          headers:
+            Content-Version:
+              $ref: "#/components/headers/contentVersion"
+            Location:
+              schema:
+                type: string
+            Retry-After:
+              schema:
+                type: integer
         4XX:
           $ref: "#/components/responses/problemDetails"
   "/{scope}/{name}/{version}/Package.swift":
@@ -1243,10 +1662,13 @@ components:
 [RFC 6249]: https://tools.ietf.org/html/rfc6249 "Metalink/HTTP: Mirrors and Hashes"
 [RFC 6570]: https://tools.ietf.org/html/rfc6570 "URI Template"
 [RFC 6749]: https://tools.ietf.org/html/rfc6749 "The OAuth 2.0 Authorization Framework"
+[RFC 7159]: https://tools.ietf.org/html/rfc7159 "The JavaScript Object Notation (JSON) Data Interchange Format"
 [RFC 7230]: https://tools.ietf.org/html/rfc7230 "Hypertext Transfer Protocol (HTTP/1.1): Message Syntax and Routing"
 [RFC 7231]: https://tools.ietf.org/html/rfc7231 "Hypertext Transfer Protocol (HTTP/1.1): Semantics and Content"
 [RFC 7233]: https://tools.ietf.org/html/rfc7233 "Hypertext Transfer Protocol (HTTP/1.1): Range Requests"
 [RFC 7234]: https://tools.ietf.org/html/rfc7234 "Hypertext Transfer Protocol (HTTP/1.1): Caching"
+[RFC 7240]: https://tools.ietf.org/html/rfc7240 "Prefer Header for HTTP"
+[RFC 7578]: https://tools.ietf.org/html/rfc7578 "Returning Values from Forms: multipart/form-data"
 [RFC 7807]: https://tools.ietf.org/html/rfc7807 "Problem Details for HTTP APIs"
 [RFC 8288]: https://tools.ietf.org/html/rfc8288 "Web Linking"
 [RFC 8446]: https://tools.ietf.org/html/rfc8446 "The Transport Layer Security (TLS) Protocol Version 1.3"

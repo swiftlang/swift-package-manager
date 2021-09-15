@@ -78,17 +78,160 @@ extension PackageIdentity: Codable {
     }
 }
 
-extension PackageIdentity: JSONMappable, JSONSerializable {
-    public init(json: JSON) throws {
-        guard case .string(let string) = json else {
-            throw JSON.MapError.typeMismatch(key: "", expected: String.self, json: json)
+// MARK: -
+
+extension PackageIdentity {
+    /// Provides a namespace for related packages within a package registry.
+    public struct Scope: LosslessStringConvertible, Hashable, Equatable, Comparable, ExpressibleByStringLiteral {
+        public let description: String
+
+        public init(validating description: String) throws {
+            guard !description.isEmpty else {
+                throw StringError("The minimum length of a package scope is 1 character.")
+            }
+
+            guard description.count <= 39 else {
+                throw StringError("The maximum length of a package scope is 39 characters.")
+            }
+
+            for (index, character) in zip(description.indices, description) {
+                guard character.isASCII,
+                        character.isLetter ||
+                        character.isNumber ||
+                        character == "-"
+                else {
+                    throw StringError("A package scope consists of alphanumeric characters and hyphens.")
+                }
+
+                if character.isPunctuation {
+                    switch (index, description.index(after: index)) {
+                    case (description.startIndex, _):
+                        throw StringError("Hyphens may not occur at the beginning of a scope.")
+                    case (_, description.endIndex):
+                        throw StringError("Hyphens may not occur at the end of a scope.")
+                    case (_, let nextIndex) where description[nextIndex].isPunctuation:
+                        throw StringError("Hyphens may not occur consecutively within a scope.")
+                    default:
+                        continue
+                    }
+                }
+            }
+
+            self.description = description
         }
 
-        self.init(string)
+        public init?(_ description: String) {
+            guard let scope = try? Scope(validating: description) else { return nil }
+            self = scope
+        }
+
+        // MARK: - Equatable & Comparable
+
+        private func compare(to other: Scope) -> ComparisonResult {
+            // Package scopes are case-insensitive (for example, `mona` ≍ `MONA`).
+            return self.description.caseInsensitiveCompare(other.description)
+        }
+
+        public static func == (lhs: Scope, rhs: Scope) -> Bool {
+            return lhs.compare(to: rhs) == .orderedSame
+        }
+
+        public static func < (lhs: Scope, rhs: Scope) -> Bool {
+            return lhs.compare(to: rhs) == .orderedAscending
+        }
+
+        public static func > (lhs: Scope, rhs: Scope) -> Bool {
+            return lhs.compare(to: rhs) == .orderedDescending
+        }
+
+        // MARK: - Hashable
+
+        public func hash(into hasher: inout Hasher) {
+            hasher.combine(description.lowercased())
+        }
+
+        // MARK: - ExpressibleByStringLiteral
+
+        public init(stringLiteral value: StringLiteralType) {
+            try! self.init(validating: value)
+        }
     }
 
-    public func toJSON() -> JSON {
-        return .string(self.description)
+    /// Uniquely identifies a package in a scope
+    public struct Name: LosslessStringConvertible, Hashable, Equatable, Comparable, ExpressibleByStringLiteral {
+        public let description: String
+
+        public init(validating description: String) throws {
+            guard !description.isEmpty else {
+                throw StringError("The minimum length of a package name is 1 character.")
+            }
+
+            guard description.count <= 100 else {
+                throw StringError("The maximum length of a package name is 100 characters.")
+            }
+
+            for (index, character) in zip(description.indices, description) {
+                guard character.isASCII,
+                        character.isLetter ||
+                        character.isNumber ||
+                        character == "-" ||
+                        character == "_"
+                else {
+                    throw StringError("A package name consists of alphanumeric characters, underscores, and hyphens.")
+                }
+
+                if character.isPunctuation {
+                    switch (index, description.index(after: index)) {
+                    case (description.startIndex, _):
+                        throw StringError("Hyphens and underscores may not occur at the beginning of a name.")
+                    case (_, description.endIndex):
+                        throw StringError("Hyphens and underscores may not occur at the end of a name.")
+                    case (_, let nextIndex) where description[nextIndex].isPunctuation:
+                        throw StringError("Hyphens and underscores may not occur consecutively within a name.")
+                    default:
+                        continue
+                    }
+                }
+            }
+
+            self.description = description
+        }
+
+        public init?(_ description: String) {
+            guard let name = try? Name(validating: description) else { return nil }
+            self = name
+        }
+
+        // MARK: - Equatable & Comparable
+
+        private func compare(to other: Name) -> ComparisonResult {
+            // Package scopes are case-insensitive (for example, `LinkedList` ≍ `LINKEDLIST`).
+            return self.description.caseInsensitiveCompare(other.description)
+        }
+
+        public static func == (lhs: Name, rhs: Name) -> Bool {
+            return lhs.compare(to: rhs) == .orderedSame
+        }
+
+        public static func < (lhs: Name, rhs: Name) -> Bool {
+            return lhs.compare(to: rhs) == .orderedAscending
+        }
+
+        public static func > (lhs: Name, rhs: Name) -> Bool {
+            return lhs.compare(to: rhs) == .orderedDescending
+        }
+
+        // MARK: - Hashable
+
+        public func hash(into hasher: inout Hasher) {
+            hasher.combine(description.lowercased())
+        }
+
+        // MARK: - ExpressibleByStringLiteral
+
+        public init(stringLiteral value: StringLiteralType) {
+            try! self.init(validating: value)
+        }
     }
 }
 
@@ -202,7 +345,7 @@ struct LegacyPackageIdentity: PackageIdentityProvider, Equatable {
 ///   ```
 ///   file:///Users/mona/LinkedList → /Users/mona/LinkedList
 ///   ```
-struct CanonicalPackageIdentity: PackageIdentityProvider, Equatable {
+public struct CanonicalPackageIdentity: PackageIdentityProvider, Equatable {
     /// A textual representation of this instance.
     public let description: String
 

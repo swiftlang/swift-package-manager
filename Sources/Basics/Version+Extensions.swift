@@ -16,9 +16,9 @@ extension Version {
     /// - Parameter tag: A version string possibly prepended with "v".
     public init?(tag: String) {
         if tag.first == "v" {
-            self.init(string: String(tag.dropFirst()))
+            try? self.init(versionString: String(tag.dropFirst()), usesLenientParsing: true)
         } else {
-            self.init(string: tag)
+            try? self.init(versionString: tag, usesLenientParsing: true)
         }
     }
 }

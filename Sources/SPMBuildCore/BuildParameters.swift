@@ -167,6 +167,8 @@ public struct BuildParameters: Encodable {
     // What strategy to use to discover tests
     public var testDiscoveryStrategy: TestDiscoveryStrategy
 
+    public var isTTY: Bool
+
     public init(
         dataPath: AbsolutePath,
         configuration: BuildConfiguration,
@@ -191,7 +193,8 @@ public struct BuildParameters: Encodable {
         isXcodeBuildSystemEnabled: Bool = false,
         printManifestGraphviz: Bool = false,
         enableTestability: Bool? = nil,
-        forceTestDiscovery: Bool = false
+        forceTestDiscovery: Bool = false,
+        isTTY: Bool = false
     ) {
         let triple = destinationTriple ?? .getHostTriple(usingSwiftCompiler: toolchain.swiftCompiler)
 
@@ -221,6 +224,7 @@ public struct BuildParameters: Encodable {
         self.enableTestability = enableTestability ?? (.debug == configuration)
         // decide if to enable the use of test manifests based on platform. this is likely to change in the future
         self.testDiscoveryStrategy = triple.isDarwin() ? .objectiveC : .manifest(generate: forceTestDiscovery)
+        self.isTTY = isTTY
     }
 
     /// The path to the build directory (inside the data directory).
@@ -280,7 +284,7 @@ public struct BuildParameters: Encodable {
     /// Returns the path to the binary of a product for the current build parameters, relative to the build directory.
     public func binaryRelativePath(for product: ResolvedProduct) -> RelativePath {
         switch product.type {
-        case .executable:
+        case .executable, .snippet:
             return RelativePath("\(product.name)\(triple.executableExtension)")
         case .library(.static):
             return RelativePath("lib\(product.name)\(triple.staticLibraryExtension)")

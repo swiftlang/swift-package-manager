@@ -27,13 +27,17 @@ public struct PIFBuilderParameters {
     /// Whether to create dylibs for dynamic library products.
     public let shouldCreateDylibForDynamicProducts: Bool
 
+    /// The path to the library directory of the active toolchain.
+    public let toolchainLibDir: AbsolutePath
+
     /// Creates a `PIFBuilderParameters` instance.
     /// - Parameters:
     ///   - enableTestability: Whether or not build for testability is enabled.
     ///   - shouldCreateDylibForDynamicProducts: Whether to create dylibs for dynamic library products.
-    public init(enableTestability: Bool, shouldCreateDylibForDynamicProducts: Bool) {
+    public init(enableTestability: Bool, shouldCreateDylibForDynamicProducts: Bool, toolchainLibDir: AbsolutePath) {
         self.enableTestability = enableTestability
         self.shouldCreateDylibForDynamicProducts = shouldCreateDylibForDynamicProducts
+        self.toolchainLibDir = toolchainLibDir
     }
 }
 
@@ -334,7 +338,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
 
     private func addTarget(for product: ResolvedProduct) {
         switch product.type {
-        case .executable, .test:
+        case .executable, .snippet, .test:
             addMainModuleTarget(for: product)
         case .library:
             addLibraryTarget(for: product)
@@ -349,7 +353,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
             try self.addLibraryTarget(for: target)
         case .systemModule:
             try self.addSystemTarget(for: target)
-        case .executable, .test:
+        case .executable, .snippet, .test:
             // Skip executable module targets and test module targets (they will have been dealt with as part of the
             // products to which they belong).
             return
@@ -362,11 +366,19 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         }
     }
 
+    private func targetName(for product: ResolvedProduct) -> String {
+        return Self.targetName(for: product.name)
+    }
+
+    static func targetName(for productName: String) -> String {
+        return "\(productName)_\(String(productName.hash, radix: 16, uppercase: true))_PackageProduct"
+    }
+
     private func addMainModuleTarget(for product: ResolvedProduct) {
         let productType: PIF.Target.ProductType = product.type == .executable ? .executable : .unitTest
         let pifTarget = addTarget(
             guid: product.pifTargetGUID,
-            name: product.name,
+            name: targetName(for: product),
             productType: productType,
             productName: product.name
         )
@@ -394,6 +406,10 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         settings[.DEFINES_MODULE] = "YES"
         settings[.SWIFT_FORCE_STATIC_LINK_STDLIB] = "NO"
         settings[.SWIFT_FORCE_DYNAMIC_LINK_STDLIB] = "YES"
+
+        if product.type == .executable || product.type == .test {
+            settings[.LIBRARY_SEARCH_PATHS] = ["$(inherited)", "\(parameters.toolchainLibDir.pathString)/swift/macosx"]
+        }
 
         // Tests can have a custom deployment target based on the minimum supported by XCTest.
         if mainTarget.underlyingTarget.type == .test {
@@ -478,7 +494,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         // depends.
         let pifTarget = addTarget(
             guid: product.pifTargetGUID,
-            name: product.name,
+            name: targetName(for: product),
             productType: productType,
             productName: pifTargetProductName
         )
@@ -518,6 +534,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
             settings[.DEFINES_MODULE] = "YES"
             settings[.SKIP_INSTALL] = "NO"
             settings[.INSTALL_PATH] = "/usr/local/lib"
+            settings[.LIBRARY_SEARCH_PATHS] = ["$(inherited)", "\(parameters.toolchainLibDir.pathString)/swift/macosx"]
 
             if !parameters.shouldCreateDylibForDynamicProducts {
                 settings[.GENERATE_INFOPLIST_FILE] = "YES"
@@ -1384,6 +1401,8 @@ extension ProductType {
         switch self {
         case .executable:
             return .executable
+        case .snippet:
+            return .snippet
         case .test:
             return .test
         case .library:

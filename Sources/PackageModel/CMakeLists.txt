@@ -27,10 +27,14 @@ add_library(PackageModel
   Platform.swift
   Product.swift
   Resource.swift
+  Snippets/Model/Snippet.swift
+  Snippets/Model/SnippetGroup.swift
+  Snippets/Parsing/PlainTextSnippetExtractor.swift
   Sources.swift
   SupportedLanguageExtension.swift
   SwiftLanguageVersion.swift
   Target.swift
+  ToolchainConfiguration.swift
   ToolsVersion.swift
   ToolsVersionSpecificationGeneration.swift)
 target_link_libraries(PackageModel PUBLIC

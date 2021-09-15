@@ -8,15 +8,14 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import XCTest
-import TSCBasic
-import TSCUtility
-
 import PackageGraph
 import PackageModel
 @testable import SPMBuildCore
 import SPMTestSupport
-
+import TSCBasic
+import TSCUtility
+import Workspace
+import XCTest
 
 class PluginInvocationTests: XCTestCase {
     
@@ -33,9 +32,8 @@ class PluginInvocationTests: XCTestCase {
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Foo",
-                    path: "/Foo",
+                    path: .init("/Foo"),
                     packageKind: .root,
-                    packageLocation: "/Foo",
                     products: [
                         ProductDescription(
                             name: "Foo",
@@ -62,8 +60,7 @@ class PluginInvocationTests: XCTestCase {
                         ),
                     ]
                 )
-            ],
-            allowPluginTargets: true
+            ]
         )
         
         // Check the basic integrity before running plugins.
@@ -86,7 +83,7 @@ class PluginInvocationTests: XCTestCase {
         // A fake PluginScriptRunner that just checks the input conditions and returns canned output.
         struct MockPluginScriptRunner: PluginScriptRunner {
             var hostTriple: Triple {
-                return Resources.default.toolchain.triple
+                return UserToolchain.default.triple
             }
             func runPluginScript(
                 sources: Sources,

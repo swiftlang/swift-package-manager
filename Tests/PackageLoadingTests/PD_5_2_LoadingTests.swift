@@ -41,7 +41,7 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
 
         do {
             try loadManifestThrowing(stream.bytes) { manifest in
-                return XCTFail("did not generate eror")
+                return XCTFail("did not generate error")
             }
         } catch ManifestParseError.invalidManifestFormat(let error, diagnosticFile: _) {
             XCTAssert(error.contains("error: \'product(name:package:)\' is unavailable: the 'package' argument is mandatory as of tools version 5.2"))
@@ -49,8 +49,7 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
     }
 
     func testDependencyNameForTargetDependencyResolution() throws {
-        let stream = BufferedOutputByteStream()
-        stream <<< """
+        let manifest = """
             import PackageDescription
             let package = Package(
                 name: "Trivial",
@@ -69,12 +68,23 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
                 targets: [
                     .target(
                         name: "foo",
-                        dependencies: [.product(name: "product", package: "Foo")]),
+                        dependencies: [
+                          .product(name: "product", package: "Foo"),
+                          .product(name: "product", package: "Foo2"),
+                          .product(name: "product", package: "Foo3"),
+                          .product(name: "product", package: "Foo4"),
+                          .product(name: "product", package: "Foo5"),
+                          .product(name: "product", package: "bar"),
+                          .product(name: "product", package: "bar2"),
+                          .product(name: "product", package: "baz"),
+                          .product(name: "product", package: "swift")
+                        ]
+                    ),
                 ]
             )
             """
 
-        loadManifest(stream.bytes) { manifest in
+        loadManifest(manifest) { manifest in
             XCTAssertEqual(manifest.name, "Trivial")
             XCTAssertEqual(manifest.dependencies[0].nameForTargetDependencyResolutionOnly, "Foo")
             XCTAssertEqual(manifest.dependencies[1].nameForTargetDependencyResolutionOnly, "Foo2")
@@ -90,8 +100,7 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
 
     func testTargetDependencyProductInvalidPackage() throws {
         do {
-            let stream = BufferedOutputByteStream()
-            stream <<< """
+            let manifest = """
                 import PackageDescription
                 let package = Package(
                     name: "Trivial",
@@ -111,15 +120,14 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
                 )
                 """
 
-            XCTAssertManifestLoadThrows(stream.bytes, packageKind: .remote) { _, diagnostics in
+            XCTAssertManifestLoadThrows(manifest, packageKind: .remote) { _, diagnostics in
                 diagnostics.checkUnordered(diagnostic: "unknown package 'foo1' in dependencies of target 'Target1'; valid packages are: 'Foo', 'Bar'", behavior: .error)
                 diagnostics.checkUnordered(diagnostic: "unknown dependency 'foos' in target 'Target2'; valid dependencies are: 'Foo', 'Bar'", behavior: .error)
             }
         }
 
         do {
-            let stream = BufferedOutputByteStream()
-            stream <<< """
+            let manifest = """
                 import PackageDescription
                 let package = Package(
                     name: "Trivial",
@@ -138,14 +146,13 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
                 )
                 """
 
-            XCTAssertManifestLoadThrows(stream.bytes, packageKind: .root) { _, diagnostics in
+            XCTAssertManifestLoadThrows(manifest, packageKind: .root) { _, diagnostics in
                 diagnostics.checkUnordered(diagnostic: "unknown package 'foo1' in dependencies of target 'Target1'; valid packages are: 'Foo'", behavior: .error)
             }
         }
         
         do {
-            let stream = BufferedOutputByteStream()
-            stream <<< """
+            let manifest = """
                 import PackageDescription
                 let package = Package(
                     name: "Trivial",
@@ -164,8 +171,34 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
                 )
                 """
 
-            XCTAssertManifestLoadThrows(stream.bytes, packageKind: .root) { _, diagnostics in
+            XCTAssertManifestLoadThrows(manifest, packageKind: .root) { _, diagnostics in
                 diagnostics.checkUnordered(diagnostic: "unknown package 'foo1' in dependencies of target 'Target1'; valid packages are: 'foo2'", behavior: .error)
+            }
+        }
+
+        do {
+            let manifest = """
+                import PackageDescription
+                let package = Package(
+                    name: "Trivial",
+                    products: [],
+                    dependencies: [
+                        .package(url: "/foo1", from: "1.0.0"),
+                        .package(url: "/foo2", from: "1.0.0"),
+                    ],
+                    targets: [
+                        .target(
+                            name: "Target1",
+                            dependencies: [.product(name: "product", package: "foo3")]),
+                        .target(
+                            name: "Target2",
+                            dependencies: ["foos"]),
+                    ]
+                )
+                """
+
+            XCTAssertManifestLoadThrows(manifest, packageKind: .root) { _, diagnostics in
+                diagnostics.checkUnordered(diagnostic: "unknown package 'foo3' in dependencies of target 'Target1'; valid packages are: 'foo1', 'foo2'", behavior: .error)
             }
         }
     }
@@ -205,8 +238,7 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
     }
 
     func testDuplicateDependencyNames() {
-        let stream = BufferedOutputByteStream()
-        stream <<< """
+        let manifest = """
             import PackageDescription
             let package = Package(
                 name: "Foo",
@@ -228,15 +260,14 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
             )
             """
 
-        XCTAssertManifestLoadThrows(stream.bytes) { _, diagnostics in
+        XCTAssertManifestLoadThrows(manifest) { _, diagnostics in
             diagnostics.checkUnordered(diagnostic: "duplicate dependency named 'Bar'; consider differentiating them using the 'name' argument", behavior: .error)
             diagnostics.checkUnordered(diagnostic: "duplicate dependency named 'Biz'; consider differentiating them using the 'name' argument", behavior: .error)
         }
     }
 
     func testResourcesUnavailable() throws {
-        let stream = BufferedOutputByteStream()
-        stream <<< """
+        let manifest = """
             import PackageDescription
             let package = Package(
                name: "Foo",
@@ -252,7 +283,7 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
             )
             """
 
-        XCTAssertManifestLoadThrows(stream.bytes) { error, _ in
+        XCTAssertManifestLoadThrows(manifest) { error, _ in
             guard case let ManifestParseError.invalidManifestFormat(message, _) = error else {
                 return XCTFail("\(error)")
             }
@@ -264,8 +295,7 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
 
     func testBinaryTargetUnavailable() throws {
         do {
-            let stream = BufferedOutputByteStream()
-            stream <<< """
+            let manifest = """
                 import PackageDescription
                 let package = Package(
                     name: "Foo",
@@ -278,7 +308,7 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
                 )
                 """
 
-            XCTAssertManifestLoadThrows(stream.bytes) { error, _ in
+            XCTAssertManifestLoadThrows(manifest) { error, _ in
                 guard case let ManifestParseError.invalidManifestFormat(message, _) = error else {
                     return XCTFail("\(error)")
                 }
@@ -289,8 +319,7 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
         }
 
         do {
-            let stream = BufferedOutputByteStream()
-            stream <<< """
+            let manifest = """
                 import PackageDescription
                 let package = Package(
                     name: "Foo",
@@ -304,7 +333,7 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
                 )
                 """
 
-            XCTAssertManifestLoadThrows(stream.bytes) { error, _ in
+            XCTAssertManifestLoadThrows(manifest) { error, _ in
                 guard case let ManifestParseError.invalidManifestFormat(message, _) = error else {
                     return XCTFail("\(error)")
                 }
@@ -316,8 +345,7 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
     }
 
     func testConditionalTargetDependenciesUnavailable() throws {
-        let stream = BufferedOutputByteStream()
-        stream <<< """
+        let manifest = """
             import PackageDescription
             let package = Package(
                 name: "Foo",
@@ -334,7 +362,7 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
             )
             """
 
-        XCTAssertManifestLoadThrows(stream.bytes) { error, _ in
+        XCTAssertManifestLoadThrows(manifest) { error, _ in
             guard case let ManifestParseError.invalidManifestFormat(message, _) = error else {
                 return XCTFail("\(error)")
             }
@@ -375,8 +403,7 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
 
     func testManifestLoadingIsSandboxed() throws {
         #if os(macOS) // Sandboxing is only done on macOS today.
-        let stream = BufferedOutputByteStream()
-        stream <<< """
+        let manifest = """
             import Foundation
 
             try! String(contentsOf:URL(string: "http://127.0.0.1")!)
@@ -390,7 +417,7 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
             )
             """
 
-        XCTAssertManifestLoadThrows(stream.bytes) { error, _ in
+        XCTAssertManifestLoadThrows(manifest) { error, _ in
             guard case ManifestParseError.invalidManifestFormat(let msg, _) = error else { return XCTFail("unexpected error: \(error)") }
             XCTAssertTrue(msg.contains("Operation not permitted"), "unexpected error message: \(msg)")
         }
