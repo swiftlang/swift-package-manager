@@ -1137,7 +1137,7 @@ components:
       schema:
         type: string
         example: LinkedList
-        pattern: \A\p{XID_Start}\p{XID_Continue}*\z
+        pattern: \A[a-zA-Z0-9](?:[a-zA-Z0-9]|[-_](?=[a-zA-Z0-9])){0,99}\z
     version:
       name: version
       in: path
