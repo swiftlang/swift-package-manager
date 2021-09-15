@@ -1644,7 +1644,7 @@ class PIFBuilderTests: XCTestCase {
                     ]),
             ],
             binaryArtifacts: [
-                .init(kind: .xcframework, originURL: nil, path: AbsolutePath("/Foo/BinaryLibrary.xcframework"))
+                .init(kind: .xcframework, originURL: nil, path: AbsolutePath("/Foo/BinaryLibrary.xcframework"), archivePath: nil)
             ],
             shouldCreateMultipleTestProducts: true
         )

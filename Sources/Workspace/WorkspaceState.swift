@@ -265,6 +265,9 @@ fileprivate struct WorkspaceStateStorage {
                     switch kind {
                     case "local":
                         self.init(underlying: .local)
+                    case "localArchived":
+                        let archivePathString = try container.decode(String.self, forKey: .archivePath)
+                        try self.init(underlying: .localArchived(archivePath: AbsolutePath(validating: archivePathString)))
                     case "remote":
                         let url = try container.decode(String.self, forKey: .url)
                         let checksum = try container.decode(String.self, forKey: .checksum)
@@ -279,6 +282,9 @@ fileprivate struct WorkspaceStateStorage {
                     switch self.underlying {
                     case .local:
                         try container.encode("local", forKey: .type)
+                    case .localArchived(let archivePath):
+                        try container.encode("localArchived", forKey: .type)
+                        try container.encode(archivePath.pathString, forKey: .archivePath)
                     case .remote(let url, let checksum):
                         try container.encode("remote", forKey: .type)
                         try container.encode(url, forKey: .url)
@@ -290,6 +296,7 @@ fileprivate struct WorkspaceStateStorage {
                     case type
                     case url
                     case checksum
+                    case archivePath
                 }
             }
         }

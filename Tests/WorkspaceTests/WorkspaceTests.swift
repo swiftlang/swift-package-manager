@@ -4145,6 +4145,719 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
+    func testLocalArchivedArtifactExtractionHappyPath() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        // create dummy xcframework and artifactbundle directories from the request archive
+        let archiver = MockArchiver(handler: { archiver, archivePath, destinationPath, completion in
+            do {
+                let name: String
+                switch archivePath.basename {
+                case "A1.zip":
+                    name = "A1.xcframework"
+                case "A2.zip":
+                    name = "A2.artifactbundle"
+                case "B.zip":
+                    name = "B.xcframework"
+                default:
+                    throw StringError("unexpected archivePath \(archivePath)")
+                }
+                try fs.createDirectory(destinationPath.appending(component: name), recursive: false)
+                archiver.extractions.append(MockArchiver.Extraction(archivePath: archivePath, destinationPath: destinationPath))
+                completion(.success(()))
+            } catch {
+                completion(.failure(error))
+            }
+        })
+
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            archiver: archiver,
+            roots: [
+                MockPackage(
+                    name: "Foo",
+                    targets: [
+                        MockTarget(name: "Foo", dependencies: [
+                            .product(name: "A1", package: "A"),
+                            .product(name: "A2", package: "A"),
+                            .product(name: "B", package: "B"),
+                        ])
+                    ],
+                    products: [],
+                    dependencies: [
+                        .scm(path: "./A", requirement: .exact("1.0.0")),
+                        .scm(path: "./B", requirement: .exact("1.0.0")),
+                    ]
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "A",
+                    targets: [
+                        MockTarget(
+                            name: "A1",
+                            type: .binary,
+                            path: "XCFrameworks/A1.zip"
+                        ),
+                        MockTarget(
+                            name: "A2",
+                            type: .binary,
+                            path: "ArtifactBundles/A2.zip"
+                        ),
+                    ],
+                    products: [
+                        MockProduct(name: "A1", targets: ["A1"]),
+                        MockProduct(name: "A2", targets: ["A2"]),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                MockPackage(
+                    name: "B",
+                    targets: [
+                        MockTarget(
+                            name: "B",
+                            type: .binary,
+                            path: "XCFrameworks/B.zip"
+                        )
+                    ],
+                    products: [
+                        MockProduct(name: "B", targets: ["B"])
+                    ],
+                    versions: ["1.0.0"]
+                )
+            ]
+        )
+        
+        // Create dummy xcframework/artifactbundle zip files
+        let aPath = workspace.packagesDir.appending(components: "A")
+
+        let aFrameworksPath = aPath.appending(component: "XCFrameworks")
+        let a1FrameworkArchivePath = aFrameworksPath.appending(component: "A1.zip")
+        try fs.createDirectory(aFrameworksPath, recursive: true)
+        try fs.writeFileContents(a1FrameworkArchivePath, bytes: ByteString([0xA1]))
+
+        let aArtifactBundlesPath = aPath.appending(component: "ArtifactBundles")
+        let a2ArtifactBundleArchivePath = aArtifactBundlesPath.appending(component: "A2.zip")
+        try fs.createDirectory(aArtifactBundlesPath, recursive: true)
+        try fs.writeFileContents(a2ArtifactBundleArchivePath, bytes: ByteString([0xA2]))
+
+        let bPath = workspace.packagesDir.appending(components: "B")
+
+        let bFrameworksPath = bPath.appending(component: "XCFrameworks")
+        let bFrameworkArchivePath = bFrameworksPath.appending(component: "B.zip")
+        try fs.createDirectory(bFrameworksPath, recursive: true)
+        try fs.writeFileContents(bFrameworkArchivePath, bytes: ByteString([0xB]))
+        
+        // Ensure that the artifacts do not exist yet
+        XCTAssertFalse(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/A/A1.xcframework")))
+        XCTAssertFalse(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/A/A2.artifactbundle")))
+        XCTAssertFalse(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/B/B.xcframework")))
+
+        workspace.checkPackageGraph(roots: ["Foo"]) { graph, diagnostics in
+            XCTAssertTrue(diagnostics.diagnostics.isEmpty, diagnostics.description)
+
+            // Ensure that the artifacts have been properly extracted
+            XCTAssertTrue(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/A/A1.xcframework")))
+            XCTAssertTrue(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/A/A2.artifactbundle")))
+            XCTAssertTrue(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/B/B.xcframework")))
+
+            // Ensure that the original archives have been untouched
+            XCTAssertTrue(fs.exists(a1FrameworkArchivePath))
+            XCTAssertTrue(fs.exists(a2ArtifactBundleArchivePath))
+            XCTAssertTrue(fs.exists(bFrameworkArchivePath))
+
+            // Ensure that the temporary folders have been properly created
+            XCTAssertEqual(workspace.archiver.extractions.map { $0.destinationPath }.sorted(), [
+                AbsolutePath("/tmp/ws/.build/artifacts/extract/A1"),
+                AbsolutePath("/tmp/ws/.build/artifacts/extract/A2"),
+                AbsolutePath("/tmp/ws/.build/artifacts/extract/B")
+            ])
+
+            // Ensure that the temporary directories have been removed
+            XCTAssertFalse(fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/extract/A1")))
+            XCTAssertFalse(fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/extract/A2")))
+            XCTAssertFalse(fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/extract/B")))
+        }
+
+        workspace.checkManagedArtifacts { result in
+            result.check(packageIdentity: .plain("a"),
+                         targetName: "A1",
+                         source: .localArchived(archivePath: a1FrameworkArchivePath),
+                         path: workspace.artifactsDir.appending(components: "A", "A1.xcframework")
+            )
+            result.check(packageIdentity: .plain("a"),
+                         targetName: "A2",
+                         source: .localArchived(archivePath: a2ArtifactBundleArchivePath),
+                         path: workspace.artifactsDir.appending(components: "A", "A2.artifactbundle")
+            )
+            result.check(packageIdentity: .plain("b"),
+                         targetName: "B",
+                         source: .localArchived(archivePath: bFrameworkArchivePath),
+                         path: workspace.artifactsDir.appending(components: "B", "B.xcframework")
+            )
+        }
+    }
+
+    // There are 6 possible transition permutations of the artifact source set
+    // {local, remote, localArchived}, namely:
+    //
+    // (remote        -> local)
+    // (local         -> remote)
+    // (local         -> localArchived)
+    // (localArchived -> local)
+    // (remote        -> localArchived)
+    // (localArchived -> remote)
+    //
+    // This test covers the last 4 permutations where the `localArchived` source is involved.
+    // It ensures that all the appropriate clean-up operations are executed, and the workspace
+    // contains the correct set of managed artifacts after the transition.
+    func testLocalArchivedArtifactSourceTransitionPermutations() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        // returns a dummy zipfile for the requested artifact
+        let httpClient = HTTPClient(handler: { request, _, completion in
+            do {
+                guard case .download(let fileSystem, let destination) = request.kind else {
+                    throw StringError("invalid request \(request.kind)")
+                }
+
+                let contents: [UInt8]
+                switch request.url.lastPathComponent {
+                case "a4.zip":
+                    contents = [0xA4]
+                default:
+                    throw StringError("unexpected url \(request.url)")
+                }
+
+                try fileSystem.writeFileContents(
+                    destination,
+                    bytes: ByteString(contents),
+                    atomically: true
+                )
+
+                completion(.success(.okay()))
+            } catch {
+                completion(.failure(error))
+            }
+        })
+
+        // create a dummy xcframework directory (with a marker subdirectory) from the request archive
+        let archiver = MockArchiver(handler: { archiver, archivePath, destinationPath, completion in
+            do {
+                let name: String
+                var subdirectoryName: String?
+                switch archivePath.basename {
+                case "A1.zip":
+                    name = "A1.xcframework"
+                case "A2.zip":
+                    name = "A2.xcframework"
+                case "A3.zip":
+                    name = "A3.xcframework"
+                    subdirectoryName = "local-archived"
+                case "a4.zip":
+                    name = "A4.xcframework"
+                    subdirectoryName = "remote"
+                default:
+                    throw StringError("unexpected archivePath \(archivePath)")
+                }
+                try fs.createDirectory(destinationPath.appending(component: name), recursive: false)
+                
+                if let subdirectoryName = subdirectoryName {
+                    try fs.createDirectory(destinationPath.appending(components: name, subdirectoryName), recursive: false)
+                }
+
+                archiver.extractions.append(MockArchiver.Extraction(archivePath: archivePath, destinationPath: destinationPath))
+                completion(.success(()))
+            } catch {
+                completion(.failure(error))
+            }
+        })
+
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            httpClient: httpClient,
+            archiver: archiver,
+            roots: [
+                MockPackage(
+                    name: "Foo",
+                    targets: [
+                        MockTarget(name: "Foo", dependencies: [
+                            .product(name: "A1", package: "A"),
+                            .product(name: "A2", package: "A"),
+                            .product(name: "A3", package: "A"),
+                            .product(name: "A4", package: "A")
+                        ]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        .scm(path: "./A", requirement: .exact("1.0.0"))
+                    ]
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "A",
+                    targets: [
+                        MockTarget(
+                            name: "A1",
+                            type: .binary,
+                            path: "XCFrameworks/A1.zip"
+                        ),
+                        MockTarget(
+                            name: "A2",
+                            type: .binary,
+                            path: "XCFrameworks/A2.xcframework"
+                        ),
+                        MockTarget(
+                            name: "A3",
+                            type: .binary,
+                            path: "XCFrameworks/A3.zip"
+                        ),
+                        MockTarget(
+                            name: "A4",
+                            type: .binary,
+                            url: "https://a.com/a4.zip",
+                            checksum: "a4"
+                        )
+                    ],
+                    products: [
+                        MockProduct(name: "A1", targets: ["A1"]),
+                        MockProduct(name: "A2", targets: ["A2"]),
+                        MockProduct(name: "A3", targets: ["A3"]),
+                        MockProduct(name: "A4", targets: ["A4"])
+                    ],
+                    versions: ["1.0.0"]
+                )
+            ]
+        )
+
+        // Create dummy xcframework directories and zip files
+        let aFrameworksPath = workspace.packagesDir.appending(components: "A", "XCFrameworks")
+        try fs.createDirectory(aFrameworksPath, recursive: true)
+
+        let a1FrameworkPath = aFrameworksPath.appending(component: "A1.xcframework")
+        let a1FrameworkArchivePath = aFrameworksPath.appending(component: "A1.zip")
+        try fs.createDirectory(a1FrameworkPath, recursive: true)
+        try fs.writeFileContents(a1FrameworkArchivePath, bytes: ByteString([0xA1]))
+
+        let a2FrameworkPath = aFrameworksPath.appending(component: "A2.xcframework")
+        let a2FrameworkArchivePath = aFrameworksPath.appending(component: "A2.zip")
+        try fs.createDirectory(a2FrameworkPath, recursive: true)
+        try fs.writeFileContents(a2FrameworkArchivePath, bytes: ByteString([0xA2]))
+
+        let a3FrameworkArchivePath = aFrameworksPath.appending(component: "A3.zip")
+        try fs.writeFileContents(a3FrameworkArchivePath, bytes: ByteString([0xA3]))
+
+        let a4FrameworkArchivePath = aFrameworksPath.appending(component: "A4.zip")
+        try fs.writeFileContents(a4FrameworkArchivePath, bytes: ByteString([0xA4]))
+
+        // Pin A to 1.0.0
+        let aURL = workspace.urlForPackage(withName: "A")
+        let aRef = PackageReference.remote(identity: PackageIdentity(url: aURL), location: aURL)
+        let aRepo = workspace.repoProvider.specifierMap[RepositorySpecifier(url: aURL)]!
+        let aRevision = try aRepo.resolveRevision(tag: "1.0.0")
+        let aState = CheckoutState.version("1.0.0", revision: aRevision)
+
+        // Set an initial workspace state
+        try workspace.set(
+            pins: [aRef: aState],
+            managedDependencies: [],
+            managedArtifacts: [
+                .init(
+                    packageRef: aRef,
+                    targetName: "A1",
+                    source: .local,
+                    path: a1FrameworkPath
+                ),
+                .init(
+                    packageRef: aRef,
+                    targetName: "A2",
+                    source: .localArchived(archivePath: a2FrameworkArchivePath),
+                    path: workspace.artifactsDir.appending(components: "A", "A2.xcframework")
+                ),
+                .init(
+                    packageRef: aRef,
+                    targetName: "A3",
+                    source: .remote(url: "https://a.com/a3.zip", checksum: "a3"),
+                    path: workspace.artifactsDir.appending(components: "A", "A3.xcframework")
+                ),
+                .init(
+                    packageRef: aRef,
+                    targetName: "A4",
+                    source: .localArchived(archivePath: a4FrameworkArchivePath),
+                    path: workspace.artifactsDir.appending(components: "A", "A4.xcframework")
+                )
+            ]
+        )
+
+        // Create marker folders to later check that the frameworks' content is properly overwritten
+        try fs.createDirectory(workspace.artifactsDir.appending(components: "A", "A3.xcframework", "remote"), recursive: true)
+        try fs.createDirectory(workspace.artifactsDir.appending(components: "A", "A4.xcframework", "local-archived"), recursive: true)
+
+        workspace.checkPackageGraph(roots: ["Foo"]) { graph, diagnostics in
+            XCTAssertTrue(diagnostics.diagnostics.isEmpty, diagnostics.description)
+
+            // Ensure that the original archives have been untouched
+            XCTAssertTrue(fs.exists(a1FrameworkArchivePath))
+            XCTAssertTrue(fs.exists(a2FrameworkArchivePath))
+            XCTAssertTrue(fs.exists(a3FrameworkArchivePath))
+            XCTAssertTrue(fs.exists(a4FrameworkArchivePath))
+
+            // Ensure that the new artifacts have been properly extracted
+            XCTAssertTrue(fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/A/A1.xcframework")))
+            XCTAssertTrue(fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/A/A3.xcframework/local-archived")))
+            XCTAssertTrue(fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/A/A4.xcframework/remote")))
+
+            // Ensure that the old artifacts have been removed
+            XCTAssertFalse(fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/A/A2.xcframework")))
+            XCTAssertFalse(fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/A/A3.xcframework/remote")))
+            XCTAssertFalse(fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/A/A4.xcframework/local-archived")))
+        }
+
+        workspace.checkManagedArtifacts { result in
+            result.check(packageIdentity: .plain("a"),
+                         targetName: "A1",
+                         source: .localArchived(archivePath: a1FrameworkArchivePath),
+                         path: workspace.artifactsDir.appending(components: "A", "A1.xcframework")
+            )
+            result.check(packageIdentity: .plain("a"),
+                         targetName: "A2",
+                         source: .local,
+                         path: a2FrameworkPath
+            )
+            result.check(packageIdentity: .plain("a"),
+                         targetName: "A3",
+                         source: .localArchived(archivePath: a3FrameworkArchivePath),
+                         path: workspace.artifactsDir.appending(components: "A", "A3.xcframework")
+            )
+            result.check(packageIdentity: .plain("a"),
+                         targetName: "A4",
+                         source: .remote(url: "https://a.com/a4.zip", checksum: "a4"),
+                         path: workspace.artifactsDir.appending(components: "A", "A4.xcframework")
+            )
+        }
+    }
+
+    func testLocalArchivedArtifactExtractedOnEachPackageStateChange() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        // create a dummy xcframework directory from the request archive
+        let archiver = MockArchiver(handler: { archiver, archivePath, destinationPath, completion in
+            do {
+                let name: String
+                var subdirectoryName: String
+                switch archivePath.basename {
+                case "A1.zip":
+                    name = "A1.xcframework"
+                    subdirectoryName = "new-content"
+                default:
+                    throw StringError("unexpected archivePath \(archivePath)")
+                }
+                try fs.createDirectory(destinationPath.appending(component: name), recursive: false)
+                try fs.createDirectory(destinationPath.appending(components: name, subdirectoryName), recursive: false)
+                archiver.extractions.append(MockArchiver.Extraction(archivePath: archivePath, destinationPath: destinationPath))
+                completion(.success(()))
+            } catch {
+                completion(.failure(error))
+            }
+        })
+
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            archiver: archiver,
+            roots: [
+                MockPackage(
+                    name: "Foo",
+                    targets: [
+                        MockTarget(name: "Foo", dependencies: [
+                            .product(name: "A1", package: "A")
+                        ]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        .scm(path: "./A", requirement: .exact("1.0.0"))
+                    ]
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "A",
+                    targets: [
+                        MockTarget(
+                            name: "A1",
+                            type: .binary,
+                            path: "XCFrameworks/A1.zip"
+                        )
+                    ],
+                    products: [
+                        MockProduct(name: "A1", targets: ["A1"])
+                    ],
+                    versions: ["1.0.0"]
+                ),
+            ]
+        )
+
+        // Create a dummy zip file
+        let aFrameworksPath = workspace.packagesDir.appending(components: "A", "XCFrameworks")
+        try fs.createDirectory(aFrameworksPath, recursive: true)
+        let a1FrameworkArchivePath = aFrameworksPath.appending(component: "A1.zip")
+        try fs.writeFileContents(a1FrameworkArchivePath, bytes: ByteString([0xA1]))
+
+        // Pin A to 1.0.0
+        let aURL = workspace.urlForPackage(withName: "A")
+        let aRef = PackageReference.remote(identity: PackageIdentity(url: aURL), location: aURL)
+        let aRepo = workspace.repoProvider.specifierMap[RepositorySpecifier(url: aURL)]!
+        let aRevision = try aRepo.resolveRevision(tag: "1.0.0")
+        let aState = CheckoutState.version("1.0.0", revision: aRevision)
+
+        // Set an initial workspace state
+        try workspace.set(
+            pins: [aRef: aState],
+            managedDependencies: [],
+            managedArtifacts: [
+                .init(
+                    packageRef: aRef,
+                    targetName: "A1",
+                    source: .localArchived(archivePath: a1FrameworkArchivePath),
+                    path: workspace.artifactsDir.appending(components: "A", "A1.xcframework")
+                )
+            ]
+        )
+
+        try fs.createDirectory(workspace.artifactsDir.appending(components: "A", "A1.xcframework", "old-content"), recursive: true)
+
+        XCTAssertTrue(fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/A/A1.xcframework/old-content")))
+        XCTAssertFalse(fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/A/A1.xcframework/new-content")))
+
+        workspace.checkPackageGraph(roots: ["Foo"]) { graph, diagnostics in
+            XCTAssertTrue(diagnostics.diagnostics.isEmpty, diagnostics.description)
+            
+            XCTAssertTrue(fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/A/A1.xcframework/new-content")))
+            XCTAssertFalse(fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/A/A1.xcframework/old-content")))
+        }
+    }
+    
+    func testLocalArchivedArtifactNameDoesNotMatchTargetName() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+        
+        // create a dummy xcframework directory from the request archive
+        let archiver = MockArchiver(handler: { archiver, archivePath, destinationPath, completion in
+            do {
+                let name: String
+                switch archivePath.basename {
+                case "archived-artifact-does-not-match-target-name.zip":
+                    name = "A1.xcframework"
+                default:
+                    throw StringError("unexpected archivePath \(archivePath)")
+                }
+                try fs.createDirectory(destinationPath.appending(component: name), recursive: false)
+                archiver.extractions.append(MockArchiver.Extraction(archivePath: archivePath, destinationPath: destinationPath))
+                completion(.success(()))
+            } catch {
+                completion(.failure(error))
+            }
+        })
+        
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            archiver: archiver,
+            roots: [
+                MockPackage(
+                    name: "Foo",
+                    targets: [
+                        MockTarget(name: "Foo", dependencies: [
+                            .product(name: "A1", package: "A")
+                        ]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        .scm(path: "./A", requirement: .exact("1.0.0"))
+                    ]
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "A",
+                    targets: [
+                        MockTarget(
+                            name: "A1",
+                            type: .binary,
+                            path: "XCFrameworks/archived-artifact-does-not-match-target-name.zip"
+                        )
+                    ],
+                    products: [
+                        MockProduct(name: "A1", targets: ["A1"])
+                    ],
+                    versions: ["1.0.0"]
+                ),
+            ]
+        )
+        
+        // Create dummy zip files
+        let aFrameworksPath = workspace.packagesDir.appending(components: "A", "XCFrameworks")
+        try fs.createDirectory(aFrameworksPath, recursive: true)
+        try fs.writeFileContents(aFrameworksPath.appending(component: "archived-artifact-does-not-match-target-name.zip"), bytes: ByteString([0xA1]))
+        
+        workspace.checkPackageGraphFailure(roots: ["Foo"]) { diagnostics in
+            DiagnosticsEngineTester(diagnostics) { result in
+                XCTAssertTrue(diagnostics.diagnostics.isEmpty, diagnostics.description)
+            }
+        }
+        
+    }
+
+    func testLocalArchivedArtifactExtractionError() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let archiver = MockArchiver(handler: { _, _, destinationPath, completion in
+            completion(.failure(DummyError()))
+        })
+
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            archiver: archiver,
+            roots: [
+                MockPackage(
+                    name: "Foo",
+                    targets: [
+                        MockTarget(name: "Foo", dependencies: [
+                            .product(name: "A1", package: "A")
+                        ]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        .scm(path: "./A", requirement: .exact("1.0.0"))
+                    ]
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "A",
+                    targets: [
+                        MockTarget(
+                            name: "A1",
+                            type: .binary,
+                            path: "XCFrameworks/A1.zip"
+                        ),
+                        MockTarget(
+                            name: "A2",
+                            type: .binary,
+                            path: "ArtifactBundles/A2.zip"
+                        )
+                    ],
+                    products: [
+                        MockProduct(name: "A1", targets: ["A1"]),
+                        MockProduct(name: "A2", targets: ["A2"])
+                    ],
+                    versions: ["1.0.0"]
+                ),
+            ]
+        )
+
+        workspace.checkPackageGraphFailure(roots: ["Foo"]) { diagnostics in
+            DiagnosticsEngineTester(diagnostics) { result in
+                result.checkUnordered(diagnostic: .contains("failed extracting '/tmp/ws/pkgs/A/XCFrameworks/A1.zip' which is required by binary target 'A1': dummy error"), behavior: .error)
+                result.checkUnordered(diagnostic: .contains("failed extracting '/tmp/ws/pkgs/A/ArtifactBundles/A2.zip' which is required by binary target 'A2': dummy error"), behavior: .error)
+            }
+        }
+    }
+
+    func testLocalArchiveContainsArtifactWithIncorrectName() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        // create dummy xcframework and artifactbundle directories from the request archive
+        let archiver = MockArchiver(handler: { archiver, archivePath, destinationPath, completion in
+            do {
+                let name: String
+                switch archivePath.basename {
+                case "A1.zip":
+                    name = "incorrect-name.xcframework"
+                case "A2.zip":
+                    name = "incorrect-name.artifactbundle"
+                default:
+                    throw StringError("unexpected archivePath \(archivePath)")
+                }
+                try fs.createDirectory(destinationPath.appending(component: name), recursive: false)
+                archiver.extractions.append(MockArchiver.Extraction(archivePath: archivePath, destinationPath: destinationPath))
+                completion(.success(()))
+            } catch {
+                completion(.failure(error))
+            }
+        })
+
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            archiver: archiver,
+            roots: [
+                MockPackage(
+                    name: "Foo",
+                    targets: [
+                        MockTarget(name: "Foo", dependencies: [
+                            .product(name: "A1", package: "A"),
+                            .product(name: "A2", package: "A"),
+                        ]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        .scm(path: "./A", requirement: .exact("1.0.0"))
+                    ]
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "A",
+                    targets: [
+                        MockTarget(
+                            name: "A1",
+                            type: .binary,
+                            path: "XCFrameworks/A1.zip"
+                        ),
+                        MockTarget(
+                            name: "A2",
+                            type: .binary,
+                            path: "ArtifactBundles/A2.zip"
+                        ),
+                    ],
+                    products: [
+                        MockProduct(name: "A1", targets: ["A1"]),
+                        MockProduct(name: "A2", targets: ["A2"]),
+                    ],
+                    versions: ["1.0.0"]
+                )
+            ]
+        )
+
+        // Create dummy zip files
+        let aPath = workspace.packagesDir.appending(components: "A")
+
+        let aFrameworksPath = aPath.appending(component: "XCFrameworks")
+        try fs.createDirectory(aFrameworksPath, recursive: true)
+        try fs.writeFileContents(aFrameworksPath.appending(component: "A1.zip"), bytes: ByteString([0xA1]))
+
+        let aArtifactBundlesPath = aPath.appending(component: "ArtifactBundles")
+        try fs.createDirectory(aArtifactBundlesPath, recursive: true)
+        try fs.writeFileContents(aArtifactBundlesPath.appending(component: "A2.zip"), bytes: ByteString([0xA2]))
+
+        workspace.checkPackageGraphFailure(roots: ["Foo"]) { diagnostics in
+            DiagnosticsEngineTester(diagnostics) { result in
+                result.checkUnordered(diagnostic: .contains("local archive of binary target 'A1' does not contain expected binary artifact 'A1'") , behavior: .error)
+                result.checkUnordered(diagnostic: .contains("local archive of binary target 'A2' does not contain expected binary artifact 'A2'") , behavior: .error)
+            }
+        }
+    }
+
     func testChecksumForBinaryArtifact() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
