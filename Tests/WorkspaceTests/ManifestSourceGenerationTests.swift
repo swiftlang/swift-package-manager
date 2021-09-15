@@ -8,11 +8,13 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-import XCTest
+import PackageGraph
+import PackageLoading
+import PackageModel
 import SPMTestSupport
 import TSCBasic
-import PackageModel
 import Workspace
+import XCTest
 
 class ManifestSourceGenerationTests: XCTestCase {
     

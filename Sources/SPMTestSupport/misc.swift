@@ -10,14 +10,14 @@
 
 import class Foundation.NSDate
 import class Foundation.Thread
-import func XCTest.XCTFail
-
 import PackageGraph
+import PackageLoading
 import PackageModel
 import SourceControl
 import TSCBasic
 import TSCUtility
 import Workspace
+import func XCTest.XCTFail
 
 @_exported import TSCTestSupport
 

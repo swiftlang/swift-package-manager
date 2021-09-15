@@ -10,6 +10,7 @@
 
 
 import Basics
+import PackageGraph
 import PackageLoading
 import PackageModel
 import SourceControl

@@ -10,6 +10,8 @@
 
 import PackageModel
 import PackageGraph
+import TSCBasic
+import TSCUtility
 
 /// A file watcher utility for the Package.resolved file.
 ///
