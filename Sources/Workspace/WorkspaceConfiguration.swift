@@ -10,8 +10,12 @@
 
 import Basics
 import Foundation
-import TSCBasic
+import PackageGraph
+import PackageLoading
+import PackageModel
 import PackageRegistry
+import TSCBasic
+import TSCUtility
 
 // MARK: - Location
 

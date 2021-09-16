@@ -15,8 +15,9 @@ import Dispatch
 import func Foundation.NSUserName
 import class Foundation.ProcessInfo
 import func Foundation.NSHomeDirectory
-import PackageModel
 import PackageGraph
+import PackageLoading
+import PackageModel
 import SourceControl
 import SPMBuildCore
 import TSCBasic
