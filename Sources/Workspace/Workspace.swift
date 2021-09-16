@@ -1254,7 +1254,7 @@ extension Workspace {
         /// Returns all manifests contained in DependencyManifests.
         public func allDependencyManifests() -> OrderedDictionary<PackageIdentity, Manifest> {
             return self.dependencies.reduce(into: OrderedDictionary<PackageIdentity, Manifest>()) { partial, item in
-                partial[item.dependency.packageIdentity] = item.manifest
+                partial[item.dependency.packageRef.identity] = item.manifest
             }
         }
 
@@ -1290,7 +1290,7 @@ extension Workspace {
         func computePackageURLs() -> (required: Set<PackageReference>, missing: Set<PackageReference>) {
             let manifestsMap: [PackageIdentity: Manifest] = Dictionary(uniqueKeysWithValues:
                 self.root.packages.map { ($0.key, $0.value.manifest) } +
-                self.dependencies.map { ($0.dependency.packageIdentity, $0.manifest) }
+                self.dependencies.map { ($0.dependency.packageRef.identity, $0.manifest) }
             )
 
             var inputIdentities: Set<PackageReference> = []

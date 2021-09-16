@@ -57,10 +57,6 @@ extension Workspace {
         /// The checked out path of the dependency on disk, relative to the workspace checkouts path.
         public let subpath: RelativePath
 
-        public var packageIdentity: PackageIdentity {
-            self.packageRef.identity
-        }
-
         internal init(
             packageRef: PackageReference,
             state: State,
