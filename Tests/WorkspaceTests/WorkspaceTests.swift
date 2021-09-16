@@ -6759,6 +6759,46 @@ final class WorkspaceTests: XCTestCase {
             }
         }
     }
+
+    func testBinaryArtifactsInvalidPath() throws {
+        let fs = localFileSystem
+        try testWithTemporaryDirectory { path in
+            let foo = path.appending(component: "foo")
+
+            try fs.writeFileContents(foo.appending(component: "Package.swift")) {
+                $0 <<<
+                    """
+                    // swift-tools-version:5.3
+                    import PackageDescription
+                    let package = Package(
+                        name: "Best",
+                        targets: [
+                            .binaryTarget(name: "best", path: "/best.xcframework")
+                        ]
+                    )
+                    """
+            }
+
+            let manifestLoader = ManifestLoader(manifestResources: Resources.default)
+            let sandbox = path.appending(component: "ws")
+            let workspace = Workspace(
+                dataPath: sandbox.appending(component: ".build"),
+                editablesPath: sandbox.appending(component: "edits"),
+                pinsFile: sandbox.appending(component: "Package.resolved"),
+                manifestLoader: manifestLoader,
+                delegate: MockWorkspaceDelegate(),
+                cachePath: fs.swiftPMCacheDirectory.appending(component: "repositories"))
+
+            do {
+                let diagnostics = DiagnosticsEngine()
+                try workspace.resolve(root: .init(packages: [foo]), diagnostics: diagnostics)
+            } catch {
+                XCTAssertEqual(error.localizedDescription, "invalid relative path '/best.xcframework'; relative path should not begin with '/' or '~'")
+                return
+            }
+            XCTFail("unexpected success")
+        }
+    }
 }
 
 struct DummyError: LocalizedError, Equatable {
