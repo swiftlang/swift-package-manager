@@ -215,6 +215,7 @@ public final class MockWorkspace {
         return packages.map { rootsDir.appending(RelativePath($0)) }
     }
 
+    @available(*, deprecated)
     public func checkEdit(
         packageName: String,
         path: AbsolutePath? = nil,
@@ -236,6 +237,7 @@ public final class MockWorkspace {
         result(diagnostics)
     }
 
+    @available(*, deprecated)
     public func checkUnedit(
         packageName: String,
         roots: [String],
