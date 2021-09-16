@@ -27,7 +27,7 @@ internal protocol PackageIdentityProvider: CustomStringConvertible {
 }
 
 /// The canonical identifier for a package, based on its source location.
-public struct PackageIdentity: Hashable, CustomStringConvertible {
+public struct PackageIdentity: CustomStringConvertible {
     /// The underlying type used to create package identities.
     internal static var provider: PackageIdentityProvider.Type = LegacyPackageIdentity.self
 
@@ -59,9 +59,27 @@ public struct PackageIdentity: Hashable, CustomStringConvertible {
     }
 }
 
-extension PackageIdentity: Comparable {
+extension PackageIdentity: Equatable, Comparable {
+    private func compare(to other: PackageIdentity) -> ComparisonResult {
+        return self.description.caseInsensitiveCompare(other.description)
+    }
+
+    public static func == (lhs: PackageIdentity, rhs: PackageIdentity) -> Bool {
+        return lhs.compare(to: rhs) == .orderedSame
+    }
+
     public static func < (lhs: PackageIdentity, rhs: PackageIdentity) -> Bool {
-        return lhs.description < rhs.description
+        return lhs.compare(to: rhs) == .orderedAscending
+    }
+
+    public static func > (lhs: PackageIdentity, rhs: PackageIdentity) -> Bool {
+        return lhs.compare(to: rhs) == .orderedDescending
+    }
+}
+
+extension PackageIdentity: Hashable {
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(description.lowercased())
     }
 }
 
