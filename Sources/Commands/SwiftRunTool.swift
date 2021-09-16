@@ -101,7 +101,7 @@ public struct SwiftRunTool: SwiftCommand {
 
     public func run(_ swiftTool: SwiftTool) throws {
         if options.shouldBuildTests && options.shouldSkipBuild {
-            DiagnosticsEmitter().emit(
+            ObservabilitySystem.topScope.emit(
               .mutuallyExclusiveArgumentsError(arguments: ["--build-tests", "--skip-build"]))
             throw ExitCode.failure
         }
@@ -162,14 +162,14 @@ public struct SwiftRunTool: SwiftCommand {
                 let lldbPath = try swiftTool.getToolchain().getLLDB()
                 try exec(path: lldbPath.pathString, args: ["--", pathRelativeToWorkingDirectory.pathString] + options.arguments)
             } catch let error as RunError {
-                DiagnosticsEmitter().emit(error)
+                ObservabilitySystem.topScope.emit(error)
                 throw ExitCode.failure
             }
 
         case .run:
             // Detect deprecated uses of swift run to interpret scripts.
             if let executable = options.executable, isValidSwiftFilePath(executable) {
-                DiagnosticsEmitter().emit(.runFileDeprecation)
+                ObservabilitySystem.topScope.emit(.runFileDeprecation)
                 // Redirect execution to the toolchain's swift executable.
                 let swiftInterpreterPath = try swiftTool.getToolchain().swiftInterpreterPath
                 // Prepend the script to interpret to the arguments.
@@ -201,7 +201,7 @@ public struct SwiftRunTool: SwiftCommand {
             } catch Diagnostics.fatalError {
                 throw ExitCode.failure
             } catch let error as RunError {
-                DiagnosticsEmitter().emit(error)
+                ObservabilitySystem.topScope.emit(error)
                 throw ExitCode.failure
             }
         }

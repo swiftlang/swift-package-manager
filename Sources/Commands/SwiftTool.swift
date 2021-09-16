@@ -323,7 +323,7 @@ public class SwiftTool {
 
         // Capture the original working directory ASAP.
         guard let cwd = localFileSystem.currentWorkingDirectory else {
-            DiagnosticsEmitter().emit(error: "couldn't determine the current working directory")
+            ObservabilitySystem.topScope.emit(error: "couldn't determine the current working directory")
             throw ExitCode.failure
         }
         originalWorkingDirectory = cwd
@@ -377,7 +377,7 @@ public class SwiftTool {
             self.buildSystemRef = buildSystemRef
 
         } catch {
-            DiagnosticsEmitter().emit(error)
+            ObservabilitySystem.topScope.emit(error)
             throw ExitCode.failure
         }
 
@@ -498,10 +498,10 @@ public class SwiftTool {
         let netrcFilePath = options.netrcFilePath ?? localFileSystem.homeDirectory.appending(component: ".netrc")
         guard localFileSystem.exists(netrcFilePath) else {
             if !options.netrcOptional {
-                DiagnosticsEmitter().emit(error: "Cannot find mandatory .netrc file at \(netrcFilePath). To make .netrc file optional, use --netrc-optional flag.")
+                ObservabilitySystem.topScope.emit(error: "Cannot find mandatory .netrc file at \(netrcFilePath). To make .netrc file optional, use --netrc-optional flag.")
                 throw ExitCode.failure
             } else {
-                DiagnosticsEmitter().emit(warning: "Did not find optional .netrc file at \(netrcFilePath).")
+                ObservabilitySystem.topScope.emit(warning: "Did not find optional .netrc file at \(netrcFilePath).")
                 return .none
             }
         }
@@ -520,7 +520,7 @@ public class SwiftTool {
         do {
             return try localFileSystem.getOrCreateSwiftPMCacheDirectory()
         } catch {
-            DiagnosticsEmitter().emit(warning: "Failed creating default cache location, \(error)")
+            ObservabilitySystem.topScope.emit(warning: "Failed creating default cache location, \(error)")
             return .none
         }
     }
@@ -537,7 +537,7 @@ public class SwiftTool {
         do {
             return try localFileSystem.getOrCreateSwiftPMConfigDirectory()
         } catch {
-            DiagnosticsEmitter().emit(warning: "Failed creating default configuration location, \(error)")
+            ObservabilitySystem.topScope.emit(warning: "Failed creating default configuration location, \(error)")
             return .none
         }
     }

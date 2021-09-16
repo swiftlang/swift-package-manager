@@ -470,7 +470,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                     metadata.manifestLoadingDiagnosticFile = diagnosticFile
                     return metadata
                 }
-                DiagnosticsEmitter().emit(warning: compilerOutput, metadata: metadata)
+                ObservabilitySystem.topScope.emit(warning: compilerOutput, metadata: metadata)
             }
         }
 

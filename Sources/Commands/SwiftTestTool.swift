@@ -239,7 +239,7 @@ public struct SwiftTestTool: SwiftCommand {
             // to be removed in future releases
             // deprecation warning is emitted by validateArguments
             #if os(Linux)
-            DiagnosticsEmitter().emit(warning: "can't discover tests on Linux; please use this option on macOS instead")
+            ObservabilitySystem.topScope.emit(warning: "can't discover tests on Linux; please use this option on macOS instead")
             #endif
             let graph = try swiftTool.loadPackageGraph()
             let testProducts = try buildTestsIfNeeded(swiftTool: swiftTool)
@@ -272,7 +272,7 @@ public struct SwiftTestTool: SwiftCommand {
             case .regex, .specific, .skip:
                 // If old specifier `-s` option was used, emit deprecation notice.
                 if case .specific = options.testCaseSpecifier {
-                    DiagnosticsEmitter().emit(warning: "'--specifier' option is deprecated; use '--filter' instead")
+                    ObservabilitySystem.topScope.emit(warning: "'--specifier' option is deprecated; use '--filter' instead")
                 }
 
                 // Find the tests we need to run.
@@ -283,7 +283,7 @@ public struct SwiftTestTool: SwiftCommand {
 
                 // If there were no matches, emit a warning.
                 if tests.isEmpty {
-                    DiagnosticsEmitter().emit(.noMatchingTests)
+                    ObservabilitySystem.topScope.emit(.noMatchingTests)
                     xctestArg = "''"
                 } else {
                     xctestArg = tests.map { $0.specifier }.joined(separator: ",")
@@ -321,7 +321,7 @@ public struct SwiftTestTool: SwiftCommand {
 
             // If there were no matches, emit a warning and exit.
             if tests.isEmpty {
-                DiagnosticsEmitter().emit(.noMatchingTests)
+                ObservabilitySystem.topScope.emit(.noMatchingTests)
                 return
             }
 

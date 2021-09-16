@@ -153,7 +153,7 @@ func ModuleMapTester(_ targetName: String, includeDir: String = "include", in fi
     
     // Generate a module map and capture any emitted diagnostics.
     let generatedModuleMapPath = AbsolutePath.root.appending(components: "module.modulemap")
-    DiagnosticsEmitter().trap {
+    ObservabilitySystem.topScope.trap {
         if let generatedModuleMapType = moduleMapType.generatedModuleMapType {
             try moduleMapGenerator.generateModuleMap(type: generatedModuleMapType, at: generatedModuleMapPath)
         }

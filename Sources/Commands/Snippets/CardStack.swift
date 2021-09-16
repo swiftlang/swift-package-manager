@@ -96,7 +96,7 @@ struct CardStack {
                 case let .pop(error):
                     cards.removeLast()
                     if let error = error {
-                        DiagnosticsEmitter().emit(error)
+                        ObservabilitySystem.topScope.emit(error)
                         needsToClearScreen = false
                     } else {
                         needsToClearScreen = !cards.isEmpty

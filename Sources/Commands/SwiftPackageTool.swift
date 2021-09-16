@@ -144,7 +144,7 @@ extension SwiftPackageTool {
                 )
             }
 
-            if let pinsStore = DiagnosticsEmitter().trap({ try workspace.pinsStore.load() }), let changes = changes, dryRun {
+            if let pinsStore = ObservabilitySystem.topScope.trap({ try workspace.pinsStore.load() }), let changes = changes, dryRun {
                 logPackageChanges(changes: changes, pins: pinsStore, on: swiftTool.outputStream)
             }
 
@@ -409,7 +409,7 @@ extension SwiftPackageTool {
                 .subtracting(skippedModules)
                 .subtracting(results.map(\.moduleName))
             for failedModule in failedModules {
-                DiagnosticsEmitter().emit(error: "failed to read API digester output for \(failedModule)")
+                ObservabilitySystem.topScope.emit(error: "failed to read API digester output for \(failedModule)")
             }
 
             for result in results.get() {
@@ -834,7 +834,7 @@ extension SwiftPackageTool {
         }
 
         func run(_ swiftTool: SwiftTool) throws {
-            DiagnosticsEmitter().emit(warning: "Xcode can open and build Swift Packages directly. 'generate-xcodeproj' is no longer needed and will be deprecated soon.")
+            ObservabilitySystem.topScope.emit(warning: "Xcode can open and build Swift Packages directly. 'generate-xcodeproj' is no longer needed and will be deprecated soon.")
 
             let graph = try swiftTool.loadPackageGraph()
 
@@ -909,12 +909,12 @@ extension SwiftPackageTool.Config {
             let config = try swiftTool.getMirrorsConfig()
 
             if packageURL != nil {
-                DiagnosticsEmitter().emit(
+                ObservabilitySystem.topScope.emit(
                     warning: "'--package-url' option is deprecated; use '--original-url' instead")
             }
 
             guard let originalURL = packageURL ?? originalURL else {
-                DiagnosticsEmitter().emit(.missingRequiredArg("--original-url"))
+                ObservabilitySystem.topScope.emit(.missingRequiredArg("--original-url"))
                 throw ExitCode.failure
             }
 
@@ -944,12 +944,12 @@ extension SwiftPackageTool.Config {
             let config = try swiftTool.getMirrorsConfig()
 
             if packageURL != nil {
-                DiagnosticsEmitter().emit(
+                ObservabilitySystem.topScope.emit(
                     warning: "'--package-url' option is deprecated; use '--original-url' instead")
             }
 
             guard let originalOrMirrorURL = packageURL ?? originalURL ?? mirrorURL else {
-                DiagnosticsEmitter().emit(.missingRequiredArg("--original-url or --mirror-url"))
+                ObservabilitySystem.topScope.emit(.missingRequiredArg("--original-url or --mirror-url"))
                 throw ExitCode.failure
             }
 
@@ -976,12 +976,12 @@ extension SwiftPackageTool.Config {
             let config = try swiftTool.getMirrorsConfig()
 
             if packageURL != nil {
-                DiagnosticsEmitter().emit(
+                ObservabilitySystem.topScope.emit(
                     warning: "'--package-url' option is deprecated; use '--original-url' instead")
             }
 
             guard let originalURL = packageURL ?? originalURL else {
-                DiagnosticsEmitter().emit(.missingRequiredArg("--original-url"))
+                ObservabilitySystem.topScope.emit(.missingRequiredArg("--original-url"))
                 throw ExitCode.failure
             }
 
@@ -1052,7 +1052,7 @@ extension SwiftPackageTool {
         var resolveOptions: ResolveOptions
         
         func run(_ swiftTool: SwiftTool) throws {
-            DiagnosticsEmitter().emit(warning: "'fetch' command is deprecated; use 'resolve' instead")
+            ObservabilitySystem.topScope.emit(warning: "'fetch' command is deprecated; use 'resolve' instead")
             
             let resolveCommand = Resolve(swiftOptions: _swiftOptions, resolveOptions: _resolveOptions)
             try resolveCommand.run(swiftTool)

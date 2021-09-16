@@ -72,12 +72,20 @@ final class ObservabilitySystemTest: XCTestCase {
         let childScope3 = childScope2.makeChildScope(description: "child 3", metadata: metadata3)
         childScope3.emit(error: "error 3")
 
-        let emitter3 = childScope3.makeDiagnosticsEmitter()
+        var metadata3_5 = ObservabilityMetadata()
+        metadata3_5.testKey1 = UUID().uuidString
+
+        let mergedMetadata3_5 = metadata1.merging(metadata2).merging(metadata3).merging(metadata3_5)
+        XCTAssertEqual(mergedMetadata3_5.testKey1, metadata3_5.testKey1)
+        XCTAssertEqual(mergedMetadata3_5.testKey2, metadata2.testKey2)
+        XCTAssertEqual(mergedMetadata3_5.testKey3, metadata1.testKey3)
+
+        let emitter3 = childScope3.makeDiagnosticsEmitter(metadata: metadata3_5)
         emitter3.emit(error: "error 3.5")
 
         testDiagnostics(collector.diagnostics) { result in
             result.check(diagnostic: "error 3", severity: .error, metadata: mergedMetadata3)
-            result.check(diagnostic: "error 3.5", severity: .error, metadata: mergedMetadata3)
+            result.check(diagnostic: "error 3.5", severity: .error, metadata: mergedMetadata3_5)
         }
     }
 

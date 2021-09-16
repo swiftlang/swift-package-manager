@@ -2399,7 +2399,7 @@ final class PackageBuilderTester {
         } catch {
             let errorString = String(describing: error)
             result = .error(errorString)
-            DiagnosticsEmitter().emit(error: errorString)
+            ObservabilitySystem.topScope.emit(error)
         }
 
         testDiagnostics(observability.diagnostics) { diagnostics in

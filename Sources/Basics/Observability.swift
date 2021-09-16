@@ -200,11 +200,6 @@ public struct DiagnosticsEmitter: DiagnosticsEmitterProtocol {
     private let scope: ObservabilityScope
     private let metadata: ObservabilityMetadata?
 
-    // uses the global Observability System
-    public init (metadata: ObservabilityMetadata? = .none) {
-        self = ObservabilitySystem.topScope.makeDiagnosticsEmitter(metadata: metadata)
-    }
-
     fileprivate init(scope: ObservabilityScope, metadata: ObservabilityMetadata?) {
         self.scope = scope
         self.metadata = metadata
