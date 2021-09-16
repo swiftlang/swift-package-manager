@@ -62,7 +62,7 @@ struct TestCertificatePolicy: CertificatePolicy {
                         diagnosticsEngine: ObservabilitySystem.topScope.makeDiagnosticsEngine(), callbackQueue: callbackQueue, callback: callback)
             #else
             self.verify(certChain: certChain, anchorCerts: self.anchorCerts, verifyDate: self.verifyDate, httpClient: nil,
-                        diagnosticsEngine: ObservabilitySystem.makeDiagnosticsEngine(), callbackQueue: callbackQueue, callback: callback)
+                        diagnosticsEngine: ObservabilitySystem.topScope.makeDiagnosticsEngine(), callbackQueue: callbackQueue, callback: callback)
             #endif
         } catch {
             return callbackQueue.async { callback(.failure(error)) }
