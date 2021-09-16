@@ -141,7 +141,7 @@ extension Basics.Diagnostic {
     }
 }
 
-extension DiagnosticsMetadata {
+extension ObservabilityMetadata {
     public var manifestLoadingDiagnosticFile: AbsolutePath? {
         get {
             self[ManifestLoadingDiagnosticFileKey.self]
@@ -151,7 +151,7 @@ extension DiagnosticsMetadata {
         }
     }
     
-    enum ManifestLoadingDiagnosticFileKey: DiagnosticsMetadataKey {
+    enum ManifestLoadingDiagnosticFileKey: Key {
         typealias Value = AbsolutePath
     }
 }

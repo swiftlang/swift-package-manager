@@ -101,7 +101,7 @@ public struct SwiftBuildTool: SwiftCommand {
         checkClangVersion()
       #endif
 
-        guard let subset = options.buildSubset(diagnostics: ObservabilitySystem.makeDiagnosticsEngine())
+        guard let subset = options.buildSubset(diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine())
             else { throw ExitCode.failure }
         let buildSystem = try swiftTool.createBuildSystem(explicitProduct: options.product)
         do {

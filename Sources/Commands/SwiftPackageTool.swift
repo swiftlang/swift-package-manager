@@ -84,7 +84,7 @@ extension SwiftPackageTool {
         var swiftOptions: SwiftToolOptions
         
         func run(_ swiftTool: SwiftTool) throws {
-            try swiftTool.getActiveWorkspace().clean(with: ObservabilitySystem.makeDiagnosticsEngine())
+            try swiftTool.getActiveWorkspace().clean(with: ObservabilitySystem.topScope.makeDiagnosticsEngine())
         }
     }
 
@@ -96,7 +96,7 @@ extension SwiftPackageTool {
         var swiftOptions: SwiftToolOptions
 
         func run(_ swiftTool: SwiftTool) throws {
-            try swiftTool.getActiveWorkspace().purgeCache(with: ObservabilitySystem.makeDiagnosticsEngine())
+            try swiftTool.getActiveWorkspace().purgeCache(with: ObservabilitySystem.topScope.makeDiagnosticsEngine())
         }
     }
     
@@ -108,7 +108,7 @@ extension SwiftPackageTool {
         var swiftOptions: SwiftToolOptions
         
         func run(_ swiftTool: SwiftTool) throws {
-            try swiftTool.getActiveWorkspace().reset(with: ObservabilitySystem.makeDiagnosticsEngine())
+            try swiftTool.getActiveWorkspace().reset(with: ObservabilitySystem.topScope.makeDiagnosticsEngine())
         }
     }
     
@@ -132,15 +132,15 @@ extension SwiftPackageTool {
             let changes = try workspace.updateDependencies(
                 root: swiftTool.getWorkspaceRoot(),
                 packages: packages,
-                diagnostics: ObservabilitySystem.makeDiagnosticsEngine(),
+                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
                 dryRun: dryRun
             )
 
             // try to load the graph which will emit any errors
-            if !ObservabilitySystem.errorsReported {
+            if !ObservabilitySystem.topScope.errorsReported {
                 _ = try workspace.loadPackageGraph(
                     rootInput: swiftTool.getWorkspaceRoot(),
-                    diagnostics: ObservabilitySystem.makeDiagnosticsEngine()
+                    diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine()
                 )
             }
 
@@ -151,7 +151,7 @@ extension SwiftPackageTool {
             if !dryRun {
                 // Throw if there were errors when loading the graph.
                 // The actual errors will be printed before exiting.
-                guard !ObservabilitySystem.errorsReported else {
+                guard !ObservabilitySystem.topScope.errorsReported else {
                     throw ExitCode.failure
                 }
             }
@@ -173,7 +173,7 @@ extension SwiftPackageTool {
             let root = try swiftTool.getWorkspaceRoot()
 
             let rootManifests = try temp_await {
-                workspace.loadRootManifests(packages: root.packages, diagnostics: ObservabilitySystem.makeDiagnosticsEngine(), completion: $0)
+                workspace.loadRootManifests(packages: root.packages, diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(), completion: $0)
             }
             guard let rootManifest = rootManifests.values.first else {
                 throw StringError("invalid manifests at \(root.packages)")
@@ -244,7 +244,7 @@ extension SwiftPackageTool {
             let workspace = try swiftTool.getActiveWorkspace()
             let root = try swiftTool.getWorkspaceRoot()
             let rootManifests = try temp_await {
-                workspace.loadRootManifests(packages: root.packages, diagnostics: ObservabilitySystem.makeDiagnosticsEngine(), completion: $0)
+                workspace.loadRootManifests(packages: root.packages, diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(), completion: $0)
             }
             guard let rootManifest = rootManifests.values.first else {
                 throw StringError("invalid manifests at \(root.packages)")
@@ -356,7 +356,7 @@ extension SwiftPackageTool {
 
             let packageGraph = try buildOp.getPackageGraph()
             let modulesToDiff = try determineModulesToDiff(packageGraph: packageGraph,
-                                                           diagnostics: ObservabilitySystem.makeDiagnosticsEngine())
+                                                           diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine())
 
             // Build the current package.
             try buildOp.build()
@@ -367,7 +367,7 @@ extension SwiftPackageTool {
                 packageRoot: swiftTool.getPackageRoot(),
                 buildParameters: buildOp.buildParameters,
                 apiDigesterTool: apiDigesterTool,
-                diags: ObservabilitySystem.makeDiagnosticsEngine()
+                diags: ObservabilitySystem.topScope.makeDiagnosticsEngine()
             )
 
             let baselineDir = try baselineDumper.emitAPIBaseline(
@@ -409,11 +409,11 @@ extension SwiftPackageTool {
                 .subtracting(skippedModules)
                 .subtracting(results.map(\.moduleName))
             for failedModule in failedModules {
-                DiagnosticsEmitter().emit(.error("failed to read API digester output for \(failedModule)"))
+                DiagnosticsEmitter().emit(error: "failed to read API digester output for \(failedModule)")
             }
 
             for result in results.get() {
-                printComparisonResult(result, diagnosticsEngine: ObservabilitySystem.makeDiagnosticsEngine())
+                printComparisonResult(result, diagnosticsEngine: ObservabilitySystem.topScope.makeDiagnosticsEngine())
             }
 
             guard failedModules.isEmpty && results.get().allSatisfy(\.hasNoAPIBreakingChanges) else {
@@ -431,11 +431,11 @@ extension SwiftPackageTool {
                             .rootPackages
                             .flatMap(\.products)
                             .first(where: { $0.name == productName }) else {
-                        diagnostics.emit(.error("no such product '\(productName)'"))
+                        diagnostics.emit(error: "no such product '\(productName)'")
                         continue
                     }
                     guard product.type.isLibrary else {
-                        diagnostics.emit(.error("'\(productName)' is not a library product"))
+                        diagnostics.emit(error: "'\(productName)' is not a library product")
                         continue
                     }
                     modulesToDiff.formUnion(product.targets.filter { $0.underlyingTarget is SwiftTarget }.map(\.c99name))
@@ -445,15 +445,15 @@ extension SwiftPackageTool {
                             .rootPackages
                             .flatMap(\.targets)
                             .first(where: { $0.name == targetName }) else {
-                        diagnostics.emit(.error("no such target '\(targetName)'"))
+                        diagnostics.emit(error: "no such target '\(targetName)'")
                         continue
                     }
                     guard target.type == .library else {
-                        diagnostics.emit(.error("'\(targetName)' is not a library target"))
+                        diagnostics.emit(error: "'\(targetName)' is not a library target")
                         continue
                     }
                     guard target.underlyingTarget is SwiftTarget else {
-                        diagnostics.emit(.error("'\(targetName)' is not a Swift language target"))
+                        diagnostics.emit(error: "'\(targetName)' is not a Swift language target")
                         continue
                     }
                     modulesToDiff.insert(target.c99name)
@@ -551,7 +551,7 @@ extension SwiftPackageTool {
             let root = try swiftTool.getWorkspaceRoot()
 
             let rootManifests = try temp_await {
-                workspace.loadRootManifests(packages: root.packages, diagnostics: ObservabilitySystem.makeDiagnosticsEngine(), completion: $0)
+                workspace.loadRootManifests(packages: root.packages, diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(), completion: $0)
             }
             guard let rootManifest = rootManifests.values.first else {
                 throw StringError("invalid manifests at \(root.packages)")
@@ -576,7 +576,7 @@ extension SwiftPackageTool {
         func run(_ swiftTool: SwiftTool) throws {
             let graph = try swiftTool.loadPackageGraph(createMultipleTestProducts: true)
             let parameters = try PIFBuilderParameters(swiftTool.buildParameters())
-            let builder = PIFBuilder(graph: graph, parameters: parameters, diagnostics: ObservabilitySystem.makeDiagnosticsEngine())
+            let builder = PIFBuilder(graph: graph, parameters: parameters, diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine())
             let pif = try builder.generatePIF(preservePIFModelStructure: preserveStructure)
             print(pif)
         }
@@ -611,7 +611,7 @@ extension SwiftPackageTool {
                 path: path,
                 revision: revision,
                 checkoutBranch: checkoutBranch,
-                diagnostics: ObservabilitySystem.makeDiagnosticsEngine())
+                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine())
         }
     }
 
@@ -637,7 +637,7 @@ extension SwiftPackageTool {
                 packageName: packageName,
                 forceRemove: shouldForceRemove,
                 root: swiftTool.getWorkspaceRoot(),
-                diagnostics: ObservabilitySystem.makeDiagnosticsEngine()
+                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine()
             )
         }
     }
@@ -737,10 +737,10 @@ extension SwiftPackageTool {
             let workspace = try swiftTool.getActiveWorkspace()
             let checksum = workspace.checksum(
                 forBinaryArtifactAt: path,
-                diagnostics: ObservabilitySystem.makeDiagnosticsEngine()
+                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine()
             )
 
-            guard !ObservabilitySystem.errorsReported else {
+            guard !ObservabilitySystem.topScope.errorsReported else {
                 throw ExitCode.failure
             }
 
@@ -834,7 +834,7 @@ extension SwiftPackageTool {
         }
 
         func run(_ swiftTool: SwiftTool) throws {
-            DiagnosticsEmitter().emit(.warning("Xcode can open and build Swift Packages directly. 'generate-xcodeproj' is no longer needed and will be deprecated soon."))
+            DiagnosticsEmitter().emit(warning: "Xcode can open and build Swift Packages directly. 'generate-xcodeproj' is no longer needed and will be deprecated soon.")
 
             let graph = try swiftTool.loadPackageGraph()
 
@@ -863,7 +863,7 @@ extension SwiftPackageTool {
                 xcodeprojPath: xcodeprojPath,
                 graph: graph,
                 options: genOptions,
-                diagnostics: ObservabilitySystem.makeDiagnosticsEngine()
+                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine()
             )
 
             print("generated:", xcodeprojPath.prettyPath(cwd: swiftTool.originalWorkingDirectory))
@@ -871,7 +871,7 @@ extension SwiftPackageTool {
             // Run the file watcher if requested.
             if options.enableAutogeneration {
                 try WatchmanHelper(
-                    diagnostics: ObservabilitySystem.makeDiagnosticsEngine(),
+                    diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
                     watchmanScriptsDir: swiftTool.buildPath.appending(component: "watchman"),
                     packageRoot: swiftTool.packageRoot!
                 ).runXcodeprojWatcher(xcodeprojOptions())
@@ -1031,8 +1031,8 @@ extension SwiftPackageTool {
                     version: resolveOptions.version,
                     branch: resolveOptions.branch,
                     revision: resolveOptions.revision,
-                    diagnostics: ObservabilitySystem.makeDiagnosticsEngine())
-                if ObservabilitySystem.errorsReported {
+                    diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine())
+                if ObservabilitySystem.topScope.errorsReported {
                     throw ExitCode.failure
                 }
             } else {

@@ -149,7 +149,7 @@ func ModuleMapTester(_ targetName: String, includeDir: String = "include", in fi
     let observability = ObservabilitySystem.bootstrapForTesting()
     // Create a module map generator, and determine the type of module map to use for the header directory.  This may emit diagnostics.
     let moduleMapGenerator = ModuleMapGenerator(targetName: targetName, moduleName: targetName.spm_mangledToC99ExtendedIdentifier(), publicHeadersDir: AbsolutePath.root.appending(component: includeDir), fileSystem: fileSystem)
-    let moduleMapType = moduleMapGenerator.determineModuleMapType(diagnostics: ObservabilitySystem.makeDiagnosticsEngine())
+    let moduleMapType = moduleMapGenerator.determineModuleMapType(diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine())
     
     // Generate a module map and capture any emitted diagnostics.
     let generatedModuleMapPath = AbsolutePath.root.appending(components: "module.modulemap")

@@ -122,7 +122,7 @@ public struct SwiftRunTool: SwiftCommand {
                 cacheBuildManifest: false,
                 packageGraphLoader: graphLoader,
                 pluginInvoker: { _ in [:] },
-                diagnostics: ObservabilitySystem.makeDiagnosticsEngine(),
+                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
                 outputStream: swiftTool.outputStream
             )
 

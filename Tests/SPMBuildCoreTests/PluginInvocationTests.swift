@@ -144,7 +144,7 @@ class PluginInvocationTests: XCTestCase {
             outputDir: outputDir,
             builtToolsDir: builtToolsDir,
             pluginScriptRunner: pluginRunner,
-            diagnostics: ObservabilitySystem.makeDiagnosticsEngine(),
+            diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
             fileSystem: fileSystem
         )
         

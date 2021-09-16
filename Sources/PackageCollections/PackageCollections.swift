@@ -32,7 +32,7 @@ public struct PackageCollections: PackageCollectionsProtocol {
     }
 
     // initialize with defaults
-    public init(configuration: Configuration = .init(), diagnosticsEngine: DiagnosticsEngine = ObservabilitySystem.makeDiagnosticsEngine()) {
+    public init(configuration: Configuration = .init(), diagnosticsEngine: DiagnosticsEngine = ObservabilitySystem.topScope.makeDiagnosticsEngine()) {
         let storage = Storage(sources: FilePackageCollectionsSourcesStorage(diagnosticsEngine: diagnosticsEngine),
                               collections: SQLitePackageCollectionsStorage(diagnosticsEngine: diagnosticsEngine))
 

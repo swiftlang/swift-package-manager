@@ -56,7 +56,7 @@ class GenerateXcodeprojTests: XCTestCase {
             xcodeprojPath: outpath,
             graph: graph,
             options: XcodeprojOptions(),
-            diagnostics: ObservabilitySystem.makeDiagnosticsEngine()
+            diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine()
           )
 
           XCTAssertDirectoryExists(outpath)
@@ -115,7 +115,7 @@ class GenerateXcodeprojTests: XCTestCase {
                     extraFiles: [],
                     options: options,
                     fileSystem: localFileSystem,
-                    diagnostics: ObservabilitySystem.makeDiagnosticsEngine()
+                    diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine()
                 )
                 XCTFail("Project generation should have failed")
             } catch ProjectGenerationError.xcconfigOverrideNotFound(let path) {
@@ -151,7 +151,7 @@ class GenerateXcodeprojTests: XCTestCase {
                 xcodeprojPath: AbsolutePath.root.appending(component: "xcodeproj"),
                 graph: graph, extraDirs: [], extraFiles: [],
                 options: XcodeprojOptions(), fileSystem: localFileSystem,
-                diagnostics: ObservabilitySystem.makeDiagnosticsEngine()
+                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine()
             )
 
             testDiagnostics(observability.diagnostics) { result in
@@ -193,7 +193,7 @@ class GenerateXcodeprojTests: XCTestCase {
                 xcodeprojPath: outpath,
                 graph: graph,
                 options: XcodeprojOptions(),
-                diagnostics: ObservabilitySystem.makeDiagnosticsEngine()
+                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine()
             )
 
             XCTAssertFalse(project.mainGroup.subitems.contains { $0.path == "a.txt" })
@@ -233,7 +233,7 @@ class GenerateXcodeprojTests: XCTestCase {
                 xcodeprojPath: outpath,
                 graph: graph,
                 options: XcodeprojOptions(),
-                diagnostics: ObservabilitySystem.makeDiagnosticsEngine()
+                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine()
             )
 
             XCTAssertFalse(project.mainGroup.subitems.contains { $0.path == ".a.txt" })
@@ -272,7 +272,7 @@ class GenerateXcodeprojTests: XCTestCase {
                 xcodeprojPath: outpath,
                 graph: graph,
                 options: XcodeprojOptions(),
-                diagnostics: ObservabilitySystem.makeDiagnosticsEngine()
+                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine()
             )
 
             XCTAssertTrue(project.mainGroup.subitems.contains { $0.path == "a.txt" })
@@ -282,7 +282,7 @@ class GenerateXcodeprojTests: XCTestCase {
                 xcodeprojPath: outpath,
                 graph: graph,
                 options: XcodeprojOptions(addExtraFiles: false),
-                diagnostics: ObservabilitySystem.makeDiagnosticsEngine()
+                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine()
             )
             XCTAssertFalse(projectWithoutExtraFiles.mainGroup.subitems.contains { $0.path == "a.txt" })
         }
@@ -321,7 +321,7 @@ class GenerateXcodeprojTests: XCTestCase {
                 xcodeprojPath: outpath,
                 graph: graph,
                 options: XcodeprojOptions(),
-                diagnostics: ObservabilitySystem.makeDiagnosticsEngine()
+                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine()
             )
 
             let sources = project.mainGroup.subitems[1] as? Xcode.Group
@@ -369,7 +369,7 @@ class GenerateXcodeprojTests: XCTestCase {
                 xcodeprojPath: outpath,
                 graph: graph,
                 options: XcodeprojOptions(),
-                diagnostics: ObservabilitySystem.makeDiagnosticsEngine()
+                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine()
             )
 
             let sources = project.mainGroup.subitems[1] as? Xcode.Group
@@ -431,7 +431,7 @@ class GenerateXcodeprojTests: XCTestCase {
                 xcodeprojPath: outpath,
                 graph: graph,
                 options: XcodeprojOptions(),
-                diagnostics: ObservabilitySystem.makeDiagnosticsEngine()
+                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine()
             )
 
             testDiagnostics(observability.diagnostics) { result in

@@ -826,7 +826,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                                     toolsVersion: .v4_2,
                                     identityResolver: identityResolver,
                                     fileSystem: localFileSystem,
-                                    diagnostics: ObservabilitySystem.makeDiagnosticsEngine(),
+                                    diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
                                     on: .global()) { result in
                     defer { sync.leave() }
 
@@ -890,7 +890,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                                     toolsVersion: .v4_2,
                                     identityResolver: identityResolver,
                                     fileSystem: localFileSystem,
-                                    diagnostics: ObservabilitySystem.makeDiagnosticsEngine(),
+                                    diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
                                     on: .global()) { result in
                     defer { sync.leave() }
 

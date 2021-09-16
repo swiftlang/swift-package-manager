@@ -118,7 +118,7 @@ class PackageDescriptionLoadingTests: XCTestCase {
                 contents,
                 toolsVersion: toolsVersion ?? self.toolsVersion,
                 packageKind: packageKind,
-                diagnostics: ObservabilitySystem.makeDiagnosticsEngine(),
+                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
                 file: file,
                 line: line)
             
@@ -147,7 +147,7 @@ class PackageDescriptionLoadingTests: XCTestCase {
                 contents,
                 toolsVersion: toolsVersion ?? self.toolsVersion,
                 packageKind: packageKind,
-                diagnostics: ObservabilitySystem.makeDiagnosticsEngine(),
+                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
                 file: file,
                 line: line)
             

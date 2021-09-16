@@ -397,8 +397,8 @@ public func xcodeProject(
 
         // Warn if the target name is invalid.
         if target.type == .library && invalidXcodeModuleNames.contains(target.c99name) {
-            diagnostics.emit(.warning("Target '\(target.name)' conflicts with required framework filenames, rename " +
-                                      "this target to avoid conflicts."))
+            diagnostics.emit(warning: "Target '\(target.name)' conflicts with required framework filenames, rename " +
+                                      "this target to avoid conflicts.")
         }
 
         // Create a Xcode target for the target.

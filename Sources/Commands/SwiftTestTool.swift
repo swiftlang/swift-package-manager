@@ -206,7 +206,7 @@ public struct SwiftTestTool: SwiftCommand {
     
     public func run(_ swiftTool: SwiftTool) throws {
         // Validate commands arguments
-        try validateArguments(diagnostics: ObservabilitySystem.makeDiagnosticsEngine())
+        try validateArguments(diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine())
 
         switch options.mode {
         case .listTests:
@@ -225,7 +225,7 @@ public struct SwiftTestTool: SwiftCommand {
             let workspace = try swiftTool.getActiveWorkspace()
             let root = try swiftTool.getWorkspaceRoot()
             let rootManifests = try temp_await {
-                workspace.loadRootManifests(packages: root.packages, diagnostics: ObservabilitySystem.makeDiagnosticsEngine(), completion: $0)
+                workspace.loadRootManifests(packages: root.packages, diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(), completion: $0)
             }
             guard let rootManifest = rootManifests.values.first else {
                 throw StringError("invalid manifests at \(root.packages)")
@@ -295,7 +295,7 @@ public struct SwiftTestTool: SwiftCommand {
                 xctestArg: xctestArg,
                 processSet: swiftTool.processSet,
                 toolchain: toolchain,
-                diagnostics: ObservabilitySystem.makeDiagnosticsEngine(),
+                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
                 options: swiftOptions,
                 buildParameters: buildParameters
             )
@@ -338,7 +338,7 @@ public struct SwiftTestTool: SwiftCommand {
                 toolchain: toolchain,
                 xUnitOutput: options.xUnitOutput,
                 numJobs: options.numberOfWorkers ?? ProcessInfo.processInfo.activeProcessorCount,
-                diagnostics: ObservabilitySystem.makeDiagnosticsEngine(),
+                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
                 options: swiftOptions,
                 buildParameters: buildParameters,
                 outputStream: swiftTool.outputStream
@@ -360,7 +360,7 @@ public struct SwiftTestTool: SwiftCommand {
         let workspace = try swiftTool.getActiveWorkspace()
         let root = try swiftTool.getWorkspaceRoot()
         let rootManifests = try temp_await {
-            workspace.loadRootManifests(packages: root.packages, diagnostics: ObservabilitySystem.makeDiagnosticsEngine(), completion: $0)
+            workspace.loadRootManifests(packages: root.packages, diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(), completion: $0)
         }
         guard let rootManifest = rootManifests.values.first else {
             throw StringError("invalid manifests at \(root.packages)")

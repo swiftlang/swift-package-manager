@@ -1009,7 +1009,7 @@ class PackageGraphTests: XCTestCase {
             ]
         )
 
-        testDiagnostics(observability.diagnostics, ignoreNotes: true) { result in
+        testDiagnostics(observability.diagnostics) { result in
             result.check(diagnostic: "multiple products named 'Bar' in: 'bar', 'baz'", severity: .error)
         }
     }
@@ -1074,7 +1074,7 @@ class PackageGraphTests: XCTestCase {
         )
 
         XCTAssertEqual(observability.diagnostics.count, 3)
-        testDiagnostics(observability.diagnostics, ignoreNotes: true) { result in
+        testDiagnostics(observability.diagnostics) { result in
             result.checkUnordered(diagnostic: .contains("the target 'Bar2' in product 'TransitiveBar' contains unsafe build flags"), severity: .error)
             result.checkUnordered(diagnostic: .contains("the target 'Bar' in product 'Bar' contains unsafe build flags"), severity: .error)
             result.checkUnordered(diagnostic: .contains("the target 'Bar2' in product 'Bar' contains unsafe build flags"), severity: .error)
@@ -1351,7 +1351,7 @@ class PackageGraphTests: XCTestCase {
             ]
         )
 
-        testDiagnostics(observability.diagnostics, ignoreNotes: true) { result in
+        testDiagnostics(observability.diagnostics) { result in
             result.check(
                 diagnostic: """
                     product 'Unknown' required by package 'foo' target 'Foo' not found.
@@ -1433,7 +1433,7 @@ class PackageGraphTests: XCTestCase {
             ]
         )
 
-        testDiagnostics(observability.diagnostics, ignoreNotes: true) { result in
+        testDiagnostics(observability.diagnostics) { result in
             result.check(
                 diagnostic: """
                     product 'Unknown' required by package 'foo' target 'Foo' not found.
@@ -1478,7 +1478,7 @@ class PackageGraphTests: XCTestCase {
         do {
             let observability = ObservabilitySystem.bootstrapForTesting()
             _ = try loadPackageGraph(fs: fs, manifests: manifests)
-            testDiagnostics(observability.diagnostics, ignoreNotes: true) { result in
+            testDiagnostics(observability.diagnostics) { result in
                 result.check(
                     diagnostic: """
                         dependency 'ProductBar' in target 'Foo' requires explicit declaration; reference the package in the target dependency with '.product(name: "ProductBar", package: "Bar")'
@@ -1541,7 +1541,7 @@ class PackageGraphTests: XCTestCase {
         do {
             let observability = ObservabilitySystem.bootstrapForTesting()
             _ = try loadPackageGraph(fs: fs, manifests: manifests)
-            testDiagnostics(observability.diagnostics, ignoreNotes: true) { result in
+            testDiagnostics(observability.diagnostics) { result in
                 result.check(
                     diagnostic: """
                         dependency 'ProductBar' in target 'Foo' requires explicit declaration; reference the package in the target dependency with '.product(name: "ProductBar", package: "Bar")'
@@ -1603,7 +1603,7 @@ class PackageGraphTests: XCTestCase {
         do {
             let observability = ObservabilitySystem.bootstrapForTesting()
             _ = try loadPackageGraph(fs: fs, manifests: manifests)
-            testDiagnostics(observability.diagnostics, ignoreNotes: true) { result in
+            testDiagnostics(observability.diagnostics) { result in
                 result.check(
                     diagnostic: """
                         dependency 'Bar' in target 'Foo' requires explicit declaration; reference the package in the target dependency with '.product(name: "Bar", package: "Some-Bar")'
@@ -1664,7 +1664,7 @@ class PackageGraphTests: XCTestCase {
         do {
             let observability = ObservabilitySystem.bootstrapForTesting()
             _ = try loadPackageGraph(fs: fs, manifests: manifests)
-            testDiagnostics(observability.diagnostics, ignoreNotes: true) { result in
+            testDiagnostics(observability.diagnostics) { result in
                 result.check(
                     diagnostic: """
                         dependency 'ProductBar' in target 'Foo' requires explicit declaration; reference the package in the target dependency with '.product(name: "ProductBar", package: "Some-Bar")'
@@ -1765,7 +1765,7 @@ class PackageGraphTests: XCTestCase {
         do {
             let observability = ObservabilitySystem.bootstrapForTesting()
             _ = try loadPackageGraph(fs: fs, manifests: manifests)
-            testDiagnostics(observability.diagnostics, ignoreNotes: true) { result in
+            testDiagnostics(observability.diagnostics) { result in
                 result.check(
                     diagnostic: """
                         dependency 'ProductBar' in target 'Foo' requires explicit declaration; reference the package in the target dependency with '.product(name: "ProductBar", package: "Bar")'

@@ -32,6 +32,8 @@ extension PackageGraph {
         fileSystem: FileSystem
     ) throws -> PackageGraph {
 
+        let observabilityScope = ObservabilitySystem.topScope.makeChildScope(description: "Loading Package Graph")
+
         // Create a map of the manifests, keyed by their identity.
         let rootManifestsMap = root.manifests
         let externalManifestsMap = externalManifests.map{ (identityResolver.resolveIdentity(for: $0.packageLocation), $0) }
@@ -67,7 +69,7 @@ extension PackageGraph {
 
         // Detect cycles in manifest dependencies.
         if let cycle = findCycle(inputManifests, successors: successors) {
-            DiagnosticsEmitter().emit(PackageGraphError.cycleDetected(cycle))
+            observabilityScope.emit(PackageGraphError.cycleDetected(cycle))
             // Break the cycle so we can build a partial package graph.
             allNodes = inputManifests.filter({ $0.manifest != cycle.cycle[0] })
         } else {
@@ -94,13 +96,15 @@ extension PackageGraph {
         // Create the packages.
         var manifestToPackage: [Manifest: Package] = [:]
         for node in allNodes {
-            let manifest = node.manifest
+            let diagnosticsEmitter = observabilityScope.makeDiagnosticsEmitter(
+                metadata: .packageMetadata(identity: node.identity, location: node.manifest.packageLocation)
+            )
 
+            let manifest = node.manifest
             // Derive the path to the package.
             //
             // FIXME: Lift this out of the manifest.
             let packagePath = manifest.path.parentDirectory
-            let diagnosticsEmitter = DiagnosticsEmitter(metadata: .packageMetadata(identity: node.identity, location: node.manifest.packageLocation))
             diagnosticsEmitter.trap {
                 // Create a package from the manifest and sources.
                 let builder = PackageBuilder(
@@ -133,11 +137,12 @@ extension PackageGraph {
             identityResolver: identityResolver,
             manifestToPackage: manifestToPackage,
             rootManifestSet: rootManifestSet,
-            unsafeAllowedPackages: unsafeAllowedPackages
+            unsafeAllowedPackages: unsafeAllowedPackages,
+            observabilityScope: observabilityScope
         )
 
         let rootPackages = resolvedPackages.filter{ rootManifestSet.contains($0.manifest) }
-        checkAllDependenciesAreUsed(rootPackages)
+        checkAllDependenciesAreUsed(rootPackages, observabilityScope: observabilityScope)
 
         return try PackageGraph(
             rootPackages: rootPackages,
@@ -147,7 +152,7 @@ extension PackageGraph {
     }
 }
 
-private func checkAllDependenciesAreUsed(_ rootPackages: [ResolvedPackage]) {
+private func checkAllDependenciesAreUsed(_ rootPackages: [ResolvedPackage], observabilityScope: ObservabilityScope) {
     for package in rootPackages {
         // List all dependency products dependent on by the package targets.
         let productDependencies: Set<ResolvedProduct> = Set(package.targets.flatMap({ target in
@@ -161,7 +166,6 @@ private func checkAllDependenciesAreUsed(_ rootPackages: [ResolvedPackage]) {
             })
         }))
 
-        let diagnosticsEmitter =  DiagnosticsEmitter()
         for dependency in package.dependencies {
             // We continue if the dependency contains executable products to make sure we don't
             // warn on a valid use-case for a lone dependency: swift run dependency executables.
@@ -177,8 +181,8 @@ private func checkAllDependenciesAreUsed(_ rootPackages: [ResolvedPackage]) {
             }
 
             let dependencyIsUsed = dependency.products.contains(where: productDependencies.contains)
-            if !dependencyIsUsed && !ObservabilitySystem.errorsReported {
-                diagnosticsEmitter.emit(.unusedDependency(dependency.identity.description))
+            if !dependencyIsUsed && !ObservabilitySystem.topScope.errorsReported {
+                observabilityScope.emit(.unusedDependency(dependency.identity.description))
             }
         }
     }
@@ -191,7 +195,8 @@ private func createResolvedPackages(
     manifestToPackage: [Manifest: Package],
     // FIXME: This shouldn't be needed once <rdar://problem/33693433> is fixed.
     rootManifestSet: Set<Manifest>,
-    unsafeAllowedPackages: Set<PackageReference>
+    unsafeAllowedPackages: Set<PackageReference>,
+    observabilityScope: ObservabilityScope
 ) throws -> [ResolvedPackage] {
 
     // Create package builder objects from the input manifests.
@@ -219,6 +224,11 @@ private func createResolvedPackages(
     for packageBuilder in packageBuilders {
         let package = packageBuilder.package
 
+        let packageObservabilityScope = observabilityScope.makeChildScope(
+            description: "Validating package dependencies",
+            metadata: package.diagnosticsMetadata
+        )
+
         var dependencies = [ResolvedPackageBuilder]()
         var dependenciesByNameForTargetDependencyResolution = [String: ResolvedPackageBuilder]()
 
@@ -236,8 +246,6 @@ private func createResolvedPackages(
                 fatalError("registry based dependencies not implemented yet")
             }
 
-            let diagnosticsEmitter = DiagnosticsEmitter(metadata: package.diagnosticsMetadata)
-
             // Otherwise, look it up by its identity.
             if let resolvedPackage = packagesByIdentity[dependency.identity] {
                 // check if this resolved package already listed in the dependencies
@@ -249,7 +257,7 @@ private func createResolvedPackages(
                         dependencyLocation: dependencyLocation,
                         otherDependencyURL: resolvedPackage.package.manifest.packageLocation,
                         identity: dependency.identity)
-                    return diagnosticsEmitter.emit(error)
+                    return packageObservabilityScope.emit(error)
                 }
 
                 // check if the resolved package location is the same as the dependency one
@@ -266,9 +274,9 @@ private func createResolvedPackages(
                     // we will upgrade this to an error in a few versions to tighten up the validation
                     if dependency.explicitNameForTargetDependencyResolutionOnly == .none ||
                         resolvedPackage.package.manifestName == dependency.explicitNameForTargetDependencyResolutionOnly {
-                        diagnosticsEmitter.emit(.warning(error.description + ". this will be escalated to an error in future versions of SwiftPM."))
+                        packageObservabilityScope.emit(warning: error.description + ". this will be escalated to an error in future versions of SwiftPM.")
                     } else {
-                        return diagnosticsEmitter.emit(error)
+                        return packageObservabilityScope.emit(error)
                     }
                 }
 
@@ -280,7 +288,7 @@ private func createResolvedPackages(
                             dependencyLocation: dependencyLocation,
                             otherDependencyURL: previouslyResolvedPackage.package.manifest.packageLocation,
                             name: explicitDependencyName)
-                        return diagnosticsEmitter.emit(error)
+                        return packageObservabilityScope.emit(error)
                     }
                 }
 
@@ -291,7 +299,7 @@ private func createResolvedPackages(
                         dependencyLocation: dependencyLocation,
                         otherDependencyURL: previouslyResolvedPackage.package.manifest.packageLocation,
                         name: dependency.identity.description)
-                    return diagnosticsEmitter.emit(error)
+                    return packageObservabilityScope.emit(error)
                 }
 
                 let nameForTargetDependencyResolution = dependency.explicitNameForTargetDependencyResolutionOnly ?? dependency.identity.description
@@ -304,7 +312,7 @@ private func createResolvedPackages(
         packageBuilder.dependencies = dependencies
 
         // Create target builders for each target in the package.
-        let targetBuilders = package.targets.map{ ResolvedTargetBuilder(target: $0) }
+        let targetBuilders = package.targets.map{ ResolvedTargetBuilder(target: $0, observabilityScope: observabilityScope) }
         packageBuilder.targets = targetBuilders
 
         // Establish dependencies between the targets. A target can only depend on another target present in the same package.
@@ -348,7 +356,7 @@ private func createResolvedPackages(
             .map{ $0.package.identity.description }
             .sorted()
 
-        DiagnosticsEmitter().emit(PackageGraphError.duplicateProduct(product: productName, packages: packages))
+        observabilityScope.emit(PackageGraphError.duplicateProduct(product: productName, packages: packages))
     }
 
     // Remove the duplicate products from the builders.
@@ -365,7 +373,11 @@ private func createResolvedPackages(
     // Do another pass and establish product dependencies of each target.
     for packageBuilder in packageBuilders {
         let package = packageBuilder.package
-        let diagnosticsEmitter = DiagnosticsEmitter(metadata: package.diagnosticsMetadata)
+
+        let packageObservabilityScope = observabilityScope.makeChildScope(
+            description: "Validating package targets",
+            metadata: package.diagnosticsMetadata
+        )
 
         // Get all implicit system library dependencies in this package.
         let implicitSystemTargetDeps = packageBuilder.dependencies
@@ -399,7 +411,7 @@ private func createResolvedPackages(
                     // This avoids flooding the diagnostics with product not
                     // found errors when there are more important errors to
                     // resolve (like authentication issues).
-                    if !ObservabilitySystem.errorsReported {
+                    if !ObservabilitySystem.topScope.errorsReported {
                         // Emit error if a product (not target) declared in the package is also a productRef (dependency)
                         let declProductsAsDependency = package.products.filter { product in
                             product.name == productRef.name
@@ -414,7 +426,7 @@ private func createResolvedPackages(
                             dependencyPackageName: productRef.package,
                             dependencyProductInDecl: !declProductsAsDependency.isEmpty
                         )
-                        diagnosticsEmitter.emit(error)
+                        packageObservabilityScope.emit(error)
                     }
                     continue
                 }
@@ -437,7 +449,7 @@ private func createResolvedPackages(
                             targetName: targetBuilder.target.name,
                             packageIdentifier: referencedPackageName
                         )
-                        diagnosticsEmitter.emit(error)
+                        packageObservabilityScope.emit(error)
                     }
                 }
 
@@ -455,7 +467,7 @@ private func createResolvedPackages(
                 .map{ $0.package.identity.description }
                 .sorted()
             if packages.count > 1 {
-                DiagnosticsEmitter().emit(ModuleError.duplicateModule(targetName, packages))
+                observabilityScope.emit(ModuleError.duplicateModule(targetName, packages))
             }
         }
     }
@@ -528,11 +540,16 @@ private final class ResolvedTargetBuilder: ResolvedBuilder<ResolvedTarget> {
     /// The target reference.
     let target: Target
 
+
+    /// scope with which to emit diagnostics
+    let observabilityScope: ObservabilityScope
+
     /// The target dependencies of this target.
     var dependencies: [Dependency] = []
 
-    init(target: Target) {
+    init(target: Target, observabilityScope: ObservabilityScope) {
         self.target = target
+        self.observabilityScope = observabilityScope
     }
 
     func diagnoseInvalidUseOfUnsafeFlags(_ product: ResolvedProduct) throws {
@@ -541,7 +558,7 @@ private final class ResolvedTargetBuilder: ResolvedBuilder<ResolvedTarget> {
             let declarations = target.underlyingTarget.buildSettings.assignments.keys
             for decl in declarations {
                 if BuildSettings.Declaration.unsafeSettings.contains(decl) {
-                    DiagnosticsEmitter().emit(.productUsesUnsafeFlags(product: product.name, target: target.name))
+                    self.observabilityScope.emit(.productUsesUnsafeFlags(product: product.name, target: target.name))
                     break
                 }
             }

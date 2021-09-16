@@ -248,7 +248,7 @@ extension SwiftCommand {
     public func run() throws {
         let swiftTool = try SwiftTool(options: swiftOptions)
         try self.run(swiftTool)
-        if ObservabilitySystem.errorsReported || swiftTool.executionStatus == .failure {
+        if ObservabilitySystem.topScope.errorsReported || swiftTool.executionStatus == .failure {
             throw ExitCode.failure
         }
     }
@@ -279,7 +279,7 @@ public class SwiftTool {
         let packages: [AbsolutePath]
 
         if let workspace = options.multirootPackageDataFile {
-            packages = try XcodeWorkspaceLoader(diagnostics: ObservabilitySystem.makeDiagnosticsEngine()).load(workspace: workspace)
+            packages = try XcodeWorkspaceLoader(diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine()).load(workspace: workspace)
         } else {
             packages = [try getPackageRoot()]
         }
@@ -329,7 +329,7 @@ public class SwiftTool {
         originalWorkingDirectory = cwd
 
         do {
-            try Self.postprocessArgParserResult(options: options, diagnostics: ObservabilitySystem.makeDiagnosticsEngine())
+            try Self.postprocessArgParserResult(options: options, diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine())
             self.options = options
             
             // Honor package-path option is provided.
@@ -549,7 +549,7 @@ public class SwiftTool {
         }
 
         let isVerbose = options.verbosity != 0
-        let delegate = ToolWorkspaceDelegate(self.outputStream, isVerbose: isVerbose, diagnostics: ObservabilitySystem.makeDiagnosticsEngine())
+        let delegate = ToolWorkspaceDelegate(self.outputStream, isVerbose: isVerbose, diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine())
         let provider = GitRepositoryProvider(processSet: processSet)
         let sharedCacheDirectory =  try self.getSharedCacheDirectory()
         let sharedConfigurationDirectory = try self.getSharedConfigurationDirectory()
@@ -590,14 +590,14 @@ public class SwiftTool {
         let root = try getWorkspaceRoot()
 
         if options.forceResolvedVersions {
-            try workspace.resolveBasedOnResolvedVersionsFile(root: root, diagnostics: ObservabilitySystem.makeDiagnosticsEngine())
+            try workspace.resolveBasedOnResolvedVersionsFile(root: root, diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine())
         } else {
-            try workspace.resolve(root: root, diagnostics: ObservabilitySystem.makeDiagnosticsEngine())
+            try workspace.resolve(root: root, diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine())
         }
 
         // Throw if there were errors when loading the graph.
         // The actual errors will be printed before exiting.
-        guard !ObservabilitySystem.errorsReported else {
+        guard !ObservabilitySystem.topScope.errorsReported else {
             throw ExitCode.failure
         }
     }
@@ -622,12 +622,12 @@ public class SwiftTool {
                 createMultipleTestProducts: createMultipleTestProducts,
                 createREPLProduct: createREPLProduct,
                 forceResolvedVersions: options.forceResolvedVersions,
-                diagnostics: ObservabilitySystem.makeDiagnosticsEngine()
+                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine()
             )
 
             // Throw if there were errors when loading the graph.
             // The actual errors will be printed before exiting.
-            guard !ObservabilitySystem.errorsReported else {
+            guard !ObservabilitySystem.topScope.errorsReported else {
                 throw ExitCode.failure
             }
             return graph
@@ -672,7 +672,7 @@ public class SwiftTool {
                 outputDir: outputDir,
                 builtToolsDir: builtToolsDir,
                 pluginScriptRunner: pluginScriptRunner,
-                diagnostics: ObservabilitySystem.makeDiagnosticsEngine(),
+                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
                 fileSystem: localFileSystem
             )
             return result
@@ -726,7 +726,7 @@ public class SwiftTool {
             cacheBuildManifest: cacheBuildManifest && self.canUseCachedBuildManifest(),
             packageGraphLoader: graphLoader,
             pluginInvoker: { _ in [:] },
-            diagnostics: ObservabilitySystem.makeDiagnosticsEngine(),
+            diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
             outputStream: self.outputStream
         )
 
@@ -746,7 +746,7 @@ public class SwiftTool {
                 cacheBuildManifest: self.canUseCachedBuildManifest(),
                 packageGraphLoader: graphLoader,
                 pluginInvoker: pluginInvoker,
-                diagnostics: ObservabilitySystem.makeDiagnosticsEngine(),
+                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
                 outputStream: self.outputStream
             )
         case .xcode:
@@ -756,7 +756,7 @@ public class SwiftTool {
                 buildParameters: buildParameters ?? self.buildParameters(),
                 packageGraphLoader: graphLoader,
                 isVerbose: verbosity != .concise,
-                diagnostics: ObservabilitySystem.makeDiagnosticsEngine(),
+                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
                 outputStream: self.outputStream
             )
         }
@@ -967,7 +967,8 @@ extension DispatchTimeInterval {
 // MARK: - Diagnostics
 
 struct SwiftToolObservability: ObservabilityFactory {
-    var diagnosticsHandler: DiagnosticsHandler = { diagnostic in
+    var diagnosticsHandler: DiagnosticsHandler = { scope, diagnostic in
+        // TODO: do something useful with scope
         diagnostic.print()
     }
 }
@@ -976,8 +977,8 @@ extension Basics.Diagnostic {
     func print() {
         let writer = InteractiveWriter.stderr
 
-        if let diagnosticLocation = self.metadata?.diagnosticLocation {
-            writer.write(diagnosticLocation)
+        if let diagnosticPrefix = self.metadata?.diagnosticPrefix {
+            writer.write(diagnosticPrefix)
             writer.write(": ")
         }
 
@@ -1032,10 +1033,12 @@ private final class InteractiveWriter {
     }
 }
 
-extension DiagnosticsMetadata {
-    public var diagnosticLocation: String? {
-        if let stringLocation = self.stringLocation {
-            return stringLocation
+// FIXME: this is for backwards compatibility with existing diagnostics printing format
+// we should remove this as we make use of the new scope and metadata to provide better contextual information
+extension ObservabilityMetadata {
+    fileprivate var diagnosticPrefix: String? {
+        if let legacyLocation = self.legacyLocation {
+            return legacyLocation
         } else if let packageIdentity = self.packageIdentity, let packageLocation = self.packageLocation {
             return "'\(packageIdentity)' \(packageLocation)"
         } else {

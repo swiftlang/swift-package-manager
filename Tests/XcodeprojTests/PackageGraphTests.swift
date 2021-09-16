@@ -81,7 +81,7 @@ class PackageGraphTests: XCTestCase {
             extraFiles: [],
             options: options,
             fileSystem: fs,
-            diagnostics: ObservabilitySystem.makeDiagnosticsEngine()
+            diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine()
         )
 
         XcodeProjectTester(project) { result in
@@ -228,7 +228,7 @@ class PackageGraphTests: XCTestCase {
             extraFiles: [],
             options: XcodeprojOptions(),
             fileSystem: fs,
-            diagnostics: ObservabilitySystem.makeDiagnosticsEngine()
+            diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine()
         )
         XcodeProjectTester(project) { result in
             result.check(target: "Foo") { targetResult in
@@ -275,7 +275,7 @@ class PackageGraphTests: XCTestCase {
             extraFiles: [],
             options: XcodeprojOptions(),
             fileSystem: fs,
-            diagnostics: ObservabilitySystem.makeDiagnosticsEngine()
+            diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine()
         )
         XcodeProjectTester(project) { result in
             result.check(target: "swift") { targetResult in
@@ -325,7 +325,7 @@ class PackageGraphTests: XCTestCase {
             extraFiles: [],
             options: XcodeprojOptions(),
             fileSystem: fs,
-            diagnostics: ObservabilitySystem.makeDiagnosticsEngine()
+            diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine()
         )
 
         XcodeProjectTester(project) { result in
@@ -446,7 +446,7 @@ class PackageGraphTests: XCTestCase {
                 extraFiles: [],
                 options: XcodeprojOptions(),
                 fileSystem: fs,
-                diagnostics: ObservabilitySystem.makeDiagnosticsEngine()
+                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine()
             )
             XCTAssertNoDiagnostics(observability.diagnostics)
 

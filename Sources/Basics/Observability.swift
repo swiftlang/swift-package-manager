@@ -17,66 +17,43 @@ typealias TSCDiagnostic = TSCBasic.Diagnostic
 
 // designed after https://github.com/apple/swift-log
 // designed after https://github.com/apple/swift-metrics
+// designed after https://github.com/apple/swift-distributed-tracing-baggage
 public class ObservabilitySystem {
-
     // global
 
     private static var _global = ObservabilitySystem(factory: NOOPFactory())
     private static var bootstrapped = false
     private static let lock = Lock()
 
+    // as we transition to async/await we can take advantage of Task Local values instead of a global
     public static func bootstrapGlobal(factory: ObservabilityFactory) {
         Self.lock.withLock {
             // FIXME: disabled for testing
-            //precondition(!Self.bootstrapped, "ObservabilitySystem can only bootstrapped once")
-            Self._global = .init(factory: factory)
+            precondition(!Self.bootstrapped, "ObservabilitySystem may only bootstrapped once")
             Self.bootstrapped = true
         }
+        Self._global = .init(factory: factory)
     }
 
-    @available(*, deprecated, message: "this pattern is deprecated, transition to error handling instead")
-    public static var errorsReported: Bool {
-        Self.lock.withLock {
-            Self._global.errorsReported
-        }
+    /// DO  NOT USE, only for testing. friend visibility would be soooo nice here
+    public static func _bootstrapGlobalForTestingOnlySeriously(factory: ObservabilityFactory) {
+        Self._global = .init(factory: factory)
     }
 
-    // as we transition to async/await we can take advantage of Task Local values instead of a global
-    fileprivate static var global: ObservabilitySystem {
-        Self.lock.withLock {
-            Self._global
-        }
-    }
-
-    // compatibility with DiagnosticsEngine
-
-    @available(*, deprecated, message: "temporary for transition DiagnosticsEngine -> DiagnosticsEmitter")
-    public static func makeDiagnosticsEngine() -> DiagnosticsEngine {
-        return DiagnosticsEngine(handlers: [{ Diagnostic($0).map{ self.global.diagnosticsHandler($0) } }])
+    public static var topScope: ObservabilityScope {
+        self._global.topScope
     }
 
     // instance
 
-    public var diagnosticsHandler: DiagnosticsHandler!
-    private var _errorsReported = ThreadSafeBox<Bool>(false)
+    public let topScope: ObservabilityScope
 
     public init(factory: ObservabilityFactory) {
-        self.diagnosticsHandler = { diagnostic in
-            if diagnostic.severity == .error {
-                self._errorsReported.put(true)
-            }
-            factory.diagnosticsHandler(diagnostic)
-        }
-    }
-
-    // FIXME: we want to remove this functionality and move to more conventional error handling
-    @available(*, deprecated, message: "this pattern is deprecated, transition to error handling instead")
-    public var errorsReported: Bool {
-        self._errorsReported.get() ?? false
+        self.topScope = .init(description: "top scope", parent: .none, metadata: .none, diagnosticsHandler: factory.diagnosticsHandler)
     }
 
     private struct NOOPFactory: ObservabilityFactory {
-        var diagnosticsHandler: DiagnosticsHandler = { _ in }
+        var diagnosticsHandler: DiagnosticsHandler = { _, _ in }
     }
 }
 
@@ -84,115 +61,90 @@ public protocol ObservabilityFactory {
     var diagnosticsHandler: DiagnosticsHandler { get }
 }
 
-public typealias DiagnosticsHandler = (Diagnostic) -> Void
+public typealias DiagnosticsHandler = (ObservabilityScope, Diagnostic) -> Void
 
-public struct Diagnostic: CustomStringConvertible, Equatable {
-    public let severity: Severity
-    public let message: String
-    public internal (set) var metadata: DiagnosticsMetadata?
+public final class ObservabilityScope: DiagnosticsEmitterProtocol {
+    private let description: String
+    private let parent: ObservabilityScope?
+    private let metadata: ObservabilityMetadata?
 
-    public init(severity: Severity, message: String, metadata: DiagnosticsMetadata?) {
-        self.severity = severity
-        self.message = message
+    private var diagnosticsHandler: DiagnosticsHandler!
+    private var _errorsReported = ThreadSafeBox<Bool>(false)
+
+    fileprivate init(description: String, parent: ObservabilityScope?, metadata: ObservabilityMetadata?, diagnosticsHandler: @escaping DiagnosticsHandler) {
+        self.description = description
+        self.parent = parent
         self.metadata = metadata
-    }
-
-    public var description: String {
-        return "[\(self.severity)]: \(self.message)"
-    }
-
-    public static func == (lhs: Diagnostic, rhs: Diagnostic) -> Bool {
-        if lhs.severity != rhs.severity {
-            return false
+        self.diagnosticsHandler = { scope, diagnostic in
+            if diagnostic.severity == .error {
+                self._errorsReported.put(true)
+            }
+            diagnosticsHandler(scope, diagnostic)
         }
-        if lhs.message != rhs.message {
-            return false
-        }
-        // FIXME
-        /*
-         if lhs.metadata != rhs.metadata {
-         return false
-         }*/
-        return true
     }
 
-    public static func error(_ message: String, metadata: DiagnosticsMetadata? = .none) -> Self {
-        Self(severity: .error, message: message, metadata: metadata)
+    public func makeChildScope(description: String, metadata: ObservabilityMetadata? = .none) -> Self {
+        let mergedMetadata = ObservabilityMetadata.mergeLeft(self.metadata, metadata)
+        return .init(description: description, parent: self, metadata: mergedMetadata, diagnosticsHandler: self.diagnosticsHandler)
     }
 
-    public static func error(_ message: CustomStringConvertible, metadata: DiagnosticsMetadata? = .none) -> Self {
-        Self(severity: .error, message: message.description, metadata: metadata)
+    public func makeChildScope(description: String, metadataProvider: () -> ObservabilityMetadata) -> Self {
+        self.makeChildScope(description: description, metadata: metadataProvider())
     }
 
-    public static func warning(_ message: String, metadata: DiagnosticsMetadata? = .none) -> Self {
-        Self(severity: .warning, message: message, metadata: metadata)
+    public func makeDiagnosticsEmitter(metadata: ObservabilityMetadata? = .none) -> DiagnosticsEmitter {
+        let mergedMetadata = ObservabilityMetadata.mergeLeft(self.metadata, metadata)
+        return .init(scope: self, metadata: mergedMetadata)
     }
 
-    public static func warning(_ message: CustomStringConvertible, metadata: DiagnosticsMetadata? = .none) -> Self {
-        Self(severity: .warning, message: message.description, metadata: metadata)
+    public func makeDiagnosticsEmitter(metadataProvider: () -> ObservabilityMetadata) -> DiagnosticsEmitter {
+        self.makeDiagnosticsEmitter(metadata: metadataProvider())
     }
 
-    public static func info(_ message: String, metadata: DiagnosticsMetadata? = .none) -> Self {
-        Self(severity: .info, message: message, metadata: metadata)
+    // FIXME: compatibility with DiagnosticsEngine, remove when transition is complete
+    //@available(*, deprecated, message: "temporary for transition DiagnosticsEngine -> DiagnosticsEmitter")
+    public func makeDiagnosticsEngine() -> DiagnosticsEngine {
+        return .init(handlers: [{ Diagnostic($0).map{ self.diagnosticsHandler(self, $0) } }])
     }
 
-    public static func info(_ message: CustomStringConvertible, metadata: DiagnosticsMetadata? = .none) -> Self {
-        Self(severity: .info, message: message.description, metadata: metadata)
+    // FIXME: we want to remove this functionality and move to more conventional error handling
+    //@available(*, deprecated, message: "this pattern is deprecated, transition to error handling instead")
+    public var errorsReported: Bool {
+        self._errorsReported.get() ?? false
     }
 
-    public enum Severity: Equatable {
-        case error
-        case warning
-        case info
-        case debug
+    // DiagnosticsEmitterProtocol
+    public func emit(_ diagnostic: Diagnostic) {
+        var diagnostic = diagnostic
+        diagnostic.metadata = ObservabilityMetadata.mergeLeft(self.metadata, diagnostic.metadata)
+        self.diagnosticsHandler(self, diagnostic)
     }
 }
 
-// TODO: consider using @autoclosure to delay potentially expensive evaluation of data when some diagnostics may be filtered out
-public struct DiagnosticsEmitter {
-    public let metadata: DiagnosticsMetadata?
-    private let handler: DiagnosticsHandler
+// helper protocol to share default behavior
+public protocol DiagnosticsEmitterProtocol {
+    func emit(_ diagnostic: Diagnostic)
+}
 
-    public init(metadata: DiagnosticsMetadata? = .none) {
-        self.metadata = metadata
-        self.handler = ObservabilitySystem.global.diagnosticsHandler
-    }
-
-    public func emit(_ diagnostic: Diagnostic) {
-        var diagnostic = diagnostic
-        switch (self.metadata, diagnostic.metadata) {
-        case (.none, .none):
-            break // no change
-        case (.some(let emitterMetadata), .some(let diagnosticMetadata)):
-            diagnostic.metadata = emitterMetadata.merging(diagnosticMetadata)
-        case (.some(let emitterMetadata), .none):
-            diagnostic.metadata = emitterMetadata
-        case (.none, .some(_)):
-            break // no change
-        }
-
-        self.handler(diagnostic)
-    }
-
-    /*
-     public func emit(_ message: DiagnosticMessage) {
-     self.emit(severity: message.severity, message: message.text, metadata: message.metadata)
-     }*/
-
-    public func emit(severity: Diagnostic.Severity, message: String, metadata: DiagnosticsMetadata? = .none) {
+extension DiagnosticsEmitterProtocol {
+    public func emit(severity: Diagnostic.Severity, message: String, metadata: ObservabilityMetadata? = .none) {
         self.emit(.init(severity: severity, message: message, metadata: metadata))
     }
 
-    public func emit(error message: String, metadata: DiagnosticsMetadata? = .none) {
-        self.emit(.error(message, metadata: metadata))
+    public func emit(error message: String, metadata: ObservabilityMetadata? = .none) {
+        self.emit(.init(severity: .error, message: message, metadata: metadata))
     }
 
-    public func emit(_ error: Error, metadata: DiagnosticsMetadata? = .none) {
+    public func emit(error message: CustomStringConvertible, metadata: ObservabilityMetadata? = .none) {
+        self.emit(error: message.description, metadata: metadata)
+    }
+
+    public func emit(_ error: Error, metadata: ObservabilityMetadata? = .none) {
         var metadata = metadata
         // FIXME: this brings in the TSC API still
         if let errorProvidingLocation = error as? DiagnosticLocationProviding, let diagnosticLocation = errorProvidingLocation.diagnosticLocation {
-            metadata = metadata ?? DiagnosticsMetadata()
-            metadata?.stringLocation = diagnosticLocation.description
+            metadata = metadata ?? ObservabilityMetadata()
+            metadata?.legacyLocation = diagnosticLocation.description
         }
 
         let message: String
@@ -209,12 +161,28 @@ public struct DiagnosticsEmitter {
         self.emit(severity: .error, message: message, metadata: metadata)
     }
 
-    public func emit(warning message: String, metadata: DiagnosticsMetadata? = .none) {
+    public func emit(warning message: String, metadata: ObservabilityMetadata? = .none) {
         self.emit(severity: .warning, message: message, metadata: metadata)
     }
 
-    public func emit(info message: String, metadata: DiagnosticsMetadata? = .none) {
+    public func emit(warning message: CustomStringConvertible, metadata: ObservabilityMetadata? = .none) {
+        self.emit(warning: message.description, metadata: metadata)
+    }
+
+    public func emit(info message: String, metadata: ObservabilityMetadata? = .none) {
         self.emit(severity: .info, message: message, metadata: metadata)
+    }
+
+    public func emit(info message: CustomStringConvertible, metadata: ObservabilityMetadata? = .none) {
+        self.emit(info: message.description, metadata: metadata)
+    }
+
+    public func emit(debug message: String, metadata: ObservabilityMetadata? = .none) {
+        self.emit(severity: .debug, message: message, metadata: metadata)
+    }
+
+    public func emit(debug message: CustomStringConvertible, metadata: ObservabilityMetadata? = .none) {
+        self.emit(debug: message.description, metadata: metadata)
     }
 
     public func trap<T>(_ closure: () throws -> T) -> T? {
@@ -227,16 +195,91 @@ public struct DiagnosticsEmitter {
     }
 }
 
-// MARK: - DiagnosticsMetadata
+// TODO: consider using @autoclosure to delay potentially expensive evaluation of data when some diagnostics may be filtered out
+public struct DiagnosticsEmitter: DiagnosticsEmitterProtocol {
+    private let scope: ObservabilityScope
+    private let metadata: ObservabilityMetadata?
 
-// designed after https://github.com/apple/swift-distributed-tracing-baggage
+    // uses the global Observability System
+    public init (metadata: ObservabilityMetadata? = .none) {
+        self = ObservabilitySystem.topScope.makeDiagnosticsEmitter(metadata: metadata)
+    }
 
-/// Provides type-safe access to the DiagnosticsMetadata's values.
+    fileprivate init(scope: ObservabilityScope, metadata: ObservabilityMetadata?) {
+        self.scope = scope
+        self.metadata = metadata
+    }
+
+    public func emit(_ diagnostic: Diagnostic) {
+        var diagnostic = diagnostic
+        diagnostic.metadata = ObservabilityMetadata.mergeLeft(self.metadata, diagnostic.metadata)
+        self.scope.emit(diagnostic)
+    }
+}
+
+public struct Diagnostic: CustomStringConvertible, Equatable {
+    public let severity: Severity
+    public let message: String
+    public internal (set) var metadata: ObservabilityMetadata?
+
+    public init(severity: Severity, message: String, metadata: ObservabilityMetadata?) {
+        self.severity = severity
+        self.message = message
+        self.metadata = metadata
+    }
+
+    public var description: String {
+        return "[\(self.severity)]: \(self.message)"
+    }
+
+    public static func error(_ message: String, metadata: ObservabilityMetadata? = .none) -> Self {
+        Self(severity: .error, message: message, metadata: metadata)
+    }
+
+    public static func error(_ message: CustomStringConvertible, metadata: ObservabilityMetadata? = .none) -> Self {
+        Self(severity: .error, message: message.description, metadata: metadata)
+    }
+
+    public static func warning(_ message: String, metadata: ObservabilityMetadata? = .none) -> Self {
+        Self(severity: .warning, message: message, metadata: metadata)
+    }
+
+    public static func warning(_ message: CustomStringConvertible, metadata: ObservabilityMetadata? = .none) -> Self {
+        Self(severity: .warning, message: message.description, metadata: metadata)
+    }
+
+    public static func info(_ message: String, metadata: ObservabilityMetadata? = .none) -> Self {
+        Self(severity: .info, message: message, metadata: metadata)
+    }
+
+    public static func info(_ message: CustomStringConvertible, metadata: ObservabilityMetadata? = .none) -> Self {
+        Self(severity: .info, message: message.description, metadata: metadata)
+    }
+
+    public static func debug(_ message: String, metadata: ObservabilityMetadata? = .none) -> Self {
+        Self(severity: .debug, message: message, metadata: metadata)
+    }
+
+    public static func debug(_ message: CustomStringConvertible, metadata: ObservabilityMetadata? = .none) -> Self {
+        Self(severity: .debug, message: message.description, metadata: metadata)
+    }
+
+    public enum Severity: Equatable {
+        case error
+        case warning
+        case info
+        case debug
+    }
+}
+
+// MARK: - ObservabilityMetadata
+
+/// Provides type-safe access to the ObservabilityMetadata's values.
 /// This API should ONLY be used inside of accessor implementations.
 ///
 /// End users should use "accessors" the key's author MUST define rather than using this subscript, following this pattern:
 ///
-///     extension DiagnosticsMetadata {
+///     extension ObservabilityMetadata {
 ///       var testID: String? {
 ///         get {
 ///           self[TestIDKey.self]
@@ -247,7 +290,7 @@ public struct DiagnosticsEmitter {
 ///       }
 ///     }
 ///
-///     enum TestIDKey: DiagnosticsMetadataKey {
+///     enum TestIDKey: ObservabilityMetadataKey {
 ///         typealias Value = String
 ///     }
 ///
@@ -260,12 +303,14 @@ public struct DiagnosticsEmitter {
 // FIXME: we currently requires that Value conforms to CustomStringConvertible which sucks
 // ideally Value would conform to Equatable but that has generic requirement
 // luckily, this is about to change so we can clean this up soon
-public struct DiagnosticsMetadata: Equatable {
+public struct ObservabilityMetadata: Equatable, CustomDebugStringConvertible {
+    public typealias Key = ObservabilityMetadataKey
+    
     private var _storage = [AnyKey: CustomStringConvertible]()
 
     public init() {}
 
-    public subscript<Key: DiagnosticsMetadataKey>(_ key: Key.Type) -> Key.Value? {
+    public subscript<Key: ObservabilityMetadataKey>(_ key: Key.Type) -> Key.Value? {
         get {
             guard let value = self._storage[AnyKey(key)] else { return nil }
             // safe to force-cast as this subscript is the only way to set a value.
@@ -286,11 +331,11 @@ public struct DiagnosticsMetadata: Equatable {
         self._storage.isEmpty
     }
 
-    /// Iterate through all items in this `DiagnosticsMetadata` by invoking the given closure for each item.
+    /// Iterate through all items in this `ObservabilityMetadata` by invoking the given closure for each item.
     ///
     /// The order of those invocations is NOT guaranteed and should not be relied on.
     ///
-    /// - Parameter body: The closure to be invoked for each item stored in this `DiagnosticsMetadata`,
+    /// - Parameter body: The closure to be invoked for each item stored in this `ObservabilityMetadata`,
     /// passing the type-erased key and the associated value.
     public func forEach(_ body: (AnyKey, CustomStringConvertible) throws -> Void) rethrows {
         try self._storage.forEach { key, value in
@@ -298,8 +343,8 @@ public struct DiagnosticsMetadata: Equatable {
         }
     }
 
-    public func merging(_ other: DiagnosticsMetadata) -> DiagnosticsMetadata {
-        var merged = DiagnosticsMetadata()
+    public func merging(_ other: ObservabilityMetadata) -> ObservabilityMetadata {
+        var merged = ObservabilityMetadata()
         self.forEach { (key, value) in
             merged._storage[key] = value
         }
@@ -309,10 +354,18 @@ public struct DiagnosticsMetadata: Equatable {
         return merged
     }
 
+    public var debugDescription: String {
+        var items = [String]()
+        self._storage.forEach { key, value in
+            items.append("\(key.keyType.self): \(value.description)")
+        }
+        return items.joined(separator: ", ")
+    }
+
     // FIXME: this currently requires that Value conforms to CustomStringConvertible which sucks
     // ideally Value would conform to Equatable but that has generic requirement
     // luckily, this is about to change so we can clean this up soon
-    public static func == (lhs: DiagnosticsMetadata, rhs: DiagnosticsMetadata) -> Bool {
+    public static func == (lhs: ObservabilityMetadata, rhs: ObservabilityMetadata) -> Bool {
         if lhs.count != rhs.count {
             return false
         }
@@ -328,23 +381,36 @@ public struct DiagnosticsMetadata: Equatable {
         return equals
     }
 
-    /// A type-erased `DiagnosticsMetadataKey` used when iterating through the `DiagnosticsMetadata` using its `forEach` method.
+    fileprivate static func mergeLeft(_ lhs: ObservabilityMetadata?, _ rhs: ObservabilityMetadata?) -> ObservabilityMetadata? {
+        switch (lhs, rhs) {
+        case (.none, .none):
+            return .none
+        case (.some(let left), .some(let right)):
+            return left.merging(right)
+        case (.some(let left), .none):
+            return left
+        case (.none, .some(let right)):
+            return right
+        }
+    }
+
+    /// A type-erased `ObservabilityMetadataKey` used when iterating through the `ObservabilityMetadata` using its `forEach` method.
     public struct AnyKey {
         /// The key's type represented erased to an `Any.Type`.
         public let keyType: Any.Type
 
-        init<Key: DiagnosticsMetadataKey>(_ keyType: Key.Type) {
+        init<Key: ObservabilityMetadataKey>(_ keyType: Key.Type) {
             self.keyType = keyType
         }
     }
 }
 
-public protocol DiagnosticsMetadataKey {
+public protocol ObservabilityMetadataKey {
     /// The type of value uniquely identified by this key.
     associatedtype Value: CustomStringConvertible
 }
 
-extension DiagnosticsMetadata.AnyKey: Hashable {
+extension ObservabilityMetadata.AnyKey: Hashable {
     public static func == (lhs: Self, rhs: Self) -> Bool {
         ObjectIdentifier(lhs.keyType) == ObjectIdentifier(rhs.keyType)
     }
@@ -356,16 +422,15 @@ extension DiagnosticsMetadata.AnyKey: Hashable {
 
 // MARK: - Compatibility with TSC Diagnostics APIs
 
-
-@available(*, deprecated, message: "temporary for transition DiagnosticsEngine -> DiagnosticsEmitter")
+//@available(*, deprecated, message: "temporary for transition DiagnosticsEngine -> DiagnosticsEmitter")
 extension Diagnostic {
     init?(_ diagnostic: TSCDiagnostic) {
-        var metadata: DiagnosticsMetadata?
+        var metadata: ObservabilityMetadata?
         if diagnostic.location is UnknownLocation {
             metadata = .none
         } else {
-            metadata = DiagnosticsMetadata()
-            metadata?.stringLocation = diagnostic.location.description
+            metadata = ObservabilityMetadata()
+            metadata?.legacyLocation = diagnostic.location.description
         }
 
         switch diagnostic.behavior {
@@ -383,18 +448,19 @@ extension Diagnostic {
     }
 }
 
-@available(*, deprecated, message: "temporary for transition DiagnosticsEngine -> DiagnosticsEmitter")
-extension DiagnosticsMetadata {
-    public var stringLocation: String? {
+//@available(*, deprecated, message: "temporary for transition DiagnosticsEngine -> DiagnosticsEmitter")
+extension ObservabilityMetadata {
+    public var legacyLocation: String? {
         get {
-            self[StringLocation.self]
+            self[LegacyLocationKey.self]
         }
         set {
-            self[StringLocation.self] = newValue
+            self[LegacyLocationKey.self] = newValue
         }
     }
 
-    enum StringLocation: DiagnosticsMetadataKey {
+    enum LegacyLocationKey: Key {
         typealias Value = String
     }
 }
+

@@ -59,7 +59,7 @@ struct TestCertificatePolicy: CertificatePolicy {
 
             #if os(macOS)
             self.verify(certChain: certChain, anchorCerts: self.anchorCerts, verifyDate: self.verifyDate,
-                        diagnosticsEngine: ObservabilitySystem.makeDiagnosticsEngine(), callbackQueue: callbackQueue, callback: callback)
+                        diagnosticsEngine: ObservabilitySystem.topScope.makeDiagnosticsEngine(), callbackQueue: callbackQueue, callback: callback)
             #else
             self.verify(certChain: certChain, anchorCerts: self.anchorCerts, verifyDate: self.verifyDate, httpClient: nil,
                         diagnosticsEngine: ObservabilitySystem.makeDiagnosticsEngine(), callbackQueue: callbackQueue, callback: callback)

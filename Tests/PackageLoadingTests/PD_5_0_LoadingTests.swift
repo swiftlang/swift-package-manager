@@ -404,7 +404,7 @@ class PackageDescription5_0LoadingTests: PackageDescriptionLoadingTests {
                 packageLocation: manifestPath.pathString,
                 toolsVersion: .v5,
                 fileSystem: fs,
-                diagnostics: ObservabilitySystem.makeDiagnosticsEngine()
+                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine()
             )
 
             guard let diagnostic = observability.diagnostics.first else {
@@ -587,7 +587,7 @@ class PackageDescription5_0LoadingTests: PackageDescriptionLoadingTests {
                 packageLocation: manifestPath.pathString,
                 toolsVersion: .v5,
                 fileSystem: fs,
-                diagnostics: ObservabilitySystem.makeDiagnosticsEngine()
+                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine()
             )
 
             XCTAssertNoDiagnostics(observability.diagnostics)

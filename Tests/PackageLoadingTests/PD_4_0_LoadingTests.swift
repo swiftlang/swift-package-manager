@@ -318,7 +318,7 @@ class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
             packageLocation: "/foo",
             toolsVersion: .v4,
             fileSystem: fs,
-            diagnostics: ObservabilitySystem.makeDiagnosticsEngine()
+            diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine()
         )
 
         XCTAssertEqual(manifest.name, "Trivial")

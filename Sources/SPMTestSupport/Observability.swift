@@ -16,7 +16,7 @@ import func XCTest.XCTAssertEqual
 extension ObservabilitySystem {
     public static func bootstrapForTesting() -> TestingObservability {
         let testingObservability = TestingObservability()
-        Self.bootstrapGlobal(factory: testingObservability.factory)
+        Self._bootstrapGlobalForTestingOnlySeriously(factory: testingObservability.factory)
         return testingObservability
     }
 }
@@ -25,7 +25,7 @@ public struct TestingObservability {
     fileprivate let factory = Factory()
 
     public var diagnostics: [Basics.Diagnostic] {
-        self.factory.diagnosticsCollector.diagnostics
+        self.factory.diagnosticsCollector.diagnostics.get()
     }
 
     public var hasErrorDiagnostics: Bool {
@@ -46,31 +46,29 @@ public struct TestingObservability {
 }
 
 private final class AccumulatingDiagnosticsCollector: CustomStringConvertible {
-    public private (set) var diagnostics: [Basics.Diagnostic]
-    private let lock = Lock()
+    public let diagnostics: ThreadSafeArrayStore<Basics.Diagnostic>
 
     public init() {
         self.diagnostics = .init()
     }
 
-    public func handle(_ diagnostic: Basics.Diagnostic) {
-        self.lock.withLock {
-            self.diagnostics.append(diagnostic)
-        }
+    // TODO: do something useful with scope
+    public func handle(scope: ObservabilityScope, diagnostic: Basics.Diagnostic) {
+        self.diagnostics.append(diagnostic)
     }
 
     public var hasErrors: Bool {
-        let diagnostics = self.lock.withLock { self.diagnostics }
+        let diagnostics = self.diagnostics.get()
         return diagnostics.contains(where: { $0.severity == .error })
     }
 
     public var hasWarnings: Bool {
-        let diagnostics = self.lock.withLock { self.diagnostics }
+        let diagnostics = self.diagnostics.get()
         return diagnostics.contains(where: { $0.severity == .warning })
     }
 
     public var description: String {
-        let diagnostics = self.lock.withLock { self.diagnostics }
+        let diagnostics = self.diagnostics.get()
         return "\(diagnostics)"
     }
 }
@@ -83,12 +81,11 @@ public func XCTAssertNoDiagnostics(_ diagnostics: [Basics.Diagnostic], file: Sta
 
 public func testDiagnostics(
     _ diagnostics: [Basics.Diagnostic],
-    ignoreNotes: Bool = false,
     file: StaticString = #file,
     line: UInt = #line,
     handler: (DiagnosticsTestResult) throws -> Void
 ) {
-    let testResult = DiagnosticsTestResult(diagnostics, ignoreNotes: ignoreNotes)
+    let testResult = DiagnosticsTestResult(diagnostics)
 
     do {
         try handler(testResult)
@@ -105,14 +102,14 @@ public func testDiagnostics(
 public class DiagnosticsTestResult {
     fileprivate var uncheckedDiagnostics: [Basics.Diagnostic]
 
-    init(_ diagnostics: [Basics.Diagnostic], ignoreNotes: Bool = false) {
+    init(_ diagnostics: [Basics.Diagnostic]) {
         self.uncheckedDiagnostics = diagnostics
     }
 
     public func check(
         diagnostic message: StringPattern,
         severity: Basics.Diagnostic.Severity,
-        metadata: DiagnosticsMetadata? = .none,
+        metadata: ObservabilityMetadata? = .none,
         file: StaticString = #file,
         line: UInt = #line
     ) {
@@ -130,7 +127,7 @@ public class DiagnosticsTestResult {
     public func checkUnordered(
         diagnostic diagnosticPattern: StringPattern,
         severity: Basics.Diagnostic.Severity,
-        metadata: DiagnosticsMetadata? = .none,
+        metadata: ObservabilityMetadata? = .none,
         file: StaticString = #file,
         line: UInt = #line
     ) {

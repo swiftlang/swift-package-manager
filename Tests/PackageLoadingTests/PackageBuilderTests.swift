@@ -77,10 +77,12 @@ class PackageBuilderTests: XCTestCase {
             )
 
             PackageBuilderTester(manifest, path: path, in: fs) { package, diagnostics in
+                var expectedMetadata = ObservabilityMetadata.packageMetadata(identity: .init(url: manifest.packageLocation), location: manifest.packageLocation)
+                expectedMetadata.targetName = manifest.targets.first!.name
                 diagnostics.check(
                     diagnostic: "ignoring broken symlink \(linkPath)",
                     severity: .warning,
-                    metadata: .packageMetadata(identity: .init(url: manifest.packageLocation), location: manifest.packageLocation)
+                    metadata: expectedMetadata
                 )
                 package.checkModule("foo")
             }
@@ -243,10 +245,12 @@ class PackageBuilderTests: XCTestCase {
             ]
         )
         PackageBuilderTester(manifest, in: fs) { package, diags in
+            var expectedMetadata = ObservabilityMetadata.packageMetadata(identity: .init(url: manifest.packageLocation), location: manifest.packageLocation)
+            expectedMetadata.targetName = manifest.targets.first!.name
             diags.check(
                 diagnostic: "found duplicate sources declaration in the package manifest: /Sources/clib",
                 severity: .warning,
-                metadata: .packageMetadata(identity: .init(url: manifest.packageLocation), location: manifest.packageLocation)
+                metadata: expectedMetadata
             )
             package.checkModule("clib") { module in
                 module.check(c99name: "clib", type: .library)

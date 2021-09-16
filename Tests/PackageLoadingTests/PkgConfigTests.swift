@@ -32,7 +32,7 @@ class PkgConfigTests: XCTestCase {
     func testBasics() throws {
         // No pkgConfig name.
         do {
-            let result = pkgConfigArgs(for: SystemLibraryTarget(pkgConfig: ""), diagnostics: ObservabilitySystem.makeDiagnosticsEngine())
+            let result = pkgConfigArgs(for: SystemLibraryTarget(pkgConfig: ""), diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine())
             XCTAssertTrue(result.isEmpty)
         }
 
@@ -46,7 +46,7 @@ class PkgConfigTests: XCTestCase {
                     .yum(["libFoo-devel"])
                 ]
             )
-            for result in pkgConfigArgs(for: target, diagnostics: ObservabilitySystem.makeDiagnosticsEngine()) {
+            for result in pkgConfigArgs(for: target, diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine()) {
                 XCTAssertEqual(result.pkgConfigName, "Foo")
                 XCTAssertEqual(result.cFlags, [])
                 XCTAssertEqual(result.libs, [])
@@ -71,7 +71,7 @@ class PkgConfigTests: XCTestCase {
 
         // Pc file.
         try withCustomEnv(["PKG_CONFIG_PATH": inputsDir.pathString]) {
-            for result in pkgConfigArgs(for: SystemLibraryTarget(pkgConfig: "Foo"), diagnostics: ObservabilitySystem.makeDiagnosticsEngine()) {
+            for result in pkgConfigArgs(for: SystemLibraryTarget(pkgConfig: "Foo"), diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine()) {
                 XCTAssertEqual(result.pkgConfigName, "Foo")
                 XCTAssertEqual(result.cFlags, ["-I/path/to/inc", "-I\(inputsDir.pathString)"])
                 XCTAssertEqual(result.libs, ["-L/usr/da/lib", "-lSystemModule", "-lok"])
@@ -83,7 +83,7 @@ class PkgConfigTests: XCTestCase {
 
         // Pc file with prohibited flags.
         try withCustomEnv(["PKG_CONFIG_PATH": inputsDir.pathString]) {
-            for result in pkgConfigArgs(for: SystemLibraryTarget(pkgConfig: "Bar"), diagnostics: ObservabilitySystem.makeDiagnosticsEngine()) {
+            for result in pkgConfigArgs(for: SystemLibraryTarget(pkgConfig: "Bar"), diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine()) {
                 XCTAssertEqual(result.pkgConfigName, "Bar")
                 XCTAssertEqual(result.cFlags, ["-I/path/to/inc"])
                 XCTAssertEqual(result.libs, ["-L/usr/da/lib", "-lSystemModule", "-lok"])
@@ -102,7 +102,7 @@ class PkgConfigTests: XCTestCase {
     func testDependencies() throws {
         // Use additionalSearchPaths instead of pkgConfigArgs to test handling
         // of search paths when loading dependencies.
-        let result = try PkgConfig(name: "Dependent", additionalSearchPaths: [inputsDir], diagnostics: ObservabilitySystem.makeDiagnosticsEngine(), brewPrefix: nil)
+        let result = try PkgConfig(name: "Dependent", additionalSearchPaths: [inputsDir], diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(), brewPrefix: nil)
 
         XCTAssertEqual(result.name, "Dependent")
         XCTAssertEqual(result.cFlags, ["-I/path/to/dependent/include", "-I/path/to/dependency/include"])

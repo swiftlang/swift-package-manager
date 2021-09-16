@@ -886,7 +886,7 @@ final class PackageToolTests: XCTestCase {
             let packageRoot = path.appending(component: "root")
 
             let helper = WatchmanHelper(
-                diagnostics: ObservabilitySystem.makeDiagnosticsEngine(),
+                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
                 watchmanScriptsDir: scriptsDir,
                 packageRoot: packageRoot)
 

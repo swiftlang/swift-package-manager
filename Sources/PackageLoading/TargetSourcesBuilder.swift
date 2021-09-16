@@ -49,7 +49,8 @@ public struct TargetSourcesBuilder {
     /// The file system to operate on.
     public let fileSystem: FileSystem
 
-    private let diagnosticsEmitter: DiagnosticsEmitter
+    // scope with which to emit diagnostics
+    private let observabilityScope: ObservabilityScope
 
     /// Create a new target builder.
     public init(
@@ -61,7 +62,8 @@ public struct TargetSourcesBuilder {
         defaultLocalization: String?,
         additionalFileRules: [FileRuleDescription] = [],
         toolsVersion: ToolsVersion = .currentToolsVersion,
-        fileSystem: FileSystem
+        fileSystem: FileSystem,
+        observabilityScope: ObservabilityScope
     ) {
         self.packageIdentity = packageIdentity
         self.packageLocation = packageLocation
@@ -78,7 +80,11 @@ public struct TargetSourcesBuilder {
 
         self.fileSystem = fileSystem
 
-        self.diagnosticsEmitter = DiagnosticsEmitter(metadata: .packageMetadata(identity: packageIdentity, location: packageLocation))
+        self.observabilityScope = observabilityScope.makeChildScope(description: "TargetSourcesBuilder") {
+            var metadata = ObservabilityMetadata.packageMetadata(identity: packageIdentity, location: packageLocation)
+            metadata.targetName = target.name
+            return metadata
+        }
 
         let declaredSources = target.sources?.map{ path.appending(RelativePath($0)) }
         if let declaredSources = declaredSources {
@@ -86,7 +92,7 @@ public struct TargetSourcesBuilder {
             let duplicates = declaredSources.spm_findDuplicateElements()
             if !duplicates.isEmpty {
                 for duplicate in duplicates {
-                    self.diagnosticsEmitter.emit(warning: "found duplicate sources declaration in the package manifest: \(duplicate.map{ $0.pathString }[0])")
+                    self.observabilityScope.emit(warning: "found duplicate sources declaration in the package manifest: \(duplicate.map{ $0.pathString }[0])")
                 }
             }
         }
@@ -95,14 +101,14 @@ public struct TargetSourcesBuilder {
         self.excludedPaths.forEach { exclude in
             if let message = validTargetPath(at: exclude) {
                 let warning = "Invalid Exclude '\(exclude)': \(message)."
-                self.diagnosticsEmitter.emit(warning: warning)
+                self.observabilityScope.emit(warning: warning)
             }
         }
         
         self.declaredSources?.forEach { source in
             if let message = validTargetPath(at: source) {
                 let warning = "Invalid Source '\(source)': \(message)."
-                self.diagnosticsEmitter.emit(warning: warning)
+                self.observabilityScope.emit(warning: warning)
             }
         }
 
@@ -133,7 +139,7 @@ public struct TargetSourcesBuilder {
         for rule in rules {
             for ext in rule.fileTypes {
                 if let existingRule = extensionMap[ext] {
-                    self.diagnosticsEmitter.emit(.error("conflicting rules \(rule) and \(existingRule) for extension \(ext)"))
+                    self.observabilityScope.emit(error: "conflicting rules \(rule) and \(existingRule) for extension \(ext)")
                 }
                 extensionMap[ext] = rule
             }
@@ -160,7 +166,7 @@ public struct TargetSourcesBuilder {
                 for (file, _) in filesWithNoRules {
                     warning += "    " + file.pathString + "\n"
                 }
-                self.diagnosticsEmitter.emit(.warning(warning))
+                self.observabilityScope.emit(warning: warning)
             }
             others.append(contentsOf: filesWithNoRules.keys)
         }
@@ -199,7 +205,7 @@ public struct TargetSourcesBuilder {
             let resourcePath = self.targetPath.appending(RelativePath(declaredResource.path))
             if path.isDescendantOfOrEqual(to: resourcePath) {
                 if matchedRule.rule != .none {
-                    self.diagnosticsEmitter.emit(.error("duplicate resource rule '\(declaredResource.rule)' found for file at '\(path)'"))
+                    self.observabilityScope.emit(error: "duplicate resource rule '\(declaredResource.rule)' found for file at '\(path)'")
                 }
                 matchedRule = Rule(rule: declaredResource.rule.fileRule, localization: declaredResource.localization)
             }
@@ -210,7 +216,7 @@ public struct TargetSourcesBuilder {
             for sourcePath in declaredSources {
                 if path.isDescendantOfOrEqual(to: sourcePath) {
                     if matchedRule.rule != .none {
-                        self.diagnosticsEmitter.emit(.error("duplicate rule found for file at '\(path)'"))
+                        self.observabilityScope.emit(error: "duplicate rule found for file at '\(path)'")
                     }
 
                     // Check for header files as they're allowed to be mixed with sources.
@@ -278,7 +284,7 @@ public struct TargetSourcesBuilder {
             // If a resource is both inside a localization directory and has an explicit localization, it's ambiguous.
             guard implicitLocalization == nil || explicitLocalization == nil else {
                 let relativePath = path.relative(to: targetPath)
-                self.diagnosticsEmitter.emit(.localizationAmbiguity(path: relativePath, targetName: target.name))
+                self.observabilityScope.emit(.localizationAmbiguity(path: relativePath, targetName: target.name))
                 return nil
             }
 
@@ -291,11 +297,11 @@ public struct TargetSourcesBuilder {
     private func diagnoseConflictingResources(in resources: [Resource]) {
         let duplicateResources = resources.spm_findDuplicateElements(by: \.destination)
         for resources in duplicateResources {
-            self.diagnosticsEmitter.emit(.conflictingResource(path: resources[0].destination, targetName: target.name))
+            self.observabilityScope.emit(.conflictingResource(path: resources[0].destination, targetName: target.name))
 
             for resource in resources {
                 let relativePath = resource.path.relative(to: targetPath)
-                self.diagnosticsEmitter.emit(.fileReference(path: relativePath))
+                self.observabilityScope.emit(.fileReference(path: relativePath))
             }
         }
     }
@@ -309,7 +315,7 @@ public struct TargetSourcesBuilder {
         for resource in resources where resource.rule == .copy {
             if localizationDirectories.contains(resource.path.basename.lowercased()) {
                 let relativePath = resource.path.relative(to: targetPath)
-                self.diagnosticsEmitter.emit(.copyConflictWithLocalizationDirectory(path: relativePath, targetName: target.name))
+                self.observabilityScope.emit(.copyConflictWithLocalizationDirectory(path: relativePath, targetName: target.name))
             }
         }
     }
@@ -320,7 +326,7 @@ public struct TargetSourcesBuilder {
             let hasLocalizations = resources.contains(where: { $0.localization != nil })
             let hasUnlocalized = resources.contains(where: { $0.localization == nil })
             if hasLocalizations && hasUnlocalized {
-                self.diagnosticsEmitter.emit(.localizedAndUnlocalizedVariants(resource: basename, targetName: target.name))
+                self.observabilityScope.emit(.localizedAndUnlocalizedVariants(resource: basename, targetName: target.name))
             }
         }
     }
@@ -335,7 +341,7 @@ public struct TargetSourcesBuilder {
         let resourcesByBasename = Dictionary(grouping: localizedResources, by: { $0.path.basename })
         for (basename, resources) in resourcesByBasename {
             if !resources.contains(where: { $0.localization == defaultLocalization }) {
-                self.diagnosticsEmitter.emit(.missingDefaultLocalizationResource(
+                self.observabilityScope.emit(.missingDefaultLocalizationResource(
                     resource: basename,
                     targetName: target.name,
                     defaultLocalization: defaultLocalization))
@@ -346,7 +352,7 @@ public struct TargetSourcesBuilder {
     private func diagnoseInfoPlistConflicts(in resources: [Resource]) {
         for resource in resources {
             if resource.destination == RelativePath("Info.plist") {
-                self.diagnosticsEmitter.emit(.infoPlistResourceConflict(
+                self.observabilityScope.emit(.infoPlistResourceConflict(
                     path: resource.path.relative(to: targetPath),
                     targetName: target.name))
             }
@@ -358,7 +364,7 @@ public struct TargetSourcesBuilder {
             let resourcePath = self.targetPath.appending(RelativePath(resource.path))
             if let message = validTargetPath(at: resourcePath) {
                 let warning = "Invalid Resource '\(resource.path)': \(message)."
-                self.diagnosticsEmitter.emit(warning: warning)
+                self.observabilityScope.emit(warning: warning)
             }
         }
     }
@@ -407,7 +413,7 @@ public struct TargetSourcesBuilder {
             if self.excludedPaths.contains(path) { continue }
 
             if self.fileSystem.isSymlink(path) && !self.fileSystem.exists(path, followSymlink: true) {
-                self.diagnosticsEmitter.emit(.brokenSymlink(path))
+                self.observabilityScope.emit(.brokenSymlink(path))
                 continue
             }
 
@@ -450,14 +456,14 @@ public struct TargetSourcesBuilder {
             // We found a directory inside a localization directory, which is forbidden.
             if path.parentDirectory.extension == Resource.localizationDirectoryExtension {
                 let relativePath = path.parentDirectory.relative(to: targetPath)
-                self.diagnosticsEmitter.emit(.localizationDirectoryContainsSubDirectories(
+                self.observabilityScope.emit(.localizationDirectoryContainsSubDirectories(
                     localizationDirectory: relativePath,
                     targetName: target.name))
                 continue
             }
 
             // Otherwise, add its content to the queue.
-            let dirContents = self.diagnosticsEmitter.trap {
+            let dirContents = self.observabilityScope.trap {
                 try self.fileSystem.getDirectoryContents(path).map({ path.appending(component: $0) })
             }
             queue += dirContents ?? []
@@ -660,5 +666,20 @@ extension Basics.Diagnostic {
         targetName: String
     ) -> Self {
         .error("localization directory '\(localizationDirectory)' in target '\(targetName)' contains sub-directories, which is forbidden")
+    }
+}
+
+extension ObservabilityMetadata {
+    public var targetName: String? {
+        get {
+            self[TargetNameKey.self]
+        }
+        set {
+            self[TargetNameKey.self] = newValue
+        }
+    }
+
+    enum TargetNameKey: Key {
+        typealias Value = String
     }
 }

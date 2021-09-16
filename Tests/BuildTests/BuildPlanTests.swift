@@ -123,7 +123,7 @@ final class BuildPlanTests: XCTestCase {
         let result = BuildPlanResult(plan: try BuildPlan(
             buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
             graph: graph,
-            diagnostics: ObservabilitySystem.makeDiagnosticsEngine(),
+            diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
             fileSystem: fs
         ))
 
@@ -237,7 +237,7 @@ final class BuildPlanTests: XCTestCase {
                         useExplicitModuleBuild: true
                     ),
                     graph: graph,
-                    diagnostics: ObservabilitySystem.makeDiagnosticsEngine(),
+                    diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
                     fileSystem: fs
                 )
 
@@ -318,7 +318,7 @@ final class BuildPlanTests: XCTestCase {
                     configuration: .release
                 )),
                 graph: graph,
-                diagnostics: ObservabilitySystem.makeDiagnosticsEngine(),
+                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
                 fileSystem: fs
             )
 
@@ -344,7 +344,7 @@ final class BuildPlanTests: XCTestCase {
                     configuration: .debug
                 )),
                 graph: graph,
-                diagnostics: ObservabilitySystem.makeDiagnosticsEngine(),
+                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
                 fileSystem: fs
             )
 
@@ -404,7 +404,7 @@ final class BuildPlanTests: XCTestCase {
         let result = BuildPlanResult(plan: try BuildPlan(
             buildParameters: mockBuildParameters(),
             graph: graph,
-            diagnostics: ObservabilitySystem.makeDiagnosticsEngine(),
+            diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
             fileSystem: fileSystem
         ))
 
@@ -443,7 +443,7 @@ final class BuildPlanTests: XCTestCase {
         let result = BuildPlanResult(plan: try BuildPlan(
             buildParameters: mockBuildParameters(config: .release),
             graph: graph,
-            diagnostics: ObservabilitySystem.makeDiagnosticsEngine(),
+            diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
             fileSystem: fs
         ))
 
@@ -514,7 +514,7 @@ final class BuildPlanTests: XCTestCase {
         let result = BuildPlanResult(plan: try BuildPlan(
             buildParameters: mockBuildParameters(),
             graph: graph,
-            diagnostics: ObservabilitySystem.makeDiagnosticsEngine(),
+            diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
             fileSystem: fs
         ))
 
@@ -643,7 +643,7 @@ final class BuildPlanTests: XCTestCase {
                     configuration: .release
                 )),
                 graph: graph,
-                diagnostics: ObservabilitySystem.makeDiagnosticsEngine(),
+                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
                 fileSystem: fs
             ))
 
@@ -662,7 +662,7 @@ final class BuildPlanTests: XCTestCase {
                     configuration: .debug
                 )),
                 graph: graph,
-                diagnostics: ObservabilitySystem.makeDiagnosticsEngine(),
+                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
                 fileSystem: fs
             ))
 
@@ -702,7 +702,7 @@ final class BuildPlanTests: XCTestCase {
         let plan = try BuildPlan(
             buildParameters: mockBuildParameters(),
             graph: graph,
-            diagnostics: ObservabilitySystem.makeDiagnosticsEngine(),
+            diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
             fileSystem: fs
         )
         let result = BuildPlanResult(plan: plan)
@@ -765,7 +765,7 @@ final class BuildPlanTests: XCTestCase {
         let result = BuildPlanResult(plan: try BuildPlan(
             buildParameters: mockBuildParameters(),
             graph: graph,
-            diagnostics: ObservabilitySystem.makeDiagnosticsEngine(),
+            diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
             fileSystem: fs
         ))
         result.checkProductsCount(1)
@@ -839,7 +839,7 @@ final class BuildPlanTests: XCTestCase {
         let result = BuildPlanResult(plan: try BuildPlan(
             buildParameters: mockBuildParameters(),
             graph: graph,
-            diagnostics: ObservabilitySystem.makeDiagnosticsEngine(),
+            diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
             fileSystem: fs
         ))
         result.checkProductsCount(1)
@@ -898,7 +898,7 @@ final class BuildPlanTests: XCTestCase {
         let plan = try BuildPlan(
             buildParameters: mockBuildParameters(),
             graph: graph,
-            diagnostics: ObservabilitySystem.makeDiagnosticsEngine(),
+            diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
             fileSystem: fs
         )
         XCTAssertEqual(plan.createREPLArguments().sorted(), ["-I/Dep/Sources/CDep/include", "-I/path/to/build/debug", "-I/path/to/build/debug/lib.build", "-L/path/to/build/debug", "-lPkg__REPL"])
@@ -935,7 +935,7 @@ final class BuildPlanTests: XCTestCase {
         let result = BuildPlanResult(plan: try BuildPlan(
             buildParameters: mockBuildParameters(),
             graph: graph,
-            diagnostics: ObservabilitySystem.makeDiagnosticsEngine(),
+            diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
             fileSystem: fs
         ))
         result.checkProductsCount(1)
@@ -1007,7 +1007,7 @@ final class BuildPlanTests: XCTestCase {
         let result = BuildPlanResult(plan: try BuildPlan(
             buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
             graph: graph,
-            diagnostics: ObservabilitySystem.makeDiagnosticsEngine(),
+            diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
             fileSystem: fs
         ))
 
@@ -1060,7 +1060,7 @@ final class BuildPlanTests: XCTestCase {
         let result = BuildPlanResult(plan: try BuildPlan(
             buildParameters: mockBuildParameters(),
             graph: graph,
-            diagnostics: ObservabilitySystem.makeDiagnosticsEngine(),
+            diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
             fileSystem: fs
         ))
         result.checkProductsCount(1)
@@ -1114,7 +1114,7 @@ final class BuildPlanTests: XCTestCase {
         let result = BuildPlanResult(plan: try BuildPlan(
             buildParameters: mockBuildParameters(),
             graph: graph,
-            diagnostics: ObservabilitySystem.makeDiagnosticsEngine(),
+            diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
             fileSystem: fs
         ))
         result.checkProductsCount(1)
@@ -1164,7 +1164,7 @@ final class BuildPlanTests: XCTestCase {
         let result = BuildPlanResult(plan: try BuildPlan(
             buildParameters: mockBuildParameters(),
             graph: g,
-            diagnostics: ObservabilitySystem.makeDiagnosticsEngine(),
+            diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
             fileSystem: fs
         ))
         result.checkProductsCount(2)
@@ -1252,7 +1252,7 @@ final class BuildPlanTests: XCTestCase {
         let result = BuildPlanResult(plan: try BuildPlan(
             buildParameters: mockBuildParameters(),
             graph: graph,
-            diagnostics: ObservabilitySystem.makeDiagnosticsEngine(),
+            diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
             fileSystem: fs
         ))
 
@@ -1318,7 +1318,7 @@ final class BuildPlanTests: XCTestCase {
         let result = BuildPlanResult(plan: try BuildPlan(
             buildParameters: mockBuildParameters(),
             graph: graph,
-            diagnostics: ObservabilitySystem.makeDiagnosticsEngine(),
+            diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
             fileSystem: fs
         ))
 
@@ -1404,8 +1404,8 @@ final class BuildPlanTests: XCTestCase {
         )
 
         #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
-        XCTAssertEqual(diagnostics.diagnostics.count, 1)
-        let firstDiagnostic = diagnostics.diagnostics.first.map({ $0.message.text })
+        XCTAssertEqual(observability.diagnostics.count, 1)
+        let firstDiagnostic = observability.diagnostics.first.map({ $0.message.text })
         XCTAssert(
             firstDiagnostic == "dependency 'C' is not used by any target",
             "Unexpected diagnostic: " + (firstDiagnostic ?? "[none]")
@@ -1426,7 +1426,7 @@ final class BuildPlanTests: XCTestCase {
         let planResult = BuildPlanResult(plan: try BuildPlan(
             buildParameters: mockBuildParameters(),
             graph: graph,
-            diagnostics: ObservabilitySystem.makeDiagnosticsEngine(),
+            diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
             fileSystem: fileSystem
         ))
 
@@ -1523,7 +1523,7 @@ final class BuildPlanTests: XCTestCase {
             let planResult = BuildPlanResult(plan: try BuildPlan(
                 buildParameters: mockBuildParameters(environment: linuxDebug),
                 graph: graph,
-                diagnostics: ObservabilitySystem.makeDiagnosticsEngine(),
+                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
                 fileSystem: fileSystem
             ))
             planResult.checkProductsCount(4)
@@ -1538,7 +1538,7 @@ final class BuildPlanTests: XCTestCase {
             let planResult = BuildPlanResult(plan: try BuildPlan(
                 buildParameters: mockBuildParameters(environment: macosDebug),
                 graph: graph,
-                diagnostics: ObservabilitySystem.makeDiagnosticsEngine(),
+                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
                 fileSystem: fileSystem
             ))
             planResult.checkProductsCount(4)
@@ -1553,7 +1553,7 @@ final class BuildPlanTests: XCTestCase {
             let planResult = BuildPlanResult(plan: try BuildPlan(
                 buildParameters: mockBuildParameters(environment: androidRelease),
                 graph: graph,
-                diagnostics: ObservabilitySystem.makeDiagnosticsEngine(),
+                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
                 fileSystem: fileSystem
             ))
             planResult.checkProductsCount(4)
@@ -1582,7 +1582,7 @@ final class BuildPlanTests: XCTestCase {
             _ = try BuildPlan(
                 buildParameters: mockBuildParameters(),
                 graph: graph,
-                diagnostics: ObservabilitySystem.makeDiagnosticsEngine(),
+                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
                 fileSystem: fs
             )
         }
@@ -1620,7 +1620,7 @@ final class BuildPlanTests: XCTestCase {
         _ = try BuildPlan(
             buildParameters: mockBuildParameters(),
             graph: graph,
-            diagnostics: ObservabilitySystem.makeDiagnosticsEngine(),
+            diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
             fileSystem: fileSystem
         )
 
@@ -1658,7 +1658,7 @@ final class BuildPlanTests: XCTestCase {
         _ = try BuildPlan(
             buildParameters: mockBuildParameters(),
             graph: graph,
-            diagnostics: ObservabilitySystem.makeDiagnosticsEngine(),
+            diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
             fileSystem: fileSystem
         )
 
@@ -1666,7 +1666,7 @@ final class BuildPlanTests: XCTestCase {
 
         XCTAssertEqual(diagnostic.message, "couldn't find pc file for BTarget")
         XCTAssertEqual(diagnostic.severity, .warning)
-        XCTAssertEqual(diagnostic.metadata?.stringLocation, "'BTarget' BTarget.pc")
+        XCTAssertEqual(diagnostic.metadata?.legacyLocation, "'BTarget' BTarget.pc")
     }
 
     func testWindowsTarget() throws {
@@ -1695,7 +1695,7 @@ final class BuildPlanTests: XCTestCase {
         let result = BuildPlanResult(plan: try BuildPlan(
             buildParameters: mockBuildParameters(destinationTriple: .windows),
             graph: graph,
-            diagnostics: ObservabilitySystem.makeDiagnosticsEngine(),
+            diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
             fileSystem: fs
         ))
         result.checkProductsCount(1)
@@ -1756,7 +1756,7 @@ final class BuildPlanTests: XCTestCase {
         let result = BuildPlanResult(plan: try BuildPlan(
             buildParameters: parameters,
             graph: graph,
-            diagnostics: ObservabilitySystem.makeDiagnosticsEngine(),
+            diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
             fileSystem: fs
         ))
         result.checkProductsCount(2)
@@ -1841,7 +1841,7 @@ final class BuildPlanTests: XCTestCase {
             let result = BuildPlanResult(plan: try BuildPlan(
                 buildParameters: mockBuildParameters(config: config, indexStoreMode: mode),
                 graph: graph,
-                diagnostics: ObservabilitySystem.makeDiagnosticsEngine(),
+                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
                 fileSystem: fs
             ))
 
@@ -1907,7 +1907,7 @@ final class BuildPlanTests: XCTestCase {
         let result = BuildPlanResult(plan: try BuildPlan(
             buildParameters: mockBuildParameters(),
             graph: graph,
-            diagnostics: ObservabilitySystem.makeDiagnosticsEngine(),
+            diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
             fileSystem: fileSystem
         ))
 
@@ -1972,12 +1972,12 @@ final class BuildPlanTests: XCTestCase {
             _ = try BuildPlan(
                 buildParameters: mockBuildParameters(destinationTriple: .macOS),
                 graph: graph,
-                diagnostics: ObservabilitySystem.makeDiagnosticsEngine(),
+                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
                 fileSystem: fileSystem
             )
         }
 
-        testDiagnostics(observability.diagnostics, ignoreNotes: true) { result in
+        testDiagnostics(observability.diagnostics) { result in
             let diagnosticMessage = """
             the library 'ATarget' requires macos 10.13, but depends on the product 'BLibrary' which requires macos 10.14; \
             consider changing the library 'ATarget' to require macos 10.14 or later, or the product 'BLibrary' to require \
@@ -2080,7 +2080,7 @@ final class BuildPlanTests: XCTestCase {
             return BuildPlanResult(plan: try BuildPlan(
                 buildParameters: mockBuildParameters(destinationTriple: dest),
                 graph: graph,
-                diagnostics: ObservabilitySystem.makeDiagnosticsEngine(),
+                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
                 fileSystem: fs
             ))
         }
@@ -2149,7 +2149,7 @@ final class BuildPlanTests: XCTestCase {
         let result = BuildPlanResult(plan: try BuildPlan(
             buildParameters: mockBuildParameters(flags: flags),
             graph: graph,
-            diagnostics: ObservabilitySystem.makeDiagnosticsEngine(),
+            diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
             fileSystem: fs
         ))
 
@@ -2189,7 +2189,7 @@ final class BuildPlanTests: XCTestCase {
         let result = BuildPlanResult(plan: try BuildPlan(
             buildParameters: extraBuildParameters,
             graph: graph,
-            diagnostics: ObservabilitySystem.makeDiagnosticsEngine(),
+            diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
             fileSystem: fs
         ))
         result.checkProductsCount(1)
@@ -2249,7 +2249,7 @@ final class BuildPlanTests: XCTestCase {
         let plan = try BuildPlan(
             buildParameters: mockBuildParameters(),
             graph: graph,
-            diagnostics: ObservabilitySystem.makeDiagnosticsEngine(),
+            diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
             fileSystem: fs
         )
 
@@ -2290,7 +2290,7 @@ final class BuildPlanTests: XCTestCase {
         let plan = try BuildPlan(
             buildParameters: mockBuildParameters(),
             graph: graph,
-            diagnostics: ObservabilitySystem.makeDiagnosticsEngine(),
+            diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
             fileSystem: fs
         )
         let result = BuildPlanResult(plan: plan)
@@ -2361,7 +2361,7 @@ final class BuildPlanTests: XCTestCase {
         let plan = try BuildPlan(
             buildParameters: mockBuildParameters(),
             graph: graph,
-            diagnostics: ObservabilitySystem.makeDiagnosticsEngine(),
+            diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
             fileSystem: fs
         )
         let result = BuildPlanResult(plan: plan)
@@ -2432,7 +2432,7 @@ final class BuildPlanTests: XCTestCase {
         let plan = try BuildPlan(
             buildParameters: mockBuildParameters(),
             graph: graph,
-            diagnostics: ObservabilitySystem.makeDiagnosticsEngine(),
+            diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
             fileSystem: fs
         )
         let dynamicLibraryExtension = plan.buildParameters.triple.dynamicLibraryExtension
@@ -2492,7 +2492,7 @@ final class BuildPlanTests: XCTestCase {
         let result = BuildPlanResult(plan: try BuildPlan(
             buildParameters: mockBuildParameters(destinationTriple: .x86_64Linux),
             graph: graph,
-            diagnostics: ObservabilitySystem.makeDiagnosticsEngine(),
+            diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
             fileSystem: fs
         ))
 
@@ -2564,7 +2564,7 @@ final class BuildPlanTests: XCTestCase {
         let plan = try BuildPlan(
             buildParameters: mockBuildParameters(),
             graph: graph,
-            diagnostics: ObservabilitySystem.makeDiagnosticsEngine(),
+            diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
             fileSystem: fs
         )
         let result = BuildPlanResult(plan: plan)
@@ -2594,7 +2594,6 @@ final class BuildPlanTests: XCTestCase {
             "/Pkg/Sources/lib/lib.swift"
         )
 
-        let observability = ObservabilitySystem.bootstrapForTesting()
         let graph = try loadPackageGraph(fs: fs,
             manifests: [
                 Manifest.createV4Manifest(
@@ -2613,7 +2612,7 @@ final class BuildPlanTests: XCTestCase {
             let result = BuildPlanResult(plan: try BuildPlan(
                 buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true, destinationTriple: triple),
                 graph: graph,
-                diagnostics: ObservabilitySystem.makeDiagnosticsEngine(),
+                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
                 fileSystem: fs
             ))
 
@@ -2731,7 +2730,7 @@ final class BuildPlanTests: XCTestCase {
         let result = BuildPlanResult(plan: try BuildPlan(
             buildParameters: mockBuildParameters(destinationTriple: destinationTriple),
             graph: graph,
-            diagnostics: ObservabilitySystem.makeDiagnosticsEngine(),
+            diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
             fileSystem: fs
         ))
         XCTAssertNoDiagnostics(observability.diagnostics)
@@ -2834,7 +2833,7 @@ final class BuildPlanTests: XCTestCase {
         let result = BuildPlanResult(plan: try BuildPlan(
             buildParameters: mockBuildParameters(destinationTriple: destinationTriple),
             graph: graph,
-            diagnostics: ObservabilitySystem.makeDiagnosticsEngine(),
+            diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
             fileSystem: fs
         ))
         XCTAssertNoDiagnostics(observability.diagnostics)
@@ -2909,7 +2908,7 @@ final class BuildPlanTests: XCTestCase {
         let result = BuildPlanResult(plan: try BuildPlan(
             buildParameters: parameters,
             graph: graph,
-            diagnostics: ObservabilitySystem.makeDiagnosticsEngine(),
+            diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
             fileSystem: fs
         ))
 

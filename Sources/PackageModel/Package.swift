@@ -114,7 +114,7 @@ extension Package {
 }
 
 extension Package {
-    public var diagnosticsMetadata: DiagnosticsMetadata {
+    public var diagnosticsMetadata: ObservabilityMetadata {
         return .packageMetadata(identity: self.identity, location: self.manifest.packageLocation)
     }
 }
@@ -138,16 +138,16 @@ extension Package.Error: CustomStringConvertible {
     }
 }
 
-extension DiagnosticsMetadata {
-    public static func packageMetadata(identity: PackageIdentity, location: String) -> DiagnosticsMetadata {
-        var metadata = DiagnosticsMetadata()
+extension ObservabilityMetadata {
+    public static func packageMetadata(identity: PackageIdentity, location: String) -> Self {
+        var metadata = ObservabilityMetadata()
         metadata.packageIdentity = identity
         metadata.packageLocation = location
         return metadata
     }
 }
 
-extension DiagnosticsMetadata {
+extension ObservabilityMetadata {
     public var packageIdentity: PackageIdentity? {
         get {
             self[PackageIdentityKey.self]
@@ -157,12 +157,12 @@ extension DiagnosticsMetadata {
         }
     }
     
-    enum PackageIdentityKey: DiagnosticsMetadataKey {
+    enum PackageIdentityKey: Key {
         typealias Value = PackageIdentity
     }
 }
 
-extension DiagnosticsMetadata {
+extension ObservabilityMetadata {
     public var packageLocation: String? {
         get {
             self[PackageLocationKey.self]
@@ -172,7 +172,7 @@ extension DiagnosticsMetadata {
         }
     }
     
-    enum PackageLocationKey: DiagnosticsMetadataKey {
+    enum PackageLocationKey: Key {
         typealias Value = String
     }
 }

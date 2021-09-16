@@ -39,7 +39,7 @@ final class MultiRootSupportTests: XCTestCase {
         }
 
         let observability = ObservabilitySystem.bootstrapForTesting()
-        let result = try XcodeWorkspaceLoader(diagnostics: ObservabilitySystem.makeDiagnosticsEngine(), fs: fs).load(workspace: path)
+        let result = try XcodeWorkspaceLoader(diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(), fs: fs).load(workspace: path)
 
         XCTAssertNoDiagnostics(observability.diagnostics)
         XCTAssertEqual(result.map{ $0.pathString }.sorted(), ["/tmp/test/dep", "/tmp/test/local"])

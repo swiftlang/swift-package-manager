@@ -1853,7 +1853,7 @@ extension Workspace {
                             )
                         }
                     } catch {
-                        tempDiagnostics.emit(.error("failed retrieving '\(indexFile.url)': \(error)"))
+                        tempDiagnostics.emit(error: "failed retrieving '\(indexFile.url)': \(error)")
                     }
                 }
             }

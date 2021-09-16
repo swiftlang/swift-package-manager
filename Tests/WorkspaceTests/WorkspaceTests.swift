@@ -2096,8 +2096,8 @@ final class WorkspaceTests: XCTestCase {
         workspace.checkPackageGraphFailure(roots: ["Bar"]) { diagnostics in
             testDiagnostics(diagnostics) { result in
                 // TODO: clean this up when migrating to new diagnostics API
-                var expectedMetadata = DiagnosticsMetadata()
-                expectedMetadata.stringLocation = "/tmp/ws/roots/Bar"
+                var expectedMetadata = ObservabilityMetadata()
+                expectedMetadata.legacyLocation = "/tmp/ws/roots/Bar"
 
                 result.check(
                     diagnostic: .equal("package 'bar' is using Swift tools version 4.1.0 but the installed version is 4.0.0"),
@@ -2108,8 +2108,8 @@ final class WorkspaceTests: XCTestCase {
         }
         workspace.checkPackageGraphFailure(roots: ["Foo", "Bar"]) { diagnostics in
             // TODO: clean this up when migrating to new diagnostics API
-            var expectedMetadata = DiagnosticsMetadata()
-            expectedMetadata.stringLocation = "/tmp/ws/roots/Bar"
+            var expectedMetadata = ObservabilityMetadata()
+            expectedMetadata.legacyLocation = "/tmp/ws/roots/Bar"
 
             testDiagnostics(diagnostics) { result in
                 result.check(
@@ -2122,8 +2122,8 @@ final class WorkspaceTests: XCTestCase {
         workspace.checkPackageGraphFailure(roots: ["Baz"]) { diagnostics in
             testDiagnostics(diagnostics) { result in
                 // TODO: clean this up when migrating to new diagnostics API
-                var expectedMetadata = DiagnosticsMetadata()
-                expectedMetadata.stringLocation = "/tmp/ws/roots/Baz"
+                var expectedMetadata = ObservabilityMetadata()
+                expectedMetadata.legacyLocation = "/tmp/ws/roots/Baz"
 
                 result.check(
                     diagnostic: .equal("package 'baz' is using Swift tools version 3.1.0 which is no longer supported; consider using '// swift-tools-version:4.0' to specify the current tools version"),
@@ -3809,7 +3809,7 @@ final class WorkspaceTests: XCTestCase {
         let manifest = try tsc_await {
             workspace.loadRootManifest(
                 at: packagePath,
-                diagnostics: ObservabilitySystem.makeDiagnosticsEngine(),
+                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
                 completion: $0
             )
         }
@@ -3818,7 +3818,7 @@ final class WorkspaceTests: XCTestCase {
         let package = try tsc_await {
             workspace.loadRootPackage(
                 at: packagePath,
-                diagnostics: ObservabilitySystem.makeDiagnosticsEngine(),
+                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
                 completion: $0
             )
         }
@@ -3826,7 +3826,7 @@ final class WorkspaceTests: XCTestCase {
 
         let graph = try workspace.loadPackageGraph(
             rootPath: packagePath,
-            diagnostics: ObservabilitySystem.makeDiagnosticsEngine()
+            diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine()
         )
         XCTAssertFalse(observability.hasErrorDiagnostics)
 
@@ -3927,7 +3927,7 @@ final class WorkspaceTests: XCTestCase {
         ]
 
         workspace.checkPackageGraphFailure(roots: ["Overridden/bazzz-master"], deps: deps) { diagnostics in
-            testDiagnostics(diagnostics, ignoreNotes: true) { result in
+            testDiagnostics(diagnostics) { result in
                 result.check(diagnostic: .equal("unable to override package 'Baz' because its identity 'bazzz' doesn't match override's identity (directory name) 'bazzz-master'"), severity: .error)
             }
         }
@@ -3992,7 +3992,7 @@ final class WorkspaceTests: XCTestCase {
 
         // We should only see errors about use of unsafe flag in the version-based dependency.
         workspace.checkPackageGraph(roots: ["Foo", "Bar"]) { _, diagnostics in
-            testDiagnostics(diagnostics, ignoreNotes: true) { result in
+            testDiagnostics(diagnostics) { result in
                 result.checkUnordered(diagnostic: .equal("the target 'Baz' in product 'Baz' contains unsafe build flags"), severity: .error)
                 result.checkUnordered(diagnostic: .equal("the target 'Bar' in product 'Baz' contains unsafe build flags"), severity: .error)
             }
@@ -4231,7 +4231,7 @@ final class WorkspaceTests: XCTestCase {
             try fs.writeFileContents(binaryPath, bytes: ByteString([0xAA, 0xBB, 0xCC]))
 
             let observability = ObservabilitySystem.bootstrapForTesting()
-            let checksum = ws.checksum(forBinaryArtifactAt: binaryPath, diagnostics: ObservabilitySystem.makeDiagnosticsEngine())
+            let checksum = ws.checksum(forBinaryArtifactAt: binaryPath, diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine())
             XCTAssertTrue(!observability.hasErrorDiagnostics, observability.diagnostics.description)
             XCTAssertEqual(workspace.checksumAlgorithm.hashes.map { $0.contents }, [[0xAA, 0xBB, 0xCC]])
             XCTAssertEqual(checksum, "ccbbaa")
@@ -4241,7 +4241,7 @@ final class WorkspaceTests: XCTestCase {
         do {
             let unknownPath = sandbox.appending(component: "unknown")
             let observability = ObservabilitySystem.bootstrapForTesting()
-            let checksum = ws.checksum(forBinaryArtifactAt: unknownPath, diagnostics: ObservabilitySystem.makeDiagnosticsEngine())
+            let checksum = ws.checksum(forBinaryArtifactAt: unknownPath, diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine())
             XCTAssertEqual(checksum, "")
             testDiagnostics(observability.diagnostics) { result in
                 let expectedDiagnostic = "unexpected file type; supported extensions are: zip"
@@ -4253,7 +4253,7 @@ final class WorkspaceTests: XCTestCase {
         do {
             let unknownPath = sandbox.appending(component: "missingFile.zip")
             let observability = ObservabilitySystem.bootstrapForTesting()
-            let checksum = ws.checksum(forBinaryArtifactAt: unknownPath, diagnostics: ObservabilitySystem.makeDiagnosticsEngine())
+            let checksum = ws.checksum(forBinaryArtifactAt: unknownPath, diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine())
             XCTAssertEqual(checksum, "")
             testDiagnostics(observability.diagnostics) { result in
                 result.check(diagnostic: .contains("file not found at path: /tmp/ws/missingFile.zip"),
@@ -4267,7 +4267,7 @@ final class WorkspaceTests: XCTestCase {
             try fs.createDirectory(unknownPath)
 
             let observability = ObservabilitySystem.bootstrapForTesting()
-            let checksum = ws.checksum(forBinaryArtifactAt: unknownPath, diagnostics: ObservabilitySystem.makeDiagnosticsEngine())
+            let checksum = ws.checksum(forBinaryArtifactAt: unknownPath, diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine())
             XCTAssertEqual(checksum, "")
             testDiagnostics(observability.diagnostics) { result in
                 result.check(diagnostic: .contains("file not found at path: /tmp/ws/aDirectory.zip"),
