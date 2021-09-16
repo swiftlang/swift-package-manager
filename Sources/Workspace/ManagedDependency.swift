@@ -19,9 +19,9 @@ extension Workspace {
     ///
     /// Each dependency will have a checkout containing the sources at a
     /// particular revision, and may have an associated version.
-    final public class ManagedDependency {
+    public struct ManagedDependency: Equatable {
         /// Represents the state of the managed dependency.
-        public enum State: Equatable {
+        public indirect enum State: Equatable {
             /// The dependency is a managed checkout.
             case checkout(CheckoutState)
 
@@ -34,19 +34,6 @@ extension Workspace {
 
             // The dependency is a local package.
             case local
-
-            public static func == (lhs: Workspace.ManagedDependency.State, rhs: Workspace.ManagedDependency.State) -> Bool {
-                switch (lhs, rhs) {
-                case (.local, .local):
-                    return true
-                case (.checkout(let lState), .checkout(let rState)):
-                    return lState == rState
-                case (.edited(let lBasedOn, let lUnmanagedPath), .edited(let rBasedOn, let rUnmanagedPath)):
-                    return lBasedOn?.packageRef == rBasedOn?.packageRef && lUnmanagedPath == rUnmanagedPath
-                default:
-                    return false
-                }
-            }
         }
 
         /// The package reference.
