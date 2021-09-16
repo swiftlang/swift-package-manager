@@ -92,10 +92,10 @@ fileprivate struct WorkspaceStateStorage {
         return try self.fileSystem.withLock(on: self.path, type: .shared) {
             let version = try decoder.decode(path: self.path, fileSystem: self.fileSystem, as: Version.self)
             switch version.version {
-            case 1,2,3,4:
-                let v4 = try self.decoder.decode(path: self.path, fileSystem: self.fileSystem, as: V4.self)
-                let dependencies = try v4.object.dependencies.map{ try Workspace.ManagedDependency($0) }
-                let artifacts = try v4.object.artifacts.map{ try Workspace.ManagedArtifact($0) }
+            case 1, 2, 3, 4, 5:
+                let v5 = try self.decoder.decode(path: self.path, fileSystem: self.fileSystem, as: V5.self)
+                let dependencies = try v5.object.dependencies.map { try Workspace.ManagedDependency($0) }
+                let artifacts = try v5.object.artifacts.map { try Workspace.ManagedArtifact($0) }
                 return (dependencies: .init(dependencies), artifacts: .init(artifacts))
             default:
                 throw StringError("unknown 'WorkspaceStateStorage' version '\(version.version)' at '\(self.path)'")
@@ -109,7 +109,7 @@ fileprivate struct WorkspaceStateStorage {
         }
 
         try self.fileSystem.withLock(on: self.path, type: .exclusive) {
-            let storage = V4(dependencies: dependencies, artifacts: artifacts)
+            let storage = V5(dependencies: dependencies, artifacts: artifacts)
 
             let data = try self.encoder.encode(storage)
             try self.fileSystem.writeFileContents(self.path, data: data)
@@ -134,17 +134,18 @@ fileprivate struct WorkspaceStateStorage {
         let version: Int
     }
 
+    /// * 5: Registry
     /// * 4: Artifacts.
     /// * 3: Package kind.
     /// * 2: Package identity.
     /// * 1: Initial version.
-    // v4 storage format
-    struct V4: Codable {
+    // v5 storage format
+    struct V5: Codable {
         let version: Int
         let object: Container
 
         init (dependencies: Workspace.ManagedDependencies, artifacts: Workspace.ManagedArtifacts) {
-            self.version = 4
+            self.version = 5
             self.object = .init(
                 dependencies: dependencies.map { .init($0) },
                 artifacts: artifacts.map {.init($0) }
@@ -227,6 +228,9 @@ fileprivate struct WorkspaceStateStorage {
                     case "edited":
                         let path = try container.decode(AbsolutePath?.self, forKey: .path)
                         return try self.init(underlying: .edited(basedOn: basedOn.map { try .init($0) }, unmanagedPath: path))
+                    case "downloaded":
+                        let version = try container.decode(TSCUtility.Version.self, forKey: .version)
+                        return self.init(underlying: .downloaded(version: version))
                     default:
                         throw InternalError("unknown checkout state \(kind)")
                     }
@@ -243,7 +247,9 @@ fileprivate struct WorkspaceStateStorage {
                     case .edited(_, let path):
                         try container.encode("edited", forKey: .name)
                         try container.encode(path, forKey: .path)
-
+                    case .downloaded(version: let version):
+                        try container.encode("downloaded", forKey: .name)
+                        try container.encode(version, forKey: .version)
                     }
                 }
 
@@ -251,6 +257,7 @@ fileprivate struct WorkspaceStateStorage {
                     case name
                     case path
                     case checkoutState
+                    case version
                 }
 
                 struct CheckoutInfo: Codable {
@@ -374,7 +381,7 @@ fileprivate struct WorkspaceStateStorage {
 }
 
 extension Workspace.ManagedDependency {
-    fileprivate convenience init(_ dependency: WorkspaceStateStorage.V4.Dependency) throws {
+    fileprivate convenience init(_ dependency: WorkspaceStateStorage.V5.Dependency) throws {
         try self.init(
             packageRef: .init(dependency.packageRef),
             state: dependency.state.underlying,
@@ -384,7 +391,7 @@ extension Workspace.ManagedDependency {
 }
 
 extension Workspace.ManagedArtifact {
-    fileprivate init(_ artifact: WorkspaceStateStorage.V4.Artifact) throws {
+    fileprivate init(_ artifact: WorkspaceStateStorage.V5.Artifact) throws {
         try self.init(
             packageRef: .init(artifact.packageRef),
             targetName: artifact.targetName,
@@ -395,7 +402,7 @@ extension Workspace.ManagedArtifact {
 }
 
 extension PackageModel.PackageReference {
-    fileprivate init(_ reference: WorkspaceStateStorage.V4.PackageReference) throws {
+    fileprivate init(_ reference: WorkspaceStateStorage.V5.PackageReference) throws {
         let identity = PackageIdentity.plain(reference.identity)
         let kind: PackageModel.PackageReference.Kind
         switch reference.kind {
@@ -423,7 +430,7 @@ extension PackageModel.PackageReference {
 }
 
 extension CheckoutState {
-    fileprivate init(_ state: WorkspaceStateStorage.V4.Dependency.State.CheckoutInfo) throws {
+    fileprivate init(_ state: WorkspaceStateStorage.V5.Dependency.State.CheckoutInfo) throws {
         let revision: Revision = .init(identifier: state.revision)
         if let branch = state.branch {
             self = .branch(name: branch, revision: revision)

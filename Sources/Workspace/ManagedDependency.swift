@@ -32,6 +32,9 @@ extension Workspace {
             /// for top of the tree style development.
             case edited(basedOn: ManagedDependency?, unmanagedPath: AbsolutePath?)
 
+            /// The dependency is downloaded from a registry.
+            case downloaded(version: Version)
+
             // The dependency is a local package.
             case local
 
@@ -64,6 +67,12 @@ extension Workspace {
         /// Returns true if the dependency is edited.
         public var isEdited: Bool {
             if case .edited = self.state { return true }
+            return false
+        }
+
+        /// Returns true if the dependency is downloaded.
+        public var isDownloaded: Bool {
+            if case .downloaded = state { return true }
             return false
         }
 
@@ -116,6 +125,19 @@ extension Workspace {
                 packageRef: packageRef,
                 state: .checkout(state),
                 subpath: subpath
+            )
+        }
+
+        /// Create a remote dependency checked out
+        public static func downloaded(
+            packageRef: PackageReference,
+            version: Version
+        ) -> ManagedDependency {
+            return ManagedDependency(
+                packageRef: packageRef,
+                state: .downloaded(version: version),
+                // FIXME: This is just a fake entry, we should fix it.
+                subpath: RelativePath(packageRef.identity.description)
             )
         }
 

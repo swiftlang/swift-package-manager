@@ -1009,6 +1009,8 @@ extension Workspace {
             return checkoutState
         case .edited:
             diagnostics.emit(error: "dependency '\(dependency.packageRef.name)' already in edit mode")
+        case .downloaded:
+            diagnostics.emit(error: "downloaded dependency '\(dependency.packageRef.name)' can't be edited")
         case .local:
             diagnostics.emit(error: "local dependency '\(dependency.packageRef.name)' can't be edited")
         }
@@ -1137,18 +1139,15 @@ extension Workspace {
         // Compute if we need to force remove.
         var forceRemove = forceRemove
 
-        switch dependency.state {
-        // If the dependency isn't in edit mode, we can't unedit it.
-        case .checkout, .local:
+        guard case .edited(_, let unmanagedPath) = dependency.state else {
             throw WorkspaceDiagnostics.DependencyNotInEditMode(dependencyName: dependency.packageRef.name)
+        }
 
-        case .edited(_, let path):
-            if path != nil {
-                // Set force remove to true for unmanaged dependencies.  Note that
-                // this only removes the symlink under the editable directory and
-                // not the actual unmanaged package.
-                forceRemove = true
-            }
+        if unmanagedPath != nil {
+            // Set force remove to true for unmanaged dependencies.  Note that
+            // this only removes the symlink under the editable directory and
+            // not the actual unmanaged package.
+            forceRemove = true
         }
 
         // Form the edit working repo path.
@@ -1233,6 +1232,8 @@ fileprivate extension PinsStore {
         switch dependency.state {
         case .checkout(let state):
             checkoutState = state
+        case .downloaded(version: let version):
+            checkoutState = .version(version, revision: .init(identifier: "\(version)"))
         case .edited, .local:
             return
         }
@@ -1283,8 +1284,7 @@ extension Workspace {
         func unsafeAllowedPackages() -> Set<PackageReference> {
             var result = Set<PackageReference>()
 
-            for dependency in self.dependencies {
-                let dependency = dependency.dependency
+            for case let (_, dependency, _) in self.dependencies {
                 switch dependency.state {
                 case .checkout(let checkout):
                     if checkout.isBranchOrRevisionBased {
@@ -1292,7 +1292,7 @@ extension Workspace {
                     }
                 case .edited:
                     continue
-                case .local:
+                case .downloaded, .local:
                     result.insert(dependency.packageRef)
                 }
             }
@@ -1376,7 +1376,7 @@ extension Workspace {
                         requirement: .unversioned,
                         products: productFilter)
                     allConstraints.append(constraint)
-                case .checkout, .local:
+                case .checkout, .downloaded, .local:
                     break
                 }
                 allConstraints += try externalManifest.dependencyConstraints(productFilter: productFilter)
@@ -1390,10 +1390,10 @@ extension Workspace {
             var constraints = [PackageContainerConstraint]()
 
             for (_, managedDependency, productFilter) in dependencies {
-                switch managedDependency.state {
-                case .checkout, .local: continue
-                case .edited: break
+                guard case .edited = managedDependency.state else {
+                    continue
                 }
+
                 // FIXME: We shouldn't need to construct a new package reference object here.
                 // We should get the correct one from managed dependency object.
                 let ref = PackageReference.fileSystem(
@@ -1445,6 +1445,8 @@ extension Workspace {
             return self.location.repositoriesCheckoutsDirectory.appending(dependency.subpath)
         case .edited(_, let path):
             return path ?? self.location.editsDirectory.appending(dependency.subpath)
+        case .downloaded(version: let version):
+            return self.location.sourceArchivesSubdirectory(for: dependency.packageRef, at: version)
         case .local:
             return AbsolutePath(dependency.packageRef.location)
         }
@@ -1616,6 +1618,9 @@ extension Workspace {
             default:
                 version = .none
             }
+        case .downloaded(version: let v):
+            packageKind = .registry(managedDependency.packageRef.identity)
+            version = v
         case .edited, .local:
             packageKind = .fileSystem(packagePath)
             version = .none
@@ -1728,6 +1733,8 @@ extension Workspace {
                 case .local:
                     self.state.dependencies.remove(dependency.packageRef.identity)
                     try self.state.save()
+                case .downloaded:
+                    fatalError("registry support is not yet implemented")
                 }
             }
         }
@@ -2104,6 +2111,8 @@ extension Workspace {
             switch dependency.state {
             case .checkout(let checkoutState):
                 return pin.state != checkoutState
+            case .downloaded(version: let version):
+                return pin.state != .version(version, revision: .init(identifier: "\(version)"))
             case .edited, .local:
                 return true
             }
@@ -2451,7 +2460,7 @@ extension Workspace {
 
         for dependency in self.state.dependencies {
             switch dependency.state {
-            case .checkout: break
+            case .checkout, .downloaded: break
             case .edited, .local: continue
             }
 
@@ -2588,6 +2597,8 @@ extension Workspace {
                     switch currentDependency.state {
                     case .local, .edited:
                         packageStateChanges[packageRef.identity] = (packageRef, .unchanged)
+                    case .downloaded:
+                        throw InternalError("Unexpected unversioned binding for downloaded dependency")
                     case .checkout:
                         let newState = PackageStateChange.State(requirement: .unversioned, products: products)
                         packageStateChanges[packageRef.identity] = (packageRef, .updated(newState))
@@ -2859,6 +2870,8 @@ extension Workspace: PackageContainerProvider {
             return
         case .checkout, .edited:
             break
+        case .downloaded:
+            break
         }
 
         // Inform the delegate.
@@ -3114,6 +3127,8 @@ extension Workspace {
                 case .unversioned:
                     result.append("unversioned")
                 }
+            case .downloaded(version: let version)?:
+                result.append("downloaded at version \(version)")
             case .edited?:
                 result.append("edited")
             case .local?:

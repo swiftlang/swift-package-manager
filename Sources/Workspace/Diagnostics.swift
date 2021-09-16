@@ -133,6 +133,10 @@ extension Diagnostic.Message {
         .warning("dependency '\(packageName)' is missing; cloning again")
     }
 
+    static func downloadedDependencyMissing(packageName: String, version: Version) -> Diagnostic.Message {
+        .warning("dependency '\(packageName)' at version \(version) was downloaded from a registry but is missing; downloading again")
+    }
+
     static func artifactChecksumChanged(targetName: String) -> Diagnostic.Message {
         .error("artifact of binary target '\(targetName)' has changed checksum; this is a potential security risk so the new artifact won't be downloaded")
     }
