@@ -1040,7 +1040,7 @@ extension Workspace {
                 self.loadManifest(packageIdentity: dependency.packageRef.identity,
                                   packageKind: .local,
                                   packagePath: destination,
-                                  packageLocation: dependency.packageRef.repository.url,
+                                  packageLocation: dependency.packageRef.location,
                                   diagnostics: diagnostics,
                                   completion: $0)
             }
@@ -1066,7 +1066,7 @@ extension Workspace {
             // Get handle to the repository.
             // TODO: replace with async/await when available
             let handle = try temp_await {
-                repositoryManager.lookup(repository: dependency.packageRef.repository, skipUpdate: true, on: .sharedConcurrent, completion: $0)
+                repositoryManager.lookup(repository: .init(url: dependency.packageRef.location), skipUpdate: true, on: .sharedConcurrent, completion: $0)
             }
             let repo = try handle.open()
 
@@ -1634,7 +1634,7 @@ extension Workspace {
                 let toolsVersion = try toolsVersionLoader.load(at: packagePath, fileSystem: fileSystem)
 
                 // Validate the tools version.
-                try toolsVersion.validateToolsVersion(currentToolsVersion, packagePath: packagePath.pathString)
+                try toolsVersion.validateToolsVersion(currentToolsVersion, packageIdentity: packageIdentity)
 
                 // Load the manifest.
                 // The delegate callback is only passed any diagnostics emitted during the parsing of the manifest, but they are also forwarded up to the caller.
@@ -2687,14 +2687,19 @@ extension Workspace {
             }
         }
 
+        guard case .remote = package.kind else {
+            throw InternalError("invalid package kind \(package.kind)")
+        }
+        let repository = RepositorySpecifier(url: package.location)
+
         // If not, we need to get the repository from the checkouts.
         // FIXME: this should not block
         let handle = try temp_await {
-            repositoryManager.lookup(repository: package.repository, skipUpdate: true, on: .sharedConcurrent, completion: $0)
+            repositoryManager.lookup(repository: repository, skipUpdate: true, on: .sharedConcurrent, completion: $0)
         }
 
         // Clone the repository into the checkouts.
-        let path = self.location.repositoriesCheckoutsDirectory.appending(component: package.repository.basename)
+        let path = self.location.repositoriesCheckoutsDirectory.appending(component: repository.basename)
 
         try fileSystem.chmod(.userWritable, path: path, options: [.recursive, .onlyFiles])
         try fileSystem.removeFileTree(path)
@@ -2721,6 +2726,10 @@ extension Workspace {
         package: PackageReference,
         at checkoutState: CheckoutState
     ) throws -> AbsolutePath {
+        guard case .remote = package.kind else {
+            throw InternalError("invalid package kind \(package.kind)")
+        }
+
         // Get the repository.
         let path = try fetch(package: package)
 
@@ -2728,7 +2737,7 @@ extension Workspace {
         let workingCopy = try repositoryManager.openWorkingCopy(at: path)
 
         // Inform the delegate.
-        delegate?.willCheckOut(repository: package.repository.url, revision: checkoutState.description, at: path)
+        delegate?.willCheckOut(repository: package.location, revision: checkoutState.description, at: path)
 
         // Do mutable-immutable dance because checkout operation modifies the disk state.
         try fileSystem.chmod(.userWritable, path: path, options: [.recursive, .onlyFiles])
@@ -2742,7 +2751,7 @@ extension Workspace {
             checkoutState: checkoutState))
         try state.saveState()
 
-        delegate?.didCheckOut(repository: package.repository.url, revision: checkoutState.description, at: path, error: nil)
+        delegate?.didCheckOut(repository: package.location, revision: checkoutState.description, at: path, error: nil)
 
         return path
     }
@@ -2789,7 +2798,6 @@ extension Workspace {
 
     /// Removes the clone and checkout of the provided specifier.
     fileprivate func remove(package: PackageReference) throws {
-
         guard let dependency = state.dependencies[forURL: package.location] else {
             throw InternalError("trying to remove \(package.name) which isn't in workspace")
         }
@@ -2808,7 +2816,7 @@ extension Workspace {
         }
 
         // Inform the delegate.
-        delegate?.removing(repository: dependency.packageRef.repository.url)
+        delegate?.removing(repository: dependency.packageRef.location)
 
         // Compute the dependency which we need to remove.
         let dependencyToRemove: ManagedDependency
@@ -2823,6 +2831,10 @@ extension Workspace {
             state.dependencies.remove(forURL: dependencyToRemove.packageRef.location)
         }
 
+        guard case .remote = dependencyToRemove.packageRef.kind else {
+            throw InternalError("invalid package kind \(dependencyToRemove.packageRef.kind)")
+        }
+
         // Remove the checkout.
         let dependencyPath = self.location.repositoriesCheckoutsDirectory.appending(dependencyToRemove.subpath)
         let workingCopy = try repositoryManager.openWorkingCopy(at: dependencyPath)
@@ -2834,7 +2846,7 @@ extension Workspace {
         try fileSystem.removeFileTree(dependencyPath)
 
         // Remove the clone.
-        try repositoryManager.remove(repository: dependencyToRemove.packageRef.repository)
+        try repositoryManager.remove(repository: .init(url: dependencyToRemove.packageRef.location))
 
         // Save the state.
         try state.saveState()

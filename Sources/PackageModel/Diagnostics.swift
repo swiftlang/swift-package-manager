@@ -15,8 +15,8 @@ import TSCUtility
 
 /// The diagnostic triggered when the package has a newer tools version than the installed tools.
 public struct RequireNewerTools: DiagnosticData, Swift.Error {
-    /// The path of the package.
-    public let packagePath: String
+    /// The identity of the package.
+    public let packageIdentity: PackageIdentity
 
     /// The version of the package.
     public let packageVersion: String?
@@ -28,19 +28,19 @@ public struct RequireNewerTools: DiagnosticData, Swift.Error {
     public let packageToolsVersion: ToolsVersion
 
     public init(
-        packagePath: String,
+        packageIdentity: PackageIdentity,
         packageVersion: String? = nil,
         installedToolsVersion: ToolsVersion,
         packageToolsVersion: ToolsVersion
     ) {
-        self.packagePath = packagePath
+        self.packageIdentity = packageIdentity
         self.packageVersion = packageVersion
         self.installedToolsVersion = installedToolsVersion
         self.packageToolsVersion = packageToolsVersion
     }
 
     public var description: String {
-        var text = "package at '\(packagePath)'"
+        var text = "package '\(self.packageIdentity)'"
         if let version = self.packageVersion {
             text += " @ \(version)"
         }
@@ -51,8 +51,8 @@ public struct RequireNewerTools: DiagnosticData, Swift.Error {
 
 /// The diagnostic triggered when the package has an unsupported tools version.
 public struct UnsupportedToolsVersion: DiagnosticData, Swift.Error {
-    /// The path of the package.
-    public let packagePath: String
+    /// The identity of the package.
+    public let packageIdentity: PackageIdentity
 
     /// The version of the package.
     public let packageVersion: String?
@@ -68,19 +68,19 @@ public struct UnsupportedToolsVersion: DiagnosticData, Swift.Error {
     }
 
     public init(
-        packagePath: String,
+        packageIdentity: PackageIdentity,
         packageVersion: String? = nil,
         currentToolsVersion: ToolsVersion,
         packageToolsVersion: ToolsVersion
     ) {
-        self.packagePath = packagePath
+        self.packageIdentity = packageIdentity
         self.packageVersion = packageVersion
         self.currentToolsVersion = currentToolsVersion
         self.packageToolsVersion = packageToolsVersion
     }
 
     public var description: String {
-        var text = "package at '\(self.packagePath)'"
+        var text = "package '\(self.packageIdentity)'"
         if let version = self.packageVersion {
             text += " @ \(version)"
         }

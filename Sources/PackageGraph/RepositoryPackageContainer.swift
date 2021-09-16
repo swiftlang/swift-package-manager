@@ -29,8 +29,8 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
     // about the container to identify it for diagnostics.
     public struct GetDependenciesError: Error, CustomStringConvertible, DiagnosticLocationProviding {
 
-        /// The container (repository) that encountered the error.
-        public let containerIdentifier: String
+        /// The repository url that encountered the error.
+        public let url: String
 
         /// The source control reference (version, branch, revision, etc) that was involved.
         public let reference: String
@@ -42,12 +42,12 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
         public let suggestion: String?
         
         public var diagnosticLocation: DiagnosticLocation? {
-            return PackageLocation.Remote(url: containerIdentifier, reference: reference)
+            return PackageLocation.Remote(url: self.url, reference: self.reference)
         }
         
         /// Description shown for errors of this kind.
         public var description: String {
-            var desc = "\(underlyingError) in \(containerIdentifier)"
+            var desc = "\(underlyingError) in \(self.url)"
             if let suggestion = suggestion {
                 desc += " (\(suggestion))"
             }
@@ -175,7 +175,7 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
             }.1
         } catch {
             throw GetDependenciesError(
-                containerIdentifier: package.repository.url, reference: version.description, underlyingError: error, suggestion: nil)
+                url: package.location, reference: version.description, underlyingError: error, suggestion: nil)
         }
     }
 
@@ -193,7 +193,11 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
                 if let rev = try? repository.resolveRevision(identifier: revision), repository.exists(revision: rev) {
                     // Revision does exist, so something else must be wrong.
                     throw GetDependenciesError(
-                        containerIdentifier: package.repository.url, reference: revision, underlyingError: error, suggestion: nil)
+                        url: package.location,
+                        reference: revision,
+                        underlyingError: error,
+                        suggestion: .none
+                    )
                 }
                 else {
                     // Revision does not exist, so we customize the error.
@@ -203,12 +207,20 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
                     let mainBranchExists = (try? repository.resolveRevision(identifier: "main")) != nil
                     let suggestion = (revision == "master" && mainBranchExists) ? "did you mean ‘main’?" : nil
                     throw GetDependenciesError(
-                        containerIdentifier: package.repository.url, reference: revision,
-                        underlyingError: StringError(errorMessage), suggestion: suggestion)
+                        url: package.location,
+                        reference: revision,
+                        underlyingError: StringError(errorMessage),
+                        suggestion: suggestion
+                    )
                 }
             }
             // If we get this far without having thrown an error, we wrap and throw the underlying error.
-            throw GetDependenciesError(containerIdentifier: package.repository.url, reference: revision, underlyingError: error, suggestion: nil)
+            throw GetDependenciesError(
+                url: package.location,
+                reference: revision,
+                underlyingError: error,
+                suggestion: .none
+            )
         }
     }
 
@@ -277,7 +289,7 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
     /// version of the package manager.
     private func isValidToolsVersion(_ toolsVersion: ToolsVersion) -> Bool {
         do {
-            try toolsVersion.validateToolsVersion(currentToolsVersion, packagePath: "")
+            try toolsVersion.validateToolsVersion(currentToolsVersion, packageIdentity: .plain("unknown"))
             return true
         } catch {
             return false
@@ -303,14 +315,12 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
     }
 
     private func loadManifest(fileSystem: FileSystem, version: Version?, packageVersion: String) throws -> Manifest {
-        let packageLocation = self.package.repository.url
-
         // Load the tools version.
         let toolsVersion = try self.toolsVersionLoader.load(at: .root, fileSystem: fileSystem)
 
         // Validate the tools version.
         try toolsVersion.validateToolsVersion(
-            self.currentToolsVersion, packagePath: packageLocation, packageVersion: packageVersion)
+            self.currentToolsVersion, packageIdentity: self.package.identity, packageVersion: packageVersion)
 
         // Load the manifest.
         // FIXME: this should not block
@@ -318,7 +328,7 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
             self.manifestLoader.load(at: AbsolutePath.root,
                                      packageIdentity: self.package.identity,
                                      packageKind: self.package.kind,
-                                     packageLocation: packageLocation,
+                                     packageLocation: self.package.location,
                                      version: version,
                                      revision: nil,
                                      toolsVersion: toolsVersion,
@@ -335,7 +345,7 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
     }
 
     public var description: String {
-        return "RepositoryPackageContainer(\(package.repository.url.debugDescription))"
+        return "RepositoryPackageContainer(\(self.package.location))"
     }
 }
 
@@ -400,7 +410,7 @@ public class RepositoryPackageContainerProvider: PackageContainerProvider {
         }
 
         // Resolve the container using the repository manager.
-        repositoryManager.lookup(repository: package.repository, skipUpdate: skipUpdate, on: queue) { result in
+        repositoryManager.lookup(repository: .init(url: package.location), skipUpdate: skipUpdate, on: queue) { result in
             queue.async {
                 // Create the container wrapper.
                 let result = result.tryMap { handle -> PackageContainer in

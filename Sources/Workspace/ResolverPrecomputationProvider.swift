@@ -105,7 +105,7 @@ private struct LocalPackageContainer: PackageContainer {
 
     func isToolsVersionCompatible(at version: Version) -> Bool {
         do {
-            try manifest.toolsVersion.validateToolsVersion(currentToolsVersion, packagePath: "")
+            try manifest.toolsVersion.validateToolsVersion(currentToolsVersion, packageIdentity: .plain("unknown"))
             return true
         } catch {
             return false

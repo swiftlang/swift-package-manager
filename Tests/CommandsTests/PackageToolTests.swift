@@ -768,7 +768,7 @@ final class PackageToolTests: XCTestCase {
                     let path = try SwiftPMProduct.packagePath(for: pkg, packageRoot: fooPath)
                     let pin = pinsStore.pinsMap[PackageIdentity(path: path)]!
                     XCTAssertEqual(pin.packageRef.identity, PackageIdentity(path: path))
-                    XCTAssert(pin.packageRef.repository.url.hasSuffix(pkg))
+                    XCTAssert(pin.packageRef.location.hasSuffix(pkg))
                     XCTAssertEqual(pin.state.version, "1.2.3")
                 }
             }
