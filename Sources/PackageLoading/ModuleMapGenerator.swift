@@ -8,9 +8,10 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-import TSCBasic
-import PackageModel
+import Basics
 import Foundation
+import PackageModel
+import TSCBasic
 
 /// Name of the module map file recognized by the Clang and Swift compilers.
 public let moduleMapFilename = "module.modulemap"
@@ -86,8 +87,14 @@ public struct ModuleMapGenerator {
     }
     
     /// Inspects the file system at the public-headers directory with which the module map generator was instantiated, and returns the type of module map that applies to that directory.  This function contains all of the heuristics that implement module map policy for package targets; other functions just use the results of this determination.
-    public func determineModuleMapType(diagnostics: DiagnosticsEngine) -> ModuleMapType {
+    public func determineModuleMapType(observabilityScope: ObservabilityScope) -> ModuleMapType {
         // The following rules are documented at https://github.com/apple/swift-package-manager/blob/master/Documentation/Usage.md#creating-c-language-targets.  To avoid breaking existing packages, do not change the semantics here without making any change conditional on the tools version of the package that defines the target.
+
+        let diagnosticsEmitter = observabilityScope.makeDiagnosticsEmitter {
+            var metadata = ObservabilityMetadata()
+            metadata.targetName = self.targetName
+            return metadata
+        }
         
         // First check for a custom module map.
         let customModuleMapFile = publicHeadersDir.appending(component: moduleMapFilename)
@@ -97,7 +104,7 @@ public struct ModuleMapGenerator {
         
         // Warn if the public-headers directory is missing.  For backward compatibility reasons, this is not an error, we just won't generate a module map in that case.
         guard fileSystem.exists(publicHeadersDir) else {
-            diagnostics.emit(.missingPublicHeadersDirectory(targetName: targetName, publicHeadersDir: publicHeadersDir))
+            diagnosticsEmitter.emit(.missingPublicHeadersDirectory(targetName: targetName, publicHeadersDir: publicHeadersDir))
             return .none
         }
 
@@ -108,7 +115,7 @@ public struct ModuleMapGenerator {
         }
         catch {
             // This might fail because of a file system error, etc.
-            diagnostics.emit(.inaccessiblePublicHeadersDirectory(targetName: targetName, publicHeadersDir: publicHeadersDir, fileSystemError: error))
+            diagnosticsEmitter.emit(.inaccessiblePublicHeadersDirectory(targetName: targetName, publicHeadersDir: publicHeadersDir, fileSystemError: error))
             return .none
         }
         
@@ -122,7 +129,7 @@ public struct ModuleMapGenerator {
         if fileSystem.isFile(umbrellaHeader) {
             // In this case, 'PublicHeadersDir' is expected to contain no subdirectories.
             if directories.count != 0 {
-                diagnostics.emit(.umbrellaHeaderHasSiblingDirectories(targetName: targetName, umbrellaHeader: umbrellaHeader, siblingDirs: directories))
+                diagnosticsEmitter.emit(.umbrellaHeaderHasSiblingDirectories(targetName: targetName, umbrellaHeader: umbrellaHeader, siblingDirs: directories))
                 return .none
             }
             return .umbrellaHeader(umbrellaHeader)
@@ -131,7 +138,7 @@ public struct ModuleMapGenerator {
         /// Check for the common mistake of naming the umbrella header 'TargetName.h' instead of 'ModuleName.h'.
         let misnamedUmbrellaHeader = publicHeadersDir.appending(component: targetName + ".h")
         if fileSystem.isFile(misnamedUmbrellaHeader) {
-            diagnostics.emit(.misnamedUmbrellaHeader(misnamedUmbrellaHeader: misnamedUmbrellaHeader, umbrellaHeader: umbrellaHeader))
+            diagnosticsEmitter.emit(.misnamedUmbrellaHeader(misnamedUmbrellaHeader: misnamedUmbrellaHeader, umbrellaHeader: umbrellaHeader))
         }
 
         // If 'PublicHeadersDir/ModuleName/ModuleName.h' exists, then use it as the umbrella header.
@@ -139,12 +146,12 @@ public struct ModuleMapGenerator {
         if fileSystem.isFile(nestedUmbrellaHeader) {
             // In this case, 'PublicHeadersDir' is expected to contain no subdirectories other than 'ModuleName'.
             if directories.count != 1 {
-                diagnostics.emit(.umbrellaHeaderParentDirHasSiblingDirectories(targetName: targetName, umbrellaHeader: nestedUmbrellaHeader, siblingDirs: directories.filter{ $0.basename != moduleName }))
+                diagnosticsEmitter.emit(.umbrellaHeaderParentDirHasSiblingDirectories(targetName: targetName, umbrellaHeader: nestedUmbrellaHeader, siblingDirs: directories.filter{ $0.basename != moduleName }))
                 return .none
             }
             // In this case, 'PublicHeadersDir' is also expected to contain no header files.
             if headers.count != 0 {
-                diagnostics.emit(.umbrellaHeaderParentDirHasSiblingHeaders(targetName: targetName, umbrellaHeader: nestedUmbrellaHeader, siblingHeaders: headers))
+                diagnosticsEmitter.emit(.umbrellaHeaderParentDirHasSiblingHeaders(targetName: targetName, umbrellaHeader: nestedUmbrellaHeader, siblingHeaders: headers))
                 return .none
             }
             return .umbrellaHeader(nestedUmbrellaHeader)
@@ -153,7 +160,7 @@ public struct ModuleMapGenerator {
         /// Check for the common mistake of naming the nested umbrella header 'TargetName.h' instead of 'ModuleName.h'.
         let misnamedNestedUmbrellaHeader = publicHeadersDir.appending(components: moduleName, targetName + ".h")
         if fileSystem.isFile(misnamedNestedUmbrellaHeader) {
-            diagnostics.emit(.misnamedUmbrellaHeader(misnamedUmbrellaHeader: misnamedNestedUmbrellaHeader, umbrellaHeader: nestedUmbrellaHeader))
+            diagnosticsEmitter.emit(.misnamedUmbrellaHeader(misnamedUmbrellaHeader: misnamedNestedUmbrellaHeader, umbrellaHeader: nestedUmbrellaHeader))
         }
 
         // Otherwise, if 'PublicHeadersDir' contains only header files and no subdirectories, use it as the umbrella directory.
@@ -197,7 +204,6 @@ public enum GeneratedModuleMapType {
     case umbrellaDirectory(AbsolutePath)
 }
 
-
 public extension ModuleMapType {
     /// Returns the type of module map to generate for this kind of module map, or nil to not generate one at all.
     var generatedModuleMapType: GeneratedModuleMapType? {
@@ -209,36 +215,35 @@ public extension ModuleMapType {
     }
 }
 
-
-private extension Diagnostic.Message {
+private extension Basics.Diagnostic {
     
     /// Warning emitted if the public-headers directory is missing.
-    static func missingPublicHeadersDirectory(targetName: String, publicHeadersDir: AbsolutePath) -> Diagnostic.Message {
+    static func missingPublicHeadersDirectory(targetName: String, publicHeadersDir: AbsolutePath) -> Self {
         .warning("no include directory found for target '\(targetName)'; libraries cannot be imported without public headers")
     }
     
     /// Error emitted if the public-headers directory is inaccessible.
-    static func inaccessiblePublicHeadersDirectory(targetName: String, publicHeadersDir: AbsolutePath, fileSystemError: Error) -> Diagnostic.Message {
+    static func inaccessiblePublicHeadersDirectory(targetName: String, publicHeadersDir: AbsolutePath, fileSystemError: Error) -> Self {
         .error("cannot access public-headers directory for target '\(targetName)': \(String(describing: fileSystemError))")
     }
     
     /// Warning emitted if a misnamed umbrella header was found.
-    static func misnamedUmbrellaHeader(misnamedUmbrellaHeader: AbsolutePath, umbrellaHeader: AbsolutePath) -> Diagnostic.Message {
+    static func misnamedUmbrellaHeader(misnamedUmbrellaHeader: AbsolutePath, umbrellaHeader: AbsolutePath) -> Self {
         .warning("\(misnamedUmbrellaHeader) should be renamed to \(umbrellaHeader) to be used as an umbrella header")
     }
     
     /// Error emitted if there are directories next to a top-level umbrella header.
-    static func umbrellaHeaderHasSiblingDirectories(targetName: String, umbrellaHeader: AbsolutePath, siblingDirs: Set<AbsolutePath>) -> Diagnostic.Message {
+    static func umbrellaHeaderHasSiblingDirectories(targetName: String, umbrellaHeader: AbsolutePath, siblingDirs: Set<AbsolutePath>) -> Self {
         .error("target '\(targetName)' has invalid header layout: umbrella header found at '\(umbrellaHeader)', but directories exist next to it: \(siblingDirs.map({ String(describing: $0) }).sorted().joined(separator: ", ")); consider removing them")
     }
     
     /// Error emitted if there are other directories next to the parent directory of a nested umbrella header.
-    static func umbrellaHeaderParentDirHasSiblingDirectories(targetName: String, umbrellaHeader: AbsolutePath, siblingDirs: Set<AbsolutePath>) -> Diagnostic.Message {
+    static func umbrellaHeaderParentDirHasSiblingDirectories(targetName: String, umbrellaHeader: AbsolutePath, siblingDirs: Set<AbsolutePath>) -> Self {
         .error("target '\(targetName)' has invalid header layout: umbrella header found at '\(umbrellaHeader)', but more than one directory exists next to its parent directory: \(siblingDirs.map({ String(describing: $0) }).sorted().joined(separator: ", ")); consider reducing them to one")
     }
     
     /// Error emitted if there are other headers next to the parent directory of a nested umbrella header.
-    static func umbrellaHeaderParentDirHasSiblingHeaders(targetName: String, umbrellaHeader: AbsolutePath, siblingHeaders: Set<AbsolutePath>) -> Diagnostic.Message {
+    static func umbrellaHeaderParentDirHasSiblingHeaders(targetName: String, umbrellaHeader: AbsolutePath, siblingHeaders: Set<AbsolutePath>) -> Self {
         .error("target '\(targetName)' has invalid header layout: umbrella header found at '\(umbrellaHeader)', but additional header files exist: \((siblingHeaders.map({ String(describing: $0) }).sorted().joined(separator: ", "))); consider reducing them to one")
     }
 }
