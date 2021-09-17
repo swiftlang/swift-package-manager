@@ -54,19 +54,23 @@ public class ObservabilitySystem {
             description: "top scope",
             parent: .none,
             metadata: .none,
-            diagnosticsHandler: factory.diagnosticsHandler
+            diagnosticsHandler: factory.diagnosticsHandler,
+            metricsHandler: factory.metricsHandler
         )
     }
 
-    private struct NOOPFactory: ObservabilityFactory, DiagnosticsHandler {
+    private struct NOOPFactory: ObservabilityFactory, DiagnosticsHandler, MetricsHandler {
         var diagnosticsHandler: DiagnosticsHandler  { self }
+        var metricsHandler: MetricsHandler { self }
 
         func handleDiagnostic(scope: ObservabilityScope, diagnostic: Diagnostic) {}
+        func handleTimer(scope: ObservabilityScope, label: String, duration: DispatchTimeInterval) {}
     }
 }
 
 public protocol ObservabilityFactory {
     var diagnosticsHandler: DiagnosticsHandler { get }
+    var metricsHandler: MetricsHandler { get }
 }
 
 // MARK: - ObservabilityScope
@@ -77,17 +81,21 @@ public final class ObservabilityScope: DiagnosticsEmitterProtocol {
     private let metadata: ObservabilityMetadata?
 
     private var diagnosticsHandler: DiagnosticsHanderWrapper
+    private var metricsHandler: MetricsHandler
+
 
     fileprivate init(
         description: String,
         parent: ObservabilityScope?,
         metadata: ObservabilityMetadata?,
-        diagnosticsHandler: DiagnosticsHandler
+        diagnosticsHandler: DiagnosticsHandler,
+        metricsHandler: MetricsHandler
     ) {
         self.description = description
         self.parent = parent
         self.metadata = metadata
         self.diagnosticsHandler = DiagnosticsHanderWrapper(diagnosticsHandler)
+        self.metricsHandler = metricsHandler
     }
 
     public func makeChildScope(description: String, metadata: ObservabilityMetadata? = .none) -> Self {
@@ -96,7 +104,8 @@ public final class ObservabilityScope: DiagnosticsEmitterProtocol {
             description: description,
             parent: self,
             metadata: mergedMetadata,
-            diagnosticsHandler: self.diagnosticsHandler
+            diagnosticsHandler: self.diagnosticsHandler,
+            metricsHandler: self.metricsHandler
         )
     }
 
@@ -132,6 +141,16 @@ public final class ObservabilityScope: DiagnosticsEmitterProtocol {
         var diagnostic = diagnostic
         diagnostic.metadata = ObservabilityMetadata.mergeLeft(self.metadata, diagnostic.metadata)
         self.diagnosticsHandler.handleDiagnostic(scope: self, diagnostic: diagnostic)
+    }
+
+    // metrics
+
+    public func makeTimer(label: String) -> Timer {
+        return .init(scope: self, label: label)
+    }
+
+    public func record(label: String, duration: DispatchTimeInterval) {
+        self.metricsHandler.handleTimer(scope: self, label: label, duration: duration)
     }
 
     private struct DiagnosticsHanderWrapper: DiagnosticsHandler {
@@ -304,6 +323,40 @@ public struct Diagnostic: CustomStringConvertible, Equatable {
         case warning
         case info
         case debug
+    }
+}
+
+// MARK: - Metrics
+
+public protocol MetricsHandler {
+    func handleTimer(scope: ObservabilityScope, label: String, duration: DispatchTimeInterval)
+}
+
+public struct Timer: TimerProtocol {
+    private let scope: ObservabilityScope
+    private let label: String
+
+    fileprivate init(scope: ObservabilityScope, label: String) {
+        self.scope = scope
+        self.label = label
+    }
+
+    public func record(_ duration: DispatchTimeInterval) {
+        self.scope.record(label: self.label, duration: duration)
+    }
+}
+
+// helper protocol to share default behavior
+public protocol TimerProtocol {
+    func record(_ duration: DispatchTimeInterval)
+}
+
+extension TimerProtocol {
+    @discardableResult
+    public func measure<T>(_ closure: () -> T) -> T {
+        let start = DispatchTime.now()
+        defer { self.record(start.distance(to: .now())) }
+        return closure()
     }
 }
 

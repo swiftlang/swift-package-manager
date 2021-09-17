@@ -966,12 +966,17 @@ extension DispatchTimeInterval {
 
 // MARK: - Diagnostics
 
-private struct SwiftToolObservability: ObservabilityFactory, DiagnosticsHandler {
+private struct SwiftToolObservability: ObservabilityFactory, DiagnosticsHandler, MetricsHandler {
     var diagnosticsHandler: DiagnosticsHandler { self }
+    var metricsHandler: MetricsHandler { self }
 
     func handleDiagnostic(scope: ObservabilityScope, diagnostic: Basics.Diagnostic) {
         // TODO: do something useful with scope
         diagnostic.print()
+    }
+
+    func handleTimer(scope: ObservabilityScope, label: String, duration: DispatchTimeInterval) {
+        // TODO: do something useful with performance information
     }
 }
 

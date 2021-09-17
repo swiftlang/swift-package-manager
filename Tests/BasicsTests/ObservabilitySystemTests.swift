@@ -160,21 +160,58 @@ final class ObservabilitySystemTest: XCTestCase {
         }
     }
 
-    struct Collector: ObservabilityFactory, DiagnosticsHandler {
-        private let _diagnostics = ThreadSafeArrayStore<Diagnostic>()
+    func testMetrics() throws {
+        let collector = Collector()
+        let observabilitySystem = ObservabilitySystem(factory: collector)
 
+        let label = UUID().uuidString
+        let timer = observabilitySystem.topScope.makeTimer(label: label)
+
+        do {
+            let duration = Int.random(in: Int.min..<Int.max)
+            timer.record(.seconds(duration))
+            XCTAssertEqual(collector.timers.first!.label, label)
+            XCTAssertEqual(collector.timers.first!.duration, .seconds(duration))
+        }
+
+        collector.clear()
+
+        do {
+            let duration = Int.random(in: 10..<20)
+            timer.measure{
+                usleep(UInt32(duration*1_000)) // milli -> micro
+            }
+            XCTAssertEqual(collector.timers.first!.label, label)
+            XCTAssertEqual(collector.timers.first!.duration.milliseconds()!, duration, accuracy: 5)
+        }
+    }
+
+    struct Collector: ObservabilityFactory, DiagnosticsHandler, MetricsHandler {
         var diagnosticsHandler: DiagnosticsHandler { self }
+        var metricsHandler: MetricsHandler { self }
+
+        let _diagnostics = ThreadSafeArrayStore<Diagnostic>()
+        let _timers = ThreadSafeArrayStore<(label: String, duration: DispatchTimeInterval)>()
 
         var diagnostics: [Diagnostic] {
             self._diagnostics.get()
         }
 
+        var timers: [(label: String, duration: DispatchTimeInterval)] {
+            self._timers.get()
+        }
+
         func clear() {
             self._diagnostics.clear()
+            self._timers.clear()
         }
 
         func handleDiagnostic(scope: ObservabilityScope, diagnostic: Diagnostic) {
             self._diagnostics.append(diagnostic)
+        }
+
+        func handleTimer(scope: ObservabilityScope, label: String, duration: DispatchTimeInterval) {
+            self._timers.append((label: label, duration: duration))
         }
     }
 }

@@ -9,6 +9,7 @@
  */
 
 import Basics
+import Dispatch
 import struct TSCBasic.Lock
 import func XCTest.XCTFail
 import func XCTest.XCTAssertEqual
@@ -28,6 +29,10 @@ public struct TestingObservability {
         self.factory.diagnosticsCollector.diagnostics.get()
     }
 
+    public var timers: [(label: String, duration: DispatchTimeInterval)] {
+        self.factory.metricsCollector.timers.get()
+    }
+
     public var hasErrorDiagnostics: Bool {
         self.factory.diagnosticsCollector.hasErrors
     }
@@ -36,11 +41,16 @@ public struct TestingObservability {
         self.factory.diagnosticsCollector.hasWarnings
     }
 
-    struct Factory: ObservabilityFactory {
+    fileprivate struct Factory: ObservabilityFactory {
         fileprivate let diagnosticsCollector = DiagnosticsCollector()
+        fileprivate let metricsCollector = MetricsCollector()
 
         var diagnosticsHandler: DiagnosticsHandler {
-            return diagnosticsCollector
+            self.diagnosticsCollector
+        }
+
+        var metricsHandler: MetricsHandler {
+            self.metricsCollector
         }
     }
 }
@@ -70,6 +80,24 @@ private final class DiagnosticsCollector: DiagnosticsHandler, CustomStringConver
     public var description: String {
         let diagnostics = self.diagnostics.get()
         return "\(diagnostics)"
+    }
+}
+
+private final class MetricsCollector: MetricsHandler, CustomStringConvertible {
+    public let timers: ThreadSafeArrayStore<(label: String, duration: DispatchTimeInterval)>
+
+    public init() {
+        self.timers = .init()
+    }
+
+    // TODO: do something useful with scope
+    func handleTimer(scope: ObservabilityScope, label: String, duration: DispatchTimeInterval) {
+        self.timers.append((label: label, duration: duration))
+    }
+
+    public var description: String {
+        let timers = self.timers.get()
+        return "\(timers)"
     }
 }
 
