@@ -34,8 +34,8 @@ public func pbxproj(
         extraDirs: [AbsolutePath],
         extraFiles: [AbsolutePath],
         options: XcodeprojOptions,
-        diagnostics: DiagnosticsEngine,
-        fileSystem: FileSystem = localFileSystem
+        fileSystem: FileSystem,
+        observabilityScope: ObservabilityScope
     ) throws -> Xcode.Project {
     return try xcodeProject(
         xcodeprojPath: xcodeprojPath,
@@ -44,7 +44,7 @@ public func pbxproj(
         extraFiles: extraFiles,
         options: options,
         fileSystem: fileSystem,
-        diagnostics: diagnostics
+        observabilityScope: observabilityScope.makeChildScope(description: "Xcode Project")
     )
 }
 
@@ -62,7 +62,7 @@ public func xcodeProject(
     extraFiles: [AbsolutePath],
     options: XcodeprojOptions,
     fileSystem: FileSystem,
-    diagnostics: DiagnosticsEngine
+    observabilityScope: ObservabilityScope
 ) throws -> Xcode.Project {
 
     // Create the project.
@@ -397,8 +397,9 @@ public func xcodeProject(
 
         // Warn if the target name is invalid.
         if target.type == .library && invalidXcodeModuleNames.contains(target.c99name) {
-            diagnostics.emit(warning: "Target '\(target.name)' conflicts with required framework filenames, rename " +
-                                      "this target to avoid conflicts.")
+            observabilityScope.emit(
+                warning: "Target '\(target.name)' conflicts with required framework filenames, rename " + "this target to avoid conflicts."
+            )
         }
 
         // Create a Xcode target for the target.
@@ -503,7 +504,7 @@ public func xcodeProject(
             switch depModule.underlyingTarget {
               case let systemTarget as SystemLibraryTarget:
                 hdrInclPaths.append("$(SRCROOT)/\(systemTarget.path.relative(to: sourceRootDir).pathString)")
-                for pkgArgs in pkgConfigArgs(for: systemTarget, diagnostics: diagnostics) {
+                for pkgArgs in pkgConfigArgs(for: systemTarget, fileSystem: fileSystem, observabilityScope: observabilityScope) {
                     targetSettings.common.OTHER_LDFLAGS += pkgArgs.libs
                     targetSettings.common.OTHER_SWIFT_FLAGS += pkgArgs.cFlags
                     targetSettings.common.OTHER_CFLAGS += pkgArgs.cFlags

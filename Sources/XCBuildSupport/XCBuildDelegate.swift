@@ -8,15 +8,16 @@ See http://swift.org/LICENSE.txt for license information
 See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import Basics
 import Foundation
+import SPMBuildCore
 import TSCBasic
 import TSCUtility
-import SPMBuildCore
 
 public class XCBuildDelegate {
     private let buildSystem: SPMBuildCore.BuildSystem
     private var parser: XCBuildOutputParser!
-    private let diagnostics: DiagnosticsEngine
+    private let observabilityScope: ObservabilityScope
     private let outputStream: ThreadSafeOutputByteStream
     private let progressAnimation: ProgressAnimationProtocol
     private var percentComplete: Int = 0
@@ -33,16 +34,16 @@ public class XCBuildDelegate {
 
     public init(
         buildSystem: SPMBuildCore.BuildSystem,
-        diagnostics: DiagnosticsEngine,
         outputStream: OutputByteStream,
-        progressAnimation: ProgressAnimationProtocol
+        progressAnimation: ProgressAnimationProtocol,
+        observabilityScope: ObservabilityScope
     ) {
         self.buildSystem = buildSystem
-        self.diagnostics = diagnostics
         // FIXME: Implement a class convenience initializer that does this once they are supported
         // https://forums.swift.org/t/allow-self-x-in-class-convenience-initializers/15924
         self.outputStream = outputStream as? ThreadSafeOutputByteStream ?? ThreadSafeOutputByteStream(outputStream)
         self.progressAnimation = progressAnimation
+        self.observabilityScope = observabilityScope
         parser = XCBuildOutputParser(delegate: self)
     }
 
@@ -116,14 +117,14 @@ extension XCBuildDelegate: XCBuildOutputParserDelegate {
 
     public func xcBuildOutputParser(_ parser: XCBuildOutputParser, didFailWith error: Error) {
         self.didParseAnyOutput = true
-        let message = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
-        diagnostics.emit(.xcbuildOutputParsingError(message))
+        self.observabilityScope.emit(.xcbuildOutputParsingError(error))
     }
 }
 
-private extension Diagnostic.Message {
-    static func xcbuildOutputParsingError(_ error: String) -> Diagnostic.Message {
-        .error("failed parsing XCBuild output: \(error)")
+private extension Basics.Diagnostic {
+    static func xcbuildOutputParsingError(_ error: Error) -> Self {
+        let message = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        return .error("failed parsing XCBuild output: \(message)")
     }
 }
 

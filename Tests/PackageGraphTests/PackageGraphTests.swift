@@ -1070,9 +1070,13 @@ class PackageGraphTests: XCTestCase {
 
         XCTAssertEqual(observability.diagnostics.count, 3)
         testDiagnostics(observability.diagnostics) { result in
-            result.checkUnordered(diagnostic: .contains("the target 'Bar2' in product 'TransitiveBar' contains unsafe build flags"), severity: .error)
-            result.checkUnordered(diagnostic: .contains("the target 'Bar' in product 'Bar' contains unsafe build flags"), severity: .error)
-            result.checkUnordered(diagnostic: .contains("the target 'Bar2' in product 'Bar' contains unsafe build flags"), severity: .error)
+            var expectedMetadata = ObservabilityMetadata()
+            expectedMetadata.targetName = "Foo2"
+            result.checkUnordered(diagnostic: .contains("the target 'Bar2' in product 'TransitiveBar' contains unsafe build flags"), severity: .error, metadata: expectedMetadata)
+            expectedMetadata = ObservabilityMetadata()
+            expectedMetadata.targetName = "Foo"
+            result.checkUnordered(diagnostic: .contains("the target 'Bar' in product 'Bar' contains unsafe build flags"), severity: .error, metadata: expectedMetadata)
+            result.checkUnordered(diagnostic: .contains("the target 'Bar2' in product 'Bar' contains unsafe build flags"), severity: .error, metadata: expectedMetadata)
         }
     }
 

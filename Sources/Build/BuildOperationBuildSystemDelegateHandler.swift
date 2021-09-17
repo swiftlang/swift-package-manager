@@ -363,7 +363,6 @@ final class CopyCommand: CustomLLBuildCommand {
 
 /// Convenient llbuild build system delegate implementation
 final class BuildOperationBuildSystemDelegateHandler: LLBuildBuildSystemDelegate, SwiftCompilerOutputParserDelegate {
-    private let diagnostics: DiagnosticsEngine
     var outputStream: ThreadSafeOutputByteStream
     var progressAnimation: ProgressAnimationProtocol
     var onCommmandFailure: (() -> Void)?
@@ -373,7 +372,8 @@ final class BuildOperationBuildSystemDelegateHandler: LLBuildBuildSystemDelegate
     private let queue = DispatchQueue(label: "org.swift.swiftpm.build-delegate")
     private var taskTracker = CommandTaskTracker()
     private var errorMessagesByTarget: [String: [String]] = [:]
-    
+    private let observabilityScope: ObservabilityScope
+
     /// Swift parsers keyed by llbuild command name.
     private var swiftParsers: [String: SwiftCompilerOutputParser] = [:]
 
@@ -383,12 +383,11 @@ final class BuildOperationBuildSystemDelegateHandler: LLBuildBuildSystemDelegate
     init(
         buildSystem: SPMBuildCore.BuildSystem,
         bctx: BuildExecutionContext,
-        diagnostics: DiagnosticsEngine,
         outputStream: OutputByteStream,
         progressAnimation: ProgressAnimationProtocol,
+        observabilityScope: ObservabilityScope,
         delegate: SPMBuildCore.BuildSystemDelegate?
     ) {
-        self.diagnostics = diagnostics
         // FIXME: Implement a class convenience initializer that does this once they are supported
         // https://forums.swift.org/t/allow-self-x-in-class-convenience-initializers/15924
         self.outputStream = outputStream as? ThreadSafeOutputByteStream ?? ThreadSafeOutputByteStream(outputStream)
@@ -396,6 +395,7 @@ final class BuildOperationBuildSystemDelegateHandler: LLBuildBuildSystemDelegate
         self.buildExecutionContext = bctx
         self.delegate = delegate
         self.buildSystem = buildSystem
+        self.observabilityScope = observabilityScope
 
         let swiftParsers = bctx.buildDescription?.swiftCommands.mapValues { tool in
             SwiftCompilerOutputParser(targetName: tool.moduleName, delegate: self)
@@ -435,13 +435,13 @@ final class BuildOperationBuildSystemDelegateHandler: LLBuildBuildSystemDelegate
     func handleDiagnostic(_ diagnostic: SPMLLBuild.Diagnostic) {
         switch diagnostic.kind {
         case .note:
-            diagnostics.emit(note: diagnostic.message)
+            self.observabilityScope.emit(info: diagnostic.message)
         case .warning:
-            diagnostics.emit(warning: diagnostic.message)
+            self.observabilityScope.emit(warning: diagnostic.message)
         case .error:
-            diagnostics.emit(error: diagnostic.message)
+            self.observabilityScope.emit(error: diagnostic.message)
         @unknown default:
-            diagnostics.emit(note: diagnostic.message)
+            self.observabilityScope.emit(info: diagnostic.message)
         }
     }
 
@@ -494,15 +494,15 @@ final class BuildOperationBuildSystemDelegateHandler: LLBuildBuildSystemDelegate
     }
 
     func commandHadError(_ command: SPMLLBuild.Command, message: String) {
-        diagnostics.emit(error: message)
+        self.observabilityScope.emit(error: message)
     }
 
     func commandHadNote(_ command: SPMLLBuild.Command, message: String) {
-        diagnostics.emit(note: message)
+        self.observabilityScope.emit(info: message)
     }
 
     func commandHadWarning(_ command: SPMLLBuild.Command, message: String) {
-        diagnostics.emit(warning: message)
+        self.observabilityScope.emit(warning: message)
     }
 
     func commandCannotBuildOutputDueToMissingInputs(
@@ -510,18 +510,18 @@ final class BuildOperationBuildSystemDelegateHandler: LLBuildBuildSystemDelegate
         output: BuildKey,
         inputs: [BuildKey]
     ) {
-        diagnostics.emit(.missingInputs(output: output, inputs: inputs))
+        self.observabilityScope.emit(.missingInputs(output: output, inputs: inputs))
     }
 
     func cannotBuildNodeDueToMultipleProducers(output: BuildKey, commands: [SPMLLBuild.Command]) {
-        diagnostics.emit(.multipleProducers(output: output, commands: commands))
+        self.observabilityScope.emit(.multipleProducers(output: output, commands: commands))
     }
 
     func commandProcessStarted(_ command: SPMLLBuild.Command, process: ProcessHandle) {
     }
 
     func commandProcessHadError(_ command: SPMLLBuild.Command, process: ProcessHandle, message: String) {
-        diagnostics.emit(.commandError(command: command, message: message))
+        self.observabilityScope.emit(.commandError(command: command, message: message))
     }
 
     func commandProcessHadOutput(_ command: SPMLLBuild.Command, process: ProcessHandle, data: [UInt8]) {
@@ -560,7 +560,7 @@ final class BuildOperationBuildSystemDelegateHandler: LLBuildBuildSystemDelegate
     }
 
     func cycleDetected(rules: [BuildKey]) {
-        diagnostics.emit(.cycleError(rules: rules))
+        self.observabilityScope.emit(.cycleError(rules: rules))
 
         queue.async {
             self.delegate?.buildSystemDidDetectCycleInRules(self.buildSystem)
@@ -608,7 +608,7 @@ final class BuildOperationBuildSystemDelegateHandler: LLBuildBuildSystemDelegate
 
     func swiftCompilerOutputParser(_ parser: SwiftCompilerOutputParser, didFailWith error: Error) {
         let message = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
-        diagnostics.emit(.swiftCompilerOutputParsingError(message))
+        self.observabilityScope.emit(.swiftCompilerOutputParsingError(message))
         onCommmandFailure?()
     }
 
@@ -767,26 +767,26 @@ extension SwiftCompilerMessage {
     }
 }
 
-private extension Diagnostic.Message {
-    static func cycleError(rules: [BuildKey]) -> Diagnostic.Message {
+private extension Basics.Diagnostic {
+    static func cycleError(rules: [BuildKey]) -> Self {
         .error("build cycle detected: " + rules.map{ $0.key }.joined(separator: ", "))
     }
 
-    static func missingInputs(output: BuildKey, inputs: [BuildKey]) -> Diagnostic.Message {
+    static func missingInputs(output: BuildKey, inputs: [BuildKey]) -> Self {
         let missingInputs = inputs.map{ $0.key }.joined(separator: ", ")
         return .error("couldn't build \(output.key) because of missing inputs: \(missingInputs)")
     }
 
-    static func multipleProducers(output: BuildKey, commands: [SPMLLBuild.Command]) -> Diagnostic.Message {
+    static func multipleProducers(output: BuildKey, commands: [SPMLLBuild.Command]) -> Self {
         let producers = commands.map{ $0.description }.joined(separator: ", ")
         return .error("couldn't build \(output.key) because of missing producers: \(producers)")
     }
 
-    static func commandError(command: SPMLLBuild.Command, message: String) -> Diagnostic.Message {
+    static func commandError(command: SPMLLBuild.Command, message: String) -> Self {
         .error("command \(command.description) failed: \(message)")
     }
 
-    static func swiftCompilerOutputParsingError(_ error: String) -> Diagnostic.Message {
+    static func swiftCompilerOutputParsingError(_ error: String) -> Self {
         .error("failed parsing the Swift compiler output: \(error)")
     }
 }

@@ -51,7 +51,7 @@ private struct MockToolchain: SPMBuildCore.Toolchain {
 
 final class BuildPlanTests: XCTestCase {
     let inputsDir = AbsolutePath(#file).parentDirectory.appending(components: "Inputs")
-    
+
     /// The j argument.
     private var j: String {
         return "-j3"
@@ -124,8 +124,8 @@ final class BuildPlanTests: XCTestCase {
         let result = BuildPlanResult(plan: try BuildPlan(
             buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
             graph: graph,
-            diagnostics: observability.topScope.makeDiagnosticsEngine(),
-            fileSystem: fs
+            fileSystem: fs,
+            observabilityScope: observability.topScope
         ))
 
         result.checkProductsCount(1)
@@ -238,13 +238,13 @@ final class BuildPlanTests: XCTestCase {
                         useExplicitModuleBuild: true
                     ),
                     graph: graph,
-                    diagnostics: observability.topScope.makeDiagnosticsEngine(),
-                    fileSystem: fs
+                    fileSystem: fs,
+                    observabilityScope: observability.topScope
                 )
 
 
                 let yaml = buildDirPath.appending(component: "release.yaml")
-                let llbuild = LLBuildManifestBuilder(plan)
+                let llbuild = LLBuildManifestBuilder(plan, fileSystem: localFileSystem, observabilityScope: observability.topScope)
                 try llbuild.generateManifest(at: yaml)
                 let contents = try localFileSystem.readFileContents(yaml).description
 
@@ -320,8 +320,8 @@ final class BuildPlanTests: XCTestCase {
                     configuration: .release
                 )),
                 graph: graph,
-                diagnostics: observability.topScope.makeDiagnosticsEngine(),
-                fileSystem: fs
+                fileSystem: fs,
+                observabilityScope: observability.topScope
             )
 
             let linkedFileList = try fs.readFileContents(AbsolutePath("/path/to/build/release/exe.product/Objects.LinkFileList"))
@@ -330,7 +330,7 @@ final class BuildPlanTests: XCTestCase {
 
             try testWithTemporaryDirectory { path in
                 let yaml = path.appending(component: "release.yaml")
-                let llbuild = LLBuildManifestBuilder(plan)
+                let llbuild = LLBuildManifestBuilder(plan, fileSystem: fs, observabilityScope: observability.topScope)
                 try llbuild.generateManifest(at: yaml)
                 let contents = try localFileSystem.readFileContents(yaml).description
                 XCTAssertMatch(contents, .contains("""
@@ -346,8 +346,8 @@ final class BuildPlanTests: XCTestCase {
                     configuration: .debug
                 )),
                 graph: graph,
-                diagnostics: observability.topScope.makeDiagnosticsEngine(),
-                fileSystem: fs
+                fileSystem: fs,
+                observabilityScope: observability.topScope
             )
 
             let linkedFileList = try fs.readFileContents(AbsolutePath("/path/to/build/debug/exe.product/Objects.LinkFileList"))
@@ -356,7 +356,7 @@ final class BuildPlanTests: XCTestCase {
 
             try testWithTemporaryDirectory { path in
                 let yaml = path.appending(component: "debug.yaml")
-                let llbuild = LLBuildManifestBuilder(plan)
+                let llbuild = LLBuildManifestBuilder(plan, fileSystem: fs, observabilityScope: observability.topScope)
                 try llbuild.generateManifest(at: yaml)
                 let contents = try localFileSystem.readFileContents(yaml).description
                 XCTAssertMatch(contents, .contains("""
@@ -406,8 +406,8 @@ final class BuildPlanTests: XCTestCase {
         let result = BuildPlanResult(plan: try BuildPlan(
             buildParameters: mockBuildParameters(),
             graph: graph,
-            diagnostics: observability.topScope.makeDiagnosticsEngine(),
-            fileSystem: fileSystem
+            fileSystem: fileSystem,
+            observabilityScope: observability.topScope
         ))
 
         XCTAssertEqual(Set(result.productMap.keys), ["APackageTests"])
@@ -446,8 +446,8 @@ final class BuildPlanTests: XCTestCase {
         let result = BuildPlanResult(plan: try BuildPlan(
             buildParameters: mockBuildParameters(config: .release),
             graph: graph,
-            diagnostics: observability.topScope.makeDiagnosticsEngine(),
-            fileSystem: fs
+            fileSystem: fs,
+            observabilityScope: observability.topScope
         ))
 
         result.checkProductsCount(1)
@@ -517,8 +517,8 @@ final class BuildPlanTests: XCTestCase {
         let result = BuildPlanResult(plan: try BuildPlan(
             buildParameters: mockBuildParameters(),
             graph: graph,
-            diagnostics: observability.topScope.makeDiagnosticsEngine(),
-            fileSystem: fs
+            fileSystem: fs,
+            observabilityScope: observability.topScope
         ))
 
         result.checkProductsCount(1)
@@ -646,8 +646,8 @@ final class BuildPlanTests: XCTestCase {
                     configuration: .release
                 )),
                 graph: graph,
-                diagnostics: observability.topScope.makeDiagnosticsEngine(),
-                fileSystem: fs
+                fileSystem: fs,
+                observabilityScope: observability.topScope
             ))
 
             let exeArguments = try result.target(for: "exe").clangTarget().basicArguments()
@@ -665,8 +665,8 @@ final class BuildPlanTests: XCTestCase {
                     configuration: .debug
                 )),
                 graph: graph,
-                diagnostics: observability.topScope.makeDiagnosticsEngine(),
-                fileSystem: fs
+                fileSystem: fs,
+                observabilityScope: observability.topScope
             ))
 
             let arguments = try result.target(for: "exe").clangTarget().basicArguments()
@@ -706,8 +706,8 @@ final class BuildPlanTests: XCTestCase {
         let plan = try BuildPlan(
             buildParameters: mockBuildParameters(),
             graph: graph,
-            diagnostics: observability.topScope.makeDiagnosticsEngine(),
-            fileSystem: fs
+            fileSystem: fs,
+            observabilityScope: observability.topScope
         )
         let result = BuildPlanResult(plan: plan)
 
@@ -736,7 +736,7 @@ final class BuildPlanTests: XCTestCase {
 
         try testWithTemporaryDirectory { path in
             let yaml = path.appending(component: "debug.yaml")
-            let llbuild = LLBuildManifestBuilder(plan)
+            let llbuild = LLBuildManifestBuilder(plan, fileSystem: fs, observabilityScope: observability.topScope)
             try llbuild.generateManifest(at: yaml)
             let contents = try localFileSystem.readFileContents(yaml).description
             XCTAssertMatch(contents, .contains(#"-std=gnu99","-c","/Pkg/Sources/lib/lib.c"#))
@@ -770,8 +770,8 @@ final class BuildPlanTests: XCTestCase {
         let result = BuildPlanResult(plan: try BuildPlan(
             buildParameters: mockBuildParameters(),
             graph: graph,
-            diagnostics: observability.topScope.makeDiagnosticsEngine(),
-            fileSystem: fs
+            fileSystem: fs,
+            observabilityScope: observability.topScope
         ))
         result.checkProductsCount(1)
         result.checkTargetsCount(2)
@@ -844,8 +844,8 @@ final class BuildPlanTests: XCTestCase {
         let result = BuildPlanResult(plan: try BuildPlan(
             buildParameters: mockBuildParameters(),
             graph: graph,
-            diagnostics: observability.topScope.makeDiagnosticsEngine(),
-            fileSystem: fs
+            fileSystem: fs,
+            observabilityScope: observability.topScope
         ))
         result.checkProductsCount(1)
         result.checkTargetsCount(2)
@@ -903,8 +903,8 @@ final class BuildPlanTests: XCTestCase {
         let plan = try BuildPlan(
             buildParameters: mockBuildParameters(),
             graph: graph,
-            diagnostics: observability.topScope.makeDiagnosticsEngine(),
-            fileSystem: fs
+            fileSystem: fs,
+            observabilityScope: observability.topScope
         )
         XCTAssertEqual(plan.createREPLArguments().sorted(), ["-I/Dep/Sources/CDep/include", "-I/path/to/build/debug", "-I/path/to/build/debug/lib.build", "-L/path/to/build/debug", "-lPkg__REPL"])
 
@@ -941,8 +941,8 @@ final class BuildPlanTests: XCTestCase {
         let result = BuildPlanResult(plan: try BuildPlan(
             buildParameters: mockBuildParameters(),
             graph: graph,
-            diagnostics: observability.topScope.makeDiagnosticsEngine(),
-            fileSystem: fs
+            fileSystem: fs,
+            observabilityScope: observability.topScope
         ))
         result.checkProductsCount(1)
       #if os(macOS)
@@ -1014,8 +1014,8 @@ final class BuildPlanTests: XCTestCase {
         let result = BuildPlanResult(plan: try BuildPlan(
             buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
             graph: graph,
-            diagnostics: observability.topScope.makeDiagnosticsEngine(),
-            fileSystem: fs
+            fileSystem: fs,
+            observabilityScope: observability.topScope
         ))
 
         result.checkProductsCount(3)
@@ -1067,8 +1067,8 @@ final class BuildPlanTests: XCTestCase {
         let result = BuildPlanResult(plan: try BuildPlan(
             buildParameters: mockBuildParameters(),
             graph: graph,
-            diagnostics: observability.topScope.makeDiagnosticsEngine(),
-            fileSystem: fs
+            fileSystem: fs,
+            observabilityScope: observability.topScope
         ))
         result.checkProductsCount(1)
         result.checkTargetsCount(1)
@@ -1122,8 +1122,8 @@ final class BuildPlanTests: XCTestCase {
         let result = BuildPlanResult(plan: try BuildPlan(
             buildParameters: mockBuildParameters(),
             graph: graph,
-            diagnostics: observability.topScope.makeDiagnosticsEngine(),
-            fileSystem: fs
+            fileSystem: fs,
+            observabilityScope: observability.topScope
         ))
         result.checkProductsCount(1)
         result.checkTargetsCount(2)
@@ -1172,8 +1172,8 @@ final class BuildPlanTests: XCTestCase {
         let result = BuildPlanResult(plan: try BuildPlan(
             buildParameters: mockBuildParameters(),
             graph: g,
-            diagnostics: observability.topScope.makeDiagnosticsEngine(),
-            fileSystem: fs
+            fileSystem: fs,
+            observabilityScope: observability.topScope
         ))
         result.checkProductsCount(2)
         result.checkTargetsCount(2)
@@ -1261,8 +1261,8 @@ final class BuildPlanTests: XCTestCase {
         let result = BuildPlanResult(plan: try BuildPlan(
             buildParameters: mockBuildParameters(),
             graph: graph,
-            diagnostics: observability.topScope.makeDiagnosticsEngine(),
-            fileSystem: fs
+            fileSystem: fs,
+            observabilityScope: observability.topScope
         ))
 
         result.checkProductsCount(2)
@@ -1328,8 +1328,8 @@ final class BuildPlanTests: XCTestCase {
         let result = BuildPlanResult(plan: try BuildPlan(
             buildParameters: mockBuildParameters(),
             graph: graph,
-            diagnostics: observability.topScope.makeDiagnosticsEngine(),
-            fileSystem: fs
+            fileSystem: fs,
+            observabilityScope: observability.topScope
         ))
 
         result.checkProductsCount(2)
@@ -1355,7 +1355,7 @@ final class BuildPlanTests: XCTestCase {
 
     #if os(macOS)
         XCTAssertEqual(try result.buildProduct(for: "lib").linkArguments(), ["/fake/path/to/swiftc", "-lc++", "-L", "/path/to/build/debug", "-o", "/path/to/build/debug/liblib.dylib", "-module-name", "lib", "-emit-library", "-Xlinker", "-install_name", "-Xlinker", "@rpath/liblib.dylib", "-Xlinker", "-rpath", "-Xlinker", "@loader_path", "@/path/to/build/debug/lib.product/Objects.LinkFileList", "-runtime-compatibility-version", "none", "-target", defaultTargetTriple])
-            
+
         XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), ["/fake/path/to/swiftc", "-L", "/path/to/build/debug", "-o", "/path/to/build/debug/exe", "-module-name", "exe", "-emit-executable", "-Xlinker", "-rpath", "-Xlinker", "@loader_path", "@/path/to/build/debug/exe.product/Objects.LinkFileList", "-runtime-compatibility-version", "none", "-target", defaultTargetTriple])
     #else
         XCTAssertEqual(try result.buildProduct(for: "lib").linkArguments(), ["/fake/path/to/swiftc", "-lstdc++", "-L", "/path/to/build/debug", "-o", "/path/to/build/debug/liblib.so", "-module-name", "lib", "-emit-library", "-Xlinker", "-rpath=$ORIGIN", "@/path/to/build/debug/lib.product/Objects.LinkFileList", "-runtime-compatibility-version", "none", "-target", defaultTargetTriple])
@@ -1435,8 +1435,8 @@ final class BuildPlanTests: XCTestCase {
         let planResult = BuildPlanResult(plan: try BuildPlan(
             buildParameters: mockBuildParameters(),
             graph: graph,
-            diagnostics: observability.topScope.makeDiagnosticsEngine(),
-            fileSystem: fileSystem
+            fileSystem: fileSystem,
+            observabilityScope: observability.topScope
         ))
 
         #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
@@ -1531,8 +1531,8 @@ final class BuildPlanTests: XCTestCase {
             let planResult = BuildPlanResult(plan: try BuildPlan(
                 buildParameters: mockBuildParameters(environment: linuxDebug),
                 graph: graph,
-                diagnostics: observability.topScope.makeDiagnosticsEngine(),
-                fileSystem: fileSystem
+                fileSystem: fileSystem,
+                observabilityScope: observability.topScope
             ))
             planResult.checkProductsCount(4)
             planResult.checkTargetsCount(5)
@@ -1546,8 +1546,8 @@ final class BuildPlanTests: XCTestCase {
             let planResult = BuildPlanResult(plan: try BuildPlan(
                 buildParameters: mockBuildParameters(environment: macosDebug),
                 graph: graph,
-                diagnostics: observability.topScope.makeDiagnosticsEngine(),
-                fileSystem: fileSystem
+                fileSystem: fileSystem,
+                observabilityScope: observability.topScope
             ))
             planResult.checkProductsCount(4)
             planResult.checkTargetsCount(5)
@@ -1561,8 +1561,8 @@ final class BuildPlanTests: XCTestCase {
             let planResult = BuildPlanResult(plan: try BuildPlan(
                 buildParameters: mockBuildParameters(environment: androidRelease),
                 graph: graph,
-                diagnostics: observability.topScope.makeDiagnosticsEngine(),
-                fileSystem: fileSystem
+                fileSystem: fileSystem,
+                observabilityScope: observability.topScope
             ))
             planResult.checkProductsCount(4)
             planResult.checkTargetsCount(5)
@@ -1591,8 +1591,8 @@ final class BuildPlanTests: XCTestCase {
             _ = try BuildPlan(
                 buildParameters: mockBuildParameters(),
                 graph: graph,
-                diagnostics: observability.topScope.makeDiagnosticsEngine(),
-                fileSystem: fs
+                fileSystem: fs,
+                observabilityScope: observability.topScope
             )
         }
     }
@@ -1630,8 +1630,8 @@ final class BuildPlanTests: XCTestCase {
         _ = try BuildPlan(
             buildParameters: mockBuildParameters(),
             graph: graph,
-            diagnostics: observability.topScope.makeDiagnosticsEngine(),
-            fileSystem: fileSystem
+            fileSystem: fileSystem,
+            observabilityScope: observability.topScope
         )
 
         XCTAssertTrue(observability.diagnostics.contains(where: {
@@ -1668,15 +1668,16 @@ final class BuildPlanTests: XCTestCase {
         _ = try BuildPlan(
             buildParameters: mockBuildParameters(),
             graph: graph,
-            diagnostics: observability.topScope.makeDiagnosticsEngine(),
-            fileSystem: fileSystem
+            fileSystem: fileSystem,
+            observabilityScope: observability.topScope
         )
 
         let diagnostic = observability.diagnostics.last!
 
         XCTAssertEqual(diagnostic.message, "couldn't find pc file for BTarget")
         XCTAssertEqual(diagnostic.severity, .warning)
-        XCTAssertEqual(diagnostic.metadata?.legacyLocation, "'BTarget' BTarget.pc")
+        XCTAssertEqual(diagnostic.metadata?.targetName, "BTarget")
+        XCTAssertEqual(diagnostic.metadata?.pcFile, "BTarget.pc")
     }
 
     func testWindowsTarget() throws {
@@ -1705,8 +1706,8 @@ final class BuildPlanTests: XCTestCase {
         let result = BuildPlanResult(plan: try BuildPlan(
             buildParameters: mockBuildParameters(destinationTriple: .windows),
             graph: graph,
-            diagnostics: observability.topScope.makeDiagnosticsEngine(),
-            fileSystem: fs
+            fileSystem: fs,
+            observabilityScope: observability.topScope
         ))
         result.checkProductsCount(1)
         result.checkTargetsCount(2)
@@ -1730,7 +1731,7 @@ final class BuildPlanTests: XCTestCase {
             "@/path/to/build/debug/exe.product/Objects.LinkFileList",
              "-target", "x86_64-unknown-windows-msvc",
             ])
-        
+
         let executablePathExtension = try result.buildProduct(for: "exe").binary.extension
         XCTAssertMatch(executablePathExtension, "exe")
     }
@@ -1766,8 +1767,8 @@ final class BuildPlanTests: XCTestCase {
         let result = BuildPlanResult(plan: try BuildPlan(
             buildParameters: parameters,
             graph: graph,
-            diagnostics: observability.topScope.makeDiagnosticsEngine(),
-            fileSystem: fs
+            fileSystem: fs,
+            observabilityScope: observability.topScope
         ))
         result.checkProductsCount(2)
         result.checkTargetsCount(4)
@@ -1852,8 +1853,8 @@ final class BuildPlanTests: XCTestCase {
             let result = BuildPlanResult(plan: try BuildPlan(
                 buildParameters: mockBuildParameters(config: config, indexStoreMode: mode),
                 graph: graph,
-                diagnostics: observability.topScope.makeDiagnosticsEngine(),
-                fileSystem: fs
+                fileSystem: fs,
+                observabilityScope: observability.topScope
             ))
 
             let lib = try result.target(for: "lib").clangTarget()
@@ -1918,8 +1919,8 @@ final class BuildPlanTests: XCTestCase {
         let result = BuildPlanResult(plan: try BuildPlan(
             buildParameters: mockBuildParameters(),
             graph: graph,
-            diagnostics: observability.topScope.makeDiagnosticsEngine(),
-            fileSystem: fileSystem
+            fileSystem: fileSystem,
+            observabilityScope: observability.topScope
         ))
 
         let aTarget = try result.target(for: "ATarget").swiftTarget().compileArguments()
@@ -1936,6 +1937,7 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertMatch(bTarget, [.equal("-target"), .equal(defaultTargetTriple), .anySequence] )
       #endif
     }
+
     func testPlatformsValidation() throws {
         let fileSystem = InMemoryFileSystem(emptyFiles:
             "/A/Sources/ATarget/foo.swift",
@@ -1983,8 +1985,8 @@ final class BuildPlanTests: XCTestCase {
             _ = try BuildPlan(
                 buildParameters: mockBuildParameters(destinationTriple: .macOS),
                 graph: graph,
-                diagnostics: observability.topScope.makeDiagnosticsEngine(),
-                fileSystem: fileSystem
+                fileSystem: fileSystem,
+                observabilityScope: observability.topScope
             )
         }
 
@@ -2091,8 +2093,8 @@ final class BuildPlanTests: XCTestCase {
             return BuildPlanResult(plan: try BuildPlan(
                 buildParameters: mockBuildParameters(destinationTriple: dest),
                 graph: graph,
-                diagnostics: observability.topScope.makeDiagnosticsEngine(),
-                fileSystem: fs
+                fileSystem: fs,
+                observabilityScope: observability.topScope
             ))
         }
 
@@ -2161,8 +2163,8 @@ final class BuildPlanTests: XCTestCase {
         let result = BuildPlanResult(plan: try BuildPlan(
             buildParameters: mockBuildParameters(flags: flags),
             graph: graph,
-            diagnostics: observability.topScope.makeDiagnosticsEngine(),
-            fileSystem: fs
+            fileSystem: fs,
+            observabilityScope: observability.topScope
         ))
 
         let exe = try result.buildProduct(for: "exe").linkArguments()
@@ -2202,8 +2204,8 @@ final class BuildPlanTests: XCTestCase {
         let result = BuildPlanResult(plan: try BuildPlan(
             buildParameters: extraBuildParameters,
             graph: graph,
-            diagnostics: observability.topScope.makeDiagnosticsEngine(),
-            fileSystem: fs
+            fileSystem: fs,
+            observabilityScope: observability.topScope
         ))
         result.checkProductsCount(1)
         result.checkTargetsCount(2)
@@ -2262,13 +2264,13 @@ final class BuildPlanTests: XCTestCase {
         let plan = try BuildPlan(
             buildParameters: mockBuildParameters(),
             graph: graph,
-            diagnostics: observability.topScope.makeDiagnosticsEngine(),
-            fileSystem: fs
+            fileSystem: fs,
+            observabilityScope: observability.topScope
         )
 
         try testWithTemporaryDirectory { path in
             let yaml = path.appending(component: "debug.yaml")
-            let llbuild = LLBuildManifestBuilder(plan)
+            let llbuild = LLBuildManifestBuilder(plan, fileSystem: fs, observabilityScope: observability.topScope)
             try llbuild.generateManifest(at: yaml)
             let contents = try localFileSystem.readFileContents(yaml).description
             XCTAssertMatch(contents, .contains("""
@@ -2304,8 +2306,8 @@ final class BuildPlanTests: XCTestCase {
         let plan = try BuildPlan(
             buildParameters: mockBuildParameters(),
             graph: graph,
-            diagnostics: observability.topScope.makeDiagnosticsEngine(),
-            fileSystem: fs
+            fileSystem: fs,
+            observabilityScope: observability.topScope
         )
         let result = BuildPlanResult(plan: plan)
 
@@ -2325,7 +2327,7 @@ final class BuildPlanTests: XCTestCase {
 
         try testWithTemporaryDirectory { path in
             let yaml = path.appending(component: "debug.yaml")
-            let llbuild = LLBuildManifestBuilder(plan)
+            let llbuild = LLBuildManifestBuilder(plan, fileSystem: fs, observabilityScope: observability.topScope)
             try llbuild.generateManifest(at: yaml)
             let contents = try localFileSystem.readFileContents(yaml).description
             XCTAssertMatch(contents, .contains("""
@@ -2375,8 +2377,8 @@ final class BuildPlanTests: XCTestCase {
         let plan = try BuildPlan(
             buildParameters: mockBuildParameters(),
             graph: graph,
-            diagnostics: observability.topScope.makeDiagnosticsEngine(),
-            fileSystem: fs
+            fileSystem: fs,
+            observabilityScope: observability.topScope
         )
         let result = BuildPlanResult(plan: plan)
 
@@ -2396,7 +2398,7 @@ final class BuildPlanTests: XCTestCase {
 
         try testWithTemporaryDirectory { path in
              let yaml = path.appending(component: "debug.yaml")
-             let llbuild = LLBuildManifestBuilder(plan)
+             let llbuild = LLBuildManifestBuilder(plan, fileSystem: fs, observabilityScope: observability.topScope)
              try llbuild.generateManifest(at: yaml)
              let contents = try localFileSystem.readFileContents(yaml).description
              XCTAssertMatch(contents, .contains("""
@@ -2446,8 +2448,8 @@ final class BuildPlanTests: XCTestCase {
         let plan = try BuildPlan(
             buildParameters: mockBuildParameters(),
             graph: graph,
-            diagnostics: observability.topScope.makeDiagnosticsEngine(),
-            fileSystem: fs
+            fileSystem: fs,
+            observabilityScope: observability.topScope
         )
         let dynamicLibraryExtension = plan.buildParameters.triple.dynamicLibraryExtension
         let result = BuildPlanResult(plan: plan)
@@ -2468,7 +2470,7 @@ final class BuildPlanTests: XCTestCase {
 
         try testWithTemporaryDirectory { path in
              let yaml = path.appending(component: "debug.yaml")
-             let llbuild = LLBuildManifestBuilder(plan)
+             let llbuild = LLBuildManifestBuilder(plan, fileSystem: fs, observabilityScope: observability.topScope)
              try llbuild.generateManifest(at: yaml)
              let contents = try localFileSystem.readFileContents(yaml).description
              XCTAssertMatch(contents, .contains("""
@@ -2507,8 +2509,8 @@ final class BuildPlanTests: XCTestCase {
         let result = BuildPlanResult(plan: try BuildPlan(
             buildParameters: mockBuildParameters(destinationTriple: .x86_64Linux),
             graph: graph,
-            diagnostics: observability.topScope.makeDiagnosticsEngine(),
-            fileSystem: fs
+            fileSystem: fs,
+            observabilityScope: observability.topScope
         ))
 
         let objects = try result.buildProduct(for: "exe").objects
@@ -2517,7 +2519,7 @@ final class BuildPlanTests: XCTestCase {
 
         try testWithTemporaryDirectory { path in
             let yaml = path.appending(component: "debug.yaml")
-            let llbuild = LLBuildManifestBuilder(result.plan)
+            let llbuild = LLBuildManifestBuilder(result.plan, fileSystem: fs, observabilityScope: observability.topScope)
             try llbuild.generateManifest(at: yaml)
             let contents = try localFileSystem.readFileContents(yaml).description
             XCTAssertMatch(contents, .contains("""
@@ -2579,8 +2581,8 @@ final class BuildPlanTests: XCTestCase {
         let plan = try BuildPlan(
             buildParameters: mockBuildParameters(),
             graph: graph,
-            diagnostics: observability.topScope.makeDiagnosticsEngine(),
-            fileSystem: fs
+            fileSystem: fs,
+            observabilityScope: observability.topScope
         )
         let result = BuildPlanResult(plan: plan)
 
@@ -2630,8 +2632,8 @@ final class BuildPlanTests: XCTestCase {
             let result = BuildPlanResult(plan: try BuildPlan(
                 buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true, destinationTriple: triple),
                 graph: graph,
-                diagnostics: observability.topScope.makeDiagnosticsEngine(),
-                fileSystem: fs
+                fileSystem: fs,
+                observabilityScope: observability.topScope
             ))
 
             let exe = try result.target(for: "exe").swiftTarget().compileArguments()
@@ -2716,7 +2718,7 @@ final class BuildPlanTests: XCTestCase {
                 """))
 
         let observability = ObservabilitySystem.makeForTesting()
-        
+
         let graph = try loadPackageGraph(
             fs: fs,
             manifests: [
@@ -2748,8 +2750,8 @@ final class BuildPlanTests: XCTestCase {
         let result = BuildPlanResult(plan: try BuildPlan(
             buildParameters: mockBuildParameters(destinationTriple: destinationTriple),
             graph: graph,
-            diagnostics: observability.topScope.makeDiagnosticsEngine(),
-            fileSystem: fs
+            fileSystem: fs,
+            observabilityScope: observability.topScope
         ))
         XCTAssertNoDiagnostics(observability.diagnostics)
 
@@ -2780,10 +2782,10 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertMatch(clibraryLinkArguments, [.anySequence, "-F", "/path/to/build/debug", .anySequence])
         XCTAssertMatch(clibraryLinkArguments, [.anySequence, "-L", "/path/to/build/debug", .anySequence])
         XCTAssertMatch(clibraryLinkArguments, ["-lStaticLibrary"])
-        
+
         let executablePathExtension = try result.buildProduct(for: "exe").binary.extension ?? ""
         XCTAssertMatch(executablePathExtension, "")
-        
+
         let dynamicLibraryPathExtension = try result.buildProduct(for: "Library").binary.extension
         XCTAssertMatch(dynamicLibraryPathExtension, "dylib")
     }
@@ -2851,8 +2853,8 @@ final class BuildPlanTests: XCTestCase {
         let result = BuildPlanResult(plan: try BuildPlan(
             buildParameters: mockBuildParameters(destinationTriple: destinationTriple),
             graph: graph,
-            diagnostics: observability.topScope.makeDiagnosticsEngine(),
-            fileSystem: fs
+            fileSystem: fs,
+            observabilityScope: observability.topScope
         ))
         XCTAssertNoDiagnostics(observability.diagnostics)
 
@@ -2927,8 +2929,8 @@ final class BuildPlanTests: XCTestCase {
         let result = BuildPlanResult(plan: try BuildPlan(
             buildParameters: parameters,
             graph: graph,
-            diagnostics: observability.topScope.makeDiagnosticsEngine(),
-            fileSystem: fs
+            fileSystem: fs,
+            observabilityScope: observability.topScope
         ))
 
         result.checkProductsCount(1)

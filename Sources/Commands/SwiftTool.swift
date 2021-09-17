@@ -332,7 +332,7 @@ public class SwiftTool {
         originalWorkingDirectory = cwd
 
         do {
-            try Self.postprocessArgParserResult(options: options, diagnostics: self.observabilityScope.makeDiagnosticsEngine())
+            try Self.postprocessArgParserResult(options: options, observabilityScope: self.observabilityScope)
             self.options = options
 
             // Honor package-path option is provided.
@@ -398,44 +398,44 @@ public class SwiftTool {
         Process.verbose = verbosity != .concise
     }
 
-    static func postprocessArgParserResult(options: SwiftToolOptions, diagnostics: DiagnosticsEngine) throws {
+    static func postprocessArgParserResult(options: SwiftToolOptions, observabilityScope: ObservabilityScope) throws {
         if options.chdir != nil {
-            diagnostics.emit(warning: "'--chdir/-C' option is deprecated; use '--package-path' instead")
+            observabilityScope.emit(warning: "'--chdir/-C' option is deprecated; use '--package-path' instead")
         }
 
         if options.multirootPackageDataFile != nil {
-            diagnostics.emit(.unsupportedFlag("--multiroot-data-file"))
+            observabilityScope.emit(.unsupportedFlag("--multiroot-data-file"))
         }
 
         if options.useExplicitModuleBuild && !options.useIntegratedSwiftDriver {
-            diagnostics.emit(error: "'--experimental-explicit-module-build' option requires '--use-integrated-swift-driver'")
+            observabilityScope.emit(error: "'--experimental-explicit-module-build' option requires '--use-integrated-swift-driver'")
         }
 
         if !options.archs.isEmpty && options.customCompileTriple != nil {
-            diagnostics.emit(.mutuallyExclusiveArgumentsError(arguments: ["--arch", "--triple"]))
+            observabilityScope.emit(.mutuallyExclusiveArgumentsError(arguments: ["--arch", "--triple"]))
         }
 
         // --enable-test-discovery should never be called on darwin based platforms
 #if canImport(Darwin)
         if options.enableTestDiscovery {
-            diagnostics.emit(warning: "'--enable-test-discovery' option is deprecated; tests are automatically discovered on all platforms")
+            observabilityScope.emit(warning: "'--enable-test-discovery' option is deprecated; tests are automatically discovered on all platforms")
         }
 #endif
 
         if options.shouldDisableManifestCaching {
-            diagnostics.emit(warning: "'--disable-package-manifest-caching' option is deprecated; use '--manifest-caching' instead")
+            observabilityScope.emit(warning: "'--disable-package-manifest-caching' option is deprecated; use '--manifest-caching' instead")
         }
 
         if let _ = options.netrcFilePath, options.netrc == false {
-            diagnostics.emit(.mutuallyExclusiveArgumentsError(arguments: ["--disable-netrc", "--netrc-file"]))
+            observabilityScope.emit(.mutuallyExclusiveArgumentsError(arguments: ["--disable-netrc", "--netrc-file"]))
         }
 
         if options._deprecated_netrc {
-            diagnostics.emit(warning: "'--netrc' option is deprecated; .netrc files are located by default")
+            observabilityScope.emit(warning: "'--netrc' option is deprecated; .netrc files are located by default")
         }
 
         if options._deprecated_netrcOptional {
-            diagnostics.emit(warning: "'--netrc-optional' option is deprecated; .netrc files are located by default")
+            observabilityScope.emit(warning: "'--netrc-optional' option is deprecated; .netrc files are located by default")
         }
     }
 
@@ -746,8 +746,9 @@ public class SwiftTool {
             cacheBuildManifest: cacheBuildManifest && self.canUseCachedBuildManifest(),
             packageGraphLoader: graphLoader,
             pluginInvoker: { _ in [:] },
-            diagnostics: self.observabilityScope.makeDiagnosticsEngine(),
-            outputStream: self.outputStream
+            outputStream: self.outputStream,
+            fileSystem: localFileSystem,
+            observabilityScope: self.observabilityScope
         )
 
         // Save the instance so it can be cancelled from the int handler.
@@ -766,8 +767,9 @@ public class SwiftTool {
                 cacheBuildManifest: self.canUseCachedBuildManifest(),
                 packageGraphLoader: graphLoader,
                 pluginInvoker: pluginInvoker,
-                diagnostics: self.observabilityScope.makeDiagnosticsEngine(),
-                outputStream: self.outputStream
+                outputStream: self.outputStream,
+                fileSystem: localFileSystem,
+                observabilityScope: self.observabilityScope
             )
         case .xcode:
             let graphLoader = { try self.loadPackageGraph(explicitProduct: explicitProduct, createMultipleTestProducts: true) }
@@ -776,8 +778,9 @@ public class SwiftTool {
                 buildParameters: buildParameters ?? self.buildParameters(),
                 packageGraphLoader: graphLoader,
                 isVerbose: verbosity != .concise,
-                diagnostics: self.observabilityScope.makeDiagnosticsEngine(),
-                outputStream: self.outputStream
+                outputStream: self.outputStream,
+                fileSystem: localFileSystem,
+                observabilityScope: self.observabilityScope
             )
         }
 
@@ -904,7 +907,7 @@ public class SwiftTool {
 
             var extraManifestFlags = self.options.manifestFlags
             // Disable the implicit concurrency import if the compiler in use supports it to avoid warnings if we are building against an older SDK that does not contain a Concurrency module.
-            if SwiftTargetBuildDescription.checkSupportedFrontendFlags(flags: ["disable-implicit-concurrency-module-import"], fs: localFileSystem) {
+            if SwiftTargetBuildDescription.checkSupportedFrontendFlags(flags: ["disable-implicit-concurrency-module-import"], fileSystem: localFileSystem) {
                 extraManifestFlags += ["-Xfrontend", "-disable-implicit-concurrency-module-import"]
             }
 
@@ -956,8 +959,8 @@ final class BuildSystemRef {
     var buildSystem: BuildSystem?
 }
 
-extension Diagnostic.Message {
-    static func unsupportedFlag(_ flag: String) -> Diagnostic.Message {
+extension Basics.Diagnostic {
+    static func unsupportedFlag(_ flag: String) -> Self {
         .warning("\(flag) is an *unsupported* option which can be removed at any time; do not rely on it")
     }
 }

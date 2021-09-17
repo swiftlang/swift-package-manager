@@ -71,7 +71,12 @@ class PIFBuilderTests: XCTestCase {
                 observabilityScope: observability.topScope
             )
 
-            let builder = PIFBuilder(graph: graph, parameters: .mock(), diagnostics: observability.topScope.makeDiagnosticsEngine())
+            let builder = PIFBuilder(
+                graph: graph,
+                parameters: .mock(),
+                fileSystem: fs,
+                observabilityScope: observability.topScope
+            )
             let pif = try builder.construct()
 
             XCTAssertNoDiagnostics(observability.diagnostics)
@@ -142,7 +147,12 @@ class PIFBuilderTests: XCTestCase {
             observabilityScope: observability.topScope
         )
 
-        let builder = PIFBuilder(graph: graph, parameters: .mock(), diagnostics: observability.topScope.makeDiagnosticsEngine())
+        let builder = PIFBuilder(
+            graph: graph,
+            parameters: .mock(),
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
         let pif = try builder.construct()
 
         XCTAssertNoDiagnostics(observability.diagnostics)
@@ -419,7 +429,12 @@ class PIFBuilderTests: XCTestCase {
 
         var pif: PIF.TopLevelObject!
         try! withCustomEnv(["PKG_CONFIG_PATH": inputsDir.pathString]) {
-            let builder = PIFBuilder(graph: graph, parameters: .mock(), diagnostics: observability.topScope.makeDiagnosticsEngine())
+            let builder = PIFBuilder(
+                graph: graph,
+                parameters: .mock(),
+                fileSystem: localFileSystem,
+                observabilityScope: observability.topScope
+            )
             pif = try builder.construct()
         }
 
@@ -750,7 +765,12 @@ class PIFBuilderTests: XCTestCase {
 
         var pif: PIF.TopLevelObject!
         try! withCustomEnv(["PKG_CONFIG_PATH": inputsDir.pathString]) {
-            let builder = PIFBuilder(graph: graph, parameters: .mock(), diagnostics: observability.topScope.makeDiagnosticsEngine())
+            let builder = PIFBuilder(
+                graph: graph,
+                parameters: .mock(),
+                fileSystem: fs,
+                observabilityScope: observability.topScope
+            )
             pif = try builder.construct()
         }
 
@@ -966,7 +986,12 @@ class PIFBuilderTests: XCTestCase {
 
         var pif: PIF.TopLevelObject!
         try! withCustomEnv(["PKG_CONFIG_PATH": inputsDir.pathString]) {
-            let builder = PIFBuilder(graph: graph, parameters: .mock(), diagnostics: observability.topScope.makeDiagnosticsEngine())
+            let builder = PIFBuilder(
+                graph: graph,
+                parameters: .mock(),
+                fileSystem: localFileSystem,
+                observabilityScope: observability.topScope
+            )
             pif = try builder.construct()
         }
 
@@ -1156,7 +1181,12 @@ class PIFBuilderTests: XCTestCase {
 
         var pif: PIF.TopLevelObject!
         try! withCustomEnv(["PKG_CONFIG_PATH": inputsDir.pathString]) {
-            let builder = PIFBuilder(graph: graph, parameters: .mock(), diagnostics: observability.topScope.makeDiagnosticsEngine())
+            let builder = PIFBuilder(
+                graph: graph,
+                parameters: .mock(),
+                fileSystem: localFileSystem,
+                observabilityScope: observability.topScope
+            )
             pif = try builder.construct()
         }
 
@@ -1429,7 +1459,8 @@ class PIFBuilderTests: XCTestCase {
             let builder = PIFBuilder(
                 graph: graph,
                 parameters: .mock(shouldCreateDylibForDynamicProducts: true),
-                diagnostics: observability.topScope.makeDiagnosticsEngine()
+                fileSystem: fs,
+                observabilityScope: observability.topScope
             )
             pif = try builder.construct()
         }
@@ -1446,13 +1477,13 @@ class PIFBuilderTests: XCTestCase {
             }
         }
     }
-  
+
     func testLibraryTargetWithModuleMap() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Bar/Sources/BarLib/lib.c",
             "/Bar/Sources/BarLib/module.modulemap"
         )
-        
+
         let observability = ObservabilitySystem.makeForTesting()
         let graph = try loadPackageGraph(
             fs: fs,
@@ -1473,24 +1504,25 @@ class PIFBuilderTests: XCTestCase {
             ],
             observabilityScope: observability.topScope
         )
-        
+
         var pif: PIF.TopLevelObject!
         try! withCustomEnv(["PKG_CONFIG_PATH": inputsDir.pathString]) {
             let builder = PIFBuilder(
                 graph: graph,
                 parameters: .mock(shouldCreateDylibForDynamicProducts: true),
-                diagnostics: observability.topScope.makeDiagnosticsEngine()
+                fileSystem: fs,
+                observabilityScope: observability.topScope
             )
             pif = try builder.construct()
         }
-        
+
         XCTAssertNoDiagnostics(observability.diagnostics)
-        
+
         PIFTester(pif) { workspace in
             workspace.checkProject("PACKAGE:/Bar") { project in
                 project.checkTarget("PACKAGE-PRODUCT:BarLib") { target in
                     XCTAssertEqual(target.name, "BarLib_175D063FAE17B2_PackageProduct")
-                    
+
                     target.checkBuildConfiguration("Debug") { configuration in
                         configuration.checkBuildSettings { settings in
                             XCTAssertNil(settings[.MODULEMAP_FILE_CONTENTS])
@@ -1527,7 +1559,12 @@ class PIFBuilderTests: XCTestCase {
 
         var pif: PIF.TopLevelObject!
         try! withCustomEnv(["PKG_CONFIG_PATH": inputsDir.pathString]) {
-            let builder = PIFBuilder(graph: graph, parameters: .mock(), diagnostics: observability.topScope.makeDiagnosticsEngine())
+            let builder = PIFBuilder(
+                graph: graph,
+                parameters: .mock(),
+                fileSystem: localFileSystem,
+                observabilityScope: observability.topScope
+            )
             pif = try builder.construct()
         }
 
@@ -1643,7 +1680,12 @@ class PIFBuilderTests: XCTestCase {
             observabilityScope: observability.topScope
         )
 
-        let builder = PIFBuilder(graph: graph, parameters: .mock(), diagnostics: observability.topScope.makeDiagnosticsEngine())
+        let builder = PIFBuilder(
+            graph: graph,
+            parameters: .mock(),
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
         let pif = try builder.construct()
 
         XCTAssertNoDiagnostics(observability.diagnostics)
@@ -1711,7 +1753,12 @@ class PIFBuilderTests: XCTestCase {
             observabilityScope: observability.topScope
         )
 
-        let builder = PIFBuilder(graph: graph, parameters: .mock(), diagnostics: observability.topScope.makeDiagnosticsEngine())
+        let builder = PIFBuilder(
+            graph: graph,
+            parameters: .mock(shouldCreateDylibForDynamicProducts: true),
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
         let pif = try builder.construct()
 
         XCTAssertNoDiagnostics(observability.diagnostics)
@@ -1971,7 +2018,12 @@ class PIFBuilderTests: XCTestCase {
             observabilityScope: observability.topScope
         )
 
-        let builder = PIFBuilder(graph: graph, parameters: .mock(), diagnostics: observability.topScope.makeDiagnosticsEngine())
+        let builder = PIFBuilder(
+            graph: graph,
+            parameters: .mock(),
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
         let pif = try builder.construct()
 
         XCTAssertNoDiagnostics(observability.diagnostics)
@@ -2132,7 +2184,12 @@ class PIFBuilderTests: XCTestCase {
 
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let builder = PIFBuilder(graph: graph, parameters: .mock(), diagnostics: observability.topScope.makeDiagnosticsEngine())
+        let builder = PIFBuilder(
+            graph: graph,
+            parameters: .mock(),
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
         let pif = try builder.construct()
 
         let expectedFilters: [PIF.GUID: [PIF.PlatformFilter]] = [
@@ -2188,7 +2245,12 @@ class PIFBuilderTests: XCTestCase {
             observabilityScope: observability.topScope
         )
 
-        let builder = PIFBuilder(graph: graph, parameters: .mock(), diagnostics: observability.topScope.makeDiagnosticsEngine())
+        let builder = PIFBuilder(
+            graph: graph,
+            parameters: .mock(),
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
         let pif = try builder.construct()
 
         XCTAssertNoDiagnostics(observability.diagnostics)
@@ -2203,7 +2265,7 @@ class PIFBuilderTests: XCTestCase {
             }
         }
     }
-    
+
     /// Tests that the inference of XCBuild build settings based on the package manifest's declared unsafe settings
     /// works as expected.
     func testUnsafeFlagsBuildSettingInference() throws {
@@ -2236,7 +2298,12 @@ class PIFBuilderTests: XCTestCase {
             observabilityScope: observability.topScope
         )
 
-        let builder = PIFBuilder(graph: graph, parameters: .mock(), diagnostics: observability.topScope.makeDiagnosticsEngine())
+        let builder = PIFBuilder(
+            graph: graph,
+            parameters: .mock(),
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
         let pif = try builder.construct()
 
         XCTAssertNoDiagnostics(observability.diagnostics)

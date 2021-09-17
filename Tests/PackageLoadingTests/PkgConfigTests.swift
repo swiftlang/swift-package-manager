@@ -30,10 +30,12 @@ class PkgConfigTests: XCTestCase {
     let inputsDir = AbsolutePath(#file).parentDirectory.appending(components: "Inputs")
 
     func testBasics() throws {
+        let fs = localFileSystem
+
         // No pkgConfig name.
         do {
             let observability = ObservabilitySystem.makeForTesting()
-            let result = pkgConfigArgs(for: SystemLibraryTarget(pkgConfig: ""), diagnostics: observability.topScope.makeDiagnosticsEngine())
+            let result = pkgConfigArgs(for: SystemLibraryTarget(pkgConfig: ""), fileSystem: fs, observabilityScope: observability.topScope)
             XCTAssertTrue(result.isEmpty)
         }
 
@@ -49,7 +51,7 @@ class PkgConfigTests: XCTestCase {
                     .yum(["libFoo-devel"])
                 ]
             )
-            for result in pkgConfigArgs(for: target, diagnostics: observability.topScope.makeDiagnosticsEngine()) {
+            for result in pkgConfigArgs(for: target, fileSystem: fs, observabilityScope: observability.topScope) {
                 XCTAssertEqual(result.pkgConfigName, "Foo")
                 XCTAssertEqual(result.cFlags, [])
                 XCTAssertEqual(result.libs, [])
@@ -75,7 +77,7 @@ class PkgConfigTests: XCTestCase {
         // Pc file.
         try withCustomEnv(["PKG_CONFIG_PATH": inputsDir.pathString]) {
             let observability = ObservabilitySystem.makeForTesting()
-            for result in pkgConfigArgs(for: SystemLibraryTarget(pkgConfig: "Foo"), diagnostics: observability.topScope.makeDiagnosticsEngine()) {
+            for result in pkgConfigArgs(for: SystemLibraryTarget(pkgConfig: "Foo"), fileSystem: fs, observabilityScope: observability.topScope) {
                 XCTAssertEqual(result.pkgConfigName, "Foo")
                 XCTAssertEqual(result.cFlags, ["-I/path/to/inc", "-I\(inputsDir.pathString)"])
                 XCTAssertEqual(result.libs, ["-L/usr/da/lib", "-lSystemModule", "-lok"])
@@ -88,7 +90,7 @@ class PkgConfigTests: XCTestCase {
         // Pc file with prohibited flags.
         try withCustomEnv(["PKG_CONFIG_PATH": inputsDir.pathString]) {
             let observability = ObservabilitySystem.makeForTesting()
-            for result in pkgConfigArgs(for: SystemLibraryTarget(pkgConfig: "Bar"), diagnostics: observability.topScope.makeDiagnosticsEngine()) {
+            for result in pkgConfigArgs(for: SystemLibraryTarget(pkgConfig: "Bar"), fileSystem: fs, observabilityScope: observability.topScope) {
                 XCTAssertEqual(result.pkgConfigName, "Bar")
                 XCTAssertEqual(result.cFlags, ["-I/path/to/inc"])
                 XCTAssertEqual(result.libs, ["-L/usr/da/lib", "-lSystemModule", "-lok"])

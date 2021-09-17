@@ -247,10 +247,7 @@ public final class ClangTargetBuildDescription {
     fileprivate var additionalFlags: [String] = []
 
     /// The filesystem to operate on.
-    let fileSystem: FileSystem
-    
-    /// Where to emit any warnings and errors.
-    let diagnostics: DiagnosticsEngine
+    private let fileSystem: FileSystem
 
     /// If this target is a test target.
     public var isTestTarget: Bool {
@@ -258,10 +255,9 @@ public final class ClangTargetBuildDescription {
     }
 
     /// Create a new target description with target and build parameters.
-    init(target: ResolvedTarget, toolsVersion: ToolsVersion, buildParameters: BuildParameters, fileSystem: FileSystem = localFileSystem, diagnostics: DiagnosticsEngine) throws {
+    init(target: ResolvedTarget, toolsVersion: ToolsVersion, buildParameters: BuildParameters, fileSystem: FileSystem) throws {
         assert(target.underlyingTarget is ClangTarget, "underlying target type mismatch \(target)")
         self.fileSystem = fileSystem
-        self.diagnostics = diagnostics
         self.target = target
         self.toolsVersion = toolsVersion
         self.buildParameters = buildParameters
@@ -585,7 +581,7 @@ public final class SwiftTargetBuildDescription {
     }
 
     /// The filesystem to operate on.
-    let fs: FileSystem
+    let fileSystem: FileSystem
 
     /// The modulemap file for this target, if any.
     private(set) var moduleMap: AbsolutePath?
@@ -605,7 +601,7 @@ public final class SwiftTargetBuildDescription {
         prebuildCommandResults: [PrebuildCommandResult] = [],
         isTestTarget: Bool? = nil,
         testDiscoveryTarget: Bool = false,
-        fs: FileSystem = localFileSystem
+        fileSystem: FileSystem
     ) throws {
         assert(target.underlyingTarget is SwiftTarget, "underlying target type mismatch \(target)")
         self.target = target
@@ -614,7 +610,7 @@ public final class SwiftTargetBuildDescription {
         // Unless mentioned explicitly, use the target type to determine if this is a test target.
         self.isTestTarget = isTestTarget ?? (target.type == .test)
         self.testDiscoveryTarget = testDiscoveryTarget
-        self.fs = fs
+        self.fileSystem = fileSystem
         self.tempsPath = buildParameters.buildPath.appending(component: target.c99name + ".build")
         self.derivedSources = Sources(paths: [], root: tempsPath.appending(component: "DerivedSources"))
         self.pluginDerivedSources = Sources(paths: [], root: buildParameters.dataPath)
@@ -687,16 +683,16 @@ public final class SwiftTargetBuildDescription {
         // Write this file out.
         // FIXME: We should generate this file during the actual build.
         let path = derivedSources.root.appending(subpath)
-        try fs.writeIfChanged(path: path, bytes: stream.bytes)
+        try self.fileSystem.writeIfChanged(path: path, bytes: stream.bytes)
     }
     
-    public static func checkSupportedFrontendFlags(flags: Set<String>, fs: FileSystem) -> Bool {
+    public static func checkSupportedFrontendFlags(flags: Set<String>, fileSystem: FileSystem) -> Bool {
         // The new driver is not supported on Windows, yet, so we should avoid calling into it there.
         #if os(Windows)
         return false
         #else
         do {
-            let executor = try SPMSwiftDriverExecutor(resolver: ArgsResolver(fileSystem: fs), fileSystem: fs, env: [:])
+            let executor = try SPMSwiftDriverExecutor(resolver: ArgsResolver(fileSystem: fileSystem), fileSystem: fileSystem, env: [:])
             let driver = try Driver(args: ["swiftc"], executor: executor)
             return driver.supportedFrontendFlags.intersection(flags) == flags
         } catch {
@@ -749,7 +745,7 @@ public final class SwiftTargetBuildDescription {
             // we can rename the symbol unconditionally.
             // No `-` for these flags because the set of Strings in driver.supportedFrontendFlags do
             // not have a leading `-`
-            if SwiftTargetBuildDescription.checkSupportedFrontendFlags(flags: ["entry-point-function-name"], fs: self.fs) {
+            if SwiftTargetBuildDescription.checkSupportedFrontendFlags(flags: ["entry-point-function-name"], fileSystem: self.fileSystem) {
                 if buildParameters.linkerFlagsForRenamingMainFunction(of: target) != nil {
                     args += ["-Xfrontend", "-entry-point-function-name", "-Xfrontend", "\(target.c99name)_main"]
                 }
@@ -973,8 +969,8 @@ public final class SwiftTargetBuildDescription {
 
         stream <<< "}\n"
 
-        try fs.createDirectory(path.parentDirectory, recursive: true)
-        try fs.writeFileContents(path, bytes: stream.bytes)
+        try self.fileSystem.createDirectory(path.parentDirectory, recursive: true)
+        try self.fileSystem.writeFileContents(path, bytes: stream.bytes)
         return path
     }
 
@@ -989,12 +985,12 @@ public final class SwiftTargetBuildDescription {
         stream <<< "}\n"
 
         // Return early if the contents are identical.
-        if fs.isFile(path), try fs.readFileContents(path) == stream.bytes {
+        if self.fileSystem.isFile(path), try self.fileSystem.readFileContents(path) == stream.bytes {
             return path
         }
 
-        try fs.createDirectory(path.parentDirectory, recursive: true)
-        try fs.writeFileContents(path, bytes: stream.bytes)
+        try self.fileSystem.createDirectory(path.parentDirectory, recursive: true)
+        try self.fileSystem.writeFileContents(path, bytes: stream.bytes)
 
         return path
     }
@@ -1096,9 +1092,6 @@ public final class ProductBuildDescription {
     /// The build parameters.
     let buildParameters: BuildParameters
 
-    /// The file system reference.
-    let fs: FileSystem
-
     /// The path to the product binary produced.
     public var binary: AbsolutePath {
         return buildParameters.binaryPath(for: product)
@@ -1138,17 +1131,20 @@ public final class ProductBuildDescription {
         return tempsPath.appending(component: "Objects.LinkFileList")
     }
 
-    /// Diagnostics Engine for emitting diagnostics.
-    let diagnostics: DiagnosticsEngine
+    /// File system reference.
+    private let fileSystem: FileSystem
+
+    /// ObservabilityScope with which to emit diagnostics
+    private let observabilityScope: ObservabilityScope
 
     /// Create a build description for a product.
-    init(product: ResolvedProduct, toolsVersion: ToolsVersion, buildParameters: BuildParameters, fs: FileSystem, diagnostics: DiagnosticsEngine) {
+    init(product: ResolvedProduct, toolsVersion: ToolsVersion, buildParameters: BuildParameters, fileSystem: FileSystem, observabilityScope: ObservabilityScope) {
         assert(product.type != .library(.automatic), "Automatic type libraries should not be described.")
         self.product = product
         self.toolsVersion = toolsVersion
         self.buildParameters = buildParameters
-        self.fs = fs
-        self.diagnostics = diagnostics
+        self.fileSystem = fileSystem
+        self.observabilityScope = observabilityScope
     }
 
     /// Strips the arguments which should *never* be passed to Swift compiler
@@ -1217,7 +1213,7 @@ public final class ProductBuildDescription {
             // Link the Swift stdlib statically, if requested.
             if buildParameters.shouldLinkStaticSwiftStdlib {
                 if buildParameters.triple.isDarwin() {
-                    diagnostics.emit(.swiftBackDeployError)
+                    self.observabilityScope.emit(.swiftBackDeployError)
                 } else if buildParameters.triple.isSupportingStaticStdlib {
                     args += ["-static-stdlib"]
                 }
@@ -1299,7 +1295,7 @@ public final class ProductBuildDescription {
         //
         // This will allow linking to libraries shipped in the toolchain.
         let toolchainLibDir = buildParameters.toolchain.toolchainLibDir
-        if fs.isDirectory(toolchainLibDir) {
+        if self.fileSystem.isDirectory(toolchainLibDir) {
             args += ["-L", toolchainLibDir.pathString]
         }
 
@@ -1393,12 +1389,6 @@ public class BuildPlan {
     /// source files as well as directories to which any changes should cause us to reevaluate the build plan.
     public let prebuildCommandResults: [ResolvedTarget: [PrebuildCommandResult]]
 
-    /// The filesystem to operate on.
-    let fileSystem: FileSystem
-
-    /// Diagnostics Engine for emitting diagnostics.
-    let diagnostics: DiagnosticsEngine
-
     private var testManifestTargetsMap: [ResolvedProduct: ResolvedTarget] = [:]
 
     /// Cache for pkgConfig flags.
@@ -1410,10 +1400,17 @@ public class BuildPlan {
     /// Cache for  tools information.
     private var externalExecutablesCache = [BinaryTarget: [ExecutableInfo]]()
 
+    /// The filesystem to operate on.
+    private let fileSystem: FileSystem
+
+    /// ObservabilityScope with which to emit diagnostics
+    private let observabilityScope: ObservabilityScope
+
     private static func makeTestManifestTargets(
         _ buildParameters: BuildParameters,
         _ graph: PackageGraph,
-        _ diagnostics: DiagnosticsEngine
+        _ fileSystem: FileSystem,
+        _ observabilityScope: ObservabilityScope
     ) throws -> [(product: ResolvedProduct, targetBuildDescription: SwiftTargetBuildDescription)] {
         guard case .manifest(let generate) = buildParameters.testDiscoveryStrategy else {
             preconditionFailure("makeTestManifestTargets should not be used for build plan with useTestManifest set to false")
@@ -1432,7 +1429,8 @@ public class BuildPlan {
                     target: testManifestTarget,
                     toolsVersion: toolsVersion,
                     buildParameters: buildParameters,
-                    isTestTarget: true
+                    isTestTarget: true,
+                    fileSystem: fileSystem
                 )
 
                 result.append((testProduct, desc))
@@ -1465,7 +1463,8 @@ public class BuildPlan {
                     toolsVersion: toolsVersion,
                     buildParameters: buildParameters,
                     isTestTarget: true,
-                    testDiscoveryTarget: true
+                    testDiscoveryTarget: true,
+                    fileSystem: fileSystem
                 )
 
                 result.append((testProduct, target))
@@ -1473,10 +1472,28 @@ public class BuildPlan {
         }
 
         if generateRedundant {
-            diagnostics.emit(warning: "'--enable-test-discovery' option is deprecated; tests are automatically discovered on all platforms")
+            observabilityScope.emit(warning: "'--enable-test-discovery' option is deprecated; tests are automatically discovered on all platforms")
         }
 
         return result
+    }
+
+    @available(*, deprecated, message: "use observability system instead")
+    public convenience init(
+        buildParameters: BuildParameters,
+        graph: PackageGraph,
+        pluginInvocationResults: [ResolvedTarget: [PluginInvocationResult]] = [:],
+        prebuildCommandResults: [ResolvedTarget: [PrebuildCommandResult]] = [:],
+        diagnostics: DiagnosticsEngine,
+        fileSystem: FileSystem
+    ) throws {
+        let observabilitySystem = ObservabilitySystem(diagnosticEngine: diagnostics)
+        try self.init(
+            buildParameters: buildParameters,
+            graph: graph,
+            fileSystem: fileSystem,
+            observabilityScope: observabilitySystem.topScope
+        )
     }
 
     /// Create a build plan with build parameters and a package graph.
@@ -1485,15 +1502,15 @@ public class BuildPlan {
         graph: PackageGraph,
         pluginInvocationResults: [ResolvedTarget: [PluginInvocationResult]] = [:],
         prebuildCommandResults: [ResolvedTarget: [PrebuildCommandResult]] = [:],
-        diagnostics: DiagnosticsEngine,
-        fileSystem: FileSystem = localFileSystem
+        fileSystem: FileSystem,
+        observabilityScope: ObservabilityScope
     ) throws {
         self.buildParameters = buildParameters
         self.graph = graph
         self.pluginInvocationResults = pluginInvocationResults
         self.prebuildCommandResults = prebuildCommandResults
-        self.diagnostics = diagnostics
         self.fileSystem = fileSystem
+        self.observabilityScope = observabilityScope.makeChildScope(description: "Build Plan")
 
         // Create build target description for each target which we need to plan.
         var targetMap = [ResolvedTarget: TargetBuildDescription]()
@@ -1506,7 +1523,8 @@ public class BuildPlan {
                 case .product(let product, _):
                     if buildParameters.triple.isDarwin() {
                         BuildPlan.validateDeploymentVersionOfProductDependency(
-                            product, forTarget: target, diagnostics: diagnostics)
+                            product, forTarget: target, observabilityScope: self.observabilityScope
+                        )
                     }
                 }
             }
@@ -1523,14 +1541,14 @@ public class BuildPlan {
                     buildParameters: buildParameters,
                     pluginInvocationResults: pluginInvocationResults[target] ?? [],
                     prebuildCommandResults: prebuildCommandResults[target] ?? [],
-                    fs: fileSystem))
+                    fileSystem: fileSystem)
+                )
             case is ClangTarget:
                 targetMap[target] = try .clang(ClangTargetBuildDescription(
                     target: target,
                     toolsVersion: toolsVersion,
                     buildParameters: buildParameters,
-                    fileSystem: fileSystem,
-                    diagnostics: diagnostics))
+                    fileSystem: fileSystem))
             case is SystemLibraryTarget, is BinaryTarget, is PluginTarget:
                  break
             default:
@@ -1544,13 +1562,13 @@ public class BuildPlan {
         }
 
         // Abort now if we have any diagnostics at this point.
-        guard !diagnostics.hasErrors else {
+        guard !self.observabilityScope.errorsReported else {
             throw Diagnostics.fatalError
         }
 
         // Plan the test manifest target.
         if case .manifest = buildParameters.testDiscoveryStrategy {
-            let testManifestTargets = try Self.makeTestManifestTargets(buildParameters, graph, diagnostics)
+            let testManifestTargets = try Self.makeTestManifestTargets(buildParameters, graph, self.fileSystem, self.observabilityScope)
             for item in testManifestTargets {
                 targetMap[item.targetBuildDescription.target] = .swift(item.targetBuildDescription)
                 testManifestTargetsMap[item.product] = item.targetBuildDescription.target
@@ -1569,8 +1587,8 @@ public class BuildPlan {
                 product: product,
                 toolsVersion: toolsVersion,
                 buildParameters: buildParameters,
-                fs: fileSystem,
-                diagnostics: diagnostics
+                fileSystem: fileSystem,
+                observabilityScope: observabilityScope
             )
         }
 
@@ -1583,7 +1601,7 @@ public class BuildPlan {
     static func validateDeploymentVersionOfProductDependency(
         _ product: ResolvedProduct,
         forTarget target: ResolvedTarget,
-        diagnostics: DiagnosticsEngine
+        observabilityScope: ObservabilityScope
     ) {
         // Get the first target as supported platforms are on the top-level.
         // This will need to become a bit complicated once we have target-level platform support.
@@ -1600,7 +1618,7 @@ public class BuildPlan {
         //
         // If the product's platform version is greater than ours, then it is incompatible.
         if productPlatform.version > targetPlatform.version {
-            diagnostics.emit(.productRequiresHigherPlatformVersion(
+            observabilityScope.emit(.productRequiresHigherPlatformVersion(
                 target: target,
                 targetPlatform: targetPlatform,
                 product: product.name,
@@ -1651,7 +1669,7 @@ public class BuildPlan {
             } else if binaryPath.basename.starts(with: "lib") {
                 buildProduct.additionalFlags += ["-l\(binaryPath.basenameWithoutExt.dropFirst(3))"]
             } else {
-                diagnostics.emit(error: "unexpected binary framework")
+                self.observabilityScope.emit(error: "unexpected binary framework")
             }
         }
 
@@ -1975,16 +1993,16 @@ public class BuildPlan {
         else {
             pkgConfigCache[target] = ([], [])
         }
-        let results = pkgConfigArgs(for: target, diagnostics: diagnostics)
+        let results = pkgConfigArgs(for: target, fileSystem: self.fileSystem, observabilityScope: self.observabilityScope)
         var ret: [(cFlags: [String], libs: [String])] = []
         for result in results {
             // If there is no pc file on system and we have an available provider, emit a warning.
             if let provider = result.provider, result.couldNotFindConfigFile {
-                diagnostics.emit(.pkgConfigHint(pkgConfigName: result.pkgConfigName, installText: provider.installText))
+                self.observabilityScope.emit(.pkgConfigHint(pkgConfigName: result.pkgConfigName, installText: provider.installText))
             } else if let error = result.error {
-                diagnostics.emit(
-                        .warning("\(error)"),
-                        location: PkgConfigDiagnosticLocation(pcFile: result.pkgConfigName, target: target.name)
+                self.observabilityScope.emit(
+                    warning: "\(error)",
+                    metadata: .pkgConfig(pcFile: result.pkgConfigName, targetName: target.name)
                 )
             }
 
@@ -2022,8 +2040,8 @@ public class BuildPlan {
     }
 }
 
-private extension Diagnostic.Message {
-    static var swiftBackDeployError: Diagnostic.Message {
+private extension Basics.Diagnostic {
+    static var swiftBackDeployError: Self {
         .warning("Swift compiler no longer supports statically linking the Swift libraries. They're included in the OS by default starting with macOS Mojave 10.14.4 beta 3. For macOS Mojave 10.14.3 and earlier, there's an optional Swift library package that can be downloaded from \"More Downloads\" for Apple Developers at https://developer.apple.com/download/more/")
     }
 
@@ -2032,7 +2050,7 @@ private extension Diagnostic.Message {
         targetPlatform: SupportedPlatform,
         product: String,
         productPlatform: SupportedPlatform
-    ) -> Diagnostic.Message {
+    ) -> Self {
         .error("""
             the \(target.type.rawValue) '\(target.name)' requires \
             \(targetPlatform.platform.name) \(targetPlatform.version.versionString), \
@@ -2045,11 +2063,11 @@ private extension Diagnostic.Message {
             """)
     }
 
-    static func pkgConfigHint(pkgConfigName: String, installText: String) -> Diagnostic.Message {
+    static func pkgConfigHint(pkgConfigName: String, installText: String) -> Self {
         .warning("you may be able to install \(pkgConfigName) using your system-packager:\n\(installText)")
     }
 
-    static func binaryTargetsNotSupported() -> Diagnostic.Message {
+    static func binaryTargetsNotSupported() -> Self {
         .error("binary targets are not supported on this platform")
     }
 }

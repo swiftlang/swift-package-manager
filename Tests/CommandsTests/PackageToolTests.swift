@@ -903,9 +903,11 @@ final class PackageToolTests: XCTestCase {
             let packageRoot = path.appending(component: "root")
 
             let helper = WatchmanHelper(
-                diagnostics: observability.topScope.makeDiagnosticsEngine(),
                 watchmanScriptsDir: scriptsDir,
-                packageRoot: packageRoot)
+                packageRoot: packageRoot,
+                fileSystem: fs,
+                observabilityScope: observability.topScope
+            )
 
             let script = try helper.createXcodegenScript(
                 XcodeprojOptions(xcconfigOverrides: .init("/tmp/overrides.xcconfig")))

@@ -125,8 +125,9 @@ struct APIDigesterBaselineDumper {
             cacheBuildManifest: false,
             packageGraphLoader: { graph },
             pluginInvoker: { _ in [:] },
-            diagnostics: observabilityScope.makeDiagnosticsEngine(),
-            outputStream: outputStream
+            outputStream: outputStream,
+            fileSystem: localFileSystem,
+            observabilityScope: observabilityScope
         )
 
         try buildOp.build()
