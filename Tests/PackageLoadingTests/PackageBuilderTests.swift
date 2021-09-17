@@ -415,7 +415,7 @@ class PackageBuilderTests: XCTestCase {
             ]
         )
         PackageBuilderTester(manifest, in: fs) { package, diagnotics in
-            diagnotics.check(diagnostic: "/Sources/bar/bar.swift is not part of declared sources for target 'foo'. If it shouldn't be, make sure target directories do not overlap.", behavior: .error)
+            diagnotics.check(diagnostic: "/Sources/bar/bar.swift is not part of declared sources for target 'foo'. If it shouldn't be, make sure target directories do not overlap.", severity: .error)
         }
     }
     
