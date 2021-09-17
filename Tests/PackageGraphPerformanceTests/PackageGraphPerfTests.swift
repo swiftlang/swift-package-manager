@@ -8,13 +8,13 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import XCTest
-
-import TSCBasic
+import Basics
 import PackageGraph
-import PackageModel
 import PackageLoading
+import PackageModel
 import SPMTestSupport
+import TSCBasic
+import XCTest
 
 class PackageGraphPerfTests: XCTestCasePerf {
 
@@ -68,15 +68,15 @@ class PackageGraphPerfTests: XCTestCasePerf {
         let identityResolver = DefaultIdentityResolver()
 
         measure {
-            let diagnostics = DiagnosticsEngine()
+            let observability = ObservabilitySystem.bootstrapForTesting()
             let g = try! PackageGraph.load(
                 root: PackageGraphRoot(input: PackageGraphRootInput(packages: [rootManifest.path]), manifests: [rootManifest.path: rootManifest]),
                 identityResolver: identityResolver,
                 externalManifests: externalManifests,
-                diagnostics: diagnostics,
-                fileSystem: fs)
+                fileSystem: fs
+            )
             XCTAssertEqual(g.packages.count, N)
-            XCTAssertNoDiagnostics(diagnostics)
+            XCTAssertNoDiagnostics(observability.diagnostics)
         }
       #endif
     }

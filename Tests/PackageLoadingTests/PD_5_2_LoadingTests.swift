@@ -121,8 +121,8 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
                 """
 
             XCTAssertManifestLoadThrows(manifest, packageKind: .remote) { _, diagnostics in
-                diagnostics.checkUnordered(diagnostic: "unknown package 'foo1' in dependencies of target 'Target1'; valid packages are: 'Foo', 'Bar'", behavior: .error)
-                diagnostics.checkUnordered(diagnostic: "unknown dependency 'foos' in target 'Target2'; valid dependencies are: 'Foo', 'Bar'", behavior: .error)
+                diagnostics.checkUnordered(diagnostic: "unknown package 'foo1' in dependencies of target 'Target1'; valid packages are: 'Foo', 'Bar'", severity: .error)
+                diagnostics.checkUnordered(diagnostic: "unknown dependency 'foos' in target 'Target2'; valid dependencies are: 'Foo', 'Bar'", severity: .error)
             }
         }
 
@@ -147,7 +147,7 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
                 """
 
             XCTAssertManifestLoadThrows(manifest, packageKind: .root) { _, diagnostics in
-                diagnostics.checkUnordered(diagnostic: "unknown package 'foo1' in dependencies of target 'Target1'; valid packages are: 'Foo'", behavior: .error)
+                diagnostics.checkUnordered(diagnostic: "unknown package 'foo1' in dependencies of target 'Target1'; valid packages are: 'Foo'", severity: .error)
             }
         }
         
@@ -172,7 +172,7 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
                 """
 
             XCTAssertManifestLoadThrows(manifest, packageKind: .root) { _, diagnostics in
-                diagnostics.checkUnordered(diagnostic: "unknown package 'foo1' in dependencies of target 'Target1'; valid packages are: 'foo2'", behavior: .error)
+                diagnostics.checkUnordered(diagnostic: "unknown package 'foo1' in dependencies of target 'Target1'; valid packages are: 'foo2'", severity: .error)
             }
         }
 
@@ -198,7 +198,7 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
                 """
 
             XCTAssertManifestLoadThrows(manifest, packageKind: .root) { _, diagnostics in
-                diagnostics.checkUnordered(diagnostic: "unknown package 'foo3' in dependencies of target 'Target1'; valid packages are: 'foo1', 'foo2'", behavior: .error)
+                diagnostics.checkUnordered(diagnostic: "unknown package 'foo3' in dependencies of target 'Target1'; valid packages are: 'foo1', 'foo2'", severity: .error)
             }
         }
     }
@@ -261,8 +261,8 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
             """
 
         XCTAssertManifestLoadThrows(manifest) { _, diagnostics in
-            diagnostics.checkUnordered(diagnostic: "duplicate dependency named 'Bar'; consider differentiating them using the 'name' argument", behavior: .error)
-            diagnostics.checkUnordered(diagnostic: "duplicate dependency named 'Biz'; consider differentiating them using the 'name' argument", behavior: .error)
+            diagnostics.checkUnordered(diagnostic: "duplicate dependency named 'Bar'; consider differentiating them using the 'name' argument", severity: .error)
+            diagnostics.checkUnordered(diagnostic: "duplicate dependency named 'Biz'; consider differentiating them using the 'name' argument", severity: .error)
         }
     }
 

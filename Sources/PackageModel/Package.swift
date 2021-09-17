@@ -13,6 +13,7 @@ import TSCUtility
 
 // Re-export Version from PackageModel, since it is a key part of the model.
 @_exported import struct TSCUtility.Version
+import Basics
 
 /// The basic package representation.
 ///
@@ -106,8 +107,15 @@ public final class Package: ObjectIdentifierProtocol, Encodable {
 }
 
 extension Package {
+    @available(*, deprecated, message: "use DiagnosticsContext instead")
     public var diagnosticLocation: DiagnosticLocation {
         return PackageLocation.Local(name: self.manifest.name, packagePath: self.path)
+    }
+}
+
+extension Package {
+    public var diagnosticsMetadata: ObservabilityMetadata {
+        return .packageMetadata(identity: self.identity, location: self.manifest.packageLocation)
     }
 }
 
@@ -127,5 +135,44 @@ extension Package.Error: CustomStringConvertible {
             }
             return string
         }
+    }
+}
+
+extension ObservabilityMetadata {
+    public static func packageMetadata(identity: PackageIdentity, location: String) -> Self {
+        var metadata = ObservabilityMetadata()
+        metadata.packageIdentity = identity
+        metadata.packageLocation = location
+        return metadata
+    }
+}
+
+extension ObservabilityMetadata {
+    public var packageIdentity: PackageIdentity? {
+        get {
+            self[PackageIdentityKey.self]
+        }
+        set {
+            self[PackageIdentityKey.self] = newValue
+        }
+    }
+    
+    enum PackageIdentityKey: Key {
+        typealias Value = PackageIdentity
+    }
+}
+
+extension ObservabilityMetadata {
+    public var packageLocation: String? {
+        get {
+            self[PackageLocationKey.self]
+        }
+        set {
+            self[PackageLocationKey.self] = newValue
+        }
+    }
+    
+    enum PackageLocationKey: Key {
+        typealias Value = String
     }
 }

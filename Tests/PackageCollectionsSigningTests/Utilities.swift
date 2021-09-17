@@ -8,18 +8,17 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
+import Basics
 import Dispatch
 import Foundation
-import XCTest
-
 @testable import PackageCollectionsSigning
 import TSCBasic
+import XCTest
 
 // Set `REAL_CERT_USER_ID` env var when running ENABLE_REAL_CERT_TEST tests
 let expectedSubjectUserID = ProcessInfo.processInfo.environment["REAL_CERT_USER_ID"] ?? "<USER ID>"
 
 let callbackQueue = DispatchQueue(label: "org.swift.swiftpm.PackageCollectionsSigningTests", attributes: .concurrent)
-let diagnosticsEngine = DiagnosticsEngine()
 
 // MARK: - CertificatePolicy for test certs
 
@@ -60,10 +59,10 @@ struct TestCertificatePolicy: CertificatePolicy {
 
             #if os(macOS)
             self.verify(certChain: certChain, anchorCerts: self.anchorCerts, verifyDate: self.verifyDate,
-                        diagnosticsEngine: diagnosticsEngine, callbackQueue: callbackQueue, callback: callback)
+                        diagnosticsEngine: ObservabilitySystem.topScope.makeDiagnosticsEngine(), callbackQueue: callbackQueue, callback: callback)
             #else
             self.verify(certChain: certChain, anchorCerts: self.anchorCerts, verifyDate: self.verifyDate, httpClient: nil,
-                        diagnosticsEngine: diagnosticsEngine, callbackQueue: callbackQueue, callback: callback)
+                        diagnosticsEngine: ObservabilitySystem.topScope.makeDiagnosticsEngine(), callbackQueue: callbackQueue, callback: callback)
             #endif
         } catch {
             return callbackQueue.async { callback(.failure(error)) }

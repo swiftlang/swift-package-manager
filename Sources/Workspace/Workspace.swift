@@ -17,6 +17,8 @@ import PackageModel
 import PackageGraph
 import SourceControl
 
+public typealias Diagnostic = TSCBasic.Diagnostic
+
 /// Enumeration of the different reasons for which the resolver needs to be run.
 public enum WorkspaceResolveReason: Equatable {
     /// Resolution was forced.
@@ -850,10 +852,9 @@ extension Workspace {
             unsafeAllowedPackages: manifests.unsafeAllowedPackages(),
             binaryArtifacts: binaryArtifacts,
             xcTestMinimumDeploymentTargets: xcTestMinimumDeploymentTargets ?? MinimumDeploymentTarget.default.xcTestMinimumDeploymentTargets,
-            diagnostics: diagnostics,
-            fileSystem: fileSystem,
             shouldCreateMultipleTestProducts: createMultipleTestProducts,
-            createREPLProduct: createREPLProduct
+            createREPLProduct: createREPLProduct,
+            fileSystem: fileSystem
         )
     }
 
@@ -959,7 +960,8 @@ extension Workspace {
                     productFilter: .everything,
                     path: path,
                     xcTestMinimumDeploymentTargets: MinimumDeploymentTarget.default.xcTestMinimumDeploymentTargets,
-                    diagnostics: diagnostics)
+                    fileSystem: self.fileSystem
+                )
                 return try builder.construct()
             }
             completion(result)
@@ -1803,7 +1805,7 @@ extension Workspace {
 
     private func download(_ artifacts: [RemoteArtifact], diagnostics: DiagnosticsEngine) throws -> [ManagedArtifact] {
         let group = DispatchGroup()
-        let tempDiagnostics = DiagnosticsEngine()
+        let tempDiagnostics = DiagnosticsEngine() // FIXME: transition to DiagnosticsEmmiter
         let result = ThreadSafeArrayStore<ManagedArtifact>()
 
         // zip files to download
@@ -1851,7 +1853,7 @@ extension Workspace {
                             )
                         }
                     } catch {
-                        tempDiagnostics.emit(.error("failed retrieving '\(indexFile.url)': \(error)"))
+                        tempDiagnostics.emit(error: "failed retrieving '\(indexFile.url)': \(error)")
                     }
                 }
             }

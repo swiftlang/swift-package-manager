@@ -225,12 +225,6 @@ public final class PackageBuilder {
     /// Information concerning the different downloaded binary target artifacts.
     private let binaryArtifacts: [BinaryArtifact]
 
-    /// The filesystem package builder will run on.
-    private let fileSystem: FileSystem
-
-    /// The diagnostics engine.
-    private let diagnostics: DiagnosticsEngine
-
     /// Create multiple test products.
     ///
     /// If set to true, one test product will be created for each test target.
@@ -248,6 +242,12 @@ public final class PackageBuilder {
     /// Minimum deployment target of XCTest per platform.
     private let xcTestMinimumDeploymentTargets: [PackageModel.Platform:PlatformVersion]
 
+    // scope with which to emit diagnostics
+    private let observabilityScope: ObservabilityScope
+
+    /// The filesystem package builder will run on.
+    private let fileSystem: FileSystem
+
     /// Create a builder for the given manifest and package `path`.
     ///
     /// - Parameters:
@@ -255,10 +255,9 @@ public final class PackageBuilder {
     ///   - manifest: The manifest of this package.
     ///   - path: The root path of the package.
     ///   - artifactPaths: Paths to the downloaded binary target artifacts.
-    ///   - fileSystem: The file system on which the builder should be run.
-    ///   - diagnostics: The diagnostics engine.
     ///   - createMultipleTestProducts: If enabled, create one test product for
     ///     each test target.
+    ///   - fileSystem: The file system on which the builder should be run.///     
     public init(
         identity: PackageIdentity,
         manifest: Manifest,
@@ -267,11 +266,10 @@ public final class PackageBuilder {
         additionalFileRules: [FileRuleDescription] = [],
         binaryArtifacts: [BinaryArtifact] = [],
         xcTestMinimumDeploymentTargets: [PackageModel.Platform:PlatformVersion],
-        fileSystem: FileSystem = localFileSystem,
-        diagnostics: DiagnosticsEngine,
         shouldCreateMultipleTestProducts: Bool = false,
         warnAboutImplicitExecutableTargets: Bool = true,
-        createREPLProduct: Bool = false
+        createREPLProduct: Bool = false,
+        fileSystem: FileSystem
     ) {
         self.identity = identity
         self.manifest = manifest
@@ -280,11 +278,14 @@ public final class PackageBuilder {
         self.additionalFileRules = additionalFileRules
         self.binaryArtifacts = binaryArtifacts
         self.xcTestMinimumDeploymentTargets = xcTestMinimumDeploymentTargets
-        self.fileSystem = fileSystem
-        self.diagnostics = diagnostics
         self.shouldCreateMultipleTestProducts = shouldCreateMultipleTestProducts
         self.createREPLProduct = createREPLProduct
         self.warnAboutImplicitExecutableTargets = warnAboutImplicitExecutableTargets
+        self.observabilityScope = ObservabilitySystem.topScope.makeChildScope(
+            description: "PackageBuilder",
+            metadata: .packageMetadata(identity: self.identity, location: self.manifest.packageLocation)
+        )
+        self.fileSystem = fileSystem
     }
 
     /// Loads a root package from a path using the resources associated with a particular `swiftc` executable.
@@ -322,7 +323,7 @@ public final class PackageBuilder {
                     productFilter: .everything,
                     path: path,
                     xcTestMinimumDeploymentTargets: xcTestMinimumDeploymentTargets,
-                    diagnostics: diagnostics)
+                    fileSystem: localFileSystem)
                 return try builder.construct()
             }
             completion(result)
@@ -345,10 +346,6 @@ public final class PackageBuilder {
             targetSearchPath: self.packagePath.appending(component: targetSpecialDirs.targetDir),
             testTargetSearchPath: self.packagePath.appending(component: targetSpecialDirs.testTargetDir)
         )
-    }
-
-    private var diagnosticLocation: DiagnosticLocation {
-        return PackageLocation.Local(name: self.manifest.name, packagePath: self.packagePath)
     }
 
     /// Computes the special directory where targets are present or should be placed in future.
@@ -395,7 +392,7 @@ public final class PackageBuilder {
 
             // Diagnose broken symlinks.
             if fileSystem.isSymlink(path) {
-                diagnostics.emit(.brokenSymlink(path), location: self.diagnosticLocation)
+                self.observabilityScope.emit(.brokenSymlink(path))
             }
 
             return false
@@ -446,15 +443,14 @@ public final class PackageBuilder {
 
             // Warn about any declared targets.
             if !manifest.targets.isEmpty {
-                diagnostics.emit(
-                    .systemPackageDeclaresTargets(targets: Array(manifest.targets.map({ $0.name }))),
-                    location: self.diagnosticLocation
+                self.observabilityScope.emit(
+                    .systemPackageDeclaresTargets(targets: Array(manifest.targets.map({ $0.name })))
                 )
             }
 
             // Emit deprecation notice.
             if manifest.toolsVersion >= .v4_2 {
-                diagnostics.emit(.systemPackageDeprecation, location: self.diagnosticLocation)
+                self.observabilityScope.emit(.systemPackageDeprecation)
             }
 
             // Package contains a modulemap at the top level, so we assuming
@@ -580,7 +576,7 @@ public final class PackageBuilder {
 
             // Otherwise, if the path "exists" then the case in manifest differs from the case on the file system.
             if fileSystem.isDirectory(path) {
-                diagnostics.emit(.targetNameHasIncorrectCase(target: target.name), location: self.diagnosticLocation)
+                self.observabilityScope.emit(.targetNameHasIncorrectCase(target: target.name))
                 return path
             }
             throw ModuleError.moduleNotFound(target.name, target.type)
@@ -732,7 +728,7 @@ public final class PackageBuilder {
                 targets[createdTarget.name] = createdTarget
             } else {
                 emptyModules.insert(potentialModule.name)
-                diagnostics.emit(.targetHasNoSources(targetPath: potentialModule.path.pathString, target: potentialModule.name))
+                self.observabilityScope.emit(.targetHasNoSources(targetPath: potentialModule.path.pathString, target: potentialModule.name))
             }
         }
 
@@ -788,7 +784,7 @@ public final class PackageBuilder {
         // Check for duplicate target dependencies by name
         let combinedDependencyNames = dependencies.map { $0.target?.name ?? $0.product!.name }
         combinedDependencyNames.spm_findDuplicates().forEach {
-            diagnostics.emit(.duplicateTargetDependency(dependency: $0, target: potentialModule.name, package: self.manifest.name))
+            self.observabilityScope.emit(.duplicateTargetDependency(dependency: $0, target: potentialModule.name, package: self.manifest.name))
         }
 
         // Create the build setting assignment table for this target.
@@ -802,15 +798,16 @@ public final class PackageBuilder {
         }
 
         let sourcesBuilder = TargetSourcesBuilder(
-            packageName: self.manifest.name,
+            packageIdentity: self.identity,
+            packageLocation: self.manifest.packageLocation,
             packagePath: self.packagePath,
             target: manifestTarget,
             path: potentialModule.path,
             defaultLocalization: self.manifest.defaultLocalization,
             additionalFileRules: self.additionalFileRules,
             toolsVersion: self.manifest.toolsVersion,
-            fs: self.fileSystem,
-            diags: self.diagnostics
+            fileSystem: self.fileSystem,
+            observabilityScope: self.observabilityScope
         )
         let (sources, resources, headers, others) = try sourcesBuilder.run()
 
@@ -861,7 +858,7 @@ public final class PackageBuilder {
         default:
             targetType = sources.computeTargetType()
             if targetType == .executable && manifest.toolsVersion >= .v5_4 && warnAboutImplicitExecutableTargets {
-                diagnostics.emit(warning: "'\(potentialModule.name)' was identified as an executable target given the presence of a 'main.swift' file. Starting with tools version \(ToolsVersion.v5_4) executable targets should be declared as 'executableTarget()'")
+                self.observabilityScope.emit(warning: "'\(potentialModule.name)' was identified as an executable target given the presence of a 'main.swift' file. Starting with tools version \(ToolsVersion.v5_4) executable targets should be declared as 'executableTarget()'")
             }
         }
         
@@ -888,7 +885,7 @@ public final class PackageBuilder {
             
             if fileSystem.exists(publicHeadersPath) {
                 let moduleMapGenerator = ModuleMapGenerator(targetName: potentialModule.name, moduleName: potentialModule.name.spm_mangledToC99ExtendedIdentifier(), publicHeadersDir: publicHeadersPath, fileSystem: fileSystem)
-                moduleMapType = moduleMapGenerator.determineModuleMapType(diagnostics: diagnostics)
+                moduleMapType = moduleMapGenerator.determineModuleMapType(diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine())
             } else if targetType == .library, manifest.toolsVersion >= .v5_5 {
                 // If this clang target is a library, it must contain "include" directory.
                 throw ModuleError.invalidPublicHeadersDirectory(potentialModule.name)
@@ -1167,10 +1164,7 @@ public final class PackageBuilder {
         func append(_ product: Product) {
             let inserted = products.append(KeyedPair(product, key: product.name))
             if !inserted {
-                diagnostics.emit(
-                    .duplicateProduct(product: product),
-                    location: self.diagnosticLocation
-                )
+                self.observabilityScope.emit(.duplicateProduct(product: product))
             }
         }
 
@@ -1180,8 +1174,7 @@ public final class PackageBuilder {
           #if os(Linux)
             // FIXME: Ignore C language test targets on linux for now.
             if target is ClangTarget {
-                diagnostics.emit(.unsupportedCTestTarget(
-                    package: manifest.name, target: target.name))
+                self.observabilityScope.emit(.unsupportedCTestTarget(package: manifest.name, target: target.name))
                 return false
             }
           #endif
@@ -1237,10 +1230,7 @@ public final class PackageBuilder {
             // a system library target.
             if targets.contains(where: { $0 is SystemLibraryTarget }) {
                 if product.type != .library(.automatic) || targets.count != 1 {
-                    self.diagnostics.emit(
-                        .systemPackageProductValidation(product: product.name),
-                        location: self.diagnosticLocation
-                    )
+                    self.observabilityScope.emit(.systemPackageProductValidation(product: product.name))
                     continue
                 }
             }
@@ -1289,7 +1279,7 @@ public final class PackageBuilder {
                     // If there is already a product with this name skip generating a product for it,
                     // but warn if that product is not executable
                     if product.type != .executable {
-                        self.diagnostics.emit(.warning("The target named '\(target.name)' was identified as an executable target but a non-executable product with this name already exists."))
+                        self.observabilityScope.emit(warning: "The target named '\(target.name)' was identified as an executable target but a non-executable product with this name already exists.")
                     }
                     continue
                 } else {
@@ -1305,10 +1295,7 @@ public final class PackageBuilder {
         if self.createREPLProduct {
             let libraryTargets = targets.filter{ $0.type == .library }
             if libraryTargets.isEmpty {
-                self.diagnostics.emit(
-                    .noLibraryTargetsForREPL,
-                    location: self.diagnosticLocation
-                )
+                self.observabilityScope.emit(.noLibraryTargetsForREPL)
             } else {
                 let replProduct = Product(
                     name: self.manifest.name + Product.replProductSuffix,
@@ -1333,21 +1320,12 @@ public final class PackageBuilder {
         guard executableTargetCount == 1 else {
             if executableTargetCount == 0 {
                 if let target = targets.spm_only {
-                    diagnostics.emit(
-                        .executableProductTargetNotExecutable(product: product.name, target: target.name),
-                        location: self.diagnosticLocation
-                    )
+                    self.observabilityScope.emit(.executableProductTargetNotExecutable(product: product.name, target: target.name))
                 } else {
-                    diagnostics.emit(
-                        .executableProductWithoutExecutableTarget(product: product.name),
-                        location: self.diagnosticLocation
-                    )
+                    self.observabilityScope.emit(.executableProductWithoutExecutableTarget(product: product.name))
                 }
             } else {
-                diagnostics.emit(
-                    .executableProductWithMoreThanOneExecutableTarget(product: product.name),
-                    location: self.diagnosticLocation
-                )
+                self.observabilityScope.emit(.executableProductWithMoreThanOneExecutableTarget(product: product.name))
             }
 
             return false
@@ -1359,17 +1337,11 @@ public final class PackageBuilder {
     private func validatePluginProduct(_ product: ProductDescription, with targets: [Target]) -> Bool {
         let nonPluginTargets = targets.filter{ $0.type != .plugin }
         guard nonPluginTargets.isEmpty else {
-            diagnostics.emit(
-                .pluginProductWithNonPluginTargets(product: product.name, otherTargets: nonPluginTargets.map{ $0.name }),
-                location: self.diagnosticLocation
-            )
+            self.observabilityScope.emit(.pluginProductWithNonPluginTargets(product: product.name, otherTargets: nonPluginTargets.map{ $0.name }))
             return false
         }
         guard !targets.isEmpty else {
-            diagnostics.emit(
-                .pluginProductWithNoTargets(product: product.name),
-                location: self.diagnosticLocation
-            )
+            self.observabilityScope.emit(.pluginProductWithNoTargets(product: product.name))
             return false
         }
         return true

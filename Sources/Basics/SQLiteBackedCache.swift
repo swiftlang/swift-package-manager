@@ -97,7 +97,7 @@ public final class SQLiteBackedCache<Value: Codable>: Closable {
             if !self.configuration.truncateWhenFull {
                 throw error
             }
-            self.diagnosticsEngine?.emit(.warning("truncating \(self.tableName) cache database since it reached max size of \(self.configuration.maxSizeInBytes ?? 0) bytes"))
+            self.diagnosticsEngine?.emit(warning: "truncating \(self.tableName) cache database since it reached max size of \(self.configuration.maxSizeInBytes ?? 0) bytes")
             try self.executeStatement("DELETE FROM \(self.tableName);") { statement -> Void in
                 try statement.step()
             }

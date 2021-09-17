@@ -8,24 +8,25 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import Basics
 import Foundation
-import TSCBasic
 import PackageModel
+import TSCBasic
 import TSCUtility
 
 /// A utility to compute the source/resource files of a target.
 public struct TargetSourcesBuilder {
-    /// The target for which we're computing source/resource files.
-    public let target: TargetDescription
+    /// The identity of the package.
+    public let packageIdentity: PackageIdentity
 
-    /// The engine for emitting diagnostics.
-    let diags: DiagnosticsEngine
-
-    /// The name of the package.
-    public let packageName: String
+    /// The location of the package.
+    public let packageLocation: String
 
     /// The path of the package.
     public let packagePath: AbsolutePath
+
+    /// The target for which we're computing source/resource files.
+    public let target: TargetDescription
 
     /// The path of the target.
     public let targetPath: AbsolutePath
@@ -46,33 +47,44 @@ public struct TargetSourcesBuilder {
     public let excludedPaths: Set<AbsolutePath>
 
     /// The file system to operate on.
-    public let fs: FileSystem
+    public let fileSystem: FileSystem
+
+    // scope with which to emit diagnostics
+    private let observabilityScope: ObservabilityScope
 
     /// Create a new target builder.
     public init(
-        packageName: String,
+        packageIdentity: PackageIdentity,
+        packageLocation: String,
         packagePath: AbsolutePath,
         target: TargetDescription,
         path: AbsolutePath,
         defaultLocalization: String?,
         additionalFileRules: [FileRuleDescription] = [],
         toolsVersion: ToolsVersion = .currentToolsVersion,
-        fs: FileSystem = localFileSystem,
-        diags: DiagnosticsEngine
+        fileSystem: FileSystem,
+        observabilityScope: ObservabilityScope
     ) {
-        self.packageName = packageName
+        self.packageIdentity = packageIdentity
+        self.packageLocation = packageLocation
         self.packagePath = packagePath
         self.target = target
         self.defaultLocalization = defaultLocalization
-        self.diags = diags
         self.targetPath = path
         // In version 5.4 and earlier, SwiftPM did not support `additionalFileRules` and always implicitly included XCBuild file types.
         let actualAdditionalRules = (toolsVersion <= ToolsVersion.v5_4 ? FileRuleDescription.xcbuildFileTypes : additionalFileRules)
         self.rules = FileRuleDescription.builtinRules + actualAdditionalRules
         self.toolsVersion = toolsVersion
-        self.fs = fs
         let excludedPaths = target.exclude.map{ path.appending(RelativePath($0)) }
         self.excludedPaths = Set(excludedPaths)
+
+        self.fileSystem = fileSystem
+
+        self.observabilityScope = observabilityScope.makeChildScope(description: "TargetSourcesBuilder") {
+            var metadata = ObservabilityMetadata.packageMetadata(identity: packageIdentity, location: packageLocation)
+            metadata.targetName = target.name
+            return metadata
+        }
 
         let declaredSources = target.sources?.map{ path.appending(RelativePath($0)) }
         if let declaredSources = declaredSources {
@@ -80,7 +92,7 @@ public struct TargetSourcesBuilder {
             let duplicates = declaredSources.spm_findDuplicateElements()
             if !duplicates.isEmpty {
                 for duplicate in duplicates {
-                    diags.emit(warning: "found duplicate sources declaration in the package manifest: \(duplicate.map{ $0.pathString }[0])")
+                    self.observabilityScope.emit(warning: "found duplicate sources declaration in the package manifest: \(duplicate.map{ $0.pathString }[0])")
                 }
             }
         }
@@ -89,14 +101,14 @@ public struct TargetSourcesBuilder {
         self.excludedPaths.forEach { exclude in
             if let message = validTargetPath(at: exclude) {
                 let warning = "Invalid Exclude '\(exclude)': \(message)."
-                self.diags.emit(warning: warning)
+                self.observabilityScope.emit(warning: warning)
             }
         }
         
         self.declaredSources?.forEach { source in
             if let message = validTargetPath(at: source) {
                 let warning = "Invalid Source '\(source)': \(message)."
-                self.diags.emit(warning: warning)
+                self.observabilityScope.emit(warning: warning)
             }
         }
 
@@ -108,7 +120,7 @@ public struct TargetSourcesBuilder {
     @discardableResult
     private func validTargetPath(at: AbsolutePath) -> Error? {
         // Check if paths that are enumerated in targets: [] exist
-        guard self.fs.exists(at) else {
+        guard self.fileSystem.exists(at) else {
             return StringError("File not found")
         }
 
@@ -127,7 +139,7 @@ public struct TargetSourcesBuilder {
         for rule in rules {
             for ext in rule.fileTypes {
                 if let existingRule = extensionMap[ext] {
-                    diags.emit(.error("conflicting rules \(rule) and \(existingRule) for extension \(ext)"))
+                    self.observabilityScope.emit(error: "conflicting rules \(rule) and \(existingRule) for extension \(ext)")
                 }
                 extensionMap[ext] = rule
             }
@@ -154,7 +166,7 @@ public struct TargetSourcesBuilder {
                 for (file, _) in filesWithNoRules {
                     warning += "    " + file.pathString + "\n"
                 }
-                diags.emit(.warning(warning))
+                self.observabilityScope.emit(warning: warning)
             }
             others.append(contentsOf: filesWithNoRules.keys)
         }
@@ -193,7 +205,7 @@ public struct TargetSourcesBuilder {
             let resourcePath = self.targetPath.appending(RelativePath(declaredResource.path))
             if path.isDescendantOfOrEqual(to: resourcePath) {
                 if matchedRule.rule != .none {
-                    diags.emit(.error("duplicate resource rule '\(declaredResource.rule)' found for file at '\(path)'"))
+                    self.observabilityScope.emit(error: "duplicate resource rule '\(declaredResource.rule)' found for file at '\(path)'")
                 }
                 matchedRule = Rule(rule: declaredResource.rule.fileRule, localization: declaredResource.localization)
             }
@@ -204,7 +216,7 @@ public struct TargetSourcesBuilder {
             for sourcePath in declaredSources {
                 if path.isDescendantOfOrEqual(to: sourcePath) {
                     if matchedRule.rule != .none {
-                        diags.emit(.error("duplicate rule found for file at '\(path)'"))
+                        self.observabilityScope.emit(error: "duplicate rule found for file at '\(path)'")
                     }
 
                     // Check for header files as they're allowed to be mixed with sources.
@@ -272,7 +284,7 @@ public struct TargetSourcesBuilder {
             // If a resource is both inside a localization directory and has an explicit localization, it's ambiguous.
             guard implicitLocalization == nil || explicitLocalization == nil else {
                 let relativePath = path.relative(to: targetPath)
-                diags.emit(.localizationAmbiguity(path: relativePath, targetName: target.name))
+                self.observabilityScope.emit(.localizationAmbiguity(path: relativePath, targetName: target.name))
                 return nil
             }
 
@@ -285,11 +297,11 @@ public struct TargetSourcesBuilder {
     private func diagnoseConflictingResources(in resources: [Resource]) {
         let duplicateResources = resources.spm_findDuplicateElements(by: \.destination)
         for resources in duplicateResources {
-            diags.emit(.conflictingResource(path: resources[0].destination, targetName: target.name))
+            self.observabilityScope.emit(.conflictingResource(path: resources[0].destination, targetName: target.name))
 
             for resource in resources {
                 let relativePath = resource.path.relative(to: targetPath)
-                diags.emit(.fileReference(path: relativePath))
+                self.observabilityScope.emit(.fileReference(path: relativePath))
             }
         }
     }
@@ -303,7 +315,7 @@ public struct TargetSourcesBuilder {
         for resource in resources where resource.rule == .copy {
             if localizationDirectories.contains(resource.path.basename.lowercased()) {
                 let relativePath = resource.path.relative(to: targetPath)
-                diags.emit(.copyConflictWithLocalizationDirectory(path: relativePath, targetName: target.name))
+                self.observabilityScope.emit(.copyConflictWithLocalizationDirectory(path: relativePath, targetName: target.name))
             }
         }
     }
@@ -314,7 +326,7 @@ public struct TargetSourcesBuilder {
             let hasLocalizations = resources.contains(where: { $0.localization != nil })
             let hasUnlocalized = resources.contains(where: { $0.localization == nil })
             if hasLocalizations && hasUnlocalized {
-                diags.emit(.localizedAndUnlocalizedVariants(resource: basename, targetName: target.name))
+                self.observabilityScope.emit(.localizedAndUnlocalizedVariants(resource: basename, targetName: target.name))
             }
         }
     }
@@ -329,7 +341,7 @@ public struct TargetSourcesBuilder {
         let resourcesByBasename = Dictionary(grouping: localizedResources, by: { $0.path.basename })
         for (basename, resources) in resourcesByBasename {
             if !resources.contains(where: { $0.localization == defaultLocalization }) {
-                diags.emit(.missingDefaultLocalizationResource(
+                self.observabilityScope.emit(.missingDefaultLocalizationResource(
                     resource: basename,
                     targetName: target.name,
                     defaultLocalization: defaultLocalization))
@@ -340,7 +352,7 @@ public struct TargetSourcesBuilder {
     private func diagnoseInfoPlistConflicts(in resources: [Resource]) {
         for resource in resources {
             if resource.destination == RelativePath("Info.plist") {
-                diags.emit(.infoPlistResourceConflict(
+                self.observabilityScope.emit(.infoPlistResourceConflict(
                     path: resource.path.relative(to: targetPath),
                     targetName: target.name))
             }
@@ -352,7 +364,7 @@ public struct TargetSourcesBuilder {
             let resourcePath = self.targetPath.appending(RelativePath(resource.path))
             if let message = validTargetPath(at: resourcePath) {
                 let warning = "Invalid Resource '\(resource.path)': \(message)."
-                self.diags.emit(warning: warning)
+                self.observabilityScope.emit(warning: warning)
             }
         }
     }
@@ -387,7 +399,7 @@ public struct TargetSourcesBuilder {
             }
 
             // Ignore manifest files.
-            if path.parentDirectory == packagePath {
+            if path.parentDirectory == self.packagePath {
                 if path.basename == Manifest.filename { continue }
                 if path.basename == "Package.resolved" { continue }
 
@@ -400,13 +412,13 @@ public struct TargetSourcesBuilder {
             // Ignore if this is an excluded path.
             if self.excludedPaths.contains(path) { continue }
 
-            if fs.isSymlink(path) && !fs.exists(path, followSymlink: true) {
-                diags.emit(.brokenSymlink(path), location: diagnosticLocation)
+            if self.fileSystem.isSymlink(path) && !self.fileSystem.exists(path, followSymlink: true) {
+                self.observabilityScope.emit(.brokenSymlink(path))
                 continue
             }
 
             // Consider non-directories as source files.
-            if !fs.isDirectory(path) {
+            if !self.fileSystem.isDirectory(path) {
                 contents.append(path)
                 continue
             }
@@ -444,24 +456,20 @@ public struct TargetSourcesBuilder {
             // We found a directory inside a localization directory, which is forbidden.
             if path.parentDirectory.extension == Resource.localizationDirectoryExtension {
                 let relativePath = path.parentDirectory.relative(to: targetPath)
-                diags.emit(.localizationDirectoryContainsSubDirectories(
+                self.observabilityScope.emit(.localizationDirectoryContainsSubDirectories(
                     localizationDirectory: relativePath,
                     targetName: target.name))
                 continue
             }
 
             // Otherwise, add its content to the queue.
-            let dirContents = diags.wrap {
-                try fs.getDirectoryContents(path).map({ path.appending(component: $0) })
+            let dirContents = self.observabilityScope.trap {
+                try self.fileSystem.getDirectoryContents(path).map({ path.appending(component: $0) })
             }
             queue += dirContents ?? []
         }
 
         return contents
-    }
-
-    private var diagnosticLocation: DiagnosticLocation {
-        return PackageLocation.Local(name: packageName, packagePath: packagePath)
     }
 }
 
@@ -648,7 +656,7 @@ extension TargetDescription.Resource.Rule {
     }
 }
 
-extension Diagnostic.Message {
+extension Basics.Diagnostic {
     static func symlinkInSources(symlink: RelativePath, targetName: String) -> Self {
         .warning("ignoring symlink at '\(symlink)' in target '\(targetName)'")
     }
@@ -658,5 +666,20 @@ extension Diagnostic.Message {
         targetName: String
     ) -> Self {
         .error("localization directory '\(localizationDirectory)' in target '\(targetName)' contains sub-directories, which is forbidden")
+    }
+}
+
+extension ObservabilityMetadata {
+    public var targetName: String? {
+        get {
+            self[TargetNameKey.self]
+        }
+        set {
+            self[TargetNameKey.self] = newValue
+        }
+    }
+
+    enum TargetNameKey: Key {
+        typealias Value = String
     }
 }

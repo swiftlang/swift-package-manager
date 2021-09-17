@@ -8,28 +8,25 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import Basics
+import PackageModel
 import TSCBasic
 import TSCUtility
-import PackageModel
 
-extension Diagnostic.Message {
-    static func targetHasNoSources(targetPath: String, target: String) -> Diagnostic.Message {
+extension Basics.Diagnostic {
+    static func targetHasNoSources(targetPath: String, target: String) -> Self {
         .warning("Source files for target \(target) should be located under \(targetPath)")
     }
 
-    static func manifestLoading(output: String, diagnosticFile: AbsolutePath?) -> Diagnostic.Message {
-        .warning(ManifestLoadingDiagnostic(output: output, diagnosticFile: diagnosticFile))
-    }
-
-    static func targetNameHasIncorrectCase(target: String) -> Diagnostic.Message {
+    static func targetNameHasIncorrectCase(target: String) -> Self {
         .warning("the target name \(target) has different case on the filesystem and the Package.swift manifest file")
     }
 
-    static func unsupportedCTestTarget(package: String, target: String) -> Diagnostic.Message {
+    static func unsupportedCTestTarget(package: String, target: String) -> Self {
         .warning("ignoring target '\(target)' in package '\(package)'; C language in tests is not yet supported")
     }
 
-    static func duplicateProduct(product: Product) -> Diagnostic.Message {
+    static func duplicateProduct(product: Product) -> Self {
         let typeString: String
         switch product.type {
         case .library(.automatic):
@@ -42,53 +39,53 @@ extension Diagnostic.Message {
         return .warning("ignoring duplicate product '\(product.name)'\(typeString)")
     }
 
-    static func duplicateTargetDependency(dependency: String, target: String, package: String) -> Diagnostic.Message {
+    static func duplicateTargetDependency(dependency: String, target: String, package: String) -> Self {
         .warning("invalid duplicate target dependency declaration '\(dependency)' in target '\(target)' from package '\(package)'")
     }
 
-    static var systemPackageDeprecation: Diagnostic.Message {
+    static var systemPackageDeprecation: Self {
         .warning("system packages are deprecated; use system library targets instead")
     }
 
-    static func systemPackageDeclaresTargets(targets: [String]) -> Diagnostic.Message {
+    static func systemPackageDeclaresTargets(targets: [String]) -> Self {
         .warning("ignoring declared target(s) '\(targets.joined(separator: ", "))' in the system package")
     }
 
-    static func systemPackageProductValidation(product: String) -> Diagnostic.Message {
+    static func systemPackageProductValidation(product: String) -> Self {
         .error("system library product \(product) shouldn't have a type and contain only one target")
     }
 
-    static func executableProductTargetNotExecutable(product: String, target: String) -> Diagnostic.Message {
+    static func executableProductTargetNotExecutable(product: String, target: String) -> Self {
         .error("""
             executable product '\(product)' expects target '\(target)' to be executable; an executable target requires \
             a 'main.swift' file
             """)
     }
 
-    static func executableProductWithoutExecutableTarget(product: String) -> Diagnostic.Message {
+    static func executableProductWithoutExecutableTarget(product: String) -> Self {
         .error("""
             executable product '\(product)' should have one executable target; an executable target requires a \
             'main.swift' file
             """)
     }
 
-    static func executableProductWithMoreThanOneExecutableTarget(product: String) -> Diagnostic.Message {
+    static func executableProductWithMoreThanOneExecutableTarget(product: String) -> Self {
         .error("executable product '\(product)' should not have more than one executable target")
     }
 
-    static func pluginProductWithNoTargets(product: String) -> Diagnostic.Message {
+    static func pluginProductWithNoTargets(product: String) -> Self {
         .error("plugin product '\(product)' should have at least one plugin target")
     }
 
-    static func pluginProductWithNonPluginTargets(product: String, otherTargets: [String]) -> Diagnostic.Message {
+    static func pluginProductWithNonPluginTargets(product: String, otherTargets: [String]) -> Self {
         .error("plugin product '\(product)' should have only plugin targets (it has \(otherTargets.map{ "'\($0)'" }.joined(separator: ", ")))")
     }
 
-    static var noLibraryTargetsForREPL: Diagnostic.Message {
+    static var noLibraryTargetsForREPL: Self {
         .error("unable to synthesize a REPL product as there are no library targets in the package")
     }
 
-    static func brokenSymlink(_ path: AbsolutePath) -> Diagnostic.Message {
+    static func brokenSymlink(_ path: AbsolutePath) -> Self {
         .warning("ignoring broken symlink \(path)")
     }
 
@@ -97,7 +94,7 @@ extension Diagnostic.Message {
     }
 
     static func fileReference(path: RelativePath) -> Self {
-        .note("found '\(path)'")
+        .info("found '\(path)'")
     }
 
     static func infoPlistResourceConflict(
@@ -144,9 +141,17 @@ extension Diagnostic.Message {
     }
 }
 
-public struct ManifestLoadingDiagnostic: DiagnosticData {
-    public let output: String
-    public let diagnosticFile: AbsolutePath?
-
-    public var description: String { output }
+extension ObservabilityMetadata {
+    public var manifestLoadingDiagnosticFile: AbsolutePath? {
+        get {
+            self[ManifestLoadingDiagnosticFileKey.self]
+        }
+        set {
+            self[ManifestLoadingDiagnosticFileKey.self] = newValue
+        }
+    }
+    
+    enum ManifestLoadingDiagnosticFileKey: Key {
+        typealias Value = AbsolutePath
+    }
 }

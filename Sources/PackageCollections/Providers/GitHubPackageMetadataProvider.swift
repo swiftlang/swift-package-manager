@@ -156,7 +156,7 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
                     do {
                         try self.cache?.put(key: identity.description, value: CacheValue(package: model, timestamp: DispatchTime.now()), replace: true)
                     } catch {
-                        self.diagnosticsEngine?.emit(.warning("Failed to save GitHub metadata for package \(identity) to cache: \(error)"))
+                        self.diagnosticsEngine?.emit(warning: "Failed to save GitHub metadata for package \(identity) to cache: \(error)")
                     }
 
                     callback(.success(model))

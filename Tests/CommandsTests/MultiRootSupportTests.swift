@@ -8,12 +8,12 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import XCTest
-
+import Basics
+import Commands
 import SPMTestSupport
 import TSCBasic
-import Commands
 import Workspace
+import XCTest
 
 final class MultiRootSupportTests: XCTestCase {
 
@@ -38,10 +38,10 @@ final class MultiRootSupportTests: XCTestCase {
                 """
         }
 
-        let engine = DiagnosticsEngine()
-        let result = try XcodeWorkspaceLoader(diagnostics: engine, fs: fs).load(workspace: path)
+        let observability = ObservabilitySystem.bootstrapForTesting()
+        let result = try XcodeWorkspaceLoader(diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(), fs: fs).load(workspace: path)
 
-        XCTAssertNoDiagnostics(engine)
+        XCTAssertNoDiagnostics(observability.diagnostics)
         XCTAssertEqual(result.map{ $0.pathString }.sorted(), ["/tmp/test/dep", "/tmp/test/local"])
     }
 }
