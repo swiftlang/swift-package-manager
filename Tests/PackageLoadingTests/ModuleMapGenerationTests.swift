@@ -93,12 +93,17 @@ class ModuleMapGeneration: XCTestCase {
     }
 
     func testWarnings() throws {
-        var fs = InMemoryFileSystem(emptyFiles:
-            "/Foo.c")
+        var fs = InMemoryFileSystem(emptyFiles: "/Foo.c")
         ModuleMapTester("Foo", in: fs) { result in
             result.checkNotCreated()
             result.checkDiagnostics { result in
-                result.check(diagnostic: "no include directory found for target \'Foo\'; libraries cannot be imported without public headers", severity: .warning)
+                var expectedMetadata = ObservabilityMetadata()
+                expectedMetadata.targetName = "Foo"
+                result.check(
+                    diagnostic: "no include directory found for target \'Foo\'; libraries cannot be imported without public headers",
+                    severity: .warning,
+                    metadata: expectedMetadata
+                )
             }
         }
 
@@ -114,21 +119,31 @@ class ModuleMapGeneration: XCTestCase {
 
                 """)
             result.checkDiagnostics { result in
-                result.check(diagnostic: "/include/F-o-o.h should be renamed to /include/F_o_o.h to be used as an umbrella header", severity: .warning)
+                var expectedMetadata = ObservabilityMetadata()
+                expectedMetadata.targetName = "F-o-o"
+                result.check(
+                    diagnostic: "/include/F-o-o.h should be renamed to /include/F_o_o.h to be used as an umbrella header",
+                    severity: .warning,
+                    metadata: expectedMetadata
+                )
             }
         }
     }
 
     func testUnsupportedLayouts() throws {
-        var fs: InMemoryFileSystem
-
-        fs = InMemoryFileSystem(emptyFiles:
+        var fs = InMemoryFileSystem(emptyFiles:
             "/include/Foo/Foo.h",
             "/include/Bar/Foo.h")
         ModuleMapTester("Foo", in: fs) { result in
             result.checkNotCreated()
             result.checkDiagnostics { result in
-                result.check(diagnostic: "target 'Foo' has invalid header layout: umbrella header found at '/include/Foo/Foo.h', but more than one directory exists next to its parent directory: /include/Bar; consider reducing them to one", severity: .error)
+                var expectedMetadata = ObservabilityMetadata()
+                expectedMetadata.targetName = "Foo"
+                result.check(
+                    diagnostic: "target 'Foo' has invalid header layout: umbrella header found at '/include/Foo/Foo.h', but more than one directory exists next to its parent directory: /include/Bar; consider reducing them to one",
+                    severity: .error,
+                    metadata: expectedMetadata
+                )
             }
         }
 
@@ -138,7 +153,13 @@ class ModuleMapGeneration: XCTestCase {
         ModuleMapTester("Foo", in: fs) { result in
             result.checkNotCreated()
             result.checkDiagnostics { result in
-                result.check(diagnostic: "target 'Foo' has invalid header layout: umbrella header found at '/include/Foo.h', but directories exist next to it: /include/Bar; consider removing them", severity: .error)
+                var expectedMetadata = ObservabilityMetadata()
+                expectedMetadata.targetName = "Foo"
+                result.check(
+                    diagnostic: "target 'Foo' has invalid header layout: umbrella header found at '/include/Foo.h', but directories exist next to it: /include/Bar; consider removing them",
+                    severity: .error,
+                    metadata: expectedMetadata
+                )
             }
         }
     }
@@ -149,7 +170,7 @@ func ModuleMapTester(_ targetName: String, includeDir: String = "include", in fi
     let observability = ObservabilitySystem.bootstrapForTesting()
     // Create a module map generator, and determine the type of module map to use for the header directory.  This may emit diagnostics.
     let moduleMapGenerator = ModuleMapGenerator(targetName: targetName, moduleName: targetName.spm_mangledToC99ExtendedIdentifier(), publicHeadersDir: AbsolutePath.root.appending(component: includeDir), fileSystem: fileSystem)
-    let moduleMapType = moduleMapGenerator.determineModuleMapType(diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine())
+    let moduleMapType = moduleMapGenerator.determineModuleMapType(observabilityScope: ObservabilitySystem.topScope)
     
     // Generate a module map and capture any emitted diagnostics.
     let generatedModuleMapPath = AbsolutePath.root.appending(components: "module.modulemap")

@@ -885,7 +885,7 @@ public final class PackageBuilder {
             
             if fileSystem.exists(publicHeadersPath) {
                 let moduleMapGenerator = ModuleMapGenerator(targetName: potentialModule.name, moduleName: potentialModule.name.spm_mangledToC99ExtendedIdentifier(), publicHeadersDir: publicHeadersPath, fileSystem: fileSystem)
-                moduleMapType = moduleMapGenerator.determineModuleMapType(diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine())
+                moduleMapType = moduleMapGenerator.determineModuleMapType(observabilityScope: self.observabilityScope)
             } else if targetType == .library, manifest.toolsVersion >= .v5_5 {
                 // If this clang target is a library, it must contain "include" directory.
                 throw ModuleError.invalidPublicHeadersDirectory(potentialModule.name)
