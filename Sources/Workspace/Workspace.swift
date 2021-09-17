@@ -1638,7 +1638,7 @@ extension Workspace {
 
                 // Load the manifest.
                 // The delegate callback is only passed any diagnostics emitted during the parsing of the manifest, but they are also forwarded up to the caller.
-                let manifestLoadingDiagnostics = DiagnosticsEngine(handlers: [{diagnostics.emit($0)}])
+                let manifestLoadingDiagnostics = DiagnosticsEngine(handlers: [{ diagnostics.emit($0) }], defaultLocation: diagnostics.defaultLocation)
                 manifestLoader.load(at: packagePath,
                                     packageIdentity: packageIdentity,
                                     packageKind: packageKind,

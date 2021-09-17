@@ -174,6 +174,39 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
+    func testManifestParseError() throws {
+        try testWithTemporaryDirectory { path in
+            let pkgDir = path.appending(component: "MyPkg")
+            try localFileSystem.writeFileContents(pkgDir.appending(component: "Package.swift")) {
+                $0 <<<
+                    """
+                    // swift-tools-version:4.0
+                    import PackageDescription
+                    #error("An error in MyPkg")
+                    let package = Package(
+                        name: "MyPkg"
+                    )
+                    """
+            }
+            let workspace = try Workspace(
+                fileSystem: localFileSystem,
+                location: .init(forRootPackage: pkgDir, fileSystem: localFileSystem),
+                customManifestLoader: ManifestLoader(toolchain: ToolchainConfiguration.default),
+                delegate: MockWorkspaceDelegate()
+            )
+            let diagnostics = DiagnosticsEngine()
+            let rootInput = PackageGraphRootInput(packages: [pkgDir], dependencies: [])
+            let rootManifests = try tsc_await { workspace.loadRootManifests(packages: rootInput.packages, diagnostics: diagnostics, completion: $0) }
+            XCTAssert(rootManifests.count == 0, "\(rootManifests)")
+            XCTAssert(diagnostics.diagnostics.count == 1, "\(diagnostics.diagnostics)")
+            let diagnostic = try XCTUnwrap(diagnostics.diagnostics.first)
+            XCTAssert(diagnostic.message.behavior == .error, "\(diagnostic.message.behavior)")
+            XCTAssert(diagnostic.message.text.contains("An error in MyPkg"), "\(diagnostic.message.text)")
+            XCTAssert(diagnostic.location is PackageLocation.Local, "\(diagnostic.location)")
+            XCTAssertEqual((diagnostic.location as? PackageLocation.Local)?.packagePath, pkgDir)
+        }
+    }
+
     func testMultipleRootPackages() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
