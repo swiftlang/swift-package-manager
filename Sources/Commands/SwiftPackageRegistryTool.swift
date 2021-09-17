@@ -152,22 +152,3 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
         }
     }
 }
-
-// MARK: -
-
-private extension SwiftTool {
-    func getRegistriesConfig() throws -> Workspace.Configuration.Registries {
-        let localRegistriesFile = try Workspace.DefaultLocations.registriesConfigurationFile(forRootPackage: self.getPackageRoot())
-
-        let workspace = try getActiveWorkspace()
-        let sharedRegistriesFile = workspace.location.sharedConfigurationDirectory.map {
-            Workspace.DefaultLocations.registriesConfigurationFile(at: $0)
-        }
-
-        return try .init(
-            localRegistriesFile: localRegistriesFile,
-            sharedRegistriesFile: sharedRegistriesFile,
-            fileSystem: localFileSystem
-        )
-    }
-}
