@@ -22,7 +22,6 @@ public struct PackageCollections: PackageCollectionsProtocol {
     #endif
 
     let configuration: Configuration
-    private let diagnosticsEngine: DiagnosticsEngine?
     private let storageContainer: (storage: Storage, owned: Bool)
     private let collectionProviders: [Model.CollectionSourceType: PackageCollectionProvider]
     let metadataProvider: PackageMetadataProvider
@@ -32,17 +31,17 @@ public struct PackageCollections: PackageCollectionsProtocol {
     }
 
     // initialize with defaults
-    public init(configuration: Configuration = .init(), diagnosticsEngine: DiagnosticsEngine = ObservabilitySystem.topScope.makeDiagnosticsEngine()) {
-        let storage = Storage(sources: FilePackageCollectionsSourcesStorage(diagnosticsEngine: diagnosticsEngine),
-                              collections: SQLitePackageCollectionsStorage(diagnosticsEngine: diagnosticsEngine))
+    public init(configuration: Configuration = .init()) {
+        let storage = Storage(
+            sources: FilePackageCollectionsSourcesStorage(),
+            collections: SQLitePackageCollectionsStorage()
+        )
 
-        let collectionProviders = [Model.CollectionSourceType.json: JSONPackageCollectionProvider(diagnosticsEngine: diagnosticsEngine)]
+        let collectionProviders = [Model.CollectionSourceType.json: JSONPackageCollectionProvider()]
 
-        let metadataProvider = GitHubPackageMetadataProvider(configuration: .init(authTokens: configuration.authTokens),
-                                                             diagnosticsEngine: diagnosticsEngine)
+        let metadataProvider = GitHubPackageMetadataProvider(configuration: .init(authTokens: configuration.authTokens))
 
         self.configuration = configuration
-        self.diagnosticsEngine = diagnosticsEngine
         self.storageContainer = (storage, true)
         self.collectionProviders = collectionProviders
         self.metadataProvider = metadataProvider
@@ -55,7 +54,6 @@ public struct PackageCollections: PackageCollectionsProtocol {
          collectionProviders: [Model.CollectionSourceType: PackageCollectionProvider],
          metadataProvider: PackageMetadataProvider) {
         self.configuration = configuration
-        self.diagnosticsEngine = diagnosticsEngine
         self.storageContainer = (storage, false)
         self.collectionProviders = collectionProviders
         self.metadataProvider = metadataProvider
@@ -384,7 +382,7 @@ public struct PackageCollections: PackageCollectionsProtocol {
                 self.metadataProvider.get(identity: packageSearchResult.package.identity, location: packageSearchResult.package.location) { result in
                     switch result {
                     case .failure(let error):
-                        self.diagnosticsEngine?.emit(warning: "Failed fetching information about \(identity) from \(self.metadataProvider.name): \(error)")
+                        ObservabilitySystem.topScope.emit(warning: "Failed fetching information about \(identity) from \(self.metadataProvider.name): \(error)")
 
                         let provider: PackageMetadataProviderContext?
                         switch error {

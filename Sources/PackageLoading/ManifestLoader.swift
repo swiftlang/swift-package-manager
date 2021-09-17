@@ -496,7 +496,13 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             // FIXME: expose as user-facing configuration
             configuration.maxSizeInMegabytes = 100
             configuration.truncateWhenFull = true
-            return SQLiteBackedCache<EvaluationResult>(tableName: "MANIFEST_CACHE", location: .path(path), configuration: configuration, diagnosticsEngine: diagnostics)
+            return SQLiteBackedCache<EvaluationResult>(
+                tableName: "MANIFEST_CACHE",
+                location: .path(path),
+                configuration: configuration,
+                // FIXME: user ManifestLoader scope once migrated to new observability APIs
+                observabilityScope: ObservabilitySystem.topScope
+            )
         }
 
         // TODO: we could wrap the failure here with diagnostics if it wasn't optional throughout
