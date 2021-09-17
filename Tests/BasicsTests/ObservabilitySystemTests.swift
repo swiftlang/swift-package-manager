@@ -160,12 +160,10 @@ final class ObservabilitySystemTest: XCTestCase {
         }
     }
 
-    struct Collector: ObservabilityFactory {
-        let _diagnostics = ThreadSafeArrayStore<Diagnostic>()
+    struct Collector: ObservabilityFactory, DiagnosticsHandler {
+        private let _diagnostics = ThreadSafeArrayStore<Diagnostic>()
 
-        var diagnosticsHandler: DiagnosticsHandler {
-            self.handleDiagnostic
-        }
+        var diagnosticsHandler: DiagnosticsHandler { self }
 
         var diagnostics: [Diagnostic] {
             self._diagnostics.get()
@@ -175,7 +173,7 @@ final class ObservabilitySystemTest: XCTestCase {
             self._diagnostics.clear()
         }
 
-        private func handleDiagnostic(scope: ObservabilityScope, diagnostic: Diagnostic) {
+        func handleDiagnostic(scope: ObservabilityScope, diagnostic: Diagnostic) {
             self._diagnostics.append(diagnostic)
         }
     }

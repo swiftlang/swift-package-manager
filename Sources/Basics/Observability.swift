@@ -8,6 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
+import Dispatch
 import TSCBasic
 import TSCUtility
 
@@ -49,11 +50,18 @@ public class ObservabilitySystem {
     public let topScope: ObservabilityScope
 
     public init(factory: ObservabilityFactory) {
-        self.topScope = .init(description: "top scope", parent: .none, metadata: .none, diagnosticsHandler: factory.diagnosticsHandler)
+        self.topScope = .init(
+            description: "top scope",
+            parent: .none,
+            metadata: .none,
+            diagnosticsHandler: factory.diagnosticsHandler
+        )
     }
 
-    private struct NOOPFactory: ObservabilityFactory {
-        var diagnosticsHandler: DiagnosticsHandler = { _, _ in }
+    private struct NOOPFactory: ObservabilityFactory, DiagnosticsHandler {
+        var diagnosticsHandler: DiagnosticsHandler  { self }
+
+        func handleDiagnostic(scope: ObservabilityScope, diagnostic: Diagnostic) {}
     }
 }
 
@@ -61,36 +69,42 @@ public protocol ObservabilityFactory {
     var diagnosticsHandler: DiagnosticsHandler { get }
 }
 
-public typealias DiagnosticsHandler = (ObservabilityScope, Diagnostic) -> Void
+// MARK: - ObservabilityScope
 
 public final class ObservabilityScope: DiagnosticsEmitterProtocol {
     private let description: String
     private let parent: ObservabilityScope?
     private let metadata: ObservabilityMetadata?
 
-    private var diagnosticsHandler: DiagnosticsHandler!
-    private var _errorsReported = ThreadSafeBox<Bool>(false)
+    private var diagnosticsHandler: DiagnosticsHanderWrapper
 
-    fileprivate init(description: String, parent: ObservabilityScope?, metadata: ObservabilityMetadata?, diagnosticsHandler: @escaping DiagnosticsHandler) {
+    fileprivate init(
+        description: String,
+        parent: ObservabilityScope?,
+        metadata: ObservabilityMetadata?,
+        diagnosticsHandler: DiagnosticsHandler
+    ) {
         self.description = description
         self.parent = parent
         self.metadata = metadata
-        self.diagnosticsHandler = { scope, diagnostic in
-            if diagnostic.severity == .error {
-                self._errorsReported.put(true)
-            }
-            diagnosticsHandler(scope, diagnostic)
-        }
+        self.diagnosticsHandler = DiagnosticsHanderWrapper(diagnosticsHandler)
     }
 
     public func makeChildScope(description: String, metadata: ObservabilityMetadata? = .none) -> Self {
         let mergedMetadata = ObservabilityMetadata.mergeLeft(self.metadata, metadata)
-        return .init(description: description, parent: self, metadata: mergedMetadata, diagnosticsHandler: self.diagnosticsHandler)
+        return .init(
+            description: description,
+            parent: self,
+            metadata: mergedMetadata,
+            diagnosticsHandler: self.diagnosticsHandler
+        )
     }
 
     public func makeChildScope(description: String, metadataProvider: () -> ObservabilityMetadata) -> Self {
         self.makeChildScope(description: description, metadata: metadataProvider())
     }
+
+    // diagnostics
 
     public func makeDiagnosticsEmitter(metadata: ObservabilityMetadata? = .none) -> DiagnosticsEmitter {
         let mergedMetadata = ObservabilityMetadata.mergeLeft(self.metadata, metadata)
@@ -104,21 +118,47 @@ public final class ObservabilityScope: DiagnosticsEmitterProtocol {
     // FIXME: compatibility with DiagnosticsEngine, remove when transition is complete
     //@available(*, deprecated, message: "temporary for transition DiagnosticsEngine -> DiagnosticsEmitter")
     public func makeDiagnosticsEngine() -> DiagnosticsEngine {
-        return .init(handlers: [{ Diagnostic($0).map{ self.diagnosticsHandler(self, $0) } }])
+        return .init(handlers: [{ Diagnostic($0).map{ self.diagnosticsHandler.handleDiagnostic(scope: self, diagnostic: $0) } }])
     }
 
     // FIXME: we want to remove this functionality and move to more conventional error handling
     //@available(*, deprecated, message: "this pattern is deprecated, transition to error handling instead")
     public var errorsReported: Bool {
-        self._errorsReported.get() ?? false
+        self.diagnosticsHandler.errorsReported
     }
 
     // DiagnosticsEmitterProtocol
     public func emit(_ diagnostic: Diagnostic) {
         var diagnostic = diagnostic
         diagnostic.metadata = ObservabilityMetadata.mergeLeft(self.metadata, diagnostic.metadata)
-        self.diagnosticsHandler(self, diagnostic)
+        self.diagnosticsHandler.handleDiagnostic(scope: self, diagnostic: diagnostic)
     }
+
+    private struct DiagnosticsHanderWrapper: DiagnosticsHandler {
+        private let underlying: DiagnosticsHandler
+        private var _errorsReported = ThreadSafeBox<Bool>(false)
+
+        init(_ underlying: DiagnosticsHandler) {
+            self.underlying = underlying
+        }
+
+        public func handleDiagnostic(scope: ObservabilityScope, diagnostic: Diagnostic) {
+            if diagnostic.severity == .error {
+                self._errorsReported.put(true)
+            }
+            self.underlying.handleDiagnostic(scope: scope, diagnostic: diagnostic)
+        }
+
+        var errorsReported: Bool {
+            self._errorsReported.get() ?? false
+        }
+    }
+}
+
+// MARK: - Diagnostics
+
+public protocol DiagnosticsHandler {
+    func handleDiagnostic(scope: ObservabilityScope, diagnostic: Diagnostic)
 }
 
 // helper protocol to share default behavior
@@ -300,7 +340,7 @@ public struct Diagnostic: CustomStringConvertible, Equatable {
 // luckily, this is about to change so we can clean this up soon
 public struct ObservabilityMetadata: Equatable, CustomDebugStringConvertible {
     public typealias Key = ObservabilityMetadataKey
-    
+
     private var _storage = [AnyKey: CustomStringConvertible]()
 
     public init() {}
@@ -458,4 +498,3 @@ extension ObservabilityMetadata {
         typealias Value = String
     }
 }
-

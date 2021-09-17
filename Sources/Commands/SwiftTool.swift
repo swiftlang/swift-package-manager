@@ -231,7 +231,7 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
     }
 
     // noop
-    
+
     func willLoadManifest(packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind) {}
     func didLoadManifest(packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind, manifest: Manifest?, diagnostics: [Diagnostic]) {}
     func didCreateWorkingCopy(repository url: String, at path: AbsolutePath, error: Diagnostic?) {}
@@ -331,7 +331,7 @@ public class SwiftTool {
         do {
             try Self.postprocessArgParserResult(options: options, diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine())
             self.options = options
-            
+
             // Honor package-path option is provided.
             if let packagePath = options.packagePath ?? options.chdir {
                 try ProcessEnv.chdir(packagePath)
@@ -389,25 +389,25 @@ public class SwiftTool {
         self.buildPath = getEnvBuildPath(workingDir: cwd) ??
         customBuildPath ??
         (packageRoot ?? cwd).appending(component: ".build")
-        
+
         // Setup the globals.
         verbosity = Verbosity(rawValue: options.verbosity)
         Process.verbose = verbosity != .concise
     }
-    
+
     static func postprocessArgParserResult(options: SwiftToolOptions, diagnostics: DiagnosticsEngine) throws {
         if options.chdir != nil {
             diagnostics.emit(warning: "'--chdir/-C' option is deprecated; use '--package-path' instead")
         }
-        
+
         if options.multirootPackageDataFile != nil {
             diagnostics.emit(.unsupportedFlag("--multiroot-data-file"))
         }
-        
+
         if options.useExplicitModuleBuild && !options.useIntegratedSwiftDriver {
             diagnostics.emit(error: "'--experimental-explicit-module-build' option requires '--use-integrated-swift-driver'")
         }
-        
+
         if !options.archs.isEmpty && options.customCompileTriple != nil {
             diagnostics.emit(.mutuallyExclusiveArgumentsError(arguments: ["--arch", "--triple"]))
         }
@@ -635,7 +635,7 @@ public class SwiftTool {
             throw error
         }
     }
-    
+
     /// Invoke plugins for any reachable targets in the graph, and return a mapping from targets to corresponding evaluation results.
     func invokePlugins(graph: PackageGraph) throws -> [ResolvedTarget: [PluginInvocationResult]] {
         do {
@@ -646,24 +646,24 @@ public class SwiftTool {
             let buildEnvironment = try buildParameters().buildEnvironment
             let dataDir = try self.getActiveWorkspace().location.workingDirectory
             let pluginsDir = dataDir.appending(component: "plugins")
-            
+
             // The `cache` directory is in the plugins directory and is where the plugin script runner caches
             // compiled plugin binaries and any other derived information.
             let cacheDir = pluginsDir.appending(component: "cache")
             let pluginScriptRunner = try DefaultPluginScriptRunner(cacheDir: cacheDir, toolchain: self._hostToolchain.get().configuration)
-            
+
             // The `outputs` directory contains subdirectories for each combination of package, target, and plugin.
             // Each usage of a plugin has an output directory that is writable by the plugin, where it can write
             // additional files, and to which it can configure tools to write their outputs, etc.
             let outputDir = pluginsDir.appending(component: "outputs")
-            
+
             // The `tools` directory contains any command line tools (executables) that are available for any commands
             // defined by the executable.
             // FIXME: At the moment we just pass the built products directory for the host. We will need to extend this
             // with a map of the names of tools available to each plugin. In particular this would not work with any
             // binary targets.
             let builtToolsDir = dataDir.appending(components: try self._hostToolchain.get().triple.tripleString, buildEnvironment.configuration.dirname)
-            
+
             // Create the cache directory, if needed.
             try localFileSystem.createDirectory(cacheDir, recursive: true)
 
@@ -966,8 +966,10 @@ extension DispatchTimeInterval {
 
 // MARK: - Diagnostics
 
-struct SwiftToolObservability: ObservabilityFactory {
-    var diagnosticsHandler: DiagnosticsHandler = { scope, diagnostic in
+private struct SwiftToolObservability: ObservabilityFactory, DiagnosticsHandler {
+    var diagnosticsHandler: DiagnosticsHandler { self }
+
+    func handleDiagnostic(scope: ObservabilityScope, diagnostic: Basics.Diagnostic) {
         // TODO: do something useful with scope
         diagnostic.print()
     }

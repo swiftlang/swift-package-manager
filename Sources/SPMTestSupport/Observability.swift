@@ -37,15 +37,15 @@ public struct TestingObservability {
     }
 
     struct Factory: ObservabilityFactory {
-        fileprivate let diagnosticsCollector = AccumulatingDiagnosticsCollector()
+        fileprivate let diagnosticsCollector = DiagnosticsCollector()
 
         var diagnosticsHandler: DiagnosticsHandler {
-            return diagnosticsCollector.handle
+            return diagnosticsCollector
         }
     }
 }
 
-private final class AccumulatingDiagnosticsCollector: CustomStringConvertible {
+private final class DiagnosticsCollector: DiagnosticsHandler, CustomStringConvertible {
     public let diagnostics: ThreadSafeArrayStore<Basics.Diagnostic>
 
     public init() {
@@ -53,7 +53,7 @@ private final class AccumulatingDiagnosticsCollector: CustomStringConvertible {
     }
 
     // TODO: do something useful with scope
-    public func handle(scope: ObservabilityScope, diagnostic: Basics.Diagnostic) {
+    public func handleDiagnostic(scope: ObservabilityScope, diagnostic: Basics.Diagnostic) {
         self.diagnostics.append(diagnostic)
     }
 
