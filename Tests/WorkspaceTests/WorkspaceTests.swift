@@ -3806,40 +3806,48 @@ final class WorkspaceTests: XCTestCase {
 
     // This verifies that the simplest possible loading APIs are available for package clients.
     func testSimpleAPI() throws {
-        // This checkout of the SwiftPM package.
-        let packagePath = AbsolutePath(#file).parentDirectory.parentDirectory.parentDirectory
+        try testWithTemporaryDirectory { path in
+            // Create a temporary package as a test case.
+            let packagePath = path.appending(component: "MyPkg")
+            let initPackage = try InitPackage(name: packagePath.basename, destinationPath: packagePath, packageType: .executable)
+            try initPackage.writePackageStructure()
+            
+            // Load the workspace.
+            let observability = ObservabilitySystem.bootstrapForTesting()
+            let workspace = try Workspace(forRootPackage: packagePath, customToolchain: UserToolchain.default)
 
-        let observability = ObservabilitySystem.bootstrapForTesting()
-        let workspace = try Workspace(forRootPackage: packagePath, customToolchain: UserToolchain.default)
+            // From here the API should be simple and straightforward:
+            let manifest = try tsc_await {
+                workspace.loadRootManifest(
+                    at: packagePath,
+                    diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
+                    completion: $0
+                )
+            }
+            XCTAssertFalse(observability.hasWarningDiagnostics, observability.diagnostics.description)
+            XCTAssertFalse(observability.hasErrorDiagnostics, observability.diagnostics.description)
 
-        // From here the API should be simple and straightforward:
-        let manifest = try tsc_await {
-            workspace.loadRootManifest(
-                at: packagePath,
-                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
-                completion: $0
+            let package = try tsc_await {
+                workspace.loadRootPackage(
+                    at: packagePath,
+                    diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
+                    completion: $0
+                )
+            }
+            XCTAssertFalse(observability.hasWarningDiagnostics, observability.diagnostics.description)
+            XCTAssertFalse(observability.hasErrorDiagnostics, observability.diagnostics.description)
+
+            let graph = try workspace.loadPackageGraph(
+                rootPath: packagePath,
+                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine()
             )
+            XCTAssertFalse(observability.hasWarningDiagnostics, observability.diagnostics.description)
+            XCTAssertFalse(observability.hasErrorDiagnostics, observability.diagnostics.description)
+
+            XCTAssertEqual(manifest.name, "MyPkg")
+            XCTAssertEqual(package.manifestName, manifest.name)
+            XCTAssert(graph.reachableProducts.contains(where: { $0.name == "MyPkg" }))
         }
-        XCTAssertFalse(observability.hasErrorDiagnostics)
-
-        let package = try tsc_await {
-            workspace.loadRootPackage(
-                at: packagePath,
-                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
-                completion: $0
-            )
-        }
-        XCTAssertFalse(observability.hasErrorDiagnostics)
-
-        let graph = try workspace.loadPackageGraph(
-            rootPath: packagePath,
-            diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine()
-        )
-        XCTAssertFalse(observability.hasErrorDiagnostics)
-
-        XCTAssertEqual(manifest.name, "SwiftPM")
-        XCTAssertEqual(package.manifestName, manifest.name)
-        XCTAssert(graph.reachableProducts.contains(where: { $0.name == "SwiftPM" }))
     }
 
     func testRevisionDepOnLocal() throws {
