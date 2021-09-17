@@ -480,6 +480,21 @@ public class SwiftTool {
         return newPath
     }
 
+    func getRegistriesConfig(sharedConfigurationDirectory: AbsolutePath? = nil) throws -> Workspace.Configuration.Registries {
+        let localRegistriesFile = try Workspace.DefaultLocations.registriesConfigurationFile(forRootPackage: self.getPackageRoot())
+
+        let sharedConfigurationDirectory = try sharedConfigurationDirectory ?? self.getSharedConfigurationDirectory()
+        let sharedRegistriesFile = sharedConfigurationDirectory.map {
+            Workspace.DefaultLocations.registriesConfigurationFile(at: $0)
+        }
+
+        return try .init(
+            localRegistriesFile: localRegistriesFile,
+            sharedRegistriesFile: sharedRegistriesFile,
+            fileSystem: localFileSystem
+        )
+    }
+
     func getAuthorizationProvider() throws -> AuthorizationProvider? {
         // currently only single provider: netrc
         return try self.getNetrcConfig()?.get()
