@@ -83,7 +83,6 @@ public final class ObservabilityScope: DiagnosticsEmitterProtocol {
     private var diagnosticsHandler: DiagnosticsHanderWrapper
     private var metricsHandler: MetricsHandler
 
-
     fileprivate init(
         description: String,
         parent: ObservabilityScope?,

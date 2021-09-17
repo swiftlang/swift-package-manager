@@ -206,7 +206,7 @@ public struct SwiftTestTool: SwiftCommand {
     
     public func run(_ swiftTool: SwiftTool) throws {
         // Validate commands arguments
-        try validateArguments(diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine())
+        try validateArguments()
 
         switch options.mode {
         case .listTests:
@@ -290,14 +290,15 @@ public struct SwiftTestTool: SwiftCommand {
                 }
             }
 
+            let observabilityScope = ObservabilitySystem.topScope.makeChildScope(description: "Test Runner")
             let runner = TestRunner(
                 bundlePaths: testProducts.map { $0.bundlePath },
                 xctestArg: xctestArg,
                 processSet: swiftTool.processSet,
                 toolchain: toolchain,
-                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
                 options: swiftOptions,
-                buildParameters: buildParameters
+                buildParameters: buildParameters,
+                observabilityScope: observabilityScope
             )
 
             // Finally, run the tests.
@@ -338,7 +339,6 @@ public struct SwiftTestTool: SwiftCommand {
                 toolchain: toolchain,
                 xUnitOutput: options.xUnitOutput,
                 numJobs: options.numberOfWorkers ?? ProcessInfo.processInfo.activeProcessorCount,
-                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
                 options: swiftOptions,
                 buildParameters: buildParameters,
                 outputStream: swiftTool.outputStream
@@ -519,24 +519,24 @@ public struct SwiftTestTool: SwiftCommand {
     /// Private function that validates the commands arguments
     ///
     /// - Throws: if a command argument is invalid
-    private func validateArguments(diagnostics: DiagnosticsEngine) throws {
+    private func validateArguments() throws {
         // Validation for --num-workers.
         if let workers = options.numberOfWorkers {
 
             // The --num-worker option should be called with --parallel.
             guard options.mode == .runParallel else {
-                diagnostics.emit(error: "--num-workers must be used with --parallel")
+                ObservabilitySystem.topScope.emit(error: "--num-workers must be used with --parallel")
                 throw ExitCode.failure
             }
 
             guard workers > 0 else {
-                diagnostics.emit(error: "'--num-workers' must be greater than zero")
+                ObservabilitySystem.topScope.emit(error: "'--num-workers' must be greater than zero")
                 throw ExitCode.failure
             }
         }
         
         if options.shouldGenerateLinuxMain {
-            diagnostics.emit(warning: "'--generate-linuxmain' option is deprecated; tests are automatically discovered on all platforms")
+            ObservabilitySystem.topScope.emit(warning: "'--generate-linuxmain' option is deprecated; tests are automatically discovered on all platforms")
         }
     }
     
@@ -576,12 +576,12 @@ final class TestRunner {
     // The toolchain to use.
     private let toolchain: UserToolchain
 
-    /// Diagnostics Engine to emit diagnostics.
-    let diagnostics: DiagnosticsEngine
-
     private let options: SwiftToolOptions
 
     private let buildParameters: BuildParameters
+
+    // scope with which to emit diagnostics
+    private let observabilityScope: ObservabilityScope
 
     /// Creates an instance of TestRunner.
     ///
@@ -593,17 +593,17 @@ final class TestRunner {
         xctestArg: String? = nil,
         processSet: ProcessSet,
         toolchain: UserToolchain,
-        diagnostics: DiagnosticsEngine,
         options: SwiftToolOptions,
-        buildParameters: BuildParameters
+        buildParameters: BuildParameters,
+        observabilityScope: ObservabilityScope
     ) {
         self.bundlePaths = bundlePaths
         self.xctestArg = xctestArg
         self.processSet = processSet
         self.toolchain = toolchain
-        self.diagnostics = diagnostics
         self.options = options
         self.buildParameters = buildParameters
+        self.observabilityScope = observabilityScope
     }
 
     /// Executes the tests without printing anything on standard streams.
@@ -614,7 +614,7 @@ final class TestRunner {
         var success = true
         var output = ""
         for path in bundlePaths {
-            let (testSuccess, testOutput) = test(testAt: path)
+            let (testSuccess, testOutput) = self.test(testAt: path)
             success = success && testSuccess
             output += testOutput
         }
@@ -625,7 +625,7 @@ final class TestRunner {
     public func test() -> Bool {
         var success = true
         for path in bundlePaths {
-            let testSuccess: Bool = test(testAt: path)
+            let testSuccess: Bool = self.test(testAt: path)
             success = success && testSuccess
         }
         return success
@@ -652,57 +652,62 @@ final class TestRunner {
         return args
     }
 
-    /// Executes the tests without printing anything on standard streams.
-    ///
-    /// - Returns: A tuple with first bool member indicating if test execution returned code 0
-    ///            and second argument containing the output of the execution.
+    /// Executes and returns execution status. Prints test output on standard streams.
     private func test(testAt testPath: AbsolutePath) -> (Bool, String) {
-        var output = ""
-        var success = false
-        do {
-            // FIXME: The environment will be constructed for every test when using the
-            // parallel test runner. We should do some kind of caching.
-            let env = try constructTestEnvironment(toolchain: toolchain, options: self.options, buildParameters: self.buildParameters)
-            let process = Process(arguments: try args(forTestAt: testPath), environment: env, outputRedirection: .collect, verbose: false)
-            try process.launch()
-            let result = try process.waitUntilExit()
-            output = try (result.utf8Output() + result.utf8stderrOutput()).spm_chuzzle() ?? ""
-            switch result.exitStatus {
-            case .terminated(code: 0):
-                success = true
-#if !os(Windows)
-            case .signalled(let signal):
-                output += "\n" + exitSignalText(code: signal)
-#endif
-            default: break
+        let testObservabilityScope = self.observabilityScope.makeChildScope(description: "running test at \(testPath)")
+        let timer = testObservabilityScope.makeTimer(label: "test duration")
+        return timer.measure {
+            var output = ""
+            var success = false
+            do {
+                // FIXME: The environment will be constructed for every test when using the
+                // parallel test runner. We should do some kind of caching.
+                let env = try constructTestEnvironment(toolchain: toolchain, options: self.options, buildParameters: self.buildParameters)
+                let process = Process(arguments: try args(forTestAt: testPath), environment: env, outputRedirection: .collect, verbose: false)
+                try process.launch()
+                let result = try process.waitUntilExit()
+                output = try (result.utf8Output() + result.utf8stderrOutput()).spm_chuzzle() ?? ""
+                switch result.exitStatus {
+                case .terminated(code: 0):
+                    success = true
+                #if !os(Windows)
+                case .signalled(let signal):
+                    output += "\n" + exitSignalText(code: signal)
+                #endif
+                default: break
+                }
+            } catch {
+                testObservabilityScope.emit(error)
             }
-        } catch {
-            diagnostics.emit(error)
+            return (success, output)
         }
-        return (success, output)
     }
 
     /// Executes and returns execution status. Prints test output on standard streams.
     private func test(testAt testPath: AbsolutePath) -> Bool {
-        do {
-            let env = try constructTestEnvironment(toolchain: toolchain, options: self.options, buildParameters: self.buildParameters)
-            let process = Process(arguments: try args(forTestAt: testPath), environment: env, outputRedirection: .none)
-            try processSet.add(process)
-            try process.launch()
-            let result = try process.waitUntilExit()
-            switch result.exitStatus {
-            case .terminated(code: 0):
-                return true
-#if !os(Windows)
-            case .signalled(let signal):
-                print(exitSignalText(code: signal))
-#endif
-            default: break
+        let testObservabilityScope = self.observabilityScope.makeChildScope(description: "running test at \(testPath)")
+        let timer = testObservabilityScope.makeTimer(label: "test duration")
+        return timer.measure {
+            do {
+                let env = try constructTestEnvironment(toolchain: toolchain, options: self.options, buildParameters: self.buildParameters)
+                let process = Process(arguments: try args(forTestAt: testPath), environment: env, outputRedirection: .none)
+                try processSet.add(process)
+                try process.launch()
+                let result = try process.waitUntilExit()
+                switch result.exitStatus {
+                case .terminated(code: 0):
+                    return true
+                #if !os(Windows)
+                case .signalled(let signal):
+                    print(exitSignalText(code: signal))
+                #endif
+                default: break
+                }
+            } catch {
+                testObservabilityScope.emit(error)
             }
-        } catch {
-            diagnostics.emit(error)
+            return false
         }
-        return false
     }
 
     private func exitSignalText(code: Int32) -> String {
@@ -751,8 +756,8 @@ final class ParallelTestRunner {
     /// Number of tests to execute in parallel.
     let numJobs: Int
 
-    /// Diagnostics Engine to emit diagnostics.
-    let diagnostics: DiagnosticsEngine
+    // scope with which to emit diagnostics
+    private let observabilityScope: ObservabilityScope
 
     init(
         bundlePaths: [AbsolutePath],
@@ -760,17 +765,17 @@ final class ParallelTestRunner {
         toolchain: UserToolchain,
         xUnitOutput: AbsolutePath? = nil,
         numJobs: Int,
-        diagnostics: DiagnosticsEngine,
         options: SwiftToolOptions,
         buildParameters: BuildParameters,
         outputStream: OutputByteStream
     ) {
+        assert(numJobs > 0, "num jobs should be > 0")
+
         self.bundlePaths = bundlePaths
         self.processSet = processSet
         self.toolchain = toolchain
         self.xUnitOutput = xUnitOutput
         self.numJobs = numJobs
-        self.diagnostics = diagnostics
 
         if ProcessEnv.vars["SWIFTPM_TEST_RUNNER_PROGRESS_BAR"] == "lit" {
             progressAnimation = PercentProgressAnimation(stream: outputStream, header: "Testing:")
@@ -781,7 +786,7 @@ final class ParallelTestRunner {
         self.options = options
         self.buildParameters = buildParameters
 
-        assert(numJobs > 0, "num jobs should be > 0")
+        self.observabilityScope = ObservabilitySystem.topScope.makeChildScope(description: "Parallel Test Runner")
     }
 
     /// Whether to display output from successful tests.
@@ -826,9 +831,9 @@ final class ParallelTestRunner {
                         xctestArg: test.specifier,
                         processSet: self.processSet,
                         toolchain: self.toolchain,
-                        diagnostics: self.diagnostics,
                         options: self.options,
-                        buildParameters: self.buildParameters
+                        buildParameters: self.buildParameters,
+                        observabilityScope: self.observabilityScope
                     )
                     let (success, output) = testRunner.test()
                     if !success {
