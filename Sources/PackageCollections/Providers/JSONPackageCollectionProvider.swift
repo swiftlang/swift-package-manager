@@ -36,7 +36,6 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
     static let defaultCertPolicyKeys: [CertificatePolicyKey] = [.default]
 
     private let configuration: Configuration
-    private let diagnosticsEngine: DiagnosticsEngine
     private let httpClient: HTTPClient
     private let decoder: JSONDecoder
     private let validator: JSONModel.Validator
@@ -47,18 +46,15 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
          httpClient: HTTPClient? = nil,
          signatureValidator: PackageCollectionSignatureValidator? = nil,
          sourceCertPolicy: PackageCollectionSourceCertificatePolicy = PackageCollectionSourceCertificatePolicy(),
-         fileSystem: FileSystem = localFileSystem,
-         diagnosticsEngine: DiagnosticsEngine) {
+         fileSystem: FileSystem = localFileSystem) {
         self.configuration = configuration
-        self.diagnosticsEngine = diagnosticsEngine
-        self.httpClient = httpClient ?? Self.makeDefaultHTTPClient(diagnosticsEngine: diagnosticsEngine)
+        self.httpClient = httpClient ?? Self.makeDefaultHTTPClient()
         self.decoder = JSONDecoder.makeWithDefaults()
         self.validator = JSONModel.Validator(configuration: configuration.validator)
         self.signatureValidator = signatureValidator ?? PackageCollectionSigning(
             trustedRootCertsDir: configuration.trustedRootCertsDir ?? fileSystem.swiftPMConfigDirectory.appending(component: "trust-root-certs").asURL,
             additionalTrustedRootCerts: sourceCertPolicy.allRootCerts.map { Array($0) },
-            callbackQueue: .sharedConcurrent,
-            diagnosticsEngine: diagnosticsEngine
+            callbackQueue: .sharedConcurrent
         )
         self.sourceCertPolicy = sourceCertPolicy
     }
@@ -168,7 +164,7 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
                                     fatalError("Expected at least one package collection signature validation failure but got none")
                                 }
 
-                                self.diagnosticsEngine.emit(warning: "The signature of package collection [\(source)] is invalid: \(error)")
+                                ObservabilitySystem.topScope.emit(warning: "The signature of package collection [\(source)] is invalid: \(error)")
                                 if PackageCollectionSigningError.noTrustedRootCertsConfigured == error as? PackageCollectionSigningError {
                                     callback(.failure(PackageCollectionError.cannotVerifySignature))
                                 } else {
@@ -272,7 +268,7 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
         }
 
         if !serializationOkay {
-            self.diagnosticsEngine.emit(warning: "Some of the information from \(collection.name) could not be deserialized correctly, likely due to invalid format. Contact the collection's author (\(collection.generatedBy?.name ?? "n/a")) to address this issue.")
+            ObservabilitySystem.topScope.emit(warning: "Some of the information from \(collection.name) could not be deserialized correctly, likely due to invalid format. Contact the collection's author (\(collection.generatedBy?.name ?? "n/a")) to address this issue.")
         }
 
         return .success(.init(source: source,
@@ -300,8 +296,8 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
         return headers
     }
 
-    private static func makeDefaultHTTPClient(diagnosticsEngine: DiagnosticsEngine?) -> HTTPClient {
-        var client = HTTPClient(diagnosticsEngine: diagnosticsEngine)
+    private static func makeDefaultHTTPClient() -> HTTPClient {
+        var client = HTTPClient()
         // TODO: make these defaults configurable?
         client.configuration.requestTimeout = .seconds(5)
         client.configuration.retryStrategy = .exponentialBackoff(maxAttempts: 3, baseDelay: .milliseconds(50))

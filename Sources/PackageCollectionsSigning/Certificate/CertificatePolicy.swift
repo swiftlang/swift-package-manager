@@ -56,13 +56,11 @@ extension CertificatePolicy {
     ///   - anchorCerts: On Apple platforms, these are root certificates to trust **in addition** to the operating system's trust store.
     ///                  On other platforms, these are the **only** root certificates to be trusted.
     ///   - verifyDate: Overrides the timestamp used for checking certificate expiry (e.g., for testing). By default the current time is used.
-    ///   - diagnosticsEngine: The `DiagnosticsEngine` for emitting warnings and errors
     ///   - callbackQueue: The `DispatchQueue` to use for callbacks
     ///   - callback: The callback to invoke when the result is available.
     func verify(certChain: [Certificate],
                 anchorCerts: [Certificate]?,
                 verifyDate: Date? = nil,
-                diagnosticsEngine: DiagnosticsEngine,
                 callbackQueue: DispatchQueue,
                 callback: @escaping (Result<Void, Error>) -> Void) {
         let wrappedCallback: (Result<Void, Error>) -> Void = { result in callbackQueue.async { callback(result) } }
@@ -112,14 +110,12 @@ extension CertificatePolicy {
     ///                  On other platforms, these are the **only** root certificates to be trusted.
     ///   - verifyDate: Overrides the timestamp used for checking certificate expiry (e.g., for testing). By default the current time is used.
     ///   - httpClient: HTTP client for OCSP requests
-    ///   - diagnosticsEngine: The `DiagnosticsEngine` for emitting warnings and errors
     ///   - callbackQueue: The `DispatchQueue` to use for callbacks
     ///   - callback: The callback to invoke when the result is available.
     func verify(certChain: [Certificate],
                 anchorCerts: [Certificate]? = nil,
                 verifyDate: Date? = nil,
                 httpClient: HTTPClient?,
-                diagnosticsEngine: DiagnosticsEngine,
                 callbackQueue: DispatchQueue,
                 callback: @escaping (Result<Void, Error>) -> Void) {
         let wrappedCallback: (Result<Void, Error>) -> Void = { result in callbackQueue.async { callback(result) } }
@@ -212,7 +208,7 @@ extension CertificatePolicy {
 
             guard CCryptoBoringSSL_X509_verify_cert(x509StoreCtx) == 1 else {
                 let error = CCryptoBoringSSL_X509_verify_cert_error_string(numericCast(CCryptoBoringSSL_X509_STORE_CTX_get_error(x509StoreCtx)))
-                diagnosticsEngine.emit(warning: "The certificate is invalid: \(String(describing: error.flatMap { String(cString: $0, encoding: .utf8) }))")
+                ObservabilitySystem.topScope.emit(warning: "The certificate is invalid: \(String(describing: error.flatMap { String(cString: $0, encoding: .utf8) }))")
                 return CertificatePolicyError.invalidCertChain
             }
 
@@ -226,7 +222,7 @@ extension CertificatePolicy {
         if certChain.count > 1, let httpClient = httpClient {
             // Whether cert chain can be trusted depends on OCSP result
             ocspClient.checkStatus(certificate: certChain[0], issuer: certChain[1], anchorCerts: anchorCerts, httpClient: httpClient,
-                                   diagnosticsEngine: diagnosticsEngine, callbackQueue: callbackQueue, callback: callback)
+                                   callbackQueue: callbackQueue, callback: callback)
         } else {
             wrappedCallback(.success(()))
         }
@@ -250,7 +246,6 @@ private struct BoringSSLOCSPClient {
                      issuer: Certificate,
                      anchorCerts: [Certificate]?,
                      httpClient: HTTPClient,
-                     diagnosticsEngine: DiagnosticsEngine,
                      callbackQueue: DispatchQueue,
                      callback: @escaping (Result<Void, Error>) -> Void) {
         let wrappedCallback: (Result<Void, Error>) -> Void = { result in callbackQueue.async { callback(result) } }
@@ -527,14 +522,14 @@ enum CertificateExtendedKeyUsage {
 }
 
 extension CertificatePolicy {
-    static func loadCerts(at directory: URL, diagnosticsEngine: DiagnosticsEngine) -> [Certificate] {
+    static func loadCerts(at directory: URL) -> [Certificate] {
         var certs = [Certificate]()
         if let enumerator = FileManager.default.enumerator(at: directory, includingPropertiesForKeys: nil) {
             for case let fileURL as URL in enumerator {
                 do {
                     certs.append(try Certificate(derEncoded: Data(contentsOf: fileURL)))
                 } catch {
-                    diagnosticsEngine.emit(warning: "The certificate \(fileURL) is invalid: \(error)")
+                    ObservabilitySystem.topScope.emit(warning: "The certificate \(fileURL) is invalid: \(error)")
                 }
             }
         }
@@ -581,7 +576,6 @@ struct DefaultCertificatePolicy: CertificatePolicy {
     let expectedSubjectUserID: String?
 
     private let callbackQueue: DispatchQueue
-    private let diagnosticsEngine: DiagnosticsEngine
 
     #if os(Linux) || os(Windows) || os(Android)
     private let httpClient: HTTPClient
@@ -598,14 +592,13 @@ struct DefaultCertificatePolicy: CertificatePolicy {
     ///                                 while this is configured by SwiftPM and static.
     ///   - expectedSubjectUserID: The subject user ID that must match if specified.
     ///   - callbackQueue: The `DispatchQueue` to use for callbacks
-    ///   - diagnosticsEngine: The `DiagnosticsEngine` for emitting warnings and errors.
-    init(trustedRootCertsDir: URL?, additionalTrustedRootCerts: [Certificate]?, expectedSubjectUserID: String? = nil, callbackQueue: DispatchQueue, diagnosticsEngine: DiagnosticsEngine) {
+    init(trustedRootCertsDir: URL?, additionalTrustedRootCerts: [Certificate]?, expectedSubjectUserID: String? = nil, callbackQueue: DispatchQueue) {
         #if !(os(macOS) || os(Linux) || os(Windows) || os(Android))
         fatalError("Unsupported: \(#function)")
         #else
         var trustedRoots = [Certificate]()
         if let trustedRootCertsDir = trustedRootCertsDir {
-            trustedRoots.append(contentsOf: Self.loadCerts(at: trustedRootCertsDir, diagnosticsEngine: diagnosticsEngine))
+            trustedRoots.append(contentsOf: Self.loadCerts(at: trustedRootCertsDir))
         }
         if let additionalTrustedRootCerts = additionalTrustedRootCerts {
             trustedRoots.append(contentsOf: additionalTrustedRootCerts)
@@ -613,7 +606,6 @@ struct DefaultCertificatePolicy: CertificatePolicy {
         self.trustedRoots = trustedRoots.isEmpty ? nil : trustedRoots
         self.expectedSubjectUserID = expectedSubjectUserID
         self.callbackQueue = callbackQueue
-        self.diagnosticsEngine = diagnosticsEngine
 
         #if os(Linux) || os(Windows) || os(Android)
         self.httpClient = HTTPClient.makeDefault(callbackQueue: callbackQueue)
@@ -650,9 +642,9 @@ struct DefaultCertificatePolicy: CertificatePolicy {
 
             // Verify the cert chain - if it is trusted then cert chain is valid
             #if os(macOS)
-            self.verify(certChain: certChain, anchorCerts: self.trustedRoots, diagnosticsEngine: self.diagnosticsEngine, callbackQueue: self.callbackQueue, callback: callback)
+            self.verify(certChain: certChain, anchorCerts: self.trustedRoots, callbackQueue: self.callbackQueue, callback: callback)
             #elseif os(Linux) || os(Windows) || os(Android)
-            self.verify(certChain: certChain, anchorCerts: self.trustedRoots, httpClient: self.httpClient, diagnosticsEngine: self.diagnosticsEngine, callbackQueue: self.callbackQueue, callback: callback)
+            self.verify(certChain: certChain, anchorCerts: self.trustedRoots, httpClient: self.httpClient, callbackQueue: self.callbackQueue, callback: callback)
             #endif
         } catch {
             return wrappedCallback(.failure(error))
@@ -672,7 +664,6 @@ struct AppleSwiftPackageCollectionCertificatePolicy: CertificatePolicy {
     let expectedSubjectUserID: String?
 
     private let callbackQueue: DispatchQueue
-    private let diagnosticsEngine: DiagnosticsEngine
 
     #if os(Linux) || os(Windows) || os(Android)
     private let httpClient: HTTPClient
@@ -689,14 +680,13 @@ struct AppleSwiftPackageCollectionCertificatePolicy: CertificatePolicy {
     ///                                 while this is configured by SwiftPM and static.
     ///   - expectedSubjectUserID: The subject user ID that must match if specified.
     ///   - callbackQueue: The `DispatchQueue` to use for callbacks
-    ///   - diagnosticsEngine: The `DiagnosticsEngine` for emitting warnings and errors.
-    init(trustedRootCertsDir: URL?, additionalTrustedRootCerts: [Certificate]?, expectedSubjectUserID: String? = nil, callbackQueue: DispatchQueue, diagnosticsEngine: DiagnosticsEngine) {
+    init(trustedRootCertsDir: URL?, additionalTrustedRootCerts: [Certificate]?, expectedSubjectUserID: String? = nil, callbackQueue: DispatchQueue) {
         #if !(os(macOS) || os(Linux) || os(Windows) || os(Android))
         fatalError("Unsupported: \(#function)")
         #else
         var trustedRoots = [Certificate]()
         if let trustedRootCertsDir = trustedRootCertsDir {
-            trustedRoots.append(contentsOf: Self.loadCerts(at: trustedRootCertsDir, diagnosticsEngine: diagnosticsEngine))
+            trustedRoots.append(contentsOf: Self.loadCerts(at: trustedRootCertsDir))
         }
         if let additionalTrustedRootCerts = additionalTrustedRootCerts {
             trustedRoots.append(contentsOf: additionalTrustedRootCerts)
@@ -704,7 +694,6 @@ struct AppleSwiftPackageCollectionCertificatePolicy: CertificatePolicy {
         self.trustedRoots = trustedRoots.isEmpty ? nil : trustedRoots
         self.expectedSubjectUserID = expectedSubjectUserID
         self.callbackQueue = callbackQueue
-        self.diagnosticsEngine = diagnosticsEngine
 
         #if os(Linux) || os(Windows) || os(Android)
         self.httpClient = HTTPClient.makeDefault(callbackQueue: callbackQueue)
@@ -753,9 +742,9 @@ struct AppleSwiftPackageCollectionCertificatePolicy: CertificatePolicy {
 
             // Verify the cert chain - if it is trusted then cert chain is valid
             #if os(macOS)
-            self.verify(certChain: certChain, anchorCerts: self.trustedRoots, diagnosticsEngine: self.diagnosticsEngine, callbackQueue: self.callbackQueue, callback: callback)
+            self.verify(certChain: certChain, anchorCerts: self.trustedRoots, callbackQueue: self.callbackQueue, callback: callback)
             #elseif os(Linux) || os(Windows) || os(Android)
-            self.verify(certChain: certChain, anchorCerts: self.trustedRoots, httpClient: self.httpClient, diagnosticsEngine: self.diagnosticsEngine, callbackQueue: self.callbackQueue, callback: callback)
+            self.verify(certChain: certChain, anchorCerts: self.trustedRoots, httpClient: self.httpClient, callbackQueue: self.callbackQueue, callback: callback)
             #endif
         } catch {
             return wrappedCallback(.failure(error))
@@ -775,7 +764,6 @@ struct AppleDistributionCertificatePolicy: CertificatePolicy {
     let expectedSubjectUserID: String?
 
     private let callbackQueue: DispatchQueue
-    private let diagnosticsEngine: DiagnosticsEngine
 
     #if os(Linux) || os(Windows) || os(Android)
     private let httpClient: HTTPClient
@@ -792,14 +780,13 @@ struct AppleDistributionCertificatePolicy: CertificatePolicy {
     ///                                 while this is configured by SwiftPM and static.
     ///   - expectedSubjectUserID: The subject user ID that must match if specified.
     ///   - callbackQueue: The `DispatchQueue` to use for callbacks
-    ///   - diagnosticsEngine: The `DiagnosticsEngine` for emitting warnings and errors.
-    init(trustedRootCertsDir: URL?, additionalTrustedRootCerts: [Certificate]?, expectedSubjectUserID: String? = nil, callbackQueue: DispatchQueue, diagnosticsEngine: DiagnosticsEngine) {
+    init(trustedRootCertsDir: URL?, additionalTrustedRootCerts: [Certificate]?, expectedSubjectUserID: String? = nil, callbackQueue: DispatchQueue) {
         #if !(os(macOS) || os(Linux) || os(Windows) || os(Android))
         fatalError("Unsupported: \(#function)")
         #else
         var trustedRoots = [Certificate]()
         if let trustedRootCertsDir = trustedRootCertsDir {
-            trustedRoots.append(contentsOf: Self.loadCerts(at: trustedRootCertsDir, diagnosticsEngine: diagnosticsEngine))
+            trustedRoots.append(contentsOf: Self.loadCerts(at: trustedRootCertsDir))
         }
         if let additionalTrustedRootCerts = additionalTrustedRootCerts {
             trustedRoots.append(contentsOf: additionalTrustedRootCerts)
@@ -807,7 +794,6 @@ struct AppleDistributionCertificatePolicy: CertificatePolicy {
         self.trustedRoots = trustedRoots.isEmpty ? nil : trustedRoots
         self.expectedSubjectUserID = expectedSubjectUserID
         self.callbackQueue = callbackQueue
-        self.diagnosticsEngine = diagnosticsEngine
 
         #if os(Linux) || os(Windows) || os(Android)
         self.httpClient = HTTPClient.makeDefault(callbackQueue: callbackQueue)
@@ -856,9 +842,9 @@ struct AppleDistributionCertificatePolicy: CertificatePolicy {
 
             // Verify the cert chain - if it is trusted then cert chain is valid
             #if os(macOS)
-            self.verify(certChain: certChain, anchorCerts: self.trustedRoots, diagnosticsEngine: self.diagnosticsEngine, callbackQueue: self.callbackQueue, callback: callback)
+            self.verify(certChain: certChain, anchorCerts: self.trustedRoots, callbackQueue: self.callbackQueue, callback: callback)
             #elseif os(Linux) || os(Windows) || os(Android)
-            self.verify(certChain: certChain, anchorCerts: self.trustedRoots, httpClient: self.httpClient, diagnosticsEngine: self.diagnosticsEngine, callbackQueue: self.callbackQueue, callback: callback)
+            self.verify(certChain: certChain, anchorCerts: self.trustedRoots, httpClient: self.httpClient, callbackQueue: self.callbackQueue, callback: callback)
             #endif
         } catch {
             return wrappedCallback(.failure(error))

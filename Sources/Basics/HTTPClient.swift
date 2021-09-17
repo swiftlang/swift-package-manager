@@ -56,16 +56,16 @@ public struct HTTPClient: HTTPClientProtocol {
     public typealias Handler = (Request, ProgressHandler?, @escaping (Result<Response, Error>) -> Void) -> Void
 
     public var configuration: HTTPClientConfiguration
-    private let diagnosticsEngine: DiagnosticsEngine?
+    private let observabilityScope: ObservabilityScope
     private let underlying: Handler
 
     // static to share across instances of the http client
     private static var hostsErrorsLock = Lock()
     private static var hostsErrors = [String: [Date]]()
 
-    public init(configuration: HTTPClientConfiguration = .init(), handler: Handler? = nil, diagnosticsEngine: DiagnosticsEngine? = nil) {
+    public init(configuration: HTTPClientConfiguration = .init(), handler: Handler? = nil, observabilityScope: ObservabilityScope = ObservabilitySystem.topScope) {
         self.configuration = configuration
-        self.diagnosticsEngine = diagnosticsEngine
+        self.observabilityScope = observabilityScope
         // FIXME: inject platform specific implementation here
         self.underlying = handler ?? URLSessionHTTPClient().execute
     }
@@ -121,7 +121,7 @@ public struct HTTPClient: HTTPClientProtocol {
 
     private func _execute(request: Request, requestNumber: Int, progress: ProgressHandler?, completion: @escaping CompletionHandler) {
         if self.shouldCircuitBreak(request: request) {
-            diagnosticsEngine?.emit(warning: "Circuit breaker triggered for \(request.url)")
+            self.observabilityScope.emit(warning: "Circuit breaker triggered for \(request.url)")
             return completion(.failure(HTTPClientError.circuitBreakerTriggered))
         }
 
@@ -145,7 +145,7 @@ public struct HTTPClient: HTTPClientProtocol {
                     self.recordErrorIfNecessary(response: response, request: request)
                     // handle retry strategy
                     if let retryDelay = self.shouldRetry(response: response, request: request, requestNumber: requestNumber) {
-                        self.diagnosticsEngine?.emit(warning: "\(request.url) failed, retrying in \(retryDelay)")
+                        self.observabilityScope.emit(warning: "\(request.url) failed, retrying in \(retryDelay)")
                         // TODO: dedicated retry queue?
                         return self.configuration.callbackQueue.asyncAfter(deadline: .now() + retryDelay) {
                             self._execute(request: request, requestNumber: requestNumber + 1, progress: progress, completion: completion)

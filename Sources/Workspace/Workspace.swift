@@ -299,7 +299,8 @@ public class Workspace {
             delegate: delegate.map(WorkspaceRepositoryManagerDelegate.init(workspaceDelegate:)),
             cachePath: sharedRepositoriesCacheEnabled ? location.sharedRepositoriesCacheDirectory : .none
         )
-        let httpClient = customHTTPClient ?? HTTPClient()
+        // FIXME: use workspace scope when migrating workspace to new observability API
+        let httpClient = customHTTPClient ?? HTTPClient(observabilityScope: ObservabilitySystem.topScope)
         let archiver = customArchiver ?? ZipArchiver()
         let mirrors = mirrors ?? DependencyMirrors()
         let identityResolver = customIdentityResolver ?? DefaultIdentityResolver(locationMapper: mirrors.effectiveURL(for:))

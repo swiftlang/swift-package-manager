@@ -45,7 +45,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             var httpClient = HTTPClient(handler: handler)
             httpClient.configuration.circuitBreakerStrategy = .none
             httpClient.configuration.retryStrategy = .none
-            let provider = JSONPackageCollectionProvider(httpClient: httpClient, diagnosticsEngine: DiagnosticsEngine())
+            let provider = JSONPackageCollectionProvider(httpClient: httpClient)
             let source = PackageCollectionsModel.CollectionSource(type: .json, url: url)
             let collection = try tsc_await { callback in provider.get(source, callback: callback) }
 
@@ -90,7 +90,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             var httpClient = HTTPClient(handler: { (_, _, _) -> Void in fatalError("should not be called") })
             httpClient.configuration.circuitBreakerStrategy = .none
             httpClient.configuration.retryStrategy = .none
-            let provider = JSONPackageCollectionProvider(httpClient: httpClient, diagnosticsEngine: DiagnosticsEngine())
+            let provider = JSONPackageCollectionProvider(httpClient: httpClient)
             let source = PackageCollectionsModel.CollectionSource(type: .json, url: path.asURL)
             let collection = try tsc_await { callback in provider.get(source, callback: callback) }
 
@@ -132,7 +132,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
         var httpClient = HTTPClient(handler: { (_, _, _) -> Void in fatalError("should not be called") })
         httpClient.configuration.circuitBreakerStrategy = .none
         httpClient.configuration.retryStrategy = .none
-        let provider = JSONPackageCollectionProvider(httpClient: httpClient, diagnosticsEngine: DiagnosticsEngine())
+        let provider = JSONPackageCollectionProvider(httpClient: httpClient)
         XCTAssertThrowsError(try tsc_await { callback in provider.get(source, callback: callback) }, "expected error", { error in
             guard case .invalidSource(let errorMessage) = error as? JSONPackageCollectionProviderError else {
                 return XCTFail("invalid error \(error)")
@@ -157,7 +157,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
         httpClient.configuration.circuitBreakerStrategy = .none
         httpClient.configuration.retryStrategy = .none
         let configuration = JSONPackageCollectionProvider.Configuration(maximumSizeInBytes: 10)
-        let provider = JSONPackageCollectionProvider(configuration: configuration, httpClient: httpClient, diagnosticsEngine: DiagnosticsEngine())
+        let provider = JSONPackageCollectionProvider(configuration: configuration, httpClient: httpClient)
         XCTAssertThrowsError(try tsc_await { callback in provider.get(source, callback: callback) }, "expected error", { error in
             XCTAssertEqual(error as? JSONPackageCollectionProviderError, .responseTooLarge(url, maxSize * 2))
         })
@@ -186,7 +186,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
         httpClient.configuration.circuitBreakerStrategy = .none
         httpClient.configuration.retryStrategy = .none
         let configuration = JSONPackageCollectionProvider.Configuration(maximumSizeInBytes: 10)
-        let provider = JSONPackageCollectionProvider(configuration: configuration, httpClient: httpClient, diagnosticsEngine: DiagnosticsEngine())
+        let provider = JSONPackageCollectionProvider(configuration: configuration, httpClient: httpClient)
         XCTAssertThrowsError(try tsc_await { callback in provider.get(source, callback: callback) }, "expected error", { error in
             XCTAssertEqual(error as? JSONPackageCollectionProviderError, .responseTooLarge(url, maxSize * 2))
         })
@@ -206,7 +206,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
         httpClient.configuration.circuitBreakerStrategy = .none
         httpClient.configuration.retryStrategy = .none
         let configuration = JSONPackageCollectionProvider.Configuration(maximumSizeInBytes: 10)
-        let provider = JSONPackageCollectionProvider(configuration: configuration, httpClient: httpClient, diagnosticsEngine: DiagnosticsEngine())
+        let provider = JSONPackageCollectionProvider(configuration: configuration, httpClient: httpClient)
         XCTAssertThrowsError(try tsc_await { callback in provider.get(source, callback: callback) }, "expected error", { error in
             XCTAssertEqual(error as? JSONPackageCollectionProviderError, .invalidResponse(url, "Missing Content-Length header"))
         })
@@ -234,7 +234,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
         httpClient.configuration.circuitBreakerStrategy = .none
         httpClient.configuration.retryStrategy = .none
         let configuration = JSONPackageCollectionProvider.Configuration(maximumSizeInBytes: 10)
-        let provider = JSONPackageCollectionProvider(configuration: configuration, httpClient: httpClient, diagnosticsEngine: DiagnosticsEngine())
+        let provider = JSONPackageCollectionProvider(configuration: configuration, httpClient: httpClient)
         XCTAssertThrowsError(try tsc_await { callback in provider.get(source, callback: callback) }, "expected error", { error in
             XCTAssertEqual(error as? HTTPClientError, .responseTooLarge(maxSize * 2))
         })
@@ -254,7 +254,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
         var httpClient = HTTPClient(handler: handler)
         httpClient.configuration.circuitBreakerStrategy = .none
         httpClient.configuration.retryStrategy = .none
-        let provider = JSONPackageCollectionProvider(httpClient: httpClient, diagnosticsEngine: DiagnosticsEngine())
+        let provider = JSONPackageCollectionProvider(httpClient: httpClient)
         XCTAssertThrowsError(try tsc_await { callback in provider.get(source, callback: callback) }, "expected error", { error in
             XCTAssertEqual(error as? JSONPackageCollectionProviderError, .collectionUnavailable(url, statusCode))
         })
@@ -280,7 +280,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
         var httpClient = HTTPClient(handler: handler)
         httpClient.configuration.circuitBreakerStrategy = .none
         httpClient.configuration.retryStrategy = .none
-        let provider = JSONPackageCollectionProvider(httpClient: httpClient, diagnosticsEngine: DiagnosticsEngine())
+        let provider = JSONPackageCollectionProvider(httpClient: httpClient)
         XCTAssertThrowsError(try tsc_await { callback in provider.get(source, callback: callback) }, "expected error", { error in
             XCTAssertEqual(error as? JSONPackageCollectionProviderError, .collectionUnavailable(url, statusCode))
         })
@@ -299,7 +299,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
         var httpClient = HTTPClient(handler: handler)
         httpClient.configuration.circuitBreakerStrategy = .none
         httpClient.configuration.retryStrategy = .none
-        let provider = JSONPackageCollectionProvider(httpClient: httpClient, diagnosticsEngine: DiagnosticsEngine())
+        let provider = JSONPackageCollectionProvider(httpClient: httpClient)
         XCTAssertThrowsError(try tsc_await { callback in provider.get(source, callback: callback) }, "expected error", { error in
             XCTAssertEqual(error as? JSONPackageCollectionProviderError, .collectionNotFound(url))
         })
@@ -324,7 +324,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
         var httpClient = HTTPClient(handler: handler)
         httpClient.configuration.circuitBreakerStrategy = .none
         httpClient.configuration.retryStrategy = .none
-        let provider = JSONPackageCollectionProvider(httpClient: httpClient, diagnosticsEngine: DiagnosticsEngine())
+        let provider = JSONPackageCollectionProvider(httpClient: httpClient)
         XCTAssertThrowsError(try tsc_await { callback in provider.get(source, callback: callback) }, "expected error", { error in
             XCTAssertEqual(error as? JSONPackageCollectionProviderError, .collectionNotFound(url))
         })
@@ -351,7 +351,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
         var httpClient = HTTPClient(handler: handler)
         httpClient.configuration.circuitBreakerStrategy = .none
         httpClient.configuration.retryStrategy = .none
-        let provider = JSONPackageCollectionProvider(httpClient: httpClient, diagnosticsEngine: DiagnosticsEngine())
+        let provider = JSONPackageCollectionProvider(httpClient: httpClient)
         let source = PackageCollectionsModel.CollectionSource(type: .json, url: url)
         XCTAssertThrowsError(try tsc_await { callback in provider.get(source, callback: callback) }, "expected error", { error in
             XCTAssertEqual(error as? JSONPackageCollectionProviderError, .invalidJSON(url))
@@ -387,7 +387,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
 
             // Mark collection as having valid signature
             let signatureValidator = MockCollectionSignatureValidator(["Sample Package Collection"])
-            let provider = JSONPackageCollectionProvider(httpClient: httpClient, signatureValidator: signatureValidator, diagnosticsEngine: DiagnosticsEngine())
+            let provider = JSONPackageCollectionProvider(httpClient: httpClient, signatureValidator: signatureValidator)
             let source = PackageCollectionsModel.CollectionSource(type: .json, url: url)
             let collection = try tsc_await { callback in provider.get(source, callback: callback) }
 
@@ -455,7 +455,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             httpClient.configuration.retryStrategy = .none
 
             let signatureValidator = MockCollectionSignatureValidator()
-            let provider = JSONPackageCollectionProvider(httpClient: httpClient, signatureValidator: signatureValidator, diagnosticsEngine: DiagnosticsEngine())
+            let provider = JSONPackageCollectionProvider(httpClient: httpClient, signatureValidator: signatureValidator)
             // Skip signature check
             let source = PackageCollectionsModel.CollectionSource(type: .json, url: url, skipSignatureCheck: true)
             let collection = try tsc_await { callback in provider.get(source, callback: callback) }
@@ -522,7 +522,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             httpClient.configuration.retryStrategy = .none
 
             let signatureValidator = MockCollectionSignatureValidator(hasTrustedRootCerts: false)
-            let provider = JSONPackageCollectionProvider(httpClient: httpClient, signatureValidator: signatureValidator, diagnosticsEngine: DiagnosticsEngine())
+            let provider = JSONPackageCollectionProvider(httpClient: httpClient, signatureValidator: signatureValidator)
             let source = PackageCollectionsModel.CollectionSource(type: .json, url: url)
 
             XCTAssertThrowsError(try tsc_await { callback in provider.get(source, callback: callback) }, "expected error", { error in
@@ -565,7 +565,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
 
             // The validator doesn't know about the test collection so its signature would be considered invalid
             let signatureValidator = MockCollectionSignatureValidator()
-            let provider = JSONPackageCollectionProvider(httpClient: httpClient, signatureValidator: signatureValidator, diagnosticsEngine: DiagnosticsEngine())
+            let provider = JSONPackageCollectionProvider(httpClient: httpClient, signatureValidator: signatureValidator)
             let source = PackageCollectionsModel.CollectionSource(type: .json, url: url)
 
             XCTAssertThrowsError(try tsc_await { callback in provider.get(source, callback: callback) }, "expected error", { error in
@@ -592,7 +592,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
             // Mark collection as having valid signature
             let signatureValidator = MockCollectionSignatureValidator(["Sample Package Collection"])
 
-            let provider = JSONPackageCollectionProvider(httpClient: httpClient, signatureValidator: signatureValidator, diagnosticsEngine: DiagnosticsEngine())
+            let provider = JSONPackageCollectionProvider(httpClient: httpClient, signatureValidator: signatureValidator)
             let source = PackageCollectionsModel.CollectionSource(type: .json, url: path.asURL)
             let collection = try tsc_await { callback in provider.get(source, callback: callback) }
 
@@ -660,7 +660,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
                 sourceCertPolicies: ["www.test.com": [.init(certPolicyKey: CertificatePolicyKey.default, base64EncodedRootCerts: nil)]]
             )
             let provider = JSONPackageCollectionProvider(httpClient: httpClient, signatureValidator: signatureValidator,
-                                                         sourceCertPolicy: sourceCertPolicy, diagnosticsEngine: DiagnosticsEngine())
+                                                         sourceCertPolicy: sourceCertPolicy)
             let source = PackageCollectionsModel.CollectionSource(type: .json, url: url)
             let collection = try tsc_await { callback in provider.get(source, callback: callback) }
 
@@ -735,7 +735,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
                 ]
             )
             let provider = JSONPackageCollectionProvider(httpClient: httpClient, signatureValidator: signatureValidator,
-                                                         sourceCertPolicy: sourceCertPolicy, diagnosticsEngine: DiagnosticsEngine())
+                                                         sourceCertPolicy: sourceCertPolicy)
             let source = PackageCollectionsModel.CollectionSource(type: .json, url: url)
             let collection = try tsc_await { callback in provider.get(source, callback: callback) }
 
@@ -805,7 +805,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
                 sourceCertPolicies: ["www.test.com": [.init(certPolicyKey: CertificatePolicyKey.default, base64EncodedRootCerts: nil)]]
             )
             let provider = JSONPackageCollectionProvider(httpClient: httpClient, signatureValidator: signatureValidator,
-                                                         sourceCertPolicy: sourceCertPolicy, diagnosticsEngine: DiagnosticsEngine())
+                                                         sourceCertPolicy: sourceCertPolicy)
             let source = PackageCollectionsModel.CollectionSource(type: .json, url: url)
 
             XCTAssertThrowsError(try tsc_await { callback in provider.get(source, callback: callback) }, "expected error", { error in

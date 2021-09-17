@@ -58,8 +58,6 @@ public struct PackageCollectionSigning: PackageCollectionSigner, PackageCollecti
 
     /// The `DispatchQueue` to use for callbacks
     private let callbackQueue: DispatchQueue
-    /// Diagnostics engine to emit warnings and errors
-    private let diagnosticsEngine: DiagnosticsEngine
 
     /// Internal cache/storage of `CertificatePolicy`s
     private let certPolicies: [CertificatePolicyKey: CertificatePolicy]
@@ -67,35 +65,33 @@ public struct PackageCollectionSigning: PackageCollectionSigner, PackageCollecti
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
 
-    public init(trustedRootCertsDir: URL? = nil, additionalTrustedRootCerts: [String]? = nil, callbackQueue: DispatchQueue, diagnosticsEngine: DiagnosticsEngine) {
+    public init(trustedRootCertsDir: URL? = nil, additionalTrustedRootCerts: [String]? = nil, callbackQueue: DispatchQueue) {
         self.trustedRootCertsDir = trustedRootCertsDir
         self.additionalTrustedRootCerts = additionalTrustedRootCerts.map { $0.compactMap {
             guard let data = Data(base64Encoded: $0) else {
-                diagnosticsEngine.emit(error: "The certificate \($0) is not in valid base64 encoding")
+                ObservabilitySystem.topScope.emit(error: "The certificate \($0) is not in valid base64 encoding")
                 return nil
             }
             do {
                 return try Certificate(derEncoded: data)
             } catch {
-                diagnosticsEngine.emit(error: "The certificate \($0) is not in valid DER format: \(error)")
+                ObservabilitySystem.topScope.emit(error: "The certificate \($0) is not in valid DER format: \(error)")
                 return nil
             }
         } }
 
         self.callbackQueue = callbackQueue
-        self.diagnosticsEngine = diagnosticsEngine
         self.certPolicies = [:]
         self.encoder = JSONEncoder.makeWithDefaults()
         self.decoder = JSONDecoder.makeWithDefaults()
     }
 
-    init(certPolicy: CertificatePolicy, callbackQueue: DispatchQueue, diagnosticsEngine: DiagnosticsEngine) {
+    init(certPolicy: CertificatePolicy, callbackQueue: DispatchQueue) {
         // These should be set through the given CertificatePolicy
         self.trustedRootCertsDir = nil
         self.additionalTrustedRootCerts = nil
 
         self.callbackQueue = callbackQueue
-        self.diagnosticsEngine = diagnosticsEngine
         self.certPolicies = [CertificatePolicyKey.custom: certPolicy]
         self.encoder = JSONEncoder.makeWithDefaults()
         self.decoder = JSONDecoder.makeWithDefaults()
@@ -106,15 +102,15 @@ public struct PackageCollectionSigning: PackageCollectionSigner, PackageCollecti
         case .default(let subjectUserID):
             // Create new instance each time since contents of trustedRootCertsDir might change
             return DefaultCertificatePolicy(trustedRootCertsDir: self.trustedRootCertsDir, additionalTrustedRootCerts: self.additionalTrustedRootCerts,
-                                            expectedSubjectUserID: subjectUserID, callbackQueue: self.callbackQueue, diagnosticsEngine: self.diagnosticsEngine)
+                                            expectedSubjectUserID: subjectUserID, callbackQueue: self.callbackQueue)
         case .appleSwiftPackageCollection(let subjectUserID):
             // Create new instance each time since contents of trustedRootCertsDir might change
             return AppleSwiftPackageCollectionCertificatePolicy(trustedRootCertsDir: self.trustedRootCertsDir, additionalTrustedRootCerts: self.additionalTrustedRootCerts,
-                                                                expectedSubjectUserID: subjectUserID, callbackQueue: self.callbackQueue, diagnosticsEngine: self.diagnosticsEngine)
+                                                                expectedSubjectUserID: subjectUserID, callbackQueue: self.callbackQueue)
         case .appleDistribution(let subjectUserID):
             // Create new instance each time since contents of trustedRootCertsDir might change
             return AppleDistributionCertificatePolicy(trustedRootCertsDir: self.trustedRootCertsDir, additionalTrustedRootCerts: self.additionalTrustedRootCerts,
-                                                      expectedSubjectUserID: subjectUserID, callbackQueue: self.callbackQueue, diagnosticsEngine: self.diagnosticsEngine)
+                                                      expectedSubjectUserID: subjectUserID, callbackQueue: self.callbackQueue)
         case .custom:
             // Custom `CertificatePolicy` can be set using the internal initializer only
             guard let certPolicy = self.certPolicies[key] else {
@@ -230,7 +226,7 @@ public struct PackageCollectionSigning: PackageCollectionSigner, PackageCollecti
             certPolicy.validate(certChain: certChain) { result in
                 switch result {
                 case .failure(let error):
-                    self.diagnosticsEngine.emit(error: "The certificate chain is invalid: \(error)")
+                    ObservabilitySystem.topScope.emit(error: "The certificate chain is invalid: \(error)")
                     if CertificatePolicyError.noTrustedRootCertsConfigured == error as? CertificatePolicyError {
                         callback(.failure(PackageCollectionSigningError.noTrustedRootCertsConfigured))
                     } else {
@@ -241,7 +237,7 @@ public struct PackageCollectionSigning: PackageCollectionSigner, PackageCollecti
                 }
             }
         } catch {
-            self.diagnosticsEngine.emit(error: "An error has occurred while validating certificate chain: \(error)")
+            ObservabilitySystem.topScope.emit(error: "An error has occurred while validating certificate chain: \(error)")
             callback(.failure(PackageCollectionSigningError.invalidCertChain))
         }
     }
