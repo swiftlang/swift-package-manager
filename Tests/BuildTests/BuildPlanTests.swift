@@ -1624,11 +1624,10 @@ final class BuildPlanTests: XCTestCase {
             fileSystem: fileSystem
         )
 
-        guard let diagnostic = observability.diagnostics.first else {
-            return XCTFail("Expected a diagnostic")
-        }
-        XCTAssertMatch(diagnostic.message, .contains("you may be able to install BTarget using your system-packager"))
-        XCTAssertEqual(diagnostic.severity, .warning)
+        XCTAssertTrue(observability.diagnostics.contains(where: {
+            $0.severity == .warning &&
+            $0.message.hasPrefix("you may be able to install BTarget using your system-packager")
+        }), "expected PkgConfigHint diagnostics")
     }
 
     func testPkgConfigGenericDiagnostic() throws {
