@@ -7,13 +7,16 @@
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
 add_library(PackagePlugin
-  PublicAPI/Command.swift
-  PublicAPI/Context.swift
-  PublicAPI/Diagnostics.swift
-  PublicAPI/FileList.swift
-  PublicAPI/Path.swift
-  PublicAPI/Protocols.swift
-  Implementation.swift)
+  Command.swift
+  Context.swift
+  Diagnostics.swift
+  Errors.swift
+  PackageModel.swift
+  Path.swift
+  Plugin.swift
+  PluginInput.swift
+  PluginOutput.swift
+  Protocols.swift)
 
 target_compile_options(PackagePlugin PUBLIC
   $<$<COMPILE_LANGUAGE:Swift>:-package-description-version$<SEMICOLON>999.0>)

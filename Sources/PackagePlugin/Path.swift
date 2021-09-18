@@ -88,9 +88,14 @@ public struct Path {
         return Path(String(_string.prefix(upTo: idx)))
     }
     
+    /// The result of appending a subpath.
+    public func appending(subpath: String) -> Path {
+        return Path(_string + "/" + subpath)
+    }
+
     /// The result of appending one or more path components.
     public func appending(_ components: [String]) -> Path {
-        return Path(_string.appending("/").appending(components.joined(separator: "/")))
+        return self.appending(subpath: components.joined(separator: "/"))
     }
 
     /// The result of appending one or more path components.

@@ -6,14 +6,63 @@
 
  See http://swift.org/LICENSE.txt for license information
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
- */
+*/
+
+/// Provides information about the package for which the plugin is invoked,
+/// as well as contextual information based on the plugin's stated intent
+/// and requirements.
+public struct PluginContext {
+    /// Information about the package to which the plugin is being applied.
+    public let package: Package
+
+    /// The path of a writable directory into which the plugin or the build
+    /// commands it constructs can write anything it wants. This could include
+    /// any generated source files that should be processed further, and it
+    /// could include any caches used by the build tool or the plugin itself.
+    /// The plugin is in complete control of what is written under this di-
+    /// rectory, and the contents are preserved between builds.
+    ///
+    /// A plugin would usually create a separate subdirectory of this directory
+    /// for each command it creates, and the command would be configured to
+    /// write its outputs to that directory. The plugin may also create other
+    /// directories for cache files and other file system content that either
+    /// it or the command will need.
+    public let pluginWorkDirectory: Path
+
+    /// The path of the directory into which built products associated with
+    /// the target are written.
+    public let builtProductsDirectory: Path
+
+    /// Looks up and returns the path of a named command line executable tool.
+    /// The executable must be provided by an executable target or a binary
+    /// target on which the package plugin target depends. This function throws
+    /// an error if the tool cannot be found. The lookup is case sensitive.
+    public func tool(named name: String) throws -> Tool {
+        if let path = self.toolNamesToPaths[name] { return Tool(name: name, path: path) }
+        throw PluginContextError.toolNotFound(name: name)
+    }
+
+    /// A mapping from tool names to their definitions. Not directly available
+    /// to the plugin, but used by the `tool(named:)` API.
+    let toolNamesToPaths: [String: Path]
+    
+    /// Information about a particular tool that is available to a plugin.
+    public struct Tool {
+        /// Name of the tool (suitable for display purposes).
+        public let name: String
+
+        /// Full path of the built or provided tool in the file system.
+        public let path: Path
+    }
+}
+
+
 
 /// Provides information about the target being built, as well as contextual
 /// information such as the paths of the directories to which commands should
 /// be configured to write their outputs. This information should be used as
 /// part of generating the commands to be run during the build.
-public final class TargetBuildContext: Decodable {
-    
+public struct TargetBuildContext {
     /// The name of the target being built, as specified in the manifest.
     public let targetName: String
 
@@ -83,48 +132,21 @@ public final class TargetBuildContext: Decodable {
     /// The executable must be provided by an executable target or a binary
     /// target on which the package plugin target depends. This function throws
     /// an error if the tool cannot be found. The lookup is case sensitive.
-    public func tool(named name: String, line: UInt = #line) throws -> ToolInfo {
-        if let tool = self.tools[name] { return tool }
-        throw TargetBuildContextError.toolNotFound(name: name, line: line)
+    public func tool(named name: String) throws -> ToolInfo {
+        if let path = self.toolNamesToPaths[name] { return ToolInfo(name: name, path: path) }
+        throw PluginContextError.toolNotFound(name: name)
     }
 
     /// A mapping from tool names to their definitions. Not directly available
-    /// to the plugin but used by the `tool(named:)` API.
-    private let tools: [String: ToolInfo]
+    /// to the plugin, but used by the `tool(named:)` API.
+    let toolNamesToPaths: [String: Path]
     
     /// Information about a particular tool that is available to a plugin.
-    public struct ToolInfo: Codable {
-        
-        /// Name of the tool, suitable for display purposes.
+    public struct ToolInfo {
+        /// Name of the tool (suitable for display purposes).
         public let name: String
 
-        /// Path of the built or provided tool in the file system.
+        /// Full path of the built or provided tool in the file system.
         public let path: Path
-    }
-
-    /// Internal
-    internal let pluginAction: PluginAction
-
-    internal enum PluginAction: String, Decodable {
-        case createBuildToolCommands
-    }
-}
-
-public enum TargetBuildContextError: Error {
-    
-    /// Could not find a tool with the given name. This could be either because
-    /// it doesn't exist, or because the plugin doesn't have a dependency on it.
-    case toolNotFound(name: String, line: UInt)
-}
-
-extension TargetBuildContextError: CustomStringConvertible {
-    
-    public var description: String {
-        switch self {
-        case .toolNotFound(let name, let line):
-            // FIXME: How to convey this line number to where it gets shown for errors at top level.
-            // Need to customize "Fatal error: Error raised at top level: plugin doesn’t have access to any tool named ‘MySourceGenBuildTools’ [5]: file Swift/ErrorType.swift, line 200"
-            return "plugin doesn’t have access to any tool named ‘\(name)’ [line \(line)]"
-        }
     }
 }

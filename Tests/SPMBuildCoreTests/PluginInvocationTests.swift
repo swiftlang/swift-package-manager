@@ -102,12 +102,20 @@ class PluginInvocationTests: XCTestCase {
                 // Deserialize and check the input.
                 let decoder = JSONDecoder()
                 let context = try decoder.decode(PluginScriptRunnerInput.self, from: inputJSON)
-                XCTAssertEqual(context.targetName, "Foo")
+                XCTAssertEqual(context.products.count, 2, "unexpected products: \(dump(context.products))")
+                XCTAssertEqual(context.products[0].name, "Foo", "unexpected products: \(dump(context.products))")
+                XCTAssertEqual(context.products[0].targetIds.count, 1, "unexpected product targets: \(dump(context.products[0].targetIds))")
+                XCTAssertEqual(context.products[1].name, "FooTool", "unexpected products: \(dump(context.products))")
+                XCTAssertEqual(context.products[1].targetIds.count, 1, "unexpected product targets: \(dump(context.products[1].targetIds))")
+                XCTAssertEqual(context.targets.count, 2, "unexpected targets: \(dump(context.targets))")
+                XCTAssertEqual(context.targets[0].name, "Foo", "unexpected targets: \(dump(context.targets))")
+                XCTAssertEqual(context.targets[0].dependencies.count, 0, "unexpected target dependencies: \(dump(context.targets[0].dependencies))")
+                XCTAssertEqual(context.targets[1].name, "FooTool", "unexpected targets: \(dump(context.targets))")
+                XCTAssertEqual(context.targets[1].dependencies.count, 0, "unexpected target dependencies: \(dump(context.targets[1].dependencies))")
 
                 // Emit and return a serialized output PluginInvocationResult JSON.
                 let encoder = JSONEncoder()
                 let result = PluginScriptRunnerOutput(
-                    version: 1,
                     diagnostics: [
                         .init(
                             severity: .warning,
