@@ -8,13 +8,13 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import XCTest
-
-import TSCBasic
-import TSCUtility
+import Basics
+import PackageLoading
 import PackageModel
 import SPMTestSupport
-import PackageLoading
+import TSCBasic
+import TSCUtility
+import XCTest
 
 class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
     override var toolsVersion: ToolsVersion {
@@ -311,14 +311,14 @@ class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
 
         try fs.writeFileContents(manifestPath, bytes: stream.bytes)
 
-        let diagnostics = DiagnosticsEngine()
+        let observability = ObservabilitySystem.bootstrapForTesting()
         let manifest = try manifestLoader.load(
             at: .root,
             packageKind: .root,
             packageLocation: "/foo",
             toolsVersion: .v4,
             fileSystem: fs,
-            diagnostics: diagnostics
+            diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine()
         )
 
         XCTAssertEqual(manifest.name, "Trivial")
@@ -326,8 +326,8 @@ class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
         XCTAssertEqual(manifest.targets, [])
         XCTAssertEqual(manifest.dependencies, [])
 
-        DiagnosticsEngineTester(diagnostics) { result in
-            result.check(diagnostic: .contains("initialization of immutable value 'a' was never used"), behavior: .warning)
+        testDiagnostics(observability.diagnostics) { result in
+            result.check(diagnostic: .contains("initialization of immutable value 'a' was never used"), severity: .warning)
         }
     }
 
@@ -347,8 +347,8 @@ class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
             """
 
         XCTAssertManifestLoadThrows(manifest) { _, diagnotics in
-            diagnotics.checkUnordered(diagnostic: "duplicate target named 'A'", behavior: .error)
-            diagnotics.checkUnordered(diagnostic: "duplicate target named 'B'", behavior: .error)
+            diagnotics.checkUnordered(diagnostic: "duplicate target named 'A'", severity: .error)
+            diagnotics.checkUnordered(diagnostic: "duplicate target named 'B'", severity: .error)
         }
     }
 
@@ -368,7 +368,7 @@ class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
             """
 
         XCTAssertManifestLoadThrows(manifest) { _, diagnostics in
-            diagnostics.check(diagnostic: "product 'Product' doesn't reference any targets", behavior: .error)
+            diagnostics.check(diagnostic: "product 'Product' doesn't reference any targets", severity: .error)
         }
     }
 
@@ -388,7 +388,7 @@ class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
             """
 
         XCTAssertManifestLoadThrows(manifest) { _, diagnostics in
-            diagnostics.check(diagnostic: "target 'B' referenced in product 'Product' could not be found; valid targets are: 'A'", behavior: .error)
+            diagnostics.check(diagnostic: "target 'B' referenced in product 'Product' could not be found; valid targets are: 'A'", severity: .error)
         }
     }
 }

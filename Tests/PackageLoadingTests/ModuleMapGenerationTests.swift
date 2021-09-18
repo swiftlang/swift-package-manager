@@ -8,12 +8,12 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import XCTest
-
-import TSCBasic
-import SPMTestSupport
-import PackageModel
+import Basics
 import PackageLoading
+import PackageModel
+import SPMTestSupport
+import TSCBasic
+import XCTest
 
 class ModuleMapGeneration: XCTestCase {
 
@@ -93,12 +93,17 @@ class ModuleMapGeneration: XCTestCase {
     }
 
     func testWarnings() throws {
-        var fs = InMemoryFileSystem(emptyFiles:
-            "/Foo.c")
+        var fs = InMemoryFileSystem(emptyFiles: "/Foo.c")
         ModuleMapTester("Foo", in: fs) { result in
             result.checkNotCreated()
             result.checkDiagnostics { result in
-                result.check(diagnostic: "no include directory found for target \'Foo\'; libraries cannot be imported without public headers", behavior: .warning)
+                var expectedMetadata = ObservabilityMetadata()
+                expectedMetadata.targetName = "Foo"
+                result.check(
+                    diagnostic: "no include directory found for target \'Foo\'; libraries cannot be imported without public headers",
+                    severity: .warning,
+                    metadata: expectedMetadata
+                )
             }
         }
 
@@ -114,21 +119,31 @@ class ModuleMapGeneration: XCTestCase {
 
                 """)
             result.checkDiagnostics { result in
-                result.check(diagnostic: "/include/F-o-o.h should be renamed to /include/F_o_o.h to be used as an umbrella header", behavior: .warning)
+                var expectedMetadata = ObservabilityMetadata()
+                expectedMetadata.targetName = "F-o-o"
+                result.check(
+                    diagnostic: "/include/F-o-o.h should be renamed to /include/F_o_o.h to be used as an umbrella header",
+                    severity: .warning,
+                    metadata: expectedMetadata
+                )
             }
         }
     }
 
     func testUnsupportedLayouts() throws {
-        var fs: InMemoryFileSystem
-
-        fs = InMemoryFileSystem(emptyFiles:
+        var fs = InMemoryFileSystem(emptyFiles:
             "/include/Foo/Foo.h",
             "/include/Bar/Foo.h")
         ModuleMapTester("Foo", in: fs) { result in
             result.checkNotCreated()
             result.checkDiagnostics { result in
-                result.check(diagnostic: "target 'Foo' has invalid header layout: umbrella header found at '/include/Foo/Foo.h', but more than one directory exists next to its parent directory: /include/Bar; consider reducing them to one", behavior: .error)
+                var expectedMetadata = ObservabilityMetadata()
+                expectedMetadata.targetName = "Foo"
+                result.check(
+                    diagnostic: "target 'Foo' has invalid header layout: umbrella header found at '/include/Foo/Foo.h', but more than one directory exists next to its parent directory: /include/Bar; consider reducing them to one",
+                    severity: .error,
+                    metadata: expectedMetadata
+                )
             }
         }
 
@@ -138,7 +153,13 @@ class ModuleMapGeneration: XCTestCase {
         ModuleMapTester("Foo", in: fs) { result in
             result.checkNotCreated()
             result.checkDiagnostics { result in
-                result.check(diagnostic: "target 'Foo' has invalid header layout: umbrella header found at '/include/Foo.h', but directories exist next to it: /include/Bar; consider removing them", behavior: .error)
+                var expectedMetadata = ObservabilityMetadata()
+                expectedMetadata.targetName = "Foo"
+                result.check(
+                    diagnostic: "target 'Foo' has invalid header layout: umbrella header found at '/include/Foo.h', but directories exist next to it: /include/Bar; consider removing them",
+                    severity: .error,
+                    metadata: expectedMetadata
+                )
             }
         }
     }
@@ -146,21 +167,21 @@ class ModuleMapGeneration: XCTestCase {
 
 /// Helper function to test module map generation.  Given a target name and optionally the name of a public-headers directory, this function determines the module map type of the public-headers directory by examining the contents of a file system and invokes a given block to check the module result (including any diagnostics).
 func ModuleMapTester(_ targetName: String, includeDir: String = "include", in fileSystem: FileSystem, _ body: (ModuleMapResult) -> Void) {
+    let observability = ObservabilitySystem.bootstrapForTesting()
     // Create a module map generator, and determine the type of module map to use for the header directory.  This may emit diagnostics.
-    let diagnostics = DiagnosticsEngine()
     let moduleMapGenerator = ModuleMapGenerator(targetName: targetName, moduleName: targetName.spm_mangledToC99ExtendedIdentifier(), publicHeadersDir: AbsolutePath.root.appending(component: includeDir), fileSystem: fileSystem)
-    let moduleMapType = moduleMapGenerator.determineModuleMapType(diagnostics: diagnostics)
+    let moduleMapType = moduleMapGenerator.determineModuleMapType(observabilityScope: ObservabilitySystem.topScope)
     
     // Generate a module map and capture any emitted diagnostics.
     let generatedModuleMapPath = AbsolutePath.root.appending(components: "module.modulemap")
-    diagnostics.wrap {
+    ObservabilitySystem.topScope.trap {
         if let generatedModuleMapType = moduleMapType.generatedModuleMapType {
             try moduleMapGenerator.generateModuleMap(type: generatedModuleMapType, at: generatedModuleMapPath)
         }
     }
     
     // Invoke the closure to check the results.
-    let result = ModuleMapResult(diagnostics: diagnostics, path: generatedModuleMapPath, fs: fileSystem)
+    let result = ModuleMapResult(diagnostics: observability.diagnostics, path: generatedModuleMapPath, fs: fileSystem)
     body(result)
     
     // Check for any unexpected diagnostics (the ones the closure didn't check for).
@@ -168,26 +189,25 @@ func ModuleMapTester(_ targetName: String, includeDir: String = "include", in fi
 }
 
 final class ModuleMapResult {
-
-    private var diags: DiagnosticsEngine
+    private var diagnostics: [Basics.Diagnostic]
     private var diagsChecked: Bool
     private let path: AbsolutePath
     private let fs: FileSystem
 
-    init(diagnostics: DiagnosticsEngine, path: AbsolutePath, fs: FileSystem) {
-        self.diags = diagnostics
+    init(diagnostics: [Basics.Diagnostic], path: AbsolutePath, fs: FileSystem) {
+        self.diagnostics = diagnostics
         self.diagsChecked = false
         self.path = path
         self.fs = fs
     }
 
     func validateDiagnostics(file: StaticString = #file, line: UInt = #line) {
-        if diagsChecked || diags.diagnostics.isEmpty { return }
-        XCTFail("Unchecked diagnostics: \(diags)", file: (file), line: line)
+        if diagsChecked || diagnostics.isEmpty { return }
+        XCTFail("Unchecked diagnostics: \(diagnostics)", file: (file), line: line)
     }
 
-    func checkDiagnostics(_ result: (DiagnosticsEngineResult) throws -> Void) {
-        DiagnosticsEngineTester(diags, result: result)
+    func checkDiagnostics(_ handler: (DiagnosticsTestResult) throws -> Void) {
+        testDiagnostics(diagnostics, handler: handler)
         diagsChecked = true
     }
 

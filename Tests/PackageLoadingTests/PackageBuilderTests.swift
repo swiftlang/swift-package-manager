@@ -8,14 +8,13 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import XCTest
-import SPMTestSupport
-
-import TSCBasic
-import PackageModel
-import TSCUtility
-
+import Basics
 import PackageLoading
+import PackageModel
+import SPMTestSupport
+import TSCBasic
+import TSCUtility
+import XCTest
 
 /// Tests for the handling of source layout conventions.
 class PackageBuilderTests: XCTestCase {
@@ -51,7 +50,7 @@ class PackageBuilderTests: XCTestCase {
             ]
         )
         PackageBuilderTester(manifest, in: fs) { _, diagnostics in
-            diagnostics.check(diagnostic: "target at '/Sources/foo' contains mixed language source files; feature not supported", behavior: .error)
+            diagnostics.check(diagnostic: "target at '/Sources/foo' contains mixed language source files; feature not supported", severity: .error)
         }
     }
 
@@ -78,10 +77,13 @@ class PackageBuilderTests: XCTestCase {
             )
 
             PackageBuilderTester(manifest, path: path, in: fs) { package, diagnostics in
+                var expectedMetadata = ObservabilityMetadata.packageMetadata(identity: .init(url: manifest.packageLocation), location: manifest.packageLocation)
+                expectedMetadata.targetName = manifest.targets.first!.name
                 diagnostics.check(
                     diagnostic: "ignoring broken symlink \(linkPath)",
-                    behavior: .warning,
-                    location: "'pkg' \(path)")
+                    severity: .warning,
+                    metadata: expectedMetadata
+                )
                 package.checkModule("foo")
             }
         }
@@ -139,7 +141,11 @@ class PackageBuilderTests: XCTestCase {
             package.checkProduct("MyPackage") { _ in }
 
           #if os(Linux)
-            diagnostics.check(diagnostic: "ignoring target 'MyPackageTests' in package 'MyPackage'; C language in tests is not yet supported", behavior: .warning)
+            diagnostics.check(
+                diagnostic: "ignoring target 'MyPackageTests' in package 'MyPackage'; C language in tests is not yet supported",
+                severity: .warning,
+                metadata: .packageMetadata(identity: .init(url: manifest.packageLocation), location: manifest.packageLocation)
+            )
           #elseif os(macOS) || os(Android)
             package.checkProduct("MyPackagePackageTests") { _ in }
           #endif
@@ -239,7 +245,13 @@ class PackageBuilderTests: XCTestCase {
             ]
         )
         PackageBuilderTester(manifest, in: fs) { package, diags in
-            diags.check(diagnostic: "found duplicate sources declaration in the package manifest: /Sources/clib", behavior: .warning)
+            var expectedMetadata = ObservabilityMetadata.packageMetadata(identity: .init(url: manifest.packageLocation), location: manifest.packageLocation)
+            expectedMetadata.targetName = manifest.targets.first!.name
+            diags.check(
+                diagnostic: "found duplicate sources declaration in the package manifest: /Sources/clib",
+                severity: .warning,
+                metadata: expectedMetadata
+            )
             package.checkModule("clib") { module in
                 module.check(c99name: "clib", type: .library)
                 module.checkSources(root: "/Sources", paths: "clib/clib.c", "clib/clib2.c", "clib/nested/nested.c")
@@ -482,7 +494,11 @@ class PackageBuilderTests: XCTestCase {
             ]
         )
         PackageBuilderTester(manifest, in: fs) { package, diagnostics in
-            diagnostics.check(diagnostic: "'exec2' was identified as an executable target given the presence of a 'main.swift' file. Starting with tools version 5.4.0 executable targets should be declared as 'executableTarget()'", behavior: .warning)
+            diagnostics.check(
+                diagnostic: "'exec2' was identified as an executable target given the presence of a 'main.swift' file. Starting with tools version 5.4.0 executable targets should be declared as 'executableTarget()'",
+                severity: .warning,
+                metadata: .packageMetadata(identity: .init(url: manifest.packageLocation), location: manifest.packageLocation)
+            )
             package.checkModule("lib") { _ in }
             package.checkModule("exec2") { _ in }
             package.checkProduct("exec2") { product in
@@ -577,7 +593,7 @@ class PackageBuilderTests: XCTestCase {
             ]
         )
         PackageBuilderTester(manifest, in: fs) { _, diagnostics in
-            diagnostics.check(diagnostic: "package 'pkg' has multiple test manifest files: /\(name), /swift/\(name)", behavior: .error)
+            diagnostics.check(diagnostic: "package 'pkg' has multiple test manifest files: /\(name), /swift/\(name)", severity: .error)
         }
     }
 
@@ -662,7 +678,7 @@ class PackageBuilderTests: XCTestCase {
             ]
         )
         PackageBuilderTester(manifest, in: fs) { package, diagnotics in
-            diagnotics.check(diagnostic: "target 'barTests' has sources overlapping sources: /target/bar/Tests/barTests.swift", behavior: .error)
+            diagnotics.check(diagnostic: "target 'barTests' has sources overlapping sources: /target/bar/Tests/barTests.swift", severity: .error)
         }
 
         manifest = Manifest.createV4Manifest(
@@ -760,7 +776,7 @@ class PackageBuilderTests: XCTestCase {
         )
 
         PackageBuilderTester(manifest, in: fs) { _, diagnostics in
-            diagnostics.check(diagnostic: "invalid relative path \'/inc\'; relative path should not begin with \'/\' or \'~\'", behavior: .error)
+            diagnostics.check(diagnostic: "invalid relative path \'/inc\'; relative path should not begin with \'/\' or \'~\'", severity: .error)
         }
     }
 
@@ -957,7 +973,7 @@ class PackageBuilderTests: XCTestCase {
                 ]
             )
             PackageBuilderTester(manifest, in: fs) { _, diagnostics in
-                diagnostics.check(diagnostic: .contains("Source files for target Random should be located under 'Sources/Random'"), behavior: .error)
+                diagnostics.check(diagnostic: .contains("Source files for target Random should be located under 'Sources/Random'"), severity: .error)
             }
         }
 
@@ -972,7 +988,7 @@ class PackageBuilderTests: XCTestCase {
                 ]
             )
             PackageBuilderTester(manifest, in: fs) { _, diagnostics in
-                diagnostics.check(diagnostic: .contains("Source files for target Foo should be located under 'Sources/Foo'"), behavior: .error)
+                diagnostics.check(diagnostic: .contains("Source files for target Foo should be located under 'Sources/Foo'"), severity: .error)
             }
         }
 
@@ -987,7 +1003,7 @@ class PackageBuilderTests: XCTestCase {
                 ]
             )
             PackageBuilderTester(manifest, in: fs) { _, diagnostics in
-                diagnostics.check(diagnostic: .contains("Source files for target pkgTests should be located under 'Tests/pkgTests'"), behavior: .error)
+                diagnostics.check(diagnostic: .contains("Source files for target pkgTests should be located under 'Tests/pkgTests'"), severity: .error)
             }
         }
 
@@ -1002,7 +1018,7 @@ class PackageBuilderTests: XCTestCase {
                 ]
             )
             PackageBuilderTester(manifest, in: fs) { _, diagnostics in
-                diagnostics.check(diagnostic: "cyclic dependency declaration found: pkg -> pkg", behavior: .error)
+                diagnostics.check(diagnostic: "cyclic dependency declaration found: pkg -> pkg", severity: .error)
             }
         }
 
@@ -1017,7 +1033,7 @@ class PackageBuilderTests: XCTestCase {
                 ]
             )
             PackageBuilderTester(manifest, in: fs) { _, diagnotics in
-                diagnotics.check(diagnostic: .contains("Source files for target foo should be located under 'Sources/foo'"), behavior: .error)
+                diagnotics.check(diagnostic: .contains("Source files for target foo should be located under 'Sources/foo'"), severity: .error)
             }
         }
 
@@ -1060,7 +1076,7 @@ class PackageBuilderTests: XCTestCase {
                 ]
             )
             PackageBuilderTester(manifest, in: fs) { _, diagnostics in
-                diagnostics.check(diagnostic: "cyclic dependency declaration found: pkg1 -> pkg2 -> pkg3 -> pkg1", behavior: .error)
+                diagnostics.check(diagnostic: "cyclic dependency declaration found: pkg1 -> pkg2 -> pkg3 -> pkg1", severity: .error)
             }
 
             manifest = Manifest.createV4Manifest(
@@ -1072,7 +1088,7 @@ class PackageBuilderTests: XCTestCase {
                 ]
             )
             PackageBuilderTester(manifest, in: fs) { _, diagnostics in
-                diagnostics.check(diagnostic: "cyclic dependency declaration found: pkg1 -> pkg2 -> pkg3 -> pkg2", behavior: .error)
+                diagnostics.check(diagnostic: "cyclic dependency declaration found: pkg1 -> pkg2 -> pkg3 -> pkg2", severity: .error)
             }
         }
 
@@ -1090,7 +1106,11 @@ class PackageBuilderTests: XCTestCase {
                 ]
             )
             PackageBuilderTester(manifest, in: fs) { package, diagnostics in
-                diagnostics.check(diagnostic: "Source files for target pkg2 should be located under /Sources/pkg2", behavior: .warning)
+                diagnostics.check(
+                    diagnostic: "Source files for target pkg2 should be located under /Sources/pkg2",
+                    severity: .warning,
+                    metadata: .packageMetadata(identity: .init(url: manifest.packageLocation), location: manifest.packageLocation)
+                )
                 package.checkModule("pkg1") { module in
                     module.check(c99name: "pkg1", type: .library)
                     module.checkSources(root: "/Sources/pkg1", paths: "Foo.swift")
@@ -1111,7 +1131,7 @@ class PackageBuilderTests: XCTestCase {
             )
 
             PackageBuilderTester(manifest, in: fs) { _, diagnostics in
-                diagnostics.check(diagnostic: "public headers (\"include\") directory path for 'Foo' is invalid or not contained in the target", behavior: .error)
+                diagnostics.check(diagnostic: "public headers (\"include\") directory path for 'Foo' is invalid or not contained in the target", severity: .error)
             }
 
             manifest = Manifest.createV4Manifest(
@@ -1121,7 +1141,7 @@ class PackageBuilderTests: XCTestCase {
                 ]
             )
             PackageBuilderTester(manifest, in: fs) { _, diagnostics in
-                diagnostics.check(diagnostic: "public headers (\"include\") directory path for 'Bar' is invalid or not contained in the target", behavior: .error)
+                diagnostics.check(diagnostic: "public headers (\"include\") directory path for 'Bar' is invalid or not contained in the target", severity: .error)
             }
         }
 
@@ -1137,7 +1157,7 @@ class PackageBuilderTests: XCTestCase {
                 ]
             )
             PackageBuilderTester(manifest, path: AbsolutePath("/pkg"), in: fs) { _, diagnostics in
-                diagnostics.check(diagnostic: "target 'Foo' in package 'Foo' is outside the package root", behavior: .error)
+                diagnostics.check(diagnostic: "target 'Foo' in package 'Foo' is outside the package root", severity: .error)
             }
         }
         do {
@@ -1152,7 +1172,7 @@ class PackageBuilderTests: XCTestCase {
                 ]
             )
             PackageBuilderTester(manifest, path: AbsolutePath("/pkg"), in: fs) { _, diagnostics in
-                diagnostics.check(diagnostic: "target path \'/foo\' is not supported; it should be relative to package root", behavior: .error)
+                diagnostics.check(diagnostic: "target path \'/foo\' is not supported; it should be relative to package root", severity: .error)
             }
         }
 
@@ -1168,7 +1188,7 @@ class PackageBuilderTests: XCTestCase {
                 ]
             )
             PackageBuilderTester(manifest, path: AbsolutePath("/pkg"), in: fs) { _, diagnostics in
-                diagnostics.check(diagnostic: "target path \'~/foo\' is not supported; it should be relative to package root", behavior: .error)
+                diagnostics.check(diagnostic: "target path \'~/foo\' is not supported; it should be relative to package root", severity: .error)
             }
         }
     }
@@ -1214,7 +1234,7 @@ class PackageBuilderTests: XCTestCase {
         PackageBuilderTester(manifest, in: fs) { _, diagnostics in
             diagnostics.check(
                 diagnostic: "configuration of package 'pkg' is invalid; the 'pkgConfig' property can only be used with a System Module Package",
-                behavior: .error)
+                severity: .error)
         }
 
         fs = InMemoryFileSystem(emptyFiles:
@@ -1228,7 +1248,7 @@ class PackageBuilderTests: XCTestCase {
         PackageBuilderTester(manifest, in: fs) { _, diagnostics in
             diagnostics.check(
                 diagnostic: "configuration of package 'pkg' is invalid; the 'providers' property can only be used with a System Module Package",
-                behavior: .error)
+                severity: .error)
         }
     }
 
@@ -1296,13 +1316,13 @@ class PackageBuilderTests: XCTestCase {
 
         manifest = try createManifest(swiftVersions: [])
         PackageBuilderTester(manifest, in: fs) { _, diagnostics in
-            diagnostics.check(diagnostic: "package 'pkg' supported Swift language versions is empty", behavior: .error)
+            diagnostics.check(diagnostic: "package 'pkg' supported Swift language versions is empty", severity: .error)
         }
 
         manifest = try createManifest(
             swiftVersions: [SwiftLanguageVersion(string: "6")!, SwiftLanguageVersion(string: "7")!])
         PackageBuilderTester(manifest, in: fs) { _, diagnostics in
-            diagnostics.check(diagnostic: "package 'pkg' requires minimum Swift language version 6 which is not supported by the current tools version (\(ToolsVersion.currentToolsVersion))", behavior: .error)
+            diagnostics.check(diagnostic: "package 'pkg' requires minimum Swift language version 6 which is not supported by the current tools version (\(ToolsVersion.currentToolsVersion))", severity: .error)
         }
     }
 
@@ -1323,7 +1343,7 @@ class PackageBuilderTests: XCTestCase {
             )
 
             PackageBuilderTester(manifest, in: fs) { _, diagnostics in
-                diagnostics.check(diagnostic: .contains("Source files for target Bar should be located under 'Sources/Bar'"), behavior: .error)
+                diagnostics.check(diagnostic: .contains("Source files for target Bar should be located under 'Sources/Bar'"), severity: .error)
             }
         }
 
@@ -1342,7 +1362,7 @@ class PackageBuilderTests: XCTestCase {
                 ]
             )
             PackageBuilderTester(manifest, in: fs) { _, diagnostics in
-                diagnostics.check(diagnostic: .contains("Source files for target BarTests should be located under 'Tests/BarTests'"), behavior: .error)
+                diagnostics.check(diagnostic: .contains("Source files for target BarTests should be located under 'Tests/BarTests'"), severity: .error)
             }
 
             // We should be able to fix this by using custom paths.
@@ -1376,7 +1396,7 @@ class PackageBuilderTests: XCTestCase {
         )
 
         PackageBuilderTester(manifest, in: fs) { _, diagnostics in
-            diagnostics.check(diagnostic: "invalid custom path './NotExist' for target 'Foo'", behavior: .error)
+            diagnostics.check(diagnostic: "invalid custom path './NotExist' for target 'Foo'", severity: .error)
         }
     }
 
@@ -1462,12 +1482,14 @@ class PackageBuilderTests: XCTestCase {
             }
             diagnostics.check(
                 diagnostic: "ignoring duplicate product 'foo' (static)",
-                behavior: .warning,
-                location: "'pkg' /")
+                severity: .warning,
+                metadata: .packageMetadata(identity: .init(url: manifest.packageLocation), location: manifest.packageLocation)
+            )
             diagnostics.check(
                 diagnostic: "ignoring duplicate product 'foo' (dynamic)",
-                behavior: .warning,
-                location: "'pkg' /")
+                severity: .warning,
+                metadata: .packageMetadata(identity: .init(url: manifest.packageLocation), location: manifest.packageLocation)
+            )
         }
     }
 
@@ -1492,8 +1514,9 @@ class PackageBuilderTests: XCTestCase {
             }
             diagnostics.check(
                 diagnostic: "ignoring declared target(s) 'foo, bar' in the system package",
-                behavior: .warning,
-                location: "'SystemModulePackage' /")
+                severity: .warning,
+                metadata: .packageMetadata(identity: .init(url: manifest.packageLocation), location: manifest.packageLocation)
+            )
         }
     }
 
@@ -1550,8 +1573,9 @@ class PackageBuilderTests: XCTestCase {
             package.checkModule("bar") { _ in }
             diagnostics.check(
                 diagnostic: "system library product foo shouldn't have a type and contain only one target",
-                behavior: .error,
-                location: "'SystemModulePackage' /")
+                severity: .error,
+                metadata: .packageMetadata(identity: .init(url: manifest.packageLocation), location: manifest.packageLocation)
+            )
         }
 
         manifest = Manifest.createV4Manifest(
@@ -1569,8 +1593,9 @@ class PackageBuilderTests: XCTestCase {
             package.checkModule("bar") { _ in }
             diagnostics.check(
                 diagnostic: "system library product foo shouldn't have a type and contain only one target",
-                behavior: .error,
-                location: "'SystemModulePackage' /")
+                severity: .error,
+                metadata: .packageMetadata(identity: .init(url: manifest.packageLocation), location: manifest.packageLocation)
+            )
         }
         
         manifest = Manifest.createV4Manifest(
@@ -1585,7 +1610,7 @@ class PackageBuilderTests: XCTestCase {
         PackageBuilderTester(manifest, in: fs) { _, diagnostics in
             diagnostics.check(
                 diagnostic: "package has unsupported layout; missing system target module map at '/Sources/bar/module.modulemap'",
-                behavior: .error
+                severity: .error
             )
         }
     }
@@ -1622,19 +1647,22 @@ class PackageBuilderTests: XCTestCase {
                     executable product 'foo1' expects target 'FooLib1' to be executable; an executable target requires \
                     a 'main.swift' file
                     """,
-                behavior: .error,
-                location: "'MyPackage' /")
+                severity: .error,
+                metadata: .packageMetadata(identity: .init(url: manifest.packageLocation), location: manifest.packageLocation)
+            )
             diagnostics.check(
                 diagnostic: """
                     executable product 'foo2' should have one executable target; an executable target requires a \
                     'main.swift' file
                     """,
-                behavior: .error,
-                location: "'MyPackage' /")
+                severity: .error,
+                metadata: .packageMetadata(identity: .init(url: manifest.packageLocation), location: manifest.packageLocation)
+            )
             diagnostics.check(
                 diagnostic: "executable product 'foo3' should not have more than one executable target",
-                behavior: .error,
-                location: "'MyPackage' /")
+                severity: .error,
+                metadata: .packageMetadata(identity: .init(url: manifest.packageLocation), location: manifest.packageLocation)
+            )
         }
     }
 
@@ -1655,8 +1683,9 @@ class PackageBuilderTests: XCTestCase {
             package.checkProduct("exe") { _ in }
             diagnostics.check(
                 diagnostic: "unable to synthesize a REPL product as there are no library targets in the package",
-                behavior: .error,
-                location: "'Pkg' /")
+                severity: .error,
+                metadata: .packageMetadata(identity: .init(url: manifest.packageLocation), location: manifest.packageLocation)
+            )
         }
     }
 
@@ -1770,6 +1799,69 @@ class PackageBuilderTests: XCTestCase {
         }
     }
 
+    func testCustomPlatforms() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/foo/module.modulemap"
+        )
+
+        // One custom platform.
+        var manifest = Manifest.createManifest(
+            name: "pkg",
+            platforms: [
+                PlatformDescription(name: "customos", version: "1.0"),
+            ],
+            v: .v5_6,
+            targets: [
+                try TargetDescription(name: "foo", type: .system),
+            ]
+        )
+
+        // default platforms will be auto-added during package build
+        var expectedPlatforms = [
+            "linux": "0.0",
+            "macos": "10.10",
+            "maccatalyst": "13.0",
+            "ios": "9.0",
+            "tvos": "9.0",
+            "driverkit": "19.0",
+            "watchos": "2.0",
+            "android": "0.0",
+            "windows": "0.0",
+            "wasi": "0.0",
+            "openbsd": "0.0",
+        ]
+
+        // add our custom expectations
+        expectedPlatforms["customos"] = "1.0"
+
+        PackageBuilderTester(manifest, in: fs) { package, _ in
+            package.checkModule("foo") { t in
+                t.checkPlatforms(expectedPlatforms)
+            }
+        }
+
+        // Two platforms with overrides.
+        manifest = Manifest.createManifest(
+            name: "pkg",
+            platforms: [
+                PlatformDescription(name: "customos", version: "1.0"),
+                PlatformDescription(name: "anothercustomos", version: "2.3"),
+            ],
+            v: .v5_6,
+            targets: [
+                try TargetDescription(name: "foo", type: .system),
+            ]
+        )
+
+        expectedPlatforms["anothercustomos"] = "2.3"
+
+        PackageBuilderTester(manifest, in: fs) { package, _ in
+            package.checkModule("foo") { t in
+                t.checkPlatforms(expectedPlatforms)
+            }
+        }
+    }
+
     func testAsmIsIgnoredInV4_2Manifest() throws {
         // .s is not considered a valid source in 4.2 manifest.
         let fs = InMemoryFileSystem(emptyFiles:
@@ -1802,7 +1894,7 @@ class PackageBuilderTests: XCTestCase {
             "/Sources/lib/include/lib.h"
         )
 
-        let diagnostics = DiagnosticsEngine()
+        let observability = ObservabilitySystem.bootstrapForTesting()
         let manifest = Manifest.createManifest(
             name: "Pkg",
             v: .v5,
@@ -1810,7 +1902,7 @@ class PackageBuilderTests: XCTestCase {
                 try TargetDescription(name: "lib", dependencies: []),
             ]
         )
-        XCTAssertNoDiagnostics(diagnostics)
+        XCTAssertNoDiagnostics(observability.diagnostics)
 
         PackageBuilderTester(manifest, in: fs) { package, _ in
             package.checkModule("lib") { module in
@@ -2076,7 +2168,7 @@ class PackageBuilderTests: XCTestCase {
         )
 
         PackageBuilderTester(manifest1, path: AbsolutePath("/pkg"), in: fs) { package, diagnostics in
-            diagnostics.check(diagnostic: "invalid relative path '/Sources/headers'; relative path should not begin with '/' or '~'", behavior: .error)
+            diagnostics.check(diagnostic: "invalid relative path '/Sources/headers'; relative path should not begin with '/' or '~'", severity: .error)
         }
 
         let manifest2 = Manifest.createManifest(
@@ -2093,7 +2185,7 @@ class PackageBuilderTests: XCTestCase {
         )
 
         PackageBuilderTester(manifest2, path: AbsolutePath("/pkg"), in: fs) { _, diagnostics in
-            diagnostics.check(diagnostic: "invalid header search path '../../..'; header search path should not be outside the package root", behavior: .error)
+            diagnostics.check(diagnostic: "invalid header search path '../../..'; header search path should not be outside the package root", severity: .error)
         }
     }
 
@@ -2104,7 +2196,7 @@ class PackageBuilderTests: XCTestCase {
             "/Bar/Sources/Bar/bar.swift"
         )
 
-        let manifest1 = Manifest.createManifest(
+        let manifest = Manifest.createManifest(
             name: "Foo",
             v: .v5,
             dependencies: [
@@ -2123,11 +2215,19 @@ class PackageBuilderTests: XCTestCase {
             ]
         )
 
-        PackageBuilderTester(manifest1, path: AbsolutePath("/Foo"), in: fs) { package, diagnostics in
+        PackageBuilderTester(manifest, path: AbsolutePath("/Foo"), in: fs) { package, diagnostics in
             package.checkModule("Foo")
             package.checkModule("Foo2")
-            diagnostics.checkUnordered(diagnostic: "invalid duplicate target dependency declaration 'Bar' in target 'Foo' from package 'Foo'", behavior: .warning)
-            diagnostics.checkUnordered(diagnostic: "invalid duplicate target dependency declaration 'Foo2' in target 'Foo' from package 'Foo'", behavior: .warning)
+            diagnostics.checkUnordered(
+                diagnostic: "invalid duplicate target dependency declaration 'Bar' in target 'Foo' from package 'Foo'",
+                severity: .warning,
+                metadata: .packageMetadata(identity: .init(url: manifest.packageLocation), location: manifest.packageLocation)
+            )
+            diagnostics.checkUnordered(
+                diagnostic: "invalid duplicate target dependency declaration 'Foo2' in target 'Foo' from package 'Foo'",
+                severity: .warning,
+                metadata: .packageMetadata(identity: .init(url: manifest.packageLocation), location: manifest.packageLocation)
+            )
         }
     }
 
@@ -2213,7 +2313,7 @@ class PackageBuilderTests: XCTestCase {
         )
 
         PackageBuilderTester(manifest, path: AbsolutePath("/Foo"), in: fs) { _, diagnostics in
-            diagnostics.check(diagnostic: "manifest property 'defaultLocalization' not set; it is required in the presence of localized resources", behavior: .error)
+            diagnostics.check(diagnostic: "manifest property 'defaultLocalization' not set; it is required in the presence of localized resources", severity: .error)
         }
     }
 
@@ -2282,9 +2382,9 @@ final class PackageBuilderTester {
         in fs: FileSystem,
         file: StaticString = #file,
         line: UInt = #line,
-        _ body: (PackageBuilderTester, DiagnosticsEngineResult) -> Void
+        _ body: (PackageBuilderTester, DiagnosticsTestResult) -> Void
     ) {
-        let diagnostics = DiagnosticsEngine()
+        let observability = ObservabilitySystem.bootstrapForTesting()
         do {
             // FIXME: We should allow customizing root package boolean.
             let builder = PackageBuilder(
@@ -2294,11 +2394,11 @@ final class PackageBuilderTester {
                 path: path,
                 binaryArtifacts: binaryArtifacts,
                 xcTestMinimumDeploymentTargets: Self.xcTestMinimumDeploymentTargets,
-                fileSystem: fs,
-                diagnostics: diagnostics,
                 shouldCreateMultipleTestProducts: shouldCreateMultipleTestProducts,
                 warnAboutImplicitExecutableTargets: true,
-                createREPLProduct: createREPLProduct)
+                createREPLProduct: createREPLProduct,
+                fileSystem: fs
+            )
             let loadedPackage = try builder.construct()
             result = .package(loadedPackage)
             uncheckedModules = Set(loadedPackage.targets)
@@ -2306,10 +2406,10 @@ final class PackageBuilderTester {
         } catch {
             let errorString = String(describing: error)
             result = .error(errorString)
-            diagnostics.emit(error: errorString)
+            ObservabilitySystem.topScope.emit(error)
         }
 
-        DiagnosticsEngineTester(diagnostics) { diagnostics in
+        testDiagnostics(observability.diagnostics) { diagnostics in
             body(self, diagnostics)
         }
 

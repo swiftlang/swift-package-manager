@@ -25,7 +25,7 @@ public final class SQLiteBackedCache<Value: Codable>: Closable {
     private var state = State.idle
     private let stateLock = Lock()
 
-    private let diagnosticsEngine: DiagnosticsEngine?
+    private let observabilityScope: ObservabilityScope
     private let jsonEncoder: JSONEncoder
     private let jsonDecoder: JSONDecoder
 
@@ -36,7 +36,7 @@ public final class SQLiteBackedCache<Value: Codable>: Closable {
     ///   - location: SQLite.Location
     ///   - configuration: Optional. Configuration for the cache.
     ///   - diagnosticsEngine: DiagnosticsEngine
-    public init(tableName: String, location: SQLite.Location, configuration: SQLiteBackedCacheConfiguration = .init(), diagnosticsEngine: DiagnosticsEngine? = nil) {
+    public init(tableName: String, location: SQLite.Location, configuration: SQLiteBackedCacheConfiguration = .init(), observabilityScope: ObservabilityScope = ObservabilitySystem.topScope) {
         self.tableName = tableName
         self.location = location
         switch self.location {
@@ -46,7 +46,7 @@ public final class SQLiteBackedCache<Value: Codable>: Closable {
             self.fileSystem = InMemoryFileSystem()
         }
         self.configuration = configuration
-        self.diagnosticsEngine = diagnosticsEngine
+        self.observabilityScope = observabilityScope
         self.jsonEncoder = JSONEncoder.makeWithDefaults()
         self.jsonDecoder = JSONDecoder.makeWithDefaults()
     }
@@ -58,8 +58,8 @@ public final class SQLiteBackedCache<Value: Codable>: Closable {
     ///   - path: The path of the SQLite database.
     ///   - configuration: Optional. Configuration for the cache.
     ///   - diagnosticsEngine: DiagnosticsEngine
-    public convenience init(tableName: String, path: AbsolutePath, configuration: SQLiteBackedCacheConfiguration = .init(), diagnosticsEngine: DiagnosticsEngine? = nil) {
-        self.init(tableName: tableName, location: .path(path), configuration: configuration, diagnosticsEngine: diagnosticsEngine)
+    public convenience init(tableName: String, path: AbsolutePath, configuration: SQLiteBackedCacheConfiguration = .init(), observabilityScope: ObservabilityScope = ObservabilitySystem.topScope) {
+        self.init(tableName: tableName, location: .path(path), configuration: configuration, observabilityScope: observabilityScope)
     }
 
     deinit {
@@ -97,7 +97,7 @@ public final class SQLiteBackedCache<Value: Codable>: Closable {
             if !self.configuration.truncateWhenFull {
                 throw error
             }
-            self.diagnosticsEngine?.emit(.warning("truncating \(self.tableName) cache database since it reached max size of \(self.configuration.maxSizeInBytes ?? 0) bytes"))
+            self.observabilityScope.emit(warning: "truncating \(self.tableName) cache database since it reached max size of \(self.configuration.maxSizeInBytes ?? 0) bytes")
             try self.executeStatement("DELETE FROM \(self.tableName);") { statement -> Void in
                 try statement.step()
             }

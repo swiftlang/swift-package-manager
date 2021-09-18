@@ -1977,7 +1977,7 @@ public class BuildPlan {
                 diagnostics.emit(.pkgConfigHint(pkgConfigName: result.pkgConfigName, installText: provider.installText))
             } else if let error = result.error {
                 diagnostics.emit(
-                        .warning(PkgConfigGenericDiagnostic(error: "\(error)")),
+                        .warning("\(error)"),
                         location: PkgConfigDiagnosticLocation(pcFile: result.pkgConfigName, target: target.name)
                 )
             }
@@ -2040,7 +2040,7 @@ private extension Diagnostic.Message {
     }
 
     static func pkgConfigHint(pkgConfigName: String, installText: String) -> Diagnostic.Message {
-        .warning(PkgConfigHintDiagnostic(pkgConfigName: pkgConfigName, installText: installText))
+        .warning("you may be able to install \(pkgConfigName) using your system-packager:\n\(installText)")
     }
 
     static func binaryTargetsNotSupported() -> Diagnostic.Message {

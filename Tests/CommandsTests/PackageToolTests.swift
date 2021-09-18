@@ -8,17 +8,19 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import XCTest
-import Foundation
-
-import TSCBasic
+import Basics
 import Commands
-import Xcodeproj
+import Foundation
+import PackageGraph
+import PackageLoading
 import PackageModel
 import SourceControl
 import SPMTestSupport
+import TSCBasic
 import TSCUtility
 import Workspace
+import Xcodeproj
+import XCTest
 
 final class PackageToolTests: XCTestCase {
     @discardableResult
@@ -414,11 +416,12 @@ final class PackageToolTests: XCTestCase {
             ]
         )
 
-        let diagnostics = DiagnosticsEngine()
-        let graph = try loadPackageGraph(fs: fileSystem,
-                                         diagnostics: diagnostics,
-                                         manifests: [manifestA, manifestB, manifestC, manifestD])
-        XCTAssertNoDiagnostics(diagnostics)
+        let observability = ObservabilitySystem.bootstrapForTesting()
+        let graph = try loadPackageGraph(
+            fs: fileSystem,
+            manifests: [manifestA, manifestB, manifestC, manifestD]
+        )
+        XCTAssertNoDiagnostics(observability.diagnostics)
 
         let output = BufferedOutputByteStream()
         dumpDependenciesOf(rootPackage: graph.rootPackages[0], mode: .dot, on: output)
@@ -768,7 +771,7 @@ final class PackageToolTests: XCTestCase {
                     let path = try SwiftPMProduct.packagePath(for: pkg, packageRoot: fooPath)
                     let pin = pinsStore.pinsMap[PackageIdentity(path: path)]!
                     XCTAssertEqual(pin.packageRef.identity, PackageIdentity(path: path))
-                    XCTAssert(pin.packageRef.repository.url.hasSuffix(pkg))
+                    XCTAssert(pin.packageRef.location.hasSuffix(pkg))
                     XCTAssertEqual(pin.state.version, "1.2.3")
                 }
             }
@@ -878,13 +881,12 @@ final class PackageToolTests: XCTestCase {
     func testWatchmanXcodeprojgen() throws {
         try testWithTemporaryDirectory { path in
             let fs = localFileSystem
-            let diagnostics = DiagnosticsEngine()
 
             let scriptsDir = path.appending(component: "scripts")
             let packageRoot = path.appending(component: "root")
 
             let helper = WatchmanHelper(
-                diagnostics: diagnostics,
+                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
                 watchmanScriptsDir: scriptsDir,
                 packageRoot: packageRoot)
 

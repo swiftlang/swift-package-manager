@@ -1,25 +1,31 @@
 import PackagePlugin
- 
-print("Hello from the Build Tool Plugin!")
 
-for inputPath in targetBuildContext.inputFiles.map{ $0.path } {
-    guard inputPath.extension == "dat" else { continue }
-    let outputName = inputPath.stem + ".swift"
-    let outputPath = targetBuildContext.pluginWorkDirectory.appending(outputName)
-    commandConstructor.addBuildCommand(
-        displayName:
-            "Generating \(outputName) from \(inputPath.lastComponent)",
-        executable:
-            try targetBuildContext.tool(named: "MySourceGenBuildTool").path,
-        arguments: [
-            "\(inputPath)",
-            "\(outputPath)"
-        ],
-        inputFiles: [
-            inputPath,
-        ],
-        outputFiles: [
-            outputPath
-        ]
-    )
+@main
+struct MyPlugin: BuildToolPlugin {
+    
+    func createBuildCommands(context: TargetBuildContext) throws -> [Command] {
+        print("Hello from the Build Tool Plugin!")
+
+        return try context.inputFiles.map{ $0.path }.compactMap {
+            guard $0.extension == "dat" else { return .none }
+            let outputName = $0.stem + ".swift"
+            let outputPath = context.pluginWorkDirectory.appending(outputName)
+            return .buildCommand(
+                displayName:
+                    "Generating \(outputName) from \($0.lastComponent)",
+                executable:
+                    try context.tool(named: "MySourceGenBuildTool").path,
+                arguments: [
+                    "\($0)",
+                    "\(outputPath)"
+                ],
+                inputFiles: [
+                    $0,
+                ],
+                outputFiles: [
+                    outputPath
+                ]
+            )
+        }
+    }
 }

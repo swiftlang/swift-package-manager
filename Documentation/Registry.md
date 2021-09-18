@@ -10,23 +10,24 @@
   - [3.5. API versioning](#35-api-versioning)
   - [3.6. Package identification](#36-package-identification)
     - [3.6.1 Package scope](#361-package-scope)
-    - [3.6.2 Package name](#362-package-name)
+    - [3.6.2. Package name](#362-package-name)
 - [4. Endpoints](#4-endpoints)
   - [4.1. List package releases](#41-list-package-releases)
-  - [4.2. Fetch metadata for a package release](#42-fetch-metadata-for-a-package-release)
-    - [4.2.1. Package release metadata standards](#421-package-release-metadata-standards)
+  - [4.2. Fetch information about a package release](#42-fetch-information-about-a-package-release)
+    - [4.2.1. Package release resources](#421-package-release-resources)
+    - [4.2.2. Package release metadata standards](#422-package-release-metadata-standards)
   - [4.3. Fetch manifest for a package release](#43-fetch-manifest-for-a-package-release)
     - [4.3.1. swift-version query parameter](#431-swift-version-query-parameter)
-  - [4.4. Fetch source archive](#44-fetch-source-archive)
+  - [4.4. Download source archive](#44-download-source-archive)
     - [4.4.1. Integrity verification](#441-integrity-verification)
     - [4.4.2. Download locations](#442-download-locations)
-  - [4.5 Lookup package identifiers registered for a URL](#45-lookup-package-identifiers-registered-for-a-url)
+  - [4.5. Lookup package identifiers registered for a URL](#45-lookup-package-identifiers-registered-for-a-url)
   - [4.6. Create a package release](#46-create-a-package-release)
-    - [4.6.1 Source archive](#461-source-archive)
+    - [4.6.1. Source archive](#461-source-archive)
     - [4.6.2. Package release metadata](#462-package-release-metadata)
-    - [4.6.3 Synchronous and asynchronous publication](#463-synchronous-and-asynchronous-publication)
-      - [4.6.3.1 Synchronous publication](#4631-synchronous-publication)
-      - [4.6.3.2 Asynchronous publication](#4632-asynchronous-publication)
+    - [4.6.3. Synchronous and asynchronous publication](#463-synchronous-and-asynchronous-publication)
+      - [4.6.3.1. Synchronous publication](#4631-synchronous-publication)
+      - [4.6.3.2. Asynchronous publication](#4632-asynchronous-publication)
 - [5. Normative References](#5-normative-references)
 - [6. Informative References](#6-informative-references)
 - [Appendix A - OpenAPI Document](#appendix-a---openapi-document)
@@ -101,8 +102,7 @@ A server SHOULD communicate any errors to the client
 using "problem details" objects,
 as described by [RFC 7807].
 For example,
-a client sends a request to create a package release
-with an invalid `tag` parameter
+a client sends a request for a nonexistent release of a package
 and receives the following response:
 
 ```http
@@ -112,7 +112,7 @@ Content-Type: application/problem+json
 Content-Language: en
 
 {
-   "detail": "tag '2.0.0' not found"
+   "detail": "release not found"
 }
 ```
 
@@ -136,7 +136,7 @@ Retry-After: 60
 A client SHOULD follow the guidance of any
 `Retry-After` header values provided in responses
 to prevent overwhelming a server with retry requests.
-It is RECOMMENDED for clients to introduce randomness in their retry logic
+It is RECOMMENDED for clients to introduce random jitter in their retry logic
 to avoid a [thundering herd effect].
 
 ### 3.5. API versioning
@@ -189,7 +189,7 @@ Content-Version: 1
 ```
 
 If a client sends a request without an `Accept` header,
-a server MAY either return `400 Bad Request` or
+a server MAY either respond with a status code of `400 Bad Request` or
 process the request using an API version that it chooses,
 making sure to set the `Content-Type` and `Content-Version` headers accordingly.
 
@@ -256,22 +256,21 @@ A valid package scope matches the following regular expression pattern:
 Package scopes are case-insensitive
 (for example, `mona` ≍ `MONA`).
 
-#### 3.6.2 Package name
+#### 3.6.2. Package name
 
 A package's *name* uniquely identifies a package in a scope.
-The maximum length of a package name is 128 characters.
+A package name consists of alphanumeric characters, underscores, and hyphens.
+Hyphens and underscores may not occur at the beginning or end,
+nor consecutively within a name.
+The maximum length of a package name is 100 characters.
 A valid package name matches the following regular expression pattern:
 
 ```regexp
-\A\p{XID_Start}\p{XID_Continue}{0,127}\z
+\A[a-zA-Z0-9](?:[a-zA-Z0-9]|[-_](?=[a-zA-Z0-9])){0,99}\z
 ```
 
-> For more information,
-> see [Unicode Identifier and Pattern Syntax][UAX31].
-
-Package names are compared using
-[Normalization Form Compatible Composition (NFKC)][UAX15]
-with locale-independent case folding.
+Package names are case-insensitive
+(for example, `LinkedList` ≍ `LINKEDLIST`).
 
 ## 4. Endpoints
 
@@ -289,6 +288,14 @@ A server MUST respond to the following endpoints:
 A server SHOULD also respond to `HEAD` requests
 for each of the specified endpoints.
 
+A client MAY send an `OPTIONS` request with an asterisk (`*`)
+to determine the permitted communication options for the server.
+A server MAY respond with a `Link` header containing
+an entry for the `service-doc` relation type
+with a link to this document, and
+an entry for the `service-desc` relation type
+with a link to the OpenAPI specification.
+
 * * *
 
 <a name="endpoint-1"></a>
@@ -298,8 +305,8 @@ for each of the specified endpoints.
 A client MAY send a `GET` request
 for a URI matching the expression `/{scope}/{name}`
 to retrieve a list of the available releases for a particular package.
-A client SHOULD set the `Accept` header with
-the `application/vnd.swift.registry.v1+json` content type
+A client SHOULD set the `Accept` header with the value
+`application/vnd.swift.registry.v1+json`
 and MAY append the `.json` extension to the requested URI.
 
 ```http
@@ -358,7 +365,7 @@ whose values are objects containing the following fields:
 
 A server MAY specify a URL for a release using the `url` key.
 A client SHOULD locate a release using the value of the `url` key, if one is provided.
-Otherwise, the client SHOULD locate a release 
+Otherwise, the client SHOULD locate a release
 by expanding the URI Template `/{scope}/{name}/{version}` on the originating host.
 
 A server SHOULD communicate the unavailability of a package release
@@ -409,13 +416,13 @@ such as one with a `payment` relation for sponsoring a package maintainer.
 
 <a name="endpoint-2"></a>
 
-### 4.2. Fetch metadata for a package release
+### 4.2. Fetch information about a package release
 
 A client MAY send a `GET` request
 for a URI matching the expression `/{scope}/{name}/{version}`
-to retrieve metadata about a release.
-A client SHOULD set the `Accept` header with
-the `application/vnd.swift.registry.v1+json` content type,
+to retrieve information about a release.
+A client SHOULD set the `Accept` header with the value
+`application/vnd.swift.registry.v1+json`,
 and MAY append the `.json` extension to the requested URI.
 
 ```http
@@ -433,10 +440,31 @@ Otherwise, a server SHOULD respond with a status code of `404` (Not Found).
 HTTP/1.1 200 OK
 Content-Version: 1
 Content-Type: application/json
-Content-Length: 620
+Content-Length: 720
 Link: <https://packages.example.com/mona/LinkedList/1.1.1>; rel="latest-version",
       <https://packages.example.com/mona/LinkedList/1.0.0>; rel="predecessor-version"
+{
+  "id": "mona.LinkedList",
+  "version": "1.1.1",
+  "resources": [
+    {
+      "name": "source-archive",
+      "type": "application/zip",
+      "checksum": "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
+    }
+  ],
+  "metadata": { ... }
+}
 ```
+
+The response body MUST contain a JSON object containing the following fields:
+
+| Key         | Type   | Description                               |
+| ----------- | ------ | ----------------------------------------- |
+| `id`        | String | The namespaced package identifier.        |
+| `version`   | String | The package release version number.       |
+| `resources` | Array  | The resources available for the release.  |
+| `metadata`  | Object | Additional information about the release. |
 
 A server SHOULD respond with a `Link` header containing the following entries:
 
@@ -449,9 +477,29 @@ A server SHOULD respond with a `Link` header containing the following entries:
 A link with the `latest-version` relation
 MAY correspond to the requested release.
 
-#### 4.2.1. Package release metadata standards
+#### 4.2.1. Package release resources
 
-A server MAY include metadata fields in its package release response.
+Each element in the `resources` array is a JSON object with the following keys:
+
+| Key        | Type    | Description                                                         |
+| ---------- | ------- | ------------------------------------------------------------------- |
+| `name`     | String  | The name of the resource.                                           |
+| `type`     | String  | The content type of the resource.                                   |
+| `checksum` | String  | A hexadecimal representation of the SHA256 digest for the resource. |
+
+A resource object SHOULD have one of the following combinations of
+`name` and `type` values:
+
+| Name               | Content Type      | Description                        |
+| ------------------ | ----------------- | ---------------------------------- |
+| `source-archive`   | `application/zip` | An archive of package sources.     |
+
+A release MUST NOT have more than a single resource object
+with a given combination of `name` and `type` values.
+
+#### 4.2.2. Package release metadata standards
+
+A server MAY include metadata in its package release response.
 It is RECOMMENDED that package metadata be represented in [JSON-LD]
 according to a structured data standard.
 For example,
@@ -459,25 +507,30 @@ this response using the [Schema.org] [SoftwareSourceCode] vocabulary:
 
 ```jsonc
 {
-  "@context": ["http://schema.org/"],
-  "@type": "SoftwareSourceCode",
-  "name": "LinkedList",
-  "description": "One thing links to another.",
-  "keywords": ["data-structure", "collection"],
+  "id": "mona.LinkedList",
   "version": "1.1.1",
-  "codeRepository": "https://github.com/mona/LinkedList",
-  "license": "https://www.apache.org/licenses/LICENSE-2.0",
-  "programmingLanguage": {
-    "@type": "ComputerLanguage",
-    "name": "Swift",
-    "url": "https://swift.org"
-  },
-  "author": {
-      "@type": "Person",
-      "@id": "https://example.com/mona",
-      "givenName": "Mona",
-      "middleName": "Lisa",
-      "familyName": "Octocat"
+  "resources": [ ... ],
+  "metadata": {
+    "@context": ["http://schema.org/"],
+    "@type": "SoftwareSourceCode",
+    "name": "LinkedList",
+    "description": "One thing links to another.",
+    "keywords": ["data-structure", "collection"],
+    "version": "1.1.1",
+    "codeRepository": "https://github.com/mona/LinkedList",
+    "license": "https://www.apache.org/licenses/LICENSE-2.0",
+    "programmingLanguage": {
+      "@type": "ComputerLanguage",
+      "name": "Swift",
+      "url": "https://swift.org"
+    },
+    "author": {
+        "@type": "Person",
+        "@id": "https://example.com/mona",
+        "givenName": "Mona",
+        "middleName": "Lisa",
+        "familyName": "Octocat"
+    }
   }
 }
 ```
@@ -489,7 +542,7 @@ this response using the [Schema.org] [SoftwareSourceCode] vocabulary:
 A client MAY send a `GET` request for a URI matching the expression
 `/{scope}/{name}/{version}/Package.swift`
 to retrieve the package manifest for a release.
-A client SHOULD set the `Accept` header to
+A client SHOULD set the `Accept` header with the value
 `application/vnd.swift.registry.v1+swift`.
 
 ```http
@@ -510,8 +563,8 @@ Content-Type: text/x-swift
 Content-Disposition: attachment; filename="Package.swift"
 Content-Length: 361
 Content-Version: 1
-Link: <http://packages.example.com/mona/LinkedList/Package.swift?swift-version=4>; rel="alternate",
-      <http://packages.example.com/mona/LinkedList/Package.swift?swift-version=4.2>; rel="alternate"
+Link: <http://packages.example.com/mona/LinkedList/1.1.1/Package.swift?swift-version=4>; rel="alternate"; filename="Package@swift-4.swift"; swift-tools-version="4.0",
+      <http://packages.example.com/mona/LinkedList/1.1.1/Package.swift?swift-version=4.2>; rel="alternate"; filename="Package@swift-4.2.swift"; swift-tools-version="4.0"
 
 // swift-tools-version:5.0
 import PackageDescription
@@ -540,13 +593,22 @@ the name of the manifest file
 It is RECOMMENDED for clients and servers to support
 caching as described by [RFC 7234].
 
-A server SHOULD include `Link` header fields with the `alternate` relation type
-for each additional file in the release's source archive
+A server SHOULD include a `Link` header field
+with a value for each version-specific package manifest file
+in the release's source archive,
 whose filename matches the following regular expression pattern:
 
 ```regexp
-\APackage(?:@swift-\d+(?:\.\d+){0,2})?.swift\z
+\APackage@swift-(\d+)(?:\.(\d+))?(?:\.(\d+))?.swift\z
 ```
+
+Each link value SHOULD have the `alternate` relation type,
+a `filename` attribute set to the version-specific package manifest filename
+(for example, `Package@swift-4.swift`), and
+a `swift-tools-version` attribute set to the [Swift tools version]
+specified by the package manifest file
+(for example, `4.0` for a manifest beginning with the comment
+`// swift-tools-version:4.0`).
 
 #### 4.3.1. swift-version query parameter
 
@@ -600,14 +662,14 @@ Location: https://packages.example.com/mona/LinkedList/1.1.1/Package.swift
 
 <a name="endpoint-4"></a>
 
-### 4.4. Fetch source archive
+### 4.4. Download source archive
 
 A client MAY send a `GET` request
-for a URI matching the expression `/{scope}/{name}/{version}`
+for a URI matching the expression `/{scope}/{name}/{version}.zip`
 to retrieve a release's source archive.
-A client SHOULD set the `Accept` header to
+A client SHOULD set the `Accept` header with the value
 `application/vnd.swift.registry.v1+zip`
-and SHOULD append the `.zip` extension to the requested path.
+and MUST append the `.zip` extension to the requested path.
 
 ```http
 GET /mona/LinkedList/1.1.1.zip HTTP/1.1
@@ -628,7 +690,7 @@ Content-Type: application/zip
 Content-Disposition: attachment; filename="LinkedList-1.1.1.zip"
 Content-Length: 2048
 Content-Version: 1
-Digest: sha-256=a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812
+Digest: sha-256=oqxUzyX7wa0AKPA/CqS5aDO4O7BaFOUQiSuyfepNyBI=
 Link: <https://mirror-japanwest.example.com/mona-LinkedList-1.1.1.zip>; rel=duplicate; geo=jp; pri=10; type="application/zip"
 ```
 
@@ -637,8 +699,8 @@ set to the size of the archive in bytes.
 A client SHOULD terminate any requests whose response exceeds
 the expected content length.
 
-A server MUST respond with a `Digest` header
-containing a SHA-256 checksum for the source archive.
+A server MAY respond with a `Digest` header
+containing a cryptographic digest of the source archive.
 
 A server SHOULD respond with a `Content-Disposition` header
 set to `attachment` with a `filename` parameter equal to the name of the package
@@ -651,10 +713,15 @@ and caching as described by [RFC 7234].
 
 #### 4.4.1. Integrity verification
 
-A client MUST verify the integrity of a downloaded source archive
-using the checksum provided in the `Digest` header of a response
-(for example, using the command
-`echo "$CHECKSUM LinkedList-1.1.1.zip" | shasum -a 256 -c`).
+A client MUST verify the integrity of a downloaded source archive using
+the `checksum` value for the associated `source-archive` resource
+in the response to `GET /{scope}/{name}/{version}`,
+as described in [4.2.1](#421-package-release-resources).
+
+A client SHOULD also verify the integrity using any values
+provided in the `Digest` header of the source archive response
+(for using the command
+`shasum -b -a 256 LinkedList-1.1.1.zip | cut -f1 | xxd -r -p | base64`).
 
 #### 4.4.2. Download locations
 
@@ -665,31 +732,45 @@ as described by [RFC 6249].
 A client MAY use this information
 to determine its preferred strategy for downloading.
 
-A server that indexes but doesn't host packages
-MAY respond with a status code of `303` (See Other)
-and redirect to a hosted package archive if one is available.
-
-```http
-HTTP/1.1 303 See Other
-Content-Version: 1
-Content-Length: 2048
-Digest: sha-256=a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812
-Location: https://packages.example.com/mona/LinkedList/1.1.1.zip
-```
-
-The client SHOULD consider the `Digest` and `Content-Length` headers
-sent in the response to be authoritative for the redirected resource.
+A server MAY respond with a status code of `303` (See Other)
+to redirect the client to download the source archive from another host.
 The client MUST NOT follow redirects that downgrade to an insecure connection.
 The client SHOULD limit the number of redirects to prevent a redirect loop.
 
+For example,
+a server redirects the client to download from
+a content delivery network (CDN) using a signed URL:
+
+```http
+HTTP/1.1 303 See Other
+Location: https://example.cdn.com/LinkedList-1.1.1.zip?key=XXXXXXXXXXXXXXXXX
+```
+
+```http
+GET /LinkedList-1.1.1.zip?key=XXXXXXXXXXXXXXXXX HTTP/1.1
+Host: example.cdn.com
+Accept: application/vnd.swift.registry.v1+zip
+```
+
+```http
+HTTP/1.1 200 OK
+Accept-Ranges: bytes
+Cache-Control: public, immutable
+Content-Type: application/zip
+Content-Disposition: attachment; filename="LinkedList-1.1.1.zip"
+Content-Length: 2048
+Content-Version: 1
+Digest: sha-256=a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812
+```
+
 <a name="endpoint-5"></a>
 
-### 4.5 Lookup package identifiers registered for a URL
+### 4.5. Lookup package identifiers registered for a URL
 
 A client MAY send a `GET` request
 for a URI matching the expression `/identifiers{?url}`
 to retrieve package identifiers associated with a particular URL.
-A client SHOULD set the `Accept` header to
+A client SHOULD set the `Accept` header with the value
 `application/vnd.swift.registry.v1+json`.
 
 ```http
@@ -844,7 +925,7 @@ A server MAY respond either synchronously or asynchronously.
 For more information,
 see [4.6.4](#464-synchronous-and-asynchronous-publication).
 
-#### 4.6.1 Source archive
+#### 4.6.1. Source archive
 
 A client MUST include a multipart section named `source-archive`
 containing the source archive for a release.
@@ -950,7 +1031,7 @@ Content-Language: en
 }
 ```
 
-#### 4.6.3 Synchronous and asynchronous publication
+#### 4.6.3. Synchronous and asynchronous publication
 
 A server MAY respond to a request to publish a new package release
 either synchronously or asynchronously.
@@ -967,7 +1048,7 @@ Accept: application/vnd.swift.registry.v1
 Prefer: respond-async, wait=300
 ```
 
-##### 4.6.3.1 Synchronous publication
+##### 4.6.3.1. Synchronous publication
 
 If processing is done synchronously,
 the server MUST respond with a status code of `201` (Created)
@@ -983,7 +1064,7 @@ Location: https://packages.example.com/github.com/mona/LinkedList/1.1.1
 
 A client MAY set a timeout to guarantee a timely response to each request.
 
-##### 4.6.3.2 Asynchronous publication
+##### 4.6.3.2. Asynchronous publication
 
 If processing is done asynchronously,
 the server MUST respond with a status code of `202` (Accepted)
@@ -1110,16 +1191,13 @@ by responding with a status code of `409` (Conflict).
 * [RFC 7807]: Problem Details for HTTP APIs
 * [RFC 8288]: Web Linking
 * [SemVer]: Semantic Versioning
-* [UAX15]: Unicode Technical Report #15: Unicode Normalization Forms
-* [UAX18]: Unicode Technical Report #18: Unicode Regular Expressions
-* [UAX31]: Unicode Technical Report #31: Unicode Identifier and Pattern Syntax
 
 ## 6. Informative References
 
 * [BCP 13] Media Type Specifications and Registration Procedures
 * [RFC 6749]: The OAuth 2.0 Authorization Framework
 * [RFC 8446]: The Transport Layer Security (TLS) Protocol Version 1.3
-* [UAX36]: Unicode Technical Report #36: Unicode Security Considerations
+* [RFC 8631]: Link Relation Types for Web Services
 * [JSON-LD]: A JSON-based Serialization for Linked Data
 * [Schema.org]: A shared vocabulary for structured data.
 * [OAS]: OpenAPI Specification
@@ -1478,7 +1556,7 @@ components:
       schema:
         type: string
         example: LinkedList
-        pattern: \A\p{XID_Start}\p{XID_Continue}*\z
+        pattern: \A[a-zA-Z0-9](?:[a-zA-Z0-9]|[-_](?=[a-zA-Z0-9])){0,99}\z
     version:
       name: version
       in: path
@@ -1594,10 +1672,7 @@ components:
 [RFC 7807]: https://tools.ietf.org/html/rfc7807 "Problem Details for HTTP APIs"
 [RFC 8288]: https://tools.ietf.org/html/rfc8288 "Web Linking"
 [RFC 8446]: https://tools.ietf.org/html/rfc8446 "The Transport Layer Security (TLS) Protocol Version 1.3"
-[UAX15]: http://www.unicode.org/reports/tr15/ "Unicode Technical Report #15: Unicode Normalization Forms"
-[UAX18]: http://www.unicode.org/reports/tr18/ "Unicode Technical Report #18: Unicode Regular Expressions"
-[UAX31]: http://www.unicode.org/reports/tr31/ "Unicode Technical Report #31: Unicode Identifier and Pattern Syntax"
-[UAX36]: http://www.unicode.org/reports/tr36/ "Unicode Technical Report #36: Unicode Security Considerations"
+[RFC 8631]: https://tools.ietf.org/html/rfc8631 "Link Relation Types for Web Services"
 [IANA Link Relations]: https://www.iana.org/assignments/link-relations/link-relations.xhtml
 [JSON-LD]: https://w3c.github.io/json-ld-syntax/ "JSON-LD 1.1: A JSON-based Serialization for Linked Data"
 [SemVer]: https://semver.org/ "Semantic Versioning"
@@ -1615,3 +1690,4 @@ components:
 [offline cache]: https://yarnpkg.com/features/offline-cache "Offline Cache | Yarn - Package Manager"
 [XCFramework]: https://developer.apple.com/videos/play/wwdc2019/416/ "WWDC 2019 Session 416: Binary Frameworks in Swift"
 [SE-0272]: https://github.com/apple/swift-evolution/blob/master/proposals/0272-swiftpm-binary-dependencies.md "Package Manager Binary Dependencies"
+[Swift tools version]: https://github.com/apple/swift-package-manager/blob/9b9bed7eaf0f38eeccd0d8ca06ae08f6689d1c3f/Documentation/Usage.md#swift-tools-version-specification "Swift Tools Version Specification"

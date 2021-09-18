@@ -17,11 +17,11 @@ import SourceControl
 extension PackageCollectionsModel {
     /// Package metadata
     public struct Package: Codable, Equatable {
-        /// Package reference
-        public let reference: PackageReference
+        /// Package identity
+        public let identity: PackageIdentity
 
-        /// Package's repository address
-        public let repository: RepositorySpecifier
+        /// Package location
+        public let location: String
 
         /// Package description
         public let summary: String?
@@ -83,9 +83,20 @@ extension PackageCollectionsModel {
         /// The package's programming languages
         public let languages: Set<String>?
 
+        @available(*, deprecated, message: "use identity and location instead")
+        public var reference: PackageReference {
+            return .init(identity: self.identity, kind: .remote, location: self.location, name: nil)
+        }
+
+        @available(*, deprecated, message: "use identity and location instead")
+        public var repository: RepositorySpecifier {
+            return .init(url: self.location)
+        }
+
         /// Initializes a `Package`
         init(
-            repository: RepositorySpecifier,
+            identity: PackageIdentity,
+            location: String,
             summary: String?,
             keywords: [String]?,
             versions: [Version],
@@ -95,8 +106,8 @@ extension PackageCollectionsModel {
             authors: [Author]?,
             languages: Set<String>?
         ) {
-            self.reference = .init(repository: repository)
-            self.repository = repository
+            self.identity = identity
+            self.location = location
             self.summary = summary
             self.keywords = keywords
             self.versions = versions
@@ -271,6 +282,6 @@ extension PackageCollectionsModel.Package.Version {
 
 extension Model.Package {
     var displayName: String {
-        self.latestVersion?.packageName ?? self.reference.identity.description
+        self.latestVersion?.packageName ?? self.identity.description
     }
 }

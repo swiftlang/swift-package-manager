@@ -468,7 +468,12 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         if let compilerOutput = result.compilerOutput {
             // FIXME: Temporary workaround to filter out debug output from integrated Swift driver. [rdar://73710910]
             if !(compilerOutput.hasPrefix("<unknown>:0: remark: new Swift driver at") && compilerOutput.hasSuffix("will be used")) {
-                diagnostics?.emit(.warning(ManifestLoadingDiagnostic(output: compilerOutput, diagnosticFile: result.diagnosticFile)))
+                let metadata = result.diagnosticFile.map { diagnosticFile -> ObservabilityMetadata in
+                    var metadata = ObservabilityMetadata()
+                    metadata.manifestLoadingDiagnosticFile = diagnosticFile
+                    return metadata
+                }
+                ObservabilitySystem.topScope.emit(warning: compilerOutput, metadata: metadata)
             }
         }
 
@@ -494,7 +499,13 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             // FIXME: expose as user-facing configuration
             configuration.maxSizeInMegabytes = 100
             configuration.truncateWhenFull = true
-            return SQLiteBackedCache<EvaluationResult>(tableName: "MANIFEST_CACHE", location: .path(path), configuration: configuration, diagnosticsEngine: diagnostics)
+            return SQLiteBackedCache<EvaluationResult>(
+                tableName: "MANIFEST_CACHE",
+                location: .path(path),
+                configuration: configuration,
+                // FIXME: user ManifestLoader scope once migrated to new observability APIs
+                observabilityScope: ObservabilitySystem.topScope
+            )
         }
 
         // TODO: we could wrap the failure here with diagnostics if it wasn't optional throughout
@@ -522,7 +533,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                     diagnostics: diagnostics)
             }
         } catch {
-            diagnostics?.emit(.warning("failed loading cached manifest for '\(key.packageIdentity)': \(error)"))
+            diagnostics?.emit(warning: "failed loading cached manifest for '\(key.packageIdentity)': \(error)")
         }
 
         // shells out and compiles the manifest, finally output a JSON
@@ -544,7 +555,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         do {
             try cache?.put(key: key.sha256Checksum, value: result)
         } catch {
-            diagnostics?.emit(.warning("failed storing manifest for '\(key.packageIdentity)' in cache: \(error)"))
+            diagnostics?.emit(warning: "failed storing manifest for '\(key.packageIdentity)' in cache: \(error)")
         }
 
         return parseManifest

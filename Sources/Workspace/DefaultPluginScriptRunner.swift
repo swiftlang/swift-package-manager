@@ -112,7 +112,10 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
         if let moduleCachePath = moduleCachePath {
             command += ["-module-cache-path", moduleCachePath]
         }
-
+        
+        // Parse the plugin as a library so that `@main` is supported even though there might be only a single source file.
+        command += ["-parse-as-library"]
+        
         command += sources.paths.map { $0.pathString }
         let compiledExec = cacheDir.appending(component: "compiled-plugin")
         command += ["-o", compiledExec.pathString]

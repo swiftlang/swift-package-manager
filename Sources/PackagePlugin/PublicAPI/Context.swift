@@ -83,23 +83,30 @@ public final class TargetBuildContext: Decodable {
     /// The executable must be provided by an executable target or a binary
     /// target on which the package plugin target depends. This function throws
     /// an error if the tool cannot be found. The lookup is case sensitive.
-    public func tool(named name: String, line: UInt = #line) throws -> Tool {
+    public func tool(named name: String, line: UInt = #line) throws -> ToolInfo {
         if let tool = self.tools[name] { return tool }
         throw TargetBuildContextError.toolNotFound(name: name, line: line)
     }
 
     /// A mapping from tool names to their definitions. Not directly available
     /// to the plugin but used by the `tool(named:)` API.
-    private let tools: [String: Tool]
+    private let tools: [String: ToolInfo]
     
     /// Information about a particular tool that is available to a plugin.
-    public struct Tool: Codable {
+    public struct ToolInfo: Codable {
         
         /// Name of the tool, suitable for display purposes.
         public let name: String
 
         /// Path of the built or provided tool in the file system.
         public let path: Path
+    }
+
+    /// Internal
+    internal let pluginAction: PluginAction
+
+    internal enum PluginAction: Decodable {
+        case createBuildToolCommands
     }
 }
 

@@ -8,6 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import Basics
 import PackageGraph
 import PackageModel
 @testable import SPMBuildCore
@@ -27,8 +28,8 @@ class PluginInvocationTests: XCTestCase {
             "/Foo/Sources/Foo/source.swift",
             "/Foo/Sources/Foo/SomeFile.abc"
         )
-        let diagnostics = DiagnosticsEngine()
-        let graph = try loadPackageGraph(fs: fileSystem, diagnostics: diagnostics,
+        let observability = ObservabilitySystem.bootstrapForTesting()
+        let graph = try loadPackageGraph(fs: fileSystem,
             manifests: [
                 Manifest.createV4Manifest(
                     name: "Foo",
@@ -64,7 +65,7 @@ class PluginInvocationTests: XCTestCase {
         )
         
         // Check the basic integrity before running plugins.
-        XCTAssertNoDiagnostics(diagnostics)
+        XCTAssertNoDiagnostics(observability.diagnostics)
         PackageGraphTester(graph) { graph in
             graph.check(packages: "Foo")
             graph.check(targets: "Foo", "FooPlugin", "FooTool")
@@ -139,10 +140,16 @@ class PluginInvocationTests: XCTestCase {
         let outputDir = AbsolutePath("/Foo/.build")
         let builtToolsDir = AbsolutePath("/Foo/.build/debug")
         let pluginRunner = MockPluginScriptRunner()
-        let results = try graph.invokePlugins(outputDir: outputDir, builtToolsDir: builtToolsDir, pluginScriptRunner: pluginRunner, diagnostics: diagnostics, fileSystem: fileSystem)
+        let results = try graph.invokePlugins(
+            outputDir: outputDir,
+            builtToolsDir: builtToolsDir,
+            pluginScriptRunner: pluginRunner,
+            diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
+            fileSystem: fileSystem
+        )
         
         // Check the canned output to make sure nothing was lost in transport.
-        XCTAssertNoDiagnostics(diagnostics)
+        XCTAssertNoDiagnostics(observability.diagnostics)
         XCTAssertEqual(results.count, 1)
         let (evalTarget, evalResults) = try XCTUnwrap(results.first)
         XCTAssertEqual(evalTarget.name, "Foo")

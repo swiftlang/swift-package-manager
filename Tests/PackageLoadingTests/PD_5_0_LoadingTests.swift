@@ -8,13 +8,13 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import XCTest
-
+import Basics
+import PackageLoading
+import PackageModel
+import SPMTestSupport
 import TSCBasic
 import TSCUtility
-import SPMTestSupport
-import PackageModel
-import PackageLoading
+import XCTest
 
 class PackageDescription5_0LoadingTests: PackageDescriptionLoadingTests {
     override var toolsVersion: ToolsVersion {
@@ -397,21 +397,22 @@ class PackageDescription5_0LoadingTests: PackageDescriptionLoadingTests {
                 """
             }
 
-            let diagnostics = DiagnosticsEngine()
+            let observability = ObservabilitySystem.bootstrapForTesting()
             _ = try loader.load(
                 at: manifestPath.parentDirectory,
                 packageKind: .local,
                 packageLocation: manifestPath.pathString,
                 toolsVersion: .v5,
                 fileSystem: fs,
-                diagnostics: diagnostics
+                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine()
             )
 
-            guard let diag = diagnostics.diagnostics.first?.message.data as? ManifestLoadingDiagnostic else {
+            guard let diagnostic = observability.diagnostics.first else {
                 return XCTFail("Expected a diagnostic")
             }
-            XCTAssertMatch(diag.output, .contains("warning: initialization of immutable value"))
-            let contents = try localFileSystem.readFileContents(diag.diagnosticFile!)
+            XCTAssertMatch(diagnostic.message, .contains("warning: initialization of immutable value"))
+            XCTAssertEqual(diagnostic.severity, .warning)
+            let contents = try diagnostic.metadata?.manifestLoadingDiagnosticFile.map { try localFileSystem.readFileContents($0) }
             XCTAssertNotNil(contents)
         }
     }
@@ -579,17 +580,17 @@ class PackageDescription5_0LoadingTests: PackageDescriptionLoadingTests {
                 isManifestSandboxEnabled: false,
                 cacheDir: nil)
 
-            let diagnostics = DiagnosticsEngine()
+            let observability = ObservabilitySystem.bootstrapForTesting()
             let manifest = try manifestLoader.load(
                 at: manifestPath.parentDirectory,
                 packageKind: .local,
                 packageLocation: manifestPath.pathString,
                 toolsVersion: .v5,
                 fileSystem: fs,
-                diagnostics: diagnostics
+                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine()
             )
 
-            XCTAssertNoDiagnostics(diagnostics)
+            XCTAssertNoDiagnostics(observability.diagnostics)
             XCTAssertEqual(manifest.name, "Trivial")
 
             let moduleTraceJSON = try XCTUnwrap(try localFileSystem.readFileContents(moduleTraceFilePath).validDescription)

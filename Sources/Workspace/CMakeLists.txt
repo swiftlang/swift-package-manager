@@ -10,7 +10,6 @@ add_library(Workspace
   DefaultPluginScriptRunner.swift
   Destination.swift
   Diagnostics.swift
-  Export.swift
   InitPackage.swift
   ManagedArtifact.swift
   ManagedDependency.swift

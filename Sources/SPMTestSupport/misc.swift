@@ -10,14 +10,14 @@
 
 import class Foundation.NSDate
 import class Foundation.Thread
-import func XCTest.XCTFail
-
 import PackageGraph
+import PackageLoading
 import PackageModel
 import SourceControl
 import TSCBasic
 import TSCUtility
 import Workspace
+import func XCTest.XCTFail
 
 @_exported import TSCTestSupport
 
@@ -221,7 +221,6 @@ private func swiftArgs(
 public func loadPackageGraph(
     identityResolver: IdentityResolver = DefaultIdentityResolver(),
     fs: FileSystem,
-    diagnostics: DiagnosticsEngine = DiagnosticsEngine(),
     manifests: [Manifest],
     binaryArtifacts: [BinaryArtifact] = [],
     explicitProduct: String? = nil,
@@ -241,9 +240,8 @@ public func loadPackageGraph(
         additionalFileRules: useXCBuildFileRules ? FileRuleDescription.xcbuildFileTypes : FileRuleDescription.swiftpmFileTypes,
         externalManifests: externalManifests,
         binaryArtifacts: binaryArtifacts,
-        diagnostics: diagnostics,
-        fileSystem: fs,
         shouldCreateMultipleTestProducts: shouldCreateMultipleTestProducts,
-        createREPLProduct: createREPLProduct
+        createREPLProduct: createREPLProduct,
+        fileSystem: fs
     )
 }

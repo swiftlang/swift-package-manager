@@ -168,7 +168,7 @@ class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
                 """
 
             XCTAssertManifestLoadThrows(manifest) { _, diagnostics in
-                diagnostics.check(diagnostic: "invalid type for binary product 'FooLibrary'; products referencing only binary targets must have a type of 'library'", behavior: .error)
+                diagnostics.check(diagnostic: "invalid type for binary product 'FooLibrary'; products referencing only binary targets must have a type of 'library'", severity: .error)
             }
         }
 
@@ -187,7 +187,7 @@ class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
                 """
 
             XCTAssertManifestLoadThrows(manifest) { _, diagnostics in
-                diagnostics.check(diagnostic: "invalid type for binary product 'FooLibrary'; products referencing only binary targets must have a type of 'library'", behavior: .error)
+                diagnostics.check(diagnostic: "invalid type for binary product 'FooLibrary'; products referencing only binary targets must have a type of 'library'", severity: .error)
             }
         }
 
@@ -224,7 +224,7 @@ class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
                 """
 
             XCTAssertManifestLoadThrows(manifest) { _, diagnostics in
-                diagnostics.check(diagnostic: "invalid location for binary target 'Foo'", behavior: .error)
+                diagnostics.check(diagnostic: "invalid location for binary target 'Foo'", severity: .error)
             }
         }
 
@@ -243,7 +243,7 @@ class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
                 """
 
             XCTAssertManifestLoadThrows(manifest) { _, diagnostics in
-                diagnostics.check(diagnostic: "invalid URL scheme for binary target 'Foo'; valid schemes are: 'https'", behavior: .error)
+                diagnostics.check(diagnostic: "invalid URL scheme for binary target 'Foo'; valid schemes are: 'https'", severity: .error)
             }
         }
 
@@ -262,7 +262,7 @@ class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
                 """
 
             XCTAssertManifestLoadThrows(manifest) { _, diagnostics in
-                diagnostics.check(diagnostic: "unsupported extension for binary target 'Foo'; valid extensions are: 'zip', 'xcframework', 'artifactbundle'", behavior: .error)
+                diagnostics.check(diagnostic: "unsupported extension for binary target 'Foo'; valid extensions are: 'zip', 'xcframework', 'artifactbundle'", severity: .error)
             }
         }
 
@@ -284,7 +284,7 @@ class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
                 """
 
             XCTAssertManifestLoadThrows(manifest) { _, diagnostics in
-                diagnostics.check(diagnostic: "unsupported extension for binary target 'Foo'; valid extensions are: 'zip'", behavior: .error)
+                diagnostics.check(diagnostic: "unsupported extension for binary target 'Foo'; valid extensions are: 'zip'", severity: .error)
             }
         }
 
@@ -303,7 +303,7 @@ class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
                 """
 
             XCTAssertManifestLoadThrows(manifest) { _, diagnostics in
-                diagnostics.check(diagnostic: "unsupported extension for binary target 'Foo'; valid extensions are: 'zip', 'xcframework', 'artifactbundle'", behavior: .error)
+                diagnostics.check(diagnostic: "unsupported extension for binary target 'Foo'; valid extensions are: 'zip', 'xcframework', 'artifactbundle'", severity: .error)
             }
         }
 
@@ -325,7 +325,7 @@ class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
                 """
 
             XCTAssertManifestLoadThrows(manifest) { _, diagnostics in
-                diagnostics.check(diagnostic: "unsupported extension for binary target 'Foo'; valid extensions are: 'zip'", behavior: .error)
+                diagnostics.check(diagnostic: "unsupported extension for binary target 'Foo'; valid extensions are: 'zip'", severity: .error)
             }
         }
     }

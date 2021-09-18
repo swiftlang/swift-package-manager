@@ -13,7 +13,7 @@ import SourceControl
 
 struct MultipleErrors: Error, CustomStringConvertible {
     let errors: [Error]
-
+    
     init(_ errors: [Error]) {
         self.errors = errors
     }
@@ -48,18 +48,5 @@ internal extension Result {
         case .success(let value):
             return value
         }
-    }
-}
-
-// Model Extension
-
-extension PackageReference {
-    /// Initializes a `PackageReference` from `RepositorySpecifier`
-    init(repository: RepositorySpecifier, kind: PackageReference.Kind = .remote) {
-        self.init(
-            identity: PackageIdentity(url: repository.url),
-            kind: kind,
-            location: repository.url
-        )
     }
 }

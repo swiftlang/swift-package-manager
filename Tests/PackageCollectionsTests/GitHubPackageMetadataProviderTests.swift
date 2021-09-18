@@ -47,33 +47,28 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
 
         // Not remote
         do {
-            let reference = PackageReference(repository: RepositorySpecifier(url: "file:///local/Hello-World.git"), kind: .local)
-            let authTokenType = metadataProvider.getAuthTokenType(for: reference)
+            let authTokenType = metadataProvider.getAuthTokenType(for: "file:///local/Hello-World.git")
             XCTAssertNil(authTokenType)
         }
 
         // Invalid URL
         do {
-            let reference = PackageReference(repository: RepositorySpecifier(url: "bad/Hello-World.git"))
-            let authTokenType = metadataProvider.getAuthTokenType(for: reference)
+            let authTokenType = metadataProvider.getAuthTokenType(for: "bad/Hello-World.git")
             XCTAssertNil(authTokenType)
         }
 
         do {
-            let reference = PackageReference(repository: RepositorySpecifier(url: "git@github.com:octocat/Hello-World.git"))
-            let authTokenType = metadataProvider.getAuthTokenType(for: reference)
+            let authTokenType = metadataProvider.getAuthTokenType(for: "git@github.com:octocat/Hello-World.git")
             XCTAssertEqual(expectedAuthTokenType, authTokenType)
         }
 
         do {
-            let reference = PackageReference(repository: RepositorySpecifier(url: "https://github.com/octocat/Hello-World.git"))
-            let authTokenType = metadataProvider.getAuthTokenType(for: reference)
+            let authTokenType = metadataProvider.getAuthTokenType(for: "https://github.com/octocat/Hello-World.git")
             XCTAssertEqual(expectedAuthTokenType, authTokenType)
         }
 
         do {
-            let reference = PackageReference(repository: RepositorySpecifier(url: "https://github.com/octocat/Hello-World"))
-            let authTokenType = metadataProvider.getAuthTokenType(for: reference)
+            let authTokenType = metadataProvider.getAuthTokenType(for: "https://github.com/octocat/Hello-World")
             XCTAssertEqual(expectedAuthTokenType, authTokenType)
         }
     }
@@ -136,8 +131,7 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
                 let provider = GitHubPackageMetadataProvider(configuration: configuration, httpClient: httpClient)
                 defer { XCTAssertNoThrow(try provider.close()) }
 
-                let reference = PackageReference(repository: RepositorySpecifier(url: repoURL))
-                let metadata = try tsc_await { callback in provider.get(reference, callback: callback) }
+                let metadata = try tsc_await { callback in provider.get(identity: .init(url: repoURL), location: repoURL, callback: callback) }
 
                 XCTAssertEqual(metadata.summary, "This your first repo!")
                 XCTAssertEqual(metadata.versions.count, 2)
@@ -175,8 +169,7 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
             let provider = GitHubPackageMetadataProvider(configuration: configuration, httpClient: httpClient)
             defer { XCTAssertNoThrow(try provider.close()) }
 
-            let reference = PackageReference(repository: RepositorySpecifier(url: repoURL))
-            XCTAssertThrowsError(try tsc_await { callback in provider.get(reference, callback: callback) }, "should throw error") { error in
+            XCTAssertThrowsError(try tsc_await { callback in provider.get(identity: .init(url: repoURL), location: repoURL, callback: callback) }, "should throw error") { error in
                 XCTAssert(error is NotFoundError, "\(error)")
             }
         }
@@ -209,8 +202,7 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
                 let provider = GitHubPackageMetadataProvider(configuration: configuration, httpClient: httpClient)
                 defer { XCTAssertNoThrow(try provider.close()) }
 
-                let reference = PackageReference(repository: RepositorySpecifier(url: repoURL))
-                let metadata = try tsc_await { callback in provider.get(reference, callback: callback) }
+                let metadata = try tsc_await { callback in provider.get(identity: .init(url: repoURL), location: repoURL, callback: callback) }
 
                 XCTAssertEqual(metadata.summary, "This your first repo!")
                 XCTAssertEqual(metadata.versions, [])
@@ -238,8 +230,7 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
             let provider = GitHubPackageMetadataProvider(configuration: configuration, httpClient: httpClient)
             defer { XCTAssertNoThrow(try provider.close()) }
 
-            let reference = PackageReference(repository: RepositorySpecifier(url: repoURL))
-            XCTAssertThrowsError(try tsc_await { callback in provider.get(reference, callback: callback) }, "should throw error") { error in
+            XCTAssertThrowsError(try tsc_await { callback in provider.get(identity: .init(url: repoURL), location: repoURL, callback: callback) }, "should throw error") { error in
                 XCTAssertEqual(error as? GitHubPackageMetadataProvider.Errors, .permissionDenied(apiURL))
             }
         }
@@ -269,8 +260,7 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
             let provider = GitHubPackageMetadataProvider(configuration: configuration, httpClient: httpClient)
             defer { XCTAssertNoThrow(try provider.close()) }
 
-            let reference = PackageReference(repository: RepositorySpecifier(url: repoURL))
-            XCTAssertThrowsError(try tsc_await { callback in provider.get(reference, callback: callback) }, "should throw error") { error in
+            XCTAssertThrowsError(try tsc_await { callback in provider.get(identity: .init(url: repoURL), location: repoURL, callback: callback) }, "should throw error") { error in
                 XCTAssertEqual(error as? GitHubPackageMetadataProvider.Errors, .invalidAuthToken(apiURL))
             }
         }
@@ -314,14 +304,13 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
                 let provider = GitHubPackageMetadataProvider(configuration: configuration, httpClient: httpClient)
                 defer { XCTAssertNoThrow(try provider.close()) }
 
-                let reference = PackageReference(repository: RepositorySpecifier(url: repoURL))
                 for index in 0 ... total * 2 {
                     if index >= total {
-                        XCTAssertThrowsError(try tsc_await { callback in provider.get(reference, callback: callback) }, "should throw error") { error in
+                        XCTAssertThrowsError(try tsc_await { callback in provider.get(identity: .init(url: repoURL), location: repoURL, callback: callback) }, "should throw error") { error in
                             XCTAssertEqual(error as? GitHubPackageMetadataProvider.Errors, .apiLimitsExceeded(apiURL, total))
                         }
                     } else {
-                        XCTAssertNoThrow(try tsc_await { callback in provider.get(reference, callback: callback) })
+                        XCTAssertNoThrow(try tsc_await { callback in provider.get(identity: .init(url: repoURL), location: repoURL, callback: callback) })
                     }
                 }
             }
@@ -336,15 +325,15 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
                 let provider = GitHubPackageMetadataProvider(configuration: configuration)
                 defer { XCTAssertNoThrow(try provider.close()) }
 
-                let reference = PackageReference(repository: RepositorySpecifier(url: UUID().uuidString))
-                XCTAssertThrowsError(try tsc_await { callback in provider.get(reference, callback: callback) }, "should throw error") { error in
-                    XCTAssertEqual(error as? GitHubPackageMetadataProvider.Errors, .invalidGitURL(reference.location))
+                let repoURL = UUID().uuidString
+                XCTAssertThrowsError(try tsc_await { callback in provider.get(identity: .init(url: repoURL), location: repoURL, callback: callback) }, "should throw error") { error in
+                    XCTAssertEqual(error as? GitHubPackageMetadataProvider.Errors, .invalidGitURL(repoURL))
                 }
             }
         }
     }
 
-    func testInvalidRef() throws {
+    func testInvalidURL2() throws {
         try testWithTemporaryDirectory { tmpPath in
             fixture(name: "Collections") { _ in
                 var configuration = GitHubPackageMetadataProvider.Configuration()
@@ -352,9 +341,9 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
                 let provider = GitHubPackageMetadataProvider(configuration: configuration)
                 defer { XCTAssertNoThrow(try provider.close()) }
 
-                let reference = PackageReference.local(identity: .init(path: AbsolutePath("/")), path: .root)
-                XCTAssertThrowsError(try tsc_await { callback in provider.get(reference, callback: callback) }, "should throw error") { error in
-                    XCTAssertEqual(error as? GitHubPackageMetadataProvider.Errors, .invalidReferenceType(reference))
+                let repoURL = AbsolutePath.root
+                XCTAssertThrowsError(try tsc_await { callback in provider.get(identity: .init(path: repoURL), location: repoURL.pathString, callback: callback) }, "should throw error") { error in
+                    XCTAssertEqual(error as? GitHubPackageMetadataProvider.Errors, .invalidGitURL(repoURL.pathString))
                 }
             }
         }
@@ -382,9 +371,8 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
         let provider = GitHubPackageMetadataProvider(configuration: configuration, httpClient: httpClient)
         defer { XCTAssertNoThrow(try provider.close()) }
 
-        let reference = PackageReference(repository: RepositorySpecifier(url: repoURL))
         for _ in 0 ... 60 {
-            let metadata = try tsc_await { callback in provider.get(reference, callback: callback) }
+            let metadata = try tsc_await { callback in provider.get(identity: .init(url: repoURL), location: repoURL, callback: callback) }
             XCTAssertNotNil(metadata)
             XCTAssert(metadata.versions.count > 0)
             XCTAssert(metadata.keywords!.count > 0)

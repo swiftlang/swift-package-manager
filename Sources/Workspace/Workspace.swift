@@ -17,6 +17,8 @@ import PackageModel
 import PackageGraph
 import SourceControl
 
+public typealias Diagnostic = TSCBasic.Diagnostic
+
 /// Enumeration of the different reasons for which the resolver needs to be run.
 public enum WorkspaceResolveReason: Equatable {
     /// Resolution was forced.
@@ -297,7 +299,8 @@ public class Workspace {
             delegate: delegate.map(WorkspaceRepositoryManagerDelegate.init(workspaceDelegate:)),
             cachePath: sharedRepositoriesCacheEnabled ? location.sharedRepositoriesCacheDirectory : .none
         )
-        let httpClient = customHTTPClient ?? HTTPClient()
+        // FIXME: use workspace scope when migrating workspace to new observability API
+        let httpClient = customHTTPClient ?? HTTPClient(observabilityScope: ObservabilitySystem.topScope)
         let archiver = customArchiver ?? ZipArchiver()
         let mirrors = mirrors ?? DependencyMirrors()
         let identityResolver = customIdentityResolver ?? DefaultIdentityResolver(locationMapper: mirrors.effectiveURL(for:))
@@ -855,10 +858,9 @@ extension Workspace {
             unsafeAllowedPackages: manifests.unsafeAllowedPackages(),
             binaryArtifacts: binaryArtifacts,
             xcTestMinimumDeploymentTargets: xcTestMinimumDeploymentTargets ?? MinimumDeploymentTarget.default.xcTestMinimumDeploymentTargets,
-            diagnostics: diagnostics,
-            fileSystem: fileSystem,
             shouldCreateMultipleTestProducts: createMultipleTestProducts,
-            createREPLProduct: createREPLProduct
+            createREPLProduct: createREPLProduct,
+            fileSystem: fileSystem
         )
     }
 
@@ -964,7 +966,8 @@ extension Workspace {
                     productFilter: .everything,
                     path: path,
                     xcTestMinimumDeploymentTargets: MinimumDeploymentTarget.default.xcTestMinimumDeploymentTargets,
-                    diagnostics: diagnostics)
+                    fileSystem: self.fileSystem
+                )
                 return try builder.construct()
             }
             completion(result)
@@ -1045,7 +1048,7 @@ extension Workspace {
                 self.loadManifest(packageIdentity: dependency.packageRef.identity,
                                   packageKind: .local,
                                   packagePath: destination,
-                                  packageLocation: dependency.packageRef.repository.url,
+                                  packageLocation: dependency.packageRef.location,
                                   diagnostics: diagnostics,
                                   completion: $0)
             }
@@ -1071,7 +1074,7 @@ extension Workspace {
             // Get handle to the repository.
             // TODO: replace with async/await when available
             let handle = try temp_await {
-                repositoryManager.lookup(repository: dependency.packageRef.repository, skipUpdate: true, on: .sharedConcurrent, completion: $0)
+                repositoryManager.lookup(repository: .init(url: dependency.packageRef.location), skipUpdate: true, on: .sharedConcurrent, completion: $0)
             }
             let repo = try handle.open()
 
@@ -1639,11 +1642,11 @@ extension Workspace {
                 let toolsVersion = try toolsVersionLoader.load(at: packagePath, fileSystem: fileSystem)
 
                 // Validate the tools version.
-                try toolsVersion.validateToolsVersion(currentToolsVersion, packagePath: packagePath.pathString)
+                try toolsVersion.validateToolsVersion(currentToolsVersion, packageIdentity: packageIdentity)
 
                 // Load the manifest.
                 // The delegate callback is only passed any diagnostics emitted during the parsing of the manifest, but they are also forwarded up to the caller.
-                let manifestLoadingDiagnostics = DiagnosticsEngine(handlers: [{diagnostics.emit($0)}])
+                let manifestLoadingDiagnostics = DiagnosticsEngine(handlers: [{ diagnostics.emit($0) }], defaultLocation: diagnostics.defaultLocation)
                 manifestLoader.load(at: packagePath,
                                     packageIdentity: packageIdentity,
                                     packageKind: packageKind,
@@ -1862,7 +1865,7 @@ extension Workspace {
 
     private func download(_ artifacts: [RemoteArtifact], diagnostics: DiagnosticsEngine) throws -> [ManagedArtifact] {
         let group = DispatchGroup()
-        let tempDiagnostics = DiagnosticsEngine()
+        let tempDiagnostics = DiagnosticsEngine() // FIXME: transition to DiagnosticsEmmiter
         let result = ThreadSafeArrayStore<ManagedArtifact>()
 
         // zip files to download
@@ -1910,7 +1913,7 @@ extension Workspace {
                             )
                         }
                     } catch {
-                        tempDiagnostics.emit(.error("failed retrieving '\(indexFile.url)': \(error)"))
+                        tempDiagnostics.emit(error: "failed retrieving '\(indexFile.url)': \(error)")
                     }
                 }
             }
@@ -2520,7 +2523,7 @@ extension Workspace {
     ) throws -> [(PackageReference, PackageStateChange)] {
         // Load pins store and managed dependendencies.
         let pinsStore = try self.pinsStore.load()
-        var packageStateChanges: [String: (PackageReference, PackageStateChange)] = [:]
+        var packageStateChanges: [PackageIdentity: (PackageReference, PackageStateChange)] = [:]
 
         // Set the states from resolved dependencies results.
         for (packageRef, binding, products) in resolvedDependencies {
@@ -2543,7 +2546,7 @@ extension Workspace {
                 }) {
                     currentDependency = editedDependency
                     let originalReference = editedDependency.basedOn!.packageRef // forced unwrap safe
-                    packageStateChanges[originalReference.location] = (originalReference, .unchanged)
+                    packageStateChanges[originalReference.identity] = (originalReference, .unchanged)
                 } else {
                     currentDependency = nil
                 }
@@ -2562,14 +2565,14 @@ extension Workspace {
                 if let currentDependency = currentDependency {
                     switch currentDependency.state {
                     case .local, .edited:
-                        packageStateChanges[packageRef.location] = (packageRef, .unchanged)
+                        packageStateChanges[packageRef.identity] = (packageRef, .unchanged)
                     case .checkout:
                         let newState = PackageStateChange.State(requirement: .unversioned, products: products)
-                        packageStateChanges[packageRef.location] = (packageRef, .updated(newState))
+                        packageStateChanges[packageRef.identity] = (packageRef, .updated(newState))
                     }
                 } else {
                     let newState = PackageStateChange.State(requirement: .unversioned, products: products)
-                    packageStateChanges[packageRef.location] = (packageRef, .added(newState))
+                    packageStateChanges[packageRef.identity] = (packageRef, .added(newState))
                 }
 
             case .revision(let identifier, let branch):
@@ -2602,34 +2605,34 @@ extension Workspace {
                         newState = .revision(revision)
                     }
                     if case .checkout(let checkoutState) = currentDependency.state, checkoutState == newState {
-                        packageStateChanges[packageRef.location] = (packageRef, .unchanged)
+                        packageStateChanges[packageRef.identity] = (packageRef, .unchanged)
                     } else {
                         // Otherwise, we need to update this dependency to this revision.
                         let newState = PackageStateChange.State(requirement: .revision(revision, branch: branch), products: products)
-                        packageStateChanges[packageRef.location] = (packageRef, .updated(newState))
+                        packageStateChanges[packageRef.identity] = (packageRef, .updated(newState))
                     }
                 } else {
                     let newState = PackageStateChange.State(requirement: .revision(revision, branch: branch), products: products)
-                    packageStateChanges[packageRef.location] = (packageRef, .added(newState))
+                    packageStateChanges[packageRef.identity] = (packageRef, .added(newState))
                 }
 
             case .version(let version):
                 if let currentDependency = currentDependency {
                     if case .checkout(let checkoutState) = currentDependency.state, case .version(version, _) = checkoutState {
-                        packageStateChanges[packageRef.location] = (packageRef, .unchanged)
+                        packageStateChanges[packageRef.identity] = (packageRef, .unchanged)
                     } else {
                         let newState = PackageStateChange.State(requirement: .version(version), products: products)
-                        packageStateChanges[packageRef.location] = (packageRef, .updated(newState))
+                        packageStateChanges[packageRef.identity] = (packageRef, .updated(newState))
                     }
                 } else {
                     let newState = PackageStateChange.State(requirement: .version(version), products: products)
-                    packageStateChanges[packageRef.location] = (packageRef, .added(newState))
+                    packageStateChanges[packageRef.identity] = (packageRef, .added(newState))
                 }
             }
         }
         // Set the state of any old package that might have been removed.
-        for packageRef in state.dependencies.lazy.map({ $0.packageRef }) where packageStateChanges[packageRef.location] == nil {
-            packageStateChanges[packageRef.location] = (packageRef, .removed)
+        for packageRef in state.dependencies.lazy.map({ $0.packageRef }) where packageStateChanges[packageRef.identity] == nil {
+            packageStateChanges[packageRef.identity] = (packageRef, .removed)
         }
 
         return Array(packageStateChanges.values)
@@ -2814,14 +2817,19 @@ extension Workspace {
             }
         }
 
+        guard case .remote = package.kind else {
+            throw InternalError("invalid package kind \(package.kind)")
+        }
+        let repository = RepositorySpecifier(url: package.location)
+
         // If not, we need to get the repository from the checkouts.
         // FIXME: this should not block
         let handle = try temp_await {
-            repositoryManager.lookup(repository: package.repository, skipUpdate: true, on: .sharedConcurrent, completion: $0)
+            repositoryManager.lookup(repository: repository, skipUpdate: true, on: .sharedConcurrent, completion: $0)
         }
 
         // Clone the repository into the checkouts.
-        let path = self.location.repositoriesCheckoutsDirectory.appending(component: package.repository.basename)
+        let path = self.location.repositoriesCheckoutsDirectory.appending(component: repository.basename)
 
         try fileSystem.chmod(.userWritable, path: path, options: [.recursive, .onlyFiles])
         try fileSystem.removeFileTree(path)
@@ -2848,6 +2856,10 @@ extension Workspace {
         package: PackageReference,
         at checkoutState: CheckoutState
     ) throws -> AbsolutePath {
+        guard case .remote = package.kind else {
+            throw InternalError("invalid package kind \(package.kind)")
+        }
+
         // Get the repository.
         let path = try fetch(package: package)
 
@@ -2855,7 +2867,7 @@ extension Workspace {
         let workingCopy = try repositoryManager.openWorkingCopy(at: path)
 
         // Inform the delegate.
-        delegate?.willCheckOut(repository: package.repository.url, revision: checkoutState.description, at: path)
+        delegate?.willCheckOut(repository: package.location, revision: checkoutState.description, at: path)
 
         // Do mutable-immutable dance because checkout operation modifies the disk state.
         try fileSystem.chmod(.userWritable, path: path, options: [.recursive, .onlyFiles])
@@ -2869,7 +2881,7 @@ extension Workspace {
             checkoutState: checkoutState))
         try state.saveState()
 
-        delegate?.didCheckOut(repository: package.repository.url, revision: checkoutState.description, at: path, error: nil)
+        delegate?.didCheckOut(repository: package.location, revision: checkoutState.description, at: path, error: nil)
 
         return path
     }
@@ -2916,7 +2928,6 @@ extension Workspace {
 
     /// Removes the clone and checkout of the provided specifier.
     fileprivate func remove(package: PackageReference) throws {
-
         guard let dependency = state.dependencies[forURL: package.location] else {
             throw InternalError("trying to remove \(package.name) which isn't in workspace")
         }
@@ -2935,7 +2946,7 @@ extension Workspace {
         }
 
         // Inform the delegate.
-        delegate?.removing(repository: dependency.packageRef.repository.url)
+        delegate?.removing(repository: dependency.packageRef.location)
 
         // Compute the dependency which we need to remove.
         let dependencyToRemove: ManagedDependency
@@ -2950,6 +2961,10 @@ extension Workspace {
             state.dependencies.remove(forURL: dependencyToRemove.packageRef.location)
         }
 
+        guard case .remote = dependencyToRemove.packageRef.kind else {
+            throw InternalError("invalid package kind \(dependencyToRemove.packageRef.kind)")
+        }
+
         // Remove the checkout.
         let dependencyPath = self.location.repositoriesCheckoutsDirectory.appending(dependencyToRemove.subpath)
         let workingCopy = try repositoryManager.openWorkingCopy(at: dependencyPath)
@@ -2961,7 +2976,7 @@ extension Workspace {
         try fileSystem.removeFileTree(dependencyPath)
 
         // Remove the clone.
-        try repositoryManager.remove(repository: dependencyToRemove.packageRef.repository)
+        try repositoryManager.remove(repository: .init(url: dependencyToRemove.packageRef.location))
 
         // Save the state.
         try state.saveState()

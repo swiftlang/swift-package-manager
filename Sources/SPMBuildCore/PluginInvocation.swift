@@ -15,6 +15,7 @@ import PackageGraph
 import TSCBasic
 import TSCUtility
 
+public typealias Diagnostic = TSCBasic.Diagnostic
 
 extension PackageGraph {
 
@@ -116,7 +117,8 @@ extension PackageGraph {
                     },
                     pluginWorkDirectory: pluginOutputDir.pathString,
                     builtProductsDirectory: builtToolsDir.pathString,
-                    tools: tools
+                    tools: tools,
+                    pluginAction: .createBuildToolCommands
                 )
                 
                 // Run the plugin in the context of the target. The details of this are left to the plugin runner.
@@ -396,6 +398,10 @@ struct PluginScriptRunnerInput: Codable {
     struct Tool: Codable {
         var name: String
         var path: String
+    }
+    var pluginAction: PluginAction
+    enum PluginAction: Codable {
+        case createBuildToolCommands
     }
 }
 

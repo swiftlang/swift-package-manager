@@ -10,12 +10,15 @@
 
 
 import Basics
+import PackageGraph
 import PackageLoading
 import PackageModel
 import SourceControl
 import TSCBasic
 import Workspace
 import XCTest
+
+public typealias Diagnostic = TSCBasic.Diagnostic
 
 public final class MockWorkspace {
     let sandbox: AbsolutePath
@@ -220,9 +223,10 @@ public final class MockWorkspace {
         path: AbsolutePath? = nil,
         revision: Revision? = nil,
         checkoutBranch: String? = nil,
-        _ result: (DiagnosticsEngine) -> Void
+        _ result: ([Basics.Diagnostic]) -> Void
     ) {
-        let diagnostics = DiagnosticsEngine()
+        let observability = ObservabilitySystem.bootstrapForTesting()
+        let diagnostics = ObservabilitySystem.topScope.makeDiagnosticsEngine()
         diagnostics.wrap {
             let ws = try self.getOrCreateWorkspace()
             ws.edit(
@@ -233,59 +237,64 @@ public final class MockWorkspace {
                 diagnostics: diagnostics
             )
         }
-        result(diagnostics)
+        result(observability.diagnostics)
     }
 
     public func checkUnedit(
         packageName: String,
         roots: [String],
         forceRemove: Bool = false,
-        _ result: (DiagnosticsEngine) -> Void
+        _ result: ([Basics.Diagnostic]) -> Void
     ) {
-        let diagnostics = DiagnosticsEngine()
+        let observability = ObservabilitySystem.bootstrapForTesting()
+        let diagnostics = ObservabilitySystem.topScope.makeDiagnosticsEngine()
         let rootInput = PackageGraphRootInput(packages: rootPaths(for: roots))
         diagnostics.wrap {
             let ws = try self.getOrCreateWorkspace()
             try ws.unedit(packageName: packageName, forceRemove: forceRemove, root: rootInput, diagnostics: diagnostics)
         }
-        result(diagnostics)
+        result(observability.diagnostics)
     }
 
-    public func checkResolve(pkg: String, roots: [String], version: TSCUtility.Version, _ result: (DiagnosticsEngine) -> Void) {
-        let diagnostics = DiagnosticsEngine()
+    public func checkResolve(pkg: String, roots: [String], version: TSCUtility.Version, _ result: ([Basics.Diagnostic]) -> Void) {
+        let observability = ObservabilitySystem.bootstrapForTesting()
+        let diagnostics = ObservabilitySystem.topScope.makeDiagnosticsEngine()
         let rootInput = PackageGraphRootInput(packages: rootPaths(for: roots))
         diagnostics.wrap {
             let workspace = try self.getOrCreateWorkspace()
             try workspace.resolve(packageName: pkg, root: rootInput, version: version, branch: nil, revision: nil, diagnostics: diagnostics)
         }
-        result(diagnostics)
+        result(observability.diagnostics)
     }
 
-    public func checkClean(_ result: (DiagnosticsEngine) -> Void) {
-        let diagnostics = DiagnosticsEngine()
+    public func checkClean(_ result: ([Basics.Diagnostic]) -> Void) {
+        let observability = ObservabilitySystem.bootstrapForTesting()
+        let diagnostics = ObservabilitySystem.topScope.makeDiagnosticsEngine()
         diagnostics.wrap {
             let workspace = try self.getOrCreateWorkspace()
             workspace.clean(with: diagnostics)
         }
-        result(diagnostics)
+        result(observability.diagnostics)
     }
 
-    public func checkReset(_ result: (DiagnosticsEngine) -> Void) {
-        let diagnostics = DiagnosticsEngine()
+    public func checkReset(_ result: ([Basics.Diagnostic]) -> Void) {
+        let observability = ObservabilitySystem.bootstrapForTesting()
+        let diagnostics = ObservabilitySystem.topScope.makeDiagnosticsEngine()
         diagnostics.wrap {
             let workspace = try self.getOrCreateWorkspace()
             workspace.reset(with: diagnostics)
         }
-        result(diagnostics)
+        result(observability.diagnostics)
     }
 
     public func checkUpdate(
         roots: [String] = [],
         deps: [MockDependency] = [],
         packages: [String] = [],
-        _ result: (DiagnosticsEngine) -> Void
+        _ result: ([Basics.Diagnostic]) -> Void
     ) {
-        let diagnostics = DiagnosticsEngine()
+        let observability = ObservabilitySystem.bootstrapForTesting()
+        let diagnostics = ObservabilitySystem.topScope.makeDiagnosticsEngine()
         diagnostics.wrap {
             let dependencies = deps.map { $0.convert(baseURL: packagesDir, identityResolver: self.identityResolver) }
             let rootInput = PackageGraphRootInput(
@@ -294,30 +303,32 @@ public final class MockWorkspace {
             let workspace = try self.getOrCreateWorkspace()
             try workspace.updateDependencies(root: rootInput, packages: packages, diagnostics: diagnostics)
         }
-        result(diagnostics)
+        result(observability.diagnostics)
     }
 
     public func checkUpdateDryRun(
         roots: [String] = [],
         deps: [MockDependency] = [],
-        _ result: ([(PackageReference, Workspace.PackageStateChange)]?, DiagnosticsEngine) -> Void
+        _ result: ([(PackageReference, Workspace.PackageStateChange)]?, [Basics.Diagnostic]) -> Void
     ) {
         let dependencies = deps.map { $0.convert(baseURL: packagesDir, identityResolver: self.identityResolver) }
         let rootInput = PackageGraphRootInput(
             packages: rootPaths(for: roots), dependencies: dependencies
         )
-        let diagnostics = DiagnosticsEngine()
+
+        let observability = ObservabilitySystem.bootstrapForTesting()
+        let diagnostics = ObservabilitySystem.topScope.makeDiagnosticsEngine()
         let changes = diagnostics.wrap { () -> [(PackageReference, Workspace.PackageStateChange)]? in
             let workspace = try self.getOrCreateWorkspace()
             return try workspace.updateDependencies(root: rootInput, diagnostics: diagnostics, dryRun: true)
         } ?? nil
-        result(changes, diagnostics)
+        result(changes, observability.diagnostics)
     }
 
     public func checkPackageGraph(
         roots: [String] = [],
         deps: [MockDependency],
-        _ result: (PackageGraph, DiagnosticsEngine) -> Void
+        _ result: (PackageGraph, [Basics.Diagnostic]) -> Void
     ) {
         let dependencies = deps.map { $0.convert(baseURL: packagesDir, identityResolver: self.identityResolver) }
         self.checkPackageGraph(roots: roots, dependencies: dependencies, result)
@@ -327,9 +338,10 @@ public final class MockWorkspace {
         roots: [String] = [],
         dependencies: [PackageDependency] = [],
         forceResolvedVersions: Bool = false,
-        _ result: (PackageGraph, DiagnosticsEngine) -> Void
+        _ result: (PackageGraph, [Basics.Diagnostic]) -> Void
     ) {
-        let diagnostics = DiagnosticsEngine()
+        let observability = ObservabilitySystem.bootstrapForTesting()
+        let diagnostics = ObservabilitySystem.topScope.makeDiagnosticsEngine()
         let rootInput = PackageGraphRootInput(
             packages: rootPaths(for: roots), dependencies: dependencies
         )
@@ -338,7 +350,7 @@ public final class MockWorkspace {
             let graph = try workspace.loadPackageGraph(
                 rootInput: rootInput, forceResolvedVersions: forceResolvedVersions, diagnostics: diagnostics
             )
-            result(graph, diagnostics)
+            result(graph, observability.diagnostics)
         } catch {
             preconditionFailure("expected graph to load, but failed with: \(error)\n\(diagnostics)")
         }
@@ -347,7 +359,7 @@ public final class MockWorkspace {
     public func checkPackageGraphFailure(
         roots: [String] = [],
         deps: [MockDependency],
-        _ result: (DiagnosticsEngine) -> Void
+        _ result: ([Basics.Diagnostic]) -> Void
     ) {
         let dependencies = deps.map { $0.convert(baseURL: packagesDir, identityResolver: self.identityResolver) }
         self.checkPackageGraphFailure(roots: roots, dependencies: dependencies, result)
@@ -357,9 +369,10 @@ public final class MockWorkspace {
         roots: [String] = [],
         dependencies: [PackageDependency] = [],
         forceResolvedVersions: Bool = false,
-        _ result: (DiagnosticsEngine) -> Void
+        _ result: ([Basics.Diagnostic]) -> Void
     ) {
-        let diagnostics = DiagnosticsEngine()
+        let observability = ObservabilitySystem.bootstrapForTesting()
+        let diagnostics = ObservabilitySystem.topScope.makeDiagnosticsEngine()
         let rootInput = PackageGraphRootInput(
             packages: rootPaths(for: roots), dependencies: dependencies
         )
@@ -369,7 +382,7 @@ public final class MockWorkspace {
                 rootInput: rootInput, forceResolvedVersions: forceResolvedVersions, diagnostics: diagnostics
             )
         }
-        result(diagnostics)
+        result(observability.diagnostics)
     }
 
     public struct ResolutionPrecomputationResult {
@@ -378,7 +391,7 @@ public final class MockWorkspace {
     }
 
     public func checkPrecomputeResolution(_ check: (ResolutionPrecomputationResult) -> Void) throws {
-        let diagnostics = DiagnosticsEngine()
+        let diagnostics = ObservabilitySystem.topScope.makeDiagnosticsEngine()
         let workspace = try self.getOrCreateWorkspace()
         let pinsStore = try workspace.pinsStore.load()
 
@@ -546,7 +559,7 @@ public final class MockWorkspace {
         _ result: (Workspace.DependencyManifests, DiagnosticsEngine) -> Void
     ) throws {
         let dependencies = deps.map { $0.convert(baseURL: packagesDir, identityResolver: self.identityResolver) }
-        let diagnostics = DiagnosticsEngine()
+        let diagnostics = ObservabilitySystem.topScope.makeDiagnosticsEngine()
         let workspace = try self.getOrCreateWorkspace()
         let rootInput = PackageGraphRootInput(
             packages: rootPaths(for: roots), dependencies: dependencies

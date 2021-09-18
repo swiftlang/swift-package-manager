@@ -26,20 +26,18 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
     let configuration: Configuration
 
     private let httpClient: HTTPClient
-    private let diagnosticsEngine: DiagnosticsEngine?
     private let decoder: JSONDecoder
 
     private let cache: SQLiteBackedCache<CacheValue>?
 
-    init(configuration: Configuration = .init(), httpClient: HTTPClient? = nil, diagnosticsEngine: DiagnosticsEngine? = nil) {
+    init(configuration: Configuration = .init(), httpClient: HTTPClient? = nil) {
         self.configuration = configuration
-        self.httpClient = httpClient ?? Self.makeDefaultHTTPClient(diagnosticsEngine: diagnosticsEngine)
-        self.diagnosticsEngine = diagnosticsEngine
+        self.httpClient = httpClient ?? Self.makeDefaultHTTPClient()
         self.decoder = JSONDecoder.makeWithDefaults()
         if configuration.cacheTTLInSeconds > 0 {
             var cacheConfig = SQLiteBackedCacheConfiguration()
             cacheConfig.maxSizeInMegabytes = configuration.cacheSizeInMegabytes
-            self.cache = SQLiteBackedCache<CacheValue>(tableName: "github_cache", path: configuration.cacheDir.appending(component: "package-metadata.db"), configuration: cacheConfig, diagnosticsEngine: diagnosticsEngine)
+            self.cache = SQLiteBackedCache<CacheValue>(tableName: "github_cache", path: configuration.cacheDir.appending(component: "package-metadata.db"), configuration: cacheConfig)
         } else {
             self.cache = nil
         }
@@ -49,15 +47,12 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
         try self.cache?.close()
     }
 
-    func get(_ reference: PackageReference, callback: @escaping (Result<Model.PackageBasicMetadata, Error>) -> Void) {
-        guard reference.kind == .remote else {
-            return callback(.failure(Errors.invalidReferenceType(reference)))
-        }
-        guard let baseURL = Self.apiURL(reference.location) else {
-            return callback(.failure(Errors.invalidGitURL(reference.location)))
+    func get(identity: PackageIdentity, location: String, callback: @escaping (Result<Model.PackageBasicMetadata, Error>) -> Void) {
+        guard let baseURL = Self.apiURL(location) else {
+            return callback(.failure(Errors.invalidGitURL(location)))
         }
 
-        if let cached = try? self.cache?.get(key: reference.identity.description) {
+        if let cached = try? self.cache?.get(key: identity.description) {
             if cached.dispatchTime + DispatchTimeInterval.seconds(self.configuration.cacheTTLInSeconds) > DispatchTime.now() {
                 return callback(.success(cached.package))
             }
@@ -88,7 +83,7 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
                 let apiRemaining = response.headers.get("X-RateLimit-Remaining").first.flatMap(Int.init) ?? -1
                 switch (response.statusCode, hasAuthorization, apiRemaining) {
                 case (_, _, 0):
-                    self.diagnosticsEngine?.emit(warning: "Exceeded API limits on \(metadataURL.host ?? metadataURL.absoluteString) (\(apiRemaining)/\(apiLimit)), consider configuring an API token for this service.")
+                    ObservabilitySystem.topScope.emit(warning: "Exceeded API limits on \(metadataURL.host ?? metadataURL.absoluteString) (\(apiRemaining)/\(apiLimit)), consider configuring an API token for this service.")
                     results[metadataURL] = .failure(Errors.apiLimitsExceeded(metadataURL, apiLimit))
                 case (401, true, _):
                     results[metadataURL] = .failure(Errors.invalidAuthToken(metadataURL))
@@ -100,7 +95,7 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
                     results[metadataURL] = .failure(NotFoundError("\(baseURL)"))
                 case (200, _, _):
                     if apiRemaining < self.configuration.apiLimitWarningThreshold {
-                        self.diagnosticsEngine?.emit(warning: "Approaching API limits on \(metadataURL.host ?? metadataURL.absoluteString) (\(apiRemaining)/\(apiLimit)), consider configuring an API token for this service.")
+                        ObservabilitySystem.topScope.emit(warning: "Approaching API limits on \(metadataURL.host ?? metadataURL.absoluteString) (\(apiRemaining)/\(apiLimit)), consider configuring an API token for this service.")
                     }
                     // if successful, fan out multiple API calls
                     [releasesURL, contributorsURL, readmeURL, licenseURL, languagesURL].forEach { url in
@@ -157,9 +152,9 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
                     )
 
                     do {
-                        try self.cache?.put(key: reference.identity.description, value: CacheValue(package: model, timestamp: DispatchTime.now()), replace: true)
+                        try self.cache?.put(key: identity.description, value: CacheValue(package: model, timestamp: DispatchTime.now()), replace: true)
                     } catch {
-                        self.diagnosticsEngine?.emit(.warning("Failed to save GitHub metadata for package \(reference) to cache: \(error)"))
+                        ObservabilitySystem.topScope.emit(warning: "Failed to save GitHub metadata for package \(identity) to cache: \(error)")
                     }
 
                     callback(.success(model))
@@ -170,13 +165,13 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
         }
     }
 
-    func getAuthTokenType(for reference: PackageReference) -> AuthTokenType? {
-        guard reference.kind == .remote, let baseURL = Self.apiURL(reference.location) else {
+    func getAuthTokenType(for location: String) -> AuthTokenType? {
+        guard let baseURL = Self.apiURL(location) else {
             return nil
         }
 
         return baseURL.host.flatMap { host in
-            self.getAuthTokenType(for: host)
+            self.getAuthTokenType(forHost: host)
         }
     }
 
@@ -206,7 +201,7 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
         options.validResponseCodes = validResponseCodes
         options.authorizationProvider = { url in
             url.host.flatMap { host in
-                let tokenType = self.getAuthTokenType(for: host)
+                let tokenType = self.getAuthTokenType(forHost: host)
                 return self.configuration.authTokens()?[tokenType].flatMap { token in
                     "token \(token)"
                 }
@@ -215,13 +210,14 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
         return options
     }
 
-    private func getAuthTokenType(for host: String) -> AuthTokenType {
+    
+    private func getAuthTokenType(forHost host: String) -> AuthTokenType {
         let host = host.hasPrefix(Self.apiHostPrefix) ? String(host.dropFirst(Self.apiHostPrefix.count)) : host
         return .github(host)
     }
 
-    private static func makeDefaultHTTPClient(diagnosticsEngine: DiagnosticsEngine?) -> HTTPClient {
-        var client = HTTPClient(diagnosticsEngine: diagnosticsEngine)
+    private static func makeDefaultHTTPClient() -> HTTPClient {
+        var client = HTTPClient()
         // TODO: make these defaults configurable?
         client.configuration.requestTimeout = .seconds(1)
         client.configuration.retryStrategy = .exponentialBackoff(maxAttempts: 3, baseDelay: .milliseconds(50))

@@ -15,8 +15,9 @@ import Dispatch
 import func Foundation.NSUserName
 import class Foundation.ProcessInfo
 import func Foundation.NSHomeDirectory
-import PackageModel
 import PackageGraph
+import PackageLoading
+import PackageModel
 import SourceControl
 import SPMBuildCore
 import TSCBasic
@@ -230,23 +231,11 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
     }
 
     // noop
-    
+
     func willLoadManifest(packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind) {}
     func didLoadManifest(packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind, manifest: Manifest?, diagnostics: [Diagnostic]) {}
     func didCreateWorkingCopy(repository url: String, at path: AbsolutePath, error: Diagnostic?) {}
     func resolvedFileChanged() {}
-}
-
-/// Handler for the main DiagnosticsEngine used by the SwiftTool class.
-private final class DiagnosticsEngineHandler {
-    /// The default instance.
-    static let `default` = DiagnosticsEngineHandler()
-
-    private init() {}
-
-    func diagnosticsHandler(_ diagnostic: Diagnostic) {
-        diagnostic.print()
-    }
 }
 
 protocol SwiftCommand: ParsableCommand {
@@ -259,7 +248,7 @@ extension SwiftCommand {
     public func run() throws {
         let swiftTool = try SwiftTool(options: swiftOptions)
         try self.run(swiftTool)
-        if swiftTool.diagnostics.hasErrors || swiftTool.executionStatus == .failure {
+        if ObservabilitySystem.topScope.errorsReported || swiftTool.executionStatus == .failure {
             throw ExitCode.failure
         }
     }
@@ -290,7 +279,7 @@ public class SwiftTool {
         let packages: [AbsolutePath]
 
         if let workspace = options.multirootPackageDataFile {
-            packages = try XcodeWorkspaceLoader(diagnostics: diagnostics).load(workspace: workspace)
+            packages = try XcodeWorkspaceLoader(diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine()).load(workspace: workspace)
         } else {
             packages = [try getPackageRoot()]
         }
@@ -311,10 +300,6 @@ public class SwiftTool {
     /// The interrupt handler.
     let interruptHandler: InterruptHandler
 
-    /// The diagnostics engine.
-    let diagnostics: DiagnosticsEngine = DiagnosticsEngine(
-        handlers: [DiagnosticsEngineHandler.default.diagnosticsHandler])
-
     /// The execution status of the tool.
     var executionStatus: ExecutionStatus = .success
 
@@ -333,17 +318,20 @@ public class SwiftTool {
     ///
     /// - parameter args: The command line arguments to be passed to this tool.
     public init(options: SwiftToolOptions) throws {
+        // first, bootstrap the observability system
+        ObservabilitySystem.bootstrapGlobal(factory: SwiftToolObservability())
+
         // Capture the original working directory ASAP.
         guard let cwd = localFileSystem.currentWorkingDirectory else {
-            diagnostics.emit(error: "couldn't determine the current working directory")
+            ObservabilitySystem.topScope.emit(error: "couldn't determine the current working directory")
             throw ExitCode.failure
         }
         originalWorkingDirectory = cwd
 
         do {
-            try Self.postprocessArgParserResult(options: options, diagnostics: diagnostics)
+            try Self.postprocessArgParserResult(options: options, diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine())
             self.options = options
-            
+
             // Honor package-path option is provided.
             if let packagePath = options.packagePath ?? options.chdir {
                 try ProcessEnv.chdir(packagePath)
@@ -389,7 +377,7 @@ public class SwiftTool {
             self.buildSystemRef = buildSystemRef
 
         } catch {
-            diagnostics.emit(error)
+            ObservabilitySystem.topScope.emit(error)
             throw ExitCode.failure
         }
 
@@ -401,25 +389,25 @@ public class SwiftTool {
         self.buildPath = getEnvBuildPath(workingDir: cwd) ??
         customBuildPath ??
         (packageRoot ?? cwd).appending(component: ".build")
-        
+
         // Setup the globals.
         verbosity = Verbosity(rawValue: options.verbosity)
         Process.verbose = verbosity != .concise
     }
-    
+
     static func postprocessArgParserResult(options: SwiftToolOptions, diagnostics: DiagnosticsEngine) throws {
         if options.chdir != nil {
             diagnostics.emit(warning: "'--chdir/-C' option is deprecated; use '--package-path' instead")
         }
-        
+
         if options.multirootPackageDataFile != nil {
             diagnostics.emit(.unsupportedFlag("--multiroot-data-file"))
         }
-        
+
         if options.useExplicitModuleBuild && !options.useIntegratedSwiftDriver {
             diagnostics.emit(error: "'--experimental-explicit-module-build' option requires '--use-integrated-swift-driver'")
         }
-        
+
         if !options.archs.isEmpty && options.customCompileTriple != nil {
             diagnostics.emit(.mutuallyExclusiveArgumentsError(arguments: ["--arch", "--triple"]))
         }
@@ -510,10 +498,10 @@ public class SwiftTool {
         let netrcFilePath = options.netrcFilePath ?? localFileSystem.homeDirectory.appending(component: ".netrc")
         guard localFileSystem.exists(netrcFilePath) else {
             if !options.netrcOptional {
-                diagnostics.emit(error: "Cannot find mandatory .netrc file at \(netrcFilePath). To make .netrc file optional, use --netrc-optional flag.")
+                ObservabilitySystem.topScope.emit(error: "Cannot find mandatory .netrc file at \(netrcFilePath). To make .netrc file optional, use --netrc-optional flag.")
                 throw ExitCode.failure
             } else {
-                diagnostics.emit(warning: "Did not find optional .netrc file at \(netrcFilePath).")
+                ObservabilitySystem.topScope.emit(warning: "Did not find optional .netrc file at \(netrcFilePath).")
                 return .none
             }
         }
@@ -532,7 +520,7 @@ public class SwiftTool {
         do {
             return try localFileSystem.getOrCreateSwiftPMCacheDirectory()
         } catch {
-            self.diagnostics.emit(warning: "Failed creating default cache location, \(error)")
+            ObservabilitySystem.topScope.emit(warning: "Failed creating default cache location, \(error)")
             return .none
         }
     }
@@ -549,7 +537,7 @@ public class SwiftTool {
         do {
             return try localFileSystem.getOrCreateSwiftPMConfigDirectory()
         } catch {
-            self.diagnostics.emit(warning: "Failed creating default configuration location, \(error)")
+            ObservabilitySystem.topScope.emit(warning: "Failed creating default configuration location, \(error)")
             return .none
         }
     }
@@ -561,7 +549,7 @@ public class SwiftTool {
         }
 
         let isVerbose = options.verbosity != 0
-        let delegate = ToolWorkspaceDelegate(self.outputStream, isVerbose: isVerbose, diagnostics: diagnostics)
+        let delegate = ToolWorkspaceDelegate(self.outputStream, isVerbose: isVerbose, diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine())
         let provider = GitRepositoryProvider(processSet: processSet)
         let sharedCacheDirectory =  try self.getSharedCacheDirectory()
         let sharedConfigurationDirectory = try self.getSharedConfigurationDirectory()
@@ -602,14 +590,14 @@ public class SwiftTool {
         let root = try getWorkspaceRoot()
 
         if options.forceResolvedVersions {
-            try workspace.resolveBasedOnResolvedVersionsFile(root: root, diagnostics: diagnostics)
+            try workspace.resolveBasedOnResolvedVersionsFile(root: root, diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine())
         } else {
-            try workspace.resolve(root: root, diagnostics: diagnostics)
+            try workspace.resolve(root: root, diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine())
         }
 
         // Throw if there were errors when loading the graph.
         // The actual errors will be printed before exiting.
-        guard !diagnostics.hasErrors else {
+        guard !ObservabilitySystem.topScope.errorsReported else {
             throw ExitCode.failure
         }
     }
@@ -634,12 +622,12 @@ public class SwiftTool {
                 createMultipleTestProducts: createMultipleTestProducts,
                 createREPLProduct: createREPLProduct,
                 forceResolvedVersions: options.forceResolvedVersions,
-                diagnostics: diagnostics
+                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine()
             )
 
             // Throw if there were errors when loading the graph.
             // The actual errors will be printed before exiting.
-            guard !diagnostics.hasErrors else {
+            guard !ObservabilitySystem.topScope.errorsReported else {
                 throw ExitCode.failure
             }
             return graph
@@ -647,7 +635,7 @@ public class SwiftTool {
             throw error
         }
     }
-    
+
     /// Invoke plugins for any reachable targets in the graph, and return a mapping from targets to corresponding evaluation results.
     func invokePlugins(graph: PackageGraph) throws -> [ResolvedTarget: [PluginInvocationResult]] {
         do {
@@ -658,30 +646,35 @@ public class SwiftTool {
             let buildEnvironment = try buildParameters().buildEnvironment
             let dataDir = try self.getActiveWorkspace().location.workingDirectory
             let pluginsDir = dataDir.appending(component: "plugins")
-            
+
             // The `cache` directory is in the plugins directory and is where the plugin script runner caches
             // compiled plugin binaries and any other derived information.
             let cacheDir = pluginsDir.appending(component: "cache")
             let pluginScriptRunner = try DefaultPluginScriptRunner(cacheDir: cacheDir, toolchain: self._hostToolchain.get().configuration)
-            
+
             // The `outputs` directory contains subdirectories for each combination of package, target, and plugin.
             // Each usage of a plugin has an output directory that is writable by the plugin, where it can write
             // additional files, and to which it can configure tools to write their outputs, etc.
             let outputDir = pluginsDir.appending(component: "outputs")
-            
+
             // The `tools` directory contains any command line tools (executables) that are available for any commands
             // defined by the executable.
             // FIXME: At the moment we just pass the built products directory for the host. We will need to extend this
             // with a map of the names of tools available to each plugin. In particular this would not work with any
             // binary targets.
             let builtToolsDir = dataDir.appending(components: try self._hostToolchain.get().triple.tripleString, buildEnvironment.configuration.dirname)
-            let diagnostics = DiagnosticsEngine()
-            
+
             // Create the cache directory, if needed.
             try localFileSystem.createDirectory(cacheDir, recursive: true)
 
             // Ask the graph to invoke plugins, and return the result.
-            let result = try graph.invokePlugins(outputDir: outputDir, builtToolsDir: builtToolsDir, pluginScriptRunner: pluginScriptRunner, diagnostics: diagnostics, fileSystem: localFileSystem)
+            let result = try graph.invokePlugins(
+                outputDir: outputDir,
+                builtToolsDir: builtToolsDir,
+                pluginScriptRunner: pluginScriptRunner,
+                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
+                fileSystem: localFileSystem
+            )
             return result
         }
         catch {
@@ -733,7 +726,7 @@ public class SwiftTool {
             cacheBuildManifest: cacheBuildManifest && self.canUseCachedBuildManifest(),
             packageGraphLoader: graphLoader,
             pluginInvoker: { _ in [:] },
-            diagnostics: diagnostics,
+            diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
             outputStream: self.outputStream
         )
 
@@ -753,7 +746,7 @@ public class SwiftTool {
                 cacheBuildManifest: self.canUseCachedBuildManifest(),
                 packageGraphLoader: graphLoader,
                 pluginInvoker: pluginInvoker,
-                diagnostics: diagnostics,
+                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
                 outputStream: self.outputStream
             )
         case .xcode:
@@ -763,7 +756,7 @@ public class SwiftTool {
                 buildParameters: buildParameters ?? self.buildParameters(),
                 packageGraphLoader: graphLoader,
                 isVerbose: verbosity != .concise,
-                diagnostics: diagnostics,
+                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
                 outputStream: self.outputStream
             )
         }
@@ -973,29 +966,36 @@ extension DispatchTimeInterval {
 
 // MARK: - Diagnostics
 
-extension Diagnostic {
+private struct SwiftToolObservability: ObservabilityFactory, DiagnosticsHandler {
+    var diagnosticsHandler: DiagnosticsHandler { self }
+
+    func handleDiagnostic(scope: ObservabilityScope, diagnostic: Basics.Diagnostic) {
+        // TODO: do something useful with scope
+        diagnostic.print()
+    }
+}
+
+extension Basics.Diagnostic {
     func print() {
         let writer = InteractiveWriter.stderr
 
-        if !(self.location is UnknownLocation) {
-            writer.write(self.location.description)
+        if let diagnosticPrefix = self.metadata?.diagnosticPrefix {
+            writer.write(diagnosticPrefix)
             writer.write(": ")
         }
 
-        switch self.message.behavior {
+        switch self.severity {
         case .error:
             writer.write("error: ", inColor: .red, bold: true)
         case .warning:
             writer.write("warning: ", inColor: .yellow, bold: true)
-        case .note:
-            writer.write("note: ", inColor: .yellow, bold: true)
-        case .remark:
-            writer.write("remark: ", inColor: .yellow, bold: true)
-        case .ignored:
-            break
+        case .info:
+            writer.write("info: ", inColor: .white, bold: true)
+        case .debug:
+            writer.write("info: ", inColor: .white, bold: true)
         }
 
-        writer.write(self.description)
+        writer.write(self.message)
         writer.write("\n")
     }
 }
@@ -1005,10 +1005,12 @@ extension Diagnostic {
 /// If underlying stream is a not tty, the string will be written in without any
 /// formatting.
 private final class InteractiveWriter {
+
     /// The standard error writer.
-    static let stderr = InteractiveWriter(stream: TSCBasic.stderrStream)
+    static let stderr = InteractiveWriter(stream: stderrStream)
+
     /// The standard output writer.
-    static let stdout = InteractiveWriter(stream: TSCBasic.stdoutStream)
+    static let stdout = InteractiveWriter(stream: stdoutStream)
 
     /// The terminal controller, if present.
     let term: TerminalController?
@@ -1033,3 +1035,16 @@ private final class InteractiveWriter {
     }
 }
 
+// FIXME: this is for backwards compatibility with existing diagnostics printing format
+// we should remove this as we make use of the new scope and metadata to provide better contextual information
+extension ObservabilityMetadata {
+    fileprivate var diagnosticPrefix: String? {
+        if let legacyLocation = self.legacyLocation {
+            return legacyLocation
+        } else if let packageIdentity = self.packageIdentity, let packageLocation = self.packageLocation {
+            return "'\(packageIdentity)' \(packageLocation)"
+        } else {
+            return .none
+        }
+    }
+}
