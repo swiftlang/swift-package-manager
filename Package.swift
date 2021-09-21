@@ -53,11 +53,12 @@ automatic linking type with `-auto` suffix appended to product's name.
 */
 let autoProducts = [swiftPMProduct, swiftPMDataModelProduct]
 
-let minimumCryptoVersion: Version = "1.1.4"
-let swiftSettings: [SwiftSetting] = [
-    // Uncomment this define when using swift-crypto 2.x
-//    .define("CRYPTO_v2"),
-]
+let useSwiftCryptoV2 = ProcessInfo.processInfo.environment["SWIFTPM_USE_SWIFT_CRYPTO_V2"] != nil
+let minimumCryptoVersion: Version = useSwiftCryptoV2 ? "2.0.0-beta.2" : "1.1.4"
+var swiftSettings: [SwiftSetting] = []
+if useSwiftCryptoV2 {
+    swiftSettings.append(.define("CRYPTO_v2"))
+}
 
 let package = Package(
     name: "SwiftPM",
