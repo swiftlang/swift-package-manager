@@ -105,7 +105,7 @@ public final class TargetBuildContext: Decodable {
     /// Internal
     internal let pluginAction: PluginAction
 
-    internal enum PluginAction: Decodable {
+    internal enum PluginAction: String, Decodable {
         case createBuildToolCommands
     }
 }
