@@ -8,6 +8,8 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
+import Foundation
+
 // MARK: - file system
 
 extension Package {
@@ -546,6 +548,11 @@ extension Package.Dependency {
         identity: String,
         requirement: Package.Dependency.RegistryRequirement
     ) -> Package.Dependency {
+        let pattern = #"\A[a-zA-Z\d](?:[a-zA-Z\d]|-(?=[a-zA-Z\d])){0,38}\.[a-zA-Z0-9](?:[a-zA-Z0-9]|[-_](?=[a-zA-Z0-9])){0,99}\z"#
+        if identity.range(of: pattern, options: .regularExpression) == nil {
+            errors.append("Invalid package identifier: \(identity)")
+        }
+
         return .init(identity: identity, requirement: requirement)
     }
 }
