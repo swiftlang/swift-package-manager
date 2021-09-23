@@ -400,7 +400,7 @@ struct PluginScriptRunnerInput: Codable {
         var path: String
     }
     var pluginAction: PluginAction
-    enum PluginAction: Codable {
+    enum PluginAction: String, Codable {
         case createBuildToolCommands
     }
 }
