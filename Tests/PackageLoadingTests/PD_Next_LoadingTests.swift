@@ -22,11 +22,11 @@ class PackageDescriptionNextLoadingTests: PackageDescriptionLoadingTests {
             let package = Package(
                name: "MyPackage",
                dependencies: [
-                   .package(identity: "foo", from: "1.1.1"),
-                   .package(identity: "bar", exact: "1.1.1"),
-                   .package(identity: "baz", .upToNextMajor(from: "1.1.1")),
-                   .package(identity: "qux", .upToNextMinor(from: "1.1.1")),
-                   .package(identity: "quux", "1.1.1" ..< "3.0.0"),
+                   .package(id: "foo", from: "1.1.1"),
+                   .package(id: "bar", exact: "1.1.1"),
+                   .package(id: "baz", .upToNextMajor(from: "1.1.1")),
+                   .package(id: "qux", .upToNextMinor(from: "1.1.1")),
+                   .package(id: "quux", "1.1.1" ..< "3.0.0"),
                ]
             )
             """
