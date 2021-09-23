@@ -4330,7 +4330,7 @@ final class WorkspaceTests: XCTestCase {
         XCTAssertFalse(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/B/B.xcframework")))
 
         workspace.checkPackageGraph(roots: ["Foo"]) { graph, diagnostics in
-            XCTAssertTrue(diagnostics.diagnostics.isEmpty, diagnostics.description)
+            XCTAssertTrue(diagnostics.isEmpty, diagnostics.description)
 
             // Ensure that the artifacts have been properly extracted
             XCTAssertTrue(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/A/A1.xcframework")))
@@ -4573,7 +4573,7 @@ final class WorkspaceTests: XCTestCase {
         try fs.createDirectory(workspace.artifactsDir.appending(components: "A", "A4.xcframework", "local-archived"), recursive: true)
 
         workspace.checkPackageGraph(roots: ["Foo"]) { graph, diagnostics in
-            XCTAssertTrue(diagnostics.diagnostics.isEmpty, diagnostics.description)
+            XCTAssertTrue(diagnostics.isEmpty, diagnostics.description)
 
             // Ensure that the original archives have been untouched
             XCTAssertTrue(fs.exists(a1FrameworkArchivePath))
@@ -4710,7 +4710,7 @@ final class WorkspaceTests: XCTestCase {
         XCTAssertFalse(fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/A/A1.xcframework/new-content")))
 
         workspace.checkPackageGraph(roots: ["Foo"]) { graph, diagnostics in
-            XCTAssertTrue(diagnostics.diagnostics.isEmpty, diagnostics.description)
+            XCTAssertTrue(diagnostics.isEmpty, diagnostics.description)
             
             XCTAssertTrue(fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/A/A1.xcframework/new-content")))
             XCTAssertFalse(fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/A/A1.xcframework/old-content")))
@@ -4781,8 +4781,8 @@ final class WorkspaceTests: XCTestCase {
         try fs.writeFileContents(aFrameworksPath.appending(component: "archived-artifact-does-not-match-target-name.zip"), bytes: ByteString([0xA1]))
         
         workspace.checkPackageGraphFailure(roots: ["Foo"]) { diagnostics in
-            DiagnosticsEngineTester(diagnostics) { result in
-                XCTAssertTrue(diagnostics.diagnostics.isEmpty, diagnostics.description)
+            testDiagnostics(diagnostics) { result in
+                XCTAssertTrue(diagnostics.isEmpty, diagnostics.description)
             }
         }
         
@@ -4839,9 +4839,9 @@ final class WorkspaceTests: XCTestCase {
         )
 
         workspace.checkPackageGraphFailure(roots: ["Foo"]) { diagnostics in
-            DiagnosticsEngineTester(diagnostics) { result in
-                result.checkUnordered(diagnostic: .contains("failed extracting '/tmp/ws/pkgs/A/XCFrameworks/A1.zip' which is required by binary target 'A1': dummy error"), behavior: .error)
-                result.checkUnordered(diagnostic: .contains("failed extracting '/tmp/ws/pkgs/A/ArtifactBundles/A2.zip' which is required by binary target 'A2': dummy error"), behavior: .error)
+            testDiagnostics(diagnostics) { result in
+                result.checkUnordered(diagnostic: .contains("failed extracting '/tmp/ws/pkgs/A/XCFrameworks/A1.zip' which is required by binary target 'A1': dummy error"), severity: .error)
+                result.checkUnordered(diagnostic: .contains("failed extracting '/tmp/ws/pkgs/A/ArtifactBundles/A2.zip' which is required by binary target 'A2': dummy error"), severity: .error)
             }
         }
     }
@@ -4925,9 +4925,9 @@ final class WorkspaceTests: XCTestCase {
         try fs.writeFileContents(aArtifactBundlesPath.appending(component: "A2.zip"), bytes: ByteString([0xA2]))
 
         workspace.checkPackageGraphFailure(roots: ["Foo"]) { diagnostics in
-            DiagnosticsEngineTester(diagnostics) { result in
-                result.checkUnordered(diagnostic: .contains("local archive of binary target 'A1' does not contain expected binary artifact 'A1'") , behavior: .error)
-                result.checkUnordered(diagnostic: .contains("local archive of binary target 'A2' does not contain expected binary artifact 'A2'") , behavior: .error)
+            testDiagnostics(diagnostics) { result in
+                result.checkUnordered(diagnostic: .contains("local archive of binary target 'A1' does not contain expected binary artifact 'A1'") , severity: .error)
+                result.checkUnordered(diagnostic: .contains("local archive of binary target 'A2' does not contain expected binary artifact 'A2'") , severity: .error)
             }
         }
     }
