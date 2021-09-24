@@ -62,13 +62,13 @@ final class PackageToolTests: XCTestCase {
                 // file at correct location
                 try execute(["--netrc-file", netrcPath.pathString, "resolve"], packagePath: packageRoot)
                 // file does not exist, but is optional
-                let textOutput = try execute(["--netrc-file", "/foo", "--netrc-optional", "resolve"], packagePath: packageRoot).stderr
-                XCTAssertMatch(textOutput, .contains("warning: Did not find optional .netrc file at /foo."))
+                let textOutput = try execute(["--netrc-file", "/foo", "resolve"], packagePath: packageRoot).stderr
+                XCTAssertMatch(textOutput, .contains("warning: Did not find .netrc file at /foo."))
 
                 // required file does not exist, will throw
                 try execute(["--netrc-file", "/foo", "resolve"], packagePath: packageRoot)
             } catch {
-                XCTAssertMatch(String(describing: error), .contains("Cannot find mandatory .netrc file at /foo"))
+                XCTAssertMatch(String(describing: error), .contains("Did not find .netrc file at /foo."))
             }
         }
 
@@ -79,18 +79,18 @@ final class PackageToolTests: XCTestCase {
                     try execute(["--netrc", "resolve"], packagePath: packageRoot)
                 } else {
                     // file does not exist, but is optional
-                    let textOutput = try execute(["--netrc", "--netrc-optional", "resolve"], packagePath: packageRoot)
-                    XCTAssertMatch(textOutput.stderr, .contains("Did not find optional .netrc file at \(localFileSystem.homeDirectory)/.netrc."))
+                    let textOutput = try execute(["--netrc", "resolve"], packagePath: packageRoot)
+                    XCTAssertMatch(textOutput.stderr, .contains("Did not find .netrc file at \(localFileSystem.homeDirectory)/.netrc."))
 
                     // file does not exist, but is optional
                     let textOutput2 = try execute(["--netrc-optional", "resolve"], packagePath: packageRoot)
-                    XCTAssertMatch(textOutput2.stderr, .contains("Did not find optional .netrc file at \(localFileSystem.homeDirectory)/.netrc."))
+                    XCTAssertMatch(textOutput2.stderr, .contains("Did not find .netrc file at \(localFileSystem.homeDirectory)/.netrc."))
 
                     // required file does not exist, will throw
                     try execute(["--netrc", "resolve"], packagePath: packageRoot)
                 }
             } catch {
-                XCTAssertMatch(String(describing: error), .contains("Cannot find mandatory .netrc file at \(localFileSystem.homeDirectory)/.netrc"))
+                XCTAssertMatch(String(describing: error), .contains("Did not find .netrc file at \(localFileSystem.homeDirectory)/.netrc"))
             }
         }
     }
