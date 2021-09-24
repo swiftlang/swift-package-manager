@@ -315,20 +315,20 @@ public struct SwiftToolOptions: ParsableArguments {
         archs.count > 1 ? .xcode : _buildSystem
     }
     
-    /// Tells `Workspace` to attempt to locate .netrc file at `NSHomeDirectory`.
-    @Flag(inversion: .prefixedNo)
+    /// Whether to load .netrc files for authenticating with remote servers
+    /// when downloading binary artifacts or communicating with a registry.
+    @Flag(inversion: .prefixedNo, help: "Load credentials from a .netrc file")
     var netrc: Bool = true
     
-    /// Similar to `--netrc`, but this option makes the .netrc usage optional and not mandatory as with the `--netrc` option.
     @available(*, deprecated, message: ".netrc files are located by default")
     @Flag(name: .customLong("netrc-optional"), help: .hidden)
     var netrcOptional: Bool = false
     
-    /// The path to the netrc file which should be use for authentication when downloading binary target artifacts.
-    /// Similar to `--netrc`, except that you also provide the path to the actual file to use.
-    /// This is useful when you want to provide the information in another directory or with another file name.
-    ///  - important: Respects `--netrcOptional` option.
-    @Option(name: .customLong("netrc-file"), completion: .file())
+    /// The path to the .netrc file used when `netrc` is `true`.
+    @Option(
+        name: .customLong("netrc-file"),
+        help: "Specify the .netrc file path.",
+        completion: .file())
     var netrcFilePath: AbsolutePath?
     
     public init() {}
