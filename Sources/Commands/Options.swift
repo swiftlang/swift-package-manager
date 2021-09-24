@@ -316,8 +316,8 @@ public struct SwiftToolOptions: ParsableArguments {
     }
     
     /// Tells `Workspace` to attempt to locate .netrc file at `NSHomeDirectory`.
-    @Flag()
-    var netrc: Bool = false
+    @Flag(inversion: .prefixedNo)
+    var netrc: Bool = true
     
     /// Similar to `--netrc`, but this option makes the .netrc usage optional and not mandatory as with the `--netrc` option.
     @Flag(name: .customLong("netrc-optional"))
