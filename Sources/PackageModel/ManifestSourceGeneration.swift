@@ -8,8 +8,6 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import TSCBasic
-import TSCUtility
 import Foundation
 
 
@@ -22,25 +20,51 @@ extension Manifest {
     
     /// Generates and returns a string containing the contents of the manifest
     /// in canonical declarative form.
-    public var generatedManifestFileContents: String {
-        /// Only write out the major and minor (not patch) versions of the
-        /// tools version, since the patch version doesn't change semantics.
-        /// We leave out the spacer if the tools version doesn't support it.
+    /// 
+    /// - Parameters:
+    ///   - toolsVersionHeaderComment: Optional string to add to the `swift-tools-version` header (it will be ignored).
+    ///   - additionalImportModuleNames: Names of any modules to import besides PackageDescription (would commonly contain custom product type definitions).
+    ///   - customProductTypeSourceGenerator: Closure that will be called once for each custom product type in the manifest; it should return a SourceCodeFragment for the product type.
+    /// 
+    /// Returns: a string containing the full source code for the manifest.
+    public func generateManifestFileContents(
+        toolsVersionHeaderComment: String? = .none,
+        additionalImportModuleNames: [String] = [],
+        customProductTypeSourceGenerator: ManifestCustomProductTypeSourceGenerator? = .none
+    ) rethrows -> String {
+        // Generate the source code fragment for the top level of the package
+        // expression.
+        let packageExprFragment = try SourceCodeFragment(from: self, customProductTypeSourceGenerator: customProductTypeSourceGenerator)
+        
+        // Generate the source code from the module names and code fragment.
+        // We only write out the major and minor (not patch) versions of the
+        // tools version, since the patch version doesn't change semantics.
+        // We leave out the spacer if the tools version doesn't support it.
+        let toolsVersionSuffix = "\(toolsVersionHeaderComment.map{ "; \($0)" } ?? "")"
         return """
-            \(toolsVersion.specification(roundedTo: .minor))
+            \(toolsVersion.specification(roundedTo: .minor))\(toolsVersionSuffix)
             import PackageDescription
-
-            let package = \(SourceCodeFragment(from: self).generateSourceCode())
+            \(additionalImportModuleNames.map{ "import \($0)\n" }.joined())
+            let package = \(packageExprFragment.generateSourceCode())
             """
     }
+    
+    /// Generates and returns a string containing the contents of the manifest
+    /// in canonical declarative form.
+    public var generatedManifestFileContents: String {
+        return self.generateManifestFileContents(customProductTypeSourceGenerator: nil)
+    }
 }
+
+/// Constructs and returns a SourceCodeFragment that represents the instantiation of a custom product type with the specified identifer and having the given serialized parameters (the contents of whom are a private matter between the serialized form in PackageDescription and the client). The generated source code should, if evaluated as a part of a package manifest, result in the same serialized parameters.
+public typealias ManifestCustomProductTypeSourceGenerator = (ProductDescription) throws -> SourceCodeFragment?
 
 
 /// Convenience initializers for package manifest structures.
 fileprivate extension SourceCodeFragment {
     
     /// Instantiates a SourceCodeFragment to represent an entire manifest.
-    init(from manifest: Manifest) {
+    init(from manifest: Manifest, customProductTypeSourceGenerator: ManifestCustomProductTypeSourceGenerator?) rethrows {
         var params: [SourceCodeFragment] = []
         
         params.append(SourceCodeFragment(key: "name", string: manifest.name))
@@ -64,7 +88,7 @@ fileprivate extension SourceCodeFragment {
         }
 
         if !manifest.products.isEmpty {
-            let nodes = manifest.products.map{ SourceCodeFragment(from: $0) }
+            let nodes = try manifest.products.map{ try SourceCodeFragment(from: $0, customProductTypeSourceGenerator: customProductTypeSourceGenerator) }
             params.append(SourceCodeFragment(key: "products", subnodes: nodes))
         }
 
@@ -157,27 +181,35 @@ fileprivate extension SourceCodeFragment {
         self.init(enum: "package", subnodes: params)
     }
     
-    /// Instantiates a SourceCodeFragment to represent a single product.
-    init(from product: ProductDescription) {
-        var params: [SourceCodeFragment] = []
-        params.append(SourceCodeFragment(key: "name", string: product.name))
-        if !product.targets.isEmpty {
-            params.append(SourceCodeFragment(key: "targets", strings: product.targets))
+    /// Instantiates a SourceCodeFragment to represent a single product. If there's a custom product generator, it gets
+    /// a chance to generate the source code fragments before checking the default types.
+    init(from product: ProductDescription, customProductTypeSourceGenerator: ManifestCustomProductTypeSourceGenerator?) rethrows {
+        // Use a custom source code fragment if we have a custom generator and it returns a value.
+        if let customSubnode = try customProductTypeSourceGenerator?(product) {
+            self = customSubnode
         }
-        switch product.type {
-        case .library(let type):
-            if type != .automatic {
-                params.append(SourceCodeFragment(key: "type", enum: type.rawValue))
+        // Otherwise we use the default behavior.
+        else {
+            var params: [SourceCodeFragment] = []
+            params.append(SourceCodeFragment(key: "name", string: product.name))
+            if !product.targets.isEmpty {
+                params.append(SourceCodeFragment(key: "targets", strings: product.targets))
             }
-            self.init(enum: "library", subnodes: params, multiline: true)
-        case .executable:
-            self.init(enum: "executable", subnodes: params, multiline: true)
-        case .snippet:
-            self.init(enum: "sample", subnodes: params, multiline: true)
-        case .plugin:
-            self.init(enum: "plugin", subnodes: params, multiline: true)
-        case .test:
-            self.init(enum: "test", subnodes: params, multiline: true)
+            switch product.type {
+            case .library(let type):
+                if type != .automatic {
+                    params.append(SourceCodeFragment(key: "type", enum: type.rawValue))
+                }
+	            self.init(enum: "library", subnodes: params, multiline: true)
+	        case .executable:
+	            self.init(enum: "executable", subnodes: params, multiline: true)
+	        case .snippet:
+	            self.init(enum: "sample", subnodes: params, multiline: true)
+	        case .plugin:
+	            self.init(enum: "plugin", subnodes: params, multiline: true)
+	        case .test:
+	            self.init(enum: "test", subnodes: params, multiline: true)
+            }
         }
     }
     
@@ -423,12 +455,18 @@ fileprivate extension SourceCodeFragment {
 
 /// Convenience initializers for key-value pairs of simple types.  These make
 /// the logic above much simpler.
-fileprivate extension SourceCodeFragment {
+public extension SourceCodeFragment {
     
     /// Initializes a SourceCodeFragment for a boolean in a generated manifest.
     init(key: String? = nil, boolean: Bool) {
         let prefix = key.map{ $0 + ": " } ?? ""
         self.init(prefix + (boolean ? "true" : "false"))
+    }
+
+    /// Initializes a SourceCodeFragment for an integer in a generated manifest.
+    init(key: String? = nil, integer: Int) {
+        let prefix = key.map{ $0 + ": " } ?? ""
+        self.init(prefix + "\(integer)")
     }
 
     /// Initializes a SourceCodeFragment for a quoted string in a generated manifest.
@@ -478,24 +516,33 @@ fileprivate extension SourceCodeFragment {
 }
 
 
-
-/// Helper type to emit source code.  Represents one node of source code, as a
+/// Helper type to emit source code.  Represents one node of source code, as an
 /// arbitrary string followed by an optional child list, optionally enclosed in
-/// a pair of delimiters.  The code generation works by creating source code
-/// fragments and then rendering them as source code with proper formatting.
-fileprivate struct SourceCodeFragment {
-    let literal: String
+/// a pair of delimiters.
+///
+/// The source code generation works by creating SourceCodeFragments, and then
+/// rendering them into string form with appropriate formatting.
+public struct SourceCodeFragment {
+    /// A literal prefix to emit at the start of the source code fragment.
+    var literal: String
+    
+    /// The type of delimeters to use around the subfragments (if any).
     var delimiters: Delimiters
+    
+    /// Whether or not to emit newlines before the subfragments (if any).
     var multiline: Bool
+    
+    /// Any subfragments; no delimeters are emitted if none.
     var subnodes: [SourceCodeFragment]?
-
-    enum Delimiters {
+    
+    /// Type of delimiters to emit around any subfragments.
+    public enum Delimiters {
         case none
         case brackets
         case parentheses
     }
     
-    init(_ literal: String, delimiters: Delimiters = .none,
+    public init(_ literal: String, delimiters: Delimiters = .none,
          multiline: Bool = true, subnodes: [SourceCodeFragment]? = nil) {
         self.literal = literal
         self.delimiters = delimiters
@@ -512,8 +559,8 @@ fileprivate struct SourceCodeFragment {
             case .parentheses: string.append("(")
             }
             if multiline { string.append("\n") }
+            let subindent = indent + (multiline ? "    " : "")
             for (idx, subnode) in subnodes.enumerated() {
-                let subindent = indent + "    "
                 if multiline { string.append(subindent) }
                 string.append(subnode.generateSourceCode(indent: subindent))
                 if idx < subnodes.count-1 {
