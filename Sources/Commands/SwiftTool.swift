@@ -485,27 +485,16 @@ public class SwiftTool {
         return try self.getNetrcConfig()?.get()
     }
 
-    func getNetrcConfig() throws -> Workspace.Configuration.Netrc? {
-        guard options.netrc || options.netrcFilePath != nil || options.netrcOptional else {
-            return .none
+    func getNetrcConfig() -> Workspace.Configuration.Netrc? {
+        guard options.netrc else { return nil }
+
+        let path = options.netrcFilePath ?? localFileSystem.homeDirectory.appending(component: ".netrc")
+        guard localFileSystem.exists(path) else {
+            ObservabilitySystem.topScope.emit(warning: "Did not find .netrc file at \(path).")
+            return nil
         }
 
-        let netrcFilePath = try self.netrcFilePath()
-        return netrcFilePath.map { .init(path: $0, fileSystem: localFileSystem) }
-    }
-
-    private func netrcFilePath() throws -> AbsolutePath? {
-        let netrcFilePath = options.netrcFilePath ?? localFileSystem.homeDirectory.appending(component: ".netrc")
-        guard localFileSystem.exists(netrcFilePath) else {
-            if !options.netrcOptional {
-                ObservabilitySystem.topScope.emit(error: "Cannot find mandatory .netrc file at \(netrcFilePath). To make .netrc file optional, use --netrc-optional flag.")
-                throw ExitCode.failure
-            } else {
-                ObservabilitySystem.topScope.emit(warning: "Did not find optional .netrc file at \(netrcFilePath).")
-                return .none
-            }
-        }
-        return netrcFilePath
+        return .init(path: path, fileSystem: localFileSystem)
     }
 
     private func getSharedCacheDirectory() throws -> AbsolutePath? {

@@ -320,7 +320,8 @@ public struct SwiftToolOptions: ParsableArguments {
     var netrc: Bool = true
     
     /// Similar to `--netrc`, but this option makes the .netrc usage optional and not mandatory as with the `--netrc` option.
-    @Flag(name: .customLong("netrc-optional"))
+    @available(*, deprecated, message: ".netrc files are located by default")
+    @Flag(name: .customLong("netrc-optional"), help: .hidden)
     var netrcOptional: Bool = false
     
     /// The path to the netrc file which should be use for authentication when downloading binary target artifacts.
