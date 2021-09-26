@@ -219,7 +219,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 
         // Build the package structure target which will re-generate the llbuild manifest, if necessary.
         if !buildSystem.build(target: "PackageStructure") {
-            throw Diagnostics.fatalError
+            throw StringError("LLBuild::build failed building package structure")
         }
     }
 
