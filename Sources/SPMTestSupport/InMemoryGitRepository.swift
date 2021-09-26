@@ -400,7 +400,7 @@ public final class InMemoryGitRepositoryProvider: RepositoryProvider {
     public func fetch(repository: RepositorySpecifier, to path: AbsolutePath, progressHandler: FetchProgress.Handler? = nil) throws {
         let repo = specifierMap[RepositorySpecifier(location: repository.location)]!
         fetchedMap[path] = try repo.copy()
-        add(specifier: RepositorySpecifier(url: path.asURL), repository: repo)
+        add(specifier: RepositorySpecifier(path: path), repository: repo)
     }
 
     public func copy(from sourcePath: AbsolutePath, to destinationPath: AbsolutePath) throws {

@@ -128,18 +128,7 @@ extension PackageReference: Hashable {
 
 extension PackageReference: CustomStringConvertible {
     public var description: String {
-        let location: String
-        switch kind {
-        case .root(let path):
-            location = path.pathString
-        case .fileSystem(let path):
-            location = path.pathString
-        case .localSourceControl(let path):
-            location = path.pathString
-        case .remoteSourceControl(let url):
-            location = url.absoluteString
-        }
-        return "\(identity)\(location.isEmpty ? "" : "[\(location)]")"
+        return "\(self.identity)\(self.location.isEmpty ? "" : "[\(self.location)]")"
     }
 }
 
