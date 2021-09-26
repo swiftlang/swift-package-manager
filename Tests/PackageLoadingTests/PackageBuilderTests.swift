@@ -147,7 +147,7 @@ class PackageBuilderTests: XCTestCase {
             diagnostics.check(
                 diagnostic: "ignoring target 'MyPackageTests' in package 'MyPackage'; C language in tests is not yet supported",
                 severity: .warning,
-                metadata: .packageMetadata(identity: .init(url: manifest.packageLocation), location: manifest.packageLocation)
+                metadata: .packageMetadata(identity: .init(urlString: manifest.packageLocation), location: manifest.packageLocation)
             )
           #elseif os(macOS) || os(Android)
             package.checkProduct("MyPackagePackageTests") { _ in }
