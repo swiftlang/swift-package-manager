@@ -131,6 +131,6 @@ public final class LocalPackageContainer: PackageContainer {
 
 extension LocalPackageContainer: CustomStringConvertible  {
     public var description: String {
-        return "LocalPackageContainer(\(self.package.kind))"
+        return "LocalPackageContainer(\(self.package.identity))"
     }
 }

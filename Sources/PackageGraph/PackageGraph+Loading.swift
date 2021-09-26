@@ -204,7 +204,7 @@ private func createResolvedPackages(
         guard let package = manifestToPackage[node.manifest] else {
             return nil
         }
-        let isAllowedToVendUnsafeProducts = unsafeAllowedPackages.contains{ $0.kind == package.manifest.packageKind }
+        let isAllowedToVendUnsafeProducts = unsafeAllowedPackages.contains{ $0.identity == package.identity }
         let allowedToOverride = rootManifestSet.contains(node.manifest)
         return ResolvedPackageBuilder(
             package,

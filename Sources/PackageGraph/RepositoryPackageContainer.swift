@@ -85,14 +85,10 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
     ) throws {
         self.package = package
         self.identityResolver = identityResolver
-        switch package.kind {
-        case .localSourceControl(let path):
-            self.repositorySpecifier = .init(path: path)
-        case .remoteSourceControl(let url):
-            self.repositorySpecifier = .init(url: url)
-        default:
+        guard let repositorySpecifier = package.repositorySpecifier else {
             throw InternalError("invalid package type \(package.kind)")
         }
+        self.repositorySpecifier = repositorySpecifier
         self.repository = repository
         self.manifestLoader = manifestLoader
         self.toolsVersionLoader = toolsVersionLoader
