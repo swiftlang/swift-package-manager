@@ -38,7 +38,7 @@ public enum PackageDependency: Equatable {
             case branch(String)
         }
 
-        public enum Location: Equatable, Encodable {
+        public enum Location: Equatable {
             case local(AbsolutePath)
             case remote(Foundation.URL)
         }
@@ -301,6 +301,24 @@ extension PackageDependency.SourceControl.Requirement: Encodable {
         case let .branch(a1):
             var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .branch)
             try unkeyedContainer.encode(a1)
+        }
+    }
+}
+
+extension PackageDependency.SourceControl.Location: Encodable {
+    private enum CodingKeys: String, CodingKey {
+        case local, remote
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case .local(let path):
+            var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .local)
+            try unkeyedContainer.encode(path)
+        case .remote(let url):
+            var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .remote)
+            try unkeyedContainer.encode(url)
         }
     }
 }

@@ -16,9 +16,9 @@ import TSCUtility
 /// A package reference.
 ///
 /// This represents a reference to a package containing its identity and location.
-public struct PackageReference: Codable {
+public struct PackageReference: Encodable {
     /// The kind of package reference.
-    public enum Kind: Codable, Equatable {
+    public enum Kind: Equatable {
         /// A root package.
         case root(AbsolutePath)
 
@@ -143,3 +143,26 @@ extension PackageReference: CustomStringConvertible {
     }
 }
 
+extension PackageReference.Kind: Encodable {
+    private enum CodingKeys: String, CodingKey {
+        case root, fileSystem, localSourceControl, remoteSourceControl
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case .root(let path):
+            var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .root)
+            try unkeyedContainer.encode(path)
+        case .fileSystem(let path):
+            var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .fileSystem)
+            try unkeyedContainer.encode(path)
+        case .localSourceControl(let path):
+            var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .localSourceControl)
+            try unkeyedContainer.encode(path)
+        case .remoteSourceControl(let url):
+            var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .remoteSourceControl)
+            try unkeyedContainer.encode(url)
+        }
+    }
+}
