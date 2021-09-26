@@ -840,12 +840,7 @@ extension Workspace {
         }
 
         let binaryArtifacts = try self.state.artifacts.map{ artifact -> BinaryArtifact in
-            return try BinaryArtifact(
-                kind: artifact.kind(),
-                originURL: artifact.originURL,
-                path: artifact.path,
-                archivePath: artifact.archivePath
-            )
+            return try BinaryArtifact(kind: artifact.kind(), originURL: artifact.originURL, path: artifact.path)
         }
 
         // Load the graph.
@@ -1687,12 +1682,11 @@ extension Workspace {
         var artifactsToRemove: [ManagedArtifact] = []
         var artifactsToAdd: [ManagedArtifact] = []
         var artifactsToDownload: [RemoteArtifact] = []
-        var artifactsToExtract: [LocalArchivedArtifact] = []
+        var artifactsToExtract: [ManagedArtifact] = []
 
         for artifact in state.artifacts {
             if !manifestArtifacts.local.contains(where: { $0.packageRef == artifact.packageRef && $0.targetName == artifact.targetName }) &&
-                !manifestArtifacts.remote.contains(where: { $0.packageRef == artifact.packageRef && $0.targetName == artifact.targetName }) &&
-                !manifestArtifacts.localArchived.contains(where: { $0.packageRef == artifact.packageRef && $0.targetName == artifact.targetName }) {
+                !manifestArtifacts.remote.contains(where: { $0.packageRef == artifact.packageRef && $0.targetName == artifact.targetName }) {
                 artifactsToRemove.append(artifact)
             }
         }
@@ -1703,12 +1697,18 @@ extension Workspace {
                 targetName: artifact.targetName
             ]
 
-            if let existingArtifact = existingArtifact, existingArtifact.isAtWorkspaceArtifactsPath {
-                // If the old artifact is located at the workspace artifacts path, we should remove it.
-                artifactsToRemove.append(existingArtifact)
+            if artifact.path.extension == "zip" {
+                // TODO: We could check here a file signature of the `existingArtifact`, and
+                // if it matches the manifest `artifact` signature we could just `continue`.
+                artifactsToExtract.append(artifact)
+            } else {
+                artifactsToAdd.append(artifact)
             }
 
-            artifactsToAdd.append(artifact)
+            if let existingArtifact = existingArtifact, isAtArtifactsDirectory(existingArtifact) {
+                // Remove the old extracted artifact, be it local archived or remote one.
+                artifactsToRemove.append(existingArtifact)
+            }
         }
 
         for artifact in manifestArtifacts.remote {
@@ -1718,8 +1718,7 @@ extension Workspace {
             ]
 
             if let existingArtifact = existingArtifact {
-                switch existingArtifact.source {
-                case .remote(url: _, checksum: let existingChecksum):
+                if case .remote(_, let existingChecksum) = existingArtifact.source {
                     // If we already have an artifact with the same checksum, we don't need to download it again.
                     if artifact.checksum == existingChecksum {
                         continue
@@ -1730,39 +1729,15 @@ extension Workspace {
                         diagnostics.emit(.artifactChecksumChanged(targetName: artifact.targetName))
                         continue
                     }
+                }
 
+                if isAtArtifactsDirectory(existingArtifact) {
+                    // Remove the old extracted artifact, be it local archived or remote one.
                     artifactsToRemove.append(existingArtifact)
-                case .localArchived:
-                    artifactsToRemove.append(existingArtifact)
-                case .local:
-                    break
                 }
             }
 
             artifactsToDownload.append(artifact)
-        }
-
-        for artifact in manifestArtifacts.localArchived {
-            let existingArtifact = self.state.artifacts[
-                packageIdentity: artifact.packageRef.identity,
-                targetName: artifact.targetName
-            ]
-
-            if let existingArtifact = existingArtifact {
-                switch existingArtifact.source {
-                case .remote:
-                    artifactsToRemove.append(existingArtifact)
-                case .localArchived:
-                    // TODO: It is better to compare the file signatures of the archives to optimize the
-                    // performance by reusing the existing artifact instead of re-extracting the old one
-                    // each time.
-                    artifactsToRemove.append(existingArtifact)
-                case .local:
-                    break
-                }
-            }
-
-            artifactsToExtract.append(artifact)
         }
 
         // Remove the artifacts and directories which are not needed anymore.
@@ -1770,7 +1745,7 @@ extension Workspace {
             for artifact in artifactsToRemove {
                 state.artifacts.remove(packageIdentity: artifact.packageRef.identity, targetName: artifact.targetName)
 
-                if artifact.isAtWorkspaceArtifactsPath {
+                if isAtArtifactsDirectory(artifact) {
                     try fileSystem.removeFileTree(artifact.path)
                 }
             }
@@ -1809,19 +1784,12 @@ extension Workspace {
         }
     }
 
-    private func parseArtifacts(
-        from manifests: DependencyManifests
-    ) throws -> (
-        local: [ManagedArtifact],
-        localArchived: [LocalArchivedArtifact],
-        remote: [RemoteArtifact]
-    ) {
+    private func parseArtifacts(from manifests: DependencyManifests) throws -> (local: [ManagedArtifact], remote: [RemoteArtifact]) {
         let packageAndManifests: [(reference: PackageReference, manifest: Manifest)] =
             manifests.root.packages.values + // Root package and manifests.
             manifests.dependencies.map({ manifest, managed, _ in (managed.packageRef, manifest) }) // Dependency package and manifests.
 
         var localArtifacts: [ManagedArtifact] = []
-        var localArchivedArtifacts: [LocalArchivedArtifact] = []
         var remoteArtifacts: [RemoteArtifact] = []
 
         for (packageReference, manifest) in packageAndManifests {
@@ -1829,26 +1797,15 @@ extension Workspace {
                 if let path = target.path {
                     // TODO: find a better way to get the base path (not via the manifest)
                     let absolutePath = try manifest.path.parentDirectory.appending(RelativePath(validating: path))
-                    
-                    if absolutePath.extension == LocalArchivedArtifact.extension {
-                        localArchivedArtifacts.append(
-                            LocalArchivedArtifact(
-                                packageRef: packageReference,
-                                targetName: target.name,
-                                archivePath: absolutePath,
-                                destinationPath: self.location.artifactsDirectory.appending(components: packageReference.name))
-                        )
-                    } else {
-                        localArtifacts.append(
-                            ManagedArtifact.local(
-                                packageRef: packageReference,
-                                targetName: target.name,
-                                path: absolutePath)
-                        )
-                    }
+                    localArtifacts.append(
+                        .local(
+                            packageRef: packageReference,
+                            targetName: target.name,
+                            path: absolutePath)
+                    )
                 } else if let url = target.url.flatMap(URL.init(string:)), let checksum = target.checksum {
                     remoteArtifacts.append(
-                        RemoteArtifact(
+                        .init(
                             packageRef: packageReference,
                             targetName: target.name,
                             url: url,
@@ -1860,7 +1817,7 @@ extension Workspace {
             }
         }
 
-        return (local: localArtifacts, localArchived: localArchivedArtifacts, remote: remoteArtifacts)
+        return (local: localArtifacts, remote: remoteArtifacts)
     }
 
     private func download(_ artifacts: [RemoteArtifact], diagnostics: DiagnosticsEngine) throws -> [ManagedArtifact] {
@@ -2037,16 +1994,17 @@ extension Workspace {
 
         return result.map{ $0 }
     }
-    
-    private func extract(_ artifacts: [LocalArchivedArtifact], diagnostics: DiagnosticsEngine) -> [ManagedArtifact] {
+
+    private func extract(_ artifacts: [ManagedArtifact], diagnostics: DiagnosticsEngine) -> [ManagedArtifact] {
         let result = ThreadSafeArrayStore<ManagedArtifact>()
         let group = DispatchGroup()
 
         for artifact in artifacts {
             let tempExtractionDirectory = self.location.artifactsDirectory.appending(components: "extract", artifact.targetName)
+            let destinationDirectory = self.location.artifactsDirectory.appending(component: artifact.packageRef.name)
 
             do {
-                try fileSystem.createDirectory(artifact.destinationPath, recursive: true)
+                try fileSystem.createDirectory(destinationDirectory, recursive: true)
                 if fileSystem.exists(tempExtractionDirectory) {
                     try fileSystem.removeFileTree(tempExtractionDirectory)
                 }
@@ -2056,7 +2014,7 @@ extension Workspace {
             }
 
             group.enter()
-            self.archiver.extract(from: artifact.archivePath, to: tempExtractionDirectory, completion: { extractResult in
+            self.archiver.extract(from: artifact.path, to: tempExtractionDirectory, completion: { extractResult in
                 defer { group.leave() }
 
                 switch extractResult {
@@ -2067,7 +2025,7 @@ extension Workspace {
                         let content = try self.fileSystem.getDirectoryContents(tempExtractionDirectory)
                         for file in content {
                             let source = tempExtractionDirectory.appending(component: file)
-                            let destination = artifact.destinationPath.appending(component: file)
+                            let destination = destinationDirectory.appending(component: file)
                             if self.fileSystem.exists(destination) {
                                 try self.fileSystem.removeFileTree(destination)
                             }
@@ -2085,18 +2043,17 @@ extension Workspace {
                     }
 
                     result.append(
-                        .localArchived(
+                        .local(
                             packageRef: artifact.packageRef,
                             targetName: artifact.targetName,
-                            path: mainArtifactPath,
-                            archivePath: artifact.archivePath
+                            path: mainArtifactPath
                         )
                     )
 
                 case .failure(let error):
                     let reason = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
 
-                    diagnostics.emit(.localArtifactFailedExtraction(artifactPath: artifact.archivePath, targetName: artifact.targetName, reason: reason))
+                    diagnostics.emit(.localArtifactFailedExtraction(artifactPath: artifact.path, targetName: artifact.targetName, reason: reason))
                 }
             })
         }
@@ -2104,6 +2061,10 @@ extension Workspace {
         group.wait()
 
         return result.map{ $0 }
+    }
+
+    private func isAtArtifactsDirectory(_ artifact: ManagedArtifact) -> Bool {
+        artifact.path.isDescendant(of: self.location.artifactsDirectory)
     }
 }
 
@@ -3068,15 +3029,6 @@ private struct RemoteArtifact {
     let checksum: String
 }
 
-private struct LocalArchivedArtifact {
-    let packageRef: PackageReference
-    let targetName: String
-    let archivePath: AbsolutePath
-    let destinationPath: AbsolutePath
-    
-    static let `extension` = "zip"
-}
-
 private struct ArchiveIndexFile: Decodable {
     let schemaVersion: String
     let archives: [Archive]
@@ -3106,16 +3058,7 @@ private extension Workspace.ManagedArtifact {
         switch self.source {
         case .remote(let url, _):
             return url
-        case .local, .localArchived:
-            return nil
-        }
-    }
-    
-    var archivePath: AbsolutePath? {
-        switch self.source {
-        case .localArchived(archivePath: let archivePath):
-            return archivePath
-        case .local, .remote:
+        case .local:
             return nil
         }
     }

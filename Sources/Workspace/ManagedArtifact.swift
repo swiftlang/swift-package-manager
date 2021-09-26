@@ -23,21 +23,11 @@ extension Workspace {
         /// The name of the binary target the artifact corresponds to.
         public let targetName: String
 
-        /// The source of the artifact (local, localArchived or remote).
+        /// The source of the artifact (local or remote).
         public let source: Source
 
         /// The path of the artifact on disk
         public let path: AbsolutePath
-
-        /// Indicates if the artifact is located at the workspace artifacts path.
-        public var isAtWorkspaceArtifactsPath: Bool {
-            switch self.source {
-            case .local:
-                return false
-            case .remote, .localArchived:
-                return true
-            }
-        }
 
         public init(
             packageRef: PackageReference,
@@ -80,21 +70,6 @@ extension Workspace {
                 path: path
             )
         }
-        
-        /// Create an artifact extracted from a local archive path.
-        public static func localArchived(
-            packageRef: PackageReference,
-            targetName: String,
-            path: AbsolutePath,
-            archivePath: AbsolutePath
-        ) -> ManagedArtifact {
-            return ManagedArtifact(
-                packageRef: packageRef,
-                targetName: targetName,
-                source: .localArchived(archivePath: archivePath),
-                path: path
-            )
-        }
 
         /// Represents the source of the artifact.
         public enum Source: Equatable {
@@ -105,10 +80,6 @@ extension Workspace {
 
             /// Represents a locally available artifact, with its path relative to its package.
             case local
-            
-            /// Represents a local archived artifact, with the archive path it was extracted from, with its path relative to
-            /// the workspace artifacts path.
-            case localArchived(archivePath: AbsolutePath)
         }
     }
 }
@@ -124,8 +95,6 @@ extension Workspace.ManagedArtifact.Source: CustomStringConvertible {
         switch self {
         case .local:
             return "local"
-        case .localArchived(let archivePath):
-            return "localArchived(archivePath: \(archivePath.pathString))"
         case .remote(let url, let checksum):
             return "remote(url: \(url), checksum: \(checksum))"
         }

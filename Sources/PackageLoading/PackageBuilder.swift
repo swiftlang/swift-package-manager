@@ -198,14 +198,10 @@ public struct BinaryArtifact {
     /// The path to the  artifact.
     public let path: AbsolutePath
 
-    /// The path to the artifact archive, it exists only for local archived artifacts.
-    public let archivePath: AbsolutePath?
-
-    public init(kind: BinaryTarget.Kind, originURL: String?, path: AbsolutePath, archivePath: AbsolutePath?) {
+    public init(kind: BinaryTarget.Kind, originURL: String?, path: AbsolutePath) {
         self.kind = kind
         self.originURL = originURL
         self.path = path
-        self.archivePath = archivePath
     }
 }
 
@@ -773,7 +769,7 @@ public final class PackageBuilder {
             )
         } else if potentialModule.type == .binary {
             guard let artifact = self.binaryArtifacts.first(where: {
-                $0.path == potentialModule.path || $0.archivePath == potentialModule.path
+                $0.path == potentialModule.path || $0.path.basenameWithoutExt == potentialModule.path.basenameWithoutExt
             }) else {
                 throw InternalError("unknown binary artifact for '\(potentialModule.name)'")
             }

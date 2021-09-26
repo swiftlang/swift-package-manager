@@ -2720,8 +2720,8 @@ final class BuildPlanTests: XCTestCase {
                 ),
             ],
             binaryArtifacts: [
-                .init(kind: .xcframework, originURL: nil, path: AbsolutePath("/Pkg/Framework.xcframework"), archivePath: nil),
-                .init(kind: .xcframework, originURL: nil, path: AbsolutePath("/Pkg/StaticLibrary.xcframework"), archivePath: nil)
+                .init(kind: .xcframework, originURL: nil, path: AbsolutePath("/Pkg/Framework.xcframework")),
+                .init(kind: .xcframework, originURL: nil, path: AbsolutePath("/Pkg/StaticLibrary.xcframework"))
             ]
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
@@ -2824,7 +2824,7 @@ final class BuildPlanTests: XCTestCase {
                 ),
             ],
             binaryArtifacts: [
-                .init(kind: .artifactsArchive, originURL: nil, path: toolPath, archivePath: nil),
+                .init(kind: .artifactsArchive, originURL: nil, path: toolPath),
             ]
         )
 

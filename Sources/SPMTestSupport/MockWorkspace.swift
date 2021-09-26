@@ -545,8 +545,6 @@ public final class MockWorkspace {
                 XCTAssertEqual(lhsChecksum, rhsChecksum, file: file, line: line)
             case (.local, .local):
                 break
-            case (.localArchived(let lhsArchivePath), .localArchived(let rhsArchivePath)):
-                XCTAssertEqual(lhsArchivePath, rhsArchivePath, file: file, line: line)
             default:
                 XCTFail("wrong source type", file: file, line: line)
             }

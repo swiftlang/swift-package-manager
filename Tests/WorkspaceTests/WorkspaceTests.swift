@@ -4358,38 +4358,44 @@ final class WorkspaceTests: XCTestCase {
         workspace.checkManagedArtifacts { result in
             result.check(packageIdentity: .plain("a"),
                          targetName: "A1",
-                         source: .localArchived(archivePath: a1FrameworkArchivePath),
+                         source: .local,
                          path: workspace.artifactsDir.appending(components: "A", "A1.xcframework")
             )
             result.check(packageIdentity: .plain("a"),
                          targetName: "A2",
-                         source: .localArchived(archivePath: a2ArtifactBundleArchivePath),
+                         source: .local,
                          path: workspace.artifactsDir.appending(components: "A", "A2.artifactbundle")
             )
             result.check(packageIdentity: .plain("b"),
                          targetName: "B",
-                         source: .localArchived(archivePath: bFrameworkArchivePath),
+                         source: .local,
                          path: workspace.artifactsDir.appending(components: "B", "B.xcframework")
             )
         }
     }
 
     // There are 6 possible transition permutations of the artifact source set
-    // {local, remote, localArchived}, namely:
+    // {local, local-archived, and remote}, namely:
     //
-    // (remote        -> local)
-    // (local         -> remote)
-    // (local         -> localArchived)
-    // (localArchived -> local)
-    // (remote        -> localArchived)
-    // (localArchived -> remote)
+    // (remote         -> local)
+    // (local          -> remote)
+    // (local          -> local-archived)
+    // (local-archived -> local)
+    // (remote         -> local-archived)
+    // (local-archived -> remote)
     //
-    // This test covers the last 4 permutations where the `localArchived` source is involved.
+    // This test covers the last 4 permutations where the `local-archived` source is involved.
     // It ensures that all the appropriate clean-up operations are executed, and the workspace
     // contains the correct set of managed artifacts after the transition.
     func testLocalArchivedArtifactSourceTransitionPermutations() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
+        
+        let a1FrameworkName = "A1.xcframework"
+        let a2FrameworkName = "A2.xcframework"
+        let a3FrameworkName = "A3.xcframework"
+        let a4FrameworkName = "A4.xcframework"
+        let a5FrameworkName = "A5.xcframework"
 
         // returns a dummy zipfile for the requested artifact
         let httpClient = HTTPClient(handler: { request, _, completion in
@@ -4425,14 +4431,14 @@ final class WorkspaceTests: XCTestCase {
                 var subdirectoryName: String?
                 switch archivePath.basename {
                 case "A1.zip":
-                    name = "A1.xcframework"
+                    name = a1FrameworkName
                 case "A2.zip":
-                    name = "A2.xcframework"
+                    name = a2FrameworkName
                 case "A3.zip":
-                    name = "A3.xcframework"
+                    name = a3FrameworkName
                     subdirectoryName = "local-archived"
                 case "a4.zip":
-                    name = "A4.xcframework"
+                    name = a4FrameworkName
                     subdirectoryName = "remote"
                 default:
                     throw StringError("unexpected archivePath \(archivePath)")
@@ -4484,7 +4490,7 @@ final class WorkspaceTests: XCTestCase {
                         MockTarget(
                             name: "A2",
                             type: .binary,
-                            path: "XCFrameworks/A2.xcframework"
+                            path: "XCFrameworks/\(a2FrameworkName)"
                         ),
                         MockTarget(
                             name: "A3",
@@ -4513,12 +4519,12 @@ final class WorkspaceTests: XCTestCase {
         let aFrameworksPath = workspace.packagesDir.appending(components: "A", "XCFrameworks")
         try fs.createDirectory(aFrameworksPath, recursive: true)
 
-        let a1FrameworkPath = aFrameworksPath.appending(component: "A1.xcframework")
+        let a1FrameworkPath = aFrameworksPath.appending(component: a1FrameworkName)
         let a1FrameworkArchivePath = aFrameworksPath.appending(component: "A1.zip")
         try fs.createDirectory(a1FrameworkPath, recursive: true)
         try fs.writeFileContents(a1FrameworkArchivePath, bytes: ByteString([0xA1]))
 
-        let a2FrameworkPath = aFrameworksPath.appending(component: "A2.xcframework")
+        let a2FrameworkPath = aFrameworksPath.appending(component: a2FrameworkName)
         let a2FrameworkArchivePath = aFrameworksPath.appending(component: "A2.zip")
         try fs.createDirectory(a2FrameworkPath, recursive: true)
         try fs.writeFileContents(a2FrameworkArchivePath, bytes: ByteString([0xA2]))
@@ -4550,27 +4556,33 @@ final class WorkspaceTests: XCTestCase {
                 .init(
                     packageRef: aRef,
                     targetName: "A2",
-                    source: .localArchived(archivePath: a2FrameworkArchivePath),
-                    path: workspace.artifactsDir.appending(components: "A", "A2.xcframework")
+                    source: .local,
+                    path: workspace.artifactsDir.appending(components: "A", a2FrameworkName)
                 ),
                 .init(
                     packageRef: aRef,
                     targetName: "A3",
                     source: .remote(url: "https://a.com/a3.zip", checksum: "a3"),
-                    path: workspace.artifactsDir.appending(components: "A", "A3.xcframework")
+                    path: workspace.artifactsDir.appending(components: "A", a3FrameworkName)
                 ),
                 .init(
                     packageRef: aRef,
                     targetName: "A4",
-                    source: .localArchived(archivePath: a4FrameworkArchivePath),
-                    path: workspace.artifactsDir.appending(components: "A", "A4.xcframework")
+                    source: .local,
+                    path: workspace.artifactsDir.appending(components: "A", a4FrameworkName)
+                ),
+                .init(
+                    packageRef: aRef,
+                    targetName: "A5",
+                    source: .local,
+                    path: workspace.artifactsDir.appending(components: "A", a5FrameworkName)
                 )
             ]
         )
 
         // Create marker folders to later check that the frameworks' content is properly overwritten
-        try fs.createDirectory(workspace.artifactsDir.appending(components: "A", "A3.xcframework", "remote"), recursive: true)
-        try fs.createDirectory(workspace.artifactsDir.appending(components: "A", "A4.xcframework", "local-archived"), recursive: true)
+        try fs.createDirectory(workspace.artifactsDir.appending(components: "A", a3FrameworkName, "remote"), recursive: true)
+        try fs.createDirectory(workspace.artifactsDir.appending(components: "A", a4FrameworkName, "local-archived"), recursive: true)
 
         workspace.checkPackageGraph(roots: ["Foo"]) { graph, diagnostics in
             XCTAssertTrue(diagnostics.isEmpty, diagnostics.description)
@@ -4582,21 +4594,22 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertTrue(fs.exists(a4FrameworkArchivePath))
 
             // Ensure that the new artifacts have been properly extracted
-            XCTAssertTrue(fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/A/A1.xcframework")))
-            XCTAssertTrue(fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/A/A3.xcframework/local-archived")))
-            XCTAssertTrue(fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/A/A4.xcframework/remote")))
+            XCTAssertTrue(fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/A/\(a1FrameworkName)")))
+            XCTAssertTrue(fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/A/\(a3FrameworkName)/local-archived")))
+            XCTAssertTrue(fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/A/\(a4FrameworkName)/remote")))
 
             // Ensure that the old artifacts have been removed
-            XCTAssertFalse(fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/A/A2.xcframework")))
-            XCTAssertFalse(fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/A/A3.xcframework/remote")))
-            XCTAssertFalse(fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/A/A4.xcframework/local-archived")))
+            XCTAssertFalse(fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/A/\(a2FrameworkName)")))
+            XCTAssertFalse(fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/A/\(a3FrameworkName)/remote")))
+            XCTAssertFalse(fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/A/\(a4FrameworkName)/local-archived")))
+            XCTAssertFalse(fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/A/\(a5FrameworkName)")))
         }
 
         workspace.checkManagedArtifacts { result in
             result.check(packageIdentity: .plain("a"),
                          targetName: "A1",
-                         source: .localArchived(archivePath: a1FrameworkArchivePath),
-                         path: workspace.artifactsDir.appending(components: "A", "A1.xcframework")
+                         source: .local,
+                         path: workspace.artifactsDir.appending(components: "A", a1FrameworkName)
             )
             result.check(packageIdentity: .plain("a"),
                          targetName: "A2",
@@ -4605,13 +4618,13 @@ final class WorkspaceTests: XCTestCase {
             )
             result.check(packageIdentity: .plain("a"),
                          targetName: "A3",
-                         source: .localArchived(archivePath: a3FrameworkArchivePath),
-                         path: workspace.artifactsDir.appending(components: "A", "A3.xcframework")
+                         source: .local,
+                         path: workspace.artifactsDir.appending(components: "A", a3FrameworkName)
             )
             result.check(packageIdentity: .plain("a"),
                          targetName: "A4",
                          source: .remote(url: "https://a.com/a4.zip", checksum: "a4"),
-                         path: workspace.artifactsDir.appending(components: "A", "A4.xcframework")
+                         path: workspace.artifactsDir.appending(components: "A", a4FrameworkName)
             )
         }
     }
@@ -4698,7 +4711,7 @@ final class WorkspaceTests: XCTestCase {
                 .init(
                     packageRef: aRef,
                     targetName: "A1",
-                    source: .localArchived(archivePath: a1FrameworkArchivePath),
+                    source: .local,
                     path: workspace.artifactsDir.appending(components: "A", "A1.xcframework")
                 )
             ]
@@ -4717,7 +4730,7 @@ final class WorkspaceTests: XCTestCase {
         }
     }
     
-    func testLocalArchivedArtifactNameDoesNotMatchTargetName() throws {
+    /*func testLocalArchivedArtifactNameDoesNotMatchTargetName() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         
@@ -4786,7 +4799,7 @@ final class WorkspaceTests: XCTestCase {
             }
         }
         
-    }
+    }*/
 
     func testLocalArchivedArtifactExtractionError() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
