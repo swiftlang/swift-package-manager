@@ -9,12 +9,11 @@
  */
 
 import Basics
+import Foundation
+import PackageModel
+import SourceControl
 import TSCBasic
 import TSCUtility
-import PackageModel
-import Foundation
-import SourceControl
-import PackageDescription
 
 enum ManifestJSONParser {
     private static let filePrefix = "file://"

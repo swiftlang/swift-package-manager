@@ -93,7 +93,7 @@ public final class MockWorkspace {
 
         var manifests: [MockManifestLoader.Key: Manifest] = [:]
 
-        func create(package: MockPackage, basePath: AbsolutePath, isRoot: Bool/*, packageKind: PackageReference.Kind*/) throws {
+        func create(package: MockPackage, basePath: AbsolutePath, isRoot: Bool) throws {
             let packagePath: AbsolutePath
             switch package.location {
             case .fileSystem(let path):

@@ -13,18 +13,6 @@ import PackageModel
 import TSCBasic
 
 public extension PackageDependency {
-    /*
-    static func fileSystem(identity: PackageIdentity? = nil,
-                           deprecatedName: String? = nil,
-                           path: String,
-                           productFilter: ProductFilter = .everything
-    ) -> Self {
-        return .fileSystem(identity: identity,
-                           deprecatedName: deprecatedName,
-                           path: AbsolutePath(path),
-                           productFilter: productFilter)
-    }*/
-
     static func fileSystem(identity: PackageIdentity? = nil,
                            deprecatedName: String? = nil,
                            path: AbsolutePath,
