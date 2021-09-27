@@ -593,6 +593,11 @@ extension LLBuildManifestBuilder {
                         try addStaticTargetInputs(target)
                     }
 
+                // Custom product types are currently ignored; in the long run
+                // they should be supported using product type plugins.
+                case .custom:
+                    break
+
                 case .test:
                     break
                 }
@@ -746,6 +751,12 @@ extension LLBuildManifestBuilder {
                     for target in product.targets {
                         addStaticTargetInputs(target)
                     }
+
+                // Custom product types are currently ignored; in the long run
+                // they should be supported using product type plugins.
+                case .custom:
+                    break
+
                 case .test:
                     break
                 }
@@ -919,6 +930,8 @@ extension ResolvedProduct {
             return "\(name)-\(config).exe"
         case .plugin:
             throw InternalError("unexpectedly asked for the llbuild target name of a plugin product")
+        case .custom:
+            throw InternalError("unexpectedly asked for the llbuild target name of a custom product")
         }
     }
 

@@ -1272,6 +1272,8 @@ public final class ProductBuildDescription {
             }
         case .plugin:
             throw InternalError("unexpectedly asked to generate linker arguments for a plugin product")
+        case .custom:
+            throw InternalError("unexpectedly asked to generate linker arguments for a custom product")
         }
 
         // Set rpath such that dynamic libraries are looked up
@@ -1294,6 +1296,8 @@ public final class ProductBuildDescription {
             useStdlibRpath = true
           case .plugin:
             throw InternalError("unexpectedly asked to generate linker arguments for a plugin product")
+          case .custom:
+            throw InternalError("unexpectedly asked to generate linker arguments for a custom product")
           }
 
           if useStdlibRpath && buildParameters.triple.isDarwin() {
@@ -1632,6 +1636,10 @@ public class BuildPlan {
         // for automatic libraries and plugins, because they don't produce any output.
         for product in graph.allProducts where product.type != .library(.automatic) && product.type != .plugin {
 
+            // Custom product types are currently ignored; in the long run they
+            // should be supported using product type plugins.
+            if case .custom(_, _) = product.type { continue }
+
             // Determine the appropriate tools version to use for the product.
             // This can affect what flags to pass and other semantics.
             let toolsVersion = graph.package(for: product)?.manifest.toolsVersion ?? .v5_5
@@ -1807,7 +1815,7 @@ public class BuildPlan {
                 switch product.type {
                 case .library(.automatic), .library(.static), .plugin:
                     return product.targets.map { .target($0, conditions: []) }
-                case .library(.dynamic), .test, .executable, .snippet:
+                case .library(.dynamic), .test, .executable, .snippet, .custom:
                     return []
                 }
             }

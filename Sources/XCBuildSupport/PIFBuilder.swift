@@ -345,7 +345,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
             addMainModuleTarget(for: product)
         case .library:
             addLibraryTarget(for: product)
-        case .plugin:
+        case .plugin, .custom:
             return
         }
     }
@@ -1414,6 +1414,8 @@ extension ProductType {
             return .library
         case .plugin:
             return .plugin
+        case .custom:
+            return .library
         }
     }
 }

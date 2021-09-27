@@ -433,34 +433,27 @@ extension SystemPackageProviderDescription {
 
 extension PackageModel.ProductType {
     fileprivate init(v4 json: JSON) throws {
-        let productType = try json.get(String.self, forKey: "product_type")
+        let productType = try json.get(String.self, forKey: "type")
 
         switch productType {
         case "executable":
             self = .executable
 
         case "library":
-            let libraryType: ProductType.LibraryType
-
-            let libraryTypeString: String? = json.get("type")
-            switch libraryTypeString {
-            case "static"?:
-                libraryType = .static
-            case "dynamic"?:
-                libraryType = .dynamic
-            case nil:
-                libraryType = .automatic
-            default:
-                throw InternalError("invalid product type \(productType)")
+            // Since library is still a built-in type, unpack its properties.
+            struct EncodedLibraryProperties: Decodable {
+                public let type: LibraryType?
             }
-
-            self = .library(libraryType)
-
+            let encodedProperties = try json.get(String.self, forKey: "encodedProperties")
+            let properties = try JSONDecoder().decode(EncodedLibraryProperties.self, from: Data(encodedProperties.utf8))
+            self = .library(properties.type ?? .automatic)
+            
         case "plugin":
             self = .plugin
 
         default:
-            throw InternalError("unexpected product type: \(json)")
+            let encodedProperties = try json.get(String.self, forKey: "encodedProperties")
+            self = .custom(productType, Data(encodedProperties.utf8))
         }
     }
 }

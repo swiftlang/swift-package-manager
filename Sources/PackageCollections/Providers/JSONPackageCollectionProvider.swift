@@ -410,6 +410,8 @@ extension PackageModel.ProductType {
             self = .snippet
         case .test:
             self = .test
+        case .custom(let typeName, let propertyData):
+            self = .custom(typeName, propertyData)
         }
     }
 }

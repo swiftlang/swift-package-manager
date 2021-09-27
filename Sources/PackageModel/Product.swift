@@ -10,6 +10,7 @@
 
 import TSCBasic
 import TSCUtility
+import Foundation
 
 public class Product: Codable {
     /// The name of the product.
@@ -87,6 +88,9 @@ public enum ProductType: Equatable, Hashable {
 
     /// A test product.
     case test
+    
+    /// A custom type (the properties are encoded in opaque data).
+    case custom(_ typeName: String, _ propertyData: Data)
 
     public var isLibrary: Bool {
         guard case .library = self else { return false }
@@ -181,6 +185,8 @@ extension ProductType: CustomStringConvertible {
             }
         case .plugin:
             return "plugin"
+        case .custom(let customType, _):
+            return customType
         }
     }
 }
@@ -200,7 +206,7 @@ extension ProductFilter: CustomStringConvertible {
 
 extension ProductType: Codable {
     private enum CodingKeys: String, CodingKey {
-        case library, executable, snippet, plugin, test
+        case library, executable, snippet, plugin, test, custom
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -217,6 +223,10 @@ extension ProductType: Codable {
             try container.encodeNil(forKey: .plugin)
         case .test:
             try container.encodeNil(forKey: .test)
+        case let .custom(a1, a2):
+            var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .custom)
+            try unkeyedContainer.encode(a1)
+            try unkeyedContainer.encode(a2)
         }
     }
 
@@ -238,6 +248,11 @@ extension ProductType: Codable {
             self = .snippet
         case .plugin:
             self = .plugin
+        case .custom:
+            var unkeyedValues = try values.nestedUnkeyedContainer(forKey: key)
+            let a1 = try unkeyedValues.decode(String.self)
+            let a2 = try unkeyedValues.decode(Data.self)
+            self = .custom(a1, a2)
         }
     }
 }
