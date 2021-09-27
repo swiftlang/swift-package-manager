@@ -339,8 +339,14 @@ public final class ClangTargetBuildDescription {
         } else if buildParameters.triple.isDarwin(), (try? buildParameters.toolchain._isClangCompilerVendorApple()) == true {
             args += buildParameters.indexStoreArguments(for: target)
         }
-
-        if !buildParameters.triple.isWindows() && !buildParameters.triple.isAndroid() {
+        
+        // Disable Clang modules:
+        // 1. on Darwin when compiling for C++, because C++ modules are disabled on Apple-built Clang releases
+        // 2. on Windows when compiling for any language, because of issues with the Windows SDK
+        // 3. on Android when compiling for any language, because of issues with the Android SDK
+        let enableModules = !(buildParameters.triple.isDarwin() && clangTarget.isCXX) && !buildParameters.triple.isWindows() && !buildParameters.triple.isAndroid()
+        
+        if enableModules {
             // Using modules currently conflicts with the Windows and Android SDKs.
             args += ["-fmodules", "-fmodule-name=" + target.c99name]
         }
@@ -352,7 +358,7 @@ public final class ClangTargetBuildDescription {
 
         args += ["-I", clangTarget.includeDir.pathString]
         args += additionalFlags
-        if !buildParameters.triple.isWindows() && !buildParameters.triple.isAndroid() {
+        if enableModules {
             args += moduleCacheArgs
         }
         args += buildParameters.sanitizers.compileCFlags()
