@@ -50,7 +50,26 @@ final class PackageToolTests: XCTestCase {
         XCTAssertMatch(stdout, .contains("Swift Package Manager"))
     }
 
+    func testNetrc() throws {
+        fixture(name: "DependencyResolution/External/XCFramework") { packageRoot in
+            try self.execute(["resolve", "--netrc"], packagePath: packageRoot)
+        }
+    }
+
+    func testNoNetrc() throws {
+        fixture(name: "DependencyResolution/External/XCFramework") { packageRoot in
+            try self.execute(["resolve", "--no-netrc"], packagePath: packageRoot)
+        }
+    }
+
+    func testNetrcOptional() throws {
+        fixture(name: "DependencyResolution/External/XCFramework") { packageRoot in
+            try self.execute(["resolve", "--netrc-optional"], packagePath: packageRoot)
+        }
+    }
+
     func testNetrcFile() throws {
+        // valid configured .netrc file
         fixture(name: "DependencyResolution/External/XCFramework") { packageRoot in
             let fs = localFileSystem
             let netrcPath = packageRoot.appending(component: ".netrc")
@@ -58,39 +77,24 @@ final class PackageToolTests: XCTestCase {
                 stream <<< "machine mymachine.labkey.org login user@labkey.org password mypassword"
             }
 
-            do {
-                // file at correct location
-                try execute(["--netrc-file", netrcPath.pathString, "resolve"], packagePath: packageRoot)
-                // file does not exist, but is optional
-                let textOutput = try execute(["--netrc-file", "/foo", "resolve"], packagePath: packageRoot).stderr
-                XCTAssertMatch(textOutput, .contains("warning: Did not find .netrc file at /foo."))
+            try execute(["resolve", "--netrc-file", netrcPath.pathString], packagePath: packageRoot)
+        }
 
-                // required file does not exist, will throw
-                try execute(["--netrc-file", "/foo", "resolve"], packagePath: packageRoot)
+        // invalid .netrc file path
+        fixture(name: "DependencyResolution/External/XCFramework") { packageRoot in
+            do {
+                try execute(["resolve", "--netrc-file", "/foo"], packagePath: packageRoot)
             } catch {
                 XCTAssertMatch(String(describing: error), .contains("Did not find .netrc file at /foo."))
             }
         }
 
+        // invalid .netrc file path with --no-netrc option
         fixture(name: "DependencyResolution/External/XCFramework") { packageRoot in
             do {
-                // Developer machine may have .netrc file at NSHomeDirectory; modify test accordingly
-                if localFileSystem.exists(localFileSystem.homeDirectory.appending(RelativePath(".netrc"))) {
-                    try execute(["--netrc", "resolve"], packagePath: packageRoot)
-                } else {
-                    // file does not exist, but is optional
-                    let textOutput = try execute(["--netrc", "resolve"], packagePath: packageRoot)
-                    XCTAssertMatch(textOutput.stderr, .contains("Did not find .netrc file at \(localFileSystem.homeDirectory)/.netrc."))
-
-                    // file does not exist, but is optional
-                    let textOutput2 = try execute(["--netrc-optional", "resolve"], packagePath: packageRoot)
-                    XCTAssertMatch(textOutput2.stderr, .contains("Did not find .netrc file at \(localFileSystem.homeDirectory)/.netrc."))
-
-                    // required file does not exist, will throw
-                    try execute(["--netrc", "resolve"], packagePath: packageRoot)
-                }
+                try execute(["resolve", "--netrc-file", "/foo", "--no-netrc"], packagePath: packageRoot)
             } catch {
-                XCTAssertMatch(String(describing: error), .contains("Did not find .netrc file at \(localFileSystem.homeDirectory)/.netrc"))
+                XCTAssertMatch(String(describing: error), .contains("Did not find .netrc file at /foo."))
             }
         }
     }
