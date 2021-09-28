@@ -488,13 +488,18 @@ public class SwiftTool {
     func getNetrcConfig() -> Workspace.Configuration.Netrc? {
         guard options.netrc else { return nil }
 
-        let path = options.netrcFilePath ?? localFileSystem.homeDirectory.appending(component: ".netrc")
-        guard localFileSystem.exists(path) else {
-            ObservabilitySystem.topScope.emit(warning: "Did not find .netrc file at \(path).")
-            return nil
-        }
+        if let configuredPath = options.netrcFilePath {
+            guard localFileSystem.exists(configuredPath) else {
+                ObservabilitySystem.topScope.emit(warning: "Did not find .netrc file at \(configuredPath).")
+                return nil
+            }
 
-        return .init(path: path, fileSystem: localFileSystem)
+            return .init(path: configuredPath, fileSystem: localFileSystem)
+        } else {
+            let defaultPath = localFileSystem.homeDirectory.appending(component: ".netrc")
+
+            return .init(path: defaultPath, fileSystem: localFileSystem)
+        }
     }
 
     private func getSharedCacheDirectory() throws -> AbsolutePath? {
