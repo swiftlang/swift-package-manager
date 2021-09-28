@@ -264,10 +264,10 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
 
         mutating func run() throws {
             try with { collections in
-                let identity = PackageIdentity(url: packageURL)
+                let identity = PackageIdentity(urlString: self.packageURL)
 
                 do { // assume URL is for a package in an imported collection
-                    let result = try tsc_await { collections.getPackageMetadata(identity: identity, location: packageURL, callback: $0) }
+                    let result = try tsc_await { collections.getPackageMetadata(identity: identity, location: self.packageURL, callback: $0) }
 
                     if let versionString = version {
                         guard let version = TSCUtility.Version(versionString), let result = result.package.versions.first(where: { $0.version == version }), let printedResult = printVersion(result) else {

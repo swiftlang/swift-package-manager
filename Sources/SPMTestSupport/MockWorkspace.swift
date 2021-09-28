@@ -78,17 +78,8 @@ public final class MockWorkspace {
         return self.sandbox.appending(components: ".build", "artifacts")
     }
 
-    public func urlForPackage(withName name: String) -> String {
-        return self.packagesDir.appending(RelativePath(name)).pathString
-    }
-
-    private func url(for package: MockPackage) -> String {
-        switch package.location {
-        case .fileSystem(let path):
-            return self.packagesDir.appending(path).pathString
-        case .sourceControl(let url):
-            return url
-        }
+    public func pathToPackage(withName name: String) -> AbsolutePath {
+        return self.packagesDir.appending(RelativePath(name))
     }
 
     private func create() throws {
@@ -102,27 +93,31 @@ public final class MockWorkspace {
 
         var manifests: [MockManifestLoader.Key: Manifest] = [:]
 
-        func create(package: MockPackage, basePath: AbsolutePath, packageKind: PackageReference.Kind) throws {
+        func create(package: MockPackage, basePath: AbsolutePath, isRoot: Bool) throws {
             let packagePath: AbsolutePath
             switch package.location {
             case .fileSystem(let path):
                 packagePath = basePath.appending(path)
             case .sourceControl(let url):
-                packagePath = basePath.appending(RelativePath(url.spm_mangledToC99ExtendedIdentifier()))
+                packagePath = basePath.appending(RelativePath(url.absoluteString.spm_mangledToC99ExtendedIdentifier()))
             }
 
             let packageLocation: String
             let specifier: RepositorySpecifier
-            switch (packageKind, package.location) {
-            case (.root, _):
+            let packageKind: PackageReference.Kind
+            switch (isRoot, package.location) {
+            case (true, _):
                 packageLocation = packagePath.pathString
-                specifier = RepositorySpecifier(url: packageLocation)
+                specifier = RepositorySpecifier(path: packagePath)
+                packageKind = .root(packagePath)
             case (_, .fileSystem(let path)):
                 packageLocation = self.packagesDir.appending(path).pathString
-                specifier = RepositorySpecifier(url: packageLocation)
+                specifier = RepositorySpecifier(path: self.packagesDir.appending(path))
+                packageKind = .fileSystem(packagePath)
             case (_, .sourceControl(let url)):
-                packageLocation = url
+                packageLocation = url.absoluteString
                 specifier = RepositorySpecifier(url: url)
+                packageKind = .remoteSourceControl(url)
             }
 
             // Create targets on disk.
@@ -139,11 +134,11 @@ public final class MockWorkspace {
             try rewriteToolsVersionSpecification(toDefaultManifestIn: .root, specifying: toolsVersion, fileSystem: repo)
             try repo.commit()
 
-            let versions: [String?] = packageKind == .remote ? package.versions : [nil]
+            let versions: [String?] = isRoot ? [nil] : package.versions
             let manifestPath = packagePath.appending(component: Manifest.filename)
             for version in versions {
                 let v = version.flatMap(Version.init(_:))
-                manifests[.init(url: specifier.url, version: v)] = Manifest(
+                manifests[.init(url: specifier.url, version: v)] = try Manifest(
                     name: package.name,
                     path: manifestPath,
                     packageKind: packageKind,
@@ -151,7 +146,7 @@ public final class MockWorkspace {
                     platforms: package.platforms,
                     version: v,
                     toolsVersion: toolsVersion,
-                    dependencies: package.dependencies.map { $0.convert(baseURL: packagesDir, identityResolver: self.identityResolver) },
+                    dependencies: package.dependencies.map { try $0.convert(baseURL: packagesDir, identityResolver: self.identityResolver) },
                     products: package.products.map { ProductDescription(name: $0.name, type: .library(.automatic), targets: $0.targets) },
                     targets: try package.targets.map { try $0.convert() }
                 )
@@ -165,12 +160,12 @@ public final class MockWorkspace {
 
         // Create root packages.
         for package in self.roots {
-            try create(package: package, basePath: self.rootsDir, packageKind: .root)
+            try create(package: package, basePath: self.rootsDir, isRoot: true)
         }
 
         // Create dependency packages.
         for package in self.packages {
-            try create(package: package, basePath: self.packagesDir, packageKind: .remote)
+            try create(package: package, basePath: self.packagesDir, isRoot: false)
         }
 
         self.manifestLoader = MockManifestLoader(manifests: manifests)
@@ -292,11 +287,12 @@ public final class MockWorkspace {
         deps: [MockDependency] = [],
         packages: [String] = [],
         _ result: ([Basics.Diagnostic]) -> Void
-    ) {
+    ) throws {
+        let dependencies = try deps.map { try $0.convert(baseURL: packagesDir, identityResolver: self.identityResolver) }
+
         let observability = ObservabilitySystem.bootstrapForTesting()
         let diagnostics = ObservabilitySystem.topScope.makeDiagnosticsEngine()
         diagnostics.wrap {
-            let dependencies = deps.map { $0.convert(baseURL: packagesDir, identityResolver: self.identityResolver) }
             let rootInput = PackageGraphRootInput(
                 packages: rootPaths(for: roots), dependencies: dependencies
             )
@@ -310,8 +306,8 @@ public final class MockWorkspace {
         roots: [String] = [],
         deps: [MockDependency] = [],
         _ result: ([(PackageReference, Workspace.PackageStateChange)]?, [Basics.Diagnostic]) -> Void
-    ) {
-        let dependencies = deps.map { $0.convert(baseURL: packagesDir, identityResolver: self.identityResolver) }
+    ) throws {
+        let dependencies = try deps.map { try $0.convert(baseURL: packagesDir, identityResolver: self.identityResolver) }
         let rootInput = PackageGraphRootInput(
             packages: rootPaths(for: roots), dependencies: dependencies
         )
@@ -329,9 +325,9 @@ public final class MockWorkspace {
         roots: [String] = [],
         deps: [MockDependency],
         _ result: (PackageGraph, [Basics.Diagnostic]) -> Void
-    ) {
-        let dependencies = deps.map { $0.convert(baseURL: packagesDir, identityResolver: self.identityResolver) }
-        self.checkPackageGraph(roots: roots, dependencies: dependencies, result)
+    ) throws {
+        let dependencies = try deps.map { try $0.convert(baseURL: packagesDir, identityResolver: self.identityResolver) }
+        try self.checkPackageGraph(roots: roots, dependencies: dependencies, result)
     }
 
     public func checkPackageGraph(
@@ -339,29 +335,25 @@ public final class MockWorkspace {
         dependencies: [PackageDependency] = [],
         forceResolvedVersions: Bool = false,
         _ result: (PackageGraph, [Basics.Diagnostic]) -> Void
-    ) {
+    ) throws {
         let observability = ObservabilitySystem.bootstrapForTesting()
         let diagnostics = ObservabilitySystem.topScope.makeDiagnosticsEngine()
         let rootInput = PackageGraphRootInput(
             packages: rootPaths(for: roots), dependencies: dependencies
         )
-        do {
-            let workspace = try self.getOrCreateWorkspace()
-            let graph = try workspace.loadPackageGraph(
-                rootInput: rootInput, forceResolvedVersions: forceResolvedVersions, diagnostics: diagnostics
-            )
-            result(graph, observability.diagnostics)
-        } catch {
-            preconditionFailure("expected graph to load, but failed with: \(error)\n\(diagnostics)")
-        }
+        let workspace = try self.getOrCreateWorkspace()
+        let graph = try workspace.loadPackageGraph(
+            rootInput: rootInput, forceResolvedVersions: forceResolvedVersions, diagnostics: diagnostics
+        )
+        result(graph, observability.diagnostics)
     }
 
     public func checkPackageGraphFailure(
         roots: [String] = [],
         deps: [MockDependency],
         _ result: ([Basics.Diagnostic]) -> Void
-    ) {
-        let dependencies = deps.map { $0.convert(baseURL: packagesDir, identityResolver: self.identityResolver) }
+    ) throws {
+        let dependencies = try deps.map { try $0.convert(baseURL: packagesDir, identityResolver: self.identityResolver) }
         self.checkPackageGraphFailure(roots: roots, dependencies: dependencies, result)
     }
 
@@ -556,7 +548,7 @@ public final class MockWorkspace {
         deps: [MockDependency] = [],
         _ result: (Workspace.DependencyManifests, DiagnosticsEngine) -> Void
     ) throws {
-        let dependencies = deps.map { $0.convert(baseURL: packagesDir, identityResolver: self.identityResolver) }
+        let dependencies = try deps.map { try $0.convert(baseURL: packagesDir, identityResolver: self.identityResolver) }
         let diagnostics = ObservabilitySystem.topScope.makeDiagnosticsEngine()
         let workspace = try self.getOrCreateWorkspace()
         let rootInput = PackageGraphRootInput(
@@ -623,7 +615,7 @@ public final class MockWorkspace {
                 return
             }
 
-            XCTAssertEqual(pin.packageRef.location, url, file: file, line: line)
+            XCTAssertEqual(pin.packageRef.kind, .remoteSourceControl(URL(string: url)!), file: file, line: line)
         }
     }
 
@@ -679,7 +671,7 @@ public final class MockWorkspaceDelegate: WorkspaceDelegate {
     }
 
     public func didCheckOut(repository url: String, revision: String, at path: AbsolutePath, error: Diagnostic?) {
-        self.append("finsihed checking out repo: \(url)")
+        self.append("finished checking out repo: \(url)")
     }
 
     public func removing(repository: String) {
@@ -691,11 +683,11 @@ public final class MockWorkspaceDelegate: WorkspaceDelegate {
     }
 
     public func willLoadManifest(packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind) {
-        self.append("will load manifest for \(packageKind) package: \(url)")
+        self.append("will load manifest for \(packageKind.displayName) package: \(url)")
     }
 
     public func didLoadManifest(packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind, manifest: Manifest?, diagnostics: [Diagnostic]) {
-        self.append("did load manifest for \(packageKind) package: \(url)")
+        self.append("did load manifest for \(packageKind.displayName) package: \(url)")
     }
 
     public func willComputeVersion(package: PackageIdentity, location: String) {
@@ -761,6 +753,21 @@ extension CheckoutState {
             case .branch(let branch, _):
                 return branch
             }
+        }
+    }
+}
+
+fileprivate extension PackageReference.Kind {
+    var displayName: String {
+        switch self {
+        case .root:
+            return "root"
+        case .fileSystem:
+            return "fileSystem"
+        case .localSourceControl:
+            return "localSourceControl"
+        case .remoteSourceControl:
+            return "remoteSourceControl"
         }
     }
 }

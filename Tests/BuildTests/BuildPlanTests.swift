@@ -108,10 +108,9 @@ final class BuildPlanTests: XCTestCase {
         let observability = ObservabilitySystem.bootstrapForTesting()
         let graph = try loadPackageGraph(fs: fs,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "Pkg",
                     path: .init("/Pkg"),
-                    packageKind: .root,
                     targets: [
                         TargetDescription(name: "exe", dependencies: ["lib"]),
                         TargetDescription(name: "lib", dependencies: []),
@@ -214,11 +213,9 @@ final class BuildPlanTests: XCTestCase {
             let observability = ObservabilitySystem.bootstrapForTesting()
             let graph = try loadPackageGraph(fs: fs,
                 manifests: [
-                    Manifest.createV4Manifest(
+                    Manifest.createRootManifest(
                         name: "ExplicitTest",
                         path: testDirPath,
-                        packageKind: .root,
-                        packageLocation: "/ExplicitTest",
                         targets: [
                             TargetDescription(name: "A", dependencies: ["B"]),
                             TargetDescription(name: "B", dependencies: ["C"]),
@@ -274,11 +271,11 @@ final class BuildPlanTests: XCTestCase {
         let observability = ObservabilitySystem.bootstrapForTesting()
         let graph = try loadPackageGraph(fs: fs,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "Pkg",
                     path: .init("/Pkg"),
                     dependencies: [
-                        .scm(location: "/ExtPkg", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init("/ExtPkg"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "exe", dependencies: [
@@ -295,10 +292,9 @@ final class BuildPlanTests: XCTestCase {
                         ]),
                     ]
                 ),
-                Manifest.createV4Manifest(
+                Manifest.createLocalSourceControlManifest(
                     name: "ExtPkg",
                     path: .init("/ExtPkg"),
-                    packageKind: .remote,
                     products: [
                         ProductDescription(name: "ExtLib", type: .library(.automatic), targets: ["ExtLib"]),
                     ],
@@ -375,21 +371,19 @@ final class BuildPlanTests: XCTestCase {
         let observability = ObservabilitySystem.bootstrapForTesting()
         let graph = try loadPackageGraph(fs: fileSystem,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "A",
                     path: .init("/A"),
-                    packageKind: .root,
                     dependencies: [
-                        .scm(location: "/B", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init("/B"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "ATarget", dependencies: ["BLibrary"]),
                         TargetDescription(name: "ATargetTests", dependencies: ["ATarget"], type: .test),
                     ]),
-                Manifest.createV4Manifest(
+                Manifest.createFileSystemManifest(
                     name: "B",
                     path: .init("/B"),
-                    packageKind: .local,
                     products: [
                         ProductDescription(name: "BLibrary", type: .library(.automatic), targets: ["BTarget"]),
                     ],
@@ -429,10 +423,9 @@ final class BuildPlanTests: XCTestCase {
         let observability = ObservabilitySystem.bootstrapForTesting()
         let graph = try loadPackageGraph(fs: fs,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "Pkg",
                     path: .init("/Pkg"),
-                    packageKind: .root,
                     targets: [
                         TargetDescription(name: "exe", dependencies: []),
                     ]),
@@ -486,21 +479,19 @@ final class BuildPlanTests: XCTestCase {
         let observability = ObservabilitySystem.bootstrapForTesting()
         let graph = try loadPackageGraph(fs: fs,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "Pkg",
                     path: .init("/Pkg"),
-                    packageKind: .root,
                     dependencies: [
-                        .scm(location: "/ExtPkg", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init("/ExtPkg"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "exe", dependencies: ["lib"]),
                         TargetDescription(name: "lib", dependencies: ["ExtPkg"]),
                     ]),
-                Manifest.createV4Manifest(
+                Manifest.createFileSystemManifest(
                     name: "ExtPkg",
                     path: .init("/ExtPkg"),
-                    packageKind: .local,
                     products: [
                         ProductDescription(name: "ExtPkg", type: .library(.automatic), targets: ["extlib"]),
                     ],
@@ -601,11 +592,11 @@ final class BuildPlanTests: XCTestCase {
         let graph = try loadPackageGraph(
             fs: fs,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "Pkg",
                     path: .init("/Pkg"),
                     dependencies: [
-                        .scm(location: "/ExtPkg", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init("/ExtPkg"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "exe", dependencies: [
@@ -621,10 +612,9 @@ final class BuildPlanTests: XCTestCase {
                             ))
                         ]),
                     ]),
-                Manifest.createV4Manifest(
+                Manifest.createLocalSourceControlManifest(
                     name: "ExtPkg",
                     path: .init("/ExtPkg"),
-                    packageKind: .remote,
                     products: [
                         ProductDescription(name: "ExtPkg", type: .library(.automatic), targets: ["ExtLib"]),
                     ],
@@ -685,10 +675,9 @@ final class BuildPlanTests: XCTestCase {
         let observability = ObservabilitySystem.bootstrapForTesting()
         let graph = try loadPackageGraph(fs: fs,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "Pkg",
                     path: .init("/Pkg"),
-                    packageKind: .root,
                     cLanguageStandard: "gnu99",
                     cxxLanguageStandard: "c++1z",
                     targets: [
@@ -750,10 +739,9 @@ final class BuildPlanTests: XCTestCase {
         let observability = ObservabilitySystem.bootstrapForTesting()
         let graph = try loadPackageGraph(fs: fs,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "Pkg",
                     path: .init("/Pkg"),
-                    packageKind: .root,
                     targets: [
                         TargetDescription(name: "exe", dependencies: ["lib"]),
                         TargetDescription(name: "lib", dependencies: []),
@@ -823,11 +811,10 @@ final class BuildPlanTests: XCTestCase {
         let graph = try loadPackageGraph(
             fs: fs,
             manifests: [
-                Manifest.createManifest(
+                Manifest.createRootManifest(
                     name: "Pkg",
                     path: .init("/Pkg"),
-                    packageKind: .root,
-                    v: .v5,
+                    toolsVersion: .v5,
                     targets: [
                         TargetDescription(name: "exe", dependencies: ["lib"]),
                         TargetDescription(name: "lib", dependencies: []),
@@ -867,22 +854,20 @@ final class BuildPlanTests: XCTestCase {
         let observability = ObservabilitySystem.bootstrapForTesting()
         let graph = try loadPackageGraph(fs: fs,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "Pkg",
                     path: .init("/Pkg"),
-                    packageKind: .root,
                     dependencies: [
-                        .scm(location: "/Dep", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init("/Dep"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "exe", dependencies: ["swiftlib"]),
                         TargetDescription(name: "swiftlib", dependencies: ["lib"]),
                         TargetDescription(name: "lib", dependencies: ["Dep"]),
                     ]),
-                Manifest.createV4Manifest(
+                Manifest.createFileSystemManifest(
                     name: "Dep",
                     path: .init("/Dep"),
-                    packageKind: .local,
                     products: [
                         ProductDescription(name: "Dep", type: .library(.automatic), targets: ["Dep"]),
                     ],
@@ -920,10 +905,9 @@ final class BuildPlanTests: XCTestCase {
         let observability = ObservabilitySystem.bootstrapForTesting()
         let graph = try loadPackageGraph(fs: fs,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "Pkg",
                     path: .init("/Pkg"),
-                    packageKind: .root,
                     targets: [
                         TargetDescription(name: "Foo", dependencies: []),
                         TargetDescription(name: "FooTests", dependencies: ["Foo"], type: .test),
@@ -990,10 +974,9 @@ final class BuildPlanTests: XCTestCase {
         let observability = ObservabilitySystem.bootstrapForTesting()
         let graph = try loadPackageGraph(fs: fs,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "Pkg",
                     path: .init("/Pkg"),
-                    packageKind: .root,
                     toolsVersion: .v5_5,
                     targets: [
                         TargetDescription(name: "exe1", type: .executable),
@@ -1038,20 +1021,18 @@ final class BuildPlanTests: XCTestCase {
         let observability = ObservabilitySystem.bootstrapForTesting()
         let graph = try loadPackageGraph(fs: fs,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "Pkg",
                     path: .init("/Pkg"),
-                    packageKind: .root,
                     dependencies: [
-                        .scm(location: "/Clibgit", requirement: .upToNextMajor(from: "1.0.0"))
+                        .localSourceControl(path: .init("/Clibgit"), requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     targets: [
                         TargetDescription(name: "exe", dependencies: []),
                     ]),
-                Manifest.createV4Manifest(
+                Manifest.createFileSystemManifest(
                     name: "Clibgit",
-                    path: .init("/Clibgit"),
-                    packageKind: .local
+                    path: .init("/Clibgit")
                 ),
             ]
         )
@@ -1099,10 +1080,9 @@ final class BuildPlanTests: XCTestCase {
         let observability = ObservabilitySystem.bootstrapForTesting()
         let graph = try loadPackageGraph(fs: fs,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "Pkg",
                     path: .init("/Pkg"),
-                    packageKind: .root,
                     targets: [
                         TargetDescription(name: "lib", dependencies: []),
                         TargetDescription(name: "exe", dependencies: ["lib"]),
@@ -1137,22 +1117,20 @@ final class BuildPlanTests: XCTestCase {
         let observability = ObservabilitySystem.bootstrapForTesting()
         let g = try loadPackageGraph(fs: fs,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createFileSystemManifest(
                     name: "Bar",
                     path: .init("/Bar"),
-                    packageKind: .local,
                     products: [
                         ProductDescription(name: "Bar-Baz", type: .library(.dynamic), targets: ["Bar"]),
                     ],
                     targets: [
                         TargetDescription(name: "Bar", dependencies: []),
                     ]),
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "Foo",
                     path: .init("/Foo"),
-                    packageKind: .root,
                     dependencies: [
-                        .scm(location: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init("/Bar"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "Foo", dependencies: ["Bar-Baz"]),
@@ -1234,10 +1212,9 @@ final class BuildPlanTests: XCTestCase {
         let observability = ObservabilitySystem.bootstrapForTesting()
         let graph = try loadPackageGraph(fs: fs,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "Pkg",
                     path: .init("/Pkg"),
-                    packageKind: .root,
                     products: [
                         ProductDescription(name: "lib", type: .library(.dynamic), targets: ["lib"]),
                     ],
@@ -1300,10 +1277,9 @@ final class BuildPlanTests: XCTestCase {
         let observability = ObservabilitySystem.bootstrapForTesting()
         let graph = try loadPackageGraph(fs: fs,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "Pkg",
                     path: .init("/Pkg"),
-                    packageKind: .root,
                     products: [
                         ProductDescription(name: "lib", type: .library(.dynamic), targets: ["lib"]),
                     ],
@@ -1364,13 +1340,12 @@ final class BuildPlanTests: XCTestCase {
         let observability = ObservabilitySystem.bootstrapForTesting()
         let graph = try loadPackageGraph(fs: fileSystem,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "A",
                     path: .init("/A"),
-                    packageKind: .root,
                     dependencies: [
-                        .scm(location: "/B", requirement: .upToNextMajor(from: "1.0.0")),
-                        .scm(location: "/C", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init("/B"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init("/C"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     products: [
                         ProductDescription(name: "aexec", type: .executable, targets: ["ATarget"])
@@ -1378,10 +1353,9 @@ final class BuildPlanTests: XCTestCase {
                     targets: [
                         TargetDescription(name: "ATarget", dependencies: ["BLibrary"]),
                     ]),
-                Manifest.createV4Manifest(
+                Manifest.createFileSystemManifest(
                     name: "B",
                     path: .init("/B"),
-                    packageKind: .local,
                     products: [
                         ProductDescription(name: "BLibrary", type: .library(.static), targets: ["BTarget1"]),
                         ProductDescription(name: "bexec", type: .executable, targets: ["BTarget2"]),
@@ -1390,10 +1364,9 @@ final class BuildPlanTests: XCTestCase {
                         TargetDescription(name: "BTarget1", dependencies: []),
                         TargetDescription(name: "BTarget2", dependencies: []),
                     ]),
-                Manifest.createV4Manifest(
+                Manifest.createFileSystemManifest(
                     name: "C",
                     path: .init("/C"),
-                    packageKind: .local,
                     products: [
                         ProductDescription(name: "cexec", type: .executable, targets: ["CTarget"])
                     ],
@@ -1452,12 +1425,12 @@ final class BuildPlanTests: XCTestCase {
         let graph = try loadPackageGraph(
             fs: fileSystem,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "A",
                     path: .init("/A"),
                     dependencies: [
-                        .scm(location: "/B", requirement: .upToNextMajor(from: "1.0.0")),
-                        .scm(location: "/C", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init("/B"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init("/C"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     products: [
                         ProductDescription(name: "aexec", type: .executable, targets: ["ATarget"]),
@@ -1479,10 +1452,9 @@ final class BuildPlanTests: XCTestCase {
                         ])
                     ]
                 ),
-                Manifest.createV4Manifest(
+                Manifest.createLocalSourceControlManifest(
                     name: "B",
                     path: .init("/B"),
-                    packageKind: .remote,
                     products: [
                         ProductDescription(name: "BLibrary1", type: .library(.static), targets: ["BTarget1"]),
                         ProductDescription(name: "BLibrary2", type: .library(.static), targets: ["BTarget2"]),
@@ -1498,10 +1470,9 @@ final class BuildPlanTests: XCTestCase {
                         TargetDescription(name: "BTarget3", dependencies: []),
                     ]
                 ),
-                Manifest.createV4Manifest(
+                Manifest.createLocalSourceControlManifest(
                     name: "C",
                     path: .init("/C"),
-                    packageKind: .remote,
                     products: [
                         ProductDescription(name: "CLibrary", type: .library(.static), targets: ["CTarget"])
                     ],
@@ -1569,10 +1540,9 @@ final class BuildPlanTests: XCTestCase {
         let observability = ObservabilitySystem.bootstrapForTesting()
         let graph = try loadPackageGraph(fs: fs,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "Pkg",
-                    path: .init("/Pkg"),
-                    packageKind: .root
+                    path: .init("/Pkg")
                 )
             ]
         )
@@ -1597,10 +1567,9 @@ final class BuildPlanTests: XCTestCase {
         let observability = ObservabilitySystem.bootstrapForTesting()
         let graph = try loadPackageGraph(fs: fileSystem,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "A",
                     path: .init("/A"),
-                    packageKind: .root,
                     targets: [
                         TargetDescription(name: "ATarget", dependencies: ["BTarget"]),
                         TargetDescription(
@@ -1639,10 +1608,9 @@ final class BuildPlanTests: XCTestCase {
         let observability = ObservabilitySystem.bootstrapForTesting()
         let graph = try loadPackageGraph(fs: fileSystem,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "A",
                     path: .init("/A"),
-                    packageKind: .root,
                     targets: [
                         TargetDescription(name: "ATarget", dependencies: ["BTarget"]),
                         TargetDescription(
@@ -1679,10 +1647,9 @@ final class BuildPlanTests: XCTestCase {
         let graph = try loadPackageGraph(
             fs: fs,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "Pkg",
                     path: .init("/Pkg"),
-                    packageKind: .root,
                     targets: [
                     TargetDescription(name: "exe", dependencies: ["lib"]),
                     TargetDescription(name: "lib", dependencies: []),
@@ -1736,10 +1703,9 @@ final class BuildPlanTests: XCTestCase {
         let graph = try loadPackageGraph(
             fs: fs,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "Pkg",
                     path: .init("/Pkg"),
-                    packageKind: .root,
                     targets: [
                         TargetDescription(name: "app", dependencies: ["lib"]),
                         TargetDescription(name: "lib", dependencies: []),
@@ -1824,10 +1790,9 @@ final class BuildPlanTests: XCTestCase {
         let observability = ObservabilitySystem.bootstrapForTesting()
         let graph = try loadPackageGraph(fs: fs,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "Pkg",
                     path: .init("/Pkg"),
-                    packageKind: .root,
                     targets: [
                         TargetDescription(name: "exe", dependencies: ["lib"]),
                         TargetDescription(name: "lib", dependencies: []),
@@ -1871,28 +1836,26 @@ final class BuildPlanTests: XCTestCase {
         let observability = ObservabilitySystem.bootstrapForTesting()
         let graph = try loadPackageGraph(fs: fileSystem,
             manifests: [
-                Manifest.createManifest(
+                Manifest.createRootManifest(
                     name: "A",
                     path: .init("/A"),
-                    packageKind: .root,
                     platforms: [
                         PlatformDescription(name: "macos", version: "10.13"),
                     ],
-                    v: .v5,
+                    toolsVersion: .v5,
                     dependencies: [
-                        .scm(location: "/B", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init("/B"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "ATarget", dependencies: ["BLibrary"]),
                     ]),
-                Manifest.createManifest(
+                Manifest.createFileSystemManifest(
                     name: "B",
                     path: .init("/B"),
-                    packageKind: .local,
                     platforms: [
                         PlatformDescription(name: "macos", version: "10.12"),
                     ],
-                    v: .v5,
+                    toolsVersion: .v5,
                     products: [
                         ProductDescription(name: "BLibrary", type: .library(.automatic), targets: ["BTarget"]),
                     ],
@@ -1933,30 +1896,28 @@ final class BuildPlanTests: XCTestCase {
         let observability = ObservabilitySystem.bootstrapForTesting()
         let graph = try loadPackageGraph(fs: fileSystem,
             manifests: [
-                Manifest.createManifest(
+                Manifest.createRootManifest(
                     name: "A",
                     path: .init("/A"),
-                    packageKind: .root,
                     platforms: [
                         PlatformDescription(name: "macos", version: "10.13"),
                         PlatformDescription(name: "ios", version: "10"),
                     ],
-                    v: .v5,
+                    toolsVersion: .v5,
                     dependencies: [
-                        .scm(location: "/B", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init("/B"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "ATarget", dependencies: ["BLibrary"]),
                     ]),
-                Manifest.createManifest(
+                Manifest.createFileSystemManifest(
                     name: "B",
                     path: .init("/B"),
-                    packageKind: .local,
                     platforms: [
                         PlatformDescription(name: "macos", version: "10.14"),
                         PlatformDescription(name: "ios", version: "11"),
                     ],
-                    v: .v5,
+                    toolsVersion: .v5,
                     products: [
                         ProductDescription(name: "BLibrary", type: .library(.automatic), targets: ["BTarget"]),
                     ],
@@ -1999,13 +1960,12 @@ final class BuildPlanTests: XCTestCase {
             "<end>"
         )
 
-        let aManifest = Manifest.createManifest(
+        let aManifest = Manifest.createRootManifest(
             name: "A",
             path: .init("/A"),
-            packageKind: .root,
-            v: .v5,
+            toolsVersion: .v5,
             dependencies: [
-                .scm(location: "/B", requirement: .upToNextMajor(from: "1.0.0")),
+                .localSourceControl(path: .init("/B"), requirement: .upToNextMajor(from: "1.0.0")),
             ],
             targets: [
                 try TargetDescription(
@@ -2045,11 +2005,10 @@ final class BuildPlanTests: XCTestCase {
 
         )
 
-        let bManifest = Manifest.createManifest(
+        let bManifest = Manifest.createFileSystemManifest(
             name: "B",
             path: .init("/B"),
-            packageKind: .local,
-            v: .v5,
+            toolsVersion: .v5,
             products: [
                 ProductDescription(name: "Dep", type: .library(.automatic), targets: ["t1", "t2"]),
             ],
@@ -2127,11 +2086,10 @@ final class BuildPlanTests: XCTestCase {
             "<end>"
         )
 
-        let aManifest = Manifest.createManifest(
+        let aManifest = Manifest.createRootManifest(
             name: "A",
             path: .init("/A"),
-            packageKind: .root,
-            v: .v5,
+            toolsVersion: .v5,
             targets: [
                 try TargetDescription(name: "exe", dependencies: []),
             ]
@@ -2166,10 +2124,9 @@ final class BuildPlanTests: XCTestCase {
         let observability = ObservabilitySystem.bootstrapForTesting()
         let graph = try loadPackageGraph(fs: fs,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "Pkg",
                     path: .init("/Pkg"),
-                    packageKind: .root,
                     targets: [
                         TargetDescription(name: "exe", dependencies: ["lib"]),
                         TargetDescription(name: "lib", dependencies: []),
@@ -2218,10 +2175,9 @@ final class BuildPlanTests: XCTestCase {
         let observability = ObservabilitySystem.bootstrapForTesting()
         let graph = try loadPackageGraph(fs: fs,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createFileSystemManifest(
                     name: "PkgA",
                     path: .init("/PkgA"),
-                    packageKind: .local,
                     products: [
                         ProductDescription(name: "swiftlib", type: .library(.automatic), targets: ["swiftlib"]),
                         ProductDescription(name: "exe", type: .executable, targets: ["exe"])
@@ -2230,12 +2186,11 @@ final class BuildPlanTests: XCTestCase {
                         TargetDescription(name: "exe", dependencies: []),
                         TargetDescription(name: "swiftlib", dependencies: ["exe"]),
                     ]),
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "PkgB",
                     path: .init("/PkgB"),
-                    packageKind: .root,
                     dependencies: [
-                        .scm(location: "/PkgA", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init("/PkgA"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "PkgB", dependencies: ["swiftlib"]),
@@ -2274,10 +2229,9 @@ final class BuildPlanTests: XCTestCase {
         let observability = ObservabilitySystem.bootstrapForTesting()
         let graph = try loadPackageGraph(fs: fs,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "PkgA",
                     path: .init("/PkgA"),
-                    packageKind: .root,
                     targets: [
                         TargetDescription(name: "Foo", dependencies: []),
                         TargetDescription(name: "Bar", dependencies: ["Foo"]),
@@ -2333,20 +2287,18 @@ final class BuildPlanTests: XCTestCase {
         let observability = ObservabilitySystem.bootstrapForTesting()
         let graph = try loadPackageGraph(fs: fs,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "PkgA",
                     path: .init("/PkgA"),
-                    packageKind: .root,
                     dependencies: [
-                        .scm(location: "/PkgB", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init("/PkgB"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "Bar", dependencies: ["Foo"]),
                     ]),
-                Manifest.createV4Manifest(
+                Manifest.createFileSystemManifest(
                     name: "PkgB",
                     path: .init("/PkgB"),
-                    packageKind: .local,
                     products: [
                         ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo"]),
                     ],
@@ -2404,20 +2356,18 @@ final class BuildPlanTests: XCTestCase {
         let observability = ObservabilitySystem.bootstrapForTesting()
         let graph = try loadPackageGraph(fs: fs,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "PkgA",
                     path: .init("/PkgA"),
-                    packageKind: .root,
                     dependencies: [
-                        .scm(location: "/PkgB", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init("/PkgB"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "Bar", dependencies: ["Foo"]),
                     ]),
-                Manifest.createV4Manifest(
+                Manifest.createFileSystemManifest(
                     name: "PkgB",
                     path: .init("/PkgB"),
-                    packageKind: .local,
                     products: [
                         ProductDescription(name: "Foo", type: .library(.dynamic), targets: ["Foo"]),
                     ],
@@ -2475,10 +2425,9 @@ final class BuildPlanTests: XCTestCase {
         let observability = ObservabilitySystem.bootstrapForTesting()
         let graph = try loadPackageGraph(fs: fs,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "Pkg",
                     path: .init("/Pkg"),
-                    packageKind: .root,
                     targets: [
                         TargetDescription(name: "exe", dependencies: ["lib"]),
                         TargetDescription(name: "lib", dependencies: []),
@@ -2537,11 +2486,10 @@ final class BuildPlanTests: XCTestCase {
         let graph = try loadPackageGraph(
             fs: fs,
             manifests: [
-                Manifest.createManifest(
+                Manifest.createRootManifest(
                     name: "PkgA",
                     path: .init("/PkgA"),
-                    packageKind: .root,
-                    v: .v5_2,
+                    toolsVersion: .v5_2,
                     targets: [
                         TargetDescription(
                             name: "Foo",
@@ -2595,10 +2543,9 @@ final class BuildPlanTests: XCTestCase {
 
         let graph = try loadPackageGraph(fs: fs,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "Pkg",
                     path: .init("/Pkg"),
-                    packageKind: .root,
                     targets: [
                         TargetDescription(name: "exe", dependencies: ["lib"]),
                         TargetDescription(name: "lib", dependencies: []),
@@ -2701,10 +2648,9 @@ final class BuildPlanTests: XCTestCase {
         let graph = try loadPackageGraph(
             fs: fs,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "Pkg",
                     path: .init("/Pkg"),
-                    packageKind: .root,
                     products: [
                         ProductDescription(name: "exe", type: .executable, targets: ["exe"]),
                         ProductDescription(name: "Library", type: .library(.dynamic), targets: ["Library"]),
@@ -2810,10 +2756,9 @@ final class BuildPlanTests: XCTestCase {
         let graph = try loadPackageGraph(
             fs: fs,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "Pkg",
                     path: .init("/Pkg"),
-                    packageKind: .root,
                     products: [
                         ProductDescription(name: "exe", type: .executable, targets: ["exe"]),
                     ],
@@ -2885,10 +2830,9 @@ final class BuildPlanTests: XCTestCase {
         let observability = ObservabilitySystem.bootstrapForTesting()
         let graph = try loadPackageGraph(fs: fs,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "Pkg",
                     path: .init("/Pkg"),
-                    packageKind: .root,
                     targets: [
                         TargetDescription(name: "exe", dependencies: ["lib", "clib"]),
                         TargetDescription(name: "lib", dependencies: []),

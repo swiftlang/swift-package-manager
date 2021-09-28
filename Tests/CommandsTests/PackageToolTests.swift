@@ -353,14 +353,13 @@ final class PackageToolTests: XCTestCase {
             "/PackageD/Sources/TargetD/D.swift",
         ])
 
-        let manifestA = Manifest.createManifest(
+        let manifestA = Manifest.createRootManifest(
             name: "PackageA",
             path: .init("/PackageA"),
-            packageKind: .root,
-            v: .v5_3,
+            toolsVersion: .v5_3,
             dependencies: [
-                .fileSystem(path: "/PackageB"),
-                .fileSystem(path: "/PackageC"),
+                .fileSystem(path: .init("/PackageB")),
+                .fileSystem(path: .init("/PackageC")),
             ],
             products: [
                 .init(name: "exe", type: .executable, targets: ["TargetA"])
@@ -370,14 +369,13 @@ final class PackageToolTests: XCTestCase {
             ]
         )
 
-        let manifestB = Manifest.createManifest(
+        let manifestB = Manifest.createFileSystemManifest(
             name: "PackageB",
             path: .init("/PackageB"),
-            packageKind: .local,
-            v: .v5_3,
+            toolsVersion: .v5_3,
             dependencies: [
-                .fileSystem(path: "/PackageC"),
-                .fileSystem(path: "/PackageD"),
+                .fileSystem(path: .init("/PackageC")),
+                .fileSystem(path: .init("/PackageD")),
             ],
             products: [
                 .init(name: "PackageB", type: .library(.dynamic), targets: ["TargetB"])
@@ -387,13 +385,12 @@ final class PackageToolTests: XCTestCase {
             ]
         )
 
-        let manifestC = Manifest.createManifest(
+        let manifestC = Manifest.createFileSystemManifest(
             name: "PackageC",
             path: .init("/PackageC"),
-            packageKind: .local,
-            v: .v5_3,
+            toolsVersion: .v5_3,
             dependencies: [
-                .fileSystem(path: "/PackageD"),
+                .fileSystem(path: .init("/PackageD")),
             ],
             products: [
                 .init(name: "PackageC", type: .library(.dynamic), targets: ["TargetC"])
@@ -403,11 +400,10 @@ final class PackageToolTests: XCTestCase {
             ]
         )
 
-        let manifestD = Manifest.createManifest(
+        let manifestD = Manifest.createFileSystemManifest(
             name: "PackageD",
             path: .init("/PackageD"),
-            packageKind: .local,
-            v: .v5_3,
+            toolsVersion: .v5_3,
             products: [
                 .init(name: "PackageD", type: .library(.dynamic), targets: ["TargetD"])
             ],
@@ -771,7 +767,9 @@ final class PackageToolTests: XCTestCase {
                     let path = try SwiftPMProduct.packagePath(for: pkg, packageRoot: fooPath)
                     let pin = pinsStore.pinsMap[PackageIdentity(path: path)]!
                     XCTAssertEqual(pin.packageRef.identity, PackageIdentity(path: path))
-                    XCTAssert(pin.packageRef.location.hasSuffix(pkg))
+                    guard case .localSourceControl(let path) = pin.packageRef.kind, path.pathString.hasSuffix(pkg) else {
+                        return XCTFail("invalid pin location \(path)")
+                    }
                     XCTAssertEqual(pin.state.version, "1.2.3")
                 }
             }

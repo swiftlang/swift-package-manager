@@ -8,16 +8,18 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
+import Foundation
 import PackageModel
 import TSCBasic
 import TSCUtility
 
 public extension Manifest {
-    static func createV4Manifest(
+
+    static func createRootManifest(
         name: String,
         path: AbsolutePath = .root,
-        packageKind: PackageReference.Kind = .root,
-        packageLocation: String? = nil,
+        defaultLocalization: String? = nil,
+        platforms: [PlatformDescription] = [],
         version: TSCUtility.Version? = nil,
         toolsVersion: ToolsVersion = .v4,
         pkgConfig: String? = nil,
@@ -29,12 +31,122 @@ public extension Manifest {
         products: [ProductDescription] = [],
         targets: [TargetDescription] = []
     ) -> Manifest {
-        return Manifest(
+        Self.createManifest(
             name: name,
-            path: path.appending(component: Manifest.filename),
-            packageKind: packageKind,
-            packageLocation: packageLocation ?? path.pathString,
-            platforms: [],
+            path: path,
+            packageKind: .root(path),
+            packageLocation: path.pathString,
+            defaultLocalization: defaultLocalization,
+            platforms: platforms,
+            version: version,
+            toolsVersion: toolsVersion,
+            pkgConfig: pkgConfig,
+            providers: providers,
+            cLanguageStandard: cLanguageStandard,
+            cxxLanguageStandard: cxxLanguageStandard,
+            swiftLanguageVersions: swiftLanguageVersions,
+            dependencies: dependencies,
+            products: products,
+            targets: targets
+        )
+    }
+
+    static func createFileSystemManifest(
+        name: String,
+        path: AbsolutePath,
+        defaultLocalization: String? = nil,
+        platforms: [PlatformDescription] = [],
+        version: TSCUtility.Version? = nil,
+        toolsVersion: ToolsVersion = .v4,
+        pkgConfig: String? = nil,
+        providers: [SystemPackageProviderDescription]? = nil,
+        cLanguageStandard: String? = nil,
+        cxxLanguageStandard: String? = nil,
+        swiftLanguageVersions: [SwiftLanguageVersion]? = nil,
+        dependencies: [PackageDependency] = [],
+        products: [ProductDescription] = [],
+        targets: [TargetDescription] = []
+    ) -> Manifest {
+        Self.createManifest(
+            name: name,
+            path: path,
+            packageKind: .fileSystem(path),
+            packageLocation: path.pathString,
+            defaultLocalization: defaultLocalization,
+            platforms: platforms,
+            version: version,
+            toolsVersion: toolsVersion,
+            pkgConfig: pkgConfig,
+            providers: providers,
+            cLanguageStandard: cLanguageStandard,
+            cxxLanguageStandard: cxxLanguageStandard,
+            swiftLanguageVersions: swiftLanguageVersions,
+            dependencies: dependencies,
+            products: products,
+            targets: targets
+        )
+    }
+
+    static func createLocalSourceControlManifest(
+        name: String,
+        path: AbsolutePath,
+        defaultLocalization: String? = nil,
+        platforms: [PlatformDescription] = [],
+        version: TSCUtility.Version? = nil,
+        toolsVersion: ToolsVersion = .v4,
+        pkgConfig: String? = nil,
+        providers: [SystemPackageProviderDescription]? = nil,
+        cLanguageStandard: String? = nil,
+        cxxLanguageStandard: String? = nil,
+        swiftLanguageVersions: [SwiftLanguageVersion]? = nil,
+        dependencies: [PackageDependency] = [],
+        products: [ProductDescription] = [],
+        targets: [TargetDescription] = []
+    ) -> Manifest {
+        Self.createManifest(
+            name: name,
+            path: path,
+            packageKind: .localSourceControl(path),
+            packageLocation: path.pathString,
+            defaultLocalization: defaultLocalization,
+            platforms: platforms,
+            version: version,
+            toolsVersion: toolsVersion,
+            pkgConfig: pkgConfig,
+            providers: providers,
+            cLanguageStandard: cLanguageStandard,
+            cxxLanguageStandard: cxxLanguageStandard,
+            swiftLanguageVersions: swiftLanguageVersions,
+            dependencies: dependencies,
+            products: products,
+            targets: targets
+        )
+    }
+
+    static func createRemoteSourceControlManifest(
+        name: String,
+        url: Foundation.URL,
+        path: AbsolutePath,
+        defaultLocalization: String? = nil,
+        platforms: [PlatformDescription] = [],
+        version: TSCUtility.Version? = nil,
+        toolsVersion: ToolsVersion = .v4,
+        pkgConfig: String? = nil,
+        providers: [SystemPackageProviderDescription]? = nil,
+        cLanguageStandard: String? = nil,
+        cxxLanguageStandard: String? = nil,
+        swiftLanguageVersions: [SwiftLanguageVersion]? = nil,
+        dependencies: [PackageDependency] = [],
+        products: [ProductDescription] = [],
+        targets: [TargetDescription] = []
+    ) -> Manifest {
+        Self.createManifest(
+            name: name,
+            path: path,
+            packageKind: .remoteSourceControl(url),
+            packageLocation: url.absoluteString,
+            defaultLocalization: defaultLocalization,
+            platforms: platforms,
             version: version,
             toolsVersion: toolsVersion,
             pkgConfig: pkgConfig,
@@ -51,12 +163,12 @@ public extension Manifest {
     static func createManifest(
         name: String,
         path: AbsolutePath = .root,
-        packageKind: PackageReference.Kind = .root,
+        packageKind: PackageReference.Kind,
         packageLocation: String? = nil,
         defaultLocalization: String? = nil,
         platforms: [PlatformDescription] = [],
         version: TSCUtility.Version? = nil,
-        v: ToolsVersion,
+        toolsVersion: ToolsVersion,
         pkgConfig: String? = nil,
         providers: [SystemPackageProviderDescription]? = nil,
         cLanguageStandard: String? = nil,
@@ -74,7 +186,7 @@ public extension Manifest {
             defaultLocalization: defaultLocalization,
             platforms: platforms,
             version: version,
-            toolsVersion: v,
+            toolsVersion: toolsVersion,
             pkgConfig: pkgConfig,
             providers: providers,
             cLanguageStandard: cLanguageStandard,

@@ -63,7 +63,7 @@ class PackageDescription5_0LoadingTests: PackageDescriptionLoadingTests {
 
             // Check dependencies.
             let deps = Dictionary(uniqueKeysWithValues: manifest.dependencies.map{ ($0.identity.description, $0) })
-            XCTAssertEqual(deps["foo1"], .scm(location: "/foo1", requirement: .upToNextMajor(from: "1.0.0")))
+            XCTAssertEqual(deps["foo1"], .localSourceControl(path: .init("/foo1"), requirement: .upToNextMajor(from: "1.0.0")))
 
             // Check products.
             let products = Dictionary(uniqueKeysWithValues: manifest.products.map{ ($0.name, $0) })
@@ -369,8 +369,7 @@ class PackageDescription5_0LoadingTests: PackageDescriptionLoadingTests {
             do {
                 _ = try loader.load(
                     at: manifestPath.parentDirectory,
-                    packageKind: .local,
-                    packageLocation: manifestPath.pathString,
+                    packageKind: .fileSystem(manifestPath.parentDirectory),
                     toolsVersion: .v5,
                     fileSystem: fs
                 )
@@ -400,8 +399,7 @@ class PackageDescription5_0LoadingTests: PackageDescriptionLoadingTests {
             let observability = ObservabilitySystem.bootstrapForTesting()
             _ = try loader.load(
                 at: manifestPath.parentDirectory,
-                packageKind: .local,
-                packageLocation: manifestPath.pathString,
+                packageKind: .fileSystem(manifestPath.parentDirectory),
                 toolsVersion: .v5,
                 fileSystem: fs,
                 diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine()
@@ -583,8 +581,7 @@ class PackageDescription5_0LoadingTests: PackageDescriptionLoadingTests {
             let observability = ObservabilitySystem.bootstrapForTesting()
             let manifest = try manifestLoader.load(
                 at: manifestPath.parentDirectory,
-                packageKind: .local,
-                packageLocation: manifestPath.pathString,
+                packageKind: .fileSystem(manifestPath.parentDirectory),
                 toolsVersion: .v5,
                 fileSystem: fs,
                 diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine()

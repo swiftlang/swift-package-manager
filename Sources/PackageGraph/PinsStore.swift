@@ -59,8 +59,6 @@ public final class PinsStore {
             self._pins = .init(try self.storage.load(mirrors: mirrors))
         } catch {
             self._pins = .init()
-            // FIXME: delete the file?
-            // FIXME: warning instead of error?
             throw StringError("Package.resolved file is corrupted or malformed; fix or delete the file to continue: \(error)")
         }
     }
@@ -158,7 +156,7 @@ fileprivate struct PinsStorage {
                 return
             }
 
-            let container = V2(pins: pins, mirrors: mirrors)
+            let container = try V2(pins: pins, mirrors: mirrors)
             let data = try self.encoder.encode(container)
             try self.fileSystem.writeFileContents(self.path, data: data)
         }
@@ -185,12 +183,12 @@ fileprivate struct PinsStorage {
         let version: Int
         let object: Container
 
-        init (pins: PinsStore.PinsMap, mirrors: DependencyMirrors) {
+        init (pins: PinsStore.PinsMap, mirrors: DependencyMirrors) throws {
             self.version = Self.version
-            self.object = .init(
+            self.object = try .init(
                 pins: pins.values
                     .sorted(by: { $0.packageRef.identity < $1.packageRef.identity })
-                    .map{ Pin($0, mirrors: mirrors) }
+                    .map{ try Pin($0, mirrors: mirrors) }
             )
         }
 
@@ -203,10 +201,20 @@ fileprivate struct PinsStorage {
             let repositoryURL: String
             let state: CheckoutInfo
 
-            init(_ pin: PinsStore.Pin, mirrors: DependencyMirrors) {
+            init(_ pin: PinsStore.Pin, mirrors: DependencyMirrors) throws {
+                let location: String
+                switch pin.packageRef.kind {
+                case .localSourceControl(let path):
+                    location = path.pathString
+                case .remoteSourceControl(let url):
+                    location = url.absoluteString
+                default:
+                    throw StringError("invalid package type \(pin.packageRef.kind)")
+                }
+
                 self.package = pin.packageRef.name
                 // rdar://52529014, rdar://52529011: pin file should store the original location but remap when loading
-                self.repositoryURL = mirrors.originalURL(for: pin.packageRef.location) ?? pin.packageRef.location
+                self.repositoryURL = mirrors.originalURL(for: location) ?? location
                 self.state = .init(pin.state)
             }
         }
@@ -219,24 +227,44 @@ fileprivate struct PinsStorage {
         let version: Int
         let pins: [Pin]
 
-        init (pins: PinsStore.PinsMap, mirrors: DependencyMirrors) {
+        init (pins: PinsStore.PinsMap, mirrors: DependencyMirrors) throws {
             self.version = Self.version
-            self.pins = pins.values
+            self.pins = try pins.values
                 .sorted(by: { $0.packageRef.identity < $1.packageRef.identity })
-                .map{ Pin($0, mirrors: mirrors) }
+                .map{ try Pin($0, mirrors: mirrors) }
         }
 
         struct Pin: Codable {
             let identity: PackageIdentity
+            let kind: Kind
             let location: String
             let state: CheckoutInfo
 
-            init(_ pin: PinsStore.Pin, mirrors: DependencyMirrors) {
+            init(_ pin: PinsStore.Pin, mirrors: DependencyMirrors) throws {
+                let kind: Kind
+                let location: String
+                switch pin.packageRef.kind {
+                case .localSourceControl(let path):
+                    kind = .localSourceControl
+                    location = path.pathString
+                case .remoteSourceControl(let url):
+                    kind = .remoteSourceControl
+                    location = url.absoluteString
+                default:
+                    throw StringError("invalid package type \(pin.packageRef.kind)")
+                }
+
                 self.identity = pin.packageRef.identity
+                self.kind = kind
                 // rdar://52529014, rdar://52529011: pin file should store the original location but remap when loading
-                self.location = mirrors.originalURL(for: pin.packageRef.location) ?? pin.packageRef.location
+                self.location = mirrors.originalURL(for: location) ?? location
                 self.state = .init(pin.state)
             }
+        }
+
+        enum Kind: String, Codable {
+            case localSourceControl
+            case remoteSourceControl
         }
     }
 
@@ -267,9 +295,16 @@ fileprivate struct PinsStorage {
 extension PinsStore.Pin {
     fileprivate init(_ pin: PinsStorage.V1.Pin, mirrors: DependencyMirrors) throws {
         // rdar://52529014, rdar://52529011: pin file should store the original location but remap when loading
-        let url = mirrors.effectiveURL(for: pin.repositoryURL)
-        let identity = PackageIdentity(url: url) // FIXME: pin store should also encode identity
-        var packageRef = PackageReference.remote(identity: identity, location: url)
+        let location = mirrors.effectiveURL(for: pin.repositoryURL)
+        let identity = PackageIdentity(urlString: location) // FIXME: pin store should also encode identity
+        var packageRef: PackageReference
+        if let path = try? AbsolutePath(validating: location) {
+            packageRef = .localSourceControl(identity: identity, path: path)
+        } else if let url = URL(string: location) {
+            packageRef = .remoteSourceControl(identity: identity, url: url)
+        } else {
+            throw StringError("invalid package location \(location)")
+        }
         if let newName = pin.package {
             packageRef = packageRef.with(newName: newName)
         }
@@ -282,10 +317,19 @@ extension PinsStore.Pin {
 
 extension PinsStore.Pin {
     fileprivate init(_ pin: PinsStorage.V2.Pin, mirrors: DependencyMirrors) throws {
-        // rdar://52529014, rdar://52529011: pin file should store the original location but remap when loading
-        let url = mirrors.effectiveURL(for: pin.location)
+        let packageRef: PackageReference
         let identity = pin.identity
-        let packageRef = PackageReference.remote(identity: identity, location: url)
+        // rdar://52529014, rdar://52529011: pin file should store the original location but remap when loading
+        let location = mirrors.effectiveURL(for: pin.location)
+        switch pin.kind {
+        case .localSourceControl:
+            packageRef = try .localSourceControl(identity: identity, path: AbsolutePath(validating: location))
+        case .remoteSourceControl:
+            guard let url = URL(string: location) else {
+                throw StringError("invalid url location: \(location)")
+            }
+            packageRef = .remoteSourceControl(identity: identity, url: url)
+        }
         self.init(
             packageRef: packageRef,
             state: try .init(pin.state)

@@ -27,11 +27,11 @@ final class PinsStoreTests: XCTestCase {
         let barPath = AbsolutePath("/bar")
         let foo = PackageIdentity(path: fooPath)
         let bar = PackageIdentity(path: barPath)
-        let fooRepo = RepositorySpecifier(url: fooPath.pathString)
-        let barRepo = RepositorySpecifier(url: barPath.pathString)
+        //let fooRepo = RepositorySpecifier(url: fooPath.pathString)
+        //let barRepo = RepositorySpecifier(url: barPath.pathString)
         let revision = Revision(identifier: "81513c8fd220cf1ed1452b98060cd80d3725c5b7")
-        let fooRef = PackageReference.remote(identity: foo, location: fooRepo.url)
-        let barRef = PackageReference.remote(identity: bar, location: barRepo.url)
+        let fooRef = PackageReference.localSourceControl(identity: foo, path: fooPath)
+        let barRef = PackageReference.localSourceControl(identity: bar, path: barPath)
 
         let state = CheckoutState.version(v1, revision: revision)
 
@@ -151,6 +151,7 @@ final class PinsStoreTests: XCTestCase {
                 "pins": [
                   {
                     "identity": "clang_c",
+                    "kind": "remoteSourceControl",
                     "location": "https://github.com/something/Clang_C.git",
                     "state": {
                       "branch": null,
@@ -160,6 +161,7 @@ final class PinsStoreTests: XCTestCase {
                   },
                   {
                     "identity": "commandant",
+                    "kind": "remoteSourceControl",
                     "location": "https://github.com/something/Commandant.git",
                     "state": {
                       "branch": null,
@@ -210,7 +212,7 @@ final class PinsStoreTests: XCTestCase {
 
         let fooPath = AbsolutePath("/foo")
         let foo = PackageIdentity(path: fooPath)
-        let fooRef = PackageReference.remote(identity: foo, location: fooPath.pathString)
+        let fooRef = PackageReference.localSourceControl(identity: foo, path: fooPath)
         let revision = Revision(identifier: "81513c8fd220cf1ed1452b98060cd80d3725c5b7")
         store.pin(packageRef: fooRef, state: .version(v1, revision: revision))
 
@@ -225,39 +227,39 @@ final class PinsStoreTests: XCTestCase {
     }
 
     func testPinsWithMirrors() throws {
-        let fooURL = "https://github.com/corporate/foo.git"
+        let fooURL = URL(string: "https://github.com/corporate/foo.git")!
         let fooIdentity = PackageIdentity(url: fooURL)
-        let fooMirroredURL = "https://github.corporate.com/team/foo.git"
+        let fooMirroredURL = URL(string: "https://github.corporate.com/team/foo.git")!
 
-        let barURL = "https://github.com/corporate/baraka.git"
+        let barURL = URL(string: "https://github.com/corporate/baraka.git")!
         let barIdentity = PackageIdentity(url: barURL)
-        let barMirroredURL = "https://github.corporate.com/team/bar.git"
+        let barMirroredURL = URL(string: "https://github.corporate.com/team/bar.git")!
         let barMirroredIdentity = PackageIdentity(url: barMirroredURL)
 
-        let bazURL = "https://github.com/cool/baz.git"
+        let bazURL = URL(string: "https://github.com/cool/baz.git")!
         let bazIdentity = PackageIdentity(url: bazURL)
 
         let mirrors = DependencyMirrors()
-        mirrors.set(mirrorURL: fooMirroredURL, forURL: fooURL)
-        mirrors.set(mirrorURL: barMirroredURL, forURL: barURL)
+        mirrors.set(mirrorURL: fooMirroredURL.absoluteString, forURL: fooURL.absoluteString)
+        mirrors.set(mirrorURL: barMirroredURL.absoluteString, forURL: barURL.absoluteString)
 
         let fileSystem = InMemoryFileSystem()
         let pinsFile = AbsolutePath("/pins.txt")
 
         let store = try PinsStore(pinsFile: pinsFile, workingDirectory: .root, fileSystem: fileSystem, mirrors: mirrors)
 
-        store.pin(packageRef: .remote(identity: fooIdentity, location: fooMirroredURL),
+        store.pin(packageRef: .remoteSourceControl(identity: fooIdentity, url: fooMirroredURL),
                   state: .version(v1, revision: .init(identifier: "foo-revision")))
-        store.pin(packageRef: .remote(identity: barIdentity, location: barMirroredURL),
+        store.pin(packageRef: .remoteSourceControl(identity: barIdentity, url: barMirroredURL),
                   state: .version(v1, revision: .init(identifier: "bar-revision")))
-        store.pin(packageRef: .remote(identity: bazIdentity, location: bazURL),
+        store.pin(packageRef: .remoteSourceControl(identity: bazIdentity, url: bazURL),
                   state: .version(v1, revision: .init(identifier: "baz-revision")))
 
         XCTAssert(store.pinsMap.count == 3)
-        XCTAssertEqual(store.pinsMap[fooIdentity]!.packageRef.location, fooMirroredURL)
-        XCTAssertEqual(store.pinsMap[barIdentity]!.packageRef.location, barMirroredURL)
+        XCTAssertEqual(store.pinsMap[fooIdentity]!.packageRef.kind, .remoteSourceControl(fooMirroredURL))
+        XCTAssertEqual(store.pinsMap[barIdentity]!.packageRef.kind, .remoteSourceControl(barMirroredURL))
         XCTAssertNil(store.pinsMap[barMirroredIdentity])
-        XCTAssertEqual(store.pinsMap[bazIdentity]!.packageRef.location, bazURL)
+        XCTAssertEqual(store.pinsMap[bazIdentity]!.packageRef.kind, .remoteSourceControl(bazURL))
 
         try store.saveState()
         XCTAssert(fileSystem.exists(pinsFile))
@@ -265,9 +267,9 @@ final class PinsStoreTests: XCTestCase {
         // Load the store again from disk, with no mirrors
         let store2 = try PinsStore(pinsFile: pinsFile, workingDirectory: .root, fileSystem: fileSystem, mirrors: .init())
         XCTAssert(store2.pinsMap.count == 3)
-        XCTAssertEqual(store2.pinsMap[fooIdentity]!.packageRef.location, fooURL)
-        XCTAssertEqual(store2.pinsMap[barIdentity]!.packageRef.location, barURL)
-        XCTAssertEqual(store2.pinsMap[bazIdentity]!.packageRef.location, bazURL)
+        XCTAssertEqual(store2.pinsMap[fooIdentity]!.packageRef.kind, .remoteSourceControl(fooURL))
+        XCTAssertEqual(store2.pinsMap[barIdentity]!.packageRef.kind, .remoteSourceControl(barURL))
+        XCTAssertEqual(store2.pinsMap[bazIdentity]!.packageRef.kind, .remoteSourceControl(bazURL))
 
         // Load the store again from disk, with mirrors
         let store3 = try PinsStore(pinsFile: pinsFile, workingDirectory: .root, fileSystem: fileSystem, mirrors: mirrors)

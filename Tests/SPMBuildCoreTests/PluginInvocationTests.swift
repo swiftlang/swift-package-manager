@@ -31,10 +31,9 @@ class PluginInvocationTests: XCTestCase {
         let observability = ObservabilitySystem.bootstrapForTesting()
         let graph = try loadPackageGraph(fs: fileSystem,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "Foo",
                     path: .init("/Foo"),
-                    packageKind: .root,
                     products: [
                         ProductDescription(
                             name: "Foo",

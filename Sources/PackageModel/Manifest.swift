@@ -161,7 +161,7 @@ public final class Manifest: ObjectIdentifierProtocol {
             return targets
         }
         #else
-        return packageKind == .root ? self.targets : targetsRequired(for: products)
+        return packageKind.isRoot ? self.targets : targetsRequired(for: products)
         #endif
     }
 
@@ -178,7 +178,7 @@ public final class Manifest: ObjectIdentifierProtocol {
             return self.dependencies
         }
         #else
-        guard toolsVersion >= .v5_2 && packageKind != .root else {
+        guard toolsVersion >= .v5_2 && !packageKind.isRoot else {
             return self.dependencies
         }
         

@@ -8,59 +8,49 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
+import Foundation
 import PackageModel
 import TSCBasic
 
 public extension PackageDependency {
     static func fileSystem(identity: PackageIdentity? = nil,
                            deprecatedName: String? = nil,
-                           path: String,
-                           productFilter: ProductFilter = .everything
-    ) -> Self {
-        return .fileSystem(identity: identity,
-                           deprecatedName: deprecatedName,
-                           path: AbsolutePath(path),
-                           productFilter: productFilter)
-    }
-
-    static func fileSystem(identity: PackageIdentity? = nil,
-                           deprecatedName: String? = nil,
                            path: AbsolutePath,
                            productFilter: ProductFilter = .everything
     ) -> Self {
-        let identity = identity ?? PackageIdentity(url: path.pathString)
+        let identity = identity ?? PackageIdentity(path: path)
         return .fileSystem(identity: identity,
                            nameForTargetDependencyResolutionOnly: deprecatedName,
                            path: path,
                            productFilter: productFilter)
     }
 
-    static func sourceControl(identity: PackageIdentity? = nil,
-                              deprecatedName: String? = nil,
-                              location: String,
-                              requirement: SourceControl.Requirement,
-                              productFilter: ProductFilter = .everything
+    static func localSourceControl(identity: PackageIdentity? = nil,
+                                   deprecatedName: String? = nil,
+                                   path: AbsolutePath,
+                                   requirement: SourceControl.Requirement,
+                                   productFilter: ProductFilter = .everything
     ) -> Self {
-        let identity = identity ?? PackageIdentity(url: location)
-        return .sourceControl(identity: identity,
-                              nameForTargetDependencyResolutionOnly: deprecatedName,
-                              location: location,
-                              requirement: requirement,
-                              productFilter: productFilter)
+        let identity = identity ?? PackageIdentity(path: path)
+        return .localSourceControl(identity: identity,
+                                   nameForTargetDependencyResolutionOnly: deprecatedName,
+                                   path: path,
+                                   requirement: requirement,
+                                   productFilter: productFilter)
     }
 
-    // backwards compatibility with existing tests
-    static func scm(identity: PackageIdentity? = nil,
-                    deprecatedName: String? = nil,
-                    location: String,
-                    requirement: SourceControl.Requirement,
-                    productFilter: ProductFilter = .everything
+    static func remoteSourceControl(identity: PackageIdentity? = nil,
+                                    deprecatedName: String? = nil,
+                                    url: Foundation.URL,
+                                    requirement: SourceControl.Requirement,
+                                    productFilter: ProductFilter = .everything
     ) -> Self {
-        return .sourceControl(identity: identity,
-                              deprecatedName: deprecatedName,
-                              location: location,
-                              requirement: requirement,
-                              productFilter: productFilter)
+        let identity = identity ?? PackageIdentity(url: url)
+        return .remoteSourceControl(identity: identity,
+                                    nameForTargetDependencyResolutionOnly: deprecatedName,
+                                    url: url,
+                                    requirement: requirement,
+                                    productFilter: productFilter)
     }
 
     static func registry(identity: String,

@@ -44,7 +44,7 @@ public extension GitRepository {
 
     /// Commit the staged changes. If the message is not provided a dummy message will be used for the commit.
     func commit(message: String? = nil) throws {
-        // FIXME: We don't need to set these everytime but we usually only commit once or twice for a test repo.
+        // FIXME: We don't need to set these every time but we usually only commit once or twice for a test repo.
         try systemQuietly([Git.tool, "-C", self.path.pathString, "config", "user.email", "example@example.com"])
         try systemQuietly([Git.tool, "-C", self.path.pathString, "config", "user.name", "Example Example"])
         try systemQuietly([Git.tool, "-C", self.path.pathString, "config", "commit.gpgsign", "false"])

@@ -30,10 +30,9 @@ class PackageGraphTests: XCTestCase {
         let observability = ObservabilitySystem.bootstrapForTesting()
         let g = try loadPackageGraph(fs: fs,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createFileSystemManifest(
                     name: "Foo",
                     path: .init("/Foo"),
-                    packageKind: .local,
                     products: [
                         ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo"])
                     ],
@@ -41,12 +40,11 @@ class PackageGraphTests: XCTestCase {
                         TargetDescription(name: "Foo", dependencies: ["FooDep"]),
                         TargetDescription(name: "FooDep", dependencies: []),
                     ]),
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "Bar",
                     path: .init("/Bar"),
-                    packageKind: .root,
                     dependencies: [
-                        .scm(location: "/Foo", requirement: .upToNextMajor(from: "1.0.0"))
+                        .localSourceControl(path: .init("/Foo"), requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     products: [
                         ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar"])
@@ -54,11 +52,11 @@ class PackageGraphTests: XCTestCase {
                     targets: [
                         TargetDescription(name: "Bar", dependencies: ["Foo"], path: "./")
                     ]),
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "Baz",
                     path: .init("/Baz"),
                     dependencies: [
-                        .scm(location: "/Bar", requirement: .upToNextMajor(from: "1.0.0"))
+                        .localSourceControl(path: .init("/Bar"), requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     targets: [
                         TargetDescription(name: "Baz", dependencies: ["Bar"]),
@@ -97,20 +95,18 @@ class PackageGraphTests: XCTestCase {
         let observability = ObservabilitySystem.bootstrapForTesting()
         let g = try loadPackageGraph(fs: fs,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "Foo",
                     path: .init("/Foo"),
-                    packageKind: .root,
                     dependencies: [
-                        .scm(location: "/Bar", requirement: .upToNextMajor(from: "1.0.0"))
+                        .localSourceControl(path: .init("/Bar"), requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     targets: [
                         TargetDescription(name: "Foo", dependencies: ["Bar", "CBar"]),
                     ]),
-                Manifest.createV4Manifest(
+                Manifest.createFileSystemManifest(
                     name: "Bar",
                     path: .init("/Bar"),
-                    packageKind: .local,
                     products: [
                         ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar"]),
                         ProductDescription(name: "CBar", type: .library(.automatic), targets: ["CBar"]),
@@ -141,22 +137,20 @@ class PackageGraphTests: XCTestCase {
         let observability = ObservabilitySystem.bootstrapForTesting()
         _ = try loadPackageGraph(fs: fs,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "Foo",
                     path: .init("/Foo"),
-                    packageKind: .root,
                     dependencies: [
-                        .scm(location: "/Bar", requirement: .upToNextMajor(from: "1.0.0"))
+                        .localSourceControl(path: .init("/Bar"), requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     targets: [
                         TargetDescription(name: "Foo", dependencies: ["Bar"]),
                     ]),
-                Manifest.createV4Manifest(
+                Manifest.createFileSystemManifest(
                     name: "Bar",
                     path: .init("/Bar"),
-                    packageKind: .local,
                     dependencies: [
-                        .scm(location: "/Baz", requirement: .upToNextMajor(from: "1.0.0"))
+                        .localSourceControl(path: .init("/Baz"), requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     products: [
                         ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar"])
@@ -164,12 +158,11 @@ class PackageGraphTests: XCTestCase {
                     targets: [
                         TargetDescription(name: "Bar", dependencies: ["Baz"]),
                     ]),
-                Manifest.createV4Manifest(
+                Manifest.createFileSystemManifest(
                     name: "Baz",
                     path: .init("/Baz"),
-                    packageKind: .local,
                     dependencies: [
-                        .scm(location: "/Bar", requirement: .upToNextMajor(from: "1.0.0"))
+                        .localSourceControl(path: .init("/Bar"), requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     products: [
                         ProductDescription(name: "Baz", type: .library(.automatic), targets: ["Baz"])
@@ -195,12 +188,11 @@ class PackageGraphTests: XCTestCase {
         let observability = ObservabilitySystem.bootstrapForTesting()
         _ = try loadPackageGraph(fs: fs,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "Foo",
                     path: .init("/Foo"),
-                    packageKind: .root,
                     dependencies: [
-                        .scm(location: "/Foo", requirement: .upToNextMajor(from: "1.0.0"))
+                        .localSourceControl(path: .init("/Foo"), requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     targets: [
                         TargetDescription(name: "Foo"),
@@ -226,21 +218,19 @@ class PackageGraphTests: XCTestCase {
         let observability = ObservabilitySystem.bootstrapForTesting()
         let g = try loadPackageGraph(fs: fs,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "Bar",
                     path: .init("/Bar"),
-                    packageKind: .root,
                     dependencies: [
-                        .scm(location: "/Foo", requirement: .upToNextMajor(from: "1.0.0"))
+                        .localSourceControl(path: .init("/Foo"), requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     targets: [
                         TargetDescription(name: "Bar", dependencies: ["Foo"]),
                         TargetDescription(name: "BarTests", dependencies: ["Bar"], type: .test),
                     ]),
-                Manifest.createV4Manifest(
+                Manifest.createFileSystemManifest(
                     name: "Foo",
                     path: .init("/Foo"),
-                    packageKind: .local,
                     products: [
                         ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo"]),
                     ],
@@ -268,20 +258,18 @@ class PackageGraphTests: XCTestCase {
         let observability = ObservabilitySystem.bootstrapForTesting()
         _ = try loadPackageGraph(fs: fs,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "Foo",
                     path: .init("/Foo"),
-                    packageKind: .root,
                     dependencies: [
-                        .scm(location: "/Bar", requirement: .upToNextMajor(from: "1.0.0"))
+                        .localSourceControl(path: .init("/Bar"), requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     targets: [
                         TargetDescription(name: "Bar"),
                     ]),
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "Bar",
                     path: .init("/Bar"),
-                    packageKind: .root,
                     targets: [
                         TargetDescription(name: "Bar"),
                     ]),
@@ -304,44 +292,40 @@ class PackageGraphTests: XCTestCase {
         let observability = ObservabilitySystem.bootstrapForTesting()
         _ = try loadPackageGraph(fs: fs,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createFileSystemManifest(
                     name: "Fourth",
                     path: .init("/Fourth"),
-                    packageKind: .local,
                     products: [
                         ProductDescription(name: "Fourth", type: .library(.automatic), targets: ["First"])
                     ],
                     targets: [
                         TargetDescription(name: "First"),
                     ]),
-                Manifest.createV4Manifest(
+                Manifest.createFileSystemManifest(
                     name: "Third",
                     path: .init("/Third"),
-                    packageKind: .local,
                     products: [
                         ProductDescription(name: "Third", type: .library(.automatic), targets: ["First"])
                     ],
                     targets: [
                         TargetDescription(name: "First"),
                     ]),
-                Manifest.createV4Manifest(
+                Manifest.createFileSystemManifest(
                     name: "Second",
                     path: .init("/Second"),
-                    packageKind: .local,
                     products: [
                         ProductDescription(name: "Second", type: .library(.automatic), targets: ["First"])
                     ],
                     targets: [
                         TargetDescription(name: "First"),
                     ]),
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "First",
                     path: .init("/First"),
-                    packageKind: .root,
                     dependencies: [
-                        .scm(location: "/Second", requirement: .upToNextMajor(from: "1.0.0")),
-                        .scm(location: "/Third", requirement: .upToNextMajor(from: "1.0.0")),
-                        .scm(location: "/Fourth", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init("/Second"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init("/Third"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init("/Fourth"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "First", dependencies: ["Second", "Third", "Fourth"]),
@@ -365,44 +349,40 @@ class PackageGraphTests: XCTestCase {
         let observability = ObservabilitySystem.bootstrapForTesting()
         _ = try loadPackageGraph(fs: fs,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createFileSystemManifest(
                     name: "Fourth",
                     path: .init("/Fourth"),
-                    packageKind: .local,
                     products: [
                         ProductDescription(name: "Fourth", type: .library(.automatic), targets: ["Bar"])
                     ],
                     targets: [
                         TargetDescription(name: "Bar"),
                     ]),
-                Manifest.createV4Manifest(
+                Manifest.createFileSystemManifest(
                     name: "Third",
                     path: .init("/Third"),
-                    packageKind: .local,
                     products: [
                         ProductDescription(name: "Third", type: .library(.automatic), targets: ["Bar"])
                     ],
                     targets: [
                         TargetDescription(name: "Bar"),
                     ]),
-                Manifest.createV4Manifest(
+                Manifest.createFileSystemManifest(
                     name: "Second",
                     path: .init("/Second"),
-                    packageKind: .local,
                     products: [
                         ProductDescription(name: "Second", type: .library(.automatic), targets: ["Foo"])
                     ],
                     targets: [
                         TargetDescription(name: "Foo"),
                     ]),
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "First",
                     path: .init("/First"),
-                    packageKind: .root,
                     dependencies: [
-                        .scm(location: "/Second", requirement: .upToNextMajor(from: "1.0.0")),
-                        .scm(location: "/Third", requirement: .upToNextMajor(from: "1.0.0")),
-                        .scm(location: "/Fourth", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init("/Second"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init("/Third"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init("/Fourth"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "Foo", dependencies: ["Second", "Third", "Fourth"]),
@@ -427,22 +407,20 @@ class PackageGraphTests: XCTestCase {
         let observability = ObservabilitySystem.bootstrapForTesting()
         _ = try loadPackageGraph(fs: fs,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createFileSystemManifest(
                     name: "Fourth",
                     path: .init("/Fourth"),
-                    packageKind: .local,
                     products: [
                         ProductDescription(name: "Fourth", type: .library(.automatic), targets: ["First"])
                     ],
                     targets: [
                         TargetDescription(name: "First"),
                     ]),
-                Manifest.createV4Manifest(
+                Manifest.createFileSystemManifest(
                     name: "Third",
                     path: .init("/Third"),
-                    packageKind: .local,
                     dependencies: [
-                        .scm(location: "/Fourth", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init("/Fourth"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     products: [
                         ProductDescription(name: "Third", type: .library(.automatic), targets: ["Third"])
@@ -450,12 +428,11 @@ class PackageGraphTests: XCTestCase {
                     targets: [
                         TargetDescription(name: "Third", dependencies: ["Fourth"]),
                     ]),
-                Manifest.createV4Manifest(
+                Manifest.createFileSystemManifest(
                     name: "Second",
                     path: .init("/Second"),
-                    packageKind: .local,
                     dependencies: [
-                        .scm(location: "/Third", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init("/Third"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     products: [
                         ProductDescription(name: "Second", type: .library(.automatic), targets: ["Second"])
@@ -463,12 +440,11 @@ class PackageGraphTests: XCTestCase {
                     targets: [
                         TargetDescription(name: "Second", dependencies: ["Third"]),
                     ]),
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "First",
                     path: .init("/First"),
-                    packageKind: .root,
                     dependencies: [
-                        .scm(location: "/Second", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init("/Second"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     products: [
                         ProductDescription(name: "First", type: .library(.automatic), targets: ["First"])
@@ -493,20 +469,18 @@ class PackageGraphTests: XCTestCase {
         let observability = ObservabilitySystem.bootstrapForTesting()
         _ = try loadPackageGraph(fs: fs,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "Foo",
                     path: .init("/Foo"),
-                    packageKind: .root,
                     dependencies: [
-                        .scm(location: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init("/Bar"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "Foo", dependencies: ["Bar"]),
                     ]),
-                Manifest.createV4Manifest(
+                Manifest.createFileSystemManifest(
                     name: "Bar",
                     path: .init("/Bar"),
-                    packageKind: .local,
                     products: [
                         ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar"])
                     ],
@@ -538,10 +512,9 @@ class PackageGraphTests: XCTestCase {
         let observability = ObservabilitySystem.bootstrapForTesting()
         _ = try loadPackageGraph(fs: fs,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "Foo",
                     path: .init("/Foo"),
-                    packageKind: .root,
                     targets: [
                         TargetDescription(name: "FooTarget", dependencies: ["Barx"]),
                     ]),
@@ -566,10 +539,9 @@ class PackageGraphTests: XCTestCase {
         let observability = ObservabilitySystem.bootstrapForTesting()
         _ = try loadPackageGraph(fs: fs,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "Foo",
                     path: .init("/Foo"),
-                    packageKind: .root,
                     products: [
                         ProductDescription(name: "Foo", type: .library(.automatic), targets: ["FooTarget"]),
                     ],
@@ -597,10 +569,9 @@ class PackageGraphTests: XCTestCase {
         let observability = ObservabilitySystem.bootstrapForTesting()
         _ = try loadPackageGraph(fs: fs,
                                  manifests: [
-                    Manifest.createV4Manifest(
+                    Manifest.createRootManifest(
                         name: "XYZ",
                         path: .init("/XYZ"),
-                        packageKind: .root,
                         targets: [
                             TargetDescription(name: "XYZ", dependencies: [], type: .executable),
                             TargetDescription(name: "XYZTests", dependencies: ["XYZ"], type: .test),
@@ -619,10 +590,9 @@ class PackageGraphTests: XCTestCase {
         let observability = ObservabilitySystem.bootstrapForTesting()
         _ = try loadPackageGraph(fs: fs,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "Foo",
                     path: .init("/Foo"),
-                    packageKind: .root,
                     products: [
                         ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo"]),
                     ],
@@ -643,10 +613,9 @@ class PackageGraphTests: XCTestCase {
         let observability = ObservabilitySystem.bootstrapForTesting()
         _ = try loadPackageGraph(fs: fs,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "Foo",
                     path: .init("/Foo"),
-                    packageKind: .root,
                     toolsVersion: .v5_2,
                     targets: [
                         TargetDescription(name: "FooTarget", dependencies: [.product(name: "Barx", package: "Bar")]),
@@ -672,10 +641,9 @@ class PackageGraphTests: XCTestCase {
         let observability = ObservabilitySystem.bootstrapForTesting()
         _ = try loadPackageGraph(fs: fs,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "Foo",
                     path: .init("/Foo"),
-                    packageKind: .root,
                     toolsVersion: .v5_2,
                     targets: [
                         TargetDescription(name: "FooTarget", dependencies: [.product(name: "Barx")]),
@@ -704,33 +672,30 @@ class PackageGraphTests: XCTestCase {
         let observability = ObservabilitySystem.bootstrapForTesting()
         _ = try loadPackageGraph(fs: fs,
             manifests: [
-                Manifest.createManifest(
+                Manifest.createRootManifest(
                     name: "Foo",
                     path: .init("/Foo"),
-                    packageKind: .root,
-                    v: .v5_2,
+                    toolsVersion: .v5_2,
                     dependencies: [
-                        .scm(location: "/Bar", requirement: .branch("master")),
-                        .scm(location: "/BizPath", requirement: .exact("1.2.3")),
-                        .scm(location: "/FizPath", requirement: .upToNextMajor(from: "1.1.2")),
+                        .localSourceControl(path: .init("/Bar"), requirement: .branch("master")),
+                        .localSourceControl(path: .init("/BizPath"), requirement: .exact("1.2.3")),
+                        .localSourceControl(path: .init("/FizPath"), requirement: .upToNextMajor(from: "1.1.2")),
                     ],
                     targets: [
                         TargetDescription(name: "Foo", dependencies: ["BarLib", "Biz", "FizLib"]),
                     ]),
-                Manifest.createV4Manifest(
+                Manifest.createLocalSourceControlManifest(
                     name: "Bar",
-                    path:.init( "/Bar"),
-                    packageKind: .remote,
+                    path: .init("/Bar"),
                     products: [
                         ProductDescription(name: "BarLib", type: .library(.automatic), targets: ["BarLib"])
                     ],
                     targets: [
                         TargetDescription(name: "BarLib"),
                     ]),
-                Manifest.createV4Manifest(
+                Manifest.createLocalSourceControlManifest(
                     name: "Biz",
                     path: .init("/BizPath"),
-                    packageKind: .remote,
                     version: "1.2.3",
                     products: [
                         ProductDescription(name: "Biz", type: .library(.automatic), targets: ["Biz"])
@@ -738,10 +703,9 @@ class PackageGraphTests: XCTestCase {
                     targets: [
                         TargetDescription(name: "Biz"),
                     ]),
-                Manifest.createV4Manifest(
+                Manifest.createLocalSourceControlManifest(
                     name: "Fiz",
                     path: .init("/FizPath"),
-                    packageKind: .remote,
                     version: "1.2.3",
                     products: [
                         ProductDescription(name: "FizLib", type: .library(.automatic), targets: ["FizLib"])
@@ -786,21 +750,19 @@ class PackageGraphTests: XCTestCase {
         let observability = ObservabilitySystem.bootstrapForTesting()
         _ = try loadPackageGraph(fs: fs,
             manifests: [
-                Manifest.createManifest(
+                Manifest.createRootManifest(
                     name: "Foo",
                     path: .init("/Foo"),
-                    packageKind: .root,
-                    v: .v5_2,
+                    toolsVersion: .v5_2,
                     dependencies: [
-                        .scm(deprecatedName: "UnBar", location: "/Bar", requirement: .branch("master")),
+                        .localSourceControl(deprecatedName: "UnBar", path: .init("/Bar"), requirement: .branch("master")),
                     ],
                     targets: [
                         TargetDescription(name: "Foo", dependencies: [.product(name: "BarProduct", package: "UnBar")]),
                     ]),
-                Manifest.createV4Manifest(
+                Manifest.createLocalSourceControlManifest(
                     name: "UnBar",
                     path: .init("/Bar"),
-                    packageKind: .remote,
                     products: [
                         ProductDescription(name: "BarProduct", type: .library(.automatic), targets: ["Bar"])
                     ],
@@ -825,42 +787,38 @@ class PackageGraphTests: XCTestCase {
         let observability = ObservabilitySystem.bootstrapForTesting()
         _ = try loadPackageGraph(fs: fs,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "Foo",
                     path: .init("/Foo"),
-                    packageKind: .root,
                     dependencies: [
-                        .scm(location: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
-                        .scm(location: "/Baz", requirement: .upToNextMajor(from: "1.0.0")),
-                        .scm(location: "/Biz", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init("/Bar"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init("/Baz"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init("/Biz"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "Foo", dependencies: ["BarLibrary"]),
                     ]),
-                Manifest.createV4Manifest(
+                Manifest.createFileSystemManifest(
                     name: "Biz",
                     path: .init("/Biz"),
-                    packageKind: .local,
                     products: [
                         ProductDescription(name: "biz", type: .executable, targets: ["Biz"])
                     ],
                     targets: [
                         TargetDescription(name: "Biz"),
                     ]),
-                Manifest.createV4Manifest(
+                Manifest.createFileSystemManifest(
                     name: "Bar",
                     path: .init("/Bar"),
-                    packageKind: .local,
                     products: [
                         ProductDescription(name: "BarLibrary", type: .library(.automatic), targets: ["Bar"])
                     ],
                     targets: [
                         TargetDescription(name: "Bar"),
                     ]),
-                Manifest.createV4Manifest(
+                Manifest.createFileSystemManifest(
                     name: "Baz",
                     path: .init("/Baz"),
-                    packageKind: .local,
                     products: [
                         ProductDescription(name: "BazLibrary", type: .library(.automatic), targets: ["Baz"])
                     ],
@@ -887,20 +845,18 @@ class PackageGraphTests: XCTestCase {
         let observability = ObservabilitySystem.bootstrapForTesting()
         _ = try loadPackageGraph(fs: fs,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "Bar",
                     path: .init("/Bar"),
-                    packageKind: .root,
                     dependencies: [
-                        .scm(location: "/Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init("/Foo"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "Bar"),
                     ]),
-                Manifest.createV4Manifest(
+                Manifest.createFileSystemManifest(
                     name: "Foo",
-                    path: .init("/Foo"),
-                    packageKind: .local
+                    path: .init("/Foo")
                 ),
             ]
         )
@@ -921,23 +877,21 @@ class PackageGraphTests: XCTestCase {
         let observability = ObservabilitySystem.bootstrapForTesting()
         _ = try loadPackageGraph(fs: fs,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "Start",
                     path: .init("/Start"),
-                    packageKind: .root,
                     dependencies: [
-                        .scm(location: "/Dep1", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init("/Dep1"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "Foo", dependencies: ["BazLibrary"]),
                         TargetDescription(name: "Bar"),
                     ]),
-                Manifest.createV4Manifest(
+                Manifest.createFileSystemManifest(
                     name: "Dep1",
                     path: .init("/Dep1"),
-                    packageKind: .local,
                     dependencies: [
-                        .scm(location: "/Dep2", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init("/Dep2"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     products: [
                         ProductDescription(name: "BazLibrary", type: .library(.automatic), targets: ["Baz"])
@@ -945,10 +899,9 @@ class PackageGraphTests: XCTestCase {
                     targets: [
                         TargetDescription(name: "Baz", dependencies: ["FooLibrary"]),
                     ]),
-                Manifest.createV4Manifest(
+                Manifest.createFileSystemManifest(
                     name: "Dep2",
                     path: .init("/Dep2"),
-                    packageKind: .local,
                     products: [
                         ProductDescription(name: "FooLibrary", type: .library(.automatic), targets: ["Foo"]),
                         ProductDescription(name: "BamLibrary", type: .library(.automatic), targets: ["Bam"]),
@@ -975,31 +928,28 @@ class PackageGraphTests: XCTestCase {
         let observability = ObservabilitySystem.bootstrapForTesting()
         _ = try loadPackageGraph(fs: fs,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "Foo",
                     path: .init("/Foo"),
-                    packageKind: .root,
                     dependencies: [
-                        .scm(location: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
-                        .scm(location: "/Baz", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init("/Bar"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init("/Baz"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "Foo", dependencies: ["Bar"]),
                     ]),
-                Manifest.createV4Manifest(
+                Manifest.createFileSystemManifest(
                     name: "Bar",
                     path: .init("/Bar"),
-                    packageKind: .local,
                     products: [
                         ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar"])
                     ],
                     targets: [
                         TargetDescription(name: "Bar"),
                     ]),
-                Manifest.createV4Manifest(
+                Manifest.createFileSystemManifest(
                     name: "Baz",
                     path: .init("/Baz"),
-                    packageKind: .local,
                     products: [
                         ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Baz"])
                     ],
@@ -1028,21 +978,19 @@ class PackageGraphTests: XCTestCase {
         let observability = ObservabilitySystem.bootstrapForTesting()
         _ = try loadPackageGraph(fs: fs,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "Foo",
                     path: .init("/Foo"),
-                    packageKind: .root,
                     dependencies: [
-                        .scm(location: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init("/Bar"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "Foo", dependencies: ["Bar"]),
                         TargetDescription(name: "Foo2", dependencies: ["TransitiveBar"]),
                     ]),
-                Manifest.createV4Manifest(
+                Manifest.createFileSystemManifest(
                     name: "Bar",
                     path: .init("/Bar"),
-                    packageKind: .local,
                     products: [
                         ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar", "Bar2", "Bar3"]),
                         ProductDescription(name: "TransitiveBar", type: .library(.automatic), targets: ["TransitiveBar"]),
@@ -1093,11 +1041,11 @@ class PackageGraphTests: XCTestCase {
         let graph = try loadPackageGraph(
             fs: fs,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "Foo",
                     path: .init("/Foo"),
                     dependencies: [
-                        .fileSystem(path: "/Biz"),
+                        .fileSystem(path: .init("/Biz")),
                     ],
                     targets: [
                         TargetDescription(name: "Foo", dependencies: [
@@ -1118,10 +1066,9 @@ class PackageGraphTests: XCTestCase {
                         TargetDescription(name: "Baz"),
                     ]
                 ),
-                Manifest.createV4Manifest(
+                Manifest.createLocalSourceControlManifest(
                     name: "Biz",
                     path: .init("/Biz"),
-                    packageKind: .remote,
                     products: [
                         ProductDescription(name: "Biz", type: .library(.automatic), targets: ["Biz"])
                     ],
@@ -1175,13 +1122,12 @@ class PackageGraphTests: XCTestCase {
         _ = try loadPackageGraph(
             fs: fs,
             manifests: [
-                Manifest.createManifest(
+                Manifest.createRootManifest(
                     name: "Root",
                     path: .init("/Root"),
-                    packageKind: .root,
-                    v: .v5_2,
+                    toolsVersion: .v5_2,
                     dependencies: [
-                        .scm(location: "/Immediate", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init("/Immediate"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "Root", dependencies: [
@@ -1189,18 +1135,17 @@ class PackageGraphTests: XCTestCase {
                         ]),
                     ]
                 ),
-                Manifest.createManifest(
+                Manifest.createFileSystemManifest(
                     name: "Immediate",
                     path: .init("/Immediate"),
-                    packageKind: .local,
-                    v: .v5_2,
+                    toolsVersion: .v5_2,
                     dependencies: [
-                        .scm(
-                            location: "/Transitive",
+                        .localSourceControl(
+                            path: .init("/Transitive"),
                             requirement: .upToNextMajor(from: "1.0.0")
                         ),
-                        .scm(
-                            location: "/Nonexistent",
+                        .localSourceControl(
+                            path: .init("/Nonexistent"),
                             requirement: .upToNextMajor(from: "1.0.0")
                         )
                     ],
@@ -1218,14 +1163,13 @@ class PackageGraphTests: XCTestCase {
                         ]),
                     ]
                 ),
-                Manifest.createManifest(
+                Manifest.createFileSystemManifest(
                     name: "Transitive",
                     path: .init("/Transitive"),
-                    packageKind: .local,
-                    v: .v5_2,
+                    toolsVersion: .v5_2,
                     dependencies: [
-                        .scm(
-                            location: "/Nonexistent",
+                        .localSourceControl(
+                            path: .init("/Nonexistent"),
                             requirement: .upToNextMajor(from: "1.0.0")
                         )
                     ],
@@ -1289,22 +1233,20 @@ class PackageGraphTests: XCTestCase {
         let observability = ObservabilitySystem.bootstrapForTesting()
         _ = try loadPackageGraph(fs: fs,
             manifests: [
-                Manifest.createManifest(
+                Manifest.createRootManifest(
                     name: "Foo",
                     path: .init("/Foo"),
-                    packageKind: .root,
-                    v: .v5,
+                    toolsVersion: .v5,
                     dependencies: [
-                        .scm(location: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init("/Bar"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "Foo", dependencies: ["Bar"]),
                     ]),
-                Manifest.createManifest(
+                Manifest.createFileSystemManifest(
                     name: "Bar",
                     path: .init("/Bar"),
-                    packageKind: .local,
-                    v: .v5,
+                    toolsVersion: .v5,
                     products: [
                         ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar"])
                     ],
@@ -1326,22 +1268,20 @@ class PackageGraphTests: XCTestCase {
         let observability = ObservabilitySystem.bootstrapForTesting()
         _ = try loadPackageGraph(fs: fs,
             manifests: [
-                Manifest.createManifest(
+                Manifest.createRootManifest(
                     name: "Foo",
                     path: .init("/Foo"),
-                    packageKind: .root,
-                    v: .v5,
+                    toolsVersion: .v5,
                     dependencies: [
-                        .scm(location: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init("/Bar"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "Foo", dependencies: ["Unknown"]),
                     ]),
-                Manifest.createManifest(
+                Manifest.createFileSystemManifest(
                     name: "Bar",
                     path: .init("/Bar"),
-                    packageKind: .local,
-                    v: .v5,
+                    toolsVersion: .v5,
                     products: [
                         ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar"])
                     ],
@@ -1371,22 +1311,20 @@ class PackageGraphTests: XCTestCase {
         let observability = ObservabilitySystem.bootstrapForTesting()
         _ = try loadPackageGraph(fs: fs,
             manifests: [
-                Manifest.createManifest(
+                Manifest.createRootManifest(
                     name: "Foo",
                     path: .init("/Foo"),
-                    packageKind: .root,
-                    v: .v5_2,
+                    toolsVersion: .v5_2,
                     dependencies: [
-                        .scm(location: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init("/Bar"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "Foo", dependencies: ["Bar"]),
                     ]),
-                Manifest.createManifest(
+                Manifest.createFileSystemManifest(
                     name: "Bar",
                     path: .init("/Bar"),
-                    packageKind: .local,
-                    v: .v5_2,
+                    toolsVersion: .v5_2,
                     products: [
                         ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar"])
                     ],
@@ -1408,22 +1346,20 @@ class PackageGraphTests: XCTestCase {
         let observability = ObservabilitySystem.bootstrapForTesting()
         _ = try loadPackageGraph(fs: fs,
             manifests: [
-                Manifest.createManifest(
+                Manifest.createRootManifest(
                     name: "Foo",
                     path: .init("/Foo"),
-                    packageKind: .root,
-                    v: .v5_2,
+                    toolsVersion: .v5_2,
                     dependencies: [
-                        .scm(location: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init("/Bar"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "Foo", dependencies: ["Unknown"]),
                     ]),
-                Manifest.createManifest(
+                Manifest.createFileSystemManifest(
                     name: "Bar",
                     path: .init("/Bar"),
-                    packageKind: .local,
-                    v: .v5_2,
+                    toolsVersion: .v5_2,
                     products: [
                         ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar"])
                     ],
@@ -1451,22 +1387,20 @@ class PackageGraphTests: XCTestCase {
         )
 
         let manifests = try [
-            Manifest.createManifest(
+            Manifest.createRootManifest(
                 name: "Foo",
                 path: .init("/Foo"),
-                packageKind: .root,
-                v: .v5_2,
+                toolsVersion: .v5_2,
                 dependencies: [
-                    .scm(location: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                    .localSourceControl(path: .init("/Bar"), requirement: .upToNextMajor(from: "1.0.0")),
                 ],
                 targets: [
                     TargetDescription(name: "Foo", dependencies: ["ProductBar"]),
                 ]),
-            Manifest.createManifest(
+            Manifest.createFileSystemManifest(
                 name: "Bar",
                 path: .init("/Bar"),
-                packageKind: .local,
-                v: .v5_2,
+                toolsVersion: .v5_2,
                 products: [
                     ProductDescription(name: "ProductBar", type: .library(.automatic), targets: ["Bar"])
                 ],
@@ -1514,22 +1448,20 @@ class PackageGraphTests: XCTestCase {
         )
 
         let manifests = try [
-            Manifest.createManifest(
+            Manifest.createRootManifest(
                 name: "Foo",
                 path: .init("/Foo"),
-                packageKind: .root,
-                v: .v5_2,
+                toolsVersion: .v5_2,
                 dependencies: [
-                    .scm(deprecatedName: "Bar", location: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                    .localSourceControl(deprecatedName: "Bar", path: .init("/Bar"), requirement: .upToNextMajor(from: "1.0.0")),
                 ],
                 targets: [
                     TargetDescription(name: "Foo", dependencies: ["ProductBar"]),
                 ]),
-            Manifest.createManifest(
+            Manifest.createFileSystemManifest(
                 name: "Bar",
                 path: .init("/Bar"),
-                packageKind: .local,
-                v: .v5_2,
+                toolsVersion: .v5_2,
                 products: [
                     ProductDescription(name: "ProductBar", type: .library(.automatic), targets: ["Bar"])
                 ],
@@ -1576,22 +1508,20 @@ class PackageGraphTests: XCTestCase {
         )
 
         let manifests = try [
-            Manifest.createManifest(
+            Manifest.createRootManifest(
                 name: "Foo",
                 path: .init("/Foo"),
-                packageKind: .root,
-                v: .v5_2,
+                toolsVersion: .v5_2,
                 dependencies: [
-                    .scm(location: "/Some-Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                    .localSourceControl(path: .init("/Some-Bar"), requirement: .upToNextMajor(from: "1.0.0")),
                 ],
                 targets: [
                     TargetDescription(name: "Foo", dependencies: ["Bar"]),
                 ]),
-            Manifest.createManifest(
+            Manifest.createFileSystemManifest(
                 name: "Bar",
                 path: .init("/Some-Bar"),
-                packageKind: .local,
-                v: .v5_2,
+                toolsVersion: .v5_2,
                 products: [
                     ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar"])
                 ],
@@ -1637,22 +1567,20 @@ class PackageGraphTests: XCTestCase {
         )
 
         let manifests = try [
-            Manifest.createManifest(
+            Manifest.createRootManifest(
                 name: "Foo",
                 path: .init("/Foo"),
-                packageKind: .root,
-                v: .v5_2,
+                toolsVersion: .v5_2,
                 dependencies: [
-                    .scm(location: "/Some-Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                    .localSourceControl(path: .init("/Some-Bar"), requirement: .upToNextMajor(from: "1.0.0")),
                 ],
                 targets: [
                     TargetDescription(name: "Foo", dependencies: ["ProductBar"]),
                 ]),
-            Manifest.createManifest(
+            Manifest.createFileSystemManifest(
                 name: "Bar",
                 path: .init("/Some-Bar"),
-                packageKind: .local,
-                v: .v5_2,
+                toolsVersion: .v5_2,
                 products: [
                     ProductDescription(name: "ProductBar", type: .library(.automatic), targets: ["Bar"])
                 ],
@@ -1700,22 +1628,20 @@ class PackageGraphTests: XCTestCase {
         )
 
         let manifests = try [
-            Manifest.createManifest(
+            Manifest.createRootManifest(
                 name: "Foo",
                 path: .init("/Foo"),
-                packageKind: .root,
-                v: .v5_2,
+                toolsVersion: .v5_2,
                 dependencies: [
-                    .scm(deprecatedName: "Bar", location: "/Some-Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                    .localSourceControl(deprecatedName: "Bar", path: .init("/Some-Bar"), requirement: .upToNextMajor(from: "1.0.0")),
                 ],
                 targets: [
                     TargetDescription(name: "Foo", dependencies: ["Bar"]),
                 ]),
-            Manifest.createManifest(
+            Manifest.createFileSystemManifest(
                 name: "Bar",
                 path: .init("/Some-Bar"),
-                packageKind: .local,
-                v: .v5_2,
+                toolsVersion: .v5_2,
                 products: [
                     ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar"])
                 ],
@@ -1738,22 +1664,20 @@ class PackageGraphTests: XCTestCase {
         )
 
         let manifests = try [
-            Manifest.createManifest(
+            Manifest.createRootManifest(
                 name: "Foo",
                 path: .init("/Foo"),
-                packageKind: .root,
-                v: .v5_2,
+                toolsVersion: .v5_2,
                 dependencies: [
-                    .scm(deprecatedName: "Bar", location: "/Some-Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                    .localSourceControl(deprecatedName: "Bar", path: .init("/Some-Bar"), requirement: .upToNextMajor(from: "1.0.0")),
                 ],
                 targets: [
                     TargetDescription(name: "Foo", dependencies: ["ProductBar"]),
                 ]),
-            Manifest.createManifest(
+            Manifest.createFileSystemManifest(
                 name: "Bar",
                 path: .init("/Some-Bar"),
-                packageKind: .local,
-                v: .v5_2,
+                toolsVersion: .v5_2,
                 products: [
                     ProductDescription(name: "ProductBar", type: .library(.automatic), targets: ["Bar"])
                 ],
@@ -1801,7 +1725,7 @@ extension Manifest {
             path: self.path.parentDirectory,
             packageKind: self.packageKind,
             packageLocation: self.packageLocation,
-            v: self.toolsVersion,
+            toolsVersion: self.toolsVersion,
             dependencies: self.dependencies,
             targets: targets
         )
@@ -1813,7 +1737,7 @@ extension Manifest {
             path: self.path.parentDirectory,
             packageKind: self.packageKind,
             packageLocation: self.packageLocation,
-            v: self.toolsVersion,
+            toolsVersion: self.toolsVersion,
             dependencies: dependencies,
             targets: self.targets
         )

@@ -398,9 +398,9 @@ public final class InMemoryGitRepositoryProvider: RepositoryProvider {
     // Note: These methods use force unwrap (instead of throwing) to honor their preconditions.
 
     public func fetch(repository: RepositorySpecifier, to path: AbsolutePath, progressHandler: FetchProgress.Handler? = nil) throws {
-        let repo = specifierMap[RepositorySpecifier(url: repository.url)]!
+        let repo = specifierMap[RepositorySpecifier(location: repository.location)]!
         fetchedMap[path] = try repo.copy()
-        add(specifier: RepositorySpecifier(url: path.asURL.absoluteString), repository: repo)
+        add(specifier: RepositorySpecifier(path: path), repository: repo)
     }
 
     public func copy(from sourcePath: AbsolutePath, to destinationPath: AbsolutePath) throws {

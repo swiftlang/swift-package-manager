@@ -55,9 +55,9 @@ private let v1_5Range: VersionSetSpecifier = .range(v1_5..<v2)
 private let v1to3Range: VersionSetSpecifier = .range(v1..<v3)
 private let v2Range: VersionSetSpecifier = .range(v2..<v3)
 
-let aRef = PackageReference.remote(identity: PackageIdentity("a"), location: "")
-let bRef = PackageReference.remote(identity: PackageIdentity("b"), location: "")
-let cRef = PackageReference.remote(identity: PackageIdentity("c"), location: "")
+let aRef = PackageReference.localSourceControl(identity: .plain("a"), path: .root)
+let bRef = PackageReference.localSourceControl(identity: .plain("b"), path: .root)
+let cRef = PackageReference.localSourceControl(identity: .plain("c"), path: .root)
 
 let rootRef = PackageReference.root(identity: PackageIdentity("root"), path: .root)
 let rootNode = DependencyResolutionNode.root(package: rootRef)
@@ -301,8 +301,8 @@ final class PubgrubTests: XCTestCase {
     }
 
     func testUpdatePackageIdentifierAfterResolution() {
-        let fooURL = "https://example.com/foo"
-        let fooRef = PackageReference.remote(identity: PackageIdentity(url: fooURL), location: fooURL)
+        let fooURL = URL(string: "https://example.com/foo")!
+        let fooRef = PackageReference.remoteSourceControl(identity: PackageIdentity(url: fooURL), url: fooURL)
         let foo = MockContainer(package: fooRef, dependenciesByVersion: [v1: [:]])
         foo.manifestName = "bar"
 
@@ -2150,7 +2150,7 @@ class DependencyGraphBuilder {
         if let reference = self.references[packageName] {
             return reference
         }
-        let newReference = PackageReference.remote(identity: PackageIdentity(packageName), location: "/\(packageName)")
+        let newReference = PackageReference.localSourceControl(identity: .plain(packageName), path: .init("/\(packageName)"))
         self.references[packageName] = newReference
         return newReference
     }
@@ -2260,7 +2260,7 @@ extension Term: ExpressibleByStringLiteral {
             requirement = .versionSet(.range(Version(stringLiteral: lowerBound)..<Version(stringLiteral: upperBound)))
         }
 
-        let packageReference = PackageReference(identity: PackageIdentity(components[0]), kind: .remote, location: "", name: components[0])
+        let packageReference = PackageReference(identity: .plain(components[0]), kind: .localSourceControl(.root), name: components[0])
 
         guard case let .versionSet(vs) = requirement! else {
             fatalError()
@@ -2271,14 +2271,11 @@ extension Term: ExpressibleByStringLiteral {
     }
 }
 
+
 extension PackageReference: ExpressibleByStringLiteral {
     public init(stringLiteral value: String) {
-        let ref = PackageReference.remote(identity: PackageIdentity(value), location: "")
+        let ref = PackageReference.localSourceControl(identity: .plain(value), path: .root)
         self = ref
-    }
-
-    init(_ name: String) {
-        self.init(identity: PackageIdentity(name), kind: .remote, location: "")
     }
 }
 extension Result where Success == [DependencyResolver.Binding] {

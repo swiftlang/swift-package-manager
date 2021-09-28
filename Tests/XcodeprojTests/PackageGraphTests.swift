@@ -36,10 +36,9 @@ class PackageGraphTests: XCTestCase {
         let observability = ObservabilitySystem.bootstrapForTesting()
         let g = try loadPackageGraph(fs: fs,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createLocalSourceControlManifest(
                     name: "Foo",
                     path: .init("/Foo"),
-                    packageKind: .local,
                     products: [
                         ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo"])
                     ],
@@ -54,12 +53,11 @@ class PackageGraphTests: XCTestCase {
                         ),
                         TargetDescription(name: "FooTests", dependencies: ["Foo"], type: .test),
                     ]),
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "Bar",
                     path: .init("/Bar"),
-                    packageKind: .root,
                     dependencies: [
-                        .scm(location: "/Foo", requirement: .upToNextMajor(from: "1.0.0"))
+                        .localSourceControl(path: .init("/Foo"), requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     targets: [
                         TargetDescription(name: "Bar", dependencies: ["Foo"]),
@@ -207,10 +205,9 @@ class PackageGraphTests: XCTestCase {
         let observability = ObservabilitySystem.bootstrapForTesting()
         let g = try loadPackageGraph(fs: fs,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "Foo",
                     path: .init("/Foo"),
-                    packageKind: .root,
                     products: [
                         ProductDescription(name: "Bar", type: .library(.dynamic), targets: ["Foo"])
                     ],
@@ -255,10 +252,9 @@ class PackageGraphTests: XCTestCase {
         let observability = ObservabilitySystem.bootstrapForTesting()
         let g = try loadPackageGraph(fs: fs,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "Bar",
                     path: .init("/Bar"),
-                    packageKind: .root,
                     targets: [
                         TargetDescription(name: "Sea", dependencies: []),
                         TargetDescription(name: "Sea2", dependencies: []),
@@ -305,10 +301,9 @@ class PackageGraphTests: XCTestCase {
         let observability = ObservabilitySystem.bootstrapForTesting()
         let g = try loadPackageGraph(fs: fs,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "Pkg",
                     path: .init("/Pkg"),
-                    packageKind: .root,
                     targets: [
                         TargetDescription(name: "HelperTool", dependencies: []),
                         TargetDescription(name: "Library", dependencies: []),
@@ -375,10 +370,9 @@ class PackageGraphTests: XCTestCase {
         let observability = ObservabilitySystem.bootstrapForTesting()
         let graph = try loadPackageGraph(fs: fs,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "Foo",
                     path: .init("/Foo"),
-                    packageKind: .root,
                     targets: [
                         TargetDescription(name: "a"),
                         TargetDescription(name: "b", dependencies: ["a"]),
@@ -427,10 +421,9 @@ class PackageGraphTests: XCTestCase {
             let observability = ObservabilitySystem.bootstrapForTesting()
             let graph = try loadPackageGraph(fs: fs,
                 manifests: [
-                    Manifest.createV4Manifest(
+                    Manifest.createRootManifest(
                         name: "Foo",
                         path: .init("/Foo"),
-                        packageKind: .root,
                         swiftLanguageVersions: [SwiftLanguageVersion(string: swiftVersion)!],
                         targets: [
                             TargetDescription(name: "a"),

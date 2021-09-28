@@ -228,8 +228,8 @@ public func loadPackageGraph(
     createREPLProduct: Bool = false,
     useXCBuildFileRules: Bool = false
 ) throws -> PackageGraph {
-    let rootManifests = manifests.filter { $0.packageKind == .root }.spm_createDictionary{ ($0.path, $0) }
-    let externalManifests = manifests.filter { $0.packageKind != .root }
+    let rootManifests = manifests.filter { $0.packageKind.isRoot }.spm_createDictionary{ ($0.path, $0) }
+    let externalManifests = manifests.filter { !$0.packageKind.isRoot }
     let packages = Array(rootManifests.keys)
     let input = PackageGraphRootInput(packages: packages)
     let graphRoot = PackageGraphRoot(input: input, manifests: rootManifests, explicitProduct: explicitProduct)

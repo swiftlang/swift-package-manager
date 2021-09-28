@@ -114,7 +114,7 @@ public struct GitRepositoryProvider: RepositoryProvider {
         // is a local package. Still allows for using url with a local package that has
         // also been initialized by git
         do {
-            try self.callGit("-C", directory, "rev-parse", "--git-dir", repository: RepositorySpecifier(url: directory))
+            _ = try self.git.run(["-C", directory, "rev-parse", "--git-dir"])
             return true
         } catch {
             return false
