@@ -90,7 +90,7 @@ fileprivate struct PluginInputDeserializer {
         }
 
         let wireTarget = input.targets[id]
-        let dependencies: [Target.Dependency] = try wireTarget.dependencies.map {
+        let dependencies: [TargetDependency] = try wireTarget.dependencies.map {
             switch $0 {
             case .target(let targetId):
                 let target = try self.target(for: targetId)
@@ -122,6 +122,7 @@ fileprivate struct PluginInputDeserializer {
                 return File(path: path, type: type)
             })
             target = SourceModuleTarget(
+                id: String(id),
                 name: wireTarget.name,
                 directory: directory,
                 dependencies: dependencies,
@@ -132,6 +133,7 @@ fileprivate struct PluginInputDeserializer {
         case .binaryLibraryInfo(let libraryPathId):
             let libraryPath = try self.path(for: libraryPathId)
             target = BinaryLibraryTarget(
+                id: String(id),
                 name: wireTarget.name,
                 directory: directory,
                 dependencies: dependencies,
@@ -140,6 +142,7 @@ fileprivate struct PluginInputDeserializer {
         case .systemLibraryInfo(let publicHeadersDirectoryId):
             let publicHeadersDirectory = try self.path(for: publicHeadersDirectoryId)
             target = SystemLibraryTarget(
+                id: String(id),
                 name: wireTarget.name,
                 directory: directory,
                 dependencies: dependencies,
@@ -167,6 +170,7 @@ fileprivate struct PluginInputDeserializer {
         case .executable(let mainTargetId):
             let mainTarget = try self.target(for: mainTargetId)
             product = ExecutableProduct(
+                id: String(id),
                 name: wireProduct.name,
                 targets: targets,
                 mainTarget: mainTarget)
@@ -182,6 +186,7 @@ fileprivate struct PluginInputDeserializer {
                 libraryType = .automatic
             }
             product = LibraryProduct(
+                id: String(id),
                 name: wireProduct.name,
                 targets: targets,
                 type: libraryType)
@@ -201,12 +206,13 @@ fileprivate struct PluginInputDeserializer {
         
         let wirePackage = input.packages[id]
         let directory = try self.path(for: wirePackage.directoryId)
-        let dependencies: [Package.Dependency] = try wirePackage.dependencies.map {
+        let dependencies: [PackageDependency] = try wirePackage.dependencies.map {
             .init(package: try self.package(for: $0.packageId))
         }
         let products = try wirePackage.productIds.map { try self.product(for: $0) }
         let targets = try wirePackage.targetIds.map { try self.target(for: $0) }
         let package = Package(
+            id: String(id),
             name: wirePackage.name,
             directory: directory,
             dependencies: dependencies,
