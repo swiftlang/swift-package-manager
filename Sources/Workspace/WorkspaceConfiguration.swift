@@ -47,6 +47,17 @@ extension Workspace {
             self.workingDirectory.appending(component: "checkouts")
         }
 
+        /// Path to store the dependencies downloaded from a registry.
+        public var sourceArchivesDirectory: AbsolutePath {
+            self.workingDirectory.appending(component: "source-archives")
+        }
+
+        /// Returns the path to store a source archive for a given version of a dependency downloaded from a registry.
+        public func sourceArchivesSubdirectory(for package: PackageReference, at version: Version) -> AbsolutePath {
+            self.sourceArchivesDirectory.appending(subpath(for: package))
+                                        .appending(component: version.description.lowercased())
+        }
+
         /// Path to the downloaded binary artifacts.
         public var artifactsDirectory: AbsolutePath {
             self.workingDirectory.appending(component: "artifacts")
@@ -70,6 +81,14 @@ extension Workspace {
         /// Path to the shared registries configuration.
         public var sharedRegistriesConfigurationFile: AbsolutePath? {
             self.sharedConfigurationDirectory.map { DefaultLocations.registriesConfigurationFile(at: $0) }
+        }
+
+        private func subpath(for package: PackageReference) -> RelativePath {
+            if case let (scope, name)? = package.identity.scopeAndName {
+                return RelativePath(scope.description.lowercased()).appending(component: name.description.lowercased())
+            } else {
+                return RelativePath(package.identity.description.lowercased())
+            }
         }
 
         /// Create a new workspace location.
