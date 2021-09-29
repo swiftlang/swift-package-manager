@@ -3045,7 +3045,7 @@ fileprivate extension DiagnosticsEngine {
     }
 }
 
-fileprivate extension PackageReference {
+internal extension PackageReference {
     func makeRepositorySpecifier() throws -> RepositorySpecifier {
         switch self.kind {
         case .localSourceControl(let path):

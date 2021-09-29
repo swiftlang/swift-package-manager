@@ -6,7 +6,7 @@
 
  See http://swift.org/LICENSE.txt for license information
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
-*/
+ */
 
 import Basics
 import Foundation
@@ -148,7 +148,7 @@ extension PackageReference: CustomStringConvertible {
 
 extension PackageReference.Kind: Encodable {
     private enum CodingKeys: String, CodingKey {
-        case root, fileSystem, localSourceControl, remoteSourceControl,registry
+        case root, fileSystem, localSourceControl, remoteSourceControl, registry
     }
 
     public func encode(to encoder: Encoder) throws {

@@ -71,7 +71,7 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
     /// valid or not.
     internal var validToolsVersionsCache = ThreadSafeKeyValueStore<Version, Bool>()
 
-    public init(
+    init(
         package: PackageReference,
         identityResolver: IdentityResolver,
         repositorySpecifier: RepositorySpecifier,
@@ -376,19 +376,6 @@ fileprivate extension Git {
             return versionSpecificKnownVersions
         } else {
             return knownVersions
-        }
-    }
-}
-
-fileprivate extension PackageReference {
-    func makeRepositorySpecifier() throws -> RepositorySpecifier {
-        switch self.kind {
-        case .localSourceControl(let path):
-            return .init(path: path)
-        case .remoteSourceControl(let url):
-            return .init(url: url)
-        default:
-            throw StringError("invalid dependency kind \(self.kind)")
         }
     }
 }
