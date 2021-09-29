@@ -497,6 +497,7 @@ public class SwiftTool {
             return .init(path: configuredPath, fileSystem: localFileSystem)
         } else {
             let defaultPath = localFileSystem.homeDirectory.appending(component: ".netrc")
+            guard localFileSystem.exists(defaultPath) else { return nil }
 
             return .init(path: defaultPath, fileSystem: localFileSystem)
         }
