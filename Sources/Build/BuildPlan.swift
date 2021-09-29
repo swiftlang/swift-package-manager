@@ -1978,16 +1978,6 @@ public class BuildPlan {
         let results = pkgConfigArgs(for: target, diagnostics: diagnostics)
         var ret: [(cFlags: [String], libs: [String])] = []
         for result in results {
-            // If there is no pc file on system and we have an available provider, emit a warning.
-            if let provider = result.provider, result.couldNotFindConfigFile {
-                diagnostics.emit(.pkgConfigHint(pkgConfigName: result.pkgConfigName, installText: provider.installText))
-            } else if let error = result.error {
-                diagnostics.emit(
-                        .warning("\(error)"),
-                        location: PkgConfigDiagnosticLocation(pcFile: result.pkgConfigName, target: target.name)
-                )
-            }
-
             ret.append((result.cFlags, result.libs))
         }
 
@@ -2043,10 +2033,6 @@ private extension Diagnostic.Message {
             or the product '\(product)' to require \
             \(targetPlatform.platform.name) \(targetPlatform.version.versionString) or earlier.
             """)
-    }
-
-    static func pkgConfigHint(pkgConfigName: String, installText: String) -> Diagnostic.Message {
-        .warning("you may be able to install \(pkgConfigName) using your system-packager:\n\(installText)")
     }
 
     static func binaryTargetsNotSupported() -> Diagnostic.Message {
