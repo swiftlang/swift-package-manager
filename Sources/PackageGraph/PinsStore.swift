@@ -250,6 +250,9 @@ fileprivate struct PinsStorage {
                 case .remoteSourceControl(let url):
                     kind = .remoteSourceControl
                     location = url.absoluteString
+                case .registry(let identity):
+                    kind = .registry
+                    location = "\(identity)" // FIXME:
                 default:
                     throw StringError("invalid package type \(pin.packageRef.kind)")
                 }
@@ -265,6 +268,7 @@ fileprivate struct PinsStorage {
         enum Kind: String, Codable {
             case localSourceControl
             case remoteSourceControl
+            case registry
         }
     }
 
@@ -317,10 +321,12 @@ extension PinsStore.Pin {
 
 extension PinsStore.Pin {
     fileprivate init(_ pin: PinsStorage.V2.Pin, mirrors: DependencyMirrors) throws {
-        let packageRef: PackageReference
         let identity = pin.identity
+
         // rdar://52529014, rdar://52529011: pin file should store the original location but remap when loading
         let location = mirrors.effectiveURL(for: pin.location)
+
+        let packageRef: PackageReference
         switch pin.kind {
         case .localSourceControl:
             packageRef = try .localSourceControl(identity: identity, path: AbsolutePath(validating: location))
@@ -329,7 +335,10 @@ extension PinsStore.Pin {
                 throw StringError("invalid url location: \(location)")
             }
             packageRef = .remoteSourceControl(identity: identity, url: url)
+        case .registry:
+            packageRef = .registry(identity: identity)
         }
+
         self.init(
             packageRef: packageRef,
             state: try .init(pin.state)

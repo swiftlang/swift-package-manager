@@ -2368,22 +2368,25 @@ extension Workspace {
 
         switch requirement {
         case .version(let version):
-            // FIXME: We need to get the revision here, and we don't have a
-            // way to get it back out of the resolver which is very
-            // annoying. Maybe we should make an SPI on the provider for
-            // this?
-            // FIXME: this should not block
-            // FIXME: this should be updated to support registry
-            guard let container = (try temp_await {
-                self.getContainer(for: package, skipUpdate: true, on: .sharedConcurrent, completion: $0)
-            }) as? SourceControlPackageContainer else {
-                throw InternalError("invalid container for \(package) expected a RepositoryPackageContainer")
+            if let _ = package.identity.scopeAndName {
+                checkoutState = .version(version, revision: .init(identifier: "\(version)"))
+            } else {
+                // FIXME: We need to get the revision here, and we don't have a
+                // way to get it back out of the resolver which is very
+                // annoying. Maybe we should make an SPI on the provider for
+                // this?
+                // FIXME: this should not block
+                guard let container = (try temp_await {
+                    self.getContainer(for: package, skipUpdate: true, on: .sharedConcurrent, completion: $0)
+                }) as? SourceControlPackageContainer else {
+                    throw InternalError("invalid container for \(package) expected a SourceControlPackageContainer")
+                }
+                guard let tag = container.getTag(for: version) else {
+                    throw InternalError("unable to get tag for \(package) \(version); available versions \(try container.versionsDescending())")
+                }
+                let revision = try container.getRevision(forTag: tag)
+                checkoutState = .version(version, revision: revision)
             }
-            guard let tag = container.getTag(for: version) else {
-                throw InternalError("unable to get tag for \(package) \(version); available versions \(try container.versionsDescending())")
-            }
-            let revision = try container.getRevision(forTag: tag)
-            checkoutState = .version(version, revision: revision)
 
         case .revision(let revision, .none):
             checkoutState = .revision(revision)
@@ -2828,8 +2831,33 @@ extension Workspace: PackageContainerProvider {
                     completion(.failure(error))
                 }
             }
-        case .registry:
-            fatalError("registry dependencies are supported at this point")
+        case .registry(let identity):
+            do {
+                guard let registryManager = registryManager else {
+                    throw InternalError("registry manager not configured")
+                }
+
+                guard let _ = identity.scopeAndName else {
+                    throw InternalError("cannot get registry container for package \(identity)")
+                }
+
+                let container = RegistryPackageContainer(
+                    package: package,
+                    identityResolver: identityResolver,
+                    manager: registryManager,
+                    manifestLoader: manifestLoader,
+                    toolsVersionLoader: toolsVersionLoader,
+                    currentToolsVersion: currentToolsVersion
+                )
+
+                queue.async {
+                    completion(.success(container))
+                }
+            } catch {
+                queue.async {
+                    completion(.failure(error))
+                }
+            }
         }
     }
 
@@ -2846,7 +2874,11 @@ extension Workspace: PackageContainerProvider {
         case .localSourceControl, .remoteSourceControl:
             return try self.checkoutRepository(package: package, at: checkoutState)
         case .registry:
-            fatalError("registry dependencies are supported at this point")
+            guard case .version(let version, _) = checkoutState else {
+                fatalError("cannot download source archive for package \(package) with checkout state \(checkoutState)")
+            }
+
+            return try self.downloadSourceArchive(for: package, at: version)
         }
     }
 
@@ -2863,24 +2895,16 @@ extension Workspace: PackageContainerProvider {
         // a local package.
         //
         // Note that we don't actually remove a local package from disk.
-        switch dependency.state {
-        case .local:
+        if case .local = dependency.state {
             self.state.dependencies.remove(package.identity)
             try self.state.save()
             return
-        case .checkout, .edited:
-            break
-        case .downloaded:
-            break
         }
-
-        // Inform the delegate.
-        delegate?.removing(repository: dependency.packageRef.location)
 
         // Compute the dependency which we need to remove.
         let dependencyToRemove: ManagedDependency
 
-        if case .edited(let _basedOn, let unmanagedPath) = dependency.state, let basedOn = _basedOn {
+        if case .edited(let basedOn?, let unmanagedPath) = dependency.state {
             // Remove the underlying dependency for edited packages.
             dependencyToRemove = basedOn
             let updatedDependency = Workspace.ManagedDependency.edited(
@@ -2895,13 +2919,17 @@ extension Workspace: PackageContainerProvider {
             self.state.dependencies.remove(dependencyToRemove.packageRef.identity)
         }
 
+        delegate?.removing(repository: dependency.packageRef.location)
+
         switch package.kind {
-        case .root, .fileSystem:
-            fatalError("local dependencies are supported")
+        case .root(let path):
+            throw InternalError("root dependency \(dependencyToRemove) cannot be removed at \(path)")
+        case .fileSystem(let path):
+            throw InternalError("local dependency \(dependencyToRemove) cannot be removed at \(path)")
         case .localSourceControl, .remoteSourceControl:
             try self.removeRepository(dependency: dependencyToRemove)
         case .registry:
-            fatalError("registry dependencies are supported at this point")
+            try self.removeSourceArchive(for: dependencyToRemove)
         }
 
         // Save the state.
@@ -3026,6 +3054,52 @@ extension Workspace {
     }
 }
 
+// MARK: - Source archive management
+
+extension Workspace {
+    func downloadSourceArchive(
+        for package: PackageReference,
+        at version: Version
+    ) throws -> AbsolutePath {
+        guard let registryManager = registryManager else {
+            throw InternalError("registry manager not initialized")
+        }
+
+        let path = self.location.sourceArchivesSubdirectory(for: package, at: version)
+
+        if !localFileSystem.exists(path) {
+            _ = try temp_await {
+                registryManager.downloadSourceArchive(for: version,
+                                                      of: package,
+                                                      into: localFileSystem,
+                                                      at: path,
+                                                      on: .sharedConcurrent,
+                                                      completion: $0)
+            }
+        }
+
+        self.state.dependencies.add(.downloaded(packageRef: package, version: version))
+        try self.state.save()
+
+        return path
+    }
+
+    func removeSourceArchive(
+        for dependency: ManagedDependency
+    ) throws {
+        guard case .downloaded(let version) = dependency.state else {
+            throw InternalError("cannot remove source archive for \(dependency) with state \(dependency.state)")
+        }
+
+        let path = self.location.sourceArchivesSubdirectory(for: dependency.packageRef, at: version)
+
+        try localFileSystem.removeFileTree(path)
+
+        self.state.dependencies.remove(dependency.packageRef.identity)
+
+        try self.state.save()
+    }
+}
 
 // MARK: - Utility extensions
 

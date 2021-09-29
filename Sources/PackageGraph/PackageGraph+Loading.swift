@@ -231,7 +231,7 @@ private func createResolvedPackages(
         var dependenciesByNameForTargetDependencyResolution = [String: ResolvedPackageBuilder]()
 
         // Establish the manifest-declared package dependencies.
-        package.manifest.dependenciesRequired(for: packageBuilder.productFilter).forEach { dependency in
+        try package.manifest.dependenciesRequired(for: packageBuilder.productFilter).forEach { dependency in
             // FIXME: change this validation logic to use identity instead of location
             let dependencyLocation: String
             switch dependency {
@@ -244,9 +244,12 @@ private func createResolvedPackages(
                 case .remote(let url):
                     dependencyLocation = url.absoluteString
                 }
-            case .registry:
-                // FIXME
-                fatalError("registry based dependencies not implemented yet")
+            case .registry(let settings):
+                guard let _ = settings.identity.scopeAndName else {
+                    throw InternalError("invalid package identifier \(settings.identity)")
+                }
+
+                dependencyLocation = "\(settings.identity)"
             }
 
             // Otherwise, look it up by its identity.
