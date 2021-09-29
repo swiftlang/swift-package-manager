@@ -12,7 +12,7 @@ import Basics
 import Foundation
 import PackageModel
 import TSCBasic
-import TSCUtility
+//import TSCUtility
 
 /// A utility to compute the source/resource files of a target.
 public struct TargetSourcesBuilder {

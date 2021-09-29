@@ -12,7 +12,7 @@ import Basics
 import Foundation
 import PackageModel
 import TSCBasic
-import TSCUtility
+//import TSCUtility
 
 /// Protocol for the manifest loader interface.
 public protocol ToolsVersionLoaderProtocol {

@@ -12,7 +12,7 @@ import Basics
 import Dispatch
 import PackageModel
 import TSCBasic
-import TSCUtility
+//import TSCUtility
 
 /// An error in the structure or layout of a package.
 public enum ModuleError: Swift.Error {

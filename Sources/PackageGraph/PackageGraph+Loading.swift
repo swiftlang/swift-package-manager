@@ -11,9 +11,7 @@
 import Basics
 import PackageLoading
 import PackageModel
-import SourceControl
 import TSCBasic
-import TSCUtility
 
 extension PackageGraph {
 

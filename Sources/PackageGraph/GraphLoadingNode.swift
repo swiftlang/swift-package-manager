@@ -8,10 +8,9 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-import TSCBasic
 import PackageLoading
 import PackageModel
-import TSCUtility
+import TSCBasic
 
 /// A node used while loading the packages in a resolved graph.
 ///

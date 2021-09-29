@@ -9,7 +9,6 @@
 */
 
 import PackageModel
-import SourceControl
 
 extension PackageDependency {
     /// Create the package reference object for the dependency.

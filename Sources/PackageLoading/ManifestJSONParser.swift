@@ -11,7 +11,7 @@
 import Basics
 import Foundation
 import PackageModel
-import SourceControl
+import SourceControl // FIXME: remove this dependency
 import TSCBasic
 import TSCUtility
 
@@ -231,6 +231,9 @@ enum ManifestJSONParser {
         case .localSourceControl(let path):
             packagePath = path
         case .remoteSourceControl:
+            // nothing to fix
+            return dependencyLocation
+        case .registry:
             // nothing to fix
             return dependencyLocation
         }

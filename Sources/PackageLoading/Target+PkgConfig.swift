@@ -9,8 +9,8 @@
 */
 
 import Basics
-import TSCBasic
 import PackageModel
+import TSCBasic
 import TSCUtility
 
 /// Wrapper struct containing result of a pkgConfig query.

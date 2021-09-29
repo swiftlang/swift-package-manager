@@ -57,7 +57,7 @@ class PackageDescriptionLoadingTests: XCTestCase {
             packagePath = path
         case .localSourceControl(let path):
             packagePath = path
-        case .remoteSourceControl:
+        case .remoteSourceControl, .registry:
             throw InternalError("invalid package kind \(packageKind)")
         }
 
@@ -210,7 +210,7 @@ class PackageDescriptionLoadingTests: XCTestCase {
             packagePath = path
         case .localSourceControl(let path):
             packagePath = path
-        case .remoteSourceControl:
+        case .remoteSourceControl, .registry:
             throw InternalError("invalid package kind \(packageKind)")
         }
 

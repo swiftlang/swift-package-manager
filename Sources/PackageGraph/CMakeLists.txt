@@ -14,7 +14,6 @@ add_library(PackageGraph
   DependencyResolver.swift
   Diagnostics.swift
   GraphLoadingNode.swift
-  LocalPackageContainer.swift
   PackageContainer.swift
   PackageGraph.swift
   PackageGraph+Loading.swift
@@ -27,7 +26,6 @@ add_library(PackageGraph
   Pubgrub/PartialSolution.swift
   Pubgrub/PubgrubDependencyResolver.swift
   Pubgrub/Term.swift
-  RepositoryPackageContainer.swift
   ResolvedPackage.swift
   ResolvedProduct.swift
   ResolvedTarget.swift

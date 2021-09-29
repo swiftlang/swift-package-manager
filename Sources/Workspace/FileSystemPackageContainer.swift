@@ -8,22 +8,20 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import Dispatch
-
 import Basics
-import TSCBasic
+import Dispatch
+import PackageGraph
 import PackageLoading
 import PackageModel
-import SourceControl
-import TSCUtility
+import TSCBasic
 
-/// Local package container.
+/// Local file system package container.
 ///
 /// This class represent packages that are referenced locally in the file system.
 /// There is no need to perform any git operations on such packages and they
 /// should be used as-is. In fact, they might not even have a git repository.
 /// Examples: Root packages, local dependencies, edited packages.
-public final class LocalPackageContainer: PackageContainer {
+internal struct FileSystemPackageContainer: PackageContainer {
     public let package: PackageReference
     private let identityResolver: IdentityResolver
     private let manifestLoader: ManifestLoaderProtocol
@@ -129,8 +127,8 @@ public final class LocalPackageContainer: PackageContainer {
     }
 }
 
-extension LocalPackageContainer: CustomStringConvertible  {
+extension FileSystemPackageContainer: CustomStringConvertible  {
     public var description: String {
-        return "LocalPackageContainer(\(self.package.identity))"
+        return "FileSystemPackageContainer(\(self.package.identity))"
     }
 }

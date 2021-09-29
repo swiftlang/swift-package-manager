@@ -9,9 +9,7 @@
 */
 
 import Foundation
-
 import TSCBasic
-import TSCUtility
 
 /// A collection of dependency mirrors.
 public final class DependencyMirrors: Equatable {

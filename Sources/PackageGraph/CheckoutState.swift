@@ -8,9 +8,8 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-import TSCBasic
-import SourceControl
-import TSCUtility
+import struct SourceControl.Revision // FIXME: remove this dependency
+import struct TSCUtility.Version
 
 /// A checkout state represents the current state of a repository.
 ///
