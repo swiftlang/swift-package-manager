@@ -550,7 +550,7 @@ public final class PackageBuilder {
                 guard path.isDescendantOfOrEqual(to: packagePath) else {
                     throw ModuleError.targetOutsidePackage(package: self.manifest.name, target: target.name)
                 }
-                if fileSystem.exists(path) {
+                if fileSystem.isDirectory(path) {
                     return path
                 }
                 throw ModuleError.invalidCustomPath(target: target.name, path: subpath)
