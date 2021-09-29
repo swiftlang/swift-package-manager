@@ -529,8 +529,13 @@ public final class PackageBuilder {
 
         /// Returns the path of the given target.
         func findPath(for target: TargetDescription) throws -> AbsolutePath {
-            // If there is a custom path defined, use that.
-            if let subpath = target.path {
+            if target.type == .binary {
+                if let artifact = self.binaryArtifacts.first(where: { $0.path.basenameWithoutExt == target.name }) {
+                    return artifact.path
+                } else {
+                    throw ModuleError.artifactNotFound(target.name)
+                }
+            } else if let subpath = target.path { // If there is a custom path defined, use that.
                 if subpath == "" || subpath == "." {
                     return packagePath
                 }
@@ -549,12 +554,6 @@ public final class PackageBuilder {
                     return path
                 }
                 throw ModuleError.invalidCustomPath(target: target.name, path: subpath)
-            } else if target.type == .binary {
-                if let artifact = self.binaryArtifacts.first(where: { $0.path.basenameWithoutExt == target.name }) {
-                    return artifact.path
-                } else {
-                    throw ModuleError.artifactNotFound(target.name)
-                }
             }
 
             // Check if target is present in the predefined directory.
@@ -768,9 +767,7 @@ public final class PackageBuilder {
                 providers: manifestTarget.providers
             )
         } else if potentialModule.type == .binary {
-            guard let artifact = self.binaryArtifacts.first(where: {
-                $0.path == potentialModule.path || $0.path.basenameWithoutExt == potentialModule.path.basenameWithoutExt
-            }) else {
+            guard let artifact = self.binaryArtifacts.first(where: { $0.path == potentialModule.path }) else {
                 throw InternalError("unknown binary artifact for '\(potentialModule.name)'")
             }
             let artifactOrigin: BinaryTarget.Origin = artifact.originURL.flatMap{ .remote(url: $0) } ?? .local

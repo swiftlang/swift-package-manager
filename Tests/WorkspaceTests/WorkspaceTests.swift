@@ -4730,7 +4730,7 @@ final class WorkspaceTests: XCTestCase {
         }
     }
     
-    /*func testLocalArchivedArtifactNameDoesNotMatchTargetName() throws {
+    func testLocalArchivedArtifactNameDoesNotMatchTargetName() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         
@@ -4799,7 +4799,7 @@ final class WorkspaceTests: XCTestCase {
             }
         }
         
-    }*/
+    }
 
     func testLocalArchivedArtifactExtractionError() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
