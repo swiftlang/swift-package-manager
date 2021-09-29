@@ -2802,7 +2802,7 @@ extension Workspace: PackageContainerProvider {
                 }
             }
         case .registry:
-            fatalError("registry dependencies are supported at this point")
+            fatalError("registry dependencies are not supported at this point")
         }
     }
 
