@@ -22,7 +22,7 @@ extension PackageGraph {
         root: PackageGraphRoot,
         identityResolver: IdentityResolver,
         additionalFileRules: [FileRuleDescription] = [],
-        externalManifests: [Manifest],
+        externalManifests: OrderedDictionary<PackageIdentity, Manifest>,
         requiredDependencies: Set<PackageReference> = [],
         unsafeAllowedPackages: Set<PackageReference> = [],
         binaryArtifacts: [BinaryArtifact] = [],
@@ -35,11 +35,11 @@ extension PackageGraph {
         let observabilityScope = ObservabilitySystem.topScope.makeChildScope(description: "Loading Package Graph")
 
         // Create a map of the manifests, keyed by their identity.
-        let rootManifestsMap = root.manifests
-        let externalManifestsMap = try externalManifests.map{ (try identityResolver.resolveIdentity(for: $0.packageKind), $0) }
-        let manifestMap = rootManifestsMap.merging(externalManifestsMap, uniquingKeysWith: { lhs, rhs in
-            return lhs
-        })
+        var manifestMap = externalManifests
+        // prefer roots
+        root.manifests.forEach {
+            manifestMap[$0.key] = $0.value
+        }
 
         let successors: (GraphLoadingNode) -> [GraphLoadingNode] = { node in
             node.requiredDependencies().compactMap{ dependency in

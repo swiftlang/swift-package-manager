@@ -229,7 +229,10 @@ public func loadPackageGraph(
     useXCBuildFileRules: Bool = false
 ) throws -> PackageGraph {
     let rootManifests = manifests.filter { $0.packageKind.isRoot }.spm_createDictionary{ ($0.path, $0) }
-    let externalManifests = manifests.filter { !$0.packageKind.isRoot }
+    let externalManifests = try manifests.filter { !$0.packageKind.isRoot }.reduce(into: OrderedDictionary<PackageIdentity, Manifest>()) { partial, item in
+        partial[try identityResolver.resolveIdentity(for: item.packageKind)] = item
+    }
+
     let packages = Array(rootManifests.keys)
     let input = PackageGraphRootInput(packages: packages)
     let graphRoot = PackageGraphRoot(input: input, manifests: rootManifests, explicitProduct: explicitProduct)

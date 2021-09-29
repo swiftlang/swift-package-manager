@@ -46,7 +46,7 @@ public struct PackageIdentity: CustomStringConvertible {
     }
 
     /// Creates a package identity from a URL.
-    /// - Parameter url: The package's URL.
+    /// - Parameter urlString: The package's URL.
     // FIXME: deprecate this
     public init(urlString: String) {
         self.description = Self.provider.init(urlString).description

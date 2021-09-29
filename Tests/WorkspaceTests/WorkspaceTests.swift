@@ -819,8 +819,8 @@ final class WorkspaceTests: XCTestCase {
         try workspace.set(
             pins: [bRef: v1_5, cRef: v2],
             managedDependencies: [
-                ManagedDependency(packageRef: bRef, subpath: bPath, checkoutState: v1_5)
-                    .editedDependency(subpath: bPath, unmanagedPath: nil),
+                .remote(packageRef: bRef, state: v1_5, subpath: bPath)
+                    .edited(subpath: bPath, unmanagedPath: .none),
             ]
         )
 
@@ -875,7 +875,7 @@ final class WorkspaceTests: XCTestCase {
         try workspace.set(
             pins: [bRef: v1],
             managedDependencies: [
-                ManagedDependency(packageRef: bRef, subpath: bPath, checkoutState: v1),
+                .remote(packageRef: bRef, state: v1, subpath: bPath),
             ]
         )
 
@@ -932,8 +932,8 @@ final class WorkspaceTests: XCTestCase {
         try workspace.set(
             pins: [bRef: v1_5, cRef: v1_5],
             managedDependencies: [
-                ManagedDependency(packageRef: bRef, subpath: bPath, checkoutState: v1_5),
-                ManagedDependency(packageRef: cRef, subpath: cPath, checkoutState: v1_5),
+                .remote(packageRef: bRef, state: v1_5, subpath: bPath),
+                .remote(packageRef: cRef, state: v1_5, subpath: cPath),
             ]
         )
 
@@ -982,7 +982,7 @@ final class WorkspaceTests: XCTestCase {
         try testWorkspace.set(
             pins: [cRef: v1_5],
             managedDependencies: [
-                ManagedDependency(packageRef: cRef, subpath: cPath, checkoutState: v1_5),
+                .remote(packageRef: cRef, state: v1_5, subpath: cPath),
             ]
         )
 
@@ -1042,8 +1042,8 @@ final class WorkspaceTests: XCTestCase {
         try workspace.set(
             pins: [bRef: v1_5],
             managedDependencies: [
-                ManagedDependency(packageRef: bRef, subpath: bPath, checkoutState: v1_5),
-                ManagedDependency.local(packageRef: cRef),
+                .remote(packageRef: bRef, state: v1_5, subpath: bPath),
+                .local(packageRef: cRef),
             ]
         )
 
@@ -1104,8 +1104,8 @@ final class WorkspaceTests: XCTestCase {
         try workspace.set(
             pins: [bRef: v1_5, cRef: v1_5],
             managedDependencies: [
-                ManagedDependency(packageRef: bRef, subpath: bPath, checkoutState: v1_5),
-                ManagedDependency(packageRef: cRef, subpath: cPath, checkoutState: v1_5),
+                .remote(packageRef: bRef, state: v1_5, subpath: bPath),
+                .remote(packageRef: cRef, state: v1_5, subpath: cPath),
             ]
         )
 
@@ -1168,8 +1168,8 @@ final class WorkspaceTests: XCTestCase {
         try workspace.set(
             pins: [bRef: v1_5, cRef: master],
             managedDependencies: [
-                ManagedDependency(packageRef: bRef, subpath: bPath, checkoutState: v1_5),
-                ManagedDependency(packageRef: cRef, subpath: cPath, checkoutState: master),
+                .remote(packageRef: bRef, state: v1_5, subpath: bPath),
+                .remote(packageRef: cRef, state: master, subpath: cPath),
             ]
         )
 
@@ -1230,8 +1230,8 @@ final class WorkspaceTests: XCTestCase {
         try workspace.set(
             pins: [bRef: v1_5, cRef: v1_5],
             managedDependencies: [
-                ManagedDependency(packageRef: bRef, subpath: bPath, checkoutState: v1_5),
-                ManagedDependency(packageRef: cRef, subpath: cPath, checkoutState: v1_5),
+                .remote(packageRef: bRef, state: v1_5, subpath: bPath),
+                .remote(packageRef: cRef, state: v1_5, subpath: cPath),
             ]
         )
 
@@ -1289,8 +1289,8 @@ final class WorkspaceTests: XCTestCase {
         try workspace.set(
             pins: [bRef: v1_5, cRef: v2],
             managedDependencies: [
-                ManagedDependency(packageRef: bRef, subpath: bPath, checkoutState: v1_5),
-                ManagedDependency(packageRef: cRef, subpath: cPath, checkoutState: v2),
+                .remote(packageRef: bRef, state: v1_5, subpath: bPath),
+                .remote(packageRef: cRef, state: v2, subpath: cPath),
             ]
         )
 
@@ -1829,7 +1829,7 @@ final class WorkspaceTests: XCTestCase {
 
         try workspace.loadDependencyManifests(roots: ["Root1"]) { manifests, diagnostics in
             // Ensure that the order of the manifests is stable.
-            XCTAssertEqual(manifests.allDependencyManifests().map { $0.name }, ["Foo", "Baz", "Bam", "Bar"])
+            XCTAssertEqual(manifests.allDependencyManifests().map { $0.value.name }, ["Foo", "Baz", "Bam", "Bar"])
             XCTAssertNoDiagnostics(diagnostics)
         }
     }
@@ -2363,8 +2363,13 @@ final class WorkspaceTests: XCTestCase {
         }
 
         // There should still be an entry for `foo`, which we can unedit.
-        let editedDependency = ws.state.dependencies[forNameOrIdentity: "foo"]!
-        XCTAssertNil(editedDependency.basedOn)
+        let editedDependency = ws.state.dependencies[.plain("foo")]
+        if case .edited(let basedOn, _) = editedDependency?.state {
+            XCTAssertNil(basedOn)
+        } else {
+            XCTFail("expected edited depedency")
+        }
+
         workspace.checkManagedDependencies { result in
             result.check(dependency: "foo", at: .edited(nil))
         }
@@ -3304,7 +3309,7 @@ final class WorkspaceTests: XCTestCase {
         }
         do {
             let ws = try workspace.getOrCreateWorkspace()
-            XCTAssertNotNil(ws.state.dependencies[forURL: "/tmp/ws/pkgs/Foo"])
+            XCTAssertEqual(ws.state.dependencies[.plain("foo")]?.packageRef.location, "/tmp/ws/pkgs/Foo")
         }
 
         deps = [
@@ -3318,7 +3323,7 @@ final class WorkspaceTests: XCTestCase {
         }
         do {
             let ws = try workspace.getOrCreateWorkspace()
-            XCTAssertNotNil(ws.state.dependencies[forURL: "/tmp/ws/pkgs/Nested/Foo"])
+            XCTAssertEqual(ws.state.dependencies[.plain("foo")]?.packageRef.location, "/tmp/ws/pkgs/Nested/Foo")
         }
     }
 
@@ -3465,10 +3470,10 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertNoDiagnostics(diagnostics)
         }
         workspace.checkManagedDependencies { result in
-            result.check(dependency: "Dep", at: .checkout(.version("1.5.0")))
-            result.check(dependency: "Baz", at: .checkout(.version("1.4.0")))
-            result.check(notPresent: "Bar")
-            result.check(notPresent: "Bam")
+            result.check(dependency: "dep", at: .checkout(.version("1.5.0")))
+            result.check(dependency: "baz", at: .checkout(.version("1.4.0")))
+            result.check(notPresent: "bar")
+            result.check(notPresent: "bam")
         }
     }
 
@@ -3573,7 +3578,7 @@ final class WorkspaceTests: XCTestCase {
 
         do {
             let ws = try workspace.getOrCreateWorkspace()
-            XCTAssertNotNil(ws.state.dependencies[forURL: "/tmp/ws/pkgs/Foo"])
+            XCTAssertEqual(ws.state.dependencies[.plain("foo")]?.packageRef.location, "/tmp/ws/pkgs/Foo")
         }
 
         workspace.checkReset { diagnostics in
@@ -3597,7 +3602,7 @@ final class WorkspaceTests: XCTestCase {
 
         do {
             let ws = try workspace.getOrCreateWorkspace()
-            XCTAssertNotNil(ws.state.dependencies[forURL: "/tmp/ws/pkgs/Nested/Foo"])
+            XCTAssertEqual(ws.state.dependencies[.plain("foo")]?.packageRef.location, "/tmp/ws/pkgs/Nested/Foo")
         }
     }
 
@@ -4215,12 +4220,12 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertNoDiagnostics(diagnostics)
         }
         workspace.checkManagedDependencies { result in
-            result.check(dependency: "Foo", at: .checkout(.version("1.0.0")))
-            result.check(dependency: "Bar", at: .checkout(.version("1.0.0")))
-            result.check(dependency: "Baz", at: .checkout(.version("1.0.0")))
-            result.check(dependency: "TestHelper1", at: .checkout(.version("1.0.0")))
-            result.check(notPresent: "Biz")
-            result.check(notPresent: "TestHelper2")
+            result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
+            result.check(dependency: "bar", at: .checkout(.version("1.0.0")))
+            result.check(dependency: "baz", at: .checkout(.version("1.0.0")))
+            result.check(dependency: "testhelper1", at: .checkout(.version("1.0.0")))
+            result.check(notPresent: "biz")
+            result.check(notPresent: "testhelper2")
         }
     }
 
@@ -5015,7 +5020,7 @@ final class WorkspaceTests: XCTestCase {
         let aRepo = workspace.repoProvider.specifierMap[RepositorySpecifier(path: aPath)]!
         let aRevision = try aRepo.resolveRevision(tag: "1.0.0")
         let aState = CheckoutState.version("1.0.0", revision: aRevision)
-        let aDependency = ManagedDependency(packageRef: aRef, subpath: RelativePath("A"), checkoutState: aState)
+        let aDependency: Workspace.ManagedDependency = .remote(packageRef: aRef, state: aState, subpath: RelativePath("A"))
 
         try workspace.set(
             pins: [aRef: aState],
@@ -5425,7 +5430,7 @@ final class WorkspaceTests: XCTestCase {
         let aRepo = workspace.repoProvider.specifierMap[RepositorySpecifier(path: aPath)]!
         let aRevision = try aRepo.resolveRevision(tag: "1.0.0")
         let aState = CheckoutState.version("1.0.0", revision: aRevision)
-        let aDependency = ManagedDependency(packageRef: aRef, subpath: RelativePath("A"), checkoutState: aState)
+        let aDependency: Workspace.ManagedDependency = .remote(packageRef: aRef, state: aState, subpath: RelativePath("A"))
 
         try workspace.set(
             pins: [aRef: aState],

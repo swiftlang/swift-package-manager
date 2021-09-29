@@ -115,14 +115,16 @@ public struct PackageReference: Encodable {
 }
 
 extension PackageReference: Equatable {
+    // TODO: consider location as well?
     public static func ==(lhs: PackageReference, rhs: PackageReference) -> Bool {
         return lhs.identity == rhs.identity
     }
 }
 
 extension PackageReference: Hashable {
+    // TODO: consider location as well?
     public func hash(into hasher: inout Hasher) {
-        hasher.combine(identity)
+        hasher.combine(self.identity)
     }
 }
 

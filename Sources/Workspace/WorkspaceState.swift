@@ -18,7 +18,7 @@ import TSCBasic
 /// Represents the workspace internal state persisted on disk.
 public final class WorkspaceState {
     /// The dependencies managed by the Workspace.
-    public private(set) var dependencies: ManagedDependencies
+    public private(set) var dependencies: Workspace.ManagedDependencies
 
     /// The artifacts managed by the Workspace.
     public private(set) var artifacts: Workspace.ManagedArtifacts
@@ -46,7 +46,7 @@ public final class WorkspaceState {
             self.dependencies = storedState.dependencies
             self.artifacts = storedState.artifacts
         } catch {
-            self.dependencies = ManagedDependencies()
+            self.dependencies = Workspace.ManagedDependencies()
             self.artifacts = Workspace.ManagedArtifacts()
             try? self.storage.reset()
             // FIXME: We should emit a warning here using the diagnostic engine.
@@ -56,12 +56,12 @@ public final class WorkspaceState {
     }
 
     func reset() throws {
-        self.dependencies = ManagedDependencies()
+        self.dependencies = Workspace.ManagedDependencies()
         self.artifacts = Workspace.ManagedArtifacts()
-        try self.saveState()
+        try self.save()
     }
 
-    public func saveState() throws {
+    public func save() throws {
         try self.storage.save(dependencies: self.dependencies, artifacts: self.artifacts)
     }
 
@@ -84,7 +84,7 @@ fileprivate struct WorkspaceStateStorage {
         self.fileSystem = fileSystem
     }
 
-    func load() throws -> (dependencies: ManagedDependencies, artifacts: Workspace.ManagedArtifacts){
+    func load() throws -> (dependencies: Workspace.ManagedDependencies, artifacts: Workspace.ManagedArtifacts){
         if !self.fileSystem.exists(self.path) {
             return (dependencies: .init(), artifacts: .init())
         }
@@ -94,16 +94,16 @@ fileprivate struct WorkspaceStateStorage {
             switch version.version {
             case 1,2,3,4:
                 let v4 = try self.decoder.decode(path: self.path, fileSystem: self.fileSystem, as: V4.self)
-                let dependencyMap = try Dictionary(uniqueKeysWithValues: v4.object.dependencies.map{ ($0.packageRef.location, try ManagedDependency($0)) })
+                let dependencies = try v4.object.dependencies.map{ try Workspace.ManagedDependency($0) }
                 let artifacts = try v4.object.artifacts.map{ try Workspace.ManagedArtifact($0) }
-                return (dependencies: .init(dependencyMap: dependencyMap), artifacts: .init(artifacts))
+                return (dependencies: .init(dependencies), artifacts: .init(artifacts))
             default:
                 throw StringError("unknown 'WorkspaceStateStorage' version '\(version.version)' at '\(self.path)'")
             }
         }
     }
 
-    func save(dependencies: ManagedDependencies, artifacts: Workspace.ManagedArtifacts) throws {
+    func save(dependencies: Workspace.ManagedDependencies, artifacts: Workspace.ManagedArtifacts) throws {
         if !self.fileSystem.exists(self.path.parentDirectory) {
             try self.fileSystem.createDirectory(self.path.parentDirectory)
         }
@@ -143,7 +143,7 @@ fileprivate struct WorkspaceStateStorage {
         let version: Int
         let object: Container
 
-        init (dependencies: ManagedDependencies, artifacts: Workspace.ManagedArtifacts) {
+        init (dependencies: Workspace.ManagedDependencies, artifacts: Workspace.ManagedArtifacts) {
             self.version = 4
             self.object = .init(
                 dependencies: dependencies.map { .init($0) },
@@ -156,38 +156,77 @@ fileprivate struct WorkspaceStateStorage {
             var artifacts: [Artifact]
         }
 
-        final class Dependency: Codable {
+        struct Dependency: Codable {
             let packageRef: PackageReference
             let state: State
             let subpath: String
-            let basedOn: Dependency?
 
-            init(_ dependency: ManagedDependency) {
+            init(packageRef: PackageReference, state: State, subpath: String) {
+                self.packageRef = packageRef
+                self.state = state
+                self.subpath = subpath
+            }
+
+            init(_ dependency: Workspace.ManagedDependency) {
                 self.packageRef = .init(dependency.packageRef)
                 self.state = .init(underlying: dependency.state)
                 self.subpath = dependency.subpath.pathString
-                self.basedOn = dependency.basedOn.map{ .init($0) }
             }
 
-            struct State: Codable {
-                let underlying: ManagedDependency.State
+            init(from decoder: Decoder) throws {
+                let container = try decoder.container(keyedBy: CodingKeys.self)
+                let packageRef = try container.decode(PackageReference.self, forKey: .packageRef)
+                let subpath = try container.decode(String.self, forKey: .subpath)
+                let basedOn = try container.decode(Dependency?.self, forKey: .basedOn)
+                let state = try State.decode(
+                    container: container.nestedContainer(keyedBy: State.CodingKeys.self, forKey: .state),
+                    basedOn: basedOn
+                )
 
-                init(underlying: ManagedDependency.State) {
+                self.init(
+                    packageRef: packageRef,
+                    state: state,
+                    subpath: subpath
+                )
+            }
+
+            func encode(to encoder: Encoder) throws {
+                var container = encoder.container(keyedBy: CodingKeys.self)
+                try container.encode(self.packageRef, forKey: .packageRef)
+                try container.encode(self.state, forKey: .state)
+                try container.encode(self.subpath, forKey: .subpath)
+                var basedOn: Dependency? = .none
+                if case .edited(let _basedOn, _) = self.state.underlying {
+                    basedOn = _basedOn.map { .init($0) }
+                }
+                try container.encode(basedOn, forKey: .basedOn)
+            }
+
+            enum CodingKeys: CodingKey {
+                case packageRef
+                case state
+                case subpath
+                case basedOn
+            }
+
+            struct State: Encodable {
+                let underlying: Workspace.ManagedDependency.State
+
+                init(underlying: Workspace.ManagedDependency.State) {
                     self.underlying = underlying
                 }
 
-                init(from decoder: Decoder) throws {
-                    let container = try decoder.container(keyedBy: CodingKeys.self)
+                static func decode(container: KeyedDecodingContainer<Self.CodingKeys>, basedOn: Dependency?) throws -> State {
                     let kind = try container.decode(String.self, forKey: .name)
                     switch kind {
                     case "local":
-                        self.init(underlying: .local)
+                        return self.init(underlying: .local)
                     case "checkout":
                         let checkout = try container.decode(CheckoutInfo.self, forKey: .checkoutState)
-                        try self.init(underlying: .checkout(.init(checkout)))
+                        return try self.init(underlying: .checkout(.init(checkout)))
                     case "edited":
                         let path = try container.decode(AbsolutePath?.self, forKey: .path)
-                        self.init(underlying: .edited(path))
+                        return try self.init(underlying: .edited(basedOn: basedOn.map { try .init($0) }, unmanagedPath: path))
                     default:
                         throw InternalError("unknown checkout state \(kind)")
                     }
@@ -201,7 +240,7 @@ fileprivate struct WorkspaceStateStorage {
                     case .checkout(let state):
                         try container.encode("checkout", forKey: .name)
                         try container.encode(CheckoutInfo(state), forKey: .checkoutState)
-                    case .edited(let path):
+                    case .edited(_, let path):
                         try container.encode("edited", forKey: .name)
                         try container.encode(path, forKey: .path)
 
@@ -329,13 +368,12 @@ fileprivate struct WorkspaceStateStorage {
     }
 }
 
-extension ManagedDependency {
+extension Workspace.ManagedDependency {
     fileprivate convenience init(_ dependency: WorkspaceStateStorage.V4.Dependency) throws {
         try self.init(
             packageRef: .init(dependency.packageRef),
             state: dependency.state.underlying,
-            subpath: RelativePath(dependency.subpath),
-            basedOn: dependency.basedOn.map { try .init($0) }
+            subpath: RelativePath(dependency.subpath)
         )
     }
 }
