@@ -2819,7 +2819,7 @@ extension Workspace: PackageContainerProvider {
         case .localSourceControl, .remoteSourceControl:
             return try self.checkoutRepository(package: package, at: checkoutState)
         case .registry:
-            fatalError("registry dependencies are supported at this point")
+            fatalError("registry dependencies are not supported at this point")
         }
     }
 
@@ -2868,11 +2868,13 @@ extension Workspace: PackageContainerProvider {
 
         switch package.kind {
         case .root, .fileSystem:
-            fatalError("local dependencies are supported")
-        case .localSourceControl, .remoteSourceControl:
+            break // NOOP
+        case .localSourceControl:
+            break // NOOP
+        case .remoteSourceControl:
             try self.removeRepository(dependency: dependencyToRemove)
         case .registry:
-            fatalError("registry dependencies are supported at this point")
+            fatalError("registry dependencies are not supported at this point")
         }
 
         // Save the state.
