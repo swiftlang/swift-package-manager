@@ -320,7 +320,6 @@ public struct SwiftToolOptions: ParsableArguments {
     @Flag(inversion: .prefixedNo, help: "Load credentials from a .netrc file")
     var netrc: Bool = true
     
-    @available(*, deprecated, message: ".netrc files are located by default")
     @Flag(name: .customLong("netrc-optional"), help: .hidden)
     var netrcOptional: Bool = false
     

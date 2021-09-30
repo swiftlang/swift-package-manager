@@ -422,6 +422,10 @@ public class SwiftTool {
         if options.shouldDisableManifestCaching {
             diagnostics.emit(warning: "'--disable-package-manifest-caching' option is deprecated; use '--manifest-caching' instead")
         }
+
+        if options.netrcOptional {
+            diagnostics.emit(warning: "'--netrc-optional' option is deprecated; .netrc files are located by default")
+        }
     }
 
     private func editsDirectory() throws -> AbsolutePath {
