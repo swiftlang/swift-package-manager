@@ -9,11 +9,12 @@
 */
 
 import Basics
-import TSCBasic
-import PackageModel
-import TSCUtility
 import Foundation
-public typealias FileSystem = TSCBasic.FileSystem
+import PackageModel
+import TSCBasic
+import struct TSCUtility.Triple
+import enum TSCUtility.Diagnostics
+import var TSCUtility.verbosity
 
 public enum ManifestParseError: Swift.Error, Equatable {
     /// The manifest contains invalid format.

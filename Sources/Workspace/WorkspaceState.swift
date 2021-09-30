@@ -354,6 +354,10 @@ fileprivate struct WorkspaceStateStorage {
                 case .remoteSourceControl(let url):
                     self.kind = .remoteSourceControl
                     self.location = url.absoluteString
+                case .registry:
+                    self.kind = .registry
+                    // FIXME: placeholder
+                    self.location = self.identity.description
                 }
                 self.name = reference.name
             }
@@ -363,6 +367,7 @@ fileprivate struct WorkspaceStateStorage {
                 case fileSystem
                 case localSourceControl
                 case remoteSourceControl
+                case registry
             }
         }
     }
@@ -391,6 +396,7 @@ extension Workspace.ManagedArtifact {
 
 extension PackageModel.PackageReference {
     fileprivate init(_ reference: WorkspaceStateStorage.V4.PackageReference) throws {
+        let identity = PackageIdentity.plain(reference.identity)
         let kind: PackageModel.PackageReference.Kind
         switch reference.kind {
         case .root:
@@ -404,10 +410,12 @@ extension PackageModel.PackageReference {
                 throw StringError("invalid url \(reference.location)")
             }
             kind = .remoteSourceControl(url)
+        case .registry:
+            kind = .registry(identity)
         }
 
         self.init(
-            identity: .plain(reference.identity),
+            identity: identity,
             kind: kind,
             name: reference.name
         )

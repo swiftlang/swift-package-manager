@@ -6,7 +6,7 @@
 
  See http://swift.org/LICENSE.txt for license information
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
-*/
+ */
 
 import Basics
 import Foundation
@@ -16,7 +16,7 @@ import TSCUtility
 /// A package reference.
 ///
 /// This represents a reference to a package containing its identity and location.
-public struct PackageReference: Encodable {
+public struct PackageReference {
     /// The kind of package reference.
     public enum Kind: Equatable {
         /// A root package.
@@ -31,6 +31,9 @@ public struct PackageReference: Encodable {
         /// A remote source package.
         case remoteSourceControl(Foundation.URL)
 
+        /// A package from  a registry.
+        case registry(PackageIdentity)
+
         // FIXME: we should not need this
         //@available(*, deprecated)
         public var locationString: String {
@@ -43,6 +46,9 @@ public struct PackageReference: Encodable {
                 return path.pathString
             case .remoteSourceControl(let url):
                 return url.absoluteString
+            case .registry(let identity):
+                // FIXME: this is a placeholder
+                return identity.description
             }
         }
 
@@ -75,7 +81,7 @@ public struct PackageReference: Encodable {
     /// The kind of package: root, local, or remote.
     public let kind: Kind
 
-    /// Create a package reference given its identity and repository.
+    /// Create a package reference given its identity and kind.
     public init(identity: PackageIdentity, kind: Kind, name: String? = nil) {
         self.identity = identity
         self.kind = kind
@@ -88,6 +94,9 @@ public struct PackageReference: Encodable {
             self.name = name ?? LegacyPackageIdentity.computeDefaultName(fromPath: path)
         case .remoteSourceControl(let url):
             self.name = name ?? LegacyPackageIdentity.computeDefaultName(fromURL: url)
+        case .registry(let identity):
+            // FIXME: this is a placeholder
+            self.name = name ?? identity.description
         }
     }
 
@@ -104,13 +113,16 @@ public struct PackageReference: Encodable {
         PackageReference(identity: identity, kind: .fileSystem(path))
     }
 
-
     public static func localSourceControl(identity: PackageIdentity, path: AbsolutePath) -> PackageReference {
         PackageReference(identity: identity, kind: .localSourceControl(path))
     }
 
     public static func remoteSourceControl(identity: PackageIdentity, url: Foundation.URL) -> PackageReference {
         PackageReference(identity: identity, kind: .remoteSourceControl(url))
+    }
+
+    public static func registry(identity: PackageIdentity) -> PackageReference {
+        PackageReference(identity: identity, kind: .registry(identity))
     }
 }
 
@@ -136,7 +148,7 @@ extension PackageReference: CustomStringConvertible {
 
 extension PackageReference.Kind: Encodable {
     private enum CodingKeys: String, CodingKey {
-        case root, fileSystem, localSourceControl, remoteSourceControl
+        case root, fileSystem, localSourceControl, remoteSourceControl, registry
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -154,6 +166,9 @@ extension PackageReference.Kind: Encodable {
         case .remoteSourceControl(let url):
             var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .remoteSourceControl)
             try unkeyedContainer.encode(url)
+        case .registry:
+            var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .registry)
+            try unkeyedContainer.encode(self.isRoot)
         }
     }
 }

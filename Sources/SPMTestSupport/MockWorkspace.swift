@@ -777,6 +777,8 @@ extension PackageReference.Kind {
             return "localSourceControl"
         case .remoteSourceControl:
             return "remoteSourceControl"
+        case .registry:
+            return "registry"
         }
     }
 }

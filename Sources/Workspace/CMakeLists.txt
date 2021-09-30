@@ -10,11 +10,13 @@ add_library(Workspace
   DefaultPluginScriptRunner.swift
   Destination.swift
   Diagnostics.swift
+  FileSystemPackageContainer.swift
   InitPackage.swift
   ManagedArtifact.swift
   ManagedDependency.swift
   ResolvedFileWatcher.swift
   ResolverPrecomputationProvider.swift
+  SourceControlPackageContainer.swift
   ToolsVersionSpecificationRewriter.swift
   UserToolchain.swift
   Workspace.swift

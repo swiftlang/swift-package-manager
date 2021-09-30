@@ -8,8 +8,8 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-import TSCBasic
 import PackageModel
+import TSCBasic
 
 enum PackageGraphError: Swift.Error {
     /// Indicates a non-root package with no targets.

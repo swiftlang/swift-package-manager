@@ -161,6 +161,7 @@ let package = Package(
             /** Primitive Package model objects */
             name: "PackageModel",
             dependencies: ["SwiftToolsSupport-auto", "Basics"]),
+
         .target(
             /** Package model conventions and loading support */
             name: "PackageLoading",

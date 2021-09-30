@@ -8,15 +8,14 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import func XCTest.XCTFail
-import Dispatch
-
 import Basics
-import TSCBasic
+import Dispatch
 import PackageModel
 import PackageLoading
 import PackageGraph
+import TSCBasic
 import TSCUtility
+import func XCTest.XCTFail
 
 public enum MockManifestLoaderError: Swift.Error {
     case unknownRequest(String)
@@ -82,7 +81,7 @@ extension ManifestLoader {
         packageKind: PackageModel.PackageReference.Kind,
         toolsVersion: PackageModel.ToolsVersion,
         identityResolver: IdentityResolver = DefaultIdentityResolver(),
-        fileSystem: PackageLoading.FileSystem,
+        fileSystem: TSCBasic.FileSystem,
         diagnostics: TSCBasic.DiagnosticsEngine? = nil
     ) throws -> Manifest{
         let packageIdentity: PackageIdentity
@@ -100,6 +99,10 @@ extension ManifestLoader {
         case .remoteSourceControl(let url):
             packageIdentity = try identityResolver.resolveIdentity(for: url)
             packageLocation = url.absoluteString
+        case .registry(let identity):
+            packageIdentity = identity
+            // FIXME: placeholder
+            packageLocation = identity.description
         }
         return try tsc_await {
             self.load(at: path,

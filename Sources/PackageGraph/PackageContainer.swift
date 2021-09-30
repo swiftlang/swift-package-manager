@@ -9,9 +9,7 @@
  */
 
 import Dispatch
-import PackageLoading
 import PackageModel
-import SourceControl
 import struct TSCUtility.Version
 
 /// A container of packages.
@@ -104,7 +102,7 @@ extension PackageContainer {
     }
 }
 
-// MARK: -
+// MARK: - PackageContainerConstraint
 
 /// An individual constraint onto a container.
 public struct PackageContainerConstraint: Equatable, Hashable {
@@ -139,7 +137,7 @@ extension PackageContainerConstraint: CustomStringConvertible {
     }
 }
 
-// MARK: -
+// MARK: - PackageContainerProvider
 
 /// An interface for resolving package containers.
 public protocol PackageContainerProvider {
