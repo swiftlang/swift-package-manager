@@ -9,11 +9,11 @@
 */
 
 import Basics
+import Dispatch
+import Foundation
+import SourceControl
 import TSCBasic
 import TSCUtility
-import SourceControl
-import Dispatch
-import class Foundation.NSUUID
 
 /// The error encountered during in memory git repository operations.
 public enum InMemoryGitRepositoryError: Swift.Error {
@@ -108,8 +108,8 @@ public final class InMemoryGitRepository {
     /// Commits the current state of the repository filesystem and returns the commit identifier.
     @discardableResult
     public func commit() throws -> String {
-        // Create a fake hash for thie commit.
-        let hash = String((NSUUID().uuidString + NSUUID().uuidString).prefix(40))
+        // Create a fake hash for this commit.
+        let hash = String((UUID().uuidString + UUID().uuidString).prefix(40))
         self.lock.withLock {
             self.head.hash = hash
             // Store the commit in history.
