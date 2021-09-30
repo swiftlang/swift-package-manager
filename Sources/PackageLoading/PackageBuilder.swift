@@ -222,7 +222,7 @@ public final class PackageBuilder {
     /// The path of the package.
     private let packagePath: AbsolutePath
 
-    /// Information concerning the different downloaded binary target artifacts.
+    /// Information concerning the different downloaded or local (archived) binary target artifacts.
     private let binaryArtifacts: [BinaryArtifact]
 
     /// Create multiple test products.
@@ -548,7 +548,7 @@ public final class PackageBuilder {
                 if fileSystem.isDirectory(path) {
                     return path
                 }
-                if fileSystem.isFile(path) && path.extension == "zip" {
+                if fileSystem.isFile(path) && path.extension == "zip" && target.type == .binary {
                     return try findBinaryArtifactPath(for: target)
                 }
                 throw ModuleError.invalidCustomPath(target: target.name, path: subpath)
