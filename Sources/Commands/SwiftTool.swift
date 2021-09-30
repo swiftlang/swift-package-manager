@@ -423,7 +423,15 @@ public class SwiftTool {
             diagnostics.emit(warning: "'--disable-package-manifest-caching' option is deprecated; use '--manifest-caching' instead")
         }
 
-        if options.netrcOptional {
+        if let _ = options.netrcFilePath, options.netrc == false {
+            diagnostics.emit(.mutuallyExclusiveArgumentsError(arguments: ["--disable-netrc", "--netrc-file"]))
+        }
+
+        if options._deprecated_netrc {
+            diagnostics.emit(warning: "'--netrc' option is deprecated; .netrc files are located by default")
+        }
+
+        if options._deprecated_netrcOptional {
             diagnostics.emit(warning: "'--netrc-optional' option is deprecated; .netrc files are located by default")
         }
     }
@@ -494,7 +502,7 @@ public class SwiftTool {
 
         if let configuredPath = options.netrcFilePath {
             guard localFileSystem.exists(configuredPath) else {
-                ObservabilitySystem.topScope.emit(warning: "Did not find .netrc file at \(configuredPath).")
+                ObservabilitySystem.topScope.emit(error: "Did not find .netrc file at \(configuredPath).")
                 return nil
             }
 

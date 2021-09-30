@@ -52,24 +52,33 @@ final class PackageToolTests: XCTestCase {
 
     func testNetrc() throws {
         fixture(name: "DependencyResolution/External/XCFramework") { packageRoot in
-            try self.execute(["resolve", "--netrc"], packagePath: packageRoot)
-        }
-    }
+            // --enable-netrc flag
+            try self.execute(["resolve", "--enable-netrc"], packagePath: packageRoot)
 
-    func testNoNetrc() throws {
-        fixture(name: "DependencyResolution/External/XCFramework") { packageRoot in
-            try self.execute(["resolve", "--no-netrc"], packagePath: packageRoot)
+            // --disable-netrc flag
+            try self.execute(["resolve", "--disable-netrc"], packagePath: packageRoot)
+
+            // --enable-netrc and --disable-netrc flags
+            XCTAssertThrowsError(
+                try self.execute(["resolve", "--enable-netrc", "--disable-netrc"], packagePath: packageRoot)
+            ) { error in
+                XCTAssertMatch(String(describing: error), .contains("Value to be set with flag '--disable-netrc' had already been set with flag '--enable-netrc'"))
+            }
+
+            // deprecated --netrc flag
+            let stderr = try self.execute(["resolve", "--netrc"], packagePath: packageRoot).stderr
+            XCTAssertMatch(stderr, .contains("'--netrc' option is deprecated"))
         }
     }
 
     func testNetrcOptional() throws {
         fixture(name: "DependencyResolution/External/XCFramework") { packageRoot in
-            try self.execute(["resolve", "--netrc-optional"], packagePath: packageRoot)
+            let stderr = try self.execute(["resolve", "--netrc-optional"], packagePath: packageRoot).stderr
+            XCTAssertMatch(stderr, .contains("'--netrc-optional' option is deprecated"))
         }
     }
 
     func testNetrcFile() throws {
-        // valid configured .netrc file
         fixture(name: "DependencyResolution/External/XCFramework") { packageRoot in
             let fs = localFileSystem
             let netrcPath = packageRoot.appending(component: ".netrc")
@@ -77,24 +86,28 @@ final class PackageToolTests: XCTestCase {
                 stream <<< "machine mymachine.labkey.org login user@labkey.org password mypassword"
             }
 
+            // valid .netrc file path
             try execute(["resolve", "--netrc-file", netrcPath.pathString], packagePath: packageRoot)
-        }
 
-        // invalid .netrc file path
-        fixture(name: "DependencyResolution/External/XCFramework") { packageRoot in
-            do {
+            // valid .netrc file path with --disable-netrc option
+            XCTAssertThrowsError(
+                try execute(["resolve", "--netrc-file", netrcPath.pathString, "--disable-netrc"], packagePath: packageRoot)
+            ) { error in
+                XCTAssertMatch(String(describing: error), .contains("'--disable-netrc' and '--netrc-file' are mutually exclusive"))
+            }
+
+            // invalid .netrc file path
+            XCTAssertThrowsError(
                 try execute(["resolve", "--netrc-file", "/foo"], packagePath: packageRoot)
-            } catch {
+            ) { error in
                 XCTAssertMatch(String(describing: error), .contains("Did not find .netrc file at /foo."))
             }
-        }
 
-        // invalid .netrc file path with --no-netrc option
-        fixture(name: "DependencyResolution/External/XCFramework") { packageRoot in
-            do {
-                try execute(["resolve", "--netrc-file", "/foo", "--no-netrc"], packagePath: packageRoot)
-            } catch {
-                XCTAssertMatch(String(describing: error), .contains("Did not find .netrc file at /foo."))
+            // invalid .netrc file path with --disable-netrc option
+            XCTAssertThrowsError(
+                try execute(["resolve", "--netrc-file", "/foo", "--disable-netrc"], packagePath: packageRoot)
+            ) { error in
+                XCTAssertMatch(String(describing: error), .contains("'--disable-netrc' and '--netrc-file' are mutually exclusive"))
             }
         }
     }

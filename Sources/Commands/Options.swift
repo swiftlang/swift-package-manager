@@ -314,14 +314,13 @@ public struct SwiftToolOptions: ParsableArguments {
         // Force the Xcode build system if we want to build more than one arch.
         archs.count > 1 ? .xcode : _buildSystem
     }
-    
+
     /// Whether to load .netrc files for authenticating with remote servers
     /// when downloading binary artifacts or communicating with a registry.
-    @Flag(inversion: .prefixedNo, help: "Load credentials from a .netrc file")
+    @Flag(inversion: .prefixedEnableDisable,
+          exclusivity: .exclusive,
+          help: "Load credentials from a .netrc file")
     var netrc: Bool = true
-    
-    @Flag(name: .customLong("netrc-optional"), help: .hidden)
-    var netrcOptional: Bool = false
     
     /// The path to the .netrc file used when `netrc` is `true`.
     @Option(
@@ -329,6 +328,12 @@ public struct SwiftToolOptions: ParsableArguments {
         help: "Specify the .netrc file path.",
         completion: .file())
     var netrcFilePath: AbsolutePath?
+
+    @Flag(name: .customLong("netrc"), help: .hidden)
+    var _deprecated_netrc: Bool = false
+
+    @Flag(name: .customLong("netrc-optional"), help: .hidden)
+    var _deprecated_netrcOptional: Bool = false
     
     public init() {}
 }
