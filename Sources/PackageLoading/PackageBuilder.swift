@@ -529,8 +529,13 @@ public final class PackageBuilder {
 
         /// Returns the path of the given target.
         func findPath(for target: TargetDescription) throws -> AbsolutePath {
-            // If there is a custom path defined, use that.
-            if let subpath = target.path {
+            if target.type == .binary {
+                if let artifact = self.binaryArtifacts.first(where: { $0.path.basenameWithoutExt == target.name }) {
+                    return artifact.path
+                } else {
+                    throw ModuleError.artifactNotFound(target.name)
+                }
+            } else if let subpath = target.path { // If there is a custom path defined, use that.
                 if subpath == "" || subpath == "." {
                     return packagePath
                 }
@@ -548,12 +553,7 @@ public final class PackageBuilder {
                 if fileSystem.isDirectory(path) {
                     return path
                 }
-                if fileSystem.isFile(path) && path.extension == "zip" && target.type == .binary {
-                    return try findBinaryArtifactPath(for: target)
-                }
                 throw ModuleError.invalidCustomPath(target: target.name, path: subpath)
-            } else if target.type == .binary {
-                return try findBinaryArtifactPath(for: target)
             }
 
             // Check if target is present in the predefined directory.
@@ -604,14 +604,6 @@ public final class PackageBuilder {
         }
 
         return targets + snippetTargets
-    }
-    
-    private func findBinaryArtifactPath(for target: TargetDescription) throws -> AbsolutePath {
-        if let artifact = self.binaryArtifacts.first(where: { $0.path.basenameWithoutExt == target.name }) {
-            return artifact.path
-        } else {
-            throw ModuleError.artifactNotFound(target.name)
-        }
     }
 
     // Create targets from the provided potential targets.
