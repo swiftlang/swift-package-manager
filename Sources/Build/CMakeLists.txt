@@ -10,7 +10,7 @@ add_library(Build
   BuildOperationBuildSystemDelegateHandler.swift
   BuildOperation.swift
   BuildPlan.swift
-  ManifestBuilder.swift
+  LLBuildManifestBuilder.swift
   SPMSwiftDriverExecutor.swift
   SwiftCompilerOutputParser.swift)
 target_link_libraries(Build PUBLIC

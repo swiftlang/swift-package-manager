@@ -92,10 +92,9 @@ public class LLBuildManifestBuilder {
     }
 }
 
-// MARK:- Package Structure
+// MARK: - Package Structure
 
 extension LLBuildManifestBuilder {
-
     fileprivate func addPackageStructureCommand() {
         let inputs = plan.graph.rootPackages.flatMap { package -> [Node] in
             var inputs = package.targets
@@ -136,7 +135,6 @@ extension LLBuildManifestBuilder {
 // MARK:- Binary Dependencies
 
 extension LLBuildManifestBuilder {
-
     // Creates commands for copying all binary artifacts depended on in the plan.
     fileprivate func addBinaryDependencyCommands() {
         let binaryPaths = Set(plan.targetMap.values.flatMap({ $0.libraryBinaryPaths }))
@@ -147,7 +145,7 @@ extension LLBuildManifestBuilder {
     }
 }
 
-// MARK:- Resources Bundle
+// MARK: - Resources Bundle
 
 extension LLBuildManifestBuilder {
     /// Adds command for creating the resources bundle of the given target.
@@ -633,7 +631,7 @@ extension LLBuildManifestBuilder {
     }
 }
 
-// MARK:- Compile C-family
+// MARK: - Compile C-family
 
 extension LLBuildManifestBuilder {
     /// Create a llbuild target for a Clang target description.
@@ -777,7 +775,7 @@ extension LLBuildManifestBuilder {
     }
 }
 
-// MARK:- Product Command
+// MARK: - Product Command
 
 extension LLBuildManifestBuilder {
     private func createProductCommand(_ buildProduct: ProductBuildDescription) throws {
@@ -859,7 +857,7 @@ extension ResolvedProduct {
     }
 }
 
-// MARK:- Helper
+// MARK: - Helper
 
 extension LLBuildManifestBuilder {
     @discardableResult
