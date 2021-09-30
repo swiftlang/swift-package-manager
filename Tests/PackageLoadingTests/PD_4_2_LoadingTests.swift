@@ -63,7 +63,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
 
             // Check dependencies.
             let deps = Dictionary(uniqueKeysWithValues: manifest.dependencies.map{ ($0.identity.description, $0) })
-            XCTAssertEqual(deps["foo1"], .scm(location: "/foo1", requirement: .upToNextMajor(from: "1.0.0")))
+            XCTAssertEqual(deps["foo1"], .localSourceControl(path: .init("/foo1"), requirement: .upToNextMajor(from: "1.0.0")))
 
             // Check products.
             let products = Dictionary(uniqueKeysWithValues: manifest.products.map{ ($0.name, $0) })
@@ -254,8 +254,8 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             """
        loadManifest(stream.bytes) { manifest in
             let deps = Dictionary(uniqueKeysWithValues: manifest.dependencies.map{ ($0.identity.description, $0) })
-            XCTAssertEqual(deps["foo1"], .scm(location: "/foo1", requirement: .upToNextMajor(from: "1.0.0")))
-            XCTAssertEqual(deps["foo2"], .scm(location: "/foo2", requirement: .revision("58e9de4e7b79e67c72a46e164158e3542e570ab6")))
+            XCTAssertEqual(deps["foo1"], .localSourceControl(path: .init("/foo1"), requirement: .upToNextMajor(from: "1.0.0")))
+            XCTAssertEqual(deps["foo2"], .localSourceControl(path: .init("/foo2"), requirement: .revision("58e9de4e7b79e67c72a46e164158e3542e570ab6")))
 
             if case .fileSystem(let dep) = deps["foo3"] {
                 XCTAssertEqual(dep.path.pathString, "/foo3")
@@ -269,11 +269,11 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                 XCTFail("expected to be local dependency")
             }
 
-            XCTAssertEqual(deps["foo5"], .scm(location: "/foo5", requirement: .exact("1.2.3")))
-            XCTAssertEqual(deps["foo6"], .scm(location: "/foo6", requirement: .range("1.2.3"..<"2.0.0")))
-            XCTAssertEqual(deps["foo7"], .scm(location: "/foo7", requirement: .branch("master")))
-            XCTAssertEqual(deps["foo8"], .scm(location: "/foo8", requirement: .upToNextMinor(from: "1.3.4")))
-            XCTAssertEqual(deps["foo9"], .scm(location: "/foo9", requirement: .upToNextMajor(from: "1.3.4")))
+            XCTAssertEqual(deps["foo5"], .localSourceControl(path: .init("/foo5"), requirement: .exact("1.2.3")))
+            XCTAssertEqual(deps["foo6"], .localSourceControl(path: .init("/foo6"), requirement: .range("1.2.3"..<"2.0.0")))
+            XCTAssertEqual(deps["foo7"], .localSourceControl(path: .init("/foo7"), requirement: .branch("master")))
+            XCTAssertEqual(deps["foo8"], .localSourceControl(path: .init("/foo8"), requirement: .upToNextMinor(from: "1.3.4")))
+            XCTAssertEqual(deps["foo9"], .localSourceControl(path: .init("/foo9"), requirement: .upToNextMajor(from: "1.3.4")))
 
             let homeDir = "/home/user"
             if case .fileSystem(let dep) = deps["foo10"] {
@@ -283,7 +283,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             }
 
             if case .fileSystem(let dep) = deps["~foo11"] {
-                XCTAssertEqual(dep.path.pathString, "/foo/~foo11")
+                XCTAssertEqual(dep.path.pathString, "/~foo11")
             } else {
                 XCTFail("expected to be local dependency")
             }
@@ -295,7 +295,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             }
 
             if case .fileSystem(let dep) = deps["~"] {
-                XCTAssertEqual(dep.path.pathString, "/foo/~")
+                XCTAssertEqual(dep.path.pathString, "/~")
             } else {
                 XCTFail("expected to be local dependency")
             }
@@ -376,7 +376,12 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                     bytes: bogusManifest)
             }
             // Check we can load the repository.
-            let manifest = try manifestLoader.load(at: root, packageKind: .root, packageLocation: "/foo", toolsVersion: .v4_2, fileSystem: fs)
+            let manifest = try manifestLoader.load(
+                at: root,
+                packageKind: .root(.root),
+                toolsVersion: .v4_2,
+                fileSystem: fs
+            )
             XCTAssertEqual(manifest.name, "Trivial")
         }
     }
@@ -396,7 +401,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             packageDir.appending(component: Manifest.basename + "@swift-3.swift"),
             bytes: ByteString(encodingAsUTF8: manifestContents))
         // Check we can load the manifest.
-        let manifest = try manifestLoader.load(at: packageDir, packageKind: .root, packageLocation: "/foo", toolsVersion: .v4_2, fileSystem: fs)
+        let manifest = try manifestLoader.load(at: packageDir, packageKind: .root(packageDir), toolsVersion: .v4_2, fileSystem: fs)
         XCTAssertEqual(manifest.name, "Trivial")
         
         // Switch it around so that the main manifest is now the one that doesn't have a comment.
@@ -407,7 +412,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             packageDir.appending(component: Manifest.basename + "@swift-4.swift"),
             bytes: ByteString(encodingAsUTF8: "// swift-tools-version:4.0\n" + manifestContents))
         // Check we can load the manifest.
-        let manifest2 = try manifestLoader.load(at: packageDir, packageKind: .root, packageLocation: "/foo", toolsVersion: .v4_2, fileSystem: fs)
+        let manifest2 = try manifestLoader.load(at: packageDir, packageKind: .root(packageDir), toolsVersion: .v4_2, fileSystem: fs)
         XCTAssertEqual(manifest2.name, "Trivial")
     }
 
@@ -568,8 +573,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                 delegate.clear()
                 let manifest = try! loader.load(
                     at: manifestPath.parentDirectory,
-                    packageKind: .local,
-                    packageLocation: manifestPath.pathString,
+                    packageKind: .fileSystem(manifestPath.parentDirectory),
                     toolsVersion: .v4_2,
                     fileSystem: fs
                 )
@@ -624,8 +628,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                 delegate.clear()
                 let manifest = try! loader.load(
                     at: manifestPath.parentDirectory,
-                    packageKind: .local,
-                    packageLocation: manifestPath.pathString,
+                    packageKind: .fileSystem(manifestPath.parentDirectory),
                     toolsVersion: .v4_2,
                     fileSystem: fs
                 )
@@ -698,9 +701,8 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                 try fs.writeFileContents(manifestPath, bytes: stream.bytes)
 
                 let m = try manifestLoader.load(
-                    at: AbsolutePath.root,
-                    packageKind: .root,
-                    packageLocation: "/foo",
+                    at: .root,
+                    packageKind: .root(.root),
                     toolsVersion: .v4_2,
                     fileSystem: fs)
 
@@ -763,7 +765,6 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             _ = try loadManifest(
                 manifest,
                 toolsVersion: toolsVersion,
-                packageKind: .remote,
                 diagnostics: nil
             )
 
@@ -801,7 +802,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             // warm up caches
             let manifest = try tsc_await { manifestLoader.load(at: manifestPath.parentDirectory,
                                                                packageIdentity: .plain("Trivial"),
-                                                               packageKind: .local,
+                                                               packageKind: .fileSystem(manifestPath.parentDirectory),
                                                                packageLocation: manifestPath.pathString,
                                                                version: nil,
                                                                revision: nil,
@@ -819,7 +820,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                 sync.enter()
                 manifestLoader.load(at: manifestPath.parentDirectory,
                                     packageIdentity: .plain("Trivial"),
-                                    packageKind: .local,
+                                    packageKind: .fileSystem(manifestPath.parentDirectory),
                                     packageLocation: manifestPath.pathString,
                                     version: nil,
                                     revision: nil,
@@ -883,7 +884,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                 sync.enter()
                 manifestLoader.load(at: manifestPath.parentDirectory,
                                     packageIdentity: .plain("Trivial-\(random)"),
-                                    packageKind: .local,
+                                    packageKind: .fileSystem(manifestPath.parentDirectory),
                                     packageLocation: manifestPath.pathString,
                                     version: nil,
                                     revision: nil,

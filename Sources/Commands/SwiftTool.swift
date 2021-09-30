@@ -422,6 +422,18 @@ public class SwiftTool {
         if options.shouldDisableManifestCaching {
             diagnostics.emit(warning: "'--disable-package-manifest-caching' option is deprecated; use '--manifest-caching' instead")
         }
+
+        if let _ = options.netrcFilePath, options.netrc == false {
+            diagnostics.emit(.mutuallyExclusiveArgumentsError(arguments: ["--disable-netrc", "--netrc-file"]))
+        }
+
+        if options._deprecated_netrc {
+            diagnostics.emit(warning: "'--netrc' option is deprecated; .netrc files are located by default")
+        }
+
+        if options._deprecated_netrcOptional {
+            diagnostics.emit(warning: "'--netrc-optional' option is deprecated; .netrc files are located by default")
+        }
     }
 
     private func editsDirectory() throws -> AbsolutePath {
@@ -485,27 +497,22 @@ public class SwiftTool {
         return try self.getNetrcConfig()?.get()
     }
 
-    func getNetrcConfig() throws -> Workspace.Configuration.Netrc? {
-        guard options.netrc || options.netrcFilePath != nil || options.netrcOptional else {
-            return .none
-        }
+    func getNetrcConfig() -> Workspace.Configuration.Netrc? {
+        guard options.netrc else { return nil }
 
-        let netrcFilePath = try self.netrcFilePath()
-        return netrcFilePath.map { .init(path: $0, fileSystem: localFileSystem) }
-    }
-
-    private func netrcFilePath() throws -> AbsolutePath? {
-        let netrcFilePath = options.netrcFilePath ?? localFileSystem.homeDirectory.appending(component: ".netrc")
-        guard localFileSystem.exists(netrcFilePath) else {
-            if !options.netrcOptional {
-                ObservabilitySystem.topScope.emit(error: "Cannot find mandatory .netrc file at \(netrcFilePath). To make .netrc file optional, use --netrc-optional flag.")
-                throw ExitCode.failure
-            } else {
-                ObservabilitySystem.topScope.emit(warning: "Did not find optional .netrc file at \(netrcFilePath).")
-                return .none
+        if let configuredPath = options.netrcFilePath {
+            guard localFileSystem.exists(configuredPath) else {
+                ObservabilitySystem.topScope.emit(error: "Did not find .netrc file at \(configuredPath).")
+                return nil
             }
+
+            return .init(path: configuredPath, fileSystem: localFileSystem)
+        } else {
+            let defaultPath = localFileSystem.homeDirectory.appending(component: ".netrc")
+            guard localFileSystem.exists(defaultPath) else { return nil }
+
+            return .init(path: defaultPath, fileSystem: localFileSystem)
         }
-        return netrcFilePath
     }
 
     private func getSharedCacheDirectory() throws -> AbsolutePath? {

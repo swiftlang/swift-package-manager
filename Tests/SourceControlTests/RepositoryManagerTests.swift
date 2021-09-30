@@ -257,7 +257,7 @@ class RepositoryManagerTests: XCTestCase {
             let manager = RepositoryManager(fileSystem: localFileSystem, path: path, provider: provider, delegate: delegate)
 
             // Check that we can "fetch" a repository.
-            let dummyRepo = RepositorySpecifier(url: "dummy")
+            let dummyRepo = RepositorySpecifier(path: .init("/dummy"))
             let lookupExpectation = expectation(description: "Repository lookup expectation")
 
             var prevHandle: RepositoryManager.RepositoryHandle?
@@ -293,7 +293,7 @@ class RepositoryManagerTests: XCTestCase {
 
             let badLookupExpectation = expectation(description: "Repository lookup expectation")
             // Get a bad repository.
-            let badDummyRepo = RepositorySpecifier(url: "badDummy")
+            let badDummyRepo = RepositorySpecifier(path: .init("/badDummy"))
 
             delegate.willFetchGroup?.enter()
             delegate.didFetchGroup?.enter()
@@ -362,7 +362,7 @@ class RepositoryManagerTests: XCTestCase {
         fixture(name: "DependencyResolution/External/Simple") { prefix in
             let cachePath = prefix.appending(component: "cache")
             let repositoriesPath = prefix.appending(component: "repositories")
-            let repo = RepositorySpecifier(url: prefix.appending(component: "Foo").pathString)
+            let repo = RepositorySpecifier(path: prefix.appending(component: "Foo"))
 
             let provider = GitRepositoryProvider()
             let delegate = DummyRepositoryManagerDelegate()
@@ -436,7 +436,7 @@ class RepositoryManagerTests: XCTestCase {
 
             try localFileSystem.createDirectory(repos, recursive: true)
             let manager = RepositoryManager(fileSystem: localFileSystem, path: repos, provider: provider, delegate: delegate)
-            let dummyRepo = RepositorySpecifier(url: "dummy")
+            let dummyRepo = RepositorySpecifier(path: .init("/dummy"))
 
             delegate.willFetchGroup?.enter()
             delegate.didFetchGroup?.enter()
@@ -469,7 +469,7 @@ class RepositoryManagerTests: XCTestCase {
                 delegate.didFetchGroup = DispatchGroup()
 
                 let manager = RepositoryManager(fileSystem: localFileSystem, path: path, provider: provider, delegate: delegate)
-                let dummyRepo = RepositorySpecifier(url: "dummy")
+                let dummyRepo = RepositorySpecifier(path: .init("/dummy"))
 
                 delegate.willFetchGroup?.enter()
                 delegate.didFetchGroup?.enter()
@@ -489,7 +489,7 @@ class RepositoryManagerTests: XCTestCase {
                 delegate.didFetchGroup = DispatchGroup()
 
                 let manager = RepositoryManager(fileSystem: localFileSystem, path: path, provider: provider, delegate: delegate)
-                let dummyRepo = RepositorySpecifier(url: "dummy")
+                let dummyRepo = RepositorySpecifier(path: .init("/dummy"))
 
                 _ = try manager.lookup(repository: dummyRepo)
                 // This time fetch shouldn't be called.
@@ -508,7 +508,7 @@ class RepositoryManagerTests: XCTestCase {
                 var manager = RepositoryManager(fileSystem: localFileSystem, path: path, provider: provider, delegate: delegate)
                 try! localFileSystem.removeFileTree(path.appending(component: "checkouts-state.json"))
                 manager = RepositoryManager(fileSystem: localFileSystem, path: path, provider: provider, delegate: delegate)
-                let dummyRepo = RepositorySpecifier(url: "dummy")
+                let dummyRepo = RepositorySpecifier(path: .init("/dummy"))
 
                 delegate.willFetchGroup?.enter()
                 delegate.didFetchGroup?.enter()
@@ -528,7 +528,7 @@ class RepositoryManagerTests: XCTestCase {
             let provider = DummyRepositoryProvider()
             let delegate = DummyRepositoryManagerDelegate()
             let manager = RepositoryManager(fileSystem: localFileSystem, path: path, provider: provider, delegate: delegate)
-            let dummyRepo = RepositorySpecifier(url: "dummy")
+            let dummyRepo = RepositorySpecifier(path: .init("/dummy"))
             // Condition to check if we have finished all lookups.
             let doneCondition = Condition()
             var done = false
@@ -569,7 +569,7 @@ class RepositoryManagerTests: XCTestCase {
             try localFileSystem.createDirectory(repos, recursive: true)
 
             let manager = RepositoryManager(fileSystem: localFileSystem, path: repos, provider: provider, delegate: delegate)
-            let dummyRepo = RepositorySpecifier(url: "dummy")
+            let dummyRepo = RepositorySpecifier(path: .init("/dummy"))
 
             delegate.willFetchGroup?.enter()
             delegate.didFetchGroup?.enter()
@@ -609,7 +609,7 @@ class RepositoryManagerTests: XCTestCase {
 
             try localFileSystem.createDirectory(repos, recursive: true)
             let manager = RepositoryManager(fileSystem: localFileSystem, path: repos, provider: provider, delegate: delegate)
-            let dummyRepo = RepositorySpecifier(url: "dummy")
+            let dummyRepo = RepositorySpecifier(path: .init("/dummy"))
 
             // Perform a lookup.
             delegate.willFetchGroup?.enter()

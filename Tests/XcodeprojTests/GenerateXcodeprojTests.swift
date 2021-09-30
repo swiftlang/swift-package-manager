@@ -38,10 +38,9 @@ class GenerateXcodeprojTests: XCTestCase {
           let observability = ObservabilitySystem.bootstrapForTesting()
           let graph = try loadPackageGraph(fs: localFileSystem,
               manifests: [
-                  Manifest.createV4Manifest(
+                  Manifest.createRootManifest(
                       name: "Foo",
                       path: packagePath,
-                      packageKind: .root,
                       targets: [
                           TargetDescription(name: "DummyModuleName"),
                       ])
@@ -95,10 +94,9 @@ class GenerateXcodeprojTests: XCTestCase {
             let observability = ObservabilitySystem.bootstrapForTesting()
             let graph = try loadPackageGraph(fs: localFileSystem,
                 manifests: [
-                    Manifest.createV4Manifest(
+                    Manifest.createRootManifest(
                         name: "Bar",
                         path: packagePath,
-                        packageKind: .root,
                         targets: [
                             TargetDescription(name: "Bar"),
                         ])
@@ -136,10 +134,9 @@ class GenerateXcodeprojTests: XCTestCase {
             let observability = ObservabilitySystem.bootstrapForTesting()
             let graph = try loadPackageGraph(fs: localFileSystem,
                 manifests: [
-                    Manifest.createV4Manifest(
+                    Manifest.createRootManifest(
                         name: "Modules",
                         path: packagePath,
-                        packageKind: .root,
                         targets: [
                             TargetDescription(name: "Modules"),
                         ])
@@ -175,10 +172,9 @@ class GenerateXcodeprojTests: XCTestCase {
             let graph = try loadPackageGraph(
                 fs: localFileSystem,
                 manifests: [
-                    Manifest.createV4Manifest(
+                    Manifest.createRootManifest(
                         name: "Foo",
                         path: packagePath,
-                        packageKind: .root,
                         targets: [
                             TargetDescription(name: "DummyModule"),
                         ])
@@ -215,10 +211,9 @@ class GenerateXcodeprojTests: XCTestCase {
             let graph = try loadPackageGraph(
                 fs: localFileSystem,
                 manifests: [
-                    Manifest.createV4Manifest(
+                    Manifest.createRootManifest(
                         name: "Foo",
                         path: packagePath,
-                        packageKind: .root,
                         targets: [
                             TargetDescription(name: "DummyModule"),
                         ])
@@ -254,10 +249,9 @@ class GenerateXcodeprojTests: XCTestCase {
             let graph = try loadPackageGraph(
                 fs: localFileSystem,
                 manifests: [
-                    Manifest.createV4Manifest(
+                    Manifest.createRootManifest(
                         name: "Foo",
                         path: packagePath,
-                        packageKind: .root,
                         targets: [
                             TargetDescription(name: "DummyModule"),
                         ])
@@ -303,10 +297,9 @@ class GenerateXcodeprojTests: XCTestCase {
             let graph = try loadPackageGraph(
                 fs: localFileSystem,
                 manifests: [
-                    Manifest.createV4Manifest(
+                    Manifest.createRootManifest(
                         name: "Foo",
                         path: packagePath,
-                        packageKind: .root,
                         targets: [
                             TargetDescription(name: "DummyModule"),
                         ])
@@ -351,10 +344,9 @@ class GenerateXcodeprojTests: XCTestCase {
             let graph = try loadPackageGraph(
                 fs: localFileSystem,
                 manifests: [
-                    Manifest.createV4Manifest(
+                    Manifest.createRootManifest(
                         name: "Foo",
                         path: packagePath,
-                        packageKind: .root,
                         targets: [
                             TargetDescription(name: "DummyModule"),
                         ])
@@ -398,7 +390,7 @@ class GenerateXcodeprojTests: XCTestCase {
             let observability = ObservabilitySystem.bootstrapForTesting()
             let graph = try loadPackageGraph(fs: localFileSystem,
                 manifests: [
-                    Manifest.createV4Manifest(
+                    Manifest.createRootManifest(
                         name: "Foo",
                         path: fooPackagePath,
                         dependencies: [
@@ -409,10 +401,9 @@ class GenerateXcodeprojTests: XCTestCase {
                                 .product(name: "Bar", package: "Bar", condition: .init(platformNames: ["ios"]))
                             ]),
                         ]),
-                    Manifest.createV4Manifest(
+                    Manifest.createLocalSourceControlManifest(
                         name: "Bar",
                         path: barPackagePath,
-                        packageKind: .remote,
                         products: [
                             ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar1"])
                         ],

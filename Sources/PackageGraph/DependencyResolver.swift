@@ -55,15 +55,15 @@ public struct TracingDependencyResolverDelegate: DependencyResolverDelegate {
     }
 
     public func willResolve(term: Term) {
-        self.log("resolving: \(term.node.package.location)")
+        self.log("resolving: \(term.node.package.identity)")
     }
 
     public func didResolve(term: Term, version: Version, duration: DispatchTimeInterval) {
-        self.log("resolved: \(term.node.package.location) @ \(version)")
+        self.log("resolved: \(term.node.package.identity) @ \(version)")
     }
 
     public func derived(term: Term) {
-        self.log("derived: \(term.node.package.location)")
+        self.log("derived: \(term.node.package.identity)")
     }
 
     public func conflict(conflict: Incompatibility) {

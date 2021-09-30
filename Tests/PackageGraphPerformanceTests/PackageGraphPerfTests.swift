@@ -23,8 +23,9 @@ class PackageGraphPerfTests: XCTestCasePerf {
         let N = 100
         let files = (1...N).map { "/Foo\($0)/source.swift" }
         let fs = InMemoryFileSystem(emptyFiles: files)
-        
-        var externalManifests = [Manifest]()
+
+        let identityResolver = DefaultIdentityResolver()
+        var externalManifests = OrderedDictionary<PackageIdentity, Manifest>()
         var rootManifest: Manifest!
         for pkg in 1...N {
             let name = "Foo\(pkg)"
@@ -39,7 +40,7 @@ class PackageGraphPerfTests: XCTestCasePerf {
             } else {
                 let depName = "Foo\(pkg + 1)"
                 let depUrl = "/\(depName)"
-                dependencies = [.scm(deprecatedName: depName, location: depUrl, requirement: .upToNextMajor(from: "1.0.0"))]
+                dependencies = [.localSourceControl(deprecatedName: depName, path: .init(depUrl), requirement: .upToNextMajor(from: "1.0.0"))]
                 targets = [try TargetDescription(name: name, dependencies: [.byName(name: depName, condition: nil)], path: ".")]
             }
             // Create manifest.
@@ -47,7 +48,7 @@ class PackageGraphPerfTests: XCTestCasePerf {
             let manifest = Manifest(
                 name: name,
                 path: AbsolutePath(location).appending(component: Manifest.filename),
-                packageKind: isRoot ? .root : .remote,
+                packageKind: isRoot ? .root(.init(location)) : .localSourceControl(.init(location)),
                 packageLocation: location,
                 platforms: [],
                 version: "1.0.0",
@@ -61,11 +62,10 @@ class PackageGraphPerfTests: XCTestCasePerf {
             if isRoot {
                 rootManifest = manifest
             } else {
-                externalManifests.append(manifest)
+                let identity = try identityResolver.resolveIdentity(for: manifest.packageKind)
+                externalManifests[identity] = manifest
             }
         }
-
-        let identityResolver = DefaultIdentityResolver()
 
         measure {
             let observability = ObservabilitySystem.bootstrapForTesting()

@@ -175,6 +175,7 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
         }
     }
 
+    // FIXME: use Foundation.URL instead of string
     internal static func apiURL(_ url: String) -> Foundation.URL? {
         do {
             let regex = try NSRegularExpression(pattern: #"([^/@]+)[:/]([^:/]+)/([^/.]+)(\.git)?$"#, options: .caseInsensitive)

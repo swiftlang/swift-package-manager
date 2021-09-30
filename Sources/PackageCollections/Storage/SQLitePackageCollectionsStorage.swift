@@ -308,7 +308,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                     while let row = try statement.step() {
                         if let collectionData = Data(base64Encoded: row.string(at: 0)),
                             let collection = try? self.decoder.decode(Model.CollectionIdentifier.self, from: collectionData) {
-                            matches.append((collection: collection, package: PackageIdentity(url: row.string(at: 1))))
+                            matches.append((collection: collection, package: PackageIdentity(urlString: row.string(at: 1))))
                             matchingCollections.insert(collection)
                         }
                     }
@@ -425,7 +425,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                     while let row = try statement.step() {
                         if let collectionData = Data(base64Encoded: row.string(at: 0)),
                             let collection = try? self.decoder.decode(Model.CollectionIdentifier.self, from: collectionData) {
-                            matches.append((collection: collection, package: PackageIdentity(url: row.string(at: 1))))
+                            matches.append((collection: collection, package: PackageIdentity(urlString: row.string(at: 1))))
                             matchingCollections.insert(collection)
                         }
                     }
@@ -575,7 +575,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                                 let collection = try? self.decoder.decode(Model.CollectionIdentifier.self, from: collectionData) {
                                 matches.append((
                                     collection: collection,
-                                    package: PackageIdentity(url: row.string(at: 1)),
+                                    package: PackageIdentity(urlString: row.string(at: 1)),
                                     targetName: row.string(at: 2)
                                 ))
                                 matchingCollections.insert(collection)
@@ -859,7 +859,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
 
                             if let collectionData = Data(base64Encoded: row.string(at: 0)),
                                 let collection = try? self.decoder.decode(Model.CollectionIdentifier.self, from: collectionData) {
-                                let collectionPackage = CollectionPackage(collection: collection, package: PackageIdentity(url: row.string(at: 1)))
+                                let collectionPackage = CollectionPackage(collection: collection, package: PackageIdentity(urlString: row.string(at: 1)))
                                 self.targetTrie.insert(word: targetName.lowercased(), foundIn: collectionPackage)
                             }
                         }

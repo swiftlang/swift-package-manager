@@ -77,7 +77,7 @@ class InMemoryGitRepositoryTests: XCTestCase {
         let v2 = "2.0.0"
         let repo = InMemoryGitRepository(path: .root, fs: InMemoryFileSystem())
 
-        let specifier = RepositorySpecifier(url: "/foo")
+        let specifier = RepositorySpecifier(path: .init("/foo"))
         try repo.createDirectory(AbsolutePath("/new-dir/subdir"), recursive: true)
         let filePath = AbsolutePath("/new-dir/subdir").appending(component: "new-file.txt")
         try repo.writeFileContents(filePath, bytes: "one")

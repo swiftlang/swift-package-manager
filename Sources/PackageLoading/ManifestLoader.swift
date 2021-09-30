@@ -157,11 +157,11 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             let loader = ManifestLoader(toolchain: toolchain)
             let toolsVersion = try ToolsVersionLoader().load(at: path, fileSystem: fileSystem)
             let packageLocation = fileSystem.isFile(path) ? path.parentDirectory : path
-            let packageIdentity = identityResolver.resolveIdentity(for: packageLocation)
+            let packageIdentity = try identityResolver.resolveIdentity(for: packageLocation)
             loader.load(
                 at: path,
                 packageIdentity: packageIdentity,
-                packageKind: .root,
+                packageKind: .root(packageLocation),
                 packageLocation: packageLocation.pathString,
                 version: nil,
                 revision: nil,
@@ -239,7 +239,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                 let parsedManifest = try self.parseAndCacheManifest(
                     at: path,
                     packageIdentity: packageIdentity,
-                    packageLocation: packageLocation,
+                    packageKind: packageKind,
                     toolsVersion: toolsVersion,
                     identityResolver: identityResolver,
                     fileSystem: fileSystem,
@@ -429,7 +429,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                     }
                 case .byName(let name, _):
                     // Don't diagnose root manifests so we can emit a better diagnostic during package loading.
-                    if manifest.packageKind != .root &&
+                    if !manifest.packageKind.isRoot &&
                        !manifest.targetMap.keys.contains(name) &&
                        manifest.packageDependency(referencedBy: targetDependency) == nil
                     {
@@ -448,7 +448,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
     private func parseManifest(
         _ result: EvaluationResult,
         packageIdentity: PackageIdentity,
-        packageLocation: String,
+        packageKind: PackageReference.Kind,
         toolsVersion: ToolsVersion,
         identityResolver: IdentityResolver,
         fileSystem: FileSystem,
@@ -479,7 +479,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
         return try ManifestJSONParser.parse(v4: manifestJSON,
                                             toolsVersion: toolsVersion,
-                                            packageLocation: packageLocation,
+                                            packageKind: packageKind,
                                             identityResolver: identityResolver,
                                             fileSystem: fileSystem)
     }
@@ -487,7 +487,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
     private func parseAndCacheManifest(
         at path: AbsolutePath,
         packageIdentity: PackageIdentity,
-        packageLocation: String,
+        packageKind: PackageReference.Kind,
         toolsVersion: ToolsVersion,
         identityResolver: IdentityResolver,
         fileSystem: FileSystem,
@@ -526,7 +526,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                 return try self.parseManifest(
                     result,
                     packageIdentity: packageIdentity,
-                    packageLocation: packageLocation,
+                    packageKind: packageKind,
                     toolsVersion: toolsVersion,
                     identityResolver: identityResolver,
                     fileSystem: fileSystem,
@@ -546,7 +546,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         let parseManifest = try self.parseManifest(
             result,
             packageIdentity: packageIdentity,
-            packageLocation: packageLocation,
+            packageKind: packageKind,
             toolsVersion: toolsVersion,
             identityResolver: identityResolver,
             fileSystem: fileSystem,

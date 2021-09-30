@@ -129,7 +129,12 @@ fileprivate extension SourceCodeFragment {
         case .fileSystem(let settings):
             params.append(SourceCodeFragment(key: "path", string: settings.path.pathString))
         case .sourceControl(let settings):
-            params.append(SourceCodeFragment(key: "url", string: settings.location))
+            switch settings.location {
+            case .local(let path):
+                params.append(SourceCodeFragment(key: "url", string: path.pathString))
+            case .remote(let url):
+                params.append(SourceCodeFragment(key: "url", string: url.absoluteString))
+            }
             switch settings.requirement {
             case .exact(let version):
                 params.append(SourceCodeFragment(enum: "exact", string: "\(version)"))

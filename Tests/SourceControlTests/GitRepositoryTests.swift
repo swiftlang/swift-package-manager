@@ -19,13 +19,29 @@ import SPMTestSupport
 class GitRepositoryTests: XCTestCase {
     /// Test the basic provider functions.
     func testRepositorySpecifier() {
-        let a = RepositorySpecifier(url: "a")
-        let b = RepositorySpecifier(url: "b")
-        let a2 = RepositorySpecifier(url: "a")
-        XCTAssertEqual(a, a)
-        XCTAssertNotEqual(a, b)
-        XCTAssertEqual(a, a2)
-        XCTAssertEqual(Set([a]), Set([a2]))
+        do {
+            let s1 = RepositorySpecifier(url: URL(string: "a")!)
+            let s2 = RepositorySpecifier(url: URL(string: "a")!)
+            let s3 = RepositorySpecifier(url: URL(string: "b")!)
+
+            XCTAssertEqual(s1, s1)
+            XCTAssertEqual(s1, s2)
+            XCTAssertEqual(Set([s1]), Set([s2]))
+            XCTAssertNotEqual(s1, s3)
+            XCTAssertNotEqual(s2, s3)
+        }
+
+        do {
+            let s1 = RepositorySpecifier(path: .init("/a"))
+            let s2 = RepositorySpecifier(path: .init("/a"))
+            let s3 = RepositorySpecifier(path: .init("/b"))
+
+            XCTAssertEqual(s1, s1)
+            XCTAssertEqual(s1, s2)
+            XCTAssertEqual(Set([s1]), Set([s2]))
+            XCTAssertNotEqual(s1, s3)
+            XCTAssertNotEqual(s2, s3)
+        }
     }
 
     /// Test the basic provider functions.
@@ -39,7 +55,7 @@ class GitRepositoryTests: XCTestCase {
             let testCheckoutPath = path.appending(component: "checkout")
             let provider = GitRepositoryProvider()
             XCTAssertTrue(try provider.workingCopyExists(at: testRepoPath))
-            let repoSpec = RepositorySpecifier(url: testRepoPath.pathString)
+            let repoSpec = RepositorySpecifier(path: testRepoPath)
             try! provider.fetch(repository: repoSpec, to: testCheckoutPath)
 
             // Verify the checkout was made.
@@ -195,7 +211,7 @@ class GitRepositoryTests: XCTestCase {
             // Get the the repository via the provider. the provider.
             let testClonePath = path.appending(component: "clone")
             let provider = GitRepositoryProvider()
-            let repoSpec = RepositorySpecifier(url: testRepoPath.pathString)
+            let repoSpec = RepositorySpecifier(path: testRepoPath)
             try provider.fetch(repository: repoSpec, to: testClonePath)
             let repository = provider.open(repository: repoSpec, at: testClonePath)
 
@@ -272,7 +288,7 @@ class GitRepositoryTests: XCTestCase {
             // Fetch the repository using the provider.
             let testClonePath = path.appending(component: "clone")
             let provider = GitRepositoryProvider()
-            let repoSpec = RepositorySpecifier(url: testRepoPath.pathString)
+            let repoSpec = RepositorySpecifier(path: testRepoPath)
             try provider.fetch(repository: repoSpec, to: testClonePath)
 
             // Clone off a checkout.
@@ -311,7 +327,7 @@ class GitRepositoryTests: XCTestCase {
             // Clone it somewhere.
             let testClonePath = path.appending(component: "clone")
             let provider = GitRepositoryProvider()
-            let repoSpec = RepositorySpecifier(url: testRepoPath.pathString)
+            let repoSpec = RepositorySpecifier(path: testRepoPath)
             try provider.fetch(repository: repoSpec, to: testClonePath)
             let clonedRepo = provider.open(repository: repoSpec, at: testClonePath)
             XCTAssertEqual(try clonedRepo.getTags(), ["1.2.3"])
@@ -352,7 +368,7 @@ class GitRepositoryTests: XCTestCase {
             // Clone it somewhere.
             let testClonePath = path.appending(component: "clone")
             let provider = GitRepositoryProvider()
-            let repoSpec = RepositorySpecifier(url: testBareRepoPath.pathString)
+            let repoSpec = RepositorySpecifier(path: testBareRepoPath)
             try provider.fetch(repository: repoSpec, to: testClonePath)
 
             // Clone off a checkout.
@@ -511,7 +527,7 @@ class GitRepositoryTests: XCTestCase {
             // Create repos: foo and bar, foo will have bar as submodule and then later
             // the submodule ref will be updated in foo.
             let fooPath = path.appending(component: "foo-original")
-            let fooSpecifier = RepositorySpecifier(url: fooPath.pathString)
+            let fooSpecifier = RepositorySpecifier(path: fooPath)
             let fooRepoPath = path.appending(component: "foo-repo")
             let fooWorkingPath = path.appending(component: "foo-working")
             let barPath = path.appending(component: "bar-original")
@@ -597,7 +613,7 @@ class GitRepositoryTests: XCTestCase {
             // Clone it somewhere.
             let testClonePath = path.appending(component: "clone")
             let provider = GitRepositoryProvider()
-            let repoSpec = RepositorySpecifier(url: testRepoPath.pathString)
+            let repoSpec = RepositorySpecifier(path: testRepoPath)
             try provider.fetch(repository: repoSpec, to: testClonePath)
             let clonedRepo = provider.open(repository: repoSpec, at: testClonePath)
             XCTAssertEqual(try clonedRepo.getTags(), ["1.2.3"])
@@ -670,7 +686,7 @@ class GitRepositoryTests: XCTestCase {
             // Clone it somewhere.
             let testClonePath = path.appending(component: "clone")
             let provider = GitRepositoryProvider()
-            let repoSpec = RepositorySpecifier(url: testRepoPath.pathString)
+            let repoSpec = RepositorySpecifier(path: testRepoPath)
             try provider.fetch(repository: repoSpec, to: testClonePath)
             let clonedRepo = provider.open(repository: repoSpec, at: testClonePath)
             XCTAssertEqual(try clonedRepo.getTags(), [])

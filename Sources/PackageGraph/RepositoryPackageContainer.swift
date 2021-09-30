@@ -56,6 +56,7 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
     }
 
     public let package: PackageReference
+    private let repositorySpecifier: RepositorySpecifier
     private let repository: Repository
     private let identityResolver: IdentityResolver
     private let manifestLoader: ManifestLoaderProtocol
@@ -81,9 +82,13 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
         manifestLoader: ManifestLoaderProtocol,
         toolsVersionLoader: ToolsVersionLoaderProtocol,
         currentToolsVersion: ToolsVersion
-    ) {
+    ) throws {
         self.package = package
         self.identityResolver = identityResolver
+        guard let repositorySpecifier = package.repositorySpecifier else {
+            throw InternalError("invalid package type \(package.kind)")
+        }
+        self.repositorySpecifier = repositorySpecifier
         self.repository = repository
         self.manifestLoader = manifestLoader
         self.toolsVersionLoader = toolsVersionLoader
@@ -395,10 +400,32 @@ public class RepositoryPackageContainerProvider: PackageContainerProvider {
         on queue: DispatchQueue,
         completion: @escaping (Result<PackageContainer, Swift.Error>) -> Void
     ) {
-        // If the container is local, just create and return a local package container.
-        if package.kind != .remote {
-            return queue.async {
-                let container = LocalPackageContainer(
+        if let repositorySpecifier = package.repositorySpecifier {
+            // Resolve the container using the repository manager.
+            repositoryManager.lookup(repository: repositorySpecifier, skipUpdate: skipUpdate, on: queue) { result in
+                queue.async {
+                    // Create the container wrapper.
+                    let result = result.tryMap { handle -> PackageContainer in
+                        // Open the repository.
+                        //
+                        // FIXME: Do we care about holding this open for the lifetime of the container.
+                        let repository = try handle.open()
+                        return try RepositoryPackageContainer(
+                            package: package,
+                            identityResolver: self.identityResolver,
+                            repository: repository,
+                            manifestLoader: self.manifestLoader,
+                            toolsVersionLoader: self.toolsVersionLoader,
+                            currentToolsVersion: self.currentToolsVersion
+                        )
+                    }
+                    completion(result)
+                }
+            }
+        } else  {
+            // If the container is local, just create and return a local package container.
+            do {
+                let container = try LocalPackageContainer(
                     package: package,
                     identityResolver: self.identityResolver,
                     manifestLoader: self.manifestLoader,
@@ -406,28 +433,8 @@ public class RepositoryPackageContainerProvider: PackageContainerProvider {
                     currentToolsVersion: self.currentToolsVersion,
                     fileSystem: self.fileSystem)
                 completion(.success(container))
-            }
-        }
-
-        // Resolve the container using the repository manager.
-        repositoryManager.lookup(repository: .init(url: package.location), skipUpdate: skipUpdate, on: queue) { result in
-            queue.async {
-                // Create the container wrapper.
-                let result = result.tryMap { handle -> PackageContainer in
-                    // Open the repository.
-                    //
-                    // FIXME: Do we care about holding this open for the lifetime of the container.
-                    let repository = try handle.open()
-                    return RepositoryPackageContainer(
-                        package: package,
-                        identityResolver: self.identityResolver,
-                        repository: repository,
-                        manifestLoader: self.manifestLoader,
-                        toolsVersionLoader: self.toolsVersionLoader,
-                        currentToolsVersion: self.currentToolsVersion
-                    )
-                }
-                completion(result)
+            } catch {
+                completion(.failure(error))
             }
         }
     }
@@ -461,6 +468,21 @@ extension Git {
             return versionSpecificKnownVersions
         } else {
             return knownVersions
+        }
+    }
+}
+
+private extension PackageReference {
+    var repositorySpecifier: RepositorySpecifier? {
+        switch self.kind {
+        case .root:
+            return .none
+        case .fileSystem:
+            return .none
+        case .localSourceControl(let path):
+            return .init(path: path)
+        case .remoteSourceControl(let url):
+            return .init(url: url)
         }
     }
 }

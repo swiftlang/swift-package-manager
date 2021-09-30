@@ -80,16 +80,30 @@ extension ManifestLoader {
     public func load(
         at path: TSCBasic.AbsolutePath,
         packageKind: PackageModel.PackageReference.Kind,
-        packageLocation: String,
         toolsVersion: PackageModel.ToolsVersion,
         identityResolver: IdentityResolver = DefaultIdentityResolver(),
         fileSystem: PackageLoading.FileSystem,
         diagnostics: TSCBasic.DiagnosticsEngine? = nil
     ) throws -> Manifest{
-        try tsc_await {
-            // FIXME: take identity?
+        let packageIdentity: PackageIdentity
+        let packageLocation: String
+        switch packageKind {
+        case .root(let path):
+            packageIdentity = try identityResolver.resolveIdentity(for: path)
+            packageLocation = path.pathString
+        case .fileSystem(let path):
+            packageIdentity = try identityResolver.resolveIdentity(for: path)
+            packageLocation = path.pathString
+        case .localSourceControl(let path):
+            packageIdentity = try identityResolver.resolveIdentity(for: path)
+            packageLocation = path.pathString
+        case .remoteSourceControl(let url):
+            packageIdentity = try identityResolver.resolveIdentity(for: url)
+            packageLocation = url.absoluteString
+        }
+        return try tsc_await {
             self.load(at: path,
-                      packageIdentity: identityResolver.resolveIdentity(for: packageLocation),
+                      packageIdentity: packageIdentity,
                       packageKind: packageKind,
                       packageLocation: packageLocation,
                       version: nil,

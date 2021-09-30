@@ -109,7 +109,12 @@ fileprivate struct DescribedPackage: Encodable {
             case .fileSystem(let settings):
                 self = .fileSystem(identity: settings.identity, path: settings.path)
             case .sourceControl(let settings):
-                self = .sourceControl(identity: settings.identity, location: settings.location, requirement: settings.requirement)
+                switch settings.location {
+                case .local(let path):
+                    self = .sourceControl(identity: settings.identity, location: path.pathString, requirement: settings.requirement)
+                case .remote(let url):
+                    self = .sourceControl(identity: settings.identity, location: url.absoluteString, requirement: settings.requirement)
+                }
             case .registry(let settings):
                 self = .registry(identity: settings.identity, requirement: settings.requirement)
             }
