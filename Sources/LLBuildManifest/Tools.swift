@@ -8,6 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import Basics
 import class Foundation.ProcessInfo
 import TSCBasic
 
@@ -97,7 +98,7 @@ public struct ShellTool: ToolProtocol {
     public var inputs: [Node]
     public var outputs: [Node]
     public var arguments: [String]
-    public var environment: [String: String]
+    public var environment: EnvironmentVariables
     public var workingDirectory: String?
     public var allowMissingInputs: Bool
 
@@ -106,7 +107,7 @@ public struct ShellTool: ToolProtocol {
         inputs: [Node],
         outputs: [Node],
         arguments: [String],
-        environment: [String: String] = [:],
+        environment: EnvironmentVariables = .empty(),
         workingDirectory: String? = nil,
         allowMissingInputs: Bool = false
     ) {

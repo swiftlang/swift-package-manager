@@ -8,6 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import Basics
 import Build
 import Commands
 import Foundation
@@ -22,7 +23,7 @@ final class APIDiffTests: XCTestCase {
     private func execute(
         _ args: [String],
         packagePath: AbsolutePath? = nil,
-        env: [String: String]? = nil
+        env: EnvironmentVariables? = nil
     ) throws -> (stdout: String, stderr: String) {
         var environment = env ?? [:]
         // don't ignore local packages when caching

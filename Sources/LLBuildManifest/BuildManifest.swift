@@ -8,6 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import Basics
 import struct TSCBasic.AbsolutePath
 
 public struct BuildManifest {
@@ -96,7 +97,7 @@ public struct BuildManifest {
         inputs: [Node],
         outputs: [Node],
         arguments: [String],
-        environment: [String: String] = [:],
+        environment: EnvironmentVariables = .empty(),
         workingDirectory: String? = nil,
         allowMissingInputs: Bool = false
     ) {

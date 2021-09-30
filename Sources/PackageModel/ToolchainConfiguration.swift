@@ -8,6 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
+import Basics
 import TSCBasic
 
 /// Toolchain configuration required for evaluation of swift code such as the manifests or plugins
@@ -22,7 +23,7 @@ public struct ToolchainConfiguration {
     public var swiftCompilerFlags: [String]
 
     /// Environment to pass to the Swift compiler (defaults to the inherited environment).
-    public var swiftCompilerEnvironment: [String: String]
+    public var swiftCompilerEnvironment: EnvironmentVariables
 
     /// SwiftPM library paths.
     public var swiftPMLibrariesLocation: SwiftPMLibrariesLocation
@@ -47,7 +48,7 @@ public struct ToolchainConfiguration {
     public init(
         swiftCompilerPath: AbsolutePath,
         swiftCompilerFlags: [String] = [],
-        swiftCompilerEnvironment: [String: String] = ProcessEnv.vars,
+        swiftCompilerEnvironment: EnvironmentVariables = .process(),
         swiftPMLibrariesLocation: SwiftPMLibrariesLocation? = nil,
         sdkRootPath: AbsolutePath? = nil,
         xctestPath: AbsolutePath? = nil
@@ -69,7 +70,7 @@ public struct ToolchainConfiguration {
     public init(
         swiftCompiler: AbsolutePath,
         swiftCompilerFlags: [String] = [],
-        swiftCompilerEnvironment: [String: String] = ProcessEnv.vars,
+        swiftCompilerEnvironment: EnvironmentVariables = .process(),
         libDir: AbsolutePath? = nil,
         binDir: AbsolutePath? = nil,
         sdkRoot: AbsolutePath? = nil,

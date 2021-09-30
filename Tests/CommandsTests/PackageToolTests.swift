@@ -27,7 +27,7 @@ final class PackageToolTests: XCTestCase {
     private func execute(
         _ args: [String],
         packagePath: AbsolutePath? = nil,
-        env: [String: String]? = nil
+        env: EnvironmentVariables? = nil
     ) throws -> (stdout: String, stderr: String) {
         var environment = env ?? [:]
         // don't ignore local packages when caching

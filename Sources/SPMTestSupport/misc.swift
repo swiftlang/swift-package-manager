@@ -8,6 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
+import Basics
 import class Foundation.NSDate
 import class Foundation.Thread
 import PackageGraph
@@ -146,7 +147,7 @@ public func executeSwiftBuild(
     Xcc: [String] = [],
     Xld: [String] = [],
     Xswiftc: [String] = [],
-    env: [String: String]? = nil
+    env: EnvironmentVariables? = nil
 ) throws -> (stdout: String, stderr: String) {
     let args = swiftArgs(configuration: configuration, extraArgs: extraArgs, Xcc: Xcc, Xld: Xld, Xswiftc: Xswiftc)
     return try SwiftPMProduct.SwiftBuild.execute(args, packagePath: packagePath, env: env)
@@ -161,7 +162,7 @@ public func executeSwiftRun(
     Xcc: [String] = [],
     Xld: [String] = [],
     Xswiftc: [String] = [],
-    env: [String: String]? = nil
+    env: EnvironmentVariables? = nil
 ) throws -> (stdout: String, stderr: String) {
     var args = swiftArgs(configuration: configuration, extraArgs: extraArgs, Xcc: Xcc, Xld: Xld, Xswiftc: Xswiftc)
     args.append(executable)
@@ -176,7 +177,7 @@ public func executeSwiftPackage(
     Xcc: [String] = [],
     Xld: [String] = [],
     Xswiftc: [String] = [],
-    env: [String: String]? = nil
+    env: EnvironmentVariables? = nil
 ) throws -> (stdout: String, stderr: String) {
     let args = swiftArgs(configuration: configuration, extraArgs: extraArgs, Xcc: Xcc, Xld: Xld, Xswiftc: Xswiftc)
     return try SwiftPMProduct.SwiftPackage.execute(args, packagePath: packagePath, env: env)
@@ -190,7 +191,7 @@ public func executeSwiftTest(
     Xcc: [String] = [],
     Xld: [String] = [],
     Xswiftc: [String] = [],
-    env: [String: String]? = nil
+    env: EnvironmentVariables? = nil
 ) throws -> (stdout: String, stderr: String) {
     let args = swiftArgs(configuration: configuration, extraArgs: extraArgs, Xcc: Xcc, Xld: Xld, Xswiftc: Xswiftc)
     return try SwiftPMProduct.SwiftTest.execute(args, packagePath: packagePath, env: env)
