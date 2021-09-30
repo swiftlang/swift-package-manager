@@ -43,13 +43,12 @@ final class AuthorizationProviderTests: XCTestCase {
     }
     
     func testKeychain() throws {
-        #if os(macOS) && ENABLE_KEYCHAIN_TEST
-        #else
+        #if !os(macOS) || !ENABLE_KEYCHAIN_TEST
         try XCTSkipIf(true)
-        #endif
-        
+        #else
         var provider = KeychainAuthorizationProvider()
         self.run(for: &provider)
+        #endif
     }
     
     private func run<Provider>(for provider: inout Provider) where Provider: AuthorizationProvider {
