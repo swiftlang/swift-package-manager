@@ -4271,8 +4271,8 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        .scm(path: "./A", requirement: .exact("1.0.0")),
-                        .scm(path: "./B", requirement: .exact("1.0.0")),
+                        .sourceControl(path: "./A", requirement: .exact("1.0.0")),
+                        .sourceControl(path: "./B", requirement: .exact("1.0.0")),
                     ]
                 ),
             ],
@@ -4339,7 +4339,7 @@ final class WorkspaceTests: XCTestCase {
         XCTAssertFalse(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/A/A2.artifactbundle")))
         XCTAssertFalse(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/B/B.xcframework")))
 
-        workspace.checkPackageGraph(roots: ["Foo"]) { graph, diagnostics in
+        try workspace.checkPackageGraph(roots: ["Foo"]) { graph, diagnostics in
             XCTAssertTrue(diagnostics.isEmpty, diagnostics.description)
 
             // Ensure that the artifacts have been properly extracted
@@ -4484,7 +4484,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        .scm(path: "./A", requirement: .exact("1.0.0"))
+                        .sourceControl(path: "./A", requirement: .exact("1.0.0"))
                     ]
                 ),
             ],
@@ -4545,10 +4545,10 @@ final class WorkspaceTests: XCTestCase {
         let a4FrameworkArchivePath = aFrameworksPath.appending(component: "A4.zip")
         try fs.writeFileContents(a4FrameworkArchivePath, bytes: ByteString([0xA4]))
 
-        // Pin A to 1.0.0
-        let aURL = workspace.urlForPackage(withName: "A")
-        let aRef = PackageReference.remote(identity: PackageIdentity(url: aURL), location: aURL)
-        let aRepo = workspace.repoProvider.specifierMap[RepositorySpecifier(url: aURL)]!
+        // Pin A to 1.0.0, Checkout B to 1.0.0
+        let aPath = workspace.pathToPackage(withName: "A")
+        let aRef = PackageReference.localSourceControl(identity: PackageIdentity(path: aPath), path: aPath)
+        let aRepo = workspace.repoProvider.specifierMap[RepositorySpecifier(path: aPath)]!
         let aRevision = try aRepo.resolveRevision(tag: "1.0.0")
         let aState = CheckoutState.version("1.0.0", revision: aRevision)
 
@@ -4594,7 +4594,7 @@ final class WorkspaceTests: XCTestCase {
         try fs.createDirectory(workspace.artifactsDir.appending(components: "A", a3FrameworkName, "remote"), recursive: true)
         try fs.createDirectory(workspace.artifactsDir.appending(components: "A", a4FrameworkName, "local-archived"), recursive: true)
 
-        workspace.checkPackageGraph(roots: ["Foo"]) { graph, diagnostics in
+        try workspace.checkPackageGraph(roots: ["Foo"]) { graph, diagnostics in
             XCTAssertTrue(diagnostics.isEmpty, diagnostics.description)
 
             // Ensure that the original archives have been untouched
@@ -4678,7 +4678,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        .scm(path: "./A", requirement: .exact("1.0.0"))
+                        .sourceControl(path: "./A", requirement: .exact("1.0.0"))
                     ]
                 ),
             ],
@@ -4705,11 +4705,11 @@ final class WorkspaceTests: XCTestCase {
         try fs.createDirectory(aFrameworksPath, recursive: true)
         let a1FrameworkArchivePath = aFrameworksPath.appending(component: "A1.zip")
         try fs.writeFileContents(a1FrameworkArchivePath, bytes: ByteString([0xA1]))
-
-        // Pin A to 1.0.0
-        let aURL = workspace.urlForPackage(withName: "A")
-        let aRef = PackageReference.remote(identity: PackageIdentity(url: aURL), location: aURL)
-        let aRepo = workspace.repoProvider.specifierMap[RepositorySpecifier(url: aURL)]!
+        
+        // Pin A to 1.0.0, Checkout B to 1.0.0
+        let aPath = workspace.pathToPackage(withName: "A")
+        let aRef = PackageReference.localSourceControl(identity: PackageIdentity(path: aPath), path: aPath)
+        let aRepo = workspace.repoProvider.specifierMap[RepositorySpecifier(path: aPath)]!
         let aRevision = try aRepo.resolveRevision(tag: "1.0.0")
         let aState = CheckoutState.version("1.0.0", revision: aRevision)
 
@@ -4732,7 +4732,7 @@ final class WorkspaceTests: XCTestCase {
         XCTAssertTrue(fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/A/A1.xcframework/old-content")))
         XCTAssertFalse(fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/A/A1.xcframework/new-content")))
 
-        workspace.checkPackageGraph(roots: ["Foo"]) { graph, diagnostics in
+        try workspace.checkPackageGraph(roots: ["Foo"]) { graph, diagnostics in
             XCTAssertTrue(diagnostics.isEmpty, diagnostics.description)
             
             XCTAssertTrue(fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/A/A1.xcframework/new-content")))
@@ -4776,7 +4776,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        .scm(path: "./A", requirement: .exact("1.0.0"))
+                        .sourceControl(path: "./A", requirement: .exact("1.0.0"))
                     ]
                 ),
             ],
@@ -4833,7 +4833,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        .scm(path: "./A", requirement: .exact("1.0.0"))
+                        .sourceControl(path: "./A", requirement: .exact("1.0.0"))
                     ]
                 ),
             ],
@@ -4908,7 +4908,7 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        .scm(path: "./A", requirement: .exact("1.0.0"))
+                        .sourceControl(path: "./A", requirement: .exact("1.0.0"))
                     ]
                 ),
             ],
