@@ -67,7 +67,7 @@ public struct NetrcAuthorizationProvider: AuthorizationProvider {
     public init(path: AbsolutePath, fileSystem: FileSystem) throws {
         self.path = path
         self.fileSystem = fileSystem
-        self.underlying = try Self.loadFromDisk(path: path)
+        self.underlying = try Self.load(from: path)
     }
     
     public mutating func addOrUpdate(for url: Foundation.URL, user: String, password: String, callback: @escaping (Result<Void, Error>) -> Void) {
@@ -97,7 +97,7 @@ public struct NetrcAuthorizationProvider: AuthorizationProvider {
         do {
             try self.saveToDisk(machines: machines)
             // At this point the netrc file should exist and non-empty
-            guard let netrc = try Self.loadFromDisk(path: self.path) else {
+            guard let netrc = try Self.load(from: self.path) else {
                 throw AuthorizationProviderError.other("Failed to update netrc file at \(self.path)")
             }
             self.underlying = netrc
@@ -135,7 +135,7 @@ public struct NetrcAuthorizationProvider: AuthorizationProvider {
         }
     }
     
-    private static func loadFromDisk(path: AbsolutePath) throws -> TSCUtility.Netrc? {
+    private static func load(from path: AbsolutePath) throws -> TSCUtility.Netrc? {
         do {
             return try TSCUtility.Netrc.load(fromFileAtPath: path).get()
         } catch {
