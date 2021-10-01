@@ -43,6 +43,15 @@ extension AuthorizationProvider {
     }
 }
 
+extension Foundation.URL {
+    var authenticationID: String? {
+        guard let host = host?.lowercased() else {
+            return nil
+        }
+        return host.isEmpty ? nil : host
+    }
+}
+
 // MARK: - netrc
 
 public struct NetrcAuthorizationProvider: AuthorizationProvider {
@@ -103,7 +112,7 @@ public struct NetrcAuthorizationProvider: AuthorizationProvider {
     }
     
     private func machineName(for url: Foundation.URL) -> String? {
-        url.host?.lowercased()
+        url.authenticationID
     }
 
     private func machine(for url: Foundation.URL) -> TSCUtility.Netrc.Machine? {
@@ -248,7 +257,7 @@ public struct KeychainAuthorizationProvider: AuthorizationProvider {
     }
     
     private func server(for url: Foundation.URL) -> String? {
-        url.host?.lowercased()
+        url.authenticationID
     }
     
     private func `protocol`(for url: Foundation.URL) -> CFString {
