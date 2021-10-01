@@ -24,10 +24,10 @@ public protocol AuthorizationProvider {
 }
 
 public enum AuthorizationProviderError: Error {
-    case noURLHost
+    case invalidURLHost
     case notFound
-    case unexpectedPasswordData
-    case unexpectedError(String)
+    case cannotEncodePassword
+    case other(String)
 }
 
 extension AuthorizationProvider {
@@ -63,7 +63,7 @@ public struct NetrcAuthorizationProvider: AuthorizationProvider {
     
     public mutating func addOrUpdate(for url: Foundation.URL, user: String, password: String, callback: @escaping (Result<Void, Error>) -> Void) {
         guard let machineName = self.machineName(for: url) else {
-            return callback(.failure(AuthorizationProviderError.noURLHost))
+            return callback(.failure(AuthorizationProviderError.invalidURLHost))
         }
         let machine = TSCUtility.Netrc.Machine(name: machineName, login: user, password: password)
         
@@ -89,12 +89,12 @@ public struct NetrcAuthorizationProvider: AuthorizationProvider {
             try self.saveToDisk(machines: machines)
             // At this point the netrc file should exist and non-empty
             guard let netrc = try Self.loadFromDisk(path: self.path) else {
-                throw AuthorizationProviderError.unexpectedError("Failed to update netrc file at \(self.path)")
+                throw AuthorizationProviderError.other("Failed to update netrc file at \(self.path)")
             }
             self.underlying = netrc
             callback(.success(()))
         } catch {
-            callback(.failure(AuthorizationProviderError.unexpectedError("Failed to update netrc file at \(self.path): \(error)")))
+            callback(.failure(AuthorizationProviderError.other("Failed to update netrc file at \(self.path): \(error)")))
         }
     }
 
@@ -149,10 +149,10 @@ public struct KeychainAuthorizationProvider: AuthorizationProvider {
     
     public func addOrUpdate(for url: Foundation.URL, user: String, password: String, callback: @escaping (Result<Void, Error>) -> Void) {
         guard let server = self.server(for: url) else {
-            return callback(.failure(AuthorizationProviderError.noURLHost))
+            return callback(.failure(AuthorizationProviderError.invalidURLHost))
         }
         guard let passwordData = password.data(using: .utf8) else {
-            return callback(.failure(AuthorizationProviderError.unexpectedPasswordData))
+            return callback(.failure(AuthorizationProviderError.cannotEncodePassword))
         }
         let `protocol` = self.`protocol`(for: url)
         
@@ -181,14 +181,14 @@ public struct KeychainAuthorizationProvider: AuthorizationProvider {
                   let passwordData = existingItem[kSecValueData as String] as? Data,
                   let password = String(data: passwordData, encoding: String.Encoding.utf8),
                   let account = existingItem[kSecAttrAccount as String] as? String else {
-                throw AuthorizationProviderError.unexpectedError("Failed to extract credentials for server \(server) from keychain")
+                throw AuthorizationProviderError.other("Failed to extract credentials for server \(server) from keychain")
             }
             return (user: account, password: password)
         } catch {
             switch error {
             case AuthorizationProviderError.notFound:
                 ObservabilitySystem.topScope.emit(info: "No credentials found for server \(server) in keychain")
-            case AuthorizationProviderError.unexpectedError(let detail):
+            case AuthorizationProviderError.other(let detail):
                 ObservabilitySystem.topScope.emit(error: detail)
             default:
                 ObservabilitySystem.topScope.emit(error: "Failed to find credentials for server \(server) in keychain: \(error)")
@@ -206,7 +206,7 @@ public struct KeychainAuthorizationProvider: AuthorizationProvider {
         
         let status = SecItemAdd(query as CFDictionary, nil)
         guard status == errSecSuccess else {
-            throw AuthorizationProviderError.unexpectedError("Failed to save credentials for server \(server) to keychain: status \(status)")
+            throw AuthorizationProviderError.other("Failed to save credentials for server \(server) to keychain: status \(status)")
         }
     }
     
@@ -222,7 +222,7 @@ public struct KeychainAuthorizationProvider: AuthorizationProvider {
             throw AuthorizationProviderError.notFound
         }
         guard status == errSecSuccess else {
-            throw AuthorizationProviderError.unexpectedError("Failed to update credentials for server \(server) in keychain: status \(status)")
+            throw AuthorizationProviderError.other("Failed to update credentials for server \(server) in keychain: status \(status)")
         }
     }
     
@@ -241,7 +241,7 @@ public struct KeychainAuthorizationProvider: AuthorizationProvider {
             throw AuthorizationProviderError.notFound
         }
         guard status == errSecSuccess else {
-            throw AuthorizationProviderError.unexpectedError("Failed to find credentials for server \(server) in keychain: status \(status)")
+            throw AuthorizationProviderError.other("Failed to find credentials for server \(server) in keychain: status \(status)")
         }
         
         return item
