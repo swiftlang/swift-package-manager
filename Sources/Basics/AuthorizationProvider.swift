@@ -166,15 +166,10 @@ public struct KeychainAuthorizationProvider: AuthorizationProvider {
         let `protocol` = self.`protocol`(for: url)
         
         do {
-            try self.update(server: server, protocol: `protocol`, account: user, password: passwordData)
-            callback(.success(()))
-        } catch AuthorizationProviderError.notFound {
-            do {
+            if !(try self.update(server: server, protocol: `protocol`, account: user, password: passwordData)) {
                 try self.create(server: server, protocol: `protocol`, account: user, password: passwordData)
-                callback(.success(()))
-            } catch {
-                callback(.failure(error))
             }
+            callback(.success(()))
         } catch {
             callback(.failure(error))
         }
@@ -219,7 +214,7 @@ public struct KeychainAuthorizationProvider: AuthorizationProvider {
         }
     }
     
-    private func update(server: String, `protocol`: CFString, account: String, password: Data) throws {
+    private func update(server: String, `protocol`: CFString, account: String, password: Data) throws -> Bool {
         let query: [String: Any] = [kSecClass as String: kSecClassInternetPassword,
                                     kSecAttrServer as String: server,
                                     kSecAttrProtocol as String: `protocol`]
@@ -228,11 +223,12 @@ public struct KeychainAuthorizationProvider: AuthorizationProvider {
         
         let status = SecItemUpdate(query as CFDictionary, attributes as CFDictionary)
         guard status != errSecItemNotFound else {
-            throw AuthorizationProviderError.notFound
+            return false
         }
         guard status == errSecSuccess else {
             throw AuthorizationProviderError.other("Failed to update credentials for server \(server) in keychain: status \(status)")
         }
+        return true
     }
     
     private func search(server: String, `protocol`: CFString) throws -> CFTypeRef? {
