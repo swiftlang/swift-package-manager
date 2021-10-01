@@ -43,7 +43,7 @@ final class AuthorizationProviderTests: XCTestCase {
     }
     
     func testKeychain() throws {
-        #if !os(macOS) || !ENABLE_KEYCHAIN_TEST
+        #if !canImport(Security) || !ENABLE_KEYCHAIN_TEST
         try XCTSkipIf(true)
         #else
         var provider = KeychainAuthorizationProvider()

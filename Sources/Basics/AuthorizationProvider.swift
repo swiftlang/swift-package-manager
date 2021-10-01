@@ -10,7 +10,7 @@
 
 import struct Foundation.Data
 import struct Foundation.URL
-#if os(macOS)
+#if canImport(Security)
 import Security
 #endif
 
@@ -143,7 +143,7 @@ public struct NetrcAuthorizationProvider: AuthorizationProvider {
 
 // MARK: - Keychain
 
-#if os(macOS)
+#if canImport(Security)
 public struct KeychainAuthorizationProvider: AuthorizationProvider {
     public init() {}
     
