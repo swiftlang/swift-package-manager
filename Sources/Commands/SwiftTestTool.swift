@@ -204,7 +204,7 @@ public struct SwiftTestTool: SwiftCommand {
     
     public func run(_ swiftTool: SwiftTool) throws {
         // Validate commands arguments
-        try validateArguments(diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine())
+        try validateArguments(diagnostics: swiftTool.observabilityScope.makeDiagnosticsEngine())
 
         switch options.mode {
         case .listTests:
@@ -223,7 +223,11 @@ public struct SwiftTestTool: SwiftCommand {
             let workspace = try swiftTool.getActiveWorkspace()
             let root = try swiftTool.getWorkspaceRoot()
             let rootManifests = try temp_await {
-                workspace.loadRootManifests(packages: root.packages, diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(), completion: $0)
+                workspace.loadRootManifests(
+                    packages: root.packages,
+                    diagnostics: swiftTool.observabilityScope.makeDiagnosticsEngine(),
+                    completion: $0
+                )
             }
             guard let rootManifest = rootManifests.values.first else {
                 throw StringError("invalid manifests at \(root.packages)")
@@ -237,7 +241,7 @@ public struct SwiftTestTool: SwiftCommand {
             // to be removed in future releases
             // deprecation warning is emitted by validateArguments
             #if os(Linux)
-            ObservabilitySystem.topScope.emit(warning: "can't discover tests on Linux; please use this option on macOS instead")
+            swiftTool.observabilityScope.emit(warning: "can't discover tests on Linux; please use this option on macOS instead")
             #endif
             let graph = try swiftTool.loadPackageGraph()
             let testProducts = try buildTestsIfNeeded(swiftTool: swiftTool)
@@ -270,7 +274,7 @@ public struct SwiftTestTool: SwiftCommand {
             case .regex, .specific, .skip:
                 // If old specifier `-s` option was used, emit deprecation notice.
                 if case .specific = options.testCaseSpecifier {
-                    ObservabilitySystem.topScope.emit(warning: "'--specifier' option is deprecated; use '--filter' instead")
+                    swiftTool.observabilityScope.emit(warning: "'--specifier' option is deprecated; use '--filter' instead")
                 }
 
                 // Find the tests we need to run.
@@ -281,7 +285,7 @@ public struct SwiftTestTool: SwiftCommand {
 
                 // If there were no matches, emit a warning.
                 if tests.isEmpty {
-                    ObservabilitySystem.topScope.emit(.noMatchingTests)
+                    swiftTool.observabilityScope.emit(.noMatchingTests)
                     xctestArg = "''"
                 } else {
                     xctestArg = tests.map { $0.specifier }.joined(separator: ",")
@@ -297,7 +301,7 @@ public struct SwiftTestTool: SwiftCommand {
                 toolchain: toolchain,
                 testEnv: testEnv,
                 outputStream: swiftTool.outputStream,
-                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine()
+                diagnostics: swiftTool.observabilityScope.makeDiagnosticsEngine()
             )
 
             // Finally, run the tests.
@@ -321,7 +325,7 @@ public struct SwiftTestTool: SwiftCommand {
 
             // If there were no matches, emit a warning and exit.
             if tests.isEmpty {
-                ObservabilitySystem.topScope.emit(.noMatchingTests)
+                swiftTool.observabilityScope.emit(.noMatchingTests)
                 return
             }
 
@@ -338,7 +342,7 @@ public struct SwiftTestTool: SwiftCommand {
                 toolchain: toolchain,
                 xUnitOutput: options.xUnitOutput,
                 numJobs: options.numberOfWorkers ?? ProcessInfo.processInfo.activeProcessorCount,
-                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
+                diagnostics: swiftTool.observabilityScope.makeDiagnosticsEngine(),
                 options: swiftOptions,
                 buildParameters: buildParameters,
                 outputStream: swiftTool.outputStream
@@ -360,7 +364,11 @@ public struct SwiftTestTool: SwiftCommand {
         let workspace = try swiftTool.getActiveWorkspace()
         let root = try swiftTool.getWorkspaceRoot()
         let rootManifests = try temp_await {
-            workspace.loadRootManifests(packages: root.packages, diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(), completion: $0)
+            workspace.loadRootManifests(
+                packages: root.packages,
+                diagnostics: swiftTool.observabilityScope.makeDiagnosticsEngine(),
+                completion: $0
+            )
         }
         guard let rootManifest = rootManifests.values.first else {
             throw StringError("invalid manifests at \(root.packages)")

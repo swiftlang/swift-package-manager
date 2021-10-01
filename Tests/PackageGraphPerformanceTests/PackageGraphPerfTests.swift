@@ -68,12 +68,13 @@ class PackageGraphPerfTests: XCTestCasePerf {
         }
 
         measure {
-            let observability = ObservabilitySystem.bootstrapForTesting()
+            let observability = ObservabilitySystem.makeForTesting()
             let g = try! PackageGraph.load(
                 root: PackageGraphRoot(input: PackageGraphRootInput(packages: [rootManifest.path]), manifests: [rootManifest.path: rootManifest]),
                 identityResolver: identityResolver,
                 externalManifests: externalManifests,
-                fileSystem: fs
+                fileSystem: fs,
+                observabilityScope: observability.topScope
             )
             XCTAssertEqual(g.packages.count, N)
             XCTAssertNoDiagnostics(observability.diagnostics)

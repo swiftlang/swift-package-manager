@@ -135,8 +135,10 @@ class CertificatePolicyTests: XCTestCase {
 
             #if os(macOS)
             // The Apple root certs come preinstalled on Apple platforms and they are automatically trusted
-            let policy = DefaultCertificatePolicy(trustedRootCertsDir: nil, additionalTrustedRootCerts: nil,
-                                                  callbackQueue: callbackQueue)
+            let policy = DefaultCertificatePolicy(
+                trustedRootCertsDir: nil, additionalTrustedRootCerts: nil,
+                callbackQueue: callbackQueue
+            )
             XCTAssertThrowsError(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) }) { error in
                 guard CertificatePolicyError.invalidCertChain == error as? CertificatePolicyError else {
                     return XCTFail("Expected CertificatePolicyError.invalidCertChain")
@@ -181,15 +183,19 @@ class CertificatePolicyTests: XCTestCase {
             #if os(macOS)
             // The Apple root certs come preinstalled on Apple platforms and they are automatically trusted
             do {
-                let policy = DefaultCertificatePolicy(trustedRootCertsDir: nil, additionalTrustedRootCerts: nil,
-                                                      callbackQueue: callbackQueue)
+                let policy = DefaultCertificatePolicy(
+                    trustedRootCertsDir: nil, additionalTrustedRootCerts: nil,
+                    callbackQueue: callbackQueue
+                )
                 XCTAssertNoThrow(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) })
             }
 
             // What if `additionalTrustedRootCerts` has a cert that's already in the default trust store?
             do {
-                let policy = DefaultCertificatePolicy(trustedRootCertsDir: nil, additionalTrustedRootCerts: [rootCA],
-                                                      callbackQueue: callbackQueue)
+                let policy = DefaultCertificatePolicy(
+                    trustedRootCertsDir: nil, additionalTrustedRootCerts: [rootCA],
+                    callbackQueue: callbackQueue
+                )
                 XCTAssertNoThrow(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) })
             }
             #elseif os(Linux) || os(Windows) || os(Android)
@@ -246,15 +252,19 @@ class CertificatePolicyTests: XCTestCase {
             #if os(macOS)
             // The Apple root certs come preinstalled on Apple platforms and they are automatically trusted
             do {
-                let policy = AppleSwiftPackageCollectionCertificatePolicy(trustedRootCertsDir: nil, additionalTrustedRootCerts: nil,
-                                                                          callbackQueue: callbackQueue)
+                let policy = AppleSwiftPackageCollectionCertificatePolicy(
+                    trustedRootCertsDir: nil, additionalTrustedRootCerts: nil,
+                    callbackQueue: callbackQueue
+                )
                 XCTAssertNoThrow(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) })
             }
 
             // What if `additionalTrustedRootCerts` has a cert that's already in the default trust store?
             do {
-                let policy = AppleSwiftPackageCollectionCertificatePolicy(trustedRootCertsDir: nil, additionalTrustedRootCerts: [rootCA],
-                                                                          callbackQueue: callbackQueue)
+                let policy = AppleSwiftPackageCollectionCertificatePolicy(
+                    trustedRootCertsDir: nil, additionalTrustedRootCerts: [rootCA],
+                    callbackQueue: callbackQueue
+                )
                 XCTAssertNoThrow(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) })
             }
             #elseif os(Linux) || os(Windows) || os(Android)
@@ -308,18 +318,22 @@ class CertificatePolicyTests: XCTestCase {
 
             let certChain = [certificate, intermediateCA, rootCA]
 
-            #if os(macOS)
+#if os(macOS)
             // The Apple root certs come preinstalled on Apple platforms and they are automatically trusted
             do {
-                let policy = AppleDistributionCertificatePolicy(trustedRootCertsDir: nil, additionalTrustedRootCerts: nil,
-                                                                callbackQueue: callbackQueue)
+                let policy = AppleDistributionCertificatePolicy(
+                    trustedRootCertsDir: nil, additionalTrustedRootCerts: nil,
+                    callbackQueue: callbackQueue
+                )
                 XCTAssertNoThrow(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) })
             }
 
             // What if `additionalTrustedRootCerts` has a cert that's already in the default trust store?
             do {
-                let policy = AppleDistributionCertificatePolicy(trustedRootCertsDir: nil, additionalTrustedRootCerts: [rootCA],
-                                                                callbackQueue: callbackQueue)
+                let policy = AppleDistributionCertificatePolicy(
+                    trustedRootCertsDir: nil, additionalTrustedRootCerts: [rootCA],
+                    callbackQueue: callbackQueue
+                )
                 XCTAssertNoThrow(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) })
             }
             #elseif os(Linux) || os(Windows) || os(Android)
@@ -377,15 +391,23 @@ class CertificatePolicyTests: XCTestCase {
 
             // Subject user ID matches
             do {
-                let policy = DefaultCertificatePolicy(trustedRootCertsDir: nil, additionalTrustedRootCerts: nil, expectedSubjectUserID: expectedSubjectUserID,
-                                                      callbackQueue: callbackQueue)
+                let policy = DefaultCertificatePolicy(
+                    trustedRootCertsDir: nil,
+                    additionalTrustedRootCerts: nil,
+                    expectedSubjectUserID: expectedSubjectUserID,
+                    callbackQueue: callbackQueue
+                )
                 XCTAssertNoThrow(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) })
             }
             // Subject user ID does not match
             do {
                 let mismatchSubjectUserID = "\(expectedSubjectUserID)-2"
-                let policy = DefaultCertificatePolicy(trustedRootCertsDir: nil, additionalTrustedRootCerts: nil, expectedSubjectUserID: mismatchSubjectUserID,
-                                                      callbackQueue: callbackQueue)
+                let policy = DefaultCertificatePolicy(
+                    trustedRootCertsDir: nil,
+                    additionalTrustedRootCerts: nil,
+                    expectedSubjectUserID: mismatchSubjectUserID,
+                    callbackQueue: callbackQueue
+                )
                 XCTAssertThrowsError(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) }) { error in
                     guard CertificatePolicyError.subjectUserIDMismatch == error as? CertificatePolicyError else {
                         return XCTFail("Expected CertificatePolicyError.subjectUserIDMismatch")
@@ -445,15 +467,23 @@ class CertificatePolicyTests: XCTestCase {
 
             // Subject user ID matches
             do {
-                let policy = AppleSwiftPackageCollectionCertificatePolicy(trustedRootCertsDir: nil, additionalTrustedRootCerts: nil, expectedSubjectUserID: expectedSubjectUserID,
-                                                                          callbackQueue: callbackQueue)
+                let policy = AppleSwiftPackageCollectionCertificatePolicy(
+                    trustedRootCertsDir: nil,
+                    additionalTrustedRootCerts: nil,
+                    expectedSubjectUserID: expectedSubjectUserID,
+                    callbackQueue: callbackQueue
+                )
                 XCTAssertNoThrow(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) })
             }
             // Subject user ID does not match
             do {
                 let mismatchSubjectUserID = "\(expectedSubjectUserID)-2"
-                let policy = AppleSwiftPackageCollectionCertificatePolicy(trustedRootCertsDir: nil, additionalTrustedRootCerts: nil, expectedSubjectUserID: mismatchSubjectUserID,
-                                                                          callbackQueue: callbackQueue)
+                let policy = AppleSwiftPackageCollectionCertificatePolicy(
+                    trustedRootCertsDir: nil,
+                    additionalTrustedRootCerts: nil,
+                    expectedSubjectUserID: mismatchSubjectUserID,
+                    callbackQueue: callbackQueue
+                )
                 XCTAssertThrowsError(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) }) { error in
                     guard CertificatePolicyError.subjectUserIDMismatch == error as? CertificatePolicyError else {
                         return XCTFail("Expected CertificatePolicyError.subjectUserIDMismatch")
@@ -515,15 +545,23 @@ class CertificatePolicyTests: XCTestCase {
 
             // Subject user ID matches
             do {
-                let policy = AppleDistributionCertificatePolicy(trustedRootCertsDir: nil, additionalTrustedRootCerts: nil, expectedSubjectUserID: expectedSubjectUserID,
-                                                                callbackQueue: callbackQueue)
+                let policy = AppleDistributionCertificatePolicy(
+                    trustedRootCertsDir: nil,
+                    additionalTrustedRootCerts: nil,
+                    expectedSubjectUserID: expectedSubjectUserID,
+                    callbackQueue: callbackQueue
+                )
                 XCTAssertNoThrow(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) })
             }
             // Subject user ID does not match
             do {
                 let mismatchSubjectUserID = "\(expectedSubjectUserID)-2"
-                let policy = AppleDistributionCertificatePolicy(trustedRootCertsDir: nil, additionalTrustedRootCerts: nil, expectedSubjectUserID: mismatchSubjectUserID,
-                                                                callbackQueue: callbackQueue)
+                let policy = AppleDistributionCertificatePolicy(
+                    trustedRootCertsDir: nil,
+                    additionalTrustedRootCerts: nil,
+                    expectedSubjectUserID: mismatchSubjectUserID,
+                    callbackQueue: callbackQueue
+                )
                 XCTAssertThrowsError(try tsc_await { callback in policy.validate(certChain: certChain, callback: callback) }) { error in
                     guard CertificatePolicyError.subjectUserIDMismatch == error as? CertificatePolicyError else {
                         return XCTFail("Expected CertificatePolicyError.subjectUserIDMismatch")
@@ -555,5 +593,23 @@ class CertificatePolicyTests: XCTestCase {
             }
             #endif
         }
+    }
+}
+
+fileprivate extension AppleSwiftPackageCollectionCertificatePolicy {
+    init(trustedRootCertsDir: URL?, additionalTrustedRootCerts: [Certificate]?, expectedSubjectUserID: String? = nil, callbackQueue: DispatchQueue) {
+        self.init(trustedRootCertsDir: trustedRootCertsDir, additionalTrustedRootCerts: additionalTrustedRootCerts, expectedSubjectUserID: expectedSubjectUserID, observabilityScope: ObservabilitySystem.NOOP, callbackQueue: callbackQueue)
+    }
+}
+
+fileprivate extension AppleDistributionCertificatePolicy {
+    init(trustedRootCertsDir: URL?, additionalTrustedRootCerts: [Certificate]?, expectedSubjectUserID: String? = nil, callbackQueue: DispatchQueue) {
+        self.init(trustedRootCertsDir: trustedRootCertsDir, additionalTrustedRootCerts: additionalTrustedRootCerts, expectedSubjectUserID: expectedSubjectUserID, observabilityScope: ObservabilitySystem.NOOP, callbackQueue: callbackQueue)
+    }
+}
+
+fileprivate extension DefaultCertificatePolicy {
+    init(trustedRootCertsDir: URL?, additionalTrustedRootCerts: [Certificate]?, expectedSubjectUserID: String? = nil, callbackQueue: DispatchQueue) {
+        self.init(trustedRootCertsDir: trustedRootCertsDir, additionalTrustedRootCerts: additionalTrustedRootCerts, expectedSubjectUserID: expectedSubjectUserID, observabilityScope: ObservabilitySystem.NOOP, callbackQueue: callbackQueue)
     }
 }

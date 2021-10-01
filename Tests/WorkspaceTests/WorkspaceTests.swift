@@ -175,7 +175,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testManifestParseError() throws {
-        let observability = ObservabilitySystem.bootstrapForTesting()
+        let observability = ObservabilitySystem.makeForTesting()
         try testWithTemporaryDirectory { path in
             let pkgDir = path.appending(component: "MyPkg")
             try localFileSystem.writeFileContents(pkgDir.appending(component: "Package.swift")) {
@@ -199,7 +199,7 @@ final class WorkspaceTests: XCTestCase {
             let rootManifests = try tsc_await {
                 workspace.loadRootManifests(
                     packages: rootInput.packages,
-                    diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
+                    diagnostics: observability.topScope.makeDiagnosticsEngine(),
                     completion: $0
                 )
             }
@@ -3821,16 +3821,16 @@ final class WorkspaceTests: XCTestCase {
             let packagePath = path.appending(component: "MyPkg")
             let initPackage = try InitPackage(name: packagePath.basename, destinationPath: packagePath, packageType: .executable)
             try initPackage.writePackageStructure()
-            
+
             // Load the workspace.
-            let observability = ObservabilitySystem.bootstrapForTesting()
+            let observability = ObservabilitySystem.makeForTesting()
             let workspace = try Workspace(forRootPackage: packagePath, customToolchain: UserToolchain.default)
 
             // From here the API should be simple and straightforward:
             let manifest = try tsc_await {
                 workspace.loadRootManifest(
                     at: packagePath,
-                    diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
+                    diagnostics: observability.topScope.makeDiagnosticsEngine(),
                     completion: $0
                 )
             }
@@ -3840,7 +3840,7 @@ final class WorkspaceTests: XCTestCase {
             let package = try tsc_await {
                 workspace.loadRootPackage(
                     at: packagePath,
-                    diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
+                    observabilityScope: observability.topScope,
                     completion: $0
                 )
             }
@@ -3849,7 +3849,7 @@ final class WorkspaceTests: XCTestCase {
 
             let graph = try workspace.loadPackageGraph(
                 rootPath: packagePath,
-                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine()
+                observabilityScope: observability.topScope
             )
             XCTAssertFalse(observability.hasWarningDiagnostics, observability.diagnostics.description)
             XCTAssertFalse(observability.hasErrorDiagnostics, observability.diagnostics.description)
@@ -4255,8 +4255,8 @@ final class WorkspaceTests: XCTestCase {
             let binaryPath = sandbox.appending(component: "binary.zip")
             try fs.writeFileContents(binaryPath, bytes: ByteString([0xAA, 0xBB, 0xCC]))
 
-            let observability = ObservabilitySystem.bootstrapForTesting()
-            let checksum = ws.checksum(forBinaryArtifactAt: binaryPath, diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine())
+            let observability = ObservabilitySystem.makeForTesting()
+            let checksum = ws.checksum(forBinaryArtifactAt: binaryPath, diagnostics: observability.topScope.makeDiagnosticsEngine())
             XCTAssertTrue(!observability.hasErrorDiagnostics, observability.diagnostics.description)
             XCTAssertEqual(workspace.checksumAlgorithm.hashes.map { $0.contents }, [[0xAA, 0xBB, 0xCC]])
             XCTAssertEqual(checksum, "ccbbaa")
@@ -4265,8 +4265,8 @@ final class WorkspaceTests: XCTestCase {
         // Checks an unsupported extension.
         do {
             let unknownPath = sandbox.appending(component: "unknown")
-            let observability = ObservabilitySystem.bootstrapForTesting()
-            let checksum = ws.checksum(forBinaryArtifactAt: unknownPath, diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine())
+            let observability = ObservabilitySystem.makeForTesting()
+            let checksum = ws.checksum(forBinaryArtifactAt: unknownPath, diagnostics: observability.topScope.makeDiagnosticsEngine())
             XCTAssertEqual(checksum, "")
             testDiagnostics(observability.diagnostics) { result in
                 let expectedDiagnostic = "unexpected file type; supported extensions are: zip"
@@ -4277,8 +4277,8 @@ final class WorkspaceTests: XCTestCase {
         // Checks a supported extension that is not a file (does not exist).
         do {
             let unknownPath = sandbox.appending(component: "missingFile.zip")
-            let observability = ObservabilitySystem.bootstrapForTesting()
-            let checksum = ws.checksum(forBinaryArtifactAt: unknownPath, diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine())
+            let observability = ObservabilitySystem.makeForTesting()
+            let checksum = ws.checksum(forBinaryArtifactAt: unknownPath, diagnostics: observability.topScope.makeDiagnosticsEngine())
             XCTAssertEqual(checksum, "")
             testDiagnostics(observability.diagnostics) { result in
                 result.check(diagnostic: .contains("file not found at path: /tmp/ws/missingFile.zip"),
@@ -4291,8 +4291,8 @@ final class WorkspaceTests: XCTestCase {
             let unknownPath = sandbox.appending(component: "aDirectory.zip")
             try fs.createDirectory(unknownPath)
 
-            let observability = ObservabilitySystem.bootstrapForTesting()
-            let checksum = ws.checksum(forBinaryArtifactAt: unknownPath, diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine())
+            let observability = ObservabilitySystem.makeForTesting()
+            let checksum = ws.checksum(forBinaryArtifactAt: unknownPath, diagnostics: observability.topScope.makeDiagnosticsEngine())
             XCTAssertEqual(checksum, "")
             testDiagnostics(observability.diagnostics) { result in
                 result.check(diagnostic: .contains("file not found at path: /tmp/ws/aDirectory.zip"),

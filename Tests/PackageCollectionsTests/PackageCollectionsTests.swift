@@ -1601,6 +1601,23 @@ final class PackageCollectionsTests: XCTestCase {
     }
 }
 
+private extension PackageCollections {
+    init(
+        configuration: Configuration = .init(),
+        storage: Storage,
+        collectionProviders: [Model.CollectionSourceType: PackageCollectionProvider],
+        metadataProvider: PackageMetadataProvider
+    ) {
+        self.init(
+            configuration: configuration,
+            observabilityScope: ObservabilitySystem.NOOP,
+            storage: storage,
+            collectionProviders: collectionProviders,
+            metadataProvider: metadataProvider
+        )
+    }
+}
+
 private extension XCTestCase {
     func skipIfUnsupportedPlatform() throws {
         if !PackageCollections.isSupportedPlatform {

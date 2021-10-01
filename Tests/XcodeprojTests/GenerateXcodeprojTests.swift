@@ -35,16 +35,18 @@ class GenerateXcodeprojTests: XCTestCase {
           try makeDirectories(modulePath)
           try localFileSystem.writeFileContents(modulePath.appending(component: "source.swift"), bytes: "")
 
-          let observability = ObservabilitySystem.bootstrapForTesting()
-          let graph = try loadPackageGraph(fs: localFileSystem,
-              manifests: [
-                  Manifest.createRootManifest(
-                      name: "Foo",
-                      path: packagePath,
-                      targets: [
-                          TargetDescription(name: "DummyModuleName"),
-                      ])
-              ]
+          let observability = ObservabilitySystem.makeForTesting()
+          let graph = try loadPackageGraph(
+            fs: localFileSystem,
+            manifests: [
+                Manifest.createRootManifest(
+                    name: "Foo",
+                    path: packagePath,
+                    targets: [
+                        TargetDescription(name: "DummyModuleName"),
+                    ])
+            ],
+            observabilityScope: observability.topScope
           )
           XCTAssertNoDiagnostics(observability.diagnostics)
 
@@ -55,7 +57,7 @@ class GenerateXcodeprojTests: XCTestCase {
             xcodeprojPath: outpath,
             graph: graph,
             options: XcodeprojOptions(),
-            diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine()
+            diagnostics: observability.topScope.makeDiagnosticsEngine()
           )
 
           XCTAssertDirectoryExists(outpath)
@@ -91,8 +93,9 @@ class GenerateXcodeprojTests: XCTestCase {
             try makeDirectories(modulePath)
             try localFileSystem.writeFileContents(modulePath.appending(component: "bar.swift"), bytes: "")
 
-            let observability = ObservabilitySystem.bootstrapForTesting()
-            let graph = try loadPackageGraph(fs: localFileSystem,
+            let observability = ObservabilitySystem.makeForTesting()
+            let graph = try loadPackageGraph(
+                fs: localFileSystem,
                 manifests: [
                     Manifest.createRootManifest(
                         name: "Bar",
@@ -100,7 +103,8 @@ class GenerateXcodeprojTests: XCTestCase {
                         targets: [
                             TargetDescription(name: "Bar"),
                         ])
-                ]
+                ],
+                observabilityScope: observability.topScope
             )
             XCTAssertNoDiagnostics(observability.diagnostics)
 
@@ -113,7 +117,7 @@ class GenerateXcodeprojTests: XCTestCase {
                     extraFiles: [],
                     options: options,
                     fileSystem: localFileSystem,
-                    diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine()
+                    diagnostics: observability.topScope.makeDiagnosticsEngine()
                 )
                 XCTFail("Project generation should have failed")
             } catch ProjectGenerationError.xcconfigOverrideNotFound(let path) {
@@ -131,8 +135,9 @@ class GenerateXcodeprojTests: XCTestCase {
             try makeDirectories(modulePath)
             try localFileSystem.writeFileContents(modulePath.appending(component: "example.swift"), bytes: "")
 
-            let observability = ObservabilitySystem.bootstrapForTesting()
-            let graph = try loadPackageGraph(fs: localFileSystem,
+            let observability = ObservabilitySystem.makeForTesting()
+            let graph = try loadPackageGraph(
+                fs: localFileSystem,
                 manifests: [
                     Manifest.createRootManifest(
                         name: "Modules",
@@ -140,7 +145,8 @@ class GenerateXcodeprojTests: XCTestCase {
                         targets: [
                             TargetDescription(name: "Modules"),
                         ])
-                ]
+                ],
+                observabilityScope: observability.topScope
             )
             XCTAssertNoDiagnostics(observability.diagnostics)
 
@@ -148,7 +154,7 @@ class GenerateXcodeprojTests: XCTestCase {
                 xcodeprojPath: AbsolutePath.root.appending(component: "xcodeproj"),
                 graph: graph, extraDirs: [], extraFiles: [],
                 options: XcodeprojOptions(), fileSystem: localFileSystem,
-                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine()
+                diagnostics: observability.topScope.makeDiagnosticsEngine()
             )
 
             testDiagnostics(observability.diagnostics) { result in
@@ -168,7 +174,7 @@ class GenerateXcodeprojTests: XCTestCase {
             try localFileSystem.writeFileContents(modulePath.appending(component: "dummy.swift"), bytes: "dummy_data")
             try localFileSystem.writeFileContents(packagePath.appending(component: "a.txt"), bytes: "dummy_data")
 
-            let observability = ObservabilitySystem.bootstrapForTesting()
+            let observability = ObservabilitySystem.makeForTesting()
             let graph = try loadPackageGraph(
                 fs: localFileSystem,
                 manifests: [
@@ -178,7 +184,8 @@ class GenerateXcodeprojTests: XCTestCase {
                         targets: [
                             TargetDescription(name: "DummyModule"),
                         ])
-                ]
+                ],
+                observabilityScope: observability.topScope
             )
             XCTAssertNoDiagnostics(observability.diagnostics)
 
@@ -189,7 +196,7 @@ class GenerateXcodeprojTests: XCTestCase {
                 xcodeprojPath: outpath,
                 graph: graph,
                 options: XcodeprojOptions(),
-                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine()
+                diagnostics: observability.topScope.makeDiagnosticsEngine()
             )
 
             XCTAssertFalse(project.mainGroup.subitems.contains { $0.path == "a.txt" })
@@ -207,7 +214,7 @@ class GenerateXcodeprojTests: XCTestCase {
 
             initGitRepo(packagePath, addFile: false)
 
-            let observability = ObservabilitySystem.bootstrapForTesting()
+            let observability = ObservabilitySystem.makeForTesting()
             let graph = try loadPackageGraph(
                 fs: localFileSystem,
                 manifests: [
@@ -217,7 +224,8 @@ class GenerateXcodeprojTests: XCTestCase {
                         targets: [
                             TargetDescription(name: "DummyModule"),
                         ])
-                ]
+                ],
+                observabilityScope: observability.topScope
             )
             XCTAssertNoDiagnostics(observability.diagnostics)
 
@@ -228,7 +236,7 @@ class GenerateXcodeprojTests: XCTestCase {
                 xcodeprojPath: outpath,
                 graph: graph,
                 options: XcodeprojOptions(),
-                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine()
+                diagnostics: observability.topScope.makeDiagnosticsEngine()
             )
 
             XCTAssertFalse(project.mainGroup.subitems.contains { $0.path == ".a.txt" })
@@ -245,7 +253,7 @@ class GenerateXcodeprojTests: XCTestCase {
 
             initGitRepo(packagePath, addFile: false)
 
-            let observability = ObservabilitySystem.bootstrapForTesting()
+            let observability = ObservabilitySystem.makeForTesting()
             let graph = try loadPackageGraph(
                 fs: localFileSystem,
                 manifests: [
@@ -255,7 +263,8 @@ class GenerateXcodeprojTests: XCTestCase {
                         targets: [
                             TargetDescription(name: "DummyModule"),
                         ])
-                ]
+                ],
+                observabilityScope: observability.topScope
             )
             XCTAssertNoDiagnostics(observability.diagnostics)
 
@@ -266,7 +275,7 @@ class GenerateXcodeprojTests: XCTestCase {
                 xcodeprojPath: outpath,
                 graph: graph,
                 options: XcodeprojOptions(),
-                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine()
+                diagnostics: observability.topScope.makeDiagnosticsEngine()
             )
 
             XCTAssertTrue(project.mainGroup.subitems.contains { $0.path == "a.txt" })
@@ -276,7 +285,7 @@ class GenerateXcodeprojTests: XCTestCase {
                 xcodeprojPath: outpath,
                 graph: graph,
                 options: XcodeprojOptions(addExtraFiles: false),
-                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine()
+                diagnostics: observability.topScope.makeDiagnosticsEngine()
             )
             XCTAssertFalse(projectWithoutExtraFiles.mainGroup.subitems.contains { $0.path == "a.txt" })
         }
@@ -293,7 +302,7 @@ class GenerateXcodeprojTests: XCTestCase {
 
             initGitRepo(packagePath, addFile: false)
 
-            let observability = ObservabilitySystem.bootstrapForTesting()
+            let observability = ObservabilitySystem.makeForTesting()
             let graph = try loadPackageGraph(
                 fs: localFileSystem,
                 manifests: [
@@ -303,7 +312,8 @@ class GenerateXcodeprojTests: XCTestCase {
                         targets: [
                             TargetDescription(name: "DummyModule"),
                         ])
-                ]
+                ],
+                observabilityScope: observability.topScope
             )
             XCTAssertNoDiagnostics(observability.diagnostics)
 
@@ -314,7 +324,7 @@ class GenerateXcodeprojTests: XCTestCase {
                 xcodeprojPath: outpath,
                 graph: graph,
                 options: XcodeprojOptions(),
-                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine()
+                diagnostics: observability.topScope.makeDiagnosticsEngine()
             )
 
             let sources = project.mainGroup.subitems[1] as? Xcode.Group
@@ -340,7 +350,7 @@ class GenerateXcodeprojTests: XCTestCase {
             try localFileSystem.writeFileContents(modulePath.appending(component: "ignored_file"), bytes: "dummy_data")
             try localFileSystem.writeFileContents(packagePath.appending(component: "ignored_file"), bytes: "dummy_data")
 
-            let observability = ObservabilitySystem.bootstrapForTesting()
+            let observability = ObservabilitySystem.makeForTesting()
             let graph = try loadPackageGraph(
                 fs: localFileSystem,
                 manifests: [
@@ -350,7 +360,8 @@ class GenerateXcodeprojTests: XCTestCase {
                         targets: [
                             TargetDescription(name: "DummyModule"),
                         ])
-                ]
+                ],
+                observabilityScope: observability.topScope
             )
             XCTAssertNoDiagnostics(observability.diagnostics)
 
@@ -361,7 +372,7 @@ class GenerateXcodeprojTests: XCTestCase {
                 xcodeprojPath: outpath,
                 graph: graph,
                 options: XcodeprojOptions(),
-                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine()
+                diagnostics: observability.topScope.makeDiagnosticsEngine()
             )
 
             let sources = project.mainGroup.subitems[1] as? Xcode.Group
@@ -387,8 +398,9 @@ class GenerateXcodeprojTests: XCTestCase {
             try makeDirectories(bar2TargetPath)
             try localFileSystem.writeFileContents(bar2TargetPath.appending(component: "Sources.swift"), bytes: "")
 
-            let observability = ObservabilitySystem.bootstrapForTesting()
-            let graph = try loadPackageGraph(fs: localFileSystem,
+            let observability = ObservabilitySystem.makeForTesting()
+            let graph = try loadPackageGraph(
+                fs: localFileSystem,
                 manifests: [
                     Manifest.createRootManifest(
                         name: "Foo",
@@ -413,7 +425,8 @@ class GenerateXcodeprojTests: XCTestCase {
                             ]),
                             TargetDescription(name: "Bar2"),
                         ])
-                ]
+                ],
+                observabilityScope: observability.topScope
             )
 
             let outpath = Xcodeproj.buildXcodeprojPath(outputDir: dstdir, projectName: "Foo")
@@ -422,7 +435,7 @@ class GenerateXcodeprojTests: XCTestCase {
                 xcodeprojPath: outpath,
                 graph: graph,
                 options: XcodeprojOptions(),
-                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine()
+                diagnostics: observability.topScope.makeDiagnosticsEngine()
             )
 
             testDiagnostics(observability.diagnostics) { result in

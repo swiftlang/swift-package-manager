@@ -27,10 +27,11 @@ extension PackageGraph {
         xcTestMinimumDeploymentTargets: [PackageModel.Platform:PlatformVersion] = MinimumDeploymentTarget.default.xcTestMinimumDeploymentTargets,
         shouldCreateMultipleTestProducts: Bool = false,
         createREPLProduct: Bool = false,
-        fileSystem: FileSystem
+        fileSystem: FileSystem,
+        observabilityScope: ObservabilityScope
     ) throws -> PackageGraph {
 
-        let observabilityScope = ObservabilitySystem.topScope.makeChildScope(description: "Loading Package Graph")
+        let observabilityScope = observabilityScope.makeChildScope(description: "Loading Package Graph")
 
         // Create a map of the manifests, keyed by their identity.
         var manifestMap = externalManifests
@@ -94,7 +95,8 @@ extension PackageGraph {
         // Create the packages.
         var manifestToPackage: [Manifest: Package] = [:]
         for node in allNodes {
-            let diagnosticsEmitter = observabilityScope.makeDiagnosticsEmitter(
+            let nodeObservabilityScope = observabilityScope.makeChildScope(
+                description: "loading package \(node.identity)",
                 metadata: .packageMetadata(identity: node.identity, location: node.manifest.packageLocation)
             )
 
@@ -103,7 +105,7 @@ extension PackageGraph {
             //
             // FIXME: Lift this out of the manifest.
             let packagePath = manifest.path.parentDirectory
-            diagnosticsEmitter.trap {
+            nodeObservabilityScope.trap {
                 // Create a package from the manifest and sources.
                 let builder = PackageBuilder(
                     identity: node.identity,
@@ -115,7 +117,8 @@ extension PackageGraph {
                     xcTestMinimumDeploymentTargets: xcTestMinimumDeploymentTargets,
                     shouldCreateMultipleTestProducts: shouldCreateMultipleTestProducts,
                     createREPLProduct: manifest.packageKind.isRoot ? createREPLProduct : false,
-                    fileSystem: fileSystem
+                    fileSystem: fileSystem,
+                    observabilityScope: nodeObservabilityScope
                 )
                 let package = try builder.construct()
                 manifestToPackage[manifest] = package
@@ -179,7 +182,7 @@ private func checkAllDependenciesAreUsed(_ rootPackages: [ResolvedPackage], obse
             }
 
             let dependencyIsUsed = dependency.products.contains(where: productDependencies.contains)
-            if !dependencyIsUsed && !ObservabilitySystem.topScope.errorsReported {
+            if !dependencyIsUsed && !observabilityScope.errorsReportedInAnyScope {
                 observabilityScope.emit(.unusedDependency(dependency.identity.description))
             }
         }
@@ -307,7 +310,7 @@ private func createResolvedPackages(
 
                 let nameForTargetDependencyResolution = dependency.explicitNameForTargetDependencyResolutionOnly ?? dependency.identity.description
                 dependenciesByNameForTargetDependencyResolution[nameForTargetDependencyResolution] = resolvedPackage
-                
+
                 dependencies.append(resolvedPackage)
             }
         }
@@ -414,14 +417,14 @@ private func createResolvedPackages(
                     // This avoids flooding the diagnostics with product not
                     // found errors when there are more important errors to
                     // resolve (like authentication issues).
-                    if !ObservabilitySystem.topScope.errorsReported {
+                    if !observabilityScope.errorsReportedInAnyScope {
                         // Emit error if a product (not target) declared in the package is also a productRef (dependency)
                         let declProductsAsDependency = package.products.filter { product in
                             product.name == productRef.name
                         }.map {$0.targets}.flatMap{$0}.filter { t in
                             t.name != productRef.name
                         }
-                        
+
                         let error = PackageGraphError.productDependencyNotFound(
                             package: package.identity.description,
                             targetName: targetBuilder.target.name,
@@ -685,4 +688,3 @@ struct LocationComparator {
         return false
     }
 }
-

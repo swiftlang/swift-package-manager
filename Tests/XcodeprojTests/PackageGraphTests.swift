@@ -33,8 +33,9 @@ class PackageGraphTests: XCTestCase {
             "/Overrides.xcconfig"
         )
 
-        let observability = ObservabilitySystem.bootstrapForTesting()
-        let g = try loadPackageGraph(fs: fs,
+        let observability = ObservabilitySystem.makeForTesting()
+        let g = try loadPackageGraph(
+            fs: fs,
             manifests: [
                 Manifest.createLocalSourceControlManifest(
                     name: "Foo",
@@ -66,7 +67,8 @@ class PackageGraphTests: XCTestCase {
                         TargetDescription(name: "Sea2", dependencies: ["Foo"]),
                         TargetDescription(name: "Sea3", dependencies: ["Foo"]),
                     ]),
-            ]
+            ],
+            observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
@@ -79,7 +81,7 @@ class PackageGraphTests: XCTestCase {
             extraFiles: [],
             options: options,
             fileSystem: fs,
-            diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine()
+            diagnostics: observability.topScope.makeDiagnosticsEngine()
         )
 
         XcodeProjectTester(project) { result in
@@ -202,8 +204,9 @@ class PackageGraphTests: XCTestCase {
             "/Foo/Sources/Foo/source.swift"
         )
 
-        let observability = ObservabilitySystem.bootstrapForTesting()
-        let g = try loadPackageGraph(fs: fs,
+        let observability = ObservabilitySystem.makeForTesting()
+        let g = try loadPackageGraph(
+            fs: fs,
             manifests: [
                 Manifest.createRootManifest(
                     name: "Foo",
@@ -214,7 +217,8 @@ class PackageGraphTests: XCTestCase {
                     targets: [
                         TargetDescription(name: "Foo", dependencies: []),
                     ]),
-            ]
+            ],
+            observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
@@ -225,7 +229,7 @@ class PackageGraphTests: XCTestCase {
             extraFiles: [],
             options: XcodeprojOptions(),
             fileSystem: fs,
-            diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine()
+            diagnostics: observability.topScope.makeDiagnosticsEngine()
         )
         XcodeProjectTester(project) { result in
             result.check(target: "Foo") { targetResult in
@@ -249,8 +253,9 @@ class PackageGraphTests: XCTestCase {
             "/Bar/Sources/swift/main.swift"
         )
 
-        let observability = ObservabilitySystem.bootstrapForTesting()
-        let g = try loadPackageGraph(fs: fs,
+        let observability = ObservabilitySystem.makeForTesting()
+        let g = try loadPackageGraph(
+            fs: fs,
             manifests: [
                 Manifest.createRootManifest(
                     name: "Bar",
@@ -260,7 +265,8 @@ class PackageGraphTests: XCTestCase {
                         TargetDescription(name: "Sea2", dependencies: []),
                         TargetDescription(name: "swift", dependencies: ["Sea", "Sea2"]),
                     ]),
-            ]
+            ],
+            observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
@@ -271,7 +277,7 @@ class PackageGraphTests: XCTestCase {
             extraFiles: [],
             options: XcodeprojOptions(),
             fileSystem: fs,
-            diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine()
+            diagnostics: observability.topScope.makeDiagnosticsEngine()
         )
         XcodeProjectTester(project) { result in
             result.check(target: "swift") { targetResult in
@@ -298,8 +304,9 @@ class PackageGraphTests: XCTestCase {
             "/Pkg/Tests/LibraryTests/aTest.swift"
         )
 
-        let observability = ObservabilitySystem.bootstrapForTesting()
-        let g = try loadPackageGraph(fs: fs,
+        let observability = ObservabilitySystem.makeForTesting()
+        let g = try loadPackageGraph(
+            fs: fs,
             manifests: [
                 Manifest.createRootManifest(
                     name: "Pkg",
@@ -309,7 +316,8 @@ class PackageGraphTests: XCTestCase {
                         TargetDescription(name: "Library", dependencies: []),
                         TargetDescription(name: "LibraryTests", dependencies: ["Library", "HelperTool"], type: .test),
                     ]),
-            ]
+            ],
+            observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
@@ -320,7 +328,7 @@ class PackageGraphTests: XCTestCase {
             extraFiles: [],
             options: XcodeprojOptions(),
             fileSystem: fs,
-            diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine()
+            diagnostics: observability.topScope.makeDiagnosticsEngine()
         )
 
         XcodeProjectTester(project) { result in
@@ -367,8 +375,9 @@ class PackageGraphTests: XCTestCase {
             "/end"
         )
 
-        let observability = ObservabilitySystem.bootstrapForTesting()
-        let graph = try loadPackageGraph(fs: fs,
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadPackageGraph(
+            fs: fs,
             manifests: [
                 Manifest.createRootManifest(
                     name: "Foo",
@@ -385,7 +394,8 @@ class PackageGraphTests: XCTestCase {
                         TargetDescription(name: "dTests", dependencies: ["d"], type: .test),
                         TargetDescription(name: "libdTests", dependencies: ["libd"], type: .test),
                     ]),
-            ]
+            ],
+            observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
@@ -418,8 +428,9 @@ class PackageGraphTests: XCTestCase {
                 "/end"
             )
 
-            let observability = ObservabilitySystem.bootstrapForTesting()
-            let graph = try loadPackageGraph(fs: fs,
+            let observability = ObservabilitySystem.makeForTesting()
+            let graph = try loadPackageGraph(
+                fs: fs,
                 manifests: [
                     Manifest.createRootManifest(
                         name: "Foo",
@@ -428,7 +439,8 @@ class PackageGraphTests: XCTestCase {
                         targets: [
                             TargetDescription(name: "a"),
                         ]),
-                ]
+                ],
+                observabilityScope: observability.topScope
             )
             XCTAssertNoDiagnostics(observability.diagnostics)
 
@@ -439,7 +451,7 @@ class PackageGraphTests: XCTestCase {
                 extraFiles: [],
                 options: XcodeprojOptions(),
                 fileSystem: fs,
-                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine()
+                diagnostics: observability.topScope.makeDiagnosticsEngine()
             )
             XCTAssertNoDiagnostics(observability.diagnostics)
 

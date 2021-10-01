@@ -123,14 +123,14 @@ class PackageDescriptionLoadingTests: XCTestCase {
         line: UInt = #line,
         onSuccess: ((Manifest, DiagnosticsTestResult) -> Void)? = nil
     ) {
-        let observability = ObservabilitySystem.bootstrapForTesting()
+        let observability = ObservabilitySystem.makeForTesting()
         
         do {
             let manifest = try loadManifest(
                 contents,
                 toolsVersion: toolsVersion ?? self.toolsVersion,
                 packageKind: packageKind,
-                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
+                diagnostics: observability.topScope.makeDiagnosticsEngine(),
                 file: file,
                 line: line)
             
@@ -152,14 +152,14 @@ class PackageDescriptionLoadingTests: XCTestCase {
         line: UInt = #line,
         onCatch: ((Error, DiagnosticsTestResult) -> Void)? = nil
     ) {
-        let observability = ObservabilitySystem.bootstrapForTesting()
+        let observability = ObservabilitySystem.makeForTesting()
         
         do {
             let manifest = try loadManifest(
                 contents,
                 toolsVersion: toolsVersion ?? self.toolsVersion,
                 packageKind: packageKind,
-                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
+                diagnostics: observability.topScope.makeDiagnosticsEngine(),
                 file: file,
                 line: line)
             

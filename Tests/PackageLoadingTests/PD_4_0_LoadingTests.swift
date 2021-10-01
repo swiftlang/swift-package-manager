@@ -311,13 +311,13 @@ class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
 
         try fs.writeFileContents(manifestPath, bytes: stream.bytes)
 
-        let observability = ObservabilitySystem.bootstrapForTesting()
+        let observability = ObservabilitySystem.makeForTesting()
         let manifest = try manifestLoader.load(
             at: .root,
             packageKind: .root(.root),
             toolsVersion: .v4,
             fileSystem: fs,
-            diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine()
+            diagnostics: observability.topScope.makeDiagnosticsEngine()
         )
 
         XCTAssertEqual(manifest.name, "Trivial")

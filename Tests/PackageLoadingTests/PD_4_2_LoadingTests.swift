@@ -794,7 +794,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                     """
             }
 
-            let observability = ObservabilitySystem.bootstrapForTesting()
+            let observability = ObservabilitySystem.makeForTesting()
             let delegate = ManifestTestDelegate()
             let manifestLoader = ManifestLoader(toolchain: ToolchainConfiguration.default, cacheDir: path, delegate: delegate)
             let identityResolver = DefaultIdentityResolver()
@@ -827,7 +827,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                                     toolsVersion: .v4_2,
                                     identityResolver: identityResolver,
                                     fileSystem: localFileSystem,
-                                    diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
+                                    diagnostics: observability.topScope.makeDiagnosticsEngine(),
                                     on: .global()) { result in
                     defer { sync.leave() }
 
@@ -856,7 +856,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
         let total = 1000
         try testWithTemporaryDirectory { path in
 
-            let observability = ObservabilitySystem.bootstrapForTesting()
+            let observability = ObservabilitySystem.makeForTesting()
             let delegate = ManifestTestDelegate()
             let manifestLoader = ManifestLoader(toolchain: ToolchainConfiguration.default, cacheDir: path, delegate: delegate)
             let identityResolver = DefaultIdentityResolver()
@@ -891,7 +891,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                                     toolsVersion: .v4_2,
                                     identityResolver: identityResolver,
                                     fileSystem: localFileSystem,
-                                    diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
+                                    diagnostics: observability.topScope.makeDiagnosticsEngine(),
                                     on: .global()) { result in
                     defer { sync.leave() }
 

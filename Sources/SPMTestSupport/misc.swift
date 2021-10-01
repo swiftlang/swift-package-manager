@@ -8,6 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
+import Basics
 import class Foundation.NSDate
 import class Foundation.Thread
 import PackageGraph
@@ -226,7 +227,8 @@ public func loadPackageGraph(
     explicitProduct: String? = nil,
     shouldCreateMultipleTestProducts: Bool = false,
     createREPLProduct: Bool = false,
-    useXCBuildFileRules: Bool = false
+    useXCBuildFileRules: Bool = false,
+    observabilityScope: ObservabilityScope
 ) throws -> PackageGraph {
     let rootManifests = manifests.filter { $0.packageKind.isRoot }.spm_createDictionary{ ($0.path, $0) }
     let externalManifests = try manifests.filter { !$0.packageKind.isRoot }.reduce(into: OrderedDictionary<PackageIdentity, Manifest>()) { partial, item in
@@ -245,6 +247,7 @@ public func loadPackageGraph(
         binaryArtifacts: binaryArtifacts,
         shouldCreateMultipleTestProducts: shouldCreateMultipleTestProducts,
         createREPLProduct: createREPLProduct,
-        fileSystem: fs
+        fileSystem: fs,
+        observabilityScope: observabilityScope
     )
 }
