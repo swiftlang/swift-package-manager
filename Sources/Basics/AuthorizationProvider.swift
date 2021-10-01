@@ -18,8 +18,6 @@ import TSCBasic
 import TSCUtility
 
 public protocol AuthorizationProvider {
-    mutating func addOrUpdate(for url: Foundation.URL, user: String, password: String, callback: @escaping (Result<Void, Error>) -> Void)
-    
     func authentication(for url: Foundation.URL) -> (user: String, password: String)?
 }
 
@@ -60,7 +58,7 @@ public struct NetrcAuthorizationProvider: AuthorizationProvider {
     
     private var underlying: TSCUtility.Netrc?
     
-    private var machines: [TSCUtility.Netrc.Machine] {
+    var machines: [TSCUtility.Netrc.Machine] {
         self.underlying?.machines ?? []
     }
 
@@ -71,36 +69,36 @@ public struct NetrcAuthorizationProvider: AuthorizationProvider {
     }
     
     public mutating func addOrUpdate(for url: Foundation.URL, user: String, password: String, callback: @escaping (Result<Void, Error>) -> Void) {
-        guard let machineName = self.machineName(for: url) else {
+        guard let machine = url.authenticationID else {
             return callback(.failure(AuthorizationProviderError.invalidURLHost))
         }
-        let machine = TSCUtility.Netrc.Machine(name: machineName, login: user, password: password)
         
-        var machines = [TSCUtility.Netrc.Machine]()
-        var hasExisting = false
-        
-        self.machines.forEach {
-            if $0.name.lowercased() != machineName {
-                machines.append($0)
-            } else if !hasExisting {
-                // Update existing entry and retain one copy only
-                machines.append(machine)
-                hasExisting = true
-            }
-        }
-        
-        // New entry
-        if !hasExisting {
-            machines.append(machine)
+        // Same entry already exists, no need to add or update
+        guard self.machines.first(where: { $0.name.lowercased() == machine && $0.login == user && $0.password == password }) == nil else {
+            return
         }
         
         do {
-            try self.saveToDisk(machines: machines)
+            // Append to end of file
+            try self.fileSystem.withLock(on: self.path, type: .exclusive) {
+                let contents = try? self.fileSystem.readFileContents(self.path).contents
+                try self.fileSystem.writeFileContents(self.path) { stream in
+                    // File does not exist yet
+                    if let contents = contents {
+                        stream.write(contents)
+                        stream.write("\n")
+                    }
+                    stream.write("machine \(machine) login \(user) password \(password)")
+                    stream.write("\n")
+                }
+            }
+            
             // At this point the netrc file should exist and non-empty
             guard let netrc = try Self.load(from: self.path) else {
                 throw AuthorizationProviderError.other("Failed to update netrc file at \(self.path)")
             }
             self.underlying = netrc
+            
             callback(.success(()))
         } catch {
             callback(.failure(AuthorizationProviderError.other("Failed to update netrc file at \(self.path): \(error)")))
@@ -110,31 +108,17 @@ public struct NetrcAuthorizationProvider: AuthorizationProvider {
     public func authentication(for url: Foundation.URL) -> (user: String, password: String)? {
         self.machine(for: url).map { (user: $0.login, password: $0.password) }
     }
-    
-    private func machineName(for url: Foundation.URL) -> String? {
-        url.authenticationID
-    }
 
     private func machine(for url: Foundation.URL) -> TSCUtility.Netrc.Machine? {
-        if let machineName = self.machineName(for: url), let machine = self.machines.first(where: { $0.name.lowercased() == machineName }) {
-            return machine
+        if let machine = url.authenticationID, let existing = self.machines.first(where: { $0.name.lowercased() == machine }) {
+            return existing
         }
-        if let machine = self.machines.first(where: { $0.isDefault }) {
-            return machine
+        if let existing = self.machines.first(where: { $0.isDefault }) {
+            return existing
         }
         return .none
     }
-    
-    private func saveToDisk(machines: [TSCUtility.Netrc.Machine]) throws {
-        try self.fileSystem.withLock(on: self.path, type: .exclusive) {
-            try self.fileSystem.writeFileContents(self.path) { stream in
-                machines.forEach {
-                    stream.write("machine \($0.name) login \($0.login) password \($0.password)\n")
-                }
-            }
-        }
-    }
-    
+
     private static func load(from path: AbsolutePath) throws -> TSCUtility.Netrc? {
         do {
             return try TSCUtility.Netrc.load(fromFileAtPath: path).get()
@@ -157,7 +141,7 @@ public struct KeychainAuthorizationProvider: AuthorizationProvider {
     public init() {}
     
     public func addOrUpdate(for url: Foundation.URL, user: String, password: String, callback: @escaping (Result<Void, Error>) -> Void) {
-        guard let server = self.server(for: url) else {
+        guard let server = url.authenticationID else {
             return callback(.failure(AuthorizationProviderError.invalidURLHost))
         }
         guard let passwordData = password.data(using: .utf8) else {
@@ -176,7 +160,7 @@ public struct KeychainAuthorizationProvider: AuthorizationProvider {
     }
     
     public func authentication(for url: Foundation.URL) -> (user: String, password: String)? {
-        guard let server = self.server(for: url) else {
+        guard let server = url.authenticationID else {
             return nil
         }
         
@@ -250,10 +234,6 @@ public struct KeychainAuthorizationProvider: AuthorizationProvider {
         }
         
         return item
-    }
-    
-    private func server(for url: Foundation.URL) -> String? {
-        url.authenticationID
     }
     
     private func `protocol`(for url: Foundation.URL) -> CFString {

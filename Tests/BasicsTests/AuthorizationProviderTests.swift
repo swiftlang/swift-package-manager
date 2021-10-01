@@ -10,27 +10,26 @@
 
 import XCTest
 
-import Basics
+@testable import Basics
 import TSCBasic
 import TSCTestSupport
 
 final class AuthorizationProviderTests: XCTestCase {
     func testBasicAPIs() {
         struct TestProvider: AuthorizationProvider {
-            private var map = [URL: (user: String, password: String)]()
-            
-            mutating func addOrUpdate(for url: Foundation.URL, user: String, password: String, callback: @escaping (Result<Void, Error>) -> Void) {
-                self.map[url] = (user, password)
-                callback(.success(()))
-            }
+            let map: [URL: (user: String, password: String)]
 
             func authentication(for url: URL) -> (user: String, password: String)? {
                 return self.map[url]
             }
         }
 
-        var provider = TestProvider()
-        self.run(for: &provider)
+        let url = URL(string: "http://\(UUID().uuidString)")!
+        let user = UUID().uuidString
+        let password = UUID().uuidString
+        
+        let provider = TestProvider(map: [url: (user: user, password: password)])
+        self.assertAuthentication(provider, for: url, expected: (user, password))
     }
     
     func testNetrc() throws {
@@ -38,7 +37,33 @@ final class AuthorizationProviderTests: XCTestCase {
             let netrcPath = tmpPath.appending(component: ".netrc")
             
             var provider = try NetrcAuthorizationProvider(path: netrcPath, fileSystem: localFileSystem)
-            self.run(for: &provider)
+
+            let user = UUID().uuidString
+            
+            let url = URL(string: "http://\(UUID().uuidString)")!
+            let password = UUID().uuidString
+            
+            let otherURL = URL(string: "https://\(UUID().uuidString)")!
+            let otherPassword = UUID().uuidString
+            
+            // Add
+            XCTAssertNoThrow(try tsc_await { callback in provider.addOrUpdate(for: url, user: user, password: password, callback: callback) })
+            XCTAssertNoThrow(try tsc_await { callback in provider.addOrUpdate(for: otherURL, user: user, password: otherPassword, callback: callback) })
+            
+            self.assertAuthentication(provider, for: url, expected: (user, password))
+            
+            // Update - the new password is appended to the end of file
+            let newPassword = UUID().uuidString
+            XCTAssertNoThrow(try tsc_await { callback in provider.addOrUpdate(for: url, user: user, password: newPassword, callback: callback) })
+            
+            // .netrc file now contains two entries for `url`: one with `password` and the other with `newPassword`.
+            // `NetrcAuthorizationProvider` returns the first entry it finds.
+            self.assertAuthentication(provider, for: url, expected: (user, password))
+            
+            // Make sure the new entry is saved
+            XCTAssertNotNil(provider.machines.first(where: { $0.name == url.host!.lowercased() && $0.login == user && $0.password == newPassword }))
+            
+            self.assertAuthentication(provider, for: otherURL, expected: (user, otherPassword))
         }
     }
     
@@ -46,12 +71,8 @@ final class AuthorizationProviderTests: XCTestCase {
         #if !canImport(Security) || !ENABLE_KEYCHAIN_TEST
         try XCTSkipIf(true)
         #else
-        var provider = KeychainAuthorizationProvider()
-        self.run(for: &provider)
-        #endif
-    }
-    
-    private func run<Provider>(for provider: inout Provider) where Provider: AuthorizationProvider {
+        let provider = KeychainAuthorizationProvider()
+
         let user = UUID().uuidString
         
         let url = URL(string: "http://\(UUID().uuidString)")!
@@ -63,23 +84,24 @@ final class AuthorizationProviderTests: XCTestCase {
         // Add
         XCTAssertNoThrow(try tsc_await { callback in provider.addOrUpdate(for: url, user: user, password: password, callback: callback) })
         XCTAssertNoThrow(try tsc_await { callback in provider.addOrUpdate(for: otherURL, user: user, password: otherPassword, callback: callback) })
-
-        let auth = provider.authentication(for: url)
-        XCTAssertEqual(auth?.user, user)
-        XCTAssertEqual(auth?.password, password)
-        XCTAssertEqual(provider.httpAuthorizationHeader(for: url), "Basic " + "\(user):\(password)".data(using: .utf8)!.base64EncodedString())
+        
+        self.assertAuthentication(provider, for: url, expected: (user, password))
         
         // Update
         let newPassword = UUID().uuidString
         XCTAssertNoThrow(try tsc_await { callback in provider.addOrUpdate(for: url, user: user, password: newPassword, callback: callback) })
         
-        let updatedAuth = provider.authentication(for: url)
-        XCTAssertEqual(updatedAuth?.user, user)
-        XCTAssertEqual(updatedAuth?.password, newPassword)
-        XCTAssertEqual(provider.httpAuthorizationHeader(for: url), "Basic " + "\(user):\(newPassword)".data(using: .utf8)!.base64EncodedString())
+        // Existing password is updated
+        self.assertAuthentication(provider, for: url, expected: (user, newPassword))
         
-        let otherAuth = provider.authentication(for: otherURL)
-        XCTAssertEqual(otherAuth?.user, user)
-        XCTAssertEqual(otherAuth?.password, otherPassword)
+        self.assertAuthentication(provider, for: otherURL, expected: (user, otherPassword))
+        #endif
+    }
+    
+    private func assertAuthentication(_ provider: AuthorizationProvider, for url: Foundation.URL, expected: (user: String, password: String)) {
+        let authentication = provider.authentication(for: url)
+        XCTAssertEqual(authentication?.user, expected.user)
+        XCTAssertEqual(authentication?.password, expected.password)
+        XCTAssertEqual(provider.httpAuthorizationHeader(for: url), "Basic " + "\(expected.user):\(expected.password)".data(using: .utf8)!.base64EncodedString())
     }
 }
