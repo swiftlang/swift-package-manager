@@ -16,14 +16,6 @@ import TSCTestSupport
 
 final class AuthorizationProviderTests: XCTestCase {
     func testBasicAPIs() {
-        struct TestProvider: AuthorizationProvider {
-            let map: [URL: (user: String, password: String)]
-
-            func authentication(for url: URL) -> (user: String, password: String)? {
-                return self.map[url]
-            }
-        }
-
         let url = URL(string: "http://\(UUID().uuidString)")!
         let user = UUID().uuidString
         let password = UUID().uuidString
@@ -98,10 +90,47 @@ final class AuthorizationProviderTests: XCTestCase {
         #endif
     }
     
+    func testComposite() throws {
+        let url = URL(string: "http://\(UUID().uuidString)")!
+        let user = UUID().uuidString
+        let passwordOne = UUID().uuidString
+        let passwordTwo = UUID().uuidString
+        
+        let providerOne = TestProvider(map: [url: (user: user, password: passwordOne)])
+        let providerTwo = TestProvider(map: [url: (user: user, password: passwordTwo)])
+        
+        do {
+            // providerOne's password is returned first
+            let provider = CompositeAuthorizationProvider(providerOne, providerTwo)
+            self.assertAuthentication(provider, for: url, expected: (user, passwordOne))
+        }
+        
+        do {
+            // providerTwo's password is returned first
+            let provider = CompositeAuthorizationProvider(providerTwo, providerOne)
+            self.assertAuthentication(provider, for: url, expected: (user, passwordTwo))
+        }
+        
+        do {
+            // Neither has password
+            let unknownURL = URL(string: "http://\(UUID().uuidString)")!
+            let provider = CompositeAuthorizationProvider(providerOne, providerTwo)
+            XCTAssertNil(provider.authentication(for: unknownURL))
+        }
+    }
+    
     private func assertAuthentication(_ provider: AuthorizationProvider, for url: Foundation.URL, expected: (user: String, password: String)) {
         let authentication = provider.authentication(for: url)
         XCTAssertEqual(authentication?.user, expected.user)
         XCTAssertEqual(authentication?.password, expected.password)
         XCTAssertEqual(provider.httpAuthorizationHeader(for: url), "Basic " + "\(expected.user):\(expected.password)".data(using: .utf8)!.base64EncodedString())
+    }
+}
+
+private struct TestProvider: AuthorizationProvider {
+    let map: [URL: (user: String, password: String)]
+
+    func authentication(for url: URL) -> (user: String, password: String)? {
+        return self.map[url]
     }
 }

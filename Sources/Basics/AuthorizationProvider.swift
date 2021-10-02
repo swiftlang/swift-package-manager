@@ -53,7 +53,7 @@ extension Foundation.URL {
 // MARK: - netrc
 
 public struct NetrcAuthorizationProvider: AuthorizationProvider {
-    private let path: AbsolutePath
+    let path: AbsolutePath
     private let fileSystem: FileSystem
     
     private var underlying: TSCUtility.Netrc?
@@ -248,3 +248,34 @@ public struct KeychainAuthorizationProvider: AuthorizationProvider {
     }
 }
 #endif
+
+// MARK: - Composite
+
+public struct CompositeAuthorizationProvider: AuthorizationProvider {
+    private let providers: [AuthorizationProvider]
+    
+    public init(_ providers: AuthorizationProvider...) {
+        self.init(providers)
+    }
+    
+    public init(_ providers: [AuthorizationProvider]) {
+        self.providers = providers
+    }
+    
+    public func authentication(for url: Foundation.URL) -> (user: String, password: String)? {
+        for provider in self.providers {
+            if let authentication = provider.authentication(for: url) {
+                switch provider {
+                case let provider as NetrcAuthorizationProvider:
+                    ObservabilitySystem.topScope.emit(info: "Credentials for \(url) found in netrc file at \(provider.path)")
+                case is KeychainAuthorizationProvider:
+                    ObservabilitySystem.topScope.emit(info: "Credentials for \(url) found in keychain")
+                default:
+                    ObservabilitySystem.topScope.emit(info: "Credentials for \(url) found in \(provider)")
+                }
+                return authentication
+            }
+        }
+        return nil
+    }
+}
