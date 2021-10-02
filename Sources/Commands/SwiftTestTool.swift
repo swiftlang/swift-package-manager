@@ -204,7 +204,7 @@ public struct SwiftTestTool: SwiftCommand {
     
     public func run(_ swiftTool: SwiftTool) throws {
         // Validate commands arguments
-        try validateArguments(diagnostics: swiftTool.observabilityScope.makeDiagnosticsEngine())
+        try self.validateArguments(observabilityScope: swiftTool.observabilityScope)
 
         switch options.mode {
         case .listTests:
@@ -301,7 +301,7 @@ public struct SwiftTestTool: SwiftCommand {
                 toolchain: toolchain,
                 testEnv: testEnv,
                 outputStream: swiftTool.outputStream,
-                diagnostics: swiftTool.observabilityScope.makeDiagnosticsEngine()
+                observabilityScope: swiftTool.observabilityScope
             )
 
             // Finally, run the tests.
@@ -342,10 +342,10 @@ public struct SwiftTestTool: SwiftCommand {
                 toolchain: toolchain,
                 xUnitOutput: options.xUnitOutput,
                 numJobs: options.numberOfWorkers ?? ProcessInfo.processInfo.activeProcessorCount,
-                diagnostics: swiftTool.observabilityScope.makeDiagnosticsEngine(),
                 options: swiftOptions,
                 buildParameters: buildParameters,
-                outputStream: swiftTool.outputStream
+                outputStream: swiftTool.outputStream,
+                observabilityScope: swiftTool.observabilityScope
             )
             try runner.run(tests, outputStream: swiftTool.outputStream)
 
@@ -527,24 +527,24 @@ public struct SwiftTestTool: SwiftCommand {
     /// Private function that validates the commands arguments
     ///
     /// - Throws: if a command argument is invalid
-    private func validateArguments(diagnostics: DiagnosticsEngine) throws {
+    private func validateArguments(observabilityScope: ObservabilityScope) throws {
         // Validation for --num-workers.
         if let workers = options.numberOfWorkers {
 
             // The --num-worker option should be called with --parallel.
             guard options.mode == .runParallel else {
-                diagnostics.emit(error: "--num-workers must be used with --parallel")
+                observabilityScope.emit(error: "--num-workers must be used with --parallel")
                 throw ExitCode.failure
             }
 
             guard workers > 0 else {
-                diagnostics.emit(error: "'--num-workers' must be greater than zero")
+                observabilityScope.emit(error: "'--num-workers' must be greater than zero")
                 throw ExitCode.failure
             }
         }
         
         if options.shouldGenerateLinuxMain {
-            diagnostics.emit(warning: "'--generate-linuxmain' option is deprecated; tests are automatically discovered on all platforms")
+            observabilityScope.emit(warning: "'--generate-linuxmain' option is deprecated; tests are automatically discovered on all platforms")
         }
     }
     
@@ -589,8 +589,8 @@ final class TestRunner {
     /// Output stream for test results
     private let outputStream: OutputByteStream
 
-    /// Diagnostics Engine to emit diagnostics.
-    private let diagnostics: DiagnosticsEngine
+    /// ObservabilityScope  to emit diagnostics.
+    private let observabilityScope: ObservabilityScope
 
     /// Creates an instance of TestRunner.
     ///
@@ -604,7 +604,7 @@ final class TestRunner {
         toolchain: UserToolchain,
         testEnv: [String: String],
         outputStream: OutputByteStream,
-        diagnostics: DiagnosticsEngine
+        observabilityScope: ObservabilityScope
     ) {
         self.bundlePaths = bundlePaths
         self.xctestArg = xctestArg
@@ -612,7 +612,7 @@ final class TestRunner {
         self.toolchain = toolchain
         self.testEnv = testEnv
         self.outputStream = outputStream
-        self.diagnostics = diagnostics
+        self.observabilityScope = observabilityScope.makeChildScope(description: "Test Runner")
     }
 
     /// Executes and returns execution status. Prints test output on standard streams if requested
@@ -657,6 +657,8 @@ final class TestRunner {
             return String(bytes: stdout + stderr, encoding: .utf8)?.spm_chuzzle() ?? ""
         }
 
+        let testObservabilityScope = self.observabilityScope.makeChildScope(description: "running test at \(path)")
+
         do {
             let outputRedirection = Process.OutputRedirection.stream(
                 stdout: {
@@ -688,7 +690,7 @@ final class TestRunner {
             default: break
             }
         } catch {
-            self.diagnostics.emit(error)
+            testObservabilityScope.emit(error)
         }
         return (false, makeOutput())
     }
@@ -738,8 +740,8 @@ final class ParallelTestRunner {
     /// Output stream for test results
     private let outputStream: OutputByteStream
 
-    /// Diagnostics Engine to emit diagnostics.
-    private let diagnostics: DiagnosticsEngine
+    /// ObservabilityScope to emit diagnostics.
+    private let observabilityScope: ObservabilityScope
 
     init(
         bundlePaths: [AbsolutePath],
@@ -747,10 +749,10 @@ final class ParallelTestRunner {
         toolchain: UserToolchain,
         xUnitOutput: AbsolutePath? = nil,
         numJobs: Int,
-        diagnostics: DiagnosticsEngine,
         options: SwiftToolOptions,
         buildParameters: BuildParameters,
-        outputStream: OutputByteStream
+        outputStream: OutputByteStream,
+        observabilityScope: ObservabilityScope
     ) {
         self.bundlePaths = bundlePaths
         self.processSet = processSet
@@ -758,7 +760,7 @@ final class ParallelTestRunner {
         self.xUnitOutput = xUnitOutput
         self.numJobs = numJobs
         self.outputStream = outputStream
-        self.diagnostics = diagnostics
+        self.observabilityScope = observabilityScope.makeChildScope(description: "Parallel Test Runner")
 
         if ProcessEnv.vars["SWIFTPM_TEST_RUNNER_PROGRESS_BAR"] == "lit" {
             progressAnimation = PercentProgressAnimation(stream: outputStream, header: "Testing:")
@@ -819,7 +821,7 @@ final class ParallelTestRunner {
                         toolchain: self.toolchain,
                         testEnv: testEnv,
                         outputStream: self.outputStream,
-                        diagnostics: self.diagnostics
+                        observabilityScope: self.observabilityScope
                     )
                     let (success, output) = testRunner.test(writeToOutputStream: false)
                     if !success {
