@@ -233,11 +233,10 @@ extension ProductFilter: Codable {
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
-        let optionalSet: Set<String>? = try container.decode([String]?.self).map { Set($0) }
-        if let set = optionalSet {
-            self = .specific(set)
-        } else {
+        if container.decodeNil() {
             self = .everything
+        } else {
+            self = .specific(Set(try container.decode([String].self)))
         }
     }
 }
