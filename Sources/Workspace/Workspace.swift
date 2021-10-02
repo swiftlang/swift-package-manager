@@ -1658,9 +1658,10 @@ extension Workspace {
                     switch result {
                     // Diagnostics.fatalError indicates that a more specific diagnostic has already been added.
                     case .failure(Diagnostics.fatalError):
-                        break
+                        self.delegate?.didLoadManifest(packagePath: packagePath, url: packageLocation, version: version, packageKind: packageKind, manifest: nil, diagnostics: manifestLoadingDiagnostics.diagnostics)
                     case .failure(let error):
-                        diagnostics.emit(error)
+                        manifestLoadingDiagnostics.emit(error)
+                        self.delegate?.didLoadManifest(packagePath: packagePath, url: packageLocation, version: version, packageKind: packageKind, manifest: nil, diagnostics: manifestLoadingDiagnostics.diagnostics)
                     case .success(let manifest):
                         self.delegate?.didLoadManifest(packagePath: packagePath, url: packageLocation, version: version, packageKind: packageKind, manifest: manifest, diagnostics: manifestLoadingDiagnostics.diagnostics)
                     }

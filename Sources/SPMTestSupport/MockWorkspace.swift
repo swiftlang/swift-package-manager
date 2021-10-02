@@ -640,7 +640,9 @@ public final class MockWorkspace {
 
 public final class MockWorkspaceDelegate: WorkspaceDelegate {
     private let lock = Lock()
-    public var _events = [String]()
+    private var _events = [String]()
+    private var _manifest: Manifest?
+    private var _manifestLoadingDiagnostics: [Diagnostic]?
 
     public init() {}
 
@@ -697,6 +699,10 @@ public final class MockWorkspaceDelegate: WorkspaceDelegate {
 
     public func didLoadManifest(packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind, manifest: Manifest?, diagnostics: [Diagnostic]) {
         self.append("did load manifest for \(packageKind.displayName) package: \(url)")
+        self.lock.withLock {
+            self._manifest = manifest
+            self._manifestLoadingDiagnostics = diagnostics
+        }
     }
 
     public func willComputeVersion(package: PackageIdentity, location: String) {
@@ -734,6 +740,18 @@ public final class MockWorkspaceDelegate: WorkspaceDelegate {
     public func clear() {
         self.lock.withLock {
             self._events = []
+        }
+    }
+
+    public var manifest: Manifest? {
+        self.lock.withLock {
+            self._manifest
+        }
+    }
+
+    public var manifestLoadingDiagnostics: [Diagnostic]? {
+        self.lock.withLock {
+            self._manifestLoadingDiagnostics
         }
     }
 }

@@ -7140,6 +7140,98 @@ final class WorkspaceTests: XCTestCase {
             XCTFail("unexpected success")
         }
     }
+
+    func testManifestLoaderDiagnostics() throws {
+        struct TestLoader: ManifestLoaderProtocol {
+            let error: Error?
+
+            init (error: Error?) {
+                self.error = error
+            }
+
+            func load(
+                at path: AbsolutePath,
+                packageIdentity: PackageIdentity,
+                packageKind: PackageReference.Kind,
+                packageLocation: String,
+                version: Version?,
+                revision: String?,
+                toolsVersion: ToolsVersion,
+                identityResolver: IdentityResolver,
+                fileSystem: FileSystem,
+                diagnostics: DiagnosticsEngine?,
+                on queue: DispatchQueue,
+                completion: @escaping (Result<Manifest, Error>) -> Void
+            ) {
+                if let error = self.error {
+                    completion(.failure(error))
+                } else {
+                    completion(.success(
+                        .init(
+                            name: packageIdentity.description,
+                            path: path,
+                            packageKind: packageKind,
+                            packageLocation: packageLocation,
+                            platforms: [],
+                            toolsVersion: toolsVersion)
+                        )
+                    )
+                }
+
+            }
+
+            func resetCache() throws {}
+            func purgeCache() throws {}
+        }
+
+        let fs = InMemoryFileSystem()
+
+        do {
+            // no error
+            let delegate = MockWorkspaceDelegate()
+            let workspace = try Workspace(
+                fileSystem: fs,
+                location: .init(forRootPackage: .root, fileSystem: fs),
+                customManifestLoader: TestLoader(error: .none),
+                delegate: delegate
+            )
+            try workspace.loadPackageGraph(rootPath: .root, diagnostics: DiagnosticsEngine())
+
+            XCTAssertNotNil(delegate.manifest)
+            XCTAssertEqual(delegate.manifestLoadingDiagnostics?.count, 0)
+        }
+
+        do {
+            // Diagnostics.fatalError
+            let delegate = MockWorkspaceDelegate()
+            let workspace = try Workspace(
+                fileSystem: fs,
+                location: .init(forRootPackage: .root, fileSystem: fs),
+                customManifestLoader: TestLoader(error: Diagnostics.fatalError),
+                delegate: delegate
+            )
+            try workspace.loadPackageGraph(rootPath: .root, diagnostics: DiagnosticsEngine())
+
+            XCTAssertNil(delegate.manifest)
+            XCTAssertEqual(delegate.manifestLoadingDiagnostics?.count, 0)
+        }
+
+        do {
+            // actual error
+            let delegate = MockWorkspaceDelegate()
+            let workspace = try Workspace(
+                fileSystem: fs,
+                location: .init(forRootPackage: .root, fileSystem: fs),
+                customManifestLoader: TestLoader(error: StringError("boom")),
+                delegate: delegate
+            )
+            try workspace.loadPackageGraph(rootPath: .root, diagnostics: DiagnosticsEngine())
+
+            XCTAssertNil(delegate.manifest)
+            XCTAssertEqual(delegate.manifestLoadingDiagnostics?.count, 1)
+            XCTAssertEqual(delegate.manifestLoadingDiagnostics?.first?.message.text, "boom")
+        }
+    }
 }
 
 struct DummyError: LocalizedError, Equatable {
