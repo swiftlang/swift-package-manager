@@ -269,8 +269,10 @@ public struct CompositeAuthorizationProvider: AuthorizationProvider {
                 switch provider {
                 case let provider as NetrcAuthorizationProvider:
                     ObservabilitySystem.topScope.emit(info: "Credentials for \(url) found in netrc file at \(provider.path)")
+#if canImport(Security)
                 case is KeychainAuthorizationProvider:
                     ObservabilitySystem.topScope.emit(info: "Credentials for \(url) found in keychain")
+#endif
                 default:
                     ObservabilitySystem.topScope.emit(info: "Credentials for \(url) found in \(provider)")
                 }

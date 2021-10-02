@@ -350,13 +350,7 @@ extension Workspace.Configuration {
         }
 
         private static func load(_ path: AbsolutePath, fileSystem: FileSystem) throws -> AuthorizationProvider {
-            var providers = [AuthorizationProvider]()
-            // netrc file has higher specificity than keychain so use it first
-            providers.append(try NetrcAuthorizationProvider(path: path, fileSystem: fileSystem))
-#if canImport(Security)
-            providers.append(KeychainAuthorizationProvider())
-#endif
-            return CompositeAuthorizationProvider(providers)
+            try NetrcAuthorizationProvider(path: path, fileSystem: fileSystem)
         }
     }
 }

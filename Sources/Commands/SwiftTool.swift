@@ -496,8 +496,16 @@ public class SwiftTool {
     }
 
     func getAuthorizationProvider() throws -> AuthorizationProvider? {
-        // currently only single provider: netrc
-        return try self.getNetrcConfig()?.get()
+        var providers = [AuthorizationProvider]()
+        // netrc file has higher specificity than keychain so use it first
+        if let workspaceNetrc = try self.getNetrcConfig()?.get() {
+            providers.append(workspaceNetrc)
+        }
+#if canImport(Security)
+        providers.append(KeychainAuthorizationProvider())
+#endif
+        return CompositeAuthorizationProvider(providers)
+
     }
 
     func getNetrcConfig() -> Workspace.Configuration.Netrc? {
