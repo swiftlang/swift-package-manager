@@ -504,8 +504,7 @@ public class SwiftTool {
 #if canImport(Security)
         providers.append(KeychainAuthorizationProvider())
 #endif
-        return CompositeAuthorizationProvider(providers)
-
+        return providers.isEmpty ? nil : CompositeAuthorizationProvider(providers)
     }
 
     func getNetrcConfig() -> Workspace.Configuration.Netrc? {
