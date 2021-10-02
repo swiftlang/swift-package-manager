@@ -114,14 +114,15 @@ extension CertificatePolicy {
     ///                  On other platforms, these are the **only** root certificates to be trusted.
     ///   - verifyDate: Overrides the timestamp used for checking certificate expiry (e.g., for testing). By default the current time is used.
     ///   - httpClient: HTTP client for OCSP requests
+    ///   - observabilityScope: observabilityScope to emit diagnostics on
     ///   - callbackQueue: The `DispatchQueue` to use for callbacks
     ///   - callback: The callback to invoke when the result is available.
     func verify(certChain: [Certificate],
                 anchorCerts: [Certificate]? = nil,
                 verifyDate: Date? = nil,
                 httpClient: HTTPClient?,
-                callbackQueue: DispatchQueue,
                 observabilityScope: ObservabilityScope,
+                callbackQueue: DispatchQueue,
                 callback: @escaping (Result<Void, Error>) -> Void) {
         let wrappedCallback: (Result<Void, Error>) -> Void = { result in callbackQueue.async { callback(result) } }
 
@@ -586,6 +587,8 @@ struct DefaultCertificatePolicy: CertificatePolicy {
     private let httpClient: HTTPClient
     #endif
 
+    private let observabilityScope: ObservabilityScope
+
     /// Initializes a `DefaultCertificatePolicy`.
     /// - Parameters:
     ///   - trustedRootCertsDir: On Apple platforms, all root certificates that come preinstalled with the OS are automatically trusted.
@@ -616,6 +619,8 @@ struct DefaultCertificatePolicy: CertificatePolicy {
         self.httpClient = HTTPClient.makeDefault(callbackQueue: callbackQueue)
         #endif
         #endif
+
+        self.observabilityScope = observabilityScope
     }
 
     func validate(certChain: [Certificate], callback: @escaping (Result<Void, Error>) -> Void) {
@@ -649,7 +654,7 @@ struct DefaultCertificatePolicy: CertificatePolicy {
             #if os(macOS)
             self.verify(certChain: certChain, anchorCerts: self.trustedRoots, callbackQueue: self.callbackQueue, callback: callback)
             #elseif os(Linux) || os(Windows) || os(Android)
-            self.verify(certChain: certChain, anchorCerts: self.trustedRoots, httpClient: self.httpClient, callbackQueue: self.callbackQueue, callback: callback)
+            self.verify(certChain: certChain, anchorCerts: self.trustedRoots, httpClient: self.httpClient, observabilityScope: self.observabilityScope, callbackQueue: self.callbackQueue, callback: callback)
             #endif
         } catch {
             return wrappedCallback(.failure(error))
@@ -673,6 +678,8 @@ struct AppleSwiftPackageCollectionCertificatePolicy: CertificatePolicy {
     #if os(Linux) || os(Windows) || os(Android)
     private let httpClient: HTTPClient
     #endif
+
+    private let observabilityScope: ObservabilityScope
 
     /// Initializes a `AppleSwiftPackageCollectionCertificatePolicy`.
     /// - Parameters:
@@ -704,6 +711,8 @@ struct AppleSwiftPackageCollectionCertificatePolicy: CertificatePolicy {
         self.httpClient = HTTPClient.makeDefault(callbackQueue: callbackQueue)
         #endif
         #endif
+
+        self.observabilityScope = observabilityScope
     }
 
     func validate(certChain: [Certificate], callback: @escaping (Result<Void, Error>) -> Void) {
@@ -749,7 +758,7 @@ struct AppleSwiftPackageCollectionCertificatePolicy: CertificatePolicy {
             #if os(macOS)
             self.verify(certChain: certChain, anchorCerts: self.trustedRoots, callbackQueue: self.callbackQueue, callback: callback)
             #elseif os(Linux) || os(Windows) || os(Android)
-            self.verify(certChain: certChain, anchorCerts: self.trustedRoots, httpClient: self.httpClient, callbackQueue: self.callbackQueue, callback: callback)
+            self.verify(certChain: certChain, anchorCerts: self.trustedRoots, httpClient: self.httpClient, observabilityScope: self.observabilityScope, callbackQueue: self.callbackQueue, callback: callback)
             #endif
         } catch {
             return wrappedCallback(.failure(error))
@@ -773,6 +782,8 @@ struct AppleDistributionCertificatePolicy: CertificatePolicy {
     #if os(Linux) || os(Windows) || os(Android)
     private let httpClient: HTTPClient
     #endif
+
+    private let observabilityScope: ObservabilityScope
 
     /// Initializes a `AppleDistributionCertificatePolicy`.
     /// - Parameters:
@@ -804,6 +815,8 @@ struct AppleDistributionCertificatePolicy: CertificatePolicy {
         self.httpClient = HTTPClient.makeDefault(callbackQueue: callbackQueue)
         #endif
         #endif
+
+        self.observabilityScope = observabilityScope
     }
 
     func validate(certChain: [Certificate], callback: @escaping (Result<Void, Error>) -> Void) {
@@ -849,7 +862,7 @@ struct AppleDistributionCertificatePolicy: CertificatePolicy {
             #if os(macOS)
             self.verify(certChain: certChain, anchorCerts: self.trustedRoots, callbackQueue: self.callbackQueue, callback: callback)
             #elseif os(Linux) || os(Windows) || os(Android)
-            self.verify(certChain: certChain, anchorCerts: self.trustedRoots, httpClient: self.httpClient, callbackQueue: self.callbackQueue, callback: callback)
+            self.verify(certChain: certChain, anchorCerts: self.trustedRoots, httpClient: self.httpClient, observabilityScope: self.observabilityScope, callbackQueue: self.callbackQueue, callback: callback)
             #endif
         } catch {
             return wrappedCallback(.failure(error))

@@ -62,6 +62,7 @@ struct TestCertificatePolicy: CertificatePolicy {
                         callbackQueue: callbackQueue, callback: callback)
             #else
             self.verify(certChain: certChain, anchorCerts: self.anchorCerts, verifyDate: self.verifyDate, httpClient: nil,
+                        observabilityScope: ObservabilitySystem.NOOP,
                         callbackQueue: callbackQueue, callback: callback)
             #endif
         } catch {
