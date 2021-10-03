@@ -303,7 +303,8 @@ fileprivate struct WorkspaceStateStorage {
                     let kind = try container.decode(String.self, forKey: .type)
                     switch kind {
                     case "local":
-                        self.init(underlying: .local)
+                        let checksum = try container.decodeIfPresent(String.self, forKey: .checksum)
+                        self.init(underlying: .local(checksum: checksum))
                     case "remote":
                         let url = try container.decode(String.self, forKey: .url)
                         let checksum = try container.decode(String.self, forKey: .checksum)
@@ -316,8 +317,9 @@ fileprivate struct WorkspaceStateStorage {
                 func encode(to encoder: Encoder) throws {
                     var container = encoder.container(keyedBy: CodingKeys.self)
                     switch self.underlying {
-                    case .local:
+                    case .local(let checksum):
                         try container.encode("local", forKey: .type)
+                        try container.encodeIfPresent(checksum, forKey: .checksum)
                     case .remote(let url, let checksum):
                         try container.encode("remote", forKey: .type)
                         try container.encode(url, forKey: .url)

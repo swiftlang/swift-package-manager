@@ -1720,8 +1720,13 @@ extension Workspace {
             ]
 
             if artifact.path.extension == "zip" {
-                // TODO: We could check here a file signature of the `existingArtifact`, and
-                // if it matches the manifest `artifact` signature we could just `continue`.
+                // If we already have an artifact that was extracted from an archive with the same checksum,
+                // we don't need to extract the artifact again.
+                if case .local(let existingChecksum) = existingArtifact?.source,
+                   existingChecksum == self.checksum(forBinaryArtifactAt: artifact.path, diagnostics: diagnostics) {
+                    continue
+                }
+
                 artifactsToExtract.append(artifact)
             } else {
                 artifactsToAdd.append(artifact)
@@ -2068,7 +2073,8 @@ extension Workspace {
                         .local(
                             packageRef: artifact.packageRef,
                             targetName: artifact.targetName,
-                            path: mainArtifactPath
+                            path: mainArtifactPath,
+                            checksum: self.checksum(forBinaryArtifactAt: artifact.path, diagnostics: diagnostics)
                         )
                     )
 
