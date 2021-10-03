@@ -338,7 +338,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                             var entry = result.removeValue(forKey: match.package)
                             if entry == nil {
                                 guard let package = collectionDict[match.collection].flatMap({ collection in
-                                    collection.packages.first { $0.identity == match.package }
+                                    collection.packages.first(where: { $0.identity == match.package })
                                 }) else {
                                     return
                                 }
@@ -606,7 +606,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                         var packageEntry = packageCollections.removeValue(forKey: match.package)
                         if packageEntry == nil {
                             guard let package = collectionDict[match.collection].flatMap({ collection in
-                                collection.packages.first { $0.identity == match.package }
+                                collection.packages.first(where: { $0.identity == match.package })
                             }) else {
                                 return
                             }
