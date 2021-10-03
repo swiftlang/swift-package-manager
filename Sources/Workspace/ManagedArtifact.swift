@@ -80,7 +80,7 @@ extension Workspace {
             case remote(url: String, checksum: String)
 
             /// Represents a locally available artifact, with its path relative either to its package or to the workspace artifacts
-            /// path, in the latter case, the cheskum of the local archive the artifact was extracted from is set.
+            /// path, in the latter case, the checksum of the local archive the artifact was extracted from is set.
             case local(checksum: String? = nil)
         }
     }
