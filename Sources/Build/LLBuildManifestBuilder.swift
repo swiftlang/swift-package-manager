@@ -237,12 +237,24 @@ extension LLBuildManifestBuilder {
     private func addSwiftDriverJobs(for targetDescription: SwiftTargetBuildDescription,
                                     jobs: [Job], inputs: [Node],
                                     resolver: ArgsResolver,
-                                    isMainModule: (Job) -> Bool) throws {
+                                    isMainModule: (Job) -> Bool,
+                                    uniqueExplicitDependencyTracker: UniqueExplicitDependencyJobTracker? = nil) throws {
         // Add build jobs to the manifest
         for job in jobs {
             let tool = try resolver.resolve(.path(job.tool))
             let commandLine = try job.commandLine.map{ try resolver.resolve($0) }
             let arguments = [tool] + commandLine
+
+            // Check if an explicit pre-build dependency job has already been
+            // added as a part of this build.
+            if let uniqueDependencyTracker = uniqueExplicitDependencyTracker,
+               job.isExplicitDependencyPreBuildJob {
+                if try !uniqueDependencyTracker.registerExplicitDependencyBuildJob(job) {
+                    // This is a duplicate of a previously-seen identical job.
+                    // Skip adding it to the manifest
+                    continue
+                }
+            }
 
             let jobInputs = try job.inputs.map { try $0.resolveToNode() }
             let jobOutputs = try job.outputs.map { try $0.resolveToNode() }
@@ -320,6 +332,11 @@ extension LLBuildManifestBuilder {
         // modules across targets' Driver instances.
         let dependencyOracle = InterModuleDependencyOracle()
 
+        // Explicit dependency pre-build jobs may be common to multiple targets.
+        // We de-duplicate them here to avoid adding identical entries to the
+        // downstream LLBuild manifest
+        let explicitDependencyJobTracker = UniqueExplicitDependencyJobTracker()
+
         // Create commands for all target descriptions in the plan.
         for dependency in allPackageDependencies.reversed() {
             guard case .target(let target, _) = dependency else {
@@ -346,7 +363,8 @@ extension LLBuildManifestBuilder {
             switch description {
                 case .swift(let desc):
                     try self.createExplicitSwiftTargetCompileCommand(description: desc,
-                                                                     dependencyOracle: dependencyOracle)
+                                                                     dependencyOracle: dependencyOracle,
+                                                                     explicitDependencyJobTracker: explicitDependencyJobTracker)
                 case .clang(let desc):
                     try self.createClangCompileCommand(desc)
             }
@@ -355,7 +373,8 @@ extension LLBuildManifestBuilder {
 
     private func createExplicitSwiftTargetCompileCommand(
         description: SwiftTargetBuildDescription,
-        dependencyOracle: InterModuleDependencyOracle
+        dependencyOracle: InterModuleDependencyOracle,
+        explicitDependencyJobTracker: UniqueExplicitDependencyJobTracker?
     ) throws {
         // Inputs.
         let inputs = try self.computeSwiftCompileCmdInputs(description)
@@ -367,7 +386,8 @@ extension LLBuildManifestBuilder {
 
         // Commands.
         try addExplicitBuildSwiftCmds(description, inputs: inputs,
-                                      dependencyOracle: dependencyOracle)
+                                      dependencyOracle: dependencyOracle,
+                                      explicitDependencyJobTracker: explicitDependencyJobTracker)
 
         self.addTargetCmd(description, cmdOutputs: cmdOutputs)
         self.addModuleWrapCmd(description)
@@ -376,7 +396,8 @@ extension LLBuildManifestBuilder {
     private func addExplicitBuildSwiftCmds(
         _ targetDescription: SwiftTargetBuildDescription,
         inputs: [Node],
-        dependencyOracle: InterModuleDependencyOracle
+        dependencyOracle: InterModuleDependencyOracle,
+        explicitDependencyJobTracker: UniqueExplicitDependencyJobTracker? = nil
     ) throws {
         // Pass the driver its external dependencies (target dependencies)
         var dependencyModulePathMap: SwiftDriver.ExternalTargetModulePathMap = [:]
@@ -399,7 +420,8 @@ extension LLBuildManifestBuilder {
                                 interModuleDependencyOracle: dependencyOracle)
         let jobs = try driver.planBuild()
         try addSwiftDriverJobs(for: targetDescription, jobs: jobs, inputs: inputs, resolver: resolver,
-                               isMainModule: { driver.isExplicitMainModuleJob(job: $0)})
+                               isMainModule: { driver.isExplicitMainModuleJob(job: $0)},
+                               uniqueExplicitDependencyTracker: explicitDependencyJobTracker)
     }
 
     /// Collect a map from all target dependencies of the specified target to the build planning artifacts for said dependency,
@@ -631,7 +653,34 @@ extension LLBuildManifestBuilder {
     }
 }
 
-// MARK: - Compile C-family
+fileprivate extension SwiftDriver.Job {
+    var isExplicitDependencyPreBuildJob: Bool {
+        return (kind == .emitModule &&
+                inputs.contains { $0.file.extension == "swiftinterface" } ) ||
+               kind == .generatePCM
+    }
+}
+
+/// A simple mechanism to keep track of already-known explicit module pre-build jobs.
+/// It uses the output filename of the job (either a `.swiftmodule` or a `.pcm`) for uniqueness,
+/// because the SwiftDriver encodes the module's context hash into this filename. Any two jobs
+/// producing an binary module file with an identical name are therefore duplicate
+fileprivate class UniqueExplicitDependencyJobTracker {
+    private var uniqueDependencyModuleIDSet: Set<Int> = []
+
+    /// Registers the input Job with the tracker. Returns `false` if this job is already known
+    func registerExplicitDependencyBuildJob(_ job: SwiftDriver.Job) throws -> Bool {
+        guard job.isExplicitDependencyPreBuildJob,
+              let soleOutput = job.outputs.spm_only else {
+            throw InternalError("Expected explicit module dependency build job")
+        }
+        let jobUniqueID = soleOutput.file.basename.hashValue
+        let (new, _) = uniqueDependencyModuleIDSet.insert(jobUniqueID)
+        return new
+    }
+}
+
+// MARK:- Compile C-family
 
 extension LLBuildManifestBuilder {
     /// Create a llbuild target for a Clang target description.
