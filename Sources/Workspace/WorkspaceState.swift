@@ -154,6 +154,11 @@ fileprivate struct WorkspaceStateStorage {
         struct Container: Codable {
             var dependencies: [Dependency]
             var artifacts: [Artifact]
+
+            init(dependencies: [Dependency], artifacts: [Artifact]) {
+                self.dependencies = dependencies.sorted { $0.packageRef.identity < $1.packageRef.identity }
+                self.artifacts = artifacts.sorted { $0.packageRef.identity < $1.packageRef.identity }
+            }
         }
 
         struct Dependency: Codable {
