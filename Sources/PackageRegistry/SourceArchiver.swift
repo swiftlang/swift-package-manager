@@ -32,7 +32,7 @@ struct SourceArchiver: Archiver {
     ///
     /// - Parameters:
     ///   - fileSystem: The file-system to used by the `SourceArchiver`.
-    public init(fileSystem: FileSystem = localFileSystem) {
+    public init(fileSystem: FileSystem) {
         self.fileSystem = fileSystem
     }
 
