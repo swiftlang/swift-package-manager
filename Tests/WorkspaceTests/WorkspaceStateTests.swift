@@ -13,17 +13,12 @@ import TSCBasic
 import XCTest
 
 final class WorkspaceStateTests: XCTestCase {
-    private var fs: FileSystem! = nil
-
-    override func setUp() {
-        super.setUp()
-
-        fs = InMemoryFileSystem()
-    }
-
     func testSavedDependenciesAreSorted() throws {
+        let fs = InMemoryFileSystem()
+
         let buildDir = AbsolutePath("/.build")
         let statePath = buildDir.appending(component: "workspace-state.json")
+
         try fs.writeFileContents(statePath) {
             $0 <<<
                 """
