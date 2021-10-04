@@ -297,7 +297,7 @@ public class Workspace {
             cachePath: sharedRepositoriesCacheEnabled ? location.sharedRepositoriesCacheDirectory : .none
         )
         // FIXME: use workspace scope when migrating workspace to new observability API
-        let httpClient = customHTTPClient ?? HTTPClient(observabilityScope: ObservabilitySystem.topScope)
+        let httpClient = customHTTPClient ?? HTTPClient()
         let archiver = customArchiver ?? ZipArchiver()
         let mirrors = mirrors ?? DependencyMirrors()
         let identityResolver = customIdentityResolver ?? DefaultIdentityResolver(locationMapper: mirrors.effectiveURL(for:))
@@ -796,6 +796,7 @@ extension Workspace {
         return try workspace.loadPackageGraph(rootPath: packagePath, diagnostics: diagnostics)
     }
 
+    @available(*, deprecated, message: "use observabilityScope variant instead")
     @discardableResult
     public func loadPackageGraph(
         rootInput root: PackageGraphRootInput,
@@ -806,6 +807,27 @@ extension Workspace {
         diagnostics: DiagnosticsEngine,
         xcTestMinimumDeploymentTargets: [PackageModel.Platform:PlatformVersion]? = nil
     ) throws -> PackageGraph {
+        try self.loadPackageGraph(
+            rootInput: root,
+            explicitProduct: explicitProduct,
+            createMultipleTestProducts: createMultipleTestProducts,
+            createREPLProduct: createREPLProduct,
+            forceResolvedVersions: forceResolvedVersions,
+            xcTestMinimumDeploymentTargets: xcTestMinimumDeploymentTargets,
+            observabilityScope: ObservabilitySystem(diagnosticEngine: diagnostics).topScope
+        )
+    }
+
+    @discardableResult
+    public func loadPackageGraph(
+        rootInput root: PackageGraphRootInput,
+        explicitProduct: String? = nil,
+        createMultipleTestProducts: Bool = false,
+        createREPLProduct: Bool = false,
+        forceResolvedVersions: Bool = false,
+        xcTestMinimumDeploymentTargets: [PackageModel.Platform:PlatformVersion]? = nil,
+        observabilityScope: ObservabilityScope
+    ) throws -> PackageGraph {
 
         // Perform dependency resolution, if required.
         let manifests: DependencyManifests
@@ -813,7 +835,7 @@ extension Workspace {
             manifests = try self.resolveBasedOnResolvedVersionsFile(
                 root: root,
                 explicitProduct: explicitProduct,
-                diagnostics: diagnostics
+                diagnostics: observabilityScope.makeDiagnosticsEngine()
             )
         } else {
             manifests = try self.resolve(
@@ -821,7 +843,7 @@ extension Workspace {
                 explicitProduct: explicitProduct,
                 forceResolution: false,
                 constraints: [],
-                diagnostics: diagnostics
+                diagnostics: observabilityScope.makeDiagnosticsEngine()
             )
         }
 
@@ -841,10 +863,12 @@ extension Workspace {
             xcTestMinimumDeploymentTargets: xcTestMinimumDeploymentTargets ?? MinimumDeploymentTarget.default.xcTestMinimumDeploymentTargets,
             shouldCreateMultipleTestProducts: createMultipleTestProducts,
             createREPLProduct: createREPLProduct,
-            fileSystem: fileSystem
+            fileSystem: fileSystem,
+            observabilityScope: observabilityScope
         )
     }
 
+    @available(*, deprecated, message: "use observabilityScope variant instead")
     @discardableResult
     public func loadPackageGraph(
         rootPath: AbsolutePath,
@@ -852,9 +876,22 @@ extension Workspace {
         diagnostics: DiagnosticsEngine
     ) throws -> PackageGraph {
         try self.loadPackageGraph(
+            rootPath: rootPath,
+            explicitProduct: explicitProduct,
+            observabilityScope: ObservabilitySystem(diagnosticEngine: diagnostics).topScope
+        )
+    }
+
+    @discardableResult
+    public func loadPackageGraph(
+        rootPath: AbsolutePath,
+        explicitProduct: String? = nil,
+        observabilityScope: ObservabilityScope
+    ) throws -> PackageGraph {
+        try self.loadPackageGraph(
             rootInput: PackageGraphRootInput(packages: [rootPath]),
             explicitProduct: explicitProduct,
-            diagnostics: diagnostics
+            observabilityScope: observabilityScope
         )
     }
 
@@ -912,6 +949,15 @@ extension Workspace {
         }
     }
 
+    public func loadRootManifest(
+        at path: AbsolutePath,
+        observabilityScope: ObservabilityScope,
+        completion: @escaping(Result<Manifest, Error>) -> Void
+    ) {
+        self.loadRootManifest(at: path, diagnostics: observabilityScope.makeDiagnosticsEngine(), completion: completion)
+    }
+
+    // FIXME: (diagnostics) make the observabilityScope variant the main one
     /// Loads and returns manifest at the given path.
     public func loadRootManifest(
         at path: AbsolutePath,
@@ -933,12 +979,25 @@ extension Workspace {
         }
     }
 
+    @available(*, deprecated, message: "use observabilityScope variant instead")
     public func loadRootPackage(
         at path: AbsolutePath,
         diagnostics: DiagnosticsEngine,
         completion: @escaping(Result<Package, Error>) -> Void
     ) {
-        self.loadRootManifest(at: path, diagnostics: diagnostics) { result in
+        self.loadRootPackage(
+            at: path,
+            observabilityScope: ObservabilitySystem(diagnosticEngine: diagnostics).topScope,
+            completion: completion
+        )
+    }
+
+    public func loadRootPackage(
+        at path: AbsolutePath,
+        observabilityScope: ObservabilityScope,
+        completion: @escaping(Result<Package, Error>) -> Void
+    ) {
+        self.loadRootManifest(at: path, diagnostics: observabilityScope.makeDiagnosticsEngine()) { result in
             let result = result.tryMap { manifest -> Package in
                 let identity = try self.identityResolver.resolveIdentity(for: manifest.packageKind)
                 let builder = PackageBuilder(
@@ -947,7 +1006,8 @@ extension Workspace {
                     productFilter: .everything,
                     path: path,
                     xcTestMinimumDeploymentTargets: MinimumDeploymentTarget.default.xcTestMinimumDeploymentTargets,
-                    fileSystem: self.fileSystem
+                    fileSystem: self.fileSystem,
+                    observabilityScope: observabilityScope
                 )
                 return try builder.construct()
             }

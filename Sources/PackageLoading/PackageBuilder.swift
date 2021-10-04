@@ -268,7 +268,8 @@ public final class PackageBuilder {
         shouldCreateMultipleTestProducts: Bool = false,
         warnAboutImplicitExecutableTargets: Bool = true,
         createREPLProduct: Bool = false,
-        fileSystem: FileSystem
+        fileSystem: FileSystem,
+        observabilityScope: ObservabilityScope
     ) {
         self.identity = identity
         self.manifest = manifest
@@ -280,7 +281,7 @@ public final class PackageBuilder {
         self.shouldCreateMultipleTestProducts = shouldCreateMultipleTestProducts
         self.createREPLProduct = createREPLProduct
         self.warnAboutImplicitExecutableTargets = warnAboutImplicitExecutableTargets
-        self.observabilityScope = ObservabilitySystem.topScope.makeChildScope(
+        self.observabilityScope = observabilityScope.makeChildScope(
             description: "PackageBuilder",
             metadata: .packageMetadata(identity: self.identity, location: self.manifest.packageLocation)
         )
@@ -322,7 +323,9 @@ public final class PackageBuilder {
                     productFilter: .everything,
                     path: path,
                     xcTestMinimumDeploymentTargets: xcTestMinimumDeploymentTargets,
-                    fileSystem: localFileSystem)
+                    fileSystem: localFileSystem,
+                    observabilityScope: ObservabilitySystem(diagnosticEngine: diagnostics).topScope
+                )
                 return try builder.construct()
             }
             completion(result)

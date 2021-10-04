@@ -114,12 +114,14 @@ extension CertificatePolicy {
     ///                  On other platforms, these are the **only** root certificates to be trusted.
     ///   - verifyDate: Overrides the timestamp used for checking certificate expiry (e.g., for testing). By default the current time is used.
     ///   - httpClient: HTTP client for OCSP requests
+    ///   - observabilityScope: observabilityScope to emit diagnostics on
     ///   - callbackQueue: The `DispatchQueue` to use for callbacks
     ///   - callback: The callback to invoke when the result is available.
     func verify(certChain: [Certificate],
                 anchorCerts: [Certificate]? = nil,
                 verifyDate: Date? = nil,
                 httpClient: HTTPClient?,
+                observabilityScope: ObservabilityScope,
                 callbackQueue: DispatchQueue,
                 callback: @escaping (Result<Void, Error>) -> Void) {
         let wrappedCallback: (Result<Void, Error>) -> Void = { result in callbackQueue.async { callback(result) } }
@@ -212,7 +214,7 @@ extension CertificatePolicy {
 
             guard CCryptoBoringSSL_X509_verify_cert(x509StoreCtx) == 1 else {
                 let error = CCryptoBoringSSL_X509_verify_cert_error_string(numericCast(CCryptoBoringSSL_X509_STORE_CTX_get_error(x509StoreCtx)))
-                ObservabilitySystem.topScope.emit(warning: "The certificate is invalid: \(String(describing: error.flatMap { String(cString: $0, encoding: .utf8) }))")
+                observabilityScope.emit(warning: "The certificate is invalid: \(String(describing: error.flatMap { String(cString: $0, encoding: .utf8) }))")
                 return CertificatePolicyError.invalidCertChain
             }
 
@@ -526,14 +528,14 @@ enum CertificateExtendedKeyUsage {
 }
 
 extension CertificatePolicy {
-    static func loadCerts(at directory: URL) -> [Certificate] {
+    static func loadCerts(at directory: URL, observabilityScope: ObservabilityScope) -> [Certificate] {
         var certs = [Certificate]()
         if let enumerator = FileManager.default.enumerator(at: directory, includingPropertiesForKeys: nil) {
             for case let fileURL as URL in enumerator {
                 do {
                     certs.append(try Certificate(derEncoded: Data(contentsOf: fileURL)))
                 } catch {
-                    ObservabilitySystem.topScope.emit(warning: "The certificate \(fileURL) is invalid: \(error)")
+                    observabilityScope.emit(warning: "The certificate \(fileURL) is invalid: \(error)")
                 }
             }
         }
@@ -585,6 +587,8 @@ struct DefaultCertificatePolicy: CertificatePolicy {
     private let httpClient: HTTPClient
     #endif
 
+    private let observabilityScope: ObservabilityScope
+
     /// Initializes a `DefaultCertificatePolicy`.
     /// - Parameters:
     ///   - trustedRootCertsDir: On Apple platforms, all root certificates that come preinstalled with the OS are automatically trusted.
@@ -596,13 +600,13 @@ struct DefaultCertificatePolicy: CertificatePolicy {
     ///                                 while this is configured by SwiftPM and static.
     ///   - expectedSubjectUserID: The subject user ID that must match if specified.
     ///   - callbackQueue: The `DispatchQueue` to use for callbacks
-    init(trustedRootCertsDir: URL?, additionalTrustedRootCerts: [Certificate]?, expectedSubjectUserID: String? = nil, callbackQueue: DispatchQueue) {
+    init(trustedRootCertsDir: URL?, additionalTrustedRootCerts: [Certificate]?, expectedSubjectUserID: String? = nil, observabilityScope: ObservabilityScope, callbackQueue: DispatchQueue) {
         #if !(os(macOS) || os(Linux) || os(Windows) || os(Android))
         fatalError("Unsupported: \(#function)")
         #else
         var trustedRoots = [Certificate]()
         if let trustedRootCertsDir = trustedRootCertsDir {
-            trustedRoots.append(contentsOf: Self.loadCerts(at: trustedRootCertsDir))
+            trustedRoots.append(contentsOf: Self.loadCerts(at: trustedRootCertsDir ,observabilityScope: observabilityScope))
         }
         if let additionalTrustedRootCerts = additionalTrustedRootCerts {
             trustedRoots.append(contentsOf: additionalTrustedRootCerts)
@@ -615,6 +619,8 @@ struct DefaultCertificatePolicy: CertificatePolicy {
         self.httpClient = HTTPClient.makeDefault(callbackQueue: callbackQueue)
         #endif
         #endif
+
+        self.observabilityScope = observabilityScope
     }
 
     func validate(certChain: [Certificate], callback: @escaping (Result<Void, Error>) -> Void) {
@@ -648,7 +654,7 @@ struct DefaultCertificatePolicy: CertificatePolicy {
             #if os(macOS)
             self.verify(certChain: certChain, anchorCerts: self.trustedRoots, callbackQueue: self.callbackQueue, callback: callback)
             #elseif os(Linux) || os(Windows) || os(Android)
-            self.verify(certChain: certChain, anchorCerts: self.trustedRoots, httpClient: self.httpClient, callbackQueue: self.callbackQueue, callback: callback)
+            self.verify(certChain: certChain, anchorCerts: self.trustedRoots, httpClient: self.httpClient, observabilityScope: self.observabilityScope, callbackQueue: self.callbackQueue, callback: callback)
             #endif
         } catch {
             return wrappedCallback(.failure(error))
@@ -673,6 +679,8 @@ struct AppleSwiftPackageCollectionCertificatePolicy: CertificatePolicy {
     private let httpClient: HTTPClient
     #endif
 
+    private let observabilityScope: ObservabilityScope
+
     /// Initializes a `AppleSwiftPackageCollectionCertificatePolicy`.
     /// - Parameters:
     ///   - trustedRootCertsDir: On Apple platforms, all root certificates that come preinstalled with the OS are automatically trusted.
@@ -684,13 +692,13 @@ struct AppleSwiftPackageCollectionCertificatePolicy: CertificatePolicy {
     ///                                 while this is configured by SwiftPM and static.
     ///   - expectedSubjectUserID: The subject user ID that must match if specified.
     ///   - callbackQueue: The `DispatchQueue` to use for callbacks
-    init(trustedRootCertsDir: URL?, additionalTrustedRootCerts: [Certificate]?, expectedSubjectUserID: String? = nil, callbackQueue: DispatchQueue) {
+    init(trustedRootCertsDir: URL?, additionalTrustedRootCerts: [Certificate]?, expectedSubjectUserID: String? = nil, observabilityScope: ObservabilityScope, callbackQueue: DispatchQueue) {
         #if !(os(macOS) || os(Linux) || os(Windows) || os(Android))
         fatalError("Unsupported: \(#function)")
         #else
         var trustedRoots = [Certificate]()
         if let trustedRootCertsDir = trustedRootCertsDir {
-            trustedRoots.append(contentsOf: Self.loadCerts(at: trustedRootCertsDir))
+            trustedRoots.append(contentsOf: Self.loadCerts(at: trustedRootCertsDir, observabilityScope: observabilityScope))
         }
         if let additionalTrustedRootCerts = additionalTrustedRootCerts {
             trustedRoots.append(contentsOf: additionalTrustedRootCerts)
@@ -703,6 +711,8 @@ struct AppleSwiftPackageCollectionCertificatePolicy: CertificatePolicy {
         self.httpClient = HTTPClient.makeDefault(callbackQueue: callbackQueue)
         #endif
         #endif
+
+        self.observabilityScope = observabilityScope
     }
 
     func validate(certChain: [Certificate], callback: @escaping (Result<Void, Error>) -> Void) {
@@ -748,7 +758,7 @@ struct AppleSwiftPackageCollectionCertificatePolicy: CertificatePolicy {
             #if os(macOS)
             self.verify(certChain: certChain, anchorCerts: self.trustedRoots, callbackQueue: self.callbackQueue, callback: callback)
             #elseif os(Linux) || os(Windows) || os(Android)
-            self.verify(certChain: certChain, anchorCerts: self.trustedRoots, httpClient: self.httpClient, callbackQueue: self.callbackQueue, callback: callback)
+            self.verify(certChain: certChain, anchorCerts: self.trustedRoots, httpClient: self.httpClient, observabilityScope: self.observabilityScope, callbackQueue: self.callbackQueue, callback: callback)
             #endif
         } catch {
             return wrappedCallback(.failure(error))
@@ -773,6 +783,8 @@ struct AppleDistributionCertificatePolicy: CertificatePolicy {
     private let httpClient: HTTPClient
     #endif
 
+    private let observabilityScope: ObservabilityScope
+
     /// Initializes a `AppleDistributionCertificatePolicy`.
     /// - Parameters:
     ///   - trustedRootCertsDir: On Apple platforms, all root certificates that come preinstalled with the OS are automatically trusted.
@@ -784,13 +796,13 @@ struct AppleDistributionCertificatePolicy: CertificatePolicy {
     ///                                 while this is configured by SwiftPM and static.
     ///   - expectedSubjectUserID: The subject user ID that must match if specified.
     ///   - callbackQueue: The `DispatchQueue` to use for callbacks
-    init(trustedRootCertsDir: URL?, additionalTrustedRootCerts: [Certificate]?, expectedSubjectUserID: String? = nil, callbackQueue: DispatchQueue) {
+    init(trustedRootCertsDir: URL?, additionalTrustedRootCerts: [Certificate]?, expectedSubjectUserID: String? = nil, observabilityScope: ObservabilityScope, callbackQueue: DispatchQueue) {
         #if !(os(macOS) || os(Linux) || os(Windows) || os(Android))
         fatalError("Unsupported: \(#function)")
         #else
         var trustedRoots = [Certificate]()
         if let trustedRootCertsDir = trustedRootCertsDir {
-            trustedRoots.append(contentsOf: Self.loadCerts(at: trustedRootCertsDir))
+            trustedRoots.append(contentsOf: Self.loadCerts(at: trustedRootCertsDir, observabilityScope: observabilityScope))
         }
         if let additionalTrustedRootCerts = additionalTrustedRootCerts {
             trustedRoots.append(contentsOf: additionalTrustedRootCerts)
@@ -803,6 +815,8 @@ struct AppleDistributionCertificatePolicy: CertificatePolicy {
         self.httpClient = HTTPClient.makeDefault(callbackQueue: callbackQueue)
         #endif
         #endif
+
+        self.observabilityScope = observabilityScope
     }
 
     func validate(certChain: [Certificate], callback: @escaping (Result<Void, Error>) -> Void) {
@@ -848,7 +862,7 @@ struct AppleDistributionCertificatePolicy: CertificatePolicy {
             #if os(macOS)
             self.verify(certChain: certChain, anchorCerts: self.trustedRoots, callbackQueue: self.callbackQueue, callback: callback)
             #elseif os(Linux) || os(Windows) || os(Android)
-            self.verify(certChain: certChain, anchorCerts: self.trustedRoots, httpClient: self.httpClient, callbackQueue: self.callbackQueue, callback: callback)
+            self.verify(certChain: certChain, anchorCerts: self.trustedRoots, httpClient: self.httpClient, observabilityScope: self.observabilityScope, callbackQueue: self.callbackQueue, callback: callback)
             #endif
         } catch {
             return wrappedCallback(.failure(error))

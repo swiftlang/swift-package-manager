@@ -167,14 +167,14 @@ class ModuleMapGeneration: XCTestCase {
 
 /// Helper function to test module map generation.  Given a target name and optionally the name of a public-headers directory, this function determines the module map type of the public-headers directory by examining the contents of a file system and invokes a given block to check the module result (including any diagnostics).
 func ModuleMapTester(_ targetName: String, includeDir: String = "include", in fileSystem: FileSystem, _ body: (ModuleMapResult) -> Void) {
-    let observability = ObservabilitySystem.bootstrapForTesting()
+    let observability = ObservabilitySystem.makeForTesting()
     // Create a module map generator, and determine the type of module map to use for the header directory.  This may emit diagnostics.
     let moduleMapGenerator = ModuleMapGenerator(targetName: targetName, moduleName: targetName.spm_mangledToC99ExtendedIdentifier(), publicHeadersDir: AbsolutePath.root.appending(component: includeDir), fileSystem: fileSystem)
-    let moduleMapType = moduleMapGenerator.determineModuleMapType(observabilityScope: ObservabilitySystem.topScope)
+    let moduleMapType = moduleMapGenerator.determineModuleMapType(observabilityScope: observability.topScope)
     
     // Generate a module map and capture any emitted diagnostics.
     let generatedModuleMapPath = AbsolutePath.root.appending(components: "module.modulemap")
-    ObservabilitySystem.topScope.trap {
+    observability.topScope.trap {
         if let generatedModuleMapType = moduleMapType.generatedModuleMapType {
             try moduleMapGenerator.generateModuleMap(type: generatedModuleMapType, at: generatedModuleMapPath)
         }

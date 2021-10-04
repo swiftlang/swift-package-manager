@@ -27,6 +27,10 @@ public struct URLSessionHTTPClient: HTTPClientProtocol {
     }
 
     public func execute(_ request: HTTPClient.Request, progress: ProgressHandler?, completion: @escaping CompletionHandler) {
+        self.execute(request, observabilityScope: nil, progress: progress, completion: completion)
+    }
+
+    public func execute(_ request: HTTPClient.Request, observabilityScope: ObservabilityScope? = nil, progress: ProgressHandler?, completion: @escaping CompletionHandler) {
         switch request.kind {
         case .generic:
             let task = self.dataTasksManager.makeTask(request: request, progress: progress, completion: completion)

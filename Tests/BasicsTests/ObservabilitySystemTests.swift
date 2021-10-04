@@ -19,7 +19,7 @@ typealias Diagnostic = Basics.Diagnostic
 final class ObservabilitySystemTest: XCTestCase {
     func testScopes() throws {
         let collector = Collector()
-        let observabilitySystem = ObservabilitySystem(factory: collector)
+        let observabilitySystem = ObservabilitySystem(collector)
 
         var metadata1 = ObservabilityMetadata()
         metadata1.testKey1 = UUID().uuidString
@@ -91,7 +91,7 @@ final class ObservabilitySystemTest: XCTestCase {
 
     func testBasicDiagnostics() throws {
         let collector = Collector()
-        let observabilitySystem = ObservabilitySystem(factory: collector)
+        let observabilitySystem = ObservabilitySystem(collector)
 
         var metadata = ObservabilityMetadata()
         metadata.testKey1 = UUID().uuidString
@@ -123,7 +123,7 @@ final class ObservabilitySystemTest: XCTestCase {
 
     func testDiagnosticsMetadataMerge() throws {
         let collector = Collector()
-        let observabilitySystem = ObservabilitySystem(factory: collector)
+        let observabilitySystem = ObservabilitySystem(collector)
 
         var scopeMetadata = ObservabilityMetadata()
         scopeMetadata.testKey1 = UUID().uuidString
@@ -160,7 +160,7 @@ final class ObservabilitySystemTest: XCTestCase {
         }
     }
 
-    struct Collector: ObservabilityFactory, DiagnosticsHandler {
+    struct Collector: ObservabilityHandlerProvider, DiagnosticsHandler {
         private let _diagnostics = ThreadSafeArrayStore<Diagnostic>()
 
         var diagnosticsHandler: DiagnosticsHandler { self }

@@ -36,6 +36,7 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
     static let defaultCertPolicyKeys: [CertificatePolicyKey] = [.default]
 
     private let configuration: Configuration
+    private let observabilityScope: ObservabilityScope
     private let httpClient: HTTPClient
     private let decoder: JSONDecoder
     private let validator: JSONModel.Validator
@@ -43,17 +44,20 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
     private let sourceCertPolicy: PackageCollectionSourceCertificatePolicy
 
     init(configuration: Configuration = .init(),
+         observabilityScope: ObservabilityScope,
          httpClient: HTTPClient? = nil,
          signatureValidator: PackageCollectionSignatureValidator? = nil,
          sourceCertPolicy: PackageCollectionSourceCertificatePolicy = PackageCollectionSourceCertificatePolicy(),
          fileSystem: FileSystem = localFileSystem) {
         self.configuration = configuration
+        self.observabilityScope = observabilityScope
         self.httpClient = httpClient ?? Self.makeDefaultHTTPClient()
         self.decoder = JSONDecoder.makeWithDefaults()
         self.validator = JSONModel.Validator(configuration: configuration.validator)
         self.signatureValidator = signatureValidator ?? PackageCollectionSigning(
             trustedRootCertsDir: configuration.trustedRootCertsDir ?? fileSystem.swiftPMConfigDirectory.appending(component: "trust-root-certs").asURL,
             additionalTrustedRootCerts: sourceCertPolicy.allRootCerts.map { Array($0) },
+            observabilityScope: observabilityScope,
             callbackQueue: .sharedConcurrent
         )
         self.sourceCertPolicy = sourceCertPolicy
@@ -164,7 +168,7 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
                                     fatalError("Expected at least one package collection signature validation failure but got none")
                                 }
 
-                                ObservabilitySystem.topScope.emit(warning: "The signature of package collection [\(source)] is invalid: \(error)")
+                                self.observabilityScope.emit(warning: "The signature of package collection [\(source)] is invalid: \(error)")
                                 if PackageCollectionSigningError.noTrustedRootCertsConfigured == error as? PackageCollectionSigningError {
                                     callback(.failure(PackageCollectionError.cannotVerifySignature))
                                 } else {
@@ -268,7 +272,7 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
         }
 
         if !serializationOkay {
-            ObservabilitySystem.topScope.emit(warning: "Some of the information from \(collection.name) could not be deserialized correctly, likely due to invalid format. Contact the collection's author (\(collection.generatedBy?.name ?? "n/a")) to address this issue.")
+            self.observabilityScope.emit(warning: "Some of the information from \(collection.name) could not be deserialized correctly, likely due to invalid format. Contact the collection's author (\(collection.generatedBy?.name ?? "n/a")) to address this issue.")
         }
 
         return .success(.init(source: source,

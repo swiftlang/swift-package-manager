@@ -396,21 +396,31 @@ class PackageDescription5_0LoadingTests: PackageDescriptionLoadingTests {
                 """
             }
 
-            let observability = ObservabilitySystem.bootstrapForTesting()
+            let observability = ObservabilitySystem.makeForTesting()
+            let diagnostics = observability.topScope.makeDiagnosticsEngine()
             _ = try loader.load(
                 at: manifestPath.parentDirectory,
                 packageKind: .fileSystem(manifestPath.parentDirectory),
                 toolsVersion: .v5,
                 fileSystem: fs,
-                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine()
+                diagnostics: diagnostics
             )
 
-            guard let diagnostic = observability.diagnostics.first else {
+            /*guard let diagnostic = observability.diagnostics.first else {
                 return XCTFail("Expected a diagnostic")
             }
             XCTAssertMatch(diagnostic.message, .contains("warning: initialization of immutable value"))
             XCTAssertEqual(diagnostic.severity, .warning)
             let contents = try diagnostic.metadata?.manifestLoadingDiagnosticFile.map { try localFileSystem.readFileContents($0) }
+            XCTAssertNotNil(contents)
+            */
+            // FIXME: (diagnostics) bring ^^ back when implemented again
+            guard let diagnostic = diagnostics.diagnostics.first else {
+                return XCTFail("Expected a diagnostic")
+            }
+            XCTAssertMatch(diagnostic.message.text, .contains("warning: initialization of immutable value"))
+            XCTAssertEqual(diagnostic.behavior, .warning)
+            let contents = try (diagnostic.data as? ManifestLoadingDiagnostic)?.diagnosticFile.map { try localFileSystem.readFileContents($0) }
             XCTAssertNotNil(contents)
         }
     }
@@ -578,13 +588,13 @@ class PackageDescription5_0LoadingTests: PackageDescriptionLoadingTests {
                 isManifestSandboxEnabled: false,
                 cacheDir: nil)
 
-            let observability = ObservabilitySystem.bootstrapForTesting()
+            let observability = ObservabilitySystem.makeForTesting()
             let manifest = try manifestLoader.load(
                 at: manifestPath.parentDirectory,
                 packageKind: .fileSystem(manifestPath.parentDirectory),
                 toolsVersion: .v5,
                 fileSystem: fs,
-                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine()
+                diagnostics: observability.topScope.makeDiagnosticsEngine()
             )
 
             XCTAssertNoDiagnostics(observability.diagnostics)

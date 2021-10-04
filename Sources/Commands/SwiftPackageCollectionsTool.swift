@@ -72,14 +72,17 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
 
     // MARK: Collections
 
-    struct List: ParsableCommand {
+    struct List: SwiftCommand {
         static let configuration = CommandConfiguration(abstract: "List configured collections")
 
         @OptionGroup
         var jsonOptions: JSONOptions
 
-        mutating func run() throws {
-            let collections = try with { collections in
+        @OptionGroup(_hiddenFromHelp: true)
+        var swiftOptions: SwiftToolOptions
+
+        func run(_ swiftTool: SwiftTool) throws {
+            let collections = try with(swiftTool.observabilityScope) { collections in
                 try tsc_await { collections.listCollections(identifiers: nil, callback: $0) }
             }
 
@@ -93,18 +96,21 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
         }
     }
 
-    struct Refresh: ParsableCommand {
+    struct Refresh: SwiftCommand {
         static let configuration = CommandConfiguration(abstract: "Refresh configured collections")
 
-        mutating func run() throws {
-            let collections = try with { collections in
+        @OptionGroup(_hiddenFromHelp: true)
+        var swiftOptions: SwiftToolOptions
+
+        func run(_ swiftTool: SwiftTool) throws {
+            let collections = try with(swiftTool.observabilityScope) { collections in
                 try tsc_await { collections.refreshCollections(callback: $0) }
             }
             print("Refreshed \(collections.count) configured package collection\(collections.count == 1 ? "" : "s").")
         }
     }
 
-    struct Add: ParsableCommand {
+    struct Add: SwiftCommand {
         static let configuration = CommandConfiguration(abstract: "Add a new collection")
 
         @Argument(help: "URL of the collection to add")
@@ -119,11 +125,14 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
         @Flag(name: .long, help: "Skip signature check if the collection is signed")
         var skipSignatureCheck: Bool = false
 
-        mutating func run() throws {
+        @OptionGroup(_hiddenFromHelp: true)
+        var swiftOptions: SwiftToolOptions
+
+        func run(_ swiftTool: SwiftTool) throws {
             let collectionURL = try url(self.collectionURL)
 
             let source = PackageCollectionsModel.CollectionSource(type: .json, url: collectionURL, skipSignatureCheck: self.skipSignatureCheck)
-            let collection: PackageCollectionsModel.Collection = try with { collections in
+            let collection: PackageCollectionsModel.Collection = try with(swiftTool.observabilityScope) { collections in
                 do {
                     let userTrusted = self.trustUnsigned
                     return try tsc_await {
@@ -149,17 +158,20 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
         }
     }
 
-    struct Remove: ParsableCommand {
+    struct Remove: SwiftCommand {
         static let configuration = CommandConfiguration(abstract: "Remove a configured collection")
 
         @Argument(help: "URL of the collection to remove")
         var collectionURL: String
 
-        mutating func run() throws {
+        @OptionGroup(_hiddenFromHelp: true)
+        var swiftOptions: SwiftToolOptions
+
+        func run(_ swiftTool: SwiftTool) throws {
             let collectionURL = try url(self.collectionURL)
 
             let source = PackageCollectionsModel.CollectionSource(type: .json, url: collectionURL)
-            try with { collections in
+            try with(swiftTool.observabilityScope) { collections in
                 let collection = try tsc_await { collections.getCollection(source, callback: $0) }
                 _ = try tsc_await { collections.removeCollection(source, callback: $0) }
                 print("Removed \"\(collection.name)\" from your package collections.")
@@ -174,7 +186,7 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
         case module
     }
 
-    struct Search: ParsableCommand {
+    struct Search: SwiftCommand {
         static var configuration = CommandConfiguration(abstract: "Search for packages by keywords or module names")
 
         @OptionGroup
@@ -186,8 +198,11 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
         @Argument(help: "Search query")
         var searchQuery: String
 
-        mutating func run() throws {
-            try with { collections in
+        @OptionGroup(_hiddenFromHelp: true)
+        var swiftOptions: SwiftToolOptions
+
+        func run(_ swiftTool: SwiftTool) throws {
+            try with(swiftTool.observabilityScope) { collections in
                 switch searchMethod {
                 case .keywords:
                     let results = try tsc_await { collections.findPackages(searchQuery, collections: nil, callback: $0) }
@@ -218,7 +233,7 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
 
     // MARK: Packages
 
-    struct Describe: ParsableCommand {
+    struct Describe: SwiftCommand {
         static var configuration = CommandConfiguration(abstract: "Get metadata for a collection or a package included in an imported collection")
 
         @OptionGroup
@@ -229,6 +244,9 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
 
         @Option(name: .long, help: "Version of the package to get information for")
         var version: String?
+
+        @OptionGroup(_hiddenFromHelp: true)
+        var swiftOptions: SwiftToolOptions
 
         private func printVersion(_ version: PackageCollectionsModel.Package.Version?) -> String? {
             guard let version = version else {
@@ -262,8 +280,8 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
             """
         }
 
-        mutating func run() throws {
-            try with { collections in
+        func run(_ swiftTool: SwiftTool) throws {
+            try with(swiftTool.observabilityScope) { collections in
                 let identity = PackageIdentity(urlString: self.packageURL)
 
                 do { // assume URL is for a package in an imported collection
@@ -357,8 +375,8 @@ private extension JSONEncoder {
 }
 
 private extension ParsableCommand {
-    func with<T>(handler: (_ collections: PackageCollectionsProtocol) throws -> T) throws -> T {
-        let collections = PackageCollections()
+    func with<T>(_ observabilityScope: ObservabilityScope, handler: (_ collections: PackageCollectionsProtocol) throws -> T) throws -> T {
+        let collections = PackageCollections(observabilityScope: observabilityScope)
         defer {
             do {
                 try collections.shutdown()

@@ -33,8 +33,11 @@ public protocol HTTPClientProtocol {
     ///
     /// - Parameters:
     ///   - request: The `HTTPClientRequest` to perform.
+    ///   - observabilityScope: the observability scope to emit diagnostics on
+    ///   - progress: A closure to handle progress for example for downloads
     ///   - callback: A closure to be notified of the completion of the request.
     func execute(_ request: HTTPClientRequest,
+                 observabilityScope: ObservabilityScope?,
                  progress: ProgressHandler?,
                  completion: @escaping CompletionHandler)
 }
@@ -56,21 +59,19 @@ public struct HTTPClient: HTTPClientProtocol {
     public typealias Handler = (Request, ProgressHandler?, @escaping (Result<Response, Error>) -> Void) -> Void
 
     public var configuration: HTTPClientConfiguration
-    private let observabilityScope: ObservabilityScope
     private let underlying: Handler
 
     // static to share across instances of the http client
     private static var hostsErrorsLock = Lock()
     private static var hostsErrors = [String: [Date]]()
 
-    public init(configuration: HTTPClientConfiguration = .init(), handler: Handler? = nil, observabilityScope: ObservabilityScope = ObservabilitySystem.topScope) {
+    public init(configuration: HTTPClientConfiguration = .init(), handler: Handler? = nil) {
         self.configuration = configuration
-        self.observabilityScope = observabilityScope
         // FIXME: inject platform specific implementation here
         self.underlying = handler ?? URLSessionHTTPClient().execute
     }
 
-    public func execute(_ request: Request, progress: ProgressHandler? = nil, completion: @escaping CompletionHandler) {
+    public func execute(_ request: Request, observabilityScope: ObservabilityScope? = nil, progress: ProgressHandler? = nil, completion: @escaping CompletionHandler) {
         // merge configuration
         var request = request
         if request.options.callbackQueue == nil {
@@ -103,7 +104,9 @@ public struct HTTPClient: HTTPClientProtocol {
         // execute
         let callbackQueue = request.options.callbackQueue ?? self.configuration.callbackQueue
         self._execute(
-            request: request, requestNumber: 0,
+            request: request,
+            requestNumber: 0,
+            observabilityScope: observabilityScope,
             progress: progress.map { handler in
                 { received, expected in
                     callbackQueue.async {
@@ -119,9 +122,9 @@ public struct HTTPClient: HTTPClientProtocol {
         )
     }
 
-    private func _execute(request: Request, requestNumber: Int, progress: ProgressHandler?, completion: @escaping CompletionHandler) {
+    private func _execute(request: Request, requestNumber: Int, observabilityScope: ObservabilityScope?, progress: ProgressHandler?, completion: @escaping CompletionHandler) {
         if self.shouldCircuitBreak(request: request) {
-            self.observabilityScope.emit(warning: "Circuit breaker triggered for \(request.url)")
+            observabilityScope?.emit(warning: "Circuit breaker triggered for \(request.url)")
             return completion(.failure(HTTPClientError.circuitBreakerTriggered))
         }
 
@@ -145,10 +148,10 @@ public struct HTTPClient: HTTPClientProtocol {
                     self.recordErrorIfNecessary(response: response, request: request)
                     // handle retry strategy
                     if let retryDelay = self.shouldRetry(response: response, request: request, requestNumber: requestNumber) {
-                        self.observabilityScope.emit(warning: "\(request.url) failed, retrying in \(retryDelay)")
+                        observabilityScope?.emit(warning: "\(request.url) failed, retrying in \(retryDelay)")
                         // TODO: dedicated retry queue?
                         return self.configuration.callbackQueue.asyncAfter(deadline: .now() + retryDelay) {
-                            self._execute(request: request, requestNumber: requestNumber + 1, progress: progress, completion: completion)
+                            self._execute(request: request, requestNumber: requestNumber + 1, observabilityScope: observabilityScope, progress: progress, completion: completion)
                         }
                     }
                     // check for valid response codes
@@ -220,24 +223,24 @@ public struct HTTPClient: HTTPClientProtocol {
 }
 
 public extension HTTPClient {
-    func head(_ url: URL, headers: HTTPClientHeaders = .init(), options: Request.Options = .init(), completion: @escaping (Result<Response, Error>) -> Void) {
-        self.execute(Request(method: .head, url: url, headers: headers, body: nil, options: options), completion: completion)
+    func head(_ url: URL, headers: HTTPClientHeaders = .init(), options: Request.Options = .init(), observabilityScope: ObservabilityScope? = .none, completion: @escaping (Result<Response, Error>) -> Void) {
+        self.execute(Request(method: .head, url: url, headers: headers, body: nil, options: options), observabilityScope: observabilityScope, completion: completion)
     }
 
-    func get(_ url: URL, headers: HTTPClientHeaders = .init(), options: Request.Options = .init(), completion: @escaping (Result<Response, Error>) -> Void) {
-        self.execute(Request(method: .get, url: url, headers: headers, body: nil, options: options), completion: completion)
+    func get(_ url: URL, headers: HTTPClientHeaders = .init(), options: Request.Options = .init(), observabilityScope: ObservabilityScope? = .none, completion: @escaping (Result<Response, Error>) -> Void) {
+        self.execute(Request(method: .get, url: url, headers: headers, body: nil, options: options), observabilityScope: observabilityScope, completion: completion)
     }
 
-    func put(_ url: URL, body: Data?, headers: HTTPClientHeaders = .init(), options: Request.Options = .init(), completion: @escaping (Result<Response, Error>) -> Void) {
-        self.execute(Request(method: .put, url: url, headers: headers, body: body, options: options), completion: completion)
+    func put(_ url: URL, body: Data?, headers: HTTPClientHeaders = .init(), options: Request.Options = .init(), observabilityScope: ObservabilityScope? = .none, completion: @escaping (Result<Response, Error>) -> Void) {
+        self.execute(Request(method: .put, url: url, headers: headers, body: body, options: options), observabilityScope: observabilityScope, completion: completion)
     }
 
-    func post(_ url: URL, body: Data?, headers: HTTPClientHeaders = .init(), options: Request.Options = .init(), completion: @escaping (Result<Response, Error>) -> Void) {
-        self.execute(Request(method: .post, url: url, headers: headers, body: body, options: options), completion: completion)
+    func post(_ url: URL, body: Data?, headers: HTTPClientHeaders = .init(), options: Request.Options = .init(), observabilityScope: ObservabilityScope? = .none, completion: @escaping (Result<Response, Error>) -> Void) {
+        self.execute(Request(method: .post, url: url, headers: headers, body: body, options: options), observabilityScope: observabilityScope, completion: completion)
     }
 
-    func delete(_ url: URL, headers: HTTPClientHeaders = .init(), options: Request.Options = .init(), completion: @escaping (Result<Response, Error>) -> Void) {
-        self.execute(Request(method: .delete, url: url, headers: headers, body: nil, options: options), completion: completion)
+    func delete(_ url: URL, headers: HTTPClientHeaders = .init(), options: Request.Options = .init(), observabilityScope: ObservabilityScope? = .none, completion: @escaping (Result<Response, Error>) -> Void) {
+        self.execute(Request(method: .delete, url: url, headers: headers, body: nil, options: options), observabilityScope: observabilityScope, completion: completion)
     }
 }
 

@@ -224,22 +224,40 @@ class PackageCollectionSigningTests: XCTestCase {
                 let signing = PackageCollectionSigning(callbackQueue: callbackQueue)
                 // Sign the collection
                 let signedCollection = try tsc_await { callback in
-                    signing.sign(collection: collection, certChainPaths: certChainPaths, certPrivateKeyPath: privateKeyPath.asURL, certPolicyKey: certPolicyKey, callback: callback)
+                    signing.sign(
+                        collection: collection,
+                        certChainPaths: certChainPaths,
+                        certPrivateKeyPath: privateKeyPath.asURL,
+                        certPolicyKey: certPolicyKey,
+                        callback: callback
+                    )
                 }
 
                 // Then validate that signature is valid
                 XCTAssertNoThrow(try tsc_await { callback in
-                    signing.validate(signedCollection: signedCollection, certPolicyKey: certPolicyKey, callback: callback)
+                    signing.validate(
+                        signedCollection: signedCollection,
+                        certPolicyKey: certPolicyKey,
+                        callback: callback
+                    )
                 })
             }
 
             // Try passing in the cert with `additionalTrustedRootCerts` even though it's already in the default trust store
             do {
-                let signing = PackageCollectionSigning(additionalTrustedRootCerts: [rootCAData.base64EncodedString()],
-                                                       callbackQueue: callbackQueue)
+                let signing = PackageCollectionSigning(
+                    additionalTrustedRootCerts: [rootCAData.base64EncodedString()],
+                    callbackQueue: callbackQueue
+                )
                 // Sign the collection
                 let signedCollection = try tsc_await { callback in
-                    signing.sign(collection: collection, certChainPaths: certChainPaths, certPrivateKeyPath: privateKeyPath.asURL, certPolicyKey: certPolicyKey, callback: callback)
+                    signing.sign(
+                        collection: collection,
+                        certChainPaths: certChainPaths,
+                        certPrivateKeyPath: privateKeyPath.asURL,
+                        certPolicyKey: certPolicyKey,
+                        callback: callback
+                    )
                 }
 
                 // Then validate that signature is valid
@@ -327,8 +345,10 @@ class PackageCollectionSigningTests: XCTestCase {
 
             // Try passing in the cert with `additionalTrustedRootCerts` even though it's already in the default trust store
             do {
-                let signing = PackageCollectionSigning(additionalTrustedRootCerts: [rootCAData.base64EncodedString()],
-                                                       callbackQueue: callbackQueue)
+                let signing = PackageCollectionSigning(
+                    additionalTrustedRootCerts: [rootCAData.base64EncodedString()],
+                    callbackQueue: callbackQueue
+                )
                 // Sign the collection
                 let signedCollection = try tsc_await { callback in
                     signing.sign(collection: collection, certChainPaths: certChainPaths, certPrivateKeyPath: privateKeyPath.asURL, certPolicyKey: certPolicyKey, callback: callback)
@@ -419,8 +439,10 @@ class PackageCollectionSigningTests: XCTestCase {
 
             // Try passing in the cert with `additionalTrustedRootCerts` even though it's already in the default trust store
             do {
-                let signing = PackageCollectionSigning(additionalTrustedRootCerts: [rootCAData.base64EncodedString()],
-                                                       callbackQueue: callbackQueue)
+                let signing = PackageCollectionSigning(
+                    additionalTrustedRootCerts: [rootCAData.base64EncodedString()],
+                    callbackQueue: callbackQueue
+                )
                 // Sign the collection
                 let signedCollection = try tsc_await { callback in
                     signing.sign(collection: collection, certChainPaths: certChainPaths, certPrivateKeyPath: privateKeyPath.asURL, certPolicyKey: certPolicyKey, callback: callback)
@@ -552,12 +574,22 @@ class PackageCollectionSigningTests: XCTestCase {
             let signing = PackageCollectionSigning(callbackQueue: callbackQueue)
             // Sign the collection
             let signedCollection = try tsc_await { callback in
-                signing.sign(collection: collection, certChainPaths: certChainPaths, certPrivateKeyPath: privateKeyPath.asURL, certPolicyKey: certPolicyKey, callback: callback)
+                signing.sign(
+                    collection: collection,
+                    certChainPaths: certChainPaths,
+                    certPrivateKeyPath: privateKeyPath.asURL,
+                    certPolicyKey: certPolicyKey,
+                    callback: callback
+                )
             }
 
             // Then validate that signature is valid
             XCTAssertNoThrow(try tsc_await { callback in
-                signing.validate(signedCollection: signedCollection, certPolicyKey: certPolicyKey, callback: callback)
+                signing.validate(
+                    signedCollection: signedCollection,
+                    certPolicyKey: certPolicyKey,
+                    callback: callback
+                )
             })
             #elseif os(Linux) || os(Windows) || os(Android)
             // On other platforms we have to specify `trustedRootCertsDir` so the Apple root cert is trusted
@@ -631,5 +663,14 @@ class PackageCollectionSigningTests: XCTestCase {
             }
             #endif
         }
+    }
+}
+
+fileprivate extension PackageCollectionSigning  {
+    init(trustedRootCertsDir: URL? = nil, additionalTrustedRootCerts: [String]? = nil, callbackQueue: DispatchQueue) {
+        self.init(trustedRootCertsDir: trustedRootCertsDir, additionalTrustedRootCerts: additionalTrustedRootCerts, observabilityScope: ObservabilitySystem.NOOP, callbackQueue: callbackQueue)
+    }
+    init(certPolicy: CertificatePolicy, callbackQueue: DispatchQueue) {
+        self.init(certPolicy: certPolicy, observabilityScope: ObservabilitySystem.NOOP, callbackQueue: callbackQueue)
     }
 }

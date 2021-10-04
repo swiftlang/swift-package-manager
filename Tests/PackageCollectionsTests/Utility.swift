@@ -8,10 +8,10 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
+import Basics
 import struct Foundation.Date
 import struct Foundation.URL
 import struct Foundation.UUID
-
 @testable import PackageCollections
 import PackageCollectionsModel
 import PackageCollectionsSigning

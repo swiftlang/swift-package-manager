@@ -36,21 +36,21 @@ struct APIDigesterBaselineDumper {
     /// The API digester tool.
     let apiDigesterTool: SwiftAPIDigester
 
-    /// The diagnostics engine for emitting errors/warnings.
-    let diags: DiagnosticsEngine
+    /// The observabilityScope for emitting errors/warnings.
+    let observabilityScope: ObservabilityScope
 
     init(
         baselineRevision: Revision,
         packageRoot: AbsolutePath,
         buildParameters: BuildParameters,
         apiDigesterTool: SwiftAPIDigester,
-        diags: DiagnosticsEngine
+        observabilityScope: ObservabilityScope
     ) {
         self.baselineRevision = baselineRevision
         self.packageRoot = packageRoot
         self.inputBuildParameters = buildParameters
         self.apiDigesterTool = apiDigesterTool
-        self.diags = diags
+        self.observabilityScope = observabilityScope
     }
 
     /// Emit the API baseline files and return the path to their directory.
@@ -103,13 +103,15 @@ struct APIDigesterBaselineDumper {
         )
 
         let graph = try workspace.loadPackageGraph(
-            rootPath: baselinePackageRoot, diagnostics: diags)
+            rootPath: baselinePackageRoot,
+            observabilityScope: observabilityScope
+        )
 
         // Don't emit a baseline for a module that didn't exist yet in this revision.
         modulesToDiff.formIntersection(graph.apiDigesterModules)
 
         // Abort if we weren't able to load the package graph.
-        if diags.hasErrors {
+        if observabilityScope.errorsReported {
             throw Diagnostics.fatalError
         }
 
@@ -123,7 +125,7 @@ struct APIDigesterBaselineDumper {
             cacheBuildManifest: false,
             packageGraphLoader: { graph },
             pluginInvoker: { _ in [:] },
-            diagnostics: diags,
+            diagnostics: observabilityScope.makeDiagnosticsEngine(),
             outputStream: outputStream
         )
 
@@ -152,9 +154,9 @@ struct APIDigesterBaselineDumper {
         group.wait()
 
         for error in errors.get() {
-            diags.emit(error)
+            observabilityScope.emit(error)
         }
-        if diags.hasErrors {
+        if observabilityScope.errorsReported {
             throw Diagnostics.fatalError
         }
 

@@ -1,3 +1,4 @@
+import Basics
 import TSCBasic
 import Workspace
 
@@ -13,22 +14,16 @@ let packagePath = AbsolutePath(#file).parentDirectory.parentDirectory.parentDire
 
 // There are several levels of information available.
 // Each takes longer to load than the level above it, but provides more detail.
-let diagnostics = DiagnosticsEngine(handlers: [{ print($0)}])
+
+let observability = ObservabilitySystem({ print("\($0): \($1)") })
+
 let workspace = try Workspace(forRootPackage: packagePath)
-let manifest = try tsc_await { workspace.loadRootManifest(at: packagePath, diagnostics: diagnostics, completion: $0) }
-guard !diagnostics.hasErrors else {
-    fatalError("error loading manifest: \(diagnostics)")
-}
 
-let package = try tsc_await { workspace.loadRootPackage(at: packagePath, diagnostics: diagnostics, completion: $0) }
-guard !diagnostics.hasErrors else {
-    fatalError("error loading package: \(diagnostics)")
-}
+let manifest = try tsc_await { workspace.loadRootManifest(at: packagePath, observabilityScope: observability.topScope, completion: $0) }
 
-let graph = try workspace.loadPackageGraph(rootPath: packagePath, diagnostics: diagnostics)
-guard !diagnostics.hasErrors else {
-    fatalError("error loading graph: \(diagnostics)")
-}
+let package = try tsc_await { workspace.loadRootPackage(at: packagePath, observabilityScope: observability.topScope, completion: $0) }
+
+let graph = try workspace.loadPackageGraph(rootPath: packagePath, observabilityScope: observability.topScope)
 
 // EXAMPLES
 // ========

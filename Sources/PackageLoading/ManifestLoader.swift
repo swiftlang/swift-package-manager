@@ -466,12 +466,15 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         if let compilerOutput = result.compilerOutput {
             // FIXME: Temporary workaround to filter out debug output from integrated Swift driver. [rdar://73710910]
             if !(compilerOutput.hasPrefix("<unknown>:0: remark: new Swift driver at") && compilerOutput.hasSuffix("will be used")) {
-                let metadata = result.diagnosticFile.map { diagnosticFile -> ObservabilityMetadata in
+                /*let metadata = result.diagnosticFile.map { diagnosticFile -> ObservabilityMetadata in
                     var metadata = ObservabilityMetadata()
                     metadata.manifestLoadingDiagnosticFile = diagnosticFile
                     return metadata
                 }
-                ObservabilitySystem.topScope.emit(warning: compilerOutput, metadata: metadata)
+                diagnostics.emit(warning: compilerOutput, metadata: metadata)
+                */
+                // FIXME: (diagnostics) deprecate in favor of the metadata version ^^ when transitioning manifest loader to Observability APIs
+                diagnostics?.emit(.warning(ManifestLoadingDiagnostic(output: compilerOutput, diagnosticFile: result.diagnosticFile)))
             }
         }
 
@@ -500,9 +503,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             return SQLiteBackedCache<EvaluationResult>(
                 tableName: "MANIFEST_CACHE",
                 location: .path(path),
-                configuration: configuration,
-                // FIXME: user ManifestLoader scope once migrated to new observability APIs
-                observabilityScope: ObservabilitySystem.topScope
+                configuration: configuration
             )
         }
 
@@ -548,9 +549,11 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             toolsVersion: toolsVersion,
             identityResolver: identityResolver,
             fileSystem: fileSystem,
-            diagnostics: diagnostics)
+            diagnostics: diagnostics
+        )
 
         do {
+            // FIXME: (diagnostics) pass in observability scope when we have one
             try cache?.put(key: key.sha256Checksum, value: result)
         } catch {
             diagnostics?.emit(warning: "failed storing manifest for '\(key.packageIdentity)' in cache: \(error)")

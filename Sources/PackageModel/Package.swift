@@ -143,6 +143,8 @@ extension ObservabilityMetadata {
         var metadata = ObservabilityMetadata()
         metadata.packageIdentity = identity
         metadata.packageLocation = location
+        // FIXME: (diagnostics) remove once transition to Observability API is complete
+        metadata.legacyLocation = "'\(identity)' \(location)"
         return metadata
     }
 }
@@ -156,7 +158,7 @@ extension ObservabilityMetadata {
             self[PackageIdentityKey.self] = newValue
         }
     }
-    
+
     enum PackageIdentityKey: Key {
         typealias Value = PackageIdentity
     }
@@ -171,7 +173,7 @@ extension ObservabilityMetadata {
             self[PackageLocationKey.self] = newValue
         }
     }
-    
+
     enum PackageLocationKey: Key {
         typealias Value = String
     }

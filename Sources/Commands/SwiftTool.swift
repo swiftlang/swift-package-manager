@@ -248,7 +248,7 @@ extension SwiftCommand {
     public func run() throws {
         let swiftTool = try SwiftTool(options: swiftOptions)
         try self.run(swiftTool)
-        if ObservabilitySystem.topScope.errorsReported || swiftTool.executionStatus == .failure {
+        if swiftTool.observabilityScope.errorsReported || swiftTool.executionStatus == .failure {
             throw ExitCode.failure
         }
     }
@@ -279,7 +279,7 @@ public class SwiftTool {
         let packages: [AbsolutePath]
 
         if let workspace = options.multirootPackageDataFile {
-            packages = try XcodeWorkspaceLoader(diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine()).load(workspace: workspace)
+            packages = try XcodeWorkspaceLoader(diagnostics: self.observabilityScope.makeDiagnosticsEngine()).load(workspace: workspace)
         } else {
             packages = [try getPackageRoot()]
         }
@@ -314,22 +314,25 @@ public class SwiftTool {
     private var _workspace: Workspace?
     private var _workspaceDelegate: ToolWorkspaceDelegate?
 
+    let observabilityScope: ObservabilityScope
+
     /// Create an instance of this tool.
     ///
     /// - parameter args: The command line arguments to be passed to this tool.
     public init(options: SwiftToolOptions) throws {
         // first, bootstrap the observability system
-        ObservabilitySystem.bootstrapGlobal(factory: SwiftToolObservability())
+        let observabilitySystem = ObservabilitySystem.init(SwiftToolObservability())
+        self.observabilityScope = observabilitySystem.topScope
 
         // Capture the original working directory ASAP.
         guard let cwd = localFileSystem.currentWorkingDirectory else {
-            ObservabilitySystem.topScope.emit(error: "couldn't determine the current working directory")
+            self.observabilityScope.emit(error: "couldn't determine the current working directory")
             throw ExitCode.failure
         }
         originalWorkingDirectory = cwd
 
         do {
-            try Self.postprocessArgParserResult(options: options, diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine())
+            try Self.postprocessArgParserResult(options: options, diagnostics: self.observabilityScope.makeDiagnosticsEngine())
             self.options = options
 
             // Honor package-path option is provided.
@@ -377,7 +380,7 @@ public class SwiftTool {
             self.buildSystemRef = buildSystemRef
 
         } catch {
-            ObservabilitySystem.topScope.emit(error)
+            self.observabilityScope.emit(error)
             throw ExitCode.failure
         }
 
@@ -502,7 +505,7 @@ public class SwiftTool {
 
         if let configuredPath = options.netrcFilePath {
             guard localFileSystem.exists(configuredPath) else {
-                ObservabilitySystem.topScope.emit(error: "Did not find .netrc file at \(configuredPath).")
+                self.observabilityScope.emit(error: "Did not find .netrc file at \(configuredPath).")
                 return nil
             }
 
@@ -527,7 +530,7 @@ public class SwiftTool {
         do {
             return try localFileSystem.getOrCreateSwiftPMCacheDirectory()
         } catch {
-            ObservabilitySystem.topScope.emit(warning: "Failed creating default cache location, \(error)")
+            self.observabilityScope.emit(warning: "Failed creating default cache location, \(error)")
             return .none
         }
     }
@@ -544,7 +547,7 @@ public class SwiftTool {
         do {
             return try localFileSystem.getOrCreateSwiftPMConfigDirectory()
         } catch {
-            ObservabilitySystem.topScope.emit(warning: "Failed creating default configuration location, \(error)")
+            self.observabilityScope.emit(warning: "Failed creating default configuration location, \(error)")
             return .none
         }
     }
@@ -556,7 +559,7 @@ public class SwiftTool {
         }
 
         let isVerbose = options.verbosity != 0
-        let delegate = ToolWorkspaceDelegate(self.outputStream, isVerbose: isVerbose, diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine())
+        let delegate = ToolWorkspaceDelegate(self.outputStream, isVerbose: isVerbose, diagnostics: self.observabilityScope.makeDiagnosticsEngine())
         let provider = GitRepositoryProvider(processSet: processSet)
         let sharedCacheDirectory =  try self.getSharedCacheDirectory()
         let sharedConfigurationDirectory = try self.getSharedConfigurationDirectory()
@@ -597,14 +600,14 @@ public class SwiftTool {
         let root = try getWorkspaceRoot()
 
         if options.forceResolvedVersions {
-            try workspace.resolveBasedOnResolvedVersionsFile(root: root, diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine())
+            try workspace.resolveBasedOnResolvedVersionsFile(root: root, diagnostics: self.observabilityScope.makeDiagnosticsEngine())
         } else {
-            try workspace.resolve(root: root, diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine())
+            try workspace.resolve(root: root, diagnostics: self.observabilityScope.makeDiagnosticsEngine())
         }
 
         // Throw if there were errors when loading the graph.
         // The actual errors will be printed before exiting.
-        guard !ObservabilitySystem.topScope.errorsReported else {
+        guard !self.observabilityScope.errorsReported else {
             throw ExitCode.failure
         }
     }
@@ -629,12 +632,12 @@ public class SwiftTool {
                 createMultipleTestProducts: createMultipleTestProducts,
                 createREPLProduct: createREPLProduct,
                 forceResolvedVersions: options.forceResolvedVersions,
-                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine()
+                observabilityScope: self.observabilityScope
             )
 
             // Throw if there were errors when loading the graph.
             // The actual errors will be printed before exiting.
-            guard !ObservabilitySystem.topScope.errorsReported else {
+            guard !self.observabilityScope.errorsReported else {
                 throw ExitCode.failure
             }
             return graph
@@ -679,7 +682,7 @@ public class SwiftTool {
                 outputDir: outputDir,
                 builtToolsDir: builtToolsDir,
                 pluginScriptRunner: pluginScriptRunner,
-                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
+                diagnostics: self.observabilityScope.makeDiagnosticsEngine(),
                 fileSystem: localFileSystem
             )
             return result
@@ -733,7 +736,7 @@ public class SwiftTool {
             cacheBuildManifest: cacheBuildManifest && self.canUseCachedBuildManifest(),
             packageGraphLoader: graphLoader,
             pluginInvoker: { _ in [:] },
-            diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
+            diagnostics: self.observabilityScope.makeDiagnosticsEngine(),
             outputStream: self.outputStream
         )
 
@@ -753,7 +756,7 @@ public class SwiftTool {
                 cacheBuildManifest: self.canUseCachedBuildManifest(),
                 packageGraphLoader: graphLoader,
                 pluginInvoker: pluginInvoker,
-                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
+                diagnostics: self.observabilityScope.makeDiagnosticsEngine(),
                 outputStream: self.outputStream
             )
         case .xcode:
@@ -763,7 +766,7 @@ public class SwiftTool {
                 buildParameters: buildParameters ?? self.buildParameters(),
                 packageGraphLoader: graphLoader,
                 isVerbose: verbosity != .concise,
-                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
+                diagnostics: self.observabilityScope.makeDiagnosticsEngine(),
                 outputStream: self.outputStream
             )
         }
@@ -973,7 +976,7 @@ extension DispatchTimeInterval {
 
 // MARK: - Diagnostics
 
-private struct SwiftToolObservability: ObservabilityFactory, DiagnosticsHandler {
+private struct SwiftToolObservability: ObservabilityHandlerProvider, DiagnosticsHandler {
     var diagnosticsHandler: DiagnosticsHandler { self }
 
     func handleDiagnostic(scope: ObservabilityScope, diagnostic: Basics.Diagnostic) {

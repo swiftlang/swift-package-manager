@@ -429,10 +429,11 @@ final class PackageToolTests: XCTestCase {
             ]
         )
 
-        let observability = ObservabilitySystem.bootstrapForTesting()
+        let observability = ObservabilitySystem.makeForTesting()
         let graph = try loadPackageGraph(
             fs: fileSystem,
-            manifests: [manifestA, manifestB, manifestC, manifestD]
+            manifests: [manifestA, manifestB, manifestC, manifestD],
+            observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
@@ -896,12 +897,13 @@ final class PackageToolTests: XCTestCase {
     func testWatchmanXcodeprojgen() throws {
         try testWithTemporaryDirectory { path in
             let fs = localFileSystem
+            let observability = ObservabilitySystem.makeForTesting()
 
             let scriptsDir = path.appending(component: "scripts")
             let packageRoot = path.appending(component: "root")
 
             let helper = WatchmanHelper(
-                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
+                diagnostics: observability.topScope.makeDiagnosticsEngine(),
                 watchmanScriptsDir: scriptsDir,
                 packageRoot: packageRoot)
 

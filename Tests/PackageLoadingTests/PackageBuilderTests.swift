@@ -1890,7 +1890,7 @@ class PackageBuilderTests: XCTestCase {
             "/Sources/lib/include/lib.h"
         )
 
-        let observability = ObservabilitySystem.bootstrapForTesting()
+        //let observability = ObservabilitySystem.makeForTesting()
         let manifest = Manifest.createRootManifest(
             name: "Pkg",
             toolsVersion: .v5,
@@ -1898,7 +1898,7 @@ class PackageBuilderTests: XCTestCase {
                 try TargetDescription(name: "lib", dependencies: []),
             ]
         )
-        XCTAssertNoDiagnostics(observability.diagnostics)
+        //XCTAssertNoDiagnostics(observability.diagnostics)
 
         PackageBuilderTester(manifest, in: fs) { package, _ in
             package.checkModule("lib") { module in
@@ -2380,7 +2380,7 @@ final class PackageBuilderTester {
         line: UInt = #line,
         _ body: (PackageBuilderTester, DiagnosticsTestResult) -> Void
     ) {
-        let observability = ObservabilitySystem.bootstrapForTesting()
+        let observability = ObservabilitySystem.makeForTesting()
         do {
             // FIXME: We should allow customizing root package boolean.
             let builder = PackageBuilder(
@@ -2393,7 +2393,8 @@ final class PackageBuilderTester {
                 shouldCreateMultipleTestProducts: shouldCreateMultipleTestProducts,
                 warnAboutImplicitExecutableTargets: true,
                 createREPLProduct: createREPLProduct,
-                fileSystem: fs
+                fileSystem: fs,
+                observabilityScope: observability.topScope
             )
             let loadedPackage = try builder.construct()
             result = .package(loadedPackage)
@@ -2402,7 +2403,7 @@ final class PackageBuilderTester {
         } catch {
             let errorString = String(describing: error)
             result = .error(errorString)
-            ObservabilitySystem.topScope.emit(error)
+            observability.topScope.emit(error)
         }
 
         testDiagnostics(observability.diagnostics) { diagnostics in

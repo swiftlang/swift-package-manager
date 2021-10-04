@@ -101,8 +101,9 @@ public struct SwiftRunTool: SwiftCommand {
 
     public func run(_ swiftTool: SwiftTool) throws {
         if options.shouldBuildTests && options.shouldSkipBuild {
-            ObservabilitySystem.topScope.emit(
-              .mutuallyExclusiveArgumentsError(arguments: ["--build-tests", "--skip-build"]))
+            swiftTool.observabilityScope.emit(
+              .mutuallyExclusiveArgumentsError(arguments: ["--build-tests", "--skip-build"])
+            )
             throw ExitCode.failure
         }
 
@@ -122,7 +123,7 @@ public struct SwiftRunTool: SwiftCommand {
                 cacheBuildManifest: false,
                 packageGraphLoader: graphLoader,
                 pluginInvoker: { _ in [:] },
-                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
+                diagnostics: swiftTool.observabilityScope.makeDiagnosticsEngine(),
                 outputStream: swiftTool.outputStream
             )
 
@@ -162,14 +163,14 @@ public struct SwiftRunTool: SwiftCommand {
                 let lldbPath = try swiftTool.getToolchain().getLLDB()
                 try exec(path: lldbPath.pathString, args: ["--", pathRelativeToWorkingDirectory.pathString] + options.arguments)
             } catch let error as RunError {
-                ObservabilitySystem.topScope.emit(error)
+                swiftTool.observabilityScope.emit(error)
                 throw ExitCode.failure
             }
 
         case .run:
             // Detect deprecated uses of swift run to interpret scripts.
             if let executable = options.executable, isValidSwiftFilePath(executable) {
-                ObservabilitySystem.topScope.emit(.runFileDeprecation)
+                swiftTool.observabilityScope.emit(.runFileDeprecation)
                 // Redirect execution to the toolchain's swift executable.
                 let swiftInterpreterPath = try swiftTool.getToolchain().swiftInterpreterPath
                 // Prepend the script to interpret to the arguments.
@@ -201,7 +202,7 @@ public struct SwiftRunTool: SwiftCommand {
             } catch Diagnostics.fatalError {
                 throw ExitCode.failure
             } catch let error as RunError {
-                ObservabilitySystem.topScope.emit(error)
+                swiftTool.observabilityScope.emit(error)
                 throw ExitCode.failure
             }
         }

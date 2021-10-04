@@ -384,3 +384,13 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
         }
     }
 }
+
+internal extension GitHubPackageMetadataProvider {
+    init(configuration: Configuration = .init(), httpClient: HTTPClient? = nil) {
+        self.init(
+            configuration: configuration,
+            observabilityScope: ObservabilitySystem.NOOP,
+            httpClient: httpClient
+        )
+    }
+}

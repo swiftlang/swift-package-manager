@@ -43,7 +43,7 @@ class TargetSourcesBuilderTests: XCTestCase {
             "/some/path/toBeCopied/cool/hello.swift",
         ])
 
-        let observability = ObservabilitySystem.bootstrapForTesting()
+        let observability = ObservabilitySystem.makeForTesting()
 
         let builder = TargetSourcesBuilder(
             packageIdentity: .plain("test"),
@@ -54,7 +54,7 @@ class TargetSourcesBuilderTests: XCTestCase {
             defaultLocalization: nil,
             toolsVersion: .v5,
             fileSystem: fs,
-            observabilityScope: ObservabilitySystem.topScope
+            observabilityScope: observability.topScope
         )
 
         let contents = builder.computeContents().map{ $0.pathString }.sorted()
@@ -88,7 +88,7 @@ class TargetSourcesBuilderTests: XCTestCase {
             "/Hello.something/hello.txt",
         ])
 
-        let observability = ObservabilitySystem.bootstrapForTesting()
+        let observability = ObservabilitySystem.makeForTesting()
 
         let builder = TargetSourcesBuilder(
             packageIdentity: .plain("test"),
@@ -99,7 +99,7 @@ class TargetSourcesBuilderTests: XCTestCase {
             defaultLocalization: nil,
             toolsVersion: .v5_3,
             fileSystem: fs,
-            observabilityScope: ObservabilitySystem.topScope
+            observabilityScope: observability.topScope
         )
 
         let contents = builder.computeContents().map{ $0.pathString }.sorted()
@@ -546,7 +546,7 @@ class TargetSourcesBuilderTests: XCTestCase {
         line: UInt = #line,
         checker: (Sources, [Resource], [AbsolutePath], [AbsolutePath], PackageIdentity, String, DiagnosticsTestResult) -> ()
     ) {
-        let observability = ObservabilitySystem.bootstrapForTesting()
+        let observability = ObservabilitySystem.makeForTesting()
         let builder = TargetSourcesBuilder(
             packageIdentity: .plain("test"),
             packageLocation: "/test",
@@ -557,7 +557,7 @@ class TargetSourcesBuilderTests: XCTestCase {
             additionalFileRules: additionalFileRules,
             toolsVersion: toolsVersion,
             fileSystem: fs,
-            observabilityScope: ObservabilitySystem.topScope
+            observabilityScope: observability.topScope
         )
 
         do {
@@ -588,7 +588,7 @@ class TargetSourcesBuilderTests: XCTestCase {
             "/Bar.swift"
         ])
 
-        let observability = ObservabilitySystem.bootstrapForTesting()
+        let observability = ObservabilitySystem.makeForTesting()
 
         let builder = TargetSourcesBuilder(
             packageIdentity: .plain("test"),
@@ -599,7 +599,7 @@ class TargetSourcesBuilderTests: XCTestCase {
             defaultLocalization: nil,
             toolsVersion: .v5,
             fileSystem: fs,
-            observabilityScope: ObservabilitySystem.topScope
+            observabilityScope: observability.topScope
         )
 
         testDiagnostics(observability.diagnostics) { result in
@@ -628,7 +628,7 @@ class TargetSourcesBuilderTests: XCTestCase {
             "/Bar.swift"
         ])
 
-        let observability = ObservabilitySystem.bootstrapForTesting()
+        let observability = ObservabilitySystem.makeForTesting()
 
         let builder = TargetSourcesBuilder(
             packageIdentity: .plain("test"),
@@ -639,7 +639,7 @@ class TargetSourcesBuilderTests: XCTestCase {
             defaultLocalization: nil,
             toolsVersion: .v5,
             fileSystem: fs,
-            observabilityScope: ObservabilitySystem.topScope
+            observabilityScope: observability.topScope
         )
         _ = try builder.run()
 
@@ -670,7 +670,7 @@ class TargetSourcesBuilderTests: XCTestCase {
             "/Bar.swift"
         ])
 
-        let observability = ObservabilitySystem.bootstrapForTesting()
+        let observability = ObservabilitySystem.makeForTesting()
 
         let builder = TargetSourcesBuilder(
             packageIdentity: .plain("test"),
@@ -681,7 +681,7 @@ class TargetSourcesBuilderTests: XCTestCase {
             defaultLocalization: nil,
             toolsVersion: .v5,
             fileSystem: fs,
-            observabilityScope: ObservabilitySystem.topScope
+            observabilityScope: observability.topScope
         )
 
         testDiagnostics(observability.diagnostics) { result in
@@ -710,7 +710,7 @@ class TargetSourcesBuilderTests: XCTestCase {
             "/Foo.xcdatamodel"
         ])
 
-        let observability = ObservabilitySystem.bootstrapForTesting()
+        let observability = ObservabilitySystem.makeForTesting()
 
         let builder = TargetSourcesBuilder(
             packageIdentity: .plain("test"),
@@ -721,7 +721,7 @@ class TargetSourcesBuilderTests: XCTestCase {
             defaultLocalization: nil,
             toolsVersion: .v5_5,
             fileSystem: fs,
-            observabilityScope: ObservabilitySystem.topScope
+            observabilityScope: observability.topScope
         )
         _ = try builder.run()
 
@@ -749,7 +749,7 @@ class TargetSourcesBuilderTests: XCTestCase {
             "/Foo.docc"
         ])
 
-        let observability = ObservabilitySystem.bootstrapForTesting()
+        let observability = ObservabilitySystem.makeForTesting()
 
         let builder = TargetSourcesBuilder(
             packageIdentity: .plain("test"),
@@ -761,7 +761,7 @@ class TargetSourcesBuilderTests: XCTestCase {
             additionalFileRules: FileRuleDescription.swiftpmFileTypes,
             toolsVersion: .v5_5,
             fileSystem: fs,
-            observabilityScope: ObservabilitySystem.topScope
+            observabilityScope: observability.topScope
         )
         _ = try builder.run()
 

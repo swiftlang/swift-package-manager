@@ -827,3 +827,22 @@ private extension XCTestCase {
         }
     }
 }
+
+internal extension JSONPackageCollectionProvider {
+    init(
+        configuration: Configuration = .init(),
+        httpClient: HTTPClient? = nil,
+        signatureValidator: PackageCollectionSignatureValidator? = nil,
+        sourceCertPolicy: PackageCollectionSourceCertificatePolicy = PackageCollectionSourceCertificatePolicy(),
+        fileSystem: FileSystem = localFileSystem
+    ) {
+        self.init(
+            configuration: configuration,
+            observabilityScope: ObservabilitySystem.NOOP,
+            httpClient: httpClient,
+            signatureValidator: signatureValidator,
+            sourceCertPolicy: sourceCertPolicy,
+            fileSystem: fileSystem
+        )
+    }
+}
