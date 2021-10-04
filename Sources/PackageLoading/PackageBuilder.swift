@@ -530,11 +530,10 @@ public final class PackageBuilder {
         /// Returns the path of the given target.
         func findPath(for target: TargetDescription) throws -> AbsolutePath {
             if target.type == .binary {
-                if let artifact = self.binaryArtifacts.first(where: { $0.path.basenameWithoutExt == target.name }) {
-                    return artifact.path
-                } else {
+                guard let artifact = self.binaryArtifacts.first(where: { $0.path.basenameWithoutExt == target.name }) else {
                     throw ModuleError.artifactNotFound(target.name)
                 }
+                return artifact.path
             } else if let subpath = target.path { // If there is a custom path defined, use that.
                 if subpath == "" || subpath == "." {
                     return packagePath
