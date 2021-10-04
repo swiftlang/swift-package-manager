@@ -1098,7 +1098,7 @@ extension Workspace {
 
         // Remove the existing checkout.
         do {
-            let oldCheckoutPath = self.location.repositoriesCheckoutsDirectory.appending(dependency.subpath)
+            let oldCheckoutPath = self.location.repositoriesCheckoutSubdirectory(for: dependency)
             try fileSystem.chmod(.userWritable, path: oldCheckoutPath, options: [.recursive, .onlyFiles])
             try fileSystem.removeFileTree(oldCheckoutPath)
         }
@@ -1136,7 +1136,7 @@ extension Workspace {
         }
 
         // Form the edit working repo path.
-        let path = self.location.editsDirectory.appending(dependency.subpath)
+        let path = self.location.editsSubdirectory(for: dependency)
         // Check for uncommited and unpushed changes if force removal is off.
         if !forceRemove {
             let workingCopy = try repositoryManager.openWorkingCopy(at: path)
@@ -1426,9 +1426,9 @@ extension Workspace {
     public func path(to dependency: Workspace.ManagedDependency) -> AbsolutePath {
         switch dependency.state {
         case .checkout:
-            return self.location.repositoriesCheckoutsDirectory.appending(dependency.subpath)
+            return self.location.repositoriesCheckoutSubdirectory(for: dependency)
         case .edited(_, let path):
-            return path ?? self.location.editsDirectory.appending(dependency.subpath)
+            return path ?? self.location.editsSubdirectory(for: dependency)
         case .local:
             return AbsolutePath(dependency.packageRef.location)
         }
@@ -2986,7 +2986,7 @@ extension Workspace {
     /// Removes the clone and checkout of the provided specifier.
     fileprivate func removeRepository(dependency: ManagedDependency) throws {
         // Remove the checkout.
-        let dependencyPath = self.location.repositoriesCheckoutsDirectory.appending(dependency.subpath)
+        let dependencyPath = self.location.repositoriesCheckoutSubdirectory(for: dependency)
         let workingCopy = try self.repositoryManager.openWorkingCopy(at: dependencyPath)
         guard !workingCopy.hasUncommittedChanges() else {
             throw WorkspaceDiagnostics.UncommitedChanges(repositoryPath: dependencyPath)
