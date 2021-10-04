@@ -504,10 +504,10 @@ public class SwiftTool {
         
         // TODO: add --no-keychain option to allow opt-out
 //#if canImport(Security)
-//        providers.append(KeychainAuthorizationProvider())
+//        providers.append(KeychainAuthorizationProvider(observabilityScope: self.observabilityScope))
 //#endif
         
-        return providers.isEmpty ? nil : CompositeAuthorizationProvider(providers)
+        return providers.isEmpty ? nil : CompositeAuthorizationProvider(providers, observabilityScope: self.observabilityScope)
     }
 
     func getNetrcConfig() -> Workspace.Configuration.Netrc? {

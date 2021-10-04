@@ -138,7 +138,11 @@ public struct NetrcAuthorizationProvider: AuthorizationProvider {
 
 #if canImport(Security)
 public struct KeychainAuthorizationProvider: AuthorizationProvider {
-    public init() {}
+    private let observabilityScope: ObservabilityScope
+
+    public init(observabilityScope: ObservabilityScope) {
+        self.observabilityScope = observabilityScope
+    }
 
     public func addOrUpdate(for url: Foundation.URL, user: String, password: String, callback: @escaping (Result<Void, Error>) -> Void) {
         guard let server = url.authenticationID else {
@@ -176,11 +180,11 @@ public struct KeychainAuthorizationProvider: AuthorizationProvider {
         } catch {
             switch error {
             case AuthorizationProviderError.notFound:
-                ObservabilitySystem.topScope.emit(info: "No credentials found for server \(server) in keychain")
+                self.observabilityScope.emit(info: "No credentials found for server \(server) in keychain")
             case AuthorizationProviderError.other(let detail):
-                ObservabilitySystem.topScope.emit(error: detail)
+                self.observabilityScope.emit(error: detail)
             default:
-                ObservabilitySystem.topScope.emit(error: "Failed to find credentials for server \(server) in keychain: \(error)")
+                self.observabilityScope.emit(error: "Failed to find credentials for server \(server) in keychain: \(error)")
             }
             return nil
         }
@@ -254,13 +258,15 @@ public struct KeychainAuthorizationProvider: AuthorizationProvider {
 
 public struct CompositeAuthorizationProvider: AuthorizationProvider {
     private let providers: [AuthorizationProvider]
+    private let observabilityScope: ObservabilityScope
 
-    public init(_ providers: AuthorizationProvider...) {
-        self.init(providers)
+    public init(_ providers: AuthorizationProvider..., observabilityScope: ObservabilityScope) {
+        self.init(providers, observabilityScope: observabilityScope)
     }
 
-    public init(_ providers: [AuthorizationProvider]) {
+    public init(_ providers: [AuthorizationProvider], observabilityScope: ObservabilityScope) {
         self.providers = providers
+        self.observabilityScope = observabilityScope
     }
 
     public func authentication(for url: Foundation.URL) -> (user: String, password: String)? {
@@ -268,13 +274,13 @@ public struct CompositeAuthorizationProvider: AuthorizationProvider {
             if let authentication = provider.authentication(for: url) {
                 switch provider {
                 case let provider as NetrcAuthorizationProvider:
-                    ObservabilitySystem.topScope.emit(info: "Credentials for \(url) found in netrc file at \(provider.path)")
-#if canImport(Security)
+                    self.observabilityScope.emit(info: "Credentials for \(url) found in netrc file at \(provider.path)")
+                #if canImport(Security)
                 case is KeychainAuthorizationProvider:
-                    ObservabilitySystem.topScope.emit(info: "Credentials for \(url) found in keychain")
-#endif
+                    self.observabilityScope.emit(info: "Credentials for \(url) found in keychain")
+                #endif
                 default:
-                    ObservabilitySystem.topScope.emit(info: "Credentials for \(url) found in \(provider)")
+                    self.observabilityScope.emit(info: "Credentials for \(url) found in \(provider)")
                 }
                 return authentication
             }

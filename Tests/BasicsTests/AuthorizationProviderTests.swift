@@ -63,7 +63,7 @@ final class AuthorizationProviderTests: XCTestCase {
         #if !canImport(Security) || !ENABLE_KEYCHAIN_TEST
         try XCTSkipIf(true)
         #else
-        let provider = KeychainAuthorizationProvider()
+        let provider = KeychainAuthorizationProvider(observabilityScope: ObservabilitySystem.NOOP)
 
         let user = UUID().uuidString
 
@@ -101,20 +101,20 @@ final class AuthorizationProviderTests: XCTestCase {
 
         do {
             // providerOne's password is returned first
-            let provider = CompositeAuthorizationProvider(providerOne, providerTwo)
+            let provider = CompositeAuthorizationProvider(providerOne, providerTwo, observabilityScope: ObservabilitySystem.NOOP)
             self.assertAuthentication(provider, for: url, expected: (user, passwordOne))
         }
 
         do {
             // providerTwo's password is returned first
-            let provider = CompositeAuthorizationProvider(providerTwo, providerOne)
+            let provider = CompositeAuthorizationProvider(providerTwo, providerOne, observabilityScope: ObservabilitySystem.NOOP)
             self.assertAuthentication(provider, for: url, expected: (user, passwordTwo))
         }
 
         do {
             // Neither has password
             let unknownURL = URL(string: "http://\(UUID().uuidString)")!
-            let provider = CompositeAuthorizationProvider(providerOne, providerTwo)
+            let provider = CompositeAuthorizationProvider(providerOne, providerTwo, observabilityScope: ObservabilitySystem.NOOP)
             XCTAssertNil(provider.authentication(for: unknownURL))
         }
     }
