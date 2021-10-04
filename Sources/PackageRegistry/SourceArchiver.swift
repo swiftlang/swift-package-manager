@@ -52,7 +52,7 @@ struct SourceArchiver: Archiver {
         }
 
         // TODO: consider calling `libarchive` or some other library directly instead of spawning a process
-        DispatchQueue.global(qos: .userInitiated).async {
+        DispatchQueue.sharedConcurrent.async {
             do {
                 let result = try Process.popen(args: "bsdtar",
                                                      "--strip-components=1",
