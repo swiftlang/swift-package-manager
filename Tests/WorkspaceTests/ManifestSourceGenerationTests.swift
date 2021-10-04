@@ -18,8 +18,15 @@ import XCTest
 
 class ManifestSourceGenerationTests: XCTestCase {
     
-    /// Private function that writes the contents of a package manifest to a temporary package directory and then loads it, then serializes the loaded manifest back out again and loads it once again, after which it compares that no information was lost.
-    private func testManifestWritingRoundTrip(manifestContents: String, toolsVersion: ToolsVersion, fs: FileSystem = localFileSystem) throws {
+    /// Private function that writes the contents of a package manifest to a temporary package directory and then loads it, then serializes the loaded manifest back out again and loads it once again, after which it compares that no information was lost. Return the source of the newly generated manifest.
+    @discardableResult
+    private func testManifestWritingRoundTrip(
+        manifestContents: String,
+        toolsVersion: ToolsVersion,
+        toolsVersionHeaderComment: String? = .none,
+        additionalImportModuleNames: [String] = [],
+        fs: FileSystem = localFileSystem
+    ) throws -> String {
         try withTemporaryDirectory { packageDir in
             // Write the original manifest file contents, and load it.
             try fs.writeFileContents(packageDir.appending(component: Manifest.filename), bytes: ByteString(encodingAsUTF8: manifestContents))
@@ -40,7 +47,9 @@ class ManifestSourceGenerationTests: XCTestCase {
             }
 
             // Generate source code for the loaded manifest,
-            let newContents = manifest.generatedManifestFileContents
+            let newContents = try manifest.generateManifestFileContents(
+                toolsVersionHeaderComment: toolsVersionHeaderComment,
+                additionalImportModuleNames: additionalImportModuleNames)
             
             // Check that the tools version was serialized properly.
             let versionSpacing = (toolsVersion >= .v5_4) ? " " : ""
@@ -76,6 +85,9 @@ class ManifestSourceGenerationTests: XCTestCase {
             XCTAssertEqual(newManifest.swiftLanguageVersions, manifest.swiftLanguageVersions, failureDetails)
             XCTAssertEqual(newManifest.cLanguageStandard, manifest.cLanguageStandard, failureDetails)
             XCTAssertEqual(newManifest.cxxLanguageStandard, manifest.cxxLanguageStandard, failureDetails)
+
+            // Return the generated manifest so that the caller can do further testing on it.
+            return newContents
         }
     }
 
@@ -321,5 +333,87 @@ class ManifestSourceGenerationTests: XCTestCase {
             )
             """
         try testManifestWritingRoundTrip(manifestContents: manifestContents, toolsVersion: .v5_5)
+    }
+
+    func testCustomToolsVersionHeaderComment() throws {
+        let manifestContents = """
+            // swift-tools-version:5.5
+            import PackageDescription
+
+            let package = Package(
+                name: "Plugins",
+                targets: [
+                    .plugin(
+                        name: "MyPlugin",
+                        capability: .buildTool(),
+                        dependencies: ["MyTool"]
+                    ),
+                    .executableTarget(
+                        name: "MyTool"
+                    ),
+                ]
+            )
+            """
+        let newContents = try testManifestWritingRoundTrip(manifestContents: manifestContents, toolsVersion: .v5_5, toolsVersionHeaderComment: "a comment")
+
+        XCTAssertTrue(newContents.hasPrefix("// swift-tools-version: 5.5; a comment\n"), "contents: \(newContents)")
+    }
+
+    func testAdditionalModuleImports() throws {
+        let manifestContents = """
+            // swift-tools-version:5.5
+            import PackageDescription
+            import Foundation
+
+            let package = Package(
+                name: "MyPkg",
+                targets: [
+                    .executableTarget(
+                        name: "MyExec"
+                    ),
+                ]
+            )
+            """
+        let newContents = try testManifestWritingRoundTrip(manifestContents: manifestContents, toolsVersion: .v5_5, additionalImportModuleNames: ["Foundation"])
+
+        XCTAssertTrue(newContents.contains("import Foundation\n"), "contents: \(newContents)")
+    }
+
+    func testCustomProductSourceGeneration() throws {
+        // Create a manifest containing a product for which we'd like to do custom source fragment generation.
+        let manifest = Manifest(
+            name: "MyLibrary",
+            path: AbsolutePath("/tmp/MyLibrary/Package.swift"),
+            packageKind: .root(AbsolutePath("/tmp/MyLibrary")),
+            packageLocation: "/tmp/MyLibrary",
+            platforms: [],
+            toolsVersion: .v5_5,
+            products: [
+                .init(name: "Foo", type: .library(.static), targets: ["Bar"])
+            ]
+        )
+
+        // Generate the manifest contents, using a custom source generator for the product type.
+        let contents = manifest.generateManifestFileContents(customProductTypeSourceGenerator: { product in
+            // This example handles library types in a custom way, for testing purposes.
+            var params: [SourceCodeFragment] = []
+            params.append(SourceCodeFragment(key: "name", string: product.name))
+            if !product.targets.isEmpty {
+                params.append(SourceCodeFragment(key: "targets", strings: product.targets))
+            }
+            // Handle .library specially (by not emitting as multiline), otherwise asking for default behavior.
+            if case .library(let type) = product.type {
+                if type != .automatic {
+                    params.append(SourceCodeFragment(key: "type", enum: type.rawValue))
+                }
+                return SourceCodeFragment(enum: "library", subnodes: params, multiline: false)
+            }
+            else {
+                return nil
+            }
+        })
+
+        // Check that we generated what we expected.
+        XCTAssertTrue(contents.contains(".library(name: \"Foo\", targets: [\"Bar\"], type: .static)"), "contents: \(contents)")
     }
 }
