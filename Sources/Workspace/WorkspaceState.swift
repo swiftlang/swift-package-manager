@@ -146,8 +146,8 @@ fileprivate struct WorkspaceStateStorage {
         init (dependencies: Workspace.ManagedDependencies, artifacts: Workspace.ManagedArtifacts) {
             self.version = 4
             self.object = .init(
-                dependencies: dependencies.map { .init($0) },
-                artifacts: artifacts.map {.init($0) }
+                dependencies: dependencies.map { .init($0) }.sorted { $0.packageRef.identity < $1.packageRef.identity },
+                artifacts: artifacts.map { .init($0) }.sorted { $0.packageRef.identity < $1.packageRef.identity }
             )
         }
 
