@@ -41,22 +41,20 @@ public final class RegistryManager {
     var client: HTTPClientProtocol
     var identityResolver: IdentityResolver
     var authorizationProvider: HTTPClientAuthorizationProvider?
-    var diagnosticEngine: DiagnosticsEngine?
 
     public init(configuration: RegistryConfiguration,
                 identityResolver: IdentityResolver,
-                authorizationProvider: HTTPClientAuthorizationProvider? = nil,
-                diagnosticEngine: DiagnosticsEngine? = nil)
+                authorizationProvider: HTTPClientAuthorizationProvider? = nil)
     {
         self.configuration = configuration
         self.client = Self.sharedClient
         self.identityResolver = identityResolver
         self.authorizationProvider = authorizationProvider
-        self.diagnosticEngine = diagnosticEngine
     }
 
     public func fetchVersions(
         of package: PackageReference,
+        diagnostics: DiagnosticsEngine? = nil,
         on queue: DispatchQueue,
         completion: @escaping (Result<[Version], Error>) -> Void
     ) {
@@ -111,6 +109,7 @@ public final class RegistryManager {
         using manifestLoader: ManifestLoaderProtocol,
         toolsVersion: ToolsVersion = .currentToolsVersion,
         swiftLanguageVersion: SwiftLanguageVersion? = nil,
+        diagnostics: DiagnosticsEngine? = nil,
         on queue: DispatchQueue,
         completion: @escaping (Result<Manifest, Error>) -> Void
     ) {
@@ -174,7 +173,7 @@ public final class RegistryManager {
                         toolsVersion: .currentToolsVersion,
                         identityResolver: self.identityResolver,
                         fileSystem: fileSystem,
-                        diagnostics: self.diagnosticEngine,
+                        diagnostics: diagnostics,
                         on: .sharedConcurrent,
                         completion: completion
                     )
@@ -195,6 +194,7 @@ public final class RegistryManager {
         into fileSystem: FileSystem,
         at destinationPath: AbsolutePath,
         expectedChecksum: ByteString? = nil,
+        diagnostics: DiagnosticsEngine? = nil,
         on queue: DispatchQueue,
         completion: @escaping (Result<Void, Error>) -> Void
     ) {

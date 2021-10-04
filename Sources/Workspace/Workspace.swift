@@ -308,8 +308,7 @@ public class Workspace {
         let registryManager = customRegistryManager ?? registries.map { configuration in
             RegistryManager(configuration: configuration,
                             identityResolver: identityResolver,
-                            authorizationProvider: authorizationProvider?.httpAuthorizationHeader(for:),
-                            diagnosticEngine: nil)
+                            authorizationProvider: authorizationProvider?.httpAuthorizationHeader(for:))
         }
 
         // FIXME: use workspace scope when migrating workspace to new observability API

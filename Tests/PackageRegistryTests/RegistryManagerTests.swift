@@ -36,14 +36,12 @@ final class RegistryManagerTests: XCTestCase {
 
     override func setUp() {
         let identityResolver = DefaultIdentityResolver()
-        let diagnosticsEngine = DiagnosticsEngine()
 
         var configuration = RegistryConfiguration()
         configuration.defaultRegistry = Registry(url: URL(string: "https://packages.example.com/")!)
 
         registryManager = RegistryManager(configuration: configuration,
-                                          identityResolver: identityResolver,
-                                          diagnosticEngine: diagnosticsEngine)
+                                          identityResolver: identityResolver)
     }
 
     // MARK: -
