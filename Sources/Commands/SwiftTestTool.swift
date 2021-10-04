@@ -59,11 +59,11 @@ struct TestToolOptions: ParsableArguments {
 
         return .runSerial
     }
-    
+
     @Flag(name: .customLong("skip-build"),
           help: "Skip building the test target")
     var shouldSkipBuilding: Bool = false
-    
+
     /// If the test target should be built before testing.
     var shouldBuildTests: Bool {
         !shouldSkipBuilding
@@ -97,7 +97,7 @@ struct TestToolOptions: ParsableArguments {
         if !filter.isEmpty {
             return .regex(filter)
         }
-        
+
         return _testCaseSpecifier.map { .specific($0) } ?? .none
     }
 
@@ -115,7 +115,7 @@ struct TestToolOptions: ParsableArguments {
         if let override = testCaseSkipOverride() {
             return override
         }
-      
+
         return _testCaseSkip.isEmpty
             ? .none
             : .skip(_testCaseSkip)
@@ -197,11 +197,11 @@ public struct SwiftTestTool: SwiftCommand {
 
     @OptionGroup()
     var options: TestToolOptions
-    
+
     var shouldEnableCodeCoverage: Bool {
         swiftOptions.shouldEnableCodeCoverage
     }
-    
+
     public func run(_ swiftTool: SwiftTool) throws {
         // Validate commands arguments
         try self.validateArguments(observabilityScope: swiftTool.observabilityScope)
@@ -501,25 +501,26 @@ public struct SwiftTestTool: SwiftCommand {
     /// - Returns: Array of TestSuite
     fileprivate func getTestSuites(fromTestAt path: AbsolutePath, swiftTool: SwiftTool) throws -> [TestSuite] {
         // Run the correct tool.
-      #if os(macOS)
+        #if os(macOS)
         let data: String = try withTemporaryFile { tempFile in
             let args = [try xctestHelperPath(swiftTool: swiftTool).pathString, path.pathString, tempFile.path.pathString]
             var env = try constructTestEnvironment(toolchain: try swiftTool.getToolchain(), options: swiftOptions, buildParameters: swiftTool.buildParametersForTest())
             // Add the sdk platform path if we have it. If this is not present, we
             // might always end up failing.
             if let sdkPlatformFrameworksPath = Destination.sdkPlatformFrameworkPaths() {
-                env["DYLD_FRAMEWORK_PATH"] = sdkPlatformFrameworksPath.fwk.pathString
-                env["DYLD_LIBRARY_PATH"] = sdkPlatformFrameworksPath.lib.pathString
+                // appending since we prefer the user setting (if set) to the one we inject
+                env.appendPath("DYLD_FRAMEWORK_PATH", value: sdkPlatformFrameworksPath.fwk.pathString)
+                env.appendPath("DYLD_LIBRARY_PATH", value: sdkPlatformFrameworksPath.lib.pathString)
             }
             try Process.checkNonZeroExit(arguments: args, environment: env)
             // Read the temporary file's content.
             return try localFileSystem.readFileContents(tempFile.path).validDescription ?? ""
         }
-      #else
+        #else
         let env = try constructTestEnvironment(toolchain: try swiftTool.getToolchain(), options: swiftOptions, buildParameters: swiftTool.buildParametersForTest())
         let args = [path.description, "--dump-tests-json"]
         let data = try Process.checkNonZeroExit(arguments: args, environment: env)
-      #endif
+        #endif
         // Parse json and return TestSuites.
         return try TestSuite.parse(jsonString: data)
     }
@@ -542,12 +543,12 @@ public struct SwiftTestTool: SwiftCommand {
                 throw ExitCode.failure
             }
         }
-        
+
         if options.shouldGenerateLinuxMain {
             observabilityScope.emit(warning: "'--generate-linuxmain' option is deprecated; tests are automatically discovered on all platforms")
         }
     }
-    
+
     public init() {}
 }
 
@@ -1016,8 +1017,8 @@ fileprivate func constructTestEnvironment(
     toolchain: UserToolchain,
     options: SwiftToolOptions,
     buildParameters: BuildParameters
-) throws -> [String: String] {
-    var env = ProcessEnv.vars
+) throws -> EnvironmentVariables {
+    var env = EnvironmentVariables.process()
 
     // Add the code coverage related variables.
     if options.shouldEnableCodeCoverage {
@@ -1034,7 +1035,7 @@ fileprivate func constructTestEnvironment(
     #if !os(macOS)
     #if os(Windows)
     if let location = toolchain.configuration.xctestPath {
-        env["Path"] = "\(location.pathString);\(env["Path"] ?? "")"
+        env.prependPath("Path", value: location.pathString)
     }
     #endif
     return env

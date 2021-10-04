@@ -567,14 +567,14 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         let manifestPath: AbsolutePath
         let manifestContents: [UInt8]
         let toolsVersion: ToolsVersion
-        let env: [String: String]
+        let env: EnvironmentVariables
         let swiftpmVersion: String
         let sha256Checksum: String
 
         init (packageIdentity: PackageIdentity,
               manifestPath: AbsolutePath,
               toolsVersion: ToolsVersion,
-              env: [String: String],
+              env: EnvironmentVariables,
               swiftpmVersion: String,
               fileSystem: FileSystem
         ) throws {
@@ -598,7 +598,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             packageIdentity: PackageIdentity,
             manifestContents: [UInt8],
             toolsVersion: ToolsVersion,
-            env: [String: String],
+            env: EnvironmentVariables,
             swiftpmVersion: String
         ) throws -> String {
             let stream = BufferedOutputByteStream()

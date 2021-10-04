@@ -12,6 +12,7 @@ add_library(Basics
   ConcurrencyHelpers.swift
   Dictionary+Extensions.swift
   DispatchTimeInterval+Extensions.swift
+  EnvironmentVariables.swift
   Errors.swift
   FileSystem+Extensions.swift
   HTPClient+URLSession.swift

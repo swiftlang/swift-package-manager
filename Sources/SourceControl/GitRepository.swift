@@ -27,7 +27,7 @@ private struct GitShellHelper {
     /// Private function to invoke the Git tool with its default environment and given set of arguments.  The specified
     /// failure message is used only in case of error.  This function waits for the invocation to finish and returns the
     /// output as a string.
-    func run(_ args: [String], environment: [String: String] = Git.environment, outputRedirection: Process.OutputRedirection = .collect) throws -> String {
+    func run(_ args: [String], environment: EnvironmentVariables = Git.environment, outputRedirection: Process.OutputRedirection = .collect) throws -> String {
         let process = Process(arguments: [Git.tool] + args, environment: environment, outputRedirection: outputRedirection)
         let result: ProcessResult
         do {
@@ -64,7 +64,7 @@ public struct GitRepositoryProvider: RepositoryProvider {
 
     @discardableResult
     private func callGit(_ args: String...,
-                         environment: [String: String] = Git.environment,
+                         environment: EnvironmentVariables = Git.environment,
                          repository: RepositorySpecifier,
                          failureMessage: String = "",
                          progress: FetchProgress.Handler? = nil) throws -> String {
@@ -320,7 +320,7 @@ public final class GitRepository: Repository, WorkingCheckout {
     /// This function waits for the invocation to finish and returns the output as a string.
     @discardableResult
     private func callGit(_ args: String...,
-                         environment: [String: String] = Git.environment,
+                         environment: EnvironmentVariables = Git.environment,
                          failureMessage: String = "",
                          progress: FetchProgress.Handler? = nil) throws -> String {
         if let progress = progress {

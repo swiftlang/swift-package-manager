@@ -8,13 +8,13 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import XCTest
-
-import TSCBasic
-import SPMTestSupport
+import Basics
 import PackageModel
+import SPMTestSupport
+import TSCBasic
 import TSCUtility
 import Xcodeproj
+import XCTest
 
 class FunctionalTests: XCTestCase {
     func testSingleModuleLibrary() {
@@ -182,7 +182,7 @@ func XCTAssertXcodeBuild(project: AbsolutePath, file: StaticString = #file, line
     }
 }
 
-func XCTAssertXcodeprojGen(_ prefix: AbsolutePath, flags: [String] = [], env: [String: String]? = nil, file: StaticString = #file, line: UInt = #line) {
+func XCTAssertXcodeprojGen(_ prefix: AbsolutePath, flags: [String] = [], env: EnvironmentVariables? = nil, file: StaticString = #file, line: UInt = #line) {
     do {
         print("    Generating XcodeProject")
         _ = try SwiftPMProduct.SwiftPackage.execute(flags + ["generate-xcodeproj"], packagePath: prefix, env: env)
