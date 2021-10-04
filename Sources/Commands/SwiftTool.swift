@@ -501,9 +501,12 @@ public class SwiftTool {
         if let workspaceNetrc = try self.getNetrcConfig()?.get() {
             providers.append(workspaceNetrc)
         }
-#if canImport(Security)
-        providers.append(KeychainAuthorizationProvider())
-#endif
+        
+        // TODO: add --no-keychain option to allow opt-out
+//#if canImport(Security)
+//        providers.append(KeychainAuthorizationProvider())
+//#endif
+        
         return providers.isEmpty ? nil : CompositeAuthorizationProvider(providers)
     }
 
