@@ -41,7 +41,7 @@ public extension AuthorizationProvider {
     }
 }
 
-extension Foundation.URL {
+private extension Foundation.URL {
     var authenticationID: String? {
         guard let host = host?.lowercased() else {
             return nil

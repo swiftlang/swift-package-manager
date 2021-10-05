@@ -112,7 +112,7 @@ public protocol PackageCollectionsProtocol {
     ///   - reference: The package reference
     ///   - callback: The closure to invoke when result becomes available
     // deprecated 9/21
-    @available(*, deprecated, message: "user getPackageMetadata(identity:) instead")
+    @available(*, deprecated, message: "use getPackageMetadata(identity:) instead")
     func getPackageMetadata(
         _ reference: PackageReference,
         callback: @escaping (Result<PackageCollectionsModel.PackageMetadata, Error>) -> Void
@@ -129,7 +129,7 @@ public protocol PackageCollectionsProtocol {
     ///                  processed collection will be used.
     ///   - callback: The closure to invoke when result becomes available
     // deprecated 9/21
-    @available(*, deprecated, message: "user getPackageMetadata(identity:) instead")
+    @available(*, deprecated, message: "use getPackageMetadata(identity:) instead")
     func getPackageMetadata(
         _ reference: PackageReference,
         collections: Set<PackageCollectionsModel.CollectionIdentifier>?,

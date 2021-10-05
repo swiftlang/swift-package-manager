@@ -328,6 +328,15 @@ public struct SwiftToolOptions: ParsableArguments {
         help: "Specify the .netrc file path.",
         completion: .file())
     var netrcFilePath: AbsolutePath?
+    
+#if canImport(Security)
+    /// Whether to use keychain for authenticating with remote servers
+    /// when downloading binary artifacts or communicating with a registry.
+    @Flag(inversion: .prefixedNo,
+          exclusivity: .exclusive,
+          help: "Search credentials in OS keychain")
+    var keychain: Bool = true
+#endif
 
     @Flag(name: .customLong("netrc"), help: .hidden)
     var _deprecated_netrc: Bool = false
