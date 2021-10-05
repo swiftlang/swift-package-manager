@@ -6,7 +6,7 @@
 * [**Usage**](Usage.md)
   * [Creating a Package](#creating-a-package)
     * [Creating a Library Package](#creating-a-library-package)
-    * [Creating an Executable Package](#creating-an-executable-package)  
+    * [Creating an Executable Package](#creating-an-executable-package)
   * [Defining Dependencies](#defining-dependencies)
   * [Publishing a Package](#publishing-a-package)
   * [Requiring System Libraries](#requiring-system-libraries)
