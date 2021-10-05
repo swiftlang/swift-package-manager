@@ -5245,6 +5245,8 @@ final class WorkspaceTests: XCTestCase {
                     contents = [0xA2]
                 case "a3.zip":
                     contents = [0xA3]
+                case "a7.zip":
+                    contents = [0xA7]
                 case "b.zip":
                     contents = [0xB0]
                 default:
@@ -5275,6 +5277,8 @@ final class WorkspaceTests: XCTestCase {
                     name = "A2.xcframework"
                 case "a3.zip":
                     name = "incorrect-name.xcframework"
+                case "a7.zip":
+                    name = "A7.xcframework"
                 case "b.zip":
                     name = "B.xcframework"
                 default:
@@ -5303,6 +5307,7 @@ final class WorkspaceTests: XCTestCase {
                             .product(name: "A2", package: "A"),
                             .product(name: "A3", package: "A"),
                             .product(name: "A4", package: "A"),
+                            .product(name: "A7", package: "A")
                         ]),
                     ],
                     products: [],
@@ -5339,12 +5344,19 @@ final class WorkspaceTests: XCTestCase {
                             type: .binary,
                             path: "XCFrameworks/A4.xcframework"
                         ),
+                        MockTarget(
+                            name: "A7",
+                            type: .binary,
+                            url: "https://a.com/a7.zip",
+                            checksum: "a7"
+                        )
                     ],
                     products: [
                         MockProduct(name: "A1", targets: ["A1"]),
                         MockProduct(name: "A2", targets: ["A2"]),
                         MockProduct(name: "A3", targets: ["A3"]),
                         MockProduct(name: "A4", targets: ["A4"]),
+                        MockProduct(name: "A7", targets: ["A7"])
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -5422,6 +5434,12 @@ final class WorkspaceTests: XCTestCase {
                     source: .local(),
                     path: workspace.artifactsDir.appending(components: "A", "A6.xcframework")
                 ),
+                .init(
+                    packageRef: aRef,
+                    targetName: "A7",
+                    source: .local(),
+                    path: workspace.packagesDir.appending(components: "A", "XCFrameworks", "A7.xcframework")
+                )
             ]
         )
 
@@ -5432,20 +5450,24 @@ final class WorkspaceTests: XCTestCase {
             XCTAssert(!fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/A/A3.xcframework")))
             XCTAssert(!fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/A/A4.xcframework")))
             XCTAssert(!fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/A/A5.xcframework")))
+            XCTAssert(fs.exists(AbsolutePath("/tmp/ws/pkgs/A/XCFrameworks/A7.xcframework")))
             XCTAssert(!fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/Foo")))
             XCTAssertEqual(downloads.map { $0.key.absoluteString }.sorted(), [
                 "https://a.com/a2.zip",
                 "https://a.com/a3.zip",
+                "https://a.com/a7.zip",
                 "https://b.com/b.zip",
             ])
             XCTAssertEqual(workspace.checksumAlgorithm.hashes.map{ $0.hexadecimalRepresentation }.sorted(), [
                 ByteString([0xA2]).hexadecimalRepresentation,
                 ByteString([0xA3]).hexadecimalRepresentation,
+                ByteString([0xA7]).hexadecimalRepresentation,
                 ByteString([0xB0]).hexadecimalRepresentation,
             ])
             XCTAssertEqual(workspace.archiver.extractions.map { $0.destinationPath }.sorted(), [
                 AbsolutePath("/tmp/ws/.build/artifacts/extract/A2"),
                 AbsolutePath("/tmp/ws/.build/artifacts/extract/A3"),
+                AbsolutePath("/tmp/ws/.build/artifacts/extract/A7"),
                 AbsolutePath("/tmp/ws/.build/artifacts/extract/B"),
             ])
             XCTAssertEqual(
@@ -5476,6 +5498,14 @@ final class WorkspaceTests: XCTestCase {
                          targetName: "A4",
                          source: .local(),
                          path: a4FrameworkPath
+            )
+            result.check(packageIdentity: .plain("a"),
+                         targetName: "A7",
+                         source: .remote(
+                            url: "https://a.com/a7.zip",
+                            checksum: "a7"
+                         ),
+                         path: workspace.artifactsDir.appending(components: "A", "A7.xcframework")
             )
             result.checkNotPresent(packageName: "A", targetName: "A5")
             result.check(packageIdentity: .plain("b"),
