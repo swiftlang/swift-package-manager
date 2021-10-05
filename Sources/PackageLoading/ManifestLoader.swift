@@ -63,6 +63,10 @@ public protocol ManifestLoaderProtocol {
     func purgeCache() throws
 }
 
+public extension ManifestLoaderProtocol {
+    var supportedArchiveExtension: String { "zip" }
+}
+
 public protocol ManifestLoaderDelegate {
     func willLoad(manifest: AbsolutePath)
     func willParse(manifest: AbsolutePath)
@@ -390,16 +394,19 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                 continue
             }
 
-            let isRemote = target.url != nil
             let validSchemes = ["https"]
-            if isRemote && (location.scheme.map({ !validSchemes.contains($0) }) ?? true) {
+            if target.isRemote && (location.scheme.map({ !validSchemes.contains($0) }) ?? true) {
                 try diagnostics.emit(.invalidBinaryURLScheme(
                     targetName: target.name,
                     validSchemes: validSchemes
                 ))
             }
 
-            let validExtensions = isRemote ? ["zip"] : BinaryTarget.Kind.allCases.map{ $0.fileExtension }
+            var validExtensions = [self.supportedArchiveExtension]
+            if target.isLocal {
+                validExtensions += BinaryTarget.Kind.allCases.map { $0.fileExtension }
+            }
+
             if !validExtensions.contains(location.pathExtension) {
                 try diagnostics.emit(.unsupportedBinaryLocationExtension(
                     targetName: target.name,
@@ -965,4 +972,9 @@ extension TSCBasic.Diagnostic.Message {
             digits separated by hyphens
             """)
     }
+}
+
+private extension TargetDescription {
+    var isRemote: Bool { url != nil }
+    var isLocal: Bool { path != nil }
 }

@@ -221,7 +221,7 @@ public final class PackageBuilder {
     /// The path of the package.
     private let packagePath: AbsolutePath
 
-    /// Information concerning the different downloaded binary target artifacts.
+    /// Information concerning the different downloaded or local (archived) binary target artifacts.
     private let binaryArtifacts: [BinaryArtifact]
 
     /// Create multiple test products.
@@ -531,8 +531,12 @@ public final class PackageBuilder {
 
         /// Returns the path of the given target.
         func findPath(for target: TargetDescription) throws -> AbsolutePath {
-            // If there is a custom path defined, use that.
-            if let subpath = target.path {
+            if target.type == .binary {
+                guard let artifact = self.binaryArtifacts.first(where: { $0.path.basenameWithoutExt == target.name }) else {
+                    throw ModuleError.artifactNotFound(target.name)
+                }
+                return artifact.path
+            } else if let subpath = target.path { // If there is a custom path defined, use that.
                 if subpath == "" || subpath == "." {
                     return packagePath
                 }
@@ -551,12 +555,6 @@ public final class PackageBuilder {
                     return path
                 }
                 throw ModuleError.invalidCustomPath(target: target.name, path: subpath)
-            } else if target.type == .binary {
-                if let artifact = self.binaryArtifacts.first(where: { $0.path.basenameWithoutExt == target.name }) {
-                    return artifact.path
-                } else {
-                    throw ModuleError.artifactNotFound(target.name)
-                }
             }
 
             // Check if target is present in the predefined directory.

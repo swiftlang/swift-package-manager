@@ -1047,12 +1047,19 @@ class PackageBuilderTests: XCTestCase {
                 name: "pkg",
                 targets: [
                     try TargetDescription(name: "foo", url: "https://foo.com/foo.zip", type: .binary, checksum: "checksum"),
+                    try TargetDescription(name: "foo2", path: "./foo2.zip", type: .binary)
                 ]
             )
+            
+            try fs.writeFileContents(AbsolutePath("/foo2.zip"), bytes: "")
 
-            let binaryArtifacts = [BinaryArtifact(kind: .xcframework, originURL: "https://foo.com/foo.zip", path: AbsolutePath("/foo.xcframework"))]
+            let binaryArtifacts = [
+                BinaryArtifact(kind: .xcframework, originURL: "https://foo.com/foo.zip", path: AbsolutePath("/foo.xcframework")),
+                BinaryArtifact(kind: .xcframework, originURL: nil, path: AbsolutePath("/foo2.xcframework"))
+            ]
             PackageBuilderTester(manifest, binaryArtifacts: binaryArtifacts, in: fs) { package, _ in
                 package.checkModule("foo")
+                package.checkModule("foo2")
             }
         }
 

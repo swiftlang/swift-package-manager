@@ -550,8 +550,8 @@ public final class MockWorkspace {
             case (.remote(let lhsURL, let lhsChecksum), .remote(let rhsURL, let rhsChecksum)):
                 XCTAssertEqual(lhsURL, rhsURL, file: file, line: line)
                 XCTAssertEqual(lhsChecksum, rhsChecksum, file: file, line: line)
-            case (.local, .local):
-                break
+            case (.local(let lhsChecksum), .local(let rhsChecksum)):
+                XCTAssertEqual(lhsChecksum, rhsChecksum, file: file, line: line)
             default:
                 XCTFail("wrong source type", file: file, line: line)
             }
