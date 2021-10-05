@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2018 Apple Inc. and the Swift project authors
+ Copyright (c) 2018-2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -350,30 +350,7 @@ extension Workspace.Configuration {
         }
 
         private static func load(_ path: AbsolutePath, fileSystem: FileSystem) throws -> AuthorizationProvider {
-            let netrc = try TSCUtility.Netrc.load(fromFileAtPath: path).get()
-            return NetrcAuthorizationProvider(netrc)
-        }
-
-        struct NetrcAuthorizationProvider: AuthorizationProvider {
-            private let underlying: TSCUtility.Netrc
-
-            init(_ underlying: TSCUtility.Netrc) {
-                self.underlying = underlying
-            }
-
-            func authentication(for url: Foundation.URL) -> (user: String, password: String)? {
-                return self.machine(for: url).map { (user: $0.login, password: $0.password) }
-            }
-
-            private func machine(for url: Foundation.URL) -> TSCUtility.Netrc.Machine? {
-                if let machine = self.underlying.machines.first(where: { $0.name.lowercased() == url.host?.lowercased() }) {
-                    return machine
-                }
-                if let machine = self.underlying.machines.first(where: { $0.isDefault }) {
-                    return machine
-                }
-                return .none
-            }
+            try NetrcAuthorizationProvider(path: path, fileSystem: fileSystem)
         }
     }
 }

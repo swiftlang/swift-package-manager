@@ -7195,7 +7195,7 @@ final class WorkspaceTests: XCTestCase {
                 customManifestLoader: TestLoader(error: .none),
                 delegate: delegate
             )
-            try workspace.loadPackageGraph(rootPath: .root, diagnostics: DiagnosticsEngine())
+            try workspace.loadPackageGraph(rootPath: .root, observabilityScope: ObservabilitySystem.NOOP)
 
             XCTAssertNotNil(delegate.manifest)
             XCTAssertEqual(delegate.manifestLoadingDiagnostics?.count, 0)
@@ -7210,7 +7210,7 @@ final class WorkspaceTests: XCTestCase {
                 customManifestLoader: TestLoader(error: Diagnostics.fatalError),
                 delegate: delegate
             )
-            try workspace.loadPackageGraph(rootPath: .root, diagnostics: DiagnosticsEngine())
+            try workspace.loadPackageGraph(rootPath: .root, observabilityScope: ObservabilitySystem.NOOP)
 
             XCTAssertNil(delegate.manifest)
             XCTAssertEqual(delegate.manifestLoadingDiagnostics?.count, 0)
@@ -7225,7 +7225,7 @@ final class WorkspaceTests: XCTestCase {
                 customManifestLoader: TestLoader(error: StringError("boom")),
                 delegate: delegate
             )
-            try workspace.loadPackageGraph(rootPath: .root, diagnostics: DiagnosticsEngine())
+            try workspace.loadPackageGraph(rootPath: .root, observabilityScope: ObservabilitySystem.NOOP)
 
             XCTAssertNil(delegate.manifest)
             XCTAssertEqual(delegate.manifestLoadingDiagnostics?.count, 1)
