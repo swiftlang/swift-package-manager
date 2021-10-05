@@ -12,7 +12,25 @@ For more information about making contributions to the Swift project in general 
 
 Issues are tracked using [SwiftPM JIRA Bug Tracker](https://bugs.swift.org/browse/SR-13640?jql=component%20%3D%20%22Package%20Manager%22).
 
-Please follow the [guide for filing quality bug reports](https://github.com/apple/swift-package-manager/blob/main/Documentation/Resources.md#reporting-a-good-swiftpm-bug).
+Fill the following fields:
+
+* `Summary`: A one line summary of the problem you're facing
+* `Description`: The complete description of the problem. Be specific and clearly mention the steps to reproduce the bug
+* `Environment`: The Operating System, Xcode version (`$ xcodebuild -version`), Toolchain, and `swift build` version (`$ swift build --version`)
+* `Component/s`: Package Manager
+* `Attachment`: Relevant files like logs, project files, etc.
+
+Please include a minimal example package which can reproduce the issue. The
+sample package can be attached with the report or you can include the URL of the
+package hosted on places like GitHub.
+Also, include the verbose logs by adding `--verbose` or `-v` after a subcommand.
+For example:
+
+    $ swift build --verbose
+    $ swift package -v update
+
+If the bug is with a generated Xcode project, include how the project was
+generated and the Xcode build log.
 
 ## Setting up the development environment
 
@@ -132,7 +150,7 @@ Please refer to the [_Get Started_ guide](https://github.com/apple/swift/blob/ma
 Clone the following repositories beside the SwiftPM directory:
 
 1. [swift-argument-parser] and check out tag with the [latest version](https://github.com/apple/swift-argument-parser/tags).
-   
+
    For example, if the latest tag is 0.4.3:
    ```sh
    $> git clone https://github.com/apple/swift-argument-parser --branch 0.4.3
@@ -150,7 +168,7 @@ Clone the following repositories beside the SwiftPM directory:
    ```
 
 4. [Yams] and checkout tag with the [latest version](https://github.com/jpsim/Yams.git/tags) before 5.0.0.
-   
+
    For example, if the latest tag is 4.0.6:
    ```sh
    $> git clone https://github.com/jpsim/yams --branch 4.0.6
@@ -162,7 +180,7 @@ Clone the following repositories beside the SwiftPM directory:
    ```
 
 6. [swift-crypto] and check out tag with the [latest version](https://github.com/apple/swift-crypto/tags).
-   
+
    For example, if the latest tag is 1.1.6:
    ```sh
    $> git clone https://github.com/apple/swift-crypto --branch 1.1.6
@@ -385,4 +403,3 @@ $> swift package update
 ```
 Alternatively, if you are using Xcode, you can update to the latest version of all packages:  
 **Xcode App** > *File* > *Swift Packages* > *Update to Latest Package Versions*
-
