@@ -1719,7 +1719,7 @@ extension Workspace {
                 targetName: artifact.targetName
             ]
 
-            if artifact.path.extension == "zip" {
+            if artifact.path.extension == self.manifestLoader.supportedArchiveExtension {
                 // If we already have an artifact that was extracted from an archive with the same checksum,
                 // we don't need to extract the artifact again.
                 if case .local(let existingChecksum) = existingArtifact?.source,
@@ -1854,7 +1854,9 @@ extension Workspace {
 
         // zip files to download
         // stored in a thread-safe way as we may fetch more from "artifactbundleindex" files
-        let zipArtifacts = ThreadSafeArrayStore<RemoteArtifact>(artifacts.filter { $0.url.pathExtension.lowercased() == "zip" })
+        let zipArtifacts = ThreadSafeArrayStore<RemoteArtifact>(artifacts.filter {
+            $0.url.pathExtension.lowercased() == self.manifestLoader.supportedArchiveExtension
+        })
 
         // fetch and parse "artifactbundleindex" files, if any
         let indexFiles = artifacts.filter { $0.url.pathExtension.lowercased() == "artifactbundleindex" }

@@ -62,6 +62,10 @@ public protocol ManifestLoaderProtocol {
     func purgeCache() throws
 }
 
+public extension ManifestLoaderProtocol {
+    var supportedArchiveExtension: String { "zip" }
+}
+
 public protocol ManifestLoaderDelegate {
     func willLoad(manifest: AbsolutePath)
     func willParse(manifest: AbsolutePath)
@@ -397,7 +401,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                 ))
             }
 
-            var validExtensions = ["zip"]
+            var validExtensions = [self.supportedArchiveExtension]
             if target.isLocal {
                 validExtensions += BinaryTarget.Kind.allCases.map { $0.fileExtension }
             }
