@@ -8,17 +8,14 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import LLBuildManifest
-
 import Basics
+import PackageGraph
+import PackageModel
+import LLBuildManifest
+import SPMBuildCore
+@_implementationOnly import SwiftDriver
 import TSCBasic
 import TSCUtility
-
-import PackageModel
-import PackageGraph
-import SPMBuildCore
-
-@_implementationOnly import SwiftDriver
 
 public class LLBuildManifestBuilder {
     public enum TargetKind {
@@ -36,6 +33,12 @@ public class LLBuildManifestBuilder {
     /// The build plan to work on.
     public let plan: BuildPlan
 
+    /// File system reference.
+    private let fileSystem: FileSystem
+
+    /// ObservabilityScope with which to emit diagnostics
+    public let observabilityScope: ObservabilityScope
+
     public private(set) var manifest: BuildManifest = BuildManifest()
 
     var buildConfig: String { buildParameters.configuration.dirname }
@@ -43,8 +46,10 @@ public class LLBuildManifestBuilder {
     var buildEnvironment: BuildEnvironment { buildParameters.buildEnvironment }
 
     /// Create a new builder with a build plan.
-    public init(_ plan: BuildPlan) {
+    public init(_ plan: BuildPlan, fileSystem: FileSystem, observabilityScope: ObservabilityScope) {
         self.plan = plan
+        self.fileSystem = fileSystem
+        self.observabilityScope = observabilityScope
     }
 
     // MARK:- Generate Manifest
@@ -221,13 +226,13 @@ extension LLBuildManifestBuilder {
         commandLine.append(buildParameters.toolchain.swiftCompiler.pathString)
         // FIXME: At some point SwiftPM should provide its own executor for
         // running jobs/launching processes during planning
-        let resolver = try ArgsResolver(fileSystem: target.fs)
+        let resolver = try ArgsResolver(fileSystem: target.fileSystem)
         let executor = SPMSwiftDriverExecutor(resolver: resolver,
-                                              fileSystem: target.fs,
+                                              fileSystem: target.fileSystem,
                                               env: ProcessEnv.vars)
         var driver = try Driver(args: commandLine,
-                                diagnosticsEngine: plan.diagnostics,
-                                fileSystem: target.fs,
+                                diagnosticsEngine: self.observabilityScope.makeDiagnosticsEngine(),
+                                fileSystem: self.fileSystem,
                                 executor: executor)
         let jobs = try driver.planBuild()
         try addSwiftDriverJobs(for: target, jobs: jobs, inputs: inputs, resolver: resolver,
@@ -410,14 +415,16 @@ extension LLBuildManifestBuilder {
         commandLine.append("-driver-use-frontend-path")
         commandLine.append(buildParameters.toolchain.swiftCompiler.pathString)
         commandLine.append("-experimental-explicit-module-build")
-        let resolver = try ArgsResolver(fileSystem: targetDescription.fs)
+        let resolver = try ArgsResolver(fileSystem: self.fileSystem)
         let executor = SPMSwiftDriverExecutor(resolver: resolver,
-                                              fileSystem: targetDescription.fs,
+                                              fileSystem: self.fileSystem,
                                               env: ProcessEnv.vars)
-        var driver = try Driver(args: commandLine, fileSystem: targetDescription.fs,
+        var driver = try Driver(args: commandLine,
+                                fileSystem: self.fileSystem,
                                 executor: executor,
                                 externalTargetModulePathMap: dependencyModulePathMap,
-                                interModuleDependencyOracle: dependencyOracle)
+                                interModuleDependencyOracle: dependencyOracle
+        )
         let jobs = try driver.planBuild()
         try addSwiftDriverJobs(for: targetDescription, jobs: jobs, inputs: inputs, resolver: resolver,
                                isMainModule: { driver.isExplicitMainModuleJob(job: $0)},

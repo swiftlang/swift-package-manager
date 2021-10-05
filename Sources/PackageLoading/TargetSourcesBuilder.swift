@@ -48,7 +48,7 @@ public struct TargetSourcesBuilder {
     /// The file system to operate on.
     public let fileSystem: FileSystem
 
-    // scope with which to emit diagnostics
+    /// ObservabilityScope with which to emit diagnostics
     private let observabilityScope: ObservabilityScope
 
     /// Create a new target builder.
@@ -96,14 +96,14 @@ public struct TargetSourcesBuilder {
             }
         }
         self.declaredSources = declaredSources?.spm_uniqueElements()
-        
+
         self.excludedPaths.forEach { exclude in
             if let message = validTargetPath(at: exclude) {
                 let warning = "Invalid Exclude '\(exclude)': \(message)."
                 self.observabilityScope.emit(warning: warning)
             }
         }
-        
+
         self.declaredSources?.forEach { source in
             if let message = validTargetPath(at: source) {
                 let warning = "Invalid Source '\(source)': \(message)."
@@ -128,10 +128,10 @@ public struct TargetSourcesBuilder {
         guard at.pathString.hasPrefix(self.packagePath.pathString) else {
             return StringError("File must be within the package directory structure")
         }
-        
+
         return nil
     }
-    
+
     /// Emits an error in debug mode if we have conflicting rules for any file type.
     private func validateRules(_ rules: [FileRuleDescription]) {
         var extensionMap: [String: FileRuleDescription] = [:]
@@ -357,7 +357,7 @@ public struct TargetSourcesBuilder {
             }
         }
     }
-    
+
     private func diagnoseInvalidResource(in resources: [TargetDescription.Resource]) {
         resources.forEach { resource in
             let resourcePath = self.targetPath.appending(RelativePath(resource.path))
@@ -494,7 +494,7 @@ public struct FileRuleDescription {
 
         /// A header file.
         case header
-        
+
         /// Indicates that the file should be treated as ignored, without causing an unhandled-file warning.
         case ignored
 

@@ -546,16 +546,19 @@ private final class ResolvedTargetBuilder: ResolvedBuilder<ResolvedTarget> {
     /// The target reference.
     let target: Target
 
-
-    /// scope with which to emit diagnostics
-    let observabilityScope: ObservabilityScope
+    /// DiagnosticsEmitter with which to emit diagnostics
+    let diagnosticsEmitter: DiagnosticsEmitter
 
     /// The target dependencies of this target.
     var dependencies: [Dependency] = []
 
     init(target: Target, observabilityScope: ObservabilityScope) {
         self.target = target
-        self.observabilityScope = observabilityScope
+        self.diagnosticsEmitter = observabilityScope.makeDiagnosticsEmitter() {
+            var metadata = ObservabilityMetadata()
+            metadata.targetName = target.name
+            return metadata
+        }
     }
 
     func diagnoseInvalidUseOfUnsafeFlags(_ product: ResolvedProduct) throws {
@@ -564,7 +567,7 @@ private final class ResolvedTargetBuilder: ResolvedBuilder<ResolvedTarget> {
             let declarations = target.underlyingTarget.buildSettings.assignments.keys
             for decl in declarations {
                 if BuildSettings.Declaration.unsafeSettings.contains(decl) {
-                    self.observabilityScope.emit(.productUsesUnsafeFlags(product: product.name, target: target.name))
+                    self.diagnosticsEmitter.emit(.productUsesUnsafeFlags(product: product.name, target: target.name))
                     break
                 }
             }

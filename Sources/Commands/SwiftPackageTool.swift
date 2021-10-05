@@ -40,7 +40,7 @@ public struct SwiftPackageTool: ParsableCommand {
             Describe.self,
             Init.self,
             Format.self,
-            
+
             APIDiff.self,
             DeprecatedAPIDiff.self,
             DumpSymbolGraph.self,
@@ -591,7 +591,8 @@ extension SwiftPackageTool {
             let builder = PIFBuilder(
                 graph: graph,
                 parameters: parameters,
-                diagnostics: swiftTool.observabilityScope.makeDiagnosticsEngine()
+                fileSystem: localFileSystem,
+                observabilityScope: swiftTool.observabilityScope
             )
             let pif = try builder.generatePIF(preservePIFModelStructure: preserveStructure)
             print(pif)
@@ -880,7 +881,8 @@ extension SwiftPackageTool {
                 xcodeprojPath: xcodeprojPath,
                 graph: graph,
                 options: genOptions,
-                diagnostics: swiftTool.observabilityScope.makeDiagnosticsEngine()
+                fileSystem: localFileSystem,
+                observabilityScope: swiftTool.observabilityScope
             )
 
             print("generated:", xcodeprojPath.prettyPath(cwd: swiftTool.originalWorkingDirectory))
@@ -888,9 +890,10 @@ extension SwiftPackageTool {
             // Run the file watcher if requested.
             if options.enableAutogeneration {
                 try WatchmanHelper(
-                    diagnostics: swiftTool.observabilityScope.makeDiagnosticsEngine(),
                     watchmanScriptsDir: swiftTool.buildPath.appending(component: "watchman"),
-                    packageRoot: swiftTool.packageRoot!
+                    packageRoot: swiftTool.packageRoot!,
+                    fileSystem: localFileSystem,
+                    observabilityScope: swiftTool.observabilityScope
                 ).runXcodeprojWatcher(xcodeprojOptions())
             }
         }

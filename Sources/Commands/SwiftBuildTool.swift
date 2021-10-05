@@ -33,7 +33,7 @@ extension BuildSubset {
 
 struct BuildToolOptions: ParsableArguments {
     /// Returns the build subset specified with the options.
-    func buildSubset(diagnostics: DiagnosticsEngine) -> BuildSubset? {
+    func buildSubset(observabilityScope: ObservabilityScope) -> BuildSubset? {
         var allSubsets: [BuildSubset] = []
 
         if let productName = product {
@@ -49,7 +49,7 @@ struct BuildToolOptions: ParsableArguments {
         }
 
         guard allSubsets.count < 2 else {
-            diagnostics.emit(.mutuallyExclusiveArgumentsError(arguments: allSubsets.map{ $0.argumentName }))
+            observabilityScope.emit(.mutuallyExclusiveArgumentsError(arguments: allSubsets.map{ $0.argumentName }))
             return nil
         }
 
@@ -88,21 +88,22 @@ public struct SwiftBuildTool: SwiftCommand {
 
     @OptionGroup()
     var options: BuildToolOptions
-  
+
     public func run(_ swiftTool: SwiftTool) throws {
         if options.shouldPrintBinPath {
             try print(swiftTool.buildParameters().buildPath.description)
             return
         }
-        
-      #if os(Linux)
+
+        #if os(Linux)
         // Emit warning if clang is older than version 3.6 on Linux.
         // See: <rdar://problem/28108951> SR-2299 Swift isn't using Gold by default on stock 14.04.
         checkClangVersion()
-      #endif
+        #endif
 
-        guard let subset = options.buildSubset(diagnostics: swiftTool.observabilityScope.makeDiagnosticsEngine())
-            else { throw ExitCode.failure }
+        guard let subset = options.buildSubset(observabilityScope: swiftTool.observabilityScope) else {
+            throw ExitCode.failure
+        }
         let buildSystem = try swiftTool.createBuildSystem(explicitProduct: options.product)
         do {
             try buildSystem.build(subset: subset)
@@ -124,21 +125,12 @@ public struct SwiftBuildTool: SwiftCommand {
             print("warning: minimum recommended clang is version 3.6, otherwise you may encounter linker errors.")
         }
     }
-    
-    public init() {}
-}
 
-// FIXME: remove when further cleaning DiagnosticsEngine
-extension Diagnostic.Message {
-    //FIXME: Can we move this functionality into the argument parser?
-    /// Diagnostic error when a command is run with several arguments that are mutually exclusive.
-    static func mutuallyExclusiveArgumentsError(arguments: [String]) -> Diagnostic.Message {
-        .error(arguments.map{ "'\($0)'" }.spm_localizedJoin(type: .conjunction) + " are mutually exclusive")
-    }
+    public init() {}
 }
 
 extension Basics.Diagnostic {
     static func mutuallyExclusiveArgumentsError(arguments: [String]) -> Self {
-        .error(Diagnostic.Message.mutuallyExclusiveArgumentsError(arguments: arguments).text)
+        .error(arguments.map{ "'\($0)'" }.spm_localizedJoin(type: .conjunction) + " are mutually exclusive")
     }
 }

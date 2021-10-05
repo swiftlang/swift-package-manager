@@ -8,11 +8,12 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import TSCBasic
+import Basics
 import PackageGraph
 import PackageModel
 import PackageLoading
 import SourceControl
+import TSCBasic
 import TSCUtility
 
 public struct XcodeprojOptions {
@@ -73,9 +74,10 @@ public func generate(
     graph: PackageGraph,
     repositoryProvider: RepositoryProvider = GitRepositoryProvider(),
     options: XcodeprojOptions,
-    diagnostics: DiagnosticsEngine
+    fileSystem: FileSystem,
+    observabilityScope: ObservabilityScope
 ) throws -> Xcode.Project {
-    diagnoseConditionalTargetDependencies(graph: graph, diagnostics: diagnostics)
+    diagnoseConditionalTargetDependencies(graph: graph, observabilityScope: observabilityScope)
 
     // Note that the output directory might be completely separate from the
     // path of the root package (which is where the sources live).
@@ -109,7 +111,16 @@ public func generate(
     // instead of first creating a string.
     //
     /// Generate the contents of project.xcodeproj (inside the .xcodeproj).
-    let project = try pbxproj(xcodeprojPath: xcodeprojPath, graph: graph, extraDirs: extraDirs, extraFiles: extraFiles, options: options, diagnostics: diagnostics)
+    let project = try pbxproj(
+        xcodeprojPath: xcodeprojPath,
+        graph: graph,
+        extraDirs: extraDirs,
+        extraFiles: extraFiles,
+        options: options,
+        fileSystem: fileSystem,
+        observabilityScope: observabilityScope
+    )
+
     try open(xcodeprojPath.appending(component: "project.pbxproj")) { stream in
         // Serialize the project model we created to a plist, and return
         // its string description.
@@ -163,7 +174,7 @@ public func generate(
     return project
 }
 
-private func diagnoseConditionalTargetDependencies(graph: PackageGraph, diagnostics: DiagnosticsEngine) {
+private func diagnoseConditionalTargetDependencies(graph: PackageGraph, observabilityScope: ObservabilityScope) {
     let targetsWithConditionalDependencies = graph.allTargets.lazy.filter { target in
         target.dependencies.contains { dependency in
             !dependency.conditions.isEmpty
@@ -172,10 +183,12 @@ private func diagnoseConditionalTargetDependencies(graph: PackageGraph, diagnost
 
     if !targetsWithConditionalDependencies.isEmpty {
         let targetNames = targetsWithConditionalDependencies.map { $0.name }.joined(separator: ", ")
-        diagnostics.emit(warning: """
+        observabilityScope.emit(warning:
+            """
             Xcode project generation does not support conditional target dependencies, so the generated project might \
             not build successfully. The offending targets are: \(targetNames).
-            """)
+            """
+        )
     }
 }
 

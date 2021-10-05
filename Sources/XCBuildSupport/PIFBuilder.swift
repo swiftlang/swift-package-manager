@@ -56,8 +56,8 @@ public final class PIFBuilder {
     /// The parameters used to configure the PIF.
     public let parameters: PIFBuilderParameters
 
-    /// The engine to emit diagnostics to.
-    public let diagnostics: DiagnosticsEngine
+    /// The ObservabilityScope to emit diagnostics to.
+    public let observabilityScope: ObservabilityScope
 
     /// The file system to read from.
     public let fileSystem: FileSystem
@@ -68,18 +68,18 @@ public final class PIFBuilder {
     /// - Parameters:
     ///   - graph: The package graph to build from.
     ///   - parameters: The parameters used to configure the PIF.
-    ///   - diagnostics: The engine to emit diagnostics to.
     ///   - fileSystem: The file system to read from.
+    ///   - observabilityScope: The ObservabilityScope to emit diagnostics to.
     public init(
         graph: PackageGraph,
         parameters: PIFBuilderParameters,
-        diagnostics: DiagnosticsEngine,
-        fileSystem: FileSystem = localFileSystem
+        fileSystem: FileSystem,
+        observabilityScope: ObservabilityScope
     ) {
         self.graph = graph
         self.parameters = parameters
-        self.diagnostics = diagnostics
         self.fileSystem = fileSystem
+        self.observabilityScope = observabilityScope.makeChildScope(description: "PIF Builder")
     }
 
     /// Generates the PIF representation.
@@ -91,7 +91,7 @@ public final class PIFBuilder {
         preservePIFModelStructure: Bool = false
     ) throws -> String {
         let encoder = prettyPrint ? JSONEncoder.makeWithDefaults() : JSONEncoder()
-        
+
         if !preservePIFModelStructure {
             encoder.userInfo[.encodeForXCBuild] = true
         }
@@ -115,8 +115,8 @@ public final class PIFBuilder {
                 try PackagePIFProjectBuilder(
                     package: package,
                     parameters: parameters,
-                    diagnostics: diagnostics,
-                    fileSystem: fileSystem
+                    fileSystem: self.fileSystem,
+                    observabilityScope: self.observabilityScope
                 )
             }
 
@@ -218,8 +218,8 @@ class PIFProjectBuilder {
 final class PackagePIFProjectBuilder: PIFProjectBuilder {
     private let package: ResolvedPackage
     private let parameters: PIFBuilderParameters
-    private let diagnostics: DiagnosticsEngine
     private let fileSystem: FileSystem
+    private let observabilityScope: ObservabilityScope
     private var binaryGroup: PIFGroupBuilder!
     private let executableTargetProductMap: [ResolvedTarget: ResolvedProduct]
 
@@ -228,13 +228,16 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
     init(
         package: ResolvedPackage,
         parameters: PIFBuilderParameters,
-        diagnostics: DiagnosticsEngine,
-        fileSystem: FileSystem
+        fileSystem: FileSystem,
+        observabilityScope: ObservabilityScope
     ) throws {
         self.package = package
         self.parameters = parameters
-        self.diagnostics = diagnostics
         self.fileSystem = fileSystem
+        self.observabilityScope = observabilityScope.makeChildScope(
+            description: "Package PIF Builder",
+            metadata: package.underlyingPackage.diagnosticsMetadata
+        )
 
         executableTargetProductMap = Dictionary(uniqueKeysWithValues:
             package.products.filter { $0.type == .executable }.map { ($0.mainTarget, $0) }
@@ -691,10 +694,12 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         var impartedSettings = PIF.BuildSettings()
 
         var cFlags: [String] = []
-        for result in pkgConfigArgs(for: systemTarget, diagnostics: diagnostics, fileSystem: fileSystem) {
+        for result in pkgConfigArgs(for: systemTarget, fileSystem: fileSystem, observabilityScope: self.observabilityScope) {
             if let error = result.error {
-                let location = PkgConfigDiagnosticLocation(pcFile: result.pkgConfigName, target: target.name)
-                diagnostics.emit(warning: "\(error)", location: location)
+                self.observabilityScope.emit(
+                    warning: "\(error)",
+                    metadata: .pkgConfig(pcFile: result.pkgConfigName, targetName: target.name)
+                )
             } else {
                 cFlags = result.cFlags
                 impartedSettings[.OTHER_LDFLAGS, default: ["$(inherited)"]] += result.libs
@@ -829,7 +834,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
 
         return bundleName
     }
-    
+
     // Add inferred build settings for a particular value for a manifest setting and value.
     private func addInferredBuildSettings(
         for setting: PIF.BuildSettings.MultipleValueSetting,

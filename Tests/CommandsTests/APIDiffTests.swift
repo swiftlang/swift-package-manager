@@ -30,7 +30,7 @@ final class APIDiffTests: XCTestCase {
         environment["SWIFTPM_TESTS_PACKAGECACHE"] = "1"
         return try SwiftPMProduct.SwiftPackage.execute(args, packagePath: packagePath, env: environment)
     }
-    
+
     func skipIfApiDigesterUnsupportedOrUnset() throws {
         try skipIfApiDigesterUnsupported()
         // The following is added to separate out the integration point testing of the API
@@ -39,7 +39,7 @@ final class APIDiffTests: XCTestCase {
             throw XCTSkip("Env var SWIFTPM_TEST_API_DIFF_OUTPUT must be set to test the output")
         }
     }
-    
+
     func skipIfApiDigesterUnsupported() throws {
       // swift-api-digester is required to run tests.
       guard (try? UserToolchain.default.getSwiftAPIDigester()) != nil else {
@@ -49,7 +49,7 @@ final class APIDiffTests: XCTestCase {
       // not all of which can be tested for easily. Fortunately, we can test for the
       // `-disable-fail-on-error` option, and any version which supports this flag
       // will meet the other requirements.
-      guard SwiftTargetBuildDescription.checkSupportedFrontendFlags(flags: ["disable-fail-on-error"], fs: localFileSystem) else {
+      guard SwiftTargetBuildDescription.checkSupportedFrontendFlags(flags: ["disable-fail-on-error"], fileSystem: localFileSystem) else {
         throw XCTSkip("swift-api-digester is too old")
       }
     }
@@ -71,7 +71,7 @@ final class APIDiffTests: XCTestCase {
             }
         }
     }
-    
+
     func testSimpleAPIDiff() throws {
         try skipIfApiDigesterUnsupportedOrUnset()
         fixture(name: "Miscellaneous/APIDiff/") { prefix in

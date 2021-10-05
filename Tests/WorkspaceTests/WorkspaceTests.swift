@@ -4018,8 +4018,18 @@ final class WorkspaceTests: XCTestCase {
         // We should only see errors about use of unsafe flag in the version-based dependency.
         try workspace.checkPackageGraph(roots: ["Foo", "Bar"]) { _, diagnostics in
             testDiagnostics(diagnostics) { result in
-                result.checkUnordered(diagnostic: .equal("the target 'Baz' in product 'Baz' contains unsafe build flags"), severity: .error)
-                result.checkUnordered(diagnostic: .equal("the target 'Bar' in product 'Baz' contains unsafe build flags"), severity: .error)
+                var expectedMetadata = ObservabilityMetadata()
+                expectedMetadata.targetName = "Foo"
+                result.checkUnordered(
+                    diagnostic: .equal("the target 'Baz' in product 'Baz' contains unsafe build flags"),
+                    severity: .error,
+                    metadata: expectedMetadata
+                )
+                result.checkUnordered(
+                    diagnostic: .equal("the target 'Bar' in product 'Baz' contains unsafe build flags"),
+                    severity: .error,
+                    metadata: expectedMetadata
+                )
             }
         }
     }
@@ -7956,7 +7966,6 @@ final class WorkspaceTests: XCTestCase {
                         )
                     )
                 }
-
             }
 
             func resetCache() throws {}
@@ -7964,6 +7973,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         let fs = InMemoryFileSystem()
+        let observability = ObservabilitySystem.makeForTesting()
 
         do {
             // no error
@@ -7974,7 +7984,7 @@ final class WorkspaceTests: XCTestCase {
                 customManifestLoader: TestLoader(error: .none),
                 delegate: delegate
             )
-            try workspace.loadPackageGraph(rootPath: .root, observabilityScope: ObservabilitySystem.NOOP)
+            try workspace.loadPackageGraph(rootPath: .root, observabilityScope: observability.topScope)
 
             XCTAssertNotNil(delegate.manifest)
             XCTAssertEqual(delegate.manifestLoadingDiagnostics?.count, 0)
@@ -7989,7 +7999,7 @@ final class WorkspaceTests: XCTestCase {
                 customManifestLoader: TestLoader(error: Diagnostics.fatalError),
                 delegate: delegate
             )
-            try workspace.loadPackageGraph(rootPath: .root, observabilityScope: ObservabilitySystem.NOOP)
+            try workspace.loadPackageGraph(rootPath: .root, observabilityScope: observability.topScope)
 
             XCTAssertNil(delegate.manifest)
             XCTAssertEqual(delegate.manifestLoadingDiagnostics?.count, 0)
@@ -8004,7 +8014,7 @@ final class WorkspaceTests: XCTestCase {
                 customManifestLoader: TestLoader(error: StringError("boom")),
                 delegate: delegate
             )
-            try workspace.loadPackageGraph(rootPath: .root, observabilityScope: ObservabilitySystem.NOOP)
+            try workspace.loadPackageGraph(rootPath: .root, observabilityScope: observability.topScope)
 
             XCTAssertNil(delegate.manifest)
             XCTAssertEqual(delegate.manifestLoadingDiagnostics?.count, 1)
