@@ -1723,8 +1723,7 @@ extension Workspace {
                 // If we already have an artifact that was extracted from an archive with the same checksum,
                 // we don't need to extract the artifact again.
                 if case .local(let existingChecksum) = existingArtifact?.source,
-                   existingChecksum == self.checksum(forBinaryArtifactAt: artifact.path, diagnostics: diagnostics)
-                {
+                   existingChecksum == self.checksum(forBinaryArtifactAt: artifact.path, diagnostics: diagnostics) {
                     continue
                 }
 
