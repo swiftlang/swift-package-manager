@@ -374,7 +374,7 @@ fileprivate struct WorkspaceStateStorage {
 }
 
 extension Workspace.ManagedDependency {
-    fileprivate convenience init(_ dependency: WorkspaceStateStorage.V4.Dependency) throws {
+    fileprivate init(_ dependency: WorkspaceStateStorage.V4.Dependency) throws {
         try self.init(
             packageRef: .init(dependency.packageRef),
             state: dependency.state.underlying,
