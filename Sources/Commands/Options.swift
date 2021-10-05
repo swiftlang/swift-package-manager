@@ -329,13 +329,18 @@ public struct SwiftToolOptions: ParsableArguments {
         completion: .file())
     var netrcFilePath: AbsolutePath?
     
-#if canImport(Security)
     /// Whether to use keychain for authenticating with remote servers
     /// when downloading binary artifacts or communicating with a registry.
-    @Flag(inversion: .prefixedNo,
+#if canImport(Security)
+    @Flag(inversion: .prefixedEnableDisable,
           exclusivity: .exclusive,
-          help: "Search credentials in OS keychain")
+          help: "Search credentials in macOS keychain")
     var keychain: Bool = true
+#else
+    @Flag(inversion: .prefixedEnableDisable,
+          exclusivity: .exclusive,
+          help: .hidden)
+    var keychain: Bool = false
 #endif
 
     @Flag(name: .customLong("netrc"), help: .hidden)
