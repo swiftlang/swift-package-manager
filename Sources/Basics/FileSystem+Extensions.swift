@@ -129,4 +129,8 @@ extension FileSystem {
     public func writeFileContents(_ path: AbsolutePath, string: String) throws {
         return try self.writeFileContents(path, bytes: .init(encodingAsUTF8: string))
     }
+
+    public func writeFileContents(_ path: AbsolutePath, provider: () -> String) throws {
+        return try self.writeFileContents(path, string: provider())
+    }
 }
