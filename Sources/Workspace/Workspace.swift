@@ -1961,6 +1961,7 @@ extension Workspace {
                             return
                         }
 
+                        // TODO: Use the same extraction logic for both remote and local archived artifacts.
                         group.enter()
                         self.archiver.extract(from: archivePath, to: tempExtractionDirectory, completion: { extractResult in
                             defer { group.leave() }
