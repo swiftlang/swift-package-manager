@@ -89,7 +89,7 @@ final class RegistryManagerTests: XCTestCase {
 
         let expectation = XCTestExpectation(description: "fetch versions")
 
-        registryManager.fetchVersions(of: package, on: .sharedConcurrent) { result in
+        registryManager.fetchVersions(of: package, observabilityScope: nil, on: .sharedConcurrent) { result in
             defer { expectation.fulfill() }
 
             guard case .success(let versions) = result else {
@@ -144,7 +144,7 @@ final class RegistryManagerTests: XCTestCase {
         let expectation = XCTestExpectation(description: "fetch manifest")
 
         let manifestLoader = ManifestLoader(toolchain: .default)
-        registryManager.fetchManifest(for: "1.1.1", of: package, using: manifestLoader, on: .sharedConcurrent) { result in
+        registryManager.fetchManifest(for: "1.1.1", of: package, using: manifestLoader, observabilityScope: nil, on: .sharedConcurrent) { result in
             defer { expectation.fulfill() }
 
             guard case .success(let manifest) = result else {
@@ -195,7 +195,7 @@ final class RegistryManagerTests: XCTestCase {
 
         let fileSystem = InMemoryFileSystem()
         let path = AbsolutePath("/LinkedList-1.1.1")
-        registryManager.downloadSourceArchive(for: "1.1.1", of: package, into: fileSystem, at: path, on: .sharedConcurrent) { result in
+        registryManager.downloadSourceArchive(for: "1.1.1", of: package, into: fileSystem, at: path, observabilityScope: nil, on: .sharedConcurrent) { result in
             defer { expectation.fulfill() }
 
             guard case .success = result else { return XCTAssertResultSuccess(result) }

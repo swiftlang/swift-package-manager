@@ -54,7 +54,7 @@ public final class RegistryManager {
 
     public func fetchVersions(
         of package: PackageReference,
-        diagnostics: DiagnosticsEngine? = nil,
+        observabilityScope: ObservabilityScope?,
         on queue: DispatchQueue,
         completion: @escaping (Result<[Version], Error>) -> Void
     ) {
@@ -83,7 +83,7 @@ public final class RegistryManager {
 
         request.options.authorizationProvider = authorizationProvider
 
-        client.execute(request, progress: nil) { result in
+        client.execute(request, observabilityScope: observabilityScope, progress: nil) { result in
             completion(result.tryMap { response in
                 if response.statusCode == 200,
                    response.headers.get("Content-Version").first == "1",
@@ -109,7 +109,7 @@ public final class RegistryManager {
         using manifestLoader: ManifestLoaderProtocol,
         toolsVersion: ToolsVersion = .currentToolsVersion,
         swiftLanguageVersion: SwiftLanguageVersion? = nil,
-        diagnostics: DiagnosticsEngine? = nil,
+        observabilityScope: ObservabilityScope?,
         on queue: DispatchQueue,
         completion: @escaping (Result<Manifest, Error>) -> Void
     ) {
@@ -143,7 +143,7 @@ public final class RegistryManager {
 
         request.options.authorizationProvider = authorizationProvider
 
-        client.execute(request, progress: nil) { result in
+        client.execute(request, observabilityScope: observabilityScope, progress: nil) { result in
             do {
                 if case .failure(let error) = result {
                     throw error
@@ -173,7 +173,7 @@ public final class RegistryManager {
                         toolsVersion: .currentToolsVersion,
                         identityResolver: self.identityResolver,
                         fileSystem: fileSystem,
-                        diagnostics: diagnostics,
+                        diagnostics: observabilityScope?.makeDiagnosticsEngine(),
                         on: .sharedConcurrent,
                         completion: completion
                     )
@@ -194,7 +194,7 @@ public final class RegistryManager {
         into fileSystem: FileSystem,
         at destinationPath: AbsolutePath,
         expectedChecksum: ByteString? = nil,
-        diagnostics: DiagnosticsEngine? = nil,
+        observabilityScope: ObservabilityScope?,
         on queue: DispatchQueue,
         completion: @escaping (Result<Void, Error>) -> Void
     ) {
@@ -223,7 +223,7 @@ public final class RegistryManager {
 
         request.options.authorizationProvider = authorizationProvider
 
-        client.execute(request, progress: nil) { result in
+        client.execute(request, observabilityScope: observabilityScope, progress: nil) { result in
             switch result {
             case .success(let response):
                 if response.statusCode == 200,
