@@ -12,11 +12,11 @@ add_library(PackageRegistry
   RegistryManager.swift
   SourceArchiver.swift)
 target_link_libraries(PackageRegistry PUBLIC
-  TSCBasic
+  Basics
   PackageLoading
   PackageModel
-  TSCUtility
-  Basics)
+  TSCBasic
+  TSCUtility)
 # NOTE(compnerd) workaround for CMake not setting up include flags yet
 set_target_properties(PackageRegistry PROPERTIES
   INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})
