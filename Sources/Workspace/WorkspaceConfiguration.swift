@@ -343,28 +343,6 @@ extension Workspace.Configuration {
     }
 }
 
-// MARK: - Authentication
-
-extension Workspace.Configuration {
-    public struct Netrc {
-        private let path: AbsolutePath
-        private let fileSystem: FileSystem
-
-        public init(path: AbsolutePath, fileSystem: FileSystem) {
-            self.path = path
-            self.fileSystem = fileSystem
-        }
-
-        public func get() throws -> AuthorizationProvider {
-            return try Self.load(self.path, fileSystem: self.fileSystem)
-        }
-
-        private static func load(_ path: AbsolutePath, fileSystem: FileSystem) throws -> AuthorizationProvider {
-            try NetrcAuthorizationProvider(path: path, fileSystem: fileSystem)
-        }
-    }
-}
-
 // MARK: - Registries
 
 extension Workspace.Configuration {

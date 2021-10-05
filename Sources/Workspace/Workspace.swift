@@ -385,7 +385,7 @@ public class Workspace {
             ),
             mirrors: config?.mirrors,
             authorizationProvider: netrcFilePath.map {
-                try Configuration.Netrc(path: $0, fileSystem: fileSystem).get()
+                try NetrcAuthorizationProvider(path: $0, fileSystem: fileSystem)
             },
             customToolsVersion: currentToolsVersion,
             customManifestLoader: manifestLoader,

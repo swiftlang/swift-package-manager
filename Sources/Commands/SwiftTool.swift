@@ -498,8 +498,8 @@ public class SwiftTool {
     func getAuthorizationProvider() throws -> AuthorizationProvider? {
         var providers = [AuthorizationProvider]()
         // netrc file has higher specificity than keychain so use it first
-        if let workspaceNetrc = try self.getNetrcConfig()?.get() {
-            providers.append(workspaceNetrc)
+        if let netrcConfigFile = try self.getNetrcConfigFile() {
+            providers.append(try NetrcAuthorizationProvider(path: netrcConfigFile, fileSystem: localFileSystem))
         }
         
         // TODO: add --no-keychain option to allow opt-out
@@ -507,25 +507,29 @@ public class SwiftTool {
 //        providers.append(KeychainAuthorizationProvider(observabilityScope: self.observabilityScope))
 //#endif
         
-        return providers.isEmpty ? nil : CompositeAuthorizationProvider(providers, observabilityScope: self.observabilityScope)
+        return providers.isEmpty ? .none : CompositeAuthorizationProvider(providers, observabilityScope: self.observabilityScope)
     }
 
-    func getNetrcConfig() -> Workspace.Configuration.Netrc? {
-        guard options.netrc else { return nil }
+    func getNetrcConfigFile() throws -> AbsolutePath? {
+        guard options.netrc else {
+            return .none
+        }
 
         if let configuredPath = options.netrcFilePath {
             guard localFileSystem.exists(configuredPath) else {
-                self.observabilityScope.emit(error: "Did not find .netrc file at \(configuredPath).")
-                return nil
+                throw StringError("Did not find .netrc file at \(configuredPath).")
             }
-
-            return .init(path: configuredPath, fileSystem: localFileSystem)
-        } else {
-            let defaultPath = localFileSystem.homeDirectory.appending(component: ".netrc")
-            guard localFileSystem.exists(defaultPath) else { return nil }
-
-            return .init(path: defaultPath, fileSystem: localFileSystem)
+            return configuredPath
         }
+
+        // TODO: replace multiroot-data-file with explicit overrides
+        let localPath = try (options.multirootPackageDataFile ?? self.getPackageRoot()).appending(component: ".netrc")
+        if localFileSystem.exists(localPath) {
+            return localPath
+        }
+
+        let userHomePath = localFileSystem.homeDirectory.appending(component: ".netrc")
+        return localFileSystem.exists(userHomePath) ? userHomePath : .none
     }
 
     private func getSharedCacheDirectory() throws -> AbsolutePath? {
