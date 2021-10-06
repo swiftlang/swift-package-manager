@@ -460,13 +460,9 @@ extension ObservabilityScope {
 //@available(*, deprecated, message: "temporary for transition DiagnosticsEngine -> DiagnosticsEmitter")
 extension Diagnostic {
     init?(_ diagnostic: TSCDiagnostic) {
-        var metadata: ObservabilityMetadata?
-        if diagnostic.location is UnknownLocation {
-            metadata = .none
-        } else {
-            metadata = ObservabilityMetadata()
-            metadata?.legacyDiagnosticLocation = .init(diagnostic.location)
-        }
+        var metadata = ObservabilityMetadata()
+        metadata.legacyDiagnosticLocation = .init(diagnostic.location)
+        metadata.legacyDiagnosticData = .init(diagnostic.data)
 
         switch diagnostic.behavior {
         case .error:
@@ -560,7 +556,7 @@ extension ObservabilityMetadata {
 
 //@available(*, deprecated, message: "temporary for transition DiagnosticsEngine -> DiagnosticsEmitter")
 extension ObservabilityMetadata {
-    fileprivate var legacyDiagnosticData: DiagnosticDataWrapper? {
+    var legacyDiagnosticData: DiagnosticDataWrapper? {
         get {
             self[LegacyDataKey.self]
         }
@@ -569,11 +565,11 @@ extension ObservabilityMetadata {
         }
     }
 
-    fileprivate enum LegacyDataKey: Key {
+    enum LegacyDataKey: Key {
         typealias Value = DiagnosticDataWrapper
     }
 
-    fileprivate struct DiagnosticDataWrapper: CustomStringConvertible {
+    struct DiagnosticDataWrapper: CustomStringConvertible {
         let underlying: DiagnosticData
 
         public init (_ underlying: DiagnosticData) {
