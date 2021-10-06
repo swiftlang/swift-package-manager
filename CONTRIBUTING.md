@@ -27,7 +27,7 @@ Also, include the verbose logs by adding `--verbose` or `-v` after a subcommand.
 For example:
 
     $ swift build --verbose
-    $ swift package -v update
+    $ swift package update --verbose
 
 If the bug is with a generated Xcode project, include how the project was
 generated and the Xcode build log.
