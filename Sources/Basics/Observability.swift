@@ -174,7 +174,7 @@ extension DiagnosticsEmitterProtocol {
         // FIXME: this brings in the TSC API still
         if let errorProvidingLocation = error as? DiagnosticLocationProviding, let diagnosticLocation = errorProvidingLocation.diagnosticLocation {
             metadata = metadata ?? ObservabilityMetadata()
-            metadata?.legacyLocation = diagnosticLocation.description
+            metadata?.legacyDiagnosticLocation = .init(diagnosticLocation)
         }
 
         let message: String
@@ -465,7 +465,7 @@ extension Diagnostic {
             metadata = .none
         } else {
             metadata = ObservabilityMetadata()
-            metadata?.legacyLocation = diagnostic.location.description
+            metadata?.legacyDiagnosticLocation = .init(diagnostic.location)
         }
 
         switch diagnostic.behavior {
@@ -504,8 +504,8 @@ extension ObservabilitySystem {
 extension TSCDiagnostic {
     init(_ diagnostic: Diagnostic) {
         let location: DiagnosticLocation
-        if let metadata = diagnostic.metadata {
-            location = metadata.legacyDiagnosticLocation
+        if let legacyLocation = diagnostic.metadata?.legacyDiagnosticLocation {
+            location = legacyLocation.underlying
         } else {
             location = UnknownLocation.location
         }
@@ -525,7 +525,7 @@ extension TSCDiagnostic {
 
 //@available(*, deprecated, message: "temporary for transition DiagnosticsEngine -> DiagnosticsEmitter")
 extension ObservabilityMetadata {
-    public var legacyLocation: String? {
+    public var legacyDiagnosticLocation: DiagnosticLocationWrapper? {
         get {
             self[LegacyLocationKey.self]
         }
@@ -535,24 +535,18 @@ extension ObservabilityMetadata {
     }
 
     enum LegacyLocationKey: Key {
-        typealias Value = String
+        typealias Value = DiagnosticLocationWrapper
     }
-}
 
-@available(*, deprecated, message: "temporary for transition DiagnosticsEngine -> DiagnosticsEmitter")
-extension ObservabilityMetadata {
-    fileprivate var legacyDiagnosticLocation: DiagnosticLocation {
-        if let legacyLocation = self.legacyLocation {
-            return DiagnosticLocationWrapper(legacyLocation)
+    public struct DiagnosticLocationWrapper: DiagnosticLocation {
+        let underlying: DiagnosticLocation
+
+        public init (_ underlying: DiagnosticLocation) {
+            self.underlying = underlying
         }
-        return UnknownLocation.location
-    }
 
-    private struct DiagnosticLocationWrapper: DiagnosticLocation {
-        var description: String
-
-        init (_ location: String) {
-            self.description = location
+        public var description: String {
+            self.underlying.description
         }
     }
 }

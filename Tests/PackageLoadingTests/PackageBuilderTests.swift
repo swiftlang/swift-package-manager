@@ -73,14 +73,14 @@ class PackageBuilderTests: XCTestCase {
 
             let manifest = Manifest.createRootManifest(
                 name: "pkg",
-                path: .root,
+                path: path,
                 targets: [
                     try TargetDescription(name: "foo"),
                 ]
             )
 
             PackageBuilderTester(manifest, path: path, in: fs) { package, diagnostics in
-                var expectedMetadata = ObservabilityMetadata.packageMetadata(identity: .init(urlString: manifest.packageLocation), location: manifest.packageLocation)
+                var expectedMetadata = ObservabilityMetadata.packageMetadata(identity: .init(urlString: manifest.packageLocation), location: manifest.packageLocation, path: path)
                 expectedMetadata.targetName = manifest.targets.first!.name
                 diagnostics.check(
                     diagnostic: "ignoring broken symlink \(linkPath)",
@@ -147,7 +147,7 @@ class PackageBuilderTests: XCTestCase {
             diagnostics.check(
                 diagnostic: "ignoring target 'MyPackageTests' in package 'MyPackage'; C language in tests is not yet supported",
                 severity: .warning,
-                metadata: .packageMetadata(identity: .init(urlString: manifest.packageLocation), location: manifest.packageLocation)
+                metadata: .packageMetadata(identity: .init(urlString: manifest.packageLocation), location: manifest.packageLocation, path: .root)
             )
           #elseif os(macOS) || os(Android)
             package.checkProduct("MyPackagePackageTests") { _ in }
@@ -248,7 +248,7 @@ class PackageBuilderTests: XCTestCase {
             ]
         )
         PackageBuilderTester(manifest, in: fs) { package, diags in
-            var expectedMetadata = ObservabilityMetadata.packageMetadata(identity: .init(urlString: manifest.packageLocation), location: manifest.packageLocation)
+            var expectedMetadata = ObservabilityMetadata.packageMetadata(identity: .init(urlString: manifest.packageLocation), location: manifest.packageLocation, path: .root)
             expectedMetadata.targetName = manifest.targets.first!.name
             diags.check(
                 diagnostic: "found duplicate sources declaration in the package manifest: /Sources/clib",
@@ -500,7 +500,7 @@ class PackageBuilderTests: XCTestCase {
             diagnostics.check(
                 diagnostic: "'exec2' was identified as an executable target given the presence of a 'main.swift' file. Starting with tools version 5.4.0 executable targets should be declared as 'executableTarget()'",
                 severity: .warning,
-                metadata: .packageMetadata(identity: .init(urlString: manifest.packageLocation), location: manifest.packageLocation)
+                metadata: .packageMetadata(identity: .init(urlString: manifest.packageLocation), location: manifest.packageLocation, path: .root)
             )
             package.checkModule("lib") { _ in }
             package.checkModule("exec2") { _ in }
@@ -1112,7 +1112,7 @@ class PackageBuilderTests: XCTestCase {
                 diagnostics.check(
                     diagnostic: "Source files for target pkg2 should be located under /Sources/pkg2",
                     severity: .warning,
-                    metadata: .packageMetadata(identity: .init(urlString: manifest.packageLocation), location: manifest.packageLocation)
+                    metadata: .packageMetadata(identity: .init(urlString: manifest.packageLocation), location: manifest.packageLocation, path: .root)
                 )
                 package.checkModule("pkg1") { module in
                     module.check(c99name: "pkg1", type: .library)
@@ -1486,12 +1486,12 @@ class PackageBuilderTests: XCTestCase {
             diagnostics.check(
                 diagnostic: "ignoring duplicate product 'foo' (static)",
                 severity: .warning,
-                metadata: .packageMetadata(identity: .init(urlString: manifest.packageLocation), location: manifest.packageLocation)
+                metadata: .packageMetadata(identity: .init(urlString: manifest.packageLocation), location: manifest.packageLocation, path: .root)
             )
             diagnostics.check(
                 diagnostic: "ignoring duplicate product 'foo' (dynamic)",
                 severity: .warning,
-                metadata: .packageMetadata(identity: .init(urlString: manifest.packageLocation), location: manifest.packageLocation)
+                metadata: .packageMetadata(identity: .init(urlString: manifest.packageLocation), location: manifest.packageLocation, path: .root)
             )
         }
     }
@@ -1518,7 +1518,7 @@ class PackageBuilderTests: XCTestCase {
             diagnostics.check(
                 diagnostic: "ignoring declared target(s) 'foo, bar' in the system package",
                 severity: .warning,
-                metadata: .packageMetadata(identity: .init(urlString: manifest.packageLocation), location: manifest.packageLocation)
+                metadata: .packageMetadata(identity: .init(urlString: manifest.packageLocation), location: manifest.packageLocation, path: .root)
             )
         }
     }
@@ -1577,7 +1577,7 @@ class PackageBuilderTests: XCTestCase {
             diagnostics.check(
                 diagnostic: "system library product foo shouldn't have a type and contain only one target",
                 severity: .error,
-                metadata: .packageMetadata(identity: .init(urlString: manifest.packageLocation), location: manifest.packageLocation)
+                metadata: .packageMetadata(identity: .init(urlString: manifest.packageLocation), location: manifest.packageLocation, path: .root)
             )
         }
 
@@ -1597,7 +1597,7 @@ class PackageBuilderTests: XCTestCase {
             diagnostics.check(
                 diagnostic: "system library product foo shouldn't have a type and contain only one target",
                 severity: .error,
-                metadata: .packageMetadata(identity: .init(urlString: manifest.packageLocation), location: manifest.packageLocation)
+                metadata: .packageMetadata(identity: .init(urlString: manifest.packageLocation), location: manifest.packageLocation, path: .root)
             )
         }
         
@@ -1651,7 +1651,7 @@ class PackageBuilderTests: XCTestCase {
                     a 'main.swift' file
                     """,
                 severity: .error,
-                metadata: .packageMetadata(identity: .init(urlString: manifest.packageLocation), location: manifest.packageLocation)
+                metadata: .packageMetadata(identity: .init(urlString: manifest.packageLocation), location: manifest.packageLocation, path: .root)
             )
             diagnostics.check(
                 diagnostic: """
@@ -1659,12 +1659,12 @@ class PackageBuilderTests: XCTestCase {
                     'main.swift' file
                     """,
                 severity: .error,
-                metadata: .packageMetadata(identity: .init(urlString: manifest.packageLocation), location: manifest.packageLocation)
+                metadata: .packageMetadata(identity: .init(urlString: manifest.packageLocation), location: manifest.packageLocation, path: .root)
             )
             diagnostics.check(
                 diagnostic: "executable product 'foo3' should not have more than one executable target",
                 severity: .error,
-                metadata: .packageMetadata(identity: .init(urlString: manifest.packageLocation), location: manifest.packageLocation)
+                metadata: .packageMetadata(identity: .init(urlString: manifest.packageLocation), location: manifest.packageLocation, path: .root)
             )
         }
     }
@@ -1687,7 +1687,7 @@ class PackageBuilderTests: XCTestCase {
             diagnostics.check(
                 diagnostic: "unable to synthesize a REPL product as there are no library targets in the package",
                 severity: .error,
-                metadata: .packageMetadata(identity: .init(urlString: manifest.packageLocation), location: manifest.packageLocation)
+                metadata: .packageMetadata(identity: .init(urlString: manifest.packageLocation), location: manifest.packageLocation, path: .root)
             )
         }
     }
@@ -2224,12 +2224,12 @@ class PackageBuilderTests: XCTestCase {
             diagnostics.checkUnordered(
                 diagnostic: "invalid duplicate target dependency declaration 'Bar' in target 'Foo' from package 'Foo'",
                 severity: .warning,
-                metadata: .packageMetadata(identity: .init(urlString: manifest.packageLocation), location: manifest.packageLocation)
+                metadata: .packageMetadata(identity: .init(urlString: manifest.packageLocation), location: manifest.packageLocation, path: AbsolutePath("/Foo"))
             )
             diagnostics.checkUnordered(
                 diagnostic: "invalid duplicate target dependency declaration 'Foo2' in target 'Foo' from package 'Foo'",
                 severity: .warning,
-                metadata: .packageMetadata(identity: .init(urlString: manifest.packageLocation), location: manifest.packageLocation)
+                metadata: .packageMetadata(identity: .init(urlString: manifest.packageLocation), location: manifest.packageLocation, path: AbsolutePath("/Foo"))
             )
         }
     }
@@ -2413,7 +2413,7 @@ final class PackageBuilderTester {
             observability.topScope.emit(error)
         }
 
-        testDiagnostics(observability.diagnostics) { diagnostics in
+        testDiagnostics(observability.diagnostics, file: file, line: line) { diagnostics in
             body(self, diagnostics)
         }
 

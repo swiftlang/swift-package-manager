@@ -283,7 +283,7 @@ public final class PackageBuilder {
         self.warnAboutImplicitExecutableTargets = warnAboutImplicitExecutableTargets
         self.observabilityScope = observabilityScope.makeChildScope(
             description: "PackageBuilder",
-            metadata: .packageMetadata(identity: self.identity, location: self.manifest.packageLocation)
+            metadata: .packageMetadata(identity: self.identity, location: self.manifest.packageLocation, path: self.packagePath)
         )
         self.fileSystem = fileSystem
     }
