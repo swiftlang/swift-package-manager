@@ -162,7 +162,6 @@ final class ObservabilitySystemTest: XCTestCase {
 
     @available(*, deprecated, message: "temporary for transition DiagnosticsEngine -> DiagnosticsEmitter")
     func testBridging() throws {
-
         do {
             let collector = Collector()
             let observabilitySystem = ObservabilitySystem(collector)
@@ -172,12 +171,13 @@ final class ObservabilitySystemTest: XCTestCase {
             let location = TestLocation()
 
             diagnosticsEngine.emit(.error(data), location: location)
-            testDiagnostics(collector.diagnostics) { result in
-                var expectedMetadata = ObservabilityMetadata()
-                expectedMetadata.legacyDiagnosticLocation = .init(location)
-                expectedMetadata.legacyDiagnosticData = .init(data)
-                result.check(diagnostic: "\(data)", severity: .error, metadata: expectedMetadata)
-            }
+
+            var expectedMetadata = ObservabilityMetadata()
+            expectedMetadata.legacyDiagnosticLocation = .init(location)
+            expectedMetadata.legacyDiagnosticData = .init(data)
+
+            XCTAssertEqual(collector.diagnostics.count, 1)
+            XCTAssertEqual(collector.diagnostics.first?.metadata, expectedMetadata)
         }
 
         do {
@@ -189,7 +189,6 @@ final class ObservabilitySystemTest: XCTestCase {
             let location = TestLocation()
 
             diagnosticsEngine2.emit(.error(data), location: location)
-
 
             XCTAssertEqual(diagnosticsEngine1.diagnostics.count, 1)
             XCTAssertEqual(diagnosticsEngine1.diagnostics.first!.message.data as? TestData, data)

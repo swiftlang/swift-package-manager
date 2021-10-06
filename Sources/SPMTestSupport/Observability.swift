@@ -126,7 +126,9 @@ public class DiagnosticsTestResult {
 
         XCTAssertMatch(diagnostic.message, message, file: file, line: line)
         XCTAssertEqual(diagnostic.severity, severity, file: file, line: line)
-        XCTAssertEqual(diagnostic.metadata, metadata, file: file, line: line)
+        // FIXME: (diagnostics) compare complete metadata when legacy bridge is removed
+        //XCTAssertEqual(diagnostic.metadata, metadata, file: file, line: line)
+        XCTAssertEqual(diagnostic.metadata?.droppingLegacyKeys(), metadata?.droppingLegacyKeys(), file: file, line: line)
     }
 
     public func checkUnordered(
@@ -145,9 +147,13 @@ public class DiagnosticsTestResult {
             return XCTFail("No diagnostics match \(diagnosticPattern)", file: file, line: line)
         } else if matching.count == 1, let diagnostic = matching.first, let index = self.uncheckedDiagnostics.firstIndex(where: { $0 == diagnostic }) {
             XCTAssertEqual(diagnostic.severity, severity, file: file, line: line)
-            XCTAssertEqual(diagnostic.metadata, metadata, file: file, line: line)
+            // FIXME: (diagnostics) compare complete metadata when legacy bridge is removed
+            //XCTAssertEqual(diagnostic.metadata, metadata, file: file, line: line)
+            XCTAssertEqual(diagnostic.metadata?.droppingLegacyKeys(), metadata?.droppingLegacyKeys(), file: file, line: line)
             self.uncheckedDiagnostics.remove(at: index)
-        } else if let index = self.uncheckedDiagnostics.firstIndex(where: { diagnostic in diagnostic.severity == severity && diagnostic.metadata == metadata}) {
+        // FIXME: (diagnostics) compare complete metadata when legacy bridge is removed
+        //} else if let index = self.uncheckedDiagnostics.firstIndex(where: { diagnostic in diagnostic.severity == severity && diagnostic.metadata == metadata}) {
+        } else if let index = self.uncheckedDiagnostics.firstIndex(where: { diagnostic in diagnostic.severity == severity && diagnostic.metadata?.droppingLegacyKeys() == metadata?.droppingLegacyKeys()}) {
             self.uncheckedDiagnostics.remove(at: index)
         }
     }

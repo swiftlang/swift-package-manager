@@ -422,6 +422,21 @@ public struct ObservabilityMetadata: Equatable, CustomDebugStringConvertible {
         }
     }
 
+    //@available(*, deprecated, message: "temporary for transition DiagnosticsEngine -> DiagnosticsEmitter")
+    public func droppingLegacyKeys() -> ObservabilityMetadata? {
+        var metadata = ObservabilityMetadata()
+        self.forEach { (key, value) in
+            if key.keyType == LegacyLocationKey.self {
+                return
+            }
+            if key.keyType == LegacyDataKey.self {
+                return
+            }
+            metadata._storage[key] = value
+        }
+        return metadata.isEmpty ? .none : metadata
+    }
+
     /// A type-erased `ObservabilityMetadataKey` used when iterating through the `ObservabilityMetadata` using its `forEach` method.
     public struct AnyKey {
         /// The key's type represented erased to an `Any.Type`.
@@ -461,7 +476,9 @@ extension ObservabilityScope {
 extension Diagnostic {
     init?(_ diagnostic: TSCDiagnostic) {
         var metadata = ObservabilityMetadata()
-        metadata.legacyDiagnosticLocation = .init(diagnostic.location)
+        if !(diagnostic.location is UnknownLocation) {
+            metadata.legacyDiagnosticLocation = .init(diagnostic.location)
+        }
         metadata.legacyDiagnosticData = .init(diagnostic.data)
 
         switch diagnostic.behavior {
@@ -537,7 +554,7 @@ extension ObservabilityMetadata {
         }
     }
 
-    fileprivate enum LegacyLocationKey: Key {
+    private enum LegacyLocationKey: Key {
         typealias Value = DiagnosticLocationWrapper
     }
 
@@ -565,7 +582,7 @@ extension ObservabilityMetadata {
         }
     }
 
-    enum LegacyDataKey: Key {
+    private enum LegacyDataKey: Key {
         typealias Value = DiagnosticDataWrapper
     }
 
