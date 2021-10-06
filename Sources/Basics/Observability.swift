@@ -510,15 +510,22 @@ extension TSCDiagnostic {
             location = UnknownLocation.location
         }
 
+        let data: DiagnosticData
+        if let legacyData = diagnostic.metadata?.legacyDiagnosticData {
+            data = legacyData.underlying
+        } else {
+            data = StringDiagnostic(diagnostic.message)
+        }
+
         switch diagnostic.severity {
         case .error:
-            self = .init(message: .error(diagnostic.message), location: location)
+            self = .init(message: .error(data), location: location)
         case .warning:
-            self = .init(message: .warning(diagnostic.message), location: location)
+            self = .init(message: .warning(data), location: location)
         case .info:
-            self = .init(message: .note(diagnostic.message), location: location)
+            self = .init(message: .note(data), location: location)
         case .debug:
-            self = .init(message: .note(diagnostic.message), location: location)
+            self = .init(message: .note(data), location: location)
         }
     }
 }
@@ -534,14 +541,42 @@ extension ObservabilityMetadata {
         }
     }
 
-    enum LegacyLocationKey: Key {
+    fileprivate enum LegacyLocationKey: Key {
         typealias Value = DiagnosticLocationWrapper
     }
 
-    public struct DiagnosticLocationWrapper: DiagnosticLocation {
+    public struct DiagnosticLocationWrapper: CustomStringConvertible {
         let underlying: DiagnosticLocation
 
         public init (_ underlying: DiagnosticLocation) {
+            self.underlying = underlying
+        }
+
+        public var description: String {
+            self.underlying.description
+        }
+    }
+}
+
+//@available(*, deprecated, message: "temporary for transition DiagnosticsEngine -> DiagnosticsEmitter")
+extension ObservabilityMetadata {
+    fileprivate var legacyDiagnosticData: DiagnosticDataWrapper? {
+        get {
+            self[LegacyDataKey.self]
+        }
+        set {
+            self[LegacyDataKey.self] = newValue
+        }
+    }
+
+    fileprivate enum LegacyDataKey: Key {
+        typealias Value = DiagnosticDataWrapper
+    }
+
+    fileprivate struct DiagnosticDataWrapper: CustomStringConvertible {
+        let underlying: DiagnosticData
+
+        public init (_ underlying: DiagnosticData) {
             self.underlying = underlying
         }
 
