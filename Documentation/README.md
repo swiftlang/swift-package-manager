@@ -15,11 +15,11 @@ We’ve designed the system to make it really easy to share packages on services
   * [About Products](#about-products)
   * [About Dependencies](#about-dependencies)
     * [Dependency Hell](#dependency-hell)
-* [Usage](Usage.md)
-* [PackageDescription API](PackageDescription.md)
-* [Continous Integration](ContinousIntegration.md)
-* [libSwiftPM](libSwiftPM.md)
-* [Resources](Resources.md)
+* [Using packages](Usage.md)
+* [Package manifest specification](PackageDescription.md)
+* [Package discovery with Package Collections](PackageCollections.md)
+* [Package Registry service specification](Registry.md)
+* [Using SwiftPM as a library](libSwiftPM.md)
 
 ***
 

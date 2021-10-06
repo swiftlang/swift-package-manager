@@ -1,4 +1,4 @@
-# Swift Package Manager Evolution Ideas
+# Swift Package Manager Ideas
 
 This is a list of some evolution ideas for the package manager. Once the details
 of an idea are fleshed out and there is a full proposal, it can be scheduled for
@@ -10,7 +10,7 @@ a valuable addition to the package manager, feel free to start a discussion
 about it.
 
 If you're interested in participating in a particular evolution idea, please
-familarize yourself with the existing discussion on that topic and start
+familiarize yourself with the existing discussion on that topic and start
 participating in the discussion thread of that idea. If a thread doesn't exist
 for that idea, please start one with a [draft
 proposal](https://github.com/apple/swift-evolution/blob/master/proposal-templates/0000-swiftpm-template.md)

@@ -49,7 +49,7 @@ The package manager’s system requirements are the same as [those for Swift](ht
 
 ## Installation
 
-The package manager is available as part the Swift toolchains available on [Swift.org](https://swift.org/download/)) including snapshots for the latest versions built from `main` branch. For installation instructions for downloaded snapshots, please see the [Getting Started](https://swift.org/getting-started/#installing-swift) section of [Swift.org](https://swift.org). 
+The package manager is available as part the Swift toolchains available on [Swift.org](https://swift.org/download/)) including snapshots for the latest versions built from `main` branch. For installation instructions for downloaded snapshots, please see the [Getting Started](https://swift.org/getting-started/#installing-swift) section of [Swift.org](https://swift.org).
 
 The Swift Package Manager is also included in Xcode 8.0 and all subsequent releases.
 
@@ -75,7 +75,7 @@ If you have any trouble with the package manager, help is available. We recommen
 * The [Swift Forums](https://forums.swift.org/c/development/swiftpm/),
 * Swift's [bug tracker](http://bugs.swift.org)
 
-When reporting an issue please follow the bug reporting guidelines, they can be found in [Resources.md](./Documentation/Resources.md#reporting-a-good-swiftpm-bug).
+When reporting an issue please follow the bug reporting guidelines, they can be found in [contribution guide](./CONTRIBUTING.md#reporting-issues).
 
 If you’re not comfortable sharing your question with the list, contact details for the code owners can be found in [CODEOWNERS](CODEOWNERS); however, the mailing list is usually the best place to go for help.
 
