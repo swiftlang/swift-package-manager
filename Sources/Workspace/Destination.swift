@@ -225,7 +225,7 @@ extension Destination {
             binDir: destination.binDir,
             extraCCFlags: destination.extraCCFlags,
             extraSwiftCFlags: destination.extraSwiftCFlags,
-            extraCPPFlags: destination.extraCCFlags
+            extraCPPFlags: destination.extraCPPFlags
         )
     }
 }
@@ -241,4 +241,13 @@ fileprivate struct DestinationInfo: Codable {
     let extraCCFlags: [String]
     let extraSwiftCFlags: [String]
     let extraCPPFlags: [String]
+
+    enum CodingKeys: String, CodingKey {
+        case target
+        case sdk
+        case binDir = "toolchain-bin-dir"
+        case extraCCFlags = "extra-cc-flags"
+        case extraSwiftCFlags = "extra-swiftc-flags"
+        case extraCPPFlags = "extra-cpp-flags"
+    }
 }
