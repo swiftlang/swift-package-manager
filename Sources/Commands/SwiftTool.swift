@@ -603,7 +603,7 @@ public class SwiftTool {
                 sharedConfigurationDirectory: sharedConfigurationDirectory
             ),
             mirrors: self.getMirrorsConfig(sharedConfigurationDirectory: sharedConfigurationDirectory).mirrors,
-            registries: try? self.getRegistriesConfig(sharedConfigurationDirectory: sharedConfigurationDirectory).configuration,
+            registries: try self.getRegistriesConfig(sharedConfigurationDirectory: sharedConfigurationDirectory).configuration,
             authorizationProvider: self.getAuthorizationProvider(),
             customManifestLoader: self.getManifestLoader(), // FIXME: doe we really need to customize it?
             customRepositoryProvider: provider, // FIXME: doe we really need to customize it?
