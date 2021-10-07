@@ -80,7 +80,7 @@ public struct TargetSourcesBuilder {
         self.fileSystem = fileSystem
 
         self.observabilityScope = observabilityScope.makeChildScope(description: "TargetSourcesBuilder") {
-            var metadata = ObservabilityMetadata.packageMetadata(identity: packageIdentity, location: packageLocation)
+            var metadata = ObservabilityMetadata.packageMetadata(identity: packageIdentity, location: packageLocation, path: packagePath)
             metadata.targetName = target.name
             return metadata
         }

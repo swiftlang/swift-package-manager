@@ -97,7 +97,7 @@ extension PackageGraph {
         for node in allNodes {
             let nodeObservabilityScope = observabilityScope.makeChildScope(
                 description: "loading package \(node.identity)",
-                metadata: .packageMetadata(identity: node.identity, location: node.manifest.packageLocation)
+                metadata: .packageMetadata(identity: node.identity, location: node.manifest.packageLocation, path: node.manifest.path.parentDirectory)
             )
 
             let manifest = node.manifest

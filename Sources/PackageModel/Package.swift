@@ -8,12 +8,12 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import Basics
+import struct Foundation.URL
 import TSCBasic
 import TSCUtility
-
 // Re-export Version from PackageModel, since it is a key part of the model.
 @_exported import struct TSCUtility.Version
-import Basics
 
 /// The basic package representation.
 ///
@@ -115,7 +115,7 @@ extension Package {
 
 extension Package {
     public var diagnosticsMetadata: ObservabilityMetadata {
-        return .packageMetadata(identity: self.identity, location: self.manifest.packageLocation)
+        return .packageMetadata(identity: self.identity, location: self.manifest.packageLocation, path: self.path)
     }
 }
 
@@ -139,12 +139,12 @@ extension Package.Error: CustomStringConvertible {
 }
 
 extension ObservabilityMetadata {
-    public static func packageMetadata(identity: PackageIdentity, location: String) -> Self {
+    public static func packageMetadata(identity: PackageIdentity, location: String, path: AbsolutePath) -> Self {
         var metadata = ObservabilityMetadata()
         metadata.packageIdentity = identity
         metadata.packageLocation = location
         // FIXME: (diagnostics) remove once transition to Observability API is complete
-        metadata.legacyLocation = "'\(identity)' \(location)"
+        metadata.legacyDiagnosticLocation = .init(PackageLocation.Local(name: identity.description, packagePath: path))
         return metadata
     }
 }

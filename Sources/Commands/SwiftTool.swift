@@ -1066,10 +1066,10 @@ private final class InteractiveWriter {
 // we should remove this as we make use of the new scope and metadata to provide better contextual information
 extension ObservabilityMetadata {
     fileprivate var diagnosticPrefix: String? {
-        if let legacyLocation = self.legacyLocation {
-            return legacyLocation
-        } else if let packageIdentity = self.packageIdentity, let packageLocation = self.packageLocation {
+        if let packageIdentity = self.packageIdentity, let packageLocation = self.packageLocation {
             return "'\(packageIdentity)' \(packageLocation)"
+        } else if let legacyLocation = self.legacyDiagnosticLocation {
+            return legacyLocation.description
         } else {
             return .none
         }

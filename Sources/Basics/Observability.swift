@@ -174,7 +174,7 @@ extension DiagnosticsEmitterProtocol {
         // FIXME: this brings in the TSC API still
         if let errorProvidingLocation = error as? DiagnosticLocationProviding, let diagnosticLocation = errorProvidingLocation.diagnosticLocation {
             metadata = metadata ?? ObservabilityMetadata()
-            metadata?.legacyLocation = diagnosticLocation.description
+            metadata?.legacyDiagnosticLocation = .init(diagnosticLocation)
         }
 
         let message: String
@@ -422,6 +422,21 @@ public struct ObservabilityMetadata: Equatable, CustomDebugStringConvertible {
         }
     }
 
+    //@available(*, deprecated, message: "temporary for transition DiagnosticsEngine -> DiagnosticsEmitter")
+    public func droppingLegacyKeys() -> ObservabilityMetadata? {
+        var metadata = ObservabilityMetadata()
+        self.forEach { (key, value) in
+            if key.keyType == LegacyLocationKey.self {
+                return
+            }
+            if key.keyType == LegacyDataKey.self {
+                return
+            }
+            metadata._storage[key] = value
+        }
+        return metadata.isEmpty ? .none : metadata
+    }
+
     /// A type-erased `ObservabilityMetadataKey` used when iterating through the `ObservabilityMetadata` using its `forEach` method.
     public struct AnyKey {
         /// The key's type represented erased to an `Any.Type`.
@@ -460,13 +475,11 @@ extension ObservabilityScope {
 //@available(*, deprecated, message: "temporary for transition DiagnosticsEngine -> DiagnosticsEmitter")
 extension Diagnostic {
     init?(_ diagnostic: TSCDiagnostic) {
-        var metadata: ObservabilityMetadata?
-        if diagnostic.location is UnknownLocation {
-            metadata = .none
-        } else {
-            metadata = ObservabilityMetadata()
-            metadata?.legacyLocation = diagnostic.location.description
+        var metadata = ObservabilityMetadata()
+        if !(diagnostic.location is UnknownLocation) {
+            metadata.legacyDiagnosticLocation = .init(diagnostic.location)
         }
+        metadata.legacyDiagnosticData = .init(diagnostic.data)
 
         switch diagnostic.behavior {
         case .error:
@@ -504,28 +517,35 @@ extension ObservabilitySystem {
 extension TSCDiagnostic {
     init(_ diagnostic: Diagnostic) {
         let location: DiagnosticLocation
-        if let metadata = diagnostic.metadata {
-            location = metadata.legacyDiagnosticLocation
+        if let legacyLocation = diagnostic.metadata?.legacyDiagnosticLocation {
+            location = legacyLocation.underlying
         } else {
             location = UnknownLocation.location
         }
 
+        let data: DiagnosticData
+        if let legacyData = diagnostic.metadata?.legacyDiagnosticData {
+            data = legacyData.underlying
+        } else {
+            data = StringDiagnostic(diagnostic.message)
+        }
+
         switch diagnostic.severity {
         case .error:
-            self = .init(message: .error(diagnostic.message), location: location)
+            self = .init(message: .error(data), location: location)
         case .warning:
-            self = .init(message: .warning(diagnostic.message), location: location)
+            self = .init(message: .warning(data), location: location)
         case .info:
-            self = .init(message: .note(diagnostic.message), location: location)
+            self = .init(message: .note(data), location: location)
         case .debug:
-            self = .init(message: .note(diagnostic.message), location: location)
+            self = .init(message: .note(data), location: location)
         }
     }
 }
 
 //@available(*, deprecated, message: "temporary for transition DiagnosticsEngine -> DiagnosticsEmitter")
 extension ObservabilityMetadata {
-    public var legacyLocation: String? {
+    public var legacyDiagnosticLocation: DiagnosticLocationWrapper? {
         get {
             self[LegacyLocationKey.self]
         }
@@ -534,25 +554,47 @@ extension ObservabilityMetadata {
         }
     }
 
-    enum LegacyLocationKey: Key {
-        typealias Value = String
+    private enum LegacyLocationKey: Key {
+        typealias Value = DiagnosticLocationWrapper
+    }
+
+    public struct DiagnosticLocationWrapper: CustomStringConvertible {
+        let underlying: DiagnosticLocation
+
+        public init (_ underlying: DiagnosticLocation) {
+            self.underlying = underlying
+        }
+
+        public var description: String {
+            self.underlying.description
+        }
     }
 }
 
-@available(*, deprecated, message: "temporary for transition DiagnosticsEngine -> DiagnosticsEmitter")
+//@available(*, deprecated, message: "temporary for transition DiagnosticsEngine -> DiagnosticsEmitter")
 extension ObservabilityMetadata {
-    fileprivate var legacyDiagnosticLocation: DiagnosticLocation {
-        if let legacyLocation = self.legacyLocation {
-            return DiagnosticLocationWrapper(legacyLocation)
+    var legacyDiagnosticData: DiagnosticDataWrapper? {
+        get {
+            self[LegacyDataKey.self]
         }
-        return UnknownLocation.location
+        set {
+            self[LegacyDataKey.self] = newValue
+        }
     }
 
-    private struct DiagnosticLocationWrapper: DiagnosticLocation {
-        var description: String
+    private enum LegacyDataKey: Key {
+        typealias Value = DiagnosticDataWrapper
+    }
 
-        init (_ location: String) {
-            self.description = location
+    struct DiagnosticDataWrapper: CustomStringConvertible {
+        let underlying: DiagnosticData
+
+        public init (_ underlying: DiagnosticData) {
+            self.underlying = underlying
+        }
+
+        public var description: String {
+            self.underlying.description
         }
     }
 }
