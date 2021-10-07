@@ -13,12 +13,6 @@ import TSCBasic
 
 /// Specifies a repository address.
 public struct RepositorySpecifier: Hashable {
-    /// The URL of the repository.
-    // FIXME: transition url to location
-    public var url: String {
-        self.location.description
-    }
-
     public let location: Location
 
     public init(location: Location) {
@@ -35,13 +29,20 @@ public struct RepositorySpecifier: Hashable {
         self.init(location: .url(url))
     }
 
+    /// The URL of the repository.
+    // FIXME: transition url to location
+    @available(*, deprecated, message: "user location instead")
+    public var url: String {
+        self.location.description
+    }
+
     /// A unique identifier for this specifier.
     ///
     /// This identifier is suitable for use in a file system path, and
     /// unique for each repository.
     public var fileSystemIdentifier: String {
         // Use first 8 chars of a stable hash.
-        let suffix = ByteString(encodingAsUTF8: url).sha256Checksum.prefix(8)
+        let suffix = ByteString(encodingAsUTF8: self.location.description).sha256Checksum.prefix(8)
 
         return "\(self.basename)-\(suffix)"
     }

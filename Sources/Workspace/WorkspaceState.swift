@@ -220,7 +220,8 @@ fileprivate struct WorkspaceStateStorage {
                     let kind = try container.decode(String.self, forKey: .name)
                     switch kind {
                     case "local":
-                        return self.init(underlying: .local)
+                        let path = try container.decode(AbsolutePath.self, forKey: .path)
+                        return self.init(underlying: .local(path))
                     case "checkout":
                         let checkout = try container.decode(CheckoutInfo.self, forKey: .checkoutState)
                         return try self.init(underlying: .checkout(.init(checkout)))
@@ -235,15 +236,15 @@ fileprivate struct WorkspaceStateStorage {
                 func encode(to encoder: Encoder) throws {
                     var container = encoder.container(keyedBy: CodingKeys.self)
                     switch self.underlying {
-                    case .local:
+                    case .local(let path):
                         try container.encode("local", forKey: .name)
+                        try container.encode(path, forKey: .path)
                     case .checkout(let state):
                         try container.encode("checkout", forKey: .name)
                         try container.encode(CheckoutInfo(state), forKey: .checkoutState)
                     case .edited(_, let path):
                         try container.encode("edited", forKey: .name)
                         try container.encode(path, forKey: .path)
-
                     }
                 }
 

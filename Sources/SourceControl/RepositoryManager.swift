@@ -209,7 +209,7 @@ public class RepositoryManager {
                         // We do this so we don't have to read the other
                         // handles when saving the state of this handle.
                         try self.repositoriesLock.withLock {
-                            self.repositories[handle.repository.url] = handle
+                            self.repositories[handle.repository.location.description] = handle
                             try self.storage.save(repositories: self.repositories)
                         }
                     } catch {
@@ -240,7 +240,7 @@ public class RepositoryManager {
         func updateFetchProgress(progress: FetchProgress) -> Void {
             if let total = progress.totalSteps {
                 delegateQueue.async {
-                    self.delegate?.fetchingRepository(from: handle.repository.url,
+                    self.delegate?.fetchingRepository(from: handle.repository.location.description,
                                                       objectsFetched: progress.step,
                                                       totalObjectsToFetch: total)
                 }
@@ -248,10 +248,9 @@ public class RepositoryManager {
         }
 
         // We are expecting handle.repository.url to always be a resolved absolute path.
-        let isLocal = (try? AbsolutePath(validating: handle.repository.url)) != nil
         let shouldCacheLocalPackages = ProcessEnv.vars["SWIFTPM_TESTS_PACKAGECACHE"] == "1" || cacheLocalPackages
 
-        if let cachePath = self.cachePath, !(isLocal && !shouldCacheLocalPackages) {
+        if let cachePath = self.cachePath, !(handle.repository.isLocal && !shouldCacheLocalPackages) {
             let cachedRepositoryPath = cachePath.appending(component: handle.repository.fileSystemIdentifier)
             do {
                 try self.initializeCacheIfNeeded(cachePath: cachePath)
@@ -295,7 +294,7 @@ public class RepositoryManager {
     /// Note: This method is thread safe.
     private func getHandle(for repository: RepositorySpecifier) -> RepositoryHandle {
         self.repositoriesLock.withLock {
-            return self.repositories.memoize(key: repository.url) {
+            return self.repositories.memoize(key: repository.location.description) {
                 let subpath = RelativePath(repository.fileSystemIdentifier)
                 let handle = RepositoryHandle(manager: self, repository: repository, subpath: subpath)
                 return handle
@@ -328,7 +327,7 @@ public class RepositoryManager {
     public func remove(repository: RepositorySpecifier) throws {
         try self.repositoriesLock.withLock {
             // If repository isn't present, we're done.
-            guard let handle = self.repositories.removeValue(forKey: repository.url) else {
+            guard let handle = self.repositories.removeValue(forKey: repository.location.description) else {
                 return
             }
             try self.storage.save(repositories: self.repositories)
@@ -537,7 +536,7 @@ fileprivate struct RepositoryManagerStorage {
             let subpath: String
 
             init(_ repository: RepositoryManager.RepositoryHandle) {
-                self.repositoryURL = repository.repository.url
+                self.repositoryURL = repository.repository.location.description
                 self.status = repository.status.rawValue
                 self.subpath = repository.subpath.pathString
             }
@@ -566,5 +565,16 @@ extension RepositoryManager.RepositoryHandle {
             subpath: RelativePath(repository.subpath),
             status: status
         )
+    }
+}
+
+extension RepositorySpecifier {
+    fileprivate var isLocal: Bool {
+        switch self.location {
+        case .path:
+            return true
+        case .url:
+            return false
+        }
     }
 }

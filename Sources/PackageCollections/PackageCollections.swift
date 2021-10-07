@@ -361,7 +361,7 @@ public struct PackageCollections: PackageCollectionsProtocol {
     public func getPackageMetadata(_ reference: PackageReference,
                                    collections: Set<PackageCollectionsModel.CollectionIdentifier>?,
                                    callback: @escaping (Result<PackageCollectionsModel.PackageMetadata, Error>) -> Void) {
-        self.getPackageMetadata(identity: reference.identity, location: reference.location, collections: .none, callback: callback)
+        self.getPackageMetadata(identity: reference.identity, location: reference.locationString, collections: .none, callback: callback)
     }
 
     public func getPackageMetadata(identity: PackageIdentity,

@@ -25,8 +25,8 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
     // about the container to identify it for diagnostics.
     public struct GetDependenciesError: Error, CustomStringConvertible, DiagnosticLocationProviding {
 
-        /// The repository url that encountered the error.
-        public let url: String
+        /// The repository  that encountered the error.
+        public let repository: RepositorySpecifier
 
         /// The source control reference (version, branch, revision, etc) that was involved.
         public let reference: String
@@ -38,12 +38,12 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
         public let suggestion: String?
 
         public var diagnosticLocation: DiagnosticLocation? {
-            return PackageLocation.Remote(url: self.url, reference: self.reference)
+            return PackageLocation.Remote(url: self.repository.location.description, reference: self.reference)
         }
 
         /// Description shown for errors of this kind.
         public var description: String {
-            var desc = "\(underlyingError) in \(self.url)"
+            var desc = "\(underlyingError) in \(self.repository.location.description)"
             if let suggestion = suggestion {
                 desc += " (\(suggestion))"
             }
@@ -174,7 +174,11 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
             }.1
         } catch {
             throw GetDependenciesError(
-                url: package.location, reference: version.description, underlyingError: error, suggestion: nil)
+                repository: self.repositorySpecifier,
+                reference: version.description,
+                underlyingError: error,
+                suggestion: .none
+            )
         }
     }
 
@@ -192,7 +196,7 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
                 if let rev = try? repository.resolveRevision(identifier: revision), repository.exists(revision: rev) {
                     // Revision does exist, so something else must be wrong.
                     throw GetDependenciesError(
-                        url: package.location,
+                        repository: self.repositorySpecifier,
                         reference: revision,
                         underlyingError: error,
                         suggestion: .none
@@ -206,7 +210,7 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
                     let mainBranchExists = (try? repository.resolveRevision(identifier: "main")) != nil
                     let suggestion = (revision == "master" && mainBranchExists) ? "did you mean ‘main’?" : nil
                     throw GetDependenciesError(
-                        url: package.location,
+                        repository: self.repositorySpecifier,
                         reference: revision,
                         underlyingError: StringError(errorMessage),
                         suggestion: suggestion
@@ -215,7 +219,7 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
             }
             // If we get this far without having thrown an error, we wrap and throw the underlying error.
             throw GetDependenciesError(
-                url: package.location,
+                repository: self.repositorySpecifier,
                 reference: revision,
                 underlyingError: error,
                 suggestion: .none
@@ -327,7 +331,7 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
             self.manifestLoader.load(at: AbsolutePath.root,
                                      packageIdentity: self.package.identity,
                                      packageKind: self.package.kind,
-                                     packageLocation: self.package.location,
+                                     packageLocation: self.package.locationString,
                                      version: version,
                                      revision: nil,
                                      toolsVersion: toolsVersion,
@@ -344,7 +348,7 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
     }
 
     public var description: String {
-        return "SourceControlPackageContainer(\(self.package.location))"
+        return "SourceControlPackageContainer(\(self.repositorySpecifier))"
     }
 }
 

@@ -105,7 +105,7 @@ private class WorkspaceRepositoryManagerDelegate: RepositoryManagerDelegate {
     }
 
     func fetchingWillBegin(handle: RepositoryManager.RepositoryHandle, fetchDetails details: RepositoryManager.FetchDetails?) {
-        workspaceDelegate.fetchingWillBegin(repository: handle.repository.url, fetchDetails: details)
+        workspaceDelegate.fetchingWillBegin(repository: handle.repository.location.description, fetchDetails: details)
     }
 
     func fetchingDidFinish(handle: RepositoryManager.RepositoryHandle, fetchDetails details: RepositoryManager.FetchDetails?, error: Swift.Error?, duration: DispatchTimeInterval) {
@@ -114,15 +114,15 @@ private class WorkspaceRepositoryManagerDelegate: RepositoryManagerDelegate {
             engine.emit($0)
             return engine.diagnostics.first
         })
-        workspaceDelegate.fetchingDidFinish(repository: handle.repository.url, fetchDetails: details, diagnostic: diagnostic, duration: duration)
+        workspaceDelegate.fetchingDidFinish(repository: handle.repository.location.description, fetchDetails: details, diagnostic: diagnostic, duration: duration)
     }
 
     func handleWillUpdate(handle: RepositoryManager.RepositoryHandle) {
-        workspaceDelegate.repositoryWillUpdate(handle.repository.url)
+        workspaceDelegate.repositoryWillUpdate(handle.repository.location.description)
     }
 
     func handleDidUpdate(handle: RepositoryManager.RepositoryHandle, duration: DispatchTimeInterval) {
-        workspaceDelegate.repositoryDidUpdate(handle.repository.url, duration: duration)
+        workspaceDelegate.repositoryDidUpdate(handle.repository.location.description, duration: duration)
     }
 
     func fetchingRepository(from repository: String, objectsFetched: Int, totalObjectsToFetch: Int) {
@@ -138,11 +138,11 @@ private struct WorkspaceDependencyResolverDelegate: DependencyResolverDelegate {
     }
 
     func willResolve(term: Term) {
-        self.workspaceDelegate.willComputeVersion(package: term.node.package.identity, location: term.node.package.location)
+        self.workspaceDelegate.willComputeVersion(package: term.node.package.identity, location: term.node.package.locationString)
     }
 
     func didResolve(term: Term, version: Version, duration: DispatchTimeInterval) {
-        self.workspaceDelegate.didComputeVersion(package: term.node.package.identity, location: term.node.package.location, version: version.description, duration: duration)
+        self.workspaceDelegate.didComputeVersion(package: term.node.package.identity, location: term.node.package.locationString, version: version.description, duration: duration)
     }
 
     // noop
@@ -875,7 +875,7 @@ extension Workspace {
             identityResolver: self.identityResolver,
             additionalFileRules: additionalFileRules,
             externalManifests: manifests.allDependencyManifests(),
-            requiredDependencies: manifests.computePackageURLs().required,
+            requiredDependencies: manifests.computePackages().required,
             unsafeAllowedPackages: manifests.unsafeAllowedPackages(),
             binaryArtifacts: binaryArtifacts,
             xcTestMinimumDeploymentTargets: xcTestMinimumDeploymentTargets ?? MinimumDeploymentTarget.default.xcTestMinimumDeploymentTargets,
@@ -1107,7 +1107,7 @@ extension Workspace {
                 self.loadManifest(packageIdentity: dependency.packageRef.identity,
                                   packageKind: .fileSystem(destination),
                                   packagePath: destination,
-                                  packageLocation: dependency.packageRef.location,
+                                  packageLocation: dependency.packageRef.locationString,
                                   diagnostics: diagnostics,
                                   completion: $0)
             }
@@ -1268,10 +1268,9 @@ extension Workspace {
         // Reset the pinsStore and start pinning the required dependencies.
         pinsStore.unpinAll()
 
-        let requiredURLs = dependencyManifests.computePackageURLs().required
-
+        let requiredDependencies = dependencyManifests.computePackages().required
         for dependency in self.state.dependencies  {
-            if requiredURLs.contains(where: { $0.location == dependency.packageRef.location }) {
+            if requiredDependencies.contains(where: { $0.equalsIncludingLocation(dependency.packageRef) }) {
                 pinsStore.pin(dependency)
             }
         }
@@ -1339,8 +1338,8 @@ extension Workspace {
         }
 
         /// Computes the identities which are declared in the manifests but aren't present in dependencies.
-        public func missingPackageURLs() -> Set<PackageReference> {
-            return self.computePackageURLs().missing
+        public func missingPackages() -> Set<PackageReference> {
+            return self.computePackages().missing
         }
 
         /// Returns the list of packages which are allowed to vend products with unsafe flags.
@@ -1367,7 +1366,7 @@ extension Workspace {
             return result
         }
 
-        func computePackageURLs() -> (required: Set<PackageReference>, missing: Set<PackageReference>) {
+        func computePackages() -> (required: Set<PackageReference>, missing: Set<PackageReference>) {
             let manifestsMap: [PackageIdentity: Manifest] = Dictionary(uniqueKeysWithValues:
                 self.root.packages.map { ($0.key, $0.value.manifest) } +
                 self.dependencies.map { ($0.dependency.packageRef.identity, $0.manifest) }
@@ -1509,8 +1508,8 @@ extension Workspace {
             return self.location.repositoriesCheckoutSubdirectory(for: dependency)
         case .edited(_, let path):
             return path ?? self.location.editsSubdirectory(for: dependency)
-        case .local:
-            return AbsolutePath(dependency.packageRef.location)
+        case .local(let path):
+            return path
         }
     }
 
@@ -1581,8 +1580,8 @@ extension Workspace {
             // prepopulate managed dependencies if we are asked to do so
             // FIXME: this seems like hack, needs further investigation why this is needed
             if automaticallyAddManagedDependencies {
-                dependenciesRequired.filter { $0.isLocal }.forEach { dependency in
-                    self.state.dependencies.add(.local(packageRef: dependency.createPackageRef()))
+                try dependenciesRequired.filter { $0.isLocal }.forEach { dependency in
+                    try self.state.dependencies.add(.local(packageRef: dependency.createPackageRef()))
                 }
                 diagnostics.wrap { try self.state.save() }
             }
@@ -1595,7 +1594,7 @@ extension Workspace {
                     // dependencies that have the same identity but from a different location
                     // which is an error case we diagnose an report about in the GraphLoading part which
                     // is prepared to handle the case where not all manifest are available
-                    $0.packageLocation == dependency.location ?
+                    $0.packageLocation == dependency.locationString ?
                     KeyedPair($0, key: Key(identity: dependency.identity, productFilter: dependency.productFilter)) : nil
                 }
             }
@@ -1666,7 +1665,7 @@ extension Workspace {
         }
 
         // Get the path of the package.
-        let packagePath = path(to: managedDependency)
+        let packagePath = self.path(to: managedDependency)
 
         // The kind and version, if known.
         let packageKind: PackageReference.Kind
@@ -1690,7 +1689,7 @@ extension Workspace {
         self.loadManifest(packageIdentity: managedDependency.packageRef.identity,
                           packageKind: packageKind,
                           packagePath: packagePath,
-                          packageLocation: managedDependency.packageRef.location,
+                          packageLocation: managedDependency.packageRef.locationString,
                           version: version,
                           diagnostics: diagnostics) { result in
             // error is added to diagnostics in the function above
@@ -2344,12 +2343,12 @@ extension Workspace {
         }
 
         // Compute the missing package identities.
-        let missingPackageURLs = currentManifests.missingPackageURLs()
+        let missingPackages = currentManifests.missingPackages()
 
         // Compute if we need to run the resolver. We always run the resolver if
         // there are extra constraints.
-        if !missingPackageURLs.isEmpty {
-            delegate?.willResolveDependencies(reason: .newPackages(packages: Array(missingPackageURLs)))
+        if !missingPackages.isEmpty {
+            delegate?.willResolveDependencies(reason: .newPackages(packages: Array(missingPackages)))
         } else if !constraints.isEmpty || forceResolution {
             delegate?.willResolveDependencies(reason: .forced)
         } else {
@@ -2410,8 +2409,8 @@ extension Workspace {
         // resolved file has an outdated entry for a transitive dependency whose
         // URL was changed. For e.g., the resolved file could refer to a dependency
         // through a ssh url but its new reference is now changed to http.
-        let missing = updatedDependencyManifests.computePackageURLs().missing
-        if !missing.isEmpty {
+        let stillMissingPackages = updatedDependencyManifests.computePackages().missing
+        if !stillMissingPackages.isEmpty {
             if retryOnPackagePathMismatch {
                 // Retry resolution which will most likely resolve correctly now since
                 // we have the manifest files of all the dependencies.
@@ -2443,7 +2442,7 @@ extension Workspace {
                 )
             } else {
                 // give up
-                let missing = missing.map{ $0.description }
+                let missing = stillMissingPackages.map{ $0.description }
                 diagnostics.emit(error: "exhausted attempts to resolve the dependencies graph, with '\(missing.joined(separator: "', '"))' unresolved.")
                 return updatedDependencyManifests
             }
@@ -2553,9 +2552,15 @@ extension Workspace {
             checkoutState = .branch(name: branch, revision: revision)
 
         case .unversioned:
-            self.state.dependencies.add(ManagedDependency.local(packageRef: package))
+            let dependency = try ManagedDependency.local(packageRef: package)
+            // this is silly since we just created it above, but no good way to force cast it and extract the path
+            guard case .local(let path) = dependency.state else {
+                throw InternalError("invalid package type: \(package.kind)")
+            }
+
+            self.state.dependencies.add(dependency)
             try self.state.save()
-            return AbsolutePath(package.location)
+            return path
         }
 
         return try self.retrieve(package: package, at: checkoutState)
@@ -2621,7 +2626,7 @@ extension Workspace {
         }
 
         let pins = pinsStore.pinsMap.keys
-        let requiredURLs = dependencyManifests.computePackageURLs().required
+        let requiredDependencies = dependencyManifests.computePackages().required
 
         for dependency in self.state.dependencies {
             switch dependency.state {
@@ -2629,14 +2634,14 @@ extension Workspace {
             case .edited, .local: continue
             }
 
-            let identity = dependency.packageRef.identity
-
-            if requiredURLs.contains(where: { $0.location == dependency.packageRef.location }) {
+            // also comparing location as it may have changed at this point
+            if requiredDependencies.contains(where: { $0.equalsIncludingLocation(dependency.packageRef) }) {
                 // If required identity contains this dependency, it should be in the pins store.
-                if let pin = pinsStore.pinsMap[identity], pin.packageRef.location == dependency.packageRef.location {
+                // also comparing location as it may have changed at this point
+                if let pin = pinsStore.pinsMap[dependency.packageRef.identity], pin.packageRef.equalsIncludingLocation(dependency.packageRef) {
                     continue
                 }
-            } else if !pins.contains(identity) {
+            } else if !pins.contains(dependency.packageRef.identity) {
                 // Otherwise, it should *not* be in the pins store.
                 continue
             }
@@ -3041,7 +3046,12 @@ extension Workspace: PackageContainerProvider {
         }
 
         // Inform the delegate.
-        delegate?.removing(repository: dependency.packageRef.location)
+        // FIXME: we should change the delegate to take identity instead of location
+        if let repository = try? dependency.packageRef.makeRepositorySpecifier() {
+            delegate?.removing(repository: repository.location.description)
+        } else {
+            delegate?.removing(repository: dependency.packageRef.identity.description)
+        }
 
         // Compute the dependency which we need to remove.
         let dependencyToRemove: ManagedDependency
@@ -3093,6 +3103,7 @@ extension Workspace {
     /// - Returns: The path of the local repository.
     /// - Throws: If the operation could not be satisfied.
     func checkoutRepository(package: PackageReference, at checkoutState: CheckoutState) throws -> AbsolutePath {
+        let repository = try package.makeRepositorySpecifier()
         // first fetch the repository.
         let path = try self.fetchRepository(package: package)
 
@@ -3100,7 +3111,7 @@ extension Workspace {
         let workingCopy = try self.repositoryManager.openWorkingCopy(at: path)
 
         // Inform the delegate.
-        delegate?.willCheckOut(repository: package.location, revision: checkoutState.description, at: path)
+        delegate?.willCheckOut(repository: repository.location.description, revision: checkoutState.description, at: path)
 
         // Do mutable-immutable dance because checkout operation modifies the disk state.
         try fileSystem.chmod(.userWritable, path: path, options: [.recursive, .onlyFiles])
@@ -3115,7 +3126,7 @@ extension Workspace {
         ))
         try self.state.save()
 
-        delegate?.didCheckOut(repository: package.location, revision: checkoutState.description, at: path, error: nil)
+        delegate?.didCheckOut(repository: repository.location.description, revision: checkoutState.description, at: path, error: nil)
 
         return path
     }
@@ -3170,9 +3181,9 @@ extension Workspace {
         try self.fileSystem.removeFileTree(path)
 
         // Inform the delegate that we're starting cloning.
-        self.delegate?.willCreateWorkingCopy(repository: handle.repository.url, at: path)
+        self.delegate?.willCreateWorkingCopy(repository: handle.repository.location.description, at: path)
         _ = try handle.createWorkingCopy(at: path, editable: false)
-        self.delegate?.didCreateWorkingCopy(repository: handle.repository.url, at: path, error: nil)
+        self.delegate?.didCreateWorkingCopy(repository: handle.repository.location.description, at: path, error: nil)
 
         return path
     }
@@ -3216,7 +3227,7 @@ fileprivate extension Workspace.ManagedArtifact {
 // at that time we should remove this
 //@available(*, deprecated)
 fileprivate extension PackageDependency {
-    var location: String {
+    var locationString: String {
         switch self {
         case .fileSystem(let settings):
             return settings.path.pathString
@@ -3277,7 +3288,7 @@ extension Workspace {
         case .forced:
             result.append("it was forced")
         case .newPackages(let packages):
-            let dependencies = packages.lazy.map({ "'\($0.location)'" }).joined(separator: ", ")
+            let dependencies = packages.lazy.map({ "'\($0.identity)'" }).joined(separator: ", ")
             result.append("the following dependencies were added: \(dependencies)")
         case .packageRequirementChange(let package, let state, let requirement):
             result.append("dependency '\(package.name)' was ")
