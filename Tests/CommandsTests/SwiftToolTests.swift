@@ -18,9 +18,7 @@ final class SwiftToolTests: XCTestCase {
     func testNetrcAuthorizationProviders() throws {
         fixture(name: "DependencyResolution/External/XCFramework") { packageRoot in
             let fs = localFileSystem
-            
             let localPath = packageRoot.appending(component: ".netrc")
-            let userHomePath = fs.homeDirectory.appending(component: ".netrc")
 
             // custom .netrc file
             do {
@@ -49,9 +47,6 @@ final class SwiftToolTests: XCTestCase {
 
             // local .netrc file
             do {
-                // make sure there isn't a user home one
-                try localFileSystem.removeFileTree(userHomePath)
-                
                 try fs.writeFileContents(localPath) {
                     return "machine mymachine.labkey.org login local@labkey.org password local"
                 }
@@ -60,56 +55,15 @@ final class SwiftToolTests: XCTestCase {
                 let tool = try SwiftTool(options: options)
                 
                 let netrcProviders = try tool.getNetrcAuthorizationProviders()
-                XCTAssertEqual(netrcProviders.count, 1)
-                XCTAssertEqual(netrcProviders.first.map { resolveSymlinks($0.path) }, resolveSymlinks(localPath))
+                XCTAssertTrue(netrcProviders.count >= 1) // This might include .netrc in user's home dir
+                XCTAssertNotNil(netrcProviders.first { resolveSymlinks($0.path) == resolveSymlinks(localPath) })
 
                 let auth = try tool.getAuthorizationProvider()?.authentication(for: URL(string: "https://mymachine.labkey.org")!)
                 XCTAssertEqual(auth?.user, "local@labkey.org")
                 XCTAssertEqual(auth?.password, "local")
-            }
-
-            // user .netrc file
-            do {
-                // make sure there isn't a local one
-                try localFileSystem.removeFileTree(localPath)
-
-                try fs.writeFileContents(userHomePath) {
-                    return "machine mymachine.labkey.org login user@labkey.org password user"
-                }
-
-                let options = try SwiftToolOptions.parse(["--package-path", packageRoot.pathString])
-                let tool = try SwiftTool(options: options)
-
-                let netrcProviders = try tool.getNetrcAuthorizationProviders()
-                XCTAssertEqual(netrcProviders.count, 1)
-                XCTAssertEqual(netrcProviders.first.map { resolveSymlinks($0.path) }, resolveSymlinks(userHomePath))
-                
-                let auth = try tool.getAuthorizationProvider()?.authentication(for: URL(string: "https://mymachine.labkey.org")!)
-                XCTAssertEqual(auth?.user, "user@labkey.org")
-                XCTAssertEqual(auth?.password, "user")
             }
             
-            // both local and user .netrc file
-            do {
-                try fs.writeFileContents(localPath) {
-                    return "machine mymachine.labkey.org login local@labkey.org password local"
-                }
-                try fs.writeFileContents(userHomePath) {
-                    return "machine mymachine.labkey.org login user@labkey.org password user"
-                }
-
-                let options = try SwiftToolOptions.parse(["--package-path", packageRoot.pathString])
-                let tool = try SwiftTool(options: options)
-
-                let netrcProviders = try tool.getNetrcAuthorizationProviders()
-                XCTAssertEqual(netrcProviders.count, 2)
-                XCTAssertEqual(netrcProviders.map { resolveSymlinks($0.path) }, [localPath, userHomePath].map(resolveSymlinks))
-                
-                // local before user .netrc file
-                let auth = try tool.getAuthorizationProvider()?.authentication(for: URL(string: "https://mymachine.labkey.org")!)
-                XCTAssertEqual(auth?.user, "local@labkey.org")
-                XCTAssertEqual(auth?.password, "local")
-            }
+            // Tests should not modify user's home dir .netrc so leaving that out intentionally
         }
     }
 }
