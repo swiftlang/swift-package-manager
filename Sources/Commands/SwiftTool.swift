@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2020 Apple Inc. and the Swift project authors
+ Copyright (c) 2014 - 2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -497,39 +497,60 @@ public class SwiftTool {
 
     func getAuthorizationProvider() throws -> AuthorizationProvider? {
         var providers = [AuthorizationProvider]()
-        // netrc file has higher specificity than keychain so use it first
-        if let netrcConfigFile = try self.getNetrcConfigFile() {
-            providers.append(try NetrcAuthorizationProvider(path: netrcConfigFile, fileSystem: localFileSystem))
-        }
         
-        // TODO: add --no-keychain option to allow opt-out
-//#if canImport(Security)
-//        providers.append(KeychainAuthorizationProvider(observabilityScope: self.observabilityScope))
-//#endif
+        // netrc file has higher specificity than keychain so use it first
+        try providers.append(contentsOf: self.getNetrcAuthorizationProviders())
+
+#if canImport(Security)
+        if self.options.keychain {
+            providers.append(KeychainAuthorizationProvider(observabilityScope: self.observabilityScope))
+        }
+#endif
         
         return providers.isEmpty ? .none : CompositeAuthorizationProvider(providers, observabilityScope: self.observabilityScope)
     }
 
-    func getNetrcConfigFile() throws -> AbsolutePath? {
+    func getNetrcAuthorizationProviders() throws -> [NetrcAuthorizationProvider] {
         guard options.netrc else {
-            return .none
+            return []
         }
 
+        var providers = [NetrcAuthorizationProvider]()
+        
+        // Use custom .netrc file if specified, otherwise look for it within workspace and user's home directory.
         if let configuredPath = options.netrcFilePath {
             guard localFileSystem.exists(configuredPath) else {
                 throw StringError("Did not find .netrc file at \(configuredPath).")
             }
-            return configuredPath
-        }
+            
+            providers.append(try NetrcAuthorizationProvider(path: configuredPath, fileSystem: localFileSystem))
+        } else {
+            // User didn't tell us to use these .netrc files so be more lenient with errors
+            func loadNetrcNoThrows(at path: AbsolutePath) -> NetrcAuthorizationProvider? {
+                guard localFileSystem.exists(path) else { return nil }
+                
+                do {
+                    return try NetrcAuthorizationProvider(path: path, fileSystem: localFileSystem)
+                } catch {
+                    self.observabilityScope.emit(warning: "Failed to load .netrc file at \(path). Error: \(error)")
+                    return nil
+                }
+            }
+            
+            // Workspace's .netrc file should be consulted before user-global file
+            // TODO: replace multiroot-data-file with explicit overrides
+            if let localPath = try? (options.multirootPackageDataFile ?? self.getPackageRoot()).appending(component: ".netrc"),
+               let localProvider = loadNetrcNoThrows(at: localPath) {
+                providers.append(localProvider)
+            }
 
-        // TODO: replace multiroot-data-file with explicit overrides
-        let localPath = try (options.multirootPackageDataFile ?? self.getPackageRoot()).appending(component: ".netrc")
-        if localFileSystem.exists(localPath) {
-            return localPath
+            let userHomePath = localFileSystem.homeDirectory.appending(component: ".netrc")
+            if let userHomeProvider = loadNetrcNoThrows(at: userHomePath) {
+                providers.append(userHomeProvider)
+            }
         }
-
-        let userHomePath = localFileSystem.homeDirectory.appending(component: ".netrc")
-        return localFileSystem.exists(userHomePath) ? userHomePath : .none
+        
+        return providers
     }
 
     private func getSharedCacheDirectory() throws -> AbsolutePath? {

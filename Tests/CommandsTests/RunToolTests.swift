@@ -37,7 +37,7 @@ final class RunToolTests: XCTestCase {
         XCTAssert(stdout.contains("Swift Package Manager"), "got stdout:\n" + stdout)
     }
 
-    func testUnkownProductAndArgumentPassing() throws {
+    func testUnknownProductAndArgumentPassing() throws {
         fixture(name: "Miscellaneous/EchoExecutable") { path in
 
             let result = try SwiftPMProduct.SwiftRun.executeProcess(
