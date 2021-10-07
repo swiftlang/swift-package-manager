@@ -63,6 +63,17 @@ public struct PackageIdentity: CustomStringConvertible {
     public static func plain(_ value: String) -> PackageIdentity {
         PackageIdentity(value)
     }
+
+    // TODO: formalize package registry identifier
+    public var scopeAndName: (Scope, Name)? {
+        let components = description.split(separator: ".", maxSplits: 1, omittingEmptySubsequences: true)
+        guard components.count == 2,
+              let scope = Scope(components.first),
+              let name = Name(components.last)
+        else { return nil }
+
+        return (scope, name)
+    }
 }
 
 extension PackageIdentity: Equatable, Comparable {
@@ -149,6 +160,11 @@ extension PackageIdentity {
             self = scope
         }
 
+        fileprivate init?(_ substring: String.SubSequence?) {
+            guard let substring = substring else { return nil }
+            self.init(String(substring))
+        }
+
         // MARK: - Equatable & Comparable
 
         private func compare(to other: Scope) -> ComparisonResult {
@@ -224,6 +240,11 @@ extension PackageIdentity {
         public init?(_ description: String) {
             guard let name = try? Name(validating: description) else { return nil }
             self = name
+        }
+
+        fileprivate init?(_ substring: String.SubSequence?) {
+            guard let substring = substring else { return nil }
+            self.init(String(substring))
         }
 
         // MARK: - Equatable & Comparable

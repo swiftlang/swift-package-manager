@@ -15,6 +15,7 @@ import Foundation
 import PackageLoading
 import PackageModel
 import PackageGraph
+import PackageRegistry
 import SourceControl
 
 public typealias Diagnostic = TSCBasic.Diagnostic
@@ -203,6 +204,10 @@ public class Workspace {
     // var for backwards compatibility with deprecated initializers, remove with them
     fileprivate var repositoryManager: RepositoryManager
 
+    /// The registry manager.
+    // var for backwards compatibility with deprecated initializers, remove with them
+    fileprivate var registryManager: RegistryManager?
+
     /// The http client used for downloading binary artifacts.
     fileprivate let httpClient: HTTPClient
 
@@ -264,11 +269,13 @@ public class Workspace {
         fileSystem: FileSystem,
         location: Location,
         mirrors: DependencyMirrors? = .none,
+        registries: RegistryConfiguration? = .none,
         authorizationProvider: AuthorizationProvider? = .none,
         customToolsVersion: ToolsVersion? = .none,
         customManifestLoader: ManifestLoaderProtocol? = .none,
         customRepositoryManager: RepositoryManager? = .none,
         customRepositoryProvider: RepositoryProvider? = .none,
+        customRegistryManager: RegistryManager? = .none,
         customIdentityResolver: IdentityResolver? = .none,
         customHTTPClient: HTTPClient? = .none,
         customArchiver: Archiver? = .none,
@@ -287,6 +294,8 @@ public class Workspace {
             toolchain: UserToolchain(destination: .hostDestination()).configuration,
             cacheDir: location.sharedManifestsCacheDirectory
         )
+        let mirrors = mirrors ?? DependencyMirrors()
+        let identityResolver = customIdentityResolver ?? DefaultIdentityResolver(locationMapper: mirrors.effectiveURL(for:))
         let repositoryProvider = customRepositoryProvider ?? GitRepositoryProvider()
         let sharedRepositoriesCacheEnabled = sharedRepositoriesCacheEnabled ?? true
         let repositoryManager = customRepositoryManager ?? RepositoryManager(
@@ -296,11 +305,16 @@ public class Workspace {
             delegate: delegate.map(WorkspaceRepositoryManagerDelegate.init(workspaceDelegate:)),
             cachePath: sharedRepositoriesCacheEnabled ? location.sharedRepositoriesCacheDirectory : .none
         )
+        let registryManager = customRegistryManager ?? registries.map { configuration in
+            RegistryManager(configuration: configuration,
+                            identityResolver: identityResolver,
+                            authorizationProvider: authorizationProvider?.httpAuthorizationHeader(for:))
+        }
+
         // FIXME: use workspace scope when migrating workspace to new observability API
         let httpClient = customHTTPClient ?? HTTPClient()
         let archiver = customArchiver ?? ZipArchiver()
-        let mirrors = mirrors ?? DependencyMirrors()
-        let identityResolver = customIdentityResolver ?? DefaultIdentityResolver(locationMapper: mirrors.effectiveURL(for:))
+
         var checksumAlgorithm = customChecksumAlgorithm ?? SHA256()
         #if canImport(CryptoKit)
         if checksumAlgorithm is SHA256, #available(macOS 10.15, *) {
@@ -325,6 +339,7 @@ public class Workspace {
         self.httpClient = httpClient
         self.archiver = archiver
         self.repositoryManager = repositoryManager
+        self.registryManager = registryManager
         self.identityResolver = identityResolver
         self.checksumAlgorithm = checksumAlgorithm
 

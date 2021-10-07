@@ -24,7 +24,7 @@ import Foundation
 import PackageRegistry
 
 private enum RegistryConfigurationError: Swift.Error {
-    case missingScope(String? = nil)
+    case missingScope(PackageIdentity.Scope? = nil)
     case invalidURL(String)
 }
 
@@ -90,6 +90,8 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
                 throw RegistryConfigurationError.invalidURL(self.url)
             }
 
+            let scope = try scope.map(PackageIdentity.Scope.init(validating:))
+
             // TODO: Require login if password is specified
 
             let set: (inout RegistryConfiguration) throws -> Void = { configuration in
@@ -125,6 +127,8 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
         var scope: String?
 
         func run(_ swiftTool: SwiftTool) throws {
+            let scope = try scope.map(PackageIdentity.Scope.init(validating:))
+
             let unset: (inout RegistryConfiguration) throws -> Void = { configuration in
                 if let scope = scope {
                     guard let _ = configuration.scopedRegistries[scope] else {
@@ -146,25 +150,5 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
                 try configuration.updateLocal(with: unset)
             }
         }
-    }
-}
-
-// MARK: -
-
-
-private extension SwiftTool {
-    func getRegistriesConfig() throws -> Workspace.Configuration.Registries {
-        let localRegistriesFile = try Workspace.DefaultLocations.registriesConfigurationFile(forRootPackage: self.getPackageRoot())
-
-        let workspace = try getActiveWorkspace()
-        let sharedRegistriesFile = workspace.location.sharedConfigurationDirectory.map {
-            Workspace.DefaultLocations.registriesConfigurationFile(at: $0)
-        }
-
-        return try .init(
-            localRegistriesFile: localRegistriesFile,
-            sharedRegistriesFile: sharedRegistriesFile,
-            fileSystem: localFileSystem
-        )
     }
 }
