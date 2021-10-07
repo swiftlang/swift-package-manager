@@ -2040,7 +2040,9 @@ extension Workspace {
             let archivePath = parentDirectory.appending(component: artifact.url.lastPathComponent)
 
             group.enter()
-            var request = HTTPClient.Request.download(url: artifact.url, fileSystem: self.fileSystem, destination: archivePath)
+            var headers = HTTPClientHeaders()
+            headers.add(name: "Accept", value: "application/octet-stream")
+            var request = HTTPClient.Request.download(url: artifact.url, headers: headers, fileSystem: self.fileSystem, destination: archivePath)
             request.options.authorizationProvider = self.authorizationProvider?.httpAuthorizationHeader(for:)
             request.options.validResponseCodes = [200]
             self.httpClient.execute(
