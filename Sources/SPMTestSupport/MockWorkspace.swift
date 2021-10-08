@@ -546,7 +546,7 @@ public final class MockWorkspace {
                 XCTFail("\(packageIdentity).\(targetName) does not exists", file: file, line: line)
                 return
             }
-            XCTAssertEqual(artifact.path, path)
+            XCTAssertEqual(artifact.path, path, file: file, line: line)
             switch (artifact.source, source) {
             case (.remote(let lhsURL, let lhsChecksum), .remote(let rhsURL, let rhsChecksum)):
                 XCTAssertEqual(lhsURL, rhsURL, file: file, line: line)
