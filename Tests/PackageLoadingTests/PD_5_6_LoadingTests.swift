@@ -153,4 +153,19 @@ class PackageDescription5_6LoadingTests: PackageDescriptionLoadingTests {
         }
 
     }
+    
+    func testPackageContext() throws {
+        let stream = BufferedOutputByteStream()
+        stream <<< """
+            import PackageDescription
+            import Foundation
+            
+            let package = Package(name: Context.current.packageDirectory)
+            """
+
+        loadManifest(stream.bytes) { manifest in
+            let name = parsedManifest?.parentDirectory.pathString ?? ""
+            XCTAssertEqual(manifest.name, name)
+        }
+    }
 }
