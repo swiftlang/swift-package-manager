@@ -11,7 +11,6 @@
 import Basics
 import Foundation
 import PackageModel
-import class PackageDescription.Package
 import TSCBasic
 import struct TSCUtility.Triple
 import enum TSCUtility.Diagnostics
@@ -821,9 +820,9 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             cmd += ["-fileno", "\(fileno(jsonOutputFileDesc))"]
 #endif
 
-            let packageRoot = URL(fileURLWithPath: manifestPath.parentDirectory.pathString)
-            let packageContext = PackageDescription.Package.Context(packageRoot)
-            cmd += ["-context", packageContext.encoded]
+            let packageDirectory = manifestPath.parentDirectory.pathString
+            let contextModel = ContextModel(packageDirectory: packageDirectory)
+            cmd += ["-context", contextModel.encoded]
 
             // If enabled, run command in a sandbox.
             // This provides some safety against arbitrary code execution when parsing manifest files.
