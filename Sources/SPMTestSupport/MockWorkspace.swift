@@ -221,7 +221,6 @@ public final class MockWorkspace {
         _ result: ([Basics.Diagnostic]) -> Void
     ) {
         let observability = ObservabilitySystem.makeForTesting()
-        let diagnostics = observability.topScope.makeDiagnosticsEngine()
         observability.topScope.trap {
             let ws = try self.getOrCreateWorkspace()
             ws.edit(
@@ -229,7 +228,7 @@ public final class MockWorkspace {
                 path: path,
                 revision: revision,
                 checkoutBranch: checkoutBranch,
-                diagnostics: diagnostics
+                observabilityScope: observability.topScope
             )
         }
         result(observability.diagnostics)
@@ -242,42 +241,38 @@ public final class MockWorkspace {
         _ result: ([Basics.Diagnostic]) -> Void
     ) {
         let observability = ObservabilitySystem.makeForTesting()
-        let diagnostics = observability.topScope.makeDiagnosticsEngine()
         let rootInput = PackageGraphRootInput(packages: rootPaths(for: roots))
         observability.topScope.trap {
             let ws = try self.getOrCreateWorkspace()
-            try ws.unedit(packageName: packageName, forceRemove: forceRemove, root: rootInput, diagnostics: diagnostics)
+            try ws.unedit(packageName: packageName, forceRemove: forceRemove, root: rootInput, observabilityScope: observability.topScope)
         }
         result(observability.diagnostics)
     }
 
     public func checkResolve(pkg: String, roots: [String], version: TSCUtility.Version, _ result: ([Basics.Diagnostic]) -> Void) {
         let observability = ObservabilitySystem.makeForTesting()
-        let diagnostics = observability.topScope.makeDiagnosticsEngine()
         let rootInput = PackageGraphRootInput(packages: rootPaths(for: roots))
         observability.topScope.trap {
             let workspace = try self.getOrCreateWorkspace()
-            try workspace.resolve(packageName: pkg, root: rootInput, version: version, branch: nil, revision: nil, diagnostics: diagnostics)
+            try workspace.resolve(packageName: pkg, root: rootInput, version: version, branch: nil, revision: nil, observabilityScope: observability.topScope)
         }
         result(observability.diagnostics)
     }
 
     public func checkClean(_ result: ([Basics.Diagnostic]) -> Void) {
         let observability = ObservabilitySystem.makeForTesting()
-        let diagnostics = observability.topScope.makeDiagnosticsEngine()
         observability.topScope.trap {
             let workspace = try self.getOrCreateWorkspace()
-            workspace.clean(with: diagnostics)
+            workspace.clean(observabilityScope: observability.topScope)
         }
         result(observability.diagnostics)
     }
 
     public func checkReset(_ result: ([Basics.Diagnostic]) -> Void) {
         let observability = ObservabilitySystem.makeForTesting()
-        let diagnostics = observability.topScope.makeDiagnosticsEngine()
         observability.topScope.trap {
             let workspace = try self.getOrCreateWorkspace()
-            workspace.reset(with: diagnostics)
+            workspace.reset(observabilityScope: observability.topScope)
         }
         result(observability.diagnostics)
     }
@@ -291,14 +286,13 @@ public final class MockWorkspace {
         let dependencies = try deps.map { try $0.convert(baseURL: packagesDir, identityResolver: self.identityResolver) }
 
         let observability = ObservabilitySystem.makeForTesting()
-        let diagnostics = observability.topScope.makeDiagnosticsEngine()
         observability.topScope.trap {
             let rootInput = PackageGraphRootInput(
                 packages: rootPaths(for: roots),
                 dependencies: dependencies
             )
             let workspace = try self.getOrCreateWorkspace()
-            try workspace.updateDependencies(root: rootInput, packages: packages, diagnostics: diagnostics)
+            try workspace.updateDependencies(root: rootInput, packages: packages, observabilityScope: observability.topScope)
         }
         result(observability.diagnostics)
     }
@@ -315,10 +309,9 @@ public final class MockWorkspace {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let diagnostics = observability.topScope.makeDiagnosticsEngine()
         let changes = observability.topScope.trap { () -> [(PackageReference, Workspace.PackageStateChange)]? in
             let workspace = try self.getOrCreateWorkspace()
-            return try workspace.updateDependencies(root: rootInput, diagnostics: diagnostics, dryRun: true)
+            return try workspace.updateDependencies(root: rootInput, dryRun: true, observabilityScope: observability.topScope)
         } ?? nil
         result(changes, observability.diagnostics)
     }
@@ -384,29 +377,29 @@ public final class MockWorkspace {
 
     public struct ResolutionPrecomputationResult {
         public let result: Workspace.ResolutionPrecomputationResult
-        public let diagnostics: DiagnosticsEngine
+        public let diagnostics: [Basics.Diagnostic]
     }
 
     public func checkPrecomputeResolution(_ check: (ResolutionPrecomputationResult) -> Void) throws {
         let observability = ObservabilitySystem.makeForTesting()
-        let diagnostics = observability.topScope.makeDiagnosticsEngine()
         let workspace = try self.getOrCreateWorkspace()
         let pinsStore = try workspace.pinsStore.load()
 
         let rootInput = PackageGraphRootInput(packages: rootPaths(for: roots.map { $0.name }), dependencies: [])
-        let rootManifests = try temp_await { workspace.loadRootManifests(packages: rootInput.packages, diagnostics: diagnostics, completion: $0) }
+        let rootManifests = try temp_await { workspace.loadRootManifests(packages: rootInput.packages, observabilityScope: observability.topScope, completion: $0) }
         let root = PackageGraphRoot(input: rootInput, manifests: rootManifests)
 
-        let dependencyManifests = try workspace.loadDependencyManifests(root: root, diagnostics: diagnostics)
+        let dependencyManifests = try workspace.loadDependencyManifests(root: root, observabilityScope: observability.topScope)
 
         let result = try workspace.precomputeResolution(
             root: root,
             dependencyManifests: dependencyManifests,
             pinsStore: pinsStore,
-            constraints: []
+            constraints: [],
+            observabilityScope: observability.topScope
         )
 
-        check(ResolutionPrecomputationResult(result: result, diagnostics: diagnostics))
+        check(ResolutionPrecomputationResult(result: result, diagnostics: observability.diagnostics))
     }
 
     public func set(
@@ -562,19 +555,18 @@ public final class MockWorkspace {
     public func loadDependencyManifests(
         roots: [String] = [],
         deps: [MockDependency] = [],
-        _ result: (Workspace.DependencyManifests, DiagnosticsEngine) -> Void
+        _ result: (Workspace.DependencyManifests,  [Basics.Diagnostic]) -> Void
     ) throws {
         let observability = ObservabilitySystem.makeForTesting()
-        let diagnostics = observability.topScope.makeDiagnosticsEngine()
         let dependencies = try deps.map { try $0.convert(baseURL: packagesDir, identityResolver: self.identityResolver) }
         let workspace = try self.getOrCreateWorkspace()
         let rootInput = PackageGraphRootInput(
             packages: rootPaths(for: roots), dependencies: dependencies
         )
-        let rootManifests = try tsc_await { workspace.loadRootManifests(packages: rootInput.packages, diagnostics: diagnostics, completion: $0) }
+        let rootManifests = try tsc_await { workspace.loadRootManifests(packages: rootInput.packages, observabilityScope: observability.topScope, completion: $0) }
         let graphRoot = PackageGraphRoot(input: rootInput, manifests: rootManifests)
-        let manifests = try workspace.loadDependencyManifests(root: graphRoot, diagnostics: diagnostics)
-        result(manifests, diagnostics)
+        let manifests = try workspace.loadDependencyManifests(root: graphRoot, observabilityScope: observability.topScope)
+        result(manifests, observability.diagnostics)
     }
 
     public func checkManagedDependencies(file: StaticString = #file, line: UInt = #line, _ result: (ManagedDependencyResult) throws -> Void) {
@@ -650,7 +642,7 @@ public final class MockWorkspaceDelegate: WorkspaceDelegate {
     private let lock = Lock()
     private var _events = [String]()
     private var _manifest: Manifest?
-    private var _manifestLoadingDiagnostics: [Diagnostic]?
+    private var _manifestLoadingDiagnostics: [Basics.Diagnostic]?
 
     public init() {}
 
@@ -673,7 +665,7 @@ public final class MockWorkspaceDelegate: WorkspaceDelegate {
     public func fetchingRepository(from repository: String, objectsFetched: Int, totalObjectsToFetch: Int) {
     }
 
-    public func fetchingDidFinish(repository: String, fetchDetails: RepositoryManager.FetchDetails?, diagnostic: Diagnostic?, duration: DispatchTimeInterval) {
+    public func fetchingDidFinish(repository: String, fetchDetails: RepositoryManager.FetchDetails?, diagnostic: Basics.Diagnostic?, duration: DispatchTimeInterval) {
         self.append("finished fetching repo: \(repository)")
     }
 
@@ -681,7 +673,7 @@ public final class MockWorkspaceDelegate: WorkspaceDelegate {
         self.append("creating working copy for: \(url)")
     }
 
-    public func didCreateWorkingCopy(repository url: String, at path: AbsolutePath, error: Diagnostic?) {
+    public func didCreateWorkingCopy(repository url: String, at path: AbsolutePath, error: Basics.Diagnostic?) {
         self.append("finished creating working copy for: \(url)")
     }
 
@@ -689,7 +681,7 @@ public final class MockWorkspaceDelegate: WorkspaceDelegate {
         self.append("checking out repo: \(url)")
     }
 
-    public func didCheckOut(repository url: String, revision: String, at path: AbsolutePath, error: Diagnostic?) {
+    public func didCheckOut(repository url: String, revision: String, at path: AbsolutePath, error: Basics.Diagnostic?) {
         self.append("finished checking out repo: \(url)")
     }
 
@@ -705,7 +697,7 @@ public final class MockWorkspaceDelegate: WorkspaceDelegate {
         self.append("will load manifest for \(packageKind.displayName) package: \(url)")
     }
 
-    public func didLoadManifest(packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind, manifest: Manifest?, diagnostics: [Diagnostic]) {
+    public func didLoadManifest(packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind, manifest: Manifest?, diagnostics: [Basics.Diagnostic]) {
         self.append("did load manifest for \(packageKind.displayName) package: \(url)")
         self.lock.withLock {
             self._manifest = manifest
@@ -757,7 +749,7 @@ public final class MockWorkspaceDelegate: WorkspaceDelegate {
         }
     }
 
-    public var manifestLoadingDiagnostics: [Diagnostic]? {
+    public var manifestLoadingDiagnostics: [Basics.Diagnostic]? {
         self.lock.withLock {
             self._manifestLoadingDiagnostics
         }
@@ -815,5 +807,15 @@ extension Workspace.ManagedDependency {
             return checkoutState
         }
         return .none
+    }
+}
+
+extension Array where Element == Basics.Diagnostic {
+    public var hasErrors: Bool {
+        self.contains(where: {  $0.severity == .error })
+    }
+
+    public var hasWarnings: Bool {
+        self.contains(where: {  $0.severity == .warning })
     }
 }

@@ -225,7 +225,7 @@ public struct SwiftTestTool: SwiftCommand {
             let rootManifests = try temp_await {
                 workspace.loadRootManifests(
                     packages: root.packages,
-                    diagnostics: swiftTool.observabilityScope.makeDiagnosticsEngine(),
+                    observabilityScope: swiftTool.observabilityScope,
                     completion: $0
                 )
             }
@@ -366,7 +366,7 @@ public struct SwiftTestTool: SwiftCommand {
         let rootManifests = try temp_await {
             workspace.loadRootManifests(
                 packages: root.packages,
-                diagnostics: swiftTool.observabilityScope.makeDiagnosticsEngine(),
+                observabilityScope: swiftTool.observabilityScope,
                 completion: $0
             )
         }

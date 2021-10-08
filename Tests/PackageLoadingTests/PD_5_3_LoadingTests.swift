@@ -8,13 +8,13 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import XCTest
-
-import TSCBasic
-import TSCUtility
-import SPMTestSupport
+import Basics
 import PackageModel
 import PackageLoading
+import SPMTestSupport
+import TSCBasic
+import TSCUtility
+import XCTest
 
 class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
     override var toolsVersion: ToolsVersion {
@@ -22,8 +22,7 @@ class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
     }
 
     func testResources() throws {
-        let stream = BufferedOutputByteStream()
-        stream <<< """
+        let content = """
             import PackageDescription
             let package = Package(
                name: "Foo",
@@ -47,21 +46,22 @@ class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
             )
             """
 
-        loadManifest(stream.bytes) { manifest in
-            let resources = manifest.targets[0].resources
-            XCTAssertEqual(resources[0], TargetDescription.Resource(rule: .copy, path: "foo.txt"))
-            XCTAssertEqual(resources[1], TargetDescription.Resource(rule: .process, path: "bar.txt"))
-            XCTAssertEqual(resources[2], TargetDescription.Resource(rule: .process, path: "biz.txt", localization: .default))
-            XCTAssertEqual(resources[3], TargetDescription.Resource(rule: .process, path: "baz.txt", localization: .base))
+        let observability = ObservabilitySystem.makeForTesting()
+        let manifest = try loadManifest(content, observabilityScope: observability.topScope)
+        XCTAssertNoDiagnostics(observability.diagnostics)
 
-            let testResources = manifest.targets[1].resources
-            XCTAssertEqual(testResources[0], TargetDescription.Resource(rule: .process, path: "testfixture.txt"))
-        }
+        let resources = manifest.targets[0].resources
+        XCTAssertEqual(resources[0], TargetDescription.Resource(rule: .copy, path: "foo.txt"))
+        XCTAssertEqual(resources[1], TargetDescription.Resource(rule: .process, path: "bar.txt"))
+        XCTAssertEqual(resources[2], TargetDescription.Resource(rule: .process, path: "biz.txt", localization: .default))
+        XCTAssertEqual(resources[3], TargetDescription.Resource(rule: .process, path: "baz.txt", localization: .base))
+
+        let testResources = manifest.targets[1].resources
+        XCTAssertEqual(testResources[0], TargetDescription.Resource(rule: .process, path: "testfixture.txt"))
     }
 
-    func testBinaryTargetsTrivial() {
-        let stream = BufferedOutputByteStream()
-        stream <<< """
+    func testBinaryTargetsTrivial() throws {
+        let content = """
             import PackageDescription
             let package = Package(
                 name: "Foo",
@@ -84,59 +84,61 @@ class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
             )
             """
 
-        loadManifest(stream.bytes) { manifest in
-            let targets = Dictionary(uniqueKeysWithValues: manifest.targets.map({ ($0.name, $0) }))
-            let foo1 = targets["Foo1"]!
-            let foo2 = targets["Foo2"]!
-            let foo3 = targets["Foo3"]
-            XCTAssertEqual(foo1, try? TargetDescription(
-                name: "Foo1",
-                dependencies: [],
-                path: "../Foo1.xcframework",
-                url: nil,
-                exclude: [],
-                sources: nil,
-                resources: [],
-                publicHeadersPath: nil,
-                type: .binary,
-                pkgConfig: nil,
-                providers: nil,
-                settings: [],
-                checksum: nil))
-            XCTAssertEqual(foo2, try? TargetDescription(
-                name: "Foo2",
-                dependencies: [],
-                path: nil,
-                url: "https://foo.com/Foo2-1.0.0.zip",
-                exclude: [],
-                sources: nil,
-                resources: [],
-                publicHeadersPath: nil,
-                type: .binary,
-                pkgConfig: nil,
-                providers: nil,
-                settings: [],
-                checksum: "839F9F30DC13C30795666DD8F6FB77DD0E097B83D06954073E34FE5154481F7A"))
-            XCTAssertEqual(foo3, try? TargetDescription(
-                name: "Foo3",
-                dependencies: [],
-                path: "./Foo3.zip",
-                url: nil,
-                exclude: [],
-                sources: nil,
-                resources: [],
-                publicHeadersPath: nil,
-                type: .binary,
-                pkgConfig: nil,
-                providers: nil,
-                settings: [],
-                checksum: nil
-            ))
-        }
+        let observability = ObservabilitySystem.makeForTesting()
+        let manifest = try loadManifest(content, observabilityScope: observability.topScope)
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        let targets = Dictionary(uniqueKeysWithValues: manifest.targets.map({ ($0.name, $0) }))
+        let foo1 = targets["Foo1"]!
+        let foo2 = targets["Foo2"]!
+        let foo3 = targets["Foo3"]
+        XCTAssertEqual(foo1, try? TargetDescription(
+            name: "Foo1",
+            dependencies: [],
+            path: "../Foo1.xcframework",
+            url: nil,
+            exclude: [],
+            sources: nil,
+            resources: [],
+            publicHeadersPath: nil,
+            type: .binary,
+            pkgConfig: nil,
+            providers: nil,
+            settings: [],
+            checksum: nil))
+        XCTAssertEqual(foo2, try? TargetDescription(
+            name: "Foo2",
+            dependencies: [],
+            path: nil,
+            url: "https://foo.com/Foo2-1.0.0.zip",
+            exclude: [],
+            sources: nil,
+            resources: [],
+            publicHeadersPath: nil,
+            type: .binary,
+            pkgConfig: nil,
+            providers: nil,
+            settings: [],
+            checksum: "839F9F30DC13C30795666DD8F6FB77DD0E097B83D06954073E34FE5154481F7A"))
+        XCTAssertEqual(foo3, try? TargetDescription(
+            name: "Foo3",
+            dependencies: [],
+            path: "./Foo3.zip",
+            url: nil,
+            exclude: [],
+            sources: nil,
+            resources: [],
+            publicHeadersPath: nil,
+            type: .binary,
+            pkgConfig: nil,
+            providers: nil,
+            settings: [],
+            checksum: nil
+        ))
     }
-    
+
     func testBinaryTargetsDisallowedProperties() throws {
-        let manifest = """
+        let content = """
             import PackageDescription
             var fwBinaryTarget = Target.binaryTarget(
                 name: "Foo",
@@ -146,15 +148,16 @@ class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
             fwBinaryTarget.linkerSettings = [ .linkedFramework("AVFoundation") ]
             let package = Package(name: "foo", targets: [fwBinaryTarget])
             """
-        
-        XCTAssertManifestLoadThrows(manifest) { error, _ in
+
+        let observability = ObservabilitySystem.makeForTesting()
+        XCTAssertThrowsError(try loadManifest(content, observabilityScope: observability.topScope), "expected error") { error in
             XCTAssertEqual(error.localizedDescription, "target 'Foo' contains a value for disallowed property 'settings'")
         }
     }
 
-    func testBinaryTargetsValidation() {
+    func testBinaryTargetsValidation() throws {
         do {
-            let manifest = """
+            let content = """
                 import PackageDescription
                 let package = Package(
                     name: "Foo",
@@ -167,13 +170,15 @@ class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
                 )
                 """
 
-            XCTAssertManifestLoadThrows(manifest) { _, diagnostics in
-                diagnostics.check(diagnostic: "invalid type for binary product 'FooLibrary'; products referencing only binary targets must have a type of 'library'", severity: .error)
+            let observability = ObservabilitySystem.makeForTesting()
+            XCTAssertThrowsError(try loadManifest(content, observabilityScope: observability.topScope), "expected error")
+            testDiagnostics(observability.diagnostics) { result in
+                result.check(diagnostic: "invalid type for binary product 'FooLibrary'; products referencing only binary targets must have a type of 'library'", severity: .error)
             }
         }
 
         do {
-            let manifest = """
+            let content = """
                 import PackageDescription
                 let package = Package(
                     name: "Foo",
@@ -186,13 +191,15 @@ class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
                 )
                 """
 
-            XCTAssertManifestLoadThrows(manifest) { _, diagnostics in
-                diagnostics.check(diagnostic: "invalid type for binary product 'FooLibrary'; products referencing only binary targets must have a type of 'library'", severity: .error)
+            let observability = ObservabilitySystem.makeForTesting()
+            XCTAssertThrowsError(try loadManifest(content, observabilityScope: observability.topScope), "expected error")
+            testDiagnostics(observability.diagnostics) { result in
+                result.check(diagnostic: "invalid type for binary product 'FooLibrary'; products referencing only binary targets must have a type of 'library'", severity: .error)
             }
         }
 
         do {
-            let manifest = """
+            let content = """
                 import PackageDescription
                 let package = Package(
                     name: "Foo",
@@ -206,11 +213,13 @@ class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
                 )
                 """
 
-            XCTAssertManifestLoadNoThrows(manifest)
+            let observability = ObservabilitySystem.makeForTesting()
+            _ = try loadManifest(content, observabilityScope: observability.topScope)
+            XCTAssertNoDiagnostics(observability.diagnostics)
         }
 
         do {
-            let manifest = """
+            let content = """
                 import PackageDescription
                 let package = Package(
                     name: "Foo",
@@ -223,13 +232,15 @@ class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
                 )
                 """
 
-            XCTAssertManifestLoadThrows(manifest) { _, diagnostics in
-                diagnostics.check(diagnostic: "invalid location for binary target 'Foo'", severity: .error)
+            let observability = ObservabilitySystem.makeForTesting()
+            XCTAssertThrowsError(try loadManifest(content, observabilityScope: observability.topScope), "expected error")
+            testDiagnostics(observability.diagnostics) { result in
+                result.check(diagnostic: "invalid location for binary target 'Foo'", severity: .error)
             }
         }
 
         do {
-            let manifest = """
+            let content = """
                 import PackageDescription
                 let package = Package(
                     name: "Foo",
@@ -242,13 +253,15 @@ class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
                 )
                 """
 
-            XCTAssertManifestLoadThrows(manifest) { _, diagnostics in
-                diagnostics.check(diagnostic: "invalid URL scheme for binary target 'Foo'; valid schemes are: 'https'", severity: .error)
+            let observability = ObservabilitySystem.makeForTesting()
+            XCTAssertThrowsError(try loadManifest(content, observabilityScope: observability.topScope), "expected error")
+            testDiagnostics(observability.diagnostics) { result in
+                result.check(diagnostic: "invalid URL scheme for binary target 'Foo'; valid schemes are: 'https'", severity: .error)
             }
         }
 
         do {
-            let manifest = """
+            let content = """
                 import PackageDescription
                 let package = Package(
                     name: "Foo",
@@ -261,13 +274,15 @@ class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
                 )
                 """
 
-            XCTAssertManifestLoadThrows(manifest) { _, diagnostics in
-                diagnostics.check(diagnostic: "unsupported extension for binary target 'Foo'; valid extensions are: 'zip', 'xcframework', 'artifactbundle'", severity: .error)
+            let observability = ObservabilitySystem.makeForTesting()
+            XCTAssertThrowsError(try loadManifest(content, observabilityScope: observability.topScope), "expected error")
+            testDiagnostics(observability.diagnostics) { result in
+                result.check(diagnostic: "unsupported extension for binary target 'Foo'; valid extensions are: 'zip', 'xcframework', 'artifactbundle'", severity: .error)
             }
         }
 
         do {
-            let manifest = """
+            let content = """
                 import PackageDescription
                 let package = Package(
                     name: "Foo",
@@ -283,13 +298,15 @@ class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
                 )
                 """
 
-            XCTAssertManifestLoadThrows(manifest) { _, diagnostics in
-                diagnostics.check(diagnostic: "unsupported extension for binary target 'Foo'; valid extensions are: 'zip'", severity: .error)
+            let observability = ObservabilitySystem.makeForTesting()
+            XCTAssertThrowsError(try loadManifest(content, observabilityScope: observability.topScope), "expected error")
+            testDiagnostics(observability.diagnostics) { result in
+                result.check(diagnostic: "unsupported extension for binary target 'Foo'; valid extensions are: 'zip'", severity: .error)
             }
         }
 
         do {
-            let manifest = """
+            let content = """
                 import PackageDescription
                 let package = Package(
                     name: "Foo",
@@ -302,13 +319,15 @@ class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
                 )
                 """
 
-            XCTAssertManifestLoadThrows(manifest) { _, diagnostics in
-                diagnostics.check(diagnostic: "unsupported extension for binary target 'Foo'; valid extensions are: 'zip', 'xcframework', 'artifactbundle'", severity: .error)
+            let observability = ObservabilitySystem.makeForTesting()
+            XCTAssertThrowsError(try loadManifest(content, observabilityScope: observability.topScope), "expected error")
+            testDiagnostics(observability.diagnostics) { result in
+                result.check(diagnostic: "unsupported extension for binary target 'Foo'; valid extensions are: 'zip', 'xcframework', 'artifactbundle'", severity: .error)
             }
         }
 
         do {
-            let manifest = """
+            let content = """
                 import PackageDescription
                 let package = Package(
                     name: "Foo",
@@ -324,15 +343,16 @@ class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
                 )
                 """
 
-            XCTAssertManifestLoadThrows(manifest) { _, diagnostics in
-                diagnostics.check(diagnostic: "unsupported extension for binary target 'Foo'; valid extensions are: 'zip'", severity: .error)
+            let observability = ObservabilitySystem.makeForTesting()
+            XCTAssertThrowsError(try loadManifest(content, observabilityScope: observability.topScope), "expected error")
+            testDiagnostics(observability.diagnostics) { result in
+                result.check(diagnostic: "unsupported extension for binary target 'Foo'; valid extensions are: 'zip'", severity: .error)
             }
         }
     }
 
     func testConditionalTargetDependencies() throws {
-        let stream = BufferedOutputByteStream()
-        stream <<< """
+        let content = """
             import PackageDescription
             let package = Package(
                 name: "Foo",
@@ -352,18 +372,20 @@ class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
             )
             """
 
-        loadManifest(stream.bytes) { manifest in
-            let dependencies = manifest.targets[0].dependencies
+        let observability = ObservabilitySystem.makeForTesting()
+        let manifest = try loadManifest(content, observabilityScope: observability.topScope)
+        XCTAssertNoDiagnostics(observability.diagnostics)
 
-            XCTAssertEqual(dependencies[0], .target(name: "Biz"))
-            XCTAssertEqual(dependencies[1], .target(name: "Bar", condition: .init(platformNames: ["linux"], config: nil)))
-            XCTAssertEqual(dependencies[2], .product(name: "Baz", package: "Baz", condition: .init(platformNames: ["macos"])))
-            XCTAssertEqual(dependencies[3], .byName(name: "Bar", condition: .init(platformNames: ["watchos", "ios"])))
-        }
+        let dependencies = manifest.targets[0].dependencies
+        XCTAssertEqual(dependencies[0], .target(name: "Biz"))
+        XCTAssertEqual(dependencies[1], .target(name: "Bar", condition: .init(platformNames: ["linux"], config: nil)))
+        XCTAssertEqual(dependencies[2], .product(name: "Baz", package: "Baz", condition: .init(platformNames: ["macos"])))
+        XCTAssertEqual(dependencies[3], .byName(name: "Bar", condition: .init(platformNames: ["watchos", "ios"])))
+
     }
 
     func testDefaultLocalization() throws {
-        let manifest = """
+        let content = """
             import PackageDescription
             let package = Package(
                 name: "Foo",
@@ -374,9 +396,10 @@ class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
             )
             """
 
-        XCTAssertManifestLoadNoThrows(manifest) { manifest, _ in
-            XCTAssertEqual(manifest.defaultLocalization, "fr")
-        }
+        let observability = ObservabilitySystem.makeForTesting()
+        let manifest = try loadManifest(content, observabilityScope: observability.topScope)
+        XCTAssertNoDiagnostics(observability.diagnostics)
+        XCTAssertEqual(manifest.defaultLocalization, "fr")
     }
 
     func testTargetPathsValidation() throws {
@@ -387,7 +410,7 @@ class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
         ]
 
         for (manifestItem, expectedDiag) in manifestItemToDiagnosticMap {
-            let manifest = """
+            let content = """
                 import PackageDescription
                 let package = Package(
                     name: "Foo",
@@ -400,19 +423,19 @@ class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
                 )
                 """
 
-            XCTAssertManifestLoadThrows(manifest) { error, _ in
-                switch error {
-                case let pathError as PathValidationError:
-                    XCTAssertMatch(pathError.description, .contains(expectedDiag))
-                default:
-                    XCTFail("\(error)")
+            let observability = ObservabilitySystem.makeForTesting()
+            XCTAssertThrowsError(try loadManifest(content, observabilityScope: observability.topScope), "expected error") { error in
+                if let error = error as? PathValidationError {
+                    XCTAssertMatch(error.description, .contains(expectedDiag))
+                } else {
+                    XCTFail("unexpected error: \(error)")
                 }
             }
         }
     }
 
     func testNonZeroExitStatusDoesNotAssert() throws {
-        let manifest = """
+        let content = """
             #if canImport(Glibc)
             import Glibc
             #elseif os(Windows)
@@ -426,14 +449,15 @@ class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
             exit(1)
             """
 
-        XCTAssertManifestLoadThrows(manifest) { error, _ in
-            XCTAssertTrue(error is ManifestParseError, "unexpected error: \(error)")
+        let observability = ObservabilitySystem.makeForTesting()
+        XCTAssertThrowsError(try loadManifest(content, observabilityScope: observability.topScope), "expected error") { error in
+            XCTAssertNotNil(error as? ManifestParseError)
         }
     }
 
     func testManifestLoadingIsSandboxed() throws {
         #if os(macOS) // Sandboxing is only done on macOS today.
-        let manifest = """
+        let content = """
             import Foundation
 
             try! "should not be allowed".write(to: URL(fileURLWithPath: "/tmp/file.txt"), atomically: true, encoding: String.Encoding.utf8)
@@ -447,9 +471,13 @@ class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
             )
             """
 
-        XCTAssertManifestLoadThrows(manifest) { error, _ in
-            guard case ManifestParseError.invalidManifestFormat(let msg, _) = error else { return XCTFail("unexpected error: \(error)") }
-            XCTAssertTrue(msg.contains("Operation not permitted"), "unexpected error message: \(msg)")
+        let observability = ObservabilitySystem.makeForTesting()
+        XCTAssertThrowsError(try loadManifest(content, observabilityScope: observability.topScope), "expected error") { error in
+            if case ManifestParseError.invalidManifestFormat(let error, _) = error {
+                XCTAssertTrue(error.contains("Operation not permitted"), "unexpected error message: \(error)")
+            } else {
+                XCTFail("unexpected error: \(error)")
+            }
         }
         #endif
     }

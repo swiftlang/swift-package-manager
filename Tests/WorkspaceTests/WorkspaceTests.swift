@@ -199,7 +199,7 @@ final class WorkspaceTests: XCTestCase {
             let rootManifests = try tsc_await {
                 workspace.loadRootManifests(
                     packages: rootInput.packages,
-                    diagnostics: observability.topScope.makeDiagnosticsEngine(),
+                    observabilityScope: observability.topScope,
                     completion: $0
                 )
             }
@@ -207,9 +207,9 @@ final class WorkspaceTests: XCTestCase {
             XCTAssert(rootManifests.count == 0, "\(rootManifests)")
 
             testDiagnostics(observability.diagnostics) { result in
-                var expectedMetadata = ObservabilityMetadata()
-                expectedMetadata.legacyDiagnosticLocation = .init(PackageLocation.Local(name: nil, packagePath: pkgDir))
-                result.check(diagnostic: .contains("An error in MyPkg"), severity: .error, metadata: expectedMetadata)
+                let diagnostic = result.check(diagnostic: .contains("An error in MyPkg"), severity: .error)
+                XCTAssertEqual(diagnostic?.metadata?.packageIdentity, .init(path: pkgDir))
+                XCTAssertEqual(diagnostic?.metadata?.packageKind, .root(pkgDir))
             }
         }
     }
@@ -2107,41 +2107,29 @@ final class WorkspaceTests: XCTestCase {
 
         workspace.checkPackageGraphFailure(roots: ["Bar"]) { diagnostics in
             testDiagnostics(diagnostics) { result in
-                // TODO: clean this up when migrating to new diagnostics API
-                var expectedMetadata = ObservabilityMetadata()
-                expectedMetadata.legacyDiagnosticLocation = .init(PackageLocation.Local(name: nil, packagePath: .init("/tmp/ws/roots/Bar")))
-
-                result.check(
+                let diagnostic = result.check(
                     diagnostic: .equal("package 'bar' is using Swift tools version 4.1.0 but the installed version is 4.0.0"),
-                    severity: .error,
-                    metadata: expectedMetadata
+                    severity: .error
                 )
+                XCTAssertEqual(diagnostic?.metadata?.packageIdentity, .plain("bar"))
             }
         }
         workspace.checkPackageGraphFailure(roots: ["Foo", "Bar"]) { diagnostics in
-            // TODO: clean this up when migrating to new diagnostics API
-            var expectedMetadata = ObservabilityMetadata()
-            expectedMetadata.legacyDiagnosticLocation = .init(PackageLocation.Local(name: nil, packagePath: .init("/tmp/ws/roots/Bar")))
-
             testDiagnostics(diagnostics) { result in
-                result.check(
+                let diagnostic = result.check(
                     diagnostic: .equal("package 'bar' is using Swift tools version 4.1.0 but the installed version is 4.0.0"),
-                    severity: .error,
-                    metadata: expectedMetadata
+                    severity: .error
                 )
+                XCTAssertEqual(diagnostic?.metadata?.packageIdentity, .plain("bar"))
             }
         }
         workspace.checkPackageGraphFailure(roots: ["Baz"]) { diagnostics in
             testDiagnostics(diagnostics) { result in
-                // TODO: clean this up when migrating to new diagnostics API
-                var expectedMetadata = ObservabilityMetadata()
-                expectedMetadata.legacyDiagnosticLocation = .init(PackageLocation.Local(name: nil, packagePath: .init("/tmp/ws/roots/Baz")))
-
-                result.check(
+                let diagnostic = result.check(
                     diagnostic: .equal("package 'baz' is using Swift tools version 3.1.0 which is no longer supported; consider using '// swift-tools-version:4.0' to specify the current tools version"),
-                    severity: .error,
-                    metadata: expectedMetadata
+                    severity: .error
                 )
+                XCTAssertEqual(diagnostic?.metadata?.packageIdentity, .plain("baz"))
             }
         }
     }
@@ -3890,7 +3878,7 @@ final class WorkspaceTests: XCTestCase {
             let manifest = try tsc_await {
                 workspace.loadRootManifest(
                     at: packagePath,
-                    diagnostics: observability.topScope.makeDiagnosticsEngine(),
+                    observabilityScope: observability.topScope,
                     completion: $0
                 )
             }
@@ -4078,18 +4066,16 @@ final class WorkspaceTests: XCTestCase {
         // We should only see errors about use of unsafe flag in the version-based dependency.
         try workspace.checkPackageGraph(roots: ["Foo", "Bar"]) { _, diagnostics in
             testDiagnostics(diagnostics) { result in
-                var expectedMetadata = ObservabilityMetadata()
-                expectedMetadata.targetName = "Foo"
-                result.checkUnordered(
+                let diagnostic1 = result.checkUnordered(
                     diagnostic: .equal("the target 'Baz' in product 'Baz' contains unsafe build flags"),
-                    severity: .error,
-                    metadata: expectedMetadata
+                    severity: .error
                 )
-                result.checkUnordered(
+                XCTAssertEqual(diagnostic1?.metadata?.targetName, "Foo")
+                let diagnostic2 = result.checkUnordered(
                     diagnostic: .equal("the target 'Bar' in product 'Baz' contains unsafe build flags"),
-                    severity: .error,
-                    metadata: expectedMetadata
+                    severity: .error
                 )
+                XCTAssertEqual(diagnostic2?.metadata?.targetName, "Foo")
             }
         }
     }
@@ -5072,9 +5058,7 @@ final class WorkspaceTests: XCTestCase {
             let binaryPath = sandbox.appending(component: "binary.zip")
             try fs.writeFileContents(binaryPath, bytes: ByteString([0xAA, 0xBB, 0xCC]))
 
-            let observability = ObservabilitySystem.makeForTesting()
-            let checksum = ws.checksum(forBinaryArtifactAt: binaryPath, diagnostics: observability.topScope.makeDiagnosticsEngine())
-            XCTAssertTrue(!observability.hasErrorDiagnostics, observability.diagnostics.description)
+            let checksum = try ws.checksum(forBinaryArtifactAt: binaryPath)
             XCTAssertEqual(workspace.checksumAlgorithm.hashes.map { $0.contents }, [[0xAA, 0xBB, 0xCC]])
             XCTAssertEqual(checksum, "ccbbaa")
         }
@@ -5082,24 +5066,16 @@ final class WorkspaceTests: XCTestCase {
         // Checks an unsupported extension.
         do {
             let unknownPath = sandbox.appending(component: "unknown")
-            let observability = ObservabilitySystem.makeForTesting()
-            let checksum = ws.checksum(forBinaryArtifactAt: unknownPath, diagnostics: observability.topScope.makeDiagnosticsEngine())
-            XCTAssertEqual(checksum, "")
-            testDiagnostics(observability.diagnostics) { result in
-                let expectedDiagnostic = "unexpected file type; supported extensions are: zip"
-                result.check(diagnostic: .contains(expectedDiagnostic), severity: .error)
+            XCTAssertThrowsError(try ws.checksum(forBinaryArtifactAt: unknownPath), "error expected") { error in
+                XCTAssertEqual(error as? StringError, StringError("unexpected file type; supported extensions are: zip"))
             }
         }
 
         // Checks a supported extension that is not a file (does not exist).
         do {
             let unknownPath = sandbox.appending(component: "missingFile.zip")
-            let observability = ObservabilitySystem.makeForTesting()
-            let checksum = ws.checksum(forBinaryArtifactAt: unknownPath, diagnostics: observability.topScope.makeDiagnosticsEngine())
-            XCTAssertEqual(checksum, "")
-            testDiagnostics(observability.diagnostics) { result in
-                result.check(diagnostic: .contains("file not found at path: /tmp/ws/missingFile.zip"),
-                             severity: .error)
+            XCTAssertThrowsError(try ws.checksum(forBinaryArtifactAt: unknownPath), "error expected") { error in
+                XCTAssertEqual(error as? StringError, StringError("file not found at path: /tmp/ws/missingFile.zip"))
             }
         }
 
@@ -5107,13 +5083,8 @@ final class WorkspaceTests: XCTestCase {
         do {
             let unknownPath = sandbox.appending(component: "aDirectory.zip")
             try fs.createDirectory(unknownPath)
-
-            let observability = ObservabilitySystem.makeForTesting()
-            let checksum = ws.checksum(forBinaryArtifactAt: unknownPath, diagnostics: observability.topScope.makeDiagnosticsEngine())
-            XCTAssertEqual(checksum, "")
-            testDiagnostics(observability.diagnostics) { result in
-                result.check(diagnostic: .contains("file not found at path: /tmp/ws/aDirectory.zip"),
-                             severity: .error)
+            XCTAssertThrowsError(try ws.checksum(forBinaryArtifactAt: unknownPath), "error expected") { error in
+                XCTAssertEqual(error as? StringError, StringError("file not found at path: /tmp/ws/aDirectory.zip"))
             }
         }
     }
@@ -6917,8 +6888,7 @@ final class WorkspaceTests: XCTestCase {
             testDiagnostics(diagnostics) { result in
                 result.check(
                     diagnostic: "'root' dependency on '/tmp/ws/pkgs/bar/utility' conflicts with dependency on '/tmp/ws/pkgs/foo/utility' which has the same identity 'utility'",
-                    severity: .error,
-                    metadata: .packageMetadata(identity: .plain("root"), location: "/tmp/ws/roots/Root", path: .init("/tmp/ws/roots/Root"))
+                    severity: .error
                 )
             }
         }
@@ -6979,8 +6949,7 @@ final class WorkspaceTests: XCTestCase {
             testDiagnostics(diagnostics) { result in
                 result.check(
                     diagnostic: "'root' dependency on '/tmp/ws/pkgs/bar/utility' conflicts with dependency on '/tmp/ws/pkgs/foo/utility' which has the same identity 'utility'",
-                    severity: .error,
-                    metadata: .packageMetadata(identity: .plain("root"), location: "/tmp/ws/roots/Root", path: .init("/tmp/ws/roots/Root"))
+                    severity: .error
                 )
             }
         }
@@ -7041,8 +7010,7 @@ final class WorkspaceTests: XCTestCase {
             testDiagnostics(diagnostics) { result in
                 result.check(
                     diagnostic: "'root' dependency on '/tmp/ws/pkgs/bar' conflicts with dependency on '/tmp/ws/pkgs/foo' which has the same explicit name 'FooPackage'",
-                    severity: .error,
-                    metadata: .packageMetadata(identity: .plain("root"), location: "/tmp/ws/roots/Root", path: .init("/tmp/ws/roots/Root"))
+                    severity: .error
                 )
             }
         }
@@ -7267,13 +7235,11 @@ final class WorkspaceTests: XCTestCase {
             testDiagnostics(diagnostics) { result in
                 result.check(
                     diagnostic: "dependency 'FooProduct' in target 'RootTarget' requires explicit declaration; reference the package in the target dependency with '.product(name: \"FooProduct\", package: \"foo\")'",
-                    severity: .error,
-                    metadata: .packageMetadata(identity: .plain("root"), location: "/tmp/ws/roots/Root", path: .init("/tmp/ws/roots/Root"))
+                    severity: .error
                 )
                 result.check(
                     diagnostic: "dependency 'BarProduct' in target 'RootTarget' requires explicit declaration; reference the package in the target dependency with '.product(name: \"BarProduct\", package: \"bar\")'",
-                    severity: .error,
-                    metadata: .packageMetadata(identity: .plain("root"), location: "/tmp/ws/roots/Root", path: .init("/tmp/ws/roots/Root"))
+                    severity: .error
                 )
             }
         }
@@ -7388,8 +7354,7 @@ final class WorkspaceTests: XCTestCase {
             testDiagnostics(diagnostics) { result in
                 result.check(
                     diagnostic: "'root' dependency on '/tmp/ws/pkgs/bar' conflicts with dependency on '/tmp/ws/pkgs/foo' which has the same explicit name 'foo'",
-                    severity: .error,
-                    metadata: .packageMetadata(identity: .plain("root"), location: "/tmp/ws/roots/Root", path: .init("/tmp/ws/roots/Root"))
+                    severity: .error
                 )
             }
         }
@@ -7449,8 +7414,7 @@ final class WorkspaceTests: XCTestCase {
             testDiagnostics(diagnostics) { result in
                 result.check(
                     diagnostic: "'root' dependency on '/tmp/ws/pkgs/bar' conflicts with dependency on '/tmp/ws/pkgs/foo' which has the same explicit name 'foo'",
-                    severity: .error,
-                    metadata: .packageMetadata(identity: .plain("root"), location: "/tmp/ws/roots/Root", path: .init("/tmp/ws/roots/Root"))
+                    severity: .error
                 )
             }
         }
@@ -7527,8 +7491,7 @@ final class WorkspaceTests: XCTestCase {
             testDiagnostics(diagnostics) { result in
                 result.check(
                     diagnostic: "'bar' dependency on '/tmp/ws/pkgs/other/utility' conflicts with dependency on '/tmp/ws/pkgs/foo/utility' which has the same identity 'utility'",
-                    severity: .error,
-                    metadata: .packageMetadata(identity: .plain("bar"), location: "/tmp/ws/pkgs/bar", path: .init("/tmp/ws/pkgs/bar"))
+                    severity: .error
                 )
             }
         }
@@ -7607,15 +7570,13 @@ final class WorkspaceTests: XCTestCase {
             testDiagnostics(diagnostics) { result in
                 result.check(
                     diagnostic: "'bar' dependency on '/tmp/ws/pkgs/other-foo/utility' conflicts with dependency on '/tmp/ws/pkgs/foo/utility' which has the same identity 'utility'. this will be escalated to an error in future versions of SwiftPM.",
-                    severity: .warning,
-                    metadata: .packageMetadata(identity: .plain("bar"), location: "/tmp/ws/pkgs/bar", path: .init("/tmp/ws/pkgs/bar"))
+                    severity: .warning
                 )
                 // FIXME: rdar://72940946
                 // we need to improve this situation or diagnostics when working on identity
                 result.check(
                     diagnostic: "product 'OtherUtilityProduct' required by package 'bar' target 'BarTarget' not found in package 'utility'.",
-                    severity: .error,
-                    metadata: .packageMetadata(identity: .plain("bar"), location: "/tmp/ws/pkgs/bar", path: .init("/tmp/ws/pkgs/bar"))
+                    severity: .error
                 )
             }
         }
@@ -7982,8 +7943,7 @@ final class WorkspaceTests: XCTestCase {
             testDiagnostics(diagnostics) { result in
                 result.check(
                     diagnostic: "'bar' dependency on 'https://github.com/foo-moved/foo.git' conflicts with dependency on 'https://github.com/foo/foo.git' which has the same identity 'foo'. this will be escalated to an error in future versions of SwiftPM.",
-                    severity: .warning,
-                    metadata: .packageMetadata(identity: .plain("bar"), location: "/tmp/ws/pkgs/bar", path: .init("/tmp/ws/pkgs/bar"))
+                    severity: .warning
                 )
             }
         }
@@ -8223,8 +8183,10 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testBinaryArtifactsInvalidPath() throws {
-        let fs = localFileSystem
         try testWithTemporaryDirectory { path in
+            let fs = localFileSystem
+            let observability = ObservabilitySystem.makeForTesting()
+
             let foo = path.appending(component: "foo")
 
             try fs.writeFileContents(foo.appending(component: "Package.swift")) {
@@ -8251,8 +8213,7 @@ final class WorkspaceTests: XCTestCase {
             )
 
             do {
-                let diagnostics = DiagnosticsEngine()
-                try workspace.resolve(root: .init(packages: [foo]), diagnostics: diagnostics)
+                try workspace.resolve(root: .init(packages: [foo]), observabilityScope: observability.topScope)
             } catch {
                 XCTAssertEqual(error.localizedDescription, "invalid relative path '/best.xcframework'; relative path should not begin with '/' or '~'")
                 return
@@ -8279,7 +8240,7 @@ final class WorkspaceTests: XCTestCase {
                 toolsVersion: ToolsVersion,
                 identityResolver: IdentityResolver,
                 fileSystem: FileSystem,
-                diagnostics: DiagnosticsEngine?,
+                observabilityScope: ObservabilityScope,
                 on queue: DispatchQueue,
                 completion: @escaping (Result<Manifest, Error>) -> Void
             ) {
@@ -8349,7 +8310,7 @@ final class WorkspaceTests: XCTestCase {
 
             XCTAssertNil(delegate.manifest)
             XCTAssertEqual(delegate.manifestLoadingDiagnostics?.count, 1)
-            XCTAssertEqual(delegate.manifestLoadingDiagnostics?.first?.message.text, "boom")
+            XCTAssertEqual(delegate.manifestLoadingDiagnostics?.first?.message, "boom")
         }
     }
 }

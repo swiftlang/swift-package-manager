@@ -54,7 +54,7 @@ public final class RegistryManager {
 
     public func fetchVersions(
         of package: PackageReference,
-        observabilityScope: ObservabilityScope?,
+        observabilityScope: ObservabilityScope,
         on queue: DispatchQueue,
         completion: @escaping (Result<[Version], Error>) -> Void
     ) {
@@ -109,7 +109,7 @@ public final class RegistryManager {
         using manifestLoader: ManifestLoaderProtocol,
         toolsVersion: ToolsVersion = .currentToolsVersion,
         swiftLanguageVersion: SwiftLanguageVersion? = nil,
-        observabilityScope: ObservabilityScope?,
+        observabilityScope: ObservabilityScope,
         on queue: DispatchQueue,
         completion: @escaping (Result<Manifest, Error>) -> Void
     ) {
@@ -173,7 +173,7 @@ public final class RegistryManager {
                         toolsVersion: .currentToolsVersion,
                         identityResolver: self.identityResolver,
                         fileSystem: fileSystem,
-                        diagnostics: observabilityScope?.makeDiagnosticsEngine(),
+                        observabilityScope: observabilityScope,
                         on: .sharedConcurrent,
                         completion: completion
                     )
@@ -194,7 +194,7 @@ public final class RegistryManager {
         into fileSystem: FileSystem,
         at destinationPath: AbsolutePath,
         expectedChecksum: ByteString? = nil,
-        observabilityScope: ObservabilityScope?,
+        observabilityScope: ObservabilityScope,
         on queue: DispatchQueue,
         completion: @escaping (Result<Void, Error>) -> Void
     ) {

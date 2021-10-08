@@ -8,19 +8,19 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import TSCBasic
-import TSCUtility
-import class PackageModel.Manifest
+import Basics
 import Foundation
-
 #if canImport(FoundationXML)
 import FoundationXML
 #endif
+import class PackageModel.Manifest
+import TSCBasic
+import TSCUtility
 
 /// A bare minimum loader for Xcode workspaces.
 ///
 /// Warning: This is only useful for debugging workspaces that contain Swift packages.
-public final class XcodeWorkspaceLoader {
+public struct XcodeWorkspaceLoader {
 
     /// The parsed location.
     private struct Location {
@@ -34,21 +34,20 @@ public final class XcodeWorkspaceLoader {
         var path: String
     }
 
-    let diagnostics: DiagnosticsEngine
+    private let fileSystem: FileSystem
+    private let observabilityScope: ObservabilityScope
 
-    let fs: FileSystem
-
-    public init(diagnostics: DiagnosticsEngine, fs: FileSystem = localFileSystem) {
-        self.diagnostics = diagnostics
-        self.fs = fs
+    public init(fileSystem: FileSystem, observabilityScope: ObservabilityScope) {
+        self.fileSystem = fileSystem
+        self.observabilityScope = observabilityScope
     }
 
     /// Load the given workspace and return the file ref paths from it.
     public func load(workspace: AbsolutePath) throws -> [AbsolutePath] {
         let path = workspace.appending(component: "contents.xcworkspacedata")
-        let contents = try Data(fs.readFileContents(path).contents)
+        let contents = try Data(self.fileSystem.readFileContents(path).contents)
 
-        let delegate = ParserDelegate(diagnostics: diagnostics)
+        let delegate = ParserDelegate(observabilityScope: self.observabilityScope)
         let parser = XMLParser(data: contents)
         parser.delegate = delegate
         if !parser.parse() {
@@ -67,10 +66,10 @@ public final class XcodeWorkspaceLoader {
                 path = AbsolutePath(location.path, relativeTo: workspace.parentDirectory)
             }
 
-            if fs.exists(path.appending(component: Manifest.filename)) {
+            if self.fileSystem.exists(path.appending(component: Manifest.filename)) {
                 result.append(path)
             } else {
-                diagnostics.emit(warning: "ignoring non-package fileref \(path)")
+                self.observabilityScope.emit(warning: "ignoring non-package fileref \(path)")
             }
         }
         return result
@@ -80,10 +79,10 @@ public final class XcodeWorkspaceLoader {
     private class ParserDelegate: NSObject, XMLParserDelegate {
         var locations: [Location] = []
 
-        let diagnostics: DiagnosticsEngine
+        let observabilityScope: ObservabilityScope
 
-        init(diagnostics: DiagnosticsEngine) {
-            self.diagnostics = diagnostics
+        init(observabilityScope: ObservabilityScope) {
+            self.observabilityScope = observabilityScope
         }
 
         func parser(
@@ -98,11 +97,11 @@ public final class XcodeWorkspaceLoader {
 
             let splitted = location.split(separator: ":", maxSplits: 1, omittingEmptySubsequences: false).map(String.init)
             guard splitted.count == 2 else {
-                diagnostics.emit(warning: "location split count is not two: \(splitted)")
+                self.observabilityScope.emit(warning: "location split count is not two: \(splitted)")
                 return
             }
             guard let kind = Location.Kind(rawValue: splitted[0]) else {
-                diagnostics.emit(warning: "unknown kind \(splitted[0]) for location \(location)")
+                self.observabilityScope.emit(warning: "unknown kind \(splitted[0]) for location \(location)")
                 return
             }
 

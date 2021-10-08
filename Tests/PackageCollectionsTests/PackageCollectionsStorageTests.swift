@@ -8,9 +8,11 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
+import Basics
 @testable import PackageCollections
 import TSCBasic
 import TSCTestSupport
+import TSCUtility
 import XCTest
 
 class PackageCollectionsStorageTests: XCTestCase {
@@ -239,5 +241,14 @@ class PackageCollectionsStorageTests: XCTestCase {
                 XCTAssertEqual(false, storage2.useSearchIndices.get(), "populateTargetTrie should fail only if FTS is not available")
             }
         }
+    }
+}
+
+extension SQLitePackageCollectionsStorage {
+    convenience init(location: SQLite.Location? = nil, configuration: Configuration = .init()) {
+        self.init(location: location, configuration: configuration, observabilityScope: ObservabilitySystem.NOOP)
+    }
+    convenience init(path: AbsolutePath) {
+        self.init(location: .path(path), observabilityScope: ObservabilitySystem.NOOP)
     }
 }

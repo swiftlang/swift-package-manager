@@ -241,7 +241,7 @@ public struct SwiftAPIDigester {
 }
 
 extension SwiftAPIDigester {
-    public enum Error: Swift.Error, DiagnosticData {
+    public enum Error: Swift.Error, CustomStringConvertible {
         case failedToGenerateBaseline(String)
 
         public var description: String {

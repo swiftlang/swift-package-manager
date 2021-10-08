@@ -22,23 +22,25 @@ class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
     }
 
     func testTrivial() throws {
-        let manifest = """
+        let content = """
             import PackageDescription
             let package = Package(
                 name: "Trivial"
             )
             """
 
-        loadManifest(manifest) { manifest in
-            XCTAssertEqual(manifest.name, "Trivial")
-            XCTAssertEqual(manifest.toolsVersion, .v4)
-            XCTAssertEqual(manifest.targets, [])
-            XCTAssertEqual(manifest.dependencies, [])
-        }
+        let observability = ObservabilitySystem.makeForTesting()
+        let manifest = try loadManifest(content, observabilityScope: observability.topScope)
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        XCTAssertEqual(manifest.name, "Trivial")
+        XCTAssertEqual(manifest.toolsVersion, .v4)
+        XCTAssertEqual(manifest.targets, [])
+        XCTAssertEqual(manifest.dependencies, [])
     }
 
     func testTargetDependencies() throws {
-        let manifest = """
+        let content = """
             import PackageDescription
             let package = Package(
                 name: "Trivial",
@@ -56,63 +58,74 @@ class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
             )
             """
 
-        loadManifest(manifest) { manifest in
-            XCTAssertEqual(manifest.name, "Trivial")
-            let foo = manifest.targetMap["foo"]!
-            XCTAssertEqual(foo.name, "foo")
-            XCTAssertFalse(foo.isTest)
+        let observability = ObservabilitySystem.makeForTesting()
+        let manifest = try loadManifest(content, observabilityScope: observability.topScope)
+        XCTAssertNoDiagnostics(observability.diagnostics)
 
-            let expectedDependencies: [TargetDescription.Dependency]
-            expectedDependencies = [
-                "dep1",
-                .target(name: "dep2"),
-                .product(name: "dep3", package: "Pkg"),
-                .product(name: "dep4"),
-            ]
-            XCTAssertEqual(foo.dependencies, expectedDependencies)
+        XCTAssertEqual(manifest.name, "Trivial")
+        let foo = manifest.targetMap["foo"]!
+        XCTAssertEqual(foo.name, "foo")
+        XCTAssertFalse(foo.isTest)
 
-            let bar = manifest.targetMap["bar"]!
-            XCTAssertEqual(bar.name, "bar")
-            XCTAssertTrue(bar.isTest)
-            XCTAssertEqual(bar.dependencies, ["foo"])
-        }
+        let expectedDependencies: [TargetDescription.Dependency]
+        expectedDependencies = [
+            "dep1",
+            .target(name: "dep2"),
+            .product(name: "dep3", package: "Pkg"),
+            .product(name: "dep4"),
+        ]
+        XCTAssertEqual(foo.dependencies, expectedDependencies)
+
+        let bar = manifest.targetMap["bar"]!
+        XCTAssertEqual(bar.name, "bar")
+        XCTAssertTrue(bar.isTest)
+        XCTAssertEqual(bar.dependencies, ["foo"])
     }
 
     func testCompatibleSwiftVersions() throws {
-        var manifest = """
-            import PackageDescription
-            let package = Package(
-               name: "Foo",
-               swiftLanguageVersions: [3, 4]
-            )
-            """
-        loadManifest(manifest) { manifest in
+        do {
+            let content = """
+                import PackageDescription
+                let package = Package(
+                   name: "Foo",
+                   swiftLanguageVersions: [3, 4]
+                )
+                """
+            let observability = ObservabilitySystem.makeForTesting()
+            let manifest = try loadManifest(content, observabilityScope: observability.topScope)
+            XCTAssertNoDiagnostics(observability.diagnostics)
             XCTAssertEqual(manifest.swiftLanguageVersions?.map({$0.rawValue}), ["3", "4"])
         }
 
-        manifest = """
-            import PackageDescription
-            let package = Package(
-               name: "Foo",
-               swiftLanguageVersions: []
-            )
-            """
-        loadManifest(manifest) { manifest in
+        do {
+            let content = """
+                import PackageDescription
+                let package = Package(
+                   name: "Foo",
+                   swiftLanguageVersions: []
+                )
+                """
+            let observability = ObservabilitySystem.makeForTesting()
+            let manifest = try loadManifest(content, observabilityScope: observability.topScope)
+            XCTAssertNoDiagnostics(observability.diagnostics)
             XCTAssertEqual(manifest.swiftLanguageVersions, [])
         }
 
-        manifest = """
-            import PackageDescription
-            let package = Package(
-               name: "Foo")
-            """
-        loadManifest(manifest) { manifest in
+        do {
+            let content = """
+                import PackageDescription
+                let package = Package(
+                   name: "Foo")
+                """
+            let observability = ObservabilitySystem.makeForTesting()
+            let manifest = try loadManifest(content, observabilityScope: observability.topScope)
+            XCTAssertNoDiagnostics(observability.diagnostics)
             XCTAssertEqual(manifest.swiftLanguageVersions, nil)
         }
     }
 
     func testPackageDependencies() throws {
-        let manifest = """
+        let content = """
             import PackageDescription
             let package = Package(
                name: "Foo",
@@ -126,19 +139,22 @@ class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
                ]
             )
             """
-        loadManifest(manifest, toolsVersion: ToolsVersion(string: "5.5")) { manifest in
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let manifest = try loadManifest(content, observabilityScope: observability.topScope)
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
         let deps = Dictionary(uniqueKeysWithValues: manifest.dependencies.map{ ($0.identity.description, $0) })
-            XCTAssertEqual(deps["foo1"], .localSourceControl(path: .init("/foo1"), requirement: .upToNextMajor(from: "1.0.0")))
-            XCTAssertEqual(deps["foo2"], .localSourceControl(path: .init("/foo2"), requirement: .upToNextMajor(from: "1.0.0")))
-            XCTAssertEqual(deps["foo3"], .localSourceControl(path: .init("/foo3"), requirement: .upToNextMinor(from: "1.0.0")))
-            XCTAssertEqual(deps["foo4"], .localSourceControl(path: .init("/foo4"), requirement: .exact("1.0.0")))
-            XCTAssertEqual(deps["foo5"], .localSourceControl(path: .init("/foo5"), requirement: .branch("main")))
-            XCTAssertEqual(deps["foo6"], .localSourceControl(path: .init("/foo6"), requirement: .revision("58e9de4e7b79e67c72a46e164158e3542e570ab6")))
-        }
+        XCTAssertEqual(deps["foo1"], .localSourceControl(path: .init("/foo1"), requirement: .upToNextMajor(from: "1.0.0")))
+        XCTAssertEqual(deps["foo2"], .localSourceControl(path: .init("/foo2"), requirement: .upToNextMajor(from: "1.0.0")))
+        XCTAssertEqual(deps["foo3"], .localSourceControl(path: .init("/foo3"), requirement: .upToNextMinor(from: "1.0.0")))
+        XCTAssertEqual(deps["foo4"], .localSourceControl(path: .init("/foo4"), requirement: .exact("1.0.0")))
+        XCTAssertEqual(deps["foo5"], .localSourceControl(path: .init("/foo5"), requirement: .branch("main")))
+        XCTAssertEqual(deps["foo6"], .localSourceControl(path: .init("/foo6"), requirement: .revision("58e9de4e7b79e67c72a46e164158e3542e570ab6")))
     }
 
     func testProducts() throws {
-        let manifest = """
+        let content = """
             import PackageDescription
             let package = Package(
                 name: "Foo",
@@ -153,28 +169,31 @@ class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
                 ]
             )
             """
-        loadManifest(manifest) { manifest in
-            let products = Dictionary(uniqueKeysWithValues: manifest.products.map{ ($0.name, $0) })
-            // Check tool.
-            let tool = products["tool"]!
-            XCTAssertEqual(tool.name, "tool")
-            XCTAssertEqual(tool.targets, ["tool"])
-            XCTAssertEqual(tool.type, .executable)
-            // Check Foo.
-            let foo = products["Foo"]!
-            XCTAssertEqual(foo.name, "Foo")
-            XCTAssertEqual(foo.type, .library(.automatic))
-            XCTAssertEqual(foo.targets, ["Foo"])
-            // Check FooDy.
-            let fooDy = products["FooDy"]!
-            XCTAssertEqual(fooDy.name, "FooDy")
-            XCTAssertEqual(fooDy.type, .library(.dynamic))
-            XCTAssertEqual(fooDy.targets, ["Foo"])
-        }
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let manifest = try loadManifest(content, observabilityScope: observability.topScope)
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        let products = Dictionary(uniqueKeysWithValues: manifest.products.map{ ($0.name, $0) })
+        // Check tool.
+        let tool = products["tool"]!
+        XCTAssertEqual(tool.name, "tool")
+        XCTAssertEqual(tool.targets, ["tool"])
+        XCTAssertEqual(tool.type, .executable)
+        // Check Foo.
+        let foo = products["Foo"]!
+        XCTAssertEqual(foo.name, "Foo")
+        XCTAssertEqual(foo.type, .library(.automatic))
+        XCTAssertEqual(foo.targets, ["Foo"])
+        // Check FooDy.
+        let fooDy = products["FooDy"]!
+        XCTAssertEqual(fooDy.name, "FooDy")
+        XCTAssertEqual(fooDy.type, .library(.dynamic))
+        XCTAssertEqual(fooDy.targets, ["Foo"])
     }
 
     func testSystemPackage() throws {
-        let manifest = """
+        let content = """
             import PackageDescription
             let package = Package(
                name: "Copenssl",
@@ -185,18 +204,21 @@ class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
                ]
             )
             """
-        loadManifest(manifest) { manifest in
-            XCTAssertEqual(manifest.name, "Copenssl")
-            XCTAssertEqual(manifest.pkgConfig, "openssl")
-            XCTAssertEqual(manifest.providers, [
-                .brew(["openssl"]),
-                .apt(["openssl", "libssl-dev"]),
-            ])
-        }
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let manifest = try loadManifest(content, observabilityScope: observability.topScope)
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        XCTAssertEqual(manifest.name, "Copenssl")
+        XCTAssertEqual(manifest.pkgConfig, "openssl")
+        XCTAssertEqual(manifest.providers, [
+            .brew(["openssl"]),
+            .apt(["openssl", "libssl-dev"]),
+        ])
     }
 
     func testCTarget() throws {
-        let manifest = """
+        let content = """
             import PackageDescription
             let package = Package(
                name: "libyaml",
@@ -209,17 +231,20 @@ class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
                ]
             )
             """
-        loadManifest(manifest) { manifest in
-            let foo = manifest.targetMap["Foo"]!
-            XCTAssertEqual(foo.publicHeadersPath, "inc")
 
-            let bar = manifest.targetMap["Bar"]!
-            XCTAssertEqual(bar.publicHeadersPath, nil)
-        }
+        let observability = ObservabilitySystem.makeForTesting()
+        let manifest = try loadManifest(content, observabilityScope: observability.topScope)
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        let foo = manifest.targetMap["Foo"]!
+        XCTAssertEqual(foo.publicHeadersPath, "inc")
+
+        let bar = manifest.targetMap["Bar"]!
+        XCTAssertEqual(bar.publicHeadersPath, nil)
     }
 
     func testTargetProperties() throws {
-        let manifest = """
+        let content = """
             import PackageDescription
             let package = Package(
                name: "libyaml",
@@ -235,23 +260,26 @@ class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
                ]
             )
             """
-        loadManifest(manifest) { manifest in
-            let foo = manifest.targetMap["Foo"]!
-            XCTAssertEqual(foo.publicHeadersPath, "inc")
-            XCTAssertEqual(foo.path, "foo/z")
-            XCTAssertEqual(foo.exclude, ["bar"])
-            XCTAssertEqual(foo.sources ?? [], ["bar.swift"])
 
-            let bar = manifest.targetMap["Bar"]!
-            XCTAssertEqual(bar.publicHeadersPath, nil)
-            XCTAssertEqual(bar.path, nil)
-            XCTAssertEqual(bar.exclude, [])
-            XCTAssert(bar.sources == nil)
-        }
+        let observability = ObservabilitySystem.makeForTesting()
+        let manifest = try loadManifest(content, observabilityScope: observability.topScope)
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        let foo = manifest.targetMap["Foo"]!
+        XCTAssertEqual(foo.publicHeadersPath, "inc")
+        XCTAssertEqual(foo.path, "foo/z")
+        XCTAssertEqual(foo.exclude, ["bar"])
+        XCTAssertEqual(foo.sources ?? [], ["bar.swift"])
+
+        let bar = manifest.targetMap["Bar"]!
+        XCTAssertEqual(bar.publicHeadersPath, nil)
+        XCTAssertEqual(bar.path, nil)
+        XCTAssertEqual(bar.exclude, [])
+        XCTAssert(bar.sources == nil)
     }
 
     func testUnavailableAPIs() throws {
-        let manifest = """
+        let content = """
             import PackageDescription
             let package = Package(
                name: "Foo",
@@ -263,20 +291,20 @@ class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
                ]
             )
             """
-        do {
-            try loadManifestThrowing(manifest) { manifest in
-                XCTFail("this package should not load successfully")
+
+        let observability = ObservabilitySystem.makeForTesting()
+        XCTAssertThrowsError(try loadManifest(content, observabilityScope: observability.topScope), "expected error") { error in
+            if case ManifestParseError.invalidManifestFormat(let error, _) = error {
+                XCTAssert(error.contains("error: 'package(url:version:)' is unavailable: use package(url:exact:) instead\n"), "\(error)")
+                XCTAssert(error.contains("error: 'package(url:range:)' is unavailable: use package(url:_:) instead\n"), "\(error)")
+            } else {
+                XCTFail("unexpected error: \(error)")
             }
-            XCTFail("this package should not load successfully")
-        } catch ManifestParseError.invalidManifestFormat(let error, _) {
-            XCTAssert(error.contains("error: 'package(url:version:)' is unavailable: use package(url:exact:) instead\n"), "\(error)")
-            XCTAssert(error.contains("error: 'package(url:range:)' is unavailable: use package(url:_:) instead\n"), "\(error)")
         }
     }
 
     func testLanguageStandards() throws {
-        let stream = BufferedOutputByteStream()
-        stream <<< """
+        let content = """
             import PackageDescription
             let package = Package(
                 name: "testPackage",
@@ -287,19 +315,21 @@ class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
                 cxxLanguageStandard: .gnucxx14
             )
         """
-        loadManifest(stream.bytes) { manifest in
-            XCTAssertEqual(manifest.name, "testPackage")
-            XCTAssertEqual(manifest.cLanguageStandard, "iso9899:199409")
-            XCTAssertEqual(manifest.cxxLanguageStandard, "gnu++14")
-        }
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let manifest = try loadManifest(content, observabilityScope: observability.topScope)
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        XCTAssertEqual(manifest.name, "testPackage")
+        XCTAssertEqual(manifest.cLanguageStandard, "iso9899:199409")
+        XCTAssertEqual(manifest.cxxLanguageStandard, "gnu++14")
     }
 
     func testManifestWithWarnings() throws {
         let fs = InMemoryFileSystem()
         let manifestPath = AbsolutePath.root.appending(component: Manifest.filename)
-        let stream = BufferedOutputByteStream()
 
-        stream <<< """
+        let content = """
             import PackageDescription
             func foo() {
                 let a = 5
@@ -309,7 +339,7 @@ class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
             )
             """
 
-        try fs.writeFileContents(manifestPath, bytes: stream.bytes)
+        try fs.writeFileContents(manifestPath, string: content)
 
         let observability = ObservabilitySystem.makeForTesting()
         let manifest = try manifestLoader.load(
@@ -317,7 +347,7 @@ class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
             packageKind: .root(.root),
             toolsVersion: .v4,
             fileSystem: fs,
-            diagnostics: observability.topScope.makeDiagnosticsEngine()
+            observabilityScope: observability.topScope
         )
 
         XCTAssertEqual(manifest.name, "Trivial")
@@ -331,7 +361,7 @@ class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
     }
 
     func testDuplicateTargets() throws {
-        let manifest = """
+        let content = """
             import PackageDescription
 
             let package = Package(
@@ -345,14 +375,16 @@ class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
             )
             """
 
-        XCTAssertManifestLoadThrows(manifest) { _, diagnotics in
-            diagnotics.checkUnordered(diagnostic: "duplicate target named 'A'", severity: .error)
-            diagnotics.checkUnordered(diagnostic: "duplicate target named 'B'", severity: .error)
+        let observability = ObservabilitySystem.makeForTesting()
+        XCTAssertThrowsError(try loadManifest(content, observabilityScope: observability.topScope), "expected error")
+        testDiagnostics(observability.diagnostics) { result in
+            result.checkUnordered(diagnostic: "duplicate target named 'A'", severity: .error)
+            result.checkUnordered(diagnostic: "duplicate target named 'B'", severity: .error)
         }
     }
 
     func testEmptyProductTargets() throws {
-        let manifest = """
+        let content = """
             import PackageDescription
 
             let package = Package(
@@ -366,13 +398,15 @@ class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
             )
             """
 
-        XCTAssertManifestLoadThrows(manifest) { _, diagnostics in
-            diagnostics.check(diagnostic: "product 'Product' doesn't reference any targets", severity: .error)
+        let observability = ObservabilitySystem.makeForTesting()
+        XCTAssertThrowsError(try loadManifest(content, observabilityScope: observability.topScope), "expected error")
+        testDiagnostics(observability.diagnostics) { result in
+            result.check(diagnostic: "product 'Product' doesn't reference any targets", severity: .error)
         }
     }
 
     func testProductTargetNotFound() throws {
-        let manifest = """
+        let content = """
             import PackageDescription
 
             let package = Package(
@@ -386,8 +420,10 @@ class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
             )
             """
 
-        XCTAssertManifestLoadThrows(manifest) { _, diagnostics in
-            diagnostics.check(diagnostic: "target 'B' referenced in product 'Product' could not be found; valid targets are: 'A'", severity: .error)
+        let observability = ObservabilitySystem.makeForTesting()
+        XCTAssertThrowsError(try loadManifest(content, observabilityScope: observability.topScope), "expected error")
+        testDiagnostics(observability.diagnostics) { result in
+            result.check(diagnostic: "target 'B' referenced in product 'Product' could not be found; valid targets are: 'A'", severity: .error)
         }
     }
 }

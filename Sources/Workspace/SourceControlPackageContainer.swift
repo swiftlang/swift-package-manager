@@ -58,6 +58,7 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
     private let manifestLoader: ManifestLoaderProtocol
     private let toolsVersionLoader: ToolsVersionLoaderProtocol
     private let currentToolsVersion: ToolsVersion
+    private let observabilityScope: ObservabilityScope
 
     /// The cached dependency information.
     private var dependenciesCache = [String: [ProductFilter: (Manifest, [Constraint])]] ()
@@ -78,7 +79,8 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
         repository: Repository,
         manifestLoader: ManifestLoaderProtocol,
         toolsVersionLoader: ToolsVersionLoaderProtocol,
-        currentToolsVersion: ToolsVersion
+        currentToolsVersion: ToolsVersion,
+        observabilityScope: ObservabilityScope
     ) throws {
         self.package = package
         self.identityResolver = identityResolver
@@ -87,6 +89,7 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
         self.manifestLoader = manifestLoader
         self.toolsVersionLoader = toolsVersionLoader
         self.currentToolsVersion = currentToolsVersion
+        self.observabilityScope = observabilityScope
     }
 
     // Compute the map of known versions.
@@ -337,7 +340,7 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
                                      toolsVersion: toolsVersion,
                                      identityResolver: self.identityResolver,
                                      fileSystem: fileSystem,
-                                     diagnostics: nil,
+                                     observabilityScope: self.observabilityScope,
                                      on: .sharedConcurrent,
                                      completion: $0)
         }

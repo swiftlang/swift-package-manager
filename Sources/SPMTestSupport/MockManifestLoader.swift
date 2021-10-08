@@ -57,7 +57,7 @@ public final class MockManifestLoader: ManifestLoaderProtocol {
         toolsVersion: ToolsVersion,
         identityResolver: IdentityResolver,
         fileSystem: FileSystem,
-        diagnostics: DiagnosticsEngine?,
+        observabilityScope: ObservabilityScope,
         on queue: DispatchQueue,
         completion: @escaping (Result<Manifest, Error>) -> Void
     ) {
@@ -82,7 +82,7 @@ extension ManifestLoader {
         toolsVersion: PackageModel.ToolsVersion,
         identityResolver: IdentityResolver = DefaultIdentityResolver(),
         fileSystem: TSCBasic.FileSystem,
-        diagnostics: TSCBasic.DiagnosticsEngine? = nil
+        observabilityScope: ObservabilityScope
     ) throws -> Manifest{
         let packageIdentity: PackageIdentity
         let packageLocation: String
@@ -105,18 +105,20 @@ extension ManifestLoader {
             packageLocation = identity.description
         }
         return try tsc_await {
-            self.load(at: path,
-                      packageIdentity: packageIdentity,
-                      packageKind: packageKind,
-                      packageLocation: packageLocation,
-                      version: nil,
-                      revision: nil,
-                      toolsVersion: toolsVersion,
-                      identityResolver: identityResolver,
-                      fileSystem: fileSystem,
-                      diagnostics: diagnostics,
-                      on: .sharedConcurrent,
-                      completion: $0)
+            self.load(
+                at: path,
+                packageIdentity: packageIdentity,
+                packageKind: packageKind,
+                packageLocation: packageLocation,
+                version: nil,
+                revision: nil,
+                toolsVersion: toolsVersion,
+                identityResolver: identityResolver,
+                fileSystem: fileSystem,
+                observabilityScope: observabilityScope,
+                on: .sharedConcurrent,
+                completion: $0
+            )
         }
     }
 }

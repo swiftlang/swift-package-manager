@@ -8,13 +8,13 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import XCTest
-
+import Basics
+import PackageLoading
+import PackageModel
+import SPMTestSupport
 import TSCBasic
 import TSCUtility
-import SPMTestSupport
-import PackageModel
-import PackageLoading
+import XCTest
 
 class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
     override var toolsVersion: ToolsVersion {
@@ -22,8 +22,7 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
     }
 
     func testMissingTargetProductDependencyPackage() throws {
-        let stream = BufferedOutputByteStream()
-        stream <<< """
+        let content = """
             import PackageDescription
             let package = Package(
                 name: "Trivial",
@@ -39,17 +38,18 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
             )
             """
 
-        do {
-            try loadManifestThrowing(stream.bytes) { manifest in
-                return XCTFail("did not generate error")
+        let observability = ObservabilitySystem.makeForTesting()
+        XCTAssertThrowsError(try loadManifest(content, observabilityScope: observability.topScope), "expected error") { error in
+            if case ManifestParseError.invalidManifestFormat(let error, _) = error {
+                XCTAssert(error.contains("error: \'product(name:package:)\' is unavailable: the 'package' argument is mandatory as of tools version 5.2"))
+            } else {
+                XCTFail("unexpected error: \(error)")
             }
-        } catch ManifestParseError.invalidManifestFormat(let error, diagnosticFile: _) {
-            XCTAssert(error.contains("error: \'product(name:package:)\' is unavailable: the 'package' argument is mandatory as of tools version 5.2"))
         }
     }
 
     func testDependencyNameForTargetDependencyResolution() throws {
-        let manifest = """
+        let content = """
             import PackageDescription
             let package = Package(
                 name: "Trivial",
@@ -84,23 +84,25 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
             )
             """
 
-        loadManifest(manifest) { manifest in
-            XCTAssertEqual(manifest.name, "Trivial")
-            XCTAssertEqual(manifest.dependencies[0].nameForTargetDependencyResolutionOnly, "Foo")
-            XCTAssertEqual(manifest.dependencies[1].nameForTargetDependencyResolutionOnly, "Foo2")
-            XCTAssertEqual(manifest.dependencies[2].nameForTargetDependencyResolutionOnly, "Foo3")
-            XCTAssertEqual(manifest.dependencies[3].nameForTargetDependencyResolutionOnly, "Foo4")
-            XCTAssertEqual(manifest.dependencies[4].nameForTargetDependencyResolutionOnly, "Foo5")
-            XCTAssertEqual(manifest.dependencies[5].nameForTargetDependencyResolutionOnly, "bar")
-            XCTAssertEqual(manifest.dependencies[6].nameForTargetDependencyResolutionOnly, "Bar2")
-            XCTAssertEqual(manifest.dependencies[7].nameForTargetDependencyResolutionOnly, "Baz")
-            XCTAssertEqual(manifest.dependencies[8].nameForTargetDependencyResolutionOnly, "swift")
-        }
+        let observability = ObservabilitySystem.makeForTesting()
+        let manifest = try loadManifest(content, observabilityScope: observability.topScope)
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        XCTAssertEqual(manifest.name, "Trivial")
+        XCTAssertEqual(manifest.dependencies[0].nameForTargetDependencyResolutionOnly, "Foo")
+        XCTAssertEqual(manifest.dependencies[1].nameForTargetDependencyResolutionOnly, "Foo2")
+        XCTAssertEqual(manifest.dependencies[2].nameForTargetDependencyResolutionOnly, "Foo3")
+        XCTAssertEqual(manifest.dependencies[3].nameForTargetDependencyResolutionOnly, "Foo4")
+        XCTAssertEqual(manifest.dependencies[4].nameForTargetDependencyResolutionOnly, "Foo5")
+        XCTAssertEqual(manifest.dependencies[5].nameForTargetDependencyResolutionOnly, "bar")
+        XCTAssertEqual(manifest.dependencies[6].nameForTargetDependencyResolutionOnly, "Bar2")
+        XCTAssertEqual(manifest.dependencies[7].nameForTargetDependencyResolutionOnly, "Baz")
+        XCTAssertEqual(manifest.dependencies[8].nameForTargetDependencyResolutionOnly, "swift")
     }
 
     func testTargetDependencyProductInvalidPackage() throws {
         do {
-            let manifest = """
+            let content = """
                 import PackageDescription
                 let package = Package(
                     name: "Trivial",
@@ -120,14 +122,16 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
                 )
                 """
 
-            XCTAssertManifestLoadThrows(manifest, packageKind: .fileSystem(.root)) { _, diagnostics in
-                diagnostics.checkUnordered(diagnostic: "unknown package 'foo1' in dependencies of target 'Target1'; valid packages are: 'Foo', 'Bar'", severity: .error)
-                diagnostics.checkUnordered(diagnostic: "unknown dependency 'foos' in target 'Target2'; valid dependencies are: 'Foo', 'Bar'", severity: .error)
+            let observability = ObservabilitySystem.makeForTesting()
+            XCTAssertThrowsError(try loadManifest(content, observabilityScope: observability.topScope), "expected error")
+            testDiagnostics(observability.diagnostics) { result in
+                result.checkUnordered(diagnostic: "unknown package 'foo1' in dependencies of target 'Target1'; valid packages are: 'Foo', 'Bar'", severity: .error)
+                result.checkUnordered(diagnostic: "unknown dependency 'foos' in target 'Target2'; valid dependencies are: 'Foo', 'Bar'", severity: .error)
             }
         }
 
         do {
-            let manifest = """
+            let content = """
                 import PackageDescription
                 let package = Package(
                     name: "Trivial",
@@ -146,13 +150,16 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
                 )
                 """
 
-            XCTAssertManifestLoadThrows(manifest, packageKind: .root(.root)) { _, diagnostics in
-                diagnostics.checkUnordered(diagnostic: "unknown package 'foo1' in dependencies of target 'Target1'; valid packages are: 'Foo'", severity: .error)
+            // note: root has special rules in this case
+            let observability = ObservabilitySystem.makeForTesting()
+            XCTAssertThrowsError(try loadManifest(content, packageKind: .root(.root), observabilityScope: observability.topScope), "expected error")
+            testDiagnostics(observability.diagnostics) { result in
+                result.checkUnordered(diagnostic: "unknown package 'foo1' in dependencies of target 'Target1'; valid packages are: 'Foo'", severity: .error)
             }
         }
-        
+
         do {
-            let manifest = """
+            let content = """
                 import PackageDescription
                 let package = Package(
                     name: "Trivial",
@@ -171,13 +178,16 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
                 )
                 """
 
-            XCTAssertManifestLoadThrows(manifest, packageKind: .root(.root)) { _, diagnostics in
-                diagnostics.checkUnordered(diagnostic: "unknown package 'foo1' in dependencies of target 'Target1'; valid packages are: 'foo2'", severity: .error)
+            // note: root has special rules in this case
+            let observability = ObservabilitySystem.makeForTesting()
+            XCTAssertThrowsError(try loadManifest(content, packageKind: .root(.root), observabilityScope: observability.topScope), "expected error")
+            testDiagnostics(observability.diagnostics) { result in
+                result.checkUnordered(diagnostic: "unknown package 'foo1' in dependencies of target 'Target1'; valid packages are: 'foo2'", severity: .error)
             }
         }
 
         do {
-            let manifest = """
+            let content = """
                 import PackageDescription
                 let package = Package(
                     name: "Trivial",
@@ -197,15 +207,17 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
                 )
                 """
 
-            XCTAssertManifestLoadThrows(manifest, packageKind: .root(.root)) { _, diagnostics in
-                diagnostics.checkUnordered(diagnostic: "unknown package 'foo3' in dependencies of target 'Target1'; valid packages are: 'foo1', 'foo2'", severity: .error)
+            // note: root has special rules in this case
+            let observability = ObservabilitySystem.makeForTesting()
+            XCTAssertThrowsError(try loadManifest(content, packageKind: .root(.root), observabilityScope: observability.topScope), "expected error")
+            testDiagnostics(observability.diagnostics) { result in
+                result.checkUnordered(diagnostic: "unknown package 'foo3' in dependencies of target 'Target1'; valid packages are: 'foo1', 'foo2'", severity: .error)
             }
         }
     }
 
-    func testTargetDependencyReference() {
-        let stream = BufferedOutputByteStream()
-        stream <<< """
+    func testTargetDependencyReference() throws {
+        let content = """
             import PackageDescription
             let package = Package(
                 name: "Trivial",
@@ -225,20 +237,22 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
             )
             """
 
-        loadManifest(stream.bytes) { manifest in
-            let dependencies = Dictionary(uniqueKeysWithValues: manifest.dependencies.map{ ($0.nameForTargetDependencyResolutionOnly, $0) })
-            let dependencyFoobar = dependencies["Foobar"]!
-            let dependencyBarfoo = dependencies["Barfoo"]!
-            let targetFoo = manifest.targetMap["foo"]!
-            let targetBar = manifest.targetMap["bar"]!
-            XCTAssertEqual(manifest.packageDependency(referencedBy: targetFoo.dependencies[0]), dependencyFoobar)
-            XCTAssertEqual(manifest.packageDependency(referencedBy: targetFoo.dependencies[1]), dependencyBarfoo)
-            XCTAssertEqual(manifest.packageDependency(referencedBy: targetBar.dependencies[0]), nil)
-        }
+        let observability = ObservabilitySystem.makeForTesting()
+        let manifest = try loadManifest(content, observabilityScope: observability.topScope)
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        let dependencies = Dictionary(uniqueKeysWithValues: manifest.dependencies.map{ ($0.nameForTargetDependencyResolutionOnly, $0) })
+        let dependencyFoobar = dependencies["Foobar"]!
+        let dependencyBarfoo = dependencies["Barfoo"]!
+        let targetFoo = manifest.targetMap["foo"]!
+        let targetBar = manifest.targetMap["bar"]!
+        XCTAssertEqual(manifest.packageDependency(referencedBy: targetFoo.dependencies[0]), dependencyFoobar)
+        XCTAssertEqual(manifest.packageDependency(referencedBy: targetFoo.dependencies[1]), dependencyBarfoo)
+        XCTAssertEqual(manifest.packageDependency(referencedBy: targetBar.dependencies[0]), nil)
     }
 
-    func testDuplicateDependencyNames() {
-        let manifest = """
+    func testDuplicateDependencyNames() throws {
+        let content = """
             import PackageDescription
             let package = Package(
                 name: "Foo",
@@ -260,14 +274,16 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
             )
             """
 
-        XCTAssertManifestLoadThrows(manifest) { _, diagnostics in
-            diagnostics.checkUnordered(diagnostic: "duplicate dependency named 'Bar'; consider differentiating them using the 'name' argument", severity: .error)
-            diagnostics.checkUnordered(diagnostic: "duplicate dependency named 'Biz'; consider differentiating them using the 'name' argument", severity: .error)
+        let observability = ObservabilitySystem.makeForTesting()
+        XCTAssertThrowsError(try loadManifest(content, observabilityScope: observability.topScope), "expected error")
+        testDiagnostics(observability.diagnostics) { result in
+            result.checkUnordered(diagnostic: "duplicate dependency named 'Bar'; consider differentiating them using the 'name' argument", severity: .error)
+            result.checkUnordered(diagnostic: "duplicate dependency named 'Biz'; consider differentiating them using the 'name' argument", severity: .error)
         }
     }
 
     func testResourcesUnavailable() throws {
-        let manifest = """
+        let content = """
             import PackageDescription
             let package = Package(
                name: "Foo",
@@ -283,19 +299,20 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
             )
             """
 
-        XCTAssertManifestLoadThrows(manifest) { error, _ in
-            guard case let ManifestParseError.invalidManifestFormat(message, _) = error else {
-                return XCTFail("\(error)")
+        let observability = ObservabilitySystem.makeForTesting()
+        XCTAssertThrowsError(try loadManifest(content, observabilityScope: observability.topScope), "expected error") { error in
+            if case ManifestParseError.invalidManifestFormat(let error, _) = error {
+                XCTAssertMatch(error, .contains("is unavailable"))
+                XCTAssertMatch(error, .contains("was introduced in PackageDescription 5.3"))
+            } else {
+                XCTFail("unexpected error: \(error)")
             }
-
-            XCTAssertMatch(message, .contains("is unavailable"))
-            XCTAssertMatch(message, .contains("was introduced in PackageDescription 5.3"))
         }
     }
 
     func testBinaryTargetUnavailable() throws {
         do {
-            let manifest = """
+            let content = """
                 import PackageDescription
                 let package = Package(
                     name: "Foo",
@@ -308,18 +325,19 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
                 )
                 """
 
-            XCTAssertManifestLoadThrows(manifest) { error, _ in
-                guard case let ManifestParseError.invalidManifestFormat(message, _) = error else {
-                    return XCTFail("\(error)")
+            let observability = ObservabilitySystem.makeForTesting()
+            XCTAssertThrowsError(try loadManifest(content, observabilityScope: observability.topScope), "expected error") { error in
+                if case ManifestParseError.invalidManifestFormat(let error, _) = error {
+                    XCTAssertMatch(error, .contains("is unavailable"))
+                    XCTAssertMatch(error, .contains("was introduced in PackageDescription 5.3"))
+                } else {
+                    XCTFail("unexpected error: \(error)")
                 }
-
-                XCTAssertMatch(message, .contains("is unavailable"))
-                XCTAssertMatch(message, .contains("was introduced in PackageDescription 5.3"))
             }
         }
 
         do {
-            let manifest = """
+            let content = """
                 import PackageDescription
                 let package = Package(
                     name: "Foo",
@@ -333,19 +351,20 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
                 )
                 """
 
-            XCTAssertManifestLoadThrows(manifest) { error, _ in
-                guard case let ManifestParseError.invalidManifestFormat(message, _) = error else {
-                    return XCTFail("\(error)")
+            let observability = ObservabilitySystem.makeForTesting()
+            XCTAssertThrowsError(try loadManifest(content, observabilityScope: observability.topScope), "expected error") { error in
+                if case ManifestParseError.invalidManifestFormat(let error, _) = error {
+                    XCTAssertMatch(error, .contains("is unavailable"))
+                    XCTAssertMatch(error, .contains("was introduced in PackageDescription 5.3"))
+                } else {
+                    XCTFail("unexpected error: \(error)")
                 }
-
-                XCTAssertMatch(message, .contains("is unavailable"))
-                XCTAssertMatch(message, .contains("was introduced in PackageDescription 5.3"))
             }
         }
     }
 
     func testConditionalTargetDependenciesUnavailable() throws {
-        let manifest = """
+        let content = """
             import PackageDescription
             let package = Package(
                 name: "Foo",
@@ -362,20 +381,20 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
             )
             """
 
-        XCTAssertManifestLoadThrows(manifest) { error, _ in
-            guard case let ManifestParseError.invalidManifestFormat(message, _) = error else {
-                return XCTFail("\(error)")
+        let observability = ObservabilitySystem.makeForTesting()
+        XCTAssertThrowsError(try loadManifest(content, observabilityScope: observability.topScope), "expected error") { error in
+            if case ManifestParseError.invalidManifestFormat(let error, _) = error {
+                XCTAssertMatch(error, .contains("is unavailable"))
+                XCTAssertMatch(error, .contains("was introduced in PackageDescription 5.3"))
+            } else {
+                XCTFail("unexpected error: \(error)")
             }
-
-            XCTAssertMatch(message, .contains("is unavailable"))
-            XCTAssertMatch(message, .contains("was introduced in PackageDescription 5.3"))
         }
     }
 
     func testDefaultLocalizationUnavailable() throws {
         do {
-            let stream = BufferedOutputByteStream()
-            stream <<< """
+            let content = """
                 import PackageDescription
                 let package = Package(
                     name: "Foo",
@@ -387,23 +406,21 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
                 )
                 """
 
-            do {
-                try loadManifestThrowing(stream.bytes) { _ in }
-                XCTFail()
-            } catch {
-                guard case let ManifestParseError.invalidManifestFormat(message, _) = error else {
-                    return XCTFail("\(error)")
+            let observability = ObservabilitySystem.makeForTesting()
+            XCTAssertThrowsError(try loadManifest(content, observabilityScope: observability.topScope), "expected error") { error in
+                if case ManifestParseError.invalidManifestFormat(let error, _) = error {
+                    XCTAssertMatch(error, .contains("is unavailable"))
+                    XCTAssertMatch(error, .contains("was introduced in PackageDescription 5.3"))
+                } else {
+                    XCTFail("unexpected error: \(error)")
                 }
-
-                XCTAssertMatch(message, .contains("is unavailable"))
-                XCTAssertMatch(message, .contains("was introduced in PackageDescription 5.3"))
             }
         }
     }
 
     func testManifestLoadingIsSandboxed() throws {
         #if os(macOS) // Sandboxing is only done on macOS today.
-        let manifest = """
+        let content = """
             import Foundation
 
             try! String(contentsOf:URL(string: "http://127.0.0.1")!)
@@ -417,9 +434,13 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
             )
             """
 
-        XCTAssertManifestLoadThrows(manifest) { error, _ in
-            guard case ManifestParseError.invalidManifestFormat(let msg, _) = error else { return XCTFail("unexpected error: \(error)") }
-            XCTAssertTrue(msg.contains("Operation not permitted"), "unexpected error message: \(msg)")
+        let observability = ObservabilitySystem.makeForTesting()
+        XCTAssertThrowsError(try loadManifest(content, observabilityScope: observability.topScope), "expected error") { error in
+            if case ManifestParseError.invalidManifestFormat(let error, _) = error {
+                XCTAssertTrue(error.contains("Operation not permitted"), "unexpected error message: \(error)")
+            } else {
+                XCTFail("unexpected error: \(error)")
+            }
         }
         #endif
     }

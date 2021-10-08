@@ -36,7 +36,7 @@ public struct PackageCollections: PackageCollectionsProtocol {
     public init(configuration: Configuration = .init(), observabilityScope: ObservabilityScope) {
         let storage = Storage(
             sources: FilePackageCollectionsSourcesStorage(),
-            collections: SQLitePackageCollectionsStorage()
+            collections: SQLitePackageCollectionsStorage(observabilityScope: observabilityScope)
         )
 
         let collectionProviders = [

@@ -8,14 +8,14 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import Foundation
 import Basics
+import Foundation
 import PackageModel
 import PackageGraph
 import TSCBasic
 import TSCUtility
 
-public typealias Diagnostic = TSCBasic.Diagnostic
+public typealias Diagnostic = Basics.Diagnostic
 
 extension PackageGraph {
 
@@ -41,13 +41,13 @@ extension PackageGraph {
         outputDir: AbsolutePath,
         builtToolsDir: AbsolutePath,
         pluginScriptRunner: PluginScriptRunner,
-        diagnostics: DiagnosticsEngine,
+        observabilityScope: ObservabilityScope,
         fileSystem: FileSystem
     ) throws -> [ResolvedTarget: [PluginInvocationResult]] {
         // TODO: Convert this to be asynchronous, taking a completion closure. This may require changes to the package
         // graph APIs to make them accessible concurrently.
         var pluginResultsByTarget: [ResolvedTarget: [PluginInvocationResult]] = [:]
-        
+
         for target in self.reachableTargets.sorted(by: { $0.name < $1.name }) {
             // Infer plugins from the declared dependencies, and collect them as well as any regular dependnencies.  Although plugin usage is declared separately from dependencies in the manifest, in the internal model we currently consider both to be dependencies.
             var pluginTargets: [PluginTarget] = []
@@ -65,17 +65,17 @@ extension PackageGraph {
                     pluginTargets.append(contentsOf: product.targets.compactMap{ $0.underlyingTarget as? PluginTarget })
                 }
             }
-            
+
             // Leave quickly in the common case of not using any plugins.
             if pluginTargets.isEmpty {
                 continue
             }
-            
+
             /// Determine the package that contains the target.
             guard let package = self.package(for: target) else {
                 throw InternalError("could not determine package for target \(target)")
             }
-            
+
             // Apply each plugin used by the target in order, creating a list of results (one for each plugin usage).
             var pluginResults: [PluginInvocationResult] = []
             for pluginTarget in pluginTargets {
@@ -90,7 +90,7 @@ extension PackageGraph {
                         partial[name] = .init(name: name, path: path.pathString)
                     }
                 })
-                
+
                 // Give each invocation of a plugin a separate output directory.
                 let pluginOutputDir = outputDir.appending(components: package.identity.description, target.name, pluginTarget.name)
                 do {
@@ -99,13 +99,13 @@ extension PackageGraph {
                 catch {
                     throw PluginEvaluationError.outputDirectoryCouldNotBeCreated(path: pluginOutputDir, underlyingError: error)
                 }
-                
+
                 // Create the input context to pass when applying the plugin to the target.
                 var inputFiles: [PluginScriptRunnerInput.FileInfo] = []
                 inputFiles += target.underlyingTarget.sources.paths.map{ .init(path: $0.pathString, type: .source) }
                 inputFiles += target.underlyingTarget.resources.map{ .init(path: $0.path.pathString, type: .resource) }
                 inputFiles += target.underlyingTarget.others.map{ .init(path: $0.pathString, type: .unknown) }
-                
+
                 let pluginInput = PluginScriptRunnerInput(
                     targetName: target.name,
                     moduleName: target.c99name,
@@ -120,7 +120,7 @@ extension PackageGraph {
                     tools: tools,
                     pluginAction: .createBuildToolCommands
                 )
-                
+
                 // Run the plugin in the context of the target. The details of this are left to the plugin runner.
                 // TODO: This should be asynchronous.
                 let (pluginOutput, emittedText) = try runPluginScript(
@@ -129,35 +129,33 @@ extension PackageGraph {
                     toolsVersion: package.manifest.toolsVersion,
                     writableDirectories: [pluginOutputDir],
                     pluginScriptRunner: pluginScriptRunner,
-                    diagnostics: diagnostics,
+                    observabilityScope: observabilityScope,
                     fileSystem: fileSystem
                 )
-                
+
                 // Generate emittable Diagnostics from the plugin output.
-                let diagnostics: [Diagnostic] = pluginOutput.diagnostics.map { diag in
-                    // FIXME: The implementation here is unfortunate; better Diagnostic APIs would make it cleaner.
-                    let location = diag.file.map {
-                        PluginInvocationResult.FileLineLocation(file: $0, line: diag.line)
+                let diagnostics: [Diagnostic] = try pluginOutput.diagnostics.map { diag in
+                    let metadata: ObservabilityMetadata? = try diag.file.map {
+                        var metadata = ObservabilityMetadata()
+                        metadata.fileLocation = try .init(.init(validating: $0), line: diag.line)
+                        return metadata
                     }
-                    let message: Diagnostic.Message
+
                     switch diag.severity {
-                    case .error: message = .error(diag.message)
-                    case .warning: message = .warning(diag.message)
-                    case .remark: message = .remark(diag.message)
-                    }
-                    if let location = location {
-                        return Diagnostic(message: message, location: location)
-                    }
-                    else {
-                        return Diagnostic(message: message)
+                    case .error:
+                        return .error(diag.message, metadata: metadata)
+                    case .warning:
+                        return .warning(diag.message, metadata: metadata)
+                    case .remark:
+                        return .info(diag.message, metadata: metadata)
                     }
                 }
-                
+
                 // Extract any emitted text output (received from the stdout/stderr of the plugin invocation).
                 let textOutput = String(decoding: emittedText, as: UTF8.self)
 
                 // FIXME: Validate the plugin output structure here, e.g. paths, etc.
-                
+
                 // Generate commands from the plugin output. This is where we translate from the transport JSON to our
                 // internal form. We deal with BuildCommands and PrebuildCommands separately.
                 let buildCommands = pluginOutput.buildCommands.map { cmd in
@@ -181,18 +179,18 @@ extension PackageGraph {
                             workingDirectory: cmd.workingDirectory.map{ AbsolutePath($0) }),
                         outputFilesDirectory: AbsolutePath(cmd.outputFilesDirectory))
                 }
-                
+
                 // Create an evaluation result from the usage of the plugin by the target.
                 pluginResults.append(PluginInvocationResult(plugin: pluginTarget, diagnostics: diagnostics, textOutput: textOutput, buildCommands: buildCommands, prebuildCommands: prebuildCommands))
             }
-            
+
             // Associate the list of results with the target. The list will have one entry for each plugin used by the target.
             pluginResultsByTarget[target] = pluginResults
         }
         return pluginResultsByTarget
     }
-    
-    
+
+
     /// Private helper function that serializes a PluginEvaluationInput as input JSON, calls the plugin runner to invoke the plugin, and finally deserializes the output JSON it emits to a PluginEvaluationOutput.  Adds any errors or warnings to `diagnostics`, and throws an error if there was a failure.
     /// FIXME: This should be asynchronous, taking a queue and a completion closure.
     fileprivate func runPluginScript(
@@ -201,20 +199,20 @@ extension PackageGraph {
         toolsVersion: ToolsVersion,
         writableDirectories: [AbsolutePath],
         pluginScriptRunner: PluginScriptRunner,
-        diagnostics: DiagnosticsEngine,
+        observabilityScope: ObservabilityScope,
         fileSystem: FileSystem
     ) throws -> (output: PluginScriptRunnerOutput, stdoutText: Data) {
         // Serialize the PluginEvaluationInput to JSON.
         let encoder = JSONEncoder()
         let inputJSON = try encoder.encode(input)
-        
+
         // Call the plugin runner.
         let (outputJSON, stdoutText) = try pluginScriptRunner.runPluginScript(
             sources: sources,
             inputJSON: inputJSON,
             toolsVersion: toolsVersion,
             writableDirectories: writableDirectories,
-            diagnostics: diagnostics,
+            observabilityScope: observabilityScope,
             fileSystem: fileSystem)
 
         // Deserialize the JSON to an PluginScriptRunnerOutput.
@@ -235,13 +233,13 @@ extension PackageGraph {
 enum PluginAccessibleTool: Hashable {
     /// A tool that is built by an ExecutableTarget (the path is relative to the built-products directory).
     case builtTool(name: String, path: RelativePath)
-    
+
     /// A tool that is vended by a BinaryTarget (the path is absolute and refers to an unpackaged binary target).
     case vendedTool(name: String, path: AbsolutePath)
 }
 
 extension PluginTarget {
-    
+
     /// The set of tools that are accessible to this plugin.
     func accessibleTools(for hostTriple: Triple) -> Set<PluginAccessibleTool> {
         return Set(self.dependencies.flatMap { dependency -> [PluginAccessibleTool] in
@@ -272,10 +270,10 @@ extension PluginTarget {
 public struct PluginInvocationResult {
     /// The plugin that produced the results.
     public var plugin: PluginTarget
-    
+
     /// Any diagnostics emitted by the plugin.
     public var diagnostics: [Diagnostic]
-    
+
     /// Any textual output emitted by the plugin.
     public var textOutput: String
 
@@ -284,7 +282,7 @@ public struct PluginInvocationResult {
 
     /// The prebuild commands generated by the plugin (in the order in which they should run).
     public var prebuildCommands: [PrebuildCommand]
-    
+
     /// A command to incorporate into the build graph so that it runs during the build whenever it needs to. In
     /// particular it will run whenever any of the specified output files are missing or when the input files have
     /// changed from the last time when it ran.
@@ -315,7 +313,7 @@ public struct PluginInvocationResult {
         public var environment: [String: String]
         public var workingDirectory: AbsolutePath?
     }
-    
+
     /// A location representing a file name or path and an optional line number.
     // FIXME: This should be part of the Diagnostics APIs.
     struct FileLineLocation: DiagnosticLocation {
@@ -338,7 +336,7 @@ public enum PluginEvaluationError: Swift.Error {
 
 /// Implements the mechanics of running a plugin script (implemented as a set of Swift source files) as a process.
 public protocol PluginScriptRunner {
-    
+
     /// Implements the mechanics of running a plugin script implemented as a set of Swift source files, for use
     /// by the package graph when it is evaluating package plugins.
     ///
@@ -355,10 +353,10 @@ public protocol PluginScriptRunner {
         inputJSON: Data,
         toolsVersion: ToolsVersion,
         writableDirectories: [AbsolutePath],
-        diagnostics: DiagnosticsEngine,
+        observabilityScope: ObservabilityScope,
         fileSystem: FileSystem
     ) throws -> (outputJSON: Data, stdoutText: Data)
-    
+
     /// Returns the Triple that represents the host for which plugin script tools should be built, or for which binary
     /// tools should be selected.
     var hostTriple: Triple { get }
@@ -438,5 +436,34 @@ struct PluginScriptRunnerOutput: Codable {
         let environment: [String: String]
         let workingDirectory: String?
         let outputFilesDirectory: String
+    }
+}
+
+extension ObservabilityMetadata {
+    public var fileLocation: FileLocation? {
+        get {
+            self[FileLocationKey.self]
+        }
+        set {
+            self[FileLocationKey.self] = newValue
+        }
+    }
+
+    private enum FileLocationKey: Key {
+        typealias Value = FileLocation
+    }
+}
+
+public struct FileLocation: Equatable, CustomStringConvertible {
+    public let file: AbsolutePath
+    public let line: Int?
+
+    public init(_ file: AbsolutePath, line: Int?) {
+        self.file = file
+        self.line = line
+    }
+
+    public var description: String {
+        "\(self.file)\(self.line?.description.appending(" ") ?? "")"
     }
 }

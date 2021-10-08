@@ -283,7 +283,7 @@ public final class PackageBuilder {
         self.warnAboutImplicitExecutableTargets = warnAboutImplicitExecutableTargets
         self.observabilityScope = observabilityScope.makeChildScope(
             description: "PackageBuilder",
-            metadata: .packageMetadata(identity: self.identity, location: self.manifest.packageLocation, path: self.packagePath)
+            metadata: .packageMetadata(identity: self.identity, kind: self.manifest.packageKind)
         )
         self.fileSystem = fileSystem
     }
@@ -800,7 +800,7 @@ public final class PackageBuilder {
 
         let sourcesBuilder = TargetSourcesBuilder(
             packageIdentity: self.identity,
-            packageLocation: self.manifest.packageLocation,
+            packageKind: self.manifest.packageKind,
             packagePath: self.packagePath,
             target: manifestTarget,
             path: potentialModule.path,

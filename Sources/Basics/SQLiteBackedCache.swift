@@ -34,7 +34,6 @@ public final class SQLiteBackedCache<Value: Codable>: Closable {
     ///   - tableName: The SQLite table name. Must follow SQLite naming rules (e.g., no spaces).
     ///   - location: SQLite.Location
     ///   - configuration: Optional. Configuration for the cache.
-    ///   - diagnosticsEngine: DiagnosticsEngine
     public init(tableName: String, location: SQLite.Location, configuration: SQLiteBackedCacheConfiguration = .init()) {
         self.tableName = tableName
         self.location = location
@@ -55,7 +54,6 @@ public final class SQLiteBackedCache<Value: Codable>: Closable {
     ///   - tableName: The SQLite table name. Must follow SQLite naming rules (e.g., no spaces).
     ///   - path: The path of the SQLite database.
     ///   - configuration: Optional. Configuration for the cache.
-    ///   - diagnosticsEngine: DiagnosticsEngine
     public convenience init(tableName: String, path: AbsolutePath, configuration: SQLiteBackedCacheConfiguration = .init()) {
         self.init(tableName: tableName, location: .path(path), configuration: configuration)
     }

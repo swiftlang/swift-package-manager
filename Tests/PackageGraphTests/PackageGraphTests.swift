@@ -513,13 +513,11 @@ class PackageGraphTests: XCTestCase {
         testDiagnostics(observability.diagnostics) { result in
             result.check(
                 diagnostic: "Source files for target Bar should be located under /Bar/Sources/Bar",
-                severity: .warning,
-                metadata: .packageMetadata(identity: .plain("bar"), location: "/Bar", path: .init("/Bar"))
+                severity: .warning
             )
             result.check(
                 diagnostic: "target 'Bar' referenced in product 'Bar' is empty",
-                severity: .error,
-                metadata: .packageMetadata(identity: .plain("bar"), location: "/Bar", path: .init("/Bar"))
+                severity: .error
             )
         }
     }
@@ -546,8 +544,7 @@ class PackageGraphTests: XCTestCase {
         testDiagnostics(observability.diagnostics) { result in
             result.check(
                 diagnostic: "product 'Barx' required by package 'foo' target 'FooTarget' not found.",
-                severity: .error,
-                metadata: .packageMetadata(identity: .plain("foo"), location: "/Foo", path: .init("/Foo"))
+                severity: .error
             )
         }
     }
@@ -579,8 +576,7 @@ class PackageGraphTests: XCTestCase {
         testDiagnostics(observability.diagnostics) { result in
             result.check(
                 diagnostic: "product 'Foo' is declared in the same package 'foo' and can't be used as a dependency for target 'FooTests'.",
-                severity: .error,
-                metadata: .packageMetadata(identity: .plain("foo"), location: "/Foo", path: .init("/Foo"))
+                severity: .error
             )
         }
     }
@@ -658,8 +654,7 @@ class PackageGraphTests: XCTestCase {
         testDiagnostics(observability.diagnostics) { result in
             result.check(
                 diagnostic: "product 'Barx' required by package 'foo' target 'FooTarget' not found in package 'Bar'.",
-                severity: .error,
-                metadata: .packageMetadata(identity: .plain("foo"), location: "/Foo", path: .init("/Foo"))
+                severity: .error
             )
         }
     }
@@ -688,8 +683,7 @@ class PackageGraphTests: XCTestCase {
         testDiagnostics(observability.diagnostics) { result in
             result.check(
                 diagnostic: "product 'Barx' required by package 'foo' target 'FooTarget' not found.",
-                severity: .error,
-                metadata: .packageMetadata(identity: .plain("foo"), location: "/Foo", path: .init("/Foo"))
+                severity: .error
             )
         }
     }
@@ -756,22 +750,19 @@ class PackageGraphTests: XCTestCase {
                 diagnostic: """
                 dependency 'BarLib' in target 'Foo' requires explicit declaration; reference the package in the target dependency with '.product(name: "BarLib", package: "Bar")'
                 """,
-                severity: .error,
-                metadata: .packageMetadata(identity: .plain("foo"), location: "/Foo", path: .init("/Foo"))
+                severity: .error
             )
             result.checkUnordered(
                 diagnostic: """
                 dependency 'Biz' in target 'Foo' requires explicit declaration; reference the package in the target dependency with '.product(name: "Biz", package: "BizPath")'
                 """,
-                severity: .error,
-                metadata: .packageMetadata(identity: .plain("foo"), location: "/Foo", path: .init("/Foo"))
+                severity: .error
             )
             result.checkUnordered(
                 diagnostic: """
                 dependency 'FizLib' in target 'Foo' requires explicit declaration; reference the package in the target dependency with '.product(name: "FizLib", package: "FizPath")'
                 """,
-                severity: .error,
-                metadata: .packageMetadata(identity: .plain("foo"), location: "/Foo", path: .init("/Foo"))
+                severity: .error
             )
         }
     }
@@ -1072,11 +1063,12 @@ class PackageGraphTests: XCTestCase {
         testDiagnostics(observability.diagnostics) { result in
             var expectedMetadata = ObservabilityMetadata()
             expectedMetadata.targetName = "Foo2"
-            result.checkUnordered(diagnostic: .contains("the target 'Bar2' in product 'TransitiveBar' contains unsafe build flags"), severity: .error, metadata: expectedMetadata)
-            expectedMetadata = ObservabilityMetadata()
-            expectedMetadata.targetName = "Foo"
-            result.checkUnordered(diagnostic: .contains("the target 'Bar' in product 'Bar' contains unsafe build flags"), severity: .error, metadata: expectedMetadata)
-            result.checkUnordered(diagnostic: .contains("the target 'Bar2' in product 'Bar' contains unsafe build flags"), severity: .error, metadata: expectedMetadata)
+            let diagnostic1 = result.checkUnordered(diagnostic: .contains("the target 'Bar2' in product 'TransitiveBar' contains unsafe build flags"), severity: .error)
+            XCTAssertEqual(diagnostic1?.metadata?.targetName, "Foo2")
+            let diagnostic2 = result.checkUnordered(diagnostic: .contains("the target 'Bar' in product 'Bar' contains unsafe build flags"), severity: .error)
+            XCTAssertEqual(diagnostic2?.metadata?.targetName, "Foo")
+            let diagnostic3 = result.checkUnordered(diagnostic: .contains("the target 'Bar2' in product 'Bar' contains unsafe build flags"), severity: .error)
+            XCTAssertEqual(diagnostic3?.metadata?.targetName, "Foo")
         }
     }
 
@@ -1353,8 +1345,7 @@ class PackageGraphTests: XCTestCase {
                 diagnostic: """
                     product 'Unknown' required by package 'foo' target 'Foo' not found.
                     """,
-                severity: .error,
-                metadata: .packageMetadata(identity: .plain("foo"), location: "/Foo", path: .init("/Foo"))
+                severity: .error
             )
         }
     }
@@ -1435,8 +1426,7 @@ class PackageGraphTests: XCTestCase {
                 diagnostic: """
                     product 'Unknown' required by package 'foo' target 'Foo' not found.
                     """,
-                severity: .error,
-                metadata: .packageMetadata(identity: .plain("foo"), location: "/Foo", path: .init("/Foo"))
+                severity: .error
             )
         }
     }
@@ -1478,8 +1468,7 @@ class PackageGraphTests: XCTestCase {
                     diagnostic: """
                         dependency 'ProductBar' in target 'Foo' requires explicit declaration; reference the package in the target dependency with '.product(name: "ProductBar", package: "Bar")'
                         """,
-                    severity: .error,
-                    metadata: .packageMetadata(identity: .plain("foo"), location: "/Foo", path: .init("/Foo"))
+                    severity: .error
                 )
             }
         }
@@ -1539,8 +1528,7 @@ class PackageGraphTests: XCTestCase {
                     diagnostic: """
                         dependency 'ProductBar' in target 'Foo' requires explicit declaration; reference the package in the target dependency with '.product(name: "ProductBar", package: "Bar")'
                         """,
-                    severity: .error,
-                    metadata: .packageMetadata(identity: .plain("foo"), location: "/Foo", path: .init("/Foo"))
+                    severity: .error
                 )
             }
         }
@@ -1599,8 +1587,7 @@ class PackageGraphTests: XCTestCase {
                     diagnostic: """
                         dependency 'Bar' in target 'Foo' requires explicit declaration; reference the package in the target dependency with '.product(name: "Bar", package: "Some-Bar")'
                         """,
-                    severity: .error,
-                    metadata: .packageMetadata(identity: .plain("foo"), location: "/Foo", path: .init("/Foo"))
+                    severity: .error
                 )
             }
         }
@@ -1654,13 +1641,13 @@ class PackageGraphTests: XCTestCase {
             let observability = ObservabilitySystem.makeForTesting()
             _ = try loadPackageGraph(fs: fs, manifests: manifests, observabilityScope: observability.topScope)
             testDiagnostics(observability.diagnostics) { result in
-                result.check(
+                let diagnostic = result.check(
                     diagnostic: """
                         dependency 'ProductBar' in target 'Foo' requires explicit declaration; reference the package in the target dependency with '.product(name: "ProductBar", package: "Some-Bar")'
                         """,
-                    severity: .error,
-                    metadata: .packageMetadata(identity: .plain("foo"), location: "/Foo", path: .init("/Foo"))
+                    severity: .error
                 )
+                XCTAssertEqual(diagnostic?.metadata?.packageIdentity, .plain("foo"))
             }
         }
 
@@ -1751,13 +1738,13 @@ class PackageGraphTests: XCTestCase {
             let observability = ObservabilitySystem.makeForTesting()
             _ = try loadPackageGraph(fs: fs, manifests: manifests, observabilityScope: observability.topScope)
             testDiagnostics(observability.diagnostics) { result in
-                result.check(
+                let diagnostic = result.check(
                     diagnostic: """
                         dependency 'ProductBar' in target 'Foo' requires explicit declaration; reference the package in the target dependency with '.product(name: "ProductBar", package: "Bar")'
                         """,
-                    severity: .error,
-                    metadata: .packageMetadata(identity: .plain("foo"), location: "/Foo", path: .init("/Foo"))
+                    severity: .error
                 )
+                XCTAssertEqual(diagnostic?.metadata?.packageIdentity, .plain("foo"))
             }
         }
 

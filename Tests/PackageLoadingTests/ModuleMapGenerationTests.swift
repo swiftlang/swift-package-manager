@@ -97,13 +97,11 @@ class ModuleMapGeneration: XCTestCase {
         ModuleMapTester("Foo", in: fs) { result in
             result.checkNotCreated()
             result.checkDiagnostics { result in
-                var expectedMetadata = ObservabilityMetadata()
-                expectedMetadata.targetName = "Foo"
-                result.check(
+                let diagnostic = result.check(
                     diagnostic: "no include directory found for target \'Foo\'; libraries cannot be imported without public headers",
-                    severity: .warning,
-                    metadata: expectedMetadata
+                    severity: .warning
                 )
+                XCTAssertEqual(diagnostic?.metadata?.targetName, "Foo")
             }
         }
 
@@ -119,13 +117,11 @@ class ModuleMapGeneration: XCTestCase {
 
                 """)
             result.checkDiagnostics { result in
-                var expectedMetadata = ObservabilityMetadata()
-                expectedMetadata.targetName = "F-o-o"
-                result.check(
+                let diagnostic = result.check(
                     diagnostic: "/include/F-o-o.h should be renamed to /include/F_o_o.h to be used as an umbrella header",
-                    severity: .warning,
-                    metadata: expectedMetadata
+                    severity: .warning
                 )
+                XCTAssertEqual(diagnostic?.metadata?.targetName, "F-o-o")
             }
         }
     }
@@ -137,13 +133,11 @@ class ModuleMapGeneration: XCTestCase {
         ModuleMapTester("Foo", in: fs) { result in
             result.checkNotCreated()
             result.checkDiagnostics { result in
-                var expectedMetadata = ObservabilityMetadata()
-                expectedMetadata.targetName = "Foo"
-                result.check(
+                let diagnostic = result.check(
                     diagnostic: "target 'Foo' has invalid header layout: umbrella header found at '/include/Foo/Foo.h', but more than one directory exists next to its parent directory: /include/Bar; consider reducing them to one",
-                    severity: .error,
-                    metadata: expectedMetadata
+                    severity: .error
                 )
+                XCTAssertEqual(diagnostic?.metadata?.targetName, "Foo")
             }
         }
 
@@ -153,13 +147,11 @@ class ModuleMapGeneration: XCTestCase {
         ModuleMapTester("Foo", in: fs) { result in
             result.checkNotCreated()
             result.checkDiagnostics { result in
-                var expectedMetadata = ObservabilityMetadata()
-                expectedMetadata.targetName = "Foo"
-                result.check(
+                let diagnostic = result.check(
                     diagnostic: "target 'Foo' has invalid header layout: umbrella header found at '/include/Foo.h', but directories exist next to it: /include/Bar; consider removing them",
-                    severity: .error,
-                    metadata: expectedMetadata
+                    severity: .error
                 )
+                XCTAssertEqual(diagnostic?.metadata?.targetName, "Foo")
             }
         }
     }

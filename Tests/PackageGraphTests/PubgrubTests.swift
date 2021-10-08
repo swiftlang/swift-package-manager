@@ -306,7 +306,7 @@ final class PubgrubTests: XCTestCase {
 
         let provider = MockProvider(containers: [foo])
 
-        let resolver = PubgrubDependencyResolver(provider: provider)
+        let resolver = PubgrubDependencyResolver(provider: provider, observabilityScope: ObservabilitySystem.NOOP)
         let deps = builder.create(dependencies: [
             "foo": (.versionSet(v1Range), .specific(["foo"]))
         ])
@@ -323,7 +323,7 @@ final class PubgrubTests: XCTestCase {
     }
 
     func testResolverConflictResolution() throws  {
-        let solver1 = PubgrubDependencyResolver(provider: emptyProvider)
+        let solver1 = PubgrubDependencyResolver(provider: emptyProvider, observabilityScope: ObservabilitySystem.NOOP)
         let state1 = PubgrubDependencyResolver.State(root: rootNode)
 
         let notRoot = try Incompatibility(Term(not: rootNode, .any),
@@ -334,7 +334,7 @@ final class PubgrubTests: XCTestCase {
     }
 
     func testResolverDecisionMaking() throws {
-        let solver1 = PubgrubDependencyResolver(provider: emptyProvider)
+        let solver1 = PubgrubDependencyResolver(provider: emptyProvider, observabilityScope: ObservabilitySystem.NOOP)
         let state1 = PubgrubDependencyResolver.State(root: rootNode)
 
         // No decision can be made if no unsatisfied terms are available.
@@ -346,7 +346,7 @@ final class PubgrubTests: XCTestCase {
         ])
 
         let provider = MockProvider(containers: [a])
-        let solver2 = PubgrubDependencyResolver(provider: provider)
+        let solver2 = PubgrubDependencyResolver(provider: provider, observabilityScope: ObservabilitySystem.NOOP)
         let solution = PartialSolution(assignments: [
             .derivation("a^1.0.0", cause: rootCause, decisionLevel: 0)
         ])
@@ -369,7 +369,7 @@ final class PubgrubTests: XCTestCase {
     }
 
     func testResolverUnitPropagation() throws {
-        let solver1 = PubgrubDependencyResolver(provider: emptyProvider)
+        let solver1 = PubgrubDependencyResolver(provider: emptyProvider, observabilityScope: ObservabilitySystem.NOOP)
         let state1 = PubgrubDependencyResolver.State(root: rootNode)
 
         // no known incompatibilities should result in no satisfaction checks
@@ -387,7 +387,7 @@ final class PubgrubTests: XCTestCase {
         // try solver1.propagate(aRef)
 
         // Unit propagation should derive a new assignment from almost satisfied incompatibilities.
-        let solver2 = PubgrubDependencyResolver(provider: emptyProvider)
+        let solver2 = PubgrubDependencyResolver(provider: emptyProvider, observabilityScope: ObservabilitySystem.NOOP)
         let state2 = PubgrubDependencyResolver.State(root: rootNode)
         state2.addIncompatibility(try Incompatibility(Term(.root(package: "root"), .any),
                                     Term("¬a@1.0.0"),
@@ -2168,6 +2168,7 @@ public struct MockProvider: PackageContainerProvider {
     public func getContainer(
         for package: PackageReference,
         skipUpdate: Bool,
+        observabilityScope: ObservabilityScope,
         on queue: DispatchQueue,
         completion: @escaping (Result<PackageContainer, Error>
     ) -> Void) {
@@ -2255,7 +2256,7 @@ class DependencyGraphBuilder {
             self.references = [:]
         }
         let provider = MockProvider(containers: self.containers.values.map { $0 })
-        return PubgrubDependencyResolver(provider :provider, pinsMap: pinsMap, delegate: delegate)
+        return PubgrubDependencyResolver(provider :provider, pinsMap: pinsMap, observabilityScope: ObservabilitySystem.NOOP, delegate: delegate)
     }
 }
 

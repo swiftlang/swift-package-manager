@@ -27,7 +27,8 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
     let location: SQLite.Location
     let configuration: Configuration
 
-    private let diagnosticsEngine: DiagnosticsEngine?
+    private let observabilityScope: ObservabilityScope
+
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
 
@@ -48,7 +49,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
     private var targetTrieReady: Bool?
     private let populateTargetTrieLock = Lock()
 
-    init(location: SQLite.Location? = nil, configuration: Configuration = .init(), diagnosticsEngine: DiagnosticsEngine? = nil) {
+    init(location: SQLite.Location? = nil, configuration: Configuration = .init(), observabilityScope: ObservabilityScope) {
         self.location = location ?? .path(localFileSystem.swiftPMCacheDirectory.appending(components: "package-collection.db"))
         switch self.location {
         case .path, .temporary:
@@ -57,7 +58,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
             self.fileSystem = InMemoryFileSystem()
         }
         self.configuration = configuration
-        self.diagnosticsEngine = diagnosticsEngine
+        self.observabilityScope = observabilityScope
         self.encoder = JSONEncoder.makeWithDefaults()
         self.decoder = JSONDecoder.makeWithDefaults()
 
@@ -66,8 +67,8 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
         }
     }
 
-    convenience init(path: AbsolutePath, diagnosticsEngine: DiagnosticsEngine? = nil) {
-        self.init(location: .path(path), diagnosticsEngine: diagnosticsEngine)
+    convenience init(path: AbsolutePath, observabilityScope: ObservabilityScope) {
+        self.init(location: .path(path), observabilityScope: observabilityScope)
     }
 
     deinit {
@@ -275,7 +276,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
 
                 sync.notify(queue: .sharedConcurrent) {
                     if collections.count != blobs.count {
-                        self.diagnosticsEngine?.emit(warning: "Some stored collections could not be deserialized. Please refresh the collections to resolve this issue.")
+                        self.observabilityScope.emit(warning: "Some stored collections could not be deserialized. Please refresh the collections to resolve this issue.")
                     }
                     callback(.success(collections.get()))
                 }
@@ -789,7 +790,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
             do {
                 try db.exec(query: "VACUUM;")
             } catch {
-                self.diagnosticsEngine?.emit(warning: "Failed to 'VACUUM' the database: \(error)")
+                self.observabilityScope.emit(warning: "Failed to 'VACUUM' the database: \(error)")
             }
         }
 
@@ -821,7 +822,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                 return callback(.success(()))
             }
         } catch {
-            self.diagnosticsEngine?.emit(warning: "Failed to determine if database is empty or not: \(error)")
+            self.observabilityScope.emit(warning: "Failed to determine if database is empty or not: \(error)")
             // Try again in background
         }
 
