@@ -719,6 +719,7 @@ extension Workspace {
         // FIXME: this should not block
         // Load the root manifests and currently checked out manifests.
         let rootManifests = try temp_await { self.loadRootManifests(packages: root.packages, diagnostics: diagnostics, completion: $0) }
+        let rootManifestsMinimumToolsVersion = rootManifests.values.map{ $0.toolsVersion }.min() ?? ToolsVersion.currentToolsVersion
 
         // Load the current manifests.
         let graphRoot = PackageGraphRoot(input: root, manifests: rootManifests)
@@ -772,10 +773,12 @@ extension Workspace {
         let updatedDependencyManifests = try self.loadDependencyManifests(root: graphRoot, diagnostics: diagnostics)
 
         // Update the pins store.
-        pinAll(
-            dependencyManifests: updatedDependencyManifests,
+        self.pinAll(
             pinsStore: pinsStore,
-            diagnostics: diagnostics)
+            dependencyManifests: updatedDependencyManifests,
+            rootManifestsMinimumToolsVersion: rootManifestsMinimumToolsVersion,
+            diagnostics: diagnostics
+        )
 
         // Update the binary target artifacts.
         let addedOrUpdatedPackages = packageStateChanges.compactMap({ $0.1.isAddedOrUpdated ? $0.0 : nil })
@@ -1257,8 +1260,9 @@ extension Workspace {
 
     /// Pins all of the current managed dependencies at their checkout state.
     fileprivate func pinAll(
-        dependencyManifests: DependencyManifests,
         pinsStore: PinsStore,
+        dependencyManifests: DependencyManifests,
+        rootManifestsMinimumToolsVersion: ToolsVersion,
         diagnostics: DiagnosticsEngine
     ) {
         // Reset the pinsStore and start pinning the required dependencies.
@@ -1271,8 +1275,9 @@ extension Workspace {
                 pinsStore.pin(dependency)
             }
         }
+
         diagnostics.wrap{
-            try pinsStore.saveState()
+            try pinsStore.saveState(toolsVersion: rootManifestsMinimumToolsVersion)
         }
 
         // Ask resolved file watcher to update its value so we don't fire
@@ -2322,6 +2327,7 @@ extension Workspace {
         // FIXME: this should not block
         // Load the root manifests and currently checked out manifests.
         let rootManifests = try temp_await { self.loadRootManifests(packages: root.packages, diagnostics: diagnostics, completion: $0) }
+        let rootManifestsMinimumToolsVersion = rootManifests.values.map{ $0.toolsVersion }.min() ?? ToolsVersion.currentToolsVersion
 
         // Load the current manifests.
         let graphRoot = PackageGraphRoot(input: root, manifests: rootManifests, explicitProduct: explicitProduct)
@@ -2330,7 +2336,7 @@ extension Workspace {
             return currentManifests
         }
 
-        validatePinsStore(dependencyManifests: currentManifests, diagnostics: diagnostics)
+        self.validatePinsStore(dependencyManifests: currentManifests, rootManifestsMinimumToolsVersion: rootManifestsMinimumToolsVersion, diagnostics: diagnostics)
 
         // Abort if pinsStore is unloadable or if diagnostics has errors.
         guard !diagnostics.hasErrors, let pinsStore = diagnostics.wrap({ try pinsStore.load() }) else {
@@ -2424,7 +2430,7 @@ extension Workspace {
                 // version of the manifest file which contains dependencies that
                 // have also changed their package references.
                 pinsStore.unpinAll()
-                try pinsStore.saveState()
+                try pinsStore.saveState(toolsVersion: rootManifestsMinimumToolsVersion)
                 // try again with pins reset
                 return try self.resolve(
                     root: root,
@@ -2443,7 +2449,12 @@ extension Workspace {
             }
         }
 
-        self.pinAll(dependencyManifests: updatedDependencyManifests, pinsStore: pinsStore, diagnostics: diagnostics)
+        self.pinAll(
+            pinsStore: pinsStore,
+            dependencyManifests: updatedDependencyManifests,
+            rootManifestsMinimumToolsVersion: rootManifestsMinimumToolsVersion,
+            diagnostics: diagnostics
+        )
 
         let addedOrUpdatedPackages = packageStateChanges.compactMap({ $0.1.isAddedOrUpdated ? $0.0 : nil })
         try self.updateBinaryArtifacts(
@@ -2600,7 +2611,11 @@ extension Workspace {
     }
 
     /// Validates that each checked out managed dependency has an entry in pinsStore.
-    private func validatePinsStore(dependencyManifests: DependencyManifests, diagnostics: DiagnosticsEngine) {
+    private func validatePinsStore(
+        dependencyManifests: DependencyManifests,
+        rootManifestsMinimumToolsVersion: ToolsVersion,
+        diagnostics: DiagnosticsEngine
+    ) {
         guard let pinsStore = diagnostics.wrap({ try pinsStore.load() }) else {
             return
         }
@@ -2626,7 +2641,12 @@ extension Workspace {
                 continue
             }
 
-            return self.pinAll(dependencyManifests: dependencyManifests, pinsStore: pinsStore, diagnostics: diagnostics)
+            return self.pinAll(
+                pinsStore: pinsStore,
+                dependencyManifests: dependencyManifests,
+                rootManifestsMinimumToolsVersion: rootManifestsMinimumToolsVersion,
+                diagnostics: diagnostics
+            )
         }
     }
 

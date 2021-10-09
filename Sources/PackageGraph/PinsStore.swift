@@ -92,8 +92,13 @@ public final class PinsStore {
         self._pins.clear()
     }
 
-    public func saveState() throws {
-        try self.storage.save(pins: self._pins.get(), mirrors: self.mirrors, removeIfEmpty: true)
+    public func saveState(toolsVersion: ToolsVersion) throws {
+        try self.storage.save(pins: self._pins.get(), mirrors: self.mirrors, removeIfEmpty: true, toolsVersion: toolsVersion)
+    }
+
+    // for testing
+    public func schemeVersion() throws  -> Int {
+        return try self.storage.schemeVersion()
     }
 }
 
@@ -142,7 +147,7 @@ fileprivate struct PinsStorage {
         }
     }
 
-    func save(pins: PinsStore.PinsMap, mirrors: DependencyMirrors, removeIfEmpty: Bool) throws {
+    func save(pins: PinsStore.PinsMap, mirrors: DependencyMirrors, removeIfEmpty: Bool, toolsVersion: ToolsVersion) throws {
         if !self.fileSystem.exists(self.path.parentDirectory) {
             try self.fileSystem.createDirectory(self.path.parentDirectory)
         }
@@ -156,8 +161,14 @@ fileprivate struct PinsStorage {
                 return
             }
 
-            let container = try V2(pins: pins, mirrors: mirrors)
-            let data = try self.encoder.encode(container)
+            let data: Data
+            if toolsVersion >= .v5_6 {
+                let container = try V2(pins: pins, mirrors: mirrors)
+                data = try self.encoder.encode(container)
+            } else {
+                let container = try V1(pins: pins, mirrors: mirrors)
+                data = try self.encoder.encode(container)
+            }
             try self.fileSystem.writeFileContents(self.path, data: data)
         }
     }
@@ -169,6 +180,11 @@ fileprivate struct PinsStorage {
         try self.fileSystem.withLock(on: self.lockFilePath, type: .exclusive) {
             try self.fileSystem.removeFileTree(self.path)
         }
+    }
+
+    // for testing
+    func schemeVersion() throws  -> Int {
+        return try self.decoder.decode(path: self.path, fileSystem: self.fileSystem, as: Version.self).version
     }
 
     // version reader

@@ -3382,6 +3382,66 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
+    func testResolvedFileSchemeToolsVersion() throws {
+        let fs = InMemoryFileSystem()
+
+        for pair in [(ToolsVersion.v5_2, ToolsVersion.v5_2), (ToolsVersion.v5_6, ToolsVersion.v5_6), (ToolsVersion.v5_2, ToolsVersion.v5_6)] {
+            let sandbox = AbsolutePath("/tmp/ws/")
+            let workspace = try MockWorkspace(
+                sandbox: sandbox,
+                fs: fs,
+                roots: [
+                    MockPackage(
+                        name: "Root1",
+                        targets: [
+                            MockTarget(name: "Root1", dependencies: ["Foo"]),
+                        ],
+                        products: [],
+                        dependencies: [
+                            .sourceControl(path: "./Foo", requirement: .upToNextMajor(from: "1.0.0"), products: .specific(["Foo"])),
+                        ],
+                        toolsVersion: pair.0
+                    ),
+                    MockPackage(
+                        name: "Root2",
+                        targets: [
+                            MockTarget(name: "Root2", dependencies: []),
+                        ],
+                        products: [],
+                        dependencies: [],
+                        toolsVersion: pair.1
+                    ),
+                ],
+                packages: [
+                    MockPackage(
+                        name: "Foo",
+                        targets: [
+                            MockTarget(name: "Foo"),
+                        ],
+                        products: [
+                            MockProduct(name: "Foo", targets: ["Foo"]),
+                        ],
+                        versions: ["1.0.0"]
+                    ),
+                ]
+            )
+
+            try workspace.checkPackageGraph(roots: ["Root1", "Root2"]) { _, diagnostics in
+                XCTAssertNoDiagnostics(diagnostics)
+            }
+            workspace.checkManagedDependencies { result in
+                result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
+            }
+            workspace.checkResolved { result in
+                result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
+            }
+
+            let minToolsVersion = [pair.0, pair.1].min()!
+            let expectedSchemeVersion = minToolsVersion >= .v5_6 ? 2 : 1
+            XCTAssertEqual(try workspace.getOrCreateWorkspace().pinsStore.load().schemeVersion(), expectedSchemeVersion)
+        }
+    }
+
     func testPackageMirror() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
@@ -3677,7 +3737,7 @@ final class WorkspaceTests: XCTestCase {
             let newState = CheckoutState.version("1.0.0", revision: revision)
 
             pinsStore.pin(packageRef: fooPin.packageRef, state: newState)
-            try pinsStore.saveState()
+            try pinsStore.saveState(toolsVersion: ToolsVersion.currentToolsVersion)
         }
 
         // Check force resolve. This should produce an error because the resolved file is out-of-date.

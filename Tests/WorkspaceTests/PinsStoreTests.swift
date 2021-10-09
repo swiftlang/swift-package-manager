@@ -43,7 +43,7 @@ final class PinsStoreTests: XCTestCase {
         XCTAssert(store.pins.map{$0}.isEmpty)
 
         store.pin(packageRef: fooRef, state: state)
-        try store.saveState()
+        try store.saveState(toolsVersion: ToolsVersion.currentToolsVersion)
 
         XCTAssert(fs.exists(pinsFile))
 
@@ -67,7 +67,7 @@ final class PinsStoreTests: XCTestCase {
             state: CheckoutState.version("1.0.2", revision: revision)
         )
         store.pin(packageRef: barRef, state: state)
-        try store.saveState()
+        try store.saveState(toolsVersion: ToolsVersion.currentToolsVersion)
 
         store = try PinsStore(pinsFile: pinsFile, workingDirectory: .root, fileSystem: fs, mirrors: .init())
         XCTAssert(store.pins.map{$0}.count == 2)
@@ -78,7 +78,7 @@ final class PinsStoreTests: XCTestCase {
                 packageRef: barRef,
                 state: CheckoutState.branch(name: "develop", revision: revision)
             )
-            try store.saveState()
+            try store.saveState(toolsVersion: ToolsVersion.currentToolsVersion)
             store = try PinsStore(pinsFile: pinsFile, workingDirectory: .root, fileSystem: fs, mirrors: .init())
 
             let barPin = store.pinsMap[bar]!
@@ -91,7 +91,7 @@ final class PinsStoreTests: XCTestCase {
         // Test revision pin.
         do {
             store.pin(packageRef: barRef, state: .revision(revision))
-            try store.saveState()
+            try store.saveState(toolsVersion: ToolsVersion.currentToolsVersion)
             store = try PinsStore(pinsFile: pinsFile, workingDirectory: .root, fileSystem: fs, mirrors: .init())
 
             let barPin = store.pinsMap[bar]!
@@ -207,7 +207,7 @@ final class PinsStoreTests: XCTestCase {
         let pinsFile = AbsolutePath("/pinsfile.txt")
         let store = try PinsStore(pinsFile: pinsFile, workingDirectory: .root, fileSystem: fs, mirrors: .init())
 
-        try store.saveState()
+        try store.saveState(toolsVersion: ToolsVersion.currentToolsVersion)
         XCTAssertFalse(fs.exists(pinsFile))
 
         let fooPath = AbsolutePath("/foo")
@@ -218,11 +218,11 @@ final class PinsStoreTests: XCTestCase {
 
         XCTAssert(!fs.exists(pinsFile))
 
-        try store.saveState()
+        try store.saveState(toolsVersion: ToolsVersion.currentToolsVersion)
         XCTAssert(fs.exists(pinsFile))
 
         store.unpinAll()
-        try store.saveState()
+        try store.saveState(toolsVersion: ToolsVersion.currentToolsVersion)
         XCTAssertFalse(fs.exists(pinsFile))
     }
 
@@ -261,7 +261,7 @@ final class PinsStoreTests: XCTestCase {
         XCTAssertNil(store.pinsMap[barMirroredIdentity])
         XCTAssertEqual(store.pinsMap[bazIdentity]!.packageRef.kind, .remoteSourceControl(bazURL))
 
-        try store.saveState()
+        try store.saveState(toolsVersion: ToolsVersion.currentToolsVersion)
         XCTAssert(fileSystem.exists(pinsFile))
 
         // Load the store again from disk, with no mirrors

@@ -2208,7 +2208,7 @@ class DependencyGraphBuilder {
             store.pin(packageRef: reference(for: package), state: pin.0)
         }
 
-        try! store.saveState()
+        try! store.saveState(toolsVersion: ToolsVersion.currentToolsVersion)
         return store
     }
 
