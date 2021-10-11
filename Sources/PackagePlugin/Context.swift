@@ -30,8 +30,9 @@ public struct PluginContext {
     public let pluginWorkDirectory: Path
 
     /// The path of the directory into which built products associated with
-    /// the target are written.
-    public let builtProductsDirectory: Path
+    /// targets in the graph are written. This is a private implementation
+    /// detail.
+    let builtProductsDirectory: Path
 
     /// Looks up and returns the path of a named command line executable tool.
     /// The executable must be provided by an executable target or a binary
