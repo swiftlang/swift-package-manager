@@ -1899,9 +1899,9 @@ extension Workspace {
         // Download the artifacts
         let downloadedArtifacts = try self.download(artifactsToDownload, diagnostics: diagnostics)
         artifactsToAdd.append(contentsOf: downloadedArtifacts)
-        
+
         // Extract the local archived artifacts
-        let extractedLocalArtifacts = self.extract(artifactsToExtract, diagnostics: diagnostics)
+        let extractedLocalArtifacts = try self.extract(artifactsToExtract, diagnostics: diagnostics)
         artifactsToAdd.append(contentsOf: extractedLocalArtifacts)
 
         // Add the new artifacts
@@ -2028,16 +2028,7 @@ extension Workspace {
             defer { group.leave() }
 
             let parentDirectory =  self.location.artifactsDirectory.appending(component: artifact.packageRef.name)
-            let tempExtractionDirectory = self.location.artifactsDirectory.appending(components: "extract", artifact.targetName)
-
-            do {
-                try fileSystem.createDirectory(parentDirectory, recursive: true)
-                if fileSystem.exists(tempExtractionDirectory) {
-                    try fileSystem.removeFileTree(tempExtractionDirectory)
-                }
-                try fileSystem.createDirectory(tempExtractionDirectory, recursive: true)
-            } catch {
-                tempDiagnostics.emit(error)
+            guard tempDiagnostics.wrap ({ try fileSystem.createDirectory(parentDirectory, recursive: true) }) else {
                 continue
             }
 
@@ -2064,9 +2055,16 @@ extension Workspace {
                     case .success:
                         let archiveChecksum = self.checksum(forBinaryArtifactAt: archivePath, diagnostics: tempDiagnostics )
                         guard archiveChecksum == artifact.checksum else {
-                            tempDiagnostics.emit(
-                                .artifactInvalidChecksum(targetName: artifact.targetName, expectedChecksum: artifact.checksum, actualChecksum: archiveChecksum))
+                            tempDiagnostics.emit(.artifactInvalidChecksum(targetName: artifact.targetName, expectedChecksum: artifact.checksum, actualChecksum: archiveChecksum))
                             tempDiagnostics.wrap { try self.fileSystem.removeFileTree(archivePath) }
+                            return
+                        }
+
+                        guard let tempExtractionDirectory = tempDiagnostics.wrap({ () -> AbsolutePath in
+                            let path = self.location.artifactsDirectory.appending(components: "extract", artifact.packageRef.name, artifact.targetName, UUID().uuidString)
+                            try self.fileSystem.forceCreateDirectory(at: path)
+                            return path
+                        }) else {
                             return
                         }
 
@@ -2079,17 +2077,19 @@ extension Workspace {
                             case .success:
                                 var artifactPath: AbsolutePath? = nil
                                 tempDiagnostics.wrap {
-                                    // copy from temp location to actual location
-                                    let content = try self.fileSystem.getDirectoryContents(tempExtractionDirectory)
-                                    for file in content {
-                                        let source = tempExtractionDirectory.appending(component: file)
-                                        let destination = parentDirectory.appending(component: file)
-                                        if self.fileSystem.exists(destination) {
-                                            try self.fileSystem.removeFileTree(destination)
-                                        }
-                                        try self.fileSystem.copy(from: source, to: destination)
-                                        if destination.basenameWithoutExt == artifact.targetName {
-                                            artifactPath = destination
+                                    try self.fileSystem.withLock(on: parentDirectory, type: .exclusive) {
+                                        // copy from temp location to actual location
+                                        let content = try self.fileSystem.getDirectoryContents(tempExtractionDirectory)
+                                        for file in content {
+                                            let source = tempExtractionDirectory.appending(component: file)
+                                            let destination = parentDirectory.appending(component: file)
+                                            if self.fileSystem.exists(destination) {
+                                                try self.fileSystem.removeFileTree(destination)
+                                            }
+                                            try self.fileSystem.copy(from: source, to: destination)
+                                            if destination.basenameWithoutExt == artifact.targetName {
+                                                artifactPath = destination
+                                            }
                                         }
                                     }
                                     // remove temp location
@@ -2134,23 +2134,16 @@ extension Workspace {
         return result.map{ $0 }
     }
 
-    private func extract(_ artifacts: [ManagedArtifact], diagnostics: DiagnosticsEngine) -> [ManagedArtifact] {
+    private func extract(_ artifacts: [ManagedArtifact], diagnostics: DiagnosticsEngine) throws -> [ManagedArtifact] {
         let result = ThreadSafeArrayStore<ManagedArtifact>()
         let group = DispatchGroup()
 
         for artifact in artifacts {
-            let tempExtractionDirectory = self.location.artifactsDirectory.appending(components: "extract", artifact.targetName)
             let destinationDirectory = self.location.artifactsDirectory.appending(component: artifact.packageRef.name)
+            try fileSystem.createDirectory(destinationDirectory, recursive: true)
 
-            do {
-                try fileSystem.createDirectory(destinationDirectory, recursive: true)
-                if fileSystem.exists(tempExtractionDirectory) {
-                    try fileSystem.removeFileTree(tempExtractionDirectory)
-                }
-                try fileSystem.createDirectory(tempExtractionDirectory, recursive: true)
-            } catch {
-                diagnostics.emit(error)
-            }
+            let tempExtractionDirectory = self.location.artifactsDirectory.appending(components: "extract", artifact.packageRef.name, artifact.targetName, UUID().uuidString)
+            try self.fileSystem.forceCreateDirectory(at: tempExtractionDirectory)
 
             group.enter()
             self.archiver.extract(from: artifact.path, to: tempExtractionDirectory, completion: { extractResult in

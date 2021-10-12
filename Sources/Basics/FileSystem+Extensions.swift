@@ -134,3 +134,13 @@ extension FileSystem {
         return try self.writeFileContents(path, string: provider())
     }
 }
+
+extension FileSystem {
+    public func forceCreateDirectory(at path: AbsolutePath) throws {
+        try self.createDirectory(path.parentDirectory, recursive: true)
+        if self.exists(path) {
+            try self.removeFileTree(path)
+        }
+        try self.createDirectory(path, recursive: true)
+    }
+}
