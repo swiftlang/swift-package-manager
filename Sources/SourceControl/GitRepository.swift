@@ -103,7 +103,7 @@ public struct GitRepositoryProvider: RepositoryProvider {
         // FIXME: Ideally we should pass `--progress` here and report status regularly.  We currently don't have callbacks for that.
         //
         // NOTE: Explicitly set `core.symlinks=true` on `git clone` to ensure that symbolic links are correctly resolved.
-        try self.callGit("clone", "-c", "core.symlinks=true", "--mirror", repository.location.description, path.pathString,
+        try self.callGit("clone", "-c", "core.symlinks=true", "--mirror", repository.location.gitURL, path.pathString,
                          repository: repository,
                          failureMessage: "Failed to clone repository \(repository.location)",
                          progress: progressHandler)
@@ -149,7 +149,7 @@ public struct GitRepositoryProvider: RepositoryProvider {
             // In destination repo remove the remote which will be pointing to the source repo.
             let clone = GitRepository(path: destinationPath)
             // Set the original remote to the new clone.
-            try clone.setURL(remote: origin, url: repository.location.description)
+            try clone.setURL(remote: origin, url: repository.location.gitURL)
             // FIXME: This is unfortunate that we have to fetch to update remote's data.
             try clone.fetch()
         } else {
@@ -1111,6 +1111,17 @@ fileprivate func gitFetchStatusFilter(_ bytes: [UInt8], progress: FetchProgress.
             default:
                 continue
             }
+        }
+    }
+}
+
+extension RepositorySpecifier.Location {
+    fileprivate var gitURL: String {
+        switch self {
+        case .path(let path):
+            return path.pathString
+        case .url(let url):
+            return url.absoluteString
         }
     }
 }

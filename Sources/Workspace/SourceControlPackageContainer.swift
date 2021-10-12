@@ -43,7 +43,7 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
 
         /// Description shown for errors of this kind.
         public var description: String {
-            var desc = "\(underlyingError) in \(self.repository.location.description)"
+            var desc = "\(underlyingError) in \(self.repository.location)"
             if let suggestion = suggestion {
                 desc += " (\(suggestion))"
             }
