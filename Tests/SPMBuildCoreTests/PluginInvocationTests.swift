@@ -152,6 +152,7 @@ class PluginInvocationTests: XCTestCase {
         let results = try graph.invokePlugins(
             outputDir: outputDir,
             builtToolsDir: builtToolsDir,
+            buildEnvironment: BuildEnvironment(platform: .macOS, configuration: .debug),
             pluginScriptRunner: pluginRunner,
             observabilityScope: observability.topScope,
             fileSystem: fileSystem

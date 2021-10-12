@@ -40,6 +40,7 @@ extension PackageGraph {
     public func invokePlugins(
         outputDir: AbsolutePath,
         builtToolsDir: AbsolutePath,
+        buildEnvironment: BuildEnvironment,
         pluginScriptRunner: PluginScriptRunner,
         observabilityScope: ObservabilityScope,
         fileSystem: FileSystem
@@ -52,7 +53,7 @@ extension PackageGraph {
             // Infer plugins from the declared dependencies, and collect them as well as any regular dependnencies.  Although plugin usage is declared separately from dependencies in the manifest, in the internal model we currently consider both to be dependencies.
             var pluginTargets: [PluginTarget] = []
             var dependencyTargets: [Target] = []
-            for dependency in target.dependencies {
+            for dependency in target.dependencies(satisfying: buildEnvironment) {
                 switch dependency {
                 case .target(let target, _):
                     if let pluginTarget = target.underlyingTarget as? PluginTarget {
@@ -101,7 +102,7 @@ extension PackageGraph {
                 }
 
                 // Create the input context to pass when applying the plugin to the target.
-                var serializer = PluginScriptRunnerInputSerializer()
+                var serializer = PluginScriptRunnerInputSerializer(buildEnvironment: buildEnvironment)
                 let pluginInput = try serializer.makePluginScriptRunnerInput(
                     rootPackage: package,
                     pluginWorkDir: pluginOutputDir,
@@ -538,6 +539,7 @@ struct PluginScriptRunnerInput: Codable {
 /// Creates the serialized input structure for the plugin script based on all
 /// the input information to a plugin.
 struct PluginScriptRunnerInputSerializer {
+    let buildEnvironment: BuildEnvironment
     var paths: [PluginScriptRunnerInput.Path] = []
     var pathsToIds: [AbsolutePath: PluginScriptRunnerInput.Path.Id] = [:]
     var targets: [PluginScriptRunnerInput.Target] = []
@@ -620,6 +622,9 @@ struct PluginScriptRunnerInputSerializer {
             .init(basePathId: try serialize(path: $0.parentDirectory), name: $0.basename, type: .unknown)
         })
         
+        // Create a scope for evaluating build settings.
+        let scope = BuildSettings.Scope(target.underlyingTarget.buildSettings, environment: buildEnvironment)
+        
         // Look at the target and decide what to serialize. At this point we may decide to not serialize it at all.
         let targetInfo: PluginScriptRunnerInput.Target.TargetInfo
         switch target.underlyingTarget {
@@ -629,20 +634,20 @@ struct PluginScriptRunnerInputSerializer {
             targetInfo = .swiftSourceModuleInfo(
                 moduleName: target.c99name,
                 sourceFiles: targetFiles,
-                compilationConditions: [],
-                linkedLibraries: [],
-                linkedFrameworks: [])
+                compilationConditions: scope.evaluate(.SWIFT_ACTIVE_COMPILATION_CONDITIONS),
+                linkedLibraries: scope.evaluate(.LINK_LIBRARIES),
+                linkedFrameworks: scope.evaluate(.LINK_FRAMEWORKS))
 
         case let target as ClangTarget:
             // FIXME: Distill the build settings that apply to Clang targets and pass them down here.
             targetInfo = .clangSourceModuleInfo(
                 moduleName: target.c99name,
                 sourceFiles: targetFiles,
-                preprocessorDefinitions: [],
-                headerSearchPaths: [],
+                preprocessorDefinitions: scope.evaluate(.GCC_PREPROCESSOR_DEFINITIONS),
+                headerSearchPaths: scope.evaluate(.HEADER_SEARCH_PATHS),
                 publicHeadersDirId: try serialize(path: target.includeDir),
-                linkedLibraries: [],
-                linkedFrameworks: [])
+                linkedLibraries: scope.evaluate(.LINK_LIBRARIES),
+                linkedFrameworks: scope.evaluate(.LINK_FRAMEWORKS))
 
         case let target as SystemLibraryTarget:
             // FIXME: Extract the logic to discover pkgConfig information from BuildPlan, call it, and pass it down.
@@ -677,7 +682,7 @@ struct PluginScriptRunnerInputSerializer {
         }
         
         // We only get this far if we are serializing the target. If so we also serialize its dependencies.
-        let dependencies: [PluginScriptRunnerInput.Target.Dependency] = try target.dependencies.compactMap {
+        let dependencies: [PluginScriptRunnerInput.Target.Dependency] = try target.dependencies(satisfying: buildEnvironment).compactMap {
             switch $0 {
             case .target(let target, _):
                 return try serialize(target: target).map { .target(targetId: $0) }
