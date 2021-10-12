@@ -230,7 +230,7 @@ public struct PackageCollectionSigning: PackageCollectionSigner, PackageCollecti
             certPolicy.validate(certChain: certChain) { result in
                 switch result {
                 case .failure(let error):
-                    observabilityScope.emit(error: "The certificate chain is invalid: \(error)")
+                    observabilityScope.emit(error: "\(certPolicyKey): The certificate chain is invalid: \(error)")
                     if CertificatePolicyError.noTrustedRootCertsConfigured == error as? CertificatePolicyError {
                         callback(.failure(PackageCollectionSigningError.noTrustedRootCertsConfigured))
                     } else {

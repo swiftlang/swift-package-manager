@@ -871,13 +871,26 @@ struct AppleDistributionCertificatePolicy: CertificatePolicy {
     }
 }
 
-public enum CertificatePolicyKey: Hashable {
+public enum CertificatePolicyKey: Hashable, CustomStringConvertible {
     case `default`(subjectUserID: String?)
     case appleSwiftPackageCollection(subjectUserID: String?)
     case appleDistribution(subjectUserID: String?)
 
     /// For internal-use only
     case custom
+    
+    public var description: String {
+        switch self {
+        case .default(let subject):
+            return "Default certificate policy\(subject.map { " (subject: \($0))" } ?? "")"
+        case .appleSwiftPackageCollection(let subject):
+            return "Swift Package Collection certificate policy\(subject.map { " (subject: \($0))" } ?? "")"
+        case .appleDistribution(let subject):
+            return "Distribution certificate policy\(subject.map { " (subject: \($0))" } ?? "")"
+        case .custom:
+            return "Custom certificate policy"
+        }
+    }
 
     public static let `default` = CertificatePolicyKey.default(subjectUserID: nil)
     public static let appleSwiftPackageCollection = CertificatePolicyKey.appleSwiftPackageCollection(subjectUserID: nil)
