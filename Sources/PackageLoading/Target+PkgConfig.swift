@@ -199,8 +199,12 @@ public func allowlist(
 
             // If the flag and its value are separated, skip next flag.
             if flag == filter && flag != "-w" {
-                guard it.next() != nil else {
+                guard let associated = it.next() else {
                     throw InternalError("Expected associated value")
+                }
+                if flag == "-framework" {
+                    allowed += [flag, associated]
+                    continue
                 }
             }
             allowed += [flag]

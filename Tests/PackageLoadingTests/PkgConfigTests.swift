@@ -104,6 +104,24 @@ class PkgConfigTests: XCTestCase {
                 }
             }
         }
+
+        // Pc file with -framework Framework flag.
+        try withCustomEnv(["PKG_CONFIG_PATH": inputsDir.pathString]) {
+            let observability = ObservabilitySystem.makeForTesting()
+            for result in pkgConfigArgs(for: SystemLibraryTarget(pkgConfig: "Framework"), fileSystem: fs, observabilityScope: observability.topScope) {
+                XCTAssertEqual(result.pkgConfigName, "Framework")
+                XCTAssertEqual(result.cFlags, ["-F/usr/lib"])
+                XCTAssertEqual(result.libs, ["-F/usr/lib", "-framework", "SystemFramework"])
+                XCTAssertNil(result.provider)
+                XCTAssertFalse(result.couldNotFindConfigFile)
+                switch result.error {
+                case PkgConfigError.prohibitedFlags(let desc)?:
+                    XCTAssertEqual(desc, "-DDenyListed")
+                default:
+                    XCTFail("unexpected error \(result.error.debugDescription)")
+                }
+            }
+        }
     }
 
     func testDependencies() throws {
