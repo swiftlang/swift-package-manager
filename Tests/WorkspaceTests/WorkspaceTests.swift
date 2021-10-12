@@ -4423,16 +4423,16 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertTrue(fs.exists(bFrameworkArchivePath))
 
             // Ensure that the temporary folders have been properly created
-            XCTAssertEqual(workspace.archiver.extractions.map { $0.destinationPath }.sorted(), [
-                AbsolutePath("/tmp/ws/.build/artifacts/extract/A1"),
-                AbsolutePath("/tmp/ws/.build/artifacts/extract/A2"),
-                AbsolutePath("/tmp/ws/.build/artifacts/extract/B")
+            XCTAssertEqual(workspace.archiver.extractions.map { $0.destinationPath.parentDirectory }.sorted(), [
+                AbsolutePath("/tmp/ws/.build/artifacts/extract/A/A1"),
+                AbsolutePath("/tmp/ws/.build/artifacts/extract/A/A2"),
+                AbsolutePath("/tmp/ws/.build/artifacts/extract/B/B")
             ])
 
             // Ensure that the temporary directories have been removed
-            XCTAssertFalse(fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/extract/A1")))
-            XCTAssertFalse(fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/extract/A2")))
-            XCTAssertFalse(fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/extract/B")))
+            XCTAssertTrue(try! fs.getDirectoryContents(AbsolutePath("/tmp/ws/.build/artifacts/extract/A/A1")).isEmpty)
+            XCTAssertTrue(try! fs.getDirectoryContents(AbsolutePath("/tmp/ws/.build/artifacts/extract/A/A2")).isEmpty)
+            XCTAssertTrue(try! fs.getDirectoryContents(AbsolutePath("/tmp/ws/.build/artifacts/extract/B/B")).isEmpty)
         }
 
         workspace.checkManagedArtifacts { result in
@@ -5029,8 +5029,8 @@ final class WorkspaceTests: XCTestCase {
 
         try workspace.checkPackageGraph(roots: ["Foo"]) { graph, diagnostics in
             // Ensure that only the artifact archive with the changed checksum has been extracted
-            XCTAssertEqual(workspace.archiver.extractions.map { $0.destinationPath }.sorted(), [
-                AbsolutePath("/tmp/ws/.build/artifacts/extract/A1")
+            XCTAssertEqual(workspace.archiver.extractions.map { $0.destinationPath.parentDirectory }.sorted(), [
+                AbsolutePath("/tmp/ws/.build/artifacts/extract/A/A1")
             ])
         }
 
