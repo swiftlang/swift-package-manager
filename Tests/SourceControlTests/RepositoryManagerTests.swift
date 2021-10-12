@@ -63,14 +63,14 @@ private class DummyRepositoryProvider: RepositoryProvider {
     func fetch(repository: RepositorySpecifier, to path: AbsolutePath, progressHandler: FetchProgress.Handler? = nil) throws {
         assert(!localFileSystem.exists(path))
         try localFileSystem.createDirectory(path.parentDirectory, recursive: true)
-        try localFileSystem.writeFileContents(path, bytes: ByteString(encodingAsUTF8: repository.url))
+        try localFileSystem.writeFileContents(path, bytes: ByteString(encodingAsUTF8: repository.location.description))
 
         self.lock.withLock {
             self._numClones += 1
         }
 
         // We only support one dummy URL.
-        let basename = repository.url.components(separatedBy: "/").last!
+        let basename = repository.location.description.components(separatedBy: "/").last!
         if basename != "dummy" {
             throw DummyError.invalidRepository
         }
@@ -334,7 +334,7 @@ class RepositoryManagerTests: XCTestCase {
             do {
                 let checkoutsStateFile = path.appending(component: "checkouts-state.json")
                 let jsonData = try JSON(bytes: localFileSystem.readFileContents(checkoutsStateFile))
-                XCTAssertEqual(jsonData.dictionary?["object"]?.dictionary?["repositories"]?.dictionary?[dummyRepo.url], nil)
+                XCTAssertEqual(jsonData.dictionary?["object"]?.dictionary?["repositories"]?.dictionary?[dummyRepo.location.description], nil)
             }
 
             // We should get a new handle now because we deleted the existing repository.

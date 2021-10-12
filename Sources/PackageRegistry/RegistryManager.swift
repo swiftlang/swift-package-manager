@@ -167,7 +167,7 @@ public final class RegistryManager {
                         at: .root,
                         packageIdentity: package.identity,
                         packageKind: .registry(package.identity),
-                        packageLocation: package.location,
+                        packageLocation: package.locationString,
                         version: version,
                         revision: nil,
                         toolsVersion: .currentToolsVersion,

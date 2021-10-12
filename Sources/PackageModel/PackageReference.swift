@@ -18,7 +18,7 @@ import TSCUtility
 /// This represents a reference to a package containing its identity and location.
 public struct PackageReference {
     /// The kind of package reference.
-    public enum Kind: Equatable {
+    public enum Kind: Equatable, CustomStringConvertible {
         /// A root package.
         case root(AbsolutePath)
 
@@ -52,6 +52,21 @@ public struct PackageReference {
             }
         }
 
+        public var description: String {
+            switch self {
+            case .root(let path):
+                return "root \(path)"
+            case .fileSystem(let path):
+                return "fileSystem \(path)"
+            case .localSourceControl(let path):
+                return "localSourceControl \(path)"
+            case .remoteSourceControl(let url):
+                return "remoteSourceControl \(url)"
+            case .registry(let identity):
+                return "registry \(identity)"
+            }
+        }
+
         // FIXME: ideally this would not be required and we can check on the enum directly
         public var isRoot: Bool {
             if case .root = self {
@@ -74,7 +89,7 @@ public struct PackageReference {
     /// This could be a remote repository, local repository or local package.
     // FIXME: we should not need this
     //@available(*, deprecated)
-    public var location: String {
+    public var locationString: String {
         self.kind.locationString
     }
 
@@ -131,6 +146,11 @@ extension PackageReference: Equatable {
     public static func ==(lhs: PackageReference, rhs: PackageReference) -> Bool {
         return lhs.identity == rhs.identity
     }
+
+    // TODO: consider rolling into Equatable
+    public func equalsIncludingLocation(_ other: PackageReference) -> Bool {
+        return self.identity == other.identity && self.kind.locationString == other.kind.locationString
+    }
 }
 
 extension PackageReference: Hashable {
@@ -142,7 +162,7 @@ extension PackageReference: Hashable {
 
 extension PackageReference: CustomStringConvertible {
     public var description: String {
-        return "\(self.identity)\(self.location.isEmpty ? "" : "[\(self.location)]")"
+        return "\(self.identity) \(self.kind)"
     }
 }
 

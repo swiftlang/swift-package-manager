@@ -1051,7 +1051,7 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertEqual(result.diagnostics.hasErrors, false)
             XCTAssertEqual(result.result, .required(reason: .packageRequirementChange(
                 package: cRef,
-                state: .local,
+                state: .local(cPackagePath),
                 requirement: .revision("master")
             )))
         }
@@ -1735,7 +1735,7 @@ final class WorkspaceTests: XCTestCase {
 
         // Check that we can compute missing dependencies.
         try workspace.loadDependencyManifests(roots: ["Root1", "Root2"]) { manifests, diagnostics in
-            XCTAssertEqual(manifests.missingPackageURLs().map { $0.location }.sorted(), ["/tmp/ws/pkgs/Bar", "/tmp/ws/pkgs/Foo"])
+            XCTAssertEqual(manifests.missingPackages().map { $0.locationString }.sorted(), ["/tmp/ws/pkgs/Bar", "/tmp/ws/pkgs/Foo"])
             XCTAssertNoDiagnostics(diagnostics)
         }
 
@@ -1749,7 +1749,7 @@ final class WorkspaceTests: XCTestCase {
 
         // Check that we compute the correct missing dependencies.
         try workspace.loadDependencyManifests(roots: ["Root1", "Root2"]) { manifests, diagnostics in
-            XCTAssertEqual(manifests.missingPackageURLs().map { $0.location }.sorted(), ["/tmp/ws/pkgs/Bar"])
+            XCTAssertEqual(manifests.missingPackages().map { $0.locationString }.sorted(), ["/tmp/ws/pkgs/Bar"])
             XCTAssertNoDiagnostics(diagnostics)
         }
 
@@ -1763,7 +1763,7 @@ final class WorkspaceTests: XCTestCase {
 
         // Check that we compute the correct missing dependencies.
         try workspace.loadDependencyManifests(roots: ["Root1", "Root2"]) { manifests, diagnostics in
-            XCTAssertEqual(manifests.missingPackageURLs().map { $0.location }.sorted(), [])
+            XCTAssertEqual(manifests.missingPackages().map { $0.locationString }.sorted(), [])
             XCTAssertNoDiagnostics(diagnostics)
         }
     }
@@ -2211,7 +2211,7 @@ final class WorkspaceTests: XCTestCase {
 
         try workspace.loadDependencyManifests(roots: ["Root"]) { manifests, diagnostics in
             let editedPackages = manifests.editedPackagesConstraints()
-            XCTAssertEqual(editedPackages.map { $0.package.location }, [fooPath.pathString])
+            XCTAssertEqual(editedPackages.map { $0.package.locationString }, [fooPath.pathString])
             XCTAssertNoDiagnostics(diagnostics)
         }
 
@@ -3309,7 +3309,7 @@ final class WorkspaceTests: XCTestCase {
         }
         do {
             let ws = try workspace.getOrCreateWorkspace()
-            XCTAssertEqual(ws.state.dependencies[.plain("foo")]?.packageRef.location, "/tmp/ws/pkgs/Foo")
+            XCTAssertEqual(ws.state.dependencies[.plain("foo")]?.packageRef.locationString, "/tmp/ws/pkgs/Foo")
         }
 
         deps = [
@@ -3323,7 +3323,7 @@ final class WorkspaceTests: XCTestCase {
         }
         do {
             let ws = try workspace.getOrCreateWorkspace()
-            XCTAssertEqual(ws.state.dependencies[.plain("foo")]?.packageRef.location, "/tmp/ws/pkgs/Nested/Foo")
+            XCTAssertEqual(ws.state.dependencies[.plain("foo")]?.packageRef.locationString, "/tmp/ws/pkgs/Nested/Foo")
         }
     }
 
@@ -3638,7 +3638,7 @@ final class WorkspaceTests: XCTestCase {
 
         do {
             let ws = try workspace.getOrCreateWorkspace()
-            XCTAssertEqual(ws.state.dependencies[.plain("foo")]?.packageRef.location, "/tmp/ws/pkgs/Foo")
+            XCTAssertEqual(ws.state.dependencies[.plain("foo")]?.packageRef.locationString, "/tmp/ws/pkgs/Foo")
         }
 
         workspace.checkReset { diagnostics in
@@ -3662,7 +3662,7 @@ final class WorkspaceTests: XCTestCase {
 
         do {
             let ws = try workspace.getOrCreateWorkspace()
-            XCTAssertEqual(ws.state.dependencies[.plain("foo")]?.packageRef.location, "/tmp/ws/pkgs/Nested/Foo")
+            XCTAssertEqual(ws.state.dependencies[.plain("foo")]?.packageRef.locationString, "/tmp/ws/pkgs/Nested/Foo")
         }
     }
 
@@ -3732,7 +3732,7 @@ final class WorkspaceTests: XCTestCase {
             let pinsStore = try ws.pinsStore.load()
             let fooPin = pinsStore.pins.first(where: { $0.packageRef.identity.description == "foo" })!
 
-            let fooRepo = workspace.repoProvider.specifierMap[RepositorySpecifier(path: AbsolutePath(fooPin.packageRef.location))]!
+            let fooRepo = workspace.repoProvider.specifierMap[RepositorySpecifier(path: AbsolutePath(fooPin.packageRef.locationString))]!
             let revision = try fooRepo.resolveRevision(tag: "1.0.0")
             let newState = CheckoutState.version("1.0.0", revision: revision)
 

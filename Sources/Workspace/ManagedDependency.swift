@@ -8,6 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
+import Basics
 import PackageGraph
 import PackageModel
 import SourceControl
@@ -33,7 +34,7 @@ extension Workspace {
             case edited(basedOn: ManagedDependency?, unmanagedPath: AbsolutePath?)
 
             // The dependency is a local package.
-            case local
+            case local(AbsolutePath)
         }
 
         /// The package reference.
@@ -80,13 +81,20 @@ extension Workspace {
         /// Create a dependency present locally on the filesystem.
         public static func local(
             packageRef: PackageReference
-        ) -> ManagedDependency {
-            return ManagedDependency(
-                packageRef: packageRef,
-                state: .local,
-                // FIXME: This is just a fake entry, we should fix it.
-                subpath: RelativePath(packageRef.identity.description)
-            )
+        ) throws -> ManagedDependency {
+            switch packageRef.kind {
+            case .root(let path),
+                    .fileSystem(let path),
+                    .localSourceControl(let path):
+                return ManagedDependency(
+                    packageRef: packageRef,
+                    state: .local(path),
+                    // FIXME: This is just a fake entry, we should fix it.
+                    subpath: RelativePath(packageRef.identity.description)
+                )
+            default:
+                throw InternalError("invalid package type: \(packageRef.kind)")
+            }
         }
 
         /// Create a remote dependency checked out
@@ -144,7 +152,7 @@ extension Workspace {
         // as it may attempt to load manifests for dependencies that have the same identity but from a different location
         // (e.g. dependency is changed to  a fork with the same identity)
         public subscript(comparingLocation package: PackageReference) -> ManagedDependency? {
-            if let dependency = self.dependencies[package.identity], dependency.packageRef.location == package.location {
+            if let dependency = self.dependencies[package.identity], dependency.packageRef.equalsIncludingLocation(package) {
                 return dependency
             }
             return .none

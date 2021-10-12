@@ -138,7 +138,7 @@ public final class MockWorkspace {
             let manifestPath = packagePath.appending(component: Manifest.filename)
             for version in versions {
                 let v = version.flatMap(Version.init(_:))
-                manifests[.init(url: specifier.url, version: v)] = try Manifest(
+                manifests[.init(url: specifier.location.description, version: v)] = try Manifest(
                     name: package.name,
                     path: manifestPath,
                     packageKind: packageKind,
@@ -497,8 +497,9 @@ public final class MockWorkspace {
                     return
                 }
             case .local:
-                if dependency.state != .local {
+                guard case .local(_) = dependency.state  else {
                     XCTFail("Expected local dependency", file: file, line: line)
+                    return
                 }
             }
         }

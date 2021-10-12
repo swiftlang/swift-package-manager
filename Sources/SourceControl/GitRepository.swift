@@ -103,9 +103,9 @@ public struct GitRepositoryProvider: RepositoryProvider {
         // FIXME: Ideally we should pass `--progress` here and report status regularly.  We currently don't have callbacks for that.
         //
         // NOTE: Explicitly set `core.symlinks=true` on `git clone` to ensure that symbolic links are correctly resolved.
-        try self.callGit("clone", "-c", "core.symlinks=true", "--mirror", repository.url, path.pathString,
+        try self.callGit("clone", "-c", "core.symlinks=true", "--mirror", repository.location.gitURL, path.pathString,
                          repository: repository,
-                         failureMessage: "Failed to clone repository \(repository.url)",
+                         failureMessage: "Failed to clone repository \(repository.location)",
                          progress: progressHandler)
     }
     
@@ -143,13 +143,13 @@ public struct GitRepositoryProvider: RepositoryProvider {
             // NOTE: Explicitly set `core.symlinks=true` on `git clone` to ensure that symbolic links are correctly resolved.
             try self.callGit("clone", "-c", "core.symlinks=true", "--no-checkout", sourcePath.pathString, destinationPath.pathString,
                              repository: repository,
-                             failureMessage: "Failed to clone repository \(repository.url)")
+                             failureMessage: "Failed to clone repository \(repository.location)")
             // The default name of the remote.
             let origin = "origin"
             // In destination repo remove the remote which will be pointing to the source repo.
             let clone = GitRepository(path: destinationPath)
             // Set the original remote to the new clone.
-            try clone.setURL(remote: origin, url: repository.url)
+            try clone.setURL(remote: origin, url: repository.location.gitURL)
             // FIXME: This is unfortunate that we have to fetch to update remote's data.
             try clone.fetch()
         } else {
@@ -165,7 +165,7 @@ public struct GitRepositoryProvider: RepositoryProvider {
             // NOTE: Explicitly set `core.symlinks=true` on `git clone` to ensure that symbolic links are correctly resolved.
             try self.callGit("clone", "-c", "core.symlinks=true", "--shared", "--no-checkout", sourcePath.pathString, destinationPath.pathString,
                              repository: repository,
-                             failureMessage: "Failed to clone repository \(repository.url)")
+                             failureMessage: "Failed to clone repository \(repository.location)")
         }
         return try self.openWorkingCopy(at: destinationPath)
     }
@@ -949,7 +949,7 @@ public struct GitCloneError: Error, CustomStringConvertible, DiagnosticLocationP
     public struct Location: DiagnosticLocation {
         public let repository: RepositorySpecifier
         public var description: String {
-            return self.repository.url
+            return self.repository.location.description
         }
     }
 
@@ -1111,6 +1111,17 @@ fileprivate func gitFetchStatusFilter(_ bytes: [UInt8], progress: FetchProgress.
             default:
                 continue
             }
+        }
+    }
+}
+
+extension RepositorySpecifier.Location {
+    fileprivate var gitURL: String {
+        switch self {
+        case .path(let path):
+            return path.pathString
+        case .url(let url):
+            return url.absoluteString
         }
     }
 }
