@@ -104,7 +104,34 @@ fileprivate struct PluginInputDeserializer {
         let target: Target
         switch wireTarget.info {
         
-        case .sourceModuleInfo(let moduleName, let publicHeadersDirId, let sourceFiles):
+        case let .swiftSourceModuleInfo(moduleName, sourceFiles, compilationConditions, linkedLibraries, linkedFrameworks):
+            let sourceFiles = FileList(try sourceFiles.map {
+                let path = try self.path(for: $0.basePathId).appending($0.name)
+                let type: FileType
+                switch $0.type {
+                case .source:
+                    type = .source
+                case .header:
+                    type = .header
+                case .resource:
+                    type = .resource
+                case .unknown:
+                    type = .unknown
+                }
+                return File(path: path, type: type)
+            })
+            target = SwiftSourceModuleTarget(
+                id: String(id),
+                name: wireTarget.name,
+                directory: directory,
+                dependencies: dependencies,
+                moduleName: moduleName,
+                sourceFiles: sourceFiles,
+                compilationConditions: compilationConditions,
+                linkedLibraries: linkedLibraries,
+                linkedFrameworks: linkedFrameworks)
+
+        case let .clangSourceModuleInfo(moduleName, sourceFiles, preprocessorDefinitions, headerSearchPaths, publicHeadersDirId, linkedLibraries, linkedFrameworks):
             let publicHeadersDir = try publicHeadersDirId.map { try self.path(for: $0) }
             let sourceFiles = FileList(try sourceFiles.map {
                 let path = try self.path(for: $0.basePathId).appending($0.name)
@@ -121,32 +148,53 @@ fileprivate struct PluginInputDeserializer {
                 }
                 return File(path: path, type: type)
             })
-            target = SourceModuleTarget(
+            target = ClangSourceModuleTarget(
                 id: String(id),
                 name: wireTarget.name,
                 directory: directory,
                 dependencies: dependencies,
                 moduleName: moduleName,
+                sourceFiles: sourceFiles,
+                preprocessorDefinitions: preprocessorDefinitions,
+                headerSearchPaths: headerSearchPaths,
                 publicHeadersDirectory: publicHeadersDir,
-                sourceFiles: sourceFiles)
+                linkedLibraries: linkedLibraries,
+                linkedFrameworks: linkedFrameworks)
 
-        case .binaryLibraryInfo(let libraryPathId):
-            let libraryPath = try self.path(for: libraryPathId)
-            target = BinaryLibraryTarget(
+        case let .binaryArtifactInfo(kind, origin, artifactId):
+            let artifact = try self.path(for: artifactId)
+            let artifactKind: BinaryArtifactTarget.Kind
+            switch kind {
+            case .artifactsArchive:
+                artifactKind = .artifactsArchive
+            case .xcframework:
+                artifactKind = .xcframework
+            }
+            let artifactOrigin: BinaryArtifactTarget.Origin
+            switch origin {
+            case .local:
+                artifactOrigin = .local
+            case .remote(let url):
+                artifactOrigin = .remote(url: url)
+            }
+            target = BinaryArtifactTarget(
                 id: String(id),
                 name: wireTarget.name,
                 directory: directory,
                 dependencies: dependencies,
-                libraryPath: libraryPath)
+                kind: artifactKind,
+                origin: artifactOrigin,
+                artifact: artifact)
 
-        case .systemLibraryInfo(let publicHeadersDirectoryId):
-            let publicHeadersDirectory = try self.path(for: publicHeadersDirectoryId)
+        case let .systemLibraryInfo(pkgConfig, compilerFlags, linkerFlags):
             target = SystemLibraryTarget(
                 id: String(id),
                 name: wireTarget.name,
                 directory: directory,
                 dependencies: dependencies,
-                publicHeadersDirectory: publicHeadersDirectory)
+                pkgConfig: pkgConfig,
+                compilerFlags: compilerFlags,
+                linkerFlags: linkerFlags)
         }
         
         targetsById[id] = target
@@ -176,20 +224,20 @@ fileprivate struct PluginInputDeserializer {
                 mainTarget: mainTarget)
 
         case .library(let type):
-            let libraryType: LibraryType
+            let libraryKind: LibraryProduct.Kind
             switch type {
             case .static:
-                libraryType = .static
+                libraryKind = .static
             case .dynamic:
-                libraryType = .dynamic
+                libraryKind = .dynamic
             case .automatic:
-                libraryType = .automatic
+                libraryKind = .automatic
             }
             product = LibraryProduct(
                 id: String(id),
                 name: wireProduct.name,
                 targets: targets,
-                type: libraryType)
+                kind: libraryKind)
         }
         
         productsById[id] = product
@@ -206,6 +254,10 @@ fileprivate struct PluginInputDeserializer {
         
         let wirePackage = input.packages[id]
         let directory = try self.path(for: wirePackage.directoryId)
+        let toolsVersion = ToolsVersion(
+            major: wirePackage.toolsVersion.major,
+            minor: wirePackage.toolsVersion.minor,
+            patch: wirePackage.toolsVersion.patch)
         let dependencies: [PackageDependency] = try wirePackage.dependencies.map {
             .init(package: try self.package(for: $0.packageId))
         }
@@ -215,6 +267,8 @@ fileprivate struct PluginInputDeserializer {
             id: String(id),
             name: wirePackage.name,
             directory: directory,
+            origin: .root,
+            toolsVersion: toolsVersion,
             dependencies: dependencies,
             products: products,
             targets: targets)
@@ -260,9 +314,32 @@ fileprivate struct WireInput: Decodable {
         typealias Id = Int
         let name: String
         let directoryId: Path.Id
+        let origin: Origin
+        let toolsVersion: ToolsVersion
         let dependencies: [Dependency]
         let productIds: [Product.Id]
         let targetIds: [Target.Id]
+
+        /// The origin of the package (root, local, repository, registry, etc).
+        enum Origin: Decodable {
+            case root
+            case local(
+                path: Path.Id)
+            case repository(
+                url: String,
+                displayVersion: String,
+                scmRevision: String)
+            case registry(
+                identity: String,
+                displayVersion: String)
+        }
+        
+        /// Represents a version of SwiftPM on whose semantics a package relies.
+        struct ToolsVersion: Decodable {
+            let major: Int
+            let minor: Int
+            let patch: Int
+        }
 
         /// A dependency on a package in the wire structure. All references to
         /// other entities are ID numbers.
@@ -285,10 +362,10 @@ fileprivate struct WireInput: Decodable {
             case executable(
                 mainTargetId: Target.Id)
             case library(
-                type: LibraryType)
+                kind: LibraryKind)
 
             /// A type of library in the wire structure, as SwiftPM sees it.
-            enum LibraryType: Decodable {
+            enum LibraryKind: Decodable {
                 case `static`
                 case `dynamic`
                 case automatic
@@ -317,19 +394,35 @@ fileprivate struct WireInput: Decodable {
         /// Type-specific information for a target in the wire structure. All
         /// references to other entities are their ID numbers.
         enum TargetInfo: Decodable {
-            /// Information about a source module target (Swift or Clang).
-            case sourceModuleInfo(
+            /// Information about a Swift source module target.
+            case swiftSourceModuleInfo(
                 moduleName: String,
-                publicHeadersDirId: Path.Id?,
-                sourceFiles: [File])
+                sourceFiles: [File],
+                compilationConditions: [String],
+                linkedLibraries: [String],
+                linkedFrameworks: [String])
             
-            /// Information about a binary library target.
-            case binaryLibraryInfo(
-                pathId: Path.Id)
+            /// Information about a Clang source module target.
+            case clangSourceModuleInfo(
+                moduleName: String,
+                sourceFiles: [File],
+                preprocessorDefinitions: [String],
+                headerSearchPaths: [String],
+                publicHeadersDirId: Path.Id?,
+                linkedLibraries: [String],
+                linkedFrameworks: [String])
+            
+            /// Information about a binary artifact target.
+            case binaryArtifactInfo(
+                kind: BinaryArtifactKind,
+                origin: BinaryArtifactOrigin,
+                artifactId: Path.Id)
             
             /// Information about a system library target.
             case systemLibraryInfo(
-                publicHeadersDirId: Path.Id)
+                pkgConfig: String?,
+                compilerFlags: [String],
+                linkerFlags: [String])
 
             /// A file in the wire structure.
             struct File: Decodable {
@@ -344,6 +437,16 @@ fileprivate struct WireInput: Decodable {
                     case resource
                     case unknown
                 }
+            }
+
+            enum BinaryArtifactKind: Decodable {
+                case xcframework
+                case artifactsArchive
+            }
+
+            enum BinaryArtifactOrigin: Decodable {
+                case local
+                case remote(url: String)
             }
         }
     }

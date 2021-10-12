@@ -20,6 +20,14 @@ public struct Package {
     /// The absolute path of the package directory in the local file system.
     public let directory: Path
 
+    /// The origin of the package (root, local, repository, registry, etc).
+    public let origin: PackageOrigin
+
+    /// The tools version specified by the resolved version of the package.
+    /// Behavior is often gated on the tools version, to make sure older
+    /// packages continue to work as intended.
+    public let toolsVersion: ToolsVersion
+  
     /// Any dependencies on other packages, in the same order as they are
     /// specified in the package manifest.
     public let dependencies: [PackageDependency]
@@ -31,6 +39,39 @@ public struct Package {
     /// Any regular targets defined in this package (except plugin targets),
     /// in the same order as they are specified in the package manifest.
     public let targets: [Target]
+}
+
+/// Represents the origin of a package as it appears in the graph.
+public enum PackageOrigin {
+    /// A root package (unversioned).
+    case root
+
+    /// A local package, referenced by path (unversioned).
+    case local(path: String)
+
+    /// A package from a Git repository, with a URL and with a textual
+    /// description of the resolved version or branch name (for display
+    /// purposes only), along with the corresponding SCM revision. The
+    /// revision is the Git commit hash and may be useful for plugins
+    /// that generates source code that includes version information.
+    case repository(url: String, displayVersion: String, scmRevision: String)
+
+    /// A package from a registry, with an identity and with a textual
+    /// description of the resolved version or branch name (for display
+    /// purposes only).
+    case registry(identity: String, displayVersion: String)
+}
+
+/// Represents a version of SwiftPM on whose semantics a package relies.
+public struct ToolsVersion {
+    /// The major version.
+    public let major: Int
+
+    /// The minor version.
+    public let minor: Int
+
+    /// The patch version.
+    public let patch: Int
 }
 
 /// Represents a resolved dependency of a package on another package. This is a
@@ -101,19 +142,20 @@ public struct LibraryProduct: Product {
     public let targets: [Target]
 
     /// Whether the library is static, dynamic, or automatically determined.
-    public let type: LibraryType
-}
+    public let kind: Kind
 
-/// A type of library product.
-public enum LibraryType {
-    /// Static library.
-    case `static`
+    /// Represents a kind of library product.
+    public enum Kind {
+        /// A static library, whose code is copied into its clients.
+        case `static`
 
-    /// Dynamic library.
-    case `dynamic`
+        /// Dynamic library, whose code is referenced by its clients.
+        case `dynamic`
 
-    /// The type of library is unspecified and will be determined at build time.
-    case automatic
+        /// The kind of library produced is unspecified and will be determined
+        /// by the build system based on how the library is used.
+        case automatic
+    }
 }
 
 /// Represents a single target defined in a package.
@@ -146,55 +188,148 @@ public enum TargetDependency {
 
 /// Represents a target consisting of a source code module, containing either
 /// Swift or source files in one of the C-based languages.
-public struct SourceModuleTarget: Target {
-    /// Unique identifier for the target.
-    public let id: ID
-    
-    /// The name of the target, as defined in the package manifest. This name
-    /// is unique among the targets of the package in which it is defined.
-    public var name: String
-    
-    /// The absolute path of the target directory in the local file system.
-    public var directory: Path
-    
-    /// Any other targets on which this target depends, in the same order as
-    /// they are specified in the package manifest. Conditional dependencies
-    /// that do not apply have already been filtered out.
-    public var dependencies: [TargetDependency]
-
+public protocol SourceModuleTarget: Target {
     /// The name of the module produced by the target (derived from the target
     /// name, though future SwiftPM versions may allow this to be customized).
-    public var moduleName: String
-
-    /// The directory containing public C headers, if applicable. This will
-    /// only be set for targets that have Clang sources, and only if there is
-    /// a public headers directory.
-    public var publicHeadersDirectory: Path?
+    var moduleName: String { get }
 
     /// The source files that are associated with this target (any files that
     /// have been excluded in the manifest have already been filtered out).
-    public var sourceFiles: FileList
+    var sourceFiles: FileList { get }
+
+    /// Any custom linked libraries required by the module, as specified in the
+    /// package manifest.
+    var linkedLibraries: [String] { get }
+
+    /// Any custom linked frameworks required by the module, as specified in the
+    /// package manifest.
+    var linkedFrameworks: [String] { get }
 }
 
-/// Represents a target describing a library that is distributed as a binary.
-public struct BinaryLibraryTarget: Target {
+/// Represents a target consisting of a source code module compiled using Swift.
+public struct SwiftSourceModuleTarget: SourceModuleTarget {
+    /// Unique identifier for the target.
+    public let id: ID
+    
+    /// The name of the target, as defined in the package manifest. This name
+    /// is unique among the targets of the package in which it is defined.
+    public let name: String
+    
+    /// The absolute path of the target directory in the local file system.
+    public let directory: Path
+    
+    /// Any other targets on which this target depends, in the same order as
+    /// they are specified in the package manifest. Conditional dependencies
+    /// that do not apply have already been filtered out.
+    public let dependencies: [TargetDependency]
+
+    /// The name of the module produced by the target (derived from the target
+    /// name, though future SwiftPM versions may allow this to be customized).
+    public let moduleName: String
+
+    /// The source files that are associated with this target (any files that
+    /// have been excluded in the manifest have already been filtered out).
+    public let sourceFiles: FileList
+
+    /// Any custom compilation conditions specified for the Swift target in the
+    /// package manifest.
+    public let compilationConditions: [String]
+
+    /// Any custom linked libraries required by the module, as specified in the
+    /// package manifest.
+    public let linkedLibraries: [String]
+
+    /// Any custom linked frameworks required by the module, as specified in the
+    /// package manifest.
+    public let linkedFrameworks: [String]
+}
+
+/// Represents a target consisting of a source code module compiled using Clang.
+public struct ClangSourceModuleTarget: SourceModuleTarget {
+    /// Unique identifier for the target.
+    public let id: ID
+    
+    /// The name of the target, as defined in the package manifest. This name
+    /// is unique among the targets of the package in which it is defined.
+    public let name: String
+    
+    /// The absolute path of the target directory in the local file system.
+    public let directory: Path
+    
+    /// Any other targets on which this target depends, in the same order as
+    /// they are specified in the package manifest. Conditional dependencies
+    /// that do not apply have already been filtered out.
+    public let dependencies: [TargetDependency]
+
+    /// The name of the module produced by the target (derived from the target
+    /// name, though future SwiftPM versions may allow this to be customized).
+    public let moduleName: String
+
+    /// The source files that are associated with this target (any files that
+    /// have been excluded in the manifest have already been filtered out).
+    public let sourceFiles: FileList
+
+    /// Any preprocessor definitions specified for the Clang target.
+    public let preprocessorDefinitions: [String]
+    
+    /// Any custom header search paths specified for the Clang target.
+    public let headerSearchPaths: [String]
+
+    /// The directory containing public C headers, if applicable. This will
+    /// only be set for targets that have a directory of a public headers.
+    public let publicHeadersDirectory: Path?
+
+    /// Any custom linked libraries required by the module, as specified in the
+    /// package manifest.
+    public let linkedLibraries: [String]
+
+    /// Any custom linked frameworks required by the module, as specified in the
+    /// package manifest.
+    public let linkedFrameworks: [String]
+}
+
+/// Represents a target describing an artifact (e.g. a library or executable)
+/// that is distributed as a binary.
+public struct BinaryArtifactTarget: Target {
     /// Unique identifier for the target.
     public let id: ID
 
     /// The name of the target, as defined in the package manifest. This name
     /// is unique among the targets of the package in which it is defined.
-    public var name: String
+    public let name: String
     
     /// The absolute path of the target directory in the local file system.
-    public var directory: Path
+    public let directory: Path
     
     /// Any other targets on which this target depends, in the same order as
     /// they are specified in the package manifest. Conditional dependencies
     /// that do not apply have already been filtered out.
-    public var dependencies: [TargetDependency]
+    public let dependencies: [TargetDependency]
 
-    /// The binary library path, having a filename suffix of `.xcframeworks`.
-    public var libraryPath: Path
+    /// The kind of binary artifact.
+    public let kind: Kind
+    
+    /// The original source of the binary artifact.
+    public let origin: Origin
+    
+    /// The location of the binary artifact in the local file system.
+    public let artifact: Path
+
+    /// Represents a kind of binary artifact.
+    public enum Kind {
+        case xcframework
+        case artifactsArchive
+    }
+    
+    // Represents the original location of a binary artifact.
+    public enum Origin: Equatable {
+        /// Represents an artifact that was available locally.
+        case local
+
+        /// Represents an artifact that was downloaded from a remote URL.
+        case remote(url: String)
+    }
+
 }
 
 /// Represents a target describing a system library that is expected to be
@@ -215,8 +350,14 @@ public struct SystemLibraryTarget: Target {
     /// that do not apply have already been filtered out.
     public var dependencies: [TargetDependency]
 
-    /// The directory containing public C headers, if applicable.
-    public let publicHeadersDirectory: Path?
+    /// The name of the `pkg-config` file, if any, describing the library.
+    public let pkgConfig: String?
+
+    /// Flags from `pkg-config` to pass to Clang (and to SwiftC via `-Xcc`).
+    public let compilerFlags: [String]
+  
+    /// Flags from `pkg-config` to pass to the platform linker.
+    public let linkerFlags: [String]
 }
 
 /// Provides information about a list of files. The order is not defined

@@ -67,7 +67,7 @@ extension BuildToolPlugin {
                 targetName: $0.name,
                 moduleName: ($0 as? SourceModuleTarget)?.moduleName ?? $0.name,
                 targetDirectory: $0.directory,
-                publicHeadersDirectory: ($0 as? SourceModuleTarget)?.publicHeadersDirectory) },
+                publicHeadersDirectory: ($0 as? ClangSourceModuleTarget)?.publicHeadersDirectory) },
             pluginWorkDirectory: context.pluginWorkDirectory,
             builtProductsDirectory: context.builtProductsDirectory,
             toolNamesToPaths: context.toolNamesToPaths))

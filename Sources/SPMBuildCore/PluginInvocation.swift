@@ -395,9 +395,32 @@ struct PluginScriptRunnerInput: Codable {
         typealias Id = Int
         let name: String
         let directoryId: Path.Id
+        let origin: Origin
+        let toolsVersion: ToolsVersion
         let dependencies: [Dependency]
         let productIds: [Product.Id]
         let targetIds: [Target.Id]
+
+        /// The origin of the package (root, local, repository, registry, etc).
+        enum Origin: Codable {
+            case root
+            case local(
+                path: Path.Id)
+            case repository(
+                url: String,
+                displayVersion: String,
+                scmRevision: String)
+            case registry(
+                identity: String,
+                displayVersion: String)
+        }
+
+        /// Represents a version of SwiftPM on whose semantics a package relies.
+        struct ToolsVersion: Codable {
+            let major: Int
+            let minor: Int
+            let patch: Int
+        }
 
         /// A dependency on a package in the wire structure. All references to
         /// other entities are ID numbers.
@@ -420,10 +443,10 @@ struct PluginScriptRunnerInput: Codable {
             case executable(
                 mainTargetId: Target.Id)
             case library(
-                type: LibraryType)
+                kind: LibraryKind)
 
             /// A type of library in the wire structure, as SwiftPM sees it.
-            enum LibraryType: Codable {
+            enum LibraryKind: Codable {
                 case `static`
                 case `dynamic`
                 case automatic
@@ -452,19 +475,35 @@ struct PluginScriptRunnerInput: Codable {
         /// Type-specific information for a target in the wire structure. All
         /// references to other entities are their ID numbers.
         enum TargetInfo: Codable {
-            /// Information about a source module target (Swift or Clang).
-            case sourceModuleInfo(
+            /// Information about a Swift source module target.
+            case swiftSourceModuleInfo(
                 moduleName: String,
-                publicHeadersDirId: Path.Id?,
-                sourceFiles: [File])
+                sourceFiles: [File],
+                compilationConditions: [String],
+                linkedLibraries: [String],
+                linkedFrameworks: [String])
             
-            /// Information about a binary library target.
-            case binaryLibraryInfo(
-                pathId: Path.Id)
+            /// Information about a Clang source module target.
+            case clangSourceModuleInfo(
+                moduleName: String,
+                sourceFiles: [File],
+                preprocessorDefinitions: [String],
+                headerSearchPaths: [String],
+                publicHeadersDirId: Path.Id?,
+                linkedLibraries: [String],
+                linkedFrameworks: [String])
+            
+            /// Information about a binary artifact target.
+            case binaryArtifactInfo(
+                kind: BinaryArtifactKind,
+                origin: BinaryArtifactOrigin,
+                artifactId: Path.Id)
             
             /// Information about a system library target.
             case systemLibraryInfo(
-                publicHeadersDirId: Path.Id)
+                pkgConfig: String?,
+                compilerFlags: [String],
+                linkerFlags: [String])
 
             /// A file in the wire structure.
             struct File: Codable {
@@ -479,6 +518,18 @@ struct PluginScriptRunnerInput: Codable {
                     case resource
                     case unknown
                 }
+            }
+            
+            /// A kind of binary artifact.
+            enum BinaryArtifactKind: Codable {
+                case xcframework
+                case artifactsArchive
+            }
+            
+            /// The origin of a binary artifact.
+            enum BinaryArtifactOrigin: Codable {
+                case local
+                case remote(url: String)
             }
         }
     }
@@ -574,24 +625,51 @@ struct PluginScriptRunnerInputSerializer {
         switch target.underlyingTarget {
             
         case let target as SwiftTarget:
-            targetInfo = .sourceModuleInfo(
+            // FIXME: Distill the build settings that apply to Swift targets and pass them down here.
+            targetInfo = .swiftSourceModuleInfo(
                 moduleName: target.c99name,
-                publicHeadersDirId: .none,
-                sourceFiles: targetFiles)
+                sourceFiles: targetFiles,
+                compilationConditions: [],
+                linkedLibraries: [],
+                linkedFrameworks: [])
 
         case let target as ClangTarget:
-            targetInfo = .sourceModuleInfo(
+            // FIXME: Distill the build settings that apply to Clang targets and pass them down here.
+            targetInfo = .clangSourceModuleInfo(
                 moduleName: target.c99name,
+                sourceFiles: targetFiles,
+                preprocessorDefinitions: [],
+                headerSearchPaths: [],
                 publicHeadersDirId: try serialize(path: target.includeDir),
-                sourceFiles: targetFiles)
+                linkedLibraries: [],
+                linkedFrameworks: [])
 
         case let target as SystemLibraryTarget:
+            // FIXME: Extract the logic to discover pkgConfig information from BuildPlan, call it, and pass it down.
             targetInfo = .systemLibraryInfo(
-                publicHeadersDirId: try serialize(path: target.moduleMapPath))
+                pkgConfig: target.pkgConfig,
+                compilerFlags: [],
+                linkerFlags: [])
             
         case let target as BinaryTarget:
-            targetInfo = .binaryLibraryInfo(
-                pathId: try serialize(path: target.artifactPath))
+            let artifactKind: PluginScriptRunnerInput.Target.TargetInfo.BinaryArtifactKind
+            switch target.kind {
+            case .artifactsArchive:
+                artifactKind = .artifactsArchive
+            case .xcframework:
+                artifactKind = .xcframework
+            }
+            let artifactOrigin: PluginScriptRunnerInput.Target.TargetInfo.BinaryArtifactOrigin
+            switch target.origin {
+            case .local:
+                artifactOrigin = .local
+            case .remote(let url):
+                artifactOrigin = .remote(url: url)
+            }
+            targetInfo = .binaryArtifactInfo(
+                kind: artifactKind,
+                origin: artifactOrigin,
+                artifactId: try serialize(path: target.artifactPath))
             
         default:
             // It's not a type of target that we pass through to the plugin.
@@ -639,14 +717,14 @@ struct PluginScriptRunnerInputSerializer {
             }
             productInfo = .executable(mainTargetId: mainExecTargetId)
 
-        case .library(let type):
-            switch type {
+        case .library(let kind):
+            switch kind {
             case .static:
-                productInfo = .library(type: .static)
+                productInfo = .library(kind: .static)
             case .dynamic:
-                productInfo = .library(type: .dynamic)
+                productInfo = .library(kind: .dynamic)
             case .automatic:
-                productInfo = .library(type: .automatic)
+                productInfo = .library(kind: .automatic)
             }
 
         default:
@@ -665,18 +743,37 @@ struct PluginScriptRunnerInputSerializer {
     }
 
     // Adds a package to the serialized structure, if it isn't already there.
-    // Either and
-    // if it is of a kind that should be passed to the plugin. If so, this func-
-    // tion returns the target's wire ID. If not, it returns nil.
+    // Either way, this function returns the target's wire ID.
     mutating func serialize(package: ResolvedPackage) throws -> PluginScriptRunnerInput.Package.Id {
         // If we've already seen the package, just return the wire ID we already assigned to it.
         if let id = packagesToIds[package] { return id }
+        
+        // Determine how we should represent the origin of the package to the plugin.
+        func origin(for package: ResolvedPackage) throws -> PluginScriptRunnerInput.Package.Origin {
+            switch package.manifest.packageKind {
+            case .root(_):
+                return .root
+            case .fileSystem(let path):
+                return .local(path: try serialize(path: path))
+            case .localSourceControl(let path):
+                return .repository(url: path.asURL.absoluteString, displayVersion: String(describing: package.manifest.version), scmRevision: String(describing: package.manifest.revision))
+            case .remoteSourceControl(let url):
+                return .repository(url: url.absoluteString, displayVersion: String(describing: package.manifest.version), scmRevision: String(describing: package.manifest.revision))
+            case .registry(let identity):
+                return .registry(identity: identity.description, displayVersion: String(describing: package.manifest.version))
+            }
+        }
 
         // Assign the next wire ID to the package and append a serialized Package record.
         let id = packages.count
         packages.append(.init(
             name: package.manifestName,
             directoryId: try serialize(path: package.path),
+            origin: try origin(for: package),
+            toolsVersion: .init(
+                major: package.manifest.toolsVersion.major,
+                minor: package.manifest.toolsVersion.minor,
+                patch: package.manifest.toolsVersion.patch),
             dependencies: try package.dependencies.map{ .init(packageId: try serialize(package: $0)) },
             productIds: try package.products.compactMap{ try serialize(product: $0) },
             targetIds: try package.targets.compactMap{ try serialize(target: $0) }))
