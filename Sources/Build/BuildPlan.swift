@@ -115,14 +115,21 @@ extension BuildParameters {
 
     /// Computes the linker flags to use in order to rename a module-named main function to 'main' for the target platform, or nil if the linker doesn't support it for the platform.
     fileprivate func linkerFlagsForRenamingMainFunction(of target: ResolvedTarget) -> [String]? {
-        var args: [String] = []
+        var args: [String]?
         if self.triple.isDarwin() {
             args = ["-alias", "_\(target.c99name)_main", "_main"]
         }
         else if self.triple.isLinux() {
             args = ["--defsym", "main=\(target.c99name)_main"]
         }
-        return args.flatMap { ["-Xlinker", $0] }
+        else if self.triple.isWASI() {
+            // wasm-ld doesn't support renaming symbols yet
+            args = nil
+        }
+        else {
+            args = []
+        }
+        return args?.flatMap { ["-Xlinker", $0] }
     }
 
     /// Returns the scoped view of build settings for a given target.
