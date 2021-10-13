@@ -515,7 +515,7 @@ extension ObservabilitySystem {
 
 @available(*, deprecated, message: "temporary for transition DiagnosticsEngine -> DiagnosticsEmitter")
 extension TSCDiagnostic {
-    init(_ diagnostic: Diagnostic) {
+    public init(_ diagnostic: Diagnostic) {
         let location: DiagnosticLocation
         if let legacyLocation = diagnostic.metadata?.legacyDiagnosticLocation {
             location = legacyLocation.underlying
