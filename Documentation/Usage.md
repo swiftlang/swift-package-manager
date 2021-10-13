@@ -25,8 +25,8 @@
   * [Depending on Apple Modules](#depending-on-apple-modules)
   * [Creating C Language Targets](#creating-c-language-targets)
   * [Using Shell Completion Scripts](#using-shell-completion-scripts)
-* [PackageDescription API](PackageDescription.md)
-* [Resources](Resources.md)
+  * [Package manifest specification](PackageDescription.md)
+  * [Packages and continuous integration](ContinousIntegration.md)
 
 ---
 
@@ -273,7 +273,7 @@ Edit `module.modulemap` so it consists of the following:
 Create a `shim.h` file in the same directory and add `#include <stdio.h>` in
 it.
 
-    $ echo '#include <stdio.h>' > shim.h 
+    $ echo '#include <stdio.h>' > shim.h
 
 This is because `jpeglib.h` is not a correct module, that is, it does not contain
 the required line `#include <stdio.h>`. Alternatively, you can add `#include <stdio.h>`
@@ -324,13 +324,13 @@ such cases you should add all the libraries to that Swift modulemap package’s
         link "foo"
         export *
     }
-    
+
     module CFooBar [system] {
         header "/usr/include/foo/bar.h"
         link "foobar"
         export *
     }
-    
+
     module CFooBaz [system] {
         header "/usr/include/foo/baz.h"
         link "foobaz"
@@ -643,11 +643,11 @@ The following Swift tools version commands are supported:
 
 * Set the package's tools version to the version of the tools currently in use:
 
-        $ swift package tools-version --set-current 
+        $ swift package tools-version --set-current
 
 * Set the tools version to a given value:
 
-        $ swift package tools-version --set <value> 
+        $ swift package tools-version --set <value>
 
 ## Testing
 
@@ -715,7 +715,7 @@ are supplied to the Swift compiler too for convenience, but `extra-cc-flags` are
 
 Swift Package Manager includes a build system that can build for macOS and Linux.
 Xcode 11 integrates with `libSwiftPM` to provide support for iOS, watchOS, and tvOS platforms.
-To build your package with Xcode from command line you can use 
+To build your package with Xcode from command line you can use
 [`xcodebuild`](https://developer.apple.com/library/archive/technotes/tn2339/_index.html).
 An example invocation would be:
 

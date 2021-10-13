@@ -8,29 +8,27 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import Dispatch
-
 import Basics
-import TSCBasic
+import Dispatch
+import PackageGraph
 import PackageLoading
 import PackageModel
-import SourceControl
-import TSCUtility
+import TSCBasic
 
-/// Local package container.
+/// Local file system package container.
 ///
 /// This class represent packages that are referenced locally in the file system.
 /// There is no need to perform any git operations on such packages and they
-/// should be used as-is. Infact, they might not even have a git repository.
+/// should be used as-is. In fact, they might not even have a git repository.
 /// Examples: Root packages, local dependencies, edited packages.
-public final class LocalPackageContainer: PackageContainer {
+internal struct FileSystemPackageContainer: PackageContainer {
     public let package: PackageReference
     private let identityResolver: IdentityResolver
     private let manifestLoader: ManifestLoaderProtocol
     private let toolsVersionLoader: ToolsVersionLoaderProtocol
     private let currentToolsVersion: ToolsVersion
 
-    /// The file system that shoud be used to load this package.
+    /// The file system that should be used to load this package.
     private let fileSystem: FileSystem
 
     /// cached version of the manifest
@@ -38,8 +36,16 @@ public final class LocalPackageContainer: PackageContainer {
 
     private func loadManifest() throws -> Manifest {
         try manifest.memoize() {
+            let path: AbsolutePath
+            switch self.package.kind {
+            case .root(let _path), .fileSystem(let _path):
+                path = _path
+            default:
+                throw InternalError("invalid package type \(package.kind)")
+            }
+            
             // Load the tools version.
-            let toolsVersion = try self.toolsVersionLoader.load(at: AbsolutePath(self.package.location), fileSystem: self.fileSystem)
+            let toolsVersion = try self.toolsVersionLoader.load(at: path, fileSystem: self.fileSystem)
 
             // Validate the tools version.
             try toolsVersion.validateToolsVersion(self.currentToolsVersion, packageIdentity: self.package.identity)
@@ -47,10 +53,10 @@ public final class LocalPackageContainer: PackageContainer {
             // Load the manifest.
             // FIXME: this should not block
             return try temp_await {
-                manifestLoader.load(at: AbsolutePath(self.package.location),
+                manifestLoader.load(at: path,
                                     packageIdentity: self.package.identity,
                                     packageKind: self.package.kind,
-                                    packageLocation: self.package.location,
+                                    packageLocation: path.pathString,
                                     version: nil,
                                     revision: nil,
                                     toolsVersion: toolsVersion,
@@ -80,8 +86,14 @@ public final class LocalPackageContainer: PackageContainer {
         toolsVersionLoader: ToolsVersionLoaderProtocol,
         currentToolsVersion: ToolsVersion,
         fileSystem: FileSystem = localFileSystem
-    ) {
-        assert(URL.scheme(package.location) == nil, "unexpected scheme \(URL.scheme(package.location)!) in \(package.location)")
+    ) throws {
+        //assert(URL.scheme(package.location) == nil, "unexpected scheme \(URL.scheme(package.location)!) in \(package.location)")
+        switch package.kind {
+        case .root, .fileSystem:
+            break
+        default:
+            throw InternalError("invalid package type \(package.kind)")
+        }
         self.package = package
         self.identityResolver = identityResolver
         self.manifestLoader = manifestLoader
@@ -115,8 +127,8 @@ public final class LocalPackageContainer: PackageContainer {
     }
 }
 
-extension LocalPackageContainer: CustomStringConvertible  {
+extension FileSystemPackageContainer: CustomStringConvertible  {
     public var description: String {
-        return "LocalPackageContainer(\(package.location))"
+        return "FileSystemPackageContainer(\(self.package.identity))"
     }
 }

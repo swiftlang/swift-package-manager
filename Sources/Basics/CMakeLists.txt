@@ -12,6 +12,7 @@ add_library(Basics
   ConcurrencyHelpers.swift
   Dictionary+Extensions.swift
   DispatchTimeInterval+Extensions.swift
+  EnvironmentVariables.swift
   Errors.swift
   FileSystem+Extensions.swift
   HTPClient+URLSession.swift
@@ -31,6 +32,8 @@ target_link_libraries(Basics PRIVATE
 # NOTE(compnerd) workaround for CMake not setting up include flags yet
 set_target_properties(Basics PROPERTIES
   INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})
+target_link_options(Basics PRIVATE
+    "$<$<PLATFORM_ID:Darwin>:SHELL:-Xlinker -framework -Xlinker Security>")
 
 if(USE_CMAKE_INSTALL)
 install(TARGETS Basics

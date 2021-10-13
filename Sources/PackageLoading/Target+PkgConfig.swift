@@ -9,8 +9,8 @@
 */
 
 import Basics
-import TSCBasic
 import PackageModel
+import TSCBasic
 import TSCUtility
 
 /// Wrapper struct containing result of a pkgConfig query.
@@ -56,7 +56,7 @@ public struct PkgConfigResult {
 }
 
 /// Get pkgConfig result for a system library target.
-public func pkgConfigArgs(for target: SystemLibraryTarget, diagnostics: DiagnosticsEngine, fileSystem: FileSystem = localFileSystem, brewPrefix: AbsolutePath? = nil) -> [PkgConfigResult] {
+public func pkgConfigArgs(for target: SystemLibraryTarget, brewPrefix: AbsolutePath? = .none, fileSystem: FileSystem, observabilityScope: ObservabilityScope) -> [PkgConfigResult] {
     // If there is no pkg config name defined, we're done.
     guard let pkgConfigNames = target.pkgConfig else { return [] }
 
@@ -70,11 +70,12 @@ public func pkgConfigArgs(for target: SystemLibraryTarget, diagnostics: Diagnost
         let result: PkgConfigResult
         do {
             let pkgConfig = try PkgConfig(
-                    name: pkgConfigName,
-                    additionalSearchPaths: additionalSearchPaths,
-                    diagnostics: diagnostics,
-                    fileSystem: fileSystem,
-                    brewPrefix: brewPrefix)
+                name: pkgConfigName,
+                additionalSearchPaths: additionalSearchPaths,
+                diagnostics: observabilityScope.makeDiagnosticsEngine(),
+                fileSystem: fileSystem,
+                brewPrefix: brewPrefix
+            )
 
             // Run the allow list checker.
             let filtered = try allowlist(pcFile: pkgConfigName, flags: (pkgConfig.cFlags, pkgConfig.libs))
@@ -211,8 +212,12 @@ public func allowlist(
 
             // If the flag and its value are separated, skip next flag.
             if flag == filter && flag != "-w" {
-                guard it.next() != nil else {
+                guard let associated = it.next() else {
                     throw InternalError("Expected associated value")
+                }
+                if flag == "-framework" {
+                    allowed += [flag, associated]
+                    continue
                 }
             }
             allowed += [flag]
@@ -265,17 +270,26 @@ public func removeDefaultFlags(cFlags: [String], libs: [String]) throws -> ([Str
     )
 }
 
-public struct PkgConfigDiagnosticLocation: DiagnosticLocation {
-    public let pcFile: String
-    public let target: String
-
-    public init(pcFile: String, target: String) {
-        self.pcFile = pcFile
-        self.target = target
-    }
-
-    public var description: String {
-        return "'\(target)' \(pcFile).pc"
+extension ObservabilityMetadata {
+    public static func pkgConfig(pcFile: String, targetName: String) -> Self {
+        var metadata = ObservabilityMetadata()
+        metadata.pcFile = "\(pcFile).pc"
+        metadata.targetName = targetName
+        return metadata
     }
 }
 
+extension ObservabilityMetadata {
+    public var pcFile: String? {
+        get {
+            self[pcFileKey.self]
+        }
+        set {
+            self[pcFileKey.self] = newValue
+        }
+    }
+
+    enum pcFileKey: Key {
+        typealias Value = String
+    }
+}

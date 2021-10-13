@@ -51,7 +51,7 @@ private struct MockToolchain: SPMBuildCore.Toolchain {
 
 final class BuildPlanTests: XCTestCase {
     let inputsDir = AbsolutePath(#file).parentDirectory.appending(components: "Inputs")
-    
+
     /// The j argument.
     private var j: String {
         return "-j3"
@@ -105,26 +105,27 @@ final class BuildPlanTests: XCTestCase {
             "/Pkg/Sources/lib/lib.swift"
         )
 
-        let observability = ObservabilitySystem.bootstrapForTesting()
-        let graph = try loadPackageGraph(fs: fs,
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadPackageGraph(
+            fs: fs,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "Pkg",
                     path: .init("/Pkg"),
-                    packageKind: .root,
                     targets: [
                         TargetDescription(name: "exe", dependencies: ["lib"]),
                         TargetDescription(name: "lib", dependencies: []),
                     ]),
-            ]
+            ],
+            observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
         let result = BuildPlanResult(plan: try BuildPlan(
             buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
             graph: graph,
-            diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
-            fileSystem: fs
+            fileSystem: fs,
+            observabilityScope: observability.topScope
         ))
 
         result.checkProductsCount(1)
@@ -211,20 +212,20 @@ final class BuildPlanTests: XCTestCase {
             }
 
             // Plan package build with explicit module build
-            let observability = ObservabilitySystem.bootstrapForTesting()
-            let graph = try loadPackageGraph(fs: fs,
+            let observability = ObservabilitySystem.makeForTesting()
+            let graph = try loadPackageGraph(
+                fs: fs,
                 manifests: [
-                    Manifest.createV4Manifest(
+                    Manifest.createRootManifest(
                         name: "ExplicitTest",
                         path: testDirPath,
-                        packageKind: .root,
-                        packageLocation: "/ExplicitTest",
                         targets: [
                             TargetDescription(name: "A", dependencies: ["B"]),
                             TargetDescription(name: "B", dependencies: ["C"]),
                             TargetDescription(name: "C", dependencies: []),
                         ]),
-                ]
+                ],
+                observabilityScope: observability.topScope
             )
             XCTAssertNoDiagnostics(observability.diagnostics)
             do {
@@ -237,13 +238,13 @@ final class BuildPlanTests: XCTestCase {
                         useExplicitModuleBuild: true
                     ),
                     graph: graph,
-                    diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
-                    fileSystem: fs
+                    fileSystem: fs,
+                    observabilityScope: observability.topScope
                 )
 
 
                 let yaml = buildDirPath.appending(component: "release.yaml")
-                let llbuild = LLBuildManifestBuilder(plan)
+                let llbuild = LLBuildManifestBuilder(plan, fileSystem: localFileSystem, observabilityScope: observability.topScope)
                 try llbuild.generateManifest(at: yaml)
                 let contents = try localFileSystem.readFileContents(yaml).description
 
@@ -271,14 +272,15 @@ final class BuildPlanTests: XCTestCase {
             "/ExtPkg/Sources/ExtLib/lib.swift"
         )
 
-        let observability = ObservabilitySystem.bootstrapForTesting()
-        let graph = try loadPackageGraph(fs: fs,
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadPackageGraph(
+            fs: fs,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "Pkg",
                     path: .init("/Pkg"),
                     dependencies: [
-                        .scm(location: "/ExtPkg", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init("/ExtPkg"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "exe", dependencies: [
@@ -295,10 +297,9 @@ final class BuildPlanTests: XCTestCase {
                         ]),
                     ]
                 ),
-                Manifest.createV4Manifest(
+                Manifest.createLocalSourceControlManifest(
                     name: "ExtPkg",
                     path: .init("/ExtPkg"),
-                    packageKind: .remote,
                     products: [
                         ProductDescription(name: "ExtLib", type: .library(.automatic), targets: ["ExtLib"]),
                     ],
@@ -306,7 +307,8 @@ final class BuildPlanTests: XCTestCase {
                         TargetDescription(name: "ExtLib", dependencies: []),
                     ]
                 ),
-            ]
+            ],
+            observabilityScope: observability.topScope
         )
 
         XCTAssertNoDiagnostics(observability.diagnostics)
@@ -318,8 +320,8 @@ final class BuildPlanTests: XCTestCase {
                     configuration: .release
                 )),
                 graph: graph,
-                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
-                fileSystem: fs
+                fileSystem: fs,
+                observabilityScope: observability.topScope
             )
 
             let linkedFileList = try fs.readFileContents(AbsolutePath("/path/to/build/release/exe.product/Objects.LinkFileList"))
@@ -328,7 +330,7 @@ final class BuildPlanTests: XCTestCase {
 
             try testWithTemporaryDirectory { path in
                 let yaml = path.appending(component: "release.yaml")
-                let llbuild = LLBuildManifestBuilder(plan)
+                let llbuild = LLBuildManifestBuilder(plan, fileSystem: fs, observabilityScope: observability.topScope)
                 try llbuild.generateManifest(at: yaml)
                 let contents = try localFileSystem.readFileContents(yaml).description
                 XCTAssertMatch(contents, .contains("""
@@ -344,8 +346,8 @@ final class BuildPlanTests: XCTestCase {
                     configuration: .debug
                 )),
                 graph: graph,
-                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
-                fileSystem: fs
+                fileSystem: fs,
+                observabilityScope: observability.topScope
             )
 
             let linkedFileList = try fs.readFileContents(AbsolutePath("/path/to/build/debug/exe.product/Objects.LinkFileList"))
@@ -354,7 +356,7 @@ final class BuildPlanTests: XCTestCase {
 
             try testWithTemporaryDirectory { path in
                 let yaml = path.appending(component: "debug.yaml")
-                let llbuild = LLBuildManifestBuilder(plan)
+                let llbuild = LLBuildManifestBuilder(plan, fileSystem: fs, observabilityScope: observability.topScope)
                 try llbuild.generateManifest(at: yaml)
                 let contents = try localFileSystem.readFileContents(yaml).description
                 XCTAssertMatch(contents, .contains("""
@@ -372,24 +374,23 @@ final class BuildPlanTests: XCTestCase {
             "/B/Tests/BTargetTests/foo.swift"
         )
 
-        let observability = ObservabilitySystem.bootstrapForTesting()
-        let graph = try loadPackageGraph(fs: fileSystem,
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadPackageGraph(
+            fs: fileSystem,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "A",
                     path: .init("/A"),
-                    packageKind: .root,
                     dependencies: [
-                        .scm(location: "/B", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init("/B"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "ATarget", dependencies: ["BLibrary"]),
                         TargetDescription(name: "ATargetTests", dependencies: ["ATarget"], type: .test),
                     ]),
-                Manifest.createV4Manifest(
+                Manifest.createFileSystemManifest(
                     name: "B",
                     path: .init("/B"),
-                    packageKind: .local,
                     products: [
                         ProductDescription(name: "BLibrary", type: .library(.automatic), targets: ["BTarget"]),
                     ],
@@ -397,15 +398,16 @@ final class BuildPlanTests: XCTestCase {
                         TargetDescription(name: "BTarget", dependencies: []),
                         TargetDescription(name: "BTargetTests", dependencies: ["BTarget"], type: .test),
                     ]),
-            ]
+            ],
+            observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
         let result = BuildPlanResult(plan: try BuildPlan(
             buildParameters: mockBuildParameters(),
             graph: graph,
-            diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
-            fileSystem: fileSystem
+            fileSystem: fileSystem,
+            observabilityScope: observability.topScope
         ))
 
         XCTAssertEqual(Set(result.productMap.keys), ["APackageTests"])
@@ -426,25 +428,26 @@ final class BuildPlanTests: XCTestCase {
             "/Pkg/Sources/exe/main.swift"
         )
 
-        let observability = ObservabilitySystem.bootstrapForTesting()
-        let graph = try loadPackageGraph(fs: fs,
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadPackageGraph(
+            fs: fs,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "Pkg",
                     path: .init("/Pkg"),
-                    packageKind: .root,
                     targets: [
                         TargetDescription(name: "exe", dependencies: []),
                     ]),
-            ]
+            ],
+            observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
         let result = BuildPlanResult(plan: try BuildPlan(
             buildParameters: mockBuildParameters(config: .release),
             graph: graph,
-            diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
-            fileSystem: fs
+            fileSystem: fs,
+            observabilityScope: observability.topScope
         ))
 
         result.checkProductsCount(1)
@@ -483,39 +486,39 @@ final class BuildPlanTests: XCTestCase {
             "/ExtPkg/Sources/extlib/include/ext.h"
         )
 
-        let observability = ObservabilitySystem.bootstrapForTesting()
-        let graph = try loadPackageGraph(fs: fs,
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadPackageGraph(
+            fs: fs,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "Pkg",
                     path: .init("/Pkg"),
-                    packageKind: .root,
                     dependencies: [
-                        .scm(location: "/ExtPkg", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init("/ExtPkg"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "exe", dependencies: ["lib"]),
                         TargetDescription(name: "lib", dependencies: ["ExtPkg"]),
                     ]),
-                Manifest.createV4Manifest(
+                Manifest.createFileSystemManifest(
                     name: "ExtPkg",
                     path: .init("/ExtPkg"),
-                    packageKind: .local,
                     products: [
                         ProductDescription(name: "ExtPkg", type: .library(.automatic), targets: ["extlib"]),
                     ],
                     targets: [
                         TargetDescription(name: "extlib", dependencies: []),
                     ]),
-            ]
+            ],
+            observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
         let result = BuildPlanResult(plan: try BuildPlan(
             buildParameters: mockBuildParameters(),
             graph: graph,
-            diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
-            fileSystem: fs
+            fileSystem: fs,
+            observabilityScope: observability.topScope
         ))
 
         result.checkProductsCount(1)
@@ -597,15 +600,15 @@ final class BuildPlanTests: XCTestCase {
             "/ExtPkg/Sources/ExtLib/include/ext.h"
         )
 
-        let observability = ObservabilitySystem.bootstrapForTesting()
+        let observability = ObservabilitySystem.makeForTesting()
         let graph = try loadPackageGraph(
             fs: fs,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "Pkg",
                     path: .init("/Pkg"),
                     dependencies: [
-                        .scm(location: "/ExtPkg", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init("/ExtPkg"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "exe", dependencies: [
@@ -621,17 +624,17 @@ final class BuildPlanTests: XCTestCase {
                             ))
                         ]),
                     ]),
-                Manifest.createV4Manifest(
+                Manifest.createLocalSourceControlManifest(
                     name: "ExtPkg",
                     path: .init("/ExtPkg"),
-                    packageKind: .remote,
                     products: [
                         ProductDescription(name: "ExtPkg", type: .library(.automatic), targets: ["ExtLib"]),
                     ],
                     targets: [
                         TargetDescription(name: "ExtLib", dependencies: []),
                     ]),
-            ]
+            ],
+            observabilityScope: observability.topScope
         )
 
         XCTAssertNoDiagnostics(observability.diagnostics)
@@ -643,8 +646,8 @@ final class BuildPlanTests: XCTestCase {
                     configuration: .release
                 )),
                 graph: graph,
-                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
-                fileSystem: fs
+                fileSystem: fs,
+                observabilityScope: observability.topScope
             ))
 
             let exeArguments = try result.target(for: "exe").clangTarget().basicArguments()
@@ -662,8 +665,8 @@ final class BuildPlanTests: XCTestCase {
                     configuration: .debug
                 )),
                 graph: graph,
-                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
-                fileSystem: fs
+                fileSystem: fs,
+                observabilityScope: observability.topScope
             ))
 
             let arguments = try result.target(for: "exe").clangTarget().basicArguments()
@@ -682,28 +685,29 @@ final class BuildPlanTests: XCTestCase {
             "/Pkg/Sources/lib/include/lib.h"
         )
 
-        let observability = ObservabilitySystem.bootstrapForTesting()
-        let graph = try loadPackageGraph(fs: fs,
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadPackageGraph(
+            fs: fs,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "Pkg",
                     path: .init("/Pkg"),
-                    packageKind: .root,
                     cLanguageStandard: "gnu99",
                     cxxLanguageStandard: "c++1z",
                     targets: [
                         TargetDescription(name: "exe", dependencies: ["lib"]),
                         TargetDescription(name: "lib", dependencies: []),
                     ]),
-            ]
+            ],
+            observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
         let plan = try BuildPlan(
             buildParameters: mockBuildParameters(),
             graph: graph,
-            diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
-            fileSystem: fs
+            fileSystem: fs,
+            observabilityScope: observability.topScope
         )
         let result = BuildPlanResult(plan: plan)
 
@@ -732,7 +736,7 @@ final class BuildPlanTests: XCTestCase {
 
         try testWithTemporaryDirectory { path in
             let yaml = path.appending(component: "debug.yaml")
-            let llbuild = LLBuildManifestBuilder(plan)
+            let llbuild = LLBuildManifestBuilder(plan, fileSystem: fs, observabilityScope: observability.topScope)
             try llbuild.generateManifest(at: yaml)
             let contents = try localFileSystem.readFileContents(yaml).description
             XCTAssertMatch(contents, .contains(#"-std=gnu99","-c","/Pkg/Sources/lib/lib.c"#))
@@ -747,26 +751,27 @@ final class BuildPlanTests: XCTestCase {
             "/Pkg/Sources/lib/include/lib.h"
         )
 
-        let observability = ObservabilitySystem.bootstrapForTesting()
-        let graph = try loadPackageGraph(fs: fs,
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadPackageGraph(
+            fs: fs,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "Pkg",
                     path: .init("/Pkg"),
-                    packageKind: .root,
                     targets: [
                         TargetDescription(name: "exe", dependencies: ["lib"]),
                         TargetDescription(name: "lib", dependencies: []),
                     ]),
-            ]
+            ],
+            observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
         let result = BuildPlanResult(plan: try BuildPlan(
             buildParameters: mockBuildParameters(),
             graph: graph,
-            diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
-            fileSystem: fs
+            fileSystem: fs,
+            observabilityScope: observability.topScope
         ))
         result.checkProductsCount(1)
         result.checkTargetsCount(2)
@@ -819,28 +824,28 @@ final class BuildPlanTests: XCTestCase {
             "/Pkg/Sources/lib/include/lib.h"
         )
 
-        let observability = ObservabilitySystem.bootstrapForTesting()
+        let observability = ObservabilitySystem.makeForTesting()
         let graph = try loadPackageGraph(
             fs: fs,
             manifests: [
-                Manifest.createManifest(
+                Manifest.createRootManifest(
                     name: "Pkg",
                     path: .init("/Pkg"),
-                    packageKind: .root,
-                    v: .v5,
+                    toolsVersion: .v5,
                     targets: [
                         TargetDescription(name: "exe", dependencies: ["lib"]),
                         TargetDescription(name: "lib", dependencies: []),
                     ]),
-            ]
+            ],
+            observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
         let result = BuildPlanResult(plan: try BuildPlan(
             buildParameters: mockBuildParameters(),
             graph: graph,
-            diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
-            fileSystem: fs
+            fileSystem: fs,
+            observabilityScope: observability.topScope
         ))
         result.checkProductsCount(1)
         result.checkTargetsCount(2)
@@ -864,25 +869,24 @@ final class BuildPlanTests: XCTestCase {
             "/Dep/Sources/CDep/include/module.modulemap"
         )
 
-        let observability = ObservabilitySystem.bootstrapForTesting()
-        let graph = try loadPackageGraph(fs: fs,
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadPackageGraph(
+            fs: fs,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "Pkg",
                     path: .init("/Pkg"),
-                    packageKind: .root,
                     dependencies: [
-                        .scm(location: "/Dep", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init("/Dep"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "exe", dependencies: ["swiftlib"]),
                         TargetDescription(name: "swiftlib", dependencies: ["lib"]),
                         TargetDescription(name: "lib", dependencies: ["Dep"]),
                     ]),
-                Manifest.createV4Manifest(
+                Manifest.createFileSystemManifest(
                     name: "Dep",
                     path: .init("/Dep"),
-                    packageKind: .local,
                     products: [
                         ProductDescription(name: "Dep", type: .library(.automatic), targets: ["Dep"]),
                     ],
@@ -891,15 +895,16 @@ final class BuildPlanTests: XCTestCase {
                         TargetDescription(name: "CDep", dependencies: []),
                     ]),
             ],
-            createREPLProduct: true
+            createREPLProduct: true,
+                                         observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
         let plan = try BuildPlan(
             buildParameters: mockBuildParameters(),
             graph: graph,
-            diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
-            fileSystem: fs
+            fileSystem: fs,
+            observabilityScope: observability.topScope
         )
         XCTAssertEqual(plan.createREPLArguments().sorted(), ["-I/Dep/Sources/CDep/include", "-I/path/to/build/debug", "-I/path/to/build/debug/lib.build", "-L/path/to/build/debug", "-lPkg__REPL"])
 
@@ -917,26 +922,27 @@ final class BuildPlanTests: XCTestCase {
             "/Pkg/Tests/FooTests/foo.swift"
         )
 
-        let observability = ObservabilitySystem.bootstrapForTesting()
-        let graph = try loadPackageGraph(fs: fs,
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadPackageGraph(
+            fs: fs,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "Pkg",
                     path: .init("/Pkg"),
-                    packageKind: .root,
                     targets: [
                         TargetDescription(name: "Foo", dependencies: []),
                         TargetDescription(name: "FooTests", dependencies: ["Foo"], type: .test),
                     ]),
-            ]
+            ],
+            observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
         let result = BuildPlanResult(plan: try BuildPlan(
             buildParameters: mockBuildParameters(),
             graph: graph,
-            diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
-            fileSystem: fs
+            fileSystem: fs,
+            observabilityScope: observability.topScope
         ))
         result.checkProductsCount(1)
       #if os(macOS)
@@ -987,28 +993,29 @@ final class BuildPlanTests: XCTestCase {
             "/Pkg/Sources/exe3/main.swift"
         )
 
-        let observability = ObservabilitySystem.bootstrapForTesting()
-        let graph = try loadPackageGraph(fs: fs,
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadPackageGraph(
+            fs: fs,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "Pkg",
                     path: .init("/Pkg"),
-                    packageKind: .root,
                     toolsVersion: .v5_5,
                     targets: [
                         TargetDescription(name: "exe1", type: .executable),
                         TargetDescription(name: "exe2", type: .executable),
                         TargetDescription(name: "exe3", type: .executable),
                     ]),
-            ]
+            ],
+            observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
         let result = BuildPlanResult(plan: try BuildPlan(
             buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
             graph: graph,
-            diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
-            fileSystem: fs
+            fileSystem: fs,
+            observabilityScope: observability.topScope
         ))
 
         result.checkProductsCount(3)
@@ -1035,33 +1042,33 @@ final class BuildPlanTests: XCTestCase {
             "/Clibgit/module.modulemap"
         )
 
-        let observability = ObservabilitySystem.bootstrapForTesting()
-        let graph = try loadPackageGraph(fs: fs,
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadPackageGraph(
+            fs: fs,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "Pkg",
                     path: .init("/Pkg"),
-                    packageKind: .root,
                     dependencies: [
-                        .scm(location: "/Clibgit", requirement: .upToNextMajor(from: "1.0.0"))
+                        .localSourceControl(path: .init("/Clibgit"), requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     targets: [
                         TargetDescription(name: "exe", dependencies: []),
                     ]),
-                Manifest.createV4Manifest(
+                Manifest.createFileSystemManifest(
                     name: "Clibgit",
-                    path: .init("/Clibgit"),
-                    packageKind: .local
+                    path: .init("/Clibgit")
                 ),
-            ]
+            ],
+            observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
         let result = BuildPlanResult(plan: try BuildPlan(
             buildParameters: mockBuildParameters(),
             graph: graph,
-            diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
-            fileSystem: fs
+            fileSystem: fs,
+            observabilityScope: observability.topScope
         ))
         result.checkProductsCount(1)
         result.checkTargetsCount(1)
@@ -1096,26 +1103,27 @@ final class BuildPlanTests: XCTestCase {
             "/Pkg/Sources/lib/include/lib.h"
         )
 
-        let observability = ObservabilitySystem.bootstrapForTesting()
-        let graph = try loadPackageGraph(fs: fs,
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadPackageGraph(
+            fs: fs,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "Pkg",
                     path: .init("/Pkg"),
-                    packageKind: .root,
                     targets: [
                         TargetDescription(name: "lib", dependencies: []),
                         TargetDescription(name: "exe", dependencies: ["lib"]),
                     ]),
-            ]
+            ],
+            observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
         let result = BuildPlanResult(plan: try BuildPlan(
             buildParameters: mockBuildParameters(),
             graph: graph,
-            diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
-            fileSystem: fs
+            fileSystem: fs,
+            observabilityScope: observability.topScope
         ))
         result.checkProductsCount(1)
         result.checkTargetsCount(2)
@@ -1134,38 +1142,38 @@ final class BuildPlanTests: XCTestCase {
             "/Bar/Source/Bar/source.swift"
         )
 
-        let observability = ObservabilitySystem.bootstrapForTesting()
-        let g = try loadPackageGraph(fs: fs,
+        let observability = ObservabilitySystem.makeForTesting()
+        let g = try loadPackageGraph(
+            fs: fs,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createFileSystemManifest(
                     name: "Bar",
                     path: .init("/Bar"),
-                    packageKind: .local,
                     products: [
                         ProductDescription(name: "Bar-Baz", type: .library(.dynamic), targets: ["Bar"]),
                     ],
                     targets: [
                         TargetDescription(name: "Bar", dependencies: []),
                     ]),
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "Foo",
                     path: .init("/Foo"),
-                    packageKind: .root,
                     dependencies: [
-                        .scm(location: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init("/Bar"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "Foo", dependencies: ["Bar-Baz"]),
                     ]),
-            ]
+            ],
+            observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
         let result = BuildPlanResult(plan: try BuildPlan(
             buildParameters: mockBuildParameters(),
             graph: g,
-            diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
-            fileSystem: fs
+            fileSystem: fs,
+            observabilityScope: observability.topScope
         ))
         result.checkProductsCount(2)
         result.checkTargetsCount(2)
@@ -1231,13 +1239,13 @@ final class BuildPlanTests: XCTestCase {
             "/Pkg/Sources/lib/lib.swift"
         )
 
-        let observability = ObservabilitySystem.bootstrapForTesting()
-        let graph = try loadPackageGraph(fs: fs,
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadPackageGraph(
+            fs: fs,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "Pkg",
                     path: .init("/Pkg"),
-                    packageKind: .root,
                     products: [
                         ProductDescription(name: "lib", type: .library(.dynamic), targets: ["lib"]),
                     ],
@@ -1245,15 +1253,16 @@ final class BuildPlanTests: XCTestCase {
                         TargetDescription(name: "lib", dependencies: []),
                         TargetDescription(name: "exe", dependencies: ["lib"]),
                     ]),
-            ]
+            ],
+            observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
         let result = BuildPlanResult(plan: try BuildPlan(
             buildParameters: mockBuildParameters(),
             graph: graph,
-            diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
-            fileSystem: fs
+            fileSystem: fs,
+            observabilityScope: observability.topScope
         ))
 
         result.checkProductsCount(2)
@@ -1297,13 +1306,13 @@ final class BuildPlanTests: XCTestCase {
             "/Pkg/Sources/lib/lib.cpp"
         )
 
-        let observability = ObservabilitySystem.bootstrapForTesting()
-        let graph = try loadPackageGraph(fs: fs,
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadPackageGraph(
+            fs: fs,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "Pkg",
                     path: .init("/Pkg"),
-                    packageKind: .root,
                     products: [
                         ProductDescription(name: "lib", type: .library(.dynamic), targets: ["lib"]),
                     ],
@@ -1311,15 +1320,16 @@ final class BuildPlanTests: XCTestCase {
                         TargetDescription(name: "lib", dependencies: []),
                         TargetDescription(name: "exe", dependencies: []),
                     ]),
-            ]
+            ],
+            observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
         let result = BuildPlanResult(plan: try BuildPlan(
             buildParameters: mockBuildParameters(),
             graph: graph,
-            diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
-            fileSystem: fs
+            fileSystem: fs,
+            observabilityScope: observability.topScope
         ))
 
         result.checkProductsCount(2)
@@ -1345,7 +1355,7 @@ final class BuildPlanTests: XCTestCase {
 
     #if os(macOS)
         XCTAssertEqual(try result.buildProduct(for: "lib").linkArguments(), ["/fake/path/to/swiftc", "-lc++", "-L", "/path/to/build/debug", "-o", "/path/to/build/debug/liblib.dylib", "-module-name", "lib", "-emit-library", "-Xlinker", "-install_name", "-Xlinker", "@rpath/liblib.dylib", "-Xlinker", "-rpath", "-Xlinker", "@loader_path", "@/path/to/build/debug/lib.product/Objects.LinkFileList", "-runtime-compatibility-version", "none", "-target", defaultTargetTriple])
-            
+
         XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), ["/fake/path/to/swiftc", "-L", "/path/to/build/debug", "-o", "/path/to/build/debug/exe", "-module-name", "exe", "-emit-executable", "-Xlinker", "-rpath", "-Xlinker", "@loader_path", "@/path/to/build/debug/exe.product/Objects.LinkFileList", "-runtime-compatibility-version", "none", "-target", defaultTargetTriple])
     #else
         XCTAssertEqual(try result.buildProduct(for: "lib").linkArguments(), ["/fake/path/to/swiftc", "-lstdc++", "-L", "/path/to/build/debug", "-o", "/path/to/build/debug/liblib.so", "-module-name", "lib", "-emit-library", "-Xlinker", "-rpath=$ORIGIN", "@/path/to/build/debug/lib.product/Objects.LinkFileList", "-runtime-compatibility-version", "none", "-target", defaultTargetTriple])
@@ -1361,16 +1371,16 @@ final class BuildPlanTests: XCTestCase {
             "/C/Sources/CTarget/main.swift"
         )
 
-        let observability = ObservabilitySystem.bootstrapForTesting()
-        let graph = try loadPackageGraph(fs: fileSystem,
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadPackageGraph(
+            fs: fileSystem,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "A",
                     path: .init("/A"),
-                    packageKind: .root,
                     dependencies: [
-                        .scm(location: "/B", requirement: .upToNextMajor(from: "1.0.0")),
-                        .scm(location: "/C", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init("/B"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init("/C"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     products: [
                         ProductDescription(name: "aexec", type: .executable, targets: ["ATarget"])
@@ -1378,10 +1388,9 @@ final class BuildPlanTests: XCTestCase {
                     targets: [
                         TargetDescription(name: "ATarget", dependencies: ["BLibrary"]),
                     ]),
-                Manifest.createV4Manifest(
+                Manifest.createFileSystemManifest(
                     name: "B",
                     path: .init("/B"),
-                    packageKind: .local,
                     products: [
                         ProductDescription(name: "BLibrary", type: .library(.static), targets: ["BTarget1"]),
                         ProductDescription(name: "bexec", type: .executable, targets: ["BTarget2"]),
@@ -1390,17 +1399,17 @@ final class BuildPlanTests: XCTestCase {
                         TargetDescription(name: "BTarget1", dependencies: []),
                         TargetDescription(name: "BTarget2", dependencies: []),
                     ]),
-                Manifest.createV4Manifest(
+                Manifest.createFileSystemManifest(
                     name: "C",
                     path: .init("/C"),
-                    packageKind: .local,
                     products: [
                         ProductDescription(name: "cexec", type: .executable, targets: ["CTarget"])
                     ],
                     targets: [
                         TargetDescription(name: "CTarget", dependencies: []),
                     ]),
-            ]
+            ],
+            observabilityScope: observability.topScope
         )
 
         #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
@@ -1426,8 +1435,8 @@ final class BuildPlanTests: XCTestCase {
         let planResult = BuildPlanResult(plan: try BuildPlan(
             buildParameters: mockBuildParameters(),
             graph: graph,
-            diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
-            fileSystem: fileSystem
+            fileSystem: fileSystem,
+            observabilityScope: observability.topScope
         ))
 
         #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
@@ -1448,16 +1457,16 @@ final class BuildPlanTests: XCTestCase {
             "/C/Sources/CTarget/source.swift"
         )
 
-        let observability = ObservabilitySystem.bootstrapForTesting()
+        let observability = ObservabilitySystem.makeForTesting()
         let graph = try loadPackageGraph(
             fs: fileSystem,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "A",
                     path: .init("/A"),
                     dependencies: [
-                        .scm(location: "/B", requirement: .upToNextMajor(from: "1.0.0")),
-                        .scm(location: "/C", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init("/B"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init("/C"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     products: [
                         ProductDescription(name: "aexec", type: .executable, targets: ["ATarget"]),
@@ -1479,10 +1488,9 @@ final class BuildPlanTests: XCTestCase {
                         ])
                     ]
                 ),
-                Manifest.createV4Manifest(
+                Manifest.createLocalSourceControlManifest(
                     name: "B",
                     path: .init("/B"),
-                    packageKind: .remote,
                     products: [
                         ProductDescription(name: "BLibrary1", type: .library(.static), targets: ["BTarget1"]),
                         ProductDescription(name: "BLibrary2", type: .library(.static), targets: ["BTarget2"]),
@@ -1498,10 +1506,9 @@ final class BuildPlanTests: XCTestCase {
                         TargetDescription(name: "BTarget3", dependencies: []),
                     ]
                 ),
-                Manifest.createV4Manifest(
+                Manifest.createLocalSourceControlManifest(
                     name: "C",
                     path: .init("/C"),
-                    packageKind: .remote,
                     products: [
                         ProductDescription(name: "CLibrary", type: .library(.static), targets: ["CTarget"])
                     ],
@@ -1509,7 +1516,8 @@ final class BuildPlanTests: XCTestCase {
                         TargetDescription(name: "CTarget", dependencies: []),
                     ]
                 ),
-            ]
+            ],
+            observabilityScope: observability.topScope
         )
 
         XCTAssertNoDiagnostics(observability.diagnostics)
@@ -1523,8 +1531,8 @@ final class BuildPlanTests: XCTestCase {
             let planResult = BuildPlanResult(plan: try BuildPlan(
                 buildParameters: mockBuildParameters(environment: linuxDebug),
                 graph: graph,
-                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
-                fileSystem: fileSystem
+                fileSystem: fileSystem,
+                observabilityScope: observability.topScope
             ))
             planResult.checkProductsCount(4)
             planResult.checkTargetsCount(5)
@@ -1538,8 +1546,8 @@ final class BuildPlanTests: XCTestCase {
             let planResult = BuildPlanResult(plan: try BuildPlan(
                 buildParameters: mockBuildParameters(environment: macosDebug),
                 graph: graph,
-                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
-                fileSystem: fileSystem
+                fileSystem: fileSystem,
+                observabilityScope: observability.topScope
             ))
             planResult.checkProductsCount(4)
             planResult.checkTargetsCount(5)
@@ -1553,8 +1561,8 @@ final class BuildPlanTests: XCTestCase {
             let planResult = BuildPlanResult(plan: try BuildPlan(
                 buildParameters: mockBuildParameters(environment: androidRelease),
                 graph: graph,
-                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
-                fileSystem: fileSystem
+                fileSystem: fileSystem,
+                observabilityScope: observability.topScope
             ))
             planResult.checkProductsCount(4)
             planResult.checkTargetsCount(5)
@@ -1566,15 +1574,16 @@ final class BuildPlanTests: XCTestCase {
             "/Pkg/module.modulemap"
         )
 
-        let observability = ObservabilitySystem.bootstrapForTesting()
-        let graph = try loadPackageGraph(fs: fs,
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadPackageGraph(
+            fs: fs,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "Pkg",
-                    path: .init("/Pkg"),
-                    packageKind: .root
+                    path: .init("/Pkg")
                 )
-            ]
+            ],
+            observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
@@ -1582,8 +1591,8 @@ final class BuildPlanTests: XCTestCase {
             _ = try BuildPlan(
                 buildParameters: mockBuildParameters(),
                 graph: graph,
-                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
-                fileSystem: fs
+                fileSystem: fs,
+                observabilityScope: observability.topScope
             )
         }
     }
@@ -1594,13 +1603,13 @@ final class BuildPlanTests: XCTestCase {
             "/A/Sources/BTarget/module.modulemap"
         )
 
-        let observability = ObservabilitySystem.bootstrapForTesting()
-        let graph = try loadPackageGraph(fs: fileSystem,
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadPackageGraph(
+            fs: fileSystem,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "A",
                     path: .init("/A"),
-                    packageKind: .root,
                     targets: [
                         TargetDescription(name: "ATarget", dependencies: ["BTarget"]),
                         TargetDescription(
@@ -1614,14 +1623,15 @@ final class BuildPlanTests: XCTestCase {
                             ]
                         )
                     ]),
-            ]
+            ],
+            observabilityScope: observability.topScope
         )
 
         _ = try BuildPlan(
             buildParameters: mockBuildParameters(),
             graph: graph,
-            diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
-            fileSystem: fileSystem
+            fileSystem: fileSystem,
+            observabilityScope: observability.topScope
         )
 
         XCTAssertTrue(observability.diagnostics.contains(where: {
@@ -1636,13 +1646,13 @@ final class BuildPlanTests: XCTestCase {
             "/A/Sources/BTarget/module.modulemap"
         )
 
-        let observability = ObservabilitySystem.bootstrapForTesting()
-        let graph = try loadPackageGraph(fs: fileSystem,
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadPackageGraph(
+            fs: fileSystem,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "A",
                     path: .init("/A"),
-                    packageKind: .root,
                     targets: [
                         TargetDescription(name: "ATarget", dependencies: ["BTarget"]),
                         TargetDescription(
@@ -1651,21 +1661,23 @@ final class BuildPlanTests: XCTestCase {
                             pkgConfig: "BTarget"
                         )
                     ]),
-            ]
+            ],
+            observabilityScope: observability.topScope
         )
 
         _ = try BuildPlan(
             buildParameters: mockBuildParameters(),
             graph: graph,
-            diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
-            fileSystem: fileSystem
+            fileSystem: fileSystem,
+            observabilityScope: observability.topScope
         )
 
         let diagnostic = observability.diagnostics.last!
 
         XCTAssertEqual(diagnostic.message, "couldn't find pc file for BTarget")
         XCTAssertEqual(diagnostic.severity, .warning)
-        XCTAssertEqual(diagnostic.metadata?.legacyLocation, "'BTarget' BTarget.pc")
+        XCTAssertEqual(diagnostic.metadata?.targetName, "BTarget")
+        XCTAssertEqual(diagnostic.metadata?.pcFile, "BTarget.pc")
     }
 
     func testWindowsTarget() throws {
@@ -1675,27 +1687,27 @@ final class BuildPlanTests: XCTestCase {
             "/Pkg/Sources/lib/include/lib.h"
         )
 
-        let observability = ObservabilitySystem.bootstrapForTesting()
+        let observability = ObservabilitySystem.makeForTesting()
         let graph = try loadPackageGraph(
             fs: fs,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "Pkg",
                     path: .init("/Pkg"),
-                    packageKind: .root,
                     targets: [
                     TargetDescription(name: "exe", dependencies: ["lib"]),
                     TargetDescription(name: "lib", dependencies: []),
                 ]),
-            ]
+            ],
+            observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
         let result = BuildPlanResult(plan: try BuildPlan(
             buildParameters: mockBuildParameters(destinationTriple: .windows),
             graph: graph,
-            diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
-            fileSystem: fs
+            fileSystem: fs,
+            observabilityScope: observability.topScope
         ))
         result.checkProductsCount(1)
         result.checkTargetsCount(2)
@@ -1719,7 +1731,7 @@ final class BuildPlanTests: XCTestCase {
             "@/path/to/build/debug/exe.product/Objects.LinkFileList",
              "-target", "x86_64-unknown-windows-msvc",
             ])
-        
+
         let executablePathExtension = try result.buildProduct(for: "exe").binary.extension
         XCTAssertMatch(executablePathExtension, "exe")
     }
@@ -1732,21 +1744,21 @@ final class BuildPlanTests: XCTestCase {
             "/Pkg/Tests/test/TestCase.swift"
         )
 
-        let observability = ObservabilitySystem.bootstrapForTesting()
+        let observability = ObservabilitySystem.makeForTesting()
         let graph = try loadPackageGraph(
             fs: fs,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "Pkg",
                     path: .init("/Pkg"),
-                    packageKind: .root,
                     targets: [
                         TargetDescription(name: "app", dependencies: ["lib"]),
                         TargetDescription(name: "lib", dependencies: []),
                         TargetDescription(name: "test", dependencies: ["lib"], type: .test)
                     ]
                 ),
-            ]
+            ],
+            observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
@@ -1755,8 +1767,8 @@ final class BuildPlanTests: XCTestCase {
         let result = BuildPlanResult(plan: try BuildPlan(
             buildParameters: parameters,
             graph: graph,
-            diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
-            fileSystem: fs
+            fileSystem: fs,
+            observabilityScope: observability.topScope
         ))
         result.checkProductsCount(2)
         result.checkTargetsCount(4)
@@ -1821,18 +1833,19 @@ final class BuildPlanTests: XCTestCase {
             "/Pkg/Sources/lib/include/lib.h"
         )
 
-        let observability = ObservabilitySystem.bootstrapForTesting()
-        let graph = try loadPackageGraph(fs: fs,
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadPackageGraph(
+            fs: fs,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "Pkg",
                     path: .init("/Pkg"),
-                    packageKind: .root,
                     targets: [
                         TargetDescription(name: "exe", dependencies: ["lib"]),
                         TargetDescription(name: "lib", dependencies: []),
                     ]),
-            ]
+            ],
+            observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
@@ -1840,8 +1853,8 @@ final class BuildPlanTests: XCTestCase {
             let result = BuildPlanResult(plan: try BuildPlan(
                 buildParameters: mockBuildParameters(config: config, indexStoreMode: mode),
                 graph: graph,
-                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
-                fileSystem: fs
+                fileSystem: fs,
+                observabilityScope: observability.topScope
             ))
 
             let lib = try result.target(for: "lib").clangTarget()
@@ -1868,46 +1881,46 @@ final class BuildPlanTests: XCTestCase {
             "/B/Sources/BTarget/foo.swift"
         )
 
-        let observability = ObservabilitySystem.bootstrapForTesting()
-        let graph = try loadPackageGraph(fs: fileSystem,
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadPackageGraph(
+            fs: fileSystem,
             manifests: [
-                Manifest.createManifest(
+                Manifest.createRootManifest(
                     name: "A",
                     path: .init("/A"),
-                    packageKind: .root,
                     platforms: [
                         PlatformDescription(name: "macos", version: "10.13"),
                     ],
-                    v: .v5,
+                    toolsVersion: .v5,
                     dependencies: [
-                        .scm(location: "/B", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init("/B"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "ATarget", dependencies: ["BLibrary"]),
                     ]),
-                Manifest.createManifest(
+                Manifest.createFileSystemManifest(
                     name: "B",
                     path: .init("/B"),
-                    packageKind: .local,
                     platforms: [
                         PlatformDescription(name: "macos", version: "10.12"),
                     ],
-                    v: .v5,
+                    toolsVersion: .v5,
                     products: [
                         ProductDescription(name: "BLibrary", type: .library(.automatic), targets: ["BTarget"]),
                     ],
                     targets: [
                         TargetDescription(name: "BTarget", dependencies: []),
                     ]),
-            ]
+            ],
+            observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
         let result = BuildPlanResult(plan: try BuildPlan(
             buildParameters: mockBuildParameters(),
             graph: graph,
-            diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
-            fileSystem: fileSystem
+            fileSystem: fileSystem,
+            observabilityScope: observability.topScope
         ))
 
         let aTarget = try result.target(for: "ATarget").swiftTarget().compileArguments()
@@ -1924,46 +1937,47 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertMatch(bTarget, [.equal("-target"), .equal(defaultTargetTriple), .anySequence] )
       #endif
     }
+
     func testPlatformsValidation() throws {
         let fileSystem = InMemoryFileSystem(emptyFiles:
             "/A/Sources/ATarget/foo.swift",
             "/B/Sources/BTarget/foo.swift"
         )
 
-        let observability = ObservabilitySystem.bootstrapForTesting()
-        let graph = try loadPackageGraph(fs: fileSystem,
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadPackageGraph(
+            fs: fileSystem,
             manifests: [
-                Manifest.createManifest(
+                Manifest.createRootManifest(
                     name: "A",
                     path: .init("/A"),
-                    packageKind: .root,
                     platforms: [
                         PlatformDescription(name: "macos", version: "10.13"),
                         PlatformDescription(name: "ios", version: "10"),
                     ],
-                    v: .v5,
+                    toolsVersion: .v5,
                     dependencies: [
-                        .scm(location: "/B", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init("/B"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "ATarget", dependencies: ["BLibrary"]),
                     ]),
-                Manifest.createManifest(
+                Manifest.createFileSystemManifest(
                     name: "B",
                     path: .init("/B"),
-                    packageKind: .local,
                     platforms: [
                         PlatformDescription(name: "macos", version: "10.14"),
                         PlatformDescription(name: "ios", version: "11"),
                     ],
-                    v: .v5,
+                    toolsVersion: .v5,
                     products: [
                         ProductDescription(name: "BLibrary", type: .library(.automatic), targets: ["BTarget"]),
                     ],
                     targets: [
                         TargetDescription(name: "BTarget", dependencies: []),
                     ]),
-            ]
+            ],
+            observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
@@ -1971,8 +1985,8 @@ final class BuildPlanTests: XCTestCase {
             _ = try BuildPlan(
                 buildParameters: mockBuildParameters(destinationTriple: .macOS),
                 graph: graph,
-                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
-                fileSystem: fileSystem
+                fileSystem: fileSystem,
+                observabilityScope: observability.topScope
             )
         }
 
@@ -1999,13 +2013,12 @@ final class BuildPlanTests: XCTestCase {
             "<end>"
         )
 
-        let aManifest = Manifest.createManifest(
+        let aManifest = Manifest.createRootManifest(
             name: "A",
             path: .init("/A"),
-            packageKind: .root,
-            v: .v5,
+            toolsVersion: .v5,
             dependencies: [
-                .scm(location: "/B", requirement: .upToNextMajor(from: "1.0.0")),
+                .localSourceControl(path: .init("/B"), requirement: .upToNextMajor(from: "1.0.0")),
             ],
             targets: [
                 try TargetDescription(
@@ -2045,11 +2058,10 @@ final class BuildPlanTests: XCTestCase {
 
         )
 
-        let bManifest = Manifest.createManifest(
+        let bManifest = Manifest.createFileSystemManifest(
             name: "B",
             path: .init("/B"),
-            packageKind: .local,
-            v: .v5,
+            toolsVersion: .v5,
             products: [
                 ProductDescription(name: "Dep", type: .library(.automatic), targets: ["t1", "t2"]),
             ],
@@ -2069,9 +2081,11 @@ final class BuildPlanTests: XCTestCase {
                 ),
             ])
 
-        let observability = ObservabilitySystem.bootstrapForTesting()
-        let graph = try loadPackageGraph(fs: fs,
-            manifests: [aManifest, bManifest]
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadPackageGraph(
+            fs: fs,
+            manifests: [aManifest, bManifest],
+            observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
@@ -2079,8 +2093,8 @@ final class BuildPlanTests: XCTestCase {
             return BuildPlanResult(plan: try BuildPlan(
                 buildParameters: mockBuildParameters(destinationTriple: dest),
                 graph: graph,
-                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
-                fileSystem: fs
+                fileSystem: fs,
+                observabilityScope: observability.topScope
             ))
         }
 
@@ -2127,19 +2141,20 @@ final class BuildPlanTests: XCTestCase {
             "<end>"
         )
 
-        let aManifest = Manifest.createManifest(
+        let aManifest = Manifest.createRootManifest(
             name: "A",
             path: .init("/A"),
-            packageKind: .root,
-            v: .v5,
+            toolsVersion: .v5,
             targets: [
                 try TargetDescription(name: "exe", dependencies: []),
             ]
         )
 
-        let observability = ObservabilitySystem.bootstrapForTesting()
-        let graph = try loadPackageGraph(fs: fs,
-            manifests: [aManifest]
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadPackageGraph(
+            fs: fs,
+            manifests: [aManifest],
+            observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
@@ -2148,8 +2163,8 @@ final class BuildPlanTests: XCTestCase {
         let result = BuildPlanResult(plan: try BuildPlan(
             buildParameters: mockBuildParameters(flags: flags),
             graph: graph,
-            diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
-            fileSystem: fs
+            fileSystem: fs,
+            observabilityScope: observability.topScope
         ))
 
         let exe = try result.buildProduct(for: "exe").linkArguments()
@@ -2163,18 +2178,19 @@ final class BuildPlanTests: XCTestCase {
             "/Pkg/Sources/lib/include/lib.h"
         )
 
-        let observability = ObservabilitySystem.bootstrapForTesting()
-        let graph = try loadPackageGraph(fs: fs,
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadPackageGraph(
+            fs: fs,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "Pkg",
                     path: .init("/Pkg"),
-                    packageKind: .root,
                     targets: [
                         TargetDescription(name: "exe", dependencies: ["lib"]),
                         TargetDescription(name: "lib", dependencies: []),
                     ]),
-            ]
+            ],
+            observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
@@ -2188,8 +2204,8 @@ final class BuildPlanTests: XCTestCase {
         let result = BuildPlanResult(plan: try BuildPlan(
             buildParameters: extraBuildParameters,
             graph: graph,
-            diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
-            fileSystem: fs
+            fileSystem: fs,
+            observabilityScope: observability.topScope
         ))
         result.checkProductsCount(1)
         result.checkTargetsCount(2)
@@ -2215,13 +2231,13 @@ final class BuildPlanTests: XCTestCase {
             "/PkgB/Sources/PkgB/PkgB.swift"
         )
 
-        let observability = ObservabilitySystem.bootstrapForTesting()
-        let graph = try loadPackageGraph(fs: fs,
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadPackageGraph(
+            fs: fs,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createFileSystemManifest(
                     name: "PkgA",
                     path: .init("/PkgA"),
-                    packageKind: .local,
                     products: [
                         ProductDescription(name: "swiftlib", type: .library(.automatic), targets: ["swiftlib"]),
                         ProductDescription(name: "exe", type: .executable, targets: ["exe"])
@@ -2230,31 +2246,31 @@ final class BuildPlanTests: XCTestCase {
                         TargetDescription(name: "exe", dependencies: []),
                         TargetDescription(name: "swiftlib", dependencies: ["exe"]),
                     ]),
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "PkgB",
                     path: .init("/PkgB"),
-                    packageKind: .root,
                     dependencies: [
-                        .scm(location: "/PkgA", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init("/PkgA"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "PkgB", dependencies: ["swiftlib"]),
                     ]),
             ],
-            explicitProduct: "exe"
+            explicitProduct: "exe",
+            observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
         let plan = try BuildPlan(
             buildParameters: mockBuildParameters(),
             graph: graph,
-            diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
-            fileSystem: fs
+            fileSystem: fs,
+            observabilityScope: observability.topScope
         )
 
         try testWithTemporaryDirectory { path in
             let yaml = path.appending(component: "debug.yaml")
-            let llbuild = LLBuildManifestBuilder(plan)
+            let llbuild = LLBuildManifestBuilder(plan, fileSystem: fs, observabilityScope: observability.topScope)
             try llbuild.generateManifest(at: yaml)
             let contents = try localFileSystem.readFileContents(yaml).description
             XCTAssertMatch(contents, .contains("""
@@ -2271,26 +2287,27 @@ final class BuildPlanTests: XCTestCase {
             "/PkgA/Sources/Foo/Foo.swift"
         )
 
-        let observability = ObservabilitySystem.bootstrapForTesting()
-        let graph = try loadPackageGraph(fs: fs,
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadPackageGraph(
+            fs: fs,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "PkgA",
                     path: .init("/PkgA"),
-                    packageKind: .root,
                     targets: [
                         TargetDescription(name: "Foo", dependencies: []),
                         TargetDescription(name: "Bar", dependencies: ["Foo"]),
                     ]),
-            ]
+            ],
+            observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
         let plan = try BuildPlan(
             buildParameters: mockBuildParameters(),
             graph: graph,
-            diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
-            fileSystem: fs
+            fileSystem: fs,
+            observabilityScope: observability.topScope
         )
         let result = BuildPlanResult(plan: plan)
 
@@ -2310,7 +2327,7 @@ final class BuildPlanTests: XCTestCase {
 
         try testWithTemporaryDirectory { path in
             let yaml = path.appending(component: "debug.yaml")
-            let llbuild = LLBuildManifestBuilder(plan)
+            let llbuild = LLBuildManifestBuilder(plan, fileSystem: fs, observabilityScope: observability.topScope)
             try llbuild.generateManifest(at: yaml)
             let contents = try localFileSystem.readFileContents(yaml).description
             XCTAssertMatch(contents, .contains("""
@@ -2330,38 +2347,38 @@ final class BuildPlanTests: XCTestCase {
             "/PkgB/Sources/Foo/Foo.swift"
         )
 
-        let observability = ObservabilitySystem.bootstrapForTesting()
-        let graph = try loadPackageGraph(fs: fs,
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadPackageGraph(
+            fs: fs,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "PkgA",
                     path: .init("/PkgA"),
-                    packageKind: .root,
                     dependencies: [
-                        .scm(location: "/PkgB", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init("/PkgB"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "Bar", dependencies: ["Foo"]),
                     ]),
-                Manifest.createV4Manifest(
+                Manifest.createFileSystemManifest(
                     name: "PkgB",
                     path: .init("/PkgB"),
-                    packageKind: .local,
                     products: [
                         ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo"]),
                     ],
                     targets: [
                         TargetDescription(name: "Foo", dependencies: []),
                     ]),
-            ]
+            ],
+            observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
         let plan = try BuildPlan(
             buildParameters: mockBuildParameters(),
             graph: graph,
-            diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
-            fileSystem: fs
+            fileSystem: fs,
+            observabilityScope: observability.topScope
         )
         let result = BuildPlanResult(plan: plan)
 
@@ -2381,7 +2398,7 @@ final class BuildPlanTests: XCTestCase {
 
         try testWithTemporaryDirectory { path in
              let yaml = path.appending(component: "debug.yaml")
-             let llbuild = LLBuildManifestBuilder(plan)
+             let llbuild = LLBuildManifestBuilder(plan, fileSystem: fs, observabilityScope: observability.topScope)
              try llbuild.generateManifest(at: yaml)
              let contents = try localFileSystem.readFileContents(yaml).description
              XCTAssertMatch(contents, .contains("""
@@ -2401,38 +2418,38 @@ final class BuildPlanTests: XCTestCase {
             "/PkgB/Sources/Foo/Foo.swift"
         )
 
-        let observability = ObservabilitySystem.bootstrapForTesting()
-        let graph = try loadPackageGraph(fs: fs,
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadPackageGraph(
+            fs: fs,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "PkgA",
                     path: .init("/PkgA"),
-                    packageKind: .root,
                     dependencies: [
-                        .scm(location: "/PkgB", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init("/PkgB"), requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(name: "Bar", dependencies: ["Foo"]),
                     ]),
-                Manifest.createV4Manifest(
+                Manifest.createFileSystemManifest(
                     name: "PkgB",
                     path: .init("/PkgB"),
-                    packageKind: .local,
                     products: [
                         ProductDescription(name: "Foo", type: .library(.dynamic), targets: ["Foo"]),
                     ],
                     targets: [
                         TargetDescription(name: "Foo", dependencies: []),
                     ]),
-            ]
+            ],
+            observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
         let plan = try BuildPlan(
             buildParameters: mockBuildParameters(),
             graph: graph,
-            diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
-            fileSystem: fs
+            fileSystem: fs,
+            observabilityScope: observability.topScope
         )
         let dynamicLibraryExtension = plan.buildParameters.triple.dynamicLibraryExtension
         let result = BuildPlanResult(plan: plan)
@@ -2453,7 +2470,7 @@ final class BuildPlanTests: XCTestCase {
 
         try testWithTemporaryDirectory { path in
              let yaml = path.appending(component: "debug.yaml")
-             let llbuild = LLBuildManifestBuilder(plan)
+             let llbuild = LLBuildManifestBuilder(plan, fileSystem: fs, observabilityScope: observability.topScope)
              try llbuild.generateManifest(at: yaml)
              let contents = try localFileSystem.readFileContents(yaml).description
              XCTAssertMatch(contents, .contains("""
@@ -2472,27 +2489,28 @@ final class BuildPlanTests: XCTestCase {
             "/Pkg/Sources/lib/lib.swift"
         )
 
-        let observability = ObservabilitySystem.bootstrapForTesting()
-        let graph = try loadPackageGraph(fs: fs,
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadPackageGraph(
+            fs: fs,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "Pkg",
                     path: .init("/Pkg"),
-                    packageKind: .root,
                     targets: [
                         TargetDescription(name: "exe", dependencies: ["lib"]),
                         TargetDescription(name: "lib", dependencies: []),
                     ]
                 ),
-            ]
+            ],
+            observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
         let result = BuildPlanResult(plan: try BuildPlan(
             buildParameters: mockBuildParameters(destinationTriple: .x86_64Linux),
             graph: graph,
-            diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
-            fileSystem: fs
+            fileSystem: fs,
+            observabilityScope: observability.topScope
         ))
 
         let objects = try result.buildProduct(for: "exe").objects
@@ -2501,7 +2519,7 @@ final class BuildPlanTests: XCTestCase {
 
         try testWithTemporaryDirectory { path in
             let yaml = path.appending(component: "debug.yaml")
-            let llbuild = LLBuildManifestBuilder(result.plan)
+            let llbuild = LLBuildManifestBuilder(result.plan, fileSystem: fs, observabilityScope: observability.topScope)
             try llbuild.generateManifest(at: yaml)
             let contents = try localFileSystem.readFileContents(yaml).description
             XCTAssertMatch(contents, .contains("""
@@ -2532,16 +2550,15 @@ final class BuildPlanTests: XCTestCase {
             "/PkgA/Sources/Bar/Bar.swift"
         )
 
-        let observability = ObservabilitySystem.bootstrapForTesting()
+        let observability = ObservabilitySystem.makeForTesting()
 
         let graph = try loadPackageGraph(
             fs: fs,
             manifests: [
-                Manifest.createManifest(
+                Manifest.createRootManifest(
                     name: "PkgA",
                     path: .init("/PkgA"),
-                    packageKind: .root,
-                    v: .v5_2,
+                    toolsVersion: .v5_2,
                     targets: [
                         TargetDescription(
                             name: "Foo",
@@ -2555,7 +2572,8 @@ final class BuildPlanTests: XCTestCase {
                         ),
                     ]
                 )
-            ]
+            ],
+            observabilityScope: observability.topScope
         )
 
         XCTAssertNoDiagnostics(observability.diagnostics)
@@ -2563,8 +2581,8 @@ final class BuildPlanTests: XCTestCase {
         let plan = try BuildPlan(
             buildParameters: mockBuildParameters(),
             graph: graph,
-            diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
-            fileSystem: fs
+            fileSystem: fs,
+            observabilityScope: observability.topScope
         )
         let result = BuildPlanResult(plan: plan)
 
@@ -2593,17 +2611,20 @@ final class BuildPlanTests: XCTestCase {
             "/Pkg/Sources/lib/lib.swift"
         )
 
-        let graph = try loadPackageGraph(fs: fs,
+        let observability = ObservabilitySystem.makeForTesting()
+
+        let graph = try loadPackageGraph(
+            fs: fs,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "Pkg",
                     path: .init("/Pkg"),
-                    packageKind: .root,
                     targets: [
                         TargetDescription(name: "exe", dependencies: ["lib"]),
                         TargetDescription(name: "lib", dependencies: []),
                     ]),
-            ]
+            ],
+            observabilityScope: observability.topScope
         )
 
         let supportingTriples: [TSCUtility.Triple] = [.x86_64Linux, .arm64Linux, .wasi]
@@ -2611,8 +2632,8 @@ final class BuildPlanTests: XCTestCase {
             let result = BuildPlanResult(plan: try BuildPlan(
                 buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true, destinationTriple: triple),
                 graph: graph,
-                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
-                fileSystem: fs
+                fileSystem: fs,
+                observabilityScope: observability.topScope
             ))
 
             let exe = try result.target(for: "exe").swiftTarget().compileArguments()
@@ -2696,15 +2717,14 @@ final class BuildPlanTests: XCTestCase {
                 </plist>
                 """))
 
-        let observability = ObservabilitySystem.bootstrapForTesting()
-        
+        let observability = ObservabilitySystem.makeForTesting()
+
         let graph = try loadPackageGraph(
             fs: fs,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "Pkg",
                     path: .init("/Pkg"),
-                    packageKind: .root,
                     products: [
                         ProductDescription(name: "exe", type: .executable, targets: ["exe"]),
                         ProductDescription(name: "Library", type: .library(.dynamic), targets: ["Library"]),
@@ -2722,15 +2742,16 @@ final class BuildPlanTests: XCTestCase {
             binaryArtifacts: [
                 .init(kind: .xcframework, originURL: nil, path: AbsolutePath("/Pkg/Framework.xcframework")),
                 .init(kind: .xcframework, originURL: nil, path: AbsolutePath("/Pkg/StaticLibrary.xcframework"))
-            ]
+            ],
+            observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
         let result = BuildPlanResult(plan: try BuildPlan(
             buildParameters: mockBuildParameters(destinationTriple: destinationTriple),
             graph: graph,
-            diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
-            fileSystem: fs
+            fileSystem: fs,
+            observabilityScope: observability.topScope
         ))
         XCTAssertNoDiagnostics(observability.diagnostics)
 
@@ -2761,10 +2782,10 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertMatch(clibraryLinkArguments, [.anySequence, "-F", "/path/to/build/debug", .anySequence])
         XCTAssertMatch(clibraryLinkArguments, [.anySequence, "-L", "/path/to/build/debug", .anySequence])
         XCTAssertMatch(clibraryLinkArguments, ["-lStaticLibrary"])
-        
+
         let executablePathExtension = try result.buildProduct(for: "exe").binary.extension ?? ""
         XCTAssertMatch(executablePathExtension, "")
-        
+
         let dynamicLibraryPathExtension = try result.buildProduct(for: "Library").binary.extension
         XCTAssertMatch(dynamicLibraryPathExtension, "dylib")
     }
@@ -2806,14 +2827,13 @@ final class BuildPlanTests: XCTestCase {
                 }
         """))
 
-        let observability = ObservabilitySystem.bootstrapForTesting()
+        let observability = ObservabilitySystem.makeForTesting()
         let graph = try loadPackageGraph(
             fs: fs,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "Pkg",
                     path: .init("/Pkg"),
-                    packageKind: .root,
                     products: [
                         ProductDescription(name: "exe", type: .executable, targets: ["exe"]),
                     ],
@@ -2825,15 +2845,16 @@ final class BuildPlanTests: XCTestCase {
             ],
             binaryArtifacts: [
                 .init(kind: .artifactsArchive, originURL: nil, path: toolPath),
-            ]
+            ],
+            observabilityScope: observability.topScope
         )
 
         XCTAssertNoDiagnostics(observability.diagnostics)
         let result = BuildPlanResult(plan: try BuildPlan(
             buildParameters: mockBuildParameters(destinationTriple: destinationTriple),
             graph: graph,
-            diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
-            fileSystem: fs
+            fileSystem: fs,
+            observabilityScope: observability.topScope
         ))
         XCTAssertNoDiagnostics(observability.diagnostics)
 
@@ -2882,19 +2903,20 @@ final class BuildPlanTests: XCTestCase {
             "/Pkg/Sources/clib/include/clib.h"
         )
 
-        let observability = ObservabilitySystem.bootstrapForTesting()
-        let graph = try loadPackageGraph(fs: fs,
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadPackageGraph(
+            fs: fs,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "Pkg",
                     path: .init("/Pkg"),
-                    packageKind: .root,
                     targets: [
                         TargetDescription(name: "exe", dependencies: ["lib", "clib"]),
                         TargetDescription(name: "lib", dependencies: []),
                         TargetDescription(name: "clib", dependencies: []),
                     ]),
-            ]
+            ],
+            observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
@@ -2907,8 +2929,8 @@ final class BuildPlanTests: XCTestCase {
         let result = BuildPlanResult(plan: try BuildPlan(
             buildParameters: parameters,
             graph: graph,
-            diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
-            fileSystem: fs
+            fileSystem: fs,
+            observabilityScope: observability.topScope
         ))
 
         result.checkProductsCount(1)

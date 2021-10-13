@@ -9,11 +9,12 @@
 */
 
 import Basics
-import TSCBasic
-import PackageModel
-import TSCUtility
 import Foundation
-public typealias FileSystem = TSCBasic.FileSystem
+import PackageModel
+import TSCBasic
+import struct TSCUtility.Triple
+import enum TSCUtility.Diagnostics
+import var TSCUtility.verbosity
 
 public enum ManifestParseError: Swift.Error, Equatable {
     /// The manifest contains invalid format.
@@ -60,6 +61,10 @@ public protocol ManifestLoaderProtocol {
 
     /// Reset any internal cache held by the manifest loader and purge any entries in a shared cache
     func purgeCache() throws
+}
+
+public extension ManifestLoaderProtocol {
+    var supportedArchiveExtension: String { "zip" }
 }
 
 public protocol ManifestLoaderDelegate {
@@ -157,11 +162,11 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             let loader = ManifestLoader(toolchain: toolchain)
             let toolsVersion = try ToolsVersionLoader().load(at: path, fileSystem: fileSystem)
             let packageLocation = fileSystem.isFile(path) ? path.parentDirectory : path
-            let packageIdentity = identityResolver.resolveIdentity(for: packageLocation)
+            let packageIdentity = try identityResolver.resolveIdentity(for: packageLocation)
             loader.load(
                 at: path,
                 packageIdentity: packageIdentity,
-                packageKind: .root,
+                packageKind: .root(packageLocation),
                 packageLocation: packageLocation.pathString,
                 version: nil,
                 revision: nil,
@@ -239,7 +244,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                 let parsedManifest = try self.parseAndCacheManifest(
                     at: path,
                     packageIdentity: packageIdentity,
-                    packageLocation: packageLocation,
+                    packageKind: packageKind,
                     toolsVersion: toolsVersion,
                     identityResolver: identityResolver,
                     fileSystem: fileSystem,
@@ -389,16 +394,19 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                 continue
             }
 
-            let isRemote = target.url != nil
             let validSchemes = ["https"]
-            if isRemote && (location.scheme.map({ !validSchemes.contains($0) }) ?? true) {
+            if target.isRemote && (location.scheme.map({ !validSchemes.contains($0) }) ?? true) {
                 try diagnostics.emit(.invalidBinaryURLScheme(
                     targetName: target.name,
                     validSchemes: validSchemes
                 ))
             }
 
-            let validExtensions = isRemote ? ["zip"] : BinaryTarget.Kind.allCases.map{ $0.fileExtension }
+            var validExtensions = [self.supportedArchiveExtension]
+            if target.isLocal {
+                validExtensions += BinaryTarget.Kind.allCases.map { $0.fileExtension }
+            }
+
             if !validExtensions.contains(location.pathExtension) {
                 try diagnostics.emit(.unsupportedBinaryLocationExtension(
                     targetName: target.name,
@@ -426,7 +434,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                     }
                 case .byName(let name, _):
                     // Don't diagnose root manifests so we can emit a better diagnostic during package loading.
-                    if manifest.packageKind != .root &&
+                    if !manifest.packageKind.isRoot &&
                        !manifest.targetMap.keys.contains(name) &&
                        manifest.packageDependency(referencedBy: targetDependency) == nil
                     {
@@ -445,7 +453,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
     private func parseManifest(
         _ result: EvaluationResult,
         packageIdentity: PackageIdentity,
-        packageLocation: String,
+        packageKind: PackageReference.Kind,
         toolsVersion: ToolsVersion,
         identityResolver: IdentityResolver,
         fileSystem: FileSystem,
@@ -465,18 +473,21 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         if let compilerOutput = result.compilerOutput {
             // FIXME: Temporary workaround to filter out debug output from integrated Swift driver. [rdar://73710910]
             if !(compilerOutput.hasPrefix("<unknown>:0: remark: new Swift driver at") && compilerOutput.hasSuffix("will be used")) {
-                let metadata = result.diagnosticFile.map { diagnosticFile -> ObservabilityMetadata in
+                /*let metadata = result.diagnosticFile.map { diagnosticFile -> ObservabilityMetadata in
                     var metadata = ObservabilityMetadata()
                     metadata.manifestLoadingDiagnosticFile = diagnosticFile
                     return metadata
                 }
-                ObservabilitySystem.topScope.emit(warning: compilerOutput, metadata: metadata)
+                diagnostics.emit(warning: compilerOutput, metadata: metadata)
+                */
+                // FIXME: (diagnostics) deprecate in favor of the metadata version ^^ when transitioning manifest loader to Observability APIs
+                diagnostics?.emit(.warning(ManifestLoadingDiagnostic(output: compilerOutput, diagnosticFile: result.diagnosticFile)))
             }
         }
 
         return try ManifestJSONParser.parse(v4: manifestJSON,
                                             toolsVersion: toolsVersion,
-                                            packageLocation: packageLocation,
+                                            packageKind: packageKind,
                                             identityResolver: identityResolver,
                                             fileSystem: fileSystem)
     }
@@ -484,7 +495,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
     private func parseAndCacheManifest(
         at path: AbsolutePath,
         packageIdentity: PackageIdentity,
-        packageLocation: String,
+        packageKind: PackageReference.Kind,
         toolsVersion: ToolsVersion,
         identityResolver: IdentityResolver,
         fileSystem: FileSystem,
@@ -499,9 +510,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             return SQLiteBackedCache<EvaluationResult>(
                 tableName: "MANIFEST_CACHE",
                 location: .path(path),
-                configuration: configuration,
-                // FIXME: user ManifestLoader scope once migrated to new observability APIs
-                observabilityScope: ObservabilitySystem.topScope
+                configuration: configuration
             )
         }
 
@@ -523,7 +532,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                 return try self.parseManifest(
                     result,
                     packageIdentity: packageIdentity,
-                    packageLocation: packageLocation,
+                    packageKind: packageKind,
                     toolsVersion: toolsVersion,
                     identityResolver: identityResolver,
                     fileSystem: fileSystem,
@@ -543,13 +552,15 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         let parseManifest = try self.parseManifest(
             result,
             packageIdentity: packageIdentity,
-            packageLocation: packageLocation,
+            packageKind: packageKind,
             toolsVersion: toolsVersion,
             identityResolver: identityResolver,
             fileSystem: fileSystem,
-            diagnostics: diagnostics)
+            diagnostics: diagnostics
+        )
 
         do {
+            // FIXME: (diagnostics) pass in observability scope when we have one
             try cache?.put(key: key.sha256Checksum, value: result)
         } catch {
             diagnostics?.emit(warning: "failed storing manifest for '\(key.packageIdentity)' in cache: \(error)")
@@ -563,14 +574,14 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         let manifestPath: AbsolutePath
         let manifestContents: [UInt8]
         let toolsVersion: ToolsVersion
-        let env: [String: String]
+        let env: EnvironmentVariables
         let swiftpmVersion: String
         let sha256Checksum: String
 
         init (packageIdentity: PackageIdentity,
               manifestPath: AbsolutePath,
               toolsVersion: ToolsVersion,
-              env: [String: String],
+              env: EnvironmentVariables,
               swiftpmVersion: String,
               fileSystem: FileSystem
         ) throws {
@@ -594,7 +605,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             packageIdentity: PackageIdentity,
             manifestContents: [UInt8],
             toolsVersion: ToolsVersion,
-            env: [String: String],
+            env: EnvironmentVariables,
             swiftpmVersion: String
         ) throws -> String {
             let stream = BufferedOutputByteStream()
@@ -961,4 +972,9 @@ extension TSCBasic.Diagnostic.Message {
             digits separated by hyphens
             """)
     }
+}
+
+private extension TargetDescription {
+    var isRemote: Bool { url != nil }
+    var isLocal: Bool { path != nil }
 }

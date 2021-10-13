@@ -1,7 +1,18 @@
+/*
+ This source file is part of the Swift.org open source project
+
+ Copyright (c) 2014 - 2021 Apple Inc. and the Swift project authors
+ Licensed under Apache License v2.0 with Runtime Library Exception
+
+ See http://swift.org/LICENSE.txt for license information
+ See http://swift.org/CONTRIBUTORS.txt for Swift project authors
+ */
+
+import Basics
+import Foundation
+import SPMBuildCore
 import TSCBasic
 import TSCUtility
-import SPMBuildCore
-import Foundation
 
 public enum DestinationError: Swift.Error {
     /// Couldn't find the Xcode installation.
@@ -154,7 +165,7 @@ public struct Destination: Encodable, Equatable {
 
     /// Returns macosx sdk platform framework path.
     public static func sdkPlatformFrameworkPaths(
-        environment: [String: String] = ProcessEnv.vars
+        environment: EnvironmentVariables = .process()
     ) -> (fwk: AbsolutePath, lib: AbsolutePath)? {
         if let path = _sdkPlatformFrameworkPath {
             return path
@@ -214,7 +225,7 @@ extension Destination {
             binDir: destination.binDir,
             extraCCFlags: destination.extraCCFlags,
             extraSwiftCFlags: destination.extraSwiftCFlags,
-            extraCPPFlags: destination.extraCCFlags
+            extraCPPFlags: destination.extraCPPFlags
         )
     }
 }
@@ -230,4 +241,13 @@ fileprivate struct DestinationInfo: Codable {
     let extraCCFlags: [String]
     let extraSwiftCFlags: [String]
     let extraCPPFlags: [String]
+
+    enum CodingKeys: String, CodingKey {
+        case target
+        case sdk
+        case binDir = "toolchain-bin-dir"
+        case extraCCFlags = "extra-cc-flags"
+        case extraSwiftCFlags = "extra-swiftc-flags"
+        case extraCPPFlags = "extra-cpp-flags"
+    }
 }

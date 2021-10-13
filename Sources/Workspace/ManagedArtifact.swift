@@ -61,12 +61,13 @@ extension Workspace {
         public static func local(
             packageRef: PackageReference,
             targetName: String,
-            path: AbsolutePath
+            path: AbsolutePath,
+            checksum: String? = nil
         ) -> ManagedArtifact {
             return ManagedArtifact(
                 packageRef: packageRef,
                 targetName: targetName,
-                source: .local,
+                source: .local(checksum: checksum),
                 path: path
             )
         }
@@ -78,8 +79,9 @@ extension Workspace {
             /// the workspace artifacts path.
             case remote(url: String, checksum: String)
 
-            /// Represents a locally available artifact, with its path relative to its package.
-            case local
+            /// Represents a locally available artifact, with its path relative either to its package or to the workspace artifacts
+            /// path, in the latter case, the checksum of the local archive the artifact was extracted from is set.
+            case local(checksum: String? = nil)
         }
     }
 }
@@ -93,8 +95,8 @@ extension Workspace.ManagedArtifact: CustomStringConvertible {
 extension Workspace.ManagedArtifact.Source: CustomStringConvertible {
     public var description: String {
         switch self {
-        case .local:
-            return "local"
+        case .local(let checksum):
+            return "local(checksum: \(checksum ?? "nil"))"
         case .remote(let url, let checksum):
             return "remote(url: \(url), checksum: \(checksum))"
         }

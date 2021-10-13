@@ -19,7 +19,7 @@ typealias Diagnostic = Basics.Diagnostic
 final class ObservabilitySystemTest: XCTestCase {
     func testScopes() throws {
         let collector = Collector()
-        let observabilitySystem = ObservabilitySystem(factory: collector)
+        let observabilitySystem = ObservabilitySystem(collector)
 
         var metadata1 = ObservabilityMetadata()
         metadata1.testKey1 = UUID().uuidString
@@ -91,7 +91,7 @@ final class ObservabilitySystemTest: XCTestCase {
 
     func testBasicDiagnostics() throws {
         let collector = Collector()
-        let observabilitySystem = ObservabilitySystem(factory: collector)
+        let observabilitySystem = ObservabilitySystem(collector)
 
         var metadata = ObservabilityMetadata()
         metadata.testKey1 = UUID().uuidString
@@ -123,7 +123,7 @@ final class ObservabilitySystemTest: XCTestCase {
 
     func testDiagnosticsMetadataMerge() throws {
         let collector = Collector()
-        let observabilitySystem = ObservabilitySystem(factory: collector)
+        let observabilitySystem = ObservabilitySystem(collector)
 
         var scopeMetadata = ObservabilityMetadata()
         scopeMetadata.testKey1 = UUID().uuidString
@@ -160,7 +160,52 @@ final class ObservabilitySystemTest: XCTestCase {
         }
     }
 
-    struct Collector: ObservabilityFactory, DiagnosticsHandler {
+    @available(*, deprecated, message: "temporary for transition DiagnosticsEngine -> DiagnosticsEmitter")
+    func testBridging() throws {
+        do {
+            let collector = Collector()
+            let observabilitySystem = ObservabilitySystem(collector)
+            let diagnosticsEngine = observabilitySystem.topScope.makeDiagnosticsEngine()
+
+            let data = TestData()
+            let location = TestLocation()
+
+            diagnosticsEngine.emit(.error(data), location: location)
+
+            var expectedMetadata = ObservabilityMetadata()
+            expectedMetadata.legacyDiagnosticLocation = .init(location)
+            expectedMetadata.legacyDiagnosticData = .init(data)
+
+            XCTAssertEqual(collector.diagnostics.count, 1)
+            XCTAssertEqual(collector.diagnostics.first?.metadata, expectedMetadata)
+        }
+
+        do {
+            let diagnosticsEngine1 = DiagnosticsEngine()
+            let observabilitySystem = ObservabilitySystem(diagnosticEngine: diagnosticsEngine1)
+            let diagnosticsEngine2 = observabilitySystem.topScope.makeDiagnosticsEngine()
+
+            let data = TestData()
+            let location = TestLocation()
+
+            diagnosticsEngine2.emit(.error(data), location: location)
+
+            XCTAssertEqual(diagnosticsEngine1.diagnostics.count, 1)
+            XCTAssertEqual(diagnosticsEngine1.diagnostics.first!.message.data as? TestData, data)
+            XCTAssertEqual(diagnosticsEngine1.diagnostics.first!.location as? TestLocation, location)
+        }
+
+        struct TestData: DiagnosticData, Equatable {
+            var description: String = UUID().uuidString
+        }
+
+        struct TestLocation: DiagnosticLocation, Equatable {
+            var description: String = UUID().uuidString
+
+        }
+    }
+
+    struct Collector: ObservabilityHandlerProvider, DiagnosticsHandler {
         private let _diagnostics = ThreadSafeArrayStore<Diagnostic>()
 
         var diagnosticsHandler: DiagnosticsHandler { self }

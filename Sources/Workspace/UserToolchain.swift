@@ -304,7 +304,7 @@ public final class UserToolchain: Toolchain {
 
     // MARK: - initializer
 
-    public init(destination: Destination, environment: [String: String] = ProcessEnv.vars) throws {
+    public init(destination: Destination, environment: EnvironmentVariables = .process()) throws {
         self.destination = destination
 
         // Get the search paths from PATH.

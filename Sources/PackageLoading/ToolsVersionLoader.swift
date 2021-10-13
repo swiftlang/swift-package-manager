@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2020 Apple Inc. and the Swift project authors
+ Copyright (c) 2014 - 2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -12,7 +12,6 @@ import Basics
 import Foundation
 import PackageModel
 import TSCBasic
-import TSCUtility
 
 /// Protocol for the manifest loader interface.
 public protocol ToolsVersionLoaderProtocol {
@@ -217,7 +216,7 @@ public struct ToolsVersionLoader: ToolsVersionLoaderProtocol {
                 case .commentMarker(let commentMarker):
                     switch commentMarker {
                     case .isMissing:
-                        return "the manifest is missing a Swift tools version specification; consider prepending to the manifest '// swift-tools-version:\(ToolsVersion.currentToolsVersion)' to specify the current Swift toolchain version as the lowest Swift version supported by the project; if such a specification already exists, consider moving it to the top of the manifest, or prepending it with '//' to help Swift Package Manager find it"
+                        return "the manifest is missing a Swift tools version specification; consider prepending to the manifest '\(ToolsVersion.currentToolsVersion.specification())' to specify the current Swift toolchain version as the lowest Swift version supported by the project; if such a specification already exists, consider moving it to the top of the manifest, or prepending it with '//' to help Swift Package Manager find it"
                     case .isMisspelt(let misspeltCommentMarker):
                         return "the comment marker '\(misspeltCommentMarker)' is misspelt for the Swift tools version specification; consider replacing it with '//'"
                     }
@@ -231,12 +230,12 @@ public struct ToolsVersionLoader: ToolsVersionLoaderProtocol {
                 case .versionSpecifier(let versionSpecifier):
                     switch versionSpecifier {
                     case .isMissing:
-                        return "the Swift tools version specification is possibly missing a version specifier; consider using 'swift-tools-version:\(ToolsVersion.currentToolsVersion)' to specify the current Swift toolchain version as the lowest Swift version supported by the project"
+                        return "the Swift tools version specification is possibly missing a version specifier; consider using '\(ToolsVersion.currentToolsVersion.specification())' to specify the current Swift toolchain version as the lowest Swift version supported by the project"
                     case .isMisspelt(let misspeltVersionSpecifier):
                         return "the Swift tools version '\(misspeltVersionSpecifier)' is misspelt or otherwise invalid; consider replacing it with '\(ToolsVersion.currentToolsVersion)' to specify the current Swift toolchain version as the lowest Swift version supported by the project"
                     }
                 case .unidentified:
-                    return "the Swift tools version specification has a formatting error, but the package manager is unable to find either the location or cause of it; consider replacing it with '// swift-tools-version:\(ToolsVersion.currentToolsVersion)' to specify the current Swift toolchain version as the lowest Swift version supported by the project; additionally, please consider filing a bug report on https://bugs.swift.org with this file attached"
+                    return "the Swift tools version specification has a formatting error, but the package manager is unable to find either the location or cause of it; consider replacing it with '\(ToolsVersion.currentToolsVersion.specification())' to specify the current Swift toolchain version as the lowest Swift version supported by the project; additionally, please consider filing a bug report on https://bugs.swift.org with this file attached"
                 }
             case let .backwardIncompatiblePre5_4(incompatibility, specifiedVersion):
                 switch incompatibility {
@@ -247,7 +246,7 @@ public struct ToolsVersionLoader: ToolsVersionLoaderProtocol {
                 case .spacingAfterLabel(let spacing):
                     return "horizontal whitespace sequence \(unicodeCodePointsPrefixedByUPlus(of: spacing)) immediately preceding the version specifier is supported by only Swift ≥ 5.4; consider removing the sequence for Swift \(specifiedVersion)"
                 case .unidentified:
-                    return "the manifest is backward-incompatible with Swift < 5.4, but the package manager is unable to pinpoint the exact incompatibility; consider replacing the current Swift tools version specification with '// swift-tools-version:\(specifiedVersion)' to specify Swift \(specifiedVersion) as the lowest Swift version supported by the project, then move the new specification to the very beginning of this manifest file; additionally, please consider filing a bug report on https://bugs.swift.org with this file attached"
+                    return "the manifest is backward-incompatible with Swift < 5.4, but the package manager is unable to pinpoint the exact incompatibility; consider replacing the current Swift tools version specification with '\(specifiedVersion.specification())' to specify Swift \(specifiedVersion) as the lowest Swift version supported by the project, then move the new specification to the very beginning of this manifest file; additionally, please consider filing a bug report on https://bugs.swift.org with this file attached"
                 }
             }
             

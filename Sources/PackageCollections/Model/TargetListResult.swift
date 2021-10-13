@@ -50,7 +50,10 @@ extension PackageCollectionsModel.TargetListResult {
 
         @available(*, deprecated, message: "use identity and location instead")
         public var repository: RepositorySpecifier {
-            return .init(url: self.location)
+            guard let url = URL(string: self.location) else {
+                fatalError("invalid url \(self.location)")
+            }
+            return .init(url: url)
         }
     }
 }

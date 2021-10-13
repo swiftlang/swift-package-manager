@@ -8,16 +8,14 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-import XCTest
-
-import TSCBasic
-import TSCUtility
-
+import Basics
 #if os(macOS)
 import class Foundation.Bundle
 #endif
-
+import TSCBasic
 @_exported import TSCTestSupport
+import TSCUtility
+import XCTest
 
 public func XCTAssertBuilds(
     _ path: AbsolutePath,
@@ -28,7 +26,7 @@ public func XCTAssertBuilds(
     Xcc: [String] = [],
     Xld: [String] = [],
     Xswiftc: [String] = [],
-    env: [String: String]? = nil
+    env: EnvironmentVariables? = nil
 ) {
     for conf in configurations {
         do {
@@ -56,7 +54,7 @@ public func XCTAssertSwiftTest(
     _ path: AbsolutePath,
     file: StaticString = #file,
     line: UInt = #line,
-    env: [String: String]? = nil
+    env: EnvironmentVariables? = nil
 ) {
     do {
         _ = try SwiftPMProduct.SwiftTest.execute([], packagePath: path, env: env)
@@ -77,7 +75,7 @@ public func XCTAssertBuildFails(
     Xcc: [String] = [],
     Xld: [String] = [],
     Xswiftc: [String] = [],
-    env: [String: String]? = nil
+    env: EnvironmentVariables? = nil
 ) {
     do {
         _ = try executeSwiftBuild(path, Xcc: Xcc, Xld: Xld, Xswiftc: Xswiftc)

@@ -7,11 +7,15 @@
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
 add_library(PackageRegistry
-  RegistryConfiguration.swift)
+  Registry.swift
+  RegistryConfiguration.swift
+  RegistryManager.swift
+  SourceArchiver.swift)
 target_link_libraries(PackageRegistry PUBLIC
-  TSCBasic
+  Basics
   PackageLoading
   PackageModel
+  TSCBasic
   TSCUtility)
 # NOTE(compnerd) workaround for CMake not setting up include flags yet
 set_target_properties(PackageRegistry PROPERTIES

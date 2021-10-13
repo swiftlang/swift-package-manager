@@ -8,25 +8,27 @@ See http://swift.org/LICENSE.txt for license information
 See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import Basics
 import class Foundation.JSONEncoder
-
+import PackageGraph
+import PackageModel
+import SPMBuildCore
 import TSCBasic
 import TSCUtility
-import PackageModel
-import PackageGraph
-import SPMBuildCore
+
 
 public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
     private let buildParameters: BuildParameters
     private let packageGraphLoader: () throws -> PackageGraph
     private let isVerbose: Bool
-    private let diagnostics: DiagnosticsEngine
     private let xcbuildPath: AbsolutePath
     private var packageGraph: PackageGraph?
     private var pifBuilder: PIFBuilder?
+    private let fileSystem: FileSystem
+    private let observabilityScope: ObservabilityScope
 
     /// The output stream for the build delegate.
-    let outputStream: OutputByteStream
+    private let outputStream: OutputByteStream
 
     /// The delegate used by the build system.
     public weak var delegate: SPMBuildCore.BuildSystemDelegate?
@@ -57,14 +59,16 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
         buildParameters: BuildParameters,
         packageGraphLoader: @escaping () throws -> PackageGraph,
         isVerbose: Bool,
-        diagnostics: DiagnosticsEngine,
-        outputStream: OutputByteStream
+        outputStream: OutputByteStream,
+        fileSystem: FileSystem,
+        observabilityScope: ObservabilityScope
     ) throws {
         self.buildParameters = buildParameters
         self.packageGraphLoader = packageGraphLoader
         self.isVerbose = isVerbose
-        self.diagnostics = diagnostics
         self.outputStream = outputStream
+        self.fileSystem = fileSystem
+        self.observabilityScope = observabilityScope.makeChildScope(description: "Xcode Build System")
 
         if let xcbuildTool = ProcessEnv.vars["XCBUILD_TOOL"] {
             xcbuildPath = try AbsolutePath(validating: xcbuildTool)
@@ -135,13 +139,13 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
         guard result.exitStatus == .terminated(code: 0) else {
             if hasStdout {
                 if !delegate.didParseAnyOutput {
-                    diagnostics.emit(StringError(String(decoding: stdoutBuffer, as: UTF8.self)))
+                    self.observabilityScope.emit(error: String(decoding: stdoutBuffer, as: UTF8.self))
                 }
             } else {
                 if !stderrBuffer.isEmpty {
-                    diagnostics.emit(StringError(String(decoding: stderrBuffer, as: UTF8.self)))
+                    self.observabilityScope.emit(error: String(decoding: stderrBuffer, as: UTF8.self))
                 } else {
-                    diagnostics.emit(StringError("Unknown error: stdout and stderr are empty"))
+                    self.observabilityScope.emit(error: "Unknown error: stdout and stderr are empty")
                 }
             }
 
@@ -159,7 +163,7 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
             supportedArchitectures: [],
             disableOnlyActiveArch: true
         )
-        
+
         // Generate a table of any overriding build settings.
         var settings: [String: String] = [:]
         // An error with determining the override should not be fatal here.
@@ -174,7 +178,7 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
         if !buildParameters.archs.isEmpty {
             settings["ARCHS"] = buildParameters.archs.joined(separator: " ")
         }
-        
+
         // Generate the build parameters.
         let params = XCBBuildParameters(
             configurationName: buildParameters.configuration.xcbuildName,
@@ -200,9 +204,10 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
             : MultiLinePercentProgressAnimation(stream: self.outputStream, header: "")
         let delegate = XCBuildDelegate(
             buildSystem: self,
-            diagnostics: diagnostics,
             outputStream: self.outputStream,
-            progressAnimation: progressAnimation)
+            progressAnimation: progressAnimation,
+            observabilityScope: self.observabilityScope
+        )
         delegate.isVerbose = isVerbose
         return delegate
     }
@@ -210,7 +215,12 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
     private func getPIFBuilder() throws -> PIFBuilder {
         try memoize(to: &pifBuilder) {
             let graph = try getPackageGraph()
-            let pifBuilder = PIFBuilder(graph: graph, parameters: .init(buildParameters), diagnostics: diagnostics)
+            let pifBuilder = PIFBuilder(
+                graph: graph,
+                parameters: .init(buildParameters),
+                fileSystem: self.fileSystem,
+                observabilityScope: self.observabilityScope
+            )
             return pifBuilder
         }
     }

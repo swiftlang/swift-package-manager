@@ -6,84 +6,189 @@
 
  See http://swift.org/LICENSE.txt for license information
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
-*/
+ */
 
 import Basics
+import Foundation
 import TSCBasic
 import TSCUtility
 
 /// A package reference.
 ///
 /// This represents a reference to a package containing its identity and location.
-public struct PackageReference: Codable {
+public struct PackageReference {
     /// The kind of package reference.
-    public enum Kind: String, Codable {
+    public enum Kind: Equatable, CustomStringConvertible {
         /// A root package.
-        case root
+        case root(AbsolutePath)
 
         /// A non-root local package.
-        case local
+        case fileSystem(AbsolutePath)
 
-        /// A remote package.
-        case remote
+        /// A local source package.
+        case localSourceControl(AbsolutePath)
+
+        /// A remote source package.
+        case remoteSourceControl(Foundation.URL)
+
+        /// A package from  a registry.
+        case registry(PackageIdentity)
+
+        // FIXME: we should not need this
+        //@available(*, deprecated)
+        public var locationString: String {
+            switch self {
+            case .root(let path):
+                return path.pathString
+            case .fileSystem(let path):
+                return path.pathString
+            case .localSourceControl(let path):
+                return path.pathString
+            case .remoteSourceControl(let url):
+                return url.absoluteString
+            case .registry(let identity):
+                // FIXME: this is a placeholder
+                return identity.description
+            }
+        }
+
+        public var description: String {
+            switch self {
+            case .root(let path):
+                return "root \(path)"
+            case .fileSystem(let path):
+                return "fileSystem \(path)"
+            case .localSourceControl(let path):
+                return "localSourceControl \(path)"
+            case .remoteSourceControl(let url):
+                return "remoteSourceControl \(url)"
+            case .registry(let identity):
+                return "registry \(identity)"
+            }
+        }
+
+        // FIXME: ideally this would not be required and we can check on the enum directly
+        public var isRoot: Bool {
+            if case .root = self {
+                return true
+            } else {
+                return false
+            }
+        }
     }
 
     /// The identity of the package.
     public let identity: PackageIdentity
 
     /// The name of the package, if available.
+    // FIXME: we should not need this
     public var name: String
 
-    /// The path of the package.
+    /// The location of the package.
     ///
     /// This could be a remote repository, local repository or local package.
-    public let location: String
+    // FIXME: we should not need this
+    //@available(*, deprecated)
+    public var locationString: String {
+        self.kind.locationString
+    }
 
     /// The kind of package: root, local, or remote.
     public let kind: Kind
 
-    /// Create a package reference given its identity and repository.
-    public init(identity: PackageIdentity, kind: Kind, location: String, name: String? = nil) {
+    /// Create a package reference given its identity and kind.
+    public init(identity: PackageIdentity, kind: Kind, name: String? = nil) {
         self.identity = identity
         self.kind = kind
-        self.location = location
-        self.name = name ?? LegacyPackageIdentity.computeDefaultName(fromURL: location)
+        switch kind {
+        case .root(let path):
+            self.name = name ?? LegacyPackageIdentity.computeDefaultName(fromPath: path)
+        case .fileSystem(let path):
+            self.name = name ?? LegacyPackageIdentity.computeDefaultName(fromPath: path)
+        case .localSourceControl(let path):
+            self.name = name ?? LegacyPackageIdentity.computeDefaultName(fromPath: path)
+        case .remoteSourceControl(let url):
+            self.name = name ?? LegacyPackageIdentity.computeDefaultName(fromURL: url)
+        case .registry(let identity):
+            // FIXME: this is a placeholder
+            self.name = name ?? identity.description
+        }
     }
 
     /// Create a new package reference object with the given name.
     public func with(newName: String) -> PackageReference {
-        return PackageReference(identity: self.identity, kind: self.kind, location: self.location, name: newName)
+        return PackageReference(identity: self.identity, kind: self.kind, name: newName)
     }
 
     public static func root(identity: PackageIdentity, path: AbsolutePath) -> PackageReference {
-        PackageReference(identity: identity, kind: .root, location: path.pathString)
+        PackageReference(identity: identity, kind: .root(path))
     }
 
-    public static func local(identity: PackageIdentity, path: AbsolutePath) -> PackageReference {
-        PackageReference(identity: identity, kind: .local, location: path.pathString)
+    public static func fileSystem(identity: PackageIdentity, path: AbsolutePath) -> PackageReference {
+        PackageReference(identity: identity, kind: .fileSystem(path))
     }
 
+    public static func localSourceControl(identity: PackageIdentity, path: AbsolutePath) -> PackageReference {
+        PackageReference(identity: identity, kind: .localSourceControl(path))
+    }
 
-    public static func remote(identity: PackageIdentity, location: String) -> PackageReference {
-        PackageReference(identity: identity, kind: .remote, location: location)
+    public static func remoteSourceControl(identity: PackageIdentity, url: Foundation.URL) -> PackageReference {
+        PackageReference(identity: identity, kind: .remoteSourceControl(url))
+    }
+
+    public static func registry(identity: PackageIdentity) -> PackageReference {
+        PackageReference(identity: identity, kind: .registry(identity))
     }
 }
 
 extension PackageReference: Equatable {
+    // TODO: consider location as well?
     public static func ==(lhs: PackageReference, rhs: PackageReference) -> Bool {
         return lhs.identity == rhs.identity
+    }
+
+    // TODO: consider rolling into Equatable
+    public func equalsIncludingLocation(_ other: PackageReference) -> Bool {
+        return self.identity == other.identity && self.kind.locationString == other.kind.locationString
     }
 }
 
 extension PackageReference: Hashable {
+    // TODO: consider location as well?
     public func hash(into hasher: inout Hasher) {
-        hasher.combine(identity)
+        hasher.combine(self.identity)
     }
 }
 
 extension PackageReference: CustomStringConvertible {
     public var description: String {
-        return "\(identity)\(self.location.isEmpty ? "" : "[\(self.location)]")"
+        return "\(self.identity) \(self.kind)"
     }
 }
 
+extension PackageReference.Kind: Encodable {
+    private enum CodingKeys: String, CodingKey {
+        case root, fileSystem, localSourceControl, remoteSourceControl, registry
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case .root(let path):
+            var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .root)
+            try unkeyedContainer.encode(path)
+        case .fileSystem(let path):
+            var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .fileSystem)
+            try unkeyedContainer.encode(path)
+        case .localSourceControl(let path):
+            var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .localSourceControl)
+            try unkeyedContainer.encode(path)
+        case .remoteSourceControl(let url):
+            var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .remoteSourceControl)
+            try unkeyedContainer.encode(url)
+        case .registry:
+            var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .registry)
+            try unkeyedContainer.encode(self.isRoot)
+        }
+    }
+}

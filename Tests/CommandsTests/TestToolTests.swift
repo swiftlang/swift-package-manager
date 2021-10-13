@@ -33,7 +33,7 @@ final class TestToolTests: XCTestCase {
         XCTAssert(stdout.contains("Swift Package Manager"), "got stdout:\n" + stdout)
     }
 
-    func testNumWorkersParallelRequeriment() throws {
+    func testNumWorkersParallelRequirement() throws {
         // Running swift-test fixtures on linux is not yet possible.
         #if os(macOS)
         fixture(name: "Miscellaneous/EchoExecutable") { path in

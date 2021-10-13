@@ -9,7 +9,6 @@
  */
 
 import Foundation
-
 import TSCBasic
 import TSCUtility
 
@@ -42,8 +41,15 @@ public struct PackageIdentity: CustomStringConvertible {
 
     /// Creates a package identity from a URL.
     /// - Parameter url: The package's URL.
-    public init(url: String) { // TODO: Migrate to Foundation.URL
-        self.description = Self.provider.init(url).description
+    public init(url: Foundation.URL) {
+        self.init(urlString: url.absoluteString)
+    }
+
+    /// Creates a package identity from a URL.
+    /// - Parameter urlString: The package's URL.
+    // FIXME: deprecate this
+    public init(urlString: String) {
+        self.description = Self.provider.init(urlString).description
     }
 
     /// Creates a package identity from a file path.
@@ -56,6 +62,17 @@ public struct PackageIdentity: CustomStringConvertible {
     /// - Parameter value: A string used to identify a package, will be used unmodified
     public static func plain(_ value: String) -> PackageIdentity {
         PackageIdentity(value)
+    }
+
+    // TODO: formalize package registry identifier
+    public var scopeAndName: (Scope, Name)? {
+        let components = description.split(separator: ".", maxSplits: 1, omittingEmptySubsequences: true)
+        guard components.count == 2,
+              let scope = Scope(components.first),
+              let name = Name(components.last)
+        else { return nil }
+
+        return (scope, name)
     }
 }
 
@@ -143,6 +160,11 @@ extension PackageIdentity {
             self = scope
         }
 
+        fileprivate init?(_ substring: String.SubSequence?) {
+            guard let substring = substring else { return nil }
+            self.init(String(substring))
+        }
+
         // MARK: - Equatable & Comparable
 
         private func compare(to other: Scope) -> ComparisonResult {
@@ -220,6 +242,11 @@ extension PackageIdentity {
             self = name
         }
 
+        fileprivate init?(_ substring: String.SubSequence?) {
+            guard let substring = substring else { return nil }
+            self.init(String(substring))
+        }
+
         // MARK: - Equatable & Comparable
 
         private func compare(to other: Name) -> ComparisonResult {
@@ -261,11 +288,21 @@ struct LegacyPackageIdentity: PackageIdentityProvider, Equatable {
 
     /// Instantiates an instance of the conforming type from a string representation.
     public init(_ string: String) {
-        self.description = Self.computeDefaultName(fromURL: string).lowercased()
+        self.description = Self.computeDefaultName(fromLocation: string).lowercased()
     }
 
     /// Compute the default name of a package given its URL.
-    public static func computeDefaultName(fromURL url: String) -> String {
+    public static func computeDefaultName(fromURL url: Foundation.URL) -> String {
+        Self.computeDefaultName(fromLocation: url.absoluteString)
+    }
+
+    /// Compute the default name of a package given its path.
+    public static func computeDefaultName(fromPath path: AbsolutePath) -> String {
+        Self.computeDefaultName(fromLocation: path.pathString)
+    }
+
+    /// Compute the default name of a package given its location.
+    public static func computeDefaultName(fromLocation url: String) -> String {
         #if os(Windows)
         let isSeparator : (Character) -> Bool = { $0 == "/" || $0 == "\\" }
         #else

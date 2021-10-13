@@ -8,6 +8,8 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
+import Foundation
+
 // MARK: - file system
 
 extension Package {
@@ -27,7 +29,7 @@ extension Package {
         public enum Kind {
             case fileSystem(name: String?, path: String)
             case sourceControl(name: String?, location: String, requirement: SourceControlRequirement)
-            case registry(identity: String, requirement: RegistryRequirement)
+            case registry(id: String, requirement: RegistryRequirement)
         }
 
         @available(_PackageDescription, introduced: 5.6)
@@ -81,7 +83,7 @@ extension Package {
                     case .revision(let revision):
                         return .revisionItem(revision)
                     }
-                case .registry(identity: _, requirement: let requirement):
+                case .registry(id: _, requirement: let requirement):
                     switch requirement {
                     case .exact(let version):
                         return .exactItem(version)
@@ -121,8 +123,8 @@ extension Package {
             self.init(kind: .sourceControl(name: name, location: location, requirement: requirement))
         }
 
-        convenience init(identity: String, requirement: RegistryRequirement) {
-            self.init(kind: .registry(identity: identity, requirement: requirement))
+        convenience init(id: String, requirement: RegistryRequirement) {
+            self.init(kind: .registry(id: id, requirement: requirement))
         }
     }
 }
@@ -459,17 +461,17 @@ extension Package.Dependency {
     /// The following example allows the Swift Package Manager to select a version
     /// like a  `1.2.3`, `1.2.4`, or `1.3.0`, but not `2.0.0`.
     ///
-    ///    .package(identity: "scope.name", from: "1.2.3"),
+    ///    .package(id: "scope.name", from: "1.2.3"),
     ///
     /// - Parameters:
-    ///     - identity: The identity of the package.
+    ///     - id: The identity of the package.
     ///     - version: The minimum version requirement.
     @available(_PackageDescription, introduced: 999)
     public static func package(
-        identity: String,
+        id: String,
         from version: Version
     ) -> Package.Dependency {
-        return .package(identity: identity, .upToNextMajor(from: version))
+        return .package(id: id, .upToNextMajor(from: version))
     }
 
     /// Adds a package dependency that uses the exact version requirement.
@@ -483,17 +485,17 @@ extension Package.Dependency {
     ///
     /// The following example instruct the Swift Package Manager to use version `1.2.3`.
     ///
-    ///    .package(identity: "scope.name", exact: "1.2.3"),
+    ///    .package(id: "scope.name", exact: "1.2.3"),
     ///
     /// - Parameters:
-    ///     - identity: The identity of the package.
+    ///     - id: The identity of the package.
     ///     - version: The minimum version requirement.
     @available(_PackageDescription, introduced: 999)
     public static func package(
-        identity: String,
+        id: String,
         exact version: Version
     ) -> Package.Dependency {
-        return .package(identity: identity, requirement: .exact(version))
+        return .package(id: id, requirement: .exact(version))
     }
 
     /// Adds a package dependency starting with a specific minimum version, up to
@@ -502,17 +504,17 @@ extension Package.Dependency {
     /// The following example allows the Swift Package Manager to pick
     /// versions `1.2.3`, `1.2.4`, `1.2.5`, but not `1.2.6`.
     ///
-    ///     .package(identity: "scope.name", "1.2.3"..<"1.2.6"),
+    ///     .package(id: "scope.name", "1.2.3"..<"1.2.6"),
     ///
     /// - Parameters:
-    ///     - identity: The identity of the package.
+    ///     - id: The identity of the package.
     ///     - range: The custom version range requirement.
     @available(_PackageDescription, introduced: 999)
     public static func package(
-        identity: String,
+        id: String,
         _ range: Range<Version>
     ) -> Package.Dependency {
-        return .package(identity: identity, requirement: .range(range))
+        return .package(id: id, requirement: .range(range))
     }
 
     /// Adds a package dependency starting with a specific minimum version, going
@@ -521,14 +523,14 @@ extension Package.Dependency {
     /// The following example allows the Swift Package Manager to pick
     /// versions 1.2.3, 1.2.4, 1.2.5, as well as 1.2.6.
     ///
-    ///     .package(identity: "scope.name", "1.2.3"..."1.2.6"),
+    ///     .package(id: "scope.name", "1.2.3"..."1.2.6"),
     ///
     /// - Parameters:
-    ///     - identity: The identity of the package.
+    ///     - id: The identity of the package.
     ///     - range: The closed version range requirement.
     @available(_PackageDescription, introduced: 999)
     public static func package(
-        identity: String,
+        id: String,
         _ range: ClosedRange<Version>
     ) -> Package.Dependency {
         // Increase upperbound's patch version by one.
@@ -537,16 +539,21 @@ extension Package.Dependency {
             upper.major, upper.minor, upper.patch + 1,
             prereleaseIdentifiers: upper.prereleaseIdentifiers,
             buildMetadataIdentifiers: upper.buildMetadataIdentifiers)
-        return .package(identity: identity, range.lowerBound ..< upperBound)
+        return .package(id: id, range.lowerBound ..< upperBound)
     }
 
     // intentionally private to hide enum detail
     @available(_PackageDescription, introduced: 999)
     private static func package(
-        identity: String,
+        id: String,
         requirement: Package.Dependency.RegistryRequirement
     ) -> Package.Dependency {
-        return .init(identity: identity, requirement: requirement)
+        let pattern = #"\A[a-zA-Z\d](?:[a-zA-Z\d]|-(?=[a-zA-Z\d])){0,38}\.[a-zA-Z0-9](?:[a-zA-Z0-9]|[-_](?=[a-zA-Z0-9])){0,99}\z"#
+        if id.range(of: pattern, options: .regularExpression) == nil {
+            errors.append("Invalid package identifier: \(id)")
+        }
+
+        return .init(id: id, requirement: requirement)
     }
 }
 

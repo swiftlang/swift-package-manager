@@ -9,30 +9,27 @@
 */
 
 import PackageModel
-import SourceControl
 
 extension PackageDependency {
     /// Create the package reference object for the dependency.
     public func createPackageRef() -> PackageReference {
         // TODO (next steps): move the location into PackageKind to preserve path vs. location
         let packageKind: PackageReference.Kind
-        let location: String
         switch self {
         case .fileSystem(let settings):
-            packageKind = .local
-            location = settings.path.pathString
+            packageKind = .fileSystem(settings.path)
         case .sourceControl(let settings):
-            packageKind = .remote
-            location = settings.location
+            switch settings.location {
+            case .local(let path):
+                packageKind = .localSourceControl(path)
+            case .remote(let url):
+                packageKind = .remoteSourceControl(url)
+            }
         case .registry:
             // FIXME
             fatalError("registry based dependencies not implemented yet")
         }
-        return PackageReference(
-            identity: self.identity,
-            kind: packageKind,
-            location: location
-        )
+        return PackageReference(identity: self.identity, kind: packageKind)
     }
 }
 

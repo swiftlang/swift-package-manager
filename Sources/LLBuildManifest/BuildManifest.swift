@@ -8,6 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import Basics
 import struct TSCBasic.AbsolutePath
 
 public struct BuildManifest {
@@ -50,6 +51,7 @@ public struct BuildManifest {
         inputs: [Node],
         outputs: [Node]
     ) {
+        assert(commands[name] == nil, "aleady had a command named '\(name)'")
         let tool = PhonyTool(inputs: inputs, outputs: outputs)
         commands[name] = Command(name: name, tool: tool)
     }
@@ -59,6 +61,7 @@ public struct BuildManifest {
         inputs: [Node],
         outputs: [Node]
     ) {
+        assert(commands[name] == nil, "aleady had a command named '\(name)'")
         let tool = TestDiscoveryTool(inputs: inputs, outputs: outputs)
         commands[name] = Command(name: name, tool: tool)
     }
@@ -68,6 +71,7 @@ public struct BuildManifest {
         inputs: [Node],
         outputs: [Node]
     ) {
+        assert(commands[name] == nil, "aleady had a command named '\(name)'")
         let tool = CopyTool(inputs: inputs, outputs: outputs)
         commands[name] = Command(name: name, tool: tool)
     }
@@ -77,6 +81,7 @@ public struct BuildManifest {
         inputs: [Node],
         outputs: [Node]
     ) {
+        assert(commands[name] == nil, "aleady had a command named '\(name)'")
         let tool = PackageStructureTool(inputs: inputs, outputs: outputs)
         commands[name] = Command(name: name, tool: tool)
     }
@@ -86,6 +91,7 @@ public struct BuildManifest {
         inputs: [Node],
         outputs: [Node]
     ) {
+        assert(commands[name] == nil, "aleady had a command named '\(name)'")
         let tool = ArchiveTool(inputs: inputs, outputs: outputs)
         commands[name] = Command(name: name, tool: tool)
     }
@@ -96,10 +102,11 @@ public struct BuildManifest {
         inputs: [Node],
         outputs: [Node],
         arguments: [String],
-        environment: [String: String] = [:],
+        environment: EnvironmentVariables = .empty(),
         workingDirectory: String? = nil,
         allowMissingInputs: Bool = false
     ) {
+        assert(commands[name] == nil, "aleady had a command named '\(name)'")
         let tool = ShellTool(
             description: description,
             inputs: inputs,
@@ -120,6 +127,7 @@ public struct BuildManifest {
         outputs: [Node],
         arguments: [String]
     ) {
+        assert(commands[name] == nil, "aleady had a command named '\(name)'")
         let tool = SwiftFrontendTool(
                 moduleName: moduleName,
                 description: description,
@@ -138,6 +146,7 @@ public struct BuildManifest {
         arguments: [String],
         dependencies: String? = nil
     ) {
+        assert(commands[name] == nil, "aleady had a command named '\(name)'")
         let tool = ClangTool(
             description: description,
             inputs: inputs,
@@ -163,6 +172,7 @@ public struct BuildManifest {
         isLibrary: Bool,
         wholeModuleOptimization: Bool
     ) {
+        assert(commands[name] == nil, "aleady had a command named '\(name)'")
         let tool = SwiftCompilerTool(
             inputs: inputs,
             outputs: outputs,
@@ -177,7 +187,6 @@ public struct BuildManifest {
             isLibrary: isLibrary,
             wholeModuleOptimization: wholeModuleOptimization
         )
-      
         commands[name] = Command(name: name, tool: tool)
     }
 }

@@ -8,13 +8,13 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import XCTest
-import Foundation
-
+import Basics
 import Commands
+import Foundation
 import SPMTestSupport
 import TSCBasic
 import TSCUtility
+import XCTest
 
 let defaultRegistryBaseURL = URL(string: "https://packages.example.com")!
 let customRegistryBaseURL = URL(string: "https://custom.packages.example.com")!
@@ -24,7 +24,7 @@ final class PackageRegistryToolTests: XCTestCase {
     private func execute(
         _ args: [String],
         packagePath: AbsolutePath? = nil,
-        env: [String: String]? = nil
+        env: EnvironmentVariables? = nil
     ) throws -> (exitStatus: ProcessResult.ExitStatus, stdout: String, stderr: String) {
         var environment = env ?? [:]
         // don't ignore local packages when caching
@@ -154,6 +154,23 @@ final class PackageRegistryToolTests: XCTestCase {
             // Set default registry
             do {
                 let result = try execute(["set", "invalid"], packagePath: packageRoot)
+                XCTAssertNotEqual(result.exitStatus, .terminated(code: 0))
+            }
+
+            XCTAssertFalse(localFileSystem.exists(configurationFilePath))
+        }
+    }
+
+    func testSetInvalidScope() throws {
+        fixture(name: "DependencyResolution/External/Simple") { prefix in
+            let packageRoot = prefix.appending(component: "Bar")
+            let configurationFilePath = packageRoot.appending(RelativePath(".swiftpm/configuration/registries.json"))
+
+            XCTAssertFalse(localFileSystem.exists(configurationFilePath))
+
+            // Set default registry
+            do {
+                let result = try execute(["set", "--scope", "_invalid_", "\(defaultRegistryBaseURL)"], packagePath: packageRoot)
                 XCTAssertNotEqual(result.exitStatus, .terminated(code: 0))
             }
 

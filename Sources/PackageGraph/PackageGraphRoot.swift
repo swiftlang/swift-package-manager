@@ -10,9 +10,8 @@
 
 import Basics
 import PackageModel
-import SourceControl
 import TSCBasic
-import TSCUtility
+import enum TSCUtility.Git
 
 /// Represents the input to the package graph root.
 public struct PackageGraphRootInput {

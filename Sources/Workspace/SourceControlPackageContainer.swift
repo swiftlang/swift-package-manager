@@ -8,46 +8,42 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import Dispatch
 import Basics
-import TSCBasic
+import Dispatch
+import PackageGraph
 import PackageLoading
 import PackageModel
 import SourceControl
+import TSCBasic
 import TSCUtility
 
-enum RepositoryPackageResolutionError: Swift.Error {
-    /// A requested repository could not be cloned.
-    case unavailableRepository
-}
-
 /// Adaptor to expose an individual repository as a package container.
-public class RepositoryPackageContainer: PackageContainer, CustomStringConvertible {
+internal final class SourceControlPackageContainer: PackageContainer, CustomStringConvertible {
     public typealias Constraint = PackageContainerConstraint
 
     // A wrapper for getDependencies() errors. This adds additional information
     // about the container to identify it for diagnostics.
     public struct GetDependenciesError: Error, CustomStringConvertible, DiagnosticLocationProviding {
 
-        /// The repository url that encountered the error.
-        public let url: String
+        /// The repository  that encountered the error.
+        public let repository: RepositorySpecifier
 
         /// The source control reference (version, branch, revision, etc) that was involved.
         public let reference: String
 
         /// The actual error that occurred.
         public let underlyingError: Error
-        
+
         /// Optional suggestion for how to resolve the error.
         public let suggestion: String?
-        
+
         public var diagnosticLocation: DiagnosticLocation? {
-            return PackageLocation.Remote(url: self.url, reference: self.reference)
+            return PackageLocation.Remote(url: self.repository.location.description, reference: self.reference)
         }
-        
+
         /// Description shown for errors of this kind.
         public var description: String {
-            var desc = "\(underlyingError) in \(self.url)"
+            var desc = "\(underlyingError) in \(self.repository.location)"
             if let suggestion = suggestion {
                 desc += " (\(suggestion))"
             }
@@ -56,6 +52,7 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
     }
 
     public let package: PackageReference
+    private let repositorySpecifier: RepositorySpecifier
     private let repository: Repository
     private let identityResolver: IdentityResolver
     private let manifestLoader: ManifestLoaderProtocol
@@ -77,19 +74,21 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
     init(
         package: PackageReference,
         identityResolver: IdentityResolver,
+        repositorySpecifier: RepositorySpecifier,
         repository: Repository,
         manifestLoader: ManifestLoaderProtocol,
         toolsVersionLoader: ToolsVersionLoaderProtocol,
         currentToolsVersion: ToolsVersion
-    ) {
+    ) throws {
         self.package = package
         self.identityResolver = identityResolver
+        self.repositorySpecifier = repositorySpecifier
         self.repository = repository
         self.manifestLoader = manifestLoader
         self.toolsVersionLoader = toolsVersionLoader
         self.currentToolsVersion = currentToolsVersion
     }
-    
+
     // Compute the map of known versions.
     private func knownVersions() throws -> [Version: String] {
         try self.knownVersionsCache.memoize() {
@@ -98,7 +97,7 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
             return knownVersionsWithDuplicates.mapValues({ tags -> String in
                 if tags.count > 1 {
                     // FIXME: Warn if the two tags point to different git references.
-                    
+
                     // If multiple tags are present with the same semantic version (e.g. v1.0.0, 1.0.0, 1.0) reconcile which one we prefer.
                     // Prefer the most specific tag, e.g. 1.0.0 is preferred over 1.0.
                     // Sort the tags so the most specific tag is first, order is ascending so the most specific tag will be last
@@ -123,7 +122,7 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
     public func versionsAscending() throws -> [Version] {
         [Version](try self.knownVersions().keys).sorted()
     }
-    
+
     /// The available version list (in reverse order).
     public func toolsVersionsAppropriateVersionsDescending() throws -> [Version] {
         let reversedVersions = try self.versionsDescending()
@@ -175,7 +174,11 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
             }.1
         } catch {
             throw GetDependenciesError(
-                url: package.location, reference: version.description, underlyingError: error, suggestion: nil)
+                repository: self.repositorySpecifier,
+                reference: version.description,
+                underlyingError: error,
+                suggestion: .none
+            )
         }
     }
 
@@ -193,7 +196,7 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
                 if let rev = try? repository.resolveRevision(identifier: revision), repository.exists(revision: rev) {
                     // Revision does exist, so something else must be wrong.
                     throw GetDependenciesError(
-                        url: package.location,
+                        repository: self.repositorySpecifier,
                         reference: revision,
                         underlyingError: error,
                         suggestion: .none
@@ -207,7 +210,7 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
                     let mainBranchExists = (try? repository.resolveRevision(identifier: "main")) != nil
                     let suggestion = (revision == "master" && mainBranchExists) ? "did you mean ‘main’?" : nil
                     throw GetDependenciesError(
-                        url: package.location,
+                        repository: self.repositorySpecifier,
                         reference: revision,
                         underlyingError: StringError(errorMessage),
                         suggestion: suggestion
@@ -216,7 +219,7 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
             }
             // If we get this far without having thrown an error, we wrap and throw the underlying error.
             throw GetDependenciesError(
-                url: package.location,
+                repository: self.repositorySpecifier,
                 reference: revision,
                 underlyingError: error,
                 suggestion: .none
@@ -328,7 +331,7 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
             self.manifestLoader.load(at: AbsolutePath.root,
                                      packageIdentity: self.package.identity,
                                      packageKind: self.package.kind,
-                                     packageLocation: self.package.location,
+                                     packageLocation: self.package.locationString,
                                      version: version,
                                      revision: nil,
                                      toolsVersion: toolsVersion,
@@ -345,95 +348,11 @@ public class RepositoryPackageContainer: PackageContainer, CustomStringConvertib
     }
 
     public var description: String {
-        return "RepositoryPackageContainer(\(self.package.location))"
+        return "SourceControlPackageContainer(\(self.repositorySpecifier))"
     }
 }
 
-/// Adaptor for exposing repositories as PackageContainerProvider instances.
-///
-/// This is the root class for bridging the manifest & SCM systems into the
-/// interfaces used by the `DependencyResolver` algorithm.
-public class RepositoryPackageContainerProvider: PackageContainerProvider {
-    let fileSystem: FileSystem
-    let repositoryManager: RepositoryManager
-    let manifestLoader: ManifestLoaderProtocol
-    let identityResolver: IdentityResolver
-
-    /// The tools version currently in use. Only the container versions less than and equal to this will be provided by
-    /// the container.
-    let currentToolsVersion: ToolsVersion
-
-    /// The tools version loader.
-    let toolsVersionLoader: ToolsVersionLoaderProtocol
-
-    /// Create a repository-based package provider.
-    ///
-    /// - Parameters:
-    ///   - repositoryManager: The repository manager responsible for providing repositories.
-    ///   - manifestLoader: The manifest loader instance.
-    ///   - currentToolsVersion: The current tools version in use.
-    ///   - toolsVersionLoader: The tools version loader.
-    public init(
-        fileSystem: FileSystem,
-        repositoryManager: RepositoryManager,
-        identityResolver: IdentityResolver,
-        manifestLoader: ManifestLoaderProtocol,
-        currentToolsVersion: ToolsVersion = ToolsVersion.currentToolsVersion,
-        toolsVersionLoader: ToolsVersionLoaderProtocol = ToolsVersionLoader()
-    ) {
-        self.fileSystem = fileSystem
-        self.repositoryManager = repositoryManager
-        self.identityResolver = identityResolver
-        self.manifestLoader = manifestLoader
-        self.currentToolsVersion = currentToolsVersion
-        self.toolsVersionLoader = toolsVersionLoader
-    }
-
-    public func getContainer(
-        for package: PackageReference,
-        skipUpdate: Bool,
-        on queue: DispatchQueue,
-        completion: @escaping (Result<PackageContainer, Swift.Error>) -> Void
-    ) {
-        // If the container is local, just create and return a local package container.
-        if package.kind != .remote {
-            return queue.async {
-                let container = LocalPackageContainer(
-                    package: package,
-                    identityResolver: self.identityResolver,
-                    manifestLoader: self.manifestLoader,
-                    toolsVersionLoader: self.toolsVersionLoader,
-                    currentToolsVersion: self.currentToolsVersion,
-                    fileSystem: self.fileSystem)
-                completion(.success(container))
-            }
-        }
-
-        // Resolve the container using the repository manager.
-        repositoryManager.lookup(repository: .init(url: package.location), skipUpdate: skipUpdate, on: queue) { result in
-            queue.async {
-                // Create the container wrapper.
-                let result = result.tryMap { handle -> PackageContainer in
-                    // Open the repository.
-                    //
-                    // FIXME: Do we care about holding this open for the lifetime of the container.
-                    let repository = try handle.open()
-                    return RepositoryPackageContainer(
-                        package: package,
-                        identityResolver: self.identityResolver,
-                        repository: repository,
-                        manifestLoader: self.manifestLoader,
-                        toolsVersionLoader: self.toolsVersionLoader,
-                        currentToolsVersion: self.currentToolsVersion
-                    )
-                }
-                completion(result)
-            }
-        }
-    }
-}
-
-extension Git {
+fileprivate extension Git {
     static func convertTagsToVersionMap(_ tags: [String]) -> [Version: [String]] {
         // First, check if we need to restrict the tag set to version-specific tags.
         var knownVersions: [Version: [String]] = [:]

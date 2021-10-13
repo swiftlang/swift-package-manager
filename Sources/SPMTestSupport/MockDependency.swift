@@ -8,6 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
+import Foundation
 import PackageLoading
 import PackageModel
 import TSCBasic
@@ -26,36 +27,39 @@ public struct MockDependency {
     }
 
     // TODO: refactor this when adding registry support
-    public func convert(baseURL: AbsolutePath, identityResolver: IdentityResolver) -> PackageDependency {
+    public func convert(baseURL: AbsolutePath, identityResolver: IdentityResolver) throws -> PackageDependency {
         switch self.location {
         case .fileSystem(let path):
             let path = baseURL.appending(path)
-            let location = identityResolver.resolveLocation(from: path.pathString)
-            let identity = identityResolver.resolveIdentity(for: location)
+            let remappedPath = try AbsolutePath(validating: identityResolver.mappedLocation(for: path.pathString))
+            let identity = try identityResolver.resolveIdentity(for: remappedPath)
             return .fileSystem(
                 identity: identity,
                 deprecatedName: self.deprecatedName,
-                path: location,
+                path: remappedPath,
                 productFilter: self.products
             )
-        case .sourceControlPath(let path, let requirement):
-            let path = baseURL.appending(path)
-            let location = identityResolver.resolveLocation(from: path.pathString)
-            let identity = identityResolver.resolveIdentity(for: location)
-            return .sourceControl(
+        case .localSourceControl(let path, let requirement):
+            let absolutePath = baseURL.appending(path)
+            let remappedPath = try AbsolutePath(validating: identityResolver.mappedLocation(for: absolutePath.pathString))
+            let identity = try identityResolver.resolveIdentity(for: remappedPath)
+            return .localSourceControl(
                 identity: identity,
                 deprecatedName: self.deprecatedName,
-                location: location,
+                path: remappedPath,
                 requirement: requirement,
                 productFilter: self.products
             )
-        case .sourceControlURL(let url, let requirement):
-            let location = identityResolver.resolveLocation(from: url)
-            let identity = identityResolver.resolveIdentity(for: location)
-            return .sourceControl(
+        case .remoteSourceControl(let url, let requirement):
+            let remappedURLString = identityResolver.mappedLocation(for: url.absoluteString)
+            guard let remappedURL = URL(string: remappedURLString) else {
+                throw StringError("invalid url: \(remappedURLString))")
+            }
+            let identity = try identityResolver.resolveIdentity(for: remappedURL)
+            return .remoteSourceControl(
                 identity: identity,
                 deprecatedName: self.deprecatedName,
-                location: location,
+                url: remappedURL,
                 requirement: requirement,
                 productFilter: self.products
             )
@@ -67,35 +71,28 @@ public struct MockDependency {
     }
 
     public static func sourceControl(path: String, requirement: Requirement, products: ProductFilter = .everything) -> MockDependency {
-        MockDependency(location: .sourceControlPath(path: RelativePath(path), requirement: requirement), products: products)
+        .sourceControl(path: RelativePath(path), requirement: requirement, products: products)
+    }
+
+    public static func sourceControl(path: RelativePath, requirement: Requirement, products: ProductFilter = .everything) -> MockDependency {
+        MockDependency(location: .localSourceControl(path: path, requirement: requirement), products: products)
     }
 
     public static func sourceControlWithDeprecatedName(name: String, path: String, requirement: Requirement, products: ProductFilter = .everything) -> MockDependency {
-        MockDependency(deprecatedName: name, location: .sourceControlPath(path: RelativePath(path), requirement: requirement), products: products)
+        MockDependency(deprecatedName: name, location: .localSourceControl(path: RelativePath(path), requirement: requirement), products: products)
     }
 
     public static func sourceControl(url: String, requirement: Requirement, products: ProductFilter = .everything) -> MockDependency {
-        MockDependency(location: .sourceControlURL(url: url, requirement: requirement), products: products)
+        .sourceControl(url: URL(string: url)!, requirement: requirement, products: products)
     }
 
-    // for backwards compatibility
-    public static func local(path: String, products: ProductFilter = .everything) -> MockDependency {
-        Self.fileSystem(path: path, products: products)
-    }
-
-    // for backwards compatibility
-    public static func scm(path: String, requirement: Requirement, products: ProductFilter = .everything) -> MockDependency {
-        Self.sourceControl(path: path, requirement: requirement, products: products)
-    }
-
-    // for backwards compatibility
-    public static func scmWithDeprecatedName(name: String, path: String, requirement: Requirement, products: ProductFilter = .everything) -> MockDependency {
-        Self.sourceControlWithDeprecatedName(name: name, path: path, requirement: requirement, products: products)
+    public static func sourceControl(url: URL, requirement: Requirement, products: ProductFilter = .everything) -> MockDependency {
+        MockDependency(location: .remoteSourceControl(url: url, requirement: requirement), products: products)
     }
 
     public enum Location {
         case fileSystem(path: RelativePath)
-        case sourceControlPath(path: RelativePath, requirement: Requirement)
-        case sourceControlURL(url: String, requirement: Requirement)
+        case localSourceControl(path: RelativePath, requirement: Requirement)
+        case remoteSourceControl(url: URL, requirement: Requirement)
     }
 }

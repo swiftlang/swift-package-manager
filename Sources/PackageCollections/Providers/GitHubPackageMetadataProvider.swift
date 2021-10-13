@@ -24,20 +24,25 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
     public var name: String = "GitHub"
 
     let configuration: Configuration
-
+    private let observabilityScope: ObservabilityScope
     private let httpClient: HTTPClient
     private let decoder: JSONDecoder
 
     private let cache: SQLiteBackedCache<CacheValue>?
 
-    init(configuration: Configuration = .init(), httpClient: HTTPClient? = nil) {
+    init(configuration: Configuration = .init(), observabilityScope: ObservabilityScope, httpClient: HTTPClient? = nil) {
         self.configuration = configuration
+        self.observabilityScope = observabilityScope
         self.httpClient = httpClient ?? Self.makeDefaultHTTPClient()
         self.decoder = JSONDecoder.makeWithDefaults()
         if configuration.cacheTTLInSeconds > 0 {
             var cacheConfig = SQLiteBackedCacheConfiguration()
             cacheConfig.maxSizeInMegabytes = configuration.cacheSizeInMegabytes
-            self.cache = SQLiteBackedCache<CacheValue>(tableName: "github_cache", path: configuration.cacheDir.appending(component: "package-metadata.db"), configuration: cacheConfig)
+            self.cache = SQLiteBackedCache<CacheValue>(
+                tableName: "github_cache",
+                path: configuration.cacheDir.appending(component: "package-metadata.db"),
+                configuration: cacheConfig
+            )
         } else {
             self.cache = nil
         }
@@ -83,7 +88,7 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
                 let apiRemaining = response.headers.get("X-RateLimit-Remaining").first.flatMap(Int.init) ?? -1
                 switch (response.statusCode, hasAuthorization, apiRemaining) {
                 case (_, _, 0):
-                    ObservabilitySystem.topScope.emit(warning: "Exceeded API limits on \(metadataURL.host ?? metadataURL.absoluteString) (\(apiRemaining)/\(apiLimit)), consider configuring an API token for this service.")
+                    self.observabilityScope.emit(warning: "Exceeded API limits on \(metadataURL.host ?? metadataURL.absoluteString) (\(apiRemaining)/\(apiLimit)), consider configuring an API token for this service.")
                     results[metadataURL] = .failure(Errors.apiLimitsExceeded(metadataURL, apiLimit))
                 case (401, true, _):
                     results[metadataURL] = .failure(Errors.invalidAuthToken(metadataURL))
@@ -95,7 +100,7 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
                     results[metadataURL] = .failure(NotFoundError("\(baseURL)"))
                 case (200, _, _):
                     if apiRemaining < self.configuration.apiLimitWarningThreshold {
-                        ObservabilitySystem.topScope.emit(warning: "Approaching API limits on \(metadataURL.host ?? metadataURL.absoluteString) (\(apiRemaining)/\(apiLimit)), consider configuring an API token for this service.")
+                        self.observabilityScope.emit(warning: "Approaching API limits on \(metadataURL.host ?? metadataURL.absoluteString) (\(apiRemaining)/\(apiLimit)), consider configuring an API token for this service.")
                     }
                     // if successful, fan out multiple API calls
                     [releasesURL, contributorsURL, readmeURL, licenseURL, languagesURL].forEach { url in
@@ -152,9 +157,14 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
                     )
 
                     do {
-                        try self.cache?.put(key: identity.description, value: CacheValue(package: model, timestamp: DispatchTime.now()), replace: true)
+                        try self.cache?.put(
+                            key: identity.description,
+                            value: CacheValue(package: model, timestamp: DispatchTime.now()),
+                            replace: true,
+                            observabilityScope: self.observabilityScope
+                        )
                     } catch {
-                        ObservabilitySystem.topScope.emit(warning: "Failed to save GitHub metadata for package \(identity) to cache: \(error)")
+                        self.observabilityScope.emit(warning: "Failed to save GitHub metadata for package \(identity) to cache: \(error)")
                     }
 
                     callback(.success(model))
@@ -175,6 +185,7 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider {
         }
     }
 
+    // FIXME: use Foundation.URL instead of string
     internal static func apiURL(_ url: String) -> Foundation.URL? {
         do {
             let regex = try NSRegularExpression(pattern: #"([^/@]+)[:/]([^:/]+)/([^/.]+)(\.git)?$"#, options: .caseInsensitive)

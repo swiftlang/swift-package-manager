@@ -14,64 +14,69 @@ import func XCTest.XCTFail
 import func XCTest.XCTAssertEqual
 
 extension ObservabilitySystem {
-    public static func bootstrapForTesting() -> TestingObservability {
-        let testingObservability = TestingObservability()
-        Self._bootstrapGlobalForTestingOnlySeriously(factory: testingObservability.factory)
-        return testingObservability
+    public static func makeForTesting() -> TestingObservability {
+        let collector = TestingObservability.Collector()
+        let observabilitySystem = ObservabilitySystem(collector)
+        return TestingObservability(collector: collector, topScope: observabilitySystem.topScope)
+    }
+
+    public static var NOOP: ObservabilityScope {
+        ObservabilitySystem({ _, _ in }).topScope
     }
 }
 
 public struct TestingObservability {
-    fileprivate let factory = Factory()
+    private let collector: Collector
+    public let topScope: ObservabilityScope
+
+    fileprivate init(collector: Collector, topScope: ObservabilityScope) {
+        self.collector = collector
+        self.topScope = topScope
+    }
 
     public var diagnostics: [Basics.Diagnostic] {
-        self.factory.diagnosticsCollector.diagnostics.get()
+        self.collector.diagnostics.get()
     }
 
     public var hasErrorDiagnostics: Bool {
-        self.factory.diagnosticsCollector.hasErrors
+        self.collector.hasErrors
     }
 
     public var hasWarningDiagnostics: Bool {
-        self.factory.diagnosticsCollector.hasWarnings
+        self.collector.hasWarnings
     }
 
-    struct Factory: ObservabilityFactory {
-        fileprivate let diagnosticsCollector = DiagnosticsCollector()
+    struct Collector: ObservabilityHandlerProvider, DiagnosticsHandler, CustomStringConvertible {
+        var diagnosticsHandler: DiagnosticsHandler { return self }
 
-        var diagnosticsHandler: DiagnosticsHandler {
-            return diagnosticsCollector
+        let diagnostics: ThreadSafeArrayStore<Basics.Diagnostic>
+
+        init() {
+            self.diagnostics = .init()
+        }
+
+        // TODO: do something useful with scope
+        func handleDiagnostic(scope: ObservabilityScope, diagnostic: Basics.Diagnostic) {
+            self.diagnostics.append(diagnostic)
+        }
+
+        var hasErrors: Bool {
+            let diagnostics = self.diagnostics.get()
+            return diagnostics.contains(where: { $0.severity == .error })
+        }
+
+        var hasWarnings: Bool {
+            let diagnostics = self.diagnostics.get()
+            return diagnostics.contains(where: { $0.severity == .warning })
+        }
+
+        var description: String {
+            let diagnostics = self.diagnostics.get()
+            return "\(diagnostics)"
         }
     }
 }
 
-private final class DiagnosticsCollector: DiagnosticsHandler, CustomStringConvertible {
-    public let diagnostics: ThreadSafeArrayStore<Basics.Diagnostic>
-
-    public init() {
-        self.diagnostics = .init()
-    }
-
-    // TODO: do something useful with scope
-    public func handleDiagnostic(scope: ObservabilityScope, diagnostic: Basics.Diagnostic) {
-        self.diagnostics.append(diagnostic)
-    }
-
-    public var hasErrors: Bool {
-        let diagnostics = self.diagnostics.get()
-        return diagnostics.contains(where: { $0.severity == .error })
-    }
-
-    public var hasWarnings: Bool {
-        let diagnostics = self.diagnostics.get()
-        return diagnostics.contains(where: { $0.severity == .warning })
-    }
-
-    public var description: String {
-        let diagnostics = self.diagnostics.get()
-        return "\(diagnostics)"
-    }
-}
 
 public func XCTAssertNoDiagnostics(_ diagnostics: [Basics.Diagnostic], file: StaticString = #file, line: UInt = #line) {
     if diagnostics.isEmpty { return }
@@ -121,7 +126,9 @@ public class DiagnosticsTestResult {
 
         XCTAssertMatch(diagnostic.message, message, file: file, line: line)
         XCTAssertEqual(diagnostic.severity, severity, file: file, line: line)
-        XCTAssertEqual(diagnostic.metadata, metadata, file: file, line: line)
+        // FIXME: (diagnostics) compare complete metadata when legacy bridge is removed
+        //XCTAssertEqual(diagnostic.metadata, metadata, file: file, line: line)
+        XCTAssertEqual(diagnostic.metadata?.droppingLegacyKeys(), metadata?.droppingLegacyKeys(), file: file, line: line)
     }
 
     public func checkUnordered(
@@ -140,9 +147,13 @@ public class DiagnosticsTestResult {
             return XCTFail("No diagnostics match \(diagnosticPattern)", file: file, line: line)
         } else if matching.count == 1, let diagnostic = matching.first, let index = self.uncheckedDiagnostics.firstIndex(where: { $0 == diagnostic }) {
             XCTAssertEqual(diagnostic.severity, severity, file: file, line: line)
-            XCTAssertEqual(diagnostic.metadata, metadata, file: file, line: line)
+            // FIXME: (diagnostics) compare complete metadata when legacy bridge is removed
+            //XCTAssertEqual(diagnostic.metadata, metadata, file: file, line: line)
+            XCTAssertEqual(diagnostic.metadata?.droppingLegacyKeys(), metadata?.droppingLegacyKeys(), file: file, line: line)
             self.uncheckedDiagnostics.remove(at: index)
-        } else if let index = self.uncheckedDiagnostics.firstIndex(where: { diagnostic in diagnostic.severity == severity && diagnostic.metadata == metadata}) {
+        // FIXME: (diagnostics) compare complete metadata when legacy bridge is removed
+        //} else if let index = self.uncheckedDiagnostics.firstIndex(where: { diagnostic in diagnostic.severity == severity && diagnostic.metadata == metadata}) {
+        } else if let index = self.uncheckedDiagnostics.firstIndex(where: { diagnostic in diagnostic.severity == severity && diagnostic.metadata?.droppingLegacyKeys() == metadata?.droppingLegacyKeys()}) {
             self.uncheckedDiagnostics.remove(at: index)
         }
     }

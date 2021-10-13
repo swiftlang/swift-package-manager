@@ -9,9 +9,10 @@
 */
 
 import Basics
+import Foundation
 import PackageGraph
-@testable import PackageLoading
 import PackageModel
+@testable import PackageLoading
 import SPMBuildCore
 import SPMTestSupport
 import TSCBasic
@@ -34,15 +35,14 @@ class PIFBuilderTests: XCTestCase {
                 "/B/Sources/B2/lib.swift"
             )
 
-            let observability = ObservabilitySystem.bootstrapForTesting()
+            let observability = ObservabilitySystem.makeForTesting()
             let graph = try loadPackageGraph(
                 fs: fs,
                 manifests: [
-                    Manifest.createManifest(
+                    Manifest.createLocalSourceControlManifest(
                         name: "B",
                         path: .init("/B"),
-                        packageKind: .remote,
-                        v: .v5_2,
+                        toolsVersion: .v5_2,
                         products: [
                             .init(name: "bexe", type: .executable, targets: ["B1"]),
                             .init(name: "blib", type: .library(.static), targets: ["B2"]),
@@ -51,13 +51,12 @@ class PIFBuilderTests: XCTestCase {
                             .init(name: "B2", dependencies: []),
                             .init(name: "B1", dependencies: ["B2"]),
                         ]),
-                    Manifest.createManifest(
+                    Manifest.createRootManifest(
                         name: "A",
                         path: .init("/A"),
-                        packageKind: .root,
-                        v: .v5_2,
+                        toolsVersion: .v5_2,
                         dependencies: [
-                            .scm(location: "/B", requirement: .branch("master")),
+                            .localSourceControl(path: .init("/B"), requirement: .branch("master")),
                         ],
                         products: [
                             .init(name: "alib", type: .library(.static), targets: ["A2"]),
@@ -68,10 +67,16 @@ class PIFBuilderTests: XCTestCase {
                             .init(name: "A2", dependencies: []),
                             .init(name: "A3", dependencies: []),
                         ]),
-                ]
+                ],
+                observabilityScope: observability.topScope
             )
 
-            let builder = PIFBuilder(graph: graph, parameters: .mock(), diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine())
+            let builder = PIFBuilder(
+                graph: graph,
+                parameters: .mock(),
+                fileSystem: fs,
+                observabilityScope: observability.topScope
+            )
             let pif = try builder.construct()
 
             XCTAssertNoDiagnostics(observability.diagnostics)
@@ -103,34 +108,33 @@ class PIFBuilderTests: XCTestCase {
             "/Bar/Sources/BarLib/lib.swift"
         )
 
-        let observability = ObservabilitySystem.bootstrapForTesting()
+        let observability = ObservabilitySystem.makeForTesting()
         let graph = try loadPackageGraph(
             fs: fs,
             manifests: [
                 Manifest.createManifest(
                     name: "Foo",
                     path: .init("/Foo"),
-                    packageKind: .root,
+                    packageKind: .root(.init("/Foo")),
                     defaultLocalization: "fr",
-                    v: .v5_2,
+                    toolsVersion: .v5_2,
                     dependencies: [
-                        .scm(location: "/Bar", requirement: .branch("master")),
+                        .localSourceControl(path: .init("/Bar"), requirement: .branch("master")),
                     ],
                     targets: [
                         .init(name: "foo", dependencies: [.product(name: "BarLib", package: "Bar")]),
                         .init(name: "FooTests", type: .test),
                     ]),
-                Manifest.createManifest(
+                Manifest.createLocalSourceControlManifest(
                     name: "Bar",
                     path: .init("/Bar"),
-                    packageKind: .remote,
                     platforms: [
                         PlatformDescription(name: "macos", version: "10.14"),
                         PlatformDescription(name: "ios", version: "12"),
                         PlatformDescription(name: "tvos", version: "11"),
                         PlatformDescription(name: "watchos", version: "6"),
                     ],
-                    v: .v5_2,
+                    toolsVersion: .v5_2,
                     products: [
                         .init(name: "BarLib", type: .library(.automatic), targets: ["BarLib"]),
                     ],
@@ -139,10 +143,16 @@ class PIFBuilderTests: XCTestCase {
                         .init(name: "BarTests", type: .test),
                     ]),
             ],
-            shouldCreateMultipleTestProducts: true
+            shouldCreateMultipleTestProducts: true,
+            observabilityScope: observability.topScope
         )
 
-        let builder = PIFBuilder(graph: graph, parameters: .mock(), diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine())
+        let builder = PIFBuilder(
+            graph: graph,
+            parameters: .mock(),
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
         let pif = try builder.construct()
 
         XCTAssertNoDiagnostics(observability.diagnostics)
@@ -370,18 +380,17 @@ class PIFBuilderTests: XCTestCase {
             "/Bar/Sources/BarLib/lib.swift"
         )
 
-        let observability = ObservabilitySystem.bootstrapForTesting()
+        let observability = ObservabilitySystem.makeForTesting()
         let graph = try loadPackageGraph(
             fs: fs,
             manifests: [
-                Manifest.createManifest(
+                Manifest.createRootManifest(
                     name: "Foo",
                     path: .init("/Foo"),
-                    packageKind: .root,
-                    v: .v5_2,
+                    toolsVersion: .v5_2,
                     swiftLanguageVersions: [.v4_2, .v5],
                     dependencies: [
-                        .scm(location: "/Bar", requirement: .branch("master")),
+                        .localSourceControl(path: .init("/Bar"), requirement: .branch("master")),
                     ],
                     targets: [
                         .init(name: "foo", dependencies: [
@@ -397,11 +406,10 @@ class PIFBuilderTests: XCTestCase {
                             .product(name: "BarLib", package: "Bar"),
                         ])
                     ]),
-                Manifest.createManifest(
+                Manifest.createLocalSourceControlManifest(
                     name: "Bar",
                     path: .init("/Bar"),
-                    packageKind: .remote,
-                    v: .v4_2,
+                    toolsVersion: .v4_2,
                     cLanguageStandard: "c11",
                     cxxLanguageStandard: "c++14",
                     swiftLanguageVersions: [.v4_2],
@@ -415,12 +423,18 @@ class PIFBuilderTests: XCTestCase {
                         .init(name: "cbar"),
                         .init(name: "BarLib"),
                     ]),
-            ]
+            ],
+            observabilityScope: observability.topScope
         )
 
         var pif: PIF.TopLevelObject!
         try! withCustomEnv(["PKG_CONFIG_PATH": inputsDir.pathString]) {
-            let builder = PIFBuilder(graph: graph, parameters: .mock(), diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine())
+            let builder = PIFBuilder(
+                graph: graph,
+                parameters: .mock(),
+                fileSystem: localFileSystem,
+                observabilityScope: observability.topScope
+            )
             pif = try builder.construct()
         }
 
@@ -701,18 +715,17 @@ class PIFBuilderTests: XCTestCase {
             "/Bar/Sources/BarLib/lib.swift"
         )
 
-        let observability = ObservabilitySystem.bootstrapForTesting()
+        let observability = ObservabilitySystem.makeForTesting()
         let graph = try loadPackageGraph(
             fs: fs,
             manifests: [
-                Manifest.createManifest(
+                Manifest.createRootManifest(
                     name: "Foo",
                     path: .init("/Foo"),
-                    packageKind: .root,
-                    v: .v5_2,
+                    toolsVersion: .v5_2,
                     swiftLanguageVersions: [.v4_2, .v5],
                     dependencies: [
-                        .scm(location: "/Bar", requirement: .branch("master")),
+                        .localSourceControl(path: .init("/Bar"), requirement: .branch("master")),
                     ],
                     targets: [
                         .init(name: "FooTests", dependencies: [
@@ -728,11 +741,10 @@ class PIFBuilderTests: XCTestCase {
                             .product(name: "BarLib", package: "Bar"),
                         ])
                     ]),
-                Manifest.createManifest(
+                Manifest.createLocalSourceControlManifest(
                     name: "Bar",
                     path: .init("/Bar"),
-                    packageKind: .remote,
-                    v: .v4_2,
+                    toolsVersion: .v4_2,
                     cLanguageStandard: "c11",
                     cxxLanguageStandard: "c++14",
                     swiftLanguageVersions: [.v4_2],
@@ -747,12 +759,18 @@ class PIFBuilderTests: XCTestCase {
                         .init(name: "BarLib"),
                     ]),
             ],
-            shouldCreateMultipleTestProducts: true
+            shouldCreateMultipleTestProducts: true,
+            observabilityScope: observability.topScope
         )
 
         var pif: PIF.TopLevelObject!
         try! withCustomEnv(["PKG_CONFIG_PATH": inputsDir.pathString]) {
-            let builder = PIFBuilder(graph: graph, parameters: .mock(), diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine())
+            let builder = PIFBuilder(
+                graph: graph,
+                parameters: .mock(),
+                fileSystem: fs,
+                observabilityScope: observability.topScope
+            )
             pif = try builder.construct()
         }
 
@@ -926,18 +944,17 @@ class PIFBuilderTests: XCTestCase {
             "/Bar/Sources/BarLib/lib.swift"
         )
 
-        let observability = ObservabilitySystem.bootstrapForTesting()
+        let observability = ObservabilitySystem.makeForTesting()
         let graph = try loadPackageGraph(
             fs: fs,
             manifests: [
-                Manifest.createManifest(
+                Manifest.createRootManifest(
                     name: "Foo",
                     path: .init("/Foo"),
-                    packageKind: .root,
-                    v: .v5_2,
+                    toolsVersion: .v5_2,
                     swiftLanguageVersions: [.v4_2, .v5],
                     dependencies: [
-                        .scm(location: "/Bar", requirement: .branch("master")),
+                        .localSourceControl(path: .init("/Bar"), requirement: .branch("master")),
                     ],
                     products: [
                         .init(name: "FooLib1", type: .library(.static), targets: ["FooLib1"]),
@@ -950,12 +967,10 @@ class PIFBuilderTests: XCTestCase {
                         ]),
                         .init(name: "SystemLib", type: .system, pkgConfig: "Foo"),
                     ]),
-                Manifest.createManifest(
+                Manifest.createLocalSourceControlManifest(
                     name: "Bar",
                     path: .init("/Bar"),
-                    packageKind: .remote,
-                    packageLocation: "/Bar",
-                    v: .v4_2,
+                    toolsVersion: .v4_2,
                     cLanguageStandard: "c11",
                     cxxLanguageStandard: "c++14",
                     swiftLanguageVersions: [.v4_2],
@@ -965,12 +980,18 @@ class PIFBuilderTests: XCTestCase {
                     targets: [
                         .init(name: "BarLib"),
                     ]),
-            ]
+            ],
+            observabilityScope: observability.topScope
         )
 
         var pif: PIF.TopLevelObject!
         try! withCustomEnv(["PKG_CONFIG_PATH": inputsDir.pathString]) {
-            let builder = PIFBuilder(graph: graph, parameters: .mock(), diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine())
+            let builder = PIFBuilder(
+                graph: graph,
+                parameters: .mock(),
+                fileSystem: localFileSystem,
+                observabilityScope: observability.topScope
+            )
             pif = try builder.construct()
         }
 
@@ -1122,19 +1143,18 @@ class PIFBuilderTests: XCTestCase {
             "/Bar/Sources/BarLib/lib.c"
         )
 
-        let observability = ObservabilitySystem.bootstrapForTesting()
+        let observability = ObservabilitySystem.makeForTesting()
         let graph = try loadPackageGraph(
             fs: fs,
             manifests: [
-                Manifest.createManifest(
+                Manifest.createRootManifest(
                     name: "Foo",
                     path: .init("/Foo"),
-                    packageKind: .root,
-                    v: .v5_2,
+                    toolsVersion: .v5_2,
                     cxxLanguageStandard: "c++14",
                     swiftLanguageVersions: [.v4_2, .v5],
                     dependencies: [
-                        .scm(location: "/Bar", requirement: .branch("master")),
+                        .localSourceControl(path: .init("/Bar"), requirement: .branch("master")),
                     ],
                     targets: [
                         .init(name: "FooLib1", dependencies: ["SystemLib", "FooLib2"]),
@@ -1143,11 +1163,10 @@ class PIFBuilderTests: XCTestCase {
                         ]),
                         .init(name: "SystemLib", type: .system, pkgConfig: "Foo"),
                     ]),
-                Manifest.createManifest(
+                Manifest.createLocalSourceControlManifest(
                     name: "Bar",
                     path: .init("/Bar"),
-                    packageKind: .remote,
-                    v: .v4_2,
+                    toolsVersion: .v4_2,
                     cLanguageStandard: "c11",
                     swiftLanguageVersions: [.v4_2],
                     products: [
@@ -1156,12 +1175,18 @@ class PIFBuilderTests: XCTestCase {
                     targets: [
                         .init(name: "BarLib"),
                     ]),
-            ]
+            ],
+            observabilityScope: observability.topScope
         )
 
         var pif: PIF.TopLevelObject!
         try! withCustomEnv(["PKG_CONFIG_PATH": inputsDir.pathString]) {
-            let builder = PIFBuilder(graph: graph, parameters: .mock(), diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine())
+            let builder = PIFBuilder(
+                graph: graph,
+                parameters: .mock(),
+                fileSystem: localFileSystem,
+                observabilityScope: observability.topScope
+            )
             pif = try builder.construct()
         }
 
@@ -1409,15 +1434,14 @@ class PIFBuilderTests: XCTestCase {
             "/Bar/Sources/BarLib/lib.c"
         )
 
-        let observability = ObservabilitySystem.bootstrapForTesting()
+        let observability = ObservabilitySystem.makeForTesting()
         let graph = try loadPackageGraph(
             fs: fs,
             manifests: [
-                Manifest.createManifest(
+                Manifest.createRootManifest(
                     name: "Bar",
                     path: .init("/Bar"),
-                    packageKind: .root,
-                    v: .v4_2,
+                    toolsVersion: .v4_2,
                     cLanguageStandard: "c11",
                     swiftLanguageVersions: [.v4_2],
                     products: [
@@ -1426,12 +1450,18 @@ class PIFBuilderTests: XCTestCase {
                     targets: [
                         .init(name: "BarLib"),
                     ]),
-            ]
+            ],
+            observabilityScope: observability.topScope
         )
 
         var pif: PIF.TopLevelObject!
         try! withCustomEnv(["PKG_CONFIG_PATH": inputsDir.pathString]) {
-            let builder = PIFBuilder(graph: graph, parameters: .mock(shouldCreateDylibForDynamicProducts: true), diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine())
+            let builder = PIFBuilder(
+                graph: graph,
+                parameters: .mock(shouldCreateDylibForDynamicProducts: true),
+                fileSystem: fs,
+                observabilityScope: observability.topScope
+            )
             pif = try builder.construct()
         }
 
@@ -1447,22 +1477,22 @@ class PIFBuilderTests: XCTestCase {
             }
         }
     }
-  
+
     func testLibraryTargetWithModuleMap() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Bar/Sources/BarLib/lib.c",
             "/Bar/Sources/BarLib/module.modulemap"
         )
-        
-        let observability = ObservabilitySystem.bootstrapForTesting()
+
+        let observability = ObservabilitySystem.makeForTesting()
         let graph = try loadPackageGraph(
             fs: fs,
             manifests: [
                 Manifest.createManifest(
                     name: "Bar",
                     path: .init("/Bar"),
-                    packageKind: .root,
-                    v: .v4_2,
+                    packageKind: .root(.init("/Bar")),
+                    toolsVersion: .v4_2,
                     cLanguageStandard: "c11",
                     swiftLanguageVersions: [.v4_2],
                     products: [
@@ -1471,22 +1501,28 @@ class PIFBuilderTests: XCTestCase {
                     targets: [
                         .init(name: "BarLib"),
                     ]),
-            ]
+            ],
+            observabilityScope: observability.topScope
         )
-        
+
         var pif: PIF.TopLevelObject!
         try! withCustomEnv(["PKG_CONFIG_PATH": inputsDir.pathString]) {
-            let builder = PIFBuilder(graph: graph, parameters: .mock(shouldCreateDylibForDynamicProducts: true), diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine())
+            let builder = PIFBuilder(
+                graph: graph,
+                parameters: .mock(shouldCreateDylibForDynamicProducts: true),
+                fileSystem: fs,
+                observabilityScope: observability.topScope
+            )
             pif = try builder.construct()
         }
-        
+
         XCTAssertNoDiagnostics(observability.diagnostics)
-        
+
         PIFTester(pif) { workspace in
             workspace.checkProject("PACKAGE:/Bar") { project in
                 project.checkTarget("PACKAGE-PRODUCT:BarLib") { target in
                     XCTAssertEqual(target.name, "BarLib_175D063FAE17B2_PackageProduct")
-                    
+
                     target.checkBuildConfiguration("Debug") { configuration in
                         configuration.checkBuildSettings { settings in
                             XCTAssertNil(settings[.MODULEMAP_FILE_CONTENTS])
@@ -1503,27 +1539,32 @@ class PIFBuilderTests: XCTestCase {
             "/Foo/Sources/SystemLib2/module.modulemap"
         )
 
-        let observability = ObservabilitySystem.bootstrapForTesting()
+        let observability = ObservabilitySystem.makeForTesting()
         let graph = try loadPackageGraph(
             fs: fs,
             manifests: [
-                Manifest.createManifest(
+                Manifest.createRootManifest(
                     name: "Foo",
                     path: .init("/Foo"),
-                    packageKind: .root,
-                    v: .v5_2,
+                    toolsVersion: .v5_2,
                     cxxLanguageStandard: "c++14",
                     swiftLanguageVersions: [.v4_2, .v5],
                     targets: [
                         .init(name: "SystemLib1", type: .system),
                         .init(name: "SystemLib2", type: .system, pkgConfig: "Foo"),
                     ]),
-            ]
+            ],
+            observabilityScope: observability.topScope
         )
 
         var pif: PIF.TopLevelObject!
         try! withCustomEnv(["PKG_CONFIG_PATH": inputsDir.pathString]) {
-            let builder = PIFBuilder(graph: graph, parameters: .mock(), diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine())
+            let builder = PIFBuilder(
+                graph: graph,
+                parameters: .mock(),
+                fileSystem: localFileSystem,
+                observabilityScope: observability.topScope
+            )
             pif = try builder.construct()
         }
 
@@ -1614,15 +1655,14 @@ class PIFBuilderTests: XCTestCase {
             "/Foo/BinaryLibrary.xcframework/Info.plist"
         )
 
-        let observability = ObservabilitySystem.bootstrapForTesting()
+        let observability = ObservabilitySystem.makeForTesting()
         let graph = try loadPackageGraph(
             fs: fs,
             manifests: [
-                Manifest.createManifest(
+                Manifest.createRootManifest(
                     name: "Foo",
                     path: .init("/Foo"),
-                    packageKind: .root,
-                    v: .v5_3,
+                    toolsVersion: .v5_3,
                     products: [
                         .init(name: "FooLib", type: .library(.automatic), targets: ["FooLib"]),
                     ],
@@ -1636,10 +1676,16 @@ class PIFBuilderTests: XCTestCase {
             binaryArtifacts: [
                 .init(kind: .xcframework, originURL: nil, path: AbsolutePath("/Foo/BinaryLibrary.xcframework"))
             ],
-            shouldCreateMultipleTestProducts: true
+            shouldCreateMultipleTestProducts: true,
+            observabilityScope: observability.topScope
         )
 
-        let builder = PIFBuilder(graph: graph, parameters: .mock(), diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine())
+        let builder = PIFBuilder(
+            graph: graph,
+            parameters: .mock(),
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
         let pif = try builder.construct()
 
         XCTAssertNoDiagnostics(observability.diagnostics)
@@ -1678,16 +1724,14 @@ class PIFBuilderTests: XCTestCase {
             "/Foo/Sources/FooTests/Resources/Database.xcdatamodel"
         )
 
-        let observability = ObservabilitySystem.bootstrapForTesting()
+        let observability = ObservabilitySystem.makeForTesting()
         let graph = try loadPackageGraph(
             fs: fs,
             manifests: [
-                Manifest.createManifest(
+                Manifest.createRootManifest(
                     name: "Foo",
                     path: .init("/Foo"),
-                    packageKind: .root,
-                    packageLocation: "/Foo",
-                    v: .v5_3,
+                    toolsVersion: .v5_3,
                     products: [
                         .init(name: "FooLib", type: .library(.automatic), targets: ["FooLib"]),
                     ],
@@ -1705,10 +1749,16 @@ class PIFBuilderTests: XCTestCase {
                     ]),
             ],
             shouldCreateMultipleTestProducts: true,
-            useXCBuildFileRules: true
+            useXCBuildFileRules: true,
+            observabilityScope: observability.topScope
         )
 
-        let builder = PIFBuilder(graph: graph, parameters: .mock(), diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine())
+        let builder = PIFBuilder(
+            graph: graph,
+            parameters: .mock(shouldCreateDylibForDynamicProducts: true),
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
         let pif = try builder.construct()
 
         XCTAssertNoDiagnostics(observability.diagnostics)
@@ -1887,15 +1937,14 @@ class PIFBuilderTests: XCTestCase {
             "/Foo/Sources/FooTests/FooTests.swift"
         )
 
-        let observability = ObservabilitySystem.bootstrapForTesting()
+        let observability = ObservabilitySystem.makeForTesting()
         let graph = try loadPackageGraph(
             fs: fs,
             manifests: [
-                Manifest.createManifest(
+                Manifest.createRootManifest(
                     name: "Foo",
                     path: .init("/Foo"),
-                    packageKind: .root,
-                    v: .v5,
+                    toolsVersion: .v5,
                     products: [
                         .init(name: "FooLib", type: .library(.automatic), targets: ["FooLib"]),
                     ],
@@ -1965,10 +2014,16 @@ class PIFBuilderTests: XCTestCase {
                         ]),
                     ]),
             ],
-            shouldCreateMultipleTestProducts: true
+            shouldCreateMultipleTestProducts: true,
+            observabilityScope: observability.topScope
         )
 
-        let builder = PIFBuilder(graph: graph, parameters: .mock(), diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine())
+        let builder = PIFBuilder(
+            graph: graph,
+            parameters: .mock(),
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
         let pif = try builder.construct()
 
         XCTAssertNoDiagnostics(observability.diagnostics)
@@ -2105,15 +2160,15 @@ class PIFBuilderTests: XCTestCase {
             "/Foo/Sources/FooTests/FooTests.swift"
         )
 
-        let observability = ObservabilitySystem.bootstrapForTesting()
+        let observability = ObservabilitySystem.makeForTesting()
         let graph = try loadPackageGraph(
             fs: fs,
             manifests: [
                 Manifest.createManifest(
                     name: "Foo",
                     path: .init("/Foo"),
-                    packageKind: .root,
-                    v: .v5_3,
+                    packageKind: .root(.init("/Foo")),
+                    toolsVersion: .v5_3,
                     targets: [
                         .init(name: "foo", dependencies: [
                             .target(name: "FooLib1", condition: .init(platformNames: ["macos"])),
@@ -2123,7 +2178,8 @@ class PIFBuilderTests: XCTestCase {
                         .init(name: "FooLib2"),
                     ]),
             ],
-            shouldCreateMultipleTestProducts: true
+            shouldCreateMultipleTestProducts: true,
+            observabilityScope: observability.topScope
         )
 
         XCTAssertNoDiagnostics(observability.diagnostics)
@@ -2131,7 +2187,8 @@ class PIFBuilderTests: XCTestCase {
         let builder = PIFBuilder(
             graph: graph,
             parameters: .mock(),
-            diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine()
+            fileSystem: fs,
+            observabilityScope: observability.topScope
         )
         let pif = try builder.construct()
 
@@ -2169,27 +2226,31 @@ class PIFBuilderTests: XCTestCase {
             "/Foo/Sources/foo/main.swift"
         )
 
-        let observability = ObservabilitySystem.bootstrapForTesting()
+        let observability = ObservabilitySystem.makeForTesting()
         let graph = try loadPackageGraph(
             fs: fs,
             manifests: [
-                Manifest.createManifest(
+                Manifest.createRootManifest(
                     name: "Foo",
                     path: .init("/Foo"),
-                    packageKind: .root,
-                    packageLocation: "/Foo",
                     platforms: [
                         PlatformDescription(name: "macos", version: "10.14", options: ["best"]),
                     ],
-                    v: .v5_3,
+                    toolsVersion: .v5_3,
                     targets: [
                         .init(name: "foo", dependencies: []),
                     ]),
             ],
-            shouldCreateMultipleTestProducts: true
+            shouldCreateMultipleTestProducts: true,
+            observabilityScope: observability.topScope
         )
 
-        let builder = PIFBuilder(graph: graph, parameters: .mock(), diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine())
+        let builder = PIFBuilder(
+            graph: graph,
+            parameters: .mock(),
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
         let pif = try builder.construct()
 
         XCTAssertNoDiagnostics(observability.diagnostics)
@@ -2204,7 +2265,7 @@ class PIFBuilderTests: XCTestCase {
             }
         }
     }
-    
+
     /// Tests that the inference of XCBuild build settings based on the package manifest's declared unsafe settings
     /// works as expected.
     func testUnsafeFlagsBuildSettingInference() throws {
@@ -2212,15 +2273,14 @@ class PIFBuilderTests: XCTestCase {
             "/MyLib/Sources/MyLib/Foo.swift"
         )
 
-        let observability = ObservabilitySystem.bootstrapForTesting()
+        let observability = ObservabilitySystem.makeForTesting()
         let graph = try loadPackageGraph(
             fs: fs,
             manifests: [
-                Manifest.createManifest(
+                Manifest.createRootManifest(
                     name: "MyLib",
                     path: .init("/MyLib"),
-                    packageKind: .root,
-                    v: .v5,
+                    toolsVersion: .v5,
                     products: [
                         .init(name: "MyLib", type: .library(.automatic), targets: ["MyLib"]),
                     ],
@@ -2234,10 +2294,16 @@ class PIFBuilderTests: XCTestCase {
                         ]),
                     ]),
             ],
-            shouldCreateMultipleTestProducts: true
+            shouldCreateMultipleTestProducts: true,
+            observabilityScope: observability.topScope
         )
 
-        let builder = PIFBuilder(graph: graph, parameters: .mock(), diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine())
+        let builder = PIFBuilder(
+            graph: graph,
+            parameters: .mock(),
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
         let pif = try builder.construct()
 
         XCTAssertNoDiagnostics(observability.diagnostics)

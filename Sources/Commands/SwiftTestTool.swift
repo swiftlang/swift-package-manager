@@ -8,18 +8,16 @@ See http://swift.org/LICENSE.txt for license information
 See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import class Foundation.ProcessInfo
-
 import ArgumentParser
 import Basics
-import TSCBasic
-import SPMBuildCore
 import Build
-import TSCUtility
+import class Foundation.ProcessInfo
 import PackageGraph
-import Workspace
-
+import SPMBuildCore
+import TSCBasic
 import func TSCLibc.exit
+import TSCUtility
+import Workspace
 
 private enum TestError: Swift.Error {
     case invalidListTestJSONData
@@ -61,11 +59,11 @@ struct TestToolOptions: ParsableArguments {
 
         return .runSerial
     }
-    
+
     @Flag(name: .customLong("skip-build"),
           help: "Skip building the test target")
     var shouldSkipBuilding: Bool = false
-    
+
     /// If the test target should be built before testing.
     var shouldBuildTests: Bool {
         !shouldSkipBuilding
@@ -99,7 +97,7 @@ struct TestToolOptions: ParsableArguments {
         if !filter.isEmpty {
             return .regex(filter)
         }
-        
+
         return _testCaseSpecifier.map { .specific($0) } ?? .none
     }
 
@@ -117,7 +115,7 @@ struct TestToolOptions: ParsableArguments {
         if let override = testCaseSkipOverride() {
             return override
         }
-      
+
         return _testCaseSkip.isEmpty
             ? .none
             : .skip(_testCaseSkip)
@@ -199,14 +197,14 @@ public struct SwiftTestTool: SwiftCommand {
 
     @OptionGroup()
     var options: TestToolOptions
-    
+
     var shouldEnableCodeCoverage: Bool {
         swiftOptions.shouldEnableCodeCoverage
     }
-    
+
     public func run(_ swiftTool: SwiftTool) throws {
         // Validate commands arguments
-        try validateArguments(diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine())
+        try self.validateArguments(observabilityScope: swiftTool.observabilityScope)
 
         switch options.mode {
         case .listTests:
@@ -225,7 +223,11 @@ public struct SwiftTestTool: SwiftCommand {
             let workspace = try swiftTool.getActiveWorkspace()
             let root = try swiftTool.getWorkspaceRoot()
             let rootManifests = try temp_await {
-                workspace.loadRootManifests(packages: root.packages, diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(), completion: $0)
+                workspace.loadRootManifests(
+                    packages: root.packages,
+                    diagnostics: swiftTool.observabilityScope.makeDiagnosticsEngine(),
+                    completion: $0
+                )
             }
             guard let rootManifest = rootManifests.values.first else {
                 throw StringError("invalid manifests at \(root.packages)")
@@ -239,7 +241,7 @@ public struct SwiftTestTool: SwiftCommand {
             // to be removed in future releases
             // deprecation warning is emitted by validateArguments
             #if os(Linux)
-            ObservabilitySystem.topScope.emit(warning: "can't discover tests on Linux; please use this option on macOS instead")
+            swiftTool.observabilityScope.emit(warning: "can't discover tests on Linux; please use this option on macOS instead")
             #endif
             let graph = try swiftTool.loadPackageGraph()
             let testProducts = try buildTestsIfNeeded(swiftTool: swiftTool)
@@ -272,7 +274,7 @@ public struct SwiftTestTool: SwiftCommand {
             case .regex, .specific, .skip:
                 // If old specifier `-s` option was used, emit deprecation notice.
                 if case .specific = options.testCaseSpecifier {
-                    ObservabilitySystem.topScope.emit(warning: "'--specifier' option is deprecated; use '--filter' instead")
+                    swiftTool.observabilityScope.emit(warning: "'--specifier' option is deprecated; use '--filter' instead")
                 }
 
                 // Find the tests we need to run.
@@ -283,25 +285,27 @@ public struct SwiftTestTool: SwiftCommand {
 
                 // If there were no matches, emit a warning.
                 if tests.isEmpty {
-                    ObservabilitySystem.topScope.emit(.noMatchingTests)
+                    swiftTool.observabilityScope.emit(.noMatchingTests)
                     xctestArg = "''"
                 } else {
                     xctestArg = tests.map { $0.specifier }.joined(separator: ",")
                 }
             }
 
+            let testEnv = try constructTestEnvironment(toolchain: toolchain, options: swiftOptions, buildParameters: buildParameters)
+
             let runner = TestRunner(
                 bundlePaths: testProducts.map { $0.bundlePath },
                 xctestArg: xctestArg,
                 processSet: swiftTool.processSet,
                 toolchain: toolchain,
-                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
-                options: swiftOptions,
-                buildParameters: buildParameters
+                testEnv: testEnv,
+                outputStream: swiftTool.outputStream,
+                observabilityScope: swiftTool.observabilityScope
             )
 
             // Finally, run the tests.
-            let ranSuccessfully: Bool = runner.test()
+            let (ranSuccessfully, _) = runner.test(writeToOutputStream: true)
             if !ranSuccessfully {
                 swiftTool.executionStatus = .failure
             }
@@ -321,7 +325,7 @@ public struct SwiftTestTool: SwiftCommand {
 
             // If there were no matches, emit a warning and exit.
             if tests.isEmpty {
-                ObservabilitySystem.topScope.emit(.noMatchingTests)
+                swiftTool.observabilityScope.emit(.noMatchingTests)
                 return
             }
 
@@ -338,10 +342,10 @@ public struct SwiftTestTool: SwiftCommand {
                 toolchain: toolchain,
                 xUnitOutput: options.xUnitOutput,
                 numJobs: options.numberOfWorkers ?? ProcessInfo.processInfo.activeProcessorCount,
-                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
                 options: swiftOptions,
                 buildParameters: buildParameters,
-                outputStream: swiftTool.outputStream
+                outputStream: swiftTool.outputStream,
+                observabilityScope: swiftTool.observabilityScope
             )
             try runner.run(tests, outputStream: swiftTool.outputStream)
 
@@ -360,7 +364,11 @@ public struct SwiftTestTool: SwiftCommand {
         let workspace = try swiftTool.getActiveWorkspace()
         let root = try swiftTool.getWorkspaceRoot()
         let rootManifests = try temp_await {
-            workspace.loadRootManifests(packages: root.packages, diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(), completion: $0)
+            workspace.loadRootManifests(
+                packages: root.packages,
+                diagnostics: swiftTool.observabilityScope.makeDiagnosticsEngine(),
+                completion: $0
+            )
         }
         guard let rootManifest = rootManifests.values.first else {
             throw StringError("invalid manifests at \(root.packages)")
@@ -493,25 +501,26 @@ public struct SwiftTestTool: SwiftCommand {
     /// - Returns: Array of TestSuite
     fileprivate func getTestSuites(fromTestAt path: AbsolutePath, swiftTool: SwiftTool) throws -> [TestSuite] {
         // Run the correct tool.
-      #if os(macOS)
+        #if os(macOS)
         let data: String = try withTemporaryFile { tempFile in
             let args = [try xctestHelperPath(swiftTool: swiftTool).pathString, path.pathString, tempFile.path.pathString]
             var env = try constructTestEnvironment(toolchain: try swiftTool.getToolchain(), options: swiftOptions, buildParameters: swiftTool.buildParametersForTest())
             // Add the sdk platform path if we have it. If this is not present, we
             // might always end up failing.
             if let sdkPlatformFrameworksPath = Destination.sdkPlatformFrameworkPaths() {
-                env["DYLD_FRAMEWORK_PATH"] = sdkPlatformFrameworksPath.fwk.pathString
-                env["DYLD_LIBRARY_PATH"] = sdkPlatformFrameworksPath.lib.pathString
+                // appending since we prefer the user setting (if set) to the one we inject
+                env.appendPath("DYLD_FRAMEWORK_PATH", value: sdkPlatformFrameworksPath.fwk.pathString)
+                env.appendPath("DYLD_LIBRARY_PATH", value: sdkPlatformFrameworksPath.lib.pathString)
             }
             try Process.checkNonZeroExit(arguments: args, environment: env)
             // Read the temporary file's content.
             return try localFileSystem.readFileContents(tempFile.path).validDescription ?? ""
         }
-      #else
+        #else
         let env = try constructTestEnvironment(toolchain: try swiftTool.getToolchain(), options: swiftOptions, buildParameters: swiftTool.buildParametersForTest())
         let args = [path.description, "--dump-tests-json"]
         let data = try Process.checkNonZeroExit(arguments: args, environment: env)
-      #endif
+        #endif
         // Parse json and return TestSuites.
         return try TestSuite.parse(jsonString: data)
     }
@@ -519,27 +528,27 @@ public struct SwiftTestTool: SwiftCommand {
     /// Private function that validates the commands arguments
     ///
     /// - Throws: if a command argument is invalid
-    private func validateArguments(diagnostics: DiagnosticsEngine) throws {
+    private func validateArguments(observabilityScope: ObservabilityScope) throws {
         // Validation for --num-workers.
         if let workers = options.numberOfWorkers {
 
             // The --num-worker option should be called with --parallel.
             guard options.mode == .runParallel else {
-                diagnostics.emit(error: "--num-workers must be used with --parallel")
+                observabilityScope.emit(error: "--num-workers must be used with --parallel")
                 throw ExitCode.failure
             }
 
             guard workers > 0 else {
-                diagnostics.emit(error: "'--num-workers' must be greater than zero")
+                observabilityScope.emit(error: "'--num-workers' must be greater than zero")
                 throw ExitCode.failure
             }
         }
-        
+
         if options.shouldGenerateLinuxMain {
-            diagnostics.emit(warning: "'--generate-linuxmain' option is deprecated; tests are automatically discovered on all platforms")
+            observabilityScope.emit(warning: "'--generate-linuxmain' option is deprecated; tests are automatically discovered on all platforms")
         }
     }
-    
+
     public init() {}
 }
 
@@ -576,12 +585,13 @@ final class TestRunner {
     // The toolchain to use.
     private let toolchain: UserToolchain
 
-    /// Diagnostics Engine to emit diagnostics.
-    let diagnostics: DiagnosticsEngine
+    private let testEnv: [String: String]
 
-    private let options: SwiftToolOptions
+    /// Output stream for test results
+    private let outputStream: OutputByteStream
 
-    private let buildParameters: BuildParameters
+    /// ObservabilityScope  to emit diagnostics.
+    private let observabilityScope: ObservabilityScope
 
     /// Creates an instance of TestRunner.
     ///
@@ -593,49 +603,37 @@ final class TestRunner {
         xctestArg: String? = nil,
         processSet: ProcessSet,
         toolchain: UserToolchain,
-        diagnostics: DiagnosticsEngine,
-        options: SwiftToolOptions,
-        buildParameters: BuildParameters
+        testEnv: [String: String],
+        outputStream: OutputByteStream,
+        observabilityScope: ObservabilityScope
     ) {
         self.bundlePaths = bundlePaths
         self.xctestArg = xctestArg
         self.processSet = processSet
         self.toolchain = toolchain
-        self.diagnostics = diagnostics
-        self.options = options
-        self.buildParameters = buildParameters
+        self.testEnv = testEnv
+        self.outputStream = outputStream
+        self.observabilityScope = observabilityScope.makeChildScope(description: "Test Runner")
     }
 
-    /// Executes the tests without printing anything on standard streams.
-    ///
-    /// - Returns: A tuple with first bool member indicating if test execution returned code 0 and second argument
-    ///   containing the output of the execution.
-    public func test() -> (Bool, String) {
+    /// Executes and returns execution status. Prints test output on standard streams if requested
+    /// - Returns: Boolean indicating if test execution returned code 0, and the output stream result
+    public func test(writeToOutputStream: Bool) -> (Bool, String) {
         var success = true
         var output = ""
-        for path in bundlePaths {
-            let (testSuccess, testOutput) = test(testAt: path)
+        for path in self.bundlePaths {
+            let (testSuccess, testOutput) = self.test(at: path, writeToOutputStream: writeToOutputStream)
             success = success && testSuccess
             output += testOutput
         }
         return (success, output)
     }
 
-    /// Executes and returns execution status. Prints test output on standard streams.
-    public func test() -> Bool {
-        var success = true
-        for path in bundlePaths {
-            let testSuccess: Bool = test(testAt: path)
-            success = success && testSuccess
-        }
-        return success
-    }
-
     /// Constructs arguments to execute XCTest.
     private func args(forTestAt testPath: AbsolutePath) throws -> [String] {
         var args: [String] = []
       #if os(macOS)
-        guard let xctest = toolchain.xctest else {
+        guard let xctest = self.toolchain.xctest else {
             throw TestError.testsExecutableNotFound
         }
         args = [xctest.pathString]
@@ -652,61 +650,50 @@ final class TestRunner {
         return args
     }
 
-    /// Executes the tests without printing anything on standard streams.
-    ///
-    /// - Returns: A tuple with first bool member indicating if test execution returned code 0
-    ///            and second argument containing the output of the execution.
-    private func test(testAt testPath: AbsolutePath) -> (Bool, String) {
-        var output = ""
-        var success = false
-        do {
-            // FIXME: The environment will be constructed for every test when using the
-            // parallel test runner. We should do some kind of caching.
-            let env = try constructTestEnvironment(toolchain: toolchain, options: self.options, buildParameters: self.buildParameters)
-            let process = Process(arguments: try args(forTestAt: testPath), environment: env, outputRedirection: .collect, verbose: false)
-            try process.launch()
-            let result = try process.waitUntilExit()
-            output = try (result.utf8Output() + result.utf8stderrOutput()).spm_chuzzle() ?? ""
-            switch result.exitStatus {
-            case .terminated(code: 0):
-                success = true
-#if !os(Windows)
-            case .signalled(let signal):
-                output += "\n" + exitSignalText(code: signal)
-#endif
-            default: break
-            }
-        } catch {
-            diagnostics.emit(error)
-        }
-        return (success, output)
-    }
+    private func test(at path: AbsolutePath, writeToOutputStream: Bool) -> (Bool, String) {
+        var stdout: [UInt8] = []
+        var stderr: [UInt8] = []
 
-    /// Executes and returns execution status. Prints test output on standard streams.
-    private func test(testAt testPath: AbsolutePath) -> Bool {
+        func makeOutput() -> String {
+            return String(bytes: stdout + stderr, encoding: .utf8)?.spm_chuzzle() ?? ""
+        }
+
+        let testObservabilityScope = self.observabilityScope.makeChildScope(description: "running test at \(path)")
+
         do {
-            let env = try constructTestEnvironment(toolchain: toolchain, options: self.options, buildParameters: self.buildParameters)
-            let process = Process(arguments: try args(forTestAt: testPath), environment: env, outputRedirection: .none)
-            try processSet.add(process)
+            let outputRedirection = Process.OutputRedirection.stream(
+                stdout: {
+                    stdout += $0
+                    if writeToOutputStream {
+                        self.outputStream.write($0)
+                        self.outputStream.flush()
+                    }
+                },
+                stderr: {
+                    stderr += $0
+                    if writeToOutputStream {
+                        TSCBasic.stderrStream.write($0)
+                        TSCBasic.stderrStream.flush()
+                    }
+                }
+            )
+            let process = Process(arguments: try args(forTestAt: path), environment: self.testEnv, outputRedirection: outputRedirection, verbose: false)
+            try self.processSet.add(process)
             try process.launch()
             let result = try process.waitUntilExit()
             switch result.exitStatus {
             case .terminated(code: 0):
-                return true
-#if !os(Windows)
+                return (true, makeOutput())
+            #if !os(Windows)
             case .signalled(let signal):
-                print(exitSignalText(code: signal))
-#endif
+                outputRedirection.outputClosures?.stdoutClosure(Array("\nExited with signal code \(signal)".utf8))
+            #endif
             default: break
             }
         } catch {
-            diagnostics.emit(error)
+            testObservabilityScope.emit(error)
         }
-        return false
-    }
-
-    private func exitSignalText(code: Int32) -> String {
-        return "Exited with signal code \(code)"
+        return (false, makeOutput())
     }
 }
 
@@ -740,19 +727,22 @@ final class ParallelTestRunner {
     /// True if all tests executed successfully.
     private(set) var ranSuccessfully = true
 
-    let processSet: ProcessSet
+    private let processSet: ProcessSet
 
-    let toolchain: UserToolchain
-    let xUnitOutput: AbsolutePath?
+    private let toolchain: UserToolchain
+    private let xUnitOutput: AbsolutePath?
 
-    let options: SwiftToolOptions
-    let buildParameters: BuildParameters
+    private let options: SwiftToolOptions
+    private let buildParameters: BuildParameters
 
     /// Number of tests to execute in parallel.
-    let numJobs: Int
+    private let numJobs: Int
 
-    /// Diagnostics Engine to emit diagnostics.
-    let diagnostics: DiagnosticsEngine
+    /// Output stream for test results
+    private let outputStream: OutputByteStream
+
+    /// ObservabilityScope to emit diagnostics.
+    private let observabilityScope: ObservabilityScope
 
     init(
         bundlePaths: [AbsolutePath],
@@ -760,17 +750,18 @@ final class ParallelTestRunner {
         toolchain: UserToolchain,
         xUnitOutput: AbsolutePath? = nil,
         numJobs: Int,
-        diagnostics: DiagnosticsEngine,
         options: SwiftToolOptions,
         buildParameters: BuildParameters,
-        outputStream: OutputByteStream
+        outputStream: OutputByteStream,
+        observabilityScope: ObservabilityScope
     ) {
         self.bundlePaths = bundlePaths
         self.processSet = processSet
         self.toolchain = toolchain
         self.xUnitOutput = xUnitOutput
         self.numJobs = numJobs
-        self.diagnostics = diagnostics
+        self.outputStream = outputStream
+        self.observabilityScope = observabilityScope.makeChildScope(description: "Parallel Test Runner")
 
         if ProcessEnv.vars["SWIFTPM_TEST_RUNNER_PROGRESS_BAR"] == "lit" {
             progressAnimation = PercentProgressAnimation(stream: outputStream, header: "Testing:")
@@ -813,6 +804,9 @@ final class ParallelTestRunner {
     /// Executes the tests spawning parallel workers. Blocks calling thread until all workers are finished.
     func run(_ tests: [UnitTest], outputStream: OutputByteStream) throws {
         assert(!tests.isEmpty, "There should be at least one test to execute.")
+
+        let testEnv = try constructTestEnvironment(toolchain: self.toolchain, options: self.options, buildParameters: self.buildParameters)
+
         // Enqueue all the tests.
         try enqueueTests(tests)
 
@@ -826,11 +820,11 @@ final class ParallelTestRunner {
                         xctestArg: test.specifier,
                         processSet: self.processSet,
                         toolchain: self.toolchain,
-                        diagnostics: self.diagnostics,
-                        options: self.options,
-                        buildParameters: self.buildParameters
+                        testEnv: testEnv,
+                        outputStream: self.outputStream,
+                        observabilityScope: self.observabilityScope
                     )
-                    let (success, output) = testRunner.test()
+                    let (success, output) = testRunner.test(writeToOutputStream: false)
                     if !success {
                         self.ranSuccessfully = false
                     }
@@ -842,17 +836,14 @@ final class ParallelTestRunner {
         })
 
         // List of processed tests.
-        var processedTests: [TestResult] = []
-        let processedTestsLock = TSCBasic.Lock()
+        let processedTests = ThreadSafeArrayStore<TestResult>()
 
         // Report (consume) the tests which have finished running.
         while let result = finishedTests.dequeue() {
             updateProgress(for: result.unitTest)
 
             // Store the result.
-            processedTestsLock.withLock {
-                processedTests.append(result)
-            }
+            processedTests.append(result)
 
             // We can't enqueue a sentinel into finished tests queue because we won't know
             // which test is last one so exit this when all the tests have finished running.
@@ -865,10 +856,10 @@ final class ParallelTestRunner {
         workers.forEach { $0.join() }
 
         // Report the completion.
-        progressAnimation.complete(success: processedTests.contains(where: { !$0.success }))
+        progressAnimation.complete(success: processedTests.get().contains(where: { !$0.success }))
 
         // Print test results.
-        for test in processedTests {
+        for test in processedTests.get() {
             if !test.success || shouldOutputSuccess {
                 print(test, outputStream: outputStream)
             }
@@ -876,7 +867,7 @@ final class ParallelTestRunner {
 
         // Generate xUnit file if requested.
         if let xUnitOutput = xUnitOutput {
-            try XUnitGenerator(processedTests).generate(at: xUnitOutput)
+            try XUnitGenerator(processedTests.get()).generate(at: xUnitOutput)
         }
     }
 
@@ -1026,8 +1017,8 @@ fileprivate func constructTestEnvironment(
     toolchain: UserToolchain,
     options: SwiftToolOptions,
     buildParameters: BuildParameters
-) throws -> [String: String] {
-    var env = ProcessEnv.vars
+) throws -> EnvironmentVariables {
+    var env = EnvironmentVariables.process()
 
     // Add the code coverage related variables.
     if options.shouldEnableCodeCoverage {
@@ -1041,14 +1032,14 @@ fileprivate func constructTestEnvironment(
         let codecovProfile = buildParameters.buildPath.appending(components: "codecov", "default%m.profraw")
         env["LLVM_PROFILE_FILE"] = codecovProfile.pathString
     }
-  #if !os(macOS)
-#if os(Windows)
+    #if !os(macOS)
+    #if os(Windows)
     if let location = toolchain.configuration.xctestPath {
-      env["Path"] = "\(location.pathString);\(env["Path"] ?? "")"
+        env.prependPath("Path", value: location.pathString)
     }
-#endif
+    #endif
     return env
-  #else
+    #else
     // Fast path when no sanitizers are enabled.
     if options.sanitizers.isEmpty {
         return env
@@ -1066,7 +1057,7 @@ fileprivate func constructTestEnvironment(
 
     env["DYLD_INSERT_LIBRARIES"] = runtimes.joined(separator: ":")
     return env
-  #endif
+    #endif
 }
 
 /// xUnit XML file generator for a swift-test run.

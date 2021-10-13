@@ -25,9 +25,6 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     /// The build parameters.
     public let buildParameters: BuildParameters
 
-    /// The diagnostics engine.
-    public let diagnostics: DiagnosticsEngine
-
     /// The closure for loading the package graph.
     let packageGraphLoader: () throws -> PackageGraph
     
@@ -53,7 +50,13 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     private var packageGraph: PackageGraph?
 
     /// The output stream for the build delegate.
-    let outputStream: OutputByteStream
+    private let outputStream: OutputByteStream
+
+    /// File system to operate on
+    private let fileSystem: TSCBasic.FileSystem
+
+    /// ObservabilityScope with which to emit diagnostics
+    private let observabilityScope: ObservabilityScope
 
     public var builtTestProducts: [BuiltTestProduct] {
         (try? getBuildDescription())?.builtTestProducts ?? []
@@ -64,15 +67,17 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         cacheBuildManifest: Bool,
         packageGraphLoader: @escaping () throws -> PackageGraph,
         pluginInvoker: @escaping (PackageGraph) throws -> [ResolvedTarget: [PluginInvocationResult]],
-        diagnostics: DiagnosticsEngine,
-        outputStream: OutputByteStream
+        outputStream: OutputByteStream,
+        fileSystem: TSCBasic.FileSystem,
+        observabilityScope: ObservabilityScope
     ) {
         self.buildParameters = buildParameters
         self.cacheBuildManifest = cacheBuildManifest
         self.packageGraphLoader = packageGraphLoader
         self.pluginInvoker = pluginInvoker
-        self.diagnostics = diagnostics
         self.outputStream = outputStream
+        self.fileSystem = fileSystem
+        self.observabilityScope = observabilityScope.makeChildScope(description: "Build Operation")
     }
 
     public func getPackageGraph() throws -> PackageGraph {
@@ -97,14 +102,14 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                     // confirm the step above created the build description as expected
                     // we trust it to update the build description when needed
                     let buildDescriptionPath = self.buildParameters.buildDescriptionPath
-                    guard localFileSystem.exists(buildDescriptionPath) else {
+                    guard self.fileSystem.exists(buildDescriptionPath) else {
                         throw InternalError("could not find build descriptor at \(buildDescriptionPath)")
                     }
                     // return the build description that's on disk.
                     return try BuildDescription.load(from: buildDescriptionPath)
                 } catch {
                     // since caching is an optimization, warn about failing to load the cached version
-                    diagnostics.emit(warning: "failed to load the cached build description: \(error)")
+                    self.observabilityScope.emit(warning: "failed to load the cached build description: \(error)")
                 }
             }
 
@@ -137,18 +142,18 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         let oldBuildPath = buildParameters.dataPath.parentDirectory.appending(
             component: buildParameters.configuration.dirname
         )
-        if localFileSystem.exists(oldBuildPath) {
-            do { try localFileSystem.removeFileTree(oldBuildPath) }
+        if self.fileSystem.exists(oldBuildPath) {
+            do { try self.fileSystem.removeFileTree(oldBuildPath) }
             catch {
-                diagnostics.emit(warning: "unable to delete \(oldBuildPath), skip creating symbolic link: \(error)")
+                self.observabilityScope.emit(warning: "unable to delete \(oldBuildPath), skip creating symbolic link: \(error)")
                 return
             }
         }
 
         do {
-            try localFileSystem.createSymbolicLink(oldBuildPath, pointingAt: buildParameters.buildPath, relative: true)
+            try self.fileSystem.createSymbolicLink(oldBuildPath, pointingAt: buildParameters.buildPath, relative: true)
         } catch {
-            diagnostics.emit(warning: "unable to create symbolic link at \(oldBuildPath): \(error)")
+            self.observabilityScope.emit(warning: "unable to create symbolic link at \(oldBuildPath): \(error)")
         }
     }
 
@@ -164,8 +169,8 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             let graph = try getPackageGraph()
             if let result = subset.llbuildTargetName(
                 for: graph,
-                diagnostics: diagnostics,
-                config: buildParameters.configuration.dirname
+                   config: buildParameters.configuration.dirname,
+                   observabilityScope: self.observabilityScope
             ) {
                 return result
             }
@@ -192,11 +197,16 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             graph: graph,
             pluginInvocationResults: pluginInvocationResults,
             prebuildCommandResults: prebuildCommandResults,
-            diagnostics: diagnostics
+            fileSystem: self.fileSystem,
+            observabilityScope: self.observabilityScope
         )
         self.buildPlan = plan
 
-        let (buildDescription, buildManifest) = try BuildDescription.create(with: plan)
+        let (buildDescription, buildManifest) = try BuildDescription.create(
+            with: plan,
+            fileSystem: self.fileSystem,
+            observabilityScope: self.observabilityScope
+        )
 
         // FIXME: ideally this would be done outside of the planning phase,
         // but it would require deeper changes in how we serialize BuildDescription
@@ -247,9 +257,9 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         let buildSystemDelegate = BuildOperationBuildSystemDelegateHandler(
             buildSystem: self,
             bctx: bctx,
-            diagnostics: diagnostics,
             outputStream: self.outputStream,
             progressAnimation: progressAnimation,
+            observabilityScope: self.observabilityScope,
             delegate: self.delegate
         )
         self.buildSystemDelegate = buildSystemDelegate
@@ -299,7 +309,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             return false
         }
         catch {
-            diagnostics.emit(error)
+            self.observabilityScope.emit(error)
             return false
         }
         return true
@@ -307,9 +317,9 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 }
 
 extension BuildDescription {
-    static func create(with plan: BuildPlan) throws -> (BuildDescription, BuildManifest) {
+    static func create(with plan: BuildPlan, fileSystem: TSCBasic.FileSystem, observabilityScope: ObservabilityScope) throws -> (BuildDescription, BuildManifest) {
         // Generate the llbuild manifest.
-        let llbuild = LLBuildManifestBuilder(plan)
+        let llbuild = LLBuildManifestBuilder(plan, fileSystem: fileSystem, observabilityScope: observabilityScope)
         let buildManifest = try llbuild.generateManifest(at: plan.buildParameters.llbuildManifest)
 
         let swiftCommands = llbuild.manifest.getCmdToolMap(kind: SwiftCompilerTool.self)
@@ -325,7 +335,7 @@ extension BuildDescription {
             testDiscoveryCommands: testDiscoveryCommands,
             copyCommands: copyCommands
         )
-        try localFileSystem.createDirectory(
+        try fileSystem.createDirectory(
             plan.buildParameters.buildDescriptionPath.parentDirectory,
             recursive: true
         )
@@ -336,7 +346,7 @@ extension BuildDescription {
 
 extension BuildSubset {
     /// Returns the name of the llbuild target that corresponds to the build subset.
-    func llbuildTargetName(for graph: PackageGraph, diagnostics: DiagnosticsEngine, config: String)
+    func llbuildTargetName(for graph: PackageGraph, config: String, observabilityScope: ObservabilityScope)
         -> String?
     {
         switch self {
@@ -346,24 +356,24 @@ extension BuildSubset {
             return LLBuildManifestBuilder.TargetKind.test.targetName
         case .product(let productName):
             guard let product = graph.allProducts.first(where: { $0.name == productName }) else {
-                diagnostics.emit(error: "no product named '\(productName)'")
+                observabilityScope.emit(error: "no product named '\(productName)'")
                 return nil
             }
             // If the product is automatic, we build the main target because automatic products
             // do not produce a binary right now.
             if product.type == .library(.automatic) {
-                diagnostics.emit(
+                observabilityScope.emit(
                     warning:
                         "'--product' cannot be used with the automatic product '\(productName)'; building the default target instead"
                 )
                 return LLBuildManifestBuilder.TargetKind.main.targetName
             }
-            return diagnostics.wrap {
+            return observabilityScope.trap {
                 try product.getLLBuildTargetName(config: config)
             }
         case .target(let targetName):
             guard let target = graph.allTargets.first(where: { $0.name == targetName }) else {
-                diagnostics.emit(error: "no target named '\(targetName)'")
+                observabilityScope.emit(error: "no target named '\(targetName)'")
                 return nil
             }
             return target.getLLBuildTargetName(config: config)

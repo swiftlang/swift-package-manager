@@ -22,6 +22,7 @@ public struct PackageCollections: PackageCollectionsProtocol {
     #endif
 
     let configuration: Configuration
+    private let observabilityScope: ObservabilityScope
     private let storageContainer: (storage: Storage, owned: Bool)
     private let collectionProviders: [Model.CollectionSourceType: PackageCollectionProvider]
     let metadataProvider: PackageMetadataProvider
@@ -31,17 +32,23 @@ public struct PackageCollections: PackageCollectionsProtocol {
     }
 
     // initialize with defaults
-    public init(configuration: Configuration = .init()) {
+    public init(configuration: Configuration = .init(), observabilityScope: ObservabilityScope) {
         let storage = Storage(
             sources: FilePackageCollectionsSourcesStorage(),
             collections: SQLitePackageCollectionsStorage()
         )
 
-        let collectionProviders = [Model.CollectionSourceType.json: JSONPackageCollectionProvider()]
+        let collectionProviders = [
+            Model.CollectionSourceType.json: JSONPackageCollectionProvider(observabilityScope: observabilityScope)
+        ]
 
-        let metadataProvider = GitHubPackageMetadataProvider(configuration: .init(authTokens: configuration.authTokens))
+        let metadataProvider = GitHubPackageMetadataProvider(
+            configuration: .init(authTokens: configuration.authTokens),
+            observabilityScope: observabilityScope
+        )
 
         self.configuration = configuration
+        self.observabilityScope = observabilityScope
         self.storageContainer = (storage, true)
         self.collectionProviders = collectionProviders
         self.metadataProvider = metadataProvider
@@ -49,11 +56,12 @@ public struct PackageCollections: PackageCollectionsProtocol {
 
     // internal initializer for testing
     init(configuration: Configuration = .init(),
-         diagnosticsEngine: DiagnosticsEngine? = nil,
+         observabilityScope: ObservabilityScope,
          storage: Storage,
          collectionProviders: [Model.CollectionSourceType: PackageCollectionProvider],
          metadataProvider: PackageMetadataProvider) {
         self.configuration = configuration
+        self.observabilityScope = observabilityScope
         self.storageContainer = (storage, false)
         self.collectionProviders = collectionProviders
         self.metadataProvider = metadataProvider
@@ -341,17 +349,19 @@ public struct PackageCollections: PackageCollectionsProtocol {
 
     // MARK: - Package Metadata
 
+    // deprecated 9/21
     @available(*, deprecated, message: "user identity based API instead")
     public func getPackageMetadata(_ reference: PackageReference,
                                    callback: @escaping (Result<PackageCollectionsModel.PackageMetadata, Error>) -> Void) {
         self.getPackageMetadata(reference, collections: nil, callback: callback)
     }
 
+    // deprecated 9/21
     @available(*, deprecated, message: "user identity based API instead")
     public func getPackageMetadata(_ reference: PackageReference,
                                    collections: Set<PackageCollectionsModel.CollectionIdentifier>?,
                                    callback: @escaping (Result<PackageCollectionsModel.PackageMetadata, Error>) -> Void) {
-        self.getPackageMetadata(identity: reference.identity, location: reference.location, collections: .none, callback: callback)
+        self.getPackageMetadata(identity: reference.identity, location: reference.locationString, collections: .none, callback: callback)
     }
 
     public func getPackageMetadata(identity: PackageIdentity,
@@ -382,7 +392,7 @@ public struct PackageCollections: PackageCollectionsProtocol {
                 self.metadataProvider.get(identity: packageSearchResult.package.identity, location: packageSearchResult.package.location) { result in
                     switch result {
                     case .failure(let error):
-                        ObservabilitySystem.topScope.emit(warning: "Failed fetching information about \(identity) from \(self.metadataProvider.name): \(error)")
+                        self.observabilityScope.emit(warning: "Failed fetching information about \(identity) from \(self.metadataProvider.name): \(error)")
 
                         let provider: PackageMetadataProviderContext?
                         switch error {

@@ -8,15 +8,14 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import func XCTest.XCTFail
-import Dispatch
-
 import Basics
-import TSCBasic
+import Dispatch
 import PackageModel
 import PackageLoading
 import PackageGraph
+import TSCBasic
 import TSCUtility
+import func XCTest.XCTFail
 
 public enum MockManifestLoaderError: Swift.Error {
     case unknownRequest(String)
@@ -80,16 +79,34 @@ extension ManifestLoader {
     public func load(
         at path: TSCBasic.AbsolutePath,
         packageKind: PackageModel.PackageReference.Kind,
-        packageLocation: String,
         toolsVersion: PackageModel.ToolsVersion,
         identityResolver: IdentityResolver = DefaultIdentityResolver(),
-        fileSystem: PackageLoading.FileSystem,
+        fileSystem: TSCBasic.FileSystem,
         diagnostics: TSCBasic.DiagnosticsEngine? = nil
     ) throws -> Manifest{
-        try tsc_await {
-            // FIXME: take identity?
+        let packageIdentity: PackageIdentity
+        let packageLocation: String
+        switch packageKind {
+        case .root(let path):
+            packageIdentity = try identityResolver.resolveIdentity(for: path)
+            packageLocation = path.pathString
+        case .fileSystem(let path):
+            packageIdentity = try identityResolver.resolveIdentity(for: path)
+            packageLocation = path.pathString
+        case .localSourceControl(let path):
+            packageIdentity = try identityResolver.resolveIdentity(for: path)
+            packageLocation = path.pathString
+        case .remoteSourceControl(let url):
+            packageIdentity = try identityResolver.resolveIdentity(for: url)
+            packageLocation = url.absoluteString
+        case .registry(let identity):
+            packageIdentity = identity
+            // FIXME: placeholder
+            packageLocation = identity.description
+        }
+        return try tsc_await {
             self.load(at: path,
-                      packageIdentity: identityResolver.resolveIdentity(for: packageLocation),
+                      packageIdentity: packageIdentity,
                       packageKind: packageKind,
                       packageLocation: packageLocation,
                       version: nil,

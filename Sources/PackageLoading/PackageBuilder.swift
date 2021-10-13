@@ -12,7 +12,6 @@ import Basics
 import Dispatch
 import PackageModel
 import TSCBasic
-import TSCUtility
 
 /// An error in the structure or layout of a package.
 public enum ModuleError: Swift.Error {
@@ -222,7 +221,7 @@ public final class PackageBuilder {
     /// The path of the package.
     private let packagePath: AbsolutePath
 
-    /// Information concerning the different downloaded binary target artifacts.
+    /// Information concerning the different downloaded or local (archived) binary target artifacts.
     private let binaryArtifacts: [BinaryArtifact]
 
     /// Create multiple test products.
@@ -242,7 +241,7 @@ public final class PackageBuilder {
     /// Minimum deployment target of XCTest per platform.
     private let xcTestMinimumDeploymentTargets: [PackageModel.Platform:PlatformVersion]
 
-    // scope with which to emit diagnostics
+    /// ObservabilityScope with which to emit diagnostics
     private let observabilityScope: ObservabilityScope
 
     /// The filesystem package builder will run on.
@@ -257,7 +256,7 @@ public final class PackageBuilder {
     ///   - artifactPaths: Paths to the downloaded binary target artifacts.
     ///   - createMultipleTestProducts: If enabled, create one test product for
     ///     each test target.
-    ///   - fileSystem: The file system on which the builder should be run.///     
+    ///   - fileSystem: The file system on which the builder should be run.///
     public init(
         identity: PackageIdentity,
         manifest: Manifest,
@@ -269,7 +268,8 @@ public final class PackageBuilder {
         shouldCreateMultipleTestProducts: Bool = false,
         warnAboutImplicitExecutableTargets: Bool = true,
         createREPLProduct: Bool = false,
-        fileSystem: FileSystem
+        fileSystem: FileSystem,
+        observabilityScope: ObservabilityScope
     ) {
         self.identity = identity
         self.manifest = manifest
@@ -281,9 +281,9 @@ public final class PackageBuilder {
         self.shouldCreateMultipleTestProducts = shouldCreateMultipleTestProducts
         self.createREPLProduct = createREPLProduct
         self.warnAboutImplicitExecutableTargets = warnAboutImplicitExecutableTargets
-        self.observabilityScope = ObservabilitySystem.topScope.makeChildScope(
+        self.observabilityScope = observabilityScope.makeChildScope(
             description: "PackageBuilder",
-            metadata: .packageMetadata(identity: self.identity, location: self.manifest.packageLocation)
+            metadata: .packageMetadata(identity: self.identity, location: self.manifest.packageLocation, path: self.packagePath)
         )
         self.fileSystem = fileSystem
     }
@@ -323,7 +323,9 @@ public final class PackageBuilder {
                     productFilter: .everything,
                     path: path,
                     xcTestMinimumDeploymentTargets: xcTestMinimumDeploymentTargets,
-                    fileSystem: localFileSystem)
+                    fileSystem: localFileSystem,
+                    observabilityScope: ObservabilitySystem(diagnosticEngine: diagnostics).topScope
+                )
                 return try builder.construct()
             }
             completion(result)
@@ -487,7 +489,7 @@ public final class PackageBuilder {
 
     /// Predefined test directories, in order of preference.
     public static let predefinedTestDirectories = ["Tests", "Sources", "Source", "src", "srcs"]
-    
+
     /// Predefined plugin directories, in order of preference.
     public static let predefinedPluginDirectories = ["Plugins"]
 
@@ -529,8 +531,12 @@ public final class PackageBuilder {
 
         /// Returns the path of the given target.
         func findPath(for target: TargetDescription) throws -> AbsolutePath {
-            // If there is a custom path defined, use that.
-            if let subpath = target.path {
+            if target.type == .binary {
+                guard let artifact = self.binaryArtifacts.first(where: { $0.path.basenameWithoutExt == target.name }) else {
+                    throw ModuleError.artifactNotFound(target.name)
+                }
+                return artifact.path
+            } else if let subpath = target.path { // If there is a custom path defined, use that.
                 if subpath == "" || subpath == "." {
                     return packagePath
                 }
@@ -549,12 +555,6 @@ public final class PackageBuilder {
                     return path
                 }
                 throw ModuleError.invalidCustomPath(target: target.name, path: subpath)
-            } else if target.type == .binary {
-                if let artifact = self.binaryArtifacts.first(where: { $0.path.basenameWithoutExt == target.name }) {
-                    return artifact.path
-                } else {
-                    throw ModuleError.artifactNotFound(target.name)
-                }
             }
 
             // Check if target is present in the predefined directory.
@@ -593,7 +593,7 @@ public final class PackageBuilder {
 
         let snippetTargets: [Target]
 
-        if self.manifest.packageKind == .root {
+        if self.manifest.packageKind.isRoot {
             // Snippets: depend on all available library targets in the package.
             // TODO: Do we need to filter out targets that aren't available on the host platform?
             let snippetDependencies = targets
@@ -700,7 +700,7 @@ public final class PackageBuilder {
                     }
                 }
             } ?? []
-            
+
             // Get dependencies from the plugin usages of this target.
             let pluginUsages: [Target.PluginUsage] = manifestTarget?.pluginUsages.map {
                 $0.compactMap{ usage in
@@ -716,7 +716,7 @@ public final class PackageBuilder {
                     }
                 }
             } ?? []
-            
+
             // Create the target, adding the inferred dependencies from plugin usages to the declared dependencies.
             let target = try createTarget(
                 potentialModule: potentialModule,
@@ -824,13 +824,13 @@ public final class PackageBuilder {
             return nil
         }
         try validateSourcesOverlapping(forTarget: potentialModule.name, sources: sources.paths)
-        
+
         // Deal with package plugin targets.
         if potentialModule.type == .plugin {
             guard let declaredCapability = manifestTarget.pluginCapability else {
                 throw ModuleError.pluginCapabilityNotDeclared(target: manifestTarget.name)
             }
-            
+
             // Translate the capability from the target description form coming in from the manifest
             // to the package model form.
             let capability: PluginCapability
@@ -838,7 +838,7 @@ public final class PackageBuilder {
             case .buildTool:
                 capability = .buildTool
             }
-            
+
             // Crate and return an PluginTarget configured with the information from the manifest.
             return PluginTarget(
                 name: potentialModule.name,
@@ -847,7 +847,7 @@ public final class PackageBuilder {
                 pluginCapability: capability,
                 dependencies: dependencies)
         }
-        
+
         /// Determine the target's type, or leave nil to check the source directory.
         let targetType: Target.Kind
         switch potentialModule.type {
@@ -861,7 +861,7 @@ public final class PackageBuilder {
                 self.observabilityScope.emit(warning: "'\(potentialModule.name)' was identified as an executable target given the presence of a 'main.swift' file. Starting with tools version \(ToolsVersion.v5_4) executable targets should be declared as 'executableTarget()'")
             }
         }
-        
+
         // Create and return the right kind of target depending on what kind of sources we found.
         if sources.hasSwiftSources {
             return SwiftTarget(
@@ -879,10 +879,10 @@ public final class PackageBuilder {
             )
         } else {
             // It's not a Swift target, so it's a Clang target (those are the only two types of source target currently supported).
-            
+
             // First determine the type of module map that will be appropriate for the target based on its header layout.
             let moduleMapType: ModuleMapType
-            
+
             if fileSystem.exists(publicHeadersPath) {
                 let moduleMapGenerator = ModuleMapGenerator(targetName: potentialModule.name, moduleName: potentialModule.name.spm_mangledToC99ExtendedIdentifier(), publicHeadersDir: publicHeadersPath, fileSystem: fileSystem)
                 moduleMapType = moduleMapGenerator.determineModuleMapType(observabilityScope: self.observabilityScope)
@@ -1254,7 +1254,7 @@ public final class PackageBuilder {
 
         // Add implicit executables - for root packages only.
 
-        if self.manifest.packageKind == .root {
+        if self.manifest.packageKind.isRoot {
             // Compute the list of targets which are being used in an
             // executable product so we don't create implicit executables
             // for them.
@@ -1415,7 +1415,7 @@ extension Sources {
     var containsMixedLanguage: Bool {
         return hasSwiftSources && hasClangSources
     }
-    
+
     /// Determine target type based on the sources.
     fileprivate func computeTargetType() -> Target.Kind {
         let isLibrary = !relativePaths.contains { path in

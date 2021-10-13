@@ -8,36 +8,36 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import Basics
 import TSCBasic
 import TSCUtility
 import Xcodeproj
 
 public final class WatchmanHelper {
-
     /// Name of the watchman-make tool.
-    static let watchmanMakeTool: String = "watchman-make"
+    private static let watchmanMakeTool: String = "watchman-make"
 
     /// Directory where watchman script should be created.
-    let watchmanScriptsDir: AbsolutePath
+    private let watchmanScriptsDir: AbsolutePath
 
     /// The package root.
-    let packageRoot: AbsolutePath
+    private let packageRoot: AbsolutePath
 
     /// The filesystem to operator on.
-    let fs: FileSystem
+    private let filesystem: FileSystem
 
-    let diagnostics: DiagnosticsEngine
+    private let observabilityScope: ObservabilityScope
 
     public init(
-        diagnostics: DiagnosticsEngine,
         watchmanScriptsDir: AbsolutePath,
         packageRoot: AbsolutePath,
-        fs: FileSystem = localFileSystem
+        fileSystem: FileSystem,
+        observabilityScope: ObservabilityScope
     ) {
         self.watchmanScriptsDir = watchmanScriptsDir
-        self.diagnostics = diagnostics
         self.packageRoot = packageRoot
-        self.fs = fs
+        self.filesystem = fileSystem
+        self.observabilityScope = observabilityScope
     }
 
     func runXcodeprojWatcher(_ options: XcodeprojOptions) throws {
@@ -58,9 +58,9 @@ public final class WatchmanHelper {
         }
         stream <<< "\n"
 
-        try fs.createDirectory(scriptPath.parentDirectory, recursive: true)
-        try fs.writeFileContents(scriptPath, bytes: stream.bytes)
-        try fs.chmod(.executable, path: scriptPath)
+        try self.filesystem.createDirectory(scriptPath.parentDirectory, recursive: true)
+        try self.filesystem.writeFileContents(scriptPath, bytes: stream.bytes)
+        try self.filesystem.chmod(.executable, path: scriptPath)
 
         return scriptPath
     }
@@ -85,7 +85,7 @@ public final class WatchmanHelper {
         if let toolPath = Process.findExecutable(WatchmanHelper.watchmanMakeTool) {
             return toolPath
         }
-        diagnostics.emit(error: "this feature requires 'watchman' to work\n\n\n    installation instructions for 'watchman' are available at https://facebook.github.io/watchman/docs/install.html#buildinstall")
+        self.observabilityScope.emit(error: "this feature requires 'watchman' to work\n\n\n    installation instructions for 'watchman' are available at https://facebook.github.io/watchman/docs/install.html#buildinstall")
         throw Diagnostics.fatalError
     }
 }

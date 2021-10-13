@@ -690,7 +690,7 @@ final class PackageCollectionsTests: XCTestCase {
                                                                   createdAt: nil)
 
         let url = "https://packages.mock/\(UUID().uuidString)"
-        let mockPackage = PackageCollectionsModel.Package(identity: .init(url: url),
+        let mockPackage = PackageCollectionsModel.Package(identity: .init(urlString: url),
                                                           location: url,
                                                           summary: UUID().uuidString,
                                                           keywords: [UUID().uuidString, UUID().uuidString],
@@ -857,7 +857,7 @@ final class PackageCollectionsTests: XCTestCase {
                                                                   createdAt: nil)
 
         let mockPackageURL = "https://packages.mock/\(UUID().uuidString)"
-        let mockPackage = PackageCollectionsModel.Package(identity: .init(url: mockPackageURL),
+        let mockPackage = PackageCollectionsModel.Package(identity: .init(urlString: mockPackageURL),
                                                           location: mockPackageURL,
                                                           summary: UUID().uuidString,
                                                           keywords: [UUID().uuidString, UUID().uuidString],
@@ -1300,7 +1300,7 @@ final class PackageCollectionsTests: XCTestCase {
         }
 
         let mockPackageURL = "https://package-\(packageId)"
-        let mockPackage = PackageCollectionsModel.Package(identity: .init(url: mockPackageURL),
+        let mockPackage = PackageCollectionsModel.Package(identity: .init(urlString: mockPackageURL),
                                                           location: mockPackageURL,
                                                           summary: "package \(packageId) description",
                                                           keywords: [UUID().uuidString],
@@ -1536,7 +1536,7 @@ final class PackageCollectionsTests: XCTestCase {
                                                                   createdAt: nil)
 
         let mockPackageURL = "https://packages.mock/\(UUID().uuidString)"
-        let mockPackage = PackageCollectionsModel.Package(identity: .init(url: mockPackageURL),
+        let mockPackage = PackageCollectionsModel.Package(identity: .init(urlString: mockPackageURL),
                                                           location: mockPackageURL,
                                                           summary: UUID().uuidString,
                                                           keywords: [UUID().uuidString, UUID().uuidString],
@@ -1598,6 +1598,23 @@ final class PackageCollectionsTests: XCTestCase {
             XCTAssertEqual(Set(searchResult.items.map { $0.package.identity }), expectedPackages, "items should match")
             XCTAssertEqual(Set(searchResult.items.first(where: { $0.package.identity == mockPackage.identity })?.collections ?? []), expectedCollections, "collections should match")
         }
+    }
+}
+
+private extension PackageCollections {
+    init(
+        configuration: Configuration = .init(),
+        storage: Storage,
+        collectionProviders: [Model.CollectionSourceType: PackageCollectionProvider],
+        metadataProvider: PackageMetadataProvider
+    ) {
+        self.init(
+            configuration: configuration,
+            observabilityScope: ObservabilitySystem.NOOP,
+            storage: storage,
+            collectionProviders: collectionProviders,
+            metadataProvider: metadataProvider
+        )
     }
 }
 

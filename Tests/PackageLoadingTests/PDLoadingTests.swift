@@ -26,7 +26,7 @@ class PackageDescriptionLoadingTests: XCTestCase {
     func loadManifestThrowing(
         _ contents: String,
         toolsVersion: ToolsVersion? = nil,
-        packageKind: PackageReference.Kind = .local,
+        packageKind: PackageReference.Kind? = nil,
         file: StaticString = #file,
         line: UInt = #line,
         body: (Manifest) -> Void
@@ -43,19 +43,31 @@ class PackageDescriptionLoadingTests: XCTestCase {
     func loadManifestThrowing(
         _ contents: ByteString,
         toolsVersion: ToolsVersion? = nil,
-        packageKind: PackageReference.Kind = .local,
+        packageKind: PackageReference.Kind? = nil,
         file: StaticString = #file,
         line: UInt = #line,
         body: (Manifest) -> Void
     ) throws {
+        let packageKind = packageKind ?? .fileSystem(.root)
+        let packagePath: AbsolutePath
+        switch packageKind {
+        case .root(let path):
+            packagePath = path
+        case .fileSystem(let path):
+            packagePath = path
+        case .localSourceControl(let path):
+            packagePath = path
+        case .remoteSourceControl, .registry:
+            throw InternalError("invalid package kind \(packageKind)")
+        }
+
         let toolsVersion = toolsVersion ?? self.toolsVersion
         let fs = InMemoryFileSystem()
-        let manifestPath = AbsolutePath.root.appending(component: Manifest.filename)
+        let manifestPath = packagePath.appending(component: Manifest.filename)
         try fs.writeFileContents(manifestPath, bytes: contents)
         let m = try manifestLoader.load(
-            at: AbsolutePath.root,
+            at: packagePath,
             packageKind: packageKind,
-            packageLocation: "/foo",
             toolsVersion: toolsVersion,
             fileSystem: fs)
         guard m.toolsVersion == toolsVersion else {
@@ -67,7 +79,7 @@ class PackageDescriptionLoadingTests: XCTestCase {
     func loadManifest(
         _ contents: String,
         toolsVersion: ToolsVersion? = nil,
-        packageKind: PackageReference.Kind = .local,
+        packageKind: PackageReference.Kind? = nil,
         line: UInt = #line,
         body: (Manifest) -> Void
     ) {
@@ -82,7 +94,7 @@ class PackageDescriptionLoadingTests: XCTestCase {
     func loadManifest(
         _ contents: ByteString,
         toolsVersion: ToolsVersion? = nil,
-        packageKind: PackageReference.Kind = .local,
+        packageKind: PackageReference.Kind? = nil,
         line: UInt = #line,
         body: (Manifest) -> Void
     ) {
@@ -106,19 +118,19 @@ class PackageDescriptionLoadingTests: XCTestCase {
     func XCTAssertManifestLoadNoThrows(
         _ contents: String,
         toolsVersion: ToolsVersion? = nil,
-        packageKind: PackageReference.Kind = .local,
+        packageKind: PackageReference.Kind? = nil,
         file: StaticString = #file,
         line: UInt = #line,
         onSuccess: ((Manifest, DiagnosticsTestResult) -> Void)? = nil
     ) {
-        let observability = ObservabilitySystem.bootstrapForTesting()
+        let observability = ObservabilitySystem.makeForTesting()
         
         do {
             let manifest = try loadManifest(
                 contents,
                 toolsVersion: toolsVersion ?? self.toolsVersion,
                 packageKind: packageKind,
-                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
+                diagnostics: observability.topScope.makeDiagnosticsEngine(),
                 file: file,
                 line: line)
             
@@ -135,19 +147,19 @@ class PackageDescriptionLoadingTests: XCTestCase {
     func XCTAssertManifestLoadThrows(
         _ contents: String,
         toolsVersion: ToolsVersion? = nil,
-        packageKind: PackageReference.Kind = .local,
+        packageKind: PackageReference.Kind? = nil,
         file: StaticString = #file,
         line: UInt = #line,
         onCatch: ((Error, DiagnosticsTestResult) -> Void)? = nil
     ) {
-        let observability = ObservabilitySystem.bootstrapForTesting()
+        let observability = ObservabilitySystem.makeForTesting()
         
         do {
             let manifest = try loadManifest(
                 contents,
                 toolsVersion: toolsVersion ?? self.toolsVersion,
                 packageKind: packageKind,
-                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
+                diagnostics: observability.topScope.makeDiagnosticsEngine(),
                 file: file,
                 line: line)
             
@@ -165,7 +177,7 @@ class PackageDescriptionLoadingTests: XCTestCase {
         _ expectedError: E,
         _ contents: String,
         toolsVersion: ToolsVersion? = nil,
-        packageKind: PackageReference.Kind = .local,
+        packageKind: PackageReference.Kind? = nil,
         file: StaticString = #file,
         line: UInt = #line,
         onCatch: ((DiagnosticsTestResult) -> Void)? = nil
@@ -184,19 +196,31 @@ class PackageDescriptionLoadingTests: XCTestCase {
     func loadManifest(
         _ contents: String,
         toolsVersion: ToolsVersion?,
-        packageKind: PackageReference.Kind,
+        packageKind: PackageReference.Kind? = nil,
         diagnostics: DiagnosticsEngine?,
         file: StaticString = #file,
         line: UInt = #line
     ) throws -> Manifest {
+        let packageKind = packageKind ?? .fileSystem(.root)
+        let packagePath: AbsolutePath
+        switch packageKind {
+        case .root(let path):
+            packagePath = path
+        case .fileSystem(let path):
+            packagePath = path
+        case .localSourceControl(let path):
+            packagePath = path
+        case .remoteSourceControl, .registry:
+            throw InternalError("invalid package kind \(packageKind)")
+        }
+
         let toolsVersion = toolsVersion ?? self.toolsVersion
         let fileSystem = InMemoryFileSystem()
-        let manifestPath = AbsolutePath.root.appending(component: Manifest.filename)
+        let manifestPath = packagePath.appending(component: Manifest.filename)
         try fileSystem.writeFileContents(manifestPath, bytes: ByteString(encodingAsUTF8: contents))
         let manifest = try manifestLoader.load(
-            at: AbsolutePath.root,
+            at: packagePath,
             packageKind: packageKind,
-            packageLocation: "/foo",
             toolsVersion: toolsVersion,
             fileSystem: fileSystem,
             diagnostics: diagnostics)

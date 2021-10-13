@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2020 Apple Inc. and the Swift project authors
+ Copyright (c) 2014 - 2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -248,7 +248,7 @@ extension SwiftCommand {
     public func run() throws {
         let swiftTool = try SwiftTool(options: swiftOptions)
         try self.run(swiftTool)
-        if ObservabilitySystem.topScope.errorsReported || swiftTool.executionStatus == .failure {
+        if swiftTool.observabilityScope.errorsReported || swiftTool.executionStatus == .failure {
             throw ExitCode.failure
         }
     }
@@ -279,7 +279,7 @@ public class SwiftTool {
         let packages: [AbsolutePath]
 
         if let workspace = options.multirootPackageDataFile {
-            packages = try XcodeWorkspaceLoader(diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine()).load(workspace: workspace)
+            packages = try XcodeWorkspaceLoader(diagnostics: self.observabilityScope.makeDiagnosticsEngine()).load(workspace: workspace)
         } else {
             packages = [try getPackageRoot()]
         }
@@ -314,22 +314,25 @@ public class SwiftTool {
     private var _workspace: Workspace?
     private var _workspaceDelegate: ToolWorkspaceDelegate?
 
+    let observabilityScope: ObservabilityScope
+
     /// Create an instance of this tool.
     ///
     /// - parameter args: The command line arguments to be passed to this tool.
     public init(options: SwiftToolOptions) throws {
         // first, bootstrap the observability system
-        ObservabilitySystem.bootstrapGlobal(factory: SwiftToolObservability())
+        let observabilitySystem = ObservabilitySystem.init(SwiftToolObservability())
+        self.observabilityScope = observabilitySystem.topScope
 
         // Capture the original working directory ASAP.
         guard let cwd = localFileSystem.currentWorkingDirectory else {
-            ObservabilitySystem.topScope.emit(error: "couldn't determine the current working directory")
+            self.observabilityScope.emit(error: "couldn't determine the current working directory")
             throw ExitCode.failure
         }
         originalWorkingDirectory = cwd
 
         do {
-            try Self.postprocessArgParserResult(options: options, diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine())
+            try Self.postprocessArgParserResult(options: options, observabilityScope: self.observabilityScope)
             self.options = options
 
             // Honor package-path option is provided.
@@ -377,7 +380,7 @@ public class SwiftTool {
             self.buildSystemRef = buildSystemRef
 
         } catch {
-            ObservabilitySystem.topScope.emit(error)
+            self.observabilityScope.emit(error)
             throw ExitCode.failure
         }
 
@@ -395,32 +398,44 @@ public class SwiftTool {
         Process.verbose = verbosity != .concise
     }
 
-    static func postprocessArgParserResult(options: SwiftToolOptions, diagnostics: DiagnosticsEngine) throws {
+    static func postprocessArgParserResult(options: SwiftToolOptions, observabilityScope: ObservabilityScope) throws {
         if options.chdir != nil {
-            diagnostics.emit(warning: "'--chdir/-C' option is deprecated; use '--package-path' instead")
+            observabilityScope.emit(warning: "'--chdir/-C' option is deprecated; use '--package-path' instead")
         }
 
         if options.multirootPackageDataFile != nil {
-            diagnostics.emit(.unsupportedFlag("--multiroot-data-file"))
+            observabilityScope.emit(.unsupportedFlag("--multiroot-data-file"))
         }
 
         if options.useExplicitModuleBuild && !options.useIntegratedSwiftDriver {
-            diagnostics.emit(error: "'--experimental-explicit-module-build' option requires '--use-integrated-swift-driver'")
+            observabilityScope.emit(error: "'--experimental-explicit-module-build' option requires '--use-integrated-swift-driver'")
         }
 
         if !options.archs.isEmpty && options.customCompileTriple != nil {
-            diagnostics.emit(.mutuallyExclusiveArgumentsError(arguments: ["--arch", "--triple"]))
+            observabilityScope.emit(.mutuallyExclusiveArgumentsError(arguments: ["--arch", "--triple"]))
         }
 
         // --enable-test-discovery should never be called on darwin based platforms
 #if canImport(Darwin)
         if options.enableTestDiscovery {
-            diagnostics.emit(warning: "'--enable-test-discovery' option is deprecated; tests are automatically discovered on all platforms")
+            observabilityScope.emit(warning: "'--enable-test-discovery' option is deprecated; tests are automatically discovered on all platforms")
         }
 #endif
 
         if options.shouldDisableManifestCaching {
-            diagnostics.emit(warning: "'--disable-package-manifest-caching' option is deprecated; use '--manifest-caching' instead")
+            observabilityScope.emit(warning: "'--disable-package-manifest-caching' option is deprecated; use '--manifest-caching' instead")
+        }
+
+        if let _ = options.netrcFilePath, options.netrc == false {
+            observabilityScope.emit(.mutuallyExclusiveArgumentsError(arguments: ["--disable-netrc", "--netrc-file"]))
+        }
+
+        if options._deprecated_netrc {
+            observabilityScope.emit(warning: "'--netrc' option is deprecated; .netrc files are located by default")
+        }
+
+        if options._deprecated_netrcOptional {
+            observabilityScope.emit(warning: "'--netrc-optional' option is deprecated; .netrc files are located by default")
         }
     }
 
@@ -480,32 +495,77 @@ public class SwiftTool {
         return newPath
     }
 
-    func getAuthorizationProvider() throws -> AuthorizationProvider? {
-        // currently only single provider: netrc
-        return try self.getNetrcConfig()?.get()
-    }
+    func getRegistriesConfig(sharedConfigurationDirectory: AbsolutePath? = nil) throws -> Workspace.Configuration.Registries {
+        let localRegistriesFile = try Workspace.DefaultLocations.registriesConfigurationFile(forRootPackage: self.getPackageRoot())
 
-    func getNetrcConfig() throws -> Workspace.Configuration.Netrc? {
-        guard options.netrc || options.netrcFilePath != nil || options.netrcOptional else {
-            return .none
+        let sharedConfigurationDirectory = try sharedConfigurationDirectory ?? self.getSharedConfigurationDirectory()
+        let sharedRegistriesFile = sharedConfigurationDirectory.map {
+            Workspace.DefaultLocations.registriesConfigurationFile(at: $0)
         }
 
-        let netrcFilePath = try self.netrcFilePath()
-        return netrcFilePath.map { .init(path: $0, fileSystem: localFileSystem) }
+        return try .init(
+            localRegistriesFile: localRegistriesFile,
+            sharedRegistriesFile: sharedRegistriesFile,
+            fileSystem: localFileSystem
+        )
     }
 
-    private func netrcFilePath() throws -> AbsolutePath? {
-        let netrcFilePath = options.netrcFilePath ?? localFileSystem.homeDirectory.appending(component: ".netrc")
-        guard localFileSystem.exists(netrcFilePath) else {
-            if !options.netrcOptional {
-                ObservabilitySystem.topScope.emit(error: "Cannot find mandatory .netrc file at \(netrcFilePath). To make .netrc file optional, use --netrc-optional flag.")
-                throw ExitCode.failure
-            } else {
-                ObservabilitySystem.topScope.emit(warning: "Did not find optional .netrc file at \(netrcFilePath).")
-                return .none
+    func getAuthorizationProvider() throws -> AuthorizationProvider? {
+        var providers = [AuthorizationProvider]()
+        
+        // netrc file has higher specificity than keychain so use it first
+        try providers.append(contentsOf: self.getNetrcAuthorizationProviders())
+
+#if canImport(Security)
+        if self.options.keychain {
+            providers.append(KeychainAuthorizationProvider(observabilityScope: self.observabilityScope))
+        }
+#endif
+        
+        return providers.isEmpty ? .none : CompositeAuthorizationProvider(providers, observabilityScope: self.observabilityScope)
+    }
+
+    func getNetrcAuthorizationProviders() throws -> [NetrcAuthorizationProvider] {
+        guard options.netrc else {
+            return []
+        }
+
+        var providers = [NetrcAuthorizationProvider]()
+        
+        // Use custom .netrc file if specified, otherwise look for it within workspace and user's home directory.
+        if let configuredPath = options.netrcFilePath {
+            guard localFileSystem.exists(configuredPath) else {
+                throw StringError("Did not find .netrc file at \(configuredPath).")
+            }
+            
+            providers.append(try NetrcAuthorizationProvider(path: configuredPath, fileSystem: localFileSystem))
+        } else {
+            // User didn't tell us to use these .netrc files so be more lenient with errors
+            func loadNetrcNoThrows(at path: AbsolutePath) -> NetrcAuthorizationProvider? {
+                guard localFileSystem.exists(path) else { return nil }
+                
+                do {
+                    return try NetrcAuthorizationProvider(path: path, fileSystem: localFileSystem)
+                } catch {
+                    self.observabilityScope.emit(warning: "Failed to load .netrc file at \(path). Error: \(error)")
+                    return nil
+                }
+            }
+            
+            // Workspace's .netrc file should be consulted before user-global file
+            // TODO: replace multiroot-data-file with explicit overrides
+            if let localPath = try? (options.multirootPackageDataFile ?? self.getPackageRoot()).appending(component: ".netrc"),
+               let localProvider = loadNetrcNoThrows(at: localPath) {
+                providers.append(localProvider)
+            }
+
+            let userHomePath = localFileSystem.homeDirectory.appending(component: ".netrc")
+            if let userHomeProvider = loadNetrcNoThrows(at: userHomePath) {
+                providers.append(userHomeProvider)
             }
         }
-        return netrcFilePath
+        
+        return providers
     }
 
     private func getSharedCacheDirectory() throws -> AbsolutePath? {
@@ -520,7 +580,7 @@ public class SwiftTool {
         do {
             return try localFileSystem.getOrCreateSwiftPMCacheDirectory()
         } catch {
-            ObservabilitySystem.topScope.emit(warning: "Failed creating default cache location, \(error)")
+            self.observabilityScope.emit(warning: "Failed creating default cache location, \(error)")
             return .none
         }
     }
@@ -537,7 +597,7 @@ public class SwiftTool {
         do {
             return try localFileSystem.getOrCreateSwiftPMConfigDirectory()
         } catch {
-            ObservabilitySystem.topScope.emit(warning: "Failed creating default configuration location, \(error)")
+            self.observabilityScope.emit(warning: "Failed creating default configuration location, \(error)")
             return .none
         }
     }
@@ -549,7 +609,7 @@ public class SwiftTool {
         }
 
         let isVerbose = options.verbosity != 0
-        let delegate = ToolWorkspaceDelegate(self.outputStream, isVerbose: isVerbose, diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine())
+        let delegate = ToolWorkspaceDelegate(self.outputStream, isVerbose: isVerbose, diagnostics: self.observabilityScope.makeDiagnosticsEngine())
         let provider = GitRepositoryProvider(processSet: processSet)
         let sharedCacheDirectory =  try self.getSharedCacheDirectory()
         let sharedConfigurationDirectory = try self.getSharedConfigurationDirectory()
@@ -564,6 +624,7 @@ public class SwiftTool {
                 sharedConfigurationDirectory: sharedConfigurationDirectory
             ),
             mirrors: self.getMirrorsConfig(sharedConfigurationDirectory: sharedConfigurationDirectory).mirrors,
+            registries: try self.getRegistriesConfig(sharedConfigurationDirectory: sharedConfigurationDirectory).configuration,
             authorizationProvider: self.getAuthorizationProvider(),
             customManifestLoader: self.getManifestLoader(), // FIXME: doe we really need to customize it?
             customRepositoryProvider: provider, // FIXME: doe we really need to customize it?
@@ -590,14 +651,14 @@ public class SwiftTool {
         let root = try getWorkspaceRoot()
 
         if options.forceResolvedVersions {
-            try workspace.resolveBasedOnResolvedVersionsFile(root: root, diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine())
+            try workspace.resolveBasedOnResolvedVersionsFile(root: root, diagnostics: self.observabilityScope.makeDiagnosticsEngine())
         } else {
-            try workspace.resolve(root: root, diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine())
+            try workspace.resolve(root: root, diagnostics: self.observabilityScope.makeDiagnosticsEngine())
         }
 
         // Throw if there were errors when loading the graph.
         // The actual errors will be printed before exiting.
-        guard !ObservabilitySystem.topScope.errorsReported else {
+        guard !self.observabilityScope.errorsReported else {
             throw ExitCode.failure
         }
     }
@@ -622,12 +683,12 @@ public class SwiftTool {
                 createMultipleTestProducts: createMultipleTestProducts,
                 createREPLProduct: createREPLProduct,
                 forceResolvedVersions: options.forceResolvedVersions,
-                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine()
+                observabilityScope: self.observabilityScope
             )
 
             // Throw if there were errors when loading the graph.
             // The actual errors will be printed before exiting.
-            guard !ObservabilitySystem.topScope.errorsReported else {
+            guard !self.observabilityScope.errorsReported else {
                 throw ExitCode.failure
             }
             return graph
@@ -672,7 +733,7 @@ public class SwiftTool {
                 outputDir: outputDir,
                 builtToolsDir: builtToolsDir,
                 pluginScriptRunner: pluginScriptRunner,
-                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
+                diagnostics: self.observabilityScope.makeDiagnosticsEngine(),
                 fileSystem: localFileSystem
             )
             return result
@@ -726,8 +787,9 @@ public class SwiftTool {
             cacheBuildManifest: cacheBuildManifest && self.canUseCachedBuildManifest(),
             packageGraphLoader: graphLoader,
             pluginInvoker: { _ in [:] },
-            diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
-            outputStream: self.outputStream
+            outputStream: self.outputStream,
+            fileSystem: localFileSystem,
+            observabilityScope: self.observabilityScope
         )
 
         // Save the instance so it can be cancelled from the int handler.
@@ -746,8 +808,9 @@ public class SwiftTool {
                 cacheBuildManifest: self.canUseCachedBuildManifest(),
                 packageGraphLoader: graphLoader,
                 pluginInvoker: pluginInvoker,
-                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
-                outputStream: self.outputStream
+                outputStream: self.outputStream,
+                fileSystem: localFileSystem,
+                observabilityScope: self.observabilityScope
             )
         case .xcode:
             let graphLoader = { try self.loadPackageGraph(explicitProduct: explicitProduct, createMultipleTestProducts: true) }
@@ -756,8 +819,9 @@ public class SwiftTool {
                 buildParameters: buildParameters ?? self.buildParameters(),
                 packageGraphLoader: graphLoader,
                 isVerbose: verbosity != .concise,
-                diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
-                outputStream: self.outputStream
+                outputStream: self.outputStream,
+                fileSystem: localFileSystem,
+                observabilityScope: self.observabilityScope
             )
         }
 
@@ -884,7 +948,7 @@ public class SwiftTool {
 
             var extraManifestFlags = self.options.manifestFlags
             // Disable the implicit concurrency import if the compiler in use supports it to avoid warnings if we are building against an older SDK that does not contain a Concurrency module.
-            if SwiftTargetBuildDescription.checkSupportedFrontendFlags(flags: ["disable-implicit-concurrency-module-import"], fs: localFileSystem) {
+            if SwiftTargetBuildDescription.checkSupportedFrontendFlags(flags: ["disable-implicit-concurrency-module-import"], fileSystem: localFileSystem) {
                 extraManifestFlags += ["-Xfrontend", "-disable-implicit-concurrency-module-import"]
             }
 
@@ -936,8 +1000,8 @@ final class BuildSystemRef {
     var buildSystem: BuildSystem?
 }
 
-extension Diagnostic.Message {
-    static func unsupportedFlag(_ flag: String) -> Diagnostic.Message {
+extension Basics.Diagnostic {
+    static func unsupportedFlag(_ flag: String) -> Self {
         .warning("\(flag) is an *unsupported* option which can be removed at any time; do not rely on it")
     }
 }
@@ -966,7 +1030,7 @@ extension DispatchTimeInterval {
 
 // MARK: - Diagnostics
 
-private struct SwiftToolObservability: ObservabilityFactory, DiagnosticsHandler {
+private struct SwiftToolObservability: ObservabilityHandlerProvider, DiagnosticsHandler {
     var diagnosticsHandler: DiagnosticsHandler { self }
 
     func handleDiagnostic(scope: ObservabilityScope, diagnostic: Basics.Diagnostic) {
@@ -1039,10 +1103,10 @@ private final class InteractiveWriter {
 // we should remove this as we make use of the new scope and metadata to provide better contextual information
 extension ObservabilityMetadata {
     fileprivate var diagnosticPrefix: String? {
-        if let legacyLocation = self.legacyLocation {
-            return legacyLocation
-        } else if let packageIdentity = self.packageIdentity, let packageLocation = self.packageLocation {
+        if let packageIdentity = self.packageIdentity, let packageLocation = self.packageLocation {
             return "'\(packageIdentity)' \(packageLocation)"
+        } else if let legacyLocation = self.legacyDiagnosticLocation {
+            return legacyLocation.description
         } else {
             return .none
         }

@@ -9,11 +9,11 @@
 */
 
 import Basics
+import Dispatch
+import Foundation
+import SourceControl
 import TSCBasic
 import TSCUtility
-import SourceControl
-import Dispatch
-import class Foundation.NSUUID
 
 /// The error encountered during in memory git repository operations.
 public enum InMemoryGitRepositoryError: Swift.Error {
@@ -108,8 +108,8 @@ public final class InMemoryGitRepository {
     /// Commits the current state of the repository filesystem and returns the commit identifier.
     @discardableResult
     public func commit() throws -> String {
-        // Create a fake hash for thie commit.
-        let hash = String((NSUUID().uuidString + NSUUID().uuidString).prefix(40))
+        // Create a fake hash for this commit.
+        let hash = String((UUID().uuidString + UUID().uuidString).prefix(40))
         self.lock.withLock {
             self.head.hash = hash
             // Store the commit in history.
@@ -398,9 +398,9 @@ public final class InMemoryGitRepositoryProvider: RepositoryProvider {
     // Note: These methods use force unwrap (instead of throwing) to honor their preconditions.
 
     public func fetch(repository: RepositorySpecifier, to path: AbsolutePath, progressHandler: FetchProgress.Handler? = nil) throws {
-        let repo = specifierMap[RepositorySpecifier(url: repository.url)]!
+        let repo = specifierMap[RepositorySpecifier(location: repository.location)]!
         fetchedMap[path] = try repo.copy()
-        add(specifier: RepositorySpecifier(url: path.asURL.absoluteString), repository: repo)
+        add(specifier: RepositorySpecifier(path: path), repository: repo)
     }
 
     public func copy(from sourcePath: AbsolutePath, to destinationPath: AbsolutePath) throws {

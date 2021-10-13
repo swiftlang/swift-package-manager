@@ -28,11 +28,10 @@ class ManifestTests: XCTestCase {
         ]
 
         do {
-            let manifest = Manifest.createManifest(
+            let manifest = Manifest.createRootManifest(
                 name: "Foo",
                 path: .init("/Foo"),
-                packageKind: .root,
-                v: .v5_2,
+                toolsVersion: .v5_2,
                 products: products,
                 targets: targets
             )
@@ -47,11 +46,10 @@ class ManifestTests: XCTestCase {
         }
 
         do {
-            let manifest = Manifest.createManifest(
+            let manifest = Manifest.createLocalSourceControlManifest(
                 name: "Foo",
                 path: .init("/Foo"),
-                packageKind: .local,
-                v: .v5_2,
+                toolsVersion: .v5_2,
                 products: products,
                 targets: targets
             )
@@ -68,9 +66,9 @@ class ManifestTests: XCTestCase {
 
     func testRequiredDependencies() throws {
         let dependencies: [PackageDependency] = [
-            .scm(location: "/Bar1", requirement: .upToNextMajor(from: "1.0.0")),
-            .scm(location: "/Bar2", requirement: .upToNextMajor(from: "1.0.0")),
-            .scm(location: "/Bar3", requirement: .upToNextMajor(from: "1.0.0")),
+            .localSourceControl(path: .init("/Bar1"), requirement: .upToNextMajor(from: "1.0.0")),
+            .localSourceControl(path: .init("/Bar2"), requirement: .upToNextMajor(from: "1.0.0")),
+            .localSourceControl(path: .init("/Bar3"), requirement: .upToNextMajor(from: "1.0.0")),
         ]
 
         let products = [
@@ -84,11 +82,10 @@ class ManifestTests: XCTestCase {
         ]
 
         do {
-            let manifest = Manifest.createManifest(
+            let manifest = Manifest.createRootManifest(
                 name: "Foo",
                 path: .init("/Foo"),
-                packageKind: .root,
-                v: .v5,
+                toolsVersion: .v5,
                 dependencies: dependencies,
                 products: products,
                 targets: targets
@@ -102,11 +99,10 @@ class ManifestTests: XCTestCase {
         }
 
         do {
-            let manifest = Manifest.createManifest(
+            let manifest = Manifest.createLocalSourceControlManifest(
                 name: "Foo",
                 path: .init("/Foo"),
-                packageKind: .local,
-                v: .v5,
+                toolsVersion: .v5,
                 dependencies: dependencies,
                 products: products,
                 targets: targets
@@ -120,11 +116,10 @@ class ManifestTests: XCTestCase {
         }
 
         do {
-            let manifest = Manifest.createManifest(
+            let manifest = Manifest.createRootManifest(
                 name: "Foo",
                 path: .init("/Foo"),
-                packageKind: .root,
-                v: .v5_2,
+                toolsVersion: .v5_2,
                 dependencies: dependencies,
                 products: products,
                 targets: targets
@@ -138,11 +133,10 @@ class ManifestTests: XCTestCase {
         }
 
         do {
-            let manifest = Manifest.createManifest(
+            let manifest = Manifest.createLocalSourceControlManifest(
                 name: "Foo",
                 path: .init("/Foo"),
-                packageKind: .local,
-                v: .v5_2,
+                toolsVersion: .v5_2,
                 dependencies: dependencies,
                 products: products,
                 targets: targets

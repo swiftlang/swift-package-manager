@@ -8,13 +8,13 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import XCTest
-
+import Foundation
+import PackageLoading
+import PackageModel
+import SPMTestSupport
 import TSCBasic
 import TSCUtility
-import SPMTestSupport
-import PackageModel
-import PackageLoading
+import XCTest
 
 class PackageDescription5_5LoadingTests: PackageDescriptionLoadingTests {
     override var toolsVersion: ToolsVersion {
@@ -34,8 +34,8 @@ class PackageDescription5_5LoadingTests: PackageDescriptionLoadingTests {
             """
         loadManifest(manifest, toolsVersion: .v5_5) { manifest in
         let deps = Dictionary(uniqueKeysWithValues: manifest.dependencies.map{ ($0.identity.description, $0) })
-            XCTAssertEqual(deps["foo5"], .scm(location: "/foo5", requirement: .branch("main")))
-            XCTAssertEqual(deps["foo7"], .scm(location: "/foo7", requirement: .revision("58e9de4e7b79e67c72a46e164158e3542e570ab6")))
+            XCTAssertEqual(deps["foo5"], .localSourceControl(path: .init("/foo5"), requirement: .branch("main")))
+            XCTAssertEqual(deps["foo7"], .localSourceControl(path: .init("/foo7"), requirement: .revision("58e9de4e7b79e67c72a46e164158e3542e570ab6")))
         }
     }
 

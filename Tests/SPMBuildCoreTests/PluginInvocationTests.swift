@@ -28,13 +28,13 @@ class PluginInvocationTests: XCTestCase {
             "/Foo/Sources/Foo/source.swift",
             "/Foo/Sources/Foo/SomeFile.abc"
         )
-        let observability = ObservabilitySystem.bootstrapForTesting()
-        let graph = try loadPackageGraph(fs: fileSystem,
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadPackageGraph(
+            fs: fileSystem,
             manifests: [
-                Manifest.createV4Manifest(
+                Manifest.createRootManifest(
                     name: "Foo",
                     path: .init("/Foo"),
-                    packageKind: .root,
                     products: [
                         ProductDescription(
                             name: "Foo",
@@ -61,7 +61,8 @@ class PluginInvocationTests: XCTestCase {
                         ),
                     ]
                 )
-            ]
+            ],
+            observabilityScope: observability.topScope
         )
         
         // Check the basic integrity before running plugins.
@@ -144,7 +145,7 @@ class PluginInvocationTests: XCTestCase {
             outputDir: outputDir,
             builtToolsDir: builtToolsDir,
             pluginScriptRunner: pluginRunner,
-            diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine(),
+            diagnostics: observability.topScope.makeDiagnosticsEngine(),
             fileSystem: fileSystem
         )
         

@@ -8,6 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
+import Basics
 import class Foundation.NSDate
 import class Foundation.Thread
 import PackageGraph
@@ -146,7 +147,7 @@ public func executeSwiftBuild(
     Xcc: [String] = [],
     Xld: [String] = [],
     Xswiftc: [String] = [],
-    env: [String: String]? = nil
+    env: EnvironmentVariables? = nil
 ) throws -> (stdout: String, stderr: String) {
     let args = swiftArgs(configuration: configuration, extraArgs: extraArgs, Xcc: Xcc, Xld: Xld, Xswiftc: Xswiftc)
     return try SwiftPMProduct.SwiftBuild.execute(args, packagePath: packagePath, env: env)
@@ -161,7 +162,7 @@ public func executeSwiftRun(
     Xcc: [String] = [],
     Xld: [String] = [],
     Xswiftc: [String] = [],
-    env: [String: String]? = nil
+    env: EnvironmentVariables? = nil
 ) throws -> (stdout: String, stderr: String) {
     var args = swiftArgs(configuration: configuration, extraArgs: extraArgs, Xcc: Xcc, Xld: Xld, Xswiftc: Xswiftc)
     args.append(executable)
@@ -176,7 +177,7 @@ public func executeSwiftPackage(
     Xcc: [String] = [],
     Xld: [String] = [],
     Xswiftc: [String] = [],
-    env: [String: String]? = nil
+    env: EnvironmentVariables? = nil
 ) throws -> (stdout: String, stderr: String) {
     let args = swiftArgs(configuration: configuration, extraArgs: extraArgs, Xcc: Xcc, Xld: Xld, Xswiftc: Xswiftc)
     return try SwiftPMProduct.SwiftPackage.execute(args, packagePath: packagePath, env: env)
@@ -190,7 +191,7 @@ public func executeSwiftTest(
     Xcc: [String] = [],
     Xld: [String] = [],
     Xswiftc: [String] = [],
-    env: [String: String]? = nil
+    env: EnvironmentVariables? = nil
 ) throws -> (stdout: String, stderr: String) {
     let args = swiftArgs(configuration: configuration, extraArgs: extraArgs, Xcc: Xcc, Xld: Xld, Xswiftc: Xswiftc)
     return try SwiftPMProduct.SwiftTest.execute(args, packagePath: packagePath, env: env)
@@ -226,10 +227,14 @@ public func loadPackageGraph(
     explicitProduct: String? = nil,
     shouldCreateMultipleTestProducts: Bool = false,
     createREPLProduct: Bool = false,
-    useXCBuildFileRules: Bool = false
+    useXCBuildFileRules: Bool = false,
+    observabilityScope: ObservabilityScope
 ) throws -> PackageGraph {
-    let rootManifests = manifests.filter { $0.packageKind == .root }.spm_createDictionary{ ($0.path, $0) }
-    let externalManifests = manifests.filter { $0.packageKind != .root }
+    let rootManifests = manifests.filter { $0.packageKind.isRoot }.spm_createDictionary{ ($0.path, $0) }
+    let externalManifests = try manifests.filter { !$0.packageKind.isRoot }.reduce(into: OrderedDictionary<PackageIdentity, Manifest>()) { partial, item in
+        partial[try identityResolver.resolveIdentity(for: item.packageKind)] = item
+    }
+
     let packages = Array(rootManifests.keys)
     let input = PackageGraphRootInput(packages: packages)
     let graphRoot = PackageGraphRoot(input: input, manifests: rootManifests, explicitProduct: explicitProduct)
@@ -242,6 +247,9 @@ public func loadPackageGraph(
         binaryArtifacts: binaryArtifacts,
         shouldCreateMultipleTestProducts: shouldCreateMultipleTestProducts,
         createREPLProduct: createREPLProduct,
-        fileSystem: fs
+        fileSystem: fs,
+        observabilityScope: observabilityScope
     )
 }
+
+public let emptyZipFile = ByteString([0x80, 0x75, 0x05, 0x06] + [UInt8](repeating: 0x00, count: 18))

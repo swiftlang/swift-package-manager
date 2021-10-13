@@ -9,26 +9,17 @@
 */
 
 import Foundation
+import PackageModel
 
 public struct RegistryConfiguration: Hashable {
-    public typealias Scope = String
-
-    public struct Registry: Hashable {
-        public var url: Foundation.URL
-
-        public init(url: Foundation.URL) {
-            self.url = url
-        }
-    }
-
-    public enum Version: Int {
+    public enum Version: Int, Codable {
         case v1 = 1
     }
 
     public static let version: Version = .v1
 
     public var defaultRegistry: Registry?
-    public var scopedRegistries: [Scope: Registry]
+    public var scopedRegistries: [PackageIdentity.Scope: Registry]
 
     public init() {
         self.defaultRegistry = nil
@@ -47,6 +38,10 @@ public struct RegistryConfiguration: Hashable {
         for (scope, registry) in other.scopedRegistries {
             self.scopedRegistries[scope] = registry
         }
+    }
+    
+    public func registry(for scope: PackageIdentity.Scope) -> Registry? {
+        return scopedRegistries[scope] ?? defaultRegistry
     }
 }
 
@@ -83,9 +78,10 @@ extension RegistryConfiguration: Codable {
 
             self.defaultRegistry = try nestedContainer.decodeIfPresent(Registry.self, forKey: .default)
 
-            var scopedRegistries: [Scope: Registry] = [:]
+            var scopedRegistries: [PackageIdentity.Scope: Registry] = [:]
             for key in nestedContainer.allKeys where key != .default {
-                scopedRegistries[key.stringValue] = try nestedContainer.decode(Registry.self, forKey: key)
+                let scope = try PackageIdentity.Scope(validating: key.stringValue)
+                scopedRegistries[scope] = try nestedContainer.decode(Registry.self, forKey: key)
             }
             self.scopedRegistries = scopedRegistries
         case nil:
@@ -103,11 +99,8 @@ extension RegistryConfiguration: Codable {
         try nestedContainer.encodeIfPresent(defaultRegistry, forKey: .default)
 
         for (scope, registry) in scopedRegistries {
-            let key = ScopeCodingKey(stringValue: scope)
+            let key = ScopeCodingKey(stringValue: scope.description)
             try nestedContainer.encode(registry, forKey: key)
         }
     }
 }
-
-extension RegistryConfiguration.Version: Codable {}
-extension RegistryConfiguration.Registry: Codable {}

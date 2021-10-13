@@ -149,8 +149,16 @@ extension Diagnostic.Message {
         .error("failed extracting '\(artifactURL.absoluteString)' which is required by binary target '\(targetName)': \(reason)")
     }
 
+    static func localArtifactFailedExtraction(artifactPath: AbsolutePath, targetName: String, reason: String) -> Diagnostic.Message {
+        .error("failed extracting '\(artifactPath)' which is required by binary target '\(targetName)': \(reason)")
+    }
+
     static func artifactNotFound(targetName: String, artifactName: String) -> Diagnostic.Message {
         .error("downloaded archive of binary target '\(targetName)' does not contain expected binary artifact '\(artifactName)'")
+    }
+
+    static func localArtifactNotFound(targetName: String, artifactName: String) -> Diagnostic.Message {
+        .error("local archive of binary target '\(targetName)' does not contain expected binary artifact '\(artifactName)'")
     }
 }
 

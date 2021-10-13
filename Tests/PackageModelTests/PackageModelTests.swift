@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2018 Apple Inc. and the Swift project authors
+ Copyright (c) 2014 - 2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -20,13 +20,13 @@ class PackageModelTests: XCTestCase {
         
         PackageModel._useLegacyIdentities = false
         XCTAssertEqual(
-            PackageIdentity(url: "git@github.com/foo/bar/baz.git").description,
+            PackageIdentity(url: URL(string: "git@github.com/foo/bar/baz.git")!).description,
             "github.com/foo/bar/baz"
         )
 
         PackageModel._useLegacyIdentities = true
         XCTAssertEqual(
-            PackageIdentity(url: "git@github.com/foo/bar/baz.git").description,
+            PackageIdentity(url: URL(string: "git@github.com/foo/bar/baz.git")!).description,
             "baz"
         )
     }
@@ -52,5 +52,20 @@ class PackageModelTests: XCTestCase {
         checkCodable(.library(.dynamic))
         checkCodable(.executable)
         checkCodable(.test)
+    }
+    
+    func testProductFilterCodable() throws {
+        // Test ProductFilter.everything
+        try {
+            let data = try JSONEncoder().encode(ProductFilter.everything)
+            let decoded = try JSONDecoder().decode(ProductFilter.self, from: data)
+            XCTAssertEqual(decoded, ProductFilter.everything)
+        }()
+        // Test ProductFilter.specific(), including that the order is normalized
+        try {
+            let data = try JSONEncoder().encode(ProductFilter.specific(["Bar", "Foo"]))
+            let decoded = try JSONDecoder().decode(ProductFilter.self, from: data)
+            XCTAssertEqual(decoded, ProductFilter.specific(["Foo", "Bar"]))
+        }()
     }
 }

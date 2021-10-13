@@ -8,7 +8,7 @@ See http://swift.org/LICENSE.txt for license information
 See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import TSCUtility
+import struct TSCUtility.Version
 
 extension Version {
     func nextPatch() -> Version {

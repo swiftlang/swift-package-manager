@@ -8,10 +8,10 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
+import Basics
 import struct Foundation.Date
 import struct Foundation.URL
 import struct Foundation.UUID
-
 @testable import PackageCollections
 import PackageCollectionsModel
 import PackageCollectionsSigning
@@ -76,7 +76,7 @@ func makeMockCollections(count: Int = Int.random(in: 50 ... 100), maxPackages: I
                                                                createdAt: Date())
             }
 
-            return PackageCollectionsModel.Package(identity: .init(url: "https://package-\(packageIndex)"),
+            return PackageCollectionsModel.Package(identity: .init(urlString: "https://package-\(packageIndex)"),
                                                    location: "https://package-\(packageIndex)",
                                                    summary: "package \(packageIndex) description",
                                                    keywords: (0 ..< Int.random(in: 1 ... 3)).map { "keyword \($0)" },

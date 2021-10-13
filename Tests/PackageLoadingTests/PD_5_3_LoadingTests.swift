@@ -77,6 +77,9 @@ class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
                         name: "Foo2",
                         url: "https://foo.com/Foo2-1.0.0.zip",
                         checksum: "839F9F30DC13C30795666DD8F6FB77DD0E097B83D06954073E34FE5154481F7A"),
+                    .binaryTarget(
+                        name: "Foo3",
+                        path: "./Foo3.zip"),
                 ]
             )
             """
@@ -85,6 +88,7 @@ class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
             let targets = Dictionary(uniqueKeysWithValues: manifest.targets.map({ ($0.name, $0) }))
             let foo1 = targets["Foo1"]!
             let foo2 = targets["Foo2"]!
+            let foo3 = targets["Foo3"]
             XCTAssertEqual(foo1, try? TargetDescription(
                 name: "Foo1",
                 dependencies: [],
@@ -113,6 +117,21 @@ class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
                 providers: nil,
                 settings: [],
                 checksum: "839F9F30DC13C30795666DD8F6FB77DD0E097B83D06954073E34FE5154481F7A"))
+            XCTAssertEqual(foo3, try? TargetDescription(
+                name: "Foo3",
+                dependencies: [],
+                path: "./Foo3.zip",
+                url: nil,
+                exclude: [],
+                sources: nil,
+                resources: [],
+                publicHeadersPath: nil,
+                type: .binary,
+                pkgConfig: nil,
+                providers: nil,
+                settings: [],
+                checksum: nil
+            ))
         }
     }
     
@@ -243,7 +262,7 @@ class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
                 """
 
             XCTAssertManifestLoadThrows(manifest) { _, diagnostics in
-                diagnostics.check(diagnostic: "unsupported extension for binary target 'Foo'; valid extensions are: 'xcframework', 'artifactbundle'", severity: .error)
+                diagnostics.check(diagnostic: "unsupported extension for binary target 'Foo'; valid extensions are: 'zip', 'xcframework', 'artifactbundle'", severity: .error)
             }
         }
 
@@ -284,7 +303,7 @@ class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
                 """
 
             XCTAssertManifestLoadThrows(manifest) { _, diagnostics in
-                diagnostics.check(diagnostic: "unsupported extension for binary target 'Foo'; valid extensions are: 'xcframework', 'artifactbundle'", severity: .error)
+                diagnostics.check(diagnostic: "unsupported extension for binary target 'Foo'; valid extensions are: 'zip', 'xcframework', 'artifactbundle'", severity: .error)
             }
         }
 

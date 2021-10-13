@@ -111,7 +111,8 @@ public protocol PackageCollectionsProtocol {
     /// - Parameters:
     ///   - reference: The package reference
     ///   - callback: The closure to invoke when result becomes available
-    @available(*, deprecated, message: "user getPackageMetadata(identity:) instead")
+    // deprecated 9/21
+    @available(*, deprecated, message: "use getPackageMetadata(identity:) instead")
     func getPackageMetadata(
         _ reference: PackageReference,
         callback: @escaping (Result<PackageCollectionsModel.PackageMetadata, Error>) -> Void
@@ -127,7 +128,8 @@ public protocol PackageCollectionsProtocol {
     ///   - collections: Optional. If specified, only look for package in these collections. Data from the most recently
     ///                  processed collection will be used.
     ///   - callback: The closure to invoke when result becomes available
-    @available(*, deprecated, message: "user getPackageMetadata(identity:) instead")
+    // deprecated 9/21
+    @available(*, deprecated, message: "use getPackageMetadata(identity:) instead")
     func getPackageMetadata(
         _ reference: PackageReference,
         collections: Set<PackageCollectionsModel.CollectionIdentifier>?,

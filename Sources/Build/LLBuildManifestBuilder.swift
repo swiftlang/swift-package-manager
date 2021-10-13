@@ -8,17 +8,14 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import LLBuildManifest
-
 import Basics
+import PackageGraph
+import PackageModel
+import LLBuildManifest
+import SPMBuildCore
+@_implementationOnly import SwiftDriver
 import TSCBasic
 import TSCUtility
-
-import PackageModel
-import PackageGraph
-import SPMBuildCore
-
-@_implementationOnly import SwiftDriver
 
 public class LLBuildManifestBuilder {
     public enum TargetKind {
@@ -36,6 +33,12 @@ public class LLBuildManifestBuilder {
     /// The build plan to work on.
     public let plan: BuildPlan
 
+    /// File system reference.
+    private let fileSystem: FileSystem
+
+    /// ObservabilityScope with which to emit diagnostics
+    public let observabilityScope: ObservabilityScope
+
     public private(set) var manifest: BuildManifest = BuildManifest()
 
     var buildConfig: String { buildParameters.configuration.dirname }
@@ -43,8 +46,10 @@ public class LLBuildManifestBuilder {
     var buildEnvironment: BuildEnvironment { buildParameters.buildEnvironment }
 
     /// Create a new builder with a build plan.
-    public init(_ plan: BuildPlan) {
+    public init(_ plan: BuildPlan, fileSystem: FileSystem, observabilityScope: ObservabilityScope) {
         self.plan = plan
+        self.fileSystem = fileSystem
+        self.observabilityScope = observabilityScope
     }
 
     // MARK:- Generate Manifest
@@ -92,10 +97,9 @@ public class LLBuildManifestBuilder {
     }
 }
 
-// MARK:- Package Structure
+// MARK: - Package Structure
 
 extension LLBuildManifestBuilder {
-
     fileprivate func addPackageStructureCommand() {
         let inputs = plan.graph.rootPackages.flatMap { package -> [Node] in
             var inputs = package.targets
@@ -136,7 +140,6 @@ extension LLBuildManifestBuilder {
 // MARK:- Binary Dependencies
 
 extension LLBuildManifestBuilder {
-
     // Creates commands for copying all binary artifacts depended on in the plan.
     fileprivate func addBinaryDependencyCommands() {
         let binaryPaths = Set(plan.targetMap.values.flatMap({ $0.libraryBinaryPaths }))
@@ -147,7 +150,7 @@ extension LLBuildManifestBuilder {
     }
 }
 
-// MARK:- Resources Bundle
+// MARK: - Resources Bundle
 
 extension LLBuildManifestBuilder {
     /// Adds command for creating the resources bundle of the given target.
@@ -223,13 +226,13 @@ extension LLBuildManifestBuilder {
         commandLine.append(buildParameters.toolchain.swiftCompiler.pathString)
         // FIXME: At some point SwiftPM should provide its own executor for
         // running jobs/launching processes during planning
-        let resolver = try ArgsResolver(fileSystem: target.fs)
+        let resolver = try ArgsResolver(fileSystem: target.fileSystem)
         let executor = SPMSwiftDriverExecutor(resolver: resolver,
-                                              fileSystem: target.fs,
+                                              fileSystem: target.fileSystem,
                                               env: ProcessEnv.vars)
         var driver = try Driver(args: commandLine,
-                                diagnosticsEngine: plan.diagnostics,
-                                fileSystem: target.fs,
+                                diagnosticsEngine: self.observabilityScope.makeDiagnosticsEngine(),
+                                fileSystem: self.fileSystem,
                                 executor: executor)
         let jobs = try driver.planBuild()
         try addSwiftDriverJobs(for: target, jobs: jobs, inputs: inputs, resolver: resolver,
@@ -239,12 +242,24 @@ extension LLBuildManifestBuilder {
     private func addSwiftDriverJobs(for targetDescription: SwiftTargetBuildDescription,
                                     jobs: [Job], inputs: [Node],
                                     resolver: ArgsResolver,
-                                    isMainModule: (Job) -> Bool) throws {
+                                    isMainModule: (Job) -> Bool,
+                                    uniqueExplicitDependencyTracker: UniqueExplicitDependencyJobTracker? = nil) throws {
         // Add build jobs to the manifest
         for job in jobs {
             let tool = try resolver.resolve(.path(job.tool))
             let commandLine = try job.commandLine.map{ try resolver.resolve($0) }
             let arguments = [tool] + commandLine
+
+            // Check if an explicit pre-build dependency job has already been
+            // added as a part of this build.
+            if let uniqueDependencyTracker = uniqueExplicitDependencyTracker,
+               job.isExplicitDependencyPreBuildJob {
+                if try !uniqueDependencyTracker.registerExplicitDependencyBuildJob(job) {
+                    // This is a duplicate of a previously-seen identical job.
+                    // Skip adding it to the manifest
+                    continue
+                }
+            }
 
             let jobInputs = try job.inputs.map { try $0.resolveToNode() }
             let jobOutputs = try job.outputs.map { try $0.resolveToNode() }
@@ -322,6 +337,11 @@ extension LLBuildManifestBuilder {
         // modules across targets' Driver instances.
         let dependencyOracle = InterModuleDependencyOracle()
 
+        // Explicit dependency pre-build jobs may be common to multiple targets.
+        // We de-duplicate them here to avoid adding identical entries to the
+        // downstream LLBuild manifest
+        let explicitDependencyJobTracker = UniqueExplicitDependencyJobTracker()
+
         // Create commands for all target descriptions in the plan.
         for dependency in allPackageDependencies.reversed() {
             guard case .target(let target, _) = dependency else {
@@ -348,7 +368,8 @@ extension LLBuildManifestBuilder {
             switch description {
                 case .swift(let desc):
                     try self.createExplicitSwiftTargetCompileCommand(description: desc,
-                                                                     dependencyOracle: dependencyOracle)
+                                                                     dependencyOracle: dependencyOracle,
+                                                                     explicitDependencyJobTracker: explicitDependencyJobTracker)
                 case .clang(let desc):
                     try self.createClangCompileCommand(desc)
             }
@@ -357,7 +378,8 @@ extension LLBuildManifestBuilder {
 
     private func createExplicitSwiftTargetCompileCommand(
         description: SwiftTargetBuildDescription,
-        dependencyOracle: InterModuleDependencyOracle
+        dependencyOracle: InterModuleDependencyOracle,
+        explicitDependencyJobTracker: UniqueExplicitDependencyJobTracker?
     ) throws {
         // Inputs.
         let inputs = try self.computeSwiftCompileCmdInputs(description)
@@ -369,7 +391,8 @@ extension LLBuildManifestBuilder {
 
         // Commands.
         try addExplicitBuildSwiftCmds(description, inputs: inputs,
-                                      dependencyOracle: dependencyOracle)
+                                      dependencyOracle: dependencyOracle,
+                                      explicitDependencyJobTracker: explicitDependencyJobTracker)
 
         self.addTargetCmd(description, cmdOutputs: cmdOutputs)
         self.addModuleWrapCmd(description)
@@ -378,7 +401,8 @@ extension LLBuildManifestBuilder {
     private func addExplicitBuildSwiftCmds(
         _ targetDescription: SwiftTargetBuildDescription,
         inputs: [Node],
-        dependencyOracle: InterModuleDependencyOracle
+        dependencyOracle: InterModuleDependencyOracle,
+        explicitDependencyJobTracker: UniqueExplicitDependencyJobTracker? = nil
     ) throws {
         // Pass the driver its external dependencies (target dependencies)
         var dependencyModulePathMap: SwiftDriver.ExternalTargetModulePathMap = [:]
@@ -391,17 +415,20 @@ extension LLBuildManifestBuilder {
         commandLine.append("-driver-use-frontend-path")
         commandLine.append(buildParameters.toolchain.swiftCompiler.pathString)
         commandLine.append("-experimental-explicit-module-build")
-        let resolver = try ArgsResolver(fileSystem: targetDescription.fs)
+        let resolver = try ArgsResolver(fileSystem: self.fileSystem)
         let executor = SPMSwiftDriverExecutor(resolver: resolver,
-                                              fileSystem: targetDescription.fs,
+                                              fileSystem: self.fileSystem,
                                               env: ProcessEnv.vars)
-        var driver = try Driver(args: commandLine, fileSystem: targetDescription.fs,
+        var driver = try Driver(args: commandLine,
+                                fileSystem: self.fileSystem,
                                 executor: executor,
                                 externalTargetModulePathMap: dependencyModulePathMap,
-                                interModuleDependencyOracle: dependencyOracle)
+                                interModuleDependencyOracle: dependencyOracle
+        )
         let jobs = try driver.planBuild()
         try addSwiftDriverJobs(for: targetDescription, jobs: jobs, inputs: inputs, resolver: resolver,
-                               isMainModule: { driver.isExplicitMainModuleJob(job: $0)})
+                               isMainModule: { driver.isExplicitMainModuleJob(job: $0)},
+                               uniqueExplicitDependencyTracker: explicitDependencyJobTracker)
     }
 
     /// Collect a map from all target dependencies of the specified target to the build planning artifacts for said dependency,
@@ -633,6 +660,33 @@ extension LLBuildManifestBuilder {
     }
 }
 
+fileprivate extension SwiftDriver.Job {
+    var isExplicitDependencyPreBuildJob: Bool {
+        return (kind == .emitModule &&
+                inputs.contains { $0.file.extension == "swiftinterface" } ) ||
+               kind == .generatePCM
+    }
+}
+
+/// A simple mechanism to keep track of already-known explicit module pre-build jobs.
+/// It uses the output filename of the job (either a `.swiftmodule` or a `.pcm`) for uniqueness,
+/// because the SwiftDriver encodes the module's context hash into this filename. Any two jobs
+/// producing an binary module file with an identical name are therefore duplicate
+fileprivate class UniqueExplicitDependencyJobTracker {
+    private var uniqueDependencyModuleIDSet: Set<Int> = []
+
+    /// Registers the input Job with the tracker. Returns `false` if this job is already known
+    func registerExplicitDependencyBuildJob(_ job: SwiftDriver.Job) throws -> Bool {
+        guard job.isExplicitDependencyPreBuildJob,
+              let soleOutput = job.outputs.spm_only else {
+            throw InternalError("Expected explicit module dependency build job")
+        }
+        let jobUniqueID = soleOutput.file.basename.hashValue
+        let (new, _) = uniqueDependencyModuleIDSet.insert(jobUniqueID)
+        return new
+    }
+}
+
 // MARK:- Compile C-family
 
 extension LLBuildManifestBuilder {
@@ -777,7 +831,7 @@ extension LLBuildManifestBuilder {
     }
 }
 
-// MARK:- Product Command
+// MARK: - Product Command
 
 extension LLBuildManifestBuilder {
     private func createProductCommand(_ buildProduct: ProductBuildDescription) throws {
@@ -859,7 +913,7 @@ extension ResolvedProduct {
     }
 }
 
-// MARK:- Helper
+// MARK: - Helper
 
 extension LLBuildManifestBuilder {
     @discardableResult

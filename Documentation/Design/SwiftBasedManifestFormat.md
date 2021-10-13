@@ -1,5 +1,7 @@
 # Swift-based Manifest Format
 
+> **PLEASE NOTE** This document represents the initial proposal for Swift Package Manger, and is provided for historical purposes only. It does not represent the current state or future direction of the project. For current documentation, see the main Swift Package Manager [documentation](../README.md).
+
 ## Purpose
 
 We need to have some facility for describing additional package metadata, outside of the content in the sources files. This document describes a proposal for using a Swift-based format for this manifest data.
@@ -16,7 +18,7 @@ At a high level, the primary purpose of this manifest is to:
 * Complement the convention based system.
 
   The manifest complements the convention based system, by being the one definitive place to add any project metadata that would otherwise require the project to use a custom configuration. The goal is that 80%+ of projects should be able to use only a manifest and the convention based layout.
-    
+
   By allowing the manifest to extend and override a few key, carefully picked details of the convention based system, then we allow many more projects to use the system without needing to define complex conventions.
 
 * Provide package information in a standard format.
@@ -36,10 +38,10 @@ At a high level, the primary purpose of this manifest is to:
 
 We propose to use the Swift language itself to write the manifest. An example of a proposed manifest for a small cross-platform project with several libraries might look something like this:
 
-```swift 
+```swift
 // This imports the API for declaring packages.
 import PackageDescription
-    
+
 // This declares the package.
 let package = Package(
     // The name of the package (defaults to source root directory name).
@@ -55,7 +57,7 @@ let package = Package(
             // Declare that this target is a published product of the package
             // (as opposed to an internal library or tool).
             published: true),
-        
+
         // Add information on a support library "CoreFoo" (as found by the
         // convention based system in CoreFoo/**/*.swift).
         Target(
@@ -63,15 +65,15 @@ let package = Package(
             depends: [
                 // The library always depends on the "Utils" target.
                 "Utils",
-                
+
                 // This library depends on "AccessibilityUtils" on Linux.
                 .Conditional(name: "AccessibilityUtils", platforms: [.Linux])
             ]),
-    
+
         // NOTE: There is a "Utils" target inferred by the convention based
         // system, but we don't need to modify it at all because the defaults
         // were fine.
-    
+
         // Declare that the "AccessibilityUtils" target is Linux-specific.
         Target(name: "AccessibilityUtils", platforms: [.Linux])
 	])
@@ -98,11 +100,11 @@ Instead, we allow users to interact with the `Package` object using its native S
 
 ```swift
 import PackageDescription
-    
+
 let package = Package(name: "FTW")
-    
+
 // MARK: Custom Configuration
-    
+
 // Build all *_unchecked.swift files using "-Ounchecked" for Release mode.
 for target in package.targets {
     for source in target.sources {

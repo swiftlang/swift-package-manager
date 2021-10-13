@@ -11,7 +11,6 @@
 import Basics
 import PackageModel
 import TSCBasic
-import TSCUtility
 
 extension Basics.Diagnostic {
     static func targetHasNoSources(targetPath: String, target: String) -> Self {
@@ -150,8 +149,16 @@ extension ObservabilityMetadata {
             self[ManifestLoadingDiagnosticFileKey.self] = newValue
         }
     }
-    
+
     enum ManifestLoadingDiagnosticFileKey: Key {
         typealias Value = AbsolutePath
     }
+}
+
+// FIXME: (diagnostics) deprecate in favor of the metadata version ^^ when transitioning manifest loader to Observability APIs
+public struct ManifestLoadingDiagnostic: DiagnosticData {
+     public let output: String
+     public let diagnosticFile: AbsolutePath?
+
+     public var description: String { output }
 }

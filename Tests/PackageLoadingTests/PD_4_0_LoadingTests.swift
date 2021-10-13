@@ -128,12 +128,12 @@ class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
             """
         loadManifest(manifest, toolsVersion: ToolsVersion(string: "5.5")) { manifest in
         let deps = Dictionary(uniqueKeysWithValues: manifest.dependencies.map{ ($0.identity.description, $0) })
-            XCTAssertEqual(deps["foo1"], .scm(location: "/foo1", requirement: .upToNextMajor(from: "1.0.0")))
-            XCTAssertEqual(deps["foo2"], .scm(location: "/foo2", requirement: .upToNextMajor(from: "1.0.0")))
-            XCTAssertEqual(deps["foo3"], .scm(location: "/foo3", requirement: .upToNextMinor(from: "1.0.0")))
-            XCTAssertEqual(deps["foo4"], .scm(location: "/foo4", requirement: .exact("1.0.0")))
-            XCTAssertEqual(deps["foo5"], .scm(location: "/foo5", requirement: .branch("main")))
-            XCTAssertEqual(deps["foo6"], .scm(location: "/foo6", requirement: .revision("58e9de4e7b79e67c72a46e164158e3542e570ab6")))
+            XCTAssertEqual(deps["foo1"], .localSourceControl(path: .init("/foo1"), requirement: .upToNextMajor(from: "1.0.0")))
+            XCTAssertEqual(deps["foo2"], .localSourceControl(path: .init("/foo2"), requirement: .upToNextMajor(from: "1.0.0")))
+            XCTAssertEqual(deps["foo3"], .localSourceControl(path: .init("/foo3"), requirement: .upToNextMinor(from: "1.0.0")))
+            XCTAssertEqual(deps["foo4"], .localSourceControl(path: .init("/foo4"), requirement: .exact("1.0.0")))
+            XCTAssertEqual(deps["foo5"], .localSourceControl(path: .init("/foo5"), requirement: .branch("main")))
+            XCTAssertEqual(deps["foo6"], .localSourceControl(path: .init("/foo6"), requirement: .revision("58e9de4e7b79e67c72a46e164158e3542e570ab6")))
         }
     }
 
@@ -311,14 +311,13 @@ class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
 
         try fs.writeFileContents(manifestPath, bytes: stream.bytes)
 
-        let observability = ObservabilitySystem.bootstrapForTesting()
+        let observability = ObservabilitySystem.makeForTesting()
         let manifest = try manifestLoader.load(
             at: .root,
-            packageKind: .root,
-            packageLocation: "/foo",
+            packageKind: .root(.root),
             toolsVersion: .v4,
             fileSystem: fs,
-            diagnostics: ObservabilitySystem.topScope.makeDiagnosticsEngine()
+            diagnostics: observability.topScope.makeDiagnosticsEngine()
         )
 
         XCTAssertEqual(manifest.name, "Trivial")
