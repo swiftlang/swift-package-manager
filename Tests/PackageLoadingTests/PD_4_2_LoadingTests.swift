@@ -9,6 +9,7 @@
 */
 
 import Basics
+import Dispatch
 import PackageLoading
 import PackageModel
 import SPMTestSupport
@@ -542,11 +543,6 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
     }
 
     func testCacheInvalidationOnEnv() throws {
-        #if os(Linux)
-        // rdar://79415639 (Test Case 'PackageDescription4_2LoadingTests.testCacheInvalidationOnEnv' failed)
-        try XCTSkipIf(true)
-        #endif
-
         try testWithTemporaryDirectory { path in
             let fs = localFileSystem
 
@@ -571,6 +567,8 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
 
             func check(loader: ManifestLoader, expectCached: Bool) {
                 delegate.clear()
+                delegate.prepare(expectParsing: !expectCached)
+
                 let manifest = try! loader.load(
                     at: manifestPath.parentDirectory,
                     packageKind: .fileSystem(manifestPath.parentDirectory),
@@ -578,8 +576,8 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                     fileSystem: fs
                 )
 
-                XCTAssertEqual(delegate.loaded, [manifestPath])
-                XCTAssertEqual(delegate.parsed, expectCached ? [] : [manifestPath])
+                XCTAssertEqual(try delegate.loaded(timeout: .now() + 1), [manifestPath])
+                XCTAssertEqual(try delegate.parsed(timeout: .now() + 1), expectCached ? [] : [manifestPath])
                 XCTAssertEqual(manifest.name, "Trivial")
                 XCTAssertEqual(manifest.targets[0].name, "foo")
             }
@@ -626,6 +624,8 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
 
             func check(loader: ManifestLoader, expectCached: Bool) {
                 delegate.clear()
+                delegate.prepare(expectParsing: !expectCached)
+
                 let manifest = try! loader.load(
                     at: manifestPath.parentDirectory,
                     packageKind: .fileSystem(manifestPath.parentDirectory),
@@ -633,8 +633,8 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                     fileSystem: fs
                 )
 
-                XCTAssertEqual(delegate.loaded, [manifestPath])
-                XCTAssertEqual(delegate.parsed, expectCached ? [] : [manifestPath])
+                XCTAssertEqual(try delegate.loaded(timeout: .now() + 1), [manifestPath])
+                XCTAssertEqual(try delegate.parsed(timeout: .now() + 1), expectCached ? [] : [manifestPath])
                 XCTAssertEqual(manifest.name, "Trivial")
                 XCTAssertEqual(manifest.targets[0].name, "foo")
             }
@@ -709,18 +709,27 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                 XCTAssertEqual(m.name, "Trivial")
             }
 
-            try check(loader: manifestLoader)
-            XCTAssertEqual(delegate.loaded.count, 1)
-            XCTAssertEqual(delegate.parsed.count, 1)
+            do {
+                delegate.prepare()
+                try check(loader: manifestLoader)
+                XCTAssertEqual(try delegate.loaded(timeout: .now() + 1).count, 1)
+                XCTAssertEqual(try delegate.parsed(timeout: .now() + 1).count, 1)
+            }
 
-            try check(loader: manifestLoader)
-            XCTAssertEqual(delegate.loaded.count, 2)
-            XCTAssertEqual(delegate.parsed.count, 1)
+            do {
+                delegate.prepare(expectParsing: false)
+                try check(loader: manifestLoader)
+                XCTAssertEqual(try delegate.loaded(timeout: .now() + 1).count, 2)
+                XCTAssertEqual(try delegate.parsed(timeout: .now() + 1).count, 1)
+            }
 
-            stream <<< "\n\n"
-            try check(loader: manifestLoader)
-            XCTAssertEqual(delegate.loaded.count, 3)
-            XCTAssertEqual(delegate.parsed.count, 2)
+            do {
+                stream <<< "\n\n"
+                delegate.prepare()
+                try check(loader: manifestLoader)
+                XCTAssertEqual(try delegate.loaded(timeout: .now() + 1).count, 3)
+                XCTAssertEqual(try delegate.parsed(timeout: .now() + 1).count, 2)
+            }
         }
     }
 
@@ -800,6 +809,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             let identityResolver = DefaultIdentityResolver()
 
             // warm up caches
+            delegate.prepare()
             let manifest = try tsc_await { manifestLoader.load(at: manifestPath.parentDirectory,
                                                                packageIdentity: .plain("Trivial"),
                                                                packageKind: .fileSystem(manifestPath.parentDirectory),
@@ -818,6 +828,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             let sync = DispatchGroup()
             for _ in 0 ..< total {
                 sync.enter()
+                delegate.prepare(expectParsing: false)
                 manifestLoader.load(at: manifestPath.parentDirectory,
                                     packageIdentity: .plain("Trivial"),
                                     packageKind: .fileSystem(manifestPath.parentDirectory),
@@ -845,7 +856,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                 XCTFail("timeout")
             }
 
-            XCTAssertEqual(delegate.loaded.count, total+1)
+            XCTAssertEqual(try delegate.loaded(timeout: .now() + 1).count, total+1)
             XCTAssertFalse(observability.hasWarningDiagnostics, observability.diagnostics.description)
             XCTAssertFalse(observability.hasErrorDiagnostics, observability.diagnostics.description)
         }
@@ -882,6 +893,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                 }
 
                 sync.enter()
+                delegate.prepare()
                 manifestLoader.load(at: manifestPath.parentDirectory,
                                     packageIdentity: .plain("Trivial-\(random)"),
                                     packageKind: .fileSystem(manifestPath.parentDirectory),
@@ -909,46 +921,52 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                 XCTFail("timeout")
             }
 
-            XCTAssertEqual(delegate.loaded.count, total)
+            XCTAssertEqual(try delegate.loaded(timeout: .now() + 1).count, total)
             XCTAssertFalse(observability.hasWarningDiagnostics, observability.diagnostics.description)
             XCTAssertFalse(observability.hasErrorDiagnostics, observability.diagnostics.description)
         }
     }
 
     final class ManifestTestDelegate: ManifestLoaderDelegate {
-        private let lock = Lock()
-        private var _loaded: [AbsolutePath] = []
-        private var _parsed: [AbsolutePath] = []
+        private let loaded = ThreadSafeArrayStore<AbsolutePath>()
+        private let parsed = ThreadSafeArrayStore<AbsolutePath>()
+        private let loadingGroup = DispatchGroup()
+        private let parsingGroup = DispatchGroup()
+
+        func prepare(expectParsing: Bool = true) {
+            self.loadingGroup.enter()
+            if expectParsing {
+                self.parsingGroup.enter()
+            }
+        }
 
         func willLoad(manifest: AbsolutePath) {
-            self.lock.withLock {
-                self._loaded.append(manifest)
-            }
+            self.loaded.append(manifest)
+            self.loadingGroup.leave()
         }
 
         func willParse(manifest: AbsolutePath) {
-            self.lock.withLock {
-                self._parsed.append(manifest)
-            }
+            self.parsed.append(manifest)
+            self.parsingGroup.leave()
         }
 
         func clear() {
-            self.lock.withLock {
-                self._loaded.removeAll()
-                self._parsed.removeAll()
-            }
+            self.loaded.clear()
+            self.parsed.clear()
         }
 
-        var loaded: [AbsolutePath] {
-            self.lock.withLock {
-                self._loaded
+        func loaded(timeout: DispatchTime) throws -> [AbsolutePath] {
+            guard case .success = self.loadingGroup.wait(timeout: timeout) else {
+                throw StringError("timeout waiting for loading")
             }
+            return self.loaded.get()
         }
 
-        var parsed: [AbsolutePath] {
-            self.lock.withLock {
-                self._parsed
+        func parsed(timeout: DispatchTime) throws -> [AbsolutePath] {
+            guard case .success = self.parsingGroup.wait(timeout: timeout) else {
+                throw StringError("timeout waiting for parsing")
             }
+            return self.parsed.get()
         }
     }
 }

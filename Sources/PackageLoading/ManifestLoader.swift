@@ -247,6 +247,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                     packageKind: packageKind,
                     toolsVersion: toolsVersion,
                     identityResolver: identityResolver,
+                    delegateQueue: queue,
                     fileSystem: fileSystem,
                     diagnostics: diagnostics)
 
@@ -498,6 +499,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         packageKind: PackageReference.Kind,
         toolsVersion: ToolsVersion,
         identityResolver: IdentityResolver,
+        delegateQueue: DispatchQueue,
         fileSystem: FileSystem,
         diagnostics: DiagnosticsEngine?
     ) throws -> ManifestJSONParser.Result {
@@ -543,10 +545,13 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         }
 
         // shells out and compiles the manifest, finally output a JSON
-        let result = self.evaluateManifest(packageIdentity: key.packageIdentity,
-                                           manifestPath: key.manifestPath,
-                                           manifestContents: key.manifestContents,
-                                           toolsVersion: key.toolsVersion)
+        let result = self.evaluateManifest(
+            packageIdentity: key.packageIdentity,
+            manifestPath: key.manifestPath,
+            manifestContents: key.manifestContents,
+            toolsVersion: key.toolsVersion,
+            delegateQueue: delegateQueue
+        )
 
         // only cache successfully parsed manifests
         let parseManifest = try self.parseManifest(
@@ -653,7 +658,8 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         packageIdentity: PackageIdentity,
         manifestPath: AbsolutePath,
         manifestContents: [UInt8],
-        toolsVersion: ToolsVersion
+        toolsVersion: ToolsVersion,
+        delegateQueue: DispatchQueue
     ) -> EvaluationResult {
 
         var result = EvaluationResult()
@@ -663,6 +669,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                     at: manifestPath,
                     packageIdentity: packageIdentity,
                     toolsVersion: toolsVersion,
+                    delegateQueue:  delegateQueue,
                     result: &result
                 )
             } else {
@@ -672,6 +679,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                         at: tempFile.path,
                         packageIdentity: packageIdentity,
                         toolsVersion: toolsVersion,
+                        delegateQueue: delegateQueue,
                         result: &result
                     )
                 }
@@ -689,9 +697,12 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         at manifestPath: AbsolutePath,
         packageIdentity: PackageIdentity,
         toolsVersion: ToolsVersion,
+        delegateQueue: DispatchQueue,
         result: inout EvaluationResult
     ) throws {
-        self.delegate?.willParse(manifest: manifestPath)
+        delegateQueue.async {
+            self.delegate?.willParse(manifest: manifestPath)
+        }
 
         // The compiler has special meaning for files with extensions like .ll, .bc etc.
         // Assert that we only try to load files with extension .swift to avoid unexpected loading behavior.
