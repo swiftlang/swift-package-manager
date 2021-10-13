@@ -13,6 +13,228 @@ import TSCBasic
 import XCTest
 
 final class WorkspaceStateTests: XCTestCase {
+    func testV4Format() throws {
+        let fs = InMemoryFileSystem()
+
+        let buildDir = AbsolutePath("/.build")
+        let statePath = buildDir.appending(component: "workspace-state.json")
+
+        try fs.writeFileContents(statePath) {
+            $0 <<<
+                """
+                {
+                    "version": 4,
+                    "object": {
+                        "artifacts": [],
+                        "dependencies": [
+                            {
+                                "basedOn": null,
+                                "packageRef": {
+                                  "identity": "yams",
+                                  "kind": "remote",
+                                  "location": "https://github.com/jpsim/Yams.git",
+                                  "name": "Yams"
+                                },
+                                "state": {
+                                  "checkoutState": {
+                                    "revision": "9ff1cc9327586db4e0c8f46f064b6a82ec1566fa",
+                                    "version": "4.0.6"
+                                  },
+                                  "name": "checkout"
+                                },
+                                "subpath": "Yams"
+                            },
+                            {
+                                "basedOn": null,
+                                "packageRef": {
+                                  "identity": "swift-tools-support-core",
+                                  "kind": "remote",
+                                  "location": "https://github.com/apple/swift-tools-support-core.git",
+                                  "name": "swift-tools-support-core"
+                                },
+                                "state": {
+                                  "checkoutState": {
+                                    "branch": "main",
+                                    "revision": "f9bbd6b80d67408021576adf6247e17c2e957d92",
+                                    "version": null
+                                  },
+                                  "name": "checkout"
+                                },
+                                "subpath": "swift-tools-support-core"
+                            },
+                            {
+                                "basedOn": null,
+                                "packageRef": {
+                                  "identity": "swift-argument-parser",
+                                  "kind": "local",
+                                  "location": "/Users/tomerd/code/swift/swift-argument-parser",
+                                  "name": "swift-argument-parser"
+                                },
+                                "state": {
+                                  "name": "local"
+                                },
+                                "subpath": "swift-argument-parser"
+                            }
+                        ]
+                    }
+                }
+                """
+        }
+
+        let state = WorkspaceState(dataPath: buildDir, fileSystem: fs)
+        XCTAssertTrue(state.dependencies.contains(where: { $0.packageRef.identity == .plain("yams") }))
+        XCTAssertTrue(state.dependencies.contains(where: { $0.packageRef.identity == .plain("swift-tools-support-core") }))
+        XCTAssertTrue(state.dependencies.contains(where: { $0.packageRef.identity == .plain("swift-argument-parser") }))
+    }
+
+    func testV4FormatWithPath() throws {
+        let fs = InMemoryFileSystem()
+
+        let buildDir = AbsolutePath("/.build")
+        let statePath = buildDir.appending(component: "workspace-state.json")
+
+        try fs.writeFileContents(statePath) {
+            $0 <<<
+                """
+                {
+                    "version": 4,
+                    "object": {
+                        "artifacts": [],
+                        "dependencies": [
+                            {
+                                "basedOn": null,
+                                "packageRef": {
+                                  "identity": "yams",
+                                  "kind": "remote",
+                                  "path": "https://github.com/jpsim/Yams.git",
+                                  "name": "Yams"
+                                },
+                                "state": {
+                                  "checkoutState": {
+                                    "revision": "9ff1cc9327586db4e0c8f46f064b6a82ec1566fa",
+                                    "version": "4.0.6"
+                                  },
+                                  "name": "checkout"
+                                },
+                                "subpath": "Yams"
+                            },
+                            {
+                                "basedOn": null,
+                                "packageRef": {
+                                  "identity": "swift-tools-support-core",
+                                  "kind": "remote",
+                                  "path": "https://github.com/apple/swift-tools-support-core.git",
+                                  "name": "swift-tools-support-core"
+                                },
+                                "state": {
+                                  "checkoutState": {
+                                    "branch": "main",
+                                    "revision": "f9bbd6b80d67408021576adf6247e17c2e957d92",
+                                    "version": null
+                                  },
+                                  "name": "checkout"
+                                },
+                                "subpath": "swift-tools-support-core"
+                            },
+                            {
+                                "basedOn": null,
+                                "packageRef": {
+                                  "identity": "swift-argument-parser",
+                                  "kind": "local",
+                                  "path": "/Users/tomerd/code/swift/swift-argument-parser",
+                                  "name": "swift-argument-parser"
+                                },
+                                "state": {
+                                  "name": "local"
+                                },
+                                "subpath": "swift-argument-parser"
+                            }
+                        ]
+                    }
+                }
+                """
+        }
+
+        let state = WorkspaceState(dataPath: buildDir, fileSystem: fs)
+        XCTAssertTrue(state.dependencies.contains(where: { $0.packageRef.identity == .plain("yams") }))
+        XCTAssertTrue(state.dependencies.contains(where: { $0.packageRef.identity == .plain("swift-tools-support-core") }))
+        XCTAssertTrue(state.dependencies.contains(where: { $0.packageRef.identity == .plain("swift-argument-parser") }))
+    }
+
+    func testV5Format() throws {
+        let fs = InMemoryFileSystem()
+
+        let buildDir = AbsolutePath("/.build")
+        let statePath = buildDir.appending(component: "workspace-state.json")
+
+        try fs.writeFileContents(statePath) {
+            $0 <<<
+                """
+                {
+                    "version": 5,
+                    "object": {
+                        "artifacts": [],
+                        "dependencies": [
+                            {
+                                "basedOn": null,
+                                "packageRef": {
+                                  "identity": "yams",
+                                  "kind": "remoteSourceControl",
+                                  "location": "https://github.com/jpsim/Yams.git",
+                                  "name": "Yams"
+                                },
+                                "state": {
+                                  "checkoutState": {
+                                    "revision": "9ff1cc9327586db4e0c8f46f064b6a82ec1566fa",
+                                    "version": "4.0.6"
+                                  },
+                                  "name": "checkout"
+                                },
+                                "subpath": "Yams"
+                            },
+                            {
+                                "basedOn": null,
+                                "packageRef": {
+                                  "identity": "swift-tools-support-core",
+                                  "kind": "remoteSourceControl",
+                                  "location": "https://github.com/apple/swift-tools-support-core.git",
+                                  "name": "swift-tools-support-core"
+                                },
+                                "state": {
+                                  "checkoutState": {
+                                    "branch": "main",
+                                    "revision": "f9bbd6b80d67408021576adf6247e17c2e957d92"
+                                  },
+                                  "name": "checkout"
+                                },
+                                "subpath": "swift-tools-support-core"
+                            },
+                            {
+                                "basedOn": null,
+                                "packageRef": {
+                                  "identity": "swift-argument-parser",
+                                  "kind": "fileSystem",
+                                  "location": "/Users/tomerd/code/swift/swift-argument-parser",
+                                  "name": "swift-argument-parser"
+                                },
+                                "state": {
+                                  "name": "local",
+                                  "path": "/Users/tomerd/code/swift/swift-argument-parser"
+                                },
+                                "subpath": "swift-argument-parser"
+                            }
+                        ]
+                    }
+                }
+                """
+        }
+
+        let state = WorkspaceState(dataPath: buildDir, fileSystem: fs)
+        XCTAssertTrue(state.dependencies.contains(where: { $0.packageRef.identity == .plain("yams") }))
+        XCTAssertTrue(state.dependencies.contains(where: { $0.packageRef.identity == .plain("swift-tools-support-core") }))
+        XCTAssertTrue(state.dependencies.contains(where: { $0.packageRef.identity == .plain("swift-argument-parser") }))
+    }
+
     func testSavedDependenciesAreSorted() throws {
         let fs = InMemoryFileSystem()
 
@@ -23,6 +245,7 @@ final class WorkspaceStateTests: XCTestCase {
             $0 <<<
                 """
                 {
+                    "version": 5,
                     "object": {
                         "artifacts": [],
                         "dependencies": [
@@ -61,8 +284,7 @@ final class WorkspaceStateTests: XCTestCase {
                                 "subpath": "swift-argument-parser"
                             }
                         ]
-                    },
-                    "version": 4
+                    }
                 }
                 """
         }
