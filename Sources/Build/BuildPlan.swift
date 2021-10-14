@@ -1996,16 +1996,6 @@ public class BuildPlan {
         let results = pkgConfigArgs(for: target, fileSystem: self.fileSystem, observabilityScope: self.observabilityScope)
         var ret: [(cFlags: [String], libs: [String])] = []
         for result in results {
-            // If there is no pc file on system and we have an available provider, emit a warning.
-            if let provider = result.provider, result.couldNotFindConfigFile {
-                self.observabilityScope.emit(.pkgConfigHint(pkgConfigName: result.pkgConfigName, installText: provider.installText))
-            } else if let error = result.error {
-                self.observabilityScope.emit(
-                    warning: "\(error)",
-                    metadata: .pkgConfig(pcFile: result.pkgConfigName, targetName: target.name)
-                )
-            }
-
             ret.append((result.cFlags, result.libs))
         }
 

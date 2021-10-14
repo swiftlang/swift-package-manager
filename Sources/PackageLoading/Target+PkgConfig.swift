@@ -102,11 +102,11 @@ public func pkgConfigArgs(for target: SystemLibraryTarget, brewPrefix: AbsoluteP
 
         // If there is no pc file on system and we have an available provider, emit a warning.
         if let provider = result.provider, result.couldNotFindConfigFile {
-            diagnostics.emit(.warning("you may be able to install \(result.pkgConfigName) using your system-packager:\n\(provider.installText)"))
+            observabilityScope.emit(warning: "you may be able to install \(result.pkgConfigName) using your system-packager:\n\(provider.installText)")
         } else if let error = result.error {
-            diagnostics.emit(
-                    .warning("\(error)"),
-                    location: PkgConfigDiagnosticLocation(pcFile: result.pkgConfigName, target: target.name)
+            observabilityScope.emit(
+                warning: "\(error)",
+                metadata: .pkgConfig(pcFile: result.pkgConfigName, targetName: target.name)
             )
         }
 
