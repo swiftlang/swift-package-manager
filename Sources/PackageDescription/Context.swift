@@ -14,10 +14,12 @@
 public struct Context {
     private let model : ContextModel
 
+    /// The directory containing Package.swift.
     public var packageDirectory : String {
         model.packageDirectory
     }
     
+    /// Snapshot of the system environment variables.
     public var environment : [String : String] {
         model.environment
     }
@@ -25,6 +27,7 @@ public struct Context {
     private init(_ model : ContextModel) {
         self.model = model
     }
-    
+
+    /// Singleton accessor. There is only one Context instance.
     public static let current = Context(ContextModel.decode())
 }
