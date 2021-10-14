@@ -133,6 +133,9 @@ public struct BuildParameters: Encodable {
     /// Whether to create dylibs for dynamic library products.
     public var shouldCreateDylibForDynamicProducts: Bool
 
+    /// Whether to enable the entry-point-function-name feature.
+    public var shouldRenameEntrypointFunctionName: Bool
+
     /// The current build environment.
     public var buildEnvironment: BuildEnvironment {
         BuildEnvironment(platform: currentPlatform, configuration: configuration)
@@ -182,6 +185,7 @@ public struct BuildParameters: Encodable {
         jobs: UInt32 = UInt32(ProcessInfo.processInfo.activeProcessorCount),
         shouldLinkStaticSwiftStdlib: Bool = false,
         shouldEnableManifestCaching: Bool = false,
+        shouldRenameEntrypointFunctionName: Bool = false,
         shouldCreateDylibForDynamicProducts: Bool = true,
         sanitizers: EnabledSanitizers = EnabledSanitizers(),
         enableCodeCoverage: Bool = false,
@@ -211,6 +215,7 @@ public struct BuildParameters: Encodable {
         self.shouldLinkStaticSwiftStdlib = shouldLinkStaticSwiftStdlib
         self.shouldEnableManifestCaching = shouldEnableManifestCaching
         self.shouldCreateDylibForDynamicProducts = shouldCreateDylibForDynamicProducts
+        self.shouldRenameEntrypointFunctionName = shouldRenameEntrypointFunctionName
         self.sanitizers = sanitizers
         self.enableCodeCoverage = enableCodeCoverage
         self.indexStoreMode = indexStoreMode

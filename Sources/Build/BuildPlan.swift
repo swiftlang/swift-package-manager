@@ -748,10 +748,9 @@ public final class SwiftTargetBuildDescription {
             // we can rename the symbol unconditionally.
             // No `-` for these flags because the set of Strings in driver.supportedFrontendFlags do
             // not have a leading `-`
-            if SwiftTargetBuildDescription.checkSupportedFrontendFlags(flags: ["entry-point-function-name"], fileSystem: self.fileSystem) {
-                if buildParameters.linkerFlagsForRenamingMainFunction(of: target) != nil {
-                    args += ["-Xfrontend", "-entry-point-function-name", "-Xfrontend", "\(target.c99name)_main"]
-                }
+            if buildParameters.shouldRenameEntrypointFunctionName,
+               buildParameters.linkerFlagsForRenamingMainFunction(of: target) != nil {
+                args += ["-Xfrontend", "-entry-point-function-name", "-Xfrontend", "\(target.c99name)_main"]
             }
         }
         
@@ -1231,7 +1230,8 @@ public final class ProductBuildDescription {
             // we will instead have generated a source file containing the redirect.
             // Support for linking tests againsts executables is conditional on the tools
             // version of the package that defines the executable product.
-            if product.executableModule.underlyingTarget is SwiftTarget, toolsVersion >= .v5_5 {
+            if product.executableModule.underlyingTarget is SwiftTarget, toolsVersion >= .v5_5,
+               buildParameters.shouldRenameEntrypointFunctionName {
                 if let flags = buildParameters.linkerFlagsForRenamingMainFunction(of: product.executableModule) {
                     args += flags
                 }
