@@ -67,6 +67,7 @@ public func pkgConfigArgs(for target: SystemLibraryTarget, brewPrefix: AbsoluteP
    var ret: [PkgConfigResult] = []
     // Get the pkg config flags.
     for pkgConfigName in pkgConfigNames.components(separatedBy: " ") {
+        let result: PkgConfigResult
         do {
             let pkgConfig = try PkgConfig(
                 name: pkgConfigName,
@@ -88,16 +89,28 @@ public func pkgConfigArgs(for target: SystemLibraryTarget, brewPrefix: AbsoluteP
                 error = PkgConfigError.prohibitedFlags(filtered.unallowed.joined(separator: ", "))
             }
 
-            ret.append(PkgConfigResult(
+            result = PkgConfigResult(
                     pkgConfigName: pkgConfigName,
                     cFlags: cFlags,
                     libs: libs,
                     error: error,
                     provider: provider
-            ))
+            )
         } catch {
-            ret.append(PkgConfigResult(pkgConfigName: pkgConfigName, error: error, provider: provider))
+            result = PkgConfigResult(pkgConfigName: pkgConfigName, error: error, provider: provider)
         }
+
+        // If there is no pc file on system and we have an available provider, emit a warning.
+        if let provider = result.provider, result.couldNotFindConfigFile {
+            observabilityScope.emit(warning: "you may be able to install \(result.pkgConfigName) using your system-packager:\n\(provider.installText)")
+        } else if let error = result.error {
+            observabilityScope.emit(
+                warning: "\(error)",
+                metadata: .pkgConfig(pcFile: result.pkgConfigName, targetName: target.name)
+            )
+        }
+
+        ret.append(result)
     }
     return ret
 }

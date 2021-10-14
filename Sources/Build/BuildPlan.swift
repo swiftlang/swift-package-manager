@@ -1996,16 +1996,6 @@ public class BuildPlan {
         let results = pkgConfigArgs(for: target, fileSystem: self.fileSystem, observabilityScope: self.observabilityScope)
         var ret: [(cFlags: [String], libs: [String])] = []
         for result in results {
-            // If there is no pc file on system and we have an available provider, emit a warning.
-            if let provider = result.provider, result.couldNotFindConfigFile {
-                self.observabilityScope.emit(.pkgConfigHint(pkgConfigName: result.pkgConfigName, installText: provider.installText))
-            } else if let error = result.error {
-                self.observabilityScope.emit(
-                    warning: "\(error)",
-                    metadata: .pkgConfig(pcFile: result.pkgConfigName, targetName: target.name)
-                )
-            }
-
             ret.append((result.cFlags, result.libs))
         }
 
@@ -2063,11 +2053,7 @@ private extension Basics.Diagnostic {
             """)
     }
 
-    static func pkgConfigHint(pkgConfigName: String, installText: String) -> Self {
-        .warning("you may be able to install \(pkgConfigName) using your system-packager:\n\(installText)")
-    }
-
-    static func binaryTargetsNotSupported() -> Self {
+    static func binaryTargetsNotSupported() -> Diagnostic.Message {
         .error("binary targets are not supported on this platform")
     }
 }
