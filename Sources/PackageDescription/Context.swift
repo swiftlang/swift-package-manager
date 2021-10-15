@@ -12,22 +12,18 @@
 /// For example where in the file system the current package resides.
 @available(_PackageDescription, introduced: 5.6)
 public struct Context {
-    private let model : ContextModel
+    private static let model = ContextModel.decode()
 
     /// The directory containing Package.swift.
-    public var packageDirectory : String {
+    public static var packageDirectory : String {
         model.packageDirectory
     }
     
     /// Snapshot of the system environment variables.
-    public var environment : [String : String] {
+    public static var environment : [String : String] {
         model.environment
     }
     
-    private init(_ model : ContextModel) {
-        self.model = model
+    private init() {
     }
-
-    /// Singleton accessor. There is only one Context instance.
-    public static let current = Context(ContextModel.decode())
 }
