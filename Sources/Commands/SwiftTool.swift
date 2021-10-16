@@ -869,7 +869,7 @@ public class SwiftTool {
                 xcbuildFlags: options.xcbuildFlags,
                 jobs: options.jobs ?? UInt32(ProcessInfo.processInfo.activeProcessorCount),
                 shouldLinkStaticSwiftStdlib: options.shouldLinkStaticSwiftStdlib,
-                shouldRenameEntrypointFunctionName: SwiftTargetBuildDescription.checkSupportedFrontendFlags(
+                canRenameEntrypointFunctionName: SwiftTargetBuildDescription.checkSupportedFrontendFlags(
                     flags: ["entry-point-function-name"], fileSystem: localFileSystem
                 ),
                 sanitizers: options.enabledSanitizers,

@@ -63,7 +63,7 @@ final class BuildPlanTests: XCTestCase {
         toolchain: SPMBuildCore.Toolchain = MockToolchain(),
         flags: BuildFlags = BuildFlags(),
         shouldLinkStaticSwiftStdlib: Bool = false,
-        shouldRenameEntrypointFunctionName: Bool = false,
+        canRenameEntrypointFunctionName: Bool = false,
         destinationTriple: TSCUtility.Triple = hostTriple,
         indexStoreMode: BuildParameters.IndexStoreMode = .off,
         useExplicitModuleBuild: Bool = false
@@ -77,7 +77,7 @@ final class BuildPlanTests: XCTestCase {
             flags: flags,
             jobs: 3,
             shouldLinkStaticSwiftStdlib: shouldLinkStaticSwiftStdlib,
-            shouldRenameEntrypointFunctionName: shouldRenameEntrypointFunctionName,
+            canRenameEntrypointFunctionName: canRenameEntrypointFunctionName,
             indexStoreMode: indexStoreMode,
             useExplicitModuleBuild: useExplicitModuleBuild
         )
@@ -1850,7 +1850,7 @@ final class BuildPlanTests: XCTestCase {
 
         func createResult(for triple: TSCUtility.Triple) throws -> BuildPlanResult {
             BuildPlanResult(plan: try BuildPlan(
-                buildParameters: mockBuildParameters(shouldRenameEntrypointFunctionName: true, destinationTriple: triple),
+                buildParameters: mockBuildParameters(canRenameEntrypointFunctionName: true, destinationTriple: triple),
                 graph: graph,
                 fileSystem: fs,
                 observabilityScope: observability.topScope
