@@ -301,9 +301,11 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
             var matchingCollections = Set<Model.CollectionIdentifier>()
 
             do {
-                let packageQuery = "SELECT collection_id_blob_base64, repository_url FROM \(Self.packagesFTSName) WHERE \(Self.packagesFTSName) MATCH ?;"
+                // rdar://84218640
+                //let packageQuery = "SELECT collection_id_blob_base64, repository_url FROM \(Self.packagesFTSName) WHERE \(Self.packagesFTSName) MATCH ?;"
+                let packageQuery = "SELECT collection_id_blob_base64, repository_url FROM \(Self.packagesFTSName) WHERE name LIKE ? OR summary LIKE ? OR keywords LIKE ? OR products LIKE ? OR targets LIKE ? OR repository_url LIKE ?;"
                 try self.executeStatement(packageQuery) { statement in
-                    try statement.bind([.string(query)])
+                    try statement.bind((1...6).map { _ in .string("%\(query)%") })
 
                     while let row = try statement.step() {
                         if let collectionData = Data(base64Encoded: row.string(at: 0)),
