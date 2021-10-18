@@ -159,7 +159,7 @@ class PackageDescription5_6LoadingTests: PackageDescriptionLoadingTests {
         let stream = BufferedOutputByteStream()
         stream <<< """
             import PackageDescription
-            let package = Package(name: Context.current.packageDirectory)
+            let package = Package(name: Context.packageDirectory)
             """
 
         loadManifest(stream.bytes) { manifest in
@@ -175,9 +175,8 @@ class PackageDescription5_6LoadingTests: PackageDescriptionLoadingTests {
             import PackageDescription
             import Foundation
             
-            let context = Context.current
             let fileManager = FileManager.default
-            let contents = (try? fileManager.contentsOfDirectory(atPath: context.packageDirectory)) ?? []
+            let contents = (try? fileManager.contentsOfDirectory(atPath: Context.packageDirectory)) ?? []
             let swiftFiles = contents.filter { $0.hasPrefix("TemporaryFile") && $0.hasSuffix(".swift") }
             
             let package = Package(name: swiftFiles[0])
