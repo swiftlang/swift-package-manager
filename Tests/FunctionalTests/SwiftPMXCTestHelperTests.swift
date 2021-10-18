@@ -23,7 +23,7 @@ class SwiftPMXCTestHelperTests: XCTestCase {
             // Build the package.
             XCTAssertBuilds(prefix)
             let triple = UserToolchain.default.triple
-            XCTAssertFileExists(prefix.appending(components: ".build", triple.tripleString, "debug", "SwiftPMXCTestHelper.swiftmodule"))
+            XCTAssertFileExists(prefix.appending(components: ".build", triple.platformBuildPathComponent(), "debug", "SwiftPMXCTestHelper.swiftmodule"))
             // Run swift-test on package.
             XCTAssertSwiftTest(prefix)
             // Expected output dictionary.
@@ -40,7 +40,7 @@ class SwiftPMXCTestHelperTests: XCTestCase {
               ] as Array<Dictionary<String, Any>>]] as Array<Dictionary<String, Any>>
             ] as Dictionary<String, Any> as NSDictionary
             // Run the XCTest helper tool and check result.
-            XCTAssertXCTestHelper(prefix.appending(components: ".build", UserToolchain.default.triple.tripleString, "debug", "SwiftPMXCTestHelperPackageTests.xctest"), testCases: testCases)
+            XCTAssertXCTestHelper(prefix.appending(components: ".build", UserToolchain.default.triple.platformBuildPathComponent(), "debug", "SwiftPMXCTestHelperPackageTests.xctest"), testCases: testCases)
         }
       #endif
     }

@@ -21,6 +21,7 @@ add_library(Basics
   JSONDecoder+Extensions.swift
   Observability.swift
   Sandbox.swift
+  Triple+Extensions.swift
   SwiftVersion.swift
   SQLiteBackedCache.swift
   Version+Extensions.swift)
