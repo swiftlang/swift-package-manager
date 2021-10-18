@@ -63,6 +63,7 @@ final class BuildPlanTests: XCTestCase {
         toolchain: SPMBuildCore.Toolchain = MockToolchain(),
         flags: BuildFlags = BuildFlags(),
         shouldLinkStaticSwiftStdlib: Bool = false,
+        canRenameEntrypointFunctionName: Bool = false,
         destinationTriple: TSCUtility.Triple = hostTriple,
         indexStoreMode: BuildParameters.IndexStoreMode = .off,
         useExplicitModuleBuild: Bool = false
@@ -76,6 +77,7 @@ final class BuildPlanTests: XCTestCase {
             flags: flags,
             jobs: 3,
             shouldLinkStaticSwiftStdlib: shouldLinkStaticSwiftStdlib,
+            canRenameEntrypointFunctionName: canRenameEntrypointFunctionName,
             indexStoreMode: indexStoreMode,
             useExplicitModuleBuild: useExplicitModuleBuild
         )
@@ -1824,6 +1826,51 @@ final class BuildPlanTests: XCTestCase {
 
         let testPathExtension = testBuildDescription.binary.extension
         XCTAssertEqual(testPathExtension, "wasm")
+    }
+
+    func testEntrypointRenaming() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Pkg/Sources/exe/main.swift"
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadPackageGraph(
+            fs: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    name: "Pkg",
+                    path: .init("/Pkg"),
+                    toolsVersion: .v5_5,
+                    targets: [
+                        TargetDescription(name: "exe", type: .executable),
+                    ]),
+            ],
+            observabilityScope: observability.topScope
+        )
+
+        func createResult(for triple: TSCUtility.Triple) throws -> BuildPlanResult {
+            BuildPlanResult(plan: try BuildPlan(
+                buildParameters: mockBuildParameters(canRenameEntrypointFunctionName: true, destinationTriple: triple),
+                graph: graph,
+                fileSystem: fs,
+                observabilityScope: observability.topScope
+            ))
+        }
+        let supportingTriples: [TSCUtility.Triple] = [.x86_64Linux, .macOS]
+        for triple in supportingTriples {
+            let result = try createResult(for: triple)
+            let exe = try result.target(for: "exe").swiftTarget().compileArguments()
+            XCTAssertMatch(exe, ["-Xfrontend", "-entry-point-function-name", "-Xfrontend", "exe_main"])
+            let linkExe = try result.buildProduct(for: "exe").linkArguments()
+            XCTAssertMatch(linkExe, [.contains("exe_main")])
+        }
+
+        let unsupportingTriples: [TSCUtility.Triple] = [.wasi, .windows]
+        for triple in unsupportingTriples {
+            let result = try createResult(for: triple)
+            let exe = try result.target(for: "exe").swiftTarget().compileArguments()
+            XCTAssertNoMatch(exe, ["-entry-point-function-name"])
+        }
     }
 
     func testIndexStore() throws {
