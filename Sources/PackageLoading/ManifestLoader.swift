@@ -819,6 +819,11 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 #else
             cmd += ["-fileno", "\(fileno(jsonOutputFileDesc))"]
 #endif
+
+            let packageDirectory = manifestPath.parentDirectory.pathString
+            let contextModel = ContextModel(packageDirectory: packageDirectory)
+            cmd += ["-context", contextModel.encoded]
+
             // If enabled, run command in a sandbox.
             // This provides some safety against arbitrary code execution when parsing manifest files.
             // We only allow the permissions which are absolutely necessary.

@@ -16,8 +16,16 @@ import TSCBasic
 import TSCUtility
 import XCTest
 
-class PackageDescriptionLoadingTests: XCTestCase {
-    let manifestLoader = ManifestLoader(toolchain: ToolchainConfiguration.default)
+class PackageDescriptionLoadingTests: XCTestCase, ManifestLoaderDelegate {
+    lazy var manifestLoader = ManifestLoader(toolchain: ToolchainConfiguration.default, delegate: self)
+    var parsedManifest : AbsolutePath?
+
+    public func willLoad(manifest: AbsolutePath) {
+    }
+    
+    public func willParse(manifest: AbsolutePath) {
+        parsedManifest = manifest
+    }
     
     var toolsVersion: ToolsVersion {
         fatalError("implement in subclass")

@@ -153,4 +153,39 @@ class PackageDescription5_6LoadingTests: PackageDescriptionLoadingTests {
         }
 
     }
+    
+    /// Tests use of Context.current.packageDirectory
+    func testPackageContextName() throws {
+        let stream = BufferedOutputByteStream()
+        stream <<< """
+            import PackageDescription
+            let package = Package(name: Context.packageDirectory)
+            """
+
+        loadManifest(stream.bytes) { manifest in
+            let name = parsedManifest?.parentDirectory.pathString ?? ""
+            XCTAssertEqual(manifest.name, name)
+        }
+    }
+
+    /// Tests access to the package's directory contents.
+    func testPackageContextDirectory() throws {
+        let stream = BufferedOutputByteStream()
+        stream <<< """
+            import PackageDescription
+            import Foundation
+            
+            let fileManager = FileManager.default
+            let contents = (try? fileManager.contentsOfDirectory(atPath: Context.packageDirectory)) ?? []
+            let swiftFiles = contents.filter { $0.hasPrefix("TemporaryFile") && $0.hasSuffix(".swift") }
+            
+            let package = Package(name: swiftFiles.joined(separator: ","))
+            """
+
+        loadManifest(stream.bytes) { manifest in
+            let name = parsedManifest?.components.last ?? ""
+            let swiftFiles = manifest.name.split(separator: ",").map(String.init)
+            XCTAssertNotNil(swiftFiles.firstIndex(of: name))
+        }
+    }
 }

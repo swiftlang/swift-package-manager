@@ -203,7 +203,7 @@ class TrieTests: XCTestCase {
 
             for i in 0 ..< docCount {
                 queue.async(group: sync) {
-                    usleep(UInt32.random(in: 100 ... 300))
+                    Thread.sleep(forTimeInterval: Double.random(in: 100 ... 300) * 1.0e-6)
 
                     trie.remove { $0 == i }
                     trie.insert(word: "word-\(i)", foundIn: i)

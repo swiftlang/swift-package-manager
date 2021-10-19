@@ -26,7 +26,7 @@ final class ConcurrencyHelpersTest: XCTestCase {
             let cache = ThreadSafeKeyValueStore<Int, Int>()
             for index in 0 ..< 1000 {
                 self.queue.async(group: sync) {
-                    usleep(UInt32.random(in: 100 ... 300))
+                    Thread.sleep(forTimeInterval: Double.random(in: 100 ... 300) * 1.0e-6)
                     let value = Int.random(in: Int.min ..< Int.max)
                     lock.withLock {
                         expected[index] = value
@@ -61,7 +61,7 @@ final class ConcurrencyHelpersTest: XCTestCase {
             let cache = ThreadSafeArrayStore<Int>()
             for _ in 0 ..< 1000 {
                 self.queue.async(group: sync) {
-                    usleep(UInt32.random(in: 100 ... 300))
+                    Thread.sleep(forTimeInterval: Double.random(in: 100 ... 300) * 1.0e-6)
                     let value = Int.random(in: Int.min ..< Int.max)
                     lock.withLock {
                         expected.append(value)
@@ -93,7 +93,7 @@ final class ConcurrencyHelpersTest: XCTestCase {
             let cache = ThreadSafeBox<Int>()
             for index in 0 ..< 1000 {
                 self.queue.async(group: sync) {
-                    usleep(UInt32.random(in: 100 ... 300))
+                    Thread.sleep(forTimeInterval: Double.random(in: 100 ... 300) * 1.0e-6)
                     serial.async(group: sync) {
                         lock.withLock {
                             if winner == nil {
