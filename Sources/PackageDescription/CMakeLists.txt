@@ -8,6 +8,8 @@
 
 add_library(PackageDescription
   BuildSettings.swift
+  Context.swift
+  ContextModel.swift
   LanguageStandardSettings.swift
   PackageDescription.swift
   PackageDescriptionSerialization.swift
