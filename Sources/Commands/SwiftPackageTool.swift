@@ -159,55 +159,49 @@ extension SwiftPackageTool {
     struct Describe: SwiftCommand {
         static let configuration = CommandConfiguration(
             abstract: "Describe the current package")
-
+        
         @OptionGroup(_hiddenFromHelp: true)
         var swiftOptions: SwiftToolOptions
-
+        
         @Option(help: "json | text")
         var type: DescribeMode = .text
-
+        
         func run(_ swiftTool: SwiftTool) throws {
             let workspace = try swiftTool.getActiveWorkspace()
-            let root = try swiftTool.getWorkspaceRoot()
-
-            let rootManifests = try temp_await {
-                workspace.loadRootManifests(packages: root.packages, diagnostics: swiftTool.observabilityScope.makeDiagnosticsEngine(), completion: $0)
+            
+            guard let packagePath = try swiftTool.getWorkspaceRoot().packages.first else {
+                throw StringError("unknown package")
             }
-            guard let rootManifest = rootManifests.values.first else {
-                throw StringError("invalid manifests at \(root.packages)")
+            
+            let package = try tsc_await {
+                workspace.loadRootPackage(
+                    at: packagePath,
+                    observabilityScope: swiftTool.observabilityScope,
+                    completion: $0
+                )
             }
-
-            let builder = PackageBuilder(
-                identity: .plain(rootManifest.name),
-                manifest: rootManifest,
-                productFilter: .everything,
-                path: try swiftTool.getPackageRoot(),
-                xcTestMinimumDeploymentTargets: MinimumDeploymentTarget.default.xcTestMinimumDeploymentTargets,
-                fileSystem: localFileSystem,
-                observabilityScope: swiftTool.observabilityScope
-            )
-            let package = try builder.construct()
-            self.describe(package, in: type, on: swiftTool.outputStream)
+            
+            try self.describe(package, in: type, on: swiftTool.outputStream)
         }
-
+        
         /// Emits a textual description of `package` to `stream`, in the format indicated by `mode`.
-        func describe(_ package: Package, in mode: DescribeMode, on stream: OutputByteStream) {
+        func describe(_ package: Package, in mode: DescribeMode, on stream: OutputByteStream) throws {
             let desc = DescribedPackage(from: package)
             let data: Data
             switch mode {
             case .json:
                 let encoder = JSONEncoder.makeWithDefaults()
                 encoder.keyEncodingStrategy = .convertToSnakeCase
-                data = try! encoder.encode(desc)
+                data = try encoder.encode(desc)
             case .text:
                 var encoder = PlainTextEncoder()
                 encoder.formattingOptions = [.prettyPrinted]
-                data = try! encoder.encode(desc)
+                data = try encoder.encode(desc)
             }
             stream <<< String(decoding: data, as: UTF8.self) <<< "\n"
             stream.flush()
         }
-
+        
         enum DescribeMode: String, ExpressibleByArgument {
             /// JSON format (guaranteed to be parsable and stable across time).
             case json
@@ -269,28 +263,18 @@ extension SwiftPackageTool {
 
             // Get the root package.
             let workspace = try swiftTool.getActiveWorkspace()
-            let root = try swiftTool.getWorkspaceRoot()
-            let rootManifests = try temp_await {
-                workspace.loadRootManifests(
-                    packages: root.packages,
-                    diagnostics: swiftTool.observabilityScope.makeDiagnosticsEngine(),
+
+            guard let packagePath = try swiftTool.getWorkspaceRoot().packages.first else {
+                throw StringError("unknown package")
+            }
+
+            let package = try tsc_await {
+                workspace.loadRootPackage(
+                    at: packagePath,
+                    observabilityScope: swiftTool.observabilityScope,
                     completion: $0
                 )
             }
-            guard let rootManifest = rootManifests.values.first else {
-                throw StringError("invalid manifests at \(root.packages)")
-            }
-
-            let builder = PackageBuilder(
-                identity: .plain(rootManifest.name),
-                manifest: rootManifest,
-                productFilter: .everything,
-                path: try swiftTool.getPackageRoot(),
-                xcTestMinimumDeploymentTargets: [:], // Minimum deployment target does not matter for this operation.
-                fileSystem: localFileSystem,
-                observabilityScope: swiftTool.observabilityScope
-            )
-            let package = try builder.construct()
 
             // Use the user provided flags or default to formatting mode.
             let formatOptions = swiftFormatFlags.isEmpty
@@ -304,7 +288,7 @@ extension SwiftPackageTool {
                 }
             }.map { $0.pathString }
 
-            let args = [swiftFormat.pathString] + formatOptions + [rootManifest.path.pathString] + paths
+            let args = [swiftFormat.pathString] + formatOptions + [packagePath.pathString] + paths
             print("Running:", args.map{ $0.spm_shellEscaped() }.joined(separator: " "))
 
             let result = try Process.popen(arguments: args)

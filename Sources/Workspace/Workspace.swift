@@ -1015,14 +1015,31 @@ extension Workspace {
         observabilityScope: ObservabilityScope,
         completion: @escaping(Result<Package, Error>) -> Void
     ) {
-        self.loadRootManifest(at: path, diagnostics: observabilityScope.makeDiagnosticsEngine()) { result in
+        self.loadRootManifest(at: path, observabilityScope: observabilityScope) { result in
             let result = result.tryMap { manifest -> Package in
                 let identity = try self.identityResolver.resolveIdentity(for: manifest.packageKind)
+
+                // radar/82263304
+                // compute binary artifacts for the sake of constructing a project model
+                // note this does not actually download remote artifacts and as such does not have the artifact's correct path
+                let binaryArtifacts = try manifest.targets.filter{ $0.type == .binary }.map { target -> BinaryArtifact in
+                    if let path = target.path {
+                        let absolutePath = try manifest.path.parentDirectory.appending(RelativePath(validating: path))
+                        return try BinaryArtifact(kind: .forFileExtension(absolutePath.extension ?? "unknown") , originURL: .none, path: absolutePath)
+                    } else if let url = target.url.flatMap(URL.init(string:)) {
+                        let fakePath = try manifest.path.parentDirectory.appending(components: "remote", "archive").appending(RelativePath(validating: url.lastPathComponent))
+                        return BinaryArtifact(kind: .xcframework , originURL: url.absoluteString, path: fakePath)
+                    } else {
+                        throw InternalError("a binary target should have either a path or a URL and a checksum")
+                    }
+                }
+
                 let builder = PackageBuilder(
                     identity: identity,
                     manifest: manifest,
                     productFilter: .everything,
                     path: path,
+                    binaryArtifacts: binaryArtifacts,
                     xcTestMinimumDeploymentTargets: MinimumDeploymentTarget.default.xcTestMinimumDeploymentTargets,
                     fileSystem: self.fileSystem,
                     observabilityScope: observabilityScope
