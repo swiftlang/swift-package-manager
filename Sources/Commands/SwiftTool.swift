@@ -30,7 +30,8 @@ import XCBuildSupport
 import WinSDK
 #endif
 
-typealias Diagnostic = TSCBasic.Diagnostic
+typealias Diagnostic = Basics.Diagnostic
+
 
 private class ToolWorkspaceDelegate: WorkspaceDelegate {
     /// The stream to use for reporting progress.
@@ -42,8 +43,8 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
     /// The progress animation for repository fetches.
     private let fetchAnimation: NinjaProgressAnimation
 
-    /// Wether the tool is in a verbose mode.
-    private let isVerbose: Bool
+    /// Logging level
+    private let logLevel: Diagnostic.Severity
 
     private struct DownloadProgress {
         let bytesDownloaded: Int64
@@ -64,13 +65,13 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
     private let queue = DispatchQueue(label: "org.swift.swiftpm.commands.tool-workspace-delegate")
     private let diagnostics: DiagnosticsEngine
 
-    init(_ outputStream: OutputByteStream, isVerbose: Bool, diagnostics: DiagnosticsEngine) {
+    init(_ outputStream: OutputByteStream, logLevel: Diagnostic.Severity, diagnostics: DiagnosticsEngine) {
         // FIXME: Implement a class convenience initializer that does this once they are supported
         // https://forums.swift.org/t/allow-self-x-in-class-convenience-initializers/15924
         self.outputStream = outputStream as? ThreadSafeOutputByteStream ?? ThreadSafeOutputByteStream(outputStream)
         self.downloadAnimation = NinjaProgressAnimation(stream: self.outputStream)
         self.fetchAnimation = NinjaProgressAnimation(stream: self.outputStream)
-        self.isVerbose = isVerbose
+        self.logLevel = logLevel
         self.diagnostics = diagnostics
     }
 
@@ -87,7 +88,7 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
         }
     }
 
-    func fetchingDidFinish(repository: String, fetchDetails: RepositoryManager.FetchDetails?, diagnostic: Diagnostic?, duration: DispatchTimeInterval) {
+    func fetchingDidFinish(repository: String, fetchDetails: RepositoryManager.FetchDetails?, diagnostic: TSCBasic.Diagnostic?, duration: DispatchTimeInterval) {
         queue.async {
             if self.diagnostics.hasErrors {
                 self.fetchAnimation.clear()
@@ -143,7 +144,7 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
         // noop
     }
 
-    func didCheckOut(repository: String, revision: String, at path: AbsolutePath, error: Diagnostic?) {
+    func didCheckOut(repository: String, revision: String, at path: AbsolutePath, error: TSCBasic.Diagnostic?) {
         guard case .none = error else {
             return // error will be printed before hand
         }
@@ -163,7 +164,9 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
     }
 
     func willResolveDependencies(reason: WorkspaceResolveReason) {
-        guard isVerbose else { return }
+        guard self.logLevel <= .info else {
+            return
+        }
 
         queue.sync {
             self.outputStream <<< Workspace.format(workspaceResolveReason: reason)
@@ -228,8 +231,8 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
     // noop
 
     func willLoadManifest(packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind) {}
-    func didLoadManifest(packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind, manifest: Manifest?, diagnostics: [Diagnostic]) {}
-    func didCreateWorkingCopy(repository url: String, at path: AbsolutePath, error: Diagnostic?) {}
+    func didLoadManifest(packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind, manifest: Manifest?, diagnostics: [TSCBasic.Diagnostic]) {}
+    func didCreateWorkingCopy(repository url: String, at path: AbsolutePath, error: TSCBasic.Diagnostic?) {}
     func resolvedFileChanged() {}
 }
 
@@ -313,12 +316,15 @@ public class SwiftTool {
 
     let observabilityScope: ObservabilityScope
 
+    let logLevel: Diagnostic.Severity
+
     /// Create an instance of this tool.
     ///
     /// - parameter args: The command line arguments to be passed to this tool.
     public init(options: SwiftToolOptions) throws {
-        // first, bootstrap the observability system
-        let observabilitySystem = ObservabilitySystem.init(SwiftToolObservability())
+        // first, bootstrap the observability syste
+        self.logLevel = options.logLevel
+        let observabilitySystem = ObservabilitySystem.init(SwiftToolObservability(logLevel: self.logLevel))
         self.observabilityScope = observabilitySystem.topScope
 
         // Capture the original working directory ASAP.
@@ -409,9 +415,17 @@ public class SwiftTool {
         customBuildPath ??
         (packageRoot ?? cwd).appending(component: ".build")
 
-        // Setup the globals.
-        verbosity = Verbosity(rawValue: options.verbosity)
-        Process.verbose = verbosity != .concise
+        // set verbosity globals.
+        // TODO: get rid of this global settings in TSC
+        switch self.logLevel {
+        case .debug:
+            TSCUtility.verbosity = .debug
+        case .info:
+            TSCUtility.verbosity = .verbose
+        case .warning, .error:
+            TSCUtility.verbosity = .concise
+        }
+        Process.verbose = TSCUtility.verbosity != .concise
     }
 
     static func postprocessArgParserResult(options: SwiftToolOptions, observabilityScope: ObservabilityScope) throws {
@@ -528,7 +542,7 @@ public class SwiftTool {
 
     func getAuthorizationProvider() throws -> AuthorizationProvider? {
         var providers = [AuthorizationProvider]()
-        
+
         // netrc file has higher specificity than keychain so use it first
         try providers.append(contentsOf: self.getNetrcAuthorizationProviders())
 
@@ -537,7 +551,7 @@ public class SwiftTool {
             providers.append(KeychainAuthorizationProvider(observabilityScope: self.observabilityScope))
         }
 #endif
-        
+
         return providers.isEmpty ? .none : CompositeAuthorizationProvider(providers, observabilityScope: self.observabilityScope)
     }
 
@@ -547,19 +561,19 @@ public class SwiftTool {
         }
 
         var providers = [NetrcAuthorizationProvider]()
-        
+
         // Use custom .netrc file if specified, otherwise look for it within workspace and user's home directory.
         if let configuredPath = options.netrcFilePath {
             guard localFileSystem.exists(configuredPath) else {
                 throw StringError("Did not find .netrc file at \(configuredPath).")
             }
-            
+
             providers.append(try NetrcAuthorizationProvider(path: configuredPath, fileSystem: localFileSystem))
         } else {
             // User didn't tell us to use these .netrc files so be more lenient with errors
             func loadNetrcNoThrows(at path: AbsolutePath) -> NetrcAuthorizationProvider? {
                 guard localFileSystem.exists(path) else { return nil }
-                
+
                 do {
                     return try NetrcAuthorizationProvider(path: path, fileSystem: localFileSystem)
                 } catch {
@@ -567,7 +581,7 @@ public class SwiftTool {
                     return nil
                 }
             }
-            
+
             // Workspace's .netrc file should be consulted before user-global file
             // TODO: replace multiroot-data-file with explicit overrides
             if let localPath = try? (options.multirootPackageDataFile ?? self.getPackageRoot()).appending(component: ".netrc"),
@@ -580,7 +594,7 @@ public class SwiftTool {
                 providers.append(userHomeProvider)
             }
         }
-        
+
         return providers
     }
 
@@ -624,8 +638,7 @@ public class SwiftTool {
             return workspace
         }
 
-        let isVerbose = options.verbosity != 0
-        let delegate = ToolWorkspaceDelegate(self.outputStream, isVerbose: isVerbose, diagnostics: self.observabilityScope.makeDiagnosticsEngine())
+        let delegate = ToolWorkspaceDelegate(self.outputStream, logLevel: self.logLevel, diagnostics: self.observabilityScope.makeDiagnosticsEngine())
         let provider = GitRepositoryProvider(processSet: self.processSet)
         let sharedCacheDirectory =  try self.getSharedCacheDirectory()
         let sharedConfigurationDirectory = try self.getSharedConfigurationDirectory()
@@ -804,6 +817,7 @@ public class SwiftTool {
             packageGraphLoader: graphLoader,
             pluginInvoker: { _ in [:] },
             outputStream: self.outputStream,
+            logLevel: self.logLevel,
             fileSystem: localFileSystem,
             observabilityScope: self.observabilityScope
         )
@@ -825,6 +839,7 @@ public class SwiftTool {
                 packageGraphLoader: graphLoader,
                 pluginInvoker: pluginInvoker,
                 outputStream: self.outputStream,
+                logLevel: self.logLevel,
                 fileSystem: localFileSystem,
                 observabilityScope: self.observabilityScope
             )
@@ -834,8 +849,8 @@ public class SwiftTool {
             buildSystem = try XcodeBuildSystem(
                 buildParameters: buildParameters ?? self.buildParameters(),
                 packageGraphLoader: graphLoader,
-                isVerbose: verbosity != .concise,
                 outputStream: self.outputStream,
+                logLevel: self.logLevel,
                 fileSystem: localFileSystem,
                 observabilityScope: self.observabilityScope
             )
@@ -1050,11 +1065,19 @@ extension DispatchTimeInterval {
 // MARK: - Diagnostics
 
 private struct SwiftToolObservability: ObservabilityHandlerProvider, DiagnosticsHandler {
+    private let logLevel: Diagnostic.Severity
+
     var diagnosticsHandler: DiagnosticsHandler { self }
+
+    init(logLevel: Diagnostic.Severity) {
+        self.logLevel = logLevel
+    }
 
     func handleDiagnostic(scope: ObservabilityScope, diagnostic: Basics.Diagnostic) {
         // TODO: do something useful with scope
-        diagnostic.print()
+        if diagnostic.severity >= self.logLevel {
+            diagnostic.print()
+        }
     }
 }
 
@@ -1128,6 +1151,18 @@ extension ObservabilityMetadata {
             return legacyLocation.description
         } else {
             return .none
+        }
+    }
+}
+
+extension SwiftToolOptions {
+    var logLevel: Diagnostic.Severity {
+        if self.verbose {
+            return .info
+        } else if self.veryVerbose {
+            return .debug
+        } else {
+            return .warning
         }
     }
 }

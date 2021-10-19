@@ -20,22 +20,22 @@ struct BuildFlagsGroup: ParsableArguments {
             parsing: .unconditionalSingleValue,
             help: "Pass flag through to all C compiler invocations")
     var cCompilerFlags: [String] = []
-    
+
     @Option(name: .customLong("Xswiftc", withSingleDash: true),
             parsing: .unconditionalSingleValue,
             help: "Pass flag through to all Swift compiler invocations")
     var swiftCompilerFlags: [String] = []
-    
+
     @Option(name: .customLong("Xlinker", withSingleDash: true),
             parsing: .unconditionalSingleValue,
             help: "Pass flag through to all linker invocations")
     var linkerFlags: [String] = []
-    
+
     @Option(name: .customLong("Xcxx", withSingleDash: true),
             parsing: .unconditionalSingleValue,
             help: "Pass flag through to all C++ compiler invocations")
     var cxxCompilerFlags: [String] = []
-    
+
     @Option(name: .customLong("Xxcbuild", withSingleDash: true),
             parsing: .unconditionalSingleValue,
             help: ArgumentHelp(
@@ -56,7 +56,7 @@ struct BuildFlagsGroup: ParsableArguments {
             xswiftc: swiftCompilerFlags,
             xlinker: linkerFlags)
     }
-    
+
     init() {}
 }
 
@@ -77,7 +77,7 @@ extension AbsolutePath: ExpressibleByArgument {
             self = path
         }
     }
-  
+
     public static var defaultCompletionKind: CompletionKind {
         // This type is most commonly used to select a directory, not a file.
         // Specify '.file()' in an argument declaration when necessary.
@@ -114,7 +114,7 @@ public extension Sanitizer {
 public struct SwiftToolOptions: ParsableArguments {
     @OptionGroup()
     var buildFlagsGroup: BuildFlagsGroup
-    
+
     /// Custom arguments to pass to C compiler, swift compiler and the linker.
     var buildFlags: BuildFlags {
         buildFlagsGroup.buildFlags
@@ -162,12 +162,13 @@ public struct SwiftToolOptions: ParsableArguments {
     @Flag(name: .customLong("prefetching"), inversion: .prefixedEnableDisable)
     var shouldEnableResolverPrefetching: Bool = true
 
-    // FIXME: We need to allow -vv type options for this.
     /// The verbosity of informational output.
-    @Flag(name: .shortAndLong, help: "Increase verbosity of informational output")
+    @Flag(name: .shortAndLong, help: "Increase verbosity to include informational output")
     var verbose: Bool = false
-    
-    var verbosity: Int { verbose ? 1 : 0 }
+
+    /// The verbosity of informational output.
+    @Flag(name: [.long, .customLong("vv")], help: "Increase verbosity to include debug output")
+    var veryVerbose: Bool = false
 
     /// Disables sandboxing when executing subprocesses.
     @Flag(name: .customLong("disable-sandbox"), help: "Disable using the sandbox when executing subprocesses")
@@ -198,11 +199,11 @@ public struct SwiftToolOptions: ParsableArguments {
     /// The compilation destination’s target triple.
     @Option(name: .customLong("triple"), transform: Triple.init)
     var customCompileTriple: Triple?
-    
+
     /// Path to the compilation destination’s SDK.
     @Option(name: .customLong("sdk"))
     var customCompileSDK: AbsolutePath?
-    
+
     /// Path to the compilation destination’s toolchain.
     @Option(name: .customLong("toolchain"))
     var customCompileToolchain: AbsolutePath?
@@ -232,13 +233,13 @@ public struct SwiftToolOptions: ParsableArguments {
     var enabledSanitizers: EnabledSanitizers {
         EnabledSanitizers(Set(sanitizers))
     }
-    
+
     /// Whether to enable code coverage.
     @Flag(name: .customLong("code-coverage"),
           inversion: .prefixedEnableDisable,
           help: "Enable code coverage")
     var shouldEnableCodeCoverage: Bool = false
-    
+
     /// Use Package.resolved file for resolving dependencies.
     @Flag(name: [.long, .customLong("disable-automatic-resolution"), .customLong("only-use-versions-from-resolved-file")], help: "Only use versions from the Package.resolved file and fail resolution if it is out-of-date")
     var forceResolvedVersions: Bool = false
@@ -250,7 +251,7 @@ public struct SwiftToolOptions: ParsableArguments {
         case autoIndexStore
         case enableIndexStore
         case disableIndexStore
-        
+
         /// The mode to use for indexing-while-building feature.
         var indexStoreMode: BuildParameters.IndexStoreMode {
             switch self {
@@ -263,7 +264,7 @@ public struct SwiftToolOptions: ParsableArguments {
             }
         }
     }
-    
+
     @Flag(help: "Enable or disable indexing-while-building feature")
     var indexStoreMode: StoreMode = .autoIndexStore
 
@@ -326,14 +327,14 @@ public struct SwiftToolOptions: ParsableArguments {
           exclusivity: .exclusive,
           help: "Load credentials from a .netrc file")
     var netrc: Bool = true
-    
+
     /// The path to the .netrc file used when `netrc` is `true`.
     @Option(
         name: .customLong("netrc-file"),
         help: "Specify the .netrc file path.",
         completion: .file())
     var netrcFilePath: AbsolutePath?
-    
+
     /// Whether to use keychain for authenticating with remote servers
     /// when downloading binary artifacts or communicating with a registry.
 #if canImport(Security)
@@ -353,6 +354,6 @@ public struct SwiftToolOptions: ParsableArguments {
 
     @Flag(name: .customLong("netrc-optional"), help: .hidden)
     var _deprecated_netrcOptional: Bool = false
-    
+
     public init() {}
 }

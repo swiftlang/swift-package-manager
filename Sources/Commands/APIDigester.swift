@@ -58,7 +58,8 @@ struct APIDigesterBaselineDumper {
         for modulesToDiff: Set<String>,
         at baselineDir: AbsolutePath?,
         force: Bool,
-        outputStream: OutputByteStream
+        outputStream: OutputByteStream,
+        logLevel: Diagnostic.Severity
     ) throws -> AbsolutePath {
         var modulesToDiff = modulesToDiff
         let apiDiffDir = inputBuildParameters.apiDiff
@@ -126,6 +127,7 @@ struct APIDigesterBaselineDumper {
             packageGraphLoader: { graph },
             pluginInvoker: { _ in [:] },
             outputStream: outputStream,
+            logLevel: logLevel,
             fileSystem: localFileSystem,
             observabilityScope: observabilityScope
         )

@@ -52,6 +52,9 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     /// The output stream for the build delegate.
     private let outputStream: OutputByteStream
 
+    /// The verbosity level to print out at
+    private let logLevel: Basics.Diagnostic.Severity
+
     /// File system to operate on
     private let fileSystem: TSCBasic.FileSystem
 
@@ -68,6 +71,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         packageGraphLoader: @escaping () throws -> PackageGraph,
         pluginInvoker: @escaping (PackageGraph) throws -> [ResolvedTarget: [PluginInvocationResult]],
         outputStream: OutputByteStream,
+        logLevel: Basics.Diagnostic.Severity,
         fileSystem: TSCBasic.FileSystem,
         observabilityScope: ObservabilityScope
     ) {
@@ -76,6 +80,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         self.packageGraphLoader = packageGraphLoader
         self.pluginInvoker = pluginInvoker
         self.outputStream = outputStream
+        self.logLevel = logLevel
         self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope.makeChildScope(description: "Build Operation")
     }
@@ -127,7 +132,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     public func build(subset: BuildSubset) throws {
         // Create the build system.
         let buildDescription = try self.getBuildDescription()
-        let buildSystem = try createBuildSystem(with: buildDescription)
+        let buildSystem = try self.createBuildSystem(buildDescription: buildDescription)
         self.buildSystem = buildSystem
 
         // Perform the build.
@@ -224,7 +229,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 
     /// Build the package structure target.
     private func buildPackageStructure() throws {
-        let buildSystem = try self.createBuildSystem(with: nil)
+        let buildSystem = try self.createBuildSystem(buildDescription: .none)
         self.buildSystem = buildSystem
 
         // Build the package structure target which will re-generate the llbuild manifest, if necessary.
@@ -237,12 +242,9 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     ///
     /// The build description should only be omitted when creating the build system for
     /// building the package structure target.
-    private func createBuildSystem(
-        with buildDescription: BuildDescription?
-    ) throws -> SPMLLBuild.BuildSystem {
+    private func createBuildSystem(buildDescription: BuildDescription?) throws -> SPMLLBuild.BuildSystem {
         // Figure out which progress bar we have to use during the build.
-        let isVerbose = verbosity != .concise
-        let progressAnimation: ProgressAnimationProtocol = isVerbose
+        let progressAnimation: ProgressAnimationProtocol = self.logLevel.isVerbose
             ? MultiLineNinjaProgressAnimation(stream: self.outputStream)
             : NinjaProgressAnimation(stream: self.outputStream)
 
@@ -260,11 +262,11 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             buildExecutionContext: buildExecutionContext,
             outputStream: self.outputStream,
             progressAnimation: progressAnimation,
+            logLevel: self.logLevel,
             observabilityScope: self.observabilityScope,
             delegate: self.delegate
         )
         self.buildSystemDelegate = buildSystemDelegate
-        buildSystemDelegate.isVerbose = isVerbose
 
         let databasePath = buildParameters.dataPath.appending(component: "build.db").pathString
         let buildSystem = SPMLLBuild.BuildSystem(
@@ -273,7 +275,9 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             delegate: buildSystemDelegate,
             schedulerLanes: buildParameters.jobs
         )
-        buildSystemDelegate.onCommmandFailure = {
+
+        // TODO: this seems fragile, perhaps we replace commandFailureHandler by adding relevant calls in the delegates chain 
+        buildSystemDelegate.commandFailureHandler = {
             buildSystem.cancel()
             self.delegate?.buildSystemDidCancel(self)
         }
@@ -416,5 +420,11 @@ extension BuildSubset {
             }
             return target.getLLBuildTargetName(config: config)
         }
+    }
+}
+
+extension Basics.Diagnostic.Severity {
+    var isVerbose: Bool {
+        return self <= .info
     }
 }
