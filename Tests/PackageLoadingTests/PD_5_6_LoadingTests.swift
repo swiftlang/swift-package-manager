@@ -179,12 +179,13 @@ class PackageDescription5_6LoadingTests: PackageDescriptionLoadingTests {
             let contents = (try? fileManager.contentsOfDirectory(atPath: Context.packageDirectory)) ?? []
             let swiftFiles = contents.filter { $0.hasPrefix("TemporaryFile") && $0.hasSuffix(".swift") }
             
-            let package = Package(name: swiftFiles[0])
+            let package = Package(name: swiftFiles.joined(separator: ","))
             """
 
         loadManifest(stream.bytes) { manifest in
             let name = parsedManifest?.components.last ?? ""
-            XCTAssertEqual(manifest.name, name)
+            let swiftFiles = manifest.name.split(separator: ",").map(String.init)
+            XCTAssertNotNil(swiftFiles.firstIndex(of: name))
         }
     }
 }
