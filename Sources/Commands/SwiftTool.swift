@@ -261,7 +261,7 @@ public class SwiftTool {
     let originalWorkingDirectory: AbsolutePath
 
     /// The options of this tool.
-    var options: SwiftToolOptions
+    let options: SwiftToolOptions
 
     /// Path to the root package directory, nil if manifest is not found.
     let packageRoot: AbsolutePath?
@@ -296,9 +296,6 @@ public class SwiftTool {
 
     /// The current build system reference. The actual reference is present only during an active build.
     let buildSystemRef: BuildSystemRef
-
-    /// The interrupt handler.
-    let interruptHandler: InterruptHandler
 
     /// The execution status of the tool.
     var executionStatus: ExecutionStatus = .success
@@ -347,7 +344,14 @@ public class SwiftTool {
 
             let processSet = ProcessSet()
             let buildSystemRef = BuildSystemRef()
-            interruptHandler = try InterruptHandler {
+
+            // trap SIGINT to terminate sub-processes, etc
+            signal(SIGINT, SIG_IGN)
+            let interruptSignalSource = DispatchSource.makeSignalSource(signal: SIGINT)
+            interruptSignalSource.setEventHandler {
+                // cancel the trap?
+                interruptSignalSource.cancel()
+
                 // Terminate all processes on receiving an interrupt signal.
                 processSet.terminate()
                 buildSystemRef.buildSystem?.cancel()
@@ -376,6 +380,8 @@ public class SwiftTool {
                 kill(getpid(), SIGINT)
 #endif
             }
+            interruptSignalSource.resume()
+
             self.processSet = processSet
             self.buildSystemRef = buildSystemRef
 
@@ -610,7 +616,7 @@ public class SwiftTool {
 
         let isVerbose = options.verbosity != 0
         let delegate = ToolWorkspaceDelegate(self.outputStream, isVerbose: isVerbose, diagnostics: self.observabilityScope.makeDiagnosticsEngine())
-        let provider = GitRepositoryProvider(processSet: processSet)
+        let provider = GitRepositoryProvider(processSet: self.processSet)
         let sharedCacheDirectory =  try self.getSharedCacheDirectory()
         let sharedConfigurationDirectory = try self.getSharedConfigurationDirectory()
         let isXcodeBuildSystemEnabled = self.options.buildSystem == .xcode

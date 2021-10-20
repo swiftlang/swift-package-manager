@@ -126,7 +126,7 @@ public struct GitRepositoryProvider: RepositoryProvider {
     }
 
     public func open(repository: RepositorySpecifier, at path: AbsolutePath) -> Repository {
-        return GitRepository(path: path, isWorkingRepo: false)
+        return GitRepository(git: self.git, path: path, isWorkingRepo: false)
     }
 
     public func createWorkingCopy(
@@ -147,7 +147,7 @@ public struct GitRepositoryProvider: RepositoryProvider {
             // The default name of the remote.
             let origin = "origin"
             // In destination repo remove the remote which will be pointing to the source repo.
-            let clone = GitRepository(path: destinationPath)
+            let clone = GitRepository(git: self.git, path: destinationPath)
             // Set the original remote to the new clone.
             try clone.setURL(remote: origin, url: repository.location.gitURL)
             // FIXME: This is unfortunate that we have to fetch to update remote's data.
@@ -173,12 +173,12 @@ public struct GitRepositoryProvider: RepositoryProvider {
     public func workingCopyExists(at path: AbsolutePath) throws -> Bool {
         precondition(localFileSystem.exists(path))
 
-        let repo = GitRepository(path: path)
+        let repo = GitRepository(git: self.git, path: path)
         return try repo.checkoutExists()
     }
 
     public func openWorkingCopy(at path: AbsolutePath) throws -> WorkingCheckout {
-        return GitRepository(path: path)
+        return GitRepository(git: self.git, path: path)
     }
 }
 
@@ -305,8 +305,13 @@ public final class GitRepository: Repository, WorkingCheckout {
     private var cachedTrees = ThreadSafeKeyValueStore<String, Tree>()
     private var cachedTags = ThreadSafeBox<[String]>()
 
-    public init(path: AbsolutePath, isWorkingRepo: Bool = true) {
-        self.git = GitShellHelper()
+    public convenience init(path: AbsolutePath, isWorkingRepo: Bool = true) {
+        let git = GitShellHelper()
+        self.init(git: git, path: path, isWorkingRepo: isWorkingRepo)
+    }
+
+    fileprivate init(git: GitShellHelper, path: AbsolutePath, isWorkingRepo: Bool = true) {
+        self.git = git
         self.path = path
         self.isWorkingRepo = isWorkingRepo
         assert({
