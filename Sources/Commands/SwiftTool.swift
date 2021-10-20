@@ -337,11 +337,6 @@ public class SwiftTool {
                 try ProcessEnv.chdir(packagePath)
             }
 
-            // Force building with the native build system on other platforms than macOS.
-#if !os(macOS)
-            self.options._buildSystem = .native
-#endif
-
             let processSet = ProcessSet()
             let buildSystemRef = BuildSystemRef()
 
