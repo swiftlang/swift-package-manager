@@ -484,7 +484,7 @@ def build_with_cmake(args, cmake_args, source_path, build_dir):
             args.cmake_path, "-G", "Ninja",
             "-DCMAKE_MAKE_PROGRAM=%s" % args.ninja_path,
             "-DCMAKE_BUILD_TYPE:=Debug",
-            "-DCMAKE_Swift_FLAGS=" + swift_flags,
+            "-DCMAKE_Swift_FLAGS='%s'" % swift_flags,
             "-DCMAKE_Swift_COMPILER:=%s" % (args.swiftc_path),
         ] + cmake_args + [source_path]
 
