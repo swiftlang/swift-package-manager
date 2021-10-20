@@ -63,7 +63,6 @@ public struct TargetSourcesBuilder {
         path: AbsolutePath,
         defaultLocalization: String?,
         additionalFileRules: [FileRuleDescription] = [],
-        additionalOpaqueDirectoriesExtensions: [String] = [],
         toolsVersion: ToolsVersion = .currentToolsVersion,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
@@ -80,8 +79,11 @@ public struct TargetSourcesBuilder {
         self.toolsVersion = toolsVersion
         let excludedPaths = target.exclude.map{ path.appending(RelativePath($0)) }
         self.excludedPaths = Set(excludedPaths)
-        self.opaqueDirectoriesExtensions = FileRuleDescription.opaqueDirectoriesExtensions.union(additionalOpaqueDirectoriesExtensions)
-
+        self.opaqueDirectoriesExtensions = FileRuleDescription.opaqueDirectoriesExtensions.union(
+            additionalFileRules.reduce(into: Set<String>(), { partial, item in
+                partial.formUnion(item.fileTypes)
+            })
+        )
         self.fileSystem = fileSystem
 
         self.observabilityScope = observabilityScope.makeChildScope(description: "TargetSourcesBuilder") {
