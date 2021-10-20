@@ -433,9 +433,19 @@ public struct TargetSourcesBuilder {
             //
             // Starting tools version with resources, treat directories of known extension as resources
             // ie, do not include their content, and instead treat the directory itself as the content
-            if toolsVersion >= .v5_3 {
+            if toolsVersion >= .v5_6 {
                 if let directoryExtension = path.extension,
                    self.opaqueDirectoriesExtensions.contains(directoryExtension),
+                   directoryExtension != Resource.localizationDirectoryExtension,
+                   !isDeclaredSource(path)
+                {
+                    contents.append(path)
+                    continue
+                }
+            } else if toolsVersion >= .v5_3 {
+                // maintain the broken behavior prior to fixing it in 5.6
+                // see rdar://82933763
+                if let directoryExtension = path.extension,
                    directoryExtension != Resource.localizationDirectoryExtension,
                    !isDeclaredSource(path)
                 {

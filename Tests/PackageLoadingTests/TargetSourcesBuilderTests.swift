@@ -72,7 +72,7 @@ class TargetSourcesBuilderTests: XCTestCase {
         XCTAssertNoDiagnostics(observability.diagnostics)
     }
 
-    func testDirectoryWithExt() throws {
+    func testDirectoryWithExt_5_3() throws {
         let target = try TargetDescription(
             name: "Foo",
             path: nil,
@@ -105,6 +105,46 @@ class TargetSourcesBuilderTests: XCTestCase {
         let contents = builder.computeContents().map{ $0.pathString }.sorted()
 
         XCTAssertEqual(contents, [
+            "/some.thing",
+            "/some/hello.swift",
+        ])
+
+        XCTAssertNoDiagnostics(observability.diagnostics)
+    }
+
+    func testDirectoryWithExt_5_6() throws {
+        let target = try TargetDescription(
+            name: "Foo",
+            path: nil,
+            exclude: [],
+            sources: nil,
+            publicHeadersPath: nil,
+            type: .regular
+        )
+
+        let fs = InMemoryFileSystem()
+        fs.createEmptyFiles(at: .root, files: [
+            "/some/hello.swift",
+            "/some.thing/hello.txt",
+        ])
+
+        let observability = ObservabilitySystem.makeForTesting()
+
+        let builder = TargetSourcesBuilder(
+            packageIdentity: .plain("test"),
+            packageLocation: "test",
+            packagePath: .root,
+            target: target,
+            path: .root,
+            defaultLocalization: nil,
+            toolsVersion: .v5_6,
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
+
+        let contents = builder.computeContents().map{ $0.pathString }.sorted()
+
+        XCTAssertEqual(contents, [
             "/some.thing/hello.txt",
             "/some/hello.swift",
         ])
@@ -112,7 +152,7 @@ class TargetSourcesBuilderTests: XCTestCase {
         XCTAssertNoDiagnostics(observability.diagnostics)
     }
 
-    func testSpecialDirectoryWithExt() throws {
+    func testSpecialDirectoryWithExt_5_6() throws {
         let target = try TargetDescription(
             name: "Foo",
             path: nil,
@@ -137,7 +177,7 @@ class TargetSourcesBuilderTests: XCTestCase {
             target: target,
             path: .root,
             defaultLocalization: nil,
-            toolsVersion: .v5_3,
+            toolsVersion: .v5_6,
             fileSystem: fs,
             observabilityScope: observability.topScope
         )
