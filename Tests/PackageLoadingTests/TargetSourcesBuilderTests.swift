@@ -72,11 +72,11 @@ class TargetSourcesBuilderTests: XCTestCase {
         XCTAssertNoDiagnostics(observability.diagnostics)
     }
 
-    func testDirectoryWithExt() throws {
+    func testDirectoryWithExt_5_3() throws {
         let target = try TargetDescription(
             name: "Foo",
             path: nil,
-            exclude: ["some2"],
+            exclude: [],
             sources: nil,
             publicHeadersPath: nil,
             type: .regular
@@ -84,8 +84,8 @@ class TargetSourcesBuilderTests: XCTestCase {
 
         let fs = InMemoryFileSystem()
         fs.createEmptyFiles(at: .root, files: [
-            "/some2/hello.swift",
-            "/Hello.something/hello.txt",
+            "/some/hello.swift",
+            "/some.thing/hello.txt",
         ])
 
         let observability = ObservabilitySystem.makeForTesting()
@@ -105,7 +105,88 @@ class TargetSourcesBuilderTests: XCTestCase {
         let contents = builder.computeContents().map{ $0.pathString }.sorted()
 
         XCTAssertEqual(contents, [
-            "/Hello.something",
+            "/some.thing",
+            "/some/hello.swift",
+        ])
+
+        XCTAssertNoDiagnostics(observability.diagnostics)
+    }
+
+    func testDirectoryWithExt_5_6() throws {
+        let target = try TargetDescription(
+            name: "Foo",
+            path: nil,
+            exclude: [],
+            sources: nil,
+            publicHeadersPath: nil,
+            type: .regular
+        )
+
+        let fs = InMemoryFileSystem()
+        fs.createEmptyFiles(at: .root, files: [
+            "/some/hello.swift",
+            "/some.thing/hello.txt",
+        ])
+
+        let observability = ObservabilitySystem.makeForTesting()
+
+        let builder = TargetSourcesBuilder(
+            packageIdentity: .plain("test"),
+            packageLocation: "test",
+            packagePath: .root,
+            target: target,
+            path: .root,
+            defaultLocalization: nil,
+            toolsVersion: .v5_6,
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
+
+        let contents = builder.computeContents().map{ $0.pathString }.sorted()
+
+        XCTAssertEqual(contents, [
+            "/some.thing/hello.txt",
+            "/some/hello.swift",
+        ])
+
+        XCTAssertNoDiagnostics(observability.diagnostics)
+    }
+
+    func testSpecialDirectoryWithExt_5_6() throws {
+        let target = try TargetDescription(
+            name: "Foo",
+            path: nil,
+            exclude: [],
+            sources: nil,
+            publicHeadersPath: nil,
+            type: .regular
+        )
+
+        let fs = InMemoryFileSystem()
+        fs.createEmptyFiles(at: .root, files: [
+            "/some.xcassets/hello.txt",
+            "/some/hello.swift",
+        ])
+
+        let observability = ObservabilitySystem.makeForTesting()
+
+        let builder = TargetSourcesBuilder(
+            packageIdentity: .plain("test"),
+            packageLocation: "test",
+            packagePath: .root,
+            target: target,
+            path: .root,
+            defaultLocalization: nil,
+            toolsVersion: .v5_6,
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
+
+        let contents = builder.computeContents().map{ $0.pathString }.sorted()
+
+        XCTAssertEqual(contents, [
+            "/some.xcassets",
+            "/some/hello.swift"
         ])
 
         XCTAssertNoDiagnostics(observability.diagnostics)

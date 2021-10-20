@@ -45,8 +45,11 @@ public struct TargetSourcesBuilder {
     /// The set of paths that should be excluded from any consideration.
     public let excludedPaths: Set<AbsolutePath>
 
+    /// The set of opaque directories extensions (should not be treated as source)
+    private let opaqueDirectoriesExtensions: Set<String>
+
     /// The file system to operate on.
-    public let fileSystem: FileSystem
+    private let fileSystem: FileSystem
 
     /// ObservabilityScope with which to emit diagnostics
     private let observabilityScope: ObservabilityScope
@@ -76,7 +79,11 @@ public struct TargetSourcesBuilder {
         self.toolsVersion = toolsVersion
         let excludedPaths = target.exclude.map{ path.appending(RelativePath($0)) }
         self.excludedPaths = Set(excludedPaths)
-
+        self.opaqueDirectoriesExtensions = FileRuleDescription.opaqueDirectoriesExtensions.union(
+            additionalFileRules.reduce(into: Set<String>(), { partial, item in
+                partial.formUnion(item.fileTypes)
+            })
+        )
         self.fileSystem = fileSystem
 
         self.observabilityScope = observabilityScope.makeChildScope(description: "TargetSourcesBuilder") {
@@ -147,11 +154,11 @@ public struct TargetSourcesBuilder {
 
     /// Run the builder to produce the sources of the target.
     public func run() throws -> (sources: Sources, resources: [Resource], headers: [AbsolutePath], others: [AbsolutePath]) {
-        let contents = computeContents()
+        let contents = self.computeContents()
         var pathToRule: [AbsolutePath: Rule] = [:]
 
         for path in contents {
-            pathToRule[path] = findRule(for: path)
+            pathToRule[path] = self.computeRule(for: path)
         }
 
         // Emit an error if we found files without a matching rule in
@@ -195,8 +202,8 @@ public struct TargetSourcesBuilder {
         let localization: TargetDescription.Resource.Localization?
     }
 
-    /// Find the rule for the given path.
-    private func findRule(for path: AbsolutePath) -> Rule {
+    /// Compute the rule for the given path.
+    private func computeRule(for path: AbsolutePath) -> Rule {
         var matchedRule: Rule = Rule(rule: .none, localization: nil)
 
         // First match any resources explicitly declared in the manifest file.
@@ -424,17 +431,27 @@ public struct TargetSourcesBuilder {
 
             // At this point, path can only be a directory.
             //
-            // Starting tools version with resources, pick directories as
-            // sources that have an extension but are not explicitly
-            // declared as sources in the manifest.
-            if
-                toolsVersion >= .v5_3 &&
-                path.extension != nil &&
-                path.extension != Resource.localizationDirectoryExtension &&
-                !isDeclaredSource(path)
-            {
-                contents.append(path)
-                continue
+            // Starting tools version with resources, treat directories of known extension as resources
+            // ie, do not include their content, and instead treat the directory itself as the content
+            if toolsVersion >= .v5_6 {
+                if let directoryExtension = path.extension,
+                   self.opaqueDirectoriesExtensions.contains(directoryExtension),
+                   directoryExtension != Resource.localizationDirectoryExtension,
+                   !isDeclaredSource(path)
+                {
+                    contents.append(path)
+                    continue
+                }
+            } else if toolsVersion >= .v5_3 {
+                // maintain the broken behavior prior to fixing it in 5.6
+                // see rdar://82933763
+                if let directoryExtension = path.extension,
+                   directoryExtension != Resource.localizationDirectoryExtension,
+                   !isDeclaredSource(path)
+                {
+                    contents.append(path)
+                    continue
+                }
             }
 
             // Check if the directory is marked to be copied.
@@ -642,6 +659,14 @@ public struct FileRuleDescription {
     public static let swiftpmFileTypes: [FileRuleDescription] = [
         docc,
     ]
+
+    /// List of file directory extensions that should be treated as opaque, non source, directories.
+    public static var opaqueDirectoriesExtensions: Set<String> {
+        let types = Self.xcbuildFileTypes + Self.swiftpmFileTypes
+        return types.reduce(into: Set<String>(), { partial, item in
+            partial.formUnion(item.fileTypes)
+        })
+    }
 }
 
 extension TargetDescription.Resource.Rule {
