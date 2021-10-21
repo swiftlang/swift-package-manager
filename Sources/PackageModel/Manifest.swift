@@ -15,7 +15,7 @@ import Foundation
 
 /// This contains the declarative specification loaded from package manifest
 /// files, and the tools for working with the manifest.
-public final class Manifest: ObjectIdentifierProtocol {
+public final class Manifest {
 
     /// The standard filename for the manifest.
     public static let filename = basename + ".swift"
@@ -95,7 +95,7 @@ public final class Manifest: ObjectIdentifierProtocol {
 
     /// The system package providers of a system package.
     public let providers: [SystemPackageProviderDescription]?
-    
+
     /// Targets required for building particular product filters.
     private var _requiredTargets = ThreadSafeKeyValueStore<ProductFilter, [TargetDescription]>()
 
@@ -181,9 +181,9 @@ public final class Manifest: ObjectIdentifierProtocol {
         guard toolsVersion >= .v5_2 && !packageKind.isRoot else {
             return self.dependencies
         }
-        
+
         var requiredDependencyURLs: Set<PackageIdentity> = []
-        
+
         for target in self.targetsRequired(for: products) {
             for targetDependency in target.dependencies {
                 if let dependency = self.packageDependency(referencedBy: targetDependency) {
@@ -191,7 +191,7 @@ public final class Manifest: ObjectIdentifierProtocol {
                 }
             }
         }
-        
+
         return self.dependencies.filter { requiredDependencyURLs.contains($0.identity) }
         #endif
     }
@@ -225,10 +225,10 @@ public final class Manifest: ObjectIdentifierProtocol {
 
                 return dependencies + plugins
             }
-            
+
             return []
 
-            
+
         })
 
         let requiredTargetNames = Set(productTargetNames).union(dependentTargetNames)
@@ -381,6 +381,16 @@ public final class Manifest: ObjectIdentifierProtocol {
         } else {
             return false
         }
+    }
+}
+
+extension Manifest: Hashable {
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(ObjectIdentifier(self))
+    }
+
+    public static func == (lhs: Manifest, rhs: Manifest) -> Bool {
+        ObjectIdentifier(lhs) == ObjectIdentifier(rhs)
     }
 }
 

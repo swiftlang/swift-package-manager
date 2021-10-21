@@ -12,8 +12,7 @@ import TSCBasic
 import PackageModel
 
 /// A fully resolved package. Contains resolved targets, products and dependencies of the package.
-public final class ResolvedPackage: ObjectIdentifierProtocol {
-
+public final class ResolvedPackage {
     /// The underlying package reference.
     public let underlyingPackage: Package
 
@@ -64,6 +63,16 @@ public final class ResolvedPackage: ObjectIdentifierProtocol {
         self.dependencies = dependencies
         self.targets = targets
         self.products = products
+    }
+}
+
+extension ResolvedPackage: Hashable {
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(ObjectIdentifier(self))
+    }
+
+    public static func == (lhs: ResolvedPackage, rhs: ResolvedPackage) -> Bool {
+        ObjectIdentifier(lhs) == ObjectIdentifier(rhs)
     }
 }
 

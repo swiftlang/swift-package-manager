@@ -12,8 +12,7 @@ import TSCBasic
 import PackageModel
 
 /// Represents a fully resolved target. All the dependencies for the target are resolved.
-public final class ResolvedTarget: ObjectIdentifierProtocol {
-
+public final class ResolvedTarget {
     /// Represents dependency of a resolved target.
     public enum Dependency {
         /// Direct dependency of the target. This target is in the same package and should be statically linked.
@@ -125,6 +124,16 @@ public final class ResolvedTarget: ObjectIdentifierProtocol {
     public init(target: Target, dependencies: [Dependency]) {
         self.underlyingTarget = target
         self.dependencies = dependencies
+    }
+}
+
+extension ResolvedTarget: Hashable {
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(ObjectIdentifier(self))
+    }
+
+    public static func == (lhs: ResolvedTarget, rhs: ResolvedTarget) -> Bool {
+        ObjectIdentifier(lhs) == ObjectIdentifier(rhs)
     }
 }
 

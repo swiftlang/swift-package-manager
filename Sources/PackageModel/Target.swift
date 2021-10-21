@@ -11,7 +11,7 @@
 import TSCBasic
 import TSCUtility
 
-public class Target: ObjectIdentifierProtocol, PolymorphicCodableProtocol {
+public class Target: PolymorphicCodableProtocol {
     public static var implementations: [PolymorphicCodableProtocol.Type] = [
         SwiftTarget.self,
         ClangTarget.self,
@@ -49,7 +49,6 @@ public class Target: ObjectIdentifierProtocol, PolymorphicCodableProtocol {
 
     /// A target dependency to a target or product.
     public enum Dependency {
-
         /// A dependency referencing another target, with conditions.
         case target(_ target: Target, conditions: [PackageConditionProtocol])
 
@@ -130,7 +129,7 @@ public class Target: ObjectIdentifierProtocol, PolymorphicCodableProtocol {
 
     /// The resource files in the target.
     public let resources: [Resource]
-    
+
     /// Other kinds of files in the target.
     public let others: [AbsolutePath]
 
@@ -144,7 +143,7 @@ public class Target: ObjectIdentifierProtocol, PolymorphicCodableProtocol {
 
     /// The build settings assignments of this target.
     public let buildSettings: BuildSettings.AssignmentTable
-    
+
     /// The usages of package plugins by this target.
     public let pluginUsages: [PluginUsage]
 
@@ -215,6 +214,16 @@ public class Target: ObjectIdentifierProtocol, PolymorphicCodableProtocol {
         // FIXME: pluginUsages property is skipped on purpose as it points to
         // the actual target dependency object.
         self.pluginUsages = []
+    }
+}
+
+extension Target: Hashable {
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(ObjectIdentifier(self))
+    }
+
+    public static func == (lhs: Target, rhs: Target) -> Bool {
+        ObjectIdentifier(lhs) == ObjectIdentifier(rhs)
     }
 }
 
@@ -394,7 +403,7 @@ public final class ClangTarget: Target {
 
     /// The path to include directory.
     public let includeDir: AbsolutePath
-    
+
     /// The target's module map type, which determines whether this target vends a custom module map, a generated module map, or no module map at all.
     public let moduleMapType: ModuleMapType
 
@@ -603,7 +612,7 @@ public final class BinaryTarget: Target {
 public final class PluginTarget: Target {
 
     public let capability: PluginCapability
-    
+
     public init(
         name: String,
         platforms: [SupportedPlatform] = [],

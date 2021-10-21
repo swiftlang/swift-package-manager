@@ -362,7 +362,7 @@ public enum PIF {
             )
 
             self.children = children
-            
+
             super.init(guid: guid, path: path, sourceTree: sourceTree, name: name)
         }
 
@@ -432,7 +432,7 @@ public enum PIF {
         }
     }
 
-    public class BaseTarget: TypedObject, ObjectIdentifierProtocol {
+    public class BaseTarget: TypedObject {
         class override var type: String { "target" }
         public let guid: GUID
         public var name: String
@@ -1095,7 +1095,7 @@ public enum PIF {
     }
 }
 
-/// Repesents a filetype recognized by the Xcode build system. 
+/// Repesents a filetype recognized by the Xcode build system.
 public struct XCBuildFileType: CaseIterable {
     public static let xcdatamodeld: XCBuildFileType = XCBuildFileType(
         fileType: "xcdatamodeld",
