@@ -1112,6 +1112,7 @@ enum CXXLanguageStandard {
     case cxx17 = "c++17"
     case cxx1z = "c++1z"
     case cxx20 = "c++20"
+    case cxx2b = "c++2b"
     case gnucxx98 = "gnu++98"
     case gnucxx03 = "gnu++03"
     case gnucxx11 = "gnu++11"
@@ -1119,5 +1120,6 @@ enum CXXLanguageStandard {
     case gnucxx17 = "gnu++17"
     case gnucxx1z = "gnu++1z"
     case gnucxx20 = "gnu++20"
+    case gnucxx2b = "gnu++2b"
 }
 ```
