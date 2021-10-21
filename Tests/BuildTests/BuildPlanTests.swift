@@ -1907,11 +1907,11 @@ final class BuildPlanTests: XCTestCase {
             let lib = try result.target(for: "lib").clangTarget()
             let path = StringPattern.equal(result.plan.buildParameters.indexStore.pathString)
 
-        #if os(macOS)
+            #if os(macOS)
             XCTAssertMatch(try lib.basicArguments(), [.anySequence, "-index-store-path", path, .anySequence])
-        #else
-            XCTAssertNoMatch(lib.basicArguments(), [.anySequence, "-index-store-path", path, .anySequence])
-        #endif
+            #else
+            XCTAssertNoMatch(try lib.basicArguments(), [.anySequence, "-index-store-path", path, .anySequence])
+            #endif
 
             let exe = try result.target(for: "exe").swiftTarget().compileArguments()
             XCTAssertMatch(exe, [.anySequence, "-index-store-path", path, .anySequence])
