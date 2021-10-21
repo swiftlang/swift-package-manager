@@ -686,12 +686,22 @@ final class TestRunner {
                 return (true, makeOutput())
             #if !os(Windows)
             case .signalled(let signal):
-                outputRedirection.outputClosures?.stdoutClosure(Array("\nExited with signal code \(signal)".utf8))
+                if writeToOutputStream {
+                    testObservabilityScope.emit(error: "Exited with signal code \(signal)")
+                } else {
+                    stderr += "\nExited with signal code \(signal)".utf8
+                }
             #endif
             default: break
             }
+        } catch ProcessSetError.cancelled {
+            // do nothing
         } catch {
-            testObservabilityScope.emit(error)
+            if writeToOutputStream {
+                testObservabilityScope.emit(error)
+            } else {
+                stderr += "\n\(error)".utf8
+            }
         }
         return (false, makeOutput())
     }
