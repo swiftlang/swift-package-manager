@@ -417,7 +417,9 @@ extension RepositoryManager {
 
         /// Open the given repository.
         public func open() throws -> Repository {
-            precondition(status == .available, "open() called in invalid state")
+            guard status == .available else {
+                throw InternalError("open() called in invalid state \(status)")
+            }
             return try self.manager.open(self)
         }
 
@@ -429,7 +431,9 @@ extension RepositoryManager {
         ///
         ///   - editable: The clone is expected to be edited by user.
         public func createWorkingCopy(at path: AbsolutePath, editable: Bool) throws -> WorkingCheckout {
-            precondition(status == .available, "createWorkingCopy() called in invalid state")
+            guard status == .available else {
+                throw InternalError("createWorkingCopy() called in invalid state \(status)")
+            }
             return try self.manager.createWorkingCopy(self, at: path, editable: editable)
         }
 

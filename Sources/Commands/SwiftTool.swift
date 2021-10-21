@@ -158,15 +158,6 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
         }
     }
 
-    func warning(message: String) {
-        // FIXME: We should emit warnings through the diagnostic engine.
-        queue.async {
-            self.outputStream <<< "warning: " <<< message
-            self.outputStream <<< "\n"
-            self.outputStream.flush()
-        }
-    }
-
     func willResolveDependencies(reason: WorkspaceResolveReason) {
         guard isVerbose else { return }
 
@@ -1059,7 +1050,7 @@ extension Basics.Diagnostic {
         case .info:
             writer.write("info: ", inColor: .white, bold: true)
         case .debug:
-            writer.write("info: ", inColor: .white, bold: true)
+            writer.write("debug: ", inColor: .white, bold: true)
         }
 
         writer.write(self.message)
@@ -1074,10 +1065,10 @@ extension Basics.Diagnostic {
 private final class InteractiveWriter {
 
     /// The standard error writer.
-    static let stderr = InteractiveWriter(stream: stderrStream)
+    static let stderr = InteractiveWriter(stream: TSCBasic.stderrStream)
 
     /// The standard output writer.
-    static let stdout = InteractiveWriter(stream: stdoutStream)
+    static let stdout = InteractiveWriter(stream: TSCBasic.stdoutStream)
 
     /// The terminal controller, if present.
     let term: TerminalController?

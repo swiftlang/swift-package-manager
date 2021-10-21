@@ -9,7 +9,7 @@
 */
 
 import Basics
-import Commands
+@testable import Commands
 import Foundation
 import PackageGraph
 import PackageLoading
@@ -438,7 +438,7 @@ final class PackageToolTests: XCTestCase {
         XCTAssertNoDiagnostics(observability.diagnostics)
 
         let output = BufferedOutputByteStream()
-        dumpDependenciesOf(rootPackage: graph.rootPackages[0], mode: .dot, on: output)
+        SwiftPackageTool.ShowDependencies.dumpDependenciesOf(rootPackage: graph.rootPackages[0], mode: .dot, on: output)
         let dotFormat = output.bytes.description
 
         var alreadyPutOut: Set<Substring> = []

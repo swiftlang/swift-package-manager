@@ -822,7 +822,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
             let packageDirectory = manifestPath.parentDirectory.pathString
             let contextModel = ContextModel(packageDirectory: packageDirectory)
-            cmd += ["-context", contextModel.encoded]
+            cmd += ["-context", try contextModel.encode()]
 
             // If enabled, run command in a sandbox.
             // This provides some safety against arbitrary code execution when parsing manifest files.

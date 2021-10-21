@@ -27,10 +27,10 @@ typealias LLBuildBuildSystemDelegate = llbuild.BuildSystemDelegate
 typealias Diagnostic = TSCBasic.Diagnostic
 
 class CustomLLBuildCommand: SPMLLBuild.ExternalCommand {
-    let ctx: BuildExecutionContext
+    let context: BuildExecutionContext
 
-    required init(_ ctx: BuildExecutionContext) {
-        self.ctx = ctx
+    required init(_ context: BuildExecutionContext) {
+        self.context = context
     }
 
     func getSignature(_ command: SPMLLBuild.Command) -> [UInt8] {
@@ -92,8 +92,8 @@ final class TestDiscoveryCommand: CustomLLBuildCommand {
     }
 
     private func execute(with tool: LLBuildManifest.TestDiscoveryTool) throws {
-        let index = ctx.buildParameters.indexStore
-        let api = try ctx.indexStoreAPI.get()
+        let index = self.context.buildParameters.indexStore
+        let api = try self.context.indexStoreAPI.get()
         let store = try IndexStore.open(store: index, api: api)
 
         // FIXME: We can speed this up by having one llbuild command per object file.
@@ -157,34 +157,34 @@ final class TestDiscoveryCommand: CustomLLBuildCommand {
         _ command: SPMLLBuild.Command,
         _ buildSystemCommandInterface: SPMLLBuild.BuildSystemCommandInterface
     ) -> Bool {
-        // This tool will never run without the build description.
-        let buildDescription = ctx.buildDescription!
-        guard let tool = buildDescription.testDiscoveryCommands[command.name] else {
-            print("command \(command.name) not registered")
-            return false
-        }
         do {
+            // This tool will never run without the build description.
+            guard let buildDescription = self.context.buildDescription else {
+                throw InternalError("unknown build description")
+            }
+            guard let tool = buildDescription.testDiscoveryCommands[command.name] else {
+                throw StringError("command \(command.name) not registered")
+            }
             try execute(with: tool)
+            return true
         } catch {
-            // FIXME: Shouldn't use "print" here.
-            print("error:", error)
+            self.context.observabilityScope.emit(error)
             return false
         }
-        return true
     }
 }
 
 private final class InProcessTool: Tool {
-    let ctx: BuildExecutionContext
+    let context: BuildExecutionContext
     let type: CustomLLBuildCommand.Type
 
-    init(_ ctx: BuildExecutionContext, type: CustomLLBuildCommand.Type) {
-        self.ctx = ctx
+    init(_ context: BuildExecutionContext, type: CustomLLBuildCommand.Type) {
+        self.context = context
         self.type = type
     }
 
     func createCommand(_ name: String) -> ExternalCommand {
-        return type.init(ctx)
+        return type.init(self.context)
     }
 }
 
@@ -270,16 +270,21 @@ public final class BuildExecutionContext {
     /// Optional provider of build error resolution advice.
     let buildErrorAdviceProvider: BuildErrorAdviceProvider?
 
+    let observabilityScope: ObservabilityScope
+
     public init(
         _ buildParameters: BuildParameters,
         buildDescription: BuildDescription? = nil,
+        observabilityScope: ObservabilityScope,
         packageStructureDelegate: PackageStructureDelegate,
         buildErrorAdviceProvider: BuildErrorAdviceProvider? = nil
     ) {
         self.buildParameters = buildParameters
         self.buildDescription = buildDescription
+        self.observabilityScope = observabilityScope
         self.packageStructureDelegate = packageStructureDelegate
         self.buildErrorAdviceProvider = buildErrorAdviceProvider
+
     }
 
     // MARK:- Private
@@ -321,7 +326,7 @@ final class PackageStructureCommand: CustomLLBuildCommand {
         let encoder = JSONEncoder.makeWithDefaults()
         // Include build parameters and process env in the signature.
         var hash = Data()
-        hash += try! encoder.encode(self.ctx.buildParameters)
+        hash += try! encoder.encode(self.context.buildParameters)
         hash += try! encoder.encode(ProcessEnv.vars)
         return [UInt8](hash)
     }
@@ -330,7 +335,7 @@ final class PackageStructureCommand: CustomLLBuildCommand {
         _ command: SPMLLBuild.Command,
         _ commandInterface: SPMLLBuild.BuildSystemCommandInterface
     ) -> Bool {
-        return self.ctx.packageStructureDelegate.packageStructureChanged()
+        return self.context.packageStructureDelegate.packageStructureChanged()
     }
 }
 
@@ -339,22 +344,22 @@ final class CopyCommand: CustomLLBuildCommand {
         _ command: SPMLLBuild.Command,
         _ commandInterface: SPMLLBuild.BuildSystemCommandInterface
     ) -> Bool {
-        // This tool will never run without the build description.
-        let buildDescription = ctx.buildDescription!
-        guard let tool = buildDescription.copyCommands[command.name] else {
-            print("command \(command.name) not registered")
-            return false
-        }
-
         do {
+            // This tool will never run without the build description.
+            guard let buildDescription = self.context.buildDescription else {
+                throw InternalError("unknown build description")
+            }
+            guard let tool = buildDescription.copyCommands[command.name] else {
+                throw StringError("command \(command.name) not registered")
+            }
+
             let input = AbsolutePath(tool.inputs[0].name)
             let output = AbsolutePath(tool.outputs[0].name)
             try localFileSystem.createDirectory(output.parentDirectory, recursive: true)
             try localFileSystem.removeFileTree(output)
             try localFileSystem.copy(from: input, to: output)
         } catch {
-            // FIXME: Shouldn't use "print" here.
-            print("error:", error)
+            self.context.observabilityScope.emit(error)
             return false
         }
         return true
@@ -382,7 +387,7 @@ final class BuildOperationBuildSystemDelegateHandler: LLBuildBuildSystemDelegate
 
     init(
         buildSystem: SPMBuildCore.BuildSystem,
-        bctx: BuildExecutionContext,
+        buildExecutionContext: BuildExecutionContext,
         outputStream: OutputByteStream,
         progressAnimation: ProgressAnimationProtocol,
         observabilityScope: ObservabilityScope,
@@ -392,12 +397,12 @@ final class BuildOperationBuildSystemDelegateHandler: LLBuildBuildSystemDelegate
         // https://forums.swift.org/t/allow-self-x-in-class-convenience-initializers/15924
         self.outputStream = outputStream as? ThreadSafeOutputByteStream ?? ThreadSafeOutputByteStream(outputStream)
         self.progressAnimation = progressAnimation
-        self.buildExecutionContext = bctx
+        self.buildExecutionContext = buildExecutionContext
         self.delegate = delegate
         self.buildSystem = buildSystem
         self.observabilityScope = observabilityScope
 
-        let swiftParsers = bctx.buildDescription?.swiftCommands.mapValues { tool in
+        let swiftParsers = buildExecutionContext.buildDescription?.swiftCommands.mapValues { tool in
             SwiftCompilerOutputParser(targetName: tool.moduleName, delegate: self)
         } ?? [:]
         self.swiftParsers = swiftParsers

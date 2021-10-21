@@ -39,22 +39,28 @@ extension ContextModel : Codable {
         try container.encode(packageDirectory, forKey: .packageDirectory)
     }
 
-    public var encoded : String {
+    public func encode() throws -> String {
         let encoder = JSONEncoder()
-        let data = try! encoder.encode(self)
+        let data = try encoder.encode(self)
         return String(data: data, encoding: .utf8)!
     }
 
-    public static func decode() -> ContextModel {
+    public static func decode() throws -> ContextModel {
         // TODO: Look at ProcessInfo.processInfo
         var args = Array(ProcessInfo.processInfo.arguments[1...]).makeIterator()
         while let arg = args.next() {
             if arg == "-context", let json = args.next() {
                 let decoder = JSONDecoder()
-                let data = json.data(using: .utf8)!
-                return (try! decoder.decode(ContextModel.self, from: data))
+                guard let data = json.data(using: .utf8) else {
+                    throw StringError(description: "Failed decoding context json as UTF8")
+                }
+                return try decoder.decode(ContextModel.self, from: data)
             }
         }
-        fatalError("Could not decode ContextModel parameter.")
+        throw StringError(description: "Could not decode ContextModel parameter.")
+    }
+
+    struct StringError: Error, CustomStringConvertible {
+        var description: String
     }
 }

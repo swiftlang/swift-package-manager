@@ -98,7 +98,9 @@ public struct GitRepositoryProvider: RepositoryProvider {
         // NOTE: We intentionally do not create a shallow clone here; the
         // expected cost of iterative updates on a full clone is less than on a
         // shallow clone.
-        precondition(!localFileSystem.exists(path))
+        guard !localFileSystem.exists(path) else {
+            throw InternalError("\(path) already exists")
+        }
 
         // FIXME: Ideally we should pass `--progress` here and report status regularly.  We currently don't have callbacks for that.
         //
@@ -171,7 +173,9 @@ public struct GitRepositoryProvider: RepositoryProvider {
     }
 
     public func workingCopyExists(at path: AbsolutePath) throws -> Bool {
-        precondition(localFileSystem.exists(path))
+        guard localFileSystem.exists(path) else {
+            throw InternalError("\(path) does not exist")
+        }
 
         let repo = GitRepository(path: path)
         return try repo.checkoutExists()
@@ -508,7 +512,9 @@ public final class GitRepository: Repository, WorkingCheckout {
     }
 
     public func checkout(newBranch: String) throws {
-        precondition(self.isWorkingRepo, "This operation is only valid in a working repository")
+        guard self.isWorkingRepo else {
+            throw InternalError("This operation is only valid in a working repository")
+        }
         // use barrier for write operations
         try self.lock.withLock {
             try callGit("checkout", "-b", newBranch,
@@ -518,7 +524,9 @@ public final class GitRepository: Repository, WorkingCheckout {
     }
 
     public func archive(to path: AbsolutePath) throws {
-        precondition(self.isWorkingRepo, "This operation is only valid in a working repository")
+        guard self.isWorkingRepo else {
+            throw InternalError("This operation is only valid in a working repository")
+        }
 
         try self.lock.withLock {
             try callGit("archive",

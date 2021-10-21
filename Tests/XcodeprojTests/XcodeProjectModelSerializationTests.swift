@@ -15,12 +15,12 @@ import XCTest
 
 class XcodeProjectModelSerializationTests: XCTestCase {
     
-    func testBasicProjectSerialization() {
+    func testBasicProjectSerialization() throws {
         // Create a project.
         let proj = Xcode.Project()
         
         // Serialize it to a property list.
-        let plist = proj.generatePlist()
+        let plist = try proj.generatePlist()
         
         // Assert various things about the property list.
         guard case let .dictionary(topLevelDict) = plist else {
@@ -75,7 +75,7 @@ class XcodeProjectModelSerializationTests: XCTestCase {
         XCTAssertEqual(projectClassName, "PBXProject")
     }
     
-    func testBuildSettingsSerialization() {
+    func testBuildSettingsSerialization() throws {
         
         // Create build settings.
         var buildSettings = Xcode.BuildSettingsTable.BuildSettings()
@@ -90,7 +90,7 @@ class XcodeProjectModelSerializationTests: XCTestCase {
         buildSettings.SWIFT_ACTIVE_COMPILATION_CONDITIONS = activeCompilationConditionsValues
 
         // Serialize it to a property list.
-        let plist = buildSettings.asPropertyList()
+        let plist = try buildSettings.asPropertyList()
         
         // Assert things about plist
         guard case let .dictionary(buildSettingsDict) = plist else {
@@ -142,11 +142,11 @@ class XcodeProjectModelSerializationTests: XCTestCase {
         XCTAssertEqual(activeCompilationConditions, activeCompilationConditionsValues)
     }
 
-    func testSpaceSeparatedBuildSettingsSerialization() {
+    func testSpaceSeparatedBuildSettingsSerialization() throws {
         var buildSettings = Xcode.BuildSettingsTable.BuildSettings()
         buildSettings.HEADER_SEARCH_PATHS = ["value", "value with spaces", "\"value with spaces\"", #"value\ with\ spaces"#]
 
-        let plist = buildSettings.asPropertyList()
+        let plist = try buildSettings.asPropertyList()
 
         guard case let .dictionary(buildSettingsDict) = plist else {
             XCTFail("build settings plist must be a dictionary")
@@ -169,7 +169,7 @@ class XcodeProjectModelSerializationTests: XCTestCase {
         XCTAssertEqual(headerSearchPaths, ["value", "\"value with spaces\"", "\"value with spaces\"", #"value\ with\ spaces"#])
     }
 
-    func testBuildFileSettingsSerialization() {
+    func testBuildFileSettingsSerialization() throws {
 
         // Create build file settings.
         var buildFileSettings = Xcode.BuildFile.Settings()
@@ -178,7 +178,7 @@ class XcodeProjectModelSerializationTests: XCTestCase {
         buildFileSettings.ATTRIBUTES = attributeValues
 
         // Serialize it to a property list.
-        let plist = buildFileSettings.asPropertyList()
+        let plist = try buildFileSettings.asPropertyList()
 
         // Assert things about plist
         guard case let .dictionary(buildFileSettingsDict) = plist else {

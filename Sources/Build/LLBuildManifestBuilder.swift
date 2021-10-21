@@ -206,11 +206,11 @@ extension LLBuildManifestBuilder {
         } else if buildParameters.emitSwiftModuleSeparately {
             try self.addSwiftCmdsEmitSwiftModuleSeparately(target, inputs: inputs, objectNodes: objectNodes, moduleNode: moduleNode)
         } else {
-            self.addCmdWithBuiltinSwiftTool(target, inputs: inputs, cmdOutputs: cmdOutputs)
+            try self.addCmdWithBuiltinSwiftTool(target, inputs: inputs, cmdOutputs: cmdOutputs)
         }
 
         self.addTargetCmd(target, cmdOutputs: cmdOutputs)
-        self.addModuleWrapCmd(target)
+        try self.addModuleWrapCmd(target)
     }
 
     private func addSwiftCmdsViaIntegratedDriver(
@@ -395,7 +395,7 @@ extension LLBuildManifestBuilder {
                                       explicitDependencyJobTracker: explicitDependencyJobTracker)
 
         self.addTargetCmd(description, cmdOutputs: cmdOutputs)
-        self.addModuleWrapCmd(description)
+        try self.addModuleWrapCmd(description)
     }
 
     private func addExplicitBuildSwiftCmds(
@@ -483,7 +483,7 @@ extension LLBuildManifestBuilder {
             description: "Emitting module for \(target.target.name)",
             inputs: inputs,
             outputs: [moduleNode],
-            arguments: target.emitModuleCommandLine()
+            arguments: try target.emitModuleCommandLine()
         )
 
         let cmdName = target.target.getCommandName(config: buildConfig)
@@ -500,7 +500,7 @@ extension LLBuildManifestBuilder {
         _ target: SwiftTargetBuildDescription,
         inputs: [Node],
         cmdOutputs: [Node]
-    ) {
+    ) throws {
         let isLibrary = target.target.type == .library || target.target.type == .test
         let cmdName = target.target.getCommandName(config: buildConfig)
 
@@ -514,7 +514,7 @@ extension LLBuildManifestBuilder {
             importPath: buildParameters.buildPath,
             tempsPath: target.tempsPath,
             objects: target.objects,
-            otherArguments: target.compileArguments(),
+            otherArguments: try target.compileArguments(),
             sources: target.sources,
             isLibrary: isLibrary,
             wholeModuleOptimization: buildParameters.configuration == .release
@@ -642,7 +642,7 @@ extension LLBuildManifestBuilder {
         }
     }
 
-    private func addModuleWrapCmd(_ target: SwiftTargetBuildDescription) {
+    private func addModuleWrapCmd(_ target: SwiftTargetBuildDescription) throws {
         // Add commands to perform the module wrapping Swift modules when debugging statergy is `modulewrap`.
         guard buildParameters.debuggingStrategy == .modulewrap else { return }
         var moduleWrapArgs = [
@@ -650,7 +650,7 @@ extension LLBuildManifestBuilder {
             "-modulewrap", target.moduleOutputPath.pathString,
             "-o", target.wrappedModuleOutputPath.pathString
         ]
-        moduleWrapArgs += buildParameters.targetTripleArgs(for: target.target)
+        moduleWrapArgs += try buildParameters.targetTripleArgs(for: target.target)
         manifest.addShellCmd(
             name: target.wrappedModuleOutputPath.pathString,
             description: "Wrapping AST for \(target.target.name) for debugging",
@@ -752,7 +752,7 @@ extension LLBuildManifestBuilder {
         var objectFileNodes: [Node] = []
 
         for path in target.compilePaths() {
-            var args = target.basicArguments()
+            var args = try target.basicArguments()
             args += ["-MD", "-MT", "dependencies", "-MF", path.deps.pathString]
 
             // Add language standard flag if needed.

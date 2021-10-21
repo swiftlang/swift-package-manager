@@ -99,12 +99,12 @@ extension BuildParameters {
     }
 
     /// Computes the target triple arguments for a given resolved target.
-    public func targetTripleArgs(for target: ResolvedTarget) -> [String] {
+    public func targetTripleArgs(for target: ResolvedTarget) throws -> [String] {
         var args = ["-target"]
         // Compute the triple string for Darwin platform using the platform version.
         if triple.isDarwin() {
             guard let macOSSupportedPlatform = target.underlyingTarget.getSupportedPlatform(for: .macOS) else {
-                fatalError("the target \(target) doesn't support building for macOS")
+                throw StringError("the target \(target) doesn't support building for macOS")
             }
             args += [triple.tripleString(forPlatformVersion: macOSSupportedPlatform.version.versionString)]
         } else {
@@ -314,13 +314,13 @@ public final class ClangTargetBuildDescription {
     }
 
     /// Builds up basic compilation arguments for this target.
-    public func basicArguments() -> [String] {
+    public func basicArguments() throws -> [String] {
         var args = [String]()
         // Only enable ARC on macOS.
         if buildParameters.triple.isDarwin() {
             args += ["-fobjc-arc"]
         }
-        args += buildParameters.targetTripleArgs(for: target)
+        args += try buildParameters.targetTripleArgs(for: target)
         args += ["-g"]
         if buildParameters.triple.isWindows() {
             args += ["-gcodeview"]
@@ -705,9 +705,9 @@ public final class SwiftTargetBuildDescription {
     }
     
     /// The arguments needed to compile this target.
-    public func compileArguments() -> [String] {
+    public func compileArguments() throws -> [String] {
         var args = [String]()
-        args += buildParameters.targetTripleArgs(for: target)
+        args += try buildParameters.targetTripleArgs(for: target)
         args += ["-swift-version", swiftVersion.rawValue]
 
         // Enable batch mode in debug mode.
@@ -825,12 +825,12 @@ public final class SwiftTargetBuildDescription {
         result.append("-I")
         result.append(buildParameters.buildPath.pathString)
 
-        result += self.compileArguments()
+        result += try self.compileArguments()
         return result
      }
 
     /// Command-line for emitting just the Swift module.
-    public func emitModuleCommandLine() -> [String] {
+    public func emitModuleCommandLine() throws -> [String] {
         assert(buildParameters.emitSwiftModuleSeparately)
 
         var result: [String] = []
@@ -857,7 +857,7 @@ public final class SwiftTargetBuildDescription {
         result.append(buildParameters.buildPath.pathString)
 
         // FIXME: Maybe refactor these into "common args".
-        result += buildParameters.targetTripleArgs(for: target)
+        result += try buildParameters.targetTripleArgs(for: target)
         result += ["-swift-version", swiftVersion.rawValue]
         result += optimizationArguments
         result += testingArguments
@@ -900,7 +900,7 @@ public final class SwiftTargetBuildDescription {
         result.append("-I")
         result.append(buildParameters.buildPath.pathString)
 
-        result += buildParameters.targetTripleArgs(for: target)
+        result += try buildParameters.targetTripleArgs(for: target)
         result += ["-swift-version", swiftVersion.rawValue]
 
         result += buildParameters.indexStoreArguments(for: target)
@@ -1280,7 +1280,7 @@ public final class ProductBuildDescription {
         // setting is the package-level right now. We might need to figure out a better
         // answer for libraries if/when we support specifying deployment target at the
         // target-level.
-        args += buildParameters.targetTripleArgs(for: product.targets[0])
+        args += try buildParameters.targetTripleArgs(for: product.targets[0])
 
         // Add arguments from declared build settings.
         args += self.buildSettingsFlags()
@@ -1416,7 +1416,7 @@ public class BuildPlan {
         _ observabilityScope: ObservabilityScope
     ) throws -> [(product: ResolvedProduct, targetBuildDescription: SwiftTargetBuildDescription)] {
         guard case .manifest(let generate) = buildParameters.testDiscoveryStrategy else {
-            preconditionFailure("makeTestManifestTargets should not be used for build plan with useTestManifest set to false")
+            throw InternalError("makeTestManifestTargets should not be used for build plan with useTestManifest set to false")
         }
 
         var generateRedundant = generate
@@ -1525,8 +1525,10 @@ public class BuildPlan {
                 case .target: break
                 case .product(let product, _):
                     if buildParameters.triple.isDarwin() {
-                        BuildPlan.validateDeploymentVersionOfProductDependency(
-                            product, forTarget: target, observabilityScope: self.observabilityScope
+                        try BuildPlan.validateDeploymentVersionOfProductDependency(
+                            product,
+                            forTarget: target,
+                            observabilityScope: self.observabilityScope
                         )
                     }
                 }
@@ -1555,7 +1557,7 @@ public class BuildPlan {
             case is SystemLibraryTarget, is BinaryTarget, is PluginTarget:
                  break
             default:
-                 fatalError("unhandled \(target.underlyingTarget)")
+                 throw InternalError("unhandled \(target.underlyingTarget)")
             }
         }
 
@@ -1605,16 +1607,16 @@ public class BuildPlan {
         _ product: ResolvedProduct,
         forTarget target: ResolvedTarget,
         observabilityScope: ObservabilityScope
-    ) {
+    ) throws {
         // Get the first target as supported platforms are on the top-level.
         // This will need to become a bit complicated once we have target-level platform support.
         let productTarget = product.underlyingProduct.targets[0]
 
         guard let productPlatform = productTarget.getSupportedPlatform(for: .macOS) else {
-            fatalError("Expected supported platform macOS in product target \(productTarget)")
+            throw StringError("Expected supported platform macOS in product target \(productTarget)")
         }
         guard let targetPlatform = target.underlyingTarget.getSupportedPlatform(for: .macOS) else {
-            fatalError("Expected supported platform macOS in target \(target)")
+            throw StringError("Expected supported platform macOS in target \(target)")
         }
 
         // Check if the version requirement is satisfied.
@@ -1883,7 +1885,7 @@ public class BuildPlan {
             switch dependency.underlyingTarget {
             case let underlyingTarget as ClangTarget where underlyingTarget.type == .library:
                 guard case let .clang(target)? = targetMap[dependency] else {
-                    fatalError("unexpected clang target \(underlyingTarget)")
+                    throw InternalError("unexpected clang target \(underlyingTarget)")
                 }
                 // Add the path to modulemap of the dependency. Currently we require that all Clang targets have a
                 // modulemap but we may want to remove that requirement since it is valid for a target to exist without

@@ -46,7 +46,7 @@ public struct SymbolGraphExtract {
         for target in targets {
             var args = [String]()
             args += ["-module-name", target.c99name]
-            args += buildParameters.targetTripleArgs(for: target)
+            args += try buildParameters.targetTripleArgs(for: target)
 
             args += buildPlan.createAPIToolCommonArgs(includeLibrarySearchPaths: true)
             args += ["-module-cache-path", buildParameters.moduleCache.pathString]
