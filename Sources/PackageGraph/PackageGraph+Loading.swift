@@ -230,7 +230,7 @@ private func createResolvedPackages(
             metadata: package.diagnosticsMetadata
         )
 
-        var dependencies = [ResolvedPackageBuilder]()
+        var dependencies = [PackageIdentity: ResolvedPackageBuilder]()
         var dependenciesByNameForTargetDependencyResolution = [String: ResolvedPackageBuilder]()
 
         // Establish the manifest-declared package dependencies.
@@ -257,7 +257,7 @@ private func createResolvedPackages(
                 // check if this resolved package already listed in the dependencies
                 // this means that the dependencies share the same identity
                 // FIXME: this works but the way we find out about this is based on a side effect, need to improve it
-                guard !dependencies.contains(resolvedPackage) else {
+                guard !dependencies.keys.contains(resolvedPackage.package.identity) else {
                     let error = PackageGraphError.dependencyAlreadySatisfiedByIdentifier(
                         package: package.identity.description,
                         dependencyLocation: dependencyLocation,
@@ -311,11 +311,11 @@ private func createResolvedPackages(
                 let nameForTargetDependencyResolution = dependency.explicitNameForTargetDependencyResolutionOnly ?? dependency.identity.description
                 dependenciesByNameForTargetDependencyResolution[nameForTargetDependencyResolution] = resolvedPackage
 
-                dependencies.append(resolvedPackage)
+                dependencies[resolvedPackage.package.identity] = resolvedPackage
             }
         }
 
-        packageBuilder.dependencies = dependencies
+        packageBuilder.dependencies = Array(dependencies.values)
 
         // Create target builders for each target in the package.
         let targetBuilders = package.targets.map{ ResolvedTargetBuilder(target: $0, observabilityScope: observabilityScope) }
@@ -481,9 +481,8 @@ private func createResolvedPackages(
 }
 
 /// A generic builder for `Resolved` models.
-private class ResolvedBuilder<T>: ObjectIdentifierProtocol {
-
-    /// The constucted object, available after the first call to `constuct()`.
+private class ResolvedBuilder<T> {
+    /// The constructed object, available after the first call to `construct()`.
     private var _constructedObject: T?
 
     /// Construct the object with the accumulated data.

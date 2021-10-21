@@ -11,8 +11,7 @@
 import TSCBasic
 import PackageModel
 
-public final class ResolvedProduct: ObjectIdentifierProtocol {
-
+public final class ResolvedProduct {
     /// The underlying product.
     public let underlyingProduct: Product
 
@@ -69,6 +68,16 @@ public final class ResolvedProduct: ObjectIdentifierProtocol {
     public func recursiveTargetDependencies() throws -> [ResolvedTarget] {
         let recursiveDependencies = try targets.lazy.flatMap { try $0.recursiveTargetDependencies() }
         return Array(Set(targets).union(recursiveDependencies))
+    }
+}
+
+extension ResolvedProduct: Hashable {
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(ObjectIdentifier(self))
+    }
+
+    public static func == (lhs: ResolvedProduct, rhs: ResolvedProduct) -> Bool {
+        ObjectIdentifier(lhs) == ObjectIdentifier(rhs)
     }
 }
 

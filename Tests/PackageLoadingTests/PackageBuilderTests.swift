@@ -405,7 +405,7 @@ class PackageBuilderTests: XCTestCase {
             "/Sources/exec2/main.swift",
             "/Sources/lib/lib.swift"
         )
-        
+
         // Check that an explicitly declared target without a main source file works.
         var manifest = Manifest.createRootManifest(
             name: "pkg",
@@ -509,7 +509,7 @@ class PackageBuilderTests: XCTestCase {
             }
         }
     }
-    
+
     func testTestManifestFound() throws {
         try SwiftTarget.testManifestNames.forEach { name in
             let fs = InMemoryFileSystem(emptyFiles:
@@ -1050,7 +1050,7 @@ class PackageBuilderTests: XCTestCase {
                     try TargetDescription(name: "foo2", path: "./foo2.zip", type: .binary)
                 ]
             )
-            
+
             try fs.writeFileContents(AbsolutePath("/foo2.zip"), bytes: "")
 
             let binaryArtifacts = [
@@ -1600,7 +1600,7 @@ class PackageBuilderTests: XCTestCase {
                 metadata: .packageMetadata(identity: .init(urlString: manifest.packageLocation), location: manifest.packageLocation, path: .root)
             )
         }
-        
+
         manifest = Manifest.createRootManifest(
             name: "bar",
             products: [
@@ -2351,8 +2351,6 @@ class PackageBuilderTests: XCTestCase {
     }
 }
 
-extension PackageModel.Product: ObjectIdentifierProtocol {}
-
 final class PackageBuilderTester {
     private enum Result {
         case package(PackageModel.Package)
@@ -2583,7 +2581,7 @@ final class PackageBuilderTester {
             let platform = target.getSupportedPlatform(for: platform)
             XCTAssertEqual(platform?.options, options, file: file, line: line)
         }
-        
+
         func check(pluginCapability: PluginCapability, file: StaticString = #file, line: UInt = #line) {
             guard case let target as PluginTarget = target else {
                 return XCTFail("Plugin capability is being checked on a target", file: file, line: line)

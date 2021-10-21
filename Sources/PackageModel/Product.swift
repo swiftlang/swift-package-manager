@@ -12,7 +12,6 @@ import TSCBasic
 import TSCUtility
 
 public class Product: Codable {
-
     /// The name of the product.
     public let name: String
 
@@ -48,6 +47,16 @@ public class Product: Codable {
     }
 }
 
+extension Product: Hashable {
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(ObjectIdentifier(self))
+    }
+
+    public static func == (lhs: Product, rhs: Product) -> Bool {
+        ObjectIdentifier(lhs) == ObjectIdentifier(rhs)
+    }
+}
+
 /// The type of product.
 public enum ProductType: Equatable, Hashable {
 
@@ -72,7 +81,7 @@ public enum ProductType: Equatable, Hashable {
 
     /// An executable code snippet.
     case snippet
-    
+
     /// An plugin product.
     case plugin
 
@@ -84,6 +93,7 @@ public enum ProductType: Equatable, Hashable {
         return true
     }
 }
+
 
 /// The products requested of a package.
 ///
