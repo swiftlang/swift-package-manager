@@ -71,9 +71,7 @@ public struct SwiftPackageTool: ParsableCommand {
     public static var _errorLabel: String { "error" }
 }
 
-extension DescribeMode: ExpressibleByArgument {}
 extension InitPackage.PackageType: ExpressibleByArgument {}
-extension ShowDependenciesMode: ExpressibleByArgument {}
 
 extension SwiftPackageTool {
     struct Clean: SwiftCommand {
@@ -189,7 +187,32 @@ extension SwiftPackageTool {
                 observabilityScope: swiftTool.observabilityScope
             )
             let package = try builder.construct()
-            describe(package, in: type, on: swiftTool.outputStream)
+            self.describe(package, in: type, on: swiftTool.outputStream)
+        }
+
+        /// Emits a textual description of `package` to `stream`, in the format indicated by `mode`.
+        func describe(_ package: Package, in mode: DescribeMode, on stream: OutputByteStream) {
+            let desc = DescribedPackage(from: package)
+            let data: Data
+            switch mode {
+            case .json:
+                let encoder = JSONEncoder.makeWithDefaults()
+                encoder.keyEncodingStrategy = .convertToSnakeCase
+                data = try! encoder.encode(desc)
+            case .text:
+                var encoder = PlainTextEncoder()
+                encoder.formattingOptions = [.prettyPrinted]
+                data = try! encoder.encode(desc)
+            }
+            stream <<< String(decoding: data, as: UTF8.self) <<< "\n"
+            stream.flush()
+        }
+
+        enum DescribeMode: String, ExpressibleByArgument {
+            /// JSON format (guaranteed to be parsable and stable across time).
+            case json
+            /// Human readable format (not guaranteed to be parsable).
+            case text
         }
     }
 
@@ -213,7 +236,10 @@ extension SwiftPackageTool {
 
             let packageName = self.packageName ?? cwd.basename
             let initPackage = try InitPackage(
-                name: packageName, destinationPath: cwd, packageType: initMode)
+                name: packageName,
+                destinationPath: cwd,
+                packageType: initMode
+            )
             initPackage.progressReporter = { message in
                 print(message)
             }
@@ -237,7 +263,7 @@ extension SwiftPackageTool {
             // FIXME: This should be moved to user toolchain.
             let swiftFormatInEnv = lookupExecutablePath(filename: ProcessEnv.vars["SWIFT_FORMAT"])
             guard let swiftFormat = swiftFormatInEnv ?? Process.findExecutable("swift-format") else {
-                print("error: Could not find swift-format in PATH or SWIFT_FORMAT")
+                swiftTool.observabilityScope.emit(error: "Could not find swift-format in PATH or SWIFT_FORMAT")
                 throw Diagnostics.fatalError
             }
 
@@ -677,7 +703,51 @@ extension SwiftPackageTool {
         func run(_ swiftTool: SwiftTool) throws {
             let graph = try swiftTool.loadPackageGraph()
             let stream = try outputPath.map { try LocalFileOutputByteStream($0) } ?? swiftTool.outputStream
-            dumpDependenciesOf(rootPackage: graph.rootPackages[0], mode: format, on: stream)
+            Self.dumpDependenciesOf(rootPackage: graph.rootPackages[0], mode: format, on: stream)
+        }
+
+        static func dumpDependenciesOf(rootPackage: ResolvedPackage, mode: ShowDependenciesMode, on stream: OutputByteStream) {
+            let dumper: DependenciesDumper
+            switch mode {
+            case .text:
+                dumper = PlainTextDumper()
+            case .dot:
+                dumper = DotDumper()
+            case .json:
+                dumper = JSONDumper()
+            case .flatlist:
+                dumper = FlatListDumper()
+            }
+            dumper.dump(dependenciesOf: rootPackage, on: stream)
+            stream.flush()
+        }
+
+        enum ShowDependenciesMode: String, RawRepresentable, CustomStringConvertible, ExpressibleByArgument {
+            case text, dot, json, flatlist
+
+            public init?(rawValue: String) {
+                switch rawValue.lowercased() {
+                case "text":
+                   self = .text
+                case "dot":
+                   self = .dot
+                case "json":
+                   self = .json
+                case "flatlist":
+                    self = .flatlist
+                default:
+                    return nil
+                }
+            }
+
+            public var description: String {
+                switch self {
+                case .text: return "text"
+                case .dot: return "dot"
+                case .json: return "json"
+                case .flatlist: return "flatlist"
+                }
+            }
         }
     }
 
@@ -688,9 +758,6 @@ extension SwiftPackageTool {
 
         @OptionGroup(_hiddenFromHelp: true)
         var swiftOptions: SwiftToolOptions
-
-        @Option(help: "text | dot | json | flatlist")
-        var format: ShowDependenciesMode = .text
 
         @Flag(help: "Set tools version of package to the current tools version in use")
         var setCurrent: Bool = false
@@ -1130,7 +1197,7 @@ extension SwiftPackageTool {
                 print(script)
             case .listDependencies:
                 let graph = try swiftTool.loadPackageGraph()
-                dumpDependenciesOf(rootPackage: graph.rootPackages[0], mode: .flatlist, on: swiftTool.outputStream)
+                ShowDependencies.dumpDependenciesOf(rootPackage: graph.rootPackages[0], mode: .flatlist, on: swiftTool.outputStream)
             case .listExecutables:
                 let graph = try swiftTool.loadPackageGraph()
                 let package = graph.rootPackages[0].underlyingPackage

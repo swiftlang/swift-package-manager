@@ -65,7 +65,7 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
 
     func get(_ source: Model.CollectionSource, callback: @escaping (Result<Model.Collection, Error>) -> Void) {
         guard case .json = source.type else {
-            preconditionFailure("JSONPackageCollectionProvider can only be used for fetching 'json' package collections")
+            return callback(.failure(InternalError("JSONPackageCollectionProvider can only be used for fetching 'json' package collections")))
         }
 
         if let errors = source.validate()?.errors() {
@@ -150,11 +150,9 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
             if source.skipSignatureCheck {
                 // Don't validate signature; set isVerified=false
                 callback(self.makeCollection(from: signedCollection.collection, source: source, signature: Model.SignatureData(from: signedCollection.signature, isVerified: false)))
+            } else if !Self.isSignatureCheckSupported {
+                callback(.failure(StringError("Unsupported platform")))
             } else {
-                if !Self.isSignatureCheckSupported {
-                    fatalError("Unsupported platform")
-                }
-
                 // Check the signature
                 let signatureResults = ThreadSafeArrayStore<Result<Void, Error>>()
                 certPolicyKeys.forEach { certPolicyKey in
@@ -165,7 +163,7 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
                                 callback(self.makeCollection(from: signedCollection.collection, source: source, signature: Model.SignatureData(from: signedCollection.signature, isVerified: true)))
                             } else {
                                 guard let error = signatureResults.compactMap({ $0.failure }).first else {
-                                    fatalError("Expected at least one package collection signature validation failure but got none")
+                                    return callback(.failure(InternalError("Expected at least one package collection signature validation failure but got none")))
                                 }
 
                                 self.observabilityScope.emit(warning: "The signature of package collection [\(source)] is invalid: \(error)")

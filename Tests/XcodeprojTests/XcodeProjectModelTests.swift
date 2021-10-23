@@ -15,7 +15,7 @@ import XCTest
 
 class XcodeProjectModelTests: XCTestCase {
     
-    func testBasicProjectCreation() {
+    func testBasicProjectCreation() throws {
         // Create a project.
         let proj = Xcode.Project()
         XCTAssert(proj.mainGroup.subitems.isEmpty)
@@ -72,10 +72,10 @@ class XcodeProjectModelTests: XCTestCase {
         // Change the source tree.
         fileRef.pathBase = .projectDir
         
-        let _ = proj.generatePlist()
+        let _ = try proj.generatePlist()
     }
     
-    func testTargetCreation() {
+    func testTargetCreation() throws {
         // Create a project.
         let proj = Xcode.Project()
         
@@ -104,10 +104,10 @@ class XcodeProjectModelTests: XCTestCase {
         XCTAssert(aggTarget.productType == nil)
         XCTAssert(aggTarget.buildPhases.isEmpty)
         
-        let _ = proj.generatePlist()
+        let _ = try proj.generatePlist()
     }
     
-    func testBuildPhases() {
+    func testBuildPhases() throws {
         // Create a project.
         let proj = Xcode.Project()
         
@@ -149,10 +149,10 @@ class XcodeProjectModelTests: XCTestCase {
         XCTAssert(copyBldFile1.fileRef === resFileRef1)
         XCTAssert(copyBldFile2.fileRef === resFileRef2)
         
-        let _ = proj.generatePlist()
+        let _ = try proj.generatePlist()
     }
     
-    func testProductReferences() {
+    func testProductReferences() throws {
         // Create a project.
         let proj = Xcode.Project()
         
@@ -163,10 +163,10 @@ class XcodeProjectModelTests: XCTestCase {
         
         // Associate a product reference.
         
-        let _ = proj.generatePlist()
+        let _ = try proj.generatePlist()
     }
     
-    func testTargetDependencies() {
+    func testTargetDependencies() throws {
         // Create a project.
         let proj = Xcode.Project()
         
@@ -183,7 +183,7 @@ class XcodeProjectModelTests: XCTestCase {
         // Make the app target depend on the library target.
         appTarget.addDependency(on: libTarget)
         
-        let _ = proj.generatePlist()
+        let _ = try proj.generatePlist()
     }
     
     func testBuildSettings() {

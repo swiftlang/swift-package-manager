@@ -13,6 +13,8 @@
  is only enough functionality to allow serialization of Xcode projects.
 */
 
+import Basics
+
 extension Xcode.Project: PropertyListSerializable {
 
     /// Generates and returns the contents of a `project.pbxproj` plist.  Does
@@ -22,13 +24,13 @@ extension Xcode.Project: PropertyListSerializable {
     /// should not add functionality to this model unless it's needed, since
     /// implementation of the full Xcode project model would be unnecessarily
     /// complex.
-    public func generatePlist() -> PropertyList {
+    public func generatePlist() throws -> PropertyList {
         // The project plist is a bit special in that it's the archive for the
         // whole file.  We create a plist serializer and serialize the entire
         // object graph to it, and then return an archive dictionary containing
         // the serialized object dictionaries.
         let serializer = PropertyListSerializer()
-        serializer.serialize(object: self)
+        try serializer.serialize(object: self)
         return .dictionary([
             "archiveVersion": .string("1"),
             "objectVersion": .string("46"),  // Xcode 8.0
@@ -38,7 +40,7 @@ extension Xcode.Project: PropertyListSerializable {
     }
 
     /// Called by the Serializer to serialize the Project.
-    fileprivate func serialize(to serializer: PropertyListSerializer) -> [String: PropertyList] {
+    fileprivate func serialize(to serializer: PropertyListSerializer) throws -> [String: PropertyList] {
         // Create a `PBXProject` plist dictionary.
         // Note: we skip things like the `Products` group; they get autocreated
         // by Xcode when it opens the project and notices that they are missing.
@@ -57,8 +59,8 @@ extension Xcode.Project: PropertyListSerializable {
         // we have a BuildSettingsTable, with three sets of settings:  one for
         // the common settings, and one each for the Debug and Release overlays.
         // So we consider the BuildSettingsTable to be the configuration list.
-        dict["buildConfigurationList"] = .identifier(serializer.serialize(object: buildSettings))
-        dict["mainGroup"] = .identifier(serializer.serialize(object: mainGroup))
+        dict["buildConfigurationList"] = try .identifier(serializer.serialize(object: buildSettings))
+        dict["mainGroup"] = try .identifier(serializer.serialize(object: mainGroup))
         dict["hasScannedForEncodings"] = .string("0")
         dict["knownRegions"] = .array([.string("en")])
         if let productGroup = productGroup {
@@ -67,8 +69,8 @@ extension Xcode.Project: PropertyListSerializable {
         dict["projectDirPath"] = .string(projectDir)
         // Ensure that targets are output in a sorted order.
         let sortedTargets = targets.sorted(by: { $0.name < $1.name })
-        dict["targets"] = .array(sortedTargets.map({ target in
-            .identifier(serializer.serialize(object: target))
+        dict["targets"] = try .array(sortedTargets.map({ target in
+            try .identifier(serializer.serialize(object: target))
         }))
         return dict
     }
@@ -97,17 +99,17 @@ fileprivate func makeReferenceDict(
 extension Xcode.Group: PropertyListSerializable {
 
     /// Called by the Serializer to serialize the Group.
-    fileprivate func serialize(to serializer: PropertyListSerializer) -> [String: PropertyList] {
+    fileprivate func serialize(to serializer: PropertyListSerializer) throws -> [String: PropertyList] {
         // Create a `PBXGroup` plist dictionary.
         // FIXME:  It would be nicer to be able to use inheritance for the code
         // inherited from Reference, but but in Swift 3.0 we get an error that
         // "declarations in extensions cannot override yet".
         var dict = makeReferenceDict(reference: self, serializer: serializer, xcodeClassName: "PBXGroup")
-        dict["children"] = .array(subitems.map({ reference in
+        dict["children"] = try .array(subitems.map({ reference in
             // For the same reason, we have to cast as `PropertyListSerializable`
             // here; as soon as we try to make Reference conform to the protocol,
             // we get the problem of not being able to override `serialize(to:)`.
-            .identifier(serializer.serialize(object: reference as! PropertyListSerializable))
+            try .identifier(serializer.serialize(object: reference as! PropertyListSerializable))
         }))
         return dict
     }
@@ -136,7 +138,7 @@ extension Xcode.FileReference: PropertyListSerializable {
 extension Xcode.Target: PropertyListSerializable {
 
     /// Called by the Serializer to serialize the Target.
-    fileprivate func serialize(to serializer: PropertyListSerializer) -> [String: PropertyList] {
+    fileprivate func serialize(to serializer: PropertyListSerializer) throws -> [String: PropertyList] {
         // Create either a `PBXNativeTarget` or an `PBXAggregateTarget` plist
         // dictionary (depending on whether or not we have a product type).
         var dict = [String: PropertyList]()
@@ -149,11 +151,11 @@ extension Xcode.Target: PropertyListSerializable {
         // the common settings, and one each for the Debug and Release overlays.
         // So we consider the BuildSettingsTable to be the configuration list.
         // This is the same situation as for Project.
-        dict["buildConfigurationList"] = .identifier(serializer.serialize(object: buildSettings))
-        dict["buildPhases"] = .array(buildPhases.map({ phase in
+        dict["buildConfigurationList"] = try .identifier(serializer.serialize(object: buildSettings))
+        dict["buildPhases"] = try .array(buildPhases.map({ phase in
             // Here we have the same problem as for Reference; we cannot inherit
             // functionality since we're in an extension.
-            .identifier(serializer.serialize(object: phase as! PropertyListSerializable))
+            try .identifier(serializer.serialize(object: phase as! PropertyListSerializable))
         }))
         /// Private wrapper class for a target dependency relation.  This is
         /// glue between our value-based settings structures and the Xcode
@@ -171,10 +173,10 @@ extension Xcode.Target: PropertyListSerializable {
                 return dict
             }
         }
-        dict["dependencies"] = .array(dependencies.map({ dep in
+        dict["dependencies"] = try .array(dependencies.map({ dep in
             // In the Xcode project model, target dependencies are objects,
             // so we need a helper class here.
-            .identifier(serializer.serialize(object: TargetDependency(target: dep.target)))
+            try .identifier(serializer.serialize(object: TargetDependency(target: dep.target)))
         }))
         dict["productName"] = .string(productName)
         if let productType = productType {
@@ -196,11 +198,11 @@ fileprivate func makeBuildPhaseDict(
     buildPhase: Xcode.BuildPhase,
     serializer: PropertyListSerializer,
     xcodeClassName: String
-) -> [String: PropertyList] {
+) throws -> [String: PropertyList] {
     var dict = [String: PropertyList]()
     dict["isa"] = .string(xcodeClassName)
-    dict["files"] = .array(buildPhase.files.map({ file in
-        .identifier(serializer.serialize(object: file))
+    dict["files"] = try .array(buildPhase.files.map({ file in
+        try .identifier(serializer.serialize(object: file))
     }))
     return dict
 }
@@ -208,51 +210,52 @@ fileprivate func makeBuildPhaseDict(
 extension Xcode.HeadersBuildPhase: PropertyListSerializable {
 
     /// Called by the Serializer to serialize the HeadersBuildPhase.
-    fileprivate func serialize(to serializer: PropertyListSerializer) -> [String: PropertyList] {
+    fileprivate func serialize(to serializer: PropertyListSerializer) throws -> [String: PropertyList] {
         // Create a `PBXHeadersBuildPhase` plist dictionary.
         // FIXME:  It would be nicer to be able to use inheritance for the code
         // inherited from BuildPhase, but but in Swift 3.0 we get an error that
         // "declarations in extensions cannot override yet".
-        return makeBuildPhaseDict(buildPhase: self, serializer: serializer, xcodeClassName: "PBXHeadersBuildPhase")
+        return try makeBuildPhaseDict(buildPhase: self, serializer: serializer, xcodeClassName: "PBXHeadersBuildPhase")
     }
 }
 
 extension Xcode.SourcesBuildPhase: PropertyListSerializable {
 
     /// Called by the Serializer to serialize the SourcesBuildPhase.
-    fileprivate func serialize(to serializer: PropertyListSerializer) -> [String: PropertyList] {
+    fileprivate func serialize(to serializer: PropertyListSerializer) throws -> [String: PropertyList] {
         // Create a `PBXSourcesBuildPhase` plist dictionary.
         // FIXME:  It would be nicer to be able to use inheritance for the code
         // inherited from BuildPhase, but but in Swift 3.0 we get an error that
         // "declarations in extensions cannot override yet".
-        return makeBuildPhaseDict(buildPhase: self, serializer: serializer, xcodeClassName: "PBXSourcesBuildPhase")
+        return try makeBuildPhaseDict(buildPhase: self, serializer: serializer, xcodeClassName: "PBXSourcesBuildPhase")
     }
 }
 
 extension Xcode.FrameworksBuildPhase: PropertyListSerializable {
 
     /// Called by the Serializer to serialize the FrameworksBuildPhase.
-    fileprivate func serialize(to serializer: PropertyListSerializer) -> [String: PropertyList] {
+    fileprivate func serialize(to serializer: PropertyListSerializer) throws -> [String: PropertyList] {
         // Create a `PBXFrameworksBuildPhase` plist dictionary.
         // FIXME:  It would be nicer to be able to use inheritance for the code
         // inherited from BuildPhase, but but in Swift 3.0 we get an error that
         // "declarations in extensions cannot override yet".
-        return makeBuildPhaseDict(buildPhase: self, serializer: serializer, xcodeClassName: "PBXFrameworksBuildPhase")
+        return try makeBuildPhaseDict(buildPhase: self, serializer: serializer, xcodeClassName: "PBXFrameworksBuildPhase")
     }
 }
 
 extension Xcode.CopyFilesBuildPhase: PropertyListSerializable {
 
     /// Called by the Serializer to serialize the FrameworksBuildPhase.
-    fileprivate func serialize(to serializer: PropertyListSerializer) -> [String: PropertyList] {
+    fileprivate func serialize(to serializer: PropertyListSerializer) throws -> [String: PropertyList] {
         // Create a `PBXCopyFilesBuildPhase` plist dictionary.
         // FIXME:  It would be nicer to be able to use inheritance for the code
         // inherited from BuildPhase, but but in Swift 3.0 we get an error that
         // "declarations in extensions cannot override yet".
-        var dict = makeBuildPhaseDict(
+        var dict = try makeBuildPhaseDict(
             buildPhase: self,
             serializer: serializer,
-            xcodeClassName: "PBXCopyFilesBuildPhase")
+            xcodeClassName: "PBXCopyFilesBuildPhase"
+        )
         dict["dstPath"] = .string("")   // FIXME: needs to be real
         dict["dstSubfolderSpec"] = .string("")   // FIXME: needs to be real
         return dict
@@ -262,12 +265,12 @@ extension Xcode.CopyFilesBuildPhase: PropertyListSerializable {
 extension Xcode.ShellScriptBuildPhase: PropertyListSerializable {
 
     /// Called by the Serializer to serialize the ShellScriptBuildPhase.
-    fileprivate func serialize(to serializer: PropertyListSerializer) -> [String: PropertyList] {
+    fileprivate func serialize(to serializer: PropertyListSerializer) throws -> [String: PropertyList] {
         // Create a `PBXShellScriptBuildPhase` plist dictionary.
         // FIXME:  It would be nicer to be able to use inheritance for the code
         // inherited from BuildPhase, but but in Swift 3.0 we get an error that
         // "declarations in extensions cannot override yet".
-        var dict = makeBuildPhaseDict(
+        var dict = try makeBuildPhaseDict(
             buildPhase: self,
             serializer: serializer,
             xcodeClassName: "PBXShellScriptBuildPhase")
@@ -280,7 +283,7 @@ extension Xcode.ShellScriptBuildPhase: PropertyListSerializable {
 extension Xcode.BuildFile: PropertyListSerializable {
 
     /// Called by the Serializer to serialize the BuildFile.
-    fileprivate func serialize(to serializer: PropertyListSerializer) -> [String: PropertyList] {
+    fileprivate func serialize(to serializer: PropertyListSerializer) throws -> [String: PropertyList] {
         // Create a `PBXBuildFile` plist dictionary.
         var dict = [String: PropertyList]()
         dict["isa"] = .string("PBXBuildFile")
@@ -288,7 +291,7 @@ extension Xcode.BuildFile: PropertyListSerializable {
             dict["fileRef"] = .identifier(serializer.id(of: fileRef))
         }
 
-        let settingsDict = settings.asPropertyList()
+        let settingsDict = try settings.asPropertyList()
         if !settingsDict.isEmpty {
             dict["settings"] = settingsDict
         }
@@ -302,7 +305,7 @@ extension Xcode.BuildSettingsTable: PropertyListSerializable {
     /// Called by the Serializer to serialize the BuildFile.  It is serialized
     /// as an XCBuildConfigurationList and two additional XCBuildConfiguration
     /// objects (one for debug and one for release).
-    fileprivate func serialize(to serializer: PropertyListSerializer) -> [String: PropertyList] {
+    fileprivate func serialize(to serializer: PropertyListSerializer) throws -> [String: PropertyList] {
         /// Private wrapper class for BuildSettings structures.  This is glue
         /// between our value-based settings structures and the Xcode project
         /// model's identity-based XCBuildConfiguration objects.
@@ -324,15 +327,16 @@ extension Xcode.BuildSettingsTable: PropertyListSerializable {
                 self.xcconfigFileRef = xcconfigFileRef
             }
 
-            func serialize(to serializer: PropertyListSerializer) -> [String: PropertyList] {
+            func serialize(to serializer: PropertyListSerializer) throws -> [String: PropertyList] {
                 // Create a `XCBuildConfiguration` plist dictionary.
                 var dict = [String: PropertyList]()
                 dict["isa"] = .string("XCBuildConfiguration")
                 dict["name"] = .string(name)
                 // Combine the base settings and the overlay settings.
-                dict["buildSettings"] = combineBuildSettingsPropertyLists(
-                    baseSettings: baseSettings.asPropertyList(),
-                    overlaySettings: overlaySettings.asPropertyList())
+                dict["buildSettings"] = try combineBuildSettingsPropertyLists(
+                    baseSettings: try baseSettings.asPropertyList(),
+                    overlaySettings: try overlaySettings.asPropertyList()
+                )
                 // Add a reference to the base configuration, if there is one.
                 if let xcconfigFileRef = xcconfigFileRef {
                     dict["baseConfigurationReference"] = .identifier(serializer.id(of: xcconfigFileRef))
@@ -347,12 +351,12 @@ extension Xcode.BuildSettingsTable: PropertyListSerializable {
         dict["buildConfigurations"] = .array([
             // We use a private wrapper to "objectify" our two build settings
             // structures (which, being structs, are value types).
-            .identifier(serializer.serialize(object: BuildSettingsDictWrapper(
+            try .identifier(serializer.serialize(object: BuildSettingsDictWrapper(
                 name: "Debug",
                 baseSettings: common,
                 overlaySettings: debug,
                 xcconfigFileRef: xcconfigFileRef))),
-            .identifier(serializer.serialize(object: BuildSettingsDictWrapper(
+            try .identifier(serializer.serialize(object: BuildSettingsDictWrapper(
                 name: "Release",
                 baseSettings: common,
                 overlaySettings: release,
@@ -367,11 +371,11 @@ extension Xcode.BuildSettingsTable: PropertyListSerializable {
 }
 
 public protocol PropertyListDictionaryConvertible {
-    func asPropertyList() -> PropertyList
+    func asPropertyList() throws -> PropertyList
 }
 
 extension PropertyListDictionaryConvertible {
-    public static func asPropertyList(_ object: PropertyListDictionaryConvertible) -> PropertyList {
+    public static func asPropertyList(_ object: PropertyListDictionaryConvertible) throws -> PropertyList {
         // Borderline hacky, but the main thing is that adding or changing a
         // build setting does not require any changes to the property list
         // representation code.  Using a handcoded serializer might be more
@@ -382,7 +386,7 @@ extension PropertyListDictionaryConvertible {
         let mirror = Mirror(reflecting: object)
         for child in mirror.children {
             guard let name = child.label else {
-                preconditionFailure("unnamed build settings are not supported")
+                throw InternalError("unnamed build settings are not supported")
             }
             switch child.value {
             case Optional<Any>.none:
@@ -392,7 +396,7 @@ extension PropertyListDictionaryConvertible {
             case let value as [String]:
                 dict[name] = .array(value.map({ .string($0) }))
             default:
-                preconditionFailure("unexpected build setting value of type `\(type(of: child.value))`")
+                throw InternalError("unexpected build setting value of type `\(type(of: child.value))`")
             }
         }
         return .dictionary(dict)
@@ -409,14 +413,14 @@ extension PropertyListDictionaryConvertible {
     /// applies to classes.  Creating a property list representation is totally
     /// independent of that serialization infrastructure (though it might well
     /// be invoked during of serialization of actual model objects).
-    public func asPropertyList() -> PropertyList {
-        return type(of: self).asPropertyList(self)
+    public func asPropertyList() throws -> PropertyList {
+        return try type(of: self).asPropertyList(self)
     }
 }
 
 extension Xcode.BuildFile.Settings: PropertyListDictionaryConvertible {}
 extension Xcode.BuildSettingsTable.BuildSettings: PropertyListDictionaryConvertible {
-    public func asPropertyList() -> PropertyList {
+    public func asPropertyList() throws -> PropertyList {
         var buildSettings = self
 
         // Space-separated setting is a setting whose value is split into multiple
@@ -464,7 +468,7 @@ extension Xcode.BuildSettingsTable.BuildSettings: PropertyListDictionaryConverti
             }
         }
 
-        return type(of: self).asPropertyList(buildSettings)
+        return try type(of: self).asPropertyList(buildSettings)
     }
 }
 
@@ -473,13 +477,13 @@ extension Xcode.BuildSettingsTable.BuildSettings: PropertyListDictionaryConverti
 fileprivate func combineBuildSettingsPropertyLists(
     baseSettings: PropertyList,
     overlaySettings: PropertyList
-) -> PropertyList {
+) throws -> PropertyList {
     // Extract the base and overlay dictionaries.
     guard case let .dictionary(baseDict) = baseSettings else {
-        preconditionFailure("base settings plist must be a dictionary")
+        throw InternalError("base settings plist must be a dictionary")
     }
     guard case let .dictionary(overlayDict) = overlaySettings else {
-        preconditionFailure("overlay settings plist must be a dictionary")
+        throw InternalError("overlay settings plist must be a dictionary")
     }
 
     // Iterate over the overlay values and apply them to the base.
@@ -550,20 +554,22 @@ fileprivate class PropertyListSerializer {
     /// recursive invocations of `serialize(object:)`; the closure of these
     /// invocations end up serializing the whole object graph.
     @discardableResult
-    func serialize(object: PropertyListSerializable) -> String {
+    func serialize(object: PropertyListSerializable) throws -> String {
         // Assign an id for the object, if it doesn't already have one.
         let id = self.id(of: object)
 
         // If that id is already in `idsToDicts`, we've detected recursion or
         // repeated serialization.
-        precondition(idsToDicts[id] == nil, "tried to serialize \(object) twice")
+        guard idsToDicts[id] == nil else {
+            throw InternalError("tried to serialize \(object) twice")
+        }
 
         // Set a sentinel value in the `idsToDicts` mapping to detect recursion.
         idsToDicts[id] = .dictionary([:])
 
         // Now recursively serialize the object, and store the result (replacing
         // the sentinel).
-        idsToDicts[id] = .dictionary(object.serialize(to: self))
+        idsToDicts[id] = try .dictionary(object.serialize(to: self))
 
         // Finally, return the identifier so the caller can store it (usually in
         // an attribute in its own serialization dictionary).
@@ -616,7 +622,7 @@ fileprivate protocol PropertyListSerializable: AnyObject {
     /// attributes.  This function may also use the serializer's `serialize()`
     /// function to serialize other objects, and may use `id(of:)` to access
     /// ids of objects that either have or will be serialized.
-    func serialize(to serializer: PropertyListSerializer) -> [String: PropertyList]
+    func serialize(to serializer: PropertyListSerializer) throws -> [String: PropertyList]
 }
 
 extension PropertyListSerializable {

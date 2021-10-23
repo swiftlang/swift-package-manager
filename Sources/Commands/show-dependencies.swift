@@ -12,27 +12,11 @@ import TSCBasic
 import PackageModel
 import PackageGraph
 
-public func dumpDependenciesOf(rootPackage: ResolvedPackage, mode: ShowDependenciesMode, on stream: OutputByteStream) {
-    let dumper: DependenciesDumper
-    switch mode {
-    case .text:
-        dumper = PlainTextDumper()
-    case .dot:
-        dumper = DotDumper()
-    case .json:
-        dumper = JSONDumper()
-    case .flatlist:
-        dumper = FlatListDumper()
-    }
-    dumper.dump(dependenciesOf: rootPackage, on: stream)
-    stream.flush()
-}
-
-private protocol DependenciesDumper {
+protocol DependenciesDumper {
     func dump(dependenciesOf: ResolvedPackage, on: OutputByteStream)
 }
 
-private final class PlainTextDumper: DependenciesDumper {
+final class PlainTextDumper: DependenciesDumper {
     func dump(dependenciesOf rootpkg: ResolvedPackage, on stream: OutputByteStream) {
         func recursiveWalk(packages: [ResolvedPackage], prefix: String = "") {
             var hanger = prefix + "├── "
@@ -65,7 +49,7 @@ private final class PlainTextDumper: DependenciesDumper {
     }
 }
 
-private final class FlatListDumper: DependenciesDumper {
+final class FlatListDumper: DependenciesDumper {
     func dump(dependenciesOf rootpkg: ResolvedPackage, on stream: OutputByteStream) {
         func recursiveWalk(packages: [ResolvedPackage]) {
             for package in packages {
@@ -81,7 +65,7 @@ private final class FlatListDumper: DependenciesDumper {
     }
 }
 
-private final class DotDumper: DependenciesDumper {
+final class DotDumper: DependenciesDumper {
     func dump(dependenciesOf rootpkg: ResolvedPackage, on stream: OutputByteStream) {
         var nodesAlreadyPrinted: Set<String> = []
         func printNode(_ package: ResolvedPackage) {
@@ -126,7 +110,7 @@ private final class DotDumper: DependenciesDumper {
     }
 }
 
-private final class JSONDumper: DependenciesDumper {
+final class JSONDumper: DependenciesDumper {
     func dump(dependenciesOf rootpkg: ResolvedPackage, on stream: OutputByteStream) {
         func convert(_ package: ResolvedPackage) -> JSON {
             return .orderedDictionary([
@@ -139,33 +123,5 @@ private final class JSONDumper: DependenciesDumper {
         }
 
         stream <<< convert(rootpkg).toString(prettyPrint: true) <<< "\n"
-    }
-}
-
-public enum ShowDependenciesMode: String, RawRepresentable, CustomStringConvertible {
-    case text, dot, json, flatlist
-
-    public init?(rawValue: String) {
-        switch rawValue.lowercased() {
-        case "text":
-           self = .text
-        case "dot":
-           self = .dot
-        case "json":
-           self = .json
-        case "flatlist":
-            self = .flatlist
-        default:
-            return nil
-        }
-    }
-
-    public var description: String {
-        switch self {
-        case .text: return "text"
-        case .dot: return "dot"
-        case .json: return "json"
-        case .flatlist: return "flatlist"
-        }
     }
 }

@@ -116,7 +116,9 @@ public enum PIF {
             try contents.encode(path, forKey: .path)
 
             if encoder.userInfo.keys.contains(.encodeForXCBuild) {
-                precondition(signature != nil, "Expected to have workspace signature when encoding for XCBuild")
+                guard let signature = self.signature else {
+                    throw InternalError("Expected to have workspace signature when encoding for XCBuild")
+                }
                 try container.encode(signature, forKey: "signature")
                 try contents.encode(projects.map({ $0.signature }), forKey: .projects)
             } else {
@@ -197,7 +199,9 @@ public enum PIF {
             try contents.encode(buildConfigurations, forKey: .buildConfigurations)
 
             if encoder.userInfo.keys.contains(.encodeForXCBuild) {
-                precondition(signature != nil, "Expected to have project signature when encoding for XCBuild")
+                guard let signature = self.signature else {
+                    throw InternalError("Expected to have project signature when encoding for XCBuild")
+                }
                 try container.encode(signature, forKey: "signature")
                 try contents.encode(targets.map{ $0.signature }, forKey: .targets)
             } else {
@@ -503,7 +507,9 @@ public enum PIF {
             try contents.encode(impartedBuildProperties, forKey: .impartedBuildProperties)
 
             if encoder.userInfo.keys.contains(.encodeForXCBuild) {
-                precondition(signature != nil, "Expected to have \(Swift.type(of: self)) signature when encoding for XCBuild")
+                guard let signature = self.signature else {
+                    throw InternalError("Expected to have \(Swift.type(of: self)) signature when encoding for XCBuild")
+                }
                 try container.encode(signature, forKey: "signature")
             }
         }
@@ -598,7 +604,9 @@ public enum PIF {
             try contents.encode(buildConfigurations, forKey: .buildConfigurations)
 
             if encoder.userInfo.keys.contains(.encodeForXCBuild) {
-                precondition(signature != nil, "Expected to have \(Swift.type(of: self)) signature when encoding for XCBuild")
+                guard let signature = self.signature else {
+                    throw InternalError("Expected to have \(Swift.type(of: self)) signature when encoding for XCBuild")
+                }
                 try container.encode(signature, forKey: "signature")
             }
 

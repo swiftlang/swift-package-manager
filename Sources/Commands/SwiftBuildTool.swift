@@ -98,7 +98,7 @@ public struct SwiftBuildTool: SwiftCommand {
         #if os(Linux)
         // Emit warning if clang is older than version 3.6 on Linux.
         // See: <rdar://problem/28108951> SR-2299 Swift isn't using Gold by default on stock 14.04.
-        checkClangVersion()
+        checkClangVersion(observabilityScope: swiftTool.observabilityScope)
         #endif
 
         guard let subset = options.buildSubset(observabilityScope: swiftTool.observabilityScope) else {
@@ -112,7 +112,7 @@ public struct SwiftBuildTool: SwiftCommand {
         }
     }
 
-    private func checkClangVersion() {
+    private func checkClangVersion(observabilityScope: ObservabilityScope) {
         // We only care about this on Ubuntu 14.04
         guard let uname = try? Process.checkNonZeroExit(args: "lsb_release", "-r").spm_chomp(),
               uname.hasSuffix("14.04"),
@@ -122,7 +122,7 @@ public struct SwiftBuildTool: SwiftCommand {
         }
 
         if clang < Version(3, 6, 0) {
-            print("warning: minimum recommended clang is version 3.6, otherwise you may encounter linker errors.")
+            observabilityScope.emit(warning: "minimum recommended clang is version 3.6, otherwise you may encounter linker errors.")
         }
     }
 

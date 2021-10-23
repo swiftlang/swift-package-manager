@@ -124,7 +124,7 @@ public func generate(
     try open(xcodeprojPath.appending(component: "project.pbxproj")) { stream in
         // Serialize the project model we created to a plist, and return
         // its string description.
-        let str = "// !$*UTF8*$!\n" + project.generatePlist().description
+        let str = try "// !$*UTF8*$!\n" + project.generatePlist().description
         stream(str)
     }
 

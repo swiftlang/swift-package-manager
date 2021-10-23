@@ -12,36 +12,8 @@ import TSCBasic
 import PackageModel
 import Foundation
 
-
-enum DescribeMode: String {
-    /// JSON format (guaranteed to be parsable and stable across time).
-    case json
-    /// Human readable format (not guaranteed to be parsable).
-    case text
-}
-
-
-/// Emits a textual description of `package` to `stream`, in the format indicated by `mode`.
-func describe(_ package: Package, in mode: DescribeMode, on stream: OutputByteStream) {
-    let desc = DescribedPackage(from: package)
-    let data: Data
-    switch mode {
-    case .json:
-        let encoder = JSONEncoder.makeWithDefaults()
-        encoder.keyEncodingStrategy = .convertToSnakeCase
-        data = try! encoder.encode(desc)
-    case .text:
-        var encoder = PlainTextEncoder()
-        encoder.formattingOptions = [.prettyPrinted]
-        data = try! encoder.encode(desc)
-    }
-    stream <<< String(decoding: data, as: UTF8.self) <<< "\n"
-    stream.flush()
-}
-
-
 /// Represents a package for the sole purpose of generating a description.
-fileprivate struct DescribedPackage: Encodable {
+struct DescribedPackage: Encodable {
     let name: String
     let path: String
     let toolsVersion: String
