@@ -142,33 +142,12 @@ extension PackageCollectionsModel.Package {
 
         /// Package version description
         public let summary: String?
-
-        // TODO: remove (replaced by manifests)
-        public var packageName: String { self.defaultManifest!.packageName }
-
-        // TODO: remove (replaced by manifests)
-        public var targets: [Target] { self.defaultManifest!.targets }
-
-        // TODO: remove (replaced by manifests)
-        public var products: [Product] { self.defaultManifest!.products }
-
-        // TODO: remove (replaced by manifests)
-        public var toolsVersion: ToolsVersion { self.defaultManifest!.toolsVersion }
-
-        // TODO: remove (replaced by manifests)
-        public var minimumPlatformVersions: [SupportedPlatform]? { nil }
-
+        
         /// Manifests by tools version
         public let manifests: [ToolsVersion: Manifest]
 
         /// Tools version of the default manifest
         public let defaultToolsVersion: ToolsVersion
-
-        // TODO: remove (replaced by verifiedCompatibility)
-        public var verifiedPlatforms: [PackageModel.Platform]? { nil }
-
-        // TODO: remove (replaced by verifiedCompatibility)
-        public var verifiedSwiftVersions: [SwiftLanguageVersion]? { nil }
 
         /// An array of compatible platforms and Swift versions that has been tested and verified for.
         public let verifiedCompatibility: [PackageCollectionsModel.Compatibility]?
@@ -178,6 +157,27 @@ extension PackageCollectionsModel.Package {
 
         /// When the package version was created
         public let createdAt: Date?
+        
+        @available(*, deprecated, message: "use manifests instead")
+        public var packageName: String { self.defaultManifest!.packageName }
+
+        @available(*, deprecated, message: "use manifests instead")
+        public var targets: [Target] { self.defaultManifest!.targets }
+
+        @available(*, deprecated, message: "use manifests instead")
+        public var products: [Product] { self.defaultManifest!.products }
+
+        @available(*, deprecated, message: "use manifests instead")
+        public var toolsVersion: ToolsVersion { self.defaultManifest!.toolsVersion }
+
+        @available(*, deprecated, message: "use manifests instead")
+        public var minimumPlatformVersions: [SupportedPlatform]? { nil }
+
+        @available(*, deprecated, message: "use verifiedCompatibility instead")
+        public var verifiedPlatforms: [PackageModel.Platform]? { nil }
+
+        @available(*, deprecated, message: "use verifiedCompatibility instead")
+        public var verifiedSwiftVersions: [SwiftLanguageVersion]? { nil }
 
         public struct Manifest: Equatable, Codable {
             /// The Swift tools version specified in `Package.swift`.
