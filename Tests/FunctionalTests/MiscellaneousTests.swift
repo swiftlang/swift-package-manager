@@ -377,7 +377,7 @@ class MiscellaneousTestCase: XCTestCase {
 
             // Launch swift-build.
             let app = prefix.appending(component: "Bar")
-            let process = Process(args: SwiftPMProduct.SwiftBuild.path.description, "--package-path", app.description, environment: env)
+            let process = Process(args: SwiftPMProduct.SwiftBuild.path.pathString, "--package-path", app.pathString, environment: env)
             try process.launch()
 
             guard waitForFile(waitFile) else {

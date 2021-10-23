@@ -311,8 +311,13 @@ public struct SwiftToolOptions: ParsableArguments {
     var _buildSystem: BuildSystemKind = .native
 
     var buildSystem: BuildSystemKind {
+        #if os(macOS)
         // Force the Xcode build system if we want to build more than one arch.
-        archs.count > 1 ? .xcode : _buildSystem
+        return archs.count > 1 ? .xcode : self._buildSystem
+        #else
+        // Force building with the native build system on other platforms than macOS.
+        return .native
+        #endif
     }
 
     /// Whether to load .netrc files for authenticating with remote servers
