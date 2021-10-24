@@ -658,13 +658,21 @@ public final class SwiftTargetBuildDescription {
         // Do nothing if we're not generating a bundle.
         guard let bundlePath = self.bundlePath else { return }
 
+        let mainPathSubstitution: String
+        if buildParameters.triple.isWASI() {
+            let mainPath = AbsolutePath(Bundle.main.bundlePath).appending(component: bundlePath.basename).pathString
+            mainPathSubstitution = #""\#(mainPath.asSwiftStringLiteralConstant)""#
+        } else {
+            mainPathSubstitution = #"Bundle.main.bundleURL.appendingPathComponent("\#(bundlePath.basename.asSwiftStringLiteralConstant)").path"#
+        }
+
         let stream = BufferedOutputByteStream()
         stream <<< """
         import class Foundation.Bundle
 
         extension Foundation.Bundle {
             static var module: Bundle = {
-                let mainPath = Bundle.main.bundleURL.appendingPathComponent("\(bundlePath.basename.asSwiftStringLiteralConstant)").path
+                let mainPath = \(mainPathSubstitution)
                 let buildPath = "\(bundlePath.pathString.asSwiftStringLiteralConstant)"
 
                 let preferredBundle = Bundle(path: mainPath)
