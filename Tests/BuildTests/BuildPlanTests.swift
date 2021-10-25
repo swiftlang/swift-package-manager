@@ -2652,6 +2652,70 @@ final class BuildPlanTests: XCTestCase {
         ])
     }
 
+    func testSwiftWASIBundleAccessor() throws {
+        // This has a Swift and ObjC target in the same package.
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/PkgA/Sources/Foo/Foo.swift",
+            "/PkgA/Sources/Foo/foo.txt",
+            "/PkgA/Sources/Foo/bar.txt",
+            "/PkgA/Sources/Bar/Bar.swift"
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+
+        let graph = try loadPackageGraph(
+            fs: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    name: "PkgA",
+                    path: .init("/PkgA"),
+                    toolsVersion: .v5_2,
+                    targets: [
+                        TargetDescription(
+                            name: "Foo",
+                            resources: [
+                                .init(rule: .copy, path: "foo.txt"),
+                                .init(rule: .process, path: "bar.txt"),
+                            ]
+                        ),
+                        TargetDescription(
+                            name: "Bar"
+                        ),
+                    ]
+                )
+            ],
+            observabilityScope: observability.topScope
+        )
+
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        let plan = try BuildPlan(
+            buildParameters: mockBuildParameters(destinationTriple: .wasi),
+            graph: graph,
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
+        let result = BuildPlanResult(plan: plan)
+
+        let fooTarget = try result.target(for: "Foo").swiftTarget()
+        XCTAssertEqual(fooTarget.objects.map{ $0.pathString }, [
+            "/path/to/build/debug/Foo.build/Foo.swift.o",
+            "/path/to/build/debug/Foo.build/resource_bundle_accessor.swift.o"
+        ])
+
+        let resourceAccessor = fooTarget.sources.first{ $0.basename == "resource_bundle_accessor.swift" }!
+        let contents = try fs.readFileContents(resourceAccessor).cString
+        XCTAssertMatch(contents, .contains("extension Foundation.Bundle"))
+        // Assert that `Bundle.main` is executed in the compiled binary (and not during compilation)
+        // See https://bugs.swift.org/browse/SR-14555 and https://github.com/apple/swift-package-manager/pull/2972/files#r623861646
+        XCTAssertMatch(contents, .contains("let mainPath = \""))
+
+        let barTarget = try result.target(for: "Bar").swiftTarget()
+        XCTAssertEqual(barTarget.objects.map{ $0.pathString }, [
+            "/path/to/build/debug/Bar.build/Bar.swift.o",
+        ])
+    }
+
     func testShouldLinkStaticSwiftStdlib() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Pkg/Sources/exe/main.swift",
