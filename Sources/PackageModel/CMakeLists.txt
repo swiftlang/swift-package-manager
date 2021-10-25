@@ -10,7 +10,6 @@ add_library(PackageModel
   BuildConfiguration.swift
   BuildEnvironment.swift
   BuildSettings.swift
-  ContextModel.swift
   Diagnostics.swift
   Manifest.swift
   Manifest/PackageConditionDescription.swift

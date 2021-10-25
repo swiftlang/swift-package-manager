@@ -12,14 +12,14 @@ import class Foundation.JSONDecoder
 import class Foundation.JSONEncoder
 import class Foundation.ProcessInfo
 
-public struct ContextModel {
-    public let packageDirectory : String
+struct ContextModel {
+    let packageDirectory : String
     
-    public init(packageDirectory : String) {
+    init(packageDirectory : String) {
         self.packageDirectory = packageDirectory
     }
     
-    public var environment : [String : String] {
+    var environment : [String : String] {
         ProcessInfo.processInfo.environment
     }
 }
@@ -29,24 +29,23 @@ extension ContextModel : Codable {
         case packageDirectory
     }
 
-    public init(from decoder: Decoder) throws {
+    init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.packageDirectory = try container.decode(String.self, forKey: .packageDirectory)
     }
     
-    public func encode(to encoder: Encoder) throws {
+    func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(packageDirectory, forKey: .packageDirectory)
     }
 
-    public func encode() throws -> String {
+    func encode() throws -> String {
         let encoder = JSONEncoder()
         let data = try encoder.encode(self)
         return String(data: data, encoding: .utf8)!
     }
 
-    public static func decode() throws -> ContextModel {
-        // TODO: Look at ProcessInfo.processInfo
+    static func decode() throws -> ContextModel {
         var args = Array(ProcessInfo.processInfo.arguments[1...]).makeIterator()
         while let arg = args.next() {
             if arg == "-context", let json = args.next() {
@@ -61,6 +60,6 @@ extension ContextModel : Codable {
     }
 
     struct StringError: Error, CustomStringConvertible {
-        var description: String
+        let description: String
     }
 }
