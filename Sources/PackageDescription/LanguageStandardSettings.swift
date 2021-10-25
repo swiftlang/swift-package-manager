@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2017 - 2020 Apple Inc. and the Swift project authors
+ Copyright (c) 2017 - 2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -119,6 +119,10 @@ public enum CXXLanguageStandard: String, Encodable {
     @available(_PackageDescription, introduced: 5.4)
     case cxx20 = "c++20"
 
+    /// Working draft for ISO C++ 2023 DIS.
+    @available(_PackageDescription, introduced: 5.6)
+    case cxx2b = "c++2b"
+
     /// ISO C++ 1998 with amendments and GNU extensions.
     case gnucxx98 = "gnu++98"
 
@@ -142,6 +146,10 @@ public enum CXXLanguageStandard: String, Encodable {
     /// ISO C++ 2020 DIS with GNU extensions.
     @available(_PackageDescription, introduced: 5.4)
     case gnucxx20 = "gnu++20"
+
+    /// Working draft for ISO C++ 2023 DIS with GNU extensions.
+    @available(_PackageDescription, introduced: 5.6)
+    case gnucxx2b = "gnu++2b"
 }
 
 /// The version of the Swift language to use for compiling Swift sources in the package.
