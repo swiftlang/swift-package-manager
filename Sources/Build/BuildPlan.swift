@@ -660,6 +660,11 @@ public final class SwiftTargetBuildDescription {
 
         let mainPathSubstitution: String
         if buildParameters.triple.isWASI() {
+            // We prefer compile-time evaluation of the bundle path here for WASI. There's no benefit in evaluating this at runtime, 
+            // especially as Bundle support in WASI Foundation is partial. We expect all resource paths to evaluate to 
+            // `/\(resourceBundleName)/\(resourcePath)`, which allows us to pass this path to JS APIs like `fetch` directly, or to
+            // `<img src=` HTML attributes. The resources are loaded from the server, and we can't hardcode the host part in the URL.
+            // Making URLs relative by starting them with `/\(resourceBundleName)` makes it work in the browser.
             let mainPath = AbsolutePath(Bundle.main.bundlePath).appending(component: bundlePath.basename).pathString
             mainPathSubstitution = #""\#(mainPath.asSwiftStringLiteralConstant)""#
         } else {
