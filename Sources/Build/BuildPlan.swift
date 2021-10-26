@@ -313,8 +313,12 @@ public final class ClangTargetBuildDescription {
         }
     }
 
-    /// Builds up basic compilation arguments for this target.
-    public func basicArguments() throws -> [String] {
+    /// Builds up basic compilation arguments for a source file in this target; these arguments may be different for C++ vs non-C++.
+    /// NOTE: The parameter to specify whether to get C++ semantics is currently optional, but this is only for revlock avoidance with clients. Callers should always specify what they want based either the user's indication or on a default value (possibly based on the filename suffix).
+    public func basicArguments(isCXX isCXXOverride: Bool? = .none) throws -> [String] {
+        // For now fall back on the hold semantics if the C++ nature isn't specified. This is temporary until clients have been updated.
+        let isCXX = isCXXOverride ?? clangTarget.isCXX
+        
         var args = [String]()
         // Only enable ARC on macOS.
         if buildParameters.triple.isDarwin() {
@@ -339,11 +343,11 @@ public final class ClangTargetBuildDescription {
             args += buildParameters.indexStoreArguments(for: target)
         }
         
-        // Disable Clang modules:
+        // Enable Clang module flags, if appropriate. We enable them except in these cases:
         // 1. on Darwin when compiling for C++, because C++ modules are disabled on Apple-built Clang releases
         // 2. on Windows when compiling for any language, because of issues with the Windows SDK
         // 3. on Android when compiling for any language, because of issues with the Android SDK
-        let enableModules = !(buildParameters.triple.isDarwin() && clangTarget.isCXX) && !buildParameters.triple.isWindows() && !buildParameters.triple.isAndroid()
+        let enableModules = !(buildParameters.triple.isDarwin() && isCXX) && !buildParameters.triple.isWindows() && !buildParameters.triple.isAndroid()
         
         if enableModules {
             // Using modules currently conflicts with the Windows and Android SDKs.
