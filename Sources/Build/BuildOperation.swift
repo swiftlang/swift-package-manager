@@ -161,7 +161,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     // Emit a warning if a target imports another target in this build
     // without specifying it as a dependency in the manifest
     private func verifyTargetImports(in description: BuildDescription) throws {
-        guard !description.disableExplicitTargetDependencyImportChecking else {
+        guard description.enableExplicitTargetDependencyImportChecking else {
             return
         }
         // Ensure the compiler supports the import-scan operation

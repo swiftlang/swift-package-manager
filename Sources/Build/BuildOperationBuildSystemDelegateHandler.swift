@@ -226,9 +226,9 @@ public struct BuildDescription: Codable {
     /// The map of copy commands.
     let copyCommands: [BuildManifest.CmdName: LLBuildManifest.CopyTool]
 
-    /// A flag that inidcates this build should skip checking whether targets only import
+    /// A flag that inidcates this build should perform a check for whether targets only import
     /// their explicitly-declared dependencies
-    let disableExplicitTargetDependencyImportChecking: Bool
+    let enableExplicitTargetDependencyImportChecking: Bool
 
     /// Every target's set of dependencies.
     let targetDependencyMap: [TargetName: [TargetName]]
@@ -257,7 +257,7 @@ public struct BuildDescription: Codable {
         self.swiftFrontendCommands = swiftFrontendCommands
         self.testDiscoveryCommands = testDiscoveryCommands
         self.copyCommands = copyCommands
-        self.disableExplicitTargetDependencyImportChecking = plan.buildParameters.disableExplicitTargetDependencyImportChecking
+        self.enableExplicitTargetDependencyImportChecking = plan.buildParameters.enableExplicitTargetDependencyImportChecking
         self.targetDependencyMap = try plan.targets.reduce(into: [TargetName: [TargetName]]()) {
             let deps = try $1.target.recursiveTargetDependencies().map { $0.c99name }
             $0[$1.target.c99name] = deps
@@ -270,8 +270,8 @@ public struct BuildDescription: Codable {
             }
             targetCommandLines[target.c99name] =
                 try desc.emitCommandLine(scanInvocation: true) + ["-driver-use-frontend-path",
-                                                                  plan.buildParameters.toolchain.swiftCompiler.pathString]
-            if desc.testDiscoveryTarget {
+                                                                  plan.buildParameters.toolchain.swiftCompilerPath.pathString]
+            if desc.isTestDiscoveryTarget {
                 generatedSourceTargets.append(target.c99name)
             }
         }

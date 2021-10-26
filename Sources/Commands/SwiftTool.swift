@@ -792,10 +792,10 @@ public class SwiftTool {
                 enableParseableModuleInterfaces: options.build.shouldEnableParseableModuleInterfaces,
                 emitSwiftModuleSeparately: options.build.emitSwiftModuleSeparately,
                 useIntegratedSwiftDriver: options.build.useIntegratedSwiftDriver,
-                disableExplicitTargetDependencyImportChecking: build.disableExplicitTargetDependencyImportChecking,
                 useExplicitModuleBuild: options.build.useExplicitModuleBuild,
                 isXcodeBuildSystemEnabled: options.build.buildSystem == .xcode,
                 forceTestDiscovery: options.build.enableTestDiscovery, // backwards compatibility, remove with --enable-test-discovery
+                enableExplicitTargetDependencyImportChecking: options.build.enableExplicitTargetDependencyImportChecking,
                 linkerDeadStrip: options.linker.linkerDeadStrip,
                 verboseOutput: self.logLevel <= .info
             )
