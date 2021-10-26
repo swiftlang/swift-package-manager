@@ -530,15 +530,13 @@ final class BuildPlanTests: XCTestCase {
         var args: [String] = []
 
       #if os(macOS)
-        args += ["-fobjc-arc", "-target", defaultTargetTriple]
-      #else
-        args += ["-target", defaultTargetTriple]
+        args += ["-fobjc-arc"]
       #endif
-
+        args += ["-target", defaultTargetTriple]
         args += ["-g", "-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1"]
         args += ["-fblocks", "-fmodules", "-fmodule-name=extlib",
             "-I", "/ExtPkg/Sources/extlib/include", "-fmodules-cache-path=/path/to/build/debug/ModuleCache"]
-        XCTAssertEqual(try ext.basicArguments(), args)
+        XCTAssertEqual(try ext.basicArguments(isCXX: false), args)
         XCTAssertEqual(ext.objects, [AbsolutePath("/path/to/build/debug/extlib.build/extlib.c.o")])
         XCTAssertEqual(ext.moduleMap, AbsolutePath("/path/to/build/debug/extlib.build/module.modulemap"))
 
@@ -559,7 +557,7 @@ final class BuildPlanTests: XCTestCase {
             "-fmodule-map-file=/path/to/build/debug/extlib.build/module.modulemap",
             "-fmodules-cache-path=/path/to/build/debug/ModuleCache",
         ]
-        XCTAssertEqual(try exe.basicArguments(), args)
+        XCTAssertEqual(try exe.basicArguments(isCXX: false), args)
         XCTAssertEqual(exe.objects, [AbsolutePath("/path/to/build/debug/exe.build/main.c.o")])
         XCTAssertEqual(exe.moduleMap, nil)
 
@@ -652,11 +650,11 @@ final class BuildPlanTests: XCTestCase {
                 observabilityScope: observability.topScope
             ))
 
-            let exeArguments = try result.target(for: "exe").clangTarget().basicArguments()
+            let exeArguments = try result.target(for: "exe").clangTarget().basicArguments(isCXX: false)
             XCTAssert(exeArguments.contains { $0.contains("PkgLib") })
             XCTAssert(exeArguments.allSatisfy { !$0.contains("ExtLib") })
 
-            let libArguments = try result.target(for: "PkgLib").clangTarget().basicArguments()
+            let libArguments = try result.target(for: "PkgLib").clangTarget().basicArguments(isCXX: false)
             XCTAssert(libArguments.allSatisfy { !$0.contains("ExtLib") })
         }
 
@@ -671,10 +669,10 @@ final class BuildPlanTests: XCTestCase {
                 observabilityScope: observability.topScope
             ))
 
-            let arguments = try result.target(for: "exe").clangTarget().basicArguments()
+            let arguments = try result.target(for: "exe").clangTarget().basicArguments(isCXX: false)
             XCTAssert(arguments.allSatisfy { !$0.contains("PkgLib") && !$0.contains("ExtLib")  })
 
-            let libArguments = try result.target(for: "PkgLib").clangTarget().basicArguments()
+            let libArguments = try result.target(for: "PkgLib").clangTarget().basicArguments(isCXX: false)
             XCTAssert(libArguments.contains { $0.contains("ExtLib") })
         }
     }
@@ -790,7 +788,7 @@ final class BuildPlanTests: XCTestCase {
         args += ["-g", "-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1"]
         args += ["-fblocks", "-fmodules", "-fmodule-name=lib", "-I", "/Pkg/Sources/lib/include",
             "-fmodules-cache-path=/path/to/build/debug/ModuleCache"]
-        XCTAssertEqual(try lib.basicArguments(), args)
+        XCTAssertEqual(try lib.basicArguments(isCXX: false), args)
         XCTAssertEqual(lib.objects, [AbsolutePath("/path/to/build/debug/lib.build/lib.c.o")])
         XCTAssertEqual(lib.moduleMap, AbsolutePath("/path/to/build/debug/lib.build/module.modulemap"))
 
@@ -1336,22 +1334,34 @@ final class BuildPlanTests: XCTestCase {
 
         result.checkProductsCount(2)
         result.checkTargetsCount(2)
+        
+        let triple = mockBuildParameters().triple
 
         let exe = try result.target(for: "exe").clangTarget()
-    #if os(macOS)
-        XCTAssertEqual(try exe.basicArguments(), ["-fobjc-arc", "-target", defaultTargetTriple, "-g", "-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1", "-fblocks",  "-fmodules", "-fmodule-name=exe", "-I", "/Pkg/Sources/exe/include", "-fmodules-cache-path=/path/to/build/debug/ModuleCache"])
-    #else
-        XCTAssertEqual(try exe.basicArguments(), ["-target", defaultTargetTriple, "-g", "-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1", "-fblocks",  "-fmodules", "-fmodule-name=exe", "-I", "/Pkg/Sources/exe/include", "-fmodules-cache-path=/path/to/build/debug/ModuleCache"])
-    #endif
+        
+        var expectedExeBasicArgs = triple.isDarwin() ? ["-fobjc-arc"] : []
+        expectedExeBasicArgs += ["-target", defaultTargetTriple, "-g", "-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1", "-fblocks"]
+        expectedExeBasicArgs += ["-fmodules", "-fmodule-name=exe"]
+        expectedExeBasicArgs += ["-I", "/Pkg/Sources/exe/include"]
+        expectedExeBasicArgs += ["-fmodules-cache-path=/path/to/build/debug/ModuleCache"]
+        XCTAssertEqual(try exe.basicArguments(isCXX: false), expectedExeBasicArgs)
         XCTAssertEqual(exe.objects, [AbsolutePath("/path/to/build/debug/exe.build/main.c.o")])
         XCTAssertEqual(exe.moduleMap, nil)
 
         let lib = try result.target(for: "lib").clangTarget()
-    #if os(macOS)
-        XCTAssertEqual(try lib.basicArguments(), ["-fobjc-arc", "-target", defaultTargetTriple, "-g", "-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1", "-fblocks", "-I", "/Pkg/Sources/lib/include"])
-    #else
-        XCTAssertEqual(try lib.basicArguments(), ["-target", defaultTargetTriple, "-g", "-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1", "-fblocks",  "-fmodules", "-fmodule-name=lib", "-I", "/Pkg/Sources/lib/include", "-fmodules-cache-path=/path/to/build/debug/ModuleCache"])
-    #endif
+        
+        var expectedLibBasicArgs = triple.isDarwin() ? ["-fobjc-arc"] : []
+        expectedLibBasicArgs += ["-target", defaultTargetTriple, "-g", "-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1", "-fblocks"]
+        let shouldHaveModules = !(triple.isDarwin() || triple.isWindows() || triple.isAndroid())
+        if shouldHaveModules {
+            expectedLibBasicArgs += ["-fmodules", "-fmodule-name=lib"]
+        }
+        expectedLibBasicArgs += ["-I", "/Pkg/Sources/lib/include"]
+        if shouldHaveModules {
+            expectedLibBasicArgs += ["-fmodules-cache-path=/path/to/build/debug/ModuleCache"]
+        }
+        XCTAssertEqual(try lib.basicArguments(isCXX: true), expectedLibBasicArgs)
+
         XCTAssertEqual(lib.objects, [AbsolutePath("/path/to/build/debug/lib.build/lib.cpp.o")])
         XCTAssertEqual(lib.moduleMap, AbsolutePath("/path/to/build/debug/lib.build/module.modulemap"))
 
@@ -1719,7 +1729,7 @@ final class BuildPlanTests: XCTestCase {
             "-target", "x86_64-unknown-windows-msvc", "-g", "-gcodeview", "-O0",
             "-DSWIFT_PACKAGE=1", "-DDEBUG=1", "-fblocks", "-I", "/Pkg/Sources/lib/include"
         ]
-        XCTAssertEqual(try lib.basicArguments(), args)
+        XCTAssertEqual(try lib.basicArguments(isCXX: false), args)
         XCTAssertEqual(lib.objects, [AbsolutePath("/path/to/build/debug/lib.build/lib.c.o")])
         XCTAssertEqual(lib.moduleMap, AbsolutePath("/path/to/build/debug/lib.build/module.modulemap"))
 
@@ -1781,7 +1791,7 @@ final class BuildPlanTests: XCTestCase {
             "-fblocks", "-fmodules", "-fmodule-name=lib", "-I", "/Pkg/Sources/lib/include",
             "-fmodules-cache-path=/path/to/build/debug/ModuleCache"
         ]
-        XCTAssertEqual(try lib.basicArguments(), args)
+        XCTAssertEqual(try lib.basicArguments(isCXX: false), args)
         XCTAssertEqual(lib.objects, [AbsolutePath("/path/to/build/debug/lib.build/lib.c.o")])
         XCTAssertEqual(lib.moduleMap, AbsolutePath("/path/to/build/debug/lib.build/module.modulemap"))
 
@@ -1908,9 +1918,9 @@ final class BuildPlanTests: XCTestCase {
             let path = StringPattern.equal(result.plan.buildParameters.indexStore.pathString)
 
             #if os(macOS)
-            XCTAssertMatch(try lib.basicArguments(), [.anySequence, "-index-store-path", path, .anySequence])
+            XCTAssertMatch(try lib.basicArguments(isCXX: false), [.anySequence, "-index-store-path", path, .anySequence])
             #else
-            XCTAssertNoMatch(try lib.basicArguments(), [.anySequence, "-index-store-path", path, .anySequence])
+            XCTAssertNoMatch(try lib.basicArguments(isCXX: false), [.anySequence, "-index-store-path", path, .anySequence])
             #endif
 
             let exe = try result.target(for: "exe").swiftTarget().compileArguments()
@@ -2151,7 +2161,7 @@ final class BuildPlanTests: XCTestCase {
             let dep = try result.target(for: "t1").swiftTarget().compileArguments()
             XCTAssertMatch(dep, [.anySequence, "-DDEP", .end])
 
-            let cbar = try result.target(for: "cbar").clangTarget().basicArguments()
+            let cbar = try result.target(for: "cbar").clangTarget().basicArguments(isCXX: false)
             XCTAssertMatch(cbar, [.anySequence, "-DCCC=2", "-I/A/Sources/cbar/Sources/headers", "-I/A/Sources/cbar/Sources/cppheaders", "-Icfoo", "-L", "cbar", "-Icxxfoo", "-L", "cxxbar", .end])
 
             let bar = try result.target(for: "bar").swiftTarget().compileArguments()
@@ -2167,7 +2177,7 @@ final class BuildPlanTests: XCTestCase {
         do {
             let result = try createResult(for: .macOS)
 
-            let cbar = try result.target(for: "cbar").clangTarget().basicArguments()
+            let cbar = try result.target(for: "cbar").clangTarget().basicArguments(isCXX: false)
             XCTAssertMatch(cbar, [.anySequence, "-DCCC=2", "-I/A/Sources/cbar/Sources/headers", "-I/A/Sources/cbar/Sources/cppheaders", "-Icfoo", "-L", "cbar", "-Icxxfoo", "-L", "cxxbar", .end])
 
             let bar = try result.target(for: "bar").swiftTarget().compileArguments()
@@ -2258,14 +2268,14 @@ final class BuildPlanTests: XCTestCase {
         result.checkTargetsCount(2)
 
         let lib = try result.target(for: "lib").clangTarget()
-        var args: [StringPattern] = ["-fmodules-cache-path=/path/to/build/debug/ModuleCache"]
+        var args: [StringPattern] = []
       #if os(macOS)
         args += ["-isysroot"]
       #else
         args += ["--sysroot"]
       #endif
         args += ["/fake/sdk", "-I/fake/sdk/sysroot", "-clang-flag-from-json", "-clang-command-line-flag"]
-        XCTAssertMatch(try lib.basicArguments(), args)
+        XCTAssertMatch(try lib.basicArguments(isCXX: false), args)
 
         let exe = try result.target(for: "exe").swiftTarget().compileArguments()
         XCTAssertMatch(exe, ["-module-cache-path", "/path/to/build/debug/ModuleCache", .anySequence, "-swift-flag-from-json", "-Xcc", "-clang-command-line-flag", "-swift-command-line-flag"])
@@ -2365,7 +2375,7 @@ final class BuildPlanTests: XCTestCase {
           XCTAssertNoMatch(fooTarget, [.anySequence, "-emit-objc-header", "-emit-objc-header-path", "/path/to/build/debug/Foo.build/Foo-Swift.h", .anySequence])
         #endif
 
-        let barTarget = try result.target(for: "Bar").clangTarget().basicArguments()
+        let barTarget = try result.target(for: "Bar").clangTarget().basicArguments(isCXX: false)
         #if os(macOS)
           XCTAssertMatch(barTarget, [.anySequence, "-fmodule-map-file=/path/to/build/debug/Foo.build/module.modulemap", .anySequence])
         #else
@@ -2436,7 +2446,7 @@ final class BuildPlanTests: XCTestCase {
            XCTAssertNoMatch(fooTarget, [.anySequence, "-emit-objc-header", "-emit-objc-header-path", "/path/to/build/debug/Foo.build/Foo-Swift.h", .anySequence])
          #endif
 
-         let barTarget = try result.target(for: "Bar").clangTarget().basicArguments()
+         let barTarget = try result.target(for: "Bar").clangTarget().basicArguments(isCXX: false)
          #if os(macOS)
            XCTAssertMatch(barTarget, [.anySequence, "-fmodule-map-file=/path/to/build/debug/Foo.build/module.modulemap", .anySequence])
          #else
@@ -2508,7 +2518,7 @@ final class BuildPlanTests: XCTestCase {
            XCTAssertNoMatch(fooTarget, [.anySequence, "-emit-objc-header", "-emit-objc-header-path", "/path/to/build/debug/Foo.build/Foo-Swift.h", .anySequence])
          #endif
 
-         let barTarget = try result.target(for: "Bar").clangTarget().basicArguments()
+         let barTarget = try result.target(for: "Bar").clangTarget().basicArguments(isCXX: false)
          #if os(macOS)
            XCTAssertMatch(barTarget, [.anySequence, "-fmodule-map-file=/path/to/build/debug/Foo.build/module.modulemap", .anySequence])
          #else
@@ -2885,7 +2895,7 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertMatch(exeLinkArguments, [.anySequence, "-L", "/path/to/build/debug", .anySequence])
         XCTAssertMatch(exeLinkArguments, [.anySequence, "-framework", "Framework", .anySequence])
 
-        let clibraryBasicArguments = try result.target(for: "CLibrary").clangTarget().basicArguments()
+        let clibraryBasicArguments = try result.target(for: "CLibrary").clangTarget().basicArguments(isCXX: false)
         XCTAssertMatch(clibraryBasicArguments, [.anySequence, "-F", "/path/to/build/debug", .anySequence])
         XCTAssertMatch(clibraryBasicArguments, [.anySequence, "-I", "/Pkg/StaticLibrary.xcframework/\(platform)-\(arch)/Headers", .anySequence])
 
@@ -3053,7 +3063,7 @@ final class BuildPlanTests: XCTestCase {
         let lib = try result.target(for: "lib").swiftTarget().compileArguments()
         XCTAssertMatch(lib, ["-sanitize=\(expectedName)"])
 
-        let clib  = try result.target(for: "clib").clangTarget().basicArguments()
+        let clib  = try result.target(for: "clib").clangTarget().basicArguments(isCXX: false)
         XCTAssertMatch(clib, ["-fsanitize=\(expectedName)"])
 
         XCTAssertMatch(try result.buildProduct(for: "exe").linkArguments(), ["-sanitize=\(expectedName)"])

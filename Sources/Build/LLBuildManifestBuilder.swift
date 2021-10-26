@@ -752,7 +752,9 @@ extension LLBuildManifestBuilder {
         var objectFileNodes: [Node] = []
 
         for path in target.compilePaths() {
-            var args = try target.basicArguments()
+            let isCXX = path.source.extension.map{ SupportedLanguageExtension.cppExtensions.contains($0) } ?? false
+            var args = try target.basicArguments(isCXX: isCXX)
+
             args += ["-MD", "-MT", "dependencies", "-MF", path.deps.pathString]
 
             // Add language standard flag if needed.
