@@ -23,8 +23,8 @@ public class XCBuildDelegate {
     private var percentComplete: Int = 0
     private let queue = DispatchQueue(label: "org.swift.swiftpm.xcbuild-delegate")
 
-    /// Whether to print more informationr regarding the build.
-    public var isVerbose: Bool = false
+    /// The verbosity level to print out at
+    private let logLevel: Basics.Diagnostic.Severity
 
     /// True if any progress output was emitted.
     fileprivate var didEmitProgressOutput: Bool = false
@@ -36,6 +36,7 @@ public class XCBuildDelegate {
         buildSystem: SPMBuildCore.BuildSystem,
         outputStream: OutputByteStream,
         progressAnimation: ProgressAnimationProtocol,
+        logLevel: Basics.Diagnostic.Severity,
         observabilityScope: ObservabilityScope
     ) {
         self.buildSystem = buildSystem
@@ -43,8 +44,9 @@ public class XCBuildDelegate {
         // https://forums.swift.org/t/allow-self-x-in-class-convenience-initializers/15924
         self.outputStream = outputStream as? ThreadSafeOutputByteStream ?? ThreadSafeOutputByteStream(outputStream)
         self.progressAnimation = progressAnimation
+        self.logLevel = logLevel
         self.observabilityScope = observabilityScope
-        parser = XCBuildOutputParser(delegate: self)
+        self.parser = XCBuildOutputParser(delegate: self)
     }
 
     public func parse(bytes: [UInt8]) {
@@ -60,7 +62,7 @@ extension XCBuildDelegate: XCBuildOutputParserDelegate {
         case .taskStarted(let info):
             queue.async {
                 self.didEmitProgressOutput = true
-                let text = self.isVerbose ? [info.executionDescription, info.commandLineDisplayString].compactMap { $0 }.joined(separator: "\n") : info.executionDescription
+                let text = self.logLevel.isVerbose ? [info.executionDescription, info.commandLineDisplayString].compactMap { $0 }.joined(separator: "\n") : info.executionDescription
                 self.progressAnimation.update(step: self.percentComplete, total: 100, text: text)
                 self.buildSystem.delegate?.buildSystem(self.buildSystem, willStartCommand: BuildSystemCommand(name: "\(info.taskID)", description: info.executionDescription, verboseDescription: info.commandLineDisplayString))
                 self.buildSystem.delegate?.buildSystem(self.buildSystem, didStartCommand: BuildSystemCommand(name: "\(info.taskID)", description: info.executionDescription, verboseDescription: info.commandLineDisplayString))

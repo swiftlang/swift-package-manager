@@ -292,11 +292,28 @@ public struct Diagnostic: CustomStringConvertible, Equatable {
         Self(severity: .debug, message: message.description, metadata: metadata)
     }
 
-    public enum Severity: Equatable {
+    public enum Severity: Comparable {
         case error
         case warning
         case info
         case debug
+
+        internal var naturalIntegralValue: Int {
+            switch self {
+            case .debug:
+                return 0
+            case .info:
+                return 1
+            case .warning:
+                return 2
+            case .error:
+                return 3
+            }
+        }
+
+        public static func < (lhs: Self, rhs: Self) -> Bool {
+            return lhs.naturalIntegralValue < rhs.naturalIntegralValue
+        }
     }
 }
 

@@ -368,11 +368,11 @@ final class CopyCommand: CustomLLBuildCommand {
 
 /// Convenient llbuild build system delegate implementation
 final class BuildOperationBuildSystemDelegateHandler: LLBuildBuildSystemDelegate, SwiftCompilerOutputParserDelegate {
-    var outputStream: ThreadSafeOutputByteStream
-    var progressAnimation: ProgressAnimationProtocol
-    var onCommmandFailure: (() -> Void)?
-    var isVerbose: Bool = false
-    weak var delegate: SPMBuildCore.BuildSystemDelegate?
+    private let outputStream: ThreadSafeOutputByteStream
+    private let progressAnimation: ProgressAnimationProtocol
+    var commandFailureHandler: (() -> Void)?
+    private let logLevel: Basics.Diagnostic.Severity
+    private weak var delegate: SPMBuildCore.BuildSystemDelegate?
     private let buildSystem: SPMBuildCore.BuildSystem
     private let queue = DispatchQueue(label: "org.swift.swiftpm.build-delegate")
     private var taskTracker = CommandTaskTracker()
@@ -390,17 +390,19 @@ final class BuildOperationBuildSystemDelegateHandler: LLBuildBuildSystemDelegate
         buildExecutionContext: BuildExecutionContext,
         outputStream: OutputByteStream,
         progressAnimation: ProgressAnimationProtocol,
+        logLevel: Basics.Diagnostic.Severity,
         observabilityScope: ObservabilityScope,
         delegate: SPMBuildCore.BuildSystemDelegate?
     ) {
+        self.buildSystem = buildSystem
+        self.buildExecutionContext = buildExecutionContext
         // FIXME: Implement a class convenience initializer that does this once they are supported
         // https://forums.swift.org/t/allow-self-x-in-class-convenience-initializers/15924
         self.outputStream = outputStream as? ThreadSafeOutputByteStream ?? ThreadSafeOutputByteStream(outputStream)
         self.progressAnimation = progressAnimation
-        self.buildExecutionContext = buildExecutionContext
-        self.delegate = delegate
-        self.buildSystem = buildSystem
+        self.logLevel = logLevel
         self.observabilityScope = observabilityScope
+        self.delegate = delegate
 
         let swiftParsers = buildExecutionContext.buildDescription?.swiftCommands.mapValues { tool in
             SwiftCompilerOutputParser(targetName: tool.moduleName, delegate: self)
@@ -434,7 +436,7 @@ final class BuildOperationBuildSystemDelegateHandler: LLBuildBuildSystemDelegate
     }
 
     func hadCommandFailure() {
-        onCommmandFailure?()
+        self.commandFailureHandler?()
     }
 
     func handleDiagnostic(_ diagnostic: SPMLLBuild.Diagnostic) {
@@ -451,7 +453,7 @@ final class BuildOperationBuildSystemDelegateHandler: LLBuildBuildSystemDelegate
     }
 
     func commandStatusChanged(_ command: SPMLLBuild.Command, kind: CommandStatusKind) {
-        guard !isVerbose else { return }
+        guard !self.logLevel.isVerbose else { return }
         guard command.shouldShowStatus else { return }
         guard !swiftParsers.keys.contains(command.name) else { return }
 
@@ -472,7 +474,7 @@ final class BuildOperationBuildSystemDelegateHandler: LLBuildBuildSystemDelegate
 
         queue.async {
             self.delegate?.buildSystem(self.buildSystem, didStartCommand: BuildSystemCommand(command))
-            if self.isVerbose {
+            if self.logLevel.isVerbose {
                 self.outputStream <<< command.verboseDescription <<< "\n"
                 self.outputStream.flush()
             }
@@ -490,7 +492,7 @@ final class BuildOperationBuildSystemDelegateHandler: LLBuildBuildSystemDelegate
         queue.async {
             self.delegate?.buildSystem(self.buildSystem, didFinishCommand: BuildSystemCommand(command))
             
-            if !self.isVerbose {
+            if !self.logLevel.isVerbose {
                 let targetName = self.swiftParsers[command.name]?.targetName
                 self.taskTracker.commandFinished(command, result: result, targetName: targetName)
                 self.updateProgress()
@@ -580,7 +582,7 @@ final class BuildOperationBuildSystemDelegateHandler: LLBuildBuildSystemDelegate
 
     func swiftCompilerOutputParser(_ parser: SwiftCompilerOutputParser, didParse message: SwiftCompilerMessage) {
         queue.async {
-            if self.isVerbose {
+            if self.logLevel.isVerbose {
                 if let text = message.verboseProgressText {
                     self.outputStream <<< text <<< "\n"
                     self.outputStream.flush()
@@ -592,7 +594,7 @@ final class BuildOperationBuildSystemDelegateHandler: LLBuildBuildSystemDelegate
 
             if let output = message.standardOutput {
                 // first we want to print the output so users have it handy
-                if !self.isVerbose {
+                if !self.logLevel.isVerbose {
                     self.progressAnimation.clear()
                 }
 
@@ -614,7 +616,7 @@ final class BuildOperationBuildSystemDelegateHandler: LLBuildBuildSystemDelegate
     func swiftCompilerOutputParser(_ parser: SwiftCompilerOutputParser, didFailWith error: Error) {
         let message = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         self.observabilityScope.emit(.swiftCompilerOutputParsingError(message))
-        onCommmandFailure?()
+        self.commandFailureHandler?()
     }
 
     func buildComplete(success: Bool) {

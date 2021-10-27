@@ -15,6 +15,55 @@ import TSCBasic
 import XCTest
 
 final class SwiftToolTests: XCTestCase {
+    func testVerbosityLogLevel() throws {
+        fixture(name: "Miscellaneous/Simple") { packageRoot in
+            do {
+                let options = try SwiftToolOptions.parse(["--package-path", packageRoot.pathString])
+                let tool = try SwiftTool(options: options)
+                XCTAssertEqual(tool.logLevel, .warning)
+
+                tool.observabilityScope.emit(error: "error")
+                tool.observabilityScope.emit(warning: "warning")
+                tool.observabilityScope.emit(info: "info")
+                tool.observabilityScope.emit(debug: "debug")
+            }
+
+            do {
+                let options = try SwiftToolOptions.parse(["--package-path", packageRoot.pathString, "--verbose"])
+                let tool = try SwiftTool(options: options)
+                XCTAssertEqual(tool.logLevel, .info)
+
+                tool.observabilityScope.emit(error: "error")
+                tool.observabilityScope.emit(warning: "warning")
+                tool.observabilityScope.emit(info: "info")
+                tool.observabilityScope.emit(debug: "debug")
+            }
+
+            do {
+                let options = try SwiftToolOptions.parse(["--package-path", packageRoot.pathString, "-v"])
+                let tool = try SwiftTool(options: options)
+                XCTAssertEqual(tool.logLevel, .info)
+            }
+
+            do {
+                let options = try SwiftToolOptions.parse(["--package-path", packageRoot.pathString, "--very-verbose"])
+                let tool = try SwiftTool(options: options)
+                XCTAssertEqual(tool.logLevel, .debug)
+
+                tool.observabilityScope.emit(error: "error")
+                tool.observabilityScope.emit(warning: "warning")
+                tool.observabilityScope.emit(info: "info")
+                tool.observabilityScope.emit(debug: "debug")
+            }
+
+            do {
+                let options = try SwiftToolOptions.parse(["--package-path", packageRoot.pathString, "--vv"])
+                let tool = try SwiftTool(options: options)
+                XCTAssertEqual(tool.logLevel, .debug)
+            }
+        }
+    }
+
     func testNetrcAuthorizationProviders() throws {
         fixture(name: "DependencyResolution/External/XCFramework") { packageRoot in
             let fs = localFileSystem
@@ -29,7 +78,7 @@ final class SwiftToolTests: XCTestCase {
 
                 let options = try SwiftToolOptions.parse(["--package-path", packageRoot.pathString, "--netrc-file", customPath.pathString])
                 let tool = try SwiftTool(options: options)
-                
+
                 let netrcProviders = try tool.getNetrcAuthorizationProviders()
                 XCTAssertEqual(netrcProviders.count, 1)
                 XCTAssertEqual(netrcProviders.first.map { resolveSymlinks($0.path) }, resolveSymlinks(customPath))
@@ -53,7 +102,7 @@ final class SwiftToolTests: XCTestCase {
 
                 let options = try SwiftToolOptions.parse(["--package-path", packageRoot.pathString])
                 let tool = try SwiftTool(options: options)
-                
+
                 let netrcProviders = try tool.getNetrcAuthorizationProviders()
                 XCTAssertTrue(netrcProviders.count >= 1) // This might include .netrc in user's home dir
                 XCTAssertNotNil(netrcProviders.first { resolveSymlinks($0.path) == resolveSymlinks(localPath) })
@@ -62,7 +111,7 @@ final class SwiftToolTests: XCTestCase {
                 XCTAssertEqual(auth?.user, "local@labkey.org")
                 XCTAssertEqual(auth?.password, "local")
             }
-            
+
             // Tests should not modify user's home dir .netrc so leaving that out intentionally
         }
     }

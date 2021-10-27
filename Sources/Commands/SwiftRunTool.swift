@@ -124,6 +124,7 @@ public struct SwiftRunTool: SwiftCommand {
                 packageGraphLoader: graphLoader,
                 pluginInvoker: { _ in [:] },
                 outputStream: swiftTool.outputStream,
+                logLevel: swiftTool.logLevel,
                 fileSystem: localFileSystem,
                 observabilityScope: swiftTool.observabilityScope
             )

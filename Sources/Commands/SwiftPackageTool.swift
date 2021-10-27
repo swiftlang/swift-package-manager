@@ -408,7 +408,8 @@ extension SwiftPackageTool {
                 for: modulesToDiff,
                 at: overrideBaselineDir,
                 force: regenerateBaseline,
-                outputStream: swiftTool.outputStream
+                outputStream: swiftTool.outputStream,
+                logLevel: swiftTool.logLevel
             )
 
             let results = ThreadSafeArrayStore<SwiftAPIDigester.ComparisonResult>()
