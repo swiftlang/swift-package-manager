@@ -13,7 +13,7 @@ import PackageModel
 import TSCBasic
 
 /// Package search API provider
-protocol PackageSearchProvider: Closable {
+protocol PackageSearchProvider {
     /// The name of the provider
     var name: String { get }
 

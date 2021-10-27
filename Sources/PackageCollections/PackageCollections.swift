@@ -64,13 +64,13 @@ public struct PackageCollections: PackageCollectionsProtocol {
          storage: Storage,
          collectionProviders: [Model.CollectionSourceType: PackageCollectionProvider],
          metadataProvider: PackageMetadataProvider,
-         searchProvider: PackageSearchProvider? = nil) {
+         customSearchProvider: PackageSearchProvider? = nil) {
         self.configuration = configuration
         self.observabilityScope = observabilityScope
         self.storageContainer = (storage, false)
         self.collectionProviders = collectionProviders
         self.metadataProvider = metadataProvider
-        self.searchProvider = searchProvider ?? StorageBackedPackageSearchProvider(storage: storage.collections)
+        self.searchProvider = customSearchProvider ?? StorageBackedPackageSearchProvider(storage: storage.collections)
     }
 
     public func shutdown() throws {

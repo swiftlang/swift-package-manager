@@ -48,8 +48,4 @@ struct StorageBackedPackageSearchProvider: PackageSearchProvider {
                        callback: @escaping (Result<PackageCollectionsModel.TargetSearchResult, Error>) -> Void) {
         self.searchTargets(query, searchType: searchType, collections: nil, callback: callback)
     }
-
-    func close() throws {
-        // No need to do anything
-    }
 }
