@@ -26,6 +26,7 @@ public struct PackageCollections: PackageCollectionsProtocol {
     private let storageContainer: (storage: Storage, owned: Bool)
     private let collectionProviders: [Model.CollectionSourceType: PackageCollectionProvider]
     let metadataProvider: PackageMetadataProvider
+    let searchProvider: PackageSearchProvider
 
     private var storage: Storage {
         self.storageContainer.storage
@@ -46,12 +47,15 @@ public struct PackageCollections: PackageCollectionsProtocol {
             configuration: .init(authTokens: configuration.authTokens),
             observabilityScope: observabilityScope
         )
+        
+        let searchProvider = StorageBackedPackageSearchProvider(storage: storage.collections)
 
         self.configuration = configuration
         self.observabilityScope = observabilityScope
         self.storageContainer = (storage, true)
         self.collectionProviders = collectionProviders
         self.metadataProvider = metadataProvider
+        self.searchProvider = searchProvider
     }
 
     // internal initializer for testing
@@ -59,12 +63,14 @@ public struct PackageCollections: PackageCollectionsProtocol {
          observabilityScope: ObservabilityScope,
          storage: Storage,
          collectionProviders: [Model.CollectionSourceType: PackageCollectionProvider],
-         metadataProvider: PackageMetadataProvider) {
+         metadataProvider: PackageMetadataProvider,
+         customSearchProvider: PackageSearchProvider? = nil) {
         self.configuration = configuration
         self.observabilityScope = observabilityScope
         self.storageContainer = (storage, false)
         self.collectionProviders = collectionProviders
         self.metadataProvider = metadataProvider
+        self.searchProvider = customSearchProvider ?? StorageBackedPackageSearchProvider(storage: storage.collections)
     }
 
     public func shutdown() throws {
@@ -308,7 +314,7 @@ public struct PackageCollections: PackageCollectionsProtocol {
                 if identifiers.isEmpty {
                     return callback(.success(Model.PackageSearchResult(items: [])))
                 }
-                self.storage.collections.searchPackages(identifiers: identifiers, query: query, callback: callback)
+                self.searchProvider.searchPackages(query, collections: Set(identifiers), callback: callback)
             }
         }
     }
@@ -466,7 +472,7 @@ public struct PackageCollections: PackageCollectionsProtocol {
                 if identifiers.isEmpty {
                     return callback(.success(.init(items: [])))
                 }
-                self.storage.collections.searchTargets(identifiers: identifiers, query: query, type: searchType, callback: callback)
+                self.searchProvider.searchTargets(query, searchType: searchType, collections: Set(identifiers), callback: callback)
             }
         }
     }
