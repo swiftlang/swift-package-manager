@@ -161,7 +161,7 @@ fileprivate struct PinsStorage {
                 return
             }
 
-            let data: Data
+            var data: Data
             if toolsVersion >= .v5_6 {
                 let container = try V2(pins: pins, mirrors: mirrors)
                 data = try self.encoder.encode(container)
@@ -169,6 +169,12 @@ fileprivate struct PinsStorage {
                 let container = try V1(pins: pins, mirrors: mirrors)
                 data = try self.encoder.encode(container)
             }
+            #if !os(Windows)
+            // rdar://83646952: add newline for POSIXy systems
+            if data.last != 0x0a {
+                data.append(0x0a)
+            }
+            #endif
             try self.fileSystem.writeFileContents(self.path, data: data)
         }
     }
