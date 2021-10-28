@@ -405,7 +405,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
             var validExtensions = [self.supportedArchiveExtension]
             if target.isLocal {
-                validExtensions += BinaryTarget.Kind.allCases.map { $0.fileExtension }
+                validExtensions += BinaryTarget.Kind.allCases.filter{ $0 != .unknown }.map { $0.fileExtension }
             }
 
             if !validExtensions.contains(location.pathExtension) {

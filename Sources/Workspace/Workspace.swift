@@ -1021,14 +1021,13 @@ extension Workspace {
 
                 // radar/82263304
                 // compute binary artifacts for the sake of constructing a project model
-                // note this does not actually download remote artifacts and as such does not have the artifact's correct path
+                // note this does not actually download remote artifacts and as such does not have the artifact's type or path
                 let binaryArtifacts = try manifest.targets.filter{ $0.type == .binary }.map { target -> BinaryArtifact in
                     if let path = target.path {
                         let absolutePath = try manifest.path.parentDirectory.appending(RelativePath(validating: path))
                         return try BinaryArtifact(kind: .forFileExtension(absolutePath.extension ?? "unknown") , originURL: .none, path: absolutePath)
                     } else if let url = target.url.flatMap(URL.init(string:)) {
-                        let fakePath = try manifest.path.parentDirectory.appending(components: "remote", "archive").appending(RelativePath(validating: url.lastPathComponent))
-                        return BinaryArtifact(kind: .xcframework , originURL: url.absoluteString, path: fakePath)
+                        return BinaryArtifact(kind: .unknown, originURL: url.absoluteString, path: .none)
                     } else {
                         throw InternalError("a binary target should have either a path or a URL and a checksum")
                     }

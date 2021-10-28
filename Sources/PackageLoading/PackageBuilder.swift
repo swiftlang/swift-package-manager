@@ -32,6 +32,9 @@ public enum ModuleError: Swift.Error {
     /// The artifact for the binary target could not be found.
     case artifactNotFound(String)
 
+    /// The artifact is not available on disk
+    case artifactNotAvailable(String)
+
     /// Invalid custom path.
     case invalidCustomPath(target: String, path: String)
 
@@ -83,6 +86,8 @@ extension ModuleError: CustomStringConvertible {
             return "Source files for target \(target) should be located under '\(folderName)/\(target)', or a custom sources path can be set with the 'path' property in Package.swift"
         case .artifactNotFound(let target):
             return "artifact not found for target '\(target)'"
+        case .artifactNotAvailable(let target):
+            return "artifact not available for target '\(target)'"
         case .invalidLayout(let type):
             return "package has unsupported layout; \(type)"
         case .invalidManifestConfig(let package, let message):
@@ -195,9 +200,9 @@ public struct BinaryArtifact {
     public let originURL: String?
 
     /// The path to the  artifact.
-    public let path: AbsolutePath
+    public let path: AbsolutePath?
 
-    public init(kind: BinaryTarget.Kind, originURL: String?, path: AbsolutePath) {
+    public init(kind: BinaryTarget.Kind, originURL: String?, path: AbsolutePath?) {
         self.kind = kind
         self.originURL = originURL
         self.path = path
@@ -533,10 +538,13 @@ public final class PackageBuilder {
         /// Returns the path of the given target.
         func findPath(for target: TargetDescription) throws -> AbsolutePath {
             if target.type == .binary {
-                guard let artifact = self.binaryArtifacts.first(where: { $0.path.basenameWithoutExt == target.name }) else {
+                guard let artifact = self.binaryArtifacts.first(where: { $0.path?.basenameWithoutExt == target.name }) else {
                     throw ModuleError.artifactNotFound(target.name)
                 }
-                return artifact.path
+                guard let path = artifact.path else {
+                    throw ModuleError.artifactNotAvailable(target.name)
+                }
+                return path
             } else if let subpath = target.path { // If there is a custom path defined, use that.
                 if subpath == "" || subpath == "." {
                     return packagePath

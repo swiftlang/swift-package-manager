@@ -1832,6 +1832,8 @@ public class BuildPlan {
                     case .artifactsArchive:
                         let tools = try self.parseArtifactsArchive(for: binaryTarget)
                         tools.forEach { availableTools[$0.name] = $0.executablePath  }
+                    case.unknown:
+                        throw InternalError("unknown binary target '\(target.name)' type")
                     }
                 case .plugin:
                     continue
