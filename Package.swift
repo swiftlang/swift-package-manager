@@ -1,4 +1,4 @@
-// swift-tools-version:5.1
+// swift-tools-version:5.4
 
 /*
  This source file is part of the Swift.org open source project
@@ -22,14 +22,14 @@ though that could break some clients.
 let swiftPMDataModelProduct = (
     name: "SwiftPMDataModel",
     targets: [
-        "SourceControl",
         "PackageCollections",
         "PackageCollectionsModel",
-        "PackageModel",
-        "PackageLoading",
         "PackageGraph",
-        "Xcodeproj",
+        "PackageLoading",
+        "PackageModel",
+        "SourceControl",
         "Workspace",
+        "Xcodeproj",
     ]
 )
 
@@ -42,9 +42,9 @@ let swiftPMDataModelProduct = (
 let swiftPMProduct = (
     name: "SwiftPM",
     targets: swiftPMDataModelProduct.targets + [
-        "SPMLLBuild",
-        "LLBuildManifest",
         "Build",
+        "LLBuildManifest",
+        "SPMLLBuild",
     ]
 )
 
@@ -114,149 +114,260 @@ let package = Package(
         // library; the bootstrap scripts build the deployable version.
         .target(
             name: "PackageDescription",
+            exclude: ["CMakeLists.txt"],
             swiftSettings: [
                 .unsafeFlags(["-package-description-version", "999.0"]),
                 .unsafeFlags(["-enable-library-evolution"], .when(platforms: [.macOS]))
-            ]),
+            ]
+        ),
 
         // The `PackagePlugin` target provides the API that is available to
         // plugin scripts. Here we build a debug version of the library; the
         // bootstrap scripts build the deployable version.
         .target(
             name: "PackagePlugin",
+            exclude: ["CMakeLists.txt"],
             swiftSettings: [
                 .unsafeFlags(["-package-description-version", "999.0"]),
                 .unsafeFlags(["-enable-library-evolution"], .when(platforms: [.macOS]))
-            ]),
+            ]
+        ),
 
         // MARK: SwiftPM specific support libraries
 
         .target(
             name: "Basics",
-            dependencies: ["SwiftToolsSupport-auto"]),
+            dependencies: [
+                .product(name: "SwiftToolsSupport-auto", package: "swift-tools-support-core"),
+            ],
+            exclude: ["CMakeLists.txt"]
+        ),
 
         .target(
             /** The llbuild manifest model */
             name: "LLBuildManifest",
-            dependencies: ["SwiftToolsSupport-auto", "Basics"]),
+            dependencies: ["Basics"],
+            exclude: ["CMakeLists.txt"]
+        ),
 
         .target(
             /** Package registry support */
             name: "PackageRegistry",
-            dependencies: ["SwiftToolsSupport-auto", "Basics", "PackageLoading", "PackageModel"]),
+            dependencies: [
+                "Basics",
+                "PackageLoading",
+                "PackageModel"
+            ],
+            exclude: ["CMakeLists.txt"]
+        ),
 
         .target(
             /** Source control operations */
             name: "SourceControl",
-            dependencies: ["SwiftToolsSupport-auto", "Basics"]),
+            dependencies: ["Basics"],
+            exclude: ["CMakeLists.txt"]
+        ),
 
         .target(
             /** Shim for llbuild library */
             name: "SPMLLBuild",
-            dependencies: ["SwiftToolsSupport-auto", "Basics"]),
+            dependencies: ["Basics"],
+            exclude: ["CMakeLists.txt"]
+        ),
 
         // MARK: Project Model
 
         .target(
             /** Primitive Package model objects */
             name: "PackageModel",
-            dependencies: ["SwiftToolsSupport-auto", "Basics"]),
+            dependencies: ["Basics"],
+            exclude: ["CMakeLists.txt", "README.md"]
+        ),
 
         .target(
             /** Package model conventions and loading support */
             name: "PackageLoading",
-            dependencies: ["SwiftToolsSupport-auto", "Basics", "PackageModel", "SourceControl"]),
+            dependencies: [
+                "Basics",
+                "PackageModel",
+                "SourceControl"
+            ],
+            exclude: ["CMakeLists.txt", "README.md"]
+        ),
 
         // MARK: Package Dependency Resolution
 
         .target(
             /** Data structures and support for complete package graphs */
             name: "PackageGraph",
-            dependencies: ["SwiftToolsSupport-auto", "Basics", "PackageLoading", "PackageModel", "PackageRegistry", "SourceControl"]),
+            dependencies: [
+                "Basics",
+                "PackageLoading",
+                "PackageModel",
+                "PackageRegistry",
+                "SourceControl"
+            ],
+            exclude: ["CMakeLists.txt", "README.md"]
+        ),
 
         // MARK: Package Collections
 
         .target(
             /** Package collections models */
             name: "PackageCollectionsModel",
-            dependencies: []),
+            dependencies: [],
+            exclude: [
+                "CMakeLists.txt",
+                "Formats/v1.md"
+            ]
+        ),
 
         .target(
             /** Package collections signing C lib */
             name: "PackageCollectionsSigningLibc",
-            dependencies: ["Crypto"],
+            dependencies: [
+                .product(name: "Crypto", package: "swift-crypto"),
+            ],
+            exclude: ["CMakeLists.txt"],
             cSettings: [
                 .define("WIN32_LEAN_AND_MEAN"),
-            ]),
+            ]
+        ),
         .target(
              /** Package collections signing */
              name: "PackageCollectionsSigning",
-             dependencies: ["PackageCollectionsModel", "PackageCollectionsSigningLibc", "Crypto", "Basics"],
-             swiftSettings: swiftSettings),
+             dependencies: [
+                "Basics",
+                .product(name: "Crypto", package: "swift-crypto"),
+                "PackageCollectionsModel",
+                "PackageCollectionsSigningLibc",
+             ],
+             exclude: ["CMakeLists.txt"],
+             swiftSettings: swiftSettings
+        ),
 
         .target(
             /** Data structures and support for package collections */
             name: "PackageCollections",
-            dependencies: ["SwiftToolsSupport-auto", "Basics", "PackageModel", "SourceControl", "PackageCollectionsModel", "PackageCollectionsSigning"]),
+            dependencies: [
+                "Basics",
+                "PackageCollectionsModel",
+                "PackageCollectionsSigning",
+                "PackageModel",
+                "SourceControl",
+            ],
+            exclude: ["CMakeLists.txt"]
+        ),
 
         // MARK: Package Manager Functionality
 
         .target(
             /** Builds Modules and Products */
             name: "SPMBuildCore",
-            dependencies: ["SwiftToolsSupport-auto", "Basics", "PackageGraph"]),
+            dependencies: [
+                "Basics",
+                "PackageGraph"
+            ],
+            exclude: ["CMakeLists.txt"]
+        ),
         .target(
             /** Builds Modules and Products */
             name: "Build",
-            dependencies: ["SwiftToolsSupport-auto", "Basics", "SPMBuildCore", "PackageGraph", "LLBuildManifest", "SwiftDriver", "SPMLLBuild"]),
+            dependencies: [
+                "Basics",
+                "LLBuildManifest",
+                "PackageGraph",
+                "SPMBuildCore",
+                "SPMLLBuild",
+                .product(name: "SwiftDriver", package: "swift-driver"),
+            ],
+            exclude: ["CMakeLists.txt"]
+        ),
         .target(
             /** Support for building using Xcode's build system */
             name: "XCBuildSupport",
-            dependencies: ["SPMBuildCore", "PackageGraph"]),
-
+            dependencies: ["SPMBuildCore", "PackageGraph"],
+            exclude: ["CMakeLists.txt"]
+        ),
         .target(
             /** Generates Xcode projects */
             name: "Xcodeproj",
-            dependencies: ["SwiftToolsSupport-auto", "Basics", "PackageGraph"]),
+            dependencies: ["Basics", "PackageGraph"],
+            exclude: ["CMakeLists.txt", "TODO.md"]
+        ),
         .target(
             /** High level functionality */
             name: "Workspace",
-            dependencies: ["SwiftToolsSupport-auto", "Basics", "SPMBuildCore", "PackageGraph", "PackageModel", "SourceControl", "Xcodeproj"]),
+            dependencies: [
+                "Basics",
+                "PackageGraph",
+                "PackageModel",
+                "SourceControl",
+                "SPMBuildCore",
+                "Xcodeproj"
+            ],
+            exclude: ["CMakeLists.txt"]
+        ),
 
         // MARK: Commands
 
         .target(
             /** High-level commands */
             name: "Commands",
-            dependencies: ["SwiftToolsSupport-auto", "Basics", "Build", "PackageGraph", "SourceControl", "Xcodeproj", "Workspace", "XCBuildSupport", "ArgumentParser", "PackageCollections"]),
-        .target(
+            dependencies: [
+                .product(name: "ArgumentParser", package: "swift-argument-parser"),
+                "Basics",
+                "Build",
+                "PackageCollections",
+                "PackageGraph",
+                "SourceControl",
+                "Workspace",
+                "Xcodeproj",
+                "XCBuildSupport",
+            ],
+            exclude: ["CMakeLists.txt", "README.md"]
+        ),
+        .executableTarget(
             /** The main executable provided by SwiftPM */
             name: "swift-package",
-            dependencies: ["Commands", "SwiftToolsSupport-auto"]),
-        .target(
+            dependencies: ["Basics", "Commands"],
+            exclude: ["CMakeLists.txt"]
+        ),
+        .executableTarget(
             /** Builds packages */
             name: "swift-build",
-            dependencies: ["Commands"]),
-        .target(
+            dependencies: ["Commands"],
+            exclude: ["CMakeLists.txt"]
+        ),
+        .executableTarget(
             /** Runs package tests */
             name: "swift-test",
-            dependencies: ["Commands"]),
-        .target(
+            dependencies: ["Commands"],
+            exclude: ["CMakeLists.txt"]
+        ),
+        .executableTarget(
             /** Runs an executable product */
             name: "swift-run",
-            dependencies: ["Commands"]),
-        .target(
+            dependencies: ["Commands"],
+            exclude: ["CMakeLists.txt"]
+        ),
+        .executableTarget(
             /** Interacts with package collections */
             name: "swift-package-collection",
-            dependencies: ["Commands"]),
-        .target(
+            dependencies: ["Commands"],
+            exclude: ["CMakeLists.txt"]
+        ),
+        .executableTarget(
             /** Interact with package registry */
             name: "swift-package-registry",
-            dependencies: ["Commands"]),
-        .target(
+            dependencies: ["Commands"],
+            exclude: ["CMakeLists.txt"]
+        ),
+        .executableTarget(
             /** Shim tool to find test names on OS X */
             name: "swiftpm-xctest-helper",
             dependencies: [],
+            exclude: ["CMakeLists.txt"],
             linkerSettings: [
                 .unsafeFlags(["-Xlinker", "-rpath", "-Xlinker", "@executable_path/../../../lib/swift/macosx"], .when(platforms: [.macOS])),
             ]),
@@ -266,76 +377,135 @@ let package = Package(
         .target(
             /** SwiftPM test support library */
             name: "SPMTestSupport",
-            dependencies: ["SwiftToolsSupport-auto", "Basics", "TSCTestSupport", "PackageGraph", "PackageLoading", "SourceControl", "Workspace", "Xcodeproj", "XCBuildSupport"]),
+            dependencies: [
+                "Basics",
+                "PackageGraph",
+                "PackageLoading",
+                "SourceControl",
+                .product(name: "TSCTestSupport", package: "swift-tools-support-core"),
+                "Workspace",
+                "Xcodeproj",
+                "XCBuildSupport",
+            ]
+        ),
 
         // MARK: SwiftPM tests
 
         .testTarget(
             name: "BasicsTests",
-            dependencies: ["Basics", "SPMTestSupport"]),
+            dependencies: ["Basics", "SPMTestSupport"]
+        ),
         .testTarget(
             name: "BuildTests",
-            dependencies: ["Build", "SPMTestSupport"]),
+            dependencies: ["Build", "SPMTestSupport"]
+        ),
         .testTarget(
             name: "CommandsTests",
-            dependencies: ["swift-build", "swift-package", "swift-test", "swift-run", "Commands", "Workspace", "SPMTestSupport", "Build", "SourceControl"]),
+            dependencies: [
+                "swift-build",
+                "swift-package",
+                "swift-test",
+                "swift-run",
+                "Commands",
+                "Workspace",
+                "SPMTestSupport",
+                "Build",
+                "SourceControl"
+            ]
+        ),
         .testTarget(
             name: "WorkspaceTests",
-            dependencies: ["Workspace", "SPMTestSupport"]),
+            dependencies: ["Workspace", "SPMTestSupport"]
+        ),
         .testTarget(
             name: "FunctionalTests",
-            dependencies: ["swift-build", "swift-package", "swift-test", "PackageModel", "SPMTestSupport"]),
+            dependencies: [
+                "swift-build",
+                "swift-package",
+                "swift-test",
+                "PackageModel",
+                "SPMTestSupport"
+            ]
+        ),
         .testTarget(
             name: "FunctionalPerformanceTests",
-            dependencies: ["swift-build", "swift-package", "swift-test", "SPMTestSupport"]),
+            dependencies: [
+                "swift-build",
+                "swift-package",
+                "swift-test",
+                "SPMTestSupport"
+            ]
+        ),
         .testTarget(
             name: "PackageDescriptionTests",
-            dependencies: ["PackageDescription"]),
+            dependencies: ["PackageDescription"]
+        ),
         .testTarget(
             name: "SPMBuildCoreTests",
-            dependencies: ["SPMBuildCore", "SPMTestSupport"]),
+            dependencies: ["SPMBuildCore", "SPMTestSupport"]
+        ),
         .testTarget(
             name: "PackageLoadingTests",
             dependencies: ["PackageLoading", "SPMTestSupport"],
-            exclude: ["Inputs"]),
+            exclude: ["Inputs"]
+        ),
         .testTarget(
             name: "PackageLoadingPerformanceTests",
-            dependencies: ["PackageLoading", "SPMTestSupport"]),
+            dependencies: ["PackageLoading", "SPMTestSupport"]
+        ),
         .testTarget(
             name: "PackageModelTests",
-            dependencies: ["PackageModel", "SPMTestSupport"]),
+            dependencies: ["PackageModel", "SPMTestSupport"]
+        ),
         .testTarget(
             name: "PackageGraphTests",
-            dependencies: ["PackageGraph", "SPMTestSupport"]),
+            dependencies: ["PackageGraph", "SPMTestSupport"]
+        ),
         .testTarget(
             name: "PackageGraphPerformanceTests",
-            dependencies: ["PackageGraph", "SPMTestSupport"]),
+            dependencies: ["PackageGraph", "SPMTestSupport"],
+            exclude: [
+                "Inputs/PerfectHTTPServer.json",
+                "Inputs/ZewoHTTPServer.json",
+                "Inputs/SourceKitten.json",
+                "Inputs/kitura.json",
+            ]
+        ),
         .testTarget(
             name: "PackageCollectionsModelTests",
-            dependencies: ["PackageCollectionsModel"]),
+            dependencies: ["PackageCollectionsModel"]
+        ),
         .testTarget(
             name: "PackageCollectionsSigningTests",
-            dependencies: ["PackageCollectionsSigning", "SPMTestSupport"]),
+            dependencies: ["PackageCollectionsSigning", "SPMTestSupport"]
+        ),
         .testTarget(
             name: "PackageCollectionsTests",
-            dependencies: ["PackageCollections", "SPMTestSupport"]),
+            dependencies: ["PackageCollections", "SPMTestSupport"]
+        ),
         .testTarget(
             name: "PackageRegistryTests",
-            dependencies: ["SPMTestSupport", "PackageRegistry"]),
+            dependencies: ["SPMTestSupport", "PackageRegistry"]
+        ),
         .testTarget(
             name: "SourceControlTests",
-            dependencies: ["SourceControl", "SPMTestSupport"]),
+            dependencies: ["SourceControl", "SPMTestSupport"],
+            exclude: ["Inputs/TestRepo.tgz"]
+        ),
         .testTarget(
             name: "XcodeprojTests",
-            dependencies: ["Xcodeproj", "SPMTestSupport"]),
+            dependencies: ["Xcodeproj", "SPMTestSupport"]
+        ),
         .testTarget(
             name: "XCBuildSupportTests",
-            dependencies: ["XCBuildSupport", "SPMTestSupport"]),
+            dependencies: ["XCBuildSupport", "SPMTestSupport"],
+            exclude: ["Inputs/Foo.pc"]
+        ),
 
         // Examples (These are built to ensure they stay up to date with the API.)
-        .target(
+        .executableTarget(
             name: "package-info",
-            dependencies: ["PackageModel", "PackageLoading", "PackageGraph", "Workspace"],
+            dependencies: ["Workspace"],
             path: "Examples/package-info/Sources/package-info"
         )
     ],
@@ -363,10 +533,10 @@ if ProcessInfo.processInfo.environment["SWIFTPM_LLBUILD_FWK"] == nil {
         // In Swift CI, use a local path to llbuild to interoperate with tools
         // like `update-checkout`, which control the sources externally.
         package.dependencies += [
-            .package(path: "../llbuild"),
+            .package(name: "swift-llbuild", path: "../llbuild"),
         ]
     }
-    package.targets.first(where: { $0.name == "SPMLLBuild" })!.dependencies += ["llbuildSwift"]
+    package.targets.first(where: { $0.name == "SPMLLBuild" })!.dependencies += [.product(name: "llbuildSwift", package: "swift-llbuild")]
 }
 
 if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
