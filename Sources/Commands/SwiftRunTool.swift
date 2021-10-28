@@ -111,9 +111,7 @@ public struct SwiftRunTool: SwiftCommand {
         case .repl:
             // Load a custom package graph which has a special product for REPL.
             let graphLoader = {
-                try swiftTool.loadPackageGraph(
-                    explicitProduct: self.options.executable,
-                    createREPLProduct: true)
+                try swiftTool.loadPackageGraph(createREPLProduct: true)
             }
             let buildParameters = try swiftTool.buildParameters()
 
@@ -145,7 +143,7 @@ public struct SwiftRunTool: SwiftCommand {
 
         case .debugger:
             do {
-                let buildSystem = try swiftTool.createBuildSystem(explicitProduct: options.executable)
+                let buildSystem = try swiftTool.createBuildSystem()
                 let productName = try findProductName(in: buildSystem.getPackageGraph())
                 if options.shouldBuildTests {
                     try buildSystem.build(subset: .allIncludingTests)
@@ -189,7 +187,7 @@ public struct SwiftRunTool: SwiftCommand {
             swiftTool.redirectStdoutToStderr()
 
             do {
-                let buildSystem = try swiftTool.createBuildSystem(explicitProduct: options.executable)
+                let buildSystem = try swiftTool.createBuildSystem()
                 let productName = try findProductName(in: buildSystem.getPackageGraph())
                 if options.shouldBuildTests {
                     try buildSystem.build(subset: .allIncludingTests)

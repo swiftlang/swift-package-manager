@@ -60,7 +60,7 @@ struct ResolverPrecomputationProvider: PackageContainerProvider {
     ) {
         queue.async {
             // Start by searching manifests from the Workspace's resolved dependencies.
-            if let manifest = self.dependencyManifests.dependencies.first(where: { _, managed, _ in managed.packageRef == package }) {
+            if let manifest = self.dependencyManifests.dependencies.first(where: { _, managed in managed.packageRef == package }) {
                 let container = LocalPackageContainer(
                     package: package,
                     manifest: manifest.manifest,
@@ -120,20 +120,20 @@ private struct LocalPackageContainer: PackageContainer {
         return try self.versionsDescending()
     }
 
-    func getDependencies(at version: Version, productFilter: ProductFilter) throws -> [PackageContainerConstraint] {
+    func getDependencies(at version: Version) throws -> [PackageContainerConstraint] {
         // Because of the implementation of `reversedVersions`, we should only get the exact same version.
         guard case .checkout(.version(version, revision: _)) = dependency?.state else {
             throw InternalError("expected version checkout state, but state was \(String(describing: dependency?.state))")
         }
-        return try manifest.dependencyConstraints(productFilter: productFilter)
+        return try manifest.dependencyConstraints()
     }
 
-    func getDependencies(at revisionString: String, productFilter: ProductFilter) throws -> [PackageContainerConstraint] {
+    func getDependencies(at revisionString: String) throws -> [PackageContainerConstraint] {
         // Return the dependencies if the checkout state matches the revision.
         let revision = Revision(identifier: revisionString)
         switch dependency?.state {
         case .checkout(.branch(_, revision: revision)), .checkout(.revision(revision)):
-            return try manifest.dependencyConstraints(productFilter: productFilter)
+            return try manifest.dependencyConstraints()
         default:
             throw ResolverPrecomputationError.differentRequirement(
                 package: self.package,
@@ -143,7 +143,7 @@ private struct LocalPackageContainer: PackageContainer {
         }
     }
 
-    func getUnversionedDependencies(productFilter: ProductFilter) throws -> [PackageContainerConstraint] {
+    func getUnversionedDependencies() throws -> [PackageContainerConstraint] {
         // Throw an error when the dependency is not unversioned to fail resolution.
         guard dependency?.isCheckout != true else {
             throw ResolverPrecomputationError.differentRequirement(
@@ -153,7 +153,7 @@ private struct LocalPackageContainer: PackageContainer {
             )
         }
 
-        return try manifest.dependencyConstraints(productFilter: productFilter)
+        return try manifest.dependencyConstraints()
     }
 
     // Gets the package reference from the managed dependency or computes it for root packages.

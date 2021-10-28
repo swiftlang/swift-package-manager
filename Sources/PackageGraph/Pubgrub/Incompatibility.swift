@@ -9,8 +9,8 @@
  */
 
 import Basics
-import TSCBasic
 import PackageModel
+import TSCBasic
 
 /// A set of terms that are incompatible with each other and can therefore not
 /// all be true at the same time. In dependency resolution, these are derived
@@ -24,12 +24,12 @@ public struct Incompatibility: Equatable, Hashable {
         self.cause = cause
     }
 
-    public init(_ terms: Term..., root: DependencyResolutionNode, cause: Cause = .root) throws {
+    public init(_ terms: Term..., root: PackageReference, cause: Cause = .root) throws {
         let termSet = OrderedSet(terms)
         try self.init(termSet, root: root, cause: cause)
     }
 
-    public init(_ terms: OrderedSet<Term>, root: DependencyResolutionNode, cause: Cause) throws {
+    public init(_ terms: OrderedSet<Term>, root: PackageReference, cause: Cause) throws {
         if terms.isEmpty {
             self.init(terms: terms, cause: cause)
             return
@@ -39,8 +39,8 @@ public struct Incompatibility: Equatable, Hashable {
         // always be selected.
         var terms = terms
         if terms.count > 1, cause.isConflict,
-            terms.contains(where: { $0.isPositive && $0.node == root }) {
-            terms = OrderedSet(terms.filter { !$0.isPositive || $0.node != root })
+            terms.contains(where: { $0.isPositive && $0.package == root }) {
+            terms = OrderedSet(terms.filter { !$0.isPositive || $0.package != root })
         }
 
         let normalizedTerms = try normalize(terms: terms.contents)
@@ -96,7 +96,7 @@ extension Incompatibility {
 
         /// The incompatibility represents a package's dependency on another
         /// package.
-        case dependency(node: DependencyResolutionNode)
+        case dependency(package: PackageReference)
 
         /// The incompatibility was derived from two others during conflict
         /// resolution.
@@ -133,24 +133,23 @@ extension Incompatibility {
 /// same incompatibility, but have these combined by intersecting their version
 /// requirements to a^1.5.0.
 fileprivate func normalize(terms: [Term]) throws -> [Term] {
-
-    let dict = try terms.reduce(into: OrderedDictionary<DependencyResolutionNode, (req: VersionSetSpecifier, polarity: Bool)>()) {
+    let dict = try terms.reduce(into: OrderedDictionary<PackageReference, (req: VersionSetSpecifier, polarity: Bool)>()) {
         res, term in
         // Don't try to intersect if this is the first time we're seeing this package.
-        guard let previous = res[term.node] else {
-            res[term.node] = (term.requirement, term.isPositive)
+        guard let previous = res[term.package] else {
+            res[term.package] = (term.requirement, term.isPositive)
             return
         }
 
         guard let intersection = term.intersect(withRequirement: previous.req, andPolarity: previous.polarity) else {
             throw InternalError("""
-                Attempting to create an incompatibility with terms for \(term.node) \
+                Attempting to create an incompatibility with terms for \(term.package) \
                 intersecting versions \(previous) and \(term.requirement). These are \
                 mutually exclusive and can't be intersected, making this incompatibility \
                 irrelevant.
                 """)
         }
-        res[term.node] = (intersection.requirement, intersection.isPositive)
+        res[term.package] = (intersection.requirement, intersection.isPositive)
     }
-    return dict.map { Term(node: $0, requirement: $1.req, isPositive: $1.polarity) }
+    return dict.map { Term(package: $0, requirement: $1.req, isPositive: $1.polarity) }
 }

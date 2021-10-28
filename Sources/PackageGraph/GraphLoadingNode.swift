@@ -17,6 +17,7 @@ import TSCBasic
 /// This node uses the product filter that was already finalized during resolution.
 ///
 /// - SeeAlso: DependencyResolutionNode
+// FIXME: tomer deprecate or replace withe some other manifest envelope
 public struct GraphLoadingNode: Equatable, Hashable {
 
     /// The package identity.
@@ -25,28 +26,20 @@ public struct GraphLoadingNode: Equatable, Hashable {
     /// The package manifest.
     public let manifest: Manifest
 
-    /// The product filter applied to the package.
-    public let productFilter: ProductFilter
-
-    public init(identity: PackageIdentity, manifest: Manifest, productFilter: ProductFilter) {
+    public init(identity: PackageIdentity, manifest: Manifest) {
         self.identity = identity
         self.manifest = manifest
-        self.productFilter = productFilter
+        //self.productFilter = productFilter
     }
 
     /// Returns the dependencies required by this node.
     internal func requiredDependencies() -> [PackageDependency] {
-        return manifest.dependenciesRequired(for: productFilter)
+        return self.manifest.requiredDependencies()
     }
 }
 
 extension GraphLoadingNode: CustomStringConvertible {
     public var description: String {
-        switch productFilter {
-        case .everything:
-            return self.manifest.name
-        case .specific(let set):
-            return "\(self.manifest.name)[\(set.sorted().joined(separator: ", "))]"
-        }
+        return self.identity.description
     }
 }

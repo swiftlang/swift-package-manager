@@ -119,7 +119,7 @@ enum ManifestJSONParser {
                 let identity: String = try kindJSON.get("identity")
                 let requirementJSON: JSON = try kindJSON.get("requirement")
                 let requirement = try PackageDependency.Registry.Requirement(v4: requirementJSON)
-                return .registry(identity: .plain(identity), requirement: requirement, productFilter: .everything)
+                return .registry(identity: .plain(identity), requirement: requirement)
             } else {
                 throw InternalError("Unknown dependency type \(kindJSON)")
             }
@@ -138,8 +138,8 @@ enum ManifestJSONParser {
                     at: url,
                     name: name,
                     identityResolver: identityResolver,
-                    fileSystem: fileSystem)
-
+                    fileSystem: fileSystem
+                )
             default:
                 let requirement = try PackageDependency.SourceControl.Requirement(v4: requirementJSON)
                 return try Self.makeSourceControlDependency(
@@ -148,7 +148,8 @@ enum ManifestJSONParser {
                     name: name,
                     requirement: requirement,
                     identityResolver: identityResolver,
-                    fileSystem: fileSystem)
+                    fileSystem: fileSystem
+                )
             }
         }
     }
@@ -168,10 +169,11 @@ enum ManifestJSONParser {
             throw ManifestParseError.invalidManifestFormat("'\(path)' is not a valid path for path-based dependencies; use relative or absolute path instead.", diagnosticFile: nil)
         }
         let identity = try identityResolver.resolveIdentity(for: path)
-        return .fileSystem(identity: identity,
-                           nameForTargetDependencyResolutionOnly: name,
-                           path: path,
-                           productFilter: .everything)
+        return .fileSystem(
+            identity: identity,
+            nameForTargetDependencyResolutionOnly: name,
+            path: path
+        )
     }
 
     private static func makeSourceControlDependency(
@@ -203,8 +205,7 @@ enum ManifestJSONParser {
                 identity: identity,
                 nameForTargetDependencyResolutionOnly: name,
                 path: localPath,
-                requirement: requirement,
-                productFilter: .everything
+                requirement: requirement
             )
         } else if let url = URL(string: location){
             // in the future this will check with the registries for the identity of the URL
@@ -213,8 +214,7 @@ enum ManifestJSONParser {
                 identity: identity,
                 nameForTargetDependencyResolutionOnly: name,
                 url: url,
-                requirement: requirement,
-                productFilter: .everything
+                requirement: requirement
             )
         } else {
             throw StringError("invalid location: \(location)")

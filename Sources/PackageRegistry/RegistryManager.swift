@@ -169,7 +169,7 @@ public final class RegistryManager {
                         packageKind: .registry(package.identity),
                         packageLocation: package.locationString,
                         version: version,
-                        revision: nil,
+                        //revision: nil,
                         toolsVersion: .currentToolsVersion,
                         identityResolver: self.identityResolver,
                         fileSystem: fileSystem,

@@ -58,7 +58,7 @@ internal struct FileSystemPackageContainer: PackageContainer {
                                     packageKind: self.package.kind,
                                     packageLocation: path.pathString,
                                     version: nil,
-                                    revision: nil,
+                                    //revision: nil,
                                     toolsVersion: toolsVersion,
                                     identityResolver: self.identityResolver,
                                     fileSystem: self.fileSystem,
@@ -69,8 +69,8 @@ internal struct FileSystemPackageContainer: PackageContainer {
         }
     }
 
-    public func getUnversionedDependencies(productFilter: ProductFilter) throws -> [PackageContainerConstraint] {
-        return try loadManifest().dependencyConstraints(productFilter: productFilter)
+    public func getUnversionedDependencies() throws -> [PackageContainerConstraint] {
+        return try loadManifest().dependencyConstraints()
     }
 
     public func getUpdatedIdentifier(at boundVersion: BoundVersion) throws -> PackageReference {
@@ -118,11 +118,11 @@ internal struct FileSystemPackageContainer: PackageContainer {
         fatalError("This should never be called")
     }
     
-    public func getDependencies(at version: Version, productFilter: ProductFilter) throws -> [PackageContainerConstraint] {
+    public func getDependencies(at version: Version) throws -> [PackageContainerConstraint] {
         fatalError("This should never be called")
     }
     
-    public func getDependencies(at revision: String, productFilter: ProductFilter) throws -> [PackageContainerConstraint] {
+    public func getDependencies(at revision: String) throws -> [PackageContainerConstraint] {
         fatalError("This should never be called")
     }
 }

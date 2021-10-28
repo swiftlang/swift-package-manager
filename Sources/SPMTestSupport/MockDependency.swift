@@ -18,12 +18,10 @@ public struct MockDependency {
 
     public let deprecatedName: String?
     public let location: Location
-    public let products: ProductFilter
 
-    init(deprecatedName: String? = nil, location: Location, products: ProductFilter = .everything) {
+    init(deprecatedName: String? = nil, location: Location) {
         self.deprecatedName = deprecatedName
         self.location = location
-        self.products = products
     }
 
     // TODO: refactor this when adding registry support
@@ -36,8 +34,7 @@ public struct MockDependency {
             return .fileSystem(
                 identity: identity,
                 deprecatedName: self.deprecatedName,
-                path: remappedPath,
-                productFilter: self.products
+                path: remappedPath
             )
         case .localSourceControl(let path, let requirement):
             let absolutePath = baseURL.appending(path)
@@ -47,8 +44,7 @@ public struct MockDependency {
                 identity: identity,
                 deprecatedName: self.deprecatedName,
                 path: remappedPath,
-                requirement: requirement,
-                productFilter: self.products
+                requirement: requirement
             )
         case .remoteSourceControl(let url, let requirement):
             let remappedURLString = identityResolver.mappedLocation(for: url.absoluteString)
@@ -60,34 +56,33 @@ public struct MockDependency {
                 identity: identity,
                 deprecatedName: self.deprecatedName,
                 url: remappedURL,
-                requirement: requirement,
-                productFilter: self.products
+                requirement: requirement
             )
         }
     }
 
-    public static func fileSystem(path: String, products: ProductFilter = .everything) -> MockDependency {
-        MockDependency(location: .fileSystem(path: RelativePath(path)), products: products)
+    public static func fileSystem(path: String) -> MockDependency {
+        MockDependency(location: .fileSystem(path: RelativePath(path)))
     }
 
-    public static func sourceControl(path: String, requirement: Requirement, products: ProductFilter = .everything) -> MockDependency {
-        .sourceControl(path: RelativePath(path), requirement: requirement, products: products)
+    public static func sourceControl(path: String, requirement: Requirement) -> MockDependency {
+        .sourceControl(path: RelativePath(path), requirement: requirement)
     }
 
-    public static func sourceControl(path: RelativePath, requirement: Requirement, products: ProductFilter = .everything) -> MockDependency {
-        MockDependency(location: .localSourceControl(path: path, requirement: requirement), products: products)
+    public static func sourceControl(path: RelativePath, requirement: Requirement) -> MockDependency {
+        MockDependency(location: .localSourceControl(path: path, requirement: requirement))
     }
 
-    public static func sourceControlWithDeprecatedName(name: String, path: String, requirement: Requirement, products: ProductFilter = .everything) -> MockDependency {
-        MockDependency(deprecatedName: name, location: .localSourceControl(path: RelativePath(path), requirement: requirement), products: products)
+    public static func sourceControlWithDeprecatedName(name: String, path: String, requirement: Requirement) -> MockDependency {
+        MockDependency(deprecatedName: name, location: .localSourceControl(path: RelativePath(path), requirement: requirement))
     }
 
-    public static func sourceControl(url: String, requirement: Requirement, products: ProductFilter = .everything) -> MockDependency {
-        .sourceControl(url: URL(string: url)!, requirement: requirement, products: products)
+    public static func sourceControl(url: String, requirement: Requirement) -> MockDependency {
+        .sourceControl(url: URL(string: url)!, requirement: requirement)
     }
 
-    public static func sourceControl(url: URL, requirement: Requirement, products: ProductFilter = .everything) -> MockDependency {
-        MockDependency(location: .remoteSourceControl(url: url, requirement: requirement), products: products)
+    public static func sourceControl(url: URL, requirement: Requirement) -> MockDependency {
+        MockDependency(location: .remoteSourceControl(url: url, requirement: requirement))
     }
 
     public enum Location {

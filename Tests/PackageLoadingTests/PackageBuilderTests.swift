@@ -2391,7 +2391,6 @@ final class PackageBuilderTester {
             let builder = PackageBuilder(
                 identity: PackageIdentity(urlString: manifest.packageLocation),
                 manifest: manifest,
-                productFilter: .everything,
                 path: path,
                 binaryArtifacts: binaryArtifacts,
                 xcTestMinimumDeploymentTargets: Self.xcTestMinimumDeploymentTargets,

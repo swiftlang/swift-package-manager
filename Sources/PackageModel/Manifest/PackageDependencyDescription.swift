@@ -21,7 +21,6 @@ public enum PackageDependency: Equatable {
         public let identity: PackageIdentity
         public let nameForTargetDependencyResolutionOnly: String?
         public let path: AbsolutePath
-        public let productFilter: ProductFilter
     }
 
     public struct SourceControl: Equatable, Encodable {
@@ -29,7 +28,6 @@ public enum PackageDependency: Equatable {
         public let nameForTargetDependencyResolutionOnly: String?
         public let location: Location
         public let requirement: Requirement
-        public let productFilter: ProductFilter
 
         public enum Requirement: Equatable, Hashable {
             case exact(Version)
@@ -47,7 +45,6 @@ public enum PackageDependency: Equatable {
     public struct Registry: Equatable, Encodable {
         public let identity: PackageIdentity
         public let requirement: Requirement
-        public let productFilter: ProductFilter
 
         /// The dependency requirement.
         public enum Requirement: Equatable, Hashable {
@@ -98,54 +95,38 @@ public enum PackageDependency: Equatable {
         }
     }
 
-    public var productFilter: ProductFilter {
-        switch self {
-        case .fileSystem(let settings):
-            return settings.productFilter
-        case .sourceControl(let settings):
-            return settings.productFilter
-        case .registry(let settings):
-            return settings.productFilter
-        }
-    }
-
     public func filtered(by productFilter: ProductFilter) -> Self {
         switch self {
         case .fileSystem(let settings):
             return .fileSystem(
                 identity: settings.identity,
                 nameForTargetDependencyResolutionOnly: settings.nameForTargetDependencyResolutionOnly,
-                path: settings.path,
-                productFilter: productFilter
+                path: settings.path
             )
         case .sourceControl(let settings):
             return .sourceControl(
                 identity: settings.identity,
                 nameForTargetDependencyResolutionOnly: settings.nameForTargetDependencyResolutionOnly,
                 location: settings.location,
-                requirement: settings.requirement,
-                productFilter: productFilter
+                requirement: settings.requirement
             )
         case .registry(let settings):
             return .registry(
                 identity: settings.identity,
-                requirement: settings.requirement,
-                productFilter: productFilter
+                requirement: settings.requirement
             )
         }
     }
 
     public static func fileSystem(identity: PackageIdentity,
                                   nameForTargetDependencyResolutionOnly: String?,
-                                  path: AbsolutePath,
-                                  productFilter: ProductFilter
+                                  path: AbsolutePath
     ) -> Self {
         .fileSystem(
             .init(
                 identity: identity,
                 nameForTargetDependencyResolutionOnly: nameForTargetDependencyResolutionOnly,
-                path: path,
-                productFilter: productFilter
+                path: path
             )
         )
     }
@@ -153,59 +134,49 @@ public enum PackageDependency: Equatable {
     public static func localSourceControl(identity: PackageIdentity,
                                           nameForTargetDependencyResolutionOnly: String?,
                                           path: AbsolutePath,
-                                          requirement: SourceControl.Requirement,
-                                          productFilter: ProductFilter
+                                          requirement: SourceControl.Requirement
     ) -> Self {
         .sourceControl(
             identity: identity,
             nameForTargetDependencyResolutionOnly: nameForTargetDependencyResolutionOnly,
             location: .local(path),
-            requirement: requirement,
-            productFilter: productFilter
+            requirement: requirement
         )
     }
     
     public static func remoteSourceControl(identity: PackageIdentity,
                                            nameForTargetDependencyResolutionOnly: String?,
                                            url: Foundation.URL,
-                                           requirement: SourceControl.Requirement,
-                                           productFilter: ProductFilter
+                                           requirement: SourceControl.Requirement
     ) -> Self {
         .sourceControl(
             identity: identity,
             nameForTargetDependencyResolutionOnly: nameForTargetDependencyResolutionOnly,
             location: .remote(url),
-            requirement: requirement,
-            productFilter: productFilter
+            requirement: requirement
         )
     }
 
     public static func sourceControl(identity: PackageIdentity,
                                      nameForTargetDependencyResolutionOnly: String?,
                                      location: SourceControl.Location,
-                                     requirement: SourceControl.Requirement,
-                                     productFilter: ProductFilter
+                                     requirement: SourceControl.Requirement
     ) -> Self {
         .sourceControl(
             .init(
                 identity: identity,
                 nameForTargetDependencyResolutionOnly: nameForTargetDependencyResolutionOnly,
                 location: location,
-                requirement: requirement,
-                productFilter: productFilter
+                requirement: requirement
             )
         )
     }
 
-    public static func registry(identity: PackageIdentity,
-                                requirement: Registry.Requirement,
-                                productFilter: ProductFilter
-    ) -> Self {
+    public static func registry(identity: PackageIdentity, requirement: Registry.Requirement) -> Self {
         .registry(
             .init(
                 identity: identity,
-                requirement: requirement,
-                productFilter: productFilter
+                requirement: requirement
             )
         )
     }

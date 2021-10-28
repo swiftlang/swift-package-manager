@@ -2313,7 +2313,8 @@ final class BuildPlanTests: XCTestCase {
                         TargetDescription(name: "PkgB", dependencies: ["swiftlib"]),
                     ]),
             ],
-            explicitProduct: "exe",
+            // FIXME: tomer
+            //explicitProduct: "exe",
             observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)

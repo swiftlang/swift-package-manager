@@ -8,47 +8,49 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
+import PackageModel
+
 /// A term represents a statement about a package that may be true or false.
 public struct Term: Equatable, Hashable {
-    public let node: DependencyResolutionNode
+    public let package: PackageReference
     public let requirement: VersionSetSpecifier
     public let isPositive: Bool
 
-    public init(node: DependencyResolutionNode, requirement: VersionSetSpecifier, isPositive: Bool) {
-        self.node = node
+    public init(package: PackageReference, requirement: VersionSetSpecifier, isPositive: Bool) {
+        self.package = package
         self.requirement = requirement
         self.isPositive = isPositive
     }
 
-    public init(_ node: DependencyResolutionNode, _ requirement: VersionSetSpecifier) {
-        self.init(node: node, requirement: requirement, isPositive: true)
+    public init(_ package: PackageReference, _ requirement: VersionSetSpecifier) {
+        self.init(package: package, requirement: requirement, isPositive: true)
     }
 
     /// Create a new negative term.
-    public init(not node: DependencyResolutionNode, _ requirement: VersionSetSpecifier) {
-        self.init(node: node, requirement: requirement, isPositive: false)
+    public init(not package: PackageReference, _ requirement: VersionSetSpecifier) {
+        self.init(package: package, requirement: requirement, isPositive: false)
     }
 
     /// The same term with an inversed `isPositive` value.
     public var inverse: Term {
         return Term(
-            node: node,
-            requirement: requirement,
-            isPositive: !isPositive)
+            package: self.package,
+            requirement: self.requirement,
+            isPositive: !self.isPositive)
     }
 
     /// Check if this term satisfies another term, e.g. if `self` is true,
     /// `other` must also be true.
     public func satisfies(_ other: Term) -> Bool {
         // TODO: This probably makes more sense as isSatisfied(by:) instead.
-        guard self.node == other.node else { return false }
+        guard self.package == other.package else { return false }
         return self.relation(with: other) == .subset
     }
 
     /// Create an intersection with another term.
     public func intersect(with other: Term) -> Term? {
-        guard self.node == other.node else { return nil }
-        return intersect(withRequirement: other.requirement, andPolarity: other.isPositive)
+        guard self.package == other.package else { return nil }
+        return self.intersect(withRequirement: other.requirement, andPolarity: other.isPositive)
     }
 
     /// Create an intersection with a requirement and polarity returning a new
@@ -84,7 +86,7 @@ public struct Term: Equatable, Hashable {
             return nil
         }
 
-        return Term(node: node, requirement: versionIntersection, isPositive: isPositive)
+        return Term(package: self.package, requirement: versionIntersection, isPositive: isPositive)
     }
 
     public func difference(with other: Term) -> Term? {
@@ -97,7 +99,7 @@ public struct Term: Equatable, Hashable {
     /// - There has to be no decision for it.
     /// - The package version has to match all assignments.
     public func isValidDecision(for solution: PartialSolution) -> Bool {
-        for assignment in solution.assignments where assignment.term.node == node {
+        for assignment in solution.assignments where assignment.term.package == package {
             assert(!assignment.isDecision, "Expected assignment to be a derivation.")
             guard satisfies(assignment.term) else { return false }
         }
@@ -106,7 +108,7 @@ public struct Term: Equatable, Hashable {
 
     // From: https://github.com/dart-lang/pub/blob/master/lib/src/solver/term.dart
     public func relation(with other: Term) -> SetRelation {
-        if self.node != other.node {
+        if self.package != other.package {
             assertionFailure("attempting to compute relation between different packages \(self) \(other)")
             return .error
         }
@@ -165,7 +167,7 @@ public struct Term: Equatable, Hashable {
 
 extension Term: CustomStringConvertible {
     public var description: String {
-        let pkg = "\(node)"
+        let pkg = "\(package.identity)"
         let req = requirement.description
 
         if !isPositive {

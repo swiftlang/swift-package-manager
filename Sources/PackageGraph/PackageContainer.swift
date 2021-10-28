@@ -68,7 +68,7 @@ public protocol PackageContainer {
     /// - Precondition: `versions.contains(version)`
     /// - Throws: If the version could not be resolved; this will abort
     ///   dependency resolution completely.
-    func getDependencies(at version: Version, productFilter: ProductFilter) throws -> [PackageContainerConstraint]
+    func getDependencies(at version: Version) throws -> [PackageContainerConstraint]
 
     /// Fetch the declared dependencies for a particular revision.
     ///
@@ -77,12 +77,12 @@ public protocol PackageContainer {
     ///
     /// - Throws: If the revision could not be resolved; this will abort
     ///   dependency resolution completely.
-    func getDependencies(at revision: String, productFilter: ProductFilter) throws -> [PackageContainerConstraint]
+    func getDependencies(at revision: String) throws -> [PackageContainerConstraint]
 
     /// Fetch the dependencies of an unversioned package container.
     ///
     /// NOTE: This method should not be called on a versioned container.
-    func getUnversionedDependencies(productFilter: ProductFilter) throws -> [PackageContainerConstraint]
+    func getUnversionedDependencies() throws -> [PackageContainerConstraint]
 
     /// Get the updated identifier at a bound version.
     ///
@@ -113,27 +113,23 @@ public struct PackageContainerConstraint: Equatable, Hashable {
     /// The constraint requirement.
     public let requirement: PackageRequirement
 
-    /// The required products.
-    public let products: ProductFilter
-
     /// Create a constraint requiring the given `container` satisfying the
     /// `requirement`.
-    public init(package: PackageReference, requirement: PackageRequirement, products: ProductFilter) {
+    public init(package: PackageReference, requirement: PackageRequirement) {
         self.package = package
         self.requirement = requirement
-        self.products = products
     }
 
     /// Create a constraint requiring the given `container` satisfying the
     /// `versionRequirement`.
-    public init(package: PackageReference, versionRequirement: VersionSetSpecifier, products: ProductFilter) {
-        self.init(package: package, requirement: .versionSet(versionRequirement), products: products)
+    public init(package: PackageReference, versionRequirement: VersionSetSpecifier) {
+        self.init(package: package, requirement: .versionSet(versionRequirement))
     }
 }
 
 extension PackageContainerConstraint: CustomStringConvertible {
     public var description: String {
-        return "Constraint(\(self.package), \(requirement), \(products)"
+        return "Constraint(\(self.package), \(requirement)"
     }
 }
 

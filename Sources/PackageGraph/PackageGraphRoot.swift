@@ -52,7 +52,7 @@ public struct PackageGraphRoot {
     // FIXME: This API behavior wrt to non-found manifests is fragile, but required by IDEs
     // it may lead to incorrect assumption in downstream code which may expect an error if a manifest was not found
     // we should refactor this API to more clearly return errors for inputs that do not have a corresponding manifest
-    public init(input: PackageGraphRootInput, manifests: [AbsolutePath: Manifest], explicitProduct: String? = nil) {
+    public init(input: PackageGraphRootInput, manifests: [AbsolutePath: Manifest]) {
         self.packages = input.packages.reduce(into: .init(), { partial, inputPath in
             if let manifest = manifests[inputPath]  {
                 let packagePath = manifest.path.parentDirectory
@@ -60,35 +60,20 @@ public struct PackageGraphRoot {
                 partial[identity] = (.root(identity: identity, path: packagePath), manifest)
             }
         })
-
-        // FIXME: Deprecate special casing once the manifest supports declaring used executable products.
-        // Special casing explicit products like this is necessary to pass the test suite and satisfy backwards compatibility.
-        // However, changing the dependencies based on the command line arguments may force pins to temporarily change,
-        // which can become a nuissance.
-        // Such pin switching can currently be worked around by declaring the executable product as a dependency of a dummy target.
-        // But in the future it might be worth providing a way of declaring them in the manifest without a dummy target,
-        // at which time the current special casing can be deprecated.
-        var adjustedDependencies = input.dependencies
-        if let product = explicitProduct {
-            for dependency in manifests.values.lazy.map({ $0.dependenciesRequired(for: .everything) }).joined() {
-                adjustedDependencies.append(dependency.filtered(by: .specific([product])))
-            }
-        }
-
-        self.dependencies = adjustedDependencies
+        
+        self.dependencies = input.dependencies
     }
 
     /// Returns the constraints imposed by root manifests + dependencies.
     public func constraints() throws -> [PackageContainerConstraint] {
         let constraints = self.packageReferences.map {
-            PackageContainerConstraint(package: $0, requirement: .unversioned, products: .everything)
+            PackageContainerConstraint(package: $0, requirement: .unversioned)
         }
         
         let depend = try dependencies.map{
             PackageContainerConstraint(
                 package: $0.createPackageRef(),
-                requirement: try $0.toConstraintRequirement(),
-                products: $0.productFilter
+                requirement: try $0.toConstraintRequirement()
             )
         }
         return constraints + depend

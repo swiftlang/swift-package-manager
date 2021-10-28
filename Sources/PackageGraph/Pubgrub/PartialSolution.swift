@@ -9,28 +9,29 @@
  */
 
 import Basics
+import PackageModel
 import TSCBasic
 import struct TSCUtility.Version
 
 /// The partial solution is a constantly updated solution used throughout the
 /// dependency resolution process, tracking know assignments.
 public struct PartialSolution {
-    var root: DependencyResolutionNode?
+    var root: PackageReference?
 
-    /// All known assigments.
+    /// All known assignments.
     public private(set) var assignments: [Assignment]
 
     /// All known decisions.
-    public private(set) var decisions: [DependencyResolutionNode: Version] = [:]
+    public private(set) var decisions: [PackageReference: Version] = [:]
 
     /// The intersection of all positive assignments for each package, minus any
     /// negative assignments that refer to that package.
-    public private(set) var _positive: OrderedDictionary<DependencyResolutionNode, Term> = [:]
+    public private(set) var _positive: OrderedDictionary<PackageReference, Term> = [:]
 
     /// Union of all negative assignments for a package.
     ///
     /// Only present if a package has no positive assignment.
-    public private(set) var _negative: [DependencyResolutionNode: Term] = [:]
+    public private(set) var _negative: [PackageReference: Term] = [:]
 
     /// The current decision level.
     public var decisionLevel: Int {
@@ -46,7 +47,7 @@ public struct PartialSolution {
 
     /// A list of all packages that have been assigned, but are not yet satisfied.
     public var undecided: [Term] {
-        return _positive.values.filter { !decisions.keys.contains($0.node) }
+        return _positive.values.filter { !decisions.keys.contains($0.package) }
     }
 
     /// Create a new derivation assignment and add it to the partial solution's
@@ -59,9 +60,9 @@ public struct PartialSolution {
 
     /// Create a new decision assignment and add it to the partial solution's
     /// list of known assignments.
-    public mutating func decide(_ node: DependencyResolutionNode, at version: Version) {
-        decisions[node] = version
-        let term = Term(node, .exact(version))
+    public mutating func decide(_ package: PackageReference, at version: Version) {
+        decisions[package] = version
+        let term = Term(package, .exact(version))
         let decision = Assignment.decision(term, decisionLevel: decisionLevel)
         self.assignments.append(decision)
         register(decision)
@@ -70,10 +71,10 @@ public struct PartialSolution {
     /// Populates the _positive and _negative poperties with the assignment.
     private mutating func register(_ assignment: Assignment) {
         let term = assignment.term
-        let pkg = term.node
+        let pkg = term.package
 
         if let positive = _positive[pkg] {
-            _positive[term.node] = positive.intersect(with: term)
+            _positive[term.package] = positive.intersect(with: term)
             return
         }
 
@@ -93,7 +94,7 @@ public struct PartialSolution {
         var assignedTerm: Term?
 
         for assignment in assignments {
-            guard assignment.term.node == term.node else {
+            guard assignment.term.package == term.package else {
                 continue
             }
             assignedTerm = assignedTerm.flatMap{ $0.intersect(with: assignment.term) } ?? assignment.term
@@ -120,7 +121,7 @@ public struct PartialSolution {
         for (idx, remove) in toBeRemoved.reversed() {
             let assignment = assignments.remove(at: idx)
             if assignment.isDecision {
-                decisions.removeValue(forKey: remove.term.node)
+                decisions.removeValue(forKey: remove.term.package)
             }
         }
 
@@ -139,7 +140,7 @@ public struct PartialSolution {
 
     /// Returns the set relation of the partial solution with the given term.
     func relation(with term: Term) -> Term.SetRelation {
-        let pkg = term.node
+        let pkg = term.package
         if let positive = _positive[pkg] {
             return positive.relation(with: term)
         } else if let negative = _negative[pkg] {

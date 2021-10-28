@@ -58,7 +58,7 @@ public final class Manifest {
     public let version: Version?
 
     /// The revision this package was loaded from, if known.
-    public let revision: String?
+    //public let revision: String?
 
     /// The tools version declared in the manifest.
     public let toolsVersion: ToolsVersion
@@ -97,10 +97,10 @@ public final class Manifest {
     public let providers: [SystemPackageProviderDescription]?
 
     /// Targets required for building particular product filters.
-    private var _requiredTargets = ThreadSafeKeyValueStore<ProductFilter, [TargetDescription]>()
+    //private var _requiredTargets = ThreadSafeKeyValueStore<ProductFilter, [TargetDescription]>()
 
     /// Dependencies required for building particular product filters.
-    private var _requiredDependencies = ThreadSafeKeyValueStore<ProductFilter, [PackageDependency]>()
+    //private var _requiredDependencies = ThreadSafeKeyValueStore<ProductFilter, [PackageDependency]>()
 
     public init(
         name: String,
@@ -110,7 +110,7 @@ public final class Manifest {
         defaultLocalization: String? = nil,
         platforms: [PlatformDescription],
         version: TSCUtility.Version? = nil,
-        revision: String? = nil,
+        //revision: String? = nil,
         toolsVersion: ToolsVersion,
         pkgConfig: String? = nil,
         providers: [SystemPackageProviderDescription]? = nil,
@@ -128,7 +128,7 @@ public final class Manifest {
         self.defaultLocalization = defaultLocalization
         self.platforms = platforms
         self.version = version
-        self.revision = revision
+        //self.revision = revision
         self.toolsVersion = toolsVersion
         self.pkgConfig = pkgConfig
         self.providers = providers
@@ -140,7 +140,73 @@ public final class Manifest {
         self.targets = targets
         self.targetMap = Dictionary(targets.lazy.map({ ($0.name, $0) }), uniquingKeysWith: { $1 })
     }
+}
 
+extension Manifest {
+
+    /// Returns the targets required for building the provided products.
+    public func requiredTargets(for productsFilter: [ProductDescription]? = .none) -> [TargetDescription] {
+        if case .root = self.packageKind {
+            return self.targets
+        }
+
+        let products = productsFilter ?? self.products
+
+        let targetsByName = Dictionary(targets.map({ ($0.name, $0) }), uniquingKeysWith: { $1 })
+        let productTargetNames = products.flatMap({ $0.targets })
+
+        let dependentTargetNames = transitiveClosure(productTargetNames, successors: { targetName in
+
+            if let target = targetsByName[targetName] {
+                let dependencies: [String] = target.dependencies.compactMap { dependency in
+                    switch dependency {
+                    case .target(let name, _), .byName(let name, _):
+                        return targetsByName.keys.contains(name) ? name : nil
+                    default:
+                        return nil
+                    }
+                }
+
+                let plugins: [String] = target.pluginUsages?.compactMap { pluginUsage in
+                    switch pluginUsage {
+                    case .plugin(name: let name, package: nil):
+                        return targetsByName.keys.contains(name) ? name : nil
+                    default:
+                        return nil
+                    }
+                } ?? []
+
+                return dependencies + plugins
+            }
+
+            return []
+        })
+
+        let requiredTargetNames = Set(productTargetNames).union(dependentTargetNames)
+        let requiredTargets = requiredTargetNames.compactMap{ targetsByName[$0] }
+        return requiredTargets
+    }
+
+    public func requiredDependencies(for productsFilter: [ProductDescription]? = .none) -> [PackageDependency] {
+        if self.packageKind.isRoot || self.toolsVersion < .v5_2 {
+            return self.dependencies
+        }
+
+        var requiredDependencies: Set<PackageIdentity> = []
+
+        for target in self.requiredTargets(for: productsFilter) {
+            for targetDependency in target.dependencies {
+                if let dependency = self.packageDependency(referencedBy: targetDependency) {
+                    requiredDependencies.insert(dependency.identity)
+                }
+            }
+        }
+
+        return self.dependencies.filter { requiredDependencies.contains($0.identity) }
+
+    }
+
+    /*
     /// Returns the targets required for a particular product filter.
     public func targetsRequired(for productFilter: ProductFilter) -> [TargetDescription] {
         #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
@@ -274,7 +340,7 @@ public final class Manifest {
                 return nil
             }
         }
-    }
+    }*/
 
     /// Finds the package dependency referenced by the specified target dependency.
     /// - Returns: Returns `nil` if the dependency is a target dependency, if it is a product dependency but has no
@@ -298,6 +364,7 @@ public final class Manifest {
         })
     }
 
+    /*
     /// Registers a required product with a particular dependency if possible, or registers it as unknown.
     ///
     /// - Parameters:
@@ -382,6 +449,7 @@ public final class Manifest {
             return false
         }
     }
+    */
 }
 
 extension Manifest: Hashable {

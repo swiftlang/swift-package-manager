@@ -13,7 +13,7 @@ import PackageModel
 import TSCBasic
 
 public protocol DependencyResolver {
-    typealias Binding = (package: PackageReference, binding: BoundVersion, products: ProductFilter)
+    typealias Binding = (package: PackageReference, binding: BoundVersion)
     typealias Delegate = DependencyResolverDelegate
 }
 
@@ -55,15 +55,15 @@ public struct TracingDependencyResolverDelegate: DependencyResolverDelegate {
     }
 
     public func willResolve(term: Term) {
-        self.log("resolving: \(term.node.package.identity)")
+        self.log("resolving: \(term.package.identity)")
     }
 
     public func didResolve(term: Term, version: Version, duration: DispatchTimeInterval) {
-        self.log("resolved: \(term.node.package.identity) @ \(version)")
+        self.log("resolved: \(term.package.identity) @ \(version)")
     }
 
     public func derived(term: Term) {
-        self.log("derived: \(term.node.package.identity)")
+        self.log("derived: \(term.package.identity)")
     }
 
     public func conflict(conflict: Incompatibility) {
@@ -88,7 +88,7 @@ public struct TracingDependencyResolverDelegate: DependencyResolverDelegate {
 
     public func solved(result: [DependencyResolver.Binding]) {
         self.log("solved:")
-        for (package, binding, _) in result {
+        for (package, binding) in result {
             self.log("\(package) \(binding)")
         }
     }
@@ -134,8 +134,7 @@ public struct MultiplexResolverDelegate: DependencyResolverDelegate {
         underlying.forEach { $0.failedToResolve(incompatibility: incompatibility)  }
     }
 
-    public func solved(result: [(package: PackageReference, binding: BoundVersion, products: ProductFilter)]) {
+    public func solved(result: [(package: PackageReference, binding: BoundVersion)]) {
         underlying.forEach { $0.solved(result: result)  }
     }
-
 }

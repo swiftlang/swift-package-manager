@@ -694,11 +694,8 @@ public class SwiftTool {
 
     /// Fetch and load the complete package graph.
     ///
-    /// - Parameters:
-    ///   - explicitProduct: The product specified on the command line to a “swift run” or “swift build” command. This allows executables from dependencies to be run directly without having to hook them up to any particular target.
     @discardableResult
     func loadPackageGraph(
-        explicitProduct: String? = nil,
         createMultipleTestProducts: Bool = false,
         createREPLProduct: Bool = false
     ) throws -> PackageGraph {
@@ -708,7 +705,6 @@ public class SwiftTool {
             // Fetch and load the package graph.
             let graph = try workspace.loadPackageGraph(
                 rootInput: getWorkspaceRoot(),
-                explicitProduct: explicitProduct,
                 createMultipleTestProducts: createMultipleTestProducts,
                 createREPLProduct: createREPLProduct,
                 forceResolvedVersions: options.forceResolvedVersions,
@@ -806,9 +802,9 @@ public class SwiftTool {
         return true
     }
 
-    func createBuildOperation(explicitProduct: String? = nil, cacheBuildManifest: Bool = true) throws -> BuildOperation {
+    func createBuildOperation(cacheBuildManifest: Bool = true) throws -> BuildOperation {
         // Load a custom package graph which has a special product for REPL.
-        let graphLoader = { try self.loadPackageGraph(explicitProduct: explicitProduct) }
+        let graphLoader = { try self.loadPackageGraph() }
 
         // Construct the build operation.
         let buildOp = try BuildOperation(
@@ -827,11 +823,11 @@ public class SwiftTool {
         return buildOp
     }
 
-    func createBuildSystem(explicitProduct: String? = nil, buildParameters: BuildParameters? = nil) throws -> BuildSystem {
+    func createBuildSystem(buildParameters: BuildParameters? = nil) throws -> BuildSystem {
         let buildSystem: BuildSystem
         switch options.buildSystem {
         case .native:
-            let graphLoader = { try self.loadPackageGraph(explicitProduct: explicitProduct) }
+            let graphLoader = { try self.loadPackageGraph() }
             let pluginInvoker = { try self.invokePlugins(graph: $0) }
             buildSystem = try BuildOperation(
                 buildParameters: buildParameters ?? self.buildParameters(),
@@ -844,7 +840,7 @@ public class SwiftTool {
                 observabilityScope: self.observabilityScope
             )
         case .xcode:
-            let graphLoader = { try self.loadPackageGraph(explicitProduct: explicitProduct, createMultipleTestProducts: true) }
+            let graphLoader = { try self.loadPackageGraph(createMultipleTestProducts: true) }
             // FIXME: Implement the custom build command provider also.
             buildSystem = try XcodeBuildSystem(
                 buildParameters: buildParameters ?? self.buildParameters(),

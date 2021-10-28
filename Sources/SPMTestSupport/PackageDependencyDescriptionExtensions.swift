@@ -13,53 +13,54 @@ import PackageModel
 import TSCBasic
 
 public extension PackageDependency {
-    static func fileSystem(identity: PackageIdentity? = nil,
-                           deprecatedName: String? = nil,
-                           path: AbsolutePath,
-                           productFilter: ProductFilter = .everything
+    static func fileSystem(
+        identity: PackageIdentity? = nil,
+        deprecatedName: String? = nil,
+        path: AbsolutePath
     ) -> Self {
         let identity = identity ?? PackageIdentity(path: path)
-        return .fileSystem(identity: identity,
-                           nameForTargetDependencyResolutionOnly: deprecatedName,
-                           path: path,
-                           productFilter: productFilter)
+        return .fileSystem(
+            identity: identity,
+            nameForTargetDependencyResolutionOnly: deprecatedName,
+            path: path
+        )
     }
-
-    static func localSourceControl(identity: PackageIdentity? = nil,
-                                   deprecatedName: String? = nil,
-                                   path: AbsolutePath,
-                                   requirement: SourceControl.Requirement,
-                                   productFilter: ProductFilter = .everything
+    
+    static func localSourceControl(
+        identity: PackageIdentity? = nil,
+        deprecatedName: String? = nil,
+        path: AbsolutePath,
+        requirement: SourceControl.Requirement
     ) -> Self {
         let identity = identity ?? PackageIdentity(path: path)
-        return .localSourceControl(identity: identity,
-                                   nameForTargetDependencyResolutionOnly: deprecatedName,
-                                   path: path,
-                                   requirement: requirement,
-                                   productFilter: productFilter)
+        return .localSourceControl(
+            identity: identity,
+            nameForTargetDependencyResolutionOnly: deprecatedName,
+            path: path,
+            requirement: requirement
+        )
     }
-
-    static func remoteSourceControl(identity: PackageIdentity? = nil,
-                                    deprecatedName: String? = nil,
-                                    url: Foundation.URL,
-                                    requirement: SourceControl.Requirement,
-                                    productFilter: ProductFilter = .everything
+    
+    static func remoteSourceControl(
+        identity: PackageIdentity? = nil,
+        deprecatedName: String? = nil,
+        url: Foundation.URL,
+        requirement: SourceControl.Requirement
     ) -> Self {
         let identity = identity ?? PackageIdentity(url: url)
-        return .remoteSourceControl(identity: identity,
-                                    nameForTargetDependencyResolutionOnly: deprecatedName,
-                                    url: url,
-                                    requirement: requirement,
-                                    productFilter: productFilter)
+        return .remoteSourceControl(
+            identity: identity,
+            nameForTargetDependencyResolutionOnly: deprecatedName,
+            url: url,
+            requirement: requirement
+        )
     }
-
-    static func registry(identity: String,
-                         requirement: Registry.Requirement,
-                         productFilter: ProductFilter = .everything
-    ) -> Self {
-        return .registry(identity: .plain(identity),
-                         requirement: requirement,
-                         productFilter: productFilter)
+    
+    static func registry(identity: String, requirement: Registry.Requirement) -> Self {
+        return .registry(
+            identity: .plain(identity),
+            requirement: requirement
+        )
     }
 }
 

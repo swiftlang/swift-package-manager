@@ -60,7 +60,7 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
     private let currentToolsVersion: ToolsVersion
 
     /// The cached dependency information.
-    private var dependenciesCache = [String: [ProductFilter: (Manifest, [Constraint])]] ()
+    private var dependenciesCache = [String: (Manifest, [Constraint])] ()
     private var dependenciesCacheLock = Lock()
 
     private var knownVersionsCache = ThreadSafeBox<[Version: String]>()
@@ -164,13 +164,13 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
         }
     }
 
-    public func getDependencies(at version: Version, productFilter: ProductFilter) throws -> [Constraint] {
+    public func getDependencies(at version: Version) throws -> [Constraint] {
         do {
-            return try self.getCachedDependencies(forIdentifier: version.description, productFilter: productFilter) {
+            return try self.getCachedDependencies(forIdentifier: version.description) {
                 guard let tag = try self.knownVersions()[version] else {
                     throw StringError("unknown tag \(version)")
                 }
-                return try self.loadDependencies(tag: tag, version: version, productFilter: productFilter)
+                return try self.loadDependencies(tag: tag, version: version)
             }.1
         } catch {
             throw GetDependenciesError(
@@ -182,12 +182,12 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
         }
     }
 
-    public func getDependencies(at revision: String, productFilter: ProductFilter) throws -> [Constraint] {
+    public func getDependencies(at revision: String) throws -> [Constraint] {
         do {
-            return try self.getCachedDependencies(forIdentifier: revision, productFilter: productFilter) {
+            return try self.getCachedDependencies(forIdentifier: revision) {
                 // resolve the revision identifier and return its dependencies.
                 let revision = try repository.resolveRevision(identifier: revision)
-                return try self.loadDependencies(at: revision, productFilter: productFilter)
+                return try self.loadDependencies(at: revision)
             }.1
         } catch {
             // Examine the error to see if we can come up with a more informative and actionable error message.  We know that the revision is expected to be a branch name or a hash (tags are handled through a different code path).
@@ -229,15 +229,14 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
 
     private func getCachedDependencies(
         forIdentifier identifier: String,
-        productFilter: ProductFilter,
         getDependencies: () throws -> (Manifest, [Constraint])
     ) throws -> (Manifest, [Constraint]) {
-        if let result = (self.dependenciesCacheLock.withLock { self.dependenciesCache[identifier, default: [:]][productFilter] }) {
+        if let result = (self.dependenciesCacheLock.withLock { self.dependenciesCache[identifier] }) {
             return result
         }
         let result = try getDependencies()
         self.dependenciesCacheLock.withLock {
-            self.dependenciesCache[identifier, default: [:]][productFilter] = result
+            self.dependenciesCache[identifier] = result
         }
         return result
     }
@@ -245,24 +244,22 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
     /// Returns dependencies of a container at the given revision.
     private func loadDependencies(
         tag: String,
-        version: Version? = nil,
-        productFilter: ProductFilter
+        version: Version? = nil
     ) throws -> (Manifest, [Constraint]) {
         let manifest = try self.loadManifest(tag: tag, version: version)
-        return (manifest, try manifest.dependencyConstraints(productFilter: productFilter))
+        return (manifest, try manifest.dependencyConstraints())
     }
 
     /// Returns dependencies of a container at the given revision.
     private func loadDependencies(
         at revision: Revision,
-        version: Version? = nil,
-        productFilter: ProductFilter
+        version: Version? = nil
     ) throws -> (Manifest, [Constraint]) {
         let manifest = try self.loadManifest(at: revision, version: version)
-        return (manifest, try manifest.dependencyConstraints(productFilter: productFilter))
+        return (manifest, try manifest.dependencyConstraints())
     }
 
-    public func getUnversionedDependencies(productFilter: ProductFilter) throws -> [Constraint] {
+    public func getUnversionedDependencies() throws -> [Constraint] {
         // We just return an empty array if requested for unversioned dependencies.
         return []
     }
@@ -328,18 +325,20 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
         // Load the manifest.
         // FIXME: this should not block
         return try temp_await {
-            self.manifestLoader.load(at: AbsolutePath.root,
-                                     packageIdentity: self.package.identity,
-                                     packageKind: self.package.kind,
-                                     packageLocation: self.package.locationString,
-                                     version: version,
-                                     revision: nil,
-                                     toolsVersion: toolsVersion,
-                                     identityResolver: self.identityResolver,
-                                     fileSystem: fileSystem,
-                                     diagnostics: nil,
-                                     on: .sharedConcurrent,
-                                     completion: $0)
+            self.manifestLoader.load(
+                at: AbsolutePath.root,
+                packageIdentity: self.package.identity,
+                packageKind: self.package.kind,
+                packageLocation: self.package.locationString,
+                version: version,
+                //revision: nil,
+                toolsVersion: toolsVersion,
+                identityResolver: self.identityResolver,
+                fileSystem: fileSystem,
+                diagnostics: nil,
+                on: .sharedConcurrent,
+                completion: $0
+            )
         }
     }
 

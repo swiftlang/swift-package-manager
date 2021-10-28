@@ -40,19 +40,19 @@ public class MockPackageContainer: PackageContainer {
         return _versions
     }
 
-    public func getDependencies(at version: Version, productFilter: ProductFilter) -> [MockPackageContainer.Constraint] {
+    public func getDependencies(at version: Version) -> [MockPackageContainer.Constraint] {
         requestedVersions.insert(version)
-        return getDependencies(at: version.description, productFilter: productFilter)
+        return getDependencies(at: version.description)
     }
 
-    public func getDependencies(at revision: String, productFilter: ProductFilter) -> [MockPackageContainer.Constraint] {
+    public func getDependencies(at revision: String) -> [MockPackageContainer.Constraint] {
         return dependencies[revision]!.map { value in
             let (package, requirement) = value
-            return MockPackageContainer.Constraint(package: package, requirement: requirement, products: productFilter)
+            return MockPackageContainer.Constraint(package: package, requirement: requirement)
         }
     }
 
-    public func getUnversionedDependencies(productFilter: ProductFilter) -> [MockPackageContainer.Constraint] {
+    public func getUnversionedDependencies() -> [MockPackageContainer.Constraint] {
         return unversionedDeps
     }
 

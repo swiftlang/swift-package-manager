@@ -12,6 +12,7 @@ import TSCBasic
 import PackageModel
 import struct TSCUtility.Version
 
+/*
 /// A node in the dependency resolution graph.
 ///
 /// See the documentation of each case for more detailed descriptions of each kind and how they interact.
@@ -133,3 +134,4 @@ extension DependencyResolutionNode: CustomStringConvertible {
         return "\(package.name)\(productFilter)"
     }
 }
+*/

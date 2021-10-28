@@ -43,7 +43,7 @@ extension PackageGraph {
         let successors: (GraphLoadingNode) -> [GraphLoadingNode] = { node in
             node.requiredDependencies().compactMap{ dependency in
                 return manifestMap[dependency.identity].map { manifest in
-                    GraphLoadingNode(identity: dependency.identity, manifest: manifest, productFilter: dependency.productFilter)
+                    GraphLoadingNode(identity: dependency.identity, manifest: manifest)
                 }
             }
         }
@@ -54,11 +54,11 @@ extension PackageGraph {
             manifestMap[$0.identity]
         })
         let rootManifestNodes = root.packages.map { identity, package in
-            GraphLoadingNode(identity: identity, manifest: package.manifest, productFilter: .everything)
+            GraphLoadingNode(identity: identity, manifest: package.manifest)
         }
         let rootDependencyNodes = root.dependencies.lazy.compactMap { (dependency: PackageDependency) -> GraphLoadingNode? in
             manifestMap[dependency.identity].map {
-                GraphLoadingNode(identity: dependency.identity, manifest: $0, productFilter: dependency.productFilter)
+                GraphLoadingNode(identity: dependency.identity, manifest: $0)
             }
         }
         let inputManifests = rootManifestNodes + rootDependencyNodes
@@ -76,13 +76,15 @@ extension PackageGraph {
             allNodes = try topologicalSort(inputManifests, successors: successors)
         }
 
+        // FIXME: tomer simplify
+        /*
         var flattenedManifests: [PackageIdentity: GraphLoadingNode] = [:]
         for node in allNodes {
             if let existing = flattenedManifests[node.identity] {
                 let merged = GraphLoadingNode(
                     identity: node.identity,
-                    manifest: node.manifest,
-                    productFilter: existing.productFilter.union(node.productFilter)
+                    manifest: node.manifest//,
+                    //productFilter: existing.productFilter.union(node.productFilter)
                 )
                 flattenedManifests[node.identity] = merged
             } else {
@@ -91,7 +93,8 @@ extension PackageGraph {
         }
         // sort by identity
         allNodes = flattenedManifests.keys.sorted().map { flattenedManifests[$0]! } // force unwrap fine since we are iterating on keys
-
+        */
+        
         // Create the packages.
         var manifestToPackage: [Manifest: Package] = [:]
         for node in allNodes {
@@ -110,7 +113,7 @@ extension PackageGraph {
                 let builder = PackageBuilder(
                     identity: node.identity,
                     manifest: manifest,
-                    productFilter: node.productFilter,
+                    //productFilter: node.productFilter,
                     path: packagePath,
                     additionalFileRules: additionalFileRules,
                     binaryArtifacts: binaryArtifacts,
@@ -209,7 +212,7 @@ private func createResolvedPackages(
         let allowedToOverride = rootManifestSet.contains(node.manifest)
         return ResolvedPackageBuilder(
             package,
-            productFilter: node.productFilter,
+            //productFilter: node.productFilter,
             isAllowedToVendUnsafeProducts: isAllowedToVendUnsafeProducts,
             allowedToOverride: allowedToOverride
         )
@@ -234,7 +237,7 @@ private func createResolvedPackages(
         var dependenciesByNameForTargetDependencyResolution = [String: ResolvedPackageBuilder]()
 
         // Establish the manifest-declared package dependencies.
-        package.manifest.dependenciesRequired(for: packageBuilder.productFilter).forEach { dependency in
+        package.manifest.requiredDependencies().forEach { dependency in
             // FIXME: change this validation logic to use identity instead of location
             let dependencyLocation: String
             switch dependency {
@@ -481,6 +484,7 @@ private func createResolvedPackages(
 }
 
 /// A generic builder for `Resolved` models.
+// FIXME: can we deprecate this? seems like adding very little value
 private class ResolvedBuilder<T> {
     /// The constructed object, available after the first call to `construct()`.
     private var _constructedObject: T?
@@ -530,6 +534,7 @@ private final class ResolvedProductBuilder: ResolvedBuilder<ResolvedProduct> {
 }
 
 /// Builder for resolved target.
+// FIXME: can we deprecate this? seems like adding very little value
 private final class ResolvedTargetBuilder: ResolvedBuilder<ResolvedTarget> {
 
     /// Enumeration to represent target dependencies.
@@ -592,13 +597,11 @@ private final class ResolvedTargetBuilder: ResolvedBuilder<ResolvedTarget> {
 }
 
 /// Builder for resolved package.
+// FIXME: can we deprecate this? seems like adding very little value
 private final class ResolvedPackageBuilder: ResolvedBuilder<ResolvedPackage> {
 
     /// The package reference.
     let package: Package
-
-    /// The product filter applied to the package.
-    let productFilter: ProductFilter
 
     /// The targets in the package.
     var targets: [ResolvedTargetBuilder] = []
@@ -613,9 +616,8 @@ private final class ResolvedPackageBuilder: ResolvedBuilder<ResolvedPackage> {
 
     let allowedToOverride: Bool
 
-    init(_ package: Package, productFilter: ProductFilter, isAllowedToVendUnsafeProducts: Bool, allowedToOverride: Bool) {
+    init(_ package: Package, isAllowedToVendUnsafeProducts: Bool, allowedToOverride: Bool) {
         self.package = package
-        self.productFilter = productFilter
         self.isAllowedToVendUnsafeProducts = isAllowedToVendUnsafeProducts
         self.allowedToOverride = allowedToOverride
     }
@@ -624,8 +626,8 @@ private final class ResolvedPackageBuilder: ResolvedBuilder<ResolvedPackage> {
         return ResolvedPackage(
             package: package,
             dependencies: try dependencies.map{ try $0.construct() },
-            targets: try targets.map{ try $0.construct() },
-            products: try products.map{ try  $0.construct() }
+            targets: try self.targets.map{ try $0.construct() },
+            products: try self.products.map{ try  $0.construct() }
         )
     }
 }

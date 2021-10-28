@@ -69,8 +69,9 @@ final class WorkspaceTests: XCTestCase {
         )
 
         let deps: [MockDependency] = [
-            .sourceControl(path: "./Quix", requirement: .upToNextMajor(from: "1.0.0"), products: .specific(["Quix"])),
-            .sourceControl(path: "./Baz", requirement: .exact("1.0.0"), products: .specific(["Baz"])),
+            // FIXME: tomer
+            .sourceControl(path: "./Quix", requirement: .upToNextMajor(from: "1.0.0")/*, products: .specific(["Quix"])*/),
+            .sourceControl(path: "./Baz", requirement: .exact("1.0.0")/*, products: .specific(["Baz"])*/),
         ]
         try workspace.checkPackageGraph(roots: ["Foo"], deps: deps) { graph, diagnostics in
             PackageGraphTester(graph) { result in
@@ -607,16 +608,17 @@ final class WorkspaceTests: XCTestCase {
             ]
         )
 
+        // FIXME: tomer
         let dependencies: [PackageDependency] = [
             .localSourceControl(
                 path: workspace.packagesDir.appending(component: "Bar"),
-                requirement: .upToNextMajor(from: "1.0.0"),
-                productFilter: .specific(["Bar"])
+                requirement: .upToNextMajor(from: "1.0.0")//,
+                //productFilter: .specific(["Bar"])
             ),
             .localSourceControl(
                 path: workspace.packagesDir.appending(component: "Foo"),
-                requirement: .upToNextMajor(from: "1.0.0"),
-                productFilter: .specific(["Foo"])
+                requirement: .upToNextMajor(from: "1.0.0")//,
+                //productFilter: .specific(["Foo"])
             ),
         ]
 
@@ -685,7 +687,8 @@ final class WorkspaceTests: XCTestCase {
         // Resolve when A = 1.0.0.
         do {
             let deps: [MockDependency] = [
-                .sourceControl(path: "./A", requirement: .exact("1.0.0"), products: .specific(["A"])),
+                // FIXME: tomer
+                .sourceControl(path: "./A", requirement: .exact("1.0.0")/*, products: .specific(["A"])*/),
             ]
             try workspace.checkPackageGraph(deps: deps) { graph, diagnostics in
                 PackageGraphTester(graph) { result in
@@ -708,7 +711,8 @@ final class WorkspaceTests: XCTestCase {
         // Resolve when A = 1.0.1.
         do {
             let deps: [MockDependency] = [
-                .sourceControl(path: "./A", requirement: .exact("1.0.1"), products: .specific(["A"])),
+                // FIXME: tomer
+                .sourceControl(path: "./A", requirement: .exact("1.0.1")/*, products: .specific(["A"])*/),
             ]
             try workspace.checkPackageGraph(deps: deps) { graph, diagnostics in
                 PackageGraphTester(graph) { result in
@@ -779,8 +783,9 @@ final class WorkspaceTests: XCTestCase {
         )
 
         let deps: [MockDependency] = [
-            .sourceControl(path: "./A", requirement: .exact("1.0.0"), products: .specific(["A"])),
-            .sourceControl(path: "./B", requirement: .exact("1.0.0"), products: .specific(["B"])),
+            // FIXME: tomer
+            .sourceControl(path: "./A", requirement: .exact("1.0.0")/*, products: .specific(["A"])*/),
+            .sourceControl(path: "./B", requirement: .exact("1.0.0")/*, products: .specific(["B"])*/),
         ]
         try workspace.checkPackageGraph(deps: deps) { _, diagnostics in
             testDiagnostics(diagnostics) { result in
@@ -1384,7 +1389,8 @@ final class WorkspaceTests: XCTestCase {
 
         // Do an intial run, capping at Foo at 1.0.0.
         let deps: [MockDependency] = [
-            .sourceControl(path: "./Foo", requirement: .exact("1.0.0"), products: .specific(["Foo"])),
+            // FIXME: tomer
+            .sourceControl(path: "./Foo", requirement: .exact("1.0.0")/*, products: .specific(["Foo"])*/),
         ]
         try workspace.checkPackageGraph(roots: ["Root"], deps: deps) { graph, diagnostics in
             PackageGraphTester(graph) { result in
@@ -1469,7 +1475,8 @@ final class WorkspaceTests: XCTestCase {
 
         // Do an intial run, capping at Foo at 1.0.0.
         let deps: [MockDependency] = [
-            .sourceControl(path: "./Foo", requirement: .exact("1.0.0"), products: .specific(["Foo"])),
+            // FIXME: tomer
+            .sourceControl(path: "./Foo", requirement: .exact("1.0.0")/*, products: .specific(["Foo"])*/),
         ]
 
         try workspace.checkPackageGraph(roots: ["Root"], deps: deps) { graph, diagnostics in
@@ -1486,10 +1493,11 @@ final class WorkspaceTests: XCTestCase {
         // Run update.
         try workspace.checkUpdateDryRun(roots: ["Root"]) { changes, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
+            // FIXME: tomer
             #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
-            let stateChange = Workspace.PackageStateChange.updated(.init(requirement: .version(Version("1.5.0")), products: .specific(["Foo"])))
+            let stateChange = Workspace.PackageStateChange.updated(.init(requirement: .version(Version("1.5.0"))/*, products: .specific(["Foo"])*/))
             #else
-            let stateChange = Workspace.PackageStateChange.updated(.init(requirement: .version(Version("1.5.0")), products: .everything))
+            let stateChange = Workspace.PackageStateChange.updated(.init(requirement: .version(Version("1.5.0"))/*, products: .everything*/))
             #endif
 
             let path = AbsolutePath("/tmp/ws/pkgs/Foo")
@@ -1576,9 +1584,10 @@ final class WorkspaceTests: XCTestCase {
             ]
         )
 
-        // Do an intial run, capping at Foo at 1.0.0.
+        // Do an initial run, capping at Foo at 1.0.0.
         let deps: [MockDependency] = [
-            .sourceControl(path: "./Foo", requirement: .exact("1.0.0"), products: .specific(["Foo"])),
+            // FIXME: tomer
+            .sourceControl(path: "./Foo", requirement: .exact("1.0.0")/*, products: .specific(["Foo"])*/),
         ]
         try workspace.checkPackageGraph(roots: ["Root"], deps: deps) { _, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
@@ -1883,7 +1892,8 @@ final class WorkspaceTests: XCTestCase {
 
         // We request Bar via revision.
         let deps: [MockDependency] = [
-            .sourceControl(path: "./Bar", requirement: .revision(barRevision), products: .specific(["Bar"])),
+            // FIXME: tomer
+            .sourceControl(path: "./Bar", requirement: .revision(barRevision)/*, products: .specific(["Bar"])*/),
         ]
         try workspace.checkPackageGraph(roots: ["Root"], deps: deps) { graph, diagnostics in
             PackageGraphTester(graph) { result in
@@ -1960,7 +1970,7 @@ final class WorkspaceTests: XCTestCase {
         // Check failure.
         workspace.checkResolve(pkg: "Foo", roots: ["Root"], version: "1.3.0") { diagnostics in
             testDiagnostics(diagnostics) { result in
-                result.check(diagnostic: .contains("'Foo' 1.3.0"), severity: .error)
+                result.check(diagnostic: .contains("'foo' 1.3.0"), severity: .error)
             }
         }
         workspace.checkManagedDependencies { result in
@@ -2335,7 +2345,8 @@ final class WorkspaceTests: XCTestCase {
         )
 
         let deps: [MockDependency] = [
-            .sourceControl(path: "./Foo", requirement: .upToNextMajor(from: "1.0.0"), products: .specific(["Foo"])),
+            // FIXME: tomer
+            .sourceControl(path: "./Foo", requirement: .upToNextMajor(from: "1.0.0")/*, products: .specific(["Foo"])*/),
         ]
         let ws = try workspace.getOrCreateWorkspace()
 
@@ -2428,7 +2439,8 @@ final class WorkspaceTests: XCTestCase {
         )
 
         let deps: [MockDependency] = [
-            .sourceControl(path: "./Foo", requirement: .exact("1.0.0"), products: .specific(["Foo"])),
+            // FIXME: tomer
+            .sourceControl(path: "./Foo", requirement: .exact("1.0.0")/*, products: .specific(["Foo"])*/),
         ]
         // Load the graph.
         try workspace.checkPackageGraph(roots: ["Root"], deps: deps) { graph, diagnostics in
@@ -2573,7 +2585,8 @@ final class WorkspaceTests: XCTestCase {
         }
 
         let deps: [MockDependency] = [
-            .fileSystem(path: "./Foo", products: .specific(["Foo"])),
+            // FIXME: tomer
+            .fileSystem(path: "./Foo"/*), products: .specific(["Foo"])*/),
         ]
         try workspace.checkPackageGraph(roots: ["Root"], deps: deps) { graph, diagnostics in
             PackageGraphTester(graph) { result in
@@ -2647,8 +2660,9 @@ final class WorkspaceTests: XCTestCase {
                 identity: settings.identity,
                 nameForTargetDependencyResolutionOnly: settings.nameForTargetDependencyResolutionOnly,
                 location: settings.location,
-                requirement: .exact("1.5.0"),
-                productFilter: settings.productFilter
+                requirement: .exact("1.5.0")//,
+                // FIXME: tomer
+                //productFilter: settings.productFilter
             )
 
             workspace.manifestLoader.manifests[fooKey] = Manifest(
@@ -2745,11 +2759,12 @@ final class WorkspaceTests: XCTestCase {
 
         // Try resolving a bad graph.
         let deps: [MockDependency] = [
-            .sourceControl(path: "./Bar", requirement: .exact("1.1.0"), products: .specific(["Bar"])),
+            // FIXME: tomer
+            .sourceControl(path: "./Bar", requirement: .exact("1.1.0")/*, products: .specific(["Bar"])*/),
         ]
         try workspace.checkPackageGraph(roots: ["Root"], deps: deps) { _, diagnostics in
             testDiagnostics(diagnostics) { result in
-                result.check(diagnostic: .contains("'Bar' 1.1.0"), severity: .error)
+                result.check(diagnostic: .contains("'bar' 1.1.0"), severity: .error)
             }
         }
     }
@@ -2988,7 +3003,8 @@ final class WorkspaceTests: XCTestCase {
 
         // Override with local package and run update.
         let deps: [MockDependency] = [
-            .fileSystem(path: "./Bar", products: .specific(["Bar"])),
+            // FIXME: tomer
+            .fileSystem(path: "./Bar"/*, products: .specific(["Bar"])*/),
         ]
         try workspace.checkUpdate(roots: ["Foo"], deps: deps) { diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
@@ -3076,7 +3092,8 @@ final class WorkspaceTests: XCTestCase {
         // without running swift package update.
 
         var deps: [MockDependency] = [
-            .sourceControl(path: "./Foo", requirement: .branch("develop"), products: .specific(["Foo"])),
+            // FIXME: tomer
+            .sourceControl(path: "./Foo", requirement: .branch("develop")/*, products: .specific(["Foo"])*/),
         ]
         try workspace.checkPackageGraph(roots: ["Root"], deps: deps) { graph, diagnostics in
             PackageGraphTester(graph) { result in
@@ -3090,7 +3107,8 @@ final class WorkspaceTests: XCTestCase {
         }
 
         deps = [
-            .sourceControl(path: "./Foo", requirement: .upToNextMajor(from: "1.0.0"), products: .specific(["Foo"])),
+            // FIXME: tomer
+            .sourceControl(path: "./Foo", requirement: .upToNextMajor(from: "1.0.0")/*, products: .specific(["Foo"])*/),
         ]
         try workspace.checkPackageGraph(roots: ["Root"], deps: deps) { _, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
@@ -3100,7 +3118,8 @@ final class WorkspaceTests: XCTestCase {
         }
 
         deps = [
-            .sourceControl(path: "./Foo", requirement: .branch("develop"), products: .specific(["Foo"])),
+            // FIXME: tomer
+            .sourceControl(path: "./Foo", requirement: .branch("develop")/*, products: .specific(["Foo"])*/),
         ]
         try workspace.checkPackageGraph(roots: ["Root"], deps: deps) { _, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
@@ -3145,7 +3164,8 @@ final class WorkspaceTests: XCTestCase {
         // without running swift package update.
 
         var deps: [MockDependency] = [
-            .fileSystem(path: "./Foo", products: .specific(["Foo"])),
+            // FIXME: tomer
+            .fileSystem(path: "./Foo"/*, products: .specific(["Foo"])*/),
         ]
         try workspace.checkPackageGraph(roots: ["Root"], deps: deps) { graph, diagnostics in
             PackageGraphTester(graph) { result in
@@ -3159,7 +3179,8 @@ final class WorkspaceTests: XCTestCase {
         }
 
         deps = [
-            .sourceControl(path: "./Foo", requirement: .upToNextMajor(from: "1.0.0"), products: .specific(["Foo"])),
+            // FIXME: tomer
+            .sourceControl(path: "./Foo", requirement: .upToNextMajor(from: "1.0.0")/*, products: .specific(["Foo"])*/),
         ]
         try workspace.checkPackageGraph(roots: ["Root"], deps: deps) { _, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
@@ -3169,7 +3190,8 @@ final class WorkspaceTests: XCTestCase {
         }
 
         deps = [
-            .fileSystem(path: "./Foo", products: .specific(["Foo"])),
+            // FIXME: tomer
+            .fileSystem(path: "./Foo"/*, products: .specific(["Foo"])*/),
         ]
         try workspace.checkPackageGraph(roots: ["Root"], deps: deps) { _, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
@@ -3225,7 +3247,8 @@ final class WorkspaceTests: XCTestCase {
         // different locations works correctly.
 
         var deps: [MockDependency] = [
-            .fileSystem(path: "./Foo", products: .specific(["Foo"])),
+            // FIXME: tomer
+            .fileSystem(path: "./Foo"/*, products: .specific(["Foo"])*/),
         ]
         try workspace.checkPackageGraph(roots: ["Root"], deps: deps) { graph, diagnostics in
             PackageGraphTester(graph) { result in
@@ -3239,7 +3262,8 @@ final class WorkspaceTests: XCTestCase {
         }
 
         deps = [
-            .fileSystem(path: "./Foo2", products: .specific(["Foo"])),
+            // FIXME: tomer
+            .fileSystem(path: "./Foo2"/*, products: .specific(["Foo"])*/),
         ]
         try workspace.checkPackageGraph(roots: ["Root"], deps: deps) { _, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
@@ -3295,7 +3319,8 @@ final class WorkspaceTests: XCTestCase {
         // different locations works correctly.
 
         var deps: [MockDependency] = [
-            .fileSystem(path: "./Foo", products: .specific(["Foo"])),
+            // FIXME: tomer
+            .fileSystem(path: "./Foo"/*, products: .specific(["Foo"])*/),
         ]
         try workspace.checkPackageGraph(roots: ["Root"], deps: deps) { graph, diagnostics in
             PackageGraphTester(graph) { result in
@@ -3313,7 +3338,8 @@ final class WorkspaceTests: XCTestCase {
         }
 
         deps = [
-            .fileSystem(path: "./Nested/Foo", products: .specific(["Foo"])),
+            // FIXME: tomer
+            .fileSystem(path: "./Nested/Foo"/*, products: .specific(["Foo"])*/),
         ]
         try workspace.checkPackageGraph(roots: ["Root"], deps: deps) { _, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
@@ -3359,7 +3385,8 @@ final class WorkspaceTests: XCTestCase {
         )
 
         let deps: [MockDependency] = [
-            .sourceControl(path: "./Foo", requirement: .upToNextMajor(from: "1.0.0"), products: .specific(["Foo"])),
+            // FIXME: tomer
+            .sourceControl(path: "./Foo", requirement: .upToNextMajor(from: "1.0.0")/*, products: .specific(["Foo"])*/),
         ]
         try workspace.checkPackageGraph(roots: ["Root"], deps: deps) { _, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
@@ -3398,7 +3425,8 @@ final class WorkspaceTests: XCTestCase {
                         ],
                         products: [],
                         dependencies: [
-                            .sourceControl(path: "./Foo", requirement: .upToNextMajor(from: "1.0.0"), products: .specific(["Foo"])),
+                            // FIXME: tomer
+                            .sourceControl(path: "./Foo", requirement: .upToNextMajor(from: "1.0.0")/*, products: .specific(["Foo"])*/),
                         ],
                         toolsVersion: pair.0
                     ),
@@ -3518,7 +3546,8 @@ final class WorkspaceTests: XCTestCase {
         )
 
         let deps: [MockDependency] = [
-            .sourceControl(path: "./Bam", requirement: .upToNextMajor(from: "1.0.0"), products: .specific(["Bar"])),
+            // FIXME: tomer
+            .sourceControl(path: "./Bam", requirement: .upToNextMajor(from: "1.0.0")/*, products: .specific(["Bar"])*/),
         ]
 
         try workspace.checkPackageGraph(roots: ["Foo"], deps: deps) { graph, diagnostics in
@@ -3622,7 +3651,8 @@ final class WorkspaceTests: XCTestCase {
         // dependencies.
 
         var deps: [MockDependency] = [
-            .sourceControl(path: "./Bar", requirement: .exact("1.0.0"), products: .specific(["Bar"])),
+            // FIXME: tomer
+            .sourceControl(path: "./Bar", requirement: .exact("1.0.0")/*, products: .specific(["Bar"])*/),
         ]
         try workspace.checkPackageGraph(roots: ["Root"], deps: deps) { graph, diagnostics in
             PackageGraphTester(graph) { result in
@@ -3646,7 +3676,8 @@ final class WorkspaceTests: XCTestCase {
         }
 
         deps = [
-            .sourceControl(path: "./Bar", requirement: .exact("1.1.0"), products: .specific(["Bar"])),
+            // FIXME: tomer
+            .sourceControl(path: "./Bar", requirement: .exact("1.1.0")/*, products: .specific(["Bar"])*/),
         ]
         try workspace.checkPackageGraph(roots: ["Root"], deps: deps) { graph, diagnostics in
             PackageGraphTester(graph) { result in
@@ -3712,7 +3743,8 @@ final class WorkspaceTests: XCTestCase {
 
         // Load the initial graph.
         let deps: [MockDependency] = [
-            .sourceControl(path: "./Bar", requirement: .revision("develop"), products: .specific(["Bar"])),
+            // FIXME: tomer
+            .sourceControl(path: "./Bar", requirement: .revision("develop")/*, products: .specific(["Bar"])*/),
         ]
         try workspace.checkPackageGraph(roots: ["Root"], deps: deps) { _, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
@@ -4008,7 +4040,8 @@ final class WorkspaceTests: XCTestCase {
         )
 
         let deps: [MockDependency] = [
-            .sourceControl(path: "./bazzz", requirement: .exact("1.0.0"), products: .specific(["Baz"])),
+            // FIXME: tomer
+            .sourceControl(path: "./bazzz", requirement: .exact("1.0.0")/*, products: .specific(["Baz"])*/),
         ]
 
         try workspace.checkPackageGraphFailure(roots: ["Overridden/bazzz-master"], deps: deps) { diagnostics in
@@ -8276,7 +8309,7 @@ final class WorkspaceTests: XCTestCase {
                 packageKind: PackageReference.Kind,
                 packageLocation: String,
                 version: Version?,
-                revision: String?,
+                //revision: String?,
                 toolsVersion: ToolsVersion,
                 identityResolver: IdentityResolver,
                 fileSystem: FileSystem,
