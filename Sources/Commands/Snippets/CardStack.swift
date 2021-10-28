@@ -12,6 +12,7 @@ import Basics
 import PackageGraph
 import PackageModel
 import TSCBasic
+import SnippetModel
 
 fileprivate extension TerminalController {
     func clearScreen() {

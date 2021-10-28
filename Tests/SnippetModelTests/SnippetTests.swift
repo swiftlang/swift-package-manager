@@ -9,6 +9,7 @@
 */
 
 @testable import PackageModel
+@testable import SnippetModel
 import TSCBasic
 import XCTest
 

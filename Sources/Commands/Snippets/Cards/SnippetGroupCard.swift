@@ -9,6 +9,7 @@
 */
 
 import PackageModel
+import SnippetModel
 
 /// A card showing the snippets in a ``SnippetGroup``.
 struct SnippetGroupCard: Card {

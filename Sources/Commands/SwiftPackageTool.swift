@@ -16,6 +16,7 @@ import Build
 import PackageModel
 import PackageLoading
 import PackageGraph
+import SnippetModel
 import SourceControl
 import TSCUtility
 import Xcodeproj
@@ -1641,70 +1642,7 @@ extension SwiftPackageTool {
 
         static let configuration = CommandConfiguration(abstract: "Learn about Swift and this package")
 
-        func files(in directory: AbsolutePath, fileExtension: String? = nil) throws -> [AbsolutePath] {
-            guard localFileSystem.isDirectory(directory) else {
-                return []
-            }
-
-            let files = try localFileSystem.getDirectoryContents(directory)
-                .map { directory.appending(RelativePath($0)) }
-                .filter { localFileSystem.isFile($0) }
-
-            guard let fileExtension = fileExtension else {
-                return files
-            }
-
-            return files.filter { $0.extension == fileExtension }
-        }
-
-        func subdirectories(in directory: AbsolutePath) throws -> [AbsolutePath] {
-            guard localFileSystem.isDirectory(directory) else {
-                return []
-            }
-            return try localFileSystem.getDirectoryContents(directory)
-                .map { directory.appending(RelativePath($0)) }
-                .filter { localFileSystem.isDirectory($0) }
-        }
-
-        func loadSnippetsAndSnippetGroups(from package: ResolvedPackage) throws -> [SnippetGroup] {
-            let snippetsDirectory = package.path.appending(component: "Snippets")
-            guard localFileSystem.isDirectory(snippetsDirectory) else {
-                return []
-            }
-
-            let topLevelSnippets = try files(in: snippetsDirectory, fileExtension: "swift")
-                .map { try Snippet(parsing: $0) }
-
-            let topLevelSnippetGroup = SnippetGroup(name: "Getting Started",
-                                                    baseDirectory: snippetsDirectory,
-                                                    snippets: topLevelSnippets,
-                                                    explanation: "")
-
-            let subdirectoryGroups = try subdirectories(in: snippetsDirectory)
-                .map { subdirectory -> SnippetGroup in
-                    let snippets = try files(in: subdirectory, fileExtension: "swift")
-                        .map { try Snippet(parsing: $0) }
-
-                    let explanationFile = subdirectory.appending(component: "Explanation.md")
-
-                    let snippetGroupExplanation: String
-                    if localFileSystem.isFile(explanationFile) {
-                        snippetGroupExplanation = try String(contentsOf: explanationFile.asURL)
-                    } else {
-                        snippetGroupExplanation = ""
-                    }
-
-                    return SnippetGroup(name: subdirectory.basename,
-                                        baseDirectory: subdirectory,
-                                        snippets: snippets,
-                                        explanation: snippetGroupExplanation)
-                }
-
-            let snippetGroups = [topLevelSnippetGroup] + subdirectoryGroups.sorted {
-                $0.baseDirectory.basename < $1.baseDirectory.basename
-            }
-
-            return snippetGroups.filter { !$0.snippets.isEmpty }
+        func runInteractive(snippetGroups: [SnippetGroup], package: ResolvedPackage, swiftTool: SwiftTool) {
         }
 
         func run(_ swiftTool: SwiftTool) throws {
@@ -1712,10 +1650,9 @@ extension SwiftPackageTool {
             let package = graph.rootPackages[0]
             print(package.products.map { $0.description })
 
-            let snippetGroups = try loadSnippetsAndSnippetGroups(from: package)
+            let snippetGroups = try [SnippetGroup](fromPackage: package)
 
             var cardStack = CardStack(package: package, snippetGroups: snippetGroups, swiftTool: swiftTool)
-
             cardStack.run()
         }
     }

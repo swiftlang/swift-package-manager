@@ -11,6 +11,7 @@
 import Foundation
 import PackageModel
 import PackageGraph
+import SnippetModel
 
 /// The top menu card for a package's help contents, including snippets.
 struct TopCard: Card {

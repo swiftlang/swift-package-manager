@@ -1,7 +1,6 @@
 // swift-tools-version:5.5
 
-/*
- This source file is part of the Swift.org open source project
+/* This source file is part of the Swift.org open source project
 
  Copyright (c) 2014 - 2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
@@ -196,6 +195,11 @@ let package = Package(
             exclude: ["CMakeLists.txt", "README.md"]
         ),
 
+        .target(
+            /** Snippet model objects and loading */
+            name: "SnippetModel",
+            dependencies: ["PackageModel", "PackageGraph"]),
+
         // MARK: Package Dependency Resolution
 
         .target(
@@ -332,6 +336,8 @@ let package = Package(
                 "PackageCollections",
                 "PackageFingerprint",
                 "PackageGraph",
+                "SnippetModel",
+                .product(name: "SymbolKit", package: "swift-docc-symbolkit"),
                 "SourceControl",
                 "Workspace",
                 "Xcodeproj",
@@ -516,6 +522,9 @@ let package = Package(
             exclude: ["Inputs/TestRepo.tgz"]
         ),
         .testTarget(
+            name: "SnippetModelTests",
+            dependencies: ["PackageModel", "SnippetModel", "SPMTestSupport"]),
+        .testTarget(
             name: "XcodeprojTests",
             dependencies: ["Xcodeproj", "SPMTestSupport"]
         ),
@@ -572,6 +581,7 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         .package(url: "https://github.com/apple/swift-driver.git", .branch(relatedDependenciesBranch)),
         .package(url: "https://github.com/apple/swift-crypto.git", .upToNextMinor(from: minimumCryptoVersion)),
         .package(url: "https://github.com/apple/swift-system.git", .upToNextMinor(from: "1.1.1")),
+        .package(url: "https://github.com/apple/swift-docc-symbolkit.git", .branch("main")),
     ]
 } else {
     package.dependencies += [
@@ -580,5 +590,6 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         .package(path: "../swift-driver"),
         .package(path: "../swift-crypto"),
         .package(path: "../swift-system"),
+        .package(path: "../swift-docc-symbolkit"),
     ]
 }

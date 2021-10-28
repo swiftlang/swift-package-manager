@@ -10,6 +10,7 @@
 
 import PackageModel
 import TSCBasic
+import SnippetModel
 
 /// A card displaying a ``Snippet`` at the terminal.
 struct SnippetCard: Card {
