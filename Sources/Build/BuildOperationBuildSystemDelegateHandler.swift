@@ -623,8 +623,8 @@ final class BuildOperationBuildSystemDelegateHandler: LLBuildBuildSystemDelegate
         queue.sync {
             if success {
                 self.progressAnimation.update(
-                    step: self.taskTracker.finishedCount,
-                    total: self.taskTracker.totalCount,
+                    step: self.taskTracker.finishedCount+1,
+                    total: self.taskTracker.totalCount+1,
                     text: "Build complete!")
             }
             self.progressAnimation.complete(success: success)

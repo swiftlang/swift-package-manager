@@ -279,7 +279,7 @@ final class BuildToolTests: XCTestCase {
             do {
                 let result = try execute([], packagePath: path)
                 // test second time, to make sure message is presented even when nothing to build (cached)
-                XCTAssertMatch(result.stdout, .contains("[0/0] Build complete!"))
+                XCTAssertMatch(result.stdout, .contains("[1/1] Build complete!"))
             }
         }
     }
