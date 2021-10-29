@@ -280,7 +280,21 @@ final class BuildToolTests: XCTestCase {
             do {
                 let result = try execute([], packagePath: path)
                 // test second time, to make sure message is presented even when nothing to build (cached)
-                XCTAssertMatch(result.stdout, .equal("[1/1] Planning build\nBuild complete!\n"))
+                XCTAssertMatch(result.stdout, .equal("[1/1] Planning build\nBuilding for debugging...\nBuild complete!\n"))
+            }
+        }
+    }
+
+    func testBuildStartMessage() {
+        fixture(name: "DependencyResolution/Internal/Simple") { path in
+            do {
+                let result = try execute(["-c", "debug"], packagePath: path)
+                XCTAssertMatch(result.stdout, .prefix("Building for debugging"))
+            }
+
+            do {
+                let result = try execute(["-c", "release"], packagePath: path)
+                XCTAssertMatch(result.stdout, .prefix("Building for production"))
             }
         }
     }

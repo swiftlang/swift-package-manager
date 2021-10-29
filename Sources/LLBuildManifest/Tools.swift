@@ -70,9 +70,9 @@ public struct CopyTool: ToolProtocol {
     }
 }
 
-/// Package strcuture tool is used to determine if the package has changed in some way
+/// Package structure tool is used to determine if the package has changed in some way
 /// that requires regenerating the build manifest file. This allows us to skip a lot of
-/// redundent work (package graph loading, build planning, manifest generation) during
+/// redundant work (package graph loading, build planning, manifest generation) during
 /// incremental builds.
 public struct PackageStructureTool: ToolProtocol {
     public static let name: String = "package-structure-tool"
