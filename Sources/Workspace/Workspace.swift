@@ -1027,7 +1027,8 @@ extension Workspace {
                         let absolutePath = try manifest.path.parentDirectory.appending(RelativePath(validating: path))
                         return try BinaryArtifact(kind: .forFileExtension(absolutePath.extension ?? "unknown") , originURL: .none, path: absolutePath)
                     } else if let url = target.url.flatMap(URL.init(string:)) {
-                        return BinaryArtifact(kind: .unknown, originURL: url.absoluteString, path: .none)
+                        let fakePath = try manifest.path.parentDirectory.appending(components: "remote", "archive").appending(RelativePath(validating: url.lastPathComponent))
+                        return BinaryArtifact(kind: .unknown, originURL: url.absoluteString, path: fakePath)
                     } else {
                         throw InternalError("a binary target should have either a path or a URL and a checksum")
                     }
