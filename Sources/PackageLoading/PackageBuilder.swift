@@ -263,7 +263,7 @@ public final class PackageBuilder {
         productFilter: ProductFilter,
         path: AbsolutePath,
         additionalFileRules: [FileRuleDescription] = [],
-        binaryArtifacts: [BinaryArtifact] = [],
+        binaryArtifacts: [BinaryArtifact],
         xcTestMinimumDeploymentTargets: [PackageModel.Platform:PlatformVersion],
         shouldCreateMultipleTestProducts: Bool = false,
         warnAboutImplicitExecutableTargets: Bool = true,
@@ -322,6 +322,7 @@ public final class PackageBuilder {
                     manifest: manifest,
                     productFilter: .everything,
                     path: path,
+                    binaryArtifacts: [], // this will fail for packages with binary artifacts, but this API is deprecated and the replacement API was fixed
                     xcTestMinimumDeploymentTargets: xcTestMinimumDeploymentTargets,
                     fileSystem: localFileSystem,
                     observabilityScope: ObservabilitySystem(diagnosticEngine: diagnostics).topScope

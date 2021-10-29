@@ -551,6 +551,7 @@ public final class BinaryTarget: Target {
     public enum Kind: String, RawRepresentable, Codable, CaseIterable {
         case xcframework
         case artifactsArchive
+        case unknown // for non-downloaded artifacts
 
         public var fileExtension: String {
             switch self {
@@ -558,6 +559,8 @@ public final class BinaryTarget: Target {
                 return "xcframework"
             case .artifactsArchive:
                 return "artifactbundle"
+            case .unknown:
+                return "unknown"
             }
         }
 
