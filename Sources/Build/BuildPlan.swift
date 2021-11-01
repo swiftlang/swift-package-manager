@@ -470,9 +470,17 @@ public final class ClangTargetBuildDescription {
         headerFileStream <<< """
         #import <Foundation/Foundation.h>
 
+        #if __cplusplus
+        extern "C" {
+        #endif
+
         NSBundle* \(target.c99name)_SWIFTPM_MODULE_BUNDLE(void);
 
         #define SWIFTPM_MODULE_BUNDLE \(target.c99name)_SWIFTPM_MODULE_BUNDLE()
+
+        #if __cplusplus
+        }
+        #endif
         """
         let headerFile = derivedSources.root.appending(component: "resource_bundle_accessor.h")
         self.resourceAccessorHeaderFile = headerFile
