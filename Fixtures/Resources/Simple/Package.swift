@@ -17,5 +17,12 @@ let package = Package(
                 .copy("foo.txt"),
             ]
         ),
+
+        .target(
+            name: "CPPResource",
+            resources: [
+                .copy("foo.txt"),
+            ]
+        ),
     ]
 )
