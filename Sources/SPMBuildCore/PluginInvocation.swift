@@ -525,6 +525,7 @@ struct PluginScriptRunnerInput: Codable {
             enum BinaryArtifactKind: Codable {
                 case xcframework
                 case artifactsArchive
+                case unknown
             }
             
             /// The origin of a binary artifact.
@@ -663,6 +664,8 @@ struct PluginScriptRunnerInputSerializer {
                 artifactKind = .artifactsArchive
             case .xcframework:
                 artifactKind = .xcframework
+            case .unknown:
+                artifactKind = .unknown
             }
             let artifactOrigin: PluginScriptRunnerInput.Target.TargetInfo.BinaryArtifactOrigin
             switch target.origin {
