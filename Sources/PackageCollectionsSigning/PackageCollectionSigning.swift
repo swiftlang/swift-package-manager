@@ -22,14 +22,42 @@ public protocol PackageCollectionSigner {
     ///   - collection: The package collection to be signed
     ///   - certChainPaths: Paths to all DER-encoded certificates in the chain. The certificate used for signing
     ///                     must be the first in the array.
-    ///   - certPrivateKeyPath: Path to the private key (*.pem) of the certificate
+    ///   - privateKeyPEM: Data of the private key (*.pem) of the certificate
     ///   - certPolicyKey: The key of the `CertificatePolicy` to use for validating certificates
     ///   - callback: The callback to invoke when the signed collection is available.
     func sign(collection: PackageCollectionModel.V1.Collection,
               certChainPaths: [URL],
-              certPrivateKeyPath: URL,
+              privateKeyPEM: Data,
               certPolicyKey: CertificatePolicyKey,
               callback: @escaping (Result<PackageCollectionModel.V1.SignedCollection, Error>) -> Void)
+}
+
+extension PackageCollectionSigner {
+    /// Signs package collection using the given certificate and key.
+    ///
+    /// - Parameters:
+    ///   - collection: The package collection to be signed
+    ///   - certChainPaths: Paths to all DER-encoded certificates in the chain. The certificate used for signing
+    ///                     must be the first in the array.
+    ///   - certPrivateKeyPath: Path to the private key (*.pem) of the certificate
+    ///   - certPolicyKey: The key of the `CertificatePolicy` to use for validating certificates
+    ///   - callback: The callback to invoke when the signed collection is available.
+    public func sign(collection: PackageCollectionModel.V1.Collection,
+                     certChainPaths: [URL],
+                     certPrivateKeyPath: URL,
+                     certPolicyKey: CertificatePolicyKey = .default,
+                     callback: @escaping (Result<PackageCollectionModel.V1.SignedCollection, Error>) -> Void) {
+        do {
+            let privateKey = try Data(contentsOf: certPrivateKeyPath)
+            self.sign(collection: collection,
+                      certChainPaths: certChainPaths,
+                      privateKeyPEM: privateKey,
+                      certPolicyKey: certPolicyKey,
+                      callback: callback)
+        } catch {
+            callback(.failure(error))
+        }
+    }
 }
 
 public protocol PackageCollectionSignatureValidator {
@@ -126,7 +154,7 @@ public struct PackageCollectionSigning: PackageCollectionSigner, PackageCollecti
 
     public func sign(collection: Model.Collection,
                      certChainPaths: [URL],
-                     certPrivateKeyPath: URL,
+                     privateKeyPEM: Data,
                      certPolicyKey: CertificatePolicyKey = .default,
                      callback: @escaping (Result<Model.SignedCollection, Error>) -> Void) {
         do {
@@ -147,9 +175,6 @@ public struct PackageCollectionSigning: PackageCollectionSigner, PackageCollecti
                             algorithm: signatureAlgorithm,
                             certChain: certChainData.map { $0.base64EncodedString() }
                         )
-
-                        // Key for signing
-                        let privateKeyPEM = try Data(contentsOf: certPrivateKeyPath)
 
                         let privateKey: PrivateKey
                         switch keyType {
