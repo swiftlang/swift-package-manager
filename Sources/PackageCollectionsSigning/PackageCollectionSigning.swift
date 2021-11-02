@@ -95,7 +95,7 @@ public struct PackageCollectionSigning: PackageCollectionSigner, PackageCollecti
 
     private let observabilityScope: ObservabilityScope
 
-    public init(trustedRootCertsDir: URL? = nil, additionalTrustedRootCerts: [String]? = nil, observabilityScope: ObservabilityScope, callbackQueue: DispatchQueue) {
+    public init(trustedRootCertsDir: URL? = nil, additionalTrustedRootCerts: [String]? = nil, observabilityScope: ObservabilityScope = ObservabilitySystem { _, _ in }.topScope, callbackQueue: DispatchQueue) {
         self.trustedRootCertsDir = trustedRootCertsDir
         self.additionalTrustedRootCerts = additionalTrustedRootCerts.map { $0.compactMap {
             guard let data = Data(base64Encoded: $0) else {
