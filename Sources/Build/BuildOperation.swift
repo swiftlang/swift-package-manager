@@ -135,6 +135,8 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         let buildSystem = try self.createBuildSystem(buildDescription: buildDescription)
         self.buildSystem = buildSystem
 
+        buildSystemDelegate?.buildStart(configuration: self.buildParameters.configuration)
+
         // Perform the build.
         let llbuildTarget = try computeLLBuildTargetName(for: subset)
         let success = buildSystem.build(target: llbuildTarget)

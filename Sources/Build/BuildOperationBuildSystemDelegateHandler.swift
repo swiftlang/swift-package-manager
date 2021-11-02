@@ -588,7 +588,7 @@ final class BuildOperationBuildSystemDelegateHandler: LLBuildBuildSystemDelegate
                     self.outputStream.flush()
                 }
             } else {
-                self.taskTracker.swiftCompilerDidOuputMessage(message, targetName: parser.targetName)
+                self.taskTracker.swiftCompilerDidOutputMessage(message, targetName: parser.targetName)
                 self.updateProgress()
             }
 
@@ -617,6 +617,14 @@ final class BuildOperationBuildSystemDelegateHandler: LLBuildBuildSystemDelegate
         let message = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         self.observabilityScope.emit(.swiftCompilerOutputParsingError(message))
         self.commandFailureHandler?()
+    }
+
+    func buildStart(configuration: BuildConfiguration) {
+        queue.sync {
+            self.progressAnimation.clear()
+            self.outputStream <<< "Building for \(configuration == .debug ? "debugging" : "production")...\n"
+            self.outputStream.flush()
+        }
     }
 
     func buildComplete(success: Bool) {
@@ -657,9 +665,9 @@ fileprivate struct CommandTaskTracker {
     mutating func commandStatusChanged(_ command: SPMLLBuild.Command, kind: CommandStatusKind) {
         switch kind {
         case .isScanning:
-            totalCount += 1
+            self.totalCount += 1
         case .isUpToDate:
-            totalCount -= 1
+            self.totalCount -= 1
         case .isComplete:
             break
         @unknown default:
@@ -670,13 +678,13 @@ fileprivate struct CommandTaskTracker {
     
     mutating func commandFinished(_ command: SPMLLBuild.Command, result: CommandResult, targetName: String?) {
         let progressTextValue = progressText(of: command, targetName: targetName)
-        onTaskProgressUpdateText?(progressTextValue, targetName)
+        self.onTaskProgressUpdateText?(progressTextValue, targetName)
 
-        latestFinishedText = progressTextValue
+        self.latestFinishedText = progressTextValue
 
         switch result {
         case .succeeded, .skipped:
-            finishedCount += 1
+            self.finishedCount += 1
         case .cancelled, .failed:
             break
         default:
@@ -684,7 +692,7 @@ fileprivate struct CommandTaskTracker {
         }
     }
     
-    mutating func swiftCompilerDidOuputMessage(_ message: SwiftCompilerMessage, targetName: String) {
+    mutating func swiftCompilerDidOutputMessage(_ message: SwiftCompilerMessage, targetName: String) {
         switch message.kind {
         case .began(let info):
             if let text = progressText(of: message, targetName: targetName) {

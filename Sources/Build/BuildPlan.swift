@@ -804,7 +804,7 @@ public final class SwiftTargetBuildDescription {
             args += ["-color-diagnostics"]
         }
 
-        // Add agruments from declared build settings.
+        // Add arguments from declared build settings.
         args += self.buildSettingsFlags()
 
         // Add the output for the `.swiftinterface`, if requested or if library evolution has been enabled some other way.
