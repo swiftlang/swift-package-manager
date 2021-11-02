@@ -16,6 +16,7 @@ import SPMBuildCore
 import SPMLLBuild
 import TSCBasic
 import TSCUtility
+import Foundation
 
 public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildSystem, BuildErrorAdviceProvider {
 
@@ -135,13 +136,17 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         let buildSystem = try self.createBuildSystem(buildDescription: buildDescription)
         self.buildSystem = buildSystem
 
+        let buildStartTime = DispatchTime.now()
+
         buildSystemDelegate?.buildStart(configuration: self.buildParameters.configuration)
 
         // Perform the build.
         let llbuildTarget = try computeLLBuildTargetName(for: subset)
         let success = buildSystem.build(target: llbuildTarget)
 
-        buildSystemDelegate?.buildComplete(success: success)
+        let duration = buildStartTime.distance(to: .now())
+
+        buildSystemDelegate?.buildComplete(success: success, duration: duration)
         delegate?.buildSystem(self, didFinishWithResult: success)
         guard success else { throw Diagnostics.fatalError }
 

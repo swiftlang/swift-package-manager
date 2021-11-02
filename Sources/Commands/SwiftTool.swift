@@ -1046,28 +1046,6 @@ extension Basics.Diagnostic {
     }
 }
 
-extension DispatchTimeInterval {
-    var descriptionInSeconds: String {
-        switch self {
-        case .seconds(let value):
-            return "\(value)s"
-        case .milliseconds(let value):
-            return String(format: "%.2f", Double(value)/Double(1000)) + "s"
-        case .microseconds(let value):
-            return String(format: "%.2f", Double(value)/Double(1_000_000)) + "s"
-        case .nanoseconds(let value):
-            return String(format: "%.2f", Double(value)/Double(1_000_000_000)) + "s"
-        case .never:
-            return "n/a"
-#if os(macOS) || os(iOS) || os(tvOS) || os(watchOS)
-        @unknown default:
-            return "n/a"
-#endif
-        }
-    }
-}
-
-
 // MARK: - Diagnostics
 
 private struct SwiftToolObservability: ObservabilityHandlerProvider, DiagnosticsHandler {
