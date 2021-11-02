@@ -33,6 +33,15 @@ public protocol PackageCollectionSigner {
 }
 
 extension PackageCollectionSigner {
+    /// Signs package collection using the given certificate and key.
+    ///
+    /// - Parameters:
+    ///   - collection: The package collection to be signed
+    ///   - certChainPaths: Paths to all DER-encoded certificates in the chain. The certificate used for signing
+    ///                     must be the first in the array.
+    ///   - certPrivateKeyPath: Path to the private key (*.pem) of the certificate
+    ///   - certPolicyKey: The key of the `CertificatePolicy` to use for validating certificates
+    ///   - callback: The callback to invoke when the signed collection is available.
     public func sign(collection: PackageCollectionModel.V1.Collection,
                      certChainPaths: [URL],
                      certPrivateKeyPath: URL,
@@ -40,11 +49,11 @@ extension PackageCollectionSigner {
                      callback: @escaping (Result<PackageCollectionModel.V1.SignedCollection, Error>) -> Void) {
         do {
             let privateKey = try Data(contentsOf: certPrivateKeyPath)
-            sign(collection: collection,
-                 certChainPaths: certChainPaths,
-                 privateKeyPEM: privateKey,
-                 certPolicyKey: certPolicyKey,
-                 callback: callback)
+            self.sign(collection: collection,
+                      certChainPaths: certChainPaths,
+                      privateKeyPEM: privateKey,
+                      certPolicyKey: certPolicyKey,
+                      callback: callback)
         } catch {
             callback(.failure(error))
         }
