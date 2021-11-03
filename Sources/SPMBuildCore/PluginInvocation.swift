@@ -631,7 +631,6 @@ struct PluginScriptRunnerInputSerializer {
         switch target.underlyingTarget {
             
         case let target as SwiftTarget:
-            // FIXME: Distill the build settings that apply to Swift targets and pass them down here.
             targetInfo = .swiftSourceModuleInfo(
                 moduleName: target.c99name,
                 sourceFiles: targetFiles,
@@ -640,7 +639,6 @@ struct PluginScriptRunnerInputSerializer {
                 linkedFrameworks: scope.evaluate(.LINK_FRAMEWORKS))
 
         case let target as ClangTarget:
-            // FIXME: Distill the build settings that apply to Clang targets and pass them down here.
             targetInfo = .clangSourceModuleInfo(
                 moduleName: target.c99name,
                 sourceFiles: targetFiles,
