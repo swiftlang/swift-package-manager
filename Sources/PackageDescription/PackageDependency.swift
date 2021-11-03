@@ -411,7 +411,7 @@ extension Package.Dependency {
     ///     - name: The name of the package, or nil to deduce it from the URL.
     ///     - url: The valid Git URL of the package.
     ///     - requirement: A dependency requirement. See static methods on `Package.Dependency.Requirement` for available options.
-    @available(_PackageDescription, deprecated: 5.6, message: "use specific requirement APIs instead")
+    @available(_PackageDescription, deprecated: 5.6, message: "use specific requirement APIs instead (e.g. use 'branch:' instead of '.branch')")
     public static func package(
         url: String,
         _ requirement: Package.Dependency.Requirement
@@ -425,7 +425,7 @@ extension Package.Dependency {
     ///     - name: The name of the package, or `nil` to deduce it from the URL.
     ///     - url: The valid Git URL of the package.
     ///     - requirement: A dependency requirement. See static methods on `Package.Dependency.Requirement` for available options.
-    @available(_PackageDescription, introduced: 5.2, deprecated: 5.6, message: "use specific requirement APIs instead")
+    @available(_PackageDescription, introduced: 5.2, deprecated: 5.6, message: "use specific requirement APIs instead (e.g. use 'branch:' instead of '.branch')")
     public static func package(
         name: String?,
         url: String,
