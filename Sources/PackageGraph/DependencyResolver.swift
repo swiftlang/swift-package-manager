@@ -8,6 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import Basics
 import Dispatch
 import PackageModel
 import TSCBasic
@@ -43,6 +44,7 @@ public protocol DependencyResolverDelegate {
     func solved(result: [DependencyResolver.Binding])
 }
 
+@available(*, deprecated, message: "user verbosity flags instead")
 public struct TracingDependencyResolverDelegate: DependencyResolverDelegate {
     private let stream: OutputByteStream
 
@@ -96,6 +98,53 @@ public struct TracingDependencyResolverDelegate: DependencyResolverDelegate {
     private func log(_ message: String) {
         self.stream <<< message <<< "\n"
         self.stream.flush()
+    }
+}
+
+public struct ObservabilityDependencyResolverDelegate: DependencyResolverDelegate {
+    private let observabilityScope: ObservabilityScope
+
+    public init (observabilityScope: ObservabilityScope) {
+        self.observabilityScope = observabilityScope.makeChildScope(description: "DependencyResolver")
+    }
+
+    public func willResolve(term: Term) {
+        self.debug("resolving '\(term.node.package.identity)'")
+    }
+
+    public func didResolve(term: Term, version: Version, duration: DispatchTimeInterval) {
+        self.debug("resolved '\(term.node.package.identity)' @ '\(version)'")
+    }
+
+    public func derived(term: Term) {
+        self.debug("derived '\(term.node.package.identity)' requirement '\(term.requirement)'")
+    }
+
+    public func conflict(conflict: Incompatibility) {
+        self.debug("conflict: \(conflict)")
+    }
+
+    public func failedToResolve(incompatibility: Incompatibility) {
+        self.debug("failed to resolve '\(incompatibility)'")
+    }
+
+    public func satisfied(term: Term, by assignment: Assignment, incompatibility: Incompatibility) {
+        self.debug("'\(term)' is satisfied by '\(assignment)', which is caused by '\(assignment.cause?.description ?? "unknown cause")'. new incompatibility: '\(incompatibility)'")
+    }
+
+    public func partiallySatisfied(term: Term, by assignment: Assignment, incompatibility: Incompatibility, difference: Term) {
+        self.debug("\(term) is partially satisfied by '\(assignment)', which is caused by '\(assignment.cause?.description ?? "unknown cause")'. new incompatibility \(incompatibility)")
+    }
+
+    public func solved(result: [DependencyResolver.Binding]) {
+        for (package, binding, _) in result {
+            self.debug("solved '\(package.identity)' (\(package.locationString)) at '\(binding)'")
+        }
+        self.debug("dependency resolution complete!")
+    }
+
+    private func debug(_ message: String) {
+        self.observabilityScope.emit(debug: "[DependencyResolver] \(message)")
     }
 }
 

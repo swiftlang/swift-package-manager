@@ -4410,7 +4410,7 @@ final class WorkspaceTests: XCTestCase {
         XCTAssertFalse(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/B/B.xcframework")))
 
         try workspace.checkPackageGraph(roots: ["Foo"]) { graph, diagnostics in
-            XCTAssertTrue(diagnostics.isEmpty, diagnostics.description)
+            XCTAssertNoDiagnostics(diagnostics)
 
             // Ensure that the artifacts have been properly extracted
             XCTAssertTrue(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/A/A1.xcframework")))
@@ -4665,7 +4665,7 @@ final class WorkspaceTests: XCTestCase {
         try fs.createDirectory(workspace.artifactsDir.appending(components: "A", a4FrameworkName, "local-archived"), recursive: true)
 
         try workspace.checkPackageGraph(roots: ["Foo"]) { graph, diagnostics in
-            XCTAssertTrue(diagnostics.isEmpty, diagnostics.description)
+            XCTAssertNoDiagnostics(diagnostics)
 
             // Ensure that the original archives have been untouched
             XCTAssertTrue(fs.exists(a1FrameworkArchivePath))
@@ -4773,9 +4773,7 @@ final class WorkspaceTests: XCTestCase {
         try fs.writeFileContents(aFrameworksPath.appending(component: "archived-artifact-does-not-match-target-name.zip"), bytes: ByteString([0xA1]))
 
         workspace.checkPackageGraphFailure(roots: ["Foo"]) { diagnostics in
-            testDiagnostics(diagnostics) { result in
-                XCTAssertTrue(diagnostics.isEmpty, diagnostics.description)
-            }
+            XCTAssertNoDiagnostics(diagnostics)
         }
     }
 
@@ -5514,8 +5512,9 @@ final class WorkspaceTests: XCTestCase {
         )
 
         workspace.checkPackageGraphFailure(roots: ["Foo"]) { diagnostics in
-            XCTAssertEqual(diagnostics.map { $0.message },
-                           ["downloaded archive of binary target 'A3' does not contain expected binary artifact 'A3'"])
+            testDiagnostics(diagnostics) { result in
+                result.check(diagnostic: "downloaded archive of binary target 'A3' does not contain expected binary artifact 'A3'", severity: .error)
+            }
             XCTAssert(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/B")))
             XCTAssert(!fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/A/A3.xcframework")))
             XCTAssert(!fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/A/A4.xcframework")))

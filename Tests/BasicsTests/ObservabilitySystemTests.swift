@@ -108,7 +108,7 @@ final class ObservabilitySystemTest: XCTestCase {
         emitter.emit(debug: "debug")
         emitter.emit(.debug("debug 2"))
 
-        testDiagnostics(collector.diagnostics) { result in
+        testDiagnostics(collector.diagnostics, problemsOnly: false) { result in
             result.check(diagnostic: "error", severity: .error, metadata: metadata)
             result.check(diagnostic: "error 2", severity: .error, metadata: metadata)
             result.check(diagnostic: "error 3", severity: .error, metadata: metadata)

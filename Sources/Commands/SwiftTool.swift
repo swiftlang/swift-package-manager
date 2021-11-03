@@ -467,6 +467,11 @@ public class SwiftTool {
         if options._deprecated_netrcOptional {
             observabilityScope.emit(warning: "'--netrc-optional' option is deprecated; .netrc files are located by default")
         }
+
+        if options._deprecated_enableResolverTrace {
+            observabilityScope.emit(warning: "'--enableResolverTrace' option is deprecated; use --verbose flag to log resolver output")
+        }
+
     }
 
     private func editsDirectory() throws -> AbsolutePath {
@@ -660,7 +665,6 @@ public class SwiftTool {
             additionalFileRules: isXcodeBuildSystemEnabled ? FileRuleDescription.xcbuildFileTypes : FileRuleDescription.swiftpmFileTypes,
             resolverUpdateEnabled: !options.skipDependencyUpdate,
             resolverPrefetchingEnabled: options.shouldEnableResolverPrefetching,
-            resolverTracingEnabled: options.enableResolverTrace,
             sharedRepositoriesCacheEnabled: self.options.useRepositoriesCache,
             delegate: delegate
         )

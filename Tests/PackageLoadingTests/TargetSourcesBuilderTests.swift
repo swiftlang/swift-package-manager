@@ -278,7 +278,7 @@ class TargetSourcesBuilderTests: XCTestCase {
                 "/Resources/Sub/foo.txt"
             )
 
-            build(target: target, toolsVersion: .v5_3, fs: fs) { _, _, _, _, identity, location, path, diagnostics in
+            build(target: target, toolsVersion: .v5_3, fs: fs, checkOnlyProblems: false) { _, _, _, _, identity, location, path, diagnostics in
                 var expectedMetadata = ObservabilityMetadata.packageMetadata(identity: identity, location: location, path: path)
                 expectedMetadata.targetName = target.name
                 diagnostics.check(diagnostic: "multiple resources named 'foo.txt' in target 'Foo'", severity: .error, metadata: expectedMetadata)
@@ -300,7 +300,7 @@ class TargetSourcesBuilderTests: XCTestCase {
                 "/Copied/foo.txt"
             )
 
-            build(target: target, toolsVersion: .v5_3, fs: fs) { _, _, _, _, identity, location, path, diagnostics in
+            build(target: target, toolsVersion: .v5_3, fs: fs, checkOnlyProblems: false) { _, _, _, _, identity, location, path, diagnostics in
                 var expectedMetadata = ObservabilityMetadata.packageMetadata(identity: identity, location: location, path: path)
                 expectedMetadata.targetName = target.name
                 diagnostics.check(diagnostic: "multiple resources named 'foo.txt' in target 'Foo'", severity: .error, metadata: expectedMetadata)
@@ -623,6 +623,7 @@ class TargetSourcesBuilderTests: XCTestCase {
         additionalFileRules: [FileRuleDescription] = [],
         toolsVersion: ToolsVersion,
         fs: FileSystem,
+        checkOnlyProblems: Bool = false,
         file: StaticString = #file,
         line: UInt = #line,
         checker: (Sources, [Resource], [AbsolutePath], [AbsolutePath], PackageIdentity, String, AbsolutePath, DiagnosticsTestResult) -> ()
@@ -644,7 +645,7 @@ class TargetSourcesBuilderTests: XCTestCase {
         do {
             let (sources, resources, headers, others) = try builder.run()
 
-            testDiagnostics(observability.diagnostics, file: file, line: line) { diagnostics in
+            testDiagnostics(observability.diagnostics, problemsOnly: checkOnlyProblems, file: file, line: line) { diagnostics in
                 checker(sources, resources, headers, others, builder.packageIdentity, builder.packageLocation, builder.packagePath, diagnostics)
             }
         } catch {

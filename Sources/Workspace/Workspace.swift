@@ -225,9 +225,6 @@ public class Workspace {
     /// Update containers while fetching them.
     fileprivate let resolverUpdateEnabled: Bool
 
-    /// Write dependency resolver trace to a file.
-    fileprivate let resolverTracingEnabled: Bool
-
     fileprivate let additionalFileRules: [FileRuleDescription]
 
     // state
@@ -262,7 +259,6 @@ public class Workspace {
     ///   - additionalFileRules: File rules to determine resource handling behavior.
     ///   - resolverUpdateEnabled: Enables the dependencies resolver automatic version update check.  Enabled by default. When disabled the resolver relies only on the resolved version file
     ///   - resolverPrefetchingEnabled: Enables the dependencies resolver prefetching based on the resolved version file.  Enabled by default..
-    ///   - resolverTracingEnabled: Enables the dependencies resolver tracing.  Disabled by default..
     ///   - sharedRepositoriesCacheEnabled: Enables the shared repository cache. Enabled by default..
     ///   - delegate: Delegate for workspace events
     public init(
@@ -283,7 +279,6 @@ public class Workspace {
         additionalFileRules: [FileRuleDescription]? = .none,
         resolverUpdateEnabled: Bool? = .none,
         resolverPrefetchingEnabled: Bool? = .none,
-        resolverTracingEnabled: Bool? = .none,
         sharedRepositoriesCacheEnabled: Bool? = .none,
         delegate: WorkspaceDelegate? = .none
     ) throws {
@@ -325,7 +320,6 @@ public class Workspace {
         let additionalFileRules = additionalFileRules ?? []
         let resolverUpdateEnabled = resolverUpdateEnabled ?? true
         let resolverPrefetchingEnabled = resolverPrefetchingEnabled ?? false
-        let resolverTracingEnabled = resolverTracingEnabled ?? false
 
         // initialize
         self.fileSystem = fileSystem
@@ -355,7 +349,6 @@ public class Workspace {
         self.additionalFileRules = additionalFileRules
         self.resolverUpdateEnabled = resolverUpdateEnabled
         self.resolverPrefetchingEnabled = resolverPrefetchingEnabled
-        self.resolverTracingEnabled = resolverTracingEnabled
 
         self.state = WorkspaceState(dataPath: self.location.workingDirectory, fileSystem: fileSystem)
     }
@@ -412,8 +405,7 @@ public class Workspace {
             customChecksumAlgorithm: checksumAlgorithm,
             additionalFileRules: additionalFileRules,
             resolverUpdateEnabled: skipUpdate.map{ !$0 },
-            resolverPrefetchingEnabled: isResolverPrefetchingEnabled,
-            resolverTracingEnabled: enableResolverTrace
+            resolverPrefetchingEnabled: isResolverPrefetchingEnabled
         )
         if let toolsVersionLoader = toolsVersionLoader {
             self.toolsVersionLoader = toolsVersionLoader
@@ -748,7 +740,7 @@ extension Workspace {
         }
 
         // Resolve the dependencies.
-        let resolver = try self.createResolver(pinsMap: pinsMap)
+        let resolver = self.createResolver(pinsMap: pinsMap, observabilityScope: ObservabilitySystem(diagnosticEngine: diagnostics).topScope)
         self.activeResolver = resolver
 
         let updateResults = resolveDependencies(
@@ -2388,7 +2380,7 @@ extension Workspace {
         computedConstraints += try graphRoot.constraints() + constraints
 
         // Perform dependency resolution.
-        let resolver = try createResolver(pinsMap: pinsStore.pinsMap)
+        let resolver = self.createResolver(pinsMap: pinsStore.pinsMap, observabilityScope: ObservabilitySystem(diagnosticEngine: diagnostics).topScope)
         self.activeResolver = resolver
 
         let result = self.resolveDependencies(
@@ -2855,15 +2847,17 @@ extension Workspace {
     }
 
     /// Creates resolver for the workspace.
-    fileprivate func createResolver(pinsMap: PinsStore.PinsMap) throws -> PubgrubDependencyResolver {
-        var delegates = [DependencyResolverDelegate]()
+    fileprivate func createResolver(pinsMap: PinsStore.PinsMap, observabilityScope: ObservabilityScope) -> PubgrubDependencyResolver {
+        var delegate: DependencyResolverDelegate
+        let observabilityDelegate = ObservabilityDependencyResolverDelegate(observabilityScope: observabilityScope)
         if let workspaceDelegate = self.delegate {
-            delegates.append(WorkspaceDependencyResolverDelegate(workspaceDelegate))
+            delegate = MultiplexResolverDelegate([
+                observabilityDelegate,
+                WorkspaceDependencyResolverDelegate(workspaceDelegate),
+            ])
+        } else {
+            delegate = observabilityDelegate
         }
-        if self.resolverTracingEnabled {
-            delegates.append(try TracingDependencyResolverDelegate(path: self.location.workingDirectory.appending(components: "resolver.trace")))
-        }
-        let delegate = !delegates.isEmpty ? MultiplexResolverDelegate(delegates) : nil
 
         return PubgrubDependencyResolver(
             provider: self,
