@@ -11,6 +11,7 @@
 import Basics
 import Foundation
 import PackageModel
+import PackageLoading
 import PackageGraph
 import TSCBasic
 import TSCUtility
@@ -649,11 +650,27 @@ struct PluginScriptRunnerInputSerializer {
                 linkedFrameworks: scope.evaluate(.LINK_FRAMEWORKS))
 
         case let target as SystemLibraryTarget:
-            // FIXME: Extract the logic to discover pkgConfig information from BuildPlan, call it, and pass it down.
+            var cFlags: [String] = []
+            var ldFlags: [String] = []
+            // FIXME: What do we do with any diagnostics here?
+            let observabilityScope = ObservabilitySystem({ _, _ in }).topScope
+            for result in pkgConfigArgs(for: target, fileSystem: localFileSystem, observabilityScope: observabilityScope) {
+                if let error = result.error {
+                    observabilityScope.emit(
+                        warning: "\(error)",
+                        metadata: .pkgConfig(pcFile: result.pkgConfigName, targetName: target.name)
+                    )
+                }
+                else {
+                    cFlags += result.cFlags
+                    ldFlags += result.libs
+                }
+            }
+
             targetInfo = .systemLibraryInfo(
                 pkgConfig: target.pkgConfig,
-                compilerFlags: [],
-                linkerFlags: [])
+                compilerFlags: cFlags,
+                linkerFlags: ldFlags)
             
         case let target as BinaryTarget:
             let artifactKind: PluginScriptRunnerInput.Target.TargetInfo.BinaryArtifactKind
