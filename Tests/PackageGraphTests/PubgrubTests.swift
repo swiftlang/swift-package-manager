@@ -8,16 +8,14 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-import XCTest
-
-import TSCBasic
+import Basics
+@testable import PackageGraph
 import PackageLoading
 @testable import PackageModel
-@testable import PackageGraph
 import SourceControl
 import SPMTestSupport
-
-
+import TSCBasic
+import XCTest
 
 // There's some useful helper utilities defined below for easier testing:
 //
@@ -1898,6 +1896,44 @@ final class PubGrubBacktrackTests: XCTestCase {
             ("d", .version("2.0.0")),
         ])
     }
+
+    func testLogging() {
+        builder.serve("a", at: "1.0.0")
+        builder.serve("a", at: "2.0.0")
+        builder.serve("b", at: "1.0.1", with: [
+            "b": ["a": (.versionSet(.exact("1.0.0")), .specific(["a"]))],
+        ])
+        builder.serve("c", at: "1.5.2", with: [
+            "c": ["b": (.versionSet(.range("0.0.0"..<"3.0.0")), .specific(["b"]))],
+        ])
+        builder.serve("d", at: "1.0.1")
+        builder.serve("d", at: "2.3.0")
+
+        let observability = ObservabilitySystem.makeForTesting()
+
+        let resolver = builder.create(pinsMap: [:], delegate: ObservabilityDependencyResolverDelegate(observabilityScope: observability.topScope))
+        let dependencies = builder.create(dependencies: [
+            "a": (.versionSet(.range("1.0.0"..<"4.0.0")), .specific(["a"])),
+            "c": (.versionSet(.range("1.0.0"..<"4.0.0")), .specific(["c"])),
+            "d": (.versionSet(.range("1.0.0"..<"4.0.0")), .specific(["d"])),
+        ])
+
+        let result = resolver.solve(constraints: dependencies)
+
+        AssertResult(result, [
+            ("a", .version("1.0.0")),
+            ("b", .version("1.0.1")),
+            ("c", .version("1.5.2")),
+            ("d", .version("2.3.0")),
+        ])
+
+        observability.diagnostics.forEach { print("\($0)") }
+
+        XCTAssertTrue(observability.diagnostics.contains(where: { $0.message == "[DependencyResolver] resolved 'a' @ '1.0.0'" }))
+        XCTAssertTrue(observability.diagnostics.contains(where: { $0.message == "[DependencyResolver] resolved 'b' @ '1.0.1'" }))
+        XCTAssertTrue(observability.diagnostics.contains(where: { $0.message == "[DependencyResolver] resolved 'c' @ '1.5.2'" }))
+        XCTAssertTrue(observability.diagnostics.contains(where: { $0.message == "[DependencyResolver] resolved 'd' @ '2.3.0'" }))
+    }
 }
 
 fileprivate extension CheckoutState {
@@ -2212,12 +2248,8 @@ class DependencyGraphBuilder {
         return store
     }
 
-    func create(pinsMap: PinsStore.PinsMap = [:], log: Bool = false) -> PubgrubDependencyResolver {
-        let delegate = log ? TracingDependencyResolverDelegate(stream: TSCBasic.stdoutStream) : nil
-        return self.create(pinsMap: pinsMap, delegate: delegate)
-    }
 
-    func create(pinsMap: PinsStore.PinsMap = [:], delegate: DependencyResolverDelegate?) -> PubgrubDependencyResolver {
+    func create(pinsMap: PinsStore.PinsMap = [:], delegate: DependencyResolverDelegate? = .none) -> PubgrubDependencyResolver {
         defer {
             self.containers = [:]
             self.references = [:]

@@ -77,8 +77,8 @@ public struct TestingObservability {
     }
 }
 
-
-public func XCTAssertNoDiagnostics(_ diagnostics: [Basics.Diagnostic], file: StaticString = #file, line: UInt = #line) {
+public func XCTAssertNoDiagnostics(_ diagnostics: [Basics.Diagnostic], problemsOnly: Bool = true, file: StaticString = #file, line: UInt = #line) {
+    let diagnostics = problemsOnly ? diagnostics.filter({ $0.severity >= .warning }) : diagnostics
     if diagnostics.isEmpty { return }
     let description = diagnostics.map({ "- " + $0.description }).joined(separator: "\n")
     XCTFail("Found unexpected diagnostics: \n\(description)", file: file, line: line)
@@ -86,10 +86,12 @@ public func XCTAssertNoDiagnostics(_ diagnostics: [Basics.Diagnostic], file: Sta
 
 public func testDiagnostics(
     _ diagnostics: [Basics.Diagnostic],
+    problemsOnly: Bool = true,
     file: StaticString = #file,
     line: UInt = #line,
     handler: (DiagnosticsTestResult) throws -> Void
 ) {
+    let diagnostics = problemsOnly ? diagnostics.filter({ $0.severity >= .warning }) : diagnostics
     let testResult = DiagnosticsTestResult(diagnostics)
 
     do {
