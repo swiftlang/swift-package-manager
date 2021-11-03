@@ -798,6 +798,15 @@ public final class PackageBuilder {
             throw ModuleError.invalidPublicHeadersDirectory(potentialModule.name)
         }
 
+        let showDiagnostics: Bool
+        switch self.manifest.packageKind {
+        case .root(_): showDiagnostics = true
+        case .fileSystem(_): showDiagnostics = true
+        case .localSourceControl(_): showDiagnostics = false
+        case .remoteSourceControl(_): showDiagnostics = false
+        case .registry(_): showDiagnostics = false
+        }
+
         let sourcesBuilder = TargetSourcesBuilder(
             packageIdentity: self.identity,
             packageLocation: self.manifest.packageLocation,
@@ -808,7 +817,7 @@ public final class PackageBuilder {
             additionalFileRules: self.additionalFileRules,
             toolsVersion: self.manifest.toolsVersion,
             fileSystem: self.fileSystem,
-            observabilityScope: self.observabilityScope
+            observabilityScope: showDiagnostics ? self.observabilityScope : ObservabilitySystem({ _, _ in }).topScope
         )
         let (sources, resources, headers, others) = try sourcesBuilder.run()
 
