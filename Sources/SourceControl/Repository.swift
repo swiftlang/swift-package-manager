@@ -29,11 +29,12 @@ public struct RepositorySpecifier: Hashable {
         self.init(location: .url(url))
     }
 
-    /// The URL of the repository.
-    // FIXME: transition url to location
-    @available(*, deprecated, message: "user location instead")
-    public var url: String {
-        self.location.description
+    /// The location of the repository as URL.
+    public var url: URL {
+        switch self.location {
+        case .path(let path): return URL(fileURLWithPath: path.pathString)
+        case .url(let url): return url
+        }
     }
 
     /// A unique identifier for this specifier.
