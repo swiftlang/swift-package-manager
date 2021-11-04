@@ -557,3 +557,10 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         .package(path: "../swift-crypto"),
     ]
 }
+
+#warning("For ease of testing during PR; remove before merging.")
+for target in package.targets {
+    var swiftSettings = target.swiftSettings ?? []
+    defer { target.swiftSettings = swiftSettings }
+    swiftSettings.append(.define("ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION"))
+}
