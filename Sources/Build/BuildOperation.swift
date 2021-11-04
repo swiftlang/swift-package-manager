@@ -131,14 +131,15 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 
     /// Perform a build using the given build description and subset.
     public func build(subset: BuildSubset) throws {
+        let buildStartTime = DispatchTime.now()
+
         // Create the build system.
         let buildDescription = try self.getBuildDescription()
         let buildSystem = try self.createBuildSystem(buildDescription: buildDescription)
         self.buildSystem = buildSystem
 
-        let buildStartTime = DispatchTime.now()
-
-        buildSystemDelegate?.buildStart(configuration: self.buildParameters.configuration)
+        // delegate is only available after createBuildSystem is called
+        self.buildSystemDelegate?.buildStart(configuration: self.buildParameters.configuration)
 
         // Perform the build.
         let llbuildTarget = try computeLLBuildTargetName(for: subset)
@@ -146,8 +147,8 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 
         let duration = buildStartTime.distance(to: .now())
 
-        buildSystemDelegate?.buildComplete(success: success, duration: duration)
-        delegate?.buildSystem(self, didFinishWithResult: success)
+        self.buildSystemDelegate?.buildComplete(success: success, duration: duration)
+        self.delegate?.buildSystem(self, didFinishWithResult: success)
         guard success else { throw Diagnostics.fatalError }
 
         // Create backwards-compatibility symlink to old build path.

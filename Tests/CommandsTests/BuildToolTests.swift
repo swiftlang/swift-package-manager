@@ -272,7 +272,7 @@ final class BuildToolTests: XCTestCase {
         fixture(name: "DependencyResolution/Internal/Simple") { path in
             do {
                 let result = try execute([], packagePath: path)
-                XCTAssertMatch(result.stdout, .regex("\\[[1-9][0-9]*\\/[1-9][0-9]*\\] Linking Foo"))
+                XCTAssertMatch(result.stdout, .regex("\\[[1-9][0-9]*\\/[1-9][0-9]*\\] Compiling"))
                 // Number of steps must be greater than 3. e.g., [8/8] Linking Foo
                 let lines = result.stdout.split(separator: "\n")
                 XCTAssertTrue(lines.count > 3)
@@ -282,6 +282,7 @@ final class BuildToolTests: XCTestCase {
 
             do {
                 let result = try execute([], packagePath: path)
+                XCTAssertNoMatch(result.stdout, .regex("\\[[1-9][0-9]*\\/[1-9][0-9]*\\] Compiling"))
                 // test second time, to make sure message is presented even when nothing to build (cached)
                 let lines = result.stdout.split(separator: "\n")
                 XCTAssertTrue(lines.count == 3)
