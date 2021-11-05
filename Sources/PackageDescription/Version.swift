@@ -60,6 +60,10 @@ public struct Version {
     ///   - patch: The patch version number.
     ///   - prereleaseIdentifiers: The pre-release identifier.
     ///   - buildMetaDataIdentifiers: Build metadata that identifies a build.
+    ///
+    /// - Precondition: `major >= 0 && minor >= 0 && patch >= 0`.
+    /// - Precondition: `prereleaseIdentifiers` can conatin only ASCII alpha-numeric characters and "-".
+    /// - Precondition: `buildMetaDataIdentifiers` can conatin only ASCII alpha-numeric characters and "-".
     public init(
         _ major: Int,
         _ minor: Int,
@@ -68,6 +72,18 @@ public struct Version {
         buildMetadataIdentifiers: [String] = []
     ) {
         precondition(major >= 0 && minor >= 0 && patch >= 0, "Negative versioning is invalid.")
+        precondition(
+            prereleaseIdentifiers.allSatisfy {
+                $0.allSatisfy { $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "-") }
+            },
+            #"Pre-release identifiers can contain only ASCII alpha-numeric characters and "-"."#
+        )
+        precondition(
+            buildMetadataIdentifiers.allSatisfy {
+                $0.allSatisfy { $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "-") }
+            },
+            #"Build metadata identifiers can contain only ASCII alpha-numeric characters and "-"."#
+        )
         self.major = major
         self.minor = minor
         self.patch = patch
