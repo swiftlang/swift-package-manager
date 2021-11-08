@@ -720,7 +720,8 @@ class PIFBuilderTests: XCTestCase {
             "/Bar/Sources/bar/main.swift",
             "/Bar/Sources/BarTests/BarTests.swift",
             "/Bar/Sources/CBarTests/CBarTests.m",
-            "/Bar/Sources/BarLib/lib.swift"
+            "/Bar/Sources/BarLib/lib.swift",
+            inputsDir.appending(component: "Foo.pc").pathString
         )
 
         let observability = ObservabilitySystem.makeForTesting()
