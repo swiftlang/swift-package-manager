@@ -31,11 +31,19 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
         self.toolchain = toolchain
         self.enableSandbox = enableSandbox
     }
+    
+    public func compilePluginScript(sources: Sources, toolsVersion: ToolsVersion) throws -> PluginCompilationResult {
+        return try self.compile(sources: sources, toolsVersion: toolsVersion, cacheDir: self.cacheDir)
+    }
 
     /// Public protocol function that compiles and runs the plugin as a subprocess.  The tools version controls the availability of APIs in PackagePlugin, and should be set to the tools version of the package that defines the plugin (not of the target to which it is being applied).
     public func runPluginScript(sources: Sources, inputJSON: Data, toolsVersion: ToolsVersion, writableDirectories: [AbsolutePath], observabilityScope: ObservabilityScope, fileSystem: FileSystem) throws -> (outputJSON: Data, stdoutText: Data) {
-        let compiledExec = try self.compile(sources: sources, toolsVersion: toolsVersion, cacheDir: self.cacheDir)
-        return try self.invoke(compiledExec: compiledExec, toolsVersion: toolsVersion, writableDirectories: writableDirectories, input: inputJSON)
+        // FIXME: We should only compile the plugin script again if needed.
+        let result = try self.compile(sources: sources, toolsVersion: toolsVersion, cacheDir: self.cacheDir)
+        guard let compiledExecutable = result.compiledExecutable else {
+            throw DefaultPluginScriptRunnerError.compilationFailed(result)
+        }
+        return try self.invoke(compiledExec: compiledExecutable, toolsVersion: toolsVersion, writableDirectories: writableDirectories, input: inputJSON)
     }
 
     public var hostTriple: Triple {
@@ -43,19 +51,16 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
             Triple.getHostTriple(usingSwiftCompiler: self.toolchain.swiftCompilerPath)
         }
     }
-
-    /// Helper function that compiles a plugin script as an executable and returns the path to it.
-    fileprivate func compile(sources: Sources, toolsVersion: ToolsVersion, cacheDir: AbsolutePath) throws -> AbsolutePath {
+    
+    /// Helper function that compiles a plugin script as an executable and returns the path of the executable, any emitted diagnostics, etc. This function only throws an error if it wasn't even possible to start compiling the plugin — any regular compilation errors or warnings will be reflected in the returned compilation result.
+    fileprivate func compile(sources: Sources, toolsVersion: ToolsVersion, cacheDir: AbsolutePath) throws -> PluginCompilationResult {
         // FIXME: Much of this is copied from the ManifestLoader and should be consolidated.
 
+        // Get access to the path containing the PackagePlugin module and library.
         let runtimePath = self.toolchain.swiftPMLibrariesLocation.pluginAPI
 
-        // Compile the package plugin script.
+        // We use the toolchain's Swift compiler for compiling the plugin.
         var command = [self.toolchain.swiftCompilerPath.pathString]
-
-        // FIXME: Workaround for the module cache bug that's been haunting Swift CI
-        // <rdar://problem/48443680>
-        let moduleCachePath = ProcessEnv.vars["SWIFTPM_MODULECACHE_OVERRIDE"] ?? ProcessEnv.vars["SWIFTPM_TESTS_MODULECACHE"]
 
         let macOSPackageDescriptionPath: AbsolutePath
         // if runtimePath is set to "PackageFrameworks" that means we could be developing SwiftPM in Xcode
@@ -95,7 +100,12 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
         // Add any extra flags required as indicated by the ManifestLoader.
         command += self.toolchain.swiftCompilerFlags
 
+        // Add the Swift language version implied by the package tools version.
         command += ["-swift-version", toolsVersion.swiftLanguageVersion.rawValue]
+
+        // Add the PackageDescription version specified by the package tools version, which controls what PackagePlugin API is seen.
+        command += ["-package-description-version", toolsVersion.description]
+
         // if runtimePath is set to "PackageFrameworks" that means we could be developing SwiftPM in Xcode
         // which produces a framework for dynamic package products.
         if runtimePath.extension == "framework" {
@@ -108,26 +118,33 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
             command += ["-sdk", sdkRoot.pathString]
         }
         #endif
-        command += ["-package-description-version", toolsVersion.description]
+        
+        // Honor any module cache override that's set in the environment.
+        let moduleCachePath = ProcessEnv.vars["SWIFTPM_MODULECACHE_OVERRIDE"] ?? ProcessEnv.vars["SWIFTPM_TESTS_MODULECACHE"]
         if let moduleCachePath = moduleCachePath {
             command += ["-module-cache-path", moduleCachePath]
         }
 
         // Parse the plugin as a library so that `@main` is supported even though there might be only a single source file.
         command += ["-parse-as-library"]
-
+        
+        // Add options to create a .dia file containing any diagnostics emitted by the compiler.
+        let diagnosticsFile = cacheDir.appending(component: "diagnostics.dia")
+        command += ["-Xfrontend", "-serialize-diagnostics-path", "-Xfrontend", diagnosticsFile.pathString]
+        
+        // Add all the source files that comprise the plugin scripts.
         command += sources.paths.map { $0.pathString }
-        let compiledExec = cacheDir.appending(component: "compiled-plugin")
-        command += ["-o", compiledExec.pathString]
+        
+        // Add the path of the compiled executable.
+        let executableFile = cacheDir.appending(component: "compiled-plugin")
+        command += ["-o", executableFile.pathString]
+        
+        // Invoke the compiler and get back the result.
+        let compilerResult = try Process.popen(arguments: command, environment: toolchain.swiftCompilerEnvironment)
 
-        let result = try Process.popen(arguments: command, environment: toolchain.swiftCompilerEnvironment)
-        let output = try (result.utf8Output() + result.utf8stderrOutput()).spm_chuzzle() ?? ""
-        if result.exitStatus != .terminated(code: 0) {
-            // TODO: Make this a proper error.
-            throw StringError("failed to compile package plugin:\n\(command)\n\n\(output)")
-        }
-
-        return compiledExec
+        // Finally return the result. We return the path of the compiled executable only if the compilation succeeded.
+        let compiledExecutable = (compilerResult.exitStatus == .terminated(code: 0)) ? executableFile : nil
+        return PluginCompilationResult(compiledExecutable: compiledExecutable, diagnosticsFile: diagnosticsFile, compilerResult: compilerResult)
     }
 
     /// Returns path to the sdk, if possible.
@@ -210,9 +227,24 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
     }
 }
 
+/// The result of compiling a plugin. The executable path will only be present if the compilation succeeds, while the other properties are present in all cases.
+public struct PluginCompilationResult {
+    /// Path of the compiled executable, or .none if compilation failed.
+    public var compiledExecutable: AbsolutePath?
+    
+    /// Path of the libClang diagnostics file emitted by the compiler (even if compilation succeded, it might contain warnings).
+    public  var diagnosticsFile: AbsolutePath
+    
+    /// Process result of invoking the Swift compiler to produce the executable (contains command line, environment, exit status, and any output).
+    public var compilerResult: ProcessResult
+}
+
 
 /// An error encountered by the default plugin runner.
 public enum DefaultPluginScriptRunnerError: Error {
+    /// Failed to compile the plugin script, so it cannot be run.
+    case compilationFailed(PluginCompilationResult)
+    
     /// Failed to start running the compiled plugin script as a subprocess.  The message describes the error, and the
     /// command is the full command line that the runner tried to launch.
     case subprocessDidNotStart(_ message: String, command: [String])
@@ -230,6 +262,8 @@ public enum DefaultPluginScriptRunnerError: Error {
 extension DefaultPluginScriptRunnerError: CustomStringConvertible {
     public var description: String {
         switch self {
+        case .compilationFailed(let result):
+            return "could not compile plugin script: \(result)"
         case .subprocessDidNotStart(let message, _):
             return "could not run plugin script: \(message)"
         case .subprocessFailed(let message, _, let output):
