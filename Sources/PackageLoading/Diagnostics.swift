@@ -156,9 +156,12 @@ extension ObservabilityMetadata {
 }
 
 // FIXME: (diagnostics) deprecate in favor of the metadata version ^^ when transitioning manifest loader to Observability APIs
-public struct ManifestLoadingDiagnostic: DiagnosticData {
+@available(*, deprecated, message: "user metadata API instead")
+public struct ManifestLoadingDiagnostic: CustomStringConvertible {
      public let output: String
      public let diagnosticFile: AbsolutePath?
 
-     public var description: String { output }
+    public var description: String {
+        self.output
+    }
 }

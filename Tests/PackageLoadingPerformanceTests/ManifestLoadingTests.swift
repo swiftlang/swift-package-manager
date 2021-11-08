@@ -8,6 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import Basics
 import PackageModel
 import PackageLoading
 import SPMTestSupport
@@ -39,7 +40,8 @@ class ManifestLoadingPerfTests: XCTestCasePerf {
                         at: path,
                         packageKind: .root(.init("/Trivial")),
                         toolsVersion: .v4_2,
-                        fileSystem: localFileSystem
+                        fileSystem: localFileSystem,
+                        observabilityScope: ObservabilitySystem.NOOP
                     )
                     XCTAssertEqual(manifest.name, "Trivial")
                 }
@@ -72,7 +74,8 @@ class ManifestLoadingPerfTests: XCTestCasePerf {
                         at: path,
                         packageKind: .root(.init("/Trivial")),
                         toolsVersion: .v4_2,
-                        fileSystem: localFileSystem
+                        fileSystem: localFileSystem,
+                        observabilityScope: ObservabilitySystem.NOOP
                     )
                     XCTAssertEqual(manifest.name, "Foo")
                 }

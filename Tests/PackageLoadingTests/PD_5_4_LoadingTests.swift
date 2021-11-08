@@ -8,13 +8,13 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import XCTest
-
+import Basics
+import PackageLoading
+import PackageModel
+import SPMTestSupport
 import TSCBasic
 import TSCUtility
-import SPMTestSupport
-import PackageModel
-import PackageLoading
+import XCTest
 
 class PackageDescription5_4LoadingTests: PackageDescriptionLoadingTests {
     override var toolsVersion: ToolsVersion {
@@ -22,8 +22,7 @@ class PackageDescription5_4LoadingTests: PackageDescriptionLoadingTests {
     }
 
     func testExecutableTargets() throws {
-        let stream = BufferedOutputByteStream()
-        stream <<< """
+        let content = """
             import PackageDescription
             let package = Package(
                name: "Foo",
@@ -35,14 +34,15 @@ class PackageDescription5_4LoadingTests: PackageDescriptionLoadingTests {
             )
             """
 
-        loadManifest(stream.bytes) { manifest in
-            XCTAssertEqual(manifest.targets[0].type, .executable)
-        }
+        let observability = ObservabilitySystem.makeForTesting()
+        let manifest = try loadManifest(content, observabilityScope: observability.topScope)
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        XCTAssertEqual(manifest.targets[0].type, .executable)
     }
-    
+
     func testPluginsAreUnavailable() throws {
-        let stream = BufferedOutputByteStream()
-        stream <<< """
+        let content = """
             import PackageDescription
             let package = Package(
                name: "Foo",
@@ -54,17 +54,15 @@ class PackageDescription5_4LoadingTests: PackageDescriptionLoadingTests {
                ]
             )
             """
-        do {
-            try loadManifestThrowing(stream.bytes) { _ in }
-            XCTFail("expected manifest loading to fail, but it succeeded")
-        }
-        catch {
-            guard case let ManifestParseError.invalidManifestFormat(message, _) = error else {
-                return XCTFail("expected an invalidManifestFormat error, but got: \(error)")
-            }
 
-            XCTAssertMatch(message, .contains("is unavailable"))
-            XCTAssertMatch(message, .contains("was introduced in PackageDescription 5.5"))
+        let observability = ObservabilitySystem.makeForTesting()
+        XCTAssertThrowsError(try loadManifest(content, observabilityScope: observability.topScope), "expected error") { error in
+            if case ManifestParseError.invalidManifestFormat(let message, _) = error {
+                XCTAssertMatch(message, .contains("is unavailable"))
+                XCTAssertMatch(message, .contains("was introduced in PackageDescription 5.5"))
+            } else {
+                XCTFail("unexpected error: \(error)")
+            }
         }
     }
 }

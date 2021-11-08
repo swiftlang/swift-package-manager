@@ -656,6 +656,6 @@ class PackageContainerProviderTests: XCTestCase {
 
 extension PackageContainerProvider {
     fileprivate func getContainer(for package: PackageReference, skipUpdate: Bool) throws -> PackageContainer {
-        try tsc_await { self.getContainer(for: package, skipUpdate: skipUpdate, on: .global(), completion: $0)  }
+        try tsc_await { self.getContainer(for: package, skipUpdate: skipUpdate, observabilityScope: ObservabilitySystem.NOOP, on: .global(), completion: $0)  }
     }
 }

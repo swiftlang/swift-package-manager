@@ -8,6 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
+import Basics
 import Dispatch
 import PackageModel
 import struct TSCUtility.Version
@@ -41,7 +42,7 @@ public protocol PackageContainer {
 
     /// Returns the tools version for the given version
     func toolsVersion(for version: Version) throws -> ToolsVersion
-    
+
     /// Get the list of versions which are available for the package.
     ///
     /// The list will be returned in sorted order, with the latest version *first*.
@@ -145,6 +146,7 @@ public protocol PackageContainerProvider {
     func getContainer(
         for package: PackageReference,
         skipUpdate: Bool,
+        observabilityScope: ObservabilityScope,
         on queue: DispatchQueue,
         completion: @escaping (Result<PackageContainer, Swift.Error>) -> Void
     )

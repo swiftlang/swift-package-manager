@@ -52,7 +52,7 @@ public final class Manifest {
     }
 
     /// Whether kind of package this manifest is from.
-     public let packageKind: PackageReference.Kind
+    public let packageKind: PackageReference.Kind
 
     /// The version this package was loaded from, if known.
     public let version: Version?

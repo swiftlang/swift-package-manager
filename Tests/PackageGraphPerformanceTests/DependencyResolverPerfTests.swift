@@ -8,17 +8,15 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-import XCTest
-
+import Basics
 import PackageGraph
 import PackageLoading
 import PackageModel
 import SourceControl
-import TSCBasic
-
-import struct TSCUtility.Version
-
 import SPMTestSupport
+import TSCBasic
+import struct TSCUtility.Version
+import XCTest
 
 private let v1: Version = "1.0.0"
 private let v1Range: VersionSetSpecifier = .range("1.0.0" ..< "2.0.0")
@@ -54,7 +52,7 @@ class DependencyResolverRealWorldPerfTests: XCTestCasePerf {
 
         measure {
             for _ in 0 ..< N {
-                let resolver = PubgrubDependencyResolver(provider: provider)
+                let resolver = PubgrubDependencyResolver(provider: provider, observabilityScope: ObservabilitySystem.NOOP)
                 switch resolver.solve(constraints: graph.constraints) {
                 case .success(let result):
                     let result: [(container: PackageReference, version: Version)] = result.compactMap {

@@ -19,7 +19,7 @@ import Workspace
 import XCTest
 
 class PluginInvocationTests: XCTestCase {
-    
+
     func testBasics() throws {
         // Construct a canned file system and package graph with a single package and a library that uses a plugin that uses a tool.
         let fileSystem = InMemoryFileSystem(emptyFiles:
@@ -64,7 +64,7 @@ class PluginInvocationTests: XCTestCase {
             ],
             observabilityScope: observability.topScope
         )
-        
+
         // Check the basic integrity before running plugins.
         XCTAssertNoDiagnostics(observability.diagnostics)
         PackageGraphTester(graph) { graph in
@@ -81,7 +81,7 @@ class PluginInvocationTests: XCTestCase {
                 target.check(type: .executable)
             }
         }
-        
+
         // A fake PluginScriptRunner that just checks the input conditions and returns canned output.
         struct MockPluginScriptRunner: PluginScriptRunner {
             var hostTriple: Triple {
@@ -92,18 +92,18 @@ class PluginInvocationTests: XCTestCase {
                 inputJSON: Data,
                 toolsVersion: ToolsVersion,
                 writableDirectories: [AbsolutePath],
-                diagnostics: DiagnosticsEngine,
+                observabilityScope: ObservabilityScope,
                 fileSystem: FileSystem
             ) throws -> (outputJSON: Data, stdoutText: Data) {
                 // Check that we were given the right sources.
                 XCTAssertEqual(sources.root, AbsolutePath("/Foo/Plugins/FooPlugin"))
                 XCTAssertEqual(sources.relativePaths, [RelativePath("source.swift")])
-                
+
                 // Deserialize and check the input.
                 let decoder = JSONDecoder()
                 let context = try decoder.decode(PluginScriptRunnerInput.self, from: inputJSON)
                 XCTAssertEqual(context.targetName, "Foo")
-                
+
                 // Emit and return a serialized output PluginInvocationResult JSON.
                 let encoder = JSONEncoder()
                 let result = PluginScriptRunnerOutput(
@@ -136,7 +136,7 @@ class PluginInvocationTests: XCTestCase {
                 return (outputJSON: outputJSON, stdoutText: "Hello Plugin!".data(using: .utf8)!)
             }
         }
-        
+
         // Construct a canned input and run plugins using our MockPluginScriptRunner().
         let outputDir = AbsolutePath("/Foo/.build")
         let builtToolsDir = AbsolutePath("/Foo/.build/debug")
@@ -145,16 +145,16 @@ class PluginInvocationTests: XCTestCase {
             outputDir: outputDir,
             builtToolsDir: builtToolsDir,
             pluginScriptRunner: pluginRunner,
-            diagnostics: observability.topScope.makeDiagnosticsEngine(),
+            observabilityScope: observability.topScope,
             fileSystem: fileSystem
         )
-        
+
         // Check the canned output to make sure nothing was lost in transport.
         XCTAssertNoDiagnostics(observability.diagnostics)
         XCTAssertEqual(results.count, 1)
         let (evalTarget, evalResults) = try XCTUnwrap(results.first)
         XCTAssertEqual(evalTarget.name, "Foo")
-        
+
         XCTAssertEqual(evalResults.count, 1)
         let evalFirstResult = try XCTUnwrap(evalResults.first)
         XCTAssertEqual(evalFirstResult.prebuildCommands.count, 0)
@@ -167,12 +167,12 @@ class PluginInvocationTests: XCTestCase {
         XCTAssertEqual(evalFirstCommand.configuration.workingDirectory, AbsolutePath("/Foo/Sources/Foo"))
         XCTAssertEqual(evalFirstCommand.inputFiles, [])
         XCTAssertEqual(evalFirstCommand.outputFiles, [])
-        
+
         XCTAssertEqual(evalFirstResult.diagnostics.count, 1)
         let evalFirstDiagnostic = try XCTUnwrap(evalFirstResult.diagnostics.first)
-        XCTAssertEqual(evalFirstDiagnostic.behavior, .warning)
-        XCTAssertEqual(evalFirstDiagnostic.message.text, "A warning")
-        XCTAssertEqual(evalFirstDiagnostic.location.description, "/Foo/Sources/Foo/SomeFile.abc:42")
+        XCTAssertEqual(evalFirstDiagnostic.severity, .warning)
+        XCTAssertEqual(evalFirstDiagnostic.message, "A warning")
+        XCTAssertEqual(evalFirstDiagnostic.metadata?.fileLocation, FileLocation(.init("/Foo/Sources/Foo/SomeFile.abc"), line: 42))
 
         XCTAssertEqual(evalFirstResult.textOutput, "Hello Plugin!")
     }

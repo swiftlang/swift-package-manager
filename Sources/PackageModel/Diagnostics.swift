@@ -14,7 +14,7 @@ import Foundation
 import TSCUtility
 
 /// The diagnostic triggered when the package has a newer tools version than the installed tools.
-public struct RequireNewerTools: DiagnosticData, Swift.Error {
+public struct RequireNewerTools: Error, CustomStringConvertible {
     /// The identity of the package.
     public let packageIdentity: PackageIdentity
 
@@ -50,7 +50,7 @@ public struct RequireNewerTools: DiagnosticData, Swift.Error {
 }
 
 /// The diagnostic triggered when the package has an unsupported tools version.
-public struct UnsupportedToolsVersion: DiagnosticData, Swift.Error {
+public struct UnsupportedToolsVersion: Error, CustomStringConvertible {
     /// The identity of the package.
     public let packageIdentity: PackageIdentity
 

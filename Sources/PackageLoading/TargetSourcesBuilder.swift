@@ -15,13 +15,13 @@ import TSCBasic
 
 /// A utility to compute the source/resource files of a target.
 public struct TargetSourcesBuilder {
-    /// The identity of the package.
+    /// The package identity.
     public let packageIdentity: PackageIdentity
 
-    /// The location of the package.
-    public let packageLocation: String
+    /// The package kind.
+    public let packageKind: PackageReference.Kind
 
-    /// The path of the package.
+    /// The package path.
     public let packagePath: AbsolutePath
 
     /// The target for which we're computing source/resource files.
@@ -57,7 +57,7 @@ public struct TargetSourcesBuilder {
     /// Create a new target builder.
     public init(
         packageIdentity: PackageIdentity,
-        packageLocation: String,
+        packageKind: PackageReference.Kind,
         packagePath: AbsolutePath,
         target: TargetDescription,
         path: AbsolutePath,
@@ -68,7 +68,8 @@ public struct TargetSourcesBuilder {
         observabilityScope: ObservabilityScope
     ) {
         self.packageIdentity = packageIdentity
-        self.packageLocation = packageLocation
+        self.packageKind = packageKind
+        //self.packageLocation = packageLocation
         self.packagePath = packagePath
         self.target = target
         self.defaultLocalization = defaultLocalization
@@ -87,7 +88,7 @@ public struct TargetSourcesBuilder {
         self.fileSystem = fileSystem
 
         self.observabilityScope = observabilityScope.makeChildScope(description: "TargetSourcesBuilder") {
-            var metadata = ObservabilityMetadata.packageMetadata(identity: packageIdentity, location: packageLocation, path: packagePath)
+            var metadata = ObservabilityMetadata.packageMetadata(identity: packageIdentity, kind: packageKind)
             metadata.targetName = target.name
             return metadata
         }

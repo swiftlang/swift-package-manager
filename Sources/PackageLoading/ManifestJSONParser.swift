@@ -333,7 +333,7 @@ enum ManifestJSONParser {
         let providers = try? json
             .getArray("providers")
             .map(SystemPackageProviderDescription.init(v4:))
-        
+
         let pluginCapability = try? TargetDescription.PluginCapability(v4: json.getJSON("pluginCapability"))
 
         let dependencies = try json
@@ -465,7 +465,7 @@ extension PackageModel.ProductType {
             }
 
             self = .library(libraryType)
-            
+
         case "plugin":
             self = .plugin
 

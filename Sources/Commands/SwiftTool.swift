@@ -63,16 +63,17 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
     private var fetchProgress: [String: FetchProgress] = [:]
 
     private let queue = DispatchQueue(label: "org.swift.swiftpm.commands.tool-workspace-delegate")
-    private let diagnostics: DiagnosticsEngine
 
-    init(_ outputStream: OutputByteStream, logLevel: Diagnostic.Severity, diagnostics: DiagnosticsEngine) {
+    private let observabilityScope: ObservabilityScope
+
+    init(_ outputStream: OutputByteStream, logLevel: Diagnostic.Severity, observabilityScope: ObservabilityScope) {
         // FIXME: Implement a class convenience initializer that does this once they are supported
         // https://forums.swift.org/t/allow-self-x-in-class-convenience-initializers/15924
         self.outputStream = outputStream as? ThreadSafeOutputByteStream ?? ThreadSafeOutputByteStream(outputStream)
         self.downloadAnimation = NinjaProgressAnimation(stream: self.outputStream)
         self.fetchAnimation = NinjaProgressAnimation(stream: self.outputStream)
         self.logLevel = logLevel
-        self.diagnostics = diagnostics
+        self.observabilityScope = observabilityScope
     }
 
     func fetchingWillBegin(repository: String, fetchDetails: RepositoryManager.FetchDetails?) {
@@ -88,9 +89,9 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
         }
     }
 
-    func fetchingDidFinish(repository: String, fetchDetails: RepositoryManager.FetchDetails?, diagnostic: TSCBasic.Diagnostic?, duration: DispatchTimeInterval) {
+    func fetchingDidFinish(repository: String, fetchDetails: RepositoryManager.FetchDetails?, diagnostic: Basics.Diagnostic?, duration: DispatchTimeInterval) {
         queue.async {
-            if self.diagnostics.hasErrors {
+            if self.observabilityScope.errorsReported {
                 self.fetchAnimation.clear()
             }
 
@@ -144,7 +145,7 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
         // noop
     }
 
-    func didCheckOut(repository: String, revision: String, at path: AbsolutePath, error: TSCBasic.Diagnostic?) {
+    func didCheckOut(repository: String, revision: String, at path: AbsolutePath, error: Basics.Diagnostic?) {
         guard case .none = error else {
             return // error will be printed before hand
         }
@@ -207,7 +208,7 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
 
     func didDownloadBinaryArtifacts() {
         queue.async {
-            if self.diagnostics.hasErrors {
+            if self.observabilityScope.errorsReported {
                 self.downloadAnimation.clear()
             }
 
@@ -231,8 +232,8 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
     // noop
 
     func willLoadManifest(packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind) {}
-    func didLoadManifest(packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind, manifest: Manifest?, diagnostics: [TSCBasic.Diagnostic]) {}
-    func didCreateWorkingCopy(repository url: String, at path: AbsolutePath, error: TSCBasic.Diagnostic?) {}
+    func didLoadManifest(packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind, manifest: Manifest?, diagnostics: [Basics.Diagnostic]) {}
+    func didCreateWorkingCopy(repository url: String, at path: AbsolutePath, error: Basics.Diagnostic?) {}
     func resolvedFileChanged() {}
 }
 
@@ -282,7 +283,7 @@ public class SwiftTool {
         let packages: [AbsolutePath]
 
         if let workspace = options.multirootPackageDataFile {
-            packages = try XcodeWorkspaceLoader(diagnostics: self.observabilityScope.makeDiagnosticsEngine()).load(workspace: workspace)
+            packages = try XcodeWorkspaceLoader(fileSystem: localFileSystem, observabilityScope: self.observabilityScope).load(workspace: workspace)
         } else {
             packages = [try getPackageRoot()]
         }
@@ -643,8 +644,8 @@ public class SwiftTool {
             return workspace
         }
 
-        let delegate = ToolWorkspaceDelegate(self.outputStream, logLevel: self.logLevel, diagnostics: self.observabilityScope.makeDiagnosticsEngine())
-        let provider = GitRepositoryProvider(processSet: self.processSet)
+        let delegate = ToolWorkspaceDelegate(self.outputStream, logLevel: self.logLevel, observabilityScope: self.observabilityScope)
+        let provider = GitRepositoryProvider(processSet: processSet)
         let sharedCacheDirectory =  try self.getSharedCacheDirectory()
         let sharedConfigurationDirectory = try self.getSharedConfigurationDirectory()
         let isXcodeBuildSystemEnabled = self.options.buildSystem == .xcode
@@ -684,9 +685,9 @@ public class SwiftTool {
         let root = try getWorkspaceRoot()
 
         if options.forceResolvedVersions {
-            try workspace.resolveBasedOnResolvedVersionsFile(root: root, diagnostics: self.observabilityScope.makeDiagnosticsEngine())
+            try workspace.resolveBasedOnResolvedVersionsFile(root: root, observabilityScope: self.observabilityScope)
         } else {
-            try workspace.resolve(root: root, diagnostics: self.observabilityScope.makeDiagnosticsEngine())
+            try workspace.resolve(root: root, observabilityScope: self.observabilityScope)
         }
 
         // Throw if there were errors when loading the graph.
@@ -766,7 +767,7 @@ public class SwiftTool {
                 outputDir: outputDir,
                 builtToolsDir: builtToolsDir,
                 pluginScriptRunner: pluginScriptRunner,
-                diagnostics: self.observabilityScope.makeDiagnosticsEngine(),
+                observabilityScope: self.observabilityScope,
                 fileSystem: localFileSystem
             )
             return result
@@ -1149,10 +1150,8 @@ private final class InteractiveWriter {
 // we should remove this as we make use of the new scope and metadata to provide better contextual information
 extension ObservabilityMetadata {
     fileprivate var diagnosticPrefix: String? {
-        if let packageIdentity = self.packageIdentity, let packageLocation = self.packageLocation {
-            return "'\(packageIdentity)' \(packageLocation)"
-        } else if let legacyLocation = self.legacyDiagnosticLocation {
-            return legacyLocation.description
+        if let packageIdentity = self.packageIdentity {
+            return "'\(packageIdentity)'"
         } else {
             return .none
         }

@@ -28,11 +28,38 @@ internal struct FileSystemPackageContainer: PackageContainer {
     private let toolsVersionLoader: ToolsVersionLoaderProtocol
     private let currentToolsVersion: ToolsVersion
 
-    /// The file system that should be used to load this package.
+    /// File system that should be used to load this package.
     private let fileSystem: FileSystem
+
+    /// Observability scope to emit diagnostics
+    private let observabilityScope: ObservabilityScope
 
     /// cached version of the manifest
     private let manifest = ThreadSafeBox<Manifest>()
+
+    public init(
+        package: PackageReference,
+        identityResolver: IdentityResolver,
+        manifestLoader: ManifestLoaderProtocol,
+        toolsVersionLoader: ToolsVersionLoaderProtocol,
+        currentToolsVersion: ToolsVersion,
+        fileSystem: FileSystem,
+        observabilityScope: ObservabilityScope
+    ) throws {
+        switch package.kind {
+        case .root, .fileSystem:
+            break
+        default:
+            throw InternalError("invalid package type \(package.kind)")
+        }
+        self.package = package
+        self.identityResolver = identityResolver
+        self.manifestLoader = manifestLoader
+        self.toolsVersionLoader = toolsVersionLoader
+        self.currentToolsVersion = currentToolsVersion
+        self.fileSystem = fileSystem
+        self.observabilityScope = observabilityScope
+    }
 
     private func loadManifest() throws -> Manifest {
         try manifest.memoize() {
@@ -43,7 +70,7 @@ internal struct FileSystemPackageContainer: PackageContainer {
             default:
                 throw InternalError("invalid package type \(package.kind)")
             }
-            
+
             // Load the tools version.
             let toolsVersion = try self.toolsVersionLoader.load(at: path, fileSystem: self.fileSystem)
 
@@ -53,18 +80,20 @@ internal struct FileSystemPackageContainer: PackageContainer {
             // Load the manifest.
             // FIXME: this should not block
             return try temp_await {
-                manifestLoader.load(at: path,
-                                    packageIdentity: self.package.identity,
-                                    packageKind: self.package.kind,
-                                    packageLocation: path.pathString,
-                                    version: nil,
-                                    revision: nil,
-                                    toolsVersion: toolsVersion,
-                                    identityResolver: self.identityResolver,
-                                    fileSystem: self.fileSystem,
-                                    diagnostics: nil,
-                                    on: .sharedConcurrent,
-                                    completion: $0)
+                manifestLoader.load(
+                    at: path,
+                    packageIdentity: self.package.identity,
+                    packageKind: self.package.kind,
+                    packageLocation: path.pathString,
+                    version: nil,
+                    revision: nil,
+                    toolsVersion: toolsVersion,
+                    identityResolver: self.identityResolver,
+                    fileSystem: self.fileSystem,
+                    observabilityScope: self.observabilityScope,
+                    on: .sharedConcurrent,
+                    completion: $0
+                )
             }
         }
     }
@@ -79,49 +108,26 @@ internal struct FileSystemPackageContainer: PackageContainer {
         return package.with(newName: manifest.name)
     }
 
-    public init(
-        package: PackageReference,
-        identityResolver: IdentityResolver,
-        manifestLoader: ManifestLoaderProtocol,
-        toolsVersionLoader: ToolsVersionLoaderProtocol,
-        currentToolsVersion: ToolsVersion,
-        fileSystem: FileSystem = localFileSystem
-    ) throws {
-        //assert(URL.scheme(package.location) == nil, "unexpected scheme \(URL.scheme(package.location)!) in \(package.location)")
-        switch package.kind {
-        case .root, .fileSystem:
-            break
-        default:
-            throw InternalError("invalid package type \(package.kind)")
-        }
-        self.package = package
-        self.identityResolver = identityResolver
-        self.manifestLoader = manifestLoader
-        self.toolsVersionLoader = toolsVersionLoader
-        self.currentToolsVersion = currentToolsVersion
-        self.fileSystem = fileSystem
-    }
-    
     public func isToolsVersionCompatible(at version: Version) -> Bool {
         fatalError("This should never be called")
     }
-    
+
     public func toolsVersion(for version: Version) throws -> ToolsVersion {
         fatalError("This should never be called")
     }
-    
+
     public func toolsVersionsAppropriateVersionsDescending() throws -> [Version] {
         fatalError("This should never be called")
     }
-    
+
     public func versionsAscending() throws -> [Version] {
         fatalError("This should never be called")
     }
-    
+
     public func getDependencies(at version: Version, productFilter: ProductFilter) throws -> [PackageContainerConstraint] {
         fatalError("This should never be called")
     }
-    
+
     public func getDependencies(at revision: String, productFilter: ProductFilter) throws -> [PackageContainerConstraint] {
         fatalError("This should never be called")
     }

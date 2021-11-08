@@ -115,7 +115,7 @@ extension Package {
 
 extension Package {
     public var diagnosticsMetadata: ObservabilityMetadata {
-        return .packageMetadata(identity: self.identity, location: self.manifest.packageLocation, path: self.path)
+        return .packageMetadata(identity: self.identity, kind: self.manifest.packageKind)
     }
 }
 
@@ -139,12 +139,13 @@ extension Package.Error: CustomStringConvertible {
 }
 
 extension ObservabilityMetadata {
-    public static func packageMetadata(identity: PackageIdentity, location: String, path: AbsolutePath) -> Self {
+    public static func packageMetadata(identity: PackageIdentity, kind: PackageReference.Kind) -> Self {
         var metadata = ObservabilityMetadata()
         metadata.packageIdentity = identity
-        metadata.packageLocation = location
+        metadata.packageKind = kind
+        //metadata.packageLocation = location
         // FIXME: (diagnostics) remove once transition to Observability API is complete
-        metadata.legacyDiagnosticLocation = .init(PackageLocation.Local(name: identity.description, packagePath: path))
+        //metadata.legacyDiagnosticLocation = .init(PackageLocation.Local(name: identity.description, packagePath: path))
         return metadata
     }
 }
@@ -164,6 +165,7 @@ extension ObservabilityMetadata {
     }
 }
 
+/*
 extension ObservabilityMetadata {
     public var packageLocation: String? {
         get {
@@ -176,5 +178,20 @@ extension ObservabilityMetadata {
 
     enum PackageLocationKey: Key {
         typealias Value = String
+    }
+}*/
+
+extension ObservabilityMetadata {
+    public var packageKind: PackageReference.Kind? {
+        get {
+            self[PackageKindKey.self]
+        }
+        set {
+            self[PackageKindKey.self] = newValue
+        }
+    }
+
+    enum PackageKindKey: Key {
+        typealias Value = PackageReference.Kind
     }
 }

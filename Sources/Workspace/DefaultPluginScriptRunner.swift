@@ -33,11 +33,11 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
     }
 
     /// Public protocol function that compiles and runs the plugin as a subprocess.  The tools version controls the availability of APIs in PackagePlugin, and should be set to the tools version of the package that defines the plugin (not of the target to which it is being applied).
-    public func runPluginScript(sources: Sources, inputJSON: Data, toolsVersion: ToolsVersion, writableDirectories: [AbsolutePath], diagnostics: DiagnosticsEngine, fileSystem: FileSystem) throws -> (outputJSON: Data, stdoutText: Data) {
+    public func runPluginScript(sources: Sources, inputJSON: Data, toolsVersion: ToolsVersion, writableDirectories: [AbsolutePath], observabilityScope: ObservabilityScope, fileSystem: FileSystem) throws -> (outputJSON: Data, stdoutText: Data) {
         let compiledExec = try self.compile(sources: sources, toolsVersion: toolsVersion, cacheDir: self.cacheDir)
         return try self.invoke(compiledExec: compiledExec, toolsVersion: toolsVersion, writableDirectories: writableDirectories, input: inputJSON)
     }
-    
+
     public var hostTriple: Triple {
         return Self._hostTriple.memoize {
             Triple.getHostTriple(usingSwiftCompiler: self.toolchain.swiftCompilerPath)
@@ -112,10 +112,10 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
         if let moduleCachePath = moduleCachePath {
             command += ["-module-cache-path", moduleCachePath]
         }
-        
+
         // Parse the plugin as a library so that `@main` is supported even though there might be only a single source file.
         command += ["-parse-as-library"]
-        
+
         command += sources.paths.map { $0.pathString }
         let compiledExec = cacheDir.appending(component: "compiled-plugin")
         command += ["-o", compiledExec.pathString]
@@ -192,13 +192,13 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
         let jsonData = (stdoutPieces.count > 1) ? Data(stdoutPieces.removeLast()) : nil
         let stdoutData = Data(stdoutPieces.joined())
         let stderrData = (try? Data(result.stderrOutput.get())) ?? Data()
-                
+
         // Throw an error if we the subprocess ended badly.
         if result.exitStatus != .terminated(code: 0) {
             let output = String(decoding: stdoutData + stderrData, as: UTF8.self)
             throw DefaultPluginScriptRunnerError.subprocessFailed("\(result.exitStatus)", command: command, output: output)
         }
-        
+
         // Throw an error if we didn't get the JSON data.
         guard let json = jsonData else {
             let output = String(decoding: stdoutData + stderrData, as: UTF8.self)
@@ -220,7 +220,7 @@ public enum DefaultPluginScriptRunnerError: Error {
     /// Running the compiled plugin script as a subprocess failed.  The message describes the error, the command is
     /// the full command line, and the output contains any emitted stdout and stderr.
     case subprocessFailed(_ message: String, command: [String], output: String)
-    
+
     /// The compiled plugin script completed successfully, but did not emit any JSON output that could be decoded to
     /// transmit plugin information to SwiftPM.  The message describes the problem, the command is the full command
     /// line, and the output contains any emitted stdout and stderr.
