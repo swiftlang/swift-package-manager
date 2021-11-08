@@ -217,7 +217,7 @@ public struct PubgrubDependencyResolver {
             let identifier = try container.underlying.getUpdatedIdentifier(at: boundVersion)
 
             if var existing = flattenedAssignments[identifier] {
-                assert(existing.binding == boundVersion, "Two products in one package resolved to different versions: \(existing.products)@\(existing.binding) vs \(products)@\(boundVersion)")
+                assert(existing.binding == boundVersion, "Two products in one package resolved to different versions: \(existing.products)@\(existing.binding) vs \(products)@\(boundVersion) in \(identifier.name)")
                 existing.products.formUnion(products)
                 flattenedAssignments[identifier] = existing
             } else {
@@ -1027,7 +1027,7 @@ private struct DiagnosticReportBuilder {
 
 /// A container for an individual package. This enhances PackageContainer to add PubGrub specific
 /// logic which is mostly related to computing incompatibilities at a particular version.
-private final class PubGrubPackageContainer {
+internal final class PubGrubPackageContainer {
     /// The underlying package container.
     let underlying: PackageContainer
 
@@ -1036,10 +1036,10 @@ private final class PubGrubPackageContainer {
 
     /// The map of dependencies to version set that indicates the versions that have had their
     /// incompatibilities emitted.
-    private var emittedIncompatibilities = ThreadSafeKeyValueStore<PackageReference, VersionSetSpecifier>()
+    private var emittedIncompatibilities = ThreadSafeKeyValueStore<DependencyResolutionNode, VersionSetSpecifier>()
 
     /// Whether we've emitted the incompatibilities for the pinned versions.
-    private var emittedPinnedVersionIncompatibilities = ThreadSafeBox(false)
+    private var emittedPinnedVersionIncompatibilities = ThreadSafeKeyValueStore<DependencyResolutionNode, Bool>()
 
     init(underlying: PackageContainer, pinsMap: PinsStore.PinsMap) {
         self.underlying = underlying
@@ -1190,8 +1190,16 @@ private final class PubGrubPackageContainer {
 
             // Skip if we already emitted incompatibilities for this dependency such that the selected
             // falls within the previously computed bounds.
-            if emittedIncompatibilities[dep.package]?.contains(version) != true {
-                constraints.append(dep)
+            if emittedIncompatibilities[node]?.contains(version) != true {
+                for node in dep.nodes() {
+                    constraints.append(
+                        PackageContainerConstraint(
+                            package: node.package,
+                            requirement: dep.requirement,
+                            products: node.productFilter
+                        )
+                    )
+                }
             }
         }
 
@@ -1199,11 +1207,11 @@ private final class PubGrubPackageContainer {
         if version == pinnedVersion, emittedIncompatibilities.isEmpty {
             // We don't need to emit anything if we already emitted the incompatibilities at the
             // pinned version.
-            if self.emittedPinnedVersionIncompatibilities.get() ?? false {
+            if self.emittedPinnedVersionIncompatibilities[node] ?? false {
                 return []
             }
 
-            self.emittedPinnedVersionIncompatibilities.put(true)
+            self.emittedPinnedVersionIncompatibilities[node] = true
 
             // Since the pinned version is most likely to succeed, we don't compute bounds for its
             // incompatibilities.
@@ -1222,30 +1230,29 @@ private final class PubGrubPackageContainer {
 
         let (lowerBounds, upperBounds) = try self.computeBounds(for: node,
                                                                 constraints: constraints,
-                                                                startingWith: version,
-                                                                products: node.productFilter)
+                                                                startingWith: version)
 
-        return try constraints.map { constraint in
-            var terms: OrderedSet<Term> = []
-            let lowerBound = lowerBounds[constraint.package] ?? "0.0.0"
-            let upperBound = upperBounds[constraint.package] ?? Version(version.major + 1, 0, 0)
-            assert(lowerBound < upperBound)
+        return try constraints.flatMap { constraint in
+            return try constraint.nodes().map { constraintNode in
+                var terms: OrderedSet<Term> = []
+                let lowerBound = lowerBounds[constraintNode] ?? "0.0.0"
+                let upperBound = upperBounds[constraintNode] ?? Version(version.major + 1, 0, 0)
+                assert(lowerBound < upperBound)
 
-            // We only have version-based requirements at this point.
-            guard case .versionSet(let vs) = constraint.requirement else {
-                throw InternalError("Unexpected unversioned requirement: \(constraint)")                
-            }
+                // We only have version-based requirements at this point.
+                guard case .versionSet(let vs) = constraint.requirement else {
+                    throw InternalError("Unexpected unversioned requirement: \(constraint)")
+                }
 
-            for constraintNode in constraint.nodes() {
                 let requirement: VersionSetSpecifier = .range(lowerBound ..< upperBound)
                 terms.append(Term(node, requirement))
                 terms.append(Term(not: constraintNode, vs))
 
                 // Make a record for this dependency so we don't have to recompute the bounds when the selected version falls within the bounds.
-                self.emittedIncompatibilities[constraint.package] = requirement.union(emittedIncompatibilities[constraint.package] ?? .empty)
-            }
+                self.emittedIncompatibilities[constraintNode] = requirement.union(emittedIncompatibilities[constraintNode] ?? .empty)
 
-            return try Incompatibility(terms, root: root, cause: .dependency(node: node))
+                return try Incompatibility(terms, root: root, cause: .dependency(node: node))
+            }
         }
     }
 
@@ -1258,9 +1265,8 @@ private final class PubGrubPackageContainer {
     private func computeBounds(
         for node: DependencyResolutionNode,
         constraints: [PackageContainerConstraint],
-        startingWith firstVersion: Version,
-        products: ProductFilter
-    ) throws -> (lowerBounds: [PackageReference: Version], upperBounds: [PackageReference: Version]) {
+        startingWith firstVersion: Version
+    ) throws -> (lowerBounds: [DependencyResolutionNode: Version], upperBounds: [DependencyResolutionNode: Version]) {
         let preloadCount = 3
 
         // nothing to do
@@ -1273,15 +1279,15 @@ private final class PubGrubPackageContainer {
             for version in versions {
                 DispatchQueue.sharedConcurrent.async(group: sync) {
                     if self.underlying.isToolsVersionCompatible(at: version) {
-                        _ = try? self.underlying.getDependencies(at: version, productFilter: products)
+                        _ = try? self.underlying.getDependencies(at: version, productFilter: node.productFilter)
                     }
                 }
             }
             sync.wait()
         }
         
-        func compute(_ versions: [Version], upperBound: Bool) -> [PackageReference: Version] {
-            var result: [PackageReference: Version] = [:]
+        func compute(_ versions: [Version], upperBound: Bool) -> [DependencyResolutionNode: Version] {
+            var result: [DependencyResolutionNode: Version] = [:]
             var previousVersion = firstVersion
 
             for (index, version) in versions.enumerated() {
@@ -1298,17 +1304,19 @@ private final class PubGrubPackageContainer {
                 let bound = upperBound ? version : previousVersion
                 
                 let isToolsVersionCompatible = self.underlying.isToolsVersionCompatible(at: version)
-                for constraint in constraints where !result.keys.contains(constraint.package) {
-                    // If we hit a version which doesn't have a compatible tools version then that's the boundary.
-                    // Record the bound if the tools version isn't compatible at the current version.
-                    if !isToolsVersionCompatible {
-                        result[constraint.package] = bound
-                    } else {
-                        // Get the dependencies at this version.
-                        if let currentDependencies = try? self.underlying.getDependencies(at: version, productFilter: products) {
-                            // Record this version as the bound for our list of dependencies, if appropriate.
-                            if currentDependencies.first(where: { $0.package == constraint.package }) != constraint {
-                                result[constraint.package] = bound
+                for constraint in constraints {
+                    for constraintNode in constraint.nodes() where !result.keys.contains(constraintNode) {
+                        // If we hit a version which doesn't have a compatible tools version then that's the boundary.
+                        // Record the bound if the tools version isn't compatible at the current version.
+                        if !isToolsVersionCompatible {
+                            result[constraintNode] = bound
+                        } else {
+                            // Get the dependencies at this version.
+                            if let currentDependencies = try? self.underlying.getDependencies(at: version, productFilter: constraintNode.productFilter) {
+                                // Record this version as the bound for our list of dependencies, if appropriate.
+                                if currentDependencies.first(where: { $0.package == constraint.package }) != constraint {
+                                    result[constraintNode] = bound
+                                }
                             }
                         }
                     }
@@ -1333,12 +1341,12 @@ private final class PubGrubPackageContainer {
 
         let sync = DispatchGroup()
 
-        var upperBounds = [PackageReference: Version]()
+        var upperBounds = [DependencyResolutionNode: Version]()
         DispatchQueue.sharedConcurrent.async(group: sync) {
             upperBounds = compute(Array(versions.dropFirst(idx + 1)), upperBound: true)
         }
 
-        var lowerBounds = [PackageReference: Version]()
+        var lowerBounds = [DependencyResolutionNode: Version]()
         DispatchQueue.sharedConcurrent.async(group: sync) {
             lowerBounds = compute(Array(versions.dropLast(versions.count - idx).reversed()), upperBound: false)
         }
