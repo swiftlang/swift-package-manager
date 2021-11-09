@@ -4,7 +4,6 @@ import XCTest
 class AsyncTests: XCTestCase {
 
     func testAsync() async {
-        XCTAssertFalse(Thread.isMainThread)
     }
 
     @MainActor func testMainActor() async {

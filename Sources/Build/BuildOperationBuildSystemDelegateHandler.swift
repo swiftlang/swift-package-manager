@@ -47,23 +47,10 @@ class CustomLLBuildCommand: SPMLLBuild.ExternalCommand {
 
 private extension IndexStore.TestCaseClass.TestMethod {
 
-    var baseName: String {
-        let name = self.name
-        return name.hasSuffix("()") ? String(name.dropLast(2)) : name
-    }
-
     var allTestsEntry: String {
-        let baseName = self.baseName
-        let testCaseClosure: String
+        let baseName = name.hasSuffix("()") ? String(name.dropLast(2)) : name
 
-        switch self {
-        case .standard(_):
-            testCaseClosure = baseName
-        case .async(_):
-            testCaseClosure = "asyncTest(\(baseName))"
-        }
-
-        return "(\"\(baseName)\", \(testCaseClosure))"
+        return "(\"\(baseName)\", \(isAsync ? "asyncTest(\(baseName))" : baseName ))"
     }
 }
 
