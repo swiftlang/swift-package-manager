@@ -1277,6 +1277,19 @@ public final class ProductBuildDescription {
             let stdlib = buildParameters.toolchain.macosSwiftStdlib
             args += ["-Xlinker", "-rpath", "-Xlinker", stdlib.pathString]
           }
+
+          // When deploying to macOS prior to macOS 12, add an rpath to the
+          // back-deployed concurrency libraries.
+          if buildParameters.triple.isDarwin(),
+             let macOSSupportedPlatform = product.targets[0].underlyingTarget.getSupportedPlatform(for: .macOS),
+             macOSSupportedPlatform.version.major < 12 {
+            let backDeployedStdlib = buildParameters.toolchain.macosSwiftStdlib
+              .parentDirectory
+              .parentDirectory
+              .appending(component: "swift-5.5")
+              .appending(component: "macosx")
+            args += ["-Xlinker", "-rpath", "-Xlinker", backDeployedStdlib.pathString]
+          }
         }
 
         // Don't link runtime compatibility patch libraries if there are no
