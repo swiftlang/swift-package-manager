@@ -488,18 +488,25 @@ extension SwiftPackageTool {
             _ comparisonResult: SwiftAPIDigester.ComparisonResult,
             observabilityScope: ObservabilityScope
         ) {
-            // TODO: use observabilityScope directly
-            let diagnosticsEngine = observabilityScope.makeDiagnosticsEngine()
             for diagnostic in comparisonResult.otherDiagnostics {
+                let metadata = diagnostic.location.map { location -> ObservabilityMetadata in
+                    var metadata = ObservabilityMetadata()
+                    metadata.fileLocation = .init(
+                        .init(location.filename),
+                        line: location.line < Int.max ? Int(location.line) : .none
+                    )
+                    return metadata
+                }
+
                 switch diagnostic.level {
                 case .error, .fatal:
-                    diagnosticsEngine.emit(error: diagnostic.text, location: diagnostic.location)
+                    observabilityScope.emit(error: diagnostic.text, metadata: metadata)
                 case .warning:
-                    diagnosticsEngine.emit(warning: diagnostic.text, location: diagnostic.location)
+                    observabilityScope.emit(warning: diagnostic.text, metadata: metadata)
                 case .note:
-                    diagnosticsEngine.emit(note: diagnostic.text, location: diagnostic.location)
+                    observabilityScope.emit(info: diagnostic.text, metadata: metadata)
                 case .remark:
-                    diagnosticsEngine.emit(remark: diagnostic.text, location: diagnostic.location)
+                    observabilityScope.emit(info: diagnostic.text, metadata: metadata)
                 case .ignored:
                     break
                 }

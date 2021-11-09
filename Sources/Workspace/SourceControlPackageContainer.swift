@@ -23,7 +23,7 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
 
     // A wrapper for getDependencies() errors. This adds additional information
     // about the container to identify it for diagnostics.
-    public struct GetDependenciesError: Error, CustomStringConvertible, DiagnosticLocationProviding {
+    public struct GetDependenciesError: Error, CustomStringConvertible {
 
         /// The repository  that encountered the error.
         public let repository: RepositorySpecifier
@@ -36,10 +36,6 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
 
         /// Optional suggestion for how to resolve the error.
         public let suggestion: String?
-
-        public var diagnosticLocation: DiagnosticLocation? {
-            return PackageLocation.Remote(url: self.repository.location.description, reference: self.reference)
-        }
 
         /// Description shown for errors of this kind.
         public var description: String {
