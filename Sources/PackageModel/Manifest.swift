@@ -295,10 +295,25 @@ public final class Manifest {
             return nil
         }
 
+        return packageDependency(referencedBy: packageName)
+    }
+    private func packageDependency(
+        referencedBy packageName: String
+    ) -> PackageDependency? {
         return self.dependencies.first(where: {
             // rdar://80594761 make sure validation is case insensitive
             $0.nameForTargetDependencyResolutionOnly.lowercased() == packageName.lowercased()
         })
+    }
+
+    /// Returns the package identity referred to by a target dependency string.
+    ///
+    /// This first checks if any declared package names (from 5.2) match.
+    /// If none is found, it is assumed that the string is the package identity itself
+    /// (although it may actually be a dangling reference diagnosed later).
+    private func packageIdentity(referencedBy packageName: String) -> PackageIdentity {
+        return packageDependency(referencedBy: packageName)?.identity
+            ?? .plain(packageName)
     }
 
     /// Registers a required product with a particular dependency if possible, or registers it as unknown.
@@ -319,7 +334,7 @@ public final class Manifest {
             if let package = package { // ≥ 5.2
                 if !register(
                     product: product,
-                    inPackage: .plain(package),
+                    inPackage: packageIdentity(referencedBy: package),
                     registry: &registry.known,
                     availablePackages: availablePackages) {
                         // This is an invalid manifest condition diagnosed later. (No such package.)
@@ -342,7 +357,7 @@ public final class Manifest {
                 // If a by‐name entry is a product, it must be in a package of the same name.
                 if !register(
                     product: product,
-                    inPackage: .plain(product),
+                    inPackage: packageIdentity(referencedBy: product),
                     registry: &registry.known,
                     availablePackages: availablePackages) {
                         // If it doesn’t match a package, it should be a target, not a product.
@@ -376,7 +391,7 @@ public final class Manifest {
             if let package = package {
                 if !register(
                     product: name,
-                    inPackage: .plain(package),
+                    inPackage: packageIdentity(referencedBy: package),
                     registry: &registry.known,
                     availablePackages: availablePackages) {
                     // Invalid, diagnosed later; see the dependency version of this method.
