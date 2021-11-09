@@ -51,6 +51,19 @@ class TestDiscoveryTests: XCTestCase {
         }
     }
 
+    func testAsyncMethods() throws {
+        fixture(name: "Miscellaneous/TestDiscovery/Async") { path in
+            let (stdout, stderr) = try executeSwiftTest(path)
+            #if os(macOS)
+            XCTAssertMatch(stdout, .contains("module Async"))
+            XCTAssertMatch(stderr, .contains("Executed 3 tests"))
+            #else
+            XCTAssertMatch(stdout, .contains("module Async"))
+            XCTAssertMatch(stdout, .contains("Executed 3 tests"))
+            #endif
+        }
+    }
+
     func testManifestOverride() throws {
         #if os(macOS)
         try XCTSkipIf(true)
