@@ -21,7 +21,6 @@ class ResourcesTests: XCTestCase {
             // Objective-C module requires macOS
             #if os(macOS)
             executables.append("SeaResource")
-            executables.append("CPPResource")
             #endif
 
             for execName in executables {

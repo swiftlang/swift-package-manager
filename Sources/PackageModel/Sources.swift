@@ -46,7 +46,7 @@ public struct Sources: Codable {
             guard let ext = $0.extension else {
                 return false
             }
-            return ext == SupportedLanguageExtension.m.rawValue || ext == SupportedLanguageExtension.mm.rawValue
+            return ext == SupportedLanguageExtension.m.rawValue
         })
     }
 }
