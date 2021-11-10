@@ -161,6 +161,18 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
                 macOSPackageDescriptionPath = runtimePath.appending(component: "libPackagePlugin.dylib")
             }
 
+            #if os(macOS)
+            // On macOS earlier than 12, add an rpath to the directory that contains the concurrency fallback library.
+            if #available(macOS 12.0, *) {
+                // Nothing is needed; the system has everything we need.
+            }
+            else {
+                // Add an `-rpath` so the Swift 5.5 fallback libraries can be found.
+                let swiftSupportLibPath = self.toolchain.swiftCompilerPath.parentDirectory.parentDirectory.appending(components: "lib", "swift-5.5", "macosx")
+                command += ["-Xlinker", "-rpath", "-Xlinker", swiftSupportLibPath.pathString]
+            }
+            #endif
+
             // Use the same minimum deployment target as the PackageDescription library (with a fallback of 10.15).
             #if os(macOS)
             let triple = self.hostTriple
