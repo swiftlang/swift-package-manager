@@ -974,20 +974,19 @@ final class BuildPlanTests: XCTestCase {
                     ],
                     v: .v5,
                     targets: [
-                        TargetDescription(name: "Foo", dependencies: []),
-                        TargetDescription(name: "FooTests", dependencies: ["Foo"], type: .test),
+                        TargetDescription(name: "exe", dependencies: []),
                     ]),
             ]
         )
         XCTAssertNoDiagnostics(diagnostics)
 
-        let result = BuildPlanResult(plan: try BuildPlan(buildParameters: mockBuildParameters(), graph: graph, diagnostics: diagnostics, fileSystem: fs))
+        let result = BuildPlanResult(plan: try BuildPlan(buildParameters: mockBuildParameters(config: .release), graph: graph, diagnostics: diagnostics, fileSystem: fs))
 
         result.checkProductsCount(1)
         result.checkTargetsCount(1)
 
         let exe = try result.target(for: "exe").swiftTarget().compileArguments()
-        XCTAssertMatch(exe, ["-swift-version", "4", "-O", "-g", .equal(j), "-DSWIFT_PACKAGE", "-module-cache-path", "/path/to/build/release/ModuleCache", .anySequence])
+        XCTAssertMatch(exe, ["-swift-version", "5", "-O", "-g", .equal(j), "-DSWIFT_PACKAGE", "-module-cache-path", "/path/to/build/release/ModuleCache", .anySequence])
 
       #if os(macOS)
         XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), [
