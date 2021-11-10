@@ -2002,7 +2002,7 @@ public class BuildPlan {
         var arguments = ["-I" + buildPath, "-L" + buildPath]
 
         // Link the special REPL product that contains all of the library targets.
-        let replProductName = graph.rootPackages[0].manifest.name + Product.replProductSuffix
+        let replProductName = graph.rootPackages[0].identity.description + Product.replProductSuffix
         arguments.append("-l" + replProductName)
 
         // The graph should have the REPL product.

@@ -50,7 +50,7 @@ class PackageDescription5_0LoadingTests: PackageDescriptionLoadingTests {
         let manifest = try loadManifest(content, observabilityScope: observability.topScope)
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        XCTAssertEqual(manifest.name, "Trivial")
+        XCTAssertEqual(manifest.displayName, "Trivial")
 
         // Check targets.
         let foo = manifest.targetMap["foo"]!
@@ -526,7 +526,7 @@ class PackageDescription5_0LoadingTests: PackageDescriptionLoadingTests {
             let manifest = try loadManifest(content, toolsVersion: .v5_2, observabilityScope: observability.topScope)
             XCTAssertNoDiagnostics(observability.diagnostics)
 
-            XCTAssertEqual(manifest.name, "Foo")
+            XCTAssertEqual(manifest.displayName, "Foo")
 
             // Check targets.
             let foo = manifest.targetMap["foo"]!
@@ -580,7 +580,7 @@ class PackageDescription5_0LoadingTests: PackageDescriptionLoadingTests {
         let manifest = try loadManifest(content, observabilityScope: observability.topScope)
         XCTAssertFalse(observability.diagnostics.hasErrors)
 
-        XCTAssertEqual(manifest.name, "PackageWithChattyManifest")
+        XCTAssertEqual(manifest.displayName, "PackageWithChattyManifest")
         XCTAssertEqual(manifest.toolsVersion, .v5)
         XCTAssertEqual(manifest.targets, [])
         XCTAssertEqual(manifest.dependencies, [])
@@ -627,7 +627,7 @@ class PackageDescription5_0LoadingTests: PackageDescriptionLoadingTests {
             )
 
             XCTAssertNoDiagnostics(observability.diagnostics)
-            XCTAssertEqual(manifest.name, "Trivial")
+            XCTAssertEqual(manifest.displayName, "Trivial")
 
             let moduleTraceJSON = try XCTUnwrap(try localFileSystem.readFileContents(moduleTraceFilePath).validDescription)
             XCTAssertMatch(moduleTraceJSON, .contains("PackageDescription"))

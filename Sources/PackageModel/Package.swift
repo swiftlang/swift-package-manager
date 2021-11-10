@@ -53,19 +53,6 @@ public final class Package: Encodable {
     /// The local path of the package.
     public let path: AbsolutePath
 
-    /// The name of the package.
-    @available(*, deprecated, message: "use identity (or manifestName, but only if you must) instead")
-    public var name: String {
-        return self.manifestName
-    }
-
-    /// The name of the package as entered in the manifest.
-    /// This should rarely be used beyond presentation purposes
-    //@available(*, deprecated)
-    public var manifestName: String {
-        return manifest.name
-    }
-
     /// The targets contained in the package.
     @PolymorphicCodableArray
     public var targets: [Target]

@@ -155,7 +155,7 @@ final class RegistryManagerTests: XCTestCase {
                 return XCTAssertResultSuccess(result)
             }
 
-            XCTAssertEqual(manifest.name, "LinkedList")
+            XCTAssertEqual(manifest.displayName, "LinkedList")
 
             XCTAssertEqual(manifest.products.count, 1)
             XCTAssertEqual(manifest.products.first?.name, "LinkedList")

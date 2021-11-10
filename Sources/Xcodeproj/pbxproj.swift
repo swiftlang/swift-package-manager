@@ -73,8 +73,10 @@ public func xcodeProject(
         guard let manifestLoader = options.manifestLoader else { return }
 
         let pdTarget = project.addTarget(
-            objectID: "\(package.manifestName)::SwiftPMPackageDescription", // TODO: use identity instead?
-            productType: .framework, name: "\(package.manifestName)PackageDescription") // TODO: use identity instead?
+            objectID: "\(package.manifest.displayName)::SwiftPMPackageDescription", // TODO: use identity instead?
+            productType: .framework,
+            name: "\(package.manifest.displayName)PackageDescription" // TODO: use identity instead?
+        )
         let compilePhase = pdTarget.addSourcesBuildPhase()
         compilePhase.addBuildFile(fileRef: manifestFileRef)
 
@@ -336,7 +338,7 @@ public func xcodeProject(
             }
             // TODO: use identity instead
             // Construct a group name from the package name and optional version.
-            var groupName = package.manifestName // TODO: use identity instead?
+            var groupName = package.manifest.displayName // TODO: use identity instead?
             if let version = package.manifest.version {
                 groupName += " " + version.description
             }
@@ -405,7 +407,7 @@ public func xcodeProject(
         // Create a Xcode target for the target.
         let package = packagesByTarget[target]!
         let xcodeTarget = project.addTarget(
-            objectID: "\(package.manifestName)::\(target.name)", // TODO: use identity instead?
+            objectID: "\(package.manifest.displayName)::\(target.name)", // TODO: use identity instead?
             productType: productType, name: target.name)
 
         // Set the product name to the C99-mangled form of the target name.
@@ -522,7 +524,7 @@ public func xcodeProject(
 
         // TODO: use identity instead
         // Add a file reference for the target's product.
-        let productRef = productsGroup.addFileReference(path: target.productPath.pathString, pathBase: .buildDir, objectID: "\(package.manifestName)::\(target.name)::Product")
+        let productRef = productsGroup.addFileReference(path: target.productPath.pathString, pathBase: .buildDir, objectID: "\(package.manifest.displayName)::\(target.name)::Product")
 
         // Set that file reference as the target's product reference.
         xcodeTarget.productReference = productRef
@@ -691,7 +693,7 @@ public func xcodeProject(
         // Otherwise, create an aggregate target.
         let package = packagesByProduct[product]!
         let aggregateTarget = project.addTarget(
-            objectID: "\(package.manifestName)::\(product.name)::ProductTarget", // TODO: use identity instead?
+            objectID: "\(package.manifest.displayName)::\(product.name)::ProductTarget", // TODO: use identity instead?
             productType: nil, name: product.name)
         // Add dependencies on the targets created for each of the dependencies.
         for target in product.targets {

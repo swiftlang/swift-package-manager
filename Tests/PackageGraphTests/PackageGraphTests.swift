@@ -77,12 +77,12 @@ class PackageGraphTests: XCTestCase {
             result.checkTarget("Baz") { result in result.check(dependencies: "Bar") }
         }
 
-        let fooPackage = try XCTUnwrap(g.packages.first{ $0.manifestName == "Foo" })
+        let fooPackage = try XCTUnwrap(g.packages.first{ $0.identity == .plain("Foo") })
         let fooTarget = try XCTUnwrap(g.allTargets.first{ $0.name == "Foo" })
         let fooDepTarget = try XCTUnwrap(g.allTargets.first{ $0.name == "FooDep" })
         XCTAssert(g.package(for: fooTarget) == fooPackage)
         XCTAssert(g.package(for: fooDepTarget) == fooPackage)
-        let barPackage = try XCTUnwrap(g.packages.first{ $0.manifestName == "Bar" })
+        let barPackage = try XCTUnwrap(g.packages.first{ $0.identity == .plain("Bar") })
         let barTarget = try XCTUnwrap(g.allTargets.first{ $0.name == "Bar" })
         XCTAssert(g.package(for: barTarget) == barPackage)
     }
@@ -1769,7 +1769,7 @@ class PackageGraphTests: XCTestCase {
 extension Manifest {
     func withTargets(_ targets: [TargetDescription]) -> Manifest {
         Manifest.createManifest(
-            name: self.name,
+            name: self.displayName,
             path: self.path.parentDirectory,
             packageKind: self.packageKind,
             packageLocation: self.packageLocation,
@@ -1781,7 +1781,7 @@ extension Manifest {
 
     func withDependencies(_ dependencies: [PackageDependency]) -> Manifest {
         Manifest.createManifest(
-            name: self.name,
+            name: self.displayName,
             path: self.path.parentDirectory,
             packageKind: self.packageKind,
             packageLocation: self.packageLocation,

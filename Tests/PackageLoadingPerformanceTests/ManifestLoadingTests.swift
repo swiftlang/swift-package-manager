@@ -43,7 +43,7 @@ class ManifestLoadingPerfTests: XCTestCasePerf {
                         fileSystem: localFileSystem,
                         observabilityScope: ObservabilitySystem.NOOP
                     )
-                    XCTAssertEqual(manifest.name, "Trivial")
+                    XCTAssertEqual(manifest.displayName, "Trivial")
                 }
             }
         }
@@ -77,7 +77,7 @@ class ManifestLoadingPerfTests: XCTestCasePerf {
                         fileSystem: localFileSystem,
                         observabilityScope: ObservabilitySystem.NOOP
                     )
-                    XCTAssertEqual(manifest.name, "Foo")
+                    XCTAssertEqual(manifest.displayName, "Foo")
                 }
             }
         }

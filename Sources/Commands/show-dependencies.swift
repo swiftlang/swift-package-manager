@@ -114,7 +114,8 @@ final class JSONDumper: DependenciesDumper {
     func dump(dependenciesOf rootpkg: ResolvedPackage, on stream: OutputByteStream) {
         func convert(_ package: ResolvedPackage) -> JSON {
             return .orderedDictionary([
-                "name": .string(package.manifestName), // TODO: remove? add identity?
+                "identity": .string(package.identity.description),
+                "name": .string(package.manifest.displayName), // TODO: remove?
                 "url": .string(package.manifest.packageLocation),
                 "version": .string(package.manifest.version?.description ?? "unspecified"),
                 "path": .string(package.path.pathString),

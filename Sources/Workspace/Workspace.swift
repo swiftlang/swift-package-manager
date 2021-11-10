@@ -983,9 +983,9 @@ extension Workspace {
 
         sync.notify(queue: .sharedConcurrent) {
             // Check for duplicate root packages.
-            let duplicateRoots = rootManifests.values.spm_findDuplicateElements(by: \.name)
+            let duplicateRoots = rootManifests.values.spm_findDuplicateElements(by: \.displayName)
             if !duplicateRoots.isEmpty {
-                let name = duplicateRoots[0][0].name
+                let name = duplicateRoots[0][0].displayName
                 observabilityScope.emit(error: "found multiple top-level packages named '\(name)'")
                 return completion(.success([:]))
             }
@@ -1146,8 +1146,8 @@ extension Workspace {
                                   completion: $0)
             }
 
-            guard manifest.name == packageName else {
-                return observabilityScope.emit(error: "package at '\(destination)' is \(manifest.name) but was expecting \(packageName)")
+            guard manifest.displayName == packageName else {
+                return observabilityScope.emit(error: "package at '\(destination)' is \(manifest.displayName) but was expecting \(packageName)")
             }
 
             // Emit warnings for branch and revision, if they're present.
@@ -1649,10 +1649,10 @@ extension Workspace {
 
         // TODO: this check should go away when introducing explicit overrides
         // check for overrides attempts with same name but different path
-        let rootManifestsByName = Array(root.manifests.values).spm_createDictionary{ ($0.name, $0) }
+        let rootManifestsByName = Array(root.manifests.values).spm_createDictionary{ ($0.displayName, $0) }
         dependencyManifests.forEach { identity, manifest, _ in
-            if let override = rootManifestsByName[manifest.name], override.packageLocation != manifest.packageLocation  {
-                observabilityScope.emit(error: "unable to override package '\(manifest.name)' because its identity '\(PackageIdentity(urlString: manifest.packageLocation))' doesn't match override's identity (directory name) '\(PackageIdentity(urlString: override.packageLocation))'")
+            if let override = rootManifestsByName[manifest.displayName], override.packageLocation != manifest.packageLocation  {
+                observabilityScope.emit(error: "unable to override package '\(manifest.displayName)' because its identity '\(PackageIdentity(urlString: manifest.packageLocation))' doesn't match override's identity (directory name) '\(PackageIdentity(urlString: override.packageLocation))'")
             }
         }
 

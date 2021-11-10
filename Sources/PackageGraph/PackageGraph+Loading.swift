@@ -279,7 +279,7 @@ private func createResolvedPackages(
                     // backwards compatibility with older versions of SwiftPM that had too weak of a validation
                     // we will upgrade this to an error in a few versions to tighten up the validation
                     if dependency.explicitNameForTargetDependencyResolutionOnly == .none ||
-                        resolvedPackage.package.manifestName == dependency.explicitNameForTargetDependencyResolutionOnly {
+                        resolvedPackage.package.manifest.displayName == dependency.explicitNameForTargetDependencyResolutionOnly {
                         packageObservabilityScope.emit(warning: error.description + ". this will be escalated to an error in future versions of SwiftPM.")
                     } else {
                         return packageObservabilityScope.emit(error)

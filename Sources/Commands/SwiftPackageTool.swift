@@ -840,7 +840,7 @@ extension SwiftPackageTool {
                 destination = output
             } else {
                 let graph = try swiftTool.loadPackageGraph()
-                let packageName = graph.rootPackages[0].manifestName // TODO: use identity instead?
+                let packageName = graph.rootPackages[0].manifest.displayName // TODO: use identity instead?
                 destination = packageRoot.appending(component: "\(packageName).zip")
             }
 
@@ -915,10 +915,10 @@ extension SwiftPackageTool {
                 dstdir = outpath.parentDirectory
             case let outpath?:
                 dstdir = outpath
-                projectName = graph.rootPackages[0].manifestName // TODO: use identity instead?
+                projectName = graph.rootPackages[0].manifest.displayName // TODO: use identity instead?
             case _:
                 dstdir = try swiftTool.getPackageRoot()
-                projectName = graph.rootPackages[0].manifestName // TODO: use identity instead?
+                projectName = graph.rootPackages[0].manifest.displayName // TODO: use identity instead?
             }
             let xcodeprojPath = Xcodeproj.buildXcodeprojPath(outputDir: dstdir, projectName: projectName)
 

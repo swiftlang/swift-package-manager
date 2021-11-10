@@ -1829,7 +1829,7 @@ final class WorkspaceTests: XCTestCase {
 
         try workspace.loadDependencyManifests(roots: ["Root1"]) { manifests, diagnostics in
             // Ensure that the order of the manifests is stable.
-            XCTAssertEqual(manifests.allDependencyManifests().map { $0.value.name }, ["Foo", "Baz", "Bam", "Bar"])
+            XCTAssertEqual(manifests.allDependencyManifests().map { $0.value.displayName }, ["Foo", "Baz", "Bam", "Bar"])
             XCTAssertNoDiagnostics(diagnostics)
         }
     }
@@ -2640,7 +2640,7 @@ final class WorkspaceTests: XCTestCase {
             )
 
             workspace.manifestLoader.manifests[fooKey] = Manifest(
-                name: manifest.name,
+                displayName: manifest.displayName,
                 path: manifest.path,
                 packageKind: manifest.packageKind,
                 packageLocation: manifest.packageLocation,
@@ -3902,8 +3902,8 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertFalse(observability.hasWarningDiagnostics, observability.diagnostics.description)
             XCTAssertFalse(observability.hasErrorDiagnostics, observability.diagnostics.description)
 
-            XCTAssertEqual(manifest.name, "MyPkg")
-            XCTAssertEqual(package.manifestName, manifest.name)
+            XCTAssertEqual(manifest.displayName, "MyPkg")
+            XCTAssertEqual(package.identity, .plain(manifest.displayName))
             XCTAssert(graph.reachableProducts.contains(where: { $0.name == "MyPkg" }))
         }
     }
@@ -8249,7 +8249,7 @@ final class WorkspaceTests: XCTestCase {
                 } else {
                     completion(.success(
                         .init(
-                            name: packageIdentity.description,
+                            displayName: packageIdentity.description,
                             path: path,
                             packageKind: packageKind,
                             packageLocation: packageLocation,

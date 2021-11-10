@@ -382,7 +382,7 @@ public struct SwiftTestTool: SwiftCommand {
             // Export the codecov data as JSON.
             let jsonPath = codeCovAsJSONPath(
                 buildParameters: buildParameters,
-                packageName: rootManifest.name)
+                packageName: rootManifest.displayName)
             try exportCodeCovAsJSON(to: jsonPath, testBinary: product.binaryPath, swiftTool: swiftTool)
         }
     }

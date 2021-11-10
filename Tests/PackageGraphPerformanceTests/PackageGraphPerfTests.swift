@@ -46,7 +46,7 @@ class PackageGraphPerfTests: XCTestCasePerf {
             // Create manifest.
             let isRoot = pkg == 1
             let manifest = Manifest(
-                name: name,
+                displayName: name,
                 path: AbsolutePath(location).appending(component: Manifest.filename),
                 packageKind: isRoot ? .root(.init(location)) : .localSourceControl(.init(location)),
                 packageLocation: location,

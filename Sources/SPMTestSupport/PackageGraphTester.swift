@@ -24,12 +24,22 @@ public final class PackageGraphResult {
         self.graph = graph
     }
 
+    // TODO: deprecate / transition to PackageIdentity
     public func check(roots: String..., file: StaticString = #file, line: UInt = #line) {
-        XCTAssertEqual(graph.rootPackages.map{$0.manifestName}.sorted(), roots.sorted(), file: file, line: line)
+        XCTAssertEqual(graph.rootPackages.map{$0.manifest.displayName }.sorted(), roots.sorted(), file: file, line: line)
     }
 
+    public func check(roots: PackageIdentity..., file: StaticString = #file, line: UInt = #line) {
+        XCTAssertEqual(graph.rootPackages.map{$0.identity }.sorted(), roots.sorted(), file: file, line: line)
+    }
+
+    // TODO: deprecate / transition to PackageIdentity
     public func check(packages: String..., file: StaticString = #file, line: UInt = #line) {
-        XCTAssertEqual(graph.packages.map {$0.manifestName}.sorted(), packages.sorted(), file: file, line: line)
+        XCTAssertEqual(graph.packages.map {$0.manifest.displayName }.sorted(), packages.sorted(), file: file, line: line)
+    }
+
+    public func check(packages: PackageIdentity..., file: StaticString = #file, line: UInt = #line) {
+        XCTAssertEqual(graph.packages.map {$0.identity }.sorted(), packages.sorted(), file: file, line: line)
     }
 
     public func check(targets: String..., file: StaticString = #file, line: UInt = #line) {

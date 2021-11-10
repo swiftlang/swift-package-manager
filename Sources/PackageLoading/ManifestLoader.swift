@@ -274,7 +274,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                 }
 
                 let manifest = Manifest(
-                    name: parsedManifest.name,
+                    displayName: parsedManifest.name,
                     path: path,
                     packageKind: packageKind,
                     packageLocation: packageLocation,

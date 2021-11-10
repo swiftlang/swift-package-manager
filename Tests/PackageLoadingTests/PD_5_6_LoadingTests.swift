@@ -179,7 +179,7 @@ class PackageDescription5_6LoadingTests: PackageDescriptionLoadingTests {
         let manifest = try loadManifest(content, observabilityScope: observability.topScope)
 
         let name = parsedManifest?.parentDirectory.pathString ?? ""
-        XCTAssertEqual(manifest.name, name)
+        XCTAssertEqual(manifest.displayName, name)
     }
 
     /// Tests access to the package's directory contents.
@@ -199,7 +199,7 @@ class PackageDescription5_6LoadingTests: PackageDescriptionLoadingTests {
         let manifest = try loadManifest(content, observabilityScope: observability.topScope)
 
         let name = parsedManifest?.components.last ?? ""
-        let swiftFiles = manifest.name.split(separator: ",").map(String.init)
+        let swiftFiles = manifest.displayName.split(separator: ",").map(String.init)
         XCTAssertNotNil(swiftFiles.firstIndex(of: name))
     }
 }

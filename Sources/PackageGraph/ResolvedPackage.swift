@@ -26,19 +26,6 @@ public final class ResolvedPackage {
         return self.underlyingPackage.manifest
     }
 
-    /// The name of the package.
-    @available(*, deprecated, message: "use identity (or manifestName, but only if you must) instead")
-    public var name: String {
-        return self.underlyingPackage.name
-    }
-
-    /// The name of the package as entered in the manifest.
-    /// This should rarely be used beyond presentation purposes
-    //@available(*, deprecated)
-    public var manifestName: String {
-        return self.underlyingPackage.manifestName
-    }
-
     /// The local path of the package.
     public var path: AbsolutePath {
         return self.underlyingPackage.path
