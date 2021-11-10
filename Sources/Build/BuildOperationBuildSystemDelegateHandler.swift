@@ -640,7 +640,7 @@ final class BuildOperationBuildSystemDelegateHandler: LLBuildBuildSystemDelegate
             self.progressAnimation.complete(success: success)
             if success {
                 self.progressAnimation.clear()
-                self.outputStream <<< "Build complete in \(duration.descriptionInSeconds)!\n"
+                self.outputStream <<< "Build complete! (\(duration.descriptionInSeconds))\n"
                 self.outputStream.flush()
             }
         }

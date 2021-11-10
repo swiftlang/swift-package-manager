@@ -26,7 +26,7 @@ class PluginTests: XCTestCase {
                 XCTAssert(stdout.contains("Linking MySourceGenBuildTool"), "stdout:\n\(stdout)")
                 XCTAssert(stdout.contains("Generating foo.swift from foo.dat"), "stdout:\n\(stdout)")
                 XCTAssert(stdout.contains("Linking MyLocalTool"), "stdout:\n\(stdout)")
-                XCTAssert(stdout.contains("Build complete"), "stdout:\n\(stdout)")
+                XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
             }
             catch {
                 print(error)
@@ -47,7 +47,7 @@ class PluginTests: XCTestCase {
                 XCTAssert(stdout.contains("Linking MySourceGenBuildTool"), "stdout:\n\(stdout)")
                 XCTAssert(stdout.contains("Generating foo.swift from foo.dat"), "stdout:\n\(stdout)")
                 XCTAssert(stdout.contains("Linking MyTool"), "stdout:\n\(stdout)")
-                XCTAssert(stdout.contains("Build complete"), "stdout:\n\(stdout)")
+                XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
             }
             catch {
                 print(error)
@@ -68,7 +68,7 @@ class PluginTests: XCTestCase {
                 XCTAssert(stdout.contains("Compiling MyOtherLocalTool bar.swift"), "stdout:\n\(stdout)")
                 XCTAssert(stdout.contains("Compiling MyOtherLocalTool baz.swift"), "stdout:\n\(stdout)")
                 XCTAssert(stdout.contains("Linking MyOtherLocalTool"), "stdout:\n\(stdout)")
-                XCTAssert(stdout.contains("Build complete"), "stdout:\n\(stdout)")
+                XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
             }
             catch {
                 print(error)
@@ -89,7 +89,7 @@ class PluginTests: XCTestCase {
                 XCTAssert(stdout.contains("Linking MySourceGenBuildTool"), "stdout:\n\(stdout)")
                 XCTAssert(stdout.contains("Generating foo.swift from foo.dat"), "stdout:\n\(stdout)")
                 XCTAssert(stdout.contains("Linking MyLocalTool"), "stdout:\n\(stdout)")
-                XCTAssert(stdout.contains("Build complete"), "stdout:\n\(stdout)")
+                XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
             }
             catch {
                 print(error)
@@ -109,7 +109,7 @@ class PluginTests: XCTestCase {
             do {
                 let (stdout, _) = try executeSwiftBuild(path.appending(component: "SandboxTesterPlugin"), configuration: .Debug, extraArgs: ["--product", "MyLocalTool"])
                 XCTAssert(stdout.contains("Linking MyLocalTool"), "stdout:\n\(stdout)")
-                XCTAssert(stdout.contains("Build complete"), "stdout:\n\(stdout)")
+                XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
             }
             catch {
                 print(error)
@@ -130,7 +130,7 @@ class PluginTests: XCTestCase {
             do {
                 let (stdout, _) = try executeSwiftBuild(path.appending(component: "MyBinaryToolPlugin"), configuration: .Debug, extraArgs: ["--product", "MyLocalTool"])
                 XCTAssert(stdout.contains("Linking MyLocalTool"), "stdout:\n\(stdout)")
-                XCTAssert(stdout.contains("Build complete"), "stdout:\n\(stdout)")
+                XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
             }
             catch {
                 print(error)

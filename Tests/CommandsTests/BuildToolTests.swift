@@ -273,22 +273,16 @@ final class BuildToolTests: XCTestCase {
             do {
                 let result = try execute([], packagePath: path)
                 XCTAssertMatch(result.stdout, .regex("\\[[1-9][0-9]*\\/[1-9][0-9]*\\] Compiling"))
-                // Number of steps must be greater than 3. e.g., [8/8] Linking Foo
                 let lines = result.stdout.split(separator: "\n")
-                XCTAssertTrue(lines.count > 3)
-                XCTAssertMatch(String(lines.first!), .equal("Building for debugging..."))
-                XCTAssertMatch(String(lines.last!), .regex("Build complete in [0-9]*\\.[0-9]*s!"))
+                XCTAssertMatch(String(lines.last!), .regex("Build complete! \\([0-9]*\\.[0-9]*s\\)"))
             }
 
             do {
+                // test second time, to make sure message is presented even when nothing to build (cached)
                 let result = try execute([], packagePath: path)
                 XCTAssertNoMatch(result.stdout, .regex("\\[[1-9][0-9]*\\/[1-9][0-9]*\\] Compiling"))
-                // test second time, to make sure message is presented even when nothing to build (cached)
                 let lines = result.stdout.split(separator: "\n")
-                XCTAssertTrue(lines.count == 3)
-                XCTAssertMatch(String(lines.first!), .equal("[1/1] Planning build"))
-                XCTAssertMatch(String(lines[1]), .equal("Building for debugging..."))
-                XCTAssertMatch(String(lines.last!), .regex("Build complete in [0-9]*\\.[0-9]*s!"))
+                XCTAssertMatch(String(lines.last!), .regex("Build complete! \\([0-9]*\\.[0-9]*s\\)"))
             }
         }
     }

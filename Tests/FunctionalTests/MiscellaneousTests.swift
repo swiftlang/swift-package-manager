@@ -613,7 +613,7 @@ class MiscellaneousTestCase: XCTestCase {
                 let output = try executeSwiftBuild(appPath)
                 XCTAssertTrue(output.stdout.contains("Fetching \(prefix)/Foo"), output.stdout)
                 XCTAssertTrue(output.stdout.contains("Creating working copy for \(prefix)/Foo"), output.stdout)
-                XCTAssertTrue(output.stdout.contains("Build complete"), output.stdout)
+                XCTAssertTrue(output.stdout.contains("Build complete!"), output.stdout)
             }
 
             // put foo into edit mode
@@ -623,7 +623,7 @@ class MiscellaneousTestCase: XCTestCase {
             do {
                 // build again in edit mode
                 let output = try executeSwiftBuild(appPath)
-                XCTAssertTrue(output.stdout.contains("Build complete"))
+                XCTAssertTrue(output.stdout.contains("Build complete!"))
             }
 
             do {
@@ -636,7 +636,7 @@ class MiscellaneousTestCase: XCTestCase {
             // build again in edit mode
             do {
                 let output = try executeSwiftBuild(appPath)
-                XCTAssertTrue(output.stdout.contains("Build complete"), output.stdout)
+                XCTAssertTrue(output.stdout.contains("Build complete!"), output.stdout)
             }
         }
     }
