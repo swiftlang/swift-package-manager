@@ -961,30 +961,27 @@ final class BuildPlanTests: XCTestCase {
             "/Pkg/Sources/exe/main.swift"
         )
 
-        let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadPackageGraph(
-            fs: fs,
+        let diagnostics = DiagnosticsEngine()
+        let graph = try loadPackageGraph(fs: fs, diagnostics: diagnostics,
             manifests: [
-                Manifest.createRootManifest(
+                Manifest.createManifest(
                     name: "Pkg",
-                    path: .init("/Pkg"),
+                    path: "/Pkg",
+                    packageKind: .root,
+                    packageLocation: "/Pkg",
                     platforms: [
                         PlatformDescription(name: "macos", version: "12.0"),
                     ],
+                    v: .v5,
                     targets: [
-                        TargetDescription(name: "exe", dependencies: []),
+                        TargetDescription(name: "Foo", dependencies: []),
+                        TargetDescription(name: "FooTests", dependencies: ["Foo"], type: .test),
                     ]),
-            ],
-            observabilityScope: observability.topScope
+            ]
         )
-        XCTAssertNoDiagnostics(observability.diagnostics)
+        XCTAssertNoDiagnostics(diagnostics)
 
-        let result = BuildPlanResult(plan: try BuildPlan(
-            buildParameters: mockBuildParameters(config: .release),
-            graph: graph,
-            fileSystem: fs,
-            observabilityScope: observability.topScope
-        ))
+        let result = BuildPlanResult(plan: try BuildPlan(buildParameters: mockBuildParameters(), graph: graph, diagnostics: diagnostics, fileSystem: fs))
 
         result.checkProductsCount(1)
         result.checkTargetsCount(1)
