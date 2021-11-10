@@ -72,4 +72,12 @@ extension BuildToolPlugin {
             builtProductsDirectory: context.builtProductsDirectory,
             toolNamesToPaths: context.toolNamesToPaths))
     }
+
+    /// Default implementation that does nothing.
+    public func createBuildCommands(
+        context: TargetBuildContext
+    ) throws -> [Command] {
+        return []
+    }
 }
+
