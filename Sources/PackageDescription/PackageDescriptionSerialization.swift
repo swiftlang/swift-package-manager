@@ -224,11 +224,11 @@ extension SystemPackageProvider: Encodable {
 
 extension Target.PluginCapability: Encodable {
     private enum CodingKeys: CodingKey {
-        case type
+        case type, verb, description, permissions
     }
 
     private enum Capability: String, Encodable {
-        case buildTool
+        case buildTool, command
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -236,6 +236,30 @@ extension Target.PluginCapability: Encodable {
         switch self {
         case ._buildTool:
             try container.encode(Capability.buildTool, forKey: .type)
+        case ._command(let verb, let description, let permissions):
+            try container.encode(Capability.command, forKey: .type)
+            try container.encode(verb, forKey: .verb)
+            try container.encode(description, forKey: .description)
+            try container.encode(permissions, forKey: .permissions)
+        }
+    }
+}
+
+extension PluginPermission: Encodable {
+    private enum CodingKeys: CodingKey {
+        case type, reason
+    }
+
+    private enum PermissionType: String, Encodable {
+        case packageWritability
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case .packageWritability(let reason):
+            try container.encode(PermissionType.packageWritability, forKey: .type)
+            try container.encode(reason, forKey: .reason)
         }
     }
 }

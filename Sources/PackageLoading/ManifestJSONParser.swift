@@ -596,6 +596,24 @@ extension TargetDescription.PluginCapability {
         switch type {
         case "buildTool":
             self = .buildTool
+        case "command":
+            let verb = try json.get(String.self, forKey: "verb")
+            let description = try json.get(String.self, forKey: "description")
+            let permissions = try json.getArray("permissions").map(TargetDescription.PluginPermission.init(v4:))
+            self = .command(verb: verb, description: description, permissions: permissions)
+        default:
+            throw InternalError("invalid type \(type)")
+        }
+    }
+}
+
+extension TargetDescription.PluginPermission {
+    fileprivate init(v4 json: JSON) throws {
+        let type = try json.get(String.self, forKey: "type")
+        switch type {
+        case "packageWritability":
+            let reason = try json.get(String.self, forKey: "reason")
+            self = .packageWritability(reason: reason)
         default:
             throw InternalError("invalid type \(type)")
         }
@@ -610,7 +628,6 @@ extension TargetDescription.PluginUsage {
             let name = try json.get(String.self, forKey: "name")
             let package = try? json.get(String.self, forKey: "package")
             self = .plugin(name: name, package: package)
-
         default:
             throw InternalError("invalid type \(type)")
         }

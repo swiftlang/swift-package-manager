@@ -127,10 +127,11 @@ public final class Target {
     private var _pluginCapability: PluginCapability?
     
     /// The different types of capability that a plugin can provide. In this
-    /// version of SwiftPM, only build tool plugins are supported; this enum
-    /// will be extended as new plugin capabilities are added.
+    /// version of SwiftPM, only build tool and command plugins are supported;
+    /// this enum will be extended as new plugin capabilities are added.
     public enum PluginCapability {
         case _buildTool
+        case _command(verb: String, description: String, permissions: [PluginPermission])
     }
     
     /// The target's C build settings.
@@ -1010,6 +1011,38 @@ extension Target.PluginCapability {
     public static func buildTool() -> Target.PluginCapability {
         return ._buildTool
     }
+
+    /// Specifies that the plugin provides a user command capability. It will
+    /// be available to invoke manually on one or more targets in a package.
+    /// The package can specify the verb that is used to invoke the command.
+    @available(_PackageDescription, introduced: 5.6)
+    /// Plugins that specify a `command` capability define commands that can be run
+    /// using the SwiftPM CLI (`swift package <verb>`), or in an IDE that supports
+    /// Swift Packages.
+    public static func command(
+        /// The `swift package` CLI verb through which the plugin can be invoked.
+        verb: String,
+        
+        /// A description of the functionality of the custom command, suitable for
+        /// showing in help text output.
+        description: String,
+        
+        /// Any permissions needed by the command plugin. This affects what the
+        /// sandbox in which the plugin is run allows. Some permissions may require
+        /// approval by the user.
+        permissions: [PluginPermission] = []
+    ) -> Target.PluginCapability {
+        return ._command(verb: verb, description: description, permissions: permissions)
+    }
+}
+
+public enum PluginPermission {
+    /// The custom command plugin requests permission to modify the files inside the
+    /// package directory. The `reason` string is shown to the user at the time of
+    /// request for approval, explaining why the plugin is requesting this access.
+    case packageWritability(reason: String)
+
+    /// Any future enum cases should use @available()
 }
 
 extension Target.PluginUsage {

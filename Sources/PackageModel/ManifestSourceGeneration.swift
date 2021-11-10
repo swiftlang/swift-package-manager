@@ -415,6 +415,23 @@ fileprivate extension SourceCodeFragment {
         switch capability {
         case .buildTool:
             self.init(enum: "buildTool", subnodes: [])
+        case .command(let verb, let description, let permissions):
+            var params: [SourceCodeFragment] = []
+            params.append(SourceCodeFragment(key: "verb", string: verb))
+            params.append(SourceCodeFragment(key: "description", string: description))
+            if !permissions.isEmpty {
+                params.append(SourceCodeFragment(key: "permissions", subnodes: permissions.map{ .init(from: $0) }))
+            }
+            self.init(enum: "command", subnodes: params)
+        }
+    }
+
+    /// Instantiates a SourceCodeFragment to represent a single plugin permission.
+    init(from permission: TargetDescription.PluginPermission) {
+        switch permission {
+        case .packageWritability(let reason):
+            let param = SourceCodeFragment(key: "reason", string: reason)
+            self.init(enum: "packageWritability", subnodes: [param])
         }
     }
 

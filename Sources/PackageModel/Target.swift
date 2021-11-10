@@ -614,16 +614,22 @@ public final class BinaryTarget: Target {
 
 public final class PluginTarget: Target {
 
+    /// Declared capability of the plugin.
     public let capability: PluginCapability
+    
+    /// API version to use for PackagePlugin API availability.
+    public let apiVersion: ToolsVersion
 
     public init(
         name: String,
         platforms: [SupportedPlatform] = [],
         sources: Sources,
+        apiVersion: ToolsVersion,
         pluginCapability: PluginCapability,
         dependencies: [Target.Dependency] = []
     ) {
         self.capability = pluginCapability
+        self.apiVersion = apiVersion
         super.init(
             name: name,
             defaultLocalization: nil,
@@ -638,26 +644,30 @@ public final class PluginTarget: Target {
 
     private enum CodingKeys: String, CodingKey {
         case capability
+        case apiVersion
     }
 
     public override func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(self.capability, forKey: .capability)
+        try container.encode(self.apiVersion, forKey: .apiVersion)
         try super.encode(to: encoder)
     }
 
     required public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.capability = try container.decode(PluginCapability.self, forKey: .capability)
+        self.apiVersion = try container.decode(ToolsVersion.self, forKey: .apiVersion)
         try super.init(from: decoder)
     }
 }
 
-public enum PluginCapability: Equatable, Codable {
+public enum PluginCapability: Hashable, Codable {
     case buildTool
+    case command(verb: String, description: String, permissions: [PluginPermission])
 
     private enum CodingKeys: String, CodingKey {
-        case buildTool
+        case buildTool, command
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -665,6 +675,11 @@ public enum PluginCapability: Equatable, Codable {
         switch self {
         case .buildTool:
             try container.encodeNil(forKey: .buildTool)
+        case .command(let a1, let a2, let a3):
+            var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .command)
+            try unkeyedContainer.encode(a1)
+            try unkeyedContainer.encode(a2)
+            try unkeyedContainer.encode(a3)
         }
     }
 
@@ -676,6 +691,32 @@ public enum PluginCapability: Equatable, Codable {
         switch key {
         case .buildTool:
             self = .buildTool
+        case .command:
+            var unkeyedValues = try values.nestedUnkeyedContainer(forKey: key)
+            let a1 = try unkeyedValues.decode(String.self)
+            let a2 = try unkeyedValues.decode(String.self)
+            let a3 = try unkeyedValues.decode([PluginPermission].self)
+            self = .command(verb: a1, description: a2, permissions: a3)
+        }
+    }
+
+    public init(from desc: TargetDescription.PluginCapability) {
+        switch desc {
+        case .buildTool:
+            self = .buildTool
+        case .command(let verb, let description, let permissions):
+            self = .command(verb: verb, description: description, permissions: permissions.map{ .init(from: $0) })
+        }
+    }
+}
+
+public enum PluginPermission: Hashable, Codable {
+    case packageWritability(reason: String)
+
+    public init(from desc: TargetDescription.PluginPermission) {
+        switch desc {
+        case .packageWritability(let reason):
+            self = .packageWritability(reason: reason)
         }
     }
 }

@@ -94,6 +94,32 @@ class PackageDescription5_6LoadingTests: PackageDescriptionLoadingTests {
         XCTAssertEqual(manifest.targets[0].pluginCapability, .buildTool)
     }
 
+    func testCommandPluginTarget() throws {
+        let content = """
+            import PackageDescription
+            let package = Package(
+               name: "Foo",
+               targets: [
+                   .plugin(
+                       name: "Foo",
+                       capability: .command(
+                           verb: "mycmd",
+                           description: "helpful description of mycmd",
+                           permissions: [ .packageWritability(reason: "YOLO") ]
+                       )
+                   )
+               ]
+            )
+            """
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let manifest = try loadManifest(content, observabilityScope: observability.topScope)
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        XCTAssertEqual(manifest.targets[0].type, .plugin)
+        XCTAssertEqual(manifest.targets[0].pluginCapability, .command(verb: "mycmd", description: "helpful description of mycmd", permissions: [.packageWritability(reason: "YOLO")]))
+    }
+
     func testPluginTargetCustomization() throws {
         let content = """
             import PackageDescription

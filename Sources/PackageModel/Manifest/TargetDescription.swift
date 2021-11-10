@@ -110,6 +110,11 @@ public struct TargetDescription: Equatable, Codable {
     /// Represents the declared capability of a package plugin.
     public enum PluginCapability: Equatable {
         case buildTool
+        case command(verb: String, description: String, permissions: [PluginPermission])
+    }
+    
+    public enum PluginPermission: Equatable, Codable {
+        case packageWritability(reason: String)
     }
 
     /// The target-specific build settings declared in this target.
@@ -259,7 +264,7 @@ extension TargetDescription.Dependency: ExpressibleByStringLiteral {
 
 extension TargetDescription.PluginCapability: Codable {
     private enum CodingKeys: CodingKey {
-        case buildTool
+        case buildTool, command
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -267,6 +272,11 @@ extension TargetDescription.PluginCapability: Codable {
         switch self {
         case .buildTool:
             try container.encodeNil(forKey: .buildTool)
+        case .command(let a1, let a2, let a3):
+            var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .command)
+            try unkeyedContainer.encode(a1)
+            try unkeyedContainer.encode(a2)
+            try unkeyedContainer.encode(a3)
         }
     }
 
@@ -278,6 +288,12 @@ extension TargetDescription.PluginCapability: Codable {
         switch key {
         case .buildTool:
             self = .buildTool
+        case .command:
+            var unkeyedValues = try values.nestedUnkeyedContainer(forKey: key)
+            let a1 = try unkeyedValues.decode(String.self)
+            let a2 = try unkeyedValues.decode(String.self)
+            let a3 = try unkeyedValues.decode([TargetDescription.PluginPermission].self)
+            self = .command(verb: a1, description: a2, permissions: a3)
         }
     }
 }

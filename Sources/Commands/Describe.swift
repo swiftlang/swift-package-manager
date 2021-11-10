@@ -144,12 +144,33 @@ struct DescribedPackage: Encodable {
     /// Represents a plugin capability for the sole purpose of generating a description.
     struct DescribedPluginCapability: Encodable {
         let type: String
+        let verb: String?
+        let description: String?
+        let permissions: [PluginPermission]?
 
         init(from capability: PluginCapability, in package: Package) {
             switch capability {
             case .buildTool:
                 self.type = "buildTool"
+                self.verb = nil
+                self.description = nil
+                self.permissions = nil
+            case .command(let verb, let description, let permissions):
+                self.type = "command"
+                self.verb = verb
+                self.description = description
+                self.permissions = permissions.map{
+                    switch $0 {
+                    case .packageWritability(let reason):
+                        return PluginPermission(type: "packageWritability", reason: reason)
+                    }
+                }
             }
+        }
+        
+        struct PluginPermission: Encodable {
+            let type: String
+            let reason: String
         }
     }
 
