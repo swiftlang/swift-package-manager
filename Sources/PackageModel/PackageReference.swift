@@ -80,9 +80,14 @@ public struct PackageReference {
     /// The identity of the package.
     public let identity: PackageIdentity
 
+    @available(*, deprecated)
+    public var name: String {
+        return self.deprecatedName
+    }
+
     /// The name of the package, if available.
-    // FIXME: we should not need this
-    public var name: String
+    // soft deprecated 11/21
+    public private(set) var deprecatedName: String
 
     /// The location of the package.
     ///
@@ -102,21 +107,21 @@ public struct PackageReference {
         self.kind = kind
         switch kind {
         case .root(let path):
-            self.name = name ?? LegacyPackageIdentity.computeDefaultName(fromPath: path)
+            self.deprecatedName = name ?? LegacyPackageIdentity.computeDefaultName(fromPath: path)
         case .fileSystem(let path):
-            self.name = name ?? LegacyPackageIdentity.computeDefaultName(fromPath: path)
+            self.deprecatedName = name ?? LegacyPackageIdentity.computeDefaultName(fromPath: path)
         case .localSourceControl(let path):
-            self.name = name ?? LegacyPackageIdentity.computeDefaultName(fromPath: path)
+            self.deprecatedName = name ?? LegacyPackageIdentity.computeDefaultName(fromPath: path)
         case .remoteSourceControl(let url):
-            self.name = name ?? LegacyPackageIdentity.computeDefaultName(fromURL: url)
+            self.deprecatedName = name ?? LegacyPackageIdentity.computeDefaultName(fromURL: url)
         case .registry(let identity):
             // FIXME: this is a placeholder
-            self.name = name ?? identity.description
+            self.deprecatedName = name ?? identity.description
         }
     }
 
     /// Create a new package reference object with the given name.
-    public func with(newName: String) -> PackageReference {
+    public func withName(_ newName: String) -> PackageReference {
         return PackageReference(identity: self.identity, kind: self.kind, name: newName)
     }
 

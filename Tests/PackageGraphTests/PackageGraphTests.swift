@@ -1264,7 +1264,7 @@ class PackageGraphTests: XCTestCase {
 
         let fs = InMemoryFileSystem(files: ["/pins": ByteString(encodingAsUTF8: json)])
 
-        XCTAssertThrows(StringError("Package.resolved file is corrupted or malformed; fix or delete the file to continue: duplicated entry for package \"Yams\""), {
+        XCTAssertThrows(StringError("Package.resolved file is corrupted or malformed; fix or delete the file to continue: duplicated entry for package \"yams\""), {
             _ = try PinsStore(pinsFile: AbsolutePath("/pins"), workingDirectory: .root, fileSystem: fs, mirrors: .init())
         })
     }

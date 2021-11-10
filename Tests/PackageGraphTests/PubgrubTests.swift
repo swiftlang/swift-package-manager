@@ -317,8 +317,8 @@ final class PubgrubTests: XCTestCase {
             XCTFail("Unexpected error: \(error)")
         case .success(let bindings):
             XCTAssertEqual(bindings.count, 1)
-            let foo = bindings.first { $0.package.identity == PackageIdentity("foo") }
-            XCTAssertEqual(foo?.package.name, "bar")
+            let foo = bindings.first { $0.package.identity == .plain("foo") }
+            XCTAssertEqual(foo?.package.deprecatedName, "bar")
         }
     }
 
@@ -2089,9 +2089,9 @@ public class MockContainer: PackageContainer {
         return try getDependencies(at: PackageRequirement.unversioned.description, productFilter: productFilter)
     }
 
-    public func getUpdatedIdentifier(at boundVersion: BoundVersion) throws -> PackageReference {
+    public func loadPackageReference(at boundVersion: BoundVersion) throws -> PackageReference {
         if let manifestName = manifestName {
-            self.package = self.package.with(newName: manifestName.identity.description)
+            self.package = self.package.withName(manifestName.identity.description)
         }
         return self.package
     }

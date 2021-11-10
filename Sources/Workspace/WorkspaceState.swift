@@ -369,7 +369,7 @@ extension WorkspaceStateStorage {
                     // FIXME: placeholder
                     self.location = self.identity.description
                 }
-                self.name = reference.name
+                self.name = reference.deprecatedName
             }
 
             enum Kind: String, Codable {

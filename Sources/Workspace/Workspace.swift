@@ -772,7 +772,7 @@ extension Workspace {
         } else {
             // We have input packages so we have to partially update the package graph. Remove
             // the pins for the input packages so only those packages are updated.
-            pinsMap = pinsStore.pinsMap.filter{ !packages.contains($0.value.packageRef.name) }
+            pinsMap = pinsStore.pinsMap.filter{ !packages.contains($0.value.packageRef.identity.description) && !packages.contains($0.value.packageRef.deprecatedName) }
         }
 
         // Resolve the dependencies.
@@ -1104,9 +1104,9 @@ extension Workspace {
         case .checkout(let checkoutState):
             return checkoutState
         case .edited:
-            observabilityScope.emit(error: "dependency '\(dependency.packageRef.name)' already in edit mode")
+            observabilityScope.emit(error: "dependency '\(dependency.packageRef.identity)' already in edit mode")
         case .local:
-            observabilityScope.emit(error: "local dependency '\(dependency.packageRef.name)' can't be edited")
+            observabilityScope.emit(error: "local dependency '\(dependency.packageRef.identity)' can't be edited")
         }
         return nil
     }
@@ -1236,7 +1236,7 @@ extension Workspace {
         switch dependency.state {
         // If the dependency isn't in edit mode, we can't unedit it.
         case .checkout, .local:
-            throw WorkspaceDiagnostics.DependencyNotInEditMode(dependencyName: dependency.packageRef.name)
+            throw WorkspaceDiagnostics.DependencyNotInEditMode(dependencyName: dependency.packageRef.identity.description)
 
         case .edited(_, let path):
             if path != nil {
@@ -1831,7 +1831,7 @@ extension Workspace {
                 case .checkout(let checkoutState):
                     // If some checkout dependency has been removed, retrieve it again.
                     _ = try self.retrieve(package: dependency.packageRef, at: checkoutState)
-                    observabilityScope.emit(.checkedOutDependencyMissing(packageName: dependency.packageRef.name))
+                    observabilityScope.emit(.checkedOutDependencyMissing(packageName: dependency.packageRef.identity.description))
 
                 case .edited:
                     // If some edited dependency has been removed, mark it as unedited.
@@ -1841,7 +1841,7 @@ extension Workspace {
                     // of some other resolve operation (i.e. resolve, update, etc).
                     try self.unedit(dependency: dependency, forceRemove: true, observabilityScope: observabilityScope)
 
-                    observabilityScope.emit(.editedDependencyMissing(packageName: dependency.packageRef.name))
+                    observabilityScope.emit(.editedDependencyMissing(packageName: dependency.packageRef.identity.description))
 
                 case .local:
                     self.state.dependencies.remove(dependency.packageRef.identity)
@@ -2079,7 +2079,7 @@ extension Workspace {
             group.enter()
             defer { group.leave() }
 
-            let parentDirectory =  self.location.artifactsDirectory.appending(component: artifact.packageRef.name)
+            let parentDirectory =  self.location.artifactsDirectory.appending(component: artifact.packageRef.identity.description)
             guard observabilityScope.trap ({ try fileSystem.createDirectory(parentDirectory, recursive: true) }) else {
                 continue
             }
@@ -2115,7 +2115,7 @@ extension Workspace {
                         }
 
                         guard let tempExtractionDirectory = observabilityScope.trap({ () -> AbsolutePath in
-                            let path = self.location.artifactsDirectory.appending(components: "extract", artifact.packageRef.name, artifact.targetName, UUID().uuidString)
+                            let path = self.location.artifactsDirectory.appending(components: "extract", artifact.packageRef.identity.description, artifact.targetName, UUID().uuidString)
                             try self.fileSystem.forceCreateDirectory(at: path)
                             return path
                         }) else {
@@ -2190,10 +2190,10 @@ extension Workspace {
         let group = DispatchGroup()
 
         for artifact in artifacts {
-            let destinationDirectory = self.location.artifactsDirectory.appending(component: artifact.packageRef.name)
+            let destinationDirectory = self.location.artifactsDirectory.appending(component: artifact.packageRef.identity.description)
             try fileSystem.createDirectory(destinationDirectory, recursive: true)
 
-            let tempExtractionDirectory = self.location.artifactsDirectory.appending(components: "extract", artifact.packageRef.name, artifact.targetName, UUID().uuidString)
+            let tempExtractionDirectory = self.location.artifactsDirectory.appending(components: "extract", artifact.packageRef.identity.description, artifact.targetName, UUID().uuidString)
             try self.fileSystem.forceCreateDirectory(at: tempExtractionDirectory)
 
             group.enter()
@@ -3353,7 +3353,7 @@ extension Workspace {
             let dependencies = packages.lazy.map({ "'\($0.identity)'" }).joined(separator: ", ")
             result.append("the following dependencies were added: \(dependencies)")
         case .packageRequirementChange(let package, let state, let requirement):
-            result.append("dependency '\(package.name)' was ")
+            result.append("dependency '\(package.identity)' was ")
 
             switch state {
             case .checkout(let checkoutState)?:

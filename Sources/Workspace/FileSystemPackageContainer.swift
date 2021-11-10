@@ -102,10 +102,10 @@ internal struct FileSystemPackageContainer: PackageContainer {
         return try loadManifest().dependencyConstraints(productFilter: productFilter)
     }
 
-    public func getUpdatedIdentifier(at boundVersion: BoundVersion) throws -> PackageReference {
+    public func loadPackageReference(at boundVersion: BoundVersion) throws -> PackageReference {
         assert(boundVersion == .unversioned, "Unexpected bound version \(boundVersion)")
         let manifest = try loadManifest()
-        return package.with(newName: manifest.displayName)
+        return package.withName(manifest.displayName)
     }
 
     public func isToolsVersionCompatible(at version: Version) -> Bool {

@@ -57,7 +57,7 @@ public class MockPackageContainer: PackageContainer {
         return unversionedDeps
     }
 
-    public func getUpdatedIdentifier(at boundVersion: BoundVersion) throws -> PackageReference {
+    public func loadPackageReference(at boundVersion: BoundVersion) throws -> PackageReference {
         return self.package
     }
 
