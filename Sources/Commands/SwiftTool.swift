@@ -766,6 +766,7 @@ public class SwiftTool {
             let result = try graph.invokePlugins(
                 outputDir: outputDir,
                 builtToolsDir: builtToolsDir,
+                buildEnvironment: buildEnvironment,
                 pluginScriptRunner: pluginScriptRunner,
                 observabilityScope: self.observabilityScope,
                 fileSystem: localFileSystem

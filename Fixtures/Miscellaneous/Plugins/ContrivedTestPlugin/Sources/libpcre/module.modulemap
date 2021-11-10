@@ -1,0 +1,5 @@
+module readline [system] {
+  header "sdk_libpcre.h"
+  link "libpcre"
+  export *
+}
