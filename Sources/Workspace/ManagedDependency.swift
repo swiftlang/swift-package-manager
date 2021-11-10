@@ -80,7 +80,7 @@ extension Workspace {
         ///     - unmanagedPath: A custom absolute path instead of the subpath.
         public func edited(subpath: RelativePath, unmanagedPath: AbsolutePath?) throws -> ManagedDependency {
             guard case .sourceControlCheckout =  self.state else {
-                throw InternalError("invalid depenedency state: \(self.state)")
+                throw InternalError("invalid dependency state: \(self.state)")
             }
             return ManagedDependency(
                 packageRef: self.packageRef,
