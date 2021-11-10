@@ -572,7 +572,8 @@ class PackageContainerProviderTests: XCTestCase {
             catch let error as SourceControlPackageContainer.GetDependenciesError {
                 // We expect to get an error message that mentions main.
                 XCTAssertMatch(error.description, .and(.prefix("could not find a branch named ‘master’"), .suffix("(did you mean ‘main’?)")))
-                XCTAssertMatch(error.diagnosticLocation?.description, .suffix("/SomePackage @ master"))
+                XCTAssertMatch(error.repository.description, .suffix("/SomePackage"))
+                XCTAssertMatch(error.reference, "master")
             }
 
             // Simulate accessing a fictitious dependency on some random commit that doesn't exist, and check that we get back the expected error.
@@ -580,7 +581,8 @@ class PackageContainerProviderTests: XCTestCase {
             catch let error as SourceControlPackageContainer.GetDependenciesError {
                 // We expect to get an error message about the specific commit.
                 XCTAssertMatch(error.description, .prefix("could not find the commit 535f4cb5b4a0872fa691473e82d7b27b9894df00"))
-                XCTAssertMatch(error.diagnosticLocation?.description, .suffix("/SomePackage @ 535f4cb5b4a0872fa691473e82d7b27b9894df00"))
+                XCTAssertMatch(error.repository.description, .suffix("/SomePackage"))
+                XCTAssertMatch(error.reference, "535f4cb5b4a0872fa691473e82d7b27b9894df00")
             }
         }
     }

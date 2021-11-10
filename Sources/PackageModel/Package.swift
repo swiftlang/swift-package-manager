@@ -143,9 +143,6 @@ extension ObservabilityMetadata {
         var metadata = ObservabilityMetadata()
         metadata.packageIdentity = identity
         metadata.packageKind = kind
-        //metadata.packageLocation = location
-        // FIXME: (diagnostics) remove once transition to Observability API is complete
-        //metadata.legacyDiagnosticLocation = .init(PackageLocation.Local(name: identity.description, packagePath: path))
         return metadata
     }
 }
