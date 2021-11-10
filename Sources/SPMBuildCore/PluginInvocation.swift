@@ -790,7 +790,8 @@ struct PluginScriptRunnerInputSerializer {
         // Assign the next wire ID to the package and append a serialized Package record.
         let id = packages.count
         packages.append(.init(
-            name: package.manifestName,
+            // FIXME: can we use package identity instead?
+            name: package.manifest.displayName,
             directoryId: try serialize(path: package.path),
             origin: try origin(for: package),
             toolsVersion: .init(
