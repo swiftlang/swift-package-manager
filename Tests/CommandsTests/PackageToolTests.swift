@@ -730,7 +730,7 @@ final class PackageToolTests: XCTestCase {
             do {
                 try execute("resolve", "bar", "--branch", "YOLO")
                 let pinsStore = try PinsStore(pinsFile: pinsFile, workingDirectory: prefix, fileSystem: localFileSystem, mirrors: .init())
-                let state = CheckoutState.branch(name: "YOLO", revision: yoloRevision)
+                let state = PinsStore.PinState.branch(name: "YOLO", revision: yoloRevision.identifier)
                 let identity = PackageIdentity(path: barPath)
                 XCTAssertEqual(pinsStore.pinsMap[identity]?.state, state)
             }
@@ -739,7 +739,7 @@ final class PackageToolTests: XCTestCase {
             do {
                 try execute("resolve", "bar", "--revision", yoloRevision.identifier)
                 let pinsStore = try PinsStore(pinsFile: pinsFile, workingDirectory: prefix, fileSystem: localFileSystem, mirrors: .init())
-                let state = CheckoutState.revision(yoloRevision)
+                let state = PinsStore.PinState.revision(yoloRevision.identifier)
                 let identity = PackageIdentity(path: barPath)
                 XCTAssertEqual(pinsStore.pinsMap[identity]?.state, state)
             }
@@ -788,7 +788,12 @@ final class PackageToolTests: XCTestCase {
                     guard case .localSourceControl(let path) = pin.packageRef.kind, path.pathString.hasSuffix(pkg) else {
                         return XCTFail("invalid pin location \(path)")
                     }
-                    XCTAssertEqual(pin.state.version, "1.2.3")
+                    switch pin.state {
+                    case .version(let version, revision: _):
+                        XCTAssertEqual(version, "1.2.3")
+                    default:
+                        XCTFail("invalid pin state")
+                    }
                 }
             }
 
@@ -802,7 +807,12 @@ final class PackageToolTests: XCTestCase {
                 try execute("resolve", "bar")
                 let pinsStore = try PinsStore(pinsFile: pinsFile, workingDirectory: prefix, fileSystem: localFileSystem, mirrors: .init())
                 let identity = PackageIdentity(path: barPath)
-                XCTAssertEqual(pinsStore.pinsMap[identity]?.state.version, "1.2.3")
+                switch pinsStore.pinsMap[identity]?.state {
+                case .version(let version, revision: _):
+                    XCTAssertEqual(version, "1.2.3")
+                default:
+                    XCTFail("invalid pin state")
+                }
             }
 
             // Update bar repo.
@@ -826,7 +836,12 @@ final class PackageToolTests: XCTestCase {
                 try execute("resolve", "bar", "--version", "1.2.3")
                 let pinsStore = try PinsStore(pinsFile: pinsFile, workingDirectory: prefix, fileSystem: localFileSystem, mirrors: .init())
                 let identity = PackageIdentity(path: barPath)
-                XCTAssertEqual(pinsStore.pinsMap[identity]?.state.version, "1.2.3")
+                switch pinsStore.pinsMap[identity]?.state {
+                case .version(let version, revision: _):
+                    XCTAssertEqual(version, "1.2.3")
+                default:
+                    XCTFail("invalid pin state")
+                }
                 try checkBar(5)
             }
 
@@ -837,7 +852,7 @@ final class PackageToolTests: XCTestCase {
                     try execute("resolve", "bar")
                     XCTFail("This should have been an error")
                 } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
-                    XCTAssertEqual(stderr, "error: dependency 'bar' already in edit mode\n")
+                    XCTAssertMatch(stderr, .prefix("error: edited dependency 'bar' can't be resolved"))
                 }
                 try execute("unedit", "bar")
             }

@@ -29,11 +29,11 @@ final class PinsStoreTests: XCTestCase {
         let bar = PackageIdentity(path: barPath)
         //let fooRepo = RepositorySpecifier(url: fooPath.pathString)
         //let barRepo = RepositorySpecifier(url: barPath.pathString)
-        let revision = Revision(identifier: "81513c8fd220cf1ed1452b98060cd80d3725c5b7")
+        let revision = "81513c8fd220cf1ed1452b98060cd80d3725c5b7"
         let fooRef = PackageReference.localSourceControl(identity: foo, path: fooPath)
         let barRef = PackageReference.localSourceControl(identity: bar, path: barPath)
 
-        let state = CheckoutState.version(v1, revision: revision)
+        let state = PinsStore.PinState.version(v1, revision: revision)
 
         let fs = InMemoryFileSystem()
         let pinsFile = AbsolutePath("/pinsfile.txt")
@@ -55,8 +55,7 @@ final class PinsStoreTests: XCTestCase {
             XCTAssertEqual(s.pinsMap[bar], nil)
             let fooPin = s.pinsMap[foo]!
             XCTAssertEqual(fooPin.packageRef, fooRef)
-            XCTAssertEqual(fooPin.state.version, v1)
-            XCTAssertEqual(fooPin.state.revision, revision)
+            XCTAssertEqual(fooPin.state, .version(v1, revision: revision))
             XCTAssertEqual(fooPin.state.description, v1.description)
         }
 
@@ -64,7 +63,7 @@ final class PinsStoreTests: XCTestCase {
         store.pin(packageRef: fooRef, state: state)
         store.pin(
             packageRef: fooRef,
-            state: CheckoutState.version("1.0.2", revision: revision)
+            state: .version("1.0.2", revision: revision)
         )
         store.pin(packageRef: barRef, state: state)
         try store.saveState(toolsVersion: ToolsVersion.currentToolsVersion)
@@ -76,15 +75,13 @@ final class PinsStoreTests: XCTestCase {
         do {
             store.pin(
                 packageRef: barRef,
-                state: CheckoutState.branch(name: "develop", revision: revision)
+                state: .branch(name: "develop", revision: revision)
             )
             try store.saveState(toolsVersion: ToolsVersion.currentToolsVersion)
             store = try PinsStore(pinsFile: pinsFile, workingDirectory: .root, fileSystem: fs, mirrors: .init())
 
             let barPin = store.pinsMap[bar]!
-            XCTAssertEqual(barPin.state.branch, "develop")
-            XCTAssertEqual(barPin.state.version, nil)
-            XCTAssertEqual(barPin.state.revision, revision)
+            XCTAssertEqual(barPin.state, .branch(name: "develop", revision: revision))
             XCTAssertEqual(barPin.state.description, "develop")
         }
 
@@ -95,10 +92,8 @@ final class PinsStoreTests: XCTestCase {
             store = try PinsStore(pinsFile: pinsFile, workingDirectory: .root, fileSystem: fs, mirrors: .init())
 
             let barPin = store.pinsMap[bar]!
-            XCTAssertEqual(barPin.state.branch, nil)
-            XCTAssertEqual(barPin.state.version, nil)
-            XCTAssertEqual(barPin.state.revision, revision)
-            XCTAssertEqual(barPin.state.description, revision.identifier)
+            XCTAssertEqual(barPin.state, .revision(revision))
+            XCTAssertEqual(barPin.state.description, revision)
         }
     }
 
@@ -213,7 +208,7 @@ final class PinsStoreTests: XCTestCase {
         let fooPath = AbsolutePath("/foo")
         let foo = PackageIdentity(path: fooPath)
         let fooRef = PackageReference.localSourceControl(identity: foo, path: fooPath)
-        let revision = Revision(identifier: "81513c8fd220cf1ed1452b98060cd80d3725c5b7")
+        let revision = "81513c8fd220cf1ed1452b98060cd80d3725c5b7"
         store.pin(packageRef: fooRef, state: .version(v1, revision: revision))
 
         XCTAssert(!fs.exists(pinsFile))
@@ -249,11 +244,11 @@ final class PinsStoreTests: XCTestCase {
         let store = try PinsStore(pinsFile: pinsFile, workingDirectory: .root, fileSystem: fileSystem, mirrors: mirrors)
 
         store.pin(packageRef: .remoteSourceControl(identity: fooIdentity, url: fooMirroredURL),
-                  state: .version(v1, revision: .init(identifier: "foo-revision")))
+                  state: .version(v1, revision: "foo-revision"))
         store.pin(packageRef: .remoteSourceControl(identity: barIdentity, url: barMirroredURL),
-                  state: .version(v1, revision: .init(identifier: "bar-revision")))
+                  state: .version(v1, revision: "bar-revision"))
         store.pin(packageRef: .remoteSourceControl(identity: bazIdentity, url: bazURL),
-                  state: .version(v1, revision: .init(identifier: "baz-revision")))
+                  state: .version(v1, revision: "baz-revision"))
 
         XCTAssert(store.pinsMap.count == 3)
         XCTAssertEqual(store.pinsMap[fooIdentity]!.packageRef.kind, .remoteSourceControl(fooMirroredURL))

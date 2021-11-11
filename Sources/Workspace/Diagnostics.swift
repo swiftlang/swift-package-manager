@@ -123,6 +123,10 @@ extension Basics.Diagnostic {
         .warning("dependency '\(packageName)' is missing; cloning again")
     }
 
+    static func registryDependencyMissing(packageName: String) -> Self {
+        .warning("dependency '\(packageName)' is missing; downloading again")
+    }
+
     static func artifactChecksumChanged(targetName: String) -> Self {
         .error("artifact of binary target '\(targetName)' has changed checksum; this is a potential security risk so the new artifact won't be downloaded")
     }

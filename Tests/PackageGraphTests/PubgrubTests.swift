@@ -1031,8 +1031,8 @@ final class PubgrubTests: XCTestCase {
         ])
 
         let pinsStore = builder.create(pinsStore: [
-            "a": (.branch("develop", revision: "develop-sha-1"), .specific(["a"])),
-            "b": (.branch("master", revision: "master-sha-2"), .specific(["b"])),
+            "a": (.branch(name: "develop", revision: "develop-sha-1"), .specific(["a"])),
+            "b": (.branch(name: "master", revision: "master-sha-2"), .specific(["b"])),
         ])
 
         let resolver = builder.create(pinsMap: pinsStore.pinsMap)
@@ -1936,14 +1936,10 @@ final class PubGrubBacktrackTests: XCTestCase {
     }
 }
 
-fileprivate extension CheckoutState {
+fileprivate extension PinsStore.PinState {
     /// Creates a checkout state with the given version and a mocked revision.
-    static func version(_ version: Version) -> CheckoutState {
-        .version(version, revision: Revision(identifier: "<fake-ident>"))
-    }
-
-    static func branch(_ branch: String, revision: String) -> CheckoutState {
-        .branch(name: branch, revision: Revision(identifier: revision))
+    static func version(_ version: Version) -> Self {
+        .version(version, revision: .none)
     }
 }
 
@@ -2236,8 +2232,24 @@ class DependencyGraphBuilder {
         self.containers[package] = container
     }
 
-    /// Creates a pins store with the given pins.
+    // backwards compatibility
+   /*
     func create(pinsStore pins: [String: (CheckoutState, ProductFilter)]) -> PinsStore {
+        let pins = pins.mapValues { pair -> (PinsStore.PinState, ProductFilter) in
+            switch pair.0 {
+            case .version(let version, let revision):
+                return (.version(version, revision: revision.identifier), pair.1)
+            case .branch(let branch, let revision):
+                return (.branch(branch, revision: revision.identifier), pair.1)
+            case .revision(let revision):
+                return (.revision(revision.identifier), pair.1)
+            }
+        }
+        return self.create(pinsStore: pins)
+    }*/
+
+    /// Creates a pins store with the given pins.
+    func create(pinsStore pins: [String: (PinsStore.PinState, ProductFilter)]) -> PinsStore {
         let fs = InMemoryFileSystem()
         let store = try! PinsStore(pinsFile: AbsolutePath("/tmp/Package.resolved"), workingDirectory: .root, fileSystem: fs, mirrors: .init())
 

@@ -57,6 +57,16 @@ extension Workspace {
             self.repositoriesCheckoutsDirectory.appending(dependency.subpath)
         }
 
+        /// Path to the registry downloads.
+        public var registryDownloadDirectory: AbsolutePath {
+            self.workingDirectory.appending(components: "registry", "downloads")
+        }
+
+        /// Returns the path to the repository checkout directory for a package.
+        public func registryDownloadSubdirectory(for dependency: ManagedDependency) -> AbsolutePath {
+            self.registryDownloadDirectory.appending(dependency.subpath)
+        }
+
         /// Path to the downloaded binary artifacts.
         public var artifactsDirectory: AbsolutePath {
             self.workingDirectory.appending(component: "artifacts")

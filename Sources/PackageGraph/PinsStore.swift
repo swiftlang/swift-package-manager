@@ -22,11 +22,28 @@ public final class PinsStore {
         public let packageRef: PackageReference
 
         /// The pinned state.
-        public let state: CheckoutState
+        public let state: PinState
 
-        public init(packageRef: PackageReference, state: CheckoutState) {
+        public init(packageRef: PackageReference, state: PinState) {
             self.packageRef = packageRef
             self.state = state
+        }
+    }
+
+    public enum PinState: Equatable, CustomStringConvertible {
+        case branch(name: String, revision: String)
+        case version(_ version: Version, revision: String?)
+        case revision(_ revision: String)
+
+        public var description: String {
+            switch self {
+            case .version(let version, _):
+                return version.description
+            case .branch(let name, _):
+                return name
+            case .revision(let revision):
+                return revision
+            }
         }
     }
 
@@ -70,7 +87,7 @@ public final class PinsStore {
     /// - Parameters:
     ///   - packageRef: The package reference to pin.
     ///   - state: The state to pin at.
-    public func pin(packageRef: PackageReference, state: CheckoutState) {
+    public func pin(packageRef: PackageReference, state: PinState) {
         self.add(.init(
             packageRef: packageRef,
             state: state
@@ -169,12 +186,12 @@ fileprivate struct PinsStorage {
                 let container = try V1(pins: pins, mirrors: mirrors)
                 data = try self.encoder.encode(container)
             }
-            #if !os(Windows)
+#if !os(Windows)
             // rdar://83646952: add newline for POSIXy systems
             if data.last != 0x0a {
                 data.append(0x0a)
             }
-            #endif
+#endif
             try self.fileSystem.writeFileContents(self.path, data: data)
         }
     }
@@ -221,7 +238,7 @@ fileprivate struct PinsStorage {
         struct Pin: Codable {
             let package: String?
             let repositoryURL: String
-            let state: CheckoutInfo
+            let state: PinStateInfo
 
             init(_ pin: PinsStore.Pin, mirrors: DependencyMirrors) throws {
                 let location: String
@@ -237,7 +254,32 @@ fileprivate struct PinsStorage {
                 self.package = pin.packageRef.deprecatedName
                 // rdar://52529014, rdar://52529011: pin file should store the original location but remap when loading
                 self.repositoryURL = mirrors.originalURL(for: location) ?? location
-                self.state = .init(pin.state)
+                self.state = try .init(pin.state)
+            }
+        }
+
+        struct PinStateInfo: Codable {
+            let revision: String
+            let branch: String?
+            let version: String?
+
+            init(_ state: PinsStore.PinState) throws {
+                switch state {
+                case .version(let version, let revision) where revision != nil:
+                    self.version = version.description
+                    self.branch = nil
+                    self.revision = revision! // nil guarded above in case
+                case .branch(let branch, let revision):
+                    self.version = nil
+                    self.branch = branch
+                    self.revision = revision
+                case .revision(let revision):
+                    self.version = nil
+                    self.branch = nil
+                    self.revision = revision
+                default:
+                    throw StringError("invalid pin state: \(state)")
+                }
             }
         }
     }
@@ -260,7 +302,7 @@ fileprivate struct PinsStorage {
             let identity: PackageIdentity
             let kind: Kind
             let location: String
-            let state: CheckoutInfo
+            let state: PinStateInfo
 
             init(_ pin: PinsStore.Pin, mirrors: DependencyMirrors) throws {
                 let kind: Kind
@@ -272,6 +314,9 @@ fileprivate struct PinsStorage {
                 case .remoteSourceControl(let url):
                     kind = .remoteSourceControl
                     location = url.absoluteString
+                case .registry:
+                    kind = .registry
+                    location = ""
                 default:
                     throw StringError("invalid package type \(pin.packageRef.kind)")
                 }
@@ -287,28 +332,29 @@ fileprivate struct PinsStorage {
         enum Kind: String, Codable {
             case localSourceControl
             case remoteSourceControl
+            case registry
         }
-    }
 
-    struct CheckoutInfo: Codable {
-        let revision: String
-        let branch: String?
-        let version: String?
+        struct PinStateInfo: Codable {
+            let version: String?
+            let branch: String?
+            let revision: String?
 
-        init(_ state: CheckoutState) {
-            switch state {
-            case .version(let version, let revision):
-                self.version = version.description
-                self.branch = nil
-                self.revision = revision.identifier
-            case .branch(let branch, let revision):
-                self.version = nil
-                self.branch = branch
-                self.revision = revision.identifier
-            case .revision(let revision):
-                self.version = nil
-                self.branch = nil
-                self.revision = revision.identifier
+            init(_ state: PinsStore.PinState) {
+                switch state {
+                case .version(let version, let revision):
+                    self.version = version.description
+                    self.branch = nil
+                    self.revision = revision
+                case .branch(let branch, let revision):
+                    self.version = nil
+                    self.branch = branch
+                    self.revision = revision
+                case .revision(let revision):
+                    self.version = nil
+                    self.branch = nil
+                    self.revision = revision
+                }
             }
         }
     }
@@ -337,6 +383,19 @@ extension PinsStore.Pin {
     }
 }
 
+extension PinsStore.PinState {
+    fileprivate init(_ state: PinsStorage.V1.PinStateInfo) throws {
+        let revision = state.revision
+        if let version = state.version {
+            self = try .version(Version(versionString: version), revision: revision)
+        } else if let branch = state.branch {
+            self = .branch(name: branch, revision: revision)
+        } else {
+            self = .revision(revision)
+        }
+    }
+}
+
 extension PinsStore.Pin {
     fileprivate init(_ pin: PinsStorage.V2.Pin, mirrors: DependencyMirrors) throws {
         let packageRef: PackageReference
@@ -351,6 +410,8 @@ extension PinsStore.Pin {
                 throw StringError("invalid url location: \(location)")
             }
             packageRef = .remoteSourceControl(identity: identity, url: url)
+        case .registry:
+            packageRef = .registry(identity: identity)
         }
         self.init(
             packageRef: packageRef,
@@ -359,15 +420,16 @@ extension PinsStore.Pin {
     }
 }
 
-extension CheckoutState {
-    fileprivate init(_ state: PinsStorage.CheckoutInfo) throws {
-        let revision: Revision = .init(identifier: state.revision)
-        if let branch = state.branch {
+extension PinsStore.PinState {
+    fileprivate init(_ state: PinsStorage.V2.PinStateInfo) throws {
+        if let version = state.version {
+            self = try .version(Version(versionString: version), revision: state.revision)
+        } else if let branch = state.branch, let revision = state.revision {
             self = .branch(name: branch, revision: revision)
-        } else if let version = state.version {
-            self = try .version(Version(versionString: version), revision: revision)
-        } else {
+        } else if let revision = state.revision {
             self = .revision(revision)
+        } else {
+            throw StringError("invalid pin state: \(state)")
         }
     }
 }

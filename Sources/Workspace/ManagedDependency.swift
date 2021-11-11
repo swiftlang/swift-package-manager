@@ -22,9 +22,15 @@ extension Workspace {
     /// particular revision, and may have an associated version.
     public struct ManagedDependency: Equatable {
         /// Represents the state of the managed dependency.
-        public indirect enum State: Equatable {
-            /// The dependency is a managed checkout.
-            case checkout(CheckoutState)
+        public indirect enum State: Equatable, CustomStringConvertible {
+            /// The dependency is a local package on the file system.
+            case fileSystem(AbsolutePath)
+
+            /// The dependency is a managed source control checkout.
+            case sourceControl(CheckoutState)
+
+            /// The dependency is downloaded from a registry.
+            case registry(version: Version)
 
             /// The dependency is in edited state.
             ///
@@ -33,8 +39,18 @@ extension Workspace {
             /// for top of the tree style development.
             case edited(basedOn: ManagedDependency?, unmanagedPath: AbsolutePath?)
 
-            // The dependency is a local package.
-            case local(AbsolutePath)
+            public var description: String {
+                switch self {
+                case .fileSystem(let path):
+                    return "fileSystem (\(path))"
+                case .sourceControl(let checkoutState):
+                    return "sourceControl (\(checkoutState))"
+                case .registry(let version):
+                    return "registry (\(version))"
+                case .edited:
+                    return "edited"
+                }
+            }
         }
 
         /// The package reference.
@@ -43,9 +59,9 @@ extension Workspace {
         /// The state of the managed dependency.
         public let state: State
 
-        /// Returns true if state is checkout.
-        var isCheckout: Bool {
-            if case .checkout = self.state { return true }
+        /// Returns true if state is a source control checkout.
+        var isSourceControl: Bool {
+            if case .sourceControl = self.state { return true }
             return false
         }
 
@@ -79,16 +95,14 @@ extension Workspace {
         }
 
         /// Create a dependency present locally on the filesystem.
-        public static func local(
+        public static func fileSystem(
             packageRef: PackageReference
         ) throws -> ManagedDependency {
             switch packageRef.kind {
-            case .root(let path),
-                    .fileSystem(let path),
-                    .localSourceControl(let path):
+            case .root(let path), .fileSystem(let path), .localSourceControl(let path):
                 return ManagedDependency(
                     packageRef: packageRef,
-                    state: .local(path),
+                    state: .fileSystem(path),
                     // FIXME: This is just a fake entry, we should fix it.
                     subpath: RelativePath(packageRef.identity.description)
                 )
@@ -97,15 +111,36 @@ extension Workspace {
             }
         }
 
-        /// Create a remote dependency checked out
-        public static func remote(
+        /// Create a source control dependency checked out
+        public static func sourceControl(
             packageRef: PackageReference,
             state: CheckoutState,
             subpath: RelativePath
-        ) -> ManagedDependency {
+        ) throws -> ManagedDependency {
+            switch packageRef.kind {
+            case .localSourceControl, .remoteSourceControl:
+                return ManagedDependency(
+                    packageRef: packageRef,
+                    state: .sourceControl(state),
+                    subpath: subpath
+                )
+            default:
+                throw InternalError("invalid package type: \(packageRef.kind)")
+            }
+        }
+
+        /// Create a registry  dependency downloaded
+        public static func registry(
+            packageRef: PackageReference,
+            version: Version,
+            subpath: RelativePath
+        ) throws -> ManagedDependency {
+            guard case .registry = packageRef.kind else {
+                throw InternalError("invalid package type: \(packageRef.kind)")
+            }
             return ManagedDependency(
                 packageRef: packageRef,
-                state: .checkout(state),
+                state: .registry(version: version),
                 subpath: subpath
             )
         }

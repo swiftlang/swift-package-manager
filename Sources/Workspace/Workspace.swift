@@ -599,11 +599,19 @@ extension Workspace {
     ) throws {
         // Look up the dependency and check if we can pin it.
         guard let dependency = self.state.dependencies[.plain(packageName)] else {
-            observabilityScope.emit(.dependencyNotFound(packageName: packageName))
-            return
+            throw StringError("dependency '\(packageName)' was not found")
         }
-        guard let currentState = checkoutState(for: dependency, observabilityScope: observabilityScope) else {
-            return
+
+        let defaultRequirement: PackageRequirement
+        switch dependency.state {
+        case .sourceControl(let checkoutState):
+            defaultRequirement = checkoutState.requirement
+        case .registry(let version):
+            defaultRequirement = .versionSet(.exact(version))
+        case .fileSystem:
+            throw StringError("local dependency '\(dependency.packageRef.identity)' can't be resolved")
+        case .edited:
+            throw StringError("edited dependency '\(dependency.packageRef.identity)' can't be resolved")
         }
 
         // Compute the custom or extra constraint we need to impose.
@@ -615,7 +623,7 @@ extension Workspace {
         } else if let revision = revision {
             requirement = .revision(revision)
         } else {
-            requirement = currentState.requirement
+            requirement = defaultRequirement
         }
 
         // If any products are required, the rest of the package graph will supply those constraints.
@@ -1096,20 +1104,7 @@ extension Workspace {
 
 extension Workspace {
 
-    func checkoutState(
-        for dependency: ManagedDependency,
-        observabilityScope: ObservabilityScope
-    ) -> CheckoutState? {
-        switch dependency.state {
-        case .checkout(let checkoutState):
-            return checkoutState
-        case .edited:
-            observabilityScope.emit(error: "dependency '\(dependency.packageRef.identity)' already in edit mode")
-        case .local:
-            observabilityScope.emit(error: "local dependency '\(dependency.packageRef.identity)' can't be edited")
-        }
-        return nil
-    }
+
 
     /// Edit implementation.
     fileprivate func _edit(
@@ -1125,7 +1120,18 @@ extension Workspace {
             return
         }
 
-        guard let checkoutState = self.checkoutState(for: dependency, observabilityScope: observabilityScope) else {
+        let checkoutState: CheckoutState
+        switch dependency.state {
+        case .sourceControl(let _checkoutState):
+            checkoutState = _checkoutState
+        case .edited:
+            observabilityScope.emit(error: "dependency '\(dependency.packageRef.identity)' already in edit mode")
+            return
+        case .fileSystem:
+            observabilityScope.emit(error: "local dependency '\(dependency.packageRef.identity)' can't be edited")
+            return
+        case .registry:
+            observabilityScope.emit(error: "registry dependency '\(dependency.packageRef.identity)' can't be edited")
             return
         }
 
@@ -1233,18 +1239,16 @@ extension Workspace {
         // Compute if we need to force remove.
         var forceRemove = forceRemove
 
-        switch dependency.state {
         // If the dependency isn't in edit mode, we can't unedit it.
-        case .checkout, .local:
+        guard case .edited(_, let unmanagedPath) = dependency.state else {
             throw WorkspaceDiagnostics.DependencyNotInEditMode(dependencyName: dependency.packageRef.identity.description)
+        }
 
-        case .edited(_, let path):
-            if path != nil {
-                // Set force remove to true for unmanaged dependencies.  Note that
-                // this only removes the symlink under the editable directory and
-                // not the actual unmanaged package.
-                forceRemove = true
-            }
+        // Set force remove to true for unmanaged dependencies.  Note that
+        // this only removes the symlink under the editable directory and
+        // not the actual unmanaged package.
+        if unmanagedPath != nil {
+            forceRemove = true
         }
 
         // Form the edit working repo path.
@@ -1268,11 +1272,11 @@ extension Workspace {
             try fileSystem.removeFileTree(self.location.editsDirectory)
         }
 
-        if case .edited(let basedOn, _) = dependency.state, case .checkout(let checkoutState) = basedOn?.state {
+        if case .edited(let basedOn, _) = dependency.state, case .sourceControl(let checkoutState) = basedOn?.state {
             // Restore the original checkout.
             //
             // The retrieve method will automatically update the managed dependency state.
-            _ = try self.retrieve(package: dependency.packageRef, at: checkoutState)
+            _ = try self.checkoutRepository(package: dependency.packageRef, at: checkoutState, observabilityScope: observabilityScope)
         } else {
             // The original dependency was removed, update the managed dependency state.
             self.state.dependencies.remove(dependency.packageRef.identity)
@@ -1324,20 +1328,31 @@ fileprivate extension PinsStore {
     ///
     /// This method does nothing if the dependency is in edited state.
     func pin(_ dependency: Workspace.ManagedDependency) {
-
-        // Get the checkout state.
-        let checkoutState: CheckoutState
         switch dependency.state {
-        case .checkout(let state):
-            checkoutState = state
-        case .edited, .local:
-            return
+        case .sourceControl(.version(let version, let revision)):
+            self.pin(
+                packageRef: dependency.packageRef,
+                state: .version(version, revision: revision.identifier)
+            )
+        case .sourceControl(.branch(let branch, let revision)):
+            self.pin(
+                packageRef: dependency.packageRef,
+                state: .branch(name: branch, revision: revision.identifier)
+            )
+        case .sourceControl(.revision(let revision)):
+            self.pin(
+                packageRef: dependency.packageRef,
+                state: .revision(revision.identifier)
+            )
+        case .registry(let version):
+            self.pin(
+                packageRef: dependency.packageRef,
+                state: .version(version, revision: .none)
+            )
+        case .edited, .fileSystem:
+            // NOOP
+            break
         }
-
-        self.pin(
-            packageRef: dependency.packageRef,
-            state: checkoutState
-        )
     }
 }
 
@@ -1383,13 +1398,13 @@ extension Workspace {
             for dependency in self.dependencies {
                 let dependency = dependency.dependency
                 switch dependency.state {
-                case .checkout(let checkout):
+                case .sourceControl(let checkout):
                     if checkout.isBranchOrRevisionBased {
                         result.insert(dependency.packageRef)
                     }
-                case .edited:
+                case .registry, .edited:
                     continue
-                case .local:
+                case .fileSystem:
                     result.insert(dependency.packageRef)
                 }
             }
@@ -1473,7 +1488,7 @@ extension Workspace {
                         requirement: .unversioned,
                         products: productFilter)
                     allConstraints.append(constraint)
-                case .checkout, .local:
+                case .sourceControl, .registry, .fileSystem:
                     break
                 }
                 allConstraints += try externalManifest.dependencyConstraints(productFilter: productFilter)
@@ -1488,7 +1503,7 @@ extension Workspace {
 
             for (_, managedDependency, productFilter) in dependencies {
                 switch managedDependency.state {
-                case .checkout, .local: continue
+                case .sourceControl, .registry, .fileSystem: continue
                 case .edited: break
                 }
                 // FIXME: We shouldn't need to construct a new package reference object here.
@@ -1531,16 +1546,19 @@ extension Workspace {
 
     /// Returns the location of the dependency.
     ///
-    /// Checkout dependencies will return the subpath inside `checkoutsPath` and
+    /// Source control dependencies will return the subpath inside `checkoutsPath` and
+    /// Registry dependencies will return the subpath inside `registryDownloadsPath` and
     /// edited dependencies will either return a subpath inside `editablesPath` or
     /// a custom path.
     public func path(to dependency: Workspace.ManagedDependency) -> AbsolutePath {
         switch dependency.state {
-        case .checkout:
+        case .sourceControl:
             return self.location.repositoriesCheckoutSubdirectory(for: dependency)
+        case .registry:
+            return self.location.registryDownloadSubdirectory(for: dependency)
         case .edited(_, let path):
             return path ?? self.location.editsSubdirectory(for: dependency)
-        case .local(let path):
+        case .fileSystem(let path):
             return path
         }
     }
@@ -1613,7 +1631,7 @@ extension Workspace {
             // FIXME: this seems like hack, needs further investigation why this is needed
             if automaticallyAddManagedDependencies {
                 try dependenciesRequired.filter { $0.isLocal }.forEach { dependency in
-                    try self.state.dependencies.add(.local(packageRef: dependency.createPackageRef()))
+                    try self.state.dependencies.add(.fileSystem(packageRef: dependency.createPackageRef()))
                 }
                 observabilityScope.trap { try self.state.save() }
             }
@@ -1707,7 +1725,7 @@ extension Workspace {
         let packageKind: PackageReference.Kind
         let version: Version?
         switch managedDependency.state {
-        case .checkout(let checkoutState):
+        case .sourceControl(let checkoutState):
             packageKind = managedDependency.packageRef.kind
             switch checkoutState {
             case .version(let checkoutVersion, _):
@@ -1715,7 +1733,10 @@ extension Workspace {
             default:
                 version = .none
             }
-        case .edited, .local:
+        case .registry(let downloadedVersion):
+            packageKind = managedDependency.packageRef.kind
+            version = downloadedVersion
+        case .edited, .fileSystem:
             packageKind = .fileSystem(packagePath)
             version = .none
         }
@@ -1822,16 +1843,22 @@ extension Workspace {
         let allDependencies = Array(self.state.dependencies)
         for dependency in allDependencies {
             observabilityScope.trap {
-
                 // If the dependency is present, we're done.
                 let dependencyPath = self.path(to: dependency)
-                guard !fileSystem.isDirectory(dependencyPath) else { return }
+                if fileSystem.isDirectory(dependencyPath) {
+                    return
+                }
 
                 switch dependency.state {
-                case .checkout(let checkoutState):
+                case .sourceControl(let checkoutState):
                     // If some checkout dependency has been removed, retrieve it again.
-                    _ = try self.retrieve(package: dependency.packageRef, at: checkoutState)
+                    _ = try self.checkoutRepository(package: dependency.packageRef, at: checkoutState, observabilityScope: observabilityScope)
                     observabilityScope.emit(.checkedOutDependencyMissing(packageName: dependency.packageRef.identity.description))
+
+                case .registry(let version):
+                    // If some downloaded dependency has been removed, retrieve it again.
+                    _ = try self.downloadRegistryArchive(package: dependency.packageRef, at: version, observabilityScope: observabilityScope)
+                    observabilityScope.emit(.registryDependencyMissing(packageName: dependency.packageRef.identity.description))
 
                 case .edited:
                     // If some edited dependency has been removed, mark it as unedited.
@@ -1843,7 +1870,7 @@ extension Workspace {
 
                     observabilityScope.emit(.editedDependencyMissing(packageName: dependency.packageRef.identity.description))
 
-                case .local:
+                case .fileSystem:
                     self.state.dependencies.remove(dependency.packageRef.identity)
                     try self.state.save()
                 }
@@ -2313,9 +2340,11 @@ extension Workspace {
                 return true
             }
             switch dependency.state {
-            case .checkout(let checkoutState):
-                return pin.state != checkoutState
-            case .edited, .local:
+            case .sourceControl(let checkoutState):
+                return !pin.state.equals(checkoutState)
+            case .registry(let version):
+                return !pin.state.equals(version)
+            case .edited, .fileSystem:
                 return true
             }
         }
@@ -2323,7 +2352,14 @@ extension Workspace {
         // Retrieve the required pins.
         for pin in requiredPins {
             observabilityScope.trap {
-                _ = try self.retrieve(package: pin.packageRef, at: pin.state)
+                switch pin.packageRef.kind {
+                case .localSourceControl, .remoteSourceControl:
+                    _ = try self.checkoutRepository(package: pin.packageRef, at: pin.state, observabilityScope: observabilityScope)
+                case .registry:
+                    _ = try self.downloadRegistryArchive(package: pin.packageRef, at: pin.state, observabilityScope: observabilityScope)
+                default:
+                    throw InternalError("invalid pin type \(pin.packageRef.kind)")
+                }
             }
         }
 
@@ -2577,37 +2613,42 @@ extension Workspace {
         productFilter: ProductFilter,
         observabilityScope: ObservabilityScope
     ) throws -> AbsolutePath {
-        let checkoutState: CheckoutState
-
         switch requirement {
         case .version(let version):
-            // FIXME: We need to get the revision here, and we don't have a
-            // way to get it back out of the resolver which is very
-            // annoying. Maybe we should make an SPI on the provider for
-            // this?
             // FIXME: this should not block
-            // FIXME: this should be updated to support registry
-            guard let container = (try temp_await {
-                self.getContainer(for: package, skipUpdate: true, observabilityScope: observabilityScope, on: .sharedConcurrent, completion: $0)
-            }) as? SourceControlPackageContainer else {
+            let container = try temp_await {
+                self.getContainer(
+                    for: package,
+                    skipUpdate: true,
+                    observabilityScope: observabilityScope,
+                    on: .sharedConcurrent,
+                    completion: $0
+                )
+            }
+
+            if let container = container as? SourceControlPackageContainer {
+                // FIXME: We need to get the revision here, and we don't have a
+                // way to get it back out of the resolver which is very
+                // annoying. Maybe we should make an SPI on the provider for this?
+                guard let tag = container.getTag(for: version) else {
+                    throw InternalError("unable to get tag for \(package) \(version); available versions \(try container.versionsDescending())")
+                }
+                let revision = try container.getRevision(forTag: tag)
+                return try self.checkoutRepository(package: package, at: .version(version, revision: revision), observabilityScope: observabilityScope)
+            } else {
                 throw InternalError("invalid container for \(package) expected a RepositoryPackageContainer")
             }
-            guard let tag = container.getTag(for: version) else {
-                throw InternalError("unable to get tag for \(package) \(version); available versions \(try container.versionsDescending())")
-            }
-            let revision = try container.getRevision(forTag: tag)
-            checkoutState = .version(version, revision: revision)
 
         case .revision(let revision, .none):
-            checkoutState = .revision(revision)
+            return try self.checkoutRepository(package: package, at: .revision(revision), observabilityScope: observabilityScope)
 
         case .revision(let revision, .some(let branch)):
-            checkoutState = .branch(name: branch, revision: revision)
+            return try self.checkoutRepository(package: package, at: .branch(name: branch, revision: revision), observabilityScope: observabilityScope)
 
         case .unversioned:
-            let dependency = try ManagedDependency.local(packageRef: package)
+            let dependency = try ManagedDependency.fileSystem(packageRef: package)
             // this is silly since we just created it above, but no good way to force cast it and extract the path
-            guard case .local(let path) = dependency.state else {
+            guard case .fileSystem(let path) = dependency.state else {
                 throw InternalError("invalid package type: \(package.kind)")
             }
 
@@ -2615,8 +2656,6 @@ extension Workspace {
             try self.state.save()
             return path
         }
-
-        return try self.retrieve(package: package, at: checkoutState)
     }
 
     public enum ResolutionPrecomputationResult: Equatable {
@@ -2684,8 +2723,8 @@ extension Workspace {
 
         for dependency in self.state.dependencies {
             switch dependency.state {
-            case .checkout: break
-            case .edited, .local: continue
+            case .sourceControl, .registry: break
+            case .edited, .fileSystem: continue
             }
 
             // also comparing location as it may have changed at this point
@@ -2825,11 +2864,13 @@ extension Workspace {
 
                 if let currentDependency = currentDependency {
                     switch currentDependency.state {
-                    case .local, .edited:
+                    case .fileSystem, .edited:
                         packageStateChanges[packageRef.identity] = (packageRef, .unchanged)
-                    case .checkout:
+                    case .sourceControl:
                         let newState = PackageStateChange.State(requirement: .unversioned, products: products)
                         packageStateChanges[packageRef.identity] = (packageRef, .updated(newState))
+                    case .registry:
+                        throw InternalError("Unexpected unversioned binding for downloaded dependency")
                     }
                 } else {
                     let newState = PackageStateChange.State(requirement: .unversioned, products: products)
@@ -2851,7 +2892,7 @@ extension Workspace {
                 // branches, use the revision from pin instead (if present).
                 if branch != nil, !updateBranches {
                     if case .branch(branch, let pinRevision) = pinsStore.pins.first(where: { $0.packageRef == packageRef })?.state {
-                        revision = pinRevision
+                        revision = Revision(identifier: pinRevision)
                     }
                 }
 
@@ -2865,7 +2906,7 @@ extension Workspace {
                     } else {
                         newState = .revision(revision)
                     }
-                    if case .checkout(let checkoutState) = currentDependency.state, checkoutState == newState {
+                    if case .sourceControl(let checkoutState) = currentDependency.state, checkoutState == newState {
                         packageStateChanges[packageRef.identity] = (packageRef, .unchanged)
                     } else {
                         // Otherwise, we need to update this dependency to this revision.
@@ -2879,7 +2920,9 @@ extension Workspace {
 
             case .version(let version):
                 if let currentDependency = currentDependency {
-                    if case .checkout(let checkoutState) = currentDependency.state, case .version(version, _) = checkoutState {
+                    if case .sourceControl(let checkoutState) = currentDependency.state, case .version(version, _) = checkoutState {
+                        packageStateChanges[packageRef.identity] = (packageRef, .unchanged)
+                    } else if case .registry(version) = currentDependency.state {
                         packageStateChanges[packageRef.identity] = (packageRef, .unchanged)
                     } else {
                         let newState = PackageStateChange.State(requirement: .version(version), products: products)
@@ -3074,16 +3117,21 @@ extension Workspace: PackageContainerProvider {
     ///   - package: The package to retrieve.
     ///   - checkoutState: The state to retrieve at.
     /// - Returns: The path of the local copy of the package.
+    /*
     func retrieve(package: PackageReference, at checkoutState: CheckoutState) throws -> AbsolutePath {
         switch package.kind {
         case .root, .fileSystem:
-            fatalError("local dependencies are supported")
+            throw InternalError("local dependencies are supported")
         case .localSourceControl, .remoteSourceControl:
             return try self.checkoutRepository(package: package, at: checkoutState)
         case .registry:
-            fatalError("registry dependencies are not supported at this point")
+            guard case .version(let version, _) = checkoutState else {
+                throw InternalError("cannot download source archive for package \(package) with checkout state \(checkoutState)")
+            }
+
+            return try self.downloadSourceArchive(for: package, at: version)
         }
-    }
+    }*/
 
     /// Removes the clone and checkout of the provided specifier.
     ///
@@ -3098,13 +3146,10 @@ extension Workspace: PackageContainerProvider {
         // a local package.
         //
         // Note that we don't actually remove a local package from disk.
-        switch dependency.state {
-        case .local:
+        if case .fileSystem = dependency.state {
             self.state.dependencies.remove(package.identity)
             try self.state.save()
             return
-        case .checkout, .edited:
-            break
         }
 
         // Inform the delegate.
@@ -3141,7 +3186,7 @@ extension Workspace: PackageContainerProvider {
         case .remoteSourceControl:
             try self.removeRepository(dependency: dependencyToRemove)
         case .registry:
-            fatalError("registry dependencies are not supported at this point")
+            try self.removeRegistryArchive(for: dependencyToRemove)
         }
 
         // Save the state.
@@ -3149,7 +3194,7 @@ extension Workspace: PackageContainerProvider {
     }
 }
 
-// MARK: - Repository management
+// MARK: - Source control repository management
 
 // FIXME: this mixes quite a bit of workspace logic with repository specific one
 // need to better separate the concerns
@@ -3164,33 +3209,68 @@ extension Workspace {
     ///   - checkoutState: The state to check out.
     /// - Returns: The path of the local repository.
     /// - Throws: If the operation could not be satisfied.
-    func checkoutRepository(package: PackageReference, at checkoutState: CheckoutState) throws -> AbsolutePath {
+    func checkoutRepository(
+        package: PackageReference,
+        at checkoutState: CheckoutState,
+        observabilityScope: ObservabilityScope
+    ) throws -> AbsolutePath {
         let repository = try package.makeRepositorySpecifier()
         // first fetch the repository.
-        let path = try self.fetchRepository(package: package)
+        let checkoutPath = try self.fetchRepository(package: package)
 
         // Check out the given revision.
-        let workingCopy = try self.repositoryManager.openWorkingCopy(at: path)
+        let workingCopy = try self.repositoryManager.openWorkingCopy(at: checkoutPath)
 
         // Inform the delegate.
-        delegate?.willCheckOut(repository: repository.location.description, revision: checkoutState.description, at: path)
+        delegate?.willCheckOut(repository: repository.location.description, revision: checkoutState.description, at: checkoutPath)
 
         // Do mutable-immutable dance because checkout operation modifies the disk state.
-        try fileSystem.chmod(.userWritable, path: path, options: [.recursive, .onlyFiles])
+        try fileSystem.chmod(.userWritable, path: checkoutPath, options: [.recursive, .onlyFiles])
         try workingCopy.checkout(revision: checkoutState.revision)
-        try? fileSystem.chmod(.userUnWritable, path: path, options: [.recursive, .onlyFiles])
+        try? fileSystem.chmod(.userUnWritable, path: checkoutPath, options: [.recursive, .onlyFiles])
 
         // Write the state record.
-        self.state.dependencies.add(.remote(
-            packageRef: package,
-            state: checkoutState,
-            subpath: path.relative(to: self.location.repositoriesCheckoutsDirectory)
-        ))
+        self.state.dependencies.add(
+            try .sourceControl(
+                packageRef: package,
+                state: checkoutState,
+                subpath: checkoutPath.relative(to: self.location.repositoriesCheckoutsDirectory)
+            )
+        )
         try self.state.save()
 
-        delegate?.didCheckOut(repository: repository.location.description, revision: checkoutState.description, at: path, error: nil)
+        delegate?.didCheckOut(repository: repository.location.description, revision: checkoutState.description, at: checkoutPath, error: nil)
 
-        return path
+        return checkoutPath
+    }
+
+    func checkoutRepository(
+        package: PackageReference,
+        at pinState: PinsStore.PinState,
+        observabilityScope: ObservabilityScope
+    ) throws -> AbsolutePath {
+        switch pinState {
+        case .version(let version, revision: let revision) where revision != nil:
+            return try self.checkoutRepository(
+                package: package,
+                at: .version(version, revision: .init(identifier: revision!)), // nil checked above
+                observabilityScope: observabilityScope
+            )
+        case .branch(let branch, revision: let revision):
+            return try self.checkoutRepository(
+                package: package,
+                at: .branch(name: branch, revision: .init(identifier: revision)),
+                observabilityScope: observabilityScope
+            )
+        case .revision(let revision):
+            return try self.checkoutRepository(
+                package: package,
+                at: .revision(.init(identifier: revision)),
+                observabilityScope: observabilityScope
+            )
+        default:
+            throw InternalError("invalid pin state: \(pinState)")
+        }
     }
 
     /// Fetch a given `package` and create a local checkout for it.
@@ -3204,7 +3284,7 @@ extension Workspace {
         // If we already have it, fetch to update the repo from its remote.
         // also compare the location as it may have changed
         if let dependency = self.state.dependencies[comparingLocation: package] {
-            let path = self.location.repositoriesCheckoutsDirectory.appending(dependency.subpath)
+            let path = self.location.repositoriesCheckoutSubdirectory(for: dependency)
 
             // Make sure the directory is not missing (we will have to clone again
             // if not).
@@ -3252,6 +3332,10 @@ extension Workspace {
 
     /// Removes the clone and checkout of the provided specifier.
     fileprivate func removeRepository(dependency: ManagedDependency) throws {
+        guard case .sourceControl = dependency.state else {
+            throw InternalError("cannot remove repository for \(dependency) with state \(dependency.state)")
+        }
+
         // Remove the checkout.
         let dependencyPath = self.location.repositoriesCheckoutSubdirectory(for: dependency)
         let workingCopy = try self.repositoryManager.openWorkingCopy(at: dependencyPath)
@@ -3267,6 +3351,68 @@ extension Workspace {
     }
 }
 
+// MARK: - Registry Source archive management
+
+ extension Workspace {
+     func downloadRegistryArchive(
+        package: PackageReference,
+        at version: Version,
+        observabilityScope: ObservabilityScope
+     ) throws -> AbsolutePath {
+         guard let registryManager = self.registryManager else {
+             throw InternalError("registry manager not initialized")
+         }
+
+         let downloadPath = self.location.registryDownloadDirectory.appending(components: package.identity.description, version.description)
+         if !self.fileSystem.exists(downloadPath) {
+             _ = try temp_await {
+                 registryManager.downloadSourceArchive(
+                    for: version,
+                       of: package,
+                       into: self.fileSystem,
+                       at: downloadPath,
+                       observabilityScope: observabilityScope,
+                       on: .sharedConcurrent,
+                       completion: $0
+                 )
+             }
+             // TODO: make download read-only?
+         }
+
+         self.state.dependencies.add(
+            try .registry(
+                packageRef: package,
+                version: version,
+                subpath: downloadPath.relative(to: self.location.registryDownloadDirectory)
+            )
+         )
+         try self.state.save()
+
+         return downloadPath
+     }
+
+     func downloadRegistryArchive(
+        package: PackageReference,
+        at pinState: PinsStore.PinState,
+        observabilityScope: ObservabilityScope
+     ) throws -> AbsolutePath {
+         switch pinState {
+         case .version(let version, _):
+             return try self.downloadRegistryArchive(package: package, at: version, observabilityScope: observabilityScope)
+         default:
+             throw InternalError("invalid pin state: \(pinState)")
+         }
+     }
+
+     func removeRegistryArchive(for dependency: ManagedDependency) throws {
+         guard case .registry = dependency.state else {
+             throw InternalError("cannot remove source archive for \(dependency) with state \(dependency.state)")
+         }
+
+         let downloadPath = self.location.registryDownloadSubdirectory(for: dependency)
+         try self.fileSystem.removeFileTree(downloadPath)
+     }
+ }
 
 // MARK: - Utility extensions
 
@@ -3356,7 +3502,7 @@ extension Workspace {
             result.append("dependency '\(package.identity)' was ")
 
             switch state {
-            case .checkout(let checkoutState)?:
+            case .sourceControl(let checkoutState)?:
                 switch checkoutState.requirement {
                 case .versionSet(.exact(let version)):
                     result.append("resolved to '\(version)'")
@@ -3368,9 +3514,11 @@ extension Workspace {
                 case .unversioned:
                     result.append("unversioned")
                 }
+            case .registry(let version)?:
+                result.append("resolved to '\(version)'")
             case .edited?:
                 result.append("edited")
-            case .local?:
+            case .fileSystem?:
                 result.append("versioned")
             case nil:
                 result.append("root")
@@ -3393,5 +3541,64 @@ extension Workspace {
         }
 
         return result
+    }
+}
+
+extension PinsStore.PinState {
+    fileprivate func equals(_ checkoutState: CheckoutState) -> Bool {
+        switch (self, checkoutState) {
+        case (.version(let lversion, let lrevision), .version(let rversion, let rrevision)):
+            return lversion == rversion && lrevision == rrevision.identifier
+        case (.branch(let lbranch, let lrevision), .branch(let rbranch, let rrevision)):
+            return lbranch == rbranch && lrevision == rrevision.identifier
+        case (.revision(let lrevision), .revision(let rrevision)):
+            return lrevision == rrevision.identifier
+        default:
+            return false
+        }
+    }
+
+    fileprivate func equals(_ version: Version) -> Bool {
+        switch self {
+        case .version(let version, _):
+            return version == version
+        default:
+            return false
+        }
+    }
+}
+
+extension CheckoutState {
+    fileprivate var revision: Revision {
+        get {
+            switch self {
+            case .revision(let revision):
+                return revision
+            case .version(_, let revision):
+                return revision
+            case .branch(_, let revision):
+                return revision
+            }
+        }
+    }
+
+    fileprivate var isBranchOrRevisionBased: Bool {
+        switch self {
+        case .revision, .branch:
+            return true
+        case .version:
+            return false
+        }
+    }
+
+    fileprivate var requirement: PackageRequirement {
+        switch self {
+        case .revision(let revision):
+            return .revision(revision.identifier)
+        case .version(let version, _):
+            return .versionSet(.exact(version))
+        case .branch(let branch, _):
+            return .revision(branch)
+        }
     }
 }

@@ -123,7 +123,7 @@ private struct LocalPackageContainer: PackageContainer {
 
     func getDependencies(at version: Version, productFilter: ProductFilter) throws -> [PackageContainerConstraint] {
         // Because of the implementation of `reversedVersions`, we should only get the exact same version.
-        guard case .checkout(.version(version, revision: _)) = dependency?.state else {
+        guard case .sourceControl(.version(version, revision: _)) = dependency?.state else {
             throw InternalError("expected version checkout state, but state was \(String(describing: dependency?.state))")
         }
         return try manifest.dependencyConstraints(productFilter: productFilter)
@@ -133,7 +133,7 @@ private struct LocalPackageContainer: PackageContainer {
         // Return the dependencies if the checkout state matches the revision.
         let revision = Revision(identifier: revisionString)
         switch dependency?.state {
-        case .checkout(.branch(_, revision: revision)), .checkout(.revision(revision)):
+        case .sourceControl(.branch(_, revision: revision)), .sourceControl(.revision(revision)):
             return try manifest.dependencyConstraints(productFilter: productFilter)
         default:
             throw ResolverPrecomputationError.differentRequirement(
@@ -146,7 +146,7 @@ private struct LocalPackageContainer: PackageContainer {
 
     func getUnversionedDependencies(productFilter: ProductFilter) throws -> [PackageContainerConstraint] {
         // Throw an error when the dependency is not unversioned to fail resolution.
-        guard dependency?.isCheckout != true else {
+        guard dependency?.isSourceControl != true else {
             throw ResolverPrecomputationError.differentRequirement(
                 package: package,
                 state: dependency?.state,
@@ -170,7 +170,7 @@ private struct LocalPackageContainer: PackageContainer {
 private extension Workspace.ManagedDependency.State {
     var checkout: CheckoutState? {
         switch self {
-        case .checkout(let state):
+        case .sourceControl(let state):
             return state
         default:
             return nil

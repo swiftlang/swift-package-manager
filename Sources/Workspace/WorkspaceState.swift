@@ -226,12 +226,15 @@ extension WorkspaceStateStorage {
                 static func decode(container: KeyedDecodingContainer<Self.CodingKeys>, basedOn: Dependency?) throws -> State {
                     let kind = try container.decode(String.self, forKey: .name)
                     switch kind {
-                    case "local":
+                    case "local", "fileSystem":
                         let path = try container.decode(AbsolutePath.self, forKey: .path)
-                        return self.init(underlying: .local(path))
-                    case "checkout":
+                        return self.init(underlying: .fileSystem(path))
+                    case "checkout", "sourceControl":
                         let checkout = try container.decode(CheckoutInfo.self, forKey: .checkoutState)
-                        return try self.init(underlying: .checkout(.init(checkout)))
+                        return try self.init(underlying: .sourceControl(.init(checkout)))
+                    case "registry":
+                        let version = try container.decode(String.self, forKey: .version)
+                        return try self.init(underlying: .registry(version: TSCUtility.Version(versionString: version)))
                     case "edited":
                         let path = try container.decode(AbsolutePath?.self, forKey: .path)
                         return try self.init(underlying: .edited(basedOn: basedOn.map { try .init($0) }, unmanagedPath: path))
@@ -243,12 +246,15 @@ extension WorkspaceStateStorage {
                 func encode(to encoder: Encoder) throws {
                     var container = encoder.container(keyedBy: CodingKeys.self)
                     switch self.underlying {
-                    case .local(let path):
-                        try container.encode("local", forKey: .name)
+                    case .fileSystem(let path):
+                        try container.encode("fileSystem", forKey: .name)
                         try container.encode(path, forKey: .path)
-                    case .checkout(let state):
-                        try container.encode("checkout", forKey: .name)
+                    case .sourceControl(let state):
+                        try container.encode("sourceControl", forKey: .name)
                         try container.encode(CheckoutInfo(state), forKey: .checkoutState)
+                    case .registry(let version):
+                        try container.encode("registry", forKey: .name)
+                        try container.encode(version, forKey: .version)
                     case .edited(_, let path):
                         try container.encode("edited", forKey: .name)
                         try container.encode(path, forKey: .path)
@@ -258,6 +264,7 @@ extension WorkspaceStateStorage {
                 enum CodingKeys: CodingKey {
                     case name
                     case path
+                    case version
                     case checkoutState
                 }
 
@@ -510,10 +517,10 @@ extension WorkspaceStateStorage {
                     let kind = try container.decode(String.self, forKey: .name)
                     switch kind {
                     case "local":
-                        return try self.init(underlying: .local(.init(validating: packageRef.location)))
+                        return try self.init(underlying: .fileSystem(.init(validating: packageRef.location)))
                     case "checkout":
                         let checkout = try container.decode(CheckoutInfo.self, forKey: .checkoutState)
-                        return try self.init(underlying: .checkout(.init(checkout)))
+                        return try self.init(underlying: .sourceControl(.init(checkout)))
                     case "edited":
                         let path = try container.decode(AbsolutePath?.self, forKey: .path)
                         return try self.init(underlying: .edited(basedOn: basedOn.map { try .init($0) }, unmanagedPath: path))

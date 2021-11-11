@@ -819,7 +819,7 @@ final class WorkspaceTests: XCTestCase {
         try workspace.set(
             pins: [bRef: v1_5, cRef: v2],
             managedDependencies: [
-                .remote(packageRef: bRef, state: v1_5, subpath: bPath)
+                .sourceControl(packageRef: bRef, state: v1_5, subpath: bPath)
                     .edited(subpath: bPath, unmanagedPath: .none),
             ]
         )
@@ -875,7 +875,7 @@ final class WorkspaceTests: XCTestCase {
         try workspace.set(
             pins: [bRef: v1],
             managedDependencies: [
-                .remote(packageRef: bRef, state: v1, subpath: bPath),
+                .sourceControl(packageRef: bRef, state: v1, subpath: bPath),
             ]
         )
 
@@ -932,8 +932,8 @@ final class WorkspaceTests: XCTestCase {
         try workspace.set(
             pins: [bRef: v1_5, cRef: v1_5],
             managedDependencies: [
-                .remote(packageRef: bRef, state: v1_5, subpath: bPath),
-                .remote(packageRef: cRef, state: v1_5, subpath: cPath),
+                .sourceControl(packageRef: bRef, state: v1_5, subpath: bPath),
+                .sourceControl(packageRef: cRef, state: v1_5, subpath: cPath),
             ]
         )
 
@@ -941,7 +941,7 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertEqual(result.diagnostics.hasErrors, false)
             XCTAssertEqual(result.result, .required(reason: .packageRequirementChange(
                 package: cRef,
-                state: .checkout(v1_5),
+                state: .sourceControl(v1_5),
                 requirement: .revision("master")
             )))
         }
@@ -982,7 +982,7 @@ final class WorkspaceTests: XCTestCase {
         try testWorkspace.set(
             pins: [cRef: v1_5],
             managedDependencies: [
-                .remote(packageRef: cRef, state: v1_5, subpath: cPath),
+                .sourceControl(packageRef: cRef, state: v1_5, subpath: cPath),
             ]
         )
 
@@ -990,7 +990,7 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertEqual(result.diagnostics.hasErrors, false)
             XCTAssertEqual(result.result, .required(reason: .packageRequirementChange(
                 package: cRef,
-                state: .checkout(v1_5),
+                state: .sourceControl(v1_5),
                 requirement: .revision("hello")
             )))
         }
@@ -1042,8 +1042,8 @@ final class WorkspaceTests: XCTestCase {
         try workspace.set(
             pins: [bRef: v1_5],
             managedDependencies: [
-                .remote(packageRef: bRef, state: v1_5, subpath: bPath),
-                .local(packageRef: cRef),
+                .sourceControl(packageRef: bRef, state: v1_5, subpath: bPath),
+                .fileSystem(packageRef: cRef),
             ]
         )
 
@@ -1051,7 +1051,7 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertEqual(result.diagnostics.hasErrors, false)
             XCTAssertEqual(result.result, .required(reason: .packageRequirementChange(
                 package: cRef,
-                state: .local(cPackagePath),
+                state: .fileSystem(cPackagePath),
                 requirement: .revision("master")
             )))
         }
@@ -1104,8 +1104,8 @@ final class WorkspaceTests: XCTestCase {
         try workspace.set(
             pins: [bRef: v1_5, cRef: v1_5],
             managedDependencies: [
-                .remote(packageRef: bRef, state: v1_5, subpath: bPath),
-                .remote(packageRef: cRef, state: v1_5, subpath: cPath),
+                .sourceControl(packageRef: bRef, state: v1_5, subpath: bPath),
+                .sourceControl(packageRef: cRef, state: v1_5, subpath: cPath),
             ]
         )
 
@@ -1113,7 +1113,7 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertEqual(result.diagnostics.hasErrors, false)
             XCTAssertEqual(result.result, .required(reason: .packageRequirementChange(
                 package: cRef,
-                state: .checkout(v1_5),
+                state: .sourceControl(v1_5),
                 requirement: .unversioned
             )))
         }
@@ -1168,8 +1168,8 @@ final class WorkspaceTests: XCTestCase {
         try workspace.set(
             pins: [bRef: v1_5, cRef: master],
             managedDependencies: [
-                .remote(packageRef: bRef, state: v1_5, subpath: bPath),
-                .remote(packageRef: cRef, state: master, subpath: cPath),
+                .sourceControl(packageRef: bRef, state: v1_5, subpath: bPath),
+                .sourceControl(packageRef: cRef, state: master, subpath: cPath),
             ]
         )
 
@@ -1177,7 +1177,7 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertEqual(result.diagnostics.hasErrors, false)
             XCTAssertEqual(result.result, .required(reason: .packageRequirementChange(
                 package: cRef,
-                state: .checkout(master),
+                state: .sourceControl(master),
                 requirement: .unversioned
             )))
         }
@@ -1230,8 +1230,8 @@ final class WorkspaceTests: XCTestCase {
         try workspace.set(
             pins: [bRef: v1_5, cRef: v1_5],
             managedDependencies: [
-                .remote(packageRef: bRef, state: v1_5, subpath: bPath),
-                .remote(packageRef: cRef, state: v1_5, subpath: cPath),
+                .sourceControl(packageRef: bRef, state: v1_5, subpath: bPath),
+                .sourceControl(packageRef: cRef, state: v1_5, subpath: cPath),
             ]
         )
 
@@ -1289,8 +1289,8 @@ final class WorkspaceTests: XCTestCase {
         try workspace.set(
             pins: [bRef: v1_5, cRef: v2],
             managedDependencies: [
-                .remote(packageRef: bRef, state: v1_5, subpath: bPath),
-                .remote(packageRef: cRef, state: v2, subpath: cPath),
+                .sourceControl(packageRef: bRef, state: v1_5, subpath: bPath),
+                .sourceControl(packageRef: cRef, state: v2, subpath: cPath),
             ]
         )
 
@@ -2864,7 +2864,7 @@ final class WorkspaceTests: XCTestCase {
         }
         workspace.checkResolve(pkg: "Bar", roots: ["Foo"], version: "1.0.0") { diagnostics in
             testDiagnostics(diagnostics) { result in
-                result.check(diagnostic: .contains("local dependency 'bar' can't be edited"), severity: .error)
+                result.check(diagnostic: .contains("local dependency 'bar' can't be resolved"), severity: .error)
             }
         }
     }
@@ -3722,7 +3722,7 @@ final class WorkspaceTests: XCTestCase {
 
             let fooRepo = workspace.repoProvider.specifierMap[RepositorySpecifier(path: AbsolutePath(fooPin.packageRef.locationString))]!
             let revision = try fooRepo.resolveRevision(tag: "1.0.0")
-            let newState = CheckoutState.version("1.0.0", revision: revision)
+            let newState = PinsStore.PinState.version("1.0.0", revision: revision.identifier)
 
             pinsStore.pin(packageRef: fooPin.packageRef, state: newState)
             try pinsStore.saveState(toolsVersion: ToolsVersion.currentToolsVersion)
@@ -5840,7 +5840,7 @@ final class WorkspaceTests: XCTestCase {
         let aRepo = workspace.repoProvider.specifierMap[RepositorySpecifier(path: aPath)]!
         let aRevision = try aRepo.resolveRevision(tag: "1.0.0")
         let aState = CheckoutState.version("1.0.0", revision: aRevision)
-        let aDependency: Workspace.ManagedDependency = .remote(packageRef: aRef, state: aState, subpath: RelativePath("A"))
+        let aDependency: Workspace.ManagedDependency = try .sourceControl(packageRef: aRef, state: aState, subpath: RelativePath("A"))
 
         try workspace.set(
             pins: [aRef: aState],
@@ -6521,7 +6521,7 @@ final class WorkspaceTests: XCTestCase {
         let aRepo = workspace.repoProvider.specifierMap[RepositorySpecifier(path: aPath)]!
         let aRevision = try aRepo.resolveRevision(tag: "1.0.0")
         let aState = CheckoutState.version("1.0.0", revision: aRevision)
-        let aDependency: Workspace.ManagedDependency = .remote(packageRef: aRef, state: aState, subpath: RelativePath("A"))
+        let aDependency: Workspace.ManagedDependency = try .sourceControl(packageRef: aRef, state: aState, subpath: RelativePath("A"))
 
         try workspace.set(
             pins: [aRef: aState],
