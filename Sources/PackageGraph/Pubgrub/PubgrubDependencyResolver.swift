@@ -1028,7 +1028,7 @@ private struct DiagnosticReportBuilder {
 
 /// A container for an individual package. This enhances PackageContainer to add PubGrub specific
 /// logic which is mostly related to computing incompatibilities at a particular version.
-private final class PubGrubPackageContainer {
+internal final class PubGrubPackageContainer {
     /// The underlying package container.
     let underlying: PackageContainer
 

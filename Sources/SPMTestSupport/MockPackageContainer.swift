@@ -26,6 +26,8 @@ public class MockPackageContainer: PackageContainer {
     public let package: PackageReference
 
     let dependencies: [String: [Dependency]]
+    let filteredMode: Bool
+    let filteredDependencies: [ProductFilter: [Dependency]]
 
     public var unversionedDeps: [MockPackageContainer.Constraint] = []
 
@@ -47,7 +49,13 @@ public class MockPackageContainer: PackageContainer {
     }
 
     public func getDependencies(at revision: String, productFilter: ProductFilter) -> [MockPackageContainer.Constraint] {
-        return dependencies[revision]!.map { value in
+        let dependencies: [Dependency]
+        if filteredMode {
+            dependencies = filteredDependencies[productFilter]!
+        } else {
+            dependencies = self.dependencies[revision]!
+        }
+        return dependencies.map { value in
             let (package, requirement) = value
             return MockPackageContainer.Constraint(package: package, requirement: requirement, products: productFilter)
         }
@@ -97,6 +105,29 @@ public class MockPackageContainer: PackageContainer {
         self.package = package
         self._versions = dependencies.keys.compactMap(Version.init(_:)).sorted()
         self.dependencies = dependencies
+        self.filteredMode = false
+        self.filteredDependencies = [:]
+    }
+
+    public init(
+        name: String,
+        dependenciesByProductFilter: [ProductFilter: [(container: String, versionRequirement: VersionSetSpecifier)]]
+    ) {
+        var dependencies: [ProductFilter: [Dependency]] = [:]
+        for (filter, deps) in dependenciesByProductFilter {
+            dependencies[filter] = deps.map {
+                let path = AbsolutePath("/\($0.container)")
+                let ref = PackageReference.localSourceControl(identity: .init(path: path), path: path)
+                return (ref, .versionSet($0.versionRequirement))
+            }
+        }
+        let path = AbsolutePath("/\(name)")
+        let ref = PackageReference.localSourceControl(identity: .init(path: path), path: path)
+        self.package = ref
+        self._versions = [Version(1, 0, 0)]
+        self.dependencies = [:]
+        self.filteredMode = true
+        self.filteredDependencies = dependencies
     }
 }
 

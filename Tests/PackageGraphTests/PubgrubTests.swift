@@ -1160,6 +1160,110 @@ final class PubgrubTests: XCTestCase {
         XCTAssertMatch(delegate.events, ["didResolve 'bar' at '2.0.1'"])
         XCTAssertMatch(delegate.events, ["solved: 'bar' at '2.0.1', 'foo' at '1.1.0'"])
     }
+
+    func testPubGrubPackageContainerCacheParameterization() {
+        let container = PubGrubPackageContainer(
+            underlying: MockPackageContainer(
+                name: "Package",
+                dependenciesByProductFilter: [
+                    .specific(["FilterA"]): [(
+                        container: "DependencyA",
+                        versionRequirement: .exact(Version(1, 0, 0))
+                    )],
+                    .specific(["FilterB"]): [(
+                        container: "DependencyB",
+                        versionRequirement: .exact(Version(1, 0, 0))
+                    )]
+                ]),
+            pinsMap: PinsStore.PinsMap()
+        )
+        let rootLocation = AbsolutePath("/Root")
+        let otherLocation = AbsolutePath("/Other")
+        let dependencyALocation = AbsolutePath("/DependencyA")
+        let dependencyBLocation = AbsolutePath("/DependencyB")
+        let root = PackageReference(identity: PackageIdentity(path: rootLocation), kind: .fileSystem(rootLocation))
+        let other = PackageReference.localSourceControl(identity: .init(path: otherLocation), path: otherLocation)
+        let dependencyA = PackageReference.localSourceControl(identity: .init(path: dependencyALocation), path: dependencyALocation)
+        let dependencyB = PackageReference.localSourceControl(identity: .init(path: dependencyBLocation), path: dependencyBLocation)
+        XCTAssertEqual(
+            try container.incompatibilites(
+                at: Version(1, 0, 0),
+                node: .product(
+                    "FilterA",
+                    package: other
+                ),
+                overriddenPackages: [:],
+                root: .root(package: root)
+            ),
+            [
+                Incompatibility(
+                    terms: [
+                        Term(
+                            node: .product("FilterA", package: other), requirement: .range(Version(0, 0, 0)..<Version(2, 0, 0)),
+                            isPositive: true
+                        ),
+                        Term(
+                            node: .product("FilterA", package: dependencyA), requirement: .exact(Version(1, 0, 0)),
+                            isPositive: false
+                        )
+                    ],
+                    cause: .dependency(node: .product("FilterA", package: other))
+                ),
+                Incompatibility(
+                    terms: [
+                        Term(
+                            node: .product("FilterA", package: other), requirement: .range(Version(0, 0, 0)..<Version(2, 0, 0)),
+                            isPositive: true
+                        ),
+                        Term(
+                            node: .empty(package: other), requirement: .exact(Version(1, 0, 0)),
+                            isPositive: false
+                        ),
+                    ],
+                    cause: .dependency(node: .product("FilterA", package: other))
+                )
+            ]
+        )
+        XCTAssertEqual(
+            try container.incompatibilites(
+                at: Version(1, 0, 0),
+                node: .product(
+                    "FilterB",
+                    package: other
+                ),
+                overriddenPackages: [:],
+                root: .root(package: root)
+            ),
+            [
+                Incompatibility(
+                    terms: [
+                        Term(
+                            node: .product("FilterB", package: other), requirement: .range(Version(0, 0, 0)..<Version(2, 0, 0)),
+                            isPositive: true
+                        ),
+                        Term(
+                            node: .product("FilterB", package: dependencyB), requirement: .exact(Version(1, 0, 0)),
+                            isPositive: false
+                        )
+                    ],
+                    cause: .dependency(node: .product("FilterB", package: other))
+                ),
+                Incompatibility(
+                    terms: [
+                        Term(
+                            node: .product("FilterB", package: other), requirement: .range(Version(0, 0, 0)..<Version(2, 0, 0)),
+                            isPositive: true
+                        ),
+                        Term(
+                            node: .empty(package: other), requirement: .exact(Version(1, 0, 0)),
+                            isPositive: false
+                        ),
+                    ],
+                    cause: .dependency(node: .product("FilterB", package: other))
+                )
+            ]
+        )
+    }
 }
 
 final class PubGrubTestsBasicGraphs: XCTestCase {
