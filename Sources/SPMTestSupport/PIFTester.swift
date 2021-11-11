@@ -241,6 +241,15 @@ public final class PIFBuildSettingsTester {
         }
     }
 
+    public subscript(_ key: PIF.BuildSettings.SingleValueSetting, for platform: PIF.BuildSettings.Platform) -> String? {
+        if let value = buildSettings[key, for: platform] {
+            buildSettings[key, for: platform] = nil
+            return value
+        } else {
+            return nil
+        }
+    }
+
     public subscript(_ key: PIF.BuildSettings.MultipleValueSetting) -> [String]? {
         if let value = buildSettings[key] {
             buildSettings[key] = nil
