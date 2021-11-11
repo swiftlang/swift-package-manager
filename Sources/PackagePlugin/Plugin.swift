@@ -64,6 +64,7 @@ extension Plugin {
         // that SwiftPM specified.
         let commands: [Command]
         switch input.pluginAction {
+            
         case .createBuildToolCommands(let target):
             // Check that the plugin implements the appropriate protocol for its
             // declared capability.
@@ -73,6 +74,20 @@ extension Plugin {
             
             // Ask the plugin to create build commands for the input target.
             commands = try plugin.createBuildCommands(context: context, target: target)
+            
+        case .performCommand(let targets, let arguments):
+            // Check that the plugin implements the appropriate protocol for its
+            // declared capability.
+            guard let plugin = plugin as? CommandPlugin else {
+                throw PluginDeserializationError.malformedInputJSON("Plugin declared with `command` capability but doesn't conform to `CommandPlugin` protocol")
+            }
+            
+            // Invoke the plugin.
+            try plugin.performCommand(context: context, targets: targets, arguments: arguments)
+
+            // For command plugin there are currently no return commands (any
+            // commands invoked by the plugin are invoked directly).
+            commands = []
         }
         
         // Construct the output structure to send to SwiftPM.

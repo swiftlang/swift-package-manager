@@ -37,13 +37,13 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
     }
 
     /// Public protocol function that compiles and runs the plugin as a subprocess.  The tools version controls the availability of APIs in PackagePlugin, and should be set to the tools version of the package that defines the plugin (not of the target to which it is being applied).
-    public func runPluginScript(sources: Sources, inputJSON: Data, toolsVersion: ToolsVersion, writableDirectories: [AbsolutePath], observabilityScope: ObservabilityScope, fileSystem: FileSystem) throws -> (outputJSON: Data, stdoutText: Data) {
+    public func runPluginScript(sources: Sources, inputJSON: Data, pluginArguments: [String], toolsVersion: ToolsVersion, writableDirectories: [AbsolutePath], observabilityScope: ObservabilityScope, fileSystem: FileSystem) throws -> (outputJSON: Data, stdoutText: Data) {
         // FIXME: We should only compile the plugin script again if needed.
         let result = try self.compile(sources: sources, toolsVersion: toolsVersion, cacheDir: self.cacheDir)
         guard let compiledExecutable = result.compiledExecutable else {
             throw DefaultPluginScriptRunnerError.compilationFailed(result)
         }
-        return try self.invoke(compiledExec: compiledExecutable, toolsVersion: toolsVersion, writableDirectories: writableDirectories, input: inputJSON)
+        return try self.invoke(compiledExec: compiledExecutable, pluginArguments: pluginArguments, toolsVersion: toolsVersion, writableDirectories: writableDirectories, input: inputJSON)
     }
 
     public var hostTriple: Triple {
@@ -139,6 +139,9 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
         let executableFile = cacheDir.appending(component: "compiled-plugin")
         command += ["-o", executableFile.pathString]
         
+        // Make sure the cache directory in which we'll be placing the compiled executable exists.
+        try FileManager.default.createDirectory(at: cacheDir.asURL, withIntermediateDirectories: true, attributes: nil)
+        
         // Invoke the compiler and get back the result.
         let compilerResult = try Process.popen(arguments: command, environment: toolchain.swiftCompilerEnvironment)
 
@@ -178,8 +181,11 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
         return PlatformVersion(versionString)
     }
 
-    fileprivate func invoke(compiledExec: AbsolutePath, toolsVersion: ToolsVersion, writableDirectories: [AbsolutePath], input: Data) throws -> (outputJSON: Data, stdoutText: Data) {
+    fileprivate func invoke(compiledExec: AbsolutePath, pluginArguments: [String], toolsVersion: ToolsVersion, writableDirectories: [AbsolutePath], input: Data) throws -> (outputJSON: Data, stdoutText: Data) {
         // Construct the command line.
+        
+        // FIXME: Need to pass down the arguments and not ignore them.
+        
         // FIXME: It would be more robust to pass it as `stdin` data, but we need TSC support for that.  When this is
         // changed, PackagePlugin will need to change as well (but no plugins need to change).
         var command = [compiledExec.pathString]
