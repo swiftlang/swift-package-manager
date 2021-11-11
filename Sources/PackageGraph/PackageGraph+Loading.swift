@@ -397,8 +397,11 @@ private func createResolvedPackages(
 
         // Get all the products from dependencies of this package.
         let productDependencies = packageBuilder.dependencies
-            .flatMap({ $0.products })
-            .filter({ $0.product.type != .test })
+            .flatMap({ (dependency: ResolvedPackageBuilder) -> [ResolvedProductBuilder] in
+                // Filter out synthesized products such as tests and implicit executables.
+                let explicit = Set(dependency.package.manifest.products.lazy.map({ $0.name }))
+                return dependency.products.filter({ explicit.contains($0.product.name) })
+            })
         let productDependencyMap = productDependencies.spm_createDictionary({ ($0.product.name, $0) })
 
         // Establish dependencies in each target.
