@@ -88,7 +88,7 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
         let manifest = try loadManifest(content, observabilityScope: observability.topScope)
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        XCTAssertEqual(manifest.name, "Trivial")
+        XCTAssertEqual(manifest.displayName, "Trivial")
         XCTAssertEqual(manifest.dependencies[0].nameForTargetDependencyResolutionOnly, "Foo")
         XCTAssertEqual(manifest.dependencies[1].nameForTargetDependencyResolutionOnly, "Foo2")
         XCTAssertEqual(manifest.dependencies[2].nameForTargetDependencyResolutionOnly, "Foo3")

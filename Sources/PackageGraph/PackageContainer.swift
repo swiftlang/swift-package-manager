@@ -90,7 +90,7 @@ public protocol PackageContainer {
     /// This can be used by the containers to fill in the missing information that is obtained
     /// after the container is available. The updated identifier is returned in result of the
     /// dependency resolution.
-    func getUpdatedIdentifier(at boundVersion: BoundVersion) throws -> PackageReference
+    func loadPackageReference(at boundVersion: BoundVersion) throws -> PackageReference
 }
 
 extension PackageContainer {

@@ -67,7 +67,7 @@ fileprivate extension SourceCodeFragment {
     init(from manifest: Manifest, customProductTypeSourceGenerator: ManifestCustomProductTypeSourceGenerator?) rethrows {
         var params: [SourceCodeFragment] = []
         
-        params.append(SourceCodeFragment(key: "name", string: manifest.name))
+        params.append(SourceCodeFragment(key: "name", string: manifest.displayName))
         
         if let defaultLoc = manifest.defaultLocalization {
             params.append(SourceCodeFragment(key: "defaultLocalization", string: defaultLoc))

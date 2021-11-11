@@ -139,7 +139,7 @@ public final class MockWorkspace {
             for version in versions {
                 let v = version.flatMap(Version.init(_:))
                 manifests[.init(url: specifier.location.description, version: v)] = try Manifest(
-                    name: package.name,
+                    displayName: package.name,
                     path: manifestPath,
                     packageKind: packageKind,
                     packageLocation: packageLocation,

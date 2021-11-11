@@ -51,7 +51,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
         let manifest = try loadManifest(content, observabilityScope: observability.topScope)
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        XCTAssertEqual(manifest.name, "Trivial")
+        XCTAssertEqual(manifest.displayName, "Trivial")
 
         // Check targets.
         let foo = manifest.targetMap["foo"]!
@@ -397,7 +397,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                 fileSystem: fs,
                 observabilityScope: ObservabilitySystem.NOOP
             )
-            XCTAssertEqual(manifest.name, "Trivial")
+            XCTAssertEqual(manifest.displayName, "Trivial")
         }
     }
 
@@ -419,7 +419,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
         // Check we can load the manifest.
         let manifest = try manifestLoader.load(at: packageDir, packageKind: .root(packageDir), toolsVersion: .v4_2, fileSystem: fs, observabilityScope: observability.topScope)
         XCTAssertNoDiagnostics(observability.diagnostics)
-        XCTAssertEqual(manifest.name, "Trivial")
+        XCTAssertEqual(manifest.displayName, "Trivial")
 
         // Switch it around so that the main manifest is now the one that doesn't have a comment.
         try fs.writeFileContents(
@@ -431,7 +431,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
         // Check we can load the manifest.
         let manifest2 = try manifestLoader.load(at: packageDir, packageKind: .root(packageDir), toolsVersion: .v4_2, fileSystem: fs, observabilityScope: observability.topScope)
         XCTAssertNoDiagnostics(observability.diagnostics)
-        XCTAssertEqual(manifest2.name, "Trivial")
+        XCTAssertEqual(manifest2.displayName, "Trivial")
     }
 
     func testRuntimeManifestErrors() throws {
@@ -605,7 +605,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                 XCTAssertNoDiagnostics(observability.diagnostics)
                 XCTAssertEqual(try delegate.loaded(timeout: .now() + 1), [manifestPath])
                 XCTAssertEqual(try delegate.parsed(timeout: .now() + 1), expectCached ? [] : [manifestPath])
-                XCTAssertEqual(manifest.name, "Trivial")
+                XCTAssertEqual(manifest.displayName, "Trivial")
                 XCTAssertEqual(manifest.targets[0].name, "foo")
             }
 
@@ -665,7 +665,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                 XCTAssertNoDiagnostics(observability.diagnostics)
                 XCTAssertEqual(try delegate.loaded(timeout: .now() + 1), [manifestPath])
                 XCTAssertEqual(try delegate.parsed(timeout: .now() + 1), expectCached ? [] : [manifestPath])
-                XCTAssertEqual(manifest.name, "Trivial")
+                XCTAssertEqual(manifest.displayName, "Trivial")
                 XCTAssertEqual(manifest.targets[0].name, "foo")
             }
 
@@ -741,7 +741,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                 )
 
                 XCTAssertNoDiagnostics(observability.diagnostics)
-                XCTAssertEqual(m.name, "Trivial")
+                XCTAssertEqual(m.displayName, "Trivial")
             }
 
             do {
@@ -870,7 +870,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             }
 
             XCTAssertNoDiagnostics(observability.diagnostics)
-            XCTAssertEqual(manifest.name, "Trivial")
+            XCTAssertEqual(manifest.displayName, "Trivial")
             XCTAssertEqual(manifest.targets[0].name, "foo")
 
             let sync = DispatchGroup()
@@ -897,7 +897,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                         XCTFail("\(error)")
                     case .success(let manifest):
                         XCTAssertNoDiagnostics(observability.diagnostics)
-                        XCTAssertEqual(manifest.name, "Trivial")
+                        XCTAssertEqual(manifest.displayName, "Trivial")
                         XCTAssertEqual(manifest.targets[0].name, "foo")
                     }
                 }
@@ -964,7 +964,7 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                     case .failure(let error):
                         XCTFail("\(error)")
                     case .success(let manifest):
-                        XCTAssertEqual(manifest.name, "Trivial-\(random)")
+                        XCTAssertEqual(manifest.displayName, "Trivial-\(random)")
                         XCTAssertEqual(manifest.targets[0].name, "foo-\(random)")
                     }
                 }

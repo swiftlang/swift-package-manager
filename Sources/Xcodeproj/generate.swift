@@ -239,7 +239,7 @@ func generateSchemes(
         // tests associated so testing works. We suffix the name of this scheme with
         // -Package so its name doesn't collide with any products or target with
         // same name.
-        let schemeName = "\(graph.rootPackages[0].manifestName)-Package.xcscheme" // TODO: use identity instead?
+        let schemeName = "\(graph.rootPackages[0].manifest.displayName)-Package.xcscheme" // TODO: use identity instead?
         try open(schemesDir.appending(RelativePath(schemeName))) { stream in
             legacySchemeGenerator(
                 container: schemeContainer,

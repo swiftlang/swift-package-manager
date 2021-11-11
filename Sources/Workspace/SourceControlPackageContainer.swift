@@ -266,7 +266,7 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
         return []
     }
 
-    public func getUpdatedIdentifier(at boundVersion: BoundVersion) throws -> PackageReference {
+    public func loadPackageReference(at boundVersion: BoundVersion) throws -> PackageReference {
         let revision: Revision
         var version: Version?
         switch boundVersion {
@@ -284,7 +284,7 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
         }
 
         let manifest = try self.loadManifest(at: revision, version: version)
-        return self.package.with(newName: manifest.name)
+        return self.package.withName(manifest.displayName)
     }
 
     /// Returns true if the tools version is valid and can be used by this

@@ -158,7 +158,7 @@ private struct LocalPackageContainer: PackageContainer {
     }
 
     // Gets the package reference from the managed dependency or computes it for root packages.
-    func getUpdatedIdentifier(at boundVersion: BoundVersion) throws -> PackageReference {
+    func loadPackageReference(at boundVersion: BoundVersion) throws -> PackageReference {
         if let packageRef = dependency?.packageRef {
             return packageRef
         } else {

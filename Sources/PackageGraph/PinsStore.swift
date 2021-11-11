@@ -129,7 +129,7 @@ fileprivate struct PinsStorage {
                 let v1 = try decoder.decode(path: self.path, fileSystem: self.fileSystem, as: V1.self)
                 return try v1.object.pins.map{ try PinsStore.Pin($0, mirrors: mirrors) }.reduce(into: [PackageIdentity: PinsStore.Pin]()) { partial, iterator in
                     if partial.keys.contains(iterator.packageRef.identity) {
-                        throw StringError("duplicated entry for package \"\(iterator.packageRef.name)\"")
+                        throw StringError("duplicated entry for package \"\(iterator.packageRef.identity)\"")
                     }
                     partial[iterator.packageRef.identity] = iterator
                 }
@@ -234,7 +234,7 @@ fileprivate struct PinsStorage {
                     throw StringError("invalid package type \(pin.packageRef.kind)")
                 }
 
-                self.package = pin.packageRef.name
+                self.package = pin.packageRef.deprecatedName
                 // rdar://52529014, rdar://52529011: pin file should store the original location but remap when loading
                 self.repositoryURL = mirrors.originalURL(for: location) ?? location
                 self.state = .init(pin.state)
@@ -328,7 +328,7 @@ extension PinsStore.Pin {
             throw StringError("invalid package location \(location)")
         }
         if let newName = pin.package {
-            packageRef = packageRef.with(newName: newName)
+            packageRef = packageRef.withName(newName)
         }
         self.init(
             packageRef: packageRef,

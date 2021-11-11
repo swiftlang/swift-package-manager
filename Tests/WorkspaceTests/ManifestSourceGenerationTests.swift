@@ -83,7 +83,7 @@ class ManifestSourceGenerationTests: XCTestCase {
             // Check that all the relevant properties survived.
             let failureDetails = "\n--- ORIGINAL MANIFEST CONTENTS ---\n" + manifestContents + "\n--- REWRITTEN MANIFEST CONTENTS ---\n" + newContents
             XCTAssertEqual(newManifest.toolsVersion, manifest.toolsVersion, failureDetails)
-            XCTAssertEqual(newManifest.name, manifest.name, failureDetails)
+            XCTAssertEqual(newManifest.displayName, manifest.displayName, failureDetails)
             XCTAssertEqual(newManifest.defaultLocalization, manifest.defaultLocalization, failureDetails)
             XCTAssertEqual(newManifest.platforms, manifest.platforms, failureDetails)
             XCTAssertEqual(newManifest.pkgConfig, manifest.pkgConfig, failureDetails)
@@ -391,7 +391,7 @@ class ManifestSourceGenerationTests: XCTestCase {
     func testCustomProductSourceGeneration() throws {
         // Create a manifest containing a product for which we'd like to do custom source fragment generation.
         let manifest = Manifest(
-            name: "MyLibrary",
+            displayName: "MyLibrary",
             path: AbsolutePath("/tmp/MyLibrary/Package.swift"),
             packageKind: .root(AbsolutePath("/tmp/MyLibrary")),
             packageLocation: "/tmp/MyLibrary",

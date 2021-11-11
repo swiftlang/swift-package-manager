@@ -44,9 +44,9 @@ extension GraphLoadingNode: CustomStringConvertible {
     public var description: String {
         switch productFilter {
         case .everything:
-            return self.manifest.name
+            return self.identity.description
         case .specific(let set):
-            return "\(self.manifest.name)[\(set.sorted().joined(separator: ", "))]"
+            return "\(self.identity.description)[\(set.sorted().joined(separator: ", "))]"
         }
     }
 }

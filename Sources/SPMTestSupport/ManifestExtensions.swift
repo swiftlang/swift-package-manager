@@ -179,7 +179,7 @@ public extension Manifest {
         targets: [TargetDescription] = []
     ) -> Manifest {
         return Manifest(
-            name: name,
+            displayName: name,
             path: path.appending(component: Manifest.filename),
             packageKind: packageKind,
             packageLocation: packageLocation ?? path.pathString,
@@ -200,7 +200,7 @@ public extension Manifest {
 
     func with(location: String) -> Manifest {
         return Manifest(
-            name: self.name,
+            displayName: self.displayName,
             path: self.path,
             packageKind: self.packageKind,
             packageLocation: location,

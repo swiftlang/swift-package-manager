@@ -33,7 +33,7 @@ class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
         let manifest = try loadManifest(content, observabilityScope: observability.topScope)
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        XCTAssertEqual(manifest.name, "Trivial")
+        XCTAssertEqual(manifest.displayName, "Trivial")
         XCTAssertEqual(manifest.toolsVersion, .v4)
         XCTAssertEqual(manifest.targets, [])
         XCTAssertEqual(manifest.dependencies, [])
@@ -62,7 +62,7 @@ class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
         let manifest = try loadManifest(content, observabilityScope: observability.topScope)
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        XCTAssertEqual(manifest.name, "Trivial")
+        XCTAssertEqual(manifest.displayName, "Trivial")
         let foo = manifest.targetMap["foo"]!
         XCTAssertEqual(foo.name, "foo")
         XCTAssertFalse(foo.isTest)
@@ -209,7 +209,7 @@ class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
         let manifest = try loadManifest(content, observabilityScope: observability.topScope)
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        XCTAssertEqual(manifest.name, "Copenssl")
+        XCTAssertEqual(manifest.displayName, "Copenssl")
         XCTAssertEqual(manifest.pkgConfig, "openssl")
         XCTAssertEqual(manifest.providers, [
             .brew(["openssl"]),
@@ -320,7 +320,7 @@ class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
         let manifest = try loadManifest(content, observabilityScope: observability.topScope)
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        XCTAssertEqual(manifest.name, "testPackage")
+        XCTAssertEqual(manifest.displayName, "testPackage")
         XCTAssertEqual(manifest.cLanguageStandard, "iso9899:199409")
         XCTAssertEqual(manifest.cxxLanguageStandard, "gnu++14")
     }
@@ -350,7 +350,7 @@ class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
             observabilityScope: observability.topScope
         )
 
-        XCTAssertEqual(manifest.name, "Trivial")
+        XCTAssertEqual(manifest.displayName, "Trivial")
         XCTAssertEqual(manifest.toolsVersion, .v4)
         XCTAssertEqual(manifest.targets, [])
         XCTAssertEqual(manifest.dependencies, [])

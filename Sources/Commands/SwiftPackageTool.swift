@@ -847,7 +847,7 @@ extension SwiftPackageTool {
                 destination = output
             } else {
                 let graph = try swiftTool.loadPackageGraph()
-                let packageName = graph.rootPackages[0].manifestName // TODO: use identity instead?
+                let packageName = graph.rootPackages[0].manifest.displayName // TODO: use identity instead?
                 destination = packageRoot.appending(component: "\(packageName).zip")
             }
 
@@ -922,10 +922,10 @@ extension SwiftPackageTool {
                 dstdir = outpath.parentDirectory
             case let outpath?:
                 dstdir = outpath
-                projectName = graph.rootPackages[0].manifestName // TODO: use identity instead?
+                projectName = graph.rootPackages[0].manifest.displayName // TODO: use identity instead?
             case _:
                 dstdir = try swiftTool.getPackageRoot()
-                projectName = graph.rootPackages[0].manifestName // TODO: use identity instead?
+                projectName = graph.rootPackages[0].manifest.displayName // TODO: use identity instead?
             }
             let xcodeprojPath = Xcodeproj.buildXcodeprojPath(outputDir: dstdir, projectName: projectName)
 
@@ -1321,11 +1321,11 @@ fileprivate func logPackageChanges(changes: [(PackageReference, Workspace.Packag
         let currentVersion = pins.pinsMap[package.identity]?.state.description ?? ""
         switch change {
         case let .added(state):
-            stream <<< "+ \(package.name) \(state.requirement.prettyPrinted)"
+            stream <<< "+ \(package.identity) \(state.requirement.prettyPrinted)"
         case let .updated(state):
-            stream <<< "~ \(package.name) \(currentVersion) -> \(package.name) \(state.requirement.prettyPrinted)"
+            stream <<< "~ \(package.identity) \(currentVersion) -> \(package.identity) \(state.requirement.prettyPrinted)"
         case .removed:
-            stream <<< "- \(package.name) \(currentVersion)"
+            stream <<< "- \(package.identity) \(currentVersion)"
         case .unchanged:
             continue
         }

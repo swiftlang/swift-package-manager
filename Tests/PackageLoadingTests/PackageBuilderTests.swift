@@ -587,8 +587,8 @@ class PackageBuilderTests: XCTestCase {
                 ),
             ]
         )
-        PackageBuilderTester(manifest, in: fs) { _, diagnostics in
-            diagnostics.check(diagnostic: "package 'pkg' has multiple test manifest files: /\(name), /swift/\(name)", severity: .error)
+        PackageBuilderTester(manifest, in: fs) { package, diagnostics in
+            diagnostics.check(diagnostic: "package '\(package.packageIdentity)' has multiple test manifest files: /\(name), /swift/\(name)", severity: .error)
         }
     }
 
@@ -1150,8 +1150,8 @@ class PackageBuilderTests: XCTestCase {
                     try TargetDescription(name: "Foo", path: "../foo"),
                 ]
             )
-            PackageBuilderTester(manifest, path: AbsolutePath("/pkg"), in: fs) { _, diagnostics in
-                diagnostics.check(diagnostic: "target 'Foo' in package 'Foo' is outside the package root", severity: .error)
+            PackageBuilderTester(manifest, path: AbsolutePath("/pkg"), in: fs) { package, diagnostics in
+                diagnostics.check(diagnostic: "target 'Foo' in package '\(package.packageIdentity)' is outside the package root", severity: .error)
             }
         }
         do {
@@ -1225,9 +1225,9 @@ class PackageBuilderTests: XCTestCase {
             pkgConfig: "foo"
         )
 
-        PackageBuilderTester(manifest, in: fs) { _, diagnostics in
+        PackageBuilderTester(manifest, in: fs) { package, diagnostics in
             diagnostics.check(
-                diagnostic: "configuration of package 'pkg' is invalid; the 'pkgConfig' property can only be used with a System Module Package",
+                diagnostic: "configuration of package '\(package.packageIdentity)' is invalid; the 'pkgConfig' property can only be used with a System Module Package",
                 severity: .error)
         }
 
@@ -1239,9 +1239,9 @@ class PackageBuilderTests: XCTestCase {
             providers: [.brew(["foo"])]
         )
 
-        PackageBuilderTester(manifest, in: fs) { _, diagnostics in
+        PackageBuilderTester(manifest, in: fs) { package, diagnostics in
             diagnostics.check(
-                diagnostic: "configuration of package 'pkg' is invalid; the 'providers' property can only be used with a System Module Package",
+                diagnostic: "configuration of package '\(package.packageIdentity)' is invalid; the 'providers' property can only be used with a System Module Package",
                 severity: .error)
         }
     }
@@ -1309,14 +1309,14 @@ class PackageBuilderTests: XCTestCase {
         }
 
         manifest = try createManifest(swiftVersions: [])
-        PackageBuilderTester(manifest, in: fs) { _, diagnostics in
-            diagnostics.check(diagnostic: "package 'pkg' supported Swift language versions is empty", severity: .error)
+        PackageBuilderTester(manifest, in: fs) { package, diagnostics in
+            diagnostics.check(diagnostic: "package '\(package.packageIdentity)' supported Swift language versions is empty", severity: .error)
         }
 
         manifest = try createManifest(
             swiftVersions: [SwiftLanguageVersion(string: "6")!, SwiftLanguageVersion(string: "7")!])
-        PackageBuilderTester(manifest, in: fs) { _, diagnostics in
-            diagnostics.check(diagnostic: "package 'pkg' requires minimum Swift language version 6 which is not supported by the current tools version (\(ToolsVersion.currentToolsVersion))", severity: .error)
+        PackageBuilderTester(manifest, in: fs) { package, diagnostics in
+            diagnostics.check(diagnostic: "package '\(package.packageIdentity)' requires minimum Swift language version 6 which is not supported by the current tools version (\(ToolsVersion.currentToolsVersion))", severity: .error)
         }
     }
 
@@ -2204,11 +2204,11 @@ class PackageBuilderTests: XCTestCase {
             package.checkModule("Foo")
             package.checkModule("Foo2")
             diagnostics.checkUnordered(
-                diagnostic: "invalid duplicate target dependency declaration 'Bar' in target 'Foo' from package 'Foo'",
+                diagnostic: "invalid duplicate target dependency declaration 'Bar' in target 'Foo' from package '\(package.packageIdentity)'",
                 severity: .warning
             )
             diagnostics.checkUnordered(
-                diagnostic: "invalid duplicate target dependency declaration 'Foo2' in target 'Foo' from package 'Foo'",
+                diagnostic: "invalid duplicate target dependency declaration 'Foo2' in target 'Foo' from package '\(package.packageIdentity)'",
                 severity: .warning
             )
         }
@@ -2337,6 +2337,9 @@ final class PackageBuilderTester {
         case error(String)
     }
 
+    // the package identity
+    public let packageIdentity: PackageIdentity
+
     /// Contains the result produced by PackageBuilder.
     private let result: Result
 
@@ -2365,11 +2368,12 @@ final class PackageBuilderTester {
         line: UInt = #line,
         _ body: (PackageBuilderTester, DiagnosticsTestResult) -> Void
     ) {
+        self.packageIdentity = PackageIdentity(urlString: manifest.packageLocation)
         let observability = ObservabilitySystem.makeForTesting()
         do {
             // FIXME: We should allow customizing root package boolean.
             let builder = PackageBuilder(
-                identity: PackageIdentity(urlString: manifest.packageLocation),
+                identity: self.packageIdentity,
                 manifest: manifest,
                 productFilter: .everything,
                 path: path,
@@ -2382,12 +2386,12 @@ final class PackageBuilderTester {
                 observabilityScope: observability.topScope
             )
             let loadedPackage = try builder.construct()
-            result = .package(loadedPackage)
+            self.result = .package(loadedPackage)
             uncheckedModules = Set(loadedPackage.targets)
             uncheckedProducts = Set(loadedPackage.products)
         } catch {
             let errorString = String(describing: error)
-            result = .error(errorString)
+            self.result = .error(errorString)
             observability.topScope.emit(error)
         }
 

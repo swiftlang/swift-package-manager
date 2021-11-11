@@ -215,18 +215,18 @@ public struct PubgrubDependencyResolver {
 
             // TODO: replace with async/await when available
             let container = try temp_await { provider.getContainer(for: assignment.term.node.package, completion: $0) }
-            let identifier = try container.underlying.getUpdatedIdentifier(at: boundVersion)
+            let updatePackage = try container.underlying.loadPackageReference(at: boundVersion)
 
-            if var existing = flattenedAssignments[identifier] {
+            if var existing = flattenedAssignments[updatePackage] {
                 assert(existing.binding == boundVersion, "Two products in one package resolved to different versions: \(existing.products)@\(existing.binding) vs \(products)@\(boundVersion)")
                 existing.products.formUnion(products)
-                flattenedAssignments[identifier] = existing
+                flattenedAssignments[updatePackage] = existing
             } else {
-                flattenedAssignments[identifier] = (binding: boundVersion, products: products)
+                flattenedAssignments[updatePackage] = (binding: boundVersion, products: products)
             }
         }
         var finalAssignments: [DependencyResolver.Binding]
-            = flattenedAssignments.keys.sorted(by: { $0.name < $1.name }).map { package in
+            = flattenedAssignments.keys.sorted(by: { $0.deprecatedName < $1.deprecatedName }).map { package in
                 let details = flattenedAssignments[package]!
                 return (package: package, binding: details.binding, products: details.products)
             }
@@ -235,8 +235,8 @@ public struct PubgrubDependencyResolver {
         for (package, override) in state.overriddenPackages {
             // TODO: replace with async/await when available
             let container = try temp_await { provider.getContainer(for: package, completion: $0) }
-            let identifier = try container.underlying.getUpdatedIdentifier(at: override.version)
-            finalAssignments.append((identifier, override.version, override.products))
+            let updatePackage = try container.underlying.loadPackageReference(at: override.version)
+            finalAssignments.append((updatePackage, override.version, override.products))
         }
 
         self.delegate?.solved(result: finalAssignments)
@@ -376,8 +376,8 @@ public struct PubgrubDependencyResolver {
                         constraints.append(dependency)
                     case .unversioned:
                         throw DependencyResolverError.revisionDependencyContainsLocalPackage(
-                            dependency: package.name,
-                            localPackage: dependency.package.name
+                            dependency: package.identity.description,
+                            localPackage: dependency.package.identity.description
                         )
                     }
                 }
@@ -1329,7 +1329,7 @@ private final class PubGrubPackageContainer {
         let versions: [Version] = try self.underlying.versionsAscending()
 
         guard let idx = versions.firstIndex(of: firstVersion) else {
-            throw InternalError("from version \(firstVersion) not found in \(node.package.name)")
+            throw InternalError("from version \(firstVersion) not found in \(node.package.identity)")
         }
 
         let sync = DispatchGroup()
@@ -1347,7 +1347,7 @@ private final class PubGrubPackageContainer {
         // timeout is a function of # of versions since we need to make several git operations per tag/version
         let timeout = DispatchTimeInterval.seconds(60 + versions.count)
         guard case .success = sync.wait(timeout: .now() + timeout) else {
-            throw StringError("timeout computing '\(node.package.name)' bounds")
+            throw StringError("timeout computing '\(node.package.identity)' bounds")
         }
 
         return (lowerBounds, upperBounds)
@@ -1386,7 +1386,7 @@ private final class ContainerProvider {
     /// Get a cached container for the given identifier, asserting / throwing if not found.
     func getCachedContainer(for package: PackageReference) throws -> PubGrubPackageContainer {
         guard let container = self.containersCache[package] else {
-            throw InternalError("container for \(package.name) expected to be cached")
+            throw InternalError("container for \(package.identity) expected to be cached")
         }
         return container
     }
@@ -1531,6 +1531,6 @@ private extension PackageRequirement {
 
 private extension DependencyResolutionNode {
     var nameForDiagnostics: String {
-        return "'\(package.name)'"
+        return "'\(package.identity)'"
     }
 }
