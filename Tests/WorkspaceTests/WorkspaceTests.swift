@@ -2054,7 +2054,7 @@ final class WorkspaceTests: XCTestCase {
         #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
         try workspace.checkPackageGraph(roots: ["Root"]) { _, diagnostics in
             testDiagnostics(diagnostics) { result in
-                result.check(diagnostic: .contains("'Foo' 1.0.0..<2.0.0"), severity: .error)
+                result.check(diagnostic: .contains("'foo' 1.0.0..<2.0.0"), severity: .error)
             }
         }
         #endif
@@ -2924,7 +2924,7 @@ final class WorkspaceTests: XCTestCase {
             }
             #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
             testDiagnostics(diagnostics) { result in
-                result.check(diagnostic: .contains("'Bar' {1.0.0..<1.5.0, 1.5.1..<2.0.0} cannot be used"), severity: .error)
+                result.check(diagnostic: .contains("'bar' {1.0.0..<1.5.0, 1.5.1..<2.0.0} cannot be used"), severity: .error)
             }
             #endif
         }
