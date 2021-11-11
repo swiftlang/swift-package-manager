@@ -1442,6 +1442,7 @@ extension Workspace {
                         break
                     case .failure(let error):
                         diagnostics.emit(error)
+                        self.delegate?.didLoadManifest(packagePath: packagePath, url: packageLocation, version: version, packageKind: packageKind, manifest: nil, diagnostics: manifestLoadingDiagnostics.diagnostics)
                     case .success(let manifest):
                         self.delegate?.didLoadManifest(packagePath: packagePath, url: packageLocation, version: version, packageKind: packageKind, manifest: manifest, diagnostics: manifestLoadingDiagnostics.diagnostics)
                     }
