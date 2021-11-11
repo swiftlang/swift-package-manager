@@ -82,7 +82,7 @@ extension SwiftPackageTool {
         var swiftOptions: SwiftToolOptions
 
         func run(_ swiftTool: SwiftTool) throws {
-            try swiftTool.getActiveWorkspace().clean(with: swiftTool.observabilityScope.makeDiagnosticsEngine())
+            try swiftTool.getActiveWorkspace().clean(observabilityScope: swiftTool.observabilityScope)
         }
     }
 
@@ -94,7 +94,7 @@ extension SwiftPackageTool {
         var swiftOptions: SwiftToolOptions
 
         func run(_ swiftTool: SwiftTool) throws {
-            try swiftTool.getActiveWorkspace().purgeCache(with: swiftTool.observabilityScope.makeDiagnosticsEngine())
+            try swiftTool.getActiveWorkspace().purgeCache(observabilityScope: swiftTool.observabilityScope)
         }
     }
 
@@ -106,7 +106,7 @@ extension SwiftPackageTool {
         var swiftOptions: SwiftToolOptions
 
         func run(_ swiftTool: SwiftTool) throws {
-            try swiftTool.getActiveWorkspace().reset(with: swiftTool.observabilityScope.makeDiagnosticsEngine())
+            try swiftTool.getActiveWorkspace().reset(observabilityScope: swiftTool.observabilityScope)
         }
     }
 
@@ -130,8 +130,8 @@ extension SwiftPackageTool {
             let changes = try workspace.updateDependencies(
                 root: swiftTool.getWorkspaceRoot(),
                 packages: packages,
-                diagnostics: swiftTool.observabilityScope.makeDiagnosticsEngine(),
-                dryRun: dryRun
+                dryRun: dryRun,
+                observabilityScope: swiftTool.observabilityScope
             )
 
             // try to load the graph which will emit any errors
@@ -373,7 +373,7 @@ extension SwiftPackageTool {
             let packageGraph = try buildOp.getPackageGraph()
             let modulesToDiff = try determineModulesToDiff(
                 packageGraph: packageGraph,
-                diagnostics: swiftTool.observabilityScope.makeDiagnosticsEngine()
+                observabilityScope: swiftTool.observabilityScope
             )
 
             // Build the current package.
@@ -432,7 +432,7 @@ extension SwiftPackageTool {
             }
 
             for result in results.get() {
-                printComparisonResult(result, diagnosticsEngine: swiftTool.observabilityScope.makeDiagnosticsEngine())
+                self.printComparisonResult(result, observabilityScope: swiftTool.observabilityScope)
             }
 
             guard failedModules.isEmpty && results.get().allSatisfy(\.hasNoAPIBreakingChanges) else {
@@ -440,7 +440,7 @@ extension SwiftPackageTool {
             }
         }
 
-        private func determineModulesToDiff(packageGraph: PackageGraph, diagnostics: DiagnosticsEngine) throws -> Set<String> {
+        private func determineModulesToDiff(packageGraph: PackageGraph, observabilityScope: ObservabilityScope) throws -> Set<String> {
             var modulesToDiff: Set<String> = []
             if products.isEmpty && targets.isEmpty {
                 modulesToDiff.formUnion(packageGraph.apiDigesterModules)
@@ -450,11 +450,11 @@ extension SwiftPackageTool {
                             .rootPackages
                             .flatMap(\.products)
                             .first(where: { $0.name == productName }) else {
-                        diagnostics.emit(error: "no such product '\(productName)'")
+                        observabilityScope.emit(error: "no such product '\(productName)'")
                         continue
                     }
                     guard product.type.isLibrary else {
-                        diagnostics.emit(error: "'\(productName)' is not a library product")
+                        observabilityScope.emit(error: "'\(productName)' is not a library product")
                         continue
                     }
                     modulesToDiff.formUnion(product.targets.filter { $0.underlyingTarget is SwiftTarget }.map(\.c99name))
@@ -464,38 +464,49 @@ extension SwiftPackageTool {
                             .rootPackages
                             .flatMap(\.targets)
                             .first(where: { $0.name == targetName }) else {
-                        diagnostics.emit(error: "no such target '\(targetName)'")
+                        observabilityScope.emit(error: "no such target '\(targetName)'")
                         continue
                     }
                     guard target.type == .library else {
-                        diagnostics.emit(error: "'\(targetName)' is not a library target")
+                        observabilityScope.emit(error: "'\(targetName)' is not a library target")
                         continue
                     }
                     guard target.underlyingTarget is SwiftTarget else {
-                        diagnostics.emit(error: "'\(targetName)' is not a Swift language target")
+                        observabilityScope.emit(error: "'\(targetName)' is not a Swift language target")
                         continue
                     }
                     modulesToDiff.insert(target.c99name)
                 }
-                guard !diagnostics.hasErrors else {
+                guard !observabilityScope.errorsReported else {
                     throw ExitCode.failure
                 }
             }
             return modulesToDiff
         }
 
-        private func printComparisonResult(_ comparisonResult: SwiftAPIDigester.ComparisonResult,
-                                           diagnosticsEngine: DiagnosticsEngine) {
+        private func printComparisonResult(
+            _ comparisonResult: SwiftAPIDigester.ComparisonResult,
+            observabilityScope: ObservabilityScope
+        ) {
             for diagnostic in comparisonResult.otherDiagnostics {
+                let metadata = diagnostic.location.map { location -> ObservabilityMetadata in
+                    var metadata = ObservabilityMetadata()
+                    metadata.fileLocation = .init(
+                        .init(location.filename),
+                        line: location.line < Int.max ? Int(location.line) : .none
+                    )
+                    return metadata
+                }
+
                 switch diagnostic.level {
                 case .error, .fatal:
-                    diagnosticsEngine.emit(error: diagnostic.text, location: diagnostic.location)
+                    observabilityScope.emit(error: diagnostic.text, metadata: metadata)
                 case .warning:
-                    diagnosticsEngine.emit(warning: diagnostic.text, location: diagnostic.location)
+                    observabilityScope.emit(warning: diagnostic.text, metadata: metadata)
                 case .note:
-                    diagnosticsEngine.emit(note: diagnostic.text, location: diagnostic.location)
+                    observabilityScope.emit(info: diagnostic.text, metadata: metadata)
                 case .remark:
-                    diagnosticsEngine.emit(remark: diagnostic.text, location: diagnostic.location)
+                    observabilityScope.emit(info: diagnostic.text, metadata: metadata)
                 case .ignored:
                     break
                 }
@@ -572,7 +583,7 @@ extension SwiftPackageTool {
             let rootManifests = try temp_await {
                 workspace.loadRootManifests(
                     packages: root.packages,
-                    diagnostics: swiftTool.observabilityScope.makeDiagnosticsEngine(),
+                    observabilityScope: swiftTool.observabilityScope,
                     completion: $0
                 )
             }
@@ -639,7 +650,7 @@ extension SwiftPackageTool {
                 path: path,
                 revision: revision,
                 checkoutBranch: checkoutBranch,
-                diagnostics: swiftTool.observabilityScope.makeDiagnosticsEngine()
+                observabilityScope: swiftTool.observabilityScope
             )
         }
     }
@@ -666,7 +677,7 @@ extension SwiftPackageTool {
                 packageName: packageName,
                 forceRemove: shouldForceRemove,
                 root: swiftTool.getWorkspaceRoot(),
-                diagnostics: swiftTool.observabilityScope.makeDiagnosticsEngine()
+                observabilityScope: swiftTool.observabilityScope
             )
         }
     }
@@ -805,14 +816,7 @@ extension SwiftPackageTool {
 
         func run(_ swiftTool: SwiftTool) throws {
             let workspace = try swiftTool.getActiveWorkspace()
-            let checksum = workspace.checksum(
-                forBinaryArtifactAt: path,
-                diagnostics: swiftTool.observabilityScope.makeDiagnosticsEngine()
-            )
-
-            guard !swiftTool.observabilityScope.errorsReported else {
-                throw ExitCode.failure
-            }
+            let checksum = try workspace.checksum(forBinaryArtifactAt: path)
 
             swiftTool.outputStream <<< checksum <<< "\n"
             swiftTool.outputStream.flush()
@@ -843,7 +847,7 @@ extension SwiftPackageTool {
                 destination = output
             } else {
                 let graph = try swiftTool.loadPackageGraph()
-                let packageName = graph.rootPackages[0].manifestName // TODO: use identity instead?
+                let packageName = graph.rootPackages[0].manifest.displayName // TODO: use identity instead?
                 destination = packageRoot.appending(component: "\(packageName).zip")
             }
 
@@ -918,10 +922,10 @@ extension SwiftPackageTool {
                 dstdir = outpath.parentDirectory
             case let outpath?:
                 dstdir = outpath
-                projectName = graph.rootPackages[0].manifestName // TODO: use identity instead?
+                projectName = graph.rootPackages[0].manifest.displayName // TODO: use identity instead?
             case _:
                 dstdir = try swiftTool.getPackageRoot()
-                projectName = graph.rootPackages[0].manifestName // TODO: use identity instead?
+                projectName = graph.rootPackages[0].manifest.displayName // TODO: use identity instead?
             }
             let xcodeprojPath = Xcodeproj.buildXcodeprojPath(outputDir: dstdir, projectName: projectName)
 
@@ -1103,7 +1107,7 @@ extension SwiftPackageTool {
                     version: resolveOptions.version,
                     branch: resolveOptions.branch,
                     revision: resolveOptions.revision,
-                    diagnostics: swiftTool.observabilityScope.makeDiagnosticsEngine()
+                    observabilityScope: swiftTool.observabilityScope
                 )
                 if swiftTool.observabilityScope.errorsReported {
                     throw ExitCode.failure
@@ -1317,11 +1321,11 @@ fileprivate func logPackageChanges(changes: [(PackageReference, Workspace.Packag
         let currentVersion = pins.pinsMap[package.identity]?.state.description ?? ""
         switch change {
         case let .added(state):
-            stream <<< "+ \(package.name) \(state.requirement.prettyPrinted)"
+            stream <<< "+ \(package.identity) \(state.requirement.prettyPrinted)"
         case let .updated(state):
-            stream <<< "~ \(package.name) \(currentVersion) -> \(package.name) \(state.requirement.prettyPrinted)"
+            stream <<< "~ \(package.identity) \(currentVersion) -> \(package.identity) \(state.requirement.prettyPrinted)"
         case .removed:
-            stream <<< "- \(package.name) \(currentVersion)"
+            stream <<< "- \(package.identity) \(currentVersion)"
         case .unchanged:
             continue
         }

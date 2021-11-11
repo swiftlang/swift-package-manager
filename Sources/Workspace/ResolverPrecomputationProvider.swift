@@ -55,6 +55,7 @@ struct ResolverPrecomputationProvider: PackageContainerProvider {
     func getContainer(
         for package: PackageReference,
         skipUpdate: Bool,
+        observabilityScope: ObservabilityScope,
         on queue: DispatchQueue,
         completion: @escaping (Result<PackageContainer, Error>) -> Void
     ) {
@@ -157,7 +158,7 @@ private struct LocalPackageContainer: PackageContainer {
     }
 
     // Gets the package reference from the managed dependency or computes it for root packages.
-    func getUpdatedIdentifier(at boundVersion: BoundVersion) throws -> PackageReference {
+    func loadPackageReference(at boundVersion: BoundVersion) throws -> PackageReference {
         if let packageRef = dependency?.packageRef {
             return packageRef
         } else {

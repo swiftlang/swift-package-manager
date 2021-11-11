@@ -28,56 +28,14 @@ internal struct FileSystemPackageContainer: PackageContainer {
     private let toolsVersionLoader: ToolsVersionLoaderProtocol
     private let currentToolsVersion: ToolsVersion
 
-    /// The file system that should be used to load this package.
+    /// File system that should be used to load this package.
     private let fileSystem: FileSystem
+
+    /// Observability scope to emit diagnostics
+    private let observabilityScope: ObservabilityScope
 
     /// cached version of the manifest
     private let manifest = ThreadSafeBox<Manifest>()
-
-    private func loadManifest() throws -> Manifest {
-        try manifest.memoize() {
-            let path: AbsolutePath
-            switch self.package.kind {
-            case .root(let _path), .fileSystem(let _path):
-                path = _path
-            default:
-                throw InternalError("invalid package type \(package.kind)")
-            }
-            
-            // Load the tools version.
-            let toolsVersion = try self.toolsVersionLoader.load(at: path, fileSystem: self.fileSystem)
-
-            // Validate the tools version.
-            try toolsVersion.validateToolsVersion(self.currentToolsVersion, packageIdentity: self.package.identity)
-
-            // Load the manifest.
-            // FIXME: this should not block
-            return try temp_await {
-                manifestLoader.load(at: path,
-                                    packageIdentity: self.package.identity,
-                                    packageKind: self.package.kind,
-                                    packageLocation: path.pathString,
-                                    version: nil,
-                                    revision: nil,
-                                    toolsVersion: toolsVersion,
-                                    identityResolver: self.identityResolver,
-                                    fileSystem: self.fileSystem,
-                                    diagnostics: nil,
-                                    on: .sharedConcurrent,
-                                    completion: $0)
-            }
-        }
-    }
-
-    public func getUnversionedDependencies(productFilter: ProductFilter) throws -> [PackageContainerConstraint] {
-        return try loadManifest().dependencyConstraints(productFilter: productFilter)
-    }
-
-    public func getUpdatedIdentifier(at boundVersion: BoundVersion) throws -> PackageReference {
-        assert(boundVersion == .unversioned, "Unexpected bound version \(boundVersion)")
-        let manifest = try loadManifest()
-        return package.with(newName: manifest.name)
-    }
 
     public init(
         package: PackageReference,
@@ -85,9 +43,9 @@ internal struct FileSystemPackageContainer: PackageContainer {
         manifestLoader: ManifestLoaderProtocol,
         toolsVersionLoader: ToolsVersionLoaderProtocol,
         currentToolsVersion: ToolsVersion,
-        fileSystem: FileSystem = localFileSystem
+        fileSystem: FileSystem,
+        observabilityScope: ObservabilityScope
     ) throws {
-        //assert(URL.scheme(package.location) == nil, "unexpected scheme \(URL.scheme(package.location)!) in \(package.location)")
         switch package.kind {
         case .root, .fileSystem:
             break
@@ -100,28 +58,76 @@ internal struct FileSystemPackageContainer: PackageContainer {
         self.toolsVersionLoader = toolsVersionLoader
         self.currentToolsVersion = currentToolsVersion
         self.fileSystem = fileSystem
+        self.observabilityScope = observabilityScope
     }
-    
+
+    private func loadManifest() throws -> Manifest {
+        try manifest.memoize() {
+            let path: AbsolutePath
+            switch self.package.kind {
+            case .root(let _path), .fileSystem(let _path):
+                path = _path
+            default:
+                throw InternalError("invalid package type \(package.kind)")
+            }
+
+            // Load the tools version.
+            let toolsVersion = try self.toolsVersionLoader.load(at: path, fileSystem: self.fileSystem)
+
+            // Validate the tools version.
+            try toolsVersion.validateToolsVersion(self.currentToolsVersion, packageIdentity: self.package.identity)
+
+            // Load the manifest.
+            // FIXME: this should not block
+            return try temp_await {
+                manifestLoader.load(
+                    at: path,
+                    packageIdentity: self.package.identity,
+                    packageKind: self.package.kind,
+                    packageLocation: path.pathString,
+                    version: nil,
+                    revision: nil,
+                    toolsVersion: toolsVersion,
+                    identityResolver: self.identityResolver,
+                    fileSystem: self.fileSystem,
+                    observabilityScope: self.observabilityScope,
+                    on: .sharedConcurrent,
+                    completion: $0
+                )
+            }
+        }
+    }
+
+    public func getUnversionedDependencies(productFilter: ProductFilter) throws -> [PackageContainerConstraint] {
+        return try loadManifest().dependencyConstraints(productFilter: productFilter)
+    }
+
+    public func loadPackageReference(at boundVersion: BoundVersion) throws -> PackageReference {
+        assert(boundVersion == .unversioned, "Unexpected bound version \(boundVersion)")
+        let manifest = try loadManifest()
+        return package.withName(manifest.displayName)
+    }
+
     public func isToolsVersionCompatible(at version: Version) -> Bool {
         fatalError("This should never be called")
     }
-    
+
     public func toolsVersion(for version: Version) throws -> ToolsVersion {
         fatalError("This should never be called")
     }
-    
+
     public func toolsVersionsAppropriateVersionsDescending() throws -> [Version] {
         fatalError("This should never be called")
     }
-    
+
     public func versionsAscending() throws -> [Version] {
         fatalError("This should never be called")
     }
-    
+
     public func getDependencies(at version: Version, productFilter: ProductFilter) throws -> [PackageContainerConstraint] {
         fatalError("This should never be called")
     }
-    
+
     public func getDependencies(at revision: String, productFilter: ProductFilter) throws -> [PackageContainerConstraint] {
         fatalError("This should never be called")
     }

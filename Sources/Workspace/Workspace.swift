@@ -45,12 +45,12 @@ public protocol WorkspaceDelegate: AnyObject {
     /// The workspace is about to load a package manifest (which might be in the cache, or might need to be parsed). Note that this does not include speculative loading of manifests that may occr during dependency resolution; rather, it includes only the final manifest loading that happens after a particular package version has been checked out into a working directory.
     func willLoadManifest(packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind)
     /// The workspace has loaded a package manifest, either successfully or not. The manifest is nil if an error occurs, in which case there will also be at least one error in the list of diagnostics (there may be warnings even if a manifest is loaded successfully).
-    func didLoadManifest(packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind, manifest: Manifest?, diagnostics: [Diagnostic])
+    func didLoadManifest(packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind, manifest: Manifest?, diagnostics: [Basics.Diagnostic])
 
     /// The workspace has started fetching this repository.
     func fetchingWillBegin(repository: String, fetchDetails: RepositoryManager.FetchDetails?)
     /// The workspace has finished fetching this repository.
-    func fetchingDidFinish(repository: String, fetchDetails: RepositoryManager.FetchDetails?, diagnostic: Diagnostic?, duration: DispatchTimeInterval)
+    func fetchingDidFinish(repository: String, fetchDetails: RepositoryManager.FetchDetails?, diagnostic: Basics.Diagnostic?, duration: DispatchTimeInterval)
 
     /// The workspace has started updating this repository.
     func repositoryWillUpdate(_ repository: String)
@@ -64,12 +64,12 @@ public protocol WorkspaceDelegate: AnyObject {
     func willCreateWorkingCopy(repository url: String, at path: AbsolutePath)
     /// The workspace has cloned a repository from the local cache to a working directory. The error indicates whether the operation failed or succeeded.
     // deprecated 04/2021, remove once clients moved over
-    func didCreateWorkingCopy(repository url: String, at path: AbsolutePath, error: Diagnostic?)
+    func didCreateWorkingCopy(repository url: String, at path: AbsolutePath, error: Basics.Diagnostic?)
 
     /// The workspace is about to check out a particular revision of a working directory.
     func willCheckOut(repository url: String, revision: String, at path: AbsolutePath)
     /// The workspace has checked out a particular revision of a working directory. The error indicates whether the operation failed or succeeded.
-    func didCheckOut(repository url: String, revision: String, at path: AbsolutePath, error: Diagnostic?)
+    func didCheckOut(repository url: String, revision: String, at path: AbsolutePath, error: Basics.Diagnostic?)
 
     /// The workspace is removing this repository because it is no longer needed.
     func removing(repository: String)
@@ -109,11 +109,7 @@ private class WorkspaceRepositoryManagerDelegate: RepositoryManagerDelegate {
     }
 
     func fetchingDidFinish(handle: RepositoryManager.RepositoryHandle, fetchDetails details: RepositoryManager.FetchDetails?, error: Swift.Error?, duration: DispatchTimeInterval) {
-        let diagnostic: Diagnostic? = error.flatMap({
-            let engine = DiagnosticsEngine()
-            engine.emit($0)
-            return engine.diagnostics.first
-        })
+        let diagnostic = error.map { Basics.Diagnostic.error($0) }
         workspaceDelegate.fetchingDidFinish(repository: handle.repository.location.description, fetchDetails: details, diagnostic: diagnostic, duration: duration)
     }
 
@@ -507,6 +503,12 @@ public class Workspace {
 
 extension Workspace {
 
+    // deprecated 10/2021
+    @available(*, deprecated, message: "use observability system APIs instead")
+    public func edit(packageName: String, path: AbsolutePath? = nil, revision: Revision? = nil, checkoutBranch: String? = nil, diagnostics: DiagnosticsEngine) {
+        self.edit(packageName: packageName, path: path, revision: revision, checkoutBranch: checkoutBranch, observabilityScope: ObservabilitySystem(diagnosticEngine: diagnostics).topScope)
+    }
+
     /// Puts a dependency in edit mode creating a checkout in editables directory.
     ///
     /// - Parameters:
@@ -516,25 +518,31 @@ extension Workspace {
     ///       should be checked out to otherwise current revision.
     ///     - checkoutBranch: If provided, a new branch with this name will be
     ///       created from the revision provided.
-    ///     - diagnostics: The diagnostics engine that reports errors, warnings
-    ///       and notes.
+    ///     - observabilityScope: The observability scope that reports errors, warnings, etc
     public func edit(
         packageName: String,
         path: AbsolutePath? = nil,
         revision: Revision? = nil,
         checkoutBranch: String? = nil,
-        diagnostics: DiagnosticsEngine
+        observabilityScope: ObservabilityScope
     ) {
         do {
-            try _edit(
+            try self._edit(
                 packageName: packageName,
                 path: path,
                 revision: revision,
                 checkoutBranch: checkoutBranch,
-                diagnostics: diagnostics)
+                observabilityScope: observabilityScope
+            )
         } catch {
-            diagnostics.emit(error)
+            observabilityScope.emit(error)
         }
+    }
+
+    // deprecated 10/2021
+    @available(*, deprecated, message: "use observability system APIs instead")
+    public func unedit(packageName: String, forceRemove: Bool, root: PackageGraphRootInput, diagnostics: DiagnosticsEngine) throws {
+        try self.unedit(packageName: packageName, forceRemove: forceRemove, root: root, observabilityScope: ObservabilitySystem(diagnosticEngine: diagnostics).topScope)
     }
 
     /// Ends the edit mode of an edited dependency.
@@ -547,20 +555,25 @@ extension Workspace {
     ///     - forceRemove: If true, the dependency will be unedited even if has unpushed
     ///           or uncommited changes. Otherwise will throw respective errors.
     ///     - root: The workspace root. This is used to resolve the dependencies post unediting.
-    ///     - diagnostics: The diagnostics engine that reports errors, warnings
-    ///           and notes.
+    ///     - observabilityScope: The observability scope that reports errors, warnings, etc
     public func unedit(
         packageName: String,
         forceRemove: Bool,
         root: PackageGraphRootInput,
-        diagnostics: DiagnosticsEngine
+        observabilityScope: ObservabilityScope
     ) throws {
         guard let dependency = self.state.dependencies[.plain(packageName)] else {
-            diagnostics.emit(.dependencyNotFound(packageName: packageName))
+            observabilityScope.emit(.dependencyNotFound(packageName: packageName))
             return
         }
 
-        try unedit(dependency: dependency, forceRemove: forceRemove, root: root, diagnostics: diagnostics)
+        try self.unedit(dependency: dependency, forceRemove: forceRemove, root: root, observabilityScope: observabilityScope)
+    }
+
+    // deprecated 10/2021
+    @available(*, deprecated, message: "use observability system APIs instead")
+    public func resolve(packageName: String, root: PackageGraphRootInput, version: Version? = nil, branch: String? = nil, revision: String? = nil, diagnostics: DiagnosticsEngine) throws {
+        try self.resolve(packageName: packageName, root: root, version: version, branch: branch, revision: revision, observabilityScope: ObservabilitySystem(diagnosticEngine: diagnostics).topScope)
     }
 
     /// Resolve a package at the given state.
@@ -575,22 +588,21 @@ extension Workspace {
     ///   - version: The version to pin at.
     ///   - branch: The branch to pin at.
     ///   - revision: The revision to pin at.
-    ///   - diagnostics: The diagnostics engine that reports errors, warnings
-    ///     and notes.
+    ///   - observabilityScope: The observability scope that reports errors, warnings, etc
     public func resolve(
         packageName: String,
         root: PackageGraphRootInput,
         version: Version? = nil,
         branch: String? = nil,
         revision: String? = nil,
-        diagnostics: DiagnosticsEngine
+        observabilityScope: ObservabilityScope
     ) throws {
         // Look up the dependency and check if we can pin it.
         guard let dependency = self.state.dependencies[.plain(packageName)] else {
-            diagnostics.emit(.dependencyNotFound(packageName: packageName))
+            observabilityScope.emit(.dependencyNotFound(packageName: packageName))
             return
         }
-        guard let currentState = checkoutState(for: dependency, diagnostics: diagnostics) else {
+        guard let currentState = checkoutState(for: dependency, observabilityScope: observabilityScope) else {
             return
         }
 
@@ -614,17 +626,22 @@ extension Workspace {
             root: root,
             forceResolution: false,
             constraints: [constraint],
-            diagnostics: diagnostics
+            observabilityScope: observabilityScope
         )
+    }
+
+
+    // deprecated 10/2021
+    @available(*, deprecated, message: "use observability system APIs instead")
+    public func clean(with diagnostics: DiagnosticsEngine) {
+        self.clean(observabilityScope: ObservabilitySystem(diagnosticEngine: diagnostics).topScope)
     }
 
     /// Cleans the build artifacts from workspace data.
     ///
     /// - Parameters:
-    ///     - diagnostics: The diagnostics engine that reports errors, warnings
-    ///       and notes.
-    public func clean(with diagnostics: DiagnosticsEngine) {
-
+    ///     - observabilityScope: The observability scope that reports errors, warnings, etc
+    public func clean(observabilityScope: ObservabilityScope) {
         // These are the things we don't want to remove while cleaning.
         let protectedAssets = [
             self.repositoryManager.path,
@@ -642,7 +659,7 @@ extension Workspace {
             return
         }
 
-        guard let contents = diagnostics.wrap({ try fileSystem.getDirectoryContents(self.location.workingDirectory) }) else {
+        guard let contents = observabilityScope.trap({ try fileSystem.getDirectoryContents(self.location.workingDirectory) }) else {
             return
         }
 
@@ -653,31 +670,44 @@ extension Workspace {
         }
     }
 
+
+    // deprecated 10/2021
+    @available(*, deprecated, message: "use observability system APIs instead")
+    public func purgeCache(with diagnostics: DiagnosticsEngine) {
+        self.purgeCache(observabilityScope: ObservabilitySystem(diagnosticEngine: diagnostics).topScope)
+    }
+
     /// Cleans the build artifacts from workspace data.
     ///
     /// - Parameters:
-    ///     - diagnostics: The diagnostics engine that reports errors, warnings
-    ///       and notes.
-    public func purgeCache(with diagnostics: DiagnosticsEngine) {
-        diagnostics.wrap {
+    ///     - observabilityScope: The observability scope that reports errors, warnings, etc
+    public func purgeCache(observabilityScope: ObservabilityScope) {
+        observabilityScope.trap {
             try repositoryManager.purgeCache()
             try manifestLoader.purgeCache()
         }
     }
 
+
+    // deprecated 10/2021
+    @available(*, deprecated, message: "use observability system APIs instead")
+    public func reset(with diagnostics: DiagnosticsEngine) {
+        self.reset(observabilityScope: ObservabilitySystem(diagnosticEngine: diagnostics).topScope)
+    }
+
     /// Resets the entire workspace by removing the data directory.
     ///
     /// - Parameters:
-    ///     - diagnostics: The diagnostics engine that reports errors, warnings
-    ///       and notes.
-    public func reset(with diagnostics: DiagnosticsEngine) {
-        let removed = diagnostics.wrap {
+    ///     - observabilityScope: The observability scope that reports errors, warnings, etc
+    public func reset(observabilityScope: ObservabilityScope) {
+        let removed = observabilityScope.trap { () -> Bool in
             try fileSystem.chmod(.userWritable, path: self.location.repositoriesCheckoutsDirectory, options: [.recursive, .onlyFiles])
             // Reset state.
             try self.resetState()
+            return true
         }
 
-        guard removed else { return }
+        guard (removed ?? false) else { return }
         try? repositoryManager.reset()
         try? manifestLoader.resetCache()
         try? fileSystem.removeFileTree(self.location.workingDirectory)
@@ -693,35 +723,41 @@ extension Workspace {
         // FIXME: Need to add cancel support.
     }
 
+    // deprecated 10/2021
+    @available(*, deprecated, message: "use observability system APIs instead")
+    @discardableResult
+    public func updateDependencies(root: PackageGraphRootInput, packages: [String] = [], diagnostics: DiagnosticsEngine, dryRun: Bool = false) throws -> [(PackageReference, Workspace.PackageStateChange)]? {
+        try self.updateDependencies(root: root, packages: packages, dryRun: dryRun, observabilityScope: ObservabilitySystem(diagnosticEngine: diagnostics).topScope)
+    }
+
     /// Updates the current dependencies.
     ///
     /// - Parameters:
-    ///     - diagnostics: The diagnostics engine that reports errors, warnings
-    ///       and notes.
+    ///     - observabilityScope: The observability scope that reports errors, warnings, etc
     @discardableResult
     public func updateDependencies(
         root: PackageGraphRootInput,
         packages: [String] = [],
-        diagnostics: DiagnosticsEngine,
-        dryRun: Bool = false
+        dryRun: Bool = false,
+        observabilityScope: ObservabilityScope
     ) throws -> [(PackageReference, Workspace.PackageStateChange)]? {
         // Create cache directories.
-        createCacheDirectories(with: diagnostics)
+        createCacheDirectories(observabilityScope: observabilityScope)
 
         // FIXME: this should not block
         // Load the root manifests and currently checked out manifests.
-        let rootManifests = try temp_await { self.loadRootManifests(packages: root.packages, diagnostics: diagnostics, completion: $0) }
+        let rootManifests = try temp_await { self.loadRootManifests(packages: root.packages, observabilityScope: observabilityScope, completion: $0) }
         let rootManifestsMinimumToolsVersion = rootManifests.values.map{ $0.toolsVersion }.min() ?? ToolsVersion.currentToolsVersion
 
         // Load the current manifests.
         let graphRoot = PackageGraphRoot(input: root, manifests: rootManifests)
-        let currentManifests = try self.loadDependencyManifests(root: graphRoot, diagnostics: diagnostics)
+        let currentManifests = try self.loadDependencyManifests(root: graphRoot, observabilityScope: observabilityScope)
 
         // Abort if we're unable to load the pinsStore or have any diagnostics.
-        guard let pinsStore = diagnostics.wrap({ try self.pinsStore.load() }) else { return nil }
+        guard let pinsStore = observabilityScope.trap({ try self.pinsStore.load() }) else { return nil }
 
         // Ensure we don't have any error at this point.
-        guard !diagnostics.hasErrors else { return nil }
+        guard !observabilityScope.errorsReported else { return nil }
 
         // Add unversioned constraints for edited packages.
         var updateConstraints = currentManifests.editedPackagesConstraints()
@@ -736,40 +772,40 @@ extension Workspace {
         } else {
             // We have input packages so we have to partially update the package graph. Remove
             // the pins for the input packages so only those packages are updated.
-            pinsMap = pinsStore.pinsMap.filter{ !packages.contains($0.value.packageRef.name) }
+            pinsMap = pinsStore.pinsMap.filter{ !packages.contains($0.value.packageRef.identity.description) && !packages.contains($0.value.packageRef.deprecatedName) }
         }
 
         // Resolve the dependencies.
-        let resolver = self.createResolver(pinsMap: pinsMap, observabilityScope: ObservabilitySystem(diagnosticEngine: diagnostics).topScope)
+        let resolver = try self.createResolver(pinsMap: pinsMap, observabilityScope: observabilityScope)
         self.activeResolver = resolver
 
         let updateResults = resolveDependencies(
             resolver: resolver,
             constraints: updateConstraints,
-            diagnostics: diagnostics
+            observabilityScope: observabilityScope
         )
 
         // Reset the active resolver.
         self.activeResolver = nil
 
-        guard !diagnostics.hasErrors else { return nil }
+        guard !observabilityScope.errorsReported else { return nil }
 
         if dryRun {
-            return diagnostics.wrap { return try computePackageStateChanges(root: graphRoot, resolvedDependencies: updateResults, updateBranches: true) }
+            return observabilityScope.trap { return try computePackageStateChanges(root: graphRoot, resolvedDependencies: updateResults, updateBranches: true, observabilityScope: observabilityScope) }
         }
 
         // Update the checkouts based on new dependency resolution.
-        let packageStateChanges = self.updateDependenciesCheckouts(root: graphRoot, updateResults: updateResults, updateBranches: true, diagnostics: diagnostics)
+        let packageStateChanges = self.updateDependenciesCheckouts(root: graphRoot, updateResults: updateResults, updateBranches: true, observabilityScope: observabilityScope)
 
         // Load the updated manifests.
-        let updatedDependencyManifests = try self.loadDependencyManifests(root: graphRoot, diagnostics: diagnostics)
+        let updatedDependencyManifests = try self.loadDependencyManifests(root: graphRoot, observabilityScope: observabilityScope)
 
         // Update the pins store.
         self.pinAll(
             pinsStore: pinsStore,
             dependencyManifests: updatedDependencyManifests,
             rootManifestsMinimumToolsVersion: rootManifestsMinimumToolsVersion,
-            diagnostics: diagnostics
+            observabilityScope: observabilityScope
         )
 
         // Update the binary target artifacts.
@@ -777,20 +813,12 @@ extension Workspace {
         try self.updateBinaryArtifacts(
             manifests: updatedDependencyManifests,
             addedOrUpdatedPackages: addedOrUpdatedPackages,
-            diagnostics: diagnostics)
+            observabilityScope: observabilityScope
+        )
 
         return nil
     }
 
-    /// Loads a package graph from a root package using the resources associated with a particular `swiftc` executable.
-    ///
-    /// - Parameters:
-    ///   - at: The absolute path of the root package.
-    ///   - swiftCompiler: The absolute path of a `swiftc` executable. Its associated resources will be used by the loader.
-    ///   - identityResolver: A helper to resolve identities based on configuration
-    ///   - diagnostics: Optional.  The diagnostics engine.
-    ///   - on: The dispatch queue to perform asynchronous operations on.
-    ///   - completion: The completion handler .
     // deprecated 8/2021
     @available(*, deprecated, message: "use workspace instance API instead")
     public static func loadRootGraph(
@@ -806,7 +834,8 @@ extension Workspace {
         return try workspace.loadPackageGraph(rootPath: packagePath, diagnostics: diagnostics)
     }
 
-    @available(*, deprecated, message: "use observabilityScope variant instead")
+    // deprecated 8/2021
+    @available(*, deprecated, message: "use observability system APIs instead")
     @discardableResult
     public func loadPackageGraph(
         rootInput root: PackageGraphRootInput,
@@ -845,7 +874,7 @@ extension Workspace {
             manifests = try self.resolveBasedOnResolvedVersionsFile(
                 root: root,
                 explicitProduct: explicitProduct,
-                diagnostics: observabilityScope.makeDiagnosticsEngine()
+                observabilityScope: observabilityScope
             )
         } else {
             manifests = try self.resolve(
@@ -853,7 +882,7 @@ extension Workspace {
                 explicitProduct: explicitProduct,
                 forceResolution: false,
                 constraints: [],
-                diagnostics: observabilityScope.makeDiagnosticsEngine()
+                observabilityScope: observabilityScope
             )
         }
 
@@ -914,20 +943,20 @@ extension Workspace {
     public func resolve(
         root: PackageGraphRootInput,
         forceResolution: Bool = false,
-        diagnostics: DiagnosticsEngine
+        observabilityScope: ObservabilityScope
     ) throws {
         try self.resolve(
             root: root,
             forceResolution: forceResolution,
             constraints: [],
-            diagnostics: diagnostics
+            observabilityScope: observabilityScope
         )
     }
 
     /// Loads and returns manifests at the given paths.
     public func loadRootManifests(
         packages: [AbsolutePath],
-        diagnostics: DiagnosticsEngine,
+        observabilityScope: ObservabilityScope,
         completion: @escaping(Result<[AbsolutePath: Manifest], Error>) -> Void
     ) {
         let lock = Lock()
@@ -936,7 +965,13 @@ extension Workspace {
         Set(packages).forEach { package in
             sync.enter()
             // TODO: this does not use the identity resolver which is probably fine since its the root packages
-            self.loadManifest(packageIdentity: PackageIdentity(path: package), packageKind: .root(package), packagePath: package, packageLocation: package.pathString, diagnostics: diagnostics) { result in
+            self.loadManifest(
+                packageIdentity: PackageIdentity(path: package),
+                packageKind: .root(package),
+                packagePath: package,
+                packageLocation: package.pathString,
+                observabilityScope: observabilityScope
+            ) { result in
                 defer { sync.leave() }
                 if case .success(let manifest) = result {
                     lock.withLock {
@@ -948,10 +983,10 @@ extension Workspace {
 
         sync.notify(queue: .sharedConcurrent) {
             // Check for duplicate root packages.
-            let duplicateRoots = rootManifests.values.spm_findDuplicateElements(by: \.name)
+            let duplicateRoots = rootManifests.values.spm_findDuplicateElements(by: \.displayName)
             if !duplicateRoots.isEmpty {
-                let name = duplicateRoots[0][0].name
-                diagnostics.emit(error: "found multiple top-level packages named '\(name)'")
+                let name = duplicateRoots[0][0].displayName
+                observabilityScope.emit(error: "found multiple top-level packages named '\(name)'")
                 return completion(.success([:]))
             }
 
@@ -959,26 +994,17 @@ extension Workspace {
         }
     }
 
+    /// Loads and returns manifest at the given path.
     public func loadRootManifest(
         at path: AbsolutePath,
         observabilityScope: ObservabilityScope,
         completion: @escaping(Result<Manifest, Error>) -> Void
     ) {
-        self.loadRootManifest(at: path, diagnostics: observabilityScope.makeDiagnosticsEngine(), completion: completion)
-    }
-
-    // FIXME: (diagnostics) make the observabilityScope variant the main one
-    /// Loads and returns manifest at the given path.
-    public func loadRootManifest(
-        at path: AbsolutePath,
-        diagnostics: DiagnosticsEngine,
-        completion: @escaping(Result<Manifest, Error>) -> Void
-    ) {
-        self.loadRootManifests(packages: [path], diagnostics: diagnostics) { result in
+        self.loadRootManifests(packages: [path], observabilityScope: observabilityScope) { result in
             completion(result.tryMap{
                 // normally, we call loadRootManifests which attempts to load any manifest it can and report errors via diagnostics
                 // in this case, we want to load a specific manifest, so if the diagnostics contains an error we want to throw
-                guard !diagnostics.hasErrors else {
+                guard !observabilityScope.errorsReported else {
                     throw Diagnostics.fatalError
                 }
                 guard let manifest = $0[path] else {
@@ -987,6 +1013,12 @@ extension Workspace {
                 return manifest
             })
         }
+    }
+
+
+    @available(*, deprecated, message: "use observability system APIs instead")
+    public func loadRootManifest(at path: AbsolutePath, diagnostics: DiagnosticsEngine, completion: @escaping(Result<Manifest, Error>) -> Void) {
+        self.loadRootManifest(at: path, observabilityScope: ObservabilitySystem(diagnosticEngine: diagnostics).topScope, completion: completion)
     }
 
     @available(*, deprecated, message: "use observabilityScope variant instead")
@@ -1043,27 +1075,20 @@ extension Workspace {
     }
 
     /// Generates the checksum
-    public func checksum(
-        forBinaryArtifactAt path: AbsolutePath,
-        diagnostics: DiagnosticsEngine
-    ) -> String {
+    public func checksum(forBinaryArtifactAt path: AbsolutePath) throws -> String {
         // Validate the path has a supported extension.
         guard let pathExtension = path.extension, archiver.supportedExtensions.contains(pathExtension) else {
             let supportedExtensionList = archiver.supportedExtensions.joined(separator: ", ")
-            diagnostics.emit(error: "unexpected file type; supported extensions are: \(supportedExtensionList)")
-            return ""
+            throw StringError("unexpected file type; supported extensions are: \(supportedExtensionList)")
         }
 
         // Ensure that the path with the accepted extension is a file.
         guard fileSystem.isFile(path) else {
-            diagnostics.emit(error: "file not found at path: \(path.pathString)")
-            return ""
+            throw StringError("file not found at path: \(path.pathString)")
         }
 
-        return diagnostics.wrap {
-            let contents = try fileSystem.readFileContents(path)
-            return self.checksumAlgorithm.hash(contents).hexadecimalRepresentation
-        } ?? ""
+        let contents = try fileSystem.readFileContents(path)
+        return self.checksumAlgorithm.hash(contents).hexadecimalRepresentation
     }
 }
 
@@ -1073,15 +1098,15 @@ extension Workspace {
 
     func checkoutState(
         for dependency: ManagedDependency,
-        diagnostics: DiagnosticsEngine
+        observabilityScope: ObservabilityScope
     ) -> CheckoutState? {
         switch dependency.state {
         case .checkout(let checkoutState):
             return checkoutState
         case .edited:
-            diagnostics.emit(error: "dependency '\(dependency.packageRef.name)' already in edit mode")
+            observabilityScope.emit(error: "dependency '\(dependency.packageRef.identity)' already in edit mode")
         case .local:
-            diagnostics.emit(error: "local dependency '\(dependency.packageRef.name)' can't be edited")
+            observabilityScope.emit(error: "local dependency '\(dependency.packageRef.identity)' can't be edited")
         }
         return nil
     }
@@ -1092,15 +1117,15 @@ extension Workspace {
         path: AbsolutePath? = nil,
         revision: Revision? = nil,
         checkoutBranch: String? = nil,
-        diagnostics: DiagnosticsEngine
+        observabilityScope: ObservabilityScope
     ) throws {
         // Look up the dependency and check if we can edit it.
         guard let dependency = self.state.dependencies[.plain(packageName)] else {
-            diagnostics.emit(.dependencyNotFound(packageName: packageName))
+            observabilityScope.emit(.dependencyNotFound(packageName: packageName))
             return
         }
 
-        guard let checkoutState = checkoutState(for: dependency, diagnostics: diagnostics) else {
+        guard let checkoutState = self.checkoutState(for: dependency, observabilityScope: observabilityScope) else {
             return
         }
 
@@ -1117,22 +1142,22 @@ extension Workspace {
                                   packageKind: .fileSystem(destination),
                                   packagePath: destination,
                                   packageLocation: dependency.packageRef.locationString,
-                                  diagnostics: diagnostics,
+                                  observabilityScope: observabilityScope,
                                   completion: $0)
             }
 
-            guard manifest.name == packageName else {
-                return diagnostics.emit(error: "package at '\(destination)' is \(manifest.name) but was expecting \(packageName)")
+            guard manifest.displayName == packageName else {
+                return observabilityScope.emit(error: "package at '\(destination)' is \(manifest.displayName) but was expecting \(packageName)")
             }
 
             // Emit warnings for branch and revision, if they're present.
             if let checkoutBranch = checkoutBranch {
-                diagnostics.emit(.editBranchNotCheckedOut(
+                observabilityScope.emit(.editBranchNotCheckedOut(
                     packageName: packageName,
                     branchName: checkoutBranch))
             }
             if let revision = revision {
-                diagnostics.emit(.editRevisionNotUsed(
+                observabilityScope.emit(.editRevisionNotUsed(
                     packageName: packageName,
                     revisionIdentifier: revision.identifier))
             }
@@ -1202,7 +1227,7 @@ extension Workspace {
         dependency: ManagedDependency,
         forceRemove: Bool,
         root: PackageGraphRootInput? = nil,
-        diagnostics: DiagnosticsEngine
+        observabilityScope: ObservabilityScope
     ) throws {
 
         // Compute if we need to force remove.
@@ -1211,7 +1236,7 @@ extension Workspace {
         switch dependency.state {
         // If the dependency isn't in edit mode, we can't unedit it.
         case .checkout, .local:
-            throw WorkspaceDiagnostics.DependencyNotInEditMode(dependencyName: dependency.packageRef.name)
+            throw WorkspaceDiagnostics.DependencyNotInEditMode(dependencyName: dependency.packageRef.identity.description)
 
         case .edited(_, let path):
             if path != nil {
@@ -1257,7 +1282,7 @@ extension Workspace {
         // Resolve the dependencies if workspace root is provided. We do this to
         // ensure the unedited version of this dependency is resolved properly.
         if let root = root {
-            try self.resolve(root: root, diagnostics: diagnostics)
+            try self.resolve(root: root, observabilityScope: observabilityScope)
         }
     }
 
@@ -1272,7 +1297,7 @@ extension Workspace {
         pinsStore: PinsStore,
         dependencyManifests: DependencyManifests,
         rootManifestsMinimumToolsVersion: ToolsVersion,
-        diagnostics: DiagnosticsEngine
+        observabilityScope: ObservabilityScope
     ) {
         // Reset the pinsStore and start pinning the required dependencies.
         pinsStore.unpinAll()
@@ -1284,7 +1309,7 @@ extension Workspace {
             }
         }
 
-        diagnostics.wrap{
+        observabilityScope.trap{
             try pinsStore.saveState(toolsVersion: rootManifestsMinimumToolsVersion)
         }
 
@@ -1496,13 +1521,11 @@ extension Workspace {
     }
 
     /// Create the cache directories.
-    fileprivate func createCacheDirectories(with diagnostics: DiagnosticsEngine) {
-        do {
+    fileprivate func createCacheDirectories(observabilityScope: ObservabilityScope) {
+        observabilityScope.trap {
             try fileSystem.createDirectory(self.repositoryManager.path, recursive: true)
             try fileSystem.createDirectory(self.location.repositoriesCheckoutsDirectory, recursive: true)
             try fileSystem.createDirectory(self.location.artifactsDirectory, recursive: true)
-        } catch {
-            diagnostics.emit(error)
         }
     }
 
@@ -1540,8 +1563,8 @@ extension Workspace {
     /// current dependencies from the working checkouts.l
     public func loadDependencyManifests(
         root: PackageGraphRoot,
-        diagnostics: DiagnosticsEngine,
-        automaticallyAddManagedDependencies: Bool = false
+        automaticallyAddManagedDependencies: Bool = false,
+        observabilityScope: ObservabilityScope
     ) throws -> DependencyManifests {
         // Utility Just because a raw tuple cannot be hashable.
         struct Key: Hashable {
@@ -1554,21 +1577,21 @@ extension Workspace {
         // Remove any managed dependency which has become a root.
         for dependency in dependenciesToCheck {
             if root.packages.keys.contains(dependency.packageRef.identity) {
-                diagnostics.wrap {
+                observabilityScope.trap {
                     try self.remove(package: dependency.packageRef)
                 }
             }
         }
 
         // Validates that all the managed dependencies are still present in the file system.
-        self.fixManagedDependencies(with: diagnostics)
-        guard !diagnostics.hasErrors else {
+        self.fixManagedDependencies(observabilityScope: observabilityScope)
+        guard !observabilityScope.errorsReported else {
             return DependencyManifests(root: root, dependencies: [], workspace: self)
         }
 
         // Load root dependencies manifests (in parallel)
         let rootDependencies = root.dependencies.map{ $0.createPackageRef() }
-        let rootDependenciesManifests = try temp_await { self.loadManagedManifests(for: rootDependencies, diagnostics: diagnostics, completion: $0) }
+        let rootDependenciesManifests = try temp_await { self.loadManagedManifests(for: rootDependencies, observabilityScope: observabilityScope, completion: $0) }
 
         let topLevelManifests = root.manifests.merging(rootDependenciesManifests, uniquingKeysWith: { lhs, rhs in
             return lhs // prefer roots!
@@ -1576,7 +1599,7 @@ extension Workspace {
 
         // optimization: preload first level dependencies manifest (in parallel)
         let firstLevelDependencies = topLevelManifests.values.map { $0.dependencies.map{ $0.createPackageRef() } }.flatMap { $0 }
-        let firstLevelManifests = try temp_await { self.loadManagedManifests(for: firstLevelDependencies, diagnostics: diagnostics, completion: $0) } // FIXME: this should not block
+        let firstLevelManifests = try temp_await { self.loadManagedManifests(for: firstLevelDependencies, observabilityScope: observabilityScope, completion: $0) } // FIXME: this should not block
 
         // Continue to load the rest of the manifest for this graph
         // Creates a map of loaded manifests. We do this to avoid reloading the shared nodes.
@@ -1592,10 +1615,10 @@ extension Workspace {
                 try dependenciesRequired.filter { $0.isLocal }.forEach { dependency in
                     try self.state.dependencies.add(.local(packageRef: dependency.createPackageRef()))
                 }
-                diagnostics.wrap { try self.state.save() }
+                observabilityScope.trap { try self.state.save() }
             }
             let dependenciesToLoad = dependenciesRequired.map{ $0.createPackageRef() }.filter { !loadedManifests.keys.contains($0.identity) }
-            let dependenciesManifests = try temp_await { self.loadManagedManifests(for: dependenciesToLoad, diagnostics: diagnostics, completion: $0) }
+            let dependenciesManifests = try temp_await { self.loadManagedManifests(for: dependenciesToLoad, observabilityScope: observabilityScope, completion: $0) }
             dependenciesManifests.forEach { loadedManifests[$0.key] = $0.value }
             return pair.item.dependenciesRequired(for: pair.key.productFilter).compactMap{ dependency in
                 loadedManifests[dependency.identity].flatMap {
@@ -1626,10 +1649,10 @@ extension Workspace {
 
         // TODO: this check should go away when introducing explicit overrides
         // check for overrides attempts with same name but different path
-        let rootManifestsByName = Array(root.manifests.values).spm_createDictionary{ ($0.name, $0) }
+        let rootManifestsByName = Array(root.manifests.values).spm_createDictionary{ ($0.displayName, $0) }
         dependencyManifests.forEach { identity, manifest, _ in
-            if let override = rootManifestsByName[manifest.name], override.packageLocation != manifest.packageLocation  {
-                diagnostics.emit(error: "unable to override package '\(manifest.name)' because its identity '\(PackageIdentity(urlString: manifest.packageLocation))' doesn't match override's identity (directory name) '\(PackageIdentity(urlString: override.packageLocation))'")
+            if let override = rootManifestsByName[manifest.displayName], override.packageLocation != manifest.packageLocation  {
+                observabilityScope.emit(error: "unable to override package '\(manifest.displayName)' because its identity '\(PackageIdentity(urlString: manifest.packageLocation))' doesn't match override's identity (directory name) '\(PackageIdentity(urlString: override.packageLocation))'")
             }
         }
 
@@ -1644,12 +1667,12 @@ extension Workspace {
     }
 
     /// Loads the given manifests, if it is present in the managed dependencies.
-    private func loadManagedManifests(for packages: [PackageReference], diagnostics: DiagnosticsEngine, completion: @escaping (Result<[PackageIdentity: Manifest], Error>) -> Void) {
+    private func loadManagedManifests(for packages: [PackageReference], observabilityScope: ObservabilityScope, completion: @escaping (Result<[PackageIdentity: Manifest], Error>) -> Void) {
         let sync = DispatchGroup()
         let manifests = ThreadSafeKeyValueStore<PackageIdentity, Manifest>()
         Set(packages).forEach { package in
             sync.enter()
-            self.loadManagedManifest(for: package, diagnostics: diagnostics) { manifest in
+            self.loadManagedManifest(for: package, observabilityScope: observabilityScope) { manifest in
                 defer { sync.leave() }
                 if let manifest = manifest {
                     manifests[package.identity] = manifest
@@ -1663,7 +1686,11 @@ extension Workspace {
     }
 
     /// Loads the given manifest, if it is present in the managed dependencies.
-    fileprivate func loadManagedManifest(for package: PackageReference, diagnostics: DiagnosticsEngine, completion: @escaping (Manifest?) -> Void) {
+    fileprivate func loadManagedManifest(
+        for package: PackageReference,
+        observabilityScope: ObservabilityScope,
+        completion: @escaping (Manifest?) -> Void
+    ) {
         // Check if this dependency is available.
         // we also compare the location as this function may attempt to load
         // dependencies that have the same identity but from a different location
@@ -1695,12 +1722,14 @@ extension Workspace {
 
 
         // Load and return the manifest.
-        self.loadManifest(packageIdentity: managedDependency.packageRef.identity,
-                          packageKind: packageKind,
-                          packagePath: packagePath,
-                          packageLocation: managedDependency.packageRef.locationString,
-                          version: version,
-                          diagnostics: diagnostics) { result in
+        self.loadManifest(
+            packageIdentity: managedDependency.packageRef.identity,
+            packageKind: packageKind,
+            packagePath: packagePath,
+            packageLocation: managedDependency.packageRef.locationString,
+            version: version,
+            observabilityScope: observabilityScope
+        ) { result in
             // error is added to diagnostics in the function above
             completion(try? result.get())
         }
@@ -1715,12 +1744,17 @@ extension Workspace {
         packagePath: AbsolutePath,
         packageLocation: String,
         version: Version? = nil,
-        diagnostics: DiagnosticsEngine,
+        observabilityScope: ObservabilityScope,
         completion: @escaping (Result<Manifest, Error>) -> Void
     ) {
         // Load the manifest, bracketed by the calls to the delegate callbacks.
         delegate?.willLoadManifest(packagePath: packagePath, url: packageLocation, version: version, packageKind: packageKind)
-        diagnostics.with(location: PackageLocation.Local(packagePath: packagePath)) { diagnostics in
+
+        let observabilityScope = observabilityScope.makeChildScope(description: "Loading manifest") {
+            .packageMetadata(identity: packageIdentity, kind: packageKind)
+        }
+
+        //diagnostics.with(location: PackageLocation.Local(packagePath: packagePath)) { diagnostics in
             do {
                 // Load the tools version for the package.
                 let toolsVersion = try toolsVersionLoader.load(at: packagePath, fileSystem: fileSystem)
@@ -1730,43 +1764,54 @@ extension Workspace {
 
                 // Load the manifest.
                 // The delegate callback is only passed any diagnostics emitted during the parsing of the manifest, but they are also forwarded up to the caller.
-                let manifestLoadingDiagnostics = DiagnosticsEngine(handlers: [{ diagnostics.emit($0) }], defaultLocation: diagnostics.defaultLocation)
-                manifestLoader.load(at: packagePath,
-                                    packageIdentity: packageIdentity,
-                                    packageKind: packageKind,
-                                    packageLocation: packageLocation,
-                                    version: version,
-                                    revision: nil,
-                                    toolsVersion: toolsVersion,
-                                    identityResolver: self.identityResolver,
-                                    fileSystem: localFileSystem,
-                                    diagnostics: manifestLoadingDiagnostics,
-                                    on: .sharedConcurrent) { result in
+                //let manifestLoadingDiagnostics = DiagnosticsEngine(handlers: [{ diagnostics.emit($0) }], defaultLocation: diagnostics.defaultLocation)
+                //let manifestLoadingObservabilityScope = observabilityScope.makeChildScope(description: "Loading manifest")
 
+                let manifestLoadingDiagnostics = ThreadSafeArrayStore<Basics.Diagnostic>()
+                let manifestLoadingScope = ObservabilitySystem( { _, diagnostic in
+                    observabilityScope.emit(diagnostic)
+                    manifestLoadingDiagnostics.append(diagnostic)
+                }).topScope.makeChildScope(description: "Loading manifest") {
+                    .packageMetadata(identity: packageIdentity, kind: packageKind)
+                }
+
+                manifestLoader.load(
+                    at: packagePath,
+                    packageIdentity: packageIdentity,
+                    packageKind: packageKind,
+                    packageLocation: packageLocation,
+                    version: version,
+                    revision: nil,
+                    toolsVersion: toolsVersion,
+                    identityResolver: self.identityResolver,
+                    fileSystem: localFileSystem,
+                    observabilityScope: manifestLoadingScope,
+                    on: .sharedConcurrent
+                ) { result in
                     switch result {
                     // Diagnostics.fatalError indicates that a more specific diagnostic has already been added.
                     case .failure(Diagnostics.fatalError):
-                        self.delegate?.didLoadManifest(packagePath: packagePath, url: packageLocation, version: version, packageKind: packageKind, manifest: nil, diagnostics: manifestLoadingDiagnostics.diagnostics)
+                        self.delegate?.didLoadManifest(packagePath: packagePath, url: packageLocation, version: version, packageKind: packageKind, manifest: nil, diagnostics: manifestLoadingDiagnostics.get())
                     case .failure(let error):
-                        manifestLoadingDiagnostics.emit(error)
-                        self.delegate?.didLoadManifest(packagePath: packagePath, url: packageLocation, version: version, packageKind: packageKind, manifest: nil, diagnostics: manifestLoadingDiagnostics.diagnostics)
+                        manifestLoadingScope.emit(error)
+                        self.delegate?.didLoadManifest(packagePath: packagePath, url: packageLocation, version: version, packageKind: packageKind, manifest: nil, diagnostics: manifestLoadingDiagnostics.get())
                     case .success(let manifest):
-                        self.delegate?.didLoadManifest(packagePath: packagePath, url: packageLocation, version: version, packageKind: packageKind, manifest: manifest, diagnostics: manifestLoadingDiagnostics.diagnostics)
+                        self.delegate?.didLoadManifest(packagePath: packagePath, url: packageLocation, version: version, packageKind: packageKind, manifest: manifest, diagnostics: manifestLoadingDiagnostics.get())
                     }
                     completion(result)
                 }
             } catch {
-                diagnostics.emit(error)
+                observabilityScope.emit(error)
                 completion(.failure(error))
             }
-        }
+        //}
     }
 
     /// Validates that all the edited dependencies are still present in the file system.
     /// If some checkout dependency is removed form the file system, clone it again.
     /// If some edited dependency is removed from the file system, mark it as unedited and
     /// fallback on the original checkout.
-    fileprivate func fixManagedDependencies(with diagnostics: DiagnosticsEngine) {
+    fileprivate func fixManagedDependencies(observabilityScope: ObservabilityScope) {
 
         // Reset managed dependencies if the state file was removed during the lifetime of the Workspace object.
         if !self.state.dependencies.isEmpty && !self.state.stateFileExists() {
@@ -1776,7 +1821,7 @@ extension Workspace {
         // Make a copy of dependencies as we might mutate them in the for loop.
         let allDependencies = Array(self.state.dependencies)
         for dependency in allDependencies {
-            diagnostics.wrap {
+            observabilityScope.trap {
 
                 // If the dependency is present, we're done.
                 let dependencyPath = self.path(to: dependency)
@@ -1786,7 +1831,7 @@ extension Workspace {
                 case .checkout(let checkoutState):
                     // If some checkout dependency has been removed, retrieve it again.
                     _ = try self.retrieve(package: dependency.packageRef, at: checkoutState)
-                    diagnostics.emit(.checkedOutDependencyMissing(packageName: dependency.packageRef.name))
+                    observabilityScope.emit(.checkedOutDependencyMissing(packageName: dependency.packageRef.identity.description))
 
                 case .edited:
                     // If some edited dependency has been removed, mark it as unedited.
@@ -1794,9 +1839,9 @@ extension Workspace {
                     // Note: We don't resolve the dependencies when unediting
                     // here because we expect this method to be called as part
                     // of some other resolve operation (i.e. resolve, update, etc).
-                    try unedit(dependency: dependency, forceRemove: true, diagnostics: diagnostics)
+                    try self.unedit(dependency: dependency, forceRemove: true, observabilityScope: observabilityScope)
 
-                    diagnostics.emit(.editedDependencyMissing(packageName: dependency.packageRef.name))
+                    observabilityScope.emit(.editedDependencyMissing(packageName: dependency.packageRef.identity.description))
 
                 case .local:
                     self.state.dependencies.remove(dependency.packageRef.identity)
@@ -1813,7 +1858,7 @@ extension Workspace {
     fileprivate func updateBinaryArtifacts(
         manifests: DependencyManifests,
         addedOrUpdatedPackages: [PackageReference],
-        diagnostics: DiagnosticsEngine
+        observabilityScope: ObservabilityScope
     ) throws {
         let manifestArtifacts = try self.parseArtifacts(from: manifests)
 
@@ -1838,8 +1883,7 @@ extension Workspace {
             if artifact.path.extension == self.manifestLoader.supportedArchiveExtension {
                 // If we already have an artifact that was extracted from an archive with the same checksum,
                 // we don't need to extract the artifact again.
-                if case .local(let existingChecksum) = existingArtifact?.source,
-                   existingChecksum == self.checksum(forBinaryArtifactAt: artifact.path, diagnostics: diagnostics) {
+                if case .local(let existingChecksum) = existingArtifact?.source, existingChecksum == (try self.checksum(forBinaryArtifactAt: artifact.path)) {
                     continue
                 }
 
@@ -1869,7 +1913,7 @@ extension Workspace {
 
                     // If the checksum is different but the package wasn't updated, this is a security risk.
                     if !addedOrUpdatedPackages.contains(artifact.packageRef) {
-                        diagnostics.emit(.artifactChecksumChanged(targetName: artifact.targetName))
+                        observabilityScope.emit(.artifactChecksumChanged(targetName: artifact.targetName))
                         continue
                     }
                 }
@@ -1884,7 +1928,7 @@ extension Workspace {
         }
 
         // Remove the artifacts and directories which are not needed anymore.
-        diagnostics.wrap {
+        observabilityScope.trap {
             for artifact in artifactsToRemove {
                 state.artifacts.remove(packageIdentity: artifact.packageRef.identity, targetName: artifact.targetName)
 
@@ -1901,16 +1945,16 @@ extension Workspace {
             }
         }
 
-        guard !diagnostics.hasErrors else {
+        guard !observabilityScope.errorsReported else {
             throw Diagnostics.fatalError
         }
 
         // Download the artifacts
-        let downloadedArtifacts = try self.download(artifactsToDownload, diagnostics: diagnostics)
+        let downloadedArtifacts = try self.download(artifactsToDownload, observabilityScope: observabilityScope)
         artifactsToAdd.append(contentsOf: downloadedArtifacts)
 
         // Extract the local archived artifacts
-        let extractedLocalArtifacts = try self.extract(artifactsToExtract, diagnostics: diagnostics)
+        let extractedLocalArtifacts = try self.extract(artifactsToExtract, observabilityScope: observabilityScope)
         artifactsToAdd.append(contentsOf: extractedLocalArtifacts)
 
         // Add the new artifacts
@@ -1918,11 +1962,11 @@ extension Workspace {
             self.state.artifacts.add(artifact)
         }
 
-        guard !diagnostics.hasErrors else {
+        guard !observabilityScope.errorsReported else {
             throw Diagnostics.fatalError
         }
 
-        diagnostics.wrap {
+        observabilityScope.trap {
             try self.state.save()
         }
     }
@@ -1963,9 +2007,8 @@ extension Workspace {
         return (local: localArtifacts, remote: remoteArtifacts)
     }
 
-    private func download(_ artifacts: [RemoteArtifact], diagnostics: DiagnosticsEngine) throws -> [ManagedArtifact] {
+    private func download(_ artifacts: [RemoteArtifact], observabilityScope: ObservabilityScope) throws -> [ManagedArtifact] {
         let group = DispatchGroup()
-        let tempDiagnostics = DiagnosticsEngine() // FIXME: transition to DiagnosticsEmmiter
         let result = ThreadSafeArrayStore<ManagedArtifact>()
 
         // zip files to download
@@ -1977,6 +2020,7 @@ extension Workspace {
         // fetch and parse "artifactbundleindex" files, if any
         let indexFiles = artifacts.filter { $0.url.pathExtension.lowercased() == "artifactbundleindex" }
         if !indexFiles.isEmpty {
+            let errors = ThreadSafeArrayStore<Error>()
             let hostToolchain = try UserToolchain(destination: .hostDestination())
             let jsonDecoder = JSONDecoder.makeWithDefaults()
             for indexFile in indexFiles {
@@ -2015,7 +2059,8 @@ extension Workspace {
                             )
                         }
                     } catch {
-                        tempDiagnostics.emit(error: "failed retrieving '\(indexFile.url)': \(error)")
+                        errors.append(error)
+                        observabilityScope.emit(error: "failed retrieving '\(indexFile.url)': \(error)")
                     }
                 }
             }
@@ -2024,9 +2069,7 @@ extension Workspace {
             group.wait()
 
             // no reason to continue if we already ran into issues
-            if tempDiagnostics.hasErrors {
-                // collect all diagnostics
-                diagnostics.append(contentsOf: tempDiagnostics)
+            if !errors.isEmpty {
                 throw Diagnostics.fatalError
             }
         }
@@ -2036,8 +2079,8 @@ extension Workspace {
             group.enter()
             defer { group.leave() }
 
-            let parentDirectory =  self.location.artifactsDirectory.appending(component: artifact.packageRef.name)
-            guard tempDiagnostics.wrap ({ try fileSystem.createDirectory(parentDirectory, recursive: true) }) else {
+            let parentDirectory =  self.location.artifactsDirectory.appending(component: artifact.packageRef.identity.description)
+            guard observabilityScope.trap ({ try fileSystem.createDirectory(parentDirectory, recursive: true) }) else {
                 continue
             }
 
@@ -2062,15 +2105,17 @@ extension Workspace {
 
                     switch downloadResult {
                     case .success:
-                        let archiveChecksum = self.checksum(forBinaryArtifactAt: archivePath, diagnostics: tempDiagnostics )
+                        guard let archiveChecksum = observabilityScope.trap ({ try self.checksum(forBinaryArtifactAt: archivePath) }) else {
+                            return
+                        }
                         guard archiveChecksum == artifact.checksum else {
-                            tempDiagnostics.emit(.artifactInvalidChecksum(targetName: artifact.targetName, expectedChecksum: artifact.checksum, actualChecksum: archiveChecksum))
-                            tempDiagnostics.wrap { try self.fileSystem.removeFileTree(archivePath) }
+                            observabilityScope.emit(.artifactInvalidChecksum(targetName: artifact.targetName, expectedChecksum: artifact.checksum, actualChecksum: archiveChecksum))
+                            observabilityScope.trap { try self.fileSystem.removeFileTree(archivePath) }
                             return
                         }
 
-                        guard let tempExtractionDirectory = tempDiagnostics.wrap({ () -> AbsolutePath in
-                            let path = self.location.artifactsDirectory.appending(components: "extract", artifact.packageRef.name, artifact.targetName, UUID().uuidString)
+                        guard let tempExtractionDirectory = observabilityScope.trap({ () -> AbsolutePath in
+                            let path = self.location.artifactsDirectory.appending(components: "extract", artifact.packageRef.identity.description, artifact.targetName, UUID().uuidString)
                             try self.fileSystem.forceCreateDirectory(at: path)
                             return path
                         }) else {
@@ -2085,7 +2130,7 @@ extension Workspace {
                             switch extractResult {
                             case .success:
                                 var artifactPath: AbsolutePath? = nil
-                                tempDiagnostics.wrap {
+                                observabilityScope.trap {
                                     try self.fileSystem.withLock(on: parentDirectory, type: .exclusive) {
                                         // copy from temp location to actual location
                                         let content = try self.fileSystem.getDirectoryContents(tempExtractionDirectory)
@@ -2106,7 +2151,7 @@ extension Workspace {
                                 }
 
                                 guard let mainArtifactPath = artifactPath else {
-                                    return tempDiagnostics.emit(.artifactNotFound(targetName: artifact.targetName, artifactName: artifact.targetName))
+                                    return observabilityScope.emit(.artifactNotFound(targetName: artifact.targetName, artifactName: artifact.targetName))
                                 }
 
                                 result.append(
@@ -2120,13 +2165,13 @@ extension Workspace {
                                 )
                             case .failure(let error):
                                 let reason = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
-                                tempDiagnostics.emit(.artifactFailedExtraction(artifactURL: artifact.url, targetName: artifact.targetName, reason: reason))
+                                observabilityScope.emit(.artifactFailedExtraction(artifactURL: artifact.url, targetName: artifact.targetName, reason: reason))
                             }
 
-                            tempDiagnostics.wrap { try self.fileSystem.removeFileTree(archivePath) }
+                            observabilityScope.trap { try self.fileSystem.removeFileTree(archivePath) }
                         })
                     case .failure(let error):
-                        tempDiagnostics.emit(.artifactFailedDownload(artifactURL: artifact.url, targetName: artifact.targetName, reason: "\(error)"))
+                        observabilityScope.emit(.artifactFailedDownload(artifactURL: artifact.url, targetName: artifact.targetName, reason: "\(error)"))
                     }
                 })
         }
@@ -2137,21 +2182,18 @@ extension Workspace {
             delegate?.didDownloadBinaryArtifacts()
         }
 
-        // collect all diagnostics
-        diagnostics.append(contentsOf: tempDiagnostics)
-
         return result.map{ $0 }
     }
 
-    private func extract(_ artifacts: [ManagedArtifact], diagnostics: DiagnosticsEngine) throws -> [ManagedArtifact] {
+    private func extract(_ artifacts: [ManagedArtifact], observabilityScope: ObservabilityScope) throws -> [ManagedArtifact] {
         let result = ThreadSafeArrayStore<ManagedArtifact>()
         let group = DispatchGroup()
 
         for artifact in artifacts {
-            let destinationDirectory = self.location.artifactsDirectory.appending(component: artifact.packageRef.name)
+            let destinationDirectory = self.location.artifactsDirectory.appending(component: artifact.packageRef.identity.description)
             try fileSystem.createDirectory(destinationDirectory, recursive: true)
 
-            let tempExtractionDirectory = self.location.artifactsDirectory.appending(components: "extract", artifact.packageRef.name, artifact.targetName, UUID().uuidString)
+            let tempExtractionDirectory = self.location.artifactsDirectory.appending(components: "extract", artifact.packageRef.identity.description, artifact.targetName, UUID().uuidString)
             try self.fileSystem.forceCreateDirectory(at: tempExtractionDirectory)
 
             group.enter()
@@ -2160,8 +2202,8 @@ extension Workspace {
 
                 switch extractResult {
                 case .success:
-                    var artifactPath: AbsolutePath? = nil
-                    diagnostics.wrap {
+                    observabilityScope.trap { () -> Void in
+                        var artifactPath: AbsolutePath? = nil
                         // copy from temp location to actual location
                         let content = try self.fileSystem.getDirectoryContents(tempExtractionDirectory)
                         for file in content {
@@ -2175,27 +2217,30 @@ extension Workspace {
                                 artifactPath = destination
                             }
                         }
+
                         // remove temp location
                         try self.fileSystem.removeFileTree(tempExtractionDirectory)
-                    }
 
-                    guard let mainArtifactPath = artifactPath else {
-                        return diagnostics.emit(.localArtifactNotFound(targetName: artifact.targetName, artifactName: artifact.targetName))
-                    }
+                        guard let mainArtifactPath = artifactPath else {
+                            return observabilityScope.emit(.localArtifactNotFound(targetName: artifact.targetName, artifactName: artifact.targetName))
+                        }
 
-                    result.append(
-                        .local(
-                            packageRef: artifact.packageRef,
-                            targetName: artifact.targetName,
-                            path: mainArtifactPath,
-                            checksum: self.checksum(forBinaryArtifactAt: artifact.path, diagnostics: diagnostics)
+                        // compute the checksum
+                        let artifactChecksum = try self.checksum(forBinaryArtifactAt: artifact.path)
+
+                        result.append(
+                            .local(
+                                packageRef: artifact.packageRef,
+                                targetName: artifact.targetName,
+                                path: mainArtifactPath,
+                                checksum: artifactChecksum
+                            )
                         )
-                    )
-
+                    }
                 case .failure(let error):
                     let reason = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
 
-                    diagnostics.emit(.localArtifactFailedExtraction(artifactPath: artifact.path, targetName: artifact.targetName, reason: reason))
+                    observabilityScope.emit(.localArtifactFailedExtraction(artifactPath: artifact.path, targetName: artifact.targetName, reason: reason))
                 }
             })
         }
@@ -2214,17 +2259,18 @@ extension Workspace {
 
 extension Workspace {
 
+    // deprecated 8/2021
     @available(*, deprecated, message: "renamed to resolveBasedOnResolvedVersionsFile")
-    public func resolveToResolvedVersion(root: PackageGraphRootInput,diagnostics: DiagnosticsEngine) throws {
-        try self.resolveBasedOnResolvedVersionsFile(root: root, diagnostics: diagnostics)
+    public func resolveToResolvedVersion(root: PackageGraphRootInput, diagnostics: DiagnosticsEngine) throws {
+        try self.resolveBasedOnResolvedVersionsFile(root: root, observabilityScope: ObservabilitySystem(diagnosticEngine: diagnostics).topScope)
     }
 
     /// Resolves the dependencies according to the entries present in the Package.resolved file.
     ///
     /// This method bypasses the dependency resolution and resolves dependencies
     /// according to the information in the resolved file.
-    public func resolveBasedOnResolvedVersionsFile(root: PackageGraphRootInput, diagnostics: DiagnosticsEngine) throws {
-        try self.resolveBasedOnResolvedVersionsFile(root: root, explicitProduct: .none, diagnostics: diagnostics)
+    public func resolveBasedOnResolvedVersionsFile(root: PackageGraphRootInput, observabilityScope: ObservabilityScope) throws {
+        try self.resolveBasedOnResolvedVersionsFile(root: root, explicitProduct: .none, observabilityScope: observabilityScope)
     }
 
     /// Resolves the dependencies according to the entries present in the Package.resolved file.
@@ -2235,18 +2281,18 @@ extension Workspace {
     fileprivate func resolveBasedOnResolvedVersionsFile(
         root: PackageGraphRootInput,
         explicitProduct: String?,
-        diagnostics: DiagnosticsEngine
+        observabilityScope: ObservabilityScope
     ) throws -> DependencyManifests {
         // Ensure the cache path exists.
-        self.createCacheDirectories(with: diagnostics)
+        self.createCacheDirectories(observabilityScope: observabilityScope)
 
         // FIXME: this should not block
-        let rootManifests = try temp_await { self.loadRootManifests(packages: root.packages, diagnostics: diagnostics, completion: $0) }
+        let rootManifests = try temp_await { self.loadRootManifests(packages: root.packages, observabilityScope: observabilityScope, completion: $0) }
         let graphRoot = PackageGraphRoot(input: root, manifests: rootManifests, explicitProduct: explicitProduct)
 
         // Load the pins store or abort now.
-        guard let pinsStore = diagnostics.wrap({ try self.pinsStore.load() }), !diagnostics.hasErrors else {
-            return try self.loadDependencyManifests(root: graphRoot, diagnostics: diagnostics)
+        guard let pinsStore = observabilityScope.trap({ try self.pinsStore.load() }), !observabilityScope.errorsReported else {
+            return try self.loadDependencyManifests(root: graphRoot, observabilityScope: observabilityScope)
         }
 
         // Request all the containers to fetch them in parallel.
@@ -2254,7 +2300,7 @@ extension Workspace {
         // We just request the packages here, repository manager will
         // automatically manage the parallelism.
         for pin in pinsStore.pins {
-            self.getContainer(for: pin.packageRef, skipUpdate: true, on: .sharedConcurrent, completion: { _ in })
+            self.getContainer(for: pin.packageRef, skipUpdate: true, observabilityScope: observabilityScope, on: .sharedConcurrent, completion: { _ in })
         }
 
         // Compute the pins that we need to actually clone.
@@ -2276,31 +2322,32 @@ extension Workspace {
 
         // Retrieve the required pins.
         for pin in requiredPins {
-            diagnostics.wrap {
+            observabilityScope.trap {
                 _ = try self.retrieve(package: pin.packageRef, at: pin.state)
             }
         }
 
-        let currentManifests = try self.loadDependencyManifests(root: graphRoot, diagnostics: diagnostics, automaticallyAddManagedDependencies: true)
+        let currentManifests = try self.loadDependencyManifests(root: graphRoot, automaticallyAddManagedDependencies: true, observabilityScope: observabilityScope)
 
         let precomputationResult = try self.precomputeResolution(
             root: graphRoot,
             dependencyManifests: currentManifests,
             pinsStore: pinsStore,
-            constraints: []
+            constraints: [],
+            observabilityScope: observabilityScope
         )
 
         if case let .required(reason) = precomputationResult {
             let reasonString = Self.format(workspaceResolveReason: reason)
 
             if !fileSystem.exists(self.location.resolvedVersionsFile) {
-                diagnostics.emit(error: "a resolved file is required when automatic dependency resolution is disabled and should be placed at \(self.location.resolvedVersionsFile.pathString). \(reasonString)")
+                observabilityScope.emit(error: "a resolved file is required when automatic dependency resolution is disabled and should be placed at \(self.location.resolvedVersionsFile.pathString). \(reasonString)")
             } else {
-                diagnostics.emit(error: "an out-of-date resolved file was detected at \(self.location.resolvedVersionsFile.pathString), which is not allowed when automatic dependency resolution is disabled; please make sure to update the file to reflect the changes in dependencies. \(reasonString)")
+                observabilityScope.emit(error: "an out-of-date resolved file was detected at \(self.location.resolvedVersionsFile.pathString), which is not allowed when automatic dependency resolution is disabled; please make sure to update the file to reflect the changes in dependencies. \(reasonString)")
             }
         }
 
-        try self.updateBinaryArtifacts(manifests: currentManifests, addedOrUpdatedPackages: [], diagnostics: diagnostics)
+        try self.updateBinaryArtifacts(manifests: currentManifests, addedOrUpdatedPackages: [], observabilityScope: observabilityScope)
 
         return currentManifests
     }
@@ -2317,30 +2364,29 @@ extension Workspace {
         explicitProduct: String? = nil,
         forceResolution: Bool,
         constraints: [PackageContainerConstraint],
-        diagnostics: DiagnosticsEngine,
         retryOnPackagePathMismatch: Bool = true,
-        resetPinsStoreOnFailure: Bool = true
+        resetPinsStoreOnFailure: Bool = true,
+        observabilityScope: ObservabilityScope
     ) throws -> DependencyManifests {
-
         // Ensure the cache path exists and validate that edited dependencies.
-        self.createCacheDirectories(with: diagnostics)
+        self.createCacheDirectories(observabilityScope: observabilityScope)
 
         // FIXME: this should not block
         // Load the root manifests and currently checked out manifests.
-        let rootManifests = try temp_await { self.loadRootManifests(packages: root.packages, diagnostics: diagnostics, completion: $0) }
+        let rootManifests = try temp_await { self.loadRootManifests(packages: root.packages, observabilityScope: observabilityScope, completion: $0) }
         let rootManifestsMinimumToolsVersion = rootManifests.values.map{ $0.toolsVersion }.min() ?? ToolsVersion.currentToolsVersion
 
         // Load the current manifests.
         let graphRoot = PackageGraphRoot(input: root, manifests: rootManifests, explicitProduct: explicitProduct)
-        let currentManifests = try self.loadDependencyManifests(root: graphRoot, diagnostics: diagnostics)
-        guard !diagnostics.hasErrors else {
+        let currentManifests = try self.loadDependencyManifests(root: graphRoot, observabilityScope: observabilityScope)
+        guard !observabilityScope.errorsReported else {
             return currentManifests
         }
 
-        self.validatePinsStore(dependencyManifests: currentManifests, rootManifestsMinimumToolsVersion: rootManifestsMinimumToolsVersion, diagnostics: diagnostics)
+        self.validatePinsStore(dependencyManifests: currentManifests, rootManifestsMinimumToolsVersion: rootManifestsMinimumToolsVersion, observabilityScope: observabilityScope)
 
         // Abort if pinsStore is unloadable or if diagnostics has errors.
-        guard !diagnostics.hasErrors, let pinsStore = diagnostics.wrap({ try pinsStore.load() }) else {
+        guard !observabilityScope.errorsReported, let pinsStore = observabilityScope.trap({ try pinsStore.load() }) else {
             return currentManifests
         }
 
@@ -2358,7 +2404,8 @@ extension Workspace {
                 root: graphRoot,
                 dependencyManifests: currentManifests,
                 pinsStore: pinsStore,
-                constraints: constraints
+                constraints: constraints,
+                observabilityScope: observabilityScope
             )
 
             switch result {
@@ -2366,7 +2413,8 @@ extension Workspace {
                 try self.updateBinaryArtifacts(
                     manifests: currentManifests,
                     addedOrUpdatedPackages: [],
-                    diagnostics: diagnostics)
+                    observabilityScope: observabilityScope
+                )
 
                 return currentManifests
             case .required(let reason):
@@ -2380,29 +2428,30 @@ extension Workspace {
         computedConstraints += try graphRoot.constraints() + constraints
 
         // Perform dependency resolution.
-        let resolver = self.createResolver(pinsMap: pinsStore.pinsMap, observabilityScope: ObservabilitySystem(diagnosticEngine: diagnostics).topScope)
+        let resolver = try self.createResolver(pinsMap: pinsStore.pinsMap, observabilityScope: observabilityScope)
         self.activeResolver = resolver
 
         let result = self.resolveDependencies(
             resolver: resolver,
             constraints: computedConstraints,
-            diagnostics: diagnostics)
+            observabilityScope: observabilityScope
+        )
 
         // Reset the active resolver.
         self.activeResolver = nil
 
-        guard !diagnostics.hasErrors else {
+        guard !observabilityScope.errorsReported else {
             return currentManifests
         }
 
         // Update the checkouts with dependency resolution result.
-        let packageStateChanges = self.updateDependenciesCheckouts(root: graphRoot, updateResults: result, diagnostics: diagnostics)
-        guard !diagnostics.hasErrors else {
+        let packageStateChanges = self.updateDependenciesCheckouts(root: graphRoot, updateResults: result, observabilityScope: observabilityScope)
+        guard !observabilityScope.errorsReported else {
             return currentManifests
         }
 
         // Update the pinsStore.
-        let updatedDependencyManifests = try self.loadDependencyManifests(root: graphRoot, diagnostics: diagnostics)
+        let updatedDependencyManifests = try self.loadDependencyManifests(root: graphRoot, observabilityScope: observabilityScope)
 
         // If we still have required URLs, we probably cloned a wrong URL for
         // some package dependency.
@@ -2421,9 +2470,9 @@ extension Workspace {
                     explicitProduct: explicitProduct,
                     forceResolution: forceResolution,
                     constraints: constraints,
-                    diagnostics: diagnostics,
                     retryOnPackagePathMismatch: false,
-                    resetPinsStoreOnFailure: resetPinsStoreOnFailure
+                    resetPinsStoreOnFailure: resetPinsStoreOnFailure,
+                    observabilityScope: observabilityScope
                 )
             } else if resetPinsStoreOnFailure, !pinsStore.pinsMap.isEmpty {
                 // If we weren't able to resolve properly even after a retry, it
@@ -2438,14 +2487,14 @@ extension Workspace {
                     explicitProduct: explicitProduct,
                     forceResolution: forceResolution,
                     constraints: constraints,
-                    diagnostics: diagnostics,
                     retryOnPackagePathMismatch: false,
-                    resetPinsStoreOnFailure: false
+                    resetPinsStoreOnFailure: false,
+                    observabilityScope: observabilityScope
                 )
             } else {
                 // give up
                 let missing = stillMissingPackages.map{ $0.description }
-                diagnostics.emit(error: "exhausted attempts to resolve the dependencies graph, with '\(missing.joined(separator: "', '"))' unresolved.")
+                observabilityScope.emit(error: "exhausted attempts to resolve the dependencies graph, with '\(missing.joined(separator: "', '"))' unresolved.")
                 return updatedDependencyManifests
             }
         }
@@ -2454,14 +2503,15 @@ extension Workspace {
             pinsStore: pinsStore,
             dependencyManifests: updatedDependencyManifests,
             rootManifestsMinimumToolsVersion: rootManifestsMinimumToolsVersion,
-            diagnostics: diagnostics
+            observabilityScope: observabilityScope
         )
 
         let addedOrUpdatedPackages = packageStateChanges.compactMap({ $0.1.isAddedOrUpdated ? $0.0 : nil })
         try self.updateBinaryArtifacts(
             manifests: updatedDependencyManifests,
             addedOrUpdatedPackages: addedOrUpdatedPackages,
-            diagnostics: diagnostics)
+            observabilityScope: observabilityScope
+        )
 
         return updatedDependencyManifests
     }
@@ -2480,18 +2530,18 @@ extension Workspace {
         root: PackageGraphRoot,
         updateResults: [(PackageReference, BoundVersion, ProductFilter)],
         updateBranches: Bool = false,
-        diagnostics: DiagnosticsEngine
+        observabilityScope: ObservabilityScope
     ) -> [(PackageReference, PackageStateChange)] {
         // Get the update package states from resolved results.
-        guard let packageStateChanges = diagnostics.wrap({
-            try computePackageStateChanges(root: root, resolvedDependencies: updateResults, updateBranches: updateBranches)
+        guard let packageStateChanges = observabilityScope.trap({
+            try computePackageStateChanges(root: root, resolvedDependencies: updateResults, updateBranches: updateBranches, observabilityScope: observabilityScope)
         }) else {
             return []
         }
 
         // First remove the checkouts that are no longer required.
         for (packageRef, state) in packageStateChanges {
-            diagnostics.wrap {
+            observabilityScope.trap {
                 switch state {
                 case .added, .updated, .unchanged: break
                 case .removed:
@@ -2502,12 +2552,12 @@ extension Workspace {
 
         // Update or clone new packages.
         for (packageRef, state) in packageStateChanges {
-            diagnostics.wrap {
+            observabilityScope.trap {
                 switch state {
                 case .added(let state):
-                    _ = try self.updateDependency(package: packageRef, requirement: state.requirement, productFilter: state.products)
+                    _ = try self.updateDependency(package: packageRef, requirement: state.requirement, productFilter: state.products, observabilityScope: observabilityScope)
                 case .updated(let state):
-                    _ = try self.updateDependency(package: packageRef, requirement: state.requirement, productFilter: state.products)
+                    _ = try self.updateDependency(package: packageRef, requirement: state.requirement, productFilter: state.products, observabilityScope: observabilityScope)
                 case .removed, .unchanged: break
                 }
             }
@@ -2524,7 +2574,8 @@ extension Workspace {
     private func updateDependency(
         package: PackageReference,
         requirement: PackageStateChange.Requirement,
-        productFilter: ProductFilter
+        productFilter: ProductFilter,
+        observabilityScope: ObservabilityScope
     ) throws -> AbsolutePath {
         let checkoutState: CheckoutState
 
@@ -2537,7 +2588,7 @@ extension Workspace {
             // FIXME: this should not block
             // FIXME: this should be updated to support registry
             guard let container = (try temp_await {
-                self.getContainer(for: package, skipUpdate: true, on: .sharedConcurrent, completion: $0)
+                self.getContainer(for: package, skipUpdate: true, observabilityScope: observabilityScope, on: .sharedConcurrent, completion: $0)
             }) as? SourceControlPackageContainer else {
                 throw InternalError("invalid container for \(package) expected a RepositoryPackageContainer")
             }
@@ -2588,7 +2639,8 @@ extension Workspace {
         root: PackageGraphRoot,
         dependencyManifests: DependencyManifests,
         pinsStore: PinsStore,
-        constraints: [PackageContainerConstraint]
+        constraints: [PackageContainerConstraint],
+        observabilityScope: ObservabilityScope
     ) throws -> ResolutionPrecomputationResult {
         let computedConstraints =
             try root.constraints() +
@@ -2598,7 +2650,7 @@ extension Workspace {
             constraints
 
         let precomputationProvider = ResolverPrecomputationProvider(root: root, dependencyManifests: dependencyManifests)
-        let resolver = PubgrubDependencyResolver(provider: precomputationProvider, pinsMap: pinsStore.pinsMap)
+        let resolver = PubgrubDependencyResolver(provider: precomputationProvider, pinsMap: pinsStore.pinsMap, observabilityScope: observabilityScope)
         let result = resolver.solve(constraints: computedConstraints)
 
         switch result {
@@ -2621,9 +2673,9 @@ extension Workspace {
     private func validatePinsStore(
         dependencyManifests: DependencyManifests,
         rootManifestsMinimumToolsVersion: ToolsVersion,
-        diagnostics: DiagnosticsEngine
+        observabilityScope: ObservabilityScope
     ) {
-        guard let pinsStore = diagnostics.wrap({ try pinsStore.load() }) else {
+        guard let pinsStore = observabilityScope.trap({ try pinsStore.load() }) else {
             return
         }
 
@@ -2652,7 +2704,7 @@ extension Workspace {
                 pinsStore: pinsStore,
                 dependencyManifests: dependencyManifests,
                 rootManifestsMinimumToolsVersion: rootManifestsMinimumToolsVersion,
-                diagnostics: diagnostics
+                observabilityScope: observabilityScope
             )
         }
     }
@@ -2740,7 +2792,8 @@ extension Workspace {
     fileprivate func computePackageStateChanges(
         root: PackageGraphRoot,
         resolvedDependencies: [(PackageReference, BoundVersion, ProductFilter)],
-        updateBranches: Bool
+        updateBranches: Bool,
+        observabilityScope: ObservabilityScope
     ) throws -> [(PackageReference, PackageStateChange)] {
         // Load pins store and managed dependencies.
         let pinsStore = try self.pinsStore.load()
@@ -2787,7 +2840,7 @@ extension Workspace {
                 // Get the latest revision from the container.
                 // TODO: replace with async/await when available
                 guard let container = (try temp_await {
-                    self.getContainer(for: packageRef, skipUpdate: true, on: .sharedConcurrent, completion: $0)
+                    self.getContainer(for: packageRef, skipUpdate: true, observabilityScope: observabilityScope, on: .sharedConcurrent, completion: $0)
                 }) as? SourceControlPackageContainer else {
                     throw InternalError("invalid container for \(packageRef) expected a RepositoryPackageContainer")
                 }
@@ -2847,7 +2900,7 @@ extension Workspace {
     }
 
     /// Creates resolver for the workspace.
-    fileprivate func createResolver(pinsMap: PinsStore.PinsMap, observabilityScope: ObservabilityScope) -> PubgrubDependencyResolver {
+    fileprivate func createResolver(pinsMap: PinsStore.PinsMap, observabilityScope: ObservabilityScope) throws -> PubgrubDependencyResolver {
         var delegate: DependencyResolverDelegate
         let observabilityDelegate = ObservabilityDependencyResolverDelegate(observabilityScope: observabilityScope)
         if let workspaceDelegate = self.delegate {
@@ -2864,6 +2917,7 @@ extension Workspace {
             pinsMap: pinsMap,
             updateEnabled: self.resolverUpdateEnabled,
             prefetchingEnabled: self.resolverPrefetchingEnabled,
+            observabilityScope: observabilityScope,
             delegate: delegate
         )
     }
@@ -2872,7 +2926,7 @@ extension Workspace {
     fileprivate func resolveDependencies(
         resolver: PubgrubDependencyResolver,
         constraints: [PackageContainerConstraint],
-        diagnostics: DiagnosticsEngine
+        observabilityScope: ObservabilityScope
     ) -> [(package: PackageReference, binding: BoundVersion, products: ProductFilter)] {
 
         os_signpost(.begin, log: .swiftpm, name: SignpostName.resolution)
@@ -2884,7 +2938,7 @@ extension Workspace {
         case .success(let bindings):
             return bindings
         case .failure(let error):
-            diagnostics.emit(error)
+            observabilityScope.emit(error)
             return []
         }
     }
@@ -2955,6 +3009,7 @@ extension Workspace: PackageContainerProvider {
     public func getContainer(
         for package: PackageReference,
         skipUpdate: Bool,
+        observabilityScope: ObservabilityScope,
         on queue: DispatchQueue,
         completion: @escaping (Result<PackageContainer, Swift.Error>) -> Void
     ) {
@@ -2969,7 +3024,9 @@ extension Workspace: PackageContainerProvider {
                         manifestLoader: self.manifestLoader,
                         toolsVersionLoader: self.toolsVersionLoader,
                         currentToolsVersion: self.currentToolsVersion,
-                        fileSystem: self.fileSystem)
+                        fileSystem: self.fileSystem,
+                        observabilityScope: observabilityScope
+                    )
                     completion(.success(container))
                 } catch {
                     completion(.failure(error))
@@ -2994,7 +3051,8 @@ extension Workspace: PackageContainerProvider {
                                 repository: repository,
                                 manifestLoader: self.manifestLoader,
                                 toolsVersionLoader: self.toolsVersionLoader,
-                                currentToolsVersion: self.currentToolsVersion
+                                currentToolsVersion: self.currentToolsVersion,
+                                observabilityScope: observabilityScope
                             )
                         }
                         completion(result)
@@ -3295,7 +3353,7 @@ extension Workspace {
             let dependencies = packages.lazy.map({ "'\($0.identity)'" }).joined(separator: ", ")
             result.append("the following dependencies were added: \(dependencies)")
         case .packageRequirementChange(let package, let state, let requirement):
-            result.append("dependency '\(package.name)' was ")
+            result.append("dependency '\(package.identity)' was ")
 
             switch state {
             case .checkout(let checkoutState)?:

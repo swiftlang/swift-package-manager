@@ -23,10 +23,15 @@ public final class Manifest {
     /// The standard basename for the manifest.
     public static let basename = "Package"
 
+    /// The name of the package as it appears in the manifest
+    @available(*, deprecated, message: "use displayName instead, and only for display purposes")
+    public var name: String {
+        return self.displayName
+    }
+
+    /// The name of the package as it appears in the manifest
     /// FIXME: deprecate this, there is no value in this once we have real package identifiers
-    /// The name of the package.
-    //@available(*, deprecated)
-    public let name: String
+    public let displayName: String
 
     // FIXME: deprecate this, this is not part of the manifest information, we just use it as a container for this data
     // FIXME: This doesn't belong here, we want the Manifest to be purely tied
@@ -52,7 +57,7 @@ public final class Manifest {
     }
 
     /// Whether kind of package this manifest is from.
-     public let packageKind: PackageReference.Kind
+    public let packageKind: PackageReference.Kind
 
     /// The version this package was loaded from, if known.
     public let version: Version?
@@ -103,7 +108,7 @@ public final class Manifest {
     private var _requiredDependencies = ThreadSafeKeyValueStore<ProductFilter, [PackageDependency]>()
 
     public init(
-        name: String,
+        displayName: String,
         path: AbsolutePath,
         packageKind: PackageReference.Kind,
         packageLocation: String,
@@ -121,7 +126,7 @@ public final class Manifest {
         products: [ProductDescription] = [],
         targets: [TargetDescription] = []
     ) {
-        self.name = name
+        self.displayName = displayName
         self.path = path
         self.packageKind = packageKind
         self.packageLocation = packageLocation
@@ -443,7 +448,7 @@ extension Manifest: Hashable {
 
 extension Manifest: CustomStringConvertible {
     public var description: String {
-        return "<Manifest: \(self.name)>"
+        return "<Manifest: \(self.displayName)>"
     }
 }
 
@@ -461,7 +466,7 @@ extension Manifest: Encodable {
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(self.name, forKey: .name)
+        try container.encode(self.displayName, forKey: .name)
 
         // Hide the keys that users shouldn't see when
         // we're encoding for the dump-package command.

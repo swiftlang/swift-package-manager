@@ -33,8 +33,15 @@ final class ObservabilitySystemTest: XCTestCase {
         emitter1.emit(error: "error 1.5")
 
         testDiagnostics(collector.diagnostics) { result in
-            result.check(diagnostic: "error 1", severity: .error, metadata: metadata1)
-            result.check(diagnostic: "error 1.5", severity: .error, metadata: metadata1)
+            let diagnostic1 = result.check(diagnostic: "error 1", severity: .error)
+            XCTAssertEqual(diagnostic1?.metadata?.testKey1, metadata1.testKey1)
+            XCTAssertEqual(diagnostic1?.metadata?.testKey2, metadata1.testKey2)
+            XCTAssertEqual(diagnostic1?.metadata?.testKey3, metadata1.testKey3)
+
+            let diagnostic1_5 = result.check(diagnostic: "error 1.5", severity: .error)
+            XCTAssertEqual(diagnostic1_5?.metadata?.testKey1, metadata1.testKey1)
+            XCTAssertEqual(diagnostic1_5?.metadata?.testKey2, metadata1.testKey2)
+            XCTAssertEqual(diagnostic1_5?.metadata?.testKey3, metadata1.testKey3)
         }
 
         collector.clear()
@@ -55,8 +62,15 @@ final class ObservabilitySystemTest: XCTestCase {
         emitter2.emit(error: "error 2.5")
 
         testDiagnostics(collector.diagnostics) { result in
-            result.check(diagnostic: "error 2", severity: .error, metadata: mergedMetadata2)
-            result.check(diagnostic: "error 2.5", severity: .error, metadata: mergedMetadata2)
+            let diagnostic2 = result.check(diagnostic: "error 2", severity: .error)!
+            XCTAssertEqual(diagnostic2.metadata?.testKey1, mergedMetadata2.testKey1)
+            XCTAssertEqual(diagnostic2.metadata?.testKey2, mergedMetadata2.testKey2)
+            XCTAssertEqual(diagnostic2.metadata?.testKey3, mergedMetadata2.testKey3)
+
+            let diagnostic2_5 = result.check(diagnostic: "error 2.5", severity: .error)
+            XCTAssertEqual(diagnostic2_5?.metadata?.testKey1, mergedMetadata2.testKey1)
+            XCTAssertEqual(diagnostic2_5?.metadata?.testKey2, mergedMetadata2.testKey2)
+            XCTAssertEqual(diagnostic2_5?.metadata?.testKey3, mergedMetadata2.testKey3)
         }
 
         collector.clear()
@@ -84,8 +98,15 @@ final class ObservabilitySystemTest: XCTestCase {
         emitter3.emit(error: "error 3.5")
 
         testDiagnostics(collector.diagnostics) { result in
-            result.check(diagnostic: "error 3", severity: .error, metadata: mergedMetadata3)
-            result.check(diagnostic: "error 3.5", severity: .error, metadata: mergedMetadata3_5)
+            let diagnostic3 = result.check(diagnostic: "error 3", severity: .error)
+            XCTAssertEqual(diagnostic3?.metadata?.testKey1, mergedMetadata3.testKey1)
+            XCTAssertEqual(diagnostic3?.metadata?.testKey2, mergedMetadata3.testKey2)
+            XCTAssertEqual(diagnostic3?.metadata?.testKey3, mergedMetadata3.testKey3)
+
+            let diagnostic3_5 = result.check(diagnostic: "error 3.5", severity: .error)
+            XCTAssertEqual(diagnostic3_5?.metadata?.testKey1, mergedMetadata3_5.testKey1)
+            XCTAssertEqual(diagnostic3_5?.metadata?.testKey2, mergedMetadata3_5.testKey2)
+            XCTAssertEqual(diagnostic3_5?.metadata?.testKey3, mergedMetadata3_5.testKey3)
         }
     }
 
@@ -109,15 +130,43 @@ final class ObservabilitySystemTest: XCTestCase {
         emitter.emit(.debug("debug 2"))
 
         testDiagnostics(collector.diagnostics, problemsOnly: false) { result in
-            result.check(diagnostic: "error", severity: .error, metadata: metadata)
-            result.check(diagnostic: "error 2", severity: .error, metadata: metadata)
-            result.check(diagnostic: "error 3", severity: .error, metadata: metadata)
-            result.check(diagnostic: "warning", severity: .warning, metadata: metadata)
-            result.check(diagnostic: "warning 2", severity: .warning, metadata: metadata)
-            result.check(diagnostic: "info", severity: .info, metadata: metadata)
-            result.check(diagnostic: "info 2", severity: .info, metadata: metadata)
-            result.check(diagnostic: "debug", severity: .debug, metadata: metadata)
-            result.check(diagnostic: "debug 2", severity: .debug, metadata: metadata)
+            do {
+                let diagnostic = result.check(diagnostic: "error", severity: .error)
+                XCTAssertEqual(diagnostic?.metadata?.testKey1, metadata.testKey1)
+            }
+            do {
+                let diagnostic = result.check(diagnostic: "error 2", severity: .error)
+                XCTAssertEqual(diagnostic?.metadata?.testKey1, metadata.testKey1)
+            }
+            do {
+                let diagnostic = result.check(diagnostic: "error 3", severity: .error)
+                XCTAssertEqual(diagnostic?.metadata?.testKey1, metadata.testKey1)
+                XCTAssertEqual(diagnostic?.metadata?.underlyingError as? StringError, StringError("error 3"))
+            }
+            do {
+                let diagnostic = result.check(diagnostic: "warning", severity: .warning)
+                XCTAssertEqual(diagnostic?.metadata?.testKey1, metadata.testKey1)
+            }
+            do {
+                let diagnostic = result.check(diagnostic: "warning 2", severity: .warning)
+                XCTAssertEqual(diagnostic?.metadata?.testKey1, metadata.testKey1)
+            }
+            do {
+                let diagnostic = result.check(diagnostic: "info", severity: .info)
+                XCTAssertEqual(diagnostic?.metadata?.testKey1, metadata.testKey1)
+            }
+            do {
+                let diagnostic = result.check(diagnostic: "info 2", severity: .info)
+                XCTAssertEqual(diagnostic?.metadata?.testKey1, metadata.testKey1)
+            }
+            do {
+                let diagnostic = result.check(diagnostic: "debug", severity: .debug)
+                XCTAssertEqual(diagnostic?.metadata?.testKey1, metadata.testKey1)
+            }
+            do {
+                let diagnostic = result.check(diagnostic: "debug 2", severity: .debug)
+                XCTAssertEqual(diagnostic?.metadata?.testKey1, metadata.testKey1)
+            }
         }
     }
 
@@ -155,8 +204,18 @@ final class ObservabilitySystemTest: XCTestCase {
         emitter.emit(warning: "warning", metadata: diagnosticMetadata)
 
         testDiagnostics(collector.diagnostics) { result in
-            result.check(diagnostic: "error", severity: .error, metadata: emitterMergedMetadata)
-            result.check(diagnostic: "warning", severity: .warning, metadata: diagnosticMergedMetadata)
+            do {
+                let diagnostic = result.check(diagnostic: "error", severity: .error)
+                XCTAssertEqual(diagnostic?.metadata?.testKey1, emitterMergedMetadata.testKey1)
+                XCTAssertEqual(diagnostic?.metadata?.testKey2, emitterMergedMetadata.testKey2)
+                XCTAssertEqual(diagnostic?.metadata?.testKey3, emitterMergedMetadata.testKey3)
+            }
+            do {
+                let diagnostic = result.check(diagnostic: "warning", severity: .warning)
+                XCTAssertEqual(diagnostic?.metadata?.testKey1, diagnosticMergedMetadata.testKey1)
+                XCTAssertEqual(diagnostic?.metadata?.testKey2, diagnosticMergedMetadata.testKey2)
+                XCTAssertEqual(diagnostic?.metadata?.testKey3, diagnosticMergedMetadata.testKey3)
+            }
         }
     }
 
@@ -172,12 +231,9 @@ final class ObservabilitySystemTest: XCTestCase {
 
             diagnosticsEngine.emit(.error(data), location: location)
 
-            var expectedMetadata = ObservabilityMetadata()
-            expectedMetadata.legacyDiagnosticLocation = .init(location)
-            expectedMetadata.legacyDiagnosticData = .init(data)
-
             XCTAssertEqual(collector.diagnostics.count, 1)
-            XCTAssertEqual(collector.diagnostics.first?.metadata, expectedMetadata)
+            XCTAssertEqual(collector.diagnostics.first!.metadata?.legacyDiagnosticLocation?.description, location.description)
+            XCTAssertEqual(collector.diagnostics.first!.metadata?.legacyDiagnosticData?.underlying.description, data.description)
         }
 
         do {

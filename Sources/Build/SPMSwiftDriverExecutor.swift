@@ -15,7 +15,7 @@ import Foundation
 
 final class SPMSwiftDriverExecutor: DriverExecutor {
 
-  private enum Error: Swift.Error, DiagnosticData {
+  private enum Error: Swift.Error, CustomStringConvertible {
     case inPlaceExecutionUnsupported
 
     var description: String {

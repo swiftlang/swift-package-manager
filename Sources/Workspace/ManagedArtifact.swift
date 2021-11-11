@@ -88,7 +88,7 @@ extension Workspace {
 
 extension Workspace.ManagedArtifact: CustomStringConvertible {
     public var description: String {
-        return "<ManagedArtifact: \(self.packageRef.name).\(self.targetName) \(self.source) \(self.path)>"
+        return "<ManagedArtifact: \(self.packageRef.identity).\(self.targetName) \(self.source) \(self.path)>"
     }
 }
 

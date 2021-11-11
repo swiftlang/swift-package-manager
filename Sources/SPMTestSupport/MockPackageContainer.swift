@@ -7,13 +7,14 @@
  See http://swift.org/LICENSE.txt for license information
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
-import Dispatch
-import XCTest
 
+import Basics
+import Dispatch
 import PackageGraph
 import PackageModel
 import SourceControl
 import TSCBasic
+import XCTest
 
 import struct TSCUtility.Version
 
@@ -64,14 +65,14 @@ public class MockPackageContainer: PackageContainer {
         return unversionedDeps
     }
 
-    public func getUpdatedIdentifier(at boundVersion: BoundVersion) throws -> PackageReference {
+    public func loadPackageReference(at boundVersion: BoundVersion) throws -> PackageReference {
         return self.package
     }
 
     public func isToolsVersionCompatible(at version: Version) -> Bool {
         return true
     }
-    
+
     public func toolsVersion(for version: Version) throws -> ToolsVersion {
         return ToolsVersion.currentToolsVersion
     }
@@ -142,6 +143,7 @@ public struct MockPackageContainerProvider: PackageContainerProvider {
     public func getContainer(
         for package: PackageReference,
         skipUpdate: Bool,
+        observabilityScope: ObservabilityScope,
         on queue: DispatchQueue,
         completion: @escaping (Result<PackageContainer, Swift.Error>
         ) -> Void

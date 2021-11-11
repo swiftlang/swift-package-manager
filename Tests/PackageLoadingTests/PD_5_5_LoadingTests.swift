@@ -8,6 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import Basics
 import Foundation
 import PackageLoading
 import PackageModel
@@ -22,7 +23,7 @@ class PackageDescription5_5LoadingTests: PackageDescriptionLoadingTests {
     }
 
     func testPackageDependencies() throws {
-        let manifest = """
+        let content = """
             import PackageDescription
             let package = Package(
                name: "Foo",
@@ -32,16 +33,18 @@ class PackageDescription5_5LoadingTests: PackageDescriptionLoadingTests {
                ]
             )
             """
-        loadManifest(manifest, toolsVersion: .v5_5) { manifest in
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let manifest = try loadManifest(content, observabilityScope: observability.topScope)
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
         let deps = Dictionary(uniqueKeysWithValues: manifest.dependencies.map{ ($0.identity.description, $0) })
-            XCTAssertEqual(deps["foo5"], .localSourceControl(path: .init("/foo5"), requirement: .branch("main")))
-            XCTAssertEqual(deps["foo7"], .localSourceControl(path: .init("/foo7"), requirement: .revision("58e9de4e7b79e67c72a46e164158e3542e570ab6")))
-        }
+        XCTAssertEqual(deps["foo5"], .localSourceControl(path: .init("/foo5"), requirement: .branch("main")))
+        XCTAssertEqual(deps["foo7"], .localSourceControl(path: .init("/foo7"), requirement: .revision("58e9de4e7b79e67c72a46e164158e3542e570ab6")))
     }
 
     func testPlatforms() throws {
-        let stream = BufferedOutputByteStream()
-        stream <<< """
+        let content =  """
             import PackageDescription
             let package = Package(
                name: "Foo",
@@ -53,15 +56,17 @@ class PackageDescription5_5LoadingTests: PackageDescriptionLoadingTests {
             )
             """
 
-        loadManifest(stream.bytes) { manifest in
-            XCTAssertEqual(manifest.platforms, [
-                PlatformDescription(name: "macos", version: "12.0"),
-                PlatformDescription(name: "ios", version: "15.0"),
-                PlatformDescription(name: "tvos", version: "15.0"),
-                PlatformDescription(name: "watchos", version: "8.0"),
-                PlatformDescription(name: "maccatalyst", version: "15.0"),
-                PlatformDescription(name: "driverkit", version: "21.0"),
-            ])
-        }
+        let observability = ObservabilitySystem.makeForTesting()
+        let manifest = try loadManifest(content, observabilityScope: observability.topScope)
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        XCTAssertEqual(manifest.platforms, [
+            PlatformDescription(name: "macos", version: "12.0"),
+            PlatformDescription(name: "ios", version: "15.0"),
+            PlatformDescription(name: "tvos", version: "15.0"),
+            PlatformDescription(name: "watchos", version: "8.0"),
+            PlatformDescription(name: "maccatalyst", version: "15.0"),
+            PlatformDescription(name: "driverkit", version: "21.0"),
+        ])
     }
 }

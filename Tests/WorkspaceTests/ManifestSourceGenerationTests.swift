@@ -1,13 +1,14 @@
 /*
  This source file is part of the Swift.org open source project
- 
+
  Copyright (c) 2020 - 2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
- 
+
  See http://swift.org/LICENSE.txt for license information
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
+import Basics
 import PackageGraph
 import PackageLoading
 import PackageModel
@@ -17,7 +18,7 @@ import Workspace
 import XCTest
 
 class ManifestSourceGenerationTests: XCTestCase {
-    
+
     /// Private function that writes the contents of a package manifest to a temporary package directory and then loads it, then serializes the loaded manifest back out again and loads it once again, after which it compares that no information was lost. Return the source of the newly generated manifest.
     @discardableResult
     private func testManifestWritingRoundTrip(
@@ -28,6 +29,8 @@ class ManifestSourceGenerationTests: XCTestCase {
         fs: FileSystem = localFileSystem
     ) throws -> String {
         try withTemporaryDirectory { packageDir in
+            let observability = ObservabilitySystem.makeForTesting()
+
             // Write the original manifest file contents, and load it.
             try fs.writeFileContents(packageDir.appending(component: Manifest.filename), bytes: ByteString(encodingAsUTF8: manifestContents))
             let manifestLoader = ManifestLoader(toolchain: ToolchainConfiguration.default)
@@ -42,19 +45,22 @@ class ManifestSourceGenerationTests: XCTestCase {
                                     toolsVersion: toolsVersion,
                                     identityResolver: identityResolver,
                                     fileSystem: fs,
+                                    observabilityScope: observability.topScope,
                                     on: .global(),
                                     completion: $0)
             }
+
+            XCTAssertNoDiagnostics(observability.diagnostics)
 
             // Generate source code for the loaded manifest,
             let newContents = try manifest.generateManifestFileContents(
                 toolsVersionHeaderComment: toolsVersionHeaderComment,
                 additionalImportModuleNames: additionalImportModuleNames)
-            
+
             // Check that the tools version was serialized properly.
             let versionSpacing = (toolsVersion >= .v5_4) ? " " : ""
             XCTAssertMatch(newContents, .prefix("// swift-tools-version:\(versionSpacing)\(toolsVersion.major).\(toolsVersion.minor)"))
-            
+
             // Write out the generated manifest to replace the old manifest file contents, and load it again.
             try fs.writeFileContents(packageDir.appending(component: Manifest.filename), bytes: ByteString(encodingAsUTF8: newContents))
             let newManifest = try tsc_await {
@@ -67,14 +73,17 @@ class ManifestSourceGenerationTests: XCTestCase {
                                     toolsVersion: toolsVersion,
                                     identityResolver: identityResolver,
                                     fileSystem: fs,
+                                    observabilityScope: observability.topScope,
                                     on: .global(),
                                     completion: $0)
             }
-            
+
+            XCTAssertNoDiagnostics(observability.diagnostics)
+
             // Check that all the relevant properties survived.
             let failureDetails = "\n--- ORIGINAL MANIFEST CONTENTS ---\n" + manifestContents + "\n--- REWRITTEN MANIFEST CONTENTS ---\n" + newContents
             XCTAssertEqual(newManifest.toolsVersion, manifest.toolsVersion, failureDetails)
-            XCTAssertEqual(newManifest.name, manifest.name, failureDetails)
+            XCTAssertEqual(newManifest.displayName, manifest.displayName, failureDetails)
             XCTAssertEqual(newManifest.defaultLocalization, manifest.defaultLocalization, failureDetails)
             XCTAssertEqual(newManifest.platforms, manifest.platforms, failureDetails)
             XCTAssertEqual(newManifest.pkgConfig, manifest.pkgConfig, failureDetails)
@@ -382,7 +391,7 @@ class ManifestSourceGenerationTests: XCTestCase {
     func testCustomProductSourceGeneration() throws {
         // Create a manifest containing a product for which we'd like to do custom source fragment generation.
         let manifest = Manifest(
-            name: "MyLibrary",
+            displayName: "MyLibrary",
             path: AbsolutePath("/tmp/MyLibrary/Package.swift"),
             packageKind: .root(AbsolutePath("/tmp/MyLibrary")),
             packageLocation: "/tmp/MyLibrary",

@@ -53,19 +53,6 @@ public final class Package: Encodable {
     /// The local path of the package.
     public let path: AbsolutePath
 
-    /// The name of the package.
-    @available(*, deprecated, message: "use identity (or manifestName, but only if you must) instead")
-    public var name: String {
-        return self.manifestName
-    }
-
-    /// The name of the package as entered in the manifest.
-    /// This should rarely be used beyond presentation purposes
-    //@available(*, deprecated)
-    public var manifestName: String {
-        return manifest.name
-    }
-
     /// The targets contained in the package.
     @PolymorphicCodableArray
     public var targets: [Target]
@@ -115,7 +102,7 @@ extension Package {
 
 extension Package {
     public var diagnosticsMetadata: ObservabilityMetadata {
-        return .packageMetadata(identity: self.identity, location: self.manifest.packageLocation, path: self.path)
+        return .packageMetadata(identity: self.identity, kind: self.manifest.packageKind)
     }
 }
 
@@ -139,12 +126,10 @@ extension Package.Error: CustomStringConvertible {
 }
 
 extension ObservabilityMetadata {
-    public static func packageMetadata(identity: PackageIdentity, location: String, path: AbsolutePath) -> Self {
+    public static func packageMetadata(identity: PackageIdentity, kind: PackageReference.Kind) -> Self {
         var metadata = ObservabilityMetadata()
         metadata.packageIdentity = identity
-        metadata.packageLocation = location
-        // FIXME: (diagnostics) remove once transition to Observability API is complete
-        metadata.legacyDiagnosticLocation = .init(PackageLocation.Local(name: identity.description, packagePath: path))
+        metadata.packageKind = kind
         return metadata
     }
 }
@@ -164,6 +149,7 @@ extension ObservabilityMetadata {
     }
 }
 
+/*
 extension ObservabilityMetadata {
     public var packageLocation: String? {
         get {
@@ -176,5 +162,20 @@ extension ObservabilityMetadata {
 
     enum PackageLocationKey: Key {
         typealias Value = String
+    }
+}*/
+
+extension ObservabilityMetadata {
+    public var packageKind: PackageReference.Kind? {
+        get {
+            self[PackageKindKey.self]
+        }
+        set {
+            self[PackageKindKey.self] = newValue
+        }
+    }
+
+    enum PackageKindKey: Key {
+        typealias Value = PackageReference.Kind
     }
 }

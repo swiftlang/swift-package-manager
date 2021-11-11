@@ -147,6 +147,7 @@ final class BuildPlanTests: XCTestCase {
             "-Xlinker", "-rpath", "-Xlinker", "@loader_path",
             "@/path/to/build/debug/exe.product/Objects.LinkFileList",
             "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift/macosx",
+            "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-5.5/macosx",
             "-target", defaultTargetTriple, "-Xlinker", "-add_ast_path",
             "-Xlinker", "/path/to/build/debug/exe.build/exe.swiftmodule", "-Xlinker", "-add_ast_path",
             "-Xlinker", "/path/to/build/debug/lib.swiftmodule",
@@ -465,6 +466,7 @@ final class BuildPlanTests: XCTestCase {
             "-Xlinker", "-rpath", "-Xlinker", "@loader_path",
             "@/path/to/build/release/exe.product/Objects.LinkFileList",
             "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift/macosx",
+            "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-5.5/macosx",
             "-target", defaultTargetTriple,
         ])
       #else
@@ -802,6 +804,7 @@ final class BuildPlanTests: XCTestCase {
             "-Xlinker", "-rpath", "-Xlinker", "@loader_path",
             "@/path/to/build/debug/exe.product/Objects.LinkFileList",
             "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift/macosx",
+            "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-5.5/macosx",
             "-target", defaultTargetTriple,
             "-Xlinker", "-add_ast_path", "-Xlinker", "/path/to/build/debug/exe.build/exe.swiftmodule",
         ])
@@ -906,12 +909,12 @@ final class BuildPlanTests: XCTestCase {
             fileSystem: fs,
             observabilityScope: observability.topScope
         )
-        XCTAssertEqual(plan.createREPLArguments().sorted(), ["-I/Dep/Sources/CDep/include", "-I/path/to/build/debug", "-I/path/to/build/debug/lib.build", "-L/path/to/build/debug", "-lPkg__REPL"])
+        XCTAssertEqual(plan.createREPLArguments().sorted(), ["-I/Dep/Sources/CDep/include", "-I/path/to/build/debug", "-I/path/to/build/debug/lib.build", "-L/path/to/build/debug", "-lpkg__REPL"])
 
         XCTAssertEqual(plan.graph.allProducts.map({ $0.name }).sorted(), [
             "Dep",
-            "Pkg__REPL",
             "exe",
+            "pkg__REPL"
         ])
     }
 
@@ -967,6 +970,7 @@ final class BuildPlanTests: XCTestCase {
             "-Xlinker", "-rpath", "-Xlinker", "@loader_path/../../../",
             "@/path/to/build/debug/PkgPackageTests.product/Objects.LinkFileList",
             "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift/macosx",
+            "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-5.5/macosx",
             "-target", "\(hostTriple.tripleString(forPlatformVersion: version))",
             "-Xlinker", "-add_ast_path", "-Xlinker", "/path/to/build/debug/Foo.swiftmodule",
             "-Xlinker", "-add_ast_path", "-Xlinker", "/path/to/build/debug/FooTests.swiftmodule",
@@ -978,6 +982,54 @@ final class BuildPlanTests: XCTestCase {
             "-Xlinker", "-rpath=$ORIGIN",
             "@/path/to/build/debug/PkgPackageTests.product/Objects.LinkFileList",
             "-target", defaultTargetTriple,
+        ])
+      #endif
+    }
+
+    func testConcurrencyInOS() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Pkg/Sources/exe/main.swift"
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadPackageGraph(
+            fs: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    name: "Pkg",
+                    path: .init("/Pkg"),
+                    platforms: [
+                        PlatformDescription(name: "macos", version: "12.0"),
+                    ],
+                    targets: [
+                        TargetDescription(name: "exe", dependencies: []),
+                    ]),
+            ],
+            observabilityScope: observability.topScope
+        )
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        let result = BuildPlanResult(plan: try BuildPlan(
+            buildParameters: mockBuildParameters(config: .release),
+            graph: graph,
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        ))
+
+        result.checkProductsCount(1)
+        result.checkTargetsCount(1)
+
+        let exe = try result.target(for: "exe").swiftTarget().compileArguments()
+        XCTAssertMatch(exe, ["-swift-version", "4", "-O", "-g", .equal(j), "-DSWIFT_PACKAGE", "-module-cache-path", "/path/to/build/release/ModuleCache", .anySequence])
+
+      #if os(macOS)
+        XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), [
+            "/fake/path/to/swiftc", "-g", "-L", "/path/to/build/release",
+            "-o", "/path/to/build/release/exe", "-module-name", "exe", "-emit-executable",
+            "-Xlinker", "-rpath", "-Xlinker", "@loader_path",
+            "@/path/to/build/release/exe.product/Objects.LinkFileList",
+            "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift/macosx",
+            "-target", hostTriple.tripleString(forPlatformVersion: "12.0"),
         ])
       #endif
     }
@@ -1082,6 +1134,7 @@ final class BuildPlanTests: XCTestCase {
             "-Xlinker", "-rpath", "-Xlinker", "@loader_path",
             "@/path/to/build/debug/exe.product/Objects.LinkFileList",
             "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift/macosx",
+            "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-5.5/macosx",
             "-target", defaultTargetTriple,
             "-Xlinker", "-add_ast_path", "-Xlinker", "/path/to/build/debug/exe.build/exe.swiftmodule",
         ])
@@ -1188,6 +1241,7 @@ final class BuildPlanTests: XCTestCase {
            "-Xlinker", "-rpath", "-Xlinker", "@loader_path",
             "@/path/to/build/debug/Foo.product/Objects.LinkFileList",
             "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift/macosx",
+            "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-5.5/macosx",
             "-target", defaultTargetTriple,
             "-Xlinker", "-add_ast_path", "-Xlinker", "/path/to/build/debug/Foo.build/Foo.swiftmodule"
         ])
@@ -1200,6 +1254,7 @@ final class BuildPlanTests: XCTestCase {
             "-Xlinker", "-rpath", "-Xlinker", "@loader_path",
             "@/path/to/build/debug/Bar-Baz.product/Objects.LinkFileList",
             "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift/macosx",
+            "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-5.5/macosx",
             "-target", defaultTargetTriple,
             "-Xlinker", "-add_ast_path", "-Xlinker", "/path/to/build/debug/Bar.swiftmodule"
         ])
@@ -1283,6 +1338,7 @@ final class BuildPlanTests: XCTestCase {
                 "-Xlinker", "-rpath", "-Xlinker", "@loader_path",
                 "@/path/to/build/debug/lib.product/Objects.LinkFileList",
                 "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift/macosx",
+                "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-5.5/macosx",
                 "-target", defaultTargetTriple,
                 "-Xlinker", "-add_ast_path", "-Xlinker", "/path/to/build/debug/lib.swiftmodule",
             ]

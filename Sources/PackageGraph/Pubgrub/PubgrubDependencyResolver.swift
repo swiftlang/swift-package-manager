@@ -119,13 +119,14 @@ public struct PubgrubDependencyResolver {
         pinsMap: PinsStore.PinsMap = [:],
         updateEnabled: Bool = true,
         prefetchingEnabled: Bool = false,
+        observabilityScope: ObservabilityScope,
         delegate: DependencyResolverDelegate? = nil
     ) {
         self.packageContainerProvider = provider
         self.pinsMap = pinsMap
         self.updateEnabled = updateEnabled
         self.prefetchingEnabled = prefetchingEnabled
-        self.provider = ContainerProvider(provider: self.packageContainerProvider, updateEnabled: self.updateEnabled, pinsMap: self.pinsMap)
+        self.provider = ContainerProvider(provider: self.packageContainerProvider, updateEnabled: self.updateEnabled, pinsMap: self.pinsMap, observabilityScope: observabilityScope)
         self.delegate = delegate
     }
 
@@ -214,18 +215,18 @@ public struct PubgrubDependencyResolver {
 
             // TODO: replace with async/await when available
             let container = try temp_await { provider.getContainer(for: assignment.term.node.package, completion: $0) }
-            let identifier = try container.underlying.getUpdatedIdentifier(at: boundVersion)
+            let updatePackage = try container.underlying.loadPackageReference(at: boundVersion)
 
-            if var existing = flattenedAssignments[identifier] {
-                assert(existing.binding == boundVersion, "Two products in one package resolved to different versions: \(existing.products)@\(existing.binding) vs \(products)@\(boundVersion) in \(identifier.name)")
+            if var existing = flattenedAssignments[updatePackage] {
+                assert(existing.binding == boundVersion, "Two products in one package resolved to different versions: \(existing.products)@\(existing.binding) vs \(products)@\(boundVersion) in \(updatePackage.name)")
                 existing.products.formUnion(products)
-                flattenedAssignments[identifier] = existing
+                flattenedAssignments[updatePackage] = existing
             } else {
-                flattenedAssignments[identifier] = (binding: boundVersion, products: products)
+                flattenedAssignments[updatePackage] = (binding: boundVersion, products: products)
             }
         }
         var finalAssignments: [DependencyResolver.Binding]
-            = flattenedAssignments.keys.sorted(by: { $0.name < $1.name }).map { package in
+            = flattenedAssignments.keys.sorted(by: { $0.deprecatedName < $1.deprecatedName }).map { package in
                 let details = flattenedAssignments[package]!
                 return (package: package, binding: details.binding, products: details.products)
             }
@@ -234,8 +235,8 @@ public struct PubgrubDependencyResolver {
         for (package, override) in state.overriddenPackages {
             // TODO: replace with async/await when available
             let container = try temp_await { provider.getContainer(for: package, completion: $0) }
-            let identifier = try container.underlying.getUpdatedIdentifier(at: override.version)
-            finalAssignments.append((identifier, override.version, override.products))
+            let updatePackage = try container.underlying.loadPackageReference(at: override.version)
+            finalAssignments.append((updatePackage, override.version, override.products))
         }
 
         self.delegate?.solved(result: finalAssignments)
@@ -351,7 +352,7 @@ public struct PubgrubDependencyResolver {
                 overriddenPackages[package] = (version: .revision(revisionForDependencies, branch: revision), products: constraint.products)
             } else {
                 revisionForDependencies = revision
-                
+
                 // Mark the package as overridden.
                 overriddenPackages[package] = (version: .revision(revision), products: constraint.products)
             }
@@ -375,8 +376,8 @@ public struct PubgrubDependencyResolver {
                         constraints.append(dependency)
                     case .unversioned:
                         throw DependencyResolverError.revisionDependencyContainsLocalPackage(
-                            dependency: package.name,
-                            localPackage: dependency.package.name
+                            dependency: package.identity.description,
+                            localPackage: dependency.package.identity.description
                         )
                     }
                 }
@@ -635,7 +636,7 @@ public struct PubgrubDependencyResolver {
                 // forced unwraps safe since we are testing for count and errors above
                 let pkgTerm = undecided.min { counts[$0]! < counts[$1]! }!
                 self.delegate?.willResolve(term: pkgTerm)
-                // at this point the container is cached 
+                // at this point the container is cached
                 let container = try self.provider.getCachedContainer(for: pkgTerm.node.package)
 
                 // Get the best available version for this package.
@@ -673,7 +674,7 @@ public struct PubgrubDependencyResolver {
                     state.decide(pkgTerm.node, at: version)
                 }
 
-                completion(.success(pkgTerm.node))                
+                completion(.success(pkgTerm.node))
             } catch {
                 completion(.failure(error))
             }
@@ -1273,7 +1274,7 @@ internal final class PubGrubPackageContainer {
         if constraints.isEmpty {
             return ([:], [:])
         }
-        
+
         func preload(_ versions: [Version]) {
             let sync = DispatchGroup()
             for version in versions {
@@ -1285,7 +1286,7 @@ internal final class PubGrubPackageContainer {
             }
             sync.wait()
         }
-        
+
         func compute(_ versions: [Version], upperBound: Bool) -> [DependencyResolutionNode: Version] {
             var result: [DependencyResolutionNode: Version] = [:]
             var previousVersion = firstVersion
@@ -1297,12 +1298,12 @@ internal final class PubGrubPackageContainer {
                 if index.isMultiple(of: preloadCount) {
                     preload(Array(versions[index ..< min(index + preloadCount, versions.count)]))
                 }
-                
+
                 // Record this version as the bound if we're finding upper bounds since
                 // upper bound is exclusive and record the previous version if we're
                 // finding the lower bound since that is inclusive.
                 let bound = upperBound ? version : previousVersion
-                
+
                 let isToolsVersionCompatible = self.underlying.isToolsVersionCompatible(at: version)
                 for constraint in constraints {
                     for constraintNode in constraint.nodes() where !result.keys.contains(constraintNode) {
@@ -1329,14 +1330,14 @@ internal final class PubGrubPackageContainer {
 
                 previousVersion = version
             }
-            
+
             return result
         }
 
         let versions: [Version] = try self.underlying.versionsAscending()
 
         guard let idx = versions.firstIndex(of: firstVersion) else {
-            throw InternalError("from version \(firstVersion) not found in \(node.package.name)")
+            throw InternalError("from version \(firstVersion) not found in \(node.package.identity)")
         }
 
         let sync = DispatchGroup()
@@ -1354,7 +1355,7 @@ internal final class PubGrubPackageContainer {
         // timeout is a function of # of versions since we need to make several git operations per tag/version
         let timeout = DispatchTimeInterval.seconds(60 + versions.count)
         guard case .success = sync.wait(timeout: .now() + timeout) else {
-            throw StringError("timeout computing '\(node.package.name)' bounds")
+            throw StringError("timeout computing '\(node.package.identity)' bounds")
         }
 
         return (lowerBounds, upperBounds)
@@ -1374,22 +1375,26 @@ private final class ContainerProvider {
     /// Reference to the pins store.
     private let pinsMap: PinsStore.PinsMap
 
+    /// Observability scope to emit diagnostics with
+    private let observabilityScope: ObservabilityScope
+
     //// Store cached containers
     private var containersCache = ThreadSafeKeyValueStore<PackageReference, PubGrubPackageContainer>()
 
     //// Store prefetches synchronization
     private var prefetches = ThreadSafeKeyValueStore<PackageReference, DispatchGroup>()
 
-    init(provider underlying: PackageContainerProvider, updateEnabled: Bool, pinsMap: PinsStore.PinsMap) {
+    init(provider underlying: PackageContainerProvider, updateEnabled: Bool, pinsMap: PinsStore.PinsMap, observabilityScope: ObservabilityScope) {
         self.underlying = underlying
         self.updateEnabled = updateEnabled
         self.pinsMap = pinsMap
+        self.observabilityScope = observabilityScope
     }
 
     /// Get a cached container for the given identifier, asserting / throwing if not found.
     func getCachedContainer(for package: PackageReference) throws -> PubGrubPackageContainer {
         guard let container = self.containersCache[package] else {
-            throw InternalError("container for \(package.name) expected to be cached")
+            throw InternalError("container for \(package.identity) expected to be cached")
         }
         return container
     }
@@ -1415,7 +1420,7 @@ private final class ContainerProvider {
             }
         } else {
             // Otherwise, fetch the container from the provider
-            self.underlying.getContainer(for: package, skipUpdate: !self.updateEnabled, on: .sharedConcurrent) { result in
+            self.underlying.getContainer(for: package, skipUpdate: !self.updateEnabled, observabilityScope: self.observabilityScope, on: .sharedConcurrent) { result in
                 let result = result.tryMap { container -> PubGrubPackageContainer in
                     let pubGrubContainer = PubGrubPackageContainer(underlying: container, pinsMap: self.pinsMap)
                     // only cache positive results
@@ -1439,7 +1444,7 @@ private final class ContainerProvider {
                 return group
             }
             if needsFetching {
-                self.underlying.getContainer(for: identifier, skipUpdate: !self.updateEnabled, on: .sharedConcurrent) { result in
+                self.underlying.getContainer(for: identifier, skipUpdate: !self.updateEnabled, observabilityScope: self.observabilityScope, on: .sharedConcurrent) { result in
                     defer { self.prefetches[identifier]?.leave() }
                     // only cache positive results
                     if case .success(let container) = result {
@@ -1534,6 +1539,6 @@ private extension PackageRequirement {
 
 private extension DependencyResolutionNode {
     var nameForDiagnostics: String {
-        return "'\(package.name)'"
+        return "'\(package.identity)'"
     }
 }

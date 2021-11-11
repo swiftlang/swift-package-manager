@@ -10,6 +10,7 @@
 
 import Basics
 import struct TSCBasic.Lock
+import struct TSCBasic.StringError
 import func XCTest.XCTFail
 import func XCTest.XCTAssertEqual
 
@@ -61,13 +62,11 @@ public struct TestingObservability {
         }
 
         var hasErrors: Bool {
-            let diagnostics = self.diagnostics.get()
-            return diagnostics.contains(where: { $0.severity == .error })
+            return self.diagnostics.get().hasErrors
         }
 
         var hasWarnings: Bool {
-            let diagnostics = self.diagnostics.get()
-            return diagnostics.contains(where: { $0.severity == .warning })
+            return self.diagnostics.get().hasWarnings
         }
 
         var description: String {
@@ -113,15 +112,17 @@ public class DiagnosticsTestResult {
         self.uncheckedDiagnostics = diagnostics
     }
 
+    @discardableResult
     public func check(
         diagnostic message: StringPattern,
         severity: Basics.Diagnostic.Severity,
-        metadata: ObservabilityMetadata? = .none,
+        //metadata: ObservabilityMetadata? = .none,
         file: StaticString = #file,
         line: UInt = #line
-    ) {
+    ) -> Basics.Diagnostic? {
         guard !self.uncheckedDiagnostics.isEmpty else {
-            return XCTFail("No diagnostics left to check", file: file, line: line)
+            XCTFail("No diagnostics left to check", file: file, line: line)
+            return nil
         }
 
         let diagnostic: Basics.Diagnostic = self.uncheckedDiagnostics.removeFirst()
@@ -130,33 +131,44 @@ public class DiagnosticsTestResult {
         XCTAssertEqual(diagnostic.severity, severity, file: file, line: line)
         // FIXME: (diagnostics) compare complete metadata when legacy bridge is removed
         //XCTAssertEqual(diagnostic.metadata, metadata, file: file, line: line)
-        XCTAssertEqual(diagnostic.metadata?.droppingLegacyKeys(), metadata?.droppingLegacyKeys(), file: file, line: line)
+        //XCTAssertEqual(diagnostic.metadata?.droppingLegacyKeys(), metadata?.droppingLegacyKeys(), file: file, line: line)
+
+        return diagnostic
     }
 
+    @discardableResult
     public func checkUnordered(
         diagnostic diagnosticPattern: StringPattern,
         severity: Basics.Diagnostic.Severity,
-        metadata: ObservabilityMetadata? = .none,
+        //metadata: ObservabilityMetadata? = .none,
         file: StaticString = #file,
         line: UInt = #line
-    ) {
+    ) -> Basics.Diagnostic? {
         guard !self.uncheckedDiagnostics.isEmpty else {
-            return XCTFail("No diagnostics left to check", file: file, line: line)
+            XCTFail("No diagnostics left to check", file: file, line: line)
+            return nil
         }
 
-        let matching = self.uncheckedDiagnostics.filter { diagnosticPattern ~= $0.message }
+        let matching = self.uncheckedDiagnostics.indices.filter { diagnosticPattern ~= self.uncheckedDiagnostics[$0].message }
         if matching.isEmpty {
-            return XCTFail("No diagnostics match \(diagnosticPattern)", file: file, line: line)
-        } else if matching.count == 1, let diagnostic = matching.first, let index = self.uncheckedDiagnostics.firstIndex(where: { $0 == diagnostic }) {
+            XCTFail("No diagnostics match \(diagnosticPattern)", file: file, line: line)
+            return nil
+        } else if matching.count == 1, let index = matching.first {
+            let diagnostic = self.uncheckedDiagnostics[index]
             XCTAssertEqual(diagnostic.severity, severity, file: file, line: line)
             // FIXME: (diagnostics) compare complete metadata when legacy bridge is removed
             //XCTAssertEqual(diagnostic.metadata, metadata, file: file, line: line)
-            XCTAssertEqual(diagnostic.metadata?.droppingLegacyKeys(), metadata?.droppingLegacyKeys(), file: file, line: line)
+            //XCTAssertEqual(diagnostic.metadata?.droppingLegacyKeys(), metadata?.droppingLegacyKeys(), file: file, line: line)
             self.uncheckedDiagnostics.remove(at: index)
+            return diagnostic
         // FIXME: (diagnostics) compare complete metadata when legacy bridge is removed
-        //} else if let index = self.uncheckedDiagnostics.firstIndex(where: { diagnostic in diagnostic.severity == severity && diagnostic.metadata == metadata}) {
-        } else if let index = self.uncheckedDiagnostics.firstIndex(where: { diagnostic in diagnostic.severity == severity && diagnostic.metadata?.droppingLegacyKeys() == metadata?.droppingLegacyKeys()}) {
+        } else if let index = self.uncheckedDiagnostics.firstIndex(where: { diagnostic in diagnostic.severity == severity /*&& diagnostic.metadata == metadata*/}) {
+        //} else if let index = self.uncheckedDiagnostics.firstIndex(where: { diagnostic in diagnostic.severity == severity && diagnostic.metadata?.droppingLegacyKeys() == metadata?.droppingLegacyKeys()}) {
+            let diagnostic = self.uncheckedDiagnostics[index]
             self.uncheckedDiagnostics.remove(at: index)
+            return diagnostic
+        } else {
+            return nil
         }
     }
 }

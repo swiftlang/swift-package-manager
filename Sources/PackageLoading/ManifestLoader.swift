@@ -37,8 +37,8 @@ public protocol ManifestLoaderProtocol {
     ///   - revision: Optional. The revision the manifest is from, if known
     ///   - toolsVersion: The version of the tools the manifest supports.
     ///   - identityResolver: A helper to resolve identities based on configuration
-    ///   - fileSystem: The file system to load from.
-    ///   - diagnostics: Optional.  The diagnostics engine.
+    ///   - fileSystem: File system to load from.
+    ///   - observabilityScope: Observability scope to emit diagnostics.
     ///   - on: The dispatch queue to perform asynchronous operations on.
     ///   - completion: The completion handler .
     func load(
@@ -51,7 +51,7 @@ public protocol ManifestLoaderProtocol {
         toolsVersion: ToolsVersion,
         identityResolver: IdentityResolver,
         fileSystem: FileSystem,
-        diagnostics: DiagnosticsEngine?,
+        observabilityScope: ObservabilityScope,
         on queue: DispatchQueue,
         completion: @escaping (Result<Manifest, Error>) -> Void
     )
@@ -173,7 +173,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                 toolsVersion: toolsVersion,
                 identityResolver: identityResolver,
                 fileSystem: fileSystem,
-                diagnostics: diagnostics,
+                observabilityScope: ObservabilitySystem(diagnosticEngine: diagnostics ?? DiagnosticsEngine()).topScope,
                 on: queue,
                 completion: completion
             )
@@ -192,24 +192,26 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         toolsVersion: ToolsVersion,
         identityResolver: IdentityResolver,
         fileSystem: FileSystem,
-        diagnostics: DiagnosticsEngine? = nil,
+        observabilityScope: ObservabilityScope,
         on queue: DispatchQueue,
         completion: @escaping (Result<Manifest, Error>) -> Void
     ) {
         do {
             let manifestPath = try Manifest.path(atPackagePath: path, fileSystem: fileSystem)
-            self.loadFile(at: manifestPath,
-                          packageIdentity: packageIdentity,
-                          packageKind: packageKind,
-                          packageLocation: packageLocation,
-                          version: version,
-                          revision: revision,
-                          toolsVersion: toolsVersion,
-                          identityResolver: identityResolver,
-                          fileSystem: fileSystem,
-                          diagnostics: diagnostics,
-                          on: queue,
-                          completion: completion)
+            self.loadFile(
+                at: manifestPath,
+                packageIdentity: packageIdentity,
+                packageKind: packageKind,
+                packageLocation: packageLocation,
+                version: version,
+                revision: revision,
+                toolsVersion: toolsVersion,
+                identityResolver: identityResolver,
+                fileSystem: fileSystem,
+                observabilityScope: observabilityScope,
+                on: queue,
+                completion: completion
+            )
         } catch {
             return completion(.failure(error))
         }
@@ -225,7 +227,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         toolsVersion: ToolsVersion,
         identityResolver: IdentityResolver,
         fileSystem: FileSystem,
-        diagnostics: DiagnosticsEngine? = nil,
+        observabilityScope: ObservabilityScope,
         on queue: DispatchQueue,
         completion: @escaping (Result<Manifest, Error>) -> Void
     ) {
@@ -249,7 +251,8 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                     identityResolver: identityResolver,
                     delegateQueue: queue,
                     fileSystem: fileSystem,
-                    diagnostics: diagnostics)
+                    observabilityScope: observabilityScope
+                )
 
                 // Convert legacy system packages to the current target‐based model.
                 var products = parsedManifest.products
@@ -271,7 +274,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                 }
 
                 let manifest = Manifest(
-                    name: parsedManifest.name,
+                    displayName: parsedManifest.name,
                     path: path,
                     packageKind: packageKind,
                     packageLocation: packageLocation,
@@ -290,9 +293,9 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                     targets: targets
                 )
 
-                try self.validate(manifest, toolsVersion: toolsVersion, diagnostics: diagnostics)
+                try self.validate(manifest, toolsVersion: toolsVersion, observabilityScope: observabilityScope)
 
-                if let diagnostics = diagnostics, diagnostics.hasErrors {
+                if observabilityScope.errorsReported {
                     throw Diagnostics.fatalError
                 }
 
@@ -308,44 +311,44 @@ public final class ManifestLoader: ManifestLoaderProtocol {
     }
 
     /// Validate the provided manifest.
-    private func validate(_ manifest: Manifest, toolsVersion: ToolsVersion, diagnostics: DiagnosticsEngine?) throws {
-        try self.validateTargets(manifest, diagnostics: diagnostics)
-        try self.validateProducts(manifest, diagnostics: diagnostics)
-        try self.validateDependencies(manifest, toolsVersion: toolsVersion, diagnostics: diagnostics)
+    private func validate(_ manifest: Manifest, toolsVersion: ToolsVersion, observabilityScope: ObservabilityScope) throws {
+        try self.validateTargets(manifest, observabilityScope: observabilityScope)
+        try self.validateProducts(manifest, observabilityScope: observabilityScope)
+        try self.validateDependencies(manifest, toolsVersion: toolsVersion, observabilityScope: observabilityScope)
 
         // Checks reserved for tools version 5.2 features
         if toolsVersion >= .v5_2 {
-            try self.validateTargetDependencyReferences(manifest, diagnostics: diagnostics)
-            try self.validateBinaryTargets(manifest, diagnostics: diagnostics)
+            try self.validateTargetDependencyReferences(manifest, observabilityScope: observabilityScope)
+            try self.validateBinaryTargets(manifest, observabilityScope: observabilityScope)
         }
     }
 
-    private func validateTargets(_ manifest: Manifest, diagnostics: DiagnosticsEngine?) throws {
+    private func validateTargets(_ manifest: Manifest, observabilityScope: ObservabilityScope) throws {
         let duplicateTargetNames = manifest.targets.map({ $0.name }).spm_findDuplicates()
         for name in duplicateTargetNames {
-            try diagnostics.emit(.duplicateTargetName(targetName: name))
+            observabilityScope.emit(.duplicateTargetName(targetName: name))
         }
     }
 
-    private func validateProducts(_ manifest: Manifest, diagnostics: DiagnosticsEngine?) throws {
+    private func validateProducts(_ manifest: Manifest, observabilityScope: ObservabilityScope) throws {
         for product in manifest.products {
             // Check that the product contains targets.
             guard !product.targets.isEmpty else {
-                try diagnostics.emit(.emptyProductTargets(productName: product.name))
+                observabilityScope.emit(.emptyProductTargets(productName: product.name))
                 continue
             }
 
             // Check that the product references existing targets.
             for target in product.targets {
                 if !manifest.targetMap.keys.contains(target) {
-                    try diagnostics.emit(.productTargetNotFound(productName: product.name, targetName: target, validTargets: manifest.targetMap.keys.sorted()))
+                    observabilityScope.emit(.productTargetNotFound(productName: product.name, targetName: target, validTargets: manifest.targetMap.keys.sorted()))
                 }
             }
 
             // Check that products that reference only binary targets don't define a type.
             let areTargetsBinary = product.targets.allSatisfy { manifest.targetMap[$0]?.type == .binary }
             if areTargetsBinary && product.type != .library(.automatic) {
-                try diagnostics.emit(.invalidBinaryProductType(productName: product.name))
+                observabilityScope.emit(.invalidBinaryProductType(productName: product.name))
             }
         }
     }
@@ -353,7 +356,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
     private func validateDependencies(
         _ manifest: Manifest,
         toolsVersion: ToolsVersion,
-        diagnostics: DiagnosticsEngine?
+        observabilityScope: ObservabilityScope
     ) throws {
         let dependenciesByIdentity = Dictionary(grouping: manifest.dependencies, by: { dependency in
             dependency.identity
@@ -365,7 +368,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             .map({ $0.key })
 
         for identity in duplicateDependencyIdentities {
-            try diagnostics.emit(.duplicateDependency(dependencyIdentity: identity))
+            observabilityScope.emit(.duplicateDependency(dependencyIdentity: identity))
         }
 
         if toolsVersion >= .v5_2 {
@@ -382,22 +385,22 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                 .spm_findDuplicates()
 
             for name in duplicateDependencyNames {
-                try diagnostics.emit(.duplicateDependencyName(dependencyName: name))
+                observabilityScope.emit(.duplicateDependencyName(dependencyName: name))
             }
         }
     }
 
-    private func validateBinaryTargets(_ manifest: Manifest, diagnostics: DiagnosticsEngine?) throws {
+    private func validateBinaryTargets(_ manifest: Manifest, observabilityScope: ObservabilityScope) throws {
         // Check that binary targets point to the right file type.
         for target in manifest.targets where target.type == .binary {
             guard let location = URL(string: target.url ?? target.path ?? "") else {
-                try diagnostics.emit(.invalidBinaryLocation(targetName: target.name))
+                observabilityScope.emit(.invalidBinaryLocation(targetName: target.name))
                 continue
             }
 
             let validSchemes = ["https"]
             if target.isRemote && (location.scheme.map({ !validSchemes.contains($0) }) ?? true) {
-                try diagnostics.emit(.invalidBinaryURLScheme(
+                observabilityScope.emit(.invalidBinaryURLScheme(
                     targetName: target.name,
                     validSchemes: validSchemes
                 ))
@@ -409,7 +412,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             }
 
             if !validExtensions.contains(location.pathExtension) {
-                try diagnostics.emit(.unsupportedBinaryLocationExtension(
+                observabilityScope.emit(.unsupportedBinaryLocationExtension(
                     targetName: target.name,
                     validExtensions: validExtensions
                 ))
@@ -418,7 +421,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
     }
 
     /// Validates that product target dependencies reference an existing package.
-    private func validateTargetDependencyReferences(_ manifest: Manifest, diagnostics: DiagnosticsEngine?) throws {
+    private func validateTargetDependencyReferences(_ manifest: Manifest, observabilityScope: ObservabilityScope) throws {
         for target in manifest.targets {
             for targetDependency in target.dependencies {
                 switch targetDependency {
@@ -427,7 +430,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                     break
                 case .product(_, let packageName, _):
                     if manifest.packageDependency(referencedBy: targetDependency) == nil {
-                        try diagnostics.emit(.unknownTargetPackageDependency(
+                        observabilityScope.emit(.unknownTargetPackageDependency(
                             packageName: packageName ?? "unknown package name",
                             targetName: target.name,
                             validPackages: manifest.dependencies.map { $0.nameForTargetDependencyResolutionOnly }
@@ -439,7 +442,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                        !manifest.targetMap.keys.contains(name) &&
                        manifest.packageDependency(referencedBy: targetDependency) == nil
                     {
-                        try diagnostics.emit(.unknownTargetDependency(
+                        observabilityScope.emit(.unknownTargetDependency(
                             dependency: name,
                             targetName: target.name,
                             validDependencies: manifest.dependencies.map { $0.nameForTargetDependencyResolutionOnly }
@@ -458,7 +461,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         toolsVersion: ToolsVersion,
         identityResolver: IdentityResolver,
         fileSystem: FileSystem,
-        diagnostics: DiagnosticsEngine?
+        observabilityScope: ObservabilityScope
     ) throws -> ManifestJSONParser.Result {
         // Throw now if we weren't able to parse the manifest.
         guard let manifestJSON = result.manifestJSON, !manifestJSON.isEmpty else {
@@ -474,23 +477,25 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         if let compilerOutput = result.compilerOutput {
             // FIXME: Temporary workaround to filter out debug output from integrated Swift driver. [rdar://73710910]
             if !(compilerOutput.hasPrefix("<unknown>:0: remark: new Swift driver at") && compilerOutput.hasSuffix("will be used")) {
-                /*let metadata = result.diagnosticFile.map { diagnosticFile -> ObservabilityMetadata in
+                let metadata = result.diagnosticFile.map { diagnosticFile -> ObservabilityMetadata in
                     var metadata = ObservabilityMetadata()
                     metadata.manifestLoadingDiagnosticFile = diagnosticFile
                     return metadata
                 }
-                diagnostics.emit(warning: compilerOutput, metadata: metadata)
-                */
+                observabilityScope.emit(warning: compilerOutput, metadata: metadata)
+
                 // FIXME: (diagnostics) deprecate in favor of the metadata version ^^ when transitioning manifest loader to Observability APIs
-                diagnostics?.emit(.warning(ManifestLoadingDiagnostic(output: compilerOutput, diagnosticFile: result.diagnosticFile)))
+                //observabilityScope.emit(.warning(ManifestLoadingDiagnostic(output: compilerOutput, diagnosticFile: result.diagnosticFile)))
             }
         }
 
-        return try ManifestJSONParser.parse(v4: manifestJSON,
-                                            toolsVersion: toolsVersion,
-                                            packageKind: packageKind,
-                                            identityResolver: identityResolver,
-                                            fileSystem: fileSystem)
+        return try ManifestJSONParser.parse(
+            v4: manifestJSON,
+            toolsVersion: toolsVersion,
+            packageKind: packageKind,
+            identityResolver: identityResolver,
+            fileSystem: fileSystem
+        )
     }
 
     private func parseAndCacheManifest(
@@ -501,7 +506,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         identityResolver: IdentityResolver,
         delegateQueue: DispatchQueue,
         fileSystem: FileSystem,
-        diagnostics: DiagnosticsEngine?
+        observabilityScope: ObservabilityScope
     ) throws -> ManifestJSONParser.Result {
         let cache = self.databaseCacheDir.map { cacheDir -> SQLiteBackedCache<EvaluationResult> in
             let path = Self.manifestCacheDBPath(cacheDir)
@@ -538,10 +543,11 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                     toolsVersion: toolsVersion,
                     identityResolver: identityResolver,
                     fileSystem: fileSystem,
-                    diagnostics: diagnostics)
+                    observabilityScope: observabilityScope
+                )
             }
         } catch {
-            diagnostics?.emit(warning: "failed loading cached manifest for '\(key.packageIdentity)': \(error)")
+            observabilityScope.emit(warning: "failed loading cached manifest for '\(key.packageIdentity)': \(error)")
         }
 
         // shells out and compiles the manifest, finally output a JSON
@@ -561,14 +567,14 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             toolsVersion: toolsVersion,
             identityResolver: identityResolver,
             fileSystem: fileSystem,
-            diagnostics: diagnostics
+            observabilityScope: observabilityScope
         )
 
         do {
             // FIXME: (diagnostics) pass in observability scope when we have one
             try cache?.put(key: key.sha256Checksum, value: result)
         } catch {
-            diagnostics?.emit(warning: "failed storing manifest for '\(key.packageIdentity)' in cache: \(error)")
+            observabilityScope.emit(warning: "failed storing manifest for '\(key.packageIdentity)' in cache: \(error)")
         }
 
         return parseManifest
@@ -937,7 +943,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
     }
 }
 
-extension TSCBasic.Diagnostic.Message {
+extension Basics.Diagnostic {
     static func duplicateTargetName(targetName: String) -> Self {
         .error("duplicate target named '\(targetName)'")
     }

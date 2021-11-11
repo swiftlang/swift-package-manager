@@ -199,7 +199,7 @@ final class WorkspaceTests: XCTestCase {
             let rootManifests = try tsc_await {
                 workspace.loadRootManifests(
                     packages: rootInput.packages,
-                    diagnostics: observability.topScope.makeDiagnosticsEngine(),
+                    observabilityScope: observability.topScope,
                     completion: $0
                 )
             }
@@ -207,9 +207,9 @@ final class WorkspaceTests: XCTestCase {
             XCTAssert(rootManifests.count == 0, "\(rootManifests)")
 
             testDiagnostics(observability.diagnostics) { result in
-                var expectedMetadata = ObservabilityMetadata()
-                expectedMetadata.legacyDiagnosticLocation = .init(PackageLocation.Local(name: nil, packagePath: pkgDir))
-                result.check(diagnostic: .contains("An error in MyPkg"), severity: .error, metadata: expectedMetadata)
+                let diagnostic = result.check(diagnostic: .contains("An error in MyPkg"), severity: .error)
+                XCTAssertEqual(diagnostic?.metadata?.packageIdentity, .init(path: pkgDir))
+                XCTAssertEqual(diagnostic?.metadata?.packageKind, .root(pkgDir))
             }
         }
     }
@@ -1829,7 +1829,7 @@ final class WorkspaceTests: XCTestCase {
 
         try workspace.loadDependencyManifests(roots: ["Root1"]) { manifests, diagnostics in
             // Ensure that the order of the manifests is stable.
-            XCTAssertEqual(manifests.allDependencyManifests().map { $0.value.name }, ["Foo", "Baz", "Bam", "Bar"])
+            XCTAssertEqual(manifests.allDependencyManifests().map { $0.value.displayName }, ["Foo", "Baz", "Bam", "Bar"])
             XCTAssertNoDiagnostics(diagnostics)
         }
     }
@@ -1960,7 +1960,7 @@ final class WorkspaceTests: XCTestCase {
         // Check failure.
         workspace.checkResolve(pkg: "Foo", roots: ["Root"], version: "1.3.0") { diagnostics in
             testDiagnostics(diagnostics) { result in
-                result.check(diagnostic: .contains("'Foo' 1.3.0"), severity: .error)
+                result.check(diagnostic: .contains("'foo' 1.3.0"), severity: .error)
             }
         }
         workspace.checkManagedDependencies { result in
@@ -2012,7 +2012,7 @@ final class WorkspaceTests: XCTestCase {
                 result.check(packages: "Foo", "Root")
             }
             testDiagnostics(diagnostics) { result in
-                result.check(diagnostic: .contains("dependency 'Foo' is missing; cloning again"), severity: .warning)
+                result.check(diagnostic: .contains("dependency 'foo' is missing; cloning again"), severity: .warning)
             }
         }
     }
@@ -2107,41 +2107,29 @@ final class WorkspaceTests: XCTestCase {
 
         workspace.checkPackageGraphFailure(roots: ["Bar"]) { diagnostics in
             testDiagnostics(diagnostics) { result in
-                // TODO: clean this up when migrating to new diagnostics API
-                var expectedMetadata = ObservabilityMetadata()
-                expectedMetadata.legacyDiagnosticLocation = .init(PackageLocation.Local(name: nil, packagePath: .init("/tmp/ws/roots/Bar")))
-
-                result.check(
+                let diagnostic = result.check(
                     diagnostic: .equal("package 'bar' is using Swift tools version 4.1.0 but the installed version is 4.0.0"),
-                    severity: .error,
-                    metadata: expectedMetadata
+                    severity: .error
                 )
+                XCTAssertEqual(diagnostic?.metadata?.packageIdentity, .plain("bar"))
             }
         }
         workspace.checkPackageGraphFailure(roots: ["Foo", "Bar"]) { diagnostics in
-            // TODO: clean this up when migrating to new diagnostics API
-            var expectedMetadata = ObservabilityMetadata()
-            expectedMetadata.legacyDiagnosticLocation = .init(PackageLocation.Local(name: nil, packagePath: .init("/tmp/ws/roots/Bar")))
-
             testDiagnostics(diagnostics) { result in
-                result.check(
+                let diagnostic = result.check(
                     diagnostic: .equal("package 'bar' is using Swift tools version 4.1.0 but the installed version is 4.0.0"),
-                    severity: .error,
-                    metadata: expectedMetadata
+                    severity: .error
                 )
+                XCTAssertEqual(diagnostic?.metadata?.packageIdentity, .plain("bar"))
             }
         }
         workspace.checkPackageGraphFailure(roots: ["Baz"]) { diagnostics in
             testDiagnostics(diagnostics) { result in
-                // TODO: clean this up when migrating to new diagnostics API
-                var expectedMetadata = ObservabilityMetadata()
-                expectedMetadata.legacyDiagnosticLocation = .init(PackageLocation.Local(name: nil, packagePath: .init("/tmp/ws/roots/Baz")))
-
-                result.check(
+                let diagnostic = result.check(
                     diagnostic: .equal("package 'baz' is using Swift tools version 3.1.0 which is no longer supported; consider using '// swift-tools-version:4.0' to specify the current tools version"),
-                    severity: .error,
-                    metadata: expectedMetadata
+                    severity: .error
                 )
+                XCTAssertEqual(diagnostic?.metadata?.packageIdentity, .plain("baz"))
             }
         }
     }
@@ -2218,7 +2206,7 @@ final class WorkspaceTests: XCTestCase {
         // Try re-editing foo.
         workspace.checkEdit(packageName: "Foo") { diagnostics in
             testDiagnostics(diagnostics) { result in
-                result.check(diagnostic: .equal("dependency 'Foo' already in edit mode"), severity: .error)
+                result.check(diagnostic: .equal("dependency 'foo' already in edit mode"), severity: .error)
             }
         }
         workspace.checkManagedDependencies { result in
@@ -2304,7 +2292,7 @@ final class WorkspaceTests: XCTestCase {
         try fs.removeFileTree(fooPath)
         try workspace.checkPackageGraph(roots: ["Root"]) { _, diagnostics in
             testDiagnostics(diagnostics) { result in
-                result.check(diagnostic: .equal("dependency 'Foo' was being edited but is missing; falling back to original checkout"), severity: .warning)
+                result.check(diagnostic: .equal("dependency 'foo' was being edited but is missing; falling back to original checkout"), severity: .warning)
             }
         }
         workspace.checkManagedDependencies { result in
@@ -2652,7 +2640,7 @@ final class WorkspaceTests: XCTestCase {
             )
 
             workspace.manifestLoader.manifests[fooKey] = Manifest(
-                name: manifest.name,
+                displayName: manifest.displayName,
                 path: manifest.path,
                 packageKind: manifest.packageKind,
                 packageLocation: manifest.packageLocation,
@@ -2749,7 +2737,7 @@ final class WorkspaceTests: XCTestCase {
         ]
         try workspace.checkPackageGraph(roots: ["Root"], deps: deps) { _, diagnostics in
             testDiagnostics(diagnostics) { result in
-                result.check(diagnostic: .contains("'Bar' 1.1.0"), severity: .error)
+                result.check(diagnostic: .contains("'bar' 1.1.0"), severity: .error)
             }
         }
     }
@@ -2871,12 +2859,12 @@ final class WorkspaceTests: XCTestCase {
         // Test that its not possible to edit or resolve this package.
         workspace.checkEdit(packageName: "Bar") { diagnostics in
             testDiagnostics(diagnostics) { result in
-                result.check(diagnostic: .contains("local dependency 'Bar' can't be edited"), severity: .error)
+                result.check(diagnostic: .contains("local dependency 'bar' can't be edited"), severity: .error)
             }
         }
         workspace.checkResolve(pkg: "Bar", roots: ["Foo"], version: "1.0.0") { diagnostics in
             testDiagnostics(diagnostics) { result in
-                result.check(diagnostic: .contains("local dependency 'Bar' can't be edited"), severity: .error)
+                result.check(diagnostic: .contains("local dependency 'bar' can't be edited"), severity: .error)
             }
         }
     }
@@ -3890,7 +3878,7 @@ final class WorkspaceTests: XCTestCase {
             let manifest = try tsc_await {
                 workspace.loadRootManifest(
                     at: packagePath,
-                    diagnostics: observability.topScope.makeDiagnosticsEngine(),
+                    observabilityScope: observability.topScope,
                     completion: $0
                 )
             }
@@ -3914,8 +3902,8 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertFalse(observability.hasWarningDiagnostics, observability.diagnostics.description)
             XCTAssertFalse(observability.hasErrorDiagnostics, observability.diagnostics.description)
 
-            XCTAssertEqual(manifest.name, "MyPkg")
-            XCTAssertEqual(package.manifestName, manifest.name)
+            XCTAssertEqual(manifest.displayName, "MyPkg")
+            XCTAssertEqual(package.identity, .plain(manifest.displayName))
             XCTAssert(graph.reachableProducts.contains(where: { $0.name == "MyPkg" }))
         }
     }
@@ -3968,7 +3956,7 @@ final class WorkspaceTests: XCTestCase {
 
         try workspace.checkPackageGraph(roots: ["Root"]) { _, diagnostics in
             testDiagnostics(diagnostics) { result in
-                result.check(diagnostic: .equal("package 'Foo' is required using a revision-based requirement and it depends on local package 'Local', which is not supported"), severity: .error)
+                result.check(diagnostic: .equal("package 'foo' is required using a revision-based requirement and it depends on local package 'local', which is not supported"), severity: .error)
             }
         }
     }
@@ -4078,18 +4066,16 @@ final class WorkspaceTests: XCTestCase {
         // We should only see errors about use of unsafe flag in the version-based dependency.
         try workspace.checkPackageGraph(roots: ["Foo", "Bar"]) { _, diagnostics in
             testDiagnostics(diagnostics) { result in
-                var expectedMetadata = ObservabilityMetadata()
-                expectedMetadata.targetName = "Foo"
-                result.checkUnordered(
+                let diagnostic1 = result.checkUnordered(
                     diagnostic: .equal("the target 'Baz' in product 'Baz' contains unsafe build flags"),
-                    severity: .error,
-                    metadata: expectedMetadata
+                    severity: .error
                 )
-                result.checkUnordered(
+                XCTAssertEqual(diagnostic1?.metadata?.targetName, "Foo")
+                let diagnostic2 = result.checkUnordered(
                     diagnostic: .equal("the target 'Bar' in product 'Baz' contains unsafe build flags"),
-                    severity: .error,
-                    metadata: expectedMetadata
+                    severity: .error
                 )
+                XCTAssertEqual(diagnostic2?.metadata?.targetName, "Foo")
             }
         }
     }
@@ -4413,9 +4399,9 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertNoDiagnostics(diagnostics)
 
             // Ensure that the artifacts have been properly extracted
-            XCTAssertTrue(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/A/A1.xcframework")))
-            XCTAssertTrue(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/A/A2.artifactbundle")))
-            XCTAssertTrue(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/B/B.xcframework")))
+            XCTAssertTrue(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/a/A1.xcframework")))
+            XCTAssertTrue(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/a/A2.artifactbundle")))
+            XCTAssertTrue(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/b/B.xcframework")))
 
             // Ensure that the original archives have been untouched
             XCTAssertTrue(fs.exists(a1FrameworkArchivePath))
@@ -4424,32 +4410,32 @@ final class WorkspaceTests: XCTestCase {
 
             // Ensure that the temporary folders have been properly created
             XCTAssertEqual(workspace.archiver.extractions.map { $0.destinationPath.parentDirectory }.sorted(), [
-                AbsolutePath("/tmp/ws/.build/artifacts/extract/A/A1"),
-                AbsolutePath("/tmp/ws/.build/artifacts/extract/A/A2"),
-                AbsolutePath("/tmp/ws/.build/artifacts/extract/B/B")
+                AbsolutePath("/tmp/ws/.build/artifacts/extract/a/A1"),
+                AbsolutePath("/tmp/ws/.build/artifacts/extract/a/A2"),
+                AbsolutePath("/tmp/ws/.build/artifacts/extract/b/B")
             ])
 
             // Ensure that the temporary directories have been removed
-            XCTAssertTrue(try! fs.getDirectoryContents(AbsolutePath("/tmp/ws/.build/artifacts/extract/A/A1")).isEmpty)
-            XCTAssertTrue(try! fs.getDirectoryContents(AbsolutePath("/tmp/ws/.build/artifacts/extract/A/A2")).isEmpty)
-            XCTAssertTrue(try! fs.getDirectoryContents(AbsolutePath("/tmp/ws/.build/artifacts/extract/B/B")).isEmpty)
+            XCTAssertTrue(try! fs.getDirectoryContents(AbsolutePath("/tmp/ws/.build/artifacts/extract/a/A1")).isEmpty)
+            XCTAssertTrue(try! fs.getDirectoryContents(AbsolutePath("/tmp/ws/.build/artifacts/extract/a/A2")).isEmpty)
+            XCTAssertTrue(try! fs.getDirectoryContents(AbsolutePath("/tmp/ws/.build/artifacts/extract/b/B")).isEmpty)
         }
 
         workspace.checkManagedArtifacts { result in
             result.check(packageIdentity: .plain("a"),
                          targetName: "A1",
                          source: .local(checksum: "a1"),
-                         path: workspace.artifactsDir.appending(components: "A", "A1.xcframework")
+                         path: workspace.artifactsDir.appending(components: "a", "A1.xcframework")
             )
             result.check(packageIdentity: .plain("a"),
                          targetName: "A2",
                          source: .local(checksum: "a2"),
-                         path: workspace.artifactsDir.appending(components: "A", "A2.artifactbundle")
+                         path: workspace.artifactsDir.appending(components: "a", "A2.artifactbundle")
             )
             result.check(packageIdentity: .plain("b"),
                          targetName: "B",
                          source: .local(checksum: "b0"),
-                         path: workspace.artifactsDir.appending(components: "B", "B.xcframework")
+                         path: workspace.artifactsDir.appending(components: "b", "B.xcframework")
             )
         }
     }
@@ -4674,22 +4660,22 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertTrue(fs.exists(a4FrameworkArchivePath))
 
             // Ensure that the new artifacts have been properly extracted
-            XCTAssertTrue(fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/A/\(a1FrameworkName)")))
-            XCTAssertTrue(fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/A/\(a3FrameworkName)/local-archived")))
-            XCTAssertTrue(fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/A/\(a4FrameworkName)/remote")))
+            XCTAssertTrue(fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/a/\(a1FrameworkName)")))
+            XCTAssertTrue(fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/a/\(a3FrameworkName)/local-archived")))
+            XCTAssertTrue(fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/a/\(a4FrameworkName)/remote")))
 
             // Ensure that the old artifacts have been removed
-            XCTAssertFalse(fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/A/\(a2FrameworkName)")))
-            XCTAssertFalse(fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/A/\(a3FrameworkName)/remote")))
-            XCTAssertFalse(fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/A/\(a4FrameworkName)/local-archived")))
-            XCTAssertFalse(fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/A/\(a5FrameworkName)")))
+            XCTAssertFalse(fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/a/\(a2FrameworkName)")))
+            XCTAssertFalse(fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/a/\(a3FrameworkName)/remote")))
+            XCTAssertFalse(fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/a/\(a4FrameworkName)/local-archived")))
+            XCTAssertFalse(fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/a/\(a5FrameworkName)")))
         }
 
         workspace.checkManagedArtifacts { result in
             result.check(packageIdentity: .plain("a"),
                          targetName: "A1",
                          source: .local(checksum: "a1"),
-                         path: workspace.artifactsDir.appending(components: "A", a1FrameworkName)
+                         path: workspace.artifactsDir.appending(components: "a", a1FrameworkName)
             )
             result.check(packageIdentity: .plain("a"),
                          targetName: "A2",
@@ -4699,12 +4685,12 @@ final class WorkspaceTests: XCTestCase {
             result.check(packageIdentity: .plain("a"),
                          targetName: "A3",
                          source: .local(checksum: "a3"),
-                         path: workspace.artifactsDir.appending(components: "A", a3FrameworkName)
+                         path: workspace.artifactsDir.appending(components: "a", a3FrameworkName)
             )
             result.check(packageIdentity: .plain("a"),
                          targetName: "A4",
                          source: .remote(url: "https://a.com/a4.zip", checksum: "a4"),
-                         path: workspace.artifactsDir.appending(components: "A", a4FrameworkName)
+                         path: workspace.artifactsDir.appending(components: "a", a4FrameworkName)
             )
         }
     }
@@ -5004,13 +4990,13 @@ final class WorkspaceTests: XCTestCase {
                     packageRef: aRef,
                     targetName: "A1",
                     source: .local(checksum: "old-checksum"),
-                    path: workspace.artifactsDir.appending(components: "A", "A1.xcframework")
+                    path: workspace.artifactsDir.appending(components: "a", "A1.xcframework")
                 ),
                 .init(
                     packageRef: aRef,
                     targetName: "A2",
                     source: .local(checksum: "a2"),
-                    path: workspace.artifactsDir.appending(components: "A", "A2.xcframework")
+                    path: workspace.artifactsDir.appending(components: "a", "A2.xcframework")
                 )
             ]
         )
@@ -5028,7 +5014,7 @@ final class WorkspaceTests: XCTestCase {
         try workspace.checkPackageGraph(roots: ["Foo"]) { graph, diagnostics in
             // Ensure that only the artifact archive with the changed checksum has been extracted
             XCTAssertEqual(workspace.archiver.extractions.map { $0.destinationPath.parentDirectory }.sorted(), [
-                AbsolutePath("/tmp/ws/.build/artifacts/extract/A/A1")
+                AbsolutePath("/tmp/ws/.build/artifacts/extract/a/A1")
             ])
         }
 
@@ -5036,12 +5022,12 @@ final class WorkspaceTests: XCTestCase {
             result.check(packageIdentity: .plain("a"),
                          targetName: "A1",
                          source: .local(checksum: "a1"),
-                         path: workspace.artifactsDir.appending(components: "A", "A1.xcframework")
+                         path: workspace.artifactsDir.appending(components: "a", "A1.xcframework")
             )
             result.check(packageIdentity: .plain("a"),
                          targetName: "A2",
                          source: .local(checksum: "a2"),
-                         path: workspace.artifactsDir.appending(components: "A", "A2.xcframework")
+                         path: workspace.artifactsDir.appending(components: "a", "A2.xcframework")
             )
         }
     }
@@ -5072,9 +5058,7 @@ final class WorkspaceTests: XCTestCase {
             let binaryPath = sandbox.appending(component: "binary.zip")
             try fs.writeFileContents(binaryPath, bytes: ByteString([0xAA, 0xBB, 0xCC]))
 
-            let observability = ObservabilitySystem.makeForTesting()
-            let checksum = ws.checksum(forBinaryArtifactAt: binaryPath, diagnostics: observability.topScope.makeDiagnosticsEngine())
-            XCTAssertTrue(!observability.hasErrorDiagnostics, observability.diagnostics.description)
+            let checksum = try ws.checksum(forBinaryArtifactAt: binaryPath)
             XCTAssertEqual(workspace.checksumAlgorithm.hashes.map { $0.contents }, [[0xAA, 0xBB, 0xCC]])
             XCTAssertEqual(checksum, "ccbbaa")
         }
@@ -5082,24 +5066,16 @@ final class WorkspaceTests: XCTestCase {
         // Checks an unsupported extension.
         do {
             let unknownPath = sandbox.appending(component: "unknown")
-            let observability = ObservabilitySystem.makeForTesting()
-            let checksum = ws.checksum(forBinaryArtifactAt: unknownPath, diagnostics: observability.topScope.makeDiagnosticsEngine())
-            XCTAssertEqual(checksum, "")
-            testDiagnostics(observability.diagnostics) { result in
-                let expectedDiagnostic = "unexpected file type; supported extensions are: zip"
-                result.check(diagnostic: .contains(expectedDiagnostic), severity: .error)
+            XCTAssertThrowsError(try ws.checksum(forBinaryArtifactAt: unknownPath), "error expected") { error in
+                XCTAssertEqual(error as? StringError, StringError("unexpected file type; supported extensions are: zip"))
             }
         }
 
         // Checks a supported extension that is not a file (does not exist).
         do {
             let unknownPath = sandbox.appending(component: "missingFile.zip")
-            let observability = ObservabilitySystem.makeForTesting()
-            let checksum = ws.checksum(forBinaryArtifactAt: unknownPath, diagnostics: observability.topScope.makeDiagnosticsEngine())
-            XCTAssertEqual(checksum, "")
-            testDiagnostics(observability.diagnostics) { result in
-                result.check(diagnostic: .contains("file not found at path: /tmp/ws/missingFile.zip"),
-                             severity: .error)
+            XCTAssertThrowsError(try ws.checksum(forBinaryArtifactAt: unknownPath), "error expected") { error in
+                XCTAssertEqual(error as? StringError, StringError("file not found at path: /tmp/ws/missingFile.zip"))
             }
         }
 
@@ -5107,13 +5083,8 @@ final class WorkspaceTests: XCTestCase {
         do {
             let unknownPath = sandbox.appending(component: "aDirectory.zip")
             try fs.createDirectory(unknownPath)
-
-            let observability = ObservabilitySystem.makeForTesting()
-            let checksum = ws.checksum(forBinaryArtifactAt: unknownPath, diagnostics: observability.topScope.makeDiagnosticsEngine())
-            XCTAssertEqual(checksum, "")
-            testDiagnostics(observability.diagnostics) { result in
-                result.check(diagnostic: .contains("file not found at path: /tmp/ws/aDirectory.zip"),
-                             severity: .error)
+            XCTAssertThrowsError(try ws.checksum(forBinaryArtifactAt: unknownPath), "error expected") { error in
+                XCTAssertEqual(error as? StringError, StringError("file not found at path: /tmp/ws/aDirectory.zip"))
             }
         }
     }
@@ -5242,8 +5213,8 @@ final class WorkspaceTests: XCTestCase {
 
         try workspace.checkPackageGraph(roots: ["Foo"]) { graph, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            XCTAssert(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/A")))
-            XCTAssert(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/B")))
+            XCTAssert(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/a")))
+            XCTAssert(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/b")))
             XCTAssertEqual(downloads.map { $0.key.absoluteString }.sorted(), [
                 "https://a.com/a1.zip",
                 "https://a.com/a2.zip",
@@ -5255,9 +5226,9 @@ final class WorkspaceTests: XCTestCase {
                 ByteString([0xB0]).hexadecimalRepresentation,
             ])
             XCTAssertEqual(workspace.archiver.extractions.map { $0.destinationPath.parentDirectory }.sorted(), [
-                AbsolutePath("/tmp/ws/.build/artifacts/extract/A/A1"),
-                AbsolutePath("/tmp/ws/.build/artifacts/extract/A/A2"),
-                AbsolutePath("/tmp/ws/.build/artifacts/extract/B/B")
+                AbsolutePath("/tmp/ws/.build/artifacts/extract/a/A1"),
+                AbsolutePath("/tmp/ws/.build/artifacts/extract/a/A2"),
+                AbsolutePath("/tmp/ws/.build/artifacts/extract/b/B")
             ])
             XCTAssertEqual(
                 downloads.map { $0.value }.sorted(),
@@ -5272,7 +5243,7 @@ final class WorkspaceTests: XCTestCase {
                             url: "https://a.com/a1.zip",
                             checksum: "a1"
                          ),
-                         path: workspace.artifactsDir.appending(components: "A", "A1.xcframework")
+                         path: workspace.artifactsDir.appending(components: "a", "A1.xcframework")
             )
             result.check(packageIdentity: .plain("a"),
                          targetName: "A2",
@@ -5280,7 +5251,7 @@ final class WorkspaceTests: XCTestCase {
                             url: "https://a.com/a2.zip",
                             checksum: "a2"
                          ),
-                         path: workspace.artifactsDir.appending(components: "A", "A2.xcframework")
+                         path: workspace.artifactsDir.appending(components: "a", "A2.xcframework")
             )
             result.check(packageIdentity: .plain("b"),
                          targetName: "B",
@@ -5288,7 +5259,7 @@ final class WorkspaceTests: XCTestCase {
                             url: "https://b.com/b.zip",
                             checksum: "b0"
                          ),
-                         path: workspace.artifactsDir.appending(components: "B", "B.xcframework")
+                         path: workspace.artifactsDir.appending(components: "b", "B.xcframework")
             )
         }
     }
@@ -5467,7 +5438,7 @@ final class WorkspaceTests: XCTestCase {
                         url: "https://a.com/a1.zip",
                         checksum: "a1"
                     ),
-                    path: workspace.artifactsDir.appending(components: "A", "A1.xcframework")
+                    path: workspace.artifactsDir.appending(components: "a", "A1.xcframework")
                 ),
                 .init(
                     packageRef: aRef,
@@ -5476,7 +5447,7 @@ final class WorkspaceTests: XCTestCase {
                         url: "https://a.com/old/a3.zip",
                         checksum: "a3-old-checksum"
                     ),
-                    path: workspace.artifactsDir.appending(components: "A", "A3.xcframework")
+                    path: workspace.artifactsDir.appending(components: "a", "A3.xcframework")
                 ),
                 .init(
                     packageRef: aRef,
@@ -5485,7 +5456,7 @@ final class WorkspaceTests: XCTestCase {
                         url: "https://a.com/a4.zip",
                         checksum: "a4"
                     ),
-                    path: workspace.artifactsDir.appending(components: "A", "A4.xcframework")
+                    path: workspace.artifactsDir.appending(components: "a", "A4.xcframework")
                 ),
                 .init(
                     packageRef: aRef,
@@ -5494,19 +5465,19 @@ final class WorkspaceTests: XCTestCase {
                         url: "https://a.com/a5.zip",
                         checksum: "a5"
                     ),
-                    path: workspace.artifactsDir.appending(components: "A", "A5.xcframework")
+                    path: workspace.artifactsDir.appending(components: "a", "A5.xcframework")
                 ),
                 .init(
                     packageRef: aRef,
                     targetName: "A6",
                     source: .local(),
-                    path: workspace.artifactsDir.appending(components: "A", "A6.xcframework")
+                    path: workspace.artifactsDir.appending(components: "a", "A6.xcframework")
                 ),
                 .init(
                     packageRef: aRef,
                     targetName: "A7",
                     source: .local(),
-                    path: workspace.packagesDir.appending(components: "A", "XCFrameworks", "A7.xcframework")
+                    path: workspace.packagesDir.appending(components: "a", "XCFrameworks", "A7.xcframework")
                 )
             ]
         )
@@ -5515,11 +5486,11 @@ final class WorkspaceTests: XCTestCase {
             testDiagnostics(diagnostics) { result in
                 result.check(diagnostic: "downloaded archive of binary target 'A3' does not contain expected binary artifact 'A3'", severity: .error)
             }
-            XCTAssert(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/B")))
-            XCTAssert(!fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/A/A3.xcframework")))
-            XCTAssert(!fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/A/A4.xcframework")))
-            XCTAssert(!fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/A/A5.xcframework")))
-            XCTAssert(fs.exists(AbsolutePath("/tmp/ws/pkgs/A/XCFrameworks/A7.xcframework")))
+            XCTAssert(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/b")))
+            XCTAssert(!fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/a/A3.xcframework")))
+            XCTAssert(!fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/a/A4.xcframework")))
+            XCTAssert(!fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/a/A5.xcframework")))
+            XCTAssert(fs.exists(AbsolutePath("/tmp/ws/pkgs/a/XCFrameworks/A7.xcframework")))
             XCTAssert(!fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/Foo")))
             XCTAssertEqual(downloads.map { $0.key.absoluteString }.sorted(), [
                 "https://a.com/a2.zip",
@@ -5534,10 +5505,10 @@ final class WorkspaceTests: XCTestCase {
                 ByteString([0xB0]).hexadecimalRepresentation,
             ])
             XCTAssertEqual(workspace.archiver.extractions.map { $0.destinationPath.parentDirectory }.sorted(), [
-                AbsolutePath("/tmp/ws/.build/artifacts/extract/A/A2"),
-                AbsolutePath("/tmp/ws/.build/artifacts/extract/A/A3"),
-                AbsolutePath("/tmp/ws/.build/artifacts/extract/A/A7"),
-                AbsolutePath("/tmp/ws/.build/artifacts/extract/B/B"),
+                AbsolutePath("/tmp/ws/.build/artifacts/extract/a/A2"),
+                AbsolutePath("/tmp/ws/.build/artifacts/extract/a/A3"),
+                AbsolutePath("/tmp/ws/.build/artifacts/extract/a/A7"),
+                AbsolutePath("/tmp/ws/.build/artifacts/extract/b/B"),
             ])
             XCTAssertEqual(
                 downloads.map { $0.value }.sorted(),
@@ -5552,7 +5523,7 @@ final class WorkspaceTests: XCTestCase {
                             url: "https://a.com/a1.zip",
                             checksum: "a1"
                          ),
-                         path: workspace.artifactsDir.appending(components: "A", "A1.xcframework")
+                         path: workspace.artifactsDir.appending(components: "a", "A1.xcframework")
             )
             result.check(packageIdentity: .plain("a"),
                          targetName: "A2",
@@ -5560,7 +5531,7 @@ final class WorkspaceTests: XCTestCase {
                             url: "https://a.com/a2.zip",
                             checksum: "a2"
                          ),
-                         path: workspace.artifactsDir.appending(components: "A", "A2.xcframework")
+                         path: workspace.artifactsDir.appending(components: "a", "A2.xcframework")
             )
             result.checkNotPresent(packageName: "A", targetName: "A3")
             result.check(packageIdentity: .plain("a"),
@@ -5574,7 +5545,7 @@ final class WorkspaceTests: XCTestCase {
                             url: "https://a.com/a7.zip",
                             checksum: "a7"
                          ),
-                         path: workspace.artifactsDir.appending(components: "A", "A7.xcframework")
+                         path: workspace.artifactsDir.appending(components: "a", "A7.xcframework")
             )
             result.checkNotPresent(packageName: "A", targetName: "A5")
             result.check(packageIdentity: .plain("b"),
@@ -5583,7 +5554,7 @@ final class WorkspaceTests: XCTestCase {
                             url: "https://b.com/b.zip",
                             checksum: "b0"
                          ),
-                         path: workspace.artifactsDir.appending(components: "B", "B.xcframework")
+                         path: workspace.artifactsDir.appending(components: "b", "B.xcframework")
             )
         }
     }
@@ -5683,7 +5654,7 @@ final class WorkspaceTests: XCTestCase {
 
         try workspace.checkPackageGraph(roots: ["Foo"]) { graph, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            XCTAssert(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/A")))
+            XCTAssert(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/a")))
             XCTAssertEqual(workspace.checksumAlgorithm.hashes.map{ $0.hexadecimalRepresentation }.sorted(), [
                 ByteString([0xA1]).hexadecimalRepresentation,
             ])
@@ -5693,7 +5664,7 @@ final class WorkspaceTests: XCTestCase {
             "https://a.com/a1.zip",
         ])
         XCTAssertEqual(archiver.extractions.map { $0.destinationPath.parentDirectory }.sorted(), [
-            AbsolutePath("/tmp/ws/.build/artifacts/extract/A/A1"),
+            AbsolutePath("/tmp/ws/.build/artifacts/extract/a/A1"),
         ])
         XCTAssertEqual(
             downloads.map { $0.1 }.sorted(),
@@ -5708,7 +5679,7 @@ final class WorkspaceTests: XCTestCase {
 
         try workspace.checkPackageGraph(roots: ["Foo"]) { graph, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            XCTAssert(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/A")))
+            XCTAssert(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/a")))
 
             XCTAssertEqual(workspace.checksumAlgorithm.hashes.map{ $0.hexadecimalRepresentation }.sorted(), [
                 ByteString([0xA1]).hexadecimalRepresentation, ByteString([0xA1]).hexadecimalRepresentation,
@@ -5719,8 +5690,8 @@ final class WorkspaceTests: XCTestCase {
             "https://a.com/a1.zip", "https://a.com/a1.zip",
         ])
         XCTAssertEqual(archiver.extractions.map { $0.destinationPath.parentDirectory }.sorted(), [
-            AbsolutePath("/tmp/ws/.build/artifacts/extract/A/A1"),
-            AbsolutePath("/tmp/ws/.build/artifacts/extract/A/A1"),
+            AbsolutePath("/tmp/ws/.build/artifacts/extract/a/A1"),
+            AbsolutePath("/tmp/ws/.build/artifacts/extract/a/A1"),
         ])
         XCTAssertEqual(
             downloads.map { $0.1 }.sorted(),
@@ -5758,7 +5729,7 @@ final class WorkspaceTests: XCTestCase {
         })
 
         let archiver = MockArchiver(handler: { _, _, destinationPath, completion in
-            XCTAssertEqual(destinationPath.parentDirectory, AbsolutePath("/tmp/ws/.build/artifacts/extract/A/A2"))
+            XCTAssertEqual(destinationPath.parentDirectory, AbsolutePath("/tmp/ws/.build/artifacts/extract/a/A2"))
             completion(.failure(DummyError()))
         })
 
@@ -6136,7 +6107,7 @@ final class WorkspaceTests: XCTestCase {
 
         try workspace.checkPackageGraph(roots: ["Foo"]) { graph, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            XCTAssert(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/A")))
+            XCTAssert(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/a")))
             XCTAssertEqual(downloads.map { $0.key.absoluteString }.sorted(), [
                 "https://a.com/a.zip"
             ])
@@ -6144,7 +6115,7 @@ final class WorkspaceTests: XCTestCase {
                 ByteString([0xA]).hexadecimalRepresentation
             ])
             XCTAssertEqual(workspace.archiver.extractions.map { $0.destinationPath.parentDirectory }.sorted(), [
-                AbsolutePath("/tmp/ws/.build/artifacts/extract/A/A")
+                AbsolutePath("/tmp/ws/.build/artifacts/extract/a/A")
             ])
             XCTAssertEqual(
                 downloads.map { $0.value }.sorted(),
@@ -6160,7 +6131,7 @@ final class WorkspaceTests: XCTestCase {
                     url: "https://a.com/a.zip",
                     checksum: "0a"
                 ),
-                path: workspace.artifactsDir.appending(components: "A", "A.xcframework")
+                path: workspace.artifactsDir.appending(components: "a", "A.xcframework")
             )
         }
     }
@@ -6335,8 +6306,8 @@ final class WorkspaceTests: XCTestCase {
 
         try workspace.checkPackageGraph(roots: ["Foo"]) { graph, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            XCTAssert(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/A")))
-            XCTAssert(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/B")))
+            XCTAssert(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/a")))
+            XCTAssert(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/b")))
             XCTAssertEqual(downloads.map { $0.key.absoluteString }.sorted(), [
                 "https://a.com/a1.zip",
                 "https://a.com/a2/a2.zip",
@@ -6354,9 +6325,9 @@ final class WorkspaceTests: XCTestCase {
                 ).map{ $0.hexadecimalRepresentation }.sorted()
             )
             XCTAssertEqual(workspace.archiver.extractions.map { $0.destinationPath.parentDirectory }.sorted(), [
-                AbsolutePath("/tmp/ws/.build/artifacts/extract/A/A1"),
-                AbsolutePath("/tmp/ws/.build/artifacts/extract/A/A2"),
-                AbsolutePath("/tmp/ws/.build/artifacts/extract/B/B"),
+                AbsolutePath("/tmp/ws/.build/artifacts/extract/a/A1"),
+                AbsolutePath("/tmp/ws/.build/artifacts/extract/a/A2"),
+                AbsolutePath("/tmp/ws/.build/artifacts/extract/b/B"),
             ])
             XCTAssertEqual(
                 downloads.map { $0.value }.sorted(),
@@ -6371,7 +6342,7 @@ final class WorkspaceTests: XCTestCase {
                             url: "https://a.com/a1.zip",
                             checksum: "a1"
                          ),
-                         path: workspace.artifactsDir.appending(components: "A", "A1.artifactbundle")
+                         path: workspace.artifactsDir.appending(components: "a", "A1.artifactbundle")
             )
             result.check(packageIdentity: .plain("a"),
                          targetName: "A2",
@@ -6379,7 +6350,7 @@ final class WorkspaceTests: XCTestCase {
                             url: "https://a.com/a2/a2.zip",
                             checksum: "a2"
                          ),
-                         path: workspace.artifactsDir.appending(components: "A", "A2.artifactbundle")
+                         path: workspace.artifactsDir.appending(components: "a", "A2.artifactbundle")
             )
             result.check(packageIdentity: .plain("b"),
                          targetName: "B",
@@ -6387,7 +6358,7 @@ final class WorkspaceTests: XCTestCase {
                             url: "https://b.com/b.zip",
                             checksum: "b0"
                          ),
-                         path: workspace.artifactsDir.appending(components: "B", "B.artifactbundle")
+                         path: workspace.artifactsDir.appending(components: "b", "B.artifactbundle")
             )
         }
     }
@@ -6917,8 +6888,7 @@ final class WorkspaceTests: XCTestCase {
             testDiagnostics(diagnostics) { result in
                 result.check(
                     diagnostic: "'root' dependency on '/tmp/ws/pkgs/bar/utility' conflicts with dependency on '/tmp/ws/pkgs/foo/utility' which has the same identity 'utility'",
-                    severity: .error,
-                    metadata: .packageMetadata(identity: .plain("root"), location: "/tmp/ws/roots/Root", path: .init("/tmp/ws/roots/Root"))
+                    severity: .error
                 )
             }
         }
@@ -6979,8 +6949,7 @@ final class WorkspaceTests: XCTestCase {
             testDiagnostics(diagnostics) { result in
                 result.check(
                     diagnostic: "'root' dependency on '/tmp/ws/pkgs/bar/utility' conflicts with dependency on '/tmp/ws/pkgs/foo/utility' which has the same identity 'utility'",
-                    severity: .error,
-                    metadata: .packageMetadata(identity: .plain("root"), location: "/tmp/ws/roots/Root", path: .init("/tmp/ws/roots/Root"))
+                    severity: .error
                 )
             }
         }
@@ -7041,8 +7010,7 @@ final class WorkspaceTests: XCTestCase {
             testDiagnostics(diagnostics) { result in
                 result.check(
                     diagnostic: "'root' dependency on '/tmp/ws/pkgs/bar' conflicts with dependency on '/tmp/ws/pkgs/foo' which has the same explicit name 'FooPackage'",
-                    severity: .error,
-                    metadata: .packageMetadata(identity: .plain("root"), location: "/tmp/ws/roots/Root", path: .init("/tmp/ws/roots/Root"))
+                    severity: .error
                 )
             }
         }
@@ -7267,13 +7235,11 @@ final class WorkspaceTests: XCTestCase {
             testDiagnostics(diagnostics) { result in
                 result.check(
                     diagnostic: "dependency 'FooProduct' in target 'RootTarget' requires explicit declaration; reference the package in the target dependency with '.product(name: \"FooProduct\", package: \"foo\")'",
-                    severity: .error,
-                    metadata: .packageMetadata(identity: .plain("root"), location: "/tmp/ws/roots/Root", path: .init("/tmp/ws/roots/Root"))
+                    severity: .error
                 )
                 result.check(
                     diagnostic: "dependency 'BarProduct' in target 'RootTarget' requires explicit declaration; reference the package in the target dependency with '.product(name: \"BarProduct\", package: \"bar\")'",
-                    severity: .error,
-                    metadata: .packageMetadata(identity: .plain("root"), location: "/tmp/ws/roots/Root", path: .init("/tmp/ws/roots/Root"))
+                    severity: .error
                 )
             }
         }
@@ -7388,8 +7354,7 @@ final class WorkspaceTests: XCTestCase {
             testDiagnostics(diagnostics) { result in
                 result.check(
                     diagnostic: "'root' dependency on '/tmp/ws/pkgs/bar' conflicts with dependency on '/tmp/ws/pkgs/foo' which has the same explicit name 'foo'",
-                    severity: .error,
-                    metadata: .packageMetadata(identity: .plain("root"), location: "/tmp/ws/roots/Root", path: .init("/tmp/ws/roots/Root"))
+                    severity: .error
                 )
             }
         }
@@ -7449,8 +7414,7 @@ final class WorkspaceTests: XCTestCase {
             testDiagnostics(diagnostics) { result in
                 result.check(
                     diagnostic: "'root' dependency on '/tmp/ws/pkgs/bar' conflicts with dependency on '/tmp/ws/pkgs/foo' which has the same explicit name 'foo'",
-                    severity: .error,
-                    metadata: .packageMetadata(identity: .plain("root"), location: "/tmp/ws/roots/Root", path: .init("/tmp/ws/roots/Root"))
+                    severity: .error
                 )
             }
         }
@@ -7527,8 +7491,7 @@ final class WorkspaceTests: XCTestCase {
             testDiagnostics(diagnostics) { result in
                 result.check(
                     diagnostic: "'bar' dependency on '/tmp/ws/pkgs/other/utility' conflicts with dependency on '/tmp/ws/pkgs/foo/utility' which has the same identity 'utility'",
-                    severity: .error,
-                    metadata: .packageMetadata(identity: .plain("bar"), location: "/tmp/ws/pkgs/bar", path: .init("/tmp/ws/pkgs/bar"))
+                    severity: .error
                 )
             }
         }
@@ -7607,15 +7570,13 @@ final class WorkspaceTests: XCTestCase {
             testDiagnostics(diagnostics) { result in
                 result.check(
                     diagnostic: "'bar' dependency on '/tmp/ws/pkgs/other-foo/utility' conflicts with dependency on '/tmp/ws/pkgs/foo/utility' which has the same identity 'utility'. this will be escalated to an error in future versions of SwiftPM.",
-                    severity: .warning,
-                    metadata: .packageMetadata(identity: .plain("bar"), location: "/tmp/ws/pkgs/bar", path: .init("/tmp/ws/pkgs/bar"))
+                    severity: .warning
                 )
                 // FIXME: rdar://72940946
                 // we need to improve this situation or diagnostics when working on identity
                 result.check(
                     diagnostic: "product 'OtherUtilityProduct' required by package 'bar' target 'BarTarget' not found in package 'utility'.",
-                    severity: .error,
-                    metadata: .packageMetadata(identity: .plain("bar"), location: "/tmp/ws/pkgs/bar", path: .init("/tmp/ws/pkgs/bar"))
+                    severity: .error
                 )
             }
         }
@@ -7982,8 +7943,7 @@ final class WorkspaceTests: XCTestCase {
             testDiagnostics(diagnostics) { result in
                 result.check(
                     diagnostic: "'bar' dependency on 'https://github.com/foo-moved/foo.git' conflicts with dependency on 'https://github.com/foo/foo.git' which has the same identity 'foo'. this will be escalated to an error in future versions of SwiftPM.",
-                    severity: .warning,
-                    metadata: .packageMetadata(identity: .plain("bar"), location: "/tmp/ws/pkgs/bar", path: .init("/tmp/ws/pkgs/bar"))
+                    severity: .warning
                 )
             }
         }
@@ -8223,8 +8183,10 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testBinaryArtifactsInvalidPath() throws {
-        let fs = localFileSystem
         try testWithTemporaryDirectory { path in
+            let fs = localFileSystem
+            let observability = ObservabilitySystem.makeForTesting()
+
             let foo = path.appending(component: "foo")
 
             try fs.writeFileContents(foo.appending(component: "Package.swift")) {
@@ -8251,8 +8213,7 @@ final class WorkspaceTests: XCTestCase {
             )
 
             do {
-                let diagnostics = DiagnosticsEngine()
-                try workspace.resolve(root: .init(packages: [foo]), diagnostics: diagnostics)
+                try workspace.resolve(root: .init(packages: [foo]), observabilityScope: observability.topScope)
             } catch {
                 XCTAssertEqual(error.localizedDescription, "invalid relative path '/best.xcframework'; relative path should not begin with '/' or '~'")
                 return
@@ -8279,7 +8240,7 @@ final class WorkspaceTests: XCTestCase {
                 toolsVersion: ToolsVersion,
                 identityResolver: IdentityResolver,
                 fileSystem: FileSystem,
-                diagnostics: DiagnosticsEngine?,
+                observabilityScope: ObservabilityScope,
                 on queue: DispatchQueue,
                 completion: @escaping (Result<Manifest, Error>) -> Void
             ) {
@@ -8288,7 +8249,7 @@ final class WorkspaceTests: XCTestCase {
                 } else {
                     completion(.success(
                         .init(
-                            name: packageIdentity.description,
+                            displayName: packageIdentity.description,
                             path: path,
                             packageKind: packageKind,
                             packageLocation: packageLocation,
@@ -8349,7 +8310,7 @@ final class WorkspaceTests: XCTestCase {
 
             XCTAssertNil(delegate.manifest)
             XCTAssertEqual(delegate.manifestLoadingDiagnostics?.count, 1)
-            XCTAssertEqual(delegate.manifestLoadingDiagnostics?.first?.message.text, "boom")
+            XCTAssertEqual(delegate.manifestLoadingDiagnostics?.first?.message, "boom")
         }
     }
 }

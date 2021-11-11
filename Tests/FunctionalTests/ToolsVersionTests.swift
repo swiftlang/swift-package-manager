@@ -124,7 +124,7 @@ class ToolsVersionTests: XCTestCase {
                 _ = try SwiftPMProduct.SwiftBuild.execute([], packagePath: primaryPath)
                 XCTFail()
             } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
-                XCTAssertTrue(stderr.contains("package 'Primary' requires minimum Swift language version 1000 which is not supported by the current tools version (\(ToolsVersion.currentToolsVersion))"), stderr)
+                XCTAssertTrue(stderr.contains("package 'primary' requires minimum Swift language version 1000 which is not supported by the current tools version (\(ToolsVersion.currentToolsVersion))"), stderr)
             }
 
              try fs.writeFileContents(primaryPath.appending(component: "Package.swift")) {

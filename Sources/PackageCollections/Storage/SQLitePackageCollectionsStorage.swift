@@ -27,7 +27,8 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
     let location: SQLite.Location
     let configuration: Configuration
 
-    private let diagnosticsEngine: DiagnosticsEngine?
+    private let observabilityScope: ObservabilityScope
+
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
 
@@ -48,7 +49,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
     private var targetTrieReady: Bool?
     private let populateTargetTrieLock = Lock()
 
-    init(location: SQLite.Location? = nil, configuration: Configuration = .init(), diagnosticsEngine: DiagnosticsEngine? = nil) {
+    init(location: SQLite.Location? = nil, configuration: Configuration = .init(), observabilityScope: ObservabilityScope) {
         self.location = location ?? .path(localFileSystem.swiftPMCacheDirectory.appending(components: "package-collection.db"))
         switch self.location {
         case .path, .temporary:
@@ -57,7 +58,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
             self.fileSystem = InMemoryFileSystem()
         }
         self.configuration = configuration
-        self.diagnosticsEngine = diagnosticsEngine
+        self.observabilityScope = observabilityScope
         self.encoder = JSONEncoder.makeWithDefaults()
         self.decoder = JSONDecoder.makeWithDefaults()
 
@@ -66,8 +67,8 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
         }
     }
 
-    convenience init(path: AbsolutePath, diagnosticsEngine: DiagnosticsEngine? = nil) {
-        self.init(location: .path(path), diagnosticsEngine: diagnosticsEngine)
+    convenience init(path: AbsolutePath, observabilityScope: ObservabilityScope) {
+        self.init(location: .path(path), observabilityScope: observabilityScope)
     }
 
     deinit {
@@ -275,7 +276,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
 
                 sync.notify(queue: .sharedConcurrent) {
                     if collections.count != blobs.count {
-                        self.diagnosticsEngine?.emit(warning: "Some stored collections could not be deserialized. Please refresh the collections to resolve this issue.")
+                        self.observabilityScope.emit(warning: "Some stored collections could not be deserialized. Please refresh the collections to resolve this issue.")
                     }
                     callback(.success(collections.get()))
                 }
@@ -705,59 +706,63 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
             try self.removeFromSearchIndices(identifier: collection.identifier)
             // Update search indices
             try self.withDB { db in
-                try db.exec(query: "BEGIN TRANSACTION;")
-
                 let packagesStatement = try db.prepare(query: "INSERT INTO \(Self.packagesFTSName) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);")
                 let targetsStatement = try db.prepare(query: "INSERT INTO \(Self.targetsFTSName) VALUES (?, ?, ?);")
+                
+                try db.exec(query: "BEGIN TRANSACTION;")
+                do {
+                    // Then insert new data
+                    try collection.packages.forEach { package in
+                        var targets = Set<String>()
 
-                // Then insert new data
-                try collection.packages.forEach { package in
-                    var targets = Set<String>()
+                        try package.versions.forEach { version in
+                            try version.manifests.values.forEach { manifest in
+                                // Packages FTS
+                                let packagesBindings: [SQLite.SQLiteValue] = [
+                                    .string(try self.encoder.encode(collection.identifier).base64EncodedString()),
+                                    .string(package.identity.description),
+                                    .string(version.version.description),
+                                    .string(manifest.packageName),
+                                    .string(package.location),
+                                    package.summary.map { .string($0) } ?? .null,
+                                    package.keywords.map { .string($0.joined(separator: ",")) } ?? .null,
+                                    .string(manifest.products.map { $0.name }.joined(separator: ",")),
+                                    .string(manifest.targets.map { $0.name }.joined(separator: ",")),
+                                ]
+                                try packagesStatement.bind(packagesBindings)
+                                try packagesStatement.step()
 
-                    try package.versions.forEach { version in
-                        try version.manifests.values.forEach { manifest in
-                            // Packages FTS
-                            let packagesBindings: [SQLite.SQLiteValue] = [
+                                try packagesStatement.clearBindings()
+                                try packagesStatement.reset()
+
+                                manifest.targets.forEach { targets.insert($0.name) }
+                            }
+                        }
+
+                        let collectionPackage = CollectionPackage(collection: collection.identifier, package: package.identity)
+                        try targets.forEach { target in
+                            // Targets in-memory trie
+                            self.targetTrie.insert(word: target.lowercased(), foundIn: collectionPackage)
+
+                            // Targets FTS
+                            let targetsBindings: [SQLite.SQLiteValue] = [
                                 .string(try self.encoder.encode(collection.identifier).base64EncodedString()),
-                                .string(package.identity.description),
-                                .string(version.version.description),
-                                .string(manifest.packageName),
                                 .string(package.location),
-                                package.summary.map { .string($0) } ?? .null,
-                                package.keywords.map { .string($0.joined(separator: ",")) } ?? .null,
-                                .string(manifest.products.map { $0.name }.joined(separator: ",")),
-                                .string(manifest.targets.map { $0.name }.joined(separator: ",")),
+                                .string(target),
                             ]
-                            try packagesStatement.bind(packagesBindings)
-                            try packagesStatement.step()
+                            try targetsStatement.bind(targetsBindings)
+                            try targetsStatement.step()
 
-                            try packagesStatement.clearBindings()
-                            try packagesStatement.reset()
-
-                            manifest.targets.forEach { targets.insert($0.name) }
+                            try targetsStatement.clearBindings()
+                            try targetsStatement.reset()
                         }
                     }
-
-                    let collectionPackage = CollectionPackage(collection: collection.identifier, package: package.identity)
-                    try targets.forEach { target in
-                        // Targets in-memory trie
-                        self.targetTrie.insert(word: target.lowercased(), foundIn: collectionPackage)
-
-                        // Targets FTS
-                        let targetsBindings: [SQLite.SQLiteValue] = [
-                            .string(try self.encoder.encode(collection.identifier).base64EncodedString()),
-                            .string(package.location),
-                            .string(target),
-                        ]
-                        try targetsStatement.bind(targetsBindings)
-                        try targetsStatement.step()
-
-                        try targetsStatement.clearBindings()
-                        try targetsStatement.reset()
-                    }
+                    
+                    try db.exec(query: "COMMIT;")
+                } catch {
+                    try db.exec(query: "ROLLBACK;")
+                    throw error
                 }
-
-                try db.exec(query: "COMMIT;")
 
                 try packagesStatement.finalize()
                 try targetsStatement.finalize()
@@ -784,12 +789,16 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
             try statement.step()
         }
 
-        // Repack database file to reduce size (rdar://77077510)
-        try self.withDB { db in
+        // Run VACUUM asynchronously since it's just an optimization measure and could take some time to complete.
+        // Add a delay since VACUUM often fails if run immediately after the deletions.
+        DispatchQueue.sharedConcurrent.asyncAfter(deadline: .now() + 0.5) {
+            // Repack database file to reduce size (rdar://77077510)
             do {
-                try db.exec(query: "VACUUM;")
+                try self.withDB { db in
+                    try db.exec(query: "VACUUM;")
+                }
             } catch {
-                self.diagnosticsEngine?.emit(warning: "Failed to 'VACUUM' the database: \(error)")
+                self.observabilityScope.emit(info: "Failed to 'VACUUM' the database: \(error)")
             }
         }
 
@@ -821,7 +830,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                 return callback(.success(()))
             }
         } catch {
-            self.diagnosticsEngine?.emit(warning: "Failed to determine if database is empty or not: \(error)")
+            self.observabilityScope.emit(warning: "Failed to determine if database is empty or not: \(error)")
             // Try again in background
         }
 

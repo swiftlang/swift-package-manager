@@ -1,14 +1,16 @@
 /*
  This source file is part of the Swift.org open source project
- 
+
  Copyright (c) 2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
- 
+
  See http://swift.org/LICENSE.txt for license information
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
+import Basics
 import PackageModel
+import SPMTestSupport
 import TSCBasic
 import XCTest
 
@@ -18,7 +20,7 @@ class PackageDescription5_6LoadingTests: PackageDescriptionLoadingTests {
     }
 
     func testSourceControlDependencies() throws {
-        let manifest = """
+        let content = """
             import PackageDescription
             let package = Package(
                name: "MyPackage",
@@ -47,28 +49,31 @@ class PackageDescription5_6LoadingTests: PackageDescriptionLoadingTests {
                ]
             )
             """
-        loadManifest(manifest, toolsVersion: self.toolsVersion) { manifest in
-            let deps = Dictionary(uniqueKeysWithValues: manifest.dependencies.map{ ($0.identity.description, $0) })
-            XCTAssertEqual(deps["foo1"], .remoteSourceControl(identity: .plain("foo1"), deprecatedName: "foo1", url: URL(string: "http://localhost/foo1")!, requirement: .range("1.1.1" ..< "2.0.0")))
-            XCTAssertEqual(deps["foo2"], .remoteSourceControl(identity: .plain("foo2"), url: URL(string: "http://localhost/foo2")!, requirement: .range("1.1.1" ..< "2.0.0")))
-            XCTAssertEqual(deps["bar1"], .remoteSourceControl(identity: .plain("bar1"), deprecatedName: "bar1", url: URL(string: "http://localhost/bar1")!, requirement: .range("1.1.1" ..< "2.0.0")))
-            XCTAssertEqual(deps["bar2"], .remoteSourceControl(identity: .plain("bar2"), url: URL(string: "http://localhost/bar2")!, requirement: .range("1.1.1" ..< "2.0.0")))
-            XCTAssertEqual(deps["baz1"], .remoteSourceControl(identity: .plain("baz1"), deprecatedName: "baz1", url: URL(string: "http://localhost/baz1")!, requirement: .range("1.1.1" ..< "1.2.0")))
-            XCTAssertEqual(deps["baz2"], .remoteSourceControl(identity: .plain("baz2"), url: URL(string: "http://localhost/baz2")!, requirement: .range("1.1.1" ..< "1.2.0")))
-            XCTAssertEqual(deps["qux1"], .remoteSourceControl(identity: .plain("qux1"), deprecatedName: "qux1", url: URL(string: "http://localhost/qux1")!, requirement: .exact("1.1.1")))
-            XCTAssertEqual(deps["qux2"], .remoteSourceControl(identity: .plain("qux2"), url: URL(string: "http://localhost/qux2")!, requirement: .exact("1.1.1")))
-            XCTAssertEqual(deps["qux3"], .remoteSourceControl(identity: .plain("qux3"), url: URL(string: "http://localhost/qux3")!, requirement: .exact("1.1.1")))
-            XCTAssertEqual(deps["quux1"], .remoteSourceControl(identity: .plain("quux1"), deprecatedName: "quux1", url: URL(string: "http://localhost/quux1")!, requirement: .branch("main")))
-            XCTAssertEqual(deps["quux2"], .remoteSourceControl(identity: .plain("quux2"), url: URL(string: "http://localhost/quux2")!, requirement: .branch("main")))
-            XCTAssertEqual(deps["quux3"], .remoteSourceControl(identity: .plain("quux3"), url: URL(string: "http://localhost/quux3")!, requirement: .branch("main")))
-            XCTAssertEqual(deps["quuz1"], .remoteSourceControl(identity: .plain("quuz1"), deprecatedName: "quuz1", url: URL(string: "http://localhost/quuz1")!, requirement: .revision("abcdefg")))
-            XCTAssertEqual(deps["quuz2"], .remoteSourceControl(identity: .plain("quuz2"), url: URL(string: "http://localhost/quuz2")!, requirement: .revision("abcdefg")))
-            XCTAssertEqual(deps["quuz3"], .remoteSourceControl(identity: .plain("quuz3"), url: URL(string: "http://localhost/quuz3")!, requirement: .revision("abcdefg")))
-        }
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let manifest = try loadManifest(content, observabilityScope: observability.topScope)
+        XCTAssertFalse(observability.diagnostics.hasErrors)
+
+        let deps = Dictionary(uniqueKeysWithValues: manifest.dependencies.map{ ($0.identity.description, $0) })
+        XCTAssertEqual(deps["foo1"], .remoteSourceControl(identity: .plain("foo1"), deprecatedName: "foo1", url: URL(string: "http://localhost/foo1")!, requirement: .range("1.1.1" ..< "2.0.0")))
+        XCTAssertEqual(deps["foo2"], .remoteSourceControl(identity: .plain("foo2"), url: URL(string: "http://localhost/foo2")!, requirement: .range("1.1.1" ..< "2.0.0")))
+        XCTAssertEqual(deps["bar1"], .remoteSourceControl(identity: .plain("bar1"), deprecatedName: "bar1", url: URL(string: "http://localhost/bar1")!, requirement: .range("1.1.1" ..< "2.0.0")))
+        XCTAssertEqual(deps["bar2"], .remoteSourceControl(identity: .plain("bar2"), url: URL(string: "http://localhost/bar2")!, requirement: .range("1.1.1" ..< "2.0.0")))
+        XCTAssertEqual(deps["baz1"], .remoteSourceControl(identity: .plain("baz1"), deprecatedName: "baz1", url: URL(string: "http://localhost/baz1")!, requirement: .range("1.1.1" ..< "1.2.0")))
+        XCTAssertEqual(deps["baz2"], .remoteSourceControl(identity: .plain("baz2"), url: URL(string: "http://localhost/baz2")!, requirement: .range("1.1.1" ..< "1.2.0")))
+        XCTAssertEqual(deps["qux1"], .remoteSourceControl(identity: .plain("qux1"), deprecatedName: "qux1", url: URL(string: "http://localhost/qux1")!, requirement: .exact("1.1.1")))
+        XCTAssertEqual(deps["qux2"], .remoteSourceControl(identity: .plain("qux2"), url: URL(string: "http://localhost/qux2")!, requirement: .exact("1.1.1")))
+        XCTAssertEqual(deps["qux3"], .remoteSourceControl(identity: .plain("qux3"), url: URL(string: "http://localhost/qux3")!, requirement: .exact("1.1.1")))
+        XCTAssertEqual(deps["quux1"], .remoteSourceControl(identity: .plain("quux1"), deprecatedName: "quux1", url: URL(string: "http://localhost/quux1")!, requirement: .branch("main")))
+        XCTAssertEqual(deps["quux2"], .remoteSourceControl(identity: .plain("quux2"), url: URL(string: "http://localhost/quux2")!, requirement: .branch("main")))
+        XCTAssertEqual(deps["quux3"], .remoteSourceControl(identity: .plain("quux3"), url: URL(string: "http://localhost/quux3")!, requirement: .branch("main")))
+        XCTAssertEqual(deps["quuz1"], .remoteSourceControl(identity: .plain("quuz1"), deprecatedName: "quuz1", url: URL(string: "http://localhost/quuz1")!, requirement: .revision("abcdefg")))
+        XCTAssertEqual(deps["quuz2"], .remoteSourceControl(identity: .plain("quuz2"), url: URL(string: "http://localhost/quuz2")!, requirement: .revision("abcdefg")))
+        XCTAssertEqual(deps["quuz3"], .remoteSourceControl(identity: .plain("quuz3"), url: URL(string: "http://localhost/quuz3")!, requirement: .revision("abcdefg")))
     }
 
     func testBuildToolPluginTarget() throws {
-        let manifest = """
+        let content = """
             import PackageDescription
             let package = Package(
                name: "Foo",
@@ -81,14 +86,16 @@ class PackageDescription5_6LoadingTests: PackageDescriptionLoadingTests {
             )
             """
 
-        loadManifest(manifest) { manifest in
-            XCTAssertEqual(manifest.targets[0].type, .plugin)
-            XCTAssertEqual(manifest.targets[0].pluginCapability, .buildTool)
-        }
+        let observability = ObservabilitySystem.makeForTesting()
+        let manifest = try loadManifest(content, observabilityScope: observability.topScope)
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        XCTAssertEqual(manifest.targets[0].type, .plugin)
+        XCTAssertEqual(manifest.targets[0].pluginCapability, .buildTool)
     }
 
     func testPluginTargetCustomization() throws {
-        let manifest = """
+        let content = """
             import PackageDescription
             let package = Package(
                name: "Foo",
@@ -104,74 +111,80 @@ class PackageDescription5_6LoadingTests: PackageDescriptionLoadingTests {
             )
             """
 
-        loadManifest(manifest) { manifest in
-            XCTAssertEqual(manifest.targets[0].type, .plugin)
-            XCTAssertEqual(manifest.targets[0].pluginCapability, .buildTool)
-            XCTAssertEqual(manifest.targets[0].path, "Sources/Foo")
-            XCTAssertEqual(manifest.targets[0].exclude, ["IAmOut.swift"])
-            XCTAssertEqual(manifest.targets[0].sources, ["CountMeIn.swift"])
-        }
+        let observability = ObservabilitySystem.makeForTesting()
+        let manifest = try loadManifest(content, observabilityScope: observability.topScope)
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        XCTAssertEqual(manifest.targets[0].type, .plugin)
+        XCTAssertEqual(manifest.targets[0].pluginCapability, .buildTool)
+        XCTAssertEqual(manifest.targets[0].path, "Sources/Foo")
+        XCTAssertEqual(manifest.targets[0].exclude, ["IAmOut.swift"])
+        XCTAssertEqual(manifest.targets[0].sources, ["CountMeIn.swift"])
     }
 
     func testCustomPlatforms() throws {
         // One custom platform.
-        var stream = BufferedOutputByteStream()
-        stream <<< """
-            import PackageDescription
-            let package = Package(
-               name: "Foo",
-               platforms: [
-                   .custom("customos", versionString: "1.0"),
-               ]
-            )
-            """
+        do {
+            let content = """
+                import PackageDescription
+                let package = Package(
+                   name: "Foo",
+                   platforms: [
+                       .custom("customos", versionString: "1.0"),
+                   ]
+                )
+                """
 
-        loadManifest(stream.bytes) { manifest in
+            let observability = ObservabilitySystem.makeForTesting()
+            let manifest = try loadManifest(content, observabilityScope: observability.topScope)
+            XCTAssertNoDiagnostics(observability.diagnostics)
+
             XCTAssertEqual(manifest.platforms, [
                 PlatformDescription(name: "customos", version: "1.0"),
             ])
         }
 
         // Two custom platforms.
-        stream = BufferedOutputByteStream()
-        stream <<< """
-            import PackageDescription
-            let package = Package(
-               name: "Foo",
-               platforms: [
-                   .custom("customos", versionString: "1.0"),
-                   .custom("anothercustomos", versionString: "2.3"),
-               ]
-            )
-            """
+        do {
+            let content = """
+                import PackageDescription
+                let package = Package(
+                   name: "Foo",
+                   platforms: [
+                       .custom("customos", versionString: "1.0"),
+                       .custom("anothercustomos", versionString: "2.3"),
+                   ]
+                )
+                """
 
-        loadManifest(stream.bytes) { manifest in
+            let observability = ObservabilitySystem.makeForTesting()
+            let manifest = try loadManifest(content, observabilityScope: observability.topScope)
+            XCTAssertNoDiagnostics(observability.diagnostics)
+
             XCTAssertEqual(manifest.platforms, [
                 PlatformDescription(name: "customos", version: "1.0"),
                 PlatformDescription(name: "anothercustomos", version: "2.3"),
             ])
         }
-
     }
     
     /// Tests use of Context.current.packageDirectory
     func testPackageContextName() throws {
-        let stream = BufferedOutputByteStream()
-        stream <<< """
+        let content = """
             import PackageDescription
             let package = Package(name: Context.packageDirectory)
             """
 
-        loadManifest(stream.bytes) { manifest in
-            let name = parsedManifest?.parentDirectory.pathString ?? ""
-            XCTAssertEqual(manifest.name, name)
-        }
+        let observability = ObservabilitySystem.makeForTesting()
+        let manifest = try loadManifest(content, observabilityScope: observability.topScope)
+
+        let name = parsedManifest?.parentDirectory.pathString ?? ""
+        XCTAssertEqual(manifest.displayName, name)
     }
 
     /// Tests access to the package's directory contents.
     func testPackageContextDirectory() throws {
-        let stream = BufferedOutputByteStream()
-        stream <<< """
+        let content = """
             import PackageDescription
             import Foundation
             
@@ -182,10 +195,11 @@ class PackageDescription5_6LoadingTests: PackageDescriptionLoadingTests {
             let package = Package(name: swiftFiles.joined(separator: ","))
             """
 
-        loadManifest(stream.bytes) { manifest in
-            let name = parsedManifest?.components.last ?? ""
-            let swiftFiles = manifest.name.split(separator: ",").map(String.init)
-            XCTAssertNotNil(swiftFiles.firstIndex(of: name))
-        }
+        let observability = ObservabilitySystem.makeForTesting()
+        let manifest = try loadManifest(content, observabilityScope: observability.topScope)
+
+        let name = parsedManifest?.components.last ?? ""
+        let swiftFiles = manifest.displayName.split(separator: ",").map(String.init)
+        XCTAssertNotNil(swiftFiles.firstIndex(of: name))
     }
 }

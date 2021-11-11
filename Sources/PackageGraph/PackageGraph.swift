@@ -187,8 +187,8 @@ extension PackageGraphError: CustomStringConvertible {
 
         case .cycleDetected(let cycle):
             return "cyclic dependency declaration found: " +
-            (cycle.path + cycle.cycle).map({ $0.name }).joined(separator: " -> ") +
-            " -> " + cycle.cycle[0].name
+            (cycle.path + cycle.cycle).map({ $0.displayName }).joined(separator: " -> ") +
+            " -> " + cycle.cycle[0].displayName
 
         case .productDependencyNotFound(let package, let targetName, let dependencyProductName, let dependencyPackageName, let dependencyProductInDecl):
             if dependencyProductInDecl {

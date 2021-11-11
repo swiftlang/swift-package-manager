@@ -283,7 +283,7 @@ public final class PackageBuilder {
         self.warnAboutImplicitExecutableTargets = warnAboutImplicitExecutableTargets
         self.observabilityScope = observabilityScope.makeChildScope(
             description: "PackageBuilder",
-            metadata: .packageMetadata(identity: self.identity, location: self.manifest.packageLocation, path: self.packagePath)
+            metadata: .packageMetadata(identity: self.identity, kind: self.manifest.packageKind)
         )
         self.fileSystem = fileSystem
     }
@@ -460,7 +460,7 @@ public final class PackageBuilder {
             // it's a system library target.
             return [
                 SystemLibraryTarget(
-                    name: self.manifest.name,
+                    name: self.manifest.displayName, // FIXME: use identity instead?
                     platforms: self.platforms(),
                     path: self.packagePath,
                     isImplicit: true,
@@ -474,12 +474,12 @@ public final class PackageBuilder {
         // system target specific configuration.
         guard manifest.pkgConfig == nil else {
             throw ModuleError.invalidManifestConfig(
-                self.manifest.name, "the 'pkgConfig' property can only be used with a System Module Package")
+                self.identity.description, "the 'pkgConfig' property can only be used with a System Module Package")
         }
 
         guard manifest.providers == nil else {
             throw ModuleError.invalidManifestConfig(
-                self.manifest.name, "the 'providers' property can only be used with a System Module Package")
+                self.identity.description, "the 'providers' property can only be used with a System Module Package")
         }
 
         return try constructV4Targets()
@@ -550,7 +550,7 @@ public final class PackageBuilder {
                 let path = packagePath.appending(relativeSubPath)
                 // Make sure the target is inside the package root.
                 guard path.isDescendantOfOrEqual(to: packagePath) else {
-                    throw ModuleError.targetOutsidePackage(package: self.manifest.name, target: target.name)
+                    throw ModuleError.targetOutsidePackage(package: self.identity.description, target: target.name)
                 }
                 if fileSystem.isDirectory(path) {
                     return path
@@ -785,7 +785,7 @@ public final class PackageBuilder {
         // Check for duplicate target dependencies by name
         let combinedDependencyNames = dependencies.map { $0.target?.name ?? $0.product!.name }
         combinedDependencyNames.spm_findDuplicates().forEach {
-            self.observabilityScope.emit(.duplicateTargetDependency(dependency: $0, target: potentialModule.name, package: self.manifest.name))
+            self.observabilityScope.emit(.duplicateTargetDependency(dependency: $0, target: potentialModule.name, package: self.identity.description))
         }
 
         // Create the build setting assignment table for this target.
@@ -800,7 +800,7 @@ public final class PackageBuilder {
 
         let sourcesBuilder = TargetSourcesBuilder(
             packageIdentity: self.identity,
-            packageLocation: self.manifest.packageLocation,
+            packageKind: self.manifest.packageKind,
             packagePath: self.packagePath,
             target: manifestTarget,
             path: potentialModule.path,
@@ -818,8 +818,9 @@ public final class PackageBuilder {
             throw ModuleError.defaultLocalizationNotSet
         }
 
+        // FIXME: use identity instead?
         // The name of the bundle, if one is being generated.
-        let bundleName = resources.isEmpty ? nil : self.manifest.name + "_" + potentialModule.name
+        let bundleName = resources.isEmpty ? nil : self.manifest.displayName + "_" + potentialModule.name
 
         if sources.relativePaths.isEmpty && resources.isEmpty {
             return nil
@@ -1082,7 +1083,7 @@ public final class PackageBuilder {
         if let swiftLanguageVersions = manifest.swiftLanguageVersions {
             guard let swiftVersion = swiftLanguageVersions.sorted(by: >).first(where: { $0 <= ToolsVersion.currentToolsVersion }) else {
                 throw ModuleError.incompatibleToolsVersions(
-                    package: manifest.name, required: swiftLanguageVersions, current: .currentToolsVersion)
+                    package: self.identity.description, required: swiftLanguageVersions, current: .currentToolsVersion)
             }
             computedSwiftVersion = swiftVersion
         } else {
@@ -1152,7 +1153,7 @@ public final class PackageBuilder {
         // It is an error if there are multiple linux main files.
         if testManifestFiles.count > 1 {
             throw ModuleError.multipleTestManifestFilesFound(
-                package: self.manifest.name, files: testManifestFiles.map({ $0 }))
+                package: self.identity.description, files: testManifestFiles.map({ $0 }))
         }
         return testManifestFiles.first
     }
@@ -1194,7 +1195,8 @@ public final class PackageBuilder {
             //
             // Add suffix 'PackageTests' to test product name so the target name
             // of linux executable don't collide with main package, if present.
-            let productName = self.manifest.name + "PackageTests"
+            // FIXME: use identity instead
+            let productName = self.manifest.displayName + "PackageTests"
             let testManifest = try self.findTestManifest(in: testModules)
 
             let product = Product(name: productName, type: .test, targets: testModules, testManifest: testManifest)
@@ -1306,7 +1308,7 @@ public final class PackageBuilder {
                 self.observabilityScope.emit(.noLibraryTargetsForREPL)
             } else {
                 let replProduct = Product(
-                    name: self.manifest.name + Product.replProductSuffix,
+                    name: self.identity.description + Product.replProductSuffix,
                     type: .library(.dynamic),
                     targets: libraryTargets
                 )

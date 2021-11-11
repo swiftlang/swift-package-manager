@@ -32,5 +32,14 @@ let package = Package(
                 "MySourceGenBuildTool",
             ]
         ),
+        // Sample system library target for testing.
+        .systemLibrary(
+            name: "libpcre",
+            path: "Sources/libpcre",
+            pkgConfig: "libpcre",
+            providers: [
+                .apt(["libpcre-dev"])
+            ]
+        )
     ]
 )

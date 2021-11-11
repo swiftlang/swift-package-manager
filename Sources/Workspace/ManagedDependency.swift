@@ -128,7 +128,7 @@ extension Workspace {
 
 extension Workspace.ManagedDependency: CustomStringConvertible {
     public var description: String {
-        return "<ManagedDependency: \(self.packageRef.name) \(self.state)>"
+        return "<ManagedDependency: \(self.packageRef.identity) \(self.state)>"
     }
 }
 

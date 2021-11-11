@@ -14,7 +14,8 @@ import Foundation
 
 /// Represents a package for the sole purpose of generating a description.
 struct DescribedPackage: Encodable {
-    let name: String
+    let name: String // for backwards compatibility
+    let manifestDisplayName: String
     let path: String
     let toolsVersion: String
     let dependencies: [DescribedPackageDependency]
@@ -27,7 +28,8 @@ struct DescribedPackage: Encodable {
     let swiftLanguagesVersions: [String]?
 
     init(from package: Package) {
-        self.name = package.manifestName // TODO: rename property to manifestName?
+        self.manifestDisplayName = package.manifest.displayName
+        self.name = self.manifestDisplayName // TODO: deprecate, backwards compatibility 11/2021
         self.path = package.path.pathString
         self.toolsVersion = "\(package.manifest.toolsVersion.major).\(package.manifest.toolsVersion.minor)"
         + (package.manifest.toolsVersion.patch == 0 ? "" : ".\(package.manifest.toolsVersion.patch)")

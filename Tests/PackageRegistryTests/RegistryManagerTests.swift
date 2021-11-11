@@ -89,7 +89,8 @@ final class RegistryManagerTests: XCTestCase {
 
         let expectation = XCTestExpectation(description: "fetch versions")
 
-        registryManager.fetchVersions(of: package, observabilityScope: nil, on: .sharedConcurrent) { result in
+        let observability = ObservabilitySystem.makeForTesting()
+        registryManager.fetchVersions(of: package, observabilityScope: observability.topScope, on: .sharedConcurrent) { result in
             defer { expectation.fulfill() }
 
             guard case .success(let versions) = result else {
@@ -101,6 +102,8 @@ final class RegistryManagerTests: XCTestCase {
         }
 
         wait(for: [expectation], timeout: 10.0)
+
+        XCTAssertNoDiagnostics(observability.diagnostics)
     }
 
     func testFetchManifest() {
@@ -143,15 +146,16 @@ final class RegistryManagerTests: XCTestCase {
 
         let expectation = XCTestExpectation(description: "fetch manifest")
 
+        let observability = ObservabilitySystem.makeForTesting()
         let manifestLoader = ManifestLoader(toolchain: .default)
-        registryManager.fetchManifest(for: "1.1.1", of: package, using: manifestLoader, observabilityScope: nil, on: .sharedConcurrent) { result in
+        registryManager.fetchManifest(for: "1.1.1", of: package, using: manifestLoader, observabilityScope: observability.topScope, on: .sharedConcurrent) { result in
             defer { expectation.fulfill() }
 
             guard case .success(let manifest) = result else {
                 return XCTAssertResultSuccess(result)
             }
-            
-            XCTAssertEqual(manifest.name, "LinkedList")
+
+            XCTAssertEqual(manifest.displayName, "LinkedList")
 
             XCTAssertEqual(manifest.products.count, 1)
             XCTAssertEqual(manifest.products.first?.name, "LinkedList")
@@ -166,6 +170,8 @@ final class RegistryManagerTests: XCTestCase {
             XCTAssertEqual(manifest.swiftLanguageVersions, [.v4, .v5])
         }
         wait(for: [expectation], timeout: 10.0)
+
+        XCTAssertNoDiagnostics(observability.diagnostics)
     }
 
     func testDownloadSourceArchive() {
@@ -193,9 +199,10 @@ final class RegistryManagerTests: XCTestCase {
 
         let expectation = XCTestExpectation(description: "download source archive")
 
+        let observability = ObservabilitySystem.makeForTesting()
         let fileSystem = InMemoryFileSystem()
         let path = AbsolutePath("/LinkedList-1.1.1")
-        registryManager.downloadSourceArchive(for: "1.1.1", of: package, into: fileSystem, at: path, observabilityScope: nil, on: .sharedConcurrent) { result in
+        registryManager.downloadSourceArchive(for: "1.1.1", of: package, into: fileSystem, at: path, observabilityScope: observability.topScope, on: .sharedConcurrent) { result in
             defer { expectation.fulfill() }
 
             guard case .success = result else { return XCTAssertResultSuccess(result) }
@@ -206,5 +213,7 @@ final class RegistryManagerTests: XCTestCase {
             }
         }
         wait(for: [expectation], timeout: 10.0)
+
+        XCTAssertNoDiagnostics(observability.diagnostics)
     }
 }

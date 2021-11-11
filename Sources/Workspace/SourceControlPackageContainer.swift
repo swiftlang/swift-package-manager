@@ -23,7 +23,7 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
 
     // A wrapper for getDependencies() errors. This adds additional information
     // about the container to identify it for diagnostics.
-    public struct GetDependenciesError: Error, CustomStringConvertible, DiagnosticLocationProviding {
+    public struct GetDependenciesError: Error, CustomStringConvertible {
 
         /// The repository  that encountered the error.
         public let repository: RepositorySpecifier
@@ -36,10 +36,6 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
 
         /// Optional suggestion for how to resolve the error.
         public let suggestion: String?
-
-        public var diagnosticLocation: DiagnosticLocation? {
-            return PackageLocation.Remote(url: self.repository.location.description, reference: self.reference)
-        }
 
         /// Description shown for errors of this kind.
         public var description: String {
@@ -58,6 +54,7 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
     private let manifestLoader: ManifestLoaderProtocol
     private let toolsVersionLoader: ToolsVersionLoaderProtocol
     private let currentToolsVersion: ToolsVersion
+    private let observabilityScope: ObservabilityScope
 
     /// The cached dependency information.
     private var dependenciesCache = [String: [ProductFilter: (Manifest, [Constraint])]] ()
@@ -78,7 +75,8 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
         repository: Repository,
         manifestLoader: ManifestLoaderProtocol,
         toolsVersionLoader: ToolsVersionLoaderProtocol,
-        currentToolsVersion: ToolsVersion
+        currentToolsVersion: ToolsVersion,
+        observabilityScope: ObservabilityScope
     ) throws {
         self.package = package
         self.identityResolver = identityResolver
@@ -87,6 +85,7 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
         self.manifestLoader = manifestLoader
         self.toolsVersionLoader = toolsVersionLoader
         self.currentToolsVersion = currentToolsVersion
+        self.observabilityScope = observabilityScope
     }
 
     // Compute the map of known versions.
@@ -267,7 +266,7 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
         return []
     }
 
-    public func getUpdatedIdentifier(at boundVersion: BoundVersion) throws -> PackageReference {
+    public func loadPackageReference(at boundVersion: BoundVersion) throws -> PackageReference {
         let revision: Revision
         var version: Version?
         switch boundVersion {
@@ -285,7 +284,7 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
         }
 
         let manifest = try self.loadManifest(at: revision, version: version)
-        return self.package.with(newName: manifest.name)
+        return self.package.withName(manifest.displayName)
     }
 
     /// Returns true if the tools version is valid and can be used by this
@@ -337,7 +336,7 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
                                      toolsVersion: toolsVersion,
                                      identityResolver: self.identityResolver,
                                      fileSystem: fileSystem,
-                                     diagnostics: nil,
+                                     observabilityScope: self.observabilityScope,
                                      on: .sharedConcurrent,
                                      completion: $0)
         }
