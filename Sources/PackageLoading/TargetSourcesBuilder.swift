@@ -106,7 +106,7 @@ public struct TargetSourcesBuilder {
         self.declaredSources = declaredSources?.spm_uniqueElements()
 
         self.excludedPaths.forEach { exclude in
-            if let message = validTargetPath(at: exclude) {
+            if let message = validTargetPath(at: exclude), self.packageKind.emitAuthorWarnings {
                 let warning = "Invalid Exclude '\(exclude)': \(message)."
                 self.observabilityScope.emit(warning: warning)
             }
@@ -168,7 +168,7 @@ public struct TargetSourcesBuilder {
         var others: [AbsolutePath] = []
         if toolsVersion >= .v5_3 {
             let filesWithNoRules = pathToRule.filter { $0.value.rule == .none }
-            if !filesWithNoRules.isEmpty {
+            if !filesWithNoRules.isEmpty, self.packageKind.emitAuthorWarnings {
                 var warning = "found \(filesWithNoRules.count) file(s) which are unhandled; explicitly declare them as resources or exclude from the target\n"
                 for (file, _) in filesWithNoRules {
                     warning += "    " + file.pathString + "\n"
@@ -369,7 +369,7 @@ public struct TargetSourcesBuilder {
     private func diagnoseInvalidResource(in resources: [TargetDescription.Resource]) {
         resources.forEach { resource in
             let resourcePath = self.targetPath.appending(RelativePath(resource.path))
-            if let message = validTargetPath(at: resourcePath) {
+            if let message = validTargetPath(at: resourcePath), self.packageKind.emitAuthorWarnings {
                 let warning = "Invalid Resource '\(resource.path)': \(message)."
                 self.observabilityScope.emit(warning: warning)
             }
@@ -706,5 +706,16 @@ extension ObservabilityMetadata {
 
     enum TargetNameKey: Key {
         typealias Value = String
+    }
+}
+
+fileprivate extension PackageReference.Kind {
+    var emitAuthorWarnings: Bool {
+        switch self {
+        case .remoteSourceControl, .registry:
+            return false
+        default:
+            return true
+        }
     }
 }
