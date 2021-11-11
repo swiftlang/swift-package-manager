@@ -10,6 +10,7 @@
 
 import Basics
 import PackageGraph
+import PackageLoading
 import PackageModel
 @testable import SPMBuildCore
 import SPMTestSupport
@@ -184,5 +185,77 @@ class PluginInvocationTests: XCTestCase {
         XCTAssertEqual(evalFirstDiagnostic.metadata?.fileLocation, FileLocation(.init("/Foo/Sources/Foo/SomeFile.abc"), line: 42))
 
         XCTAssertEqual(evalFirstResult.textOutput, "Hello Plugin!")
+    }
+    
+    func testCompilationDiagnostics() throws {
+        try testWithTemporaryDirectory { tmpPath in
+            // Create a sample package with a library target and a plugin.
+            let packageDir = tmpPath.appending(components: "MyPackage")
+            try localFileSystem.writeFileContents(packageDir.appending(component: "Package.swift")) {
+                $0 <<< """
+                // swift-tools-version: 5.6
+                import PackageDescription
+                let package = Package(
+                    name: "MyPackage",
+                    targets: [
+                        .target(
+                            name: "MyLibrary",
+                            plugins: [
+                                "MyPlugin",
+                            ]
+                        ),
+                        .plugin(
+                            name: "MyPlugin",
+                            capability: .buildTool()
+                        ),
+                    ]
+                )
+                """
+            }
+            try localFileSystem.writeFileContents(packageDir.appending(components: "Sources", "MyLibrary", "library.swift")) {
+                $0 <<< "public func Foo() { }\n"
+            }
+            try localFileSystem.writeFileContents(packageDir.appending(components: "Plugins", "MyPlugin", "plugin.swift")) {
+                $0 <<< "syntax error\n"
+            }
+
+            // Load a workspace from the package.
+            let observability = ObservabilitySystem.makeForTesting()
+            let workspace = try Workspace(
+                fileSystem: localFileSystem,
+                location: .init(forRootPackage: packageDir, fileSystem: localFileSystem),
+                customManifestLoader: ManifestLoader(toolchain: ToolchainConfiguration.default),
+                delegate: MockWorkspaceDelegate()
+            )
+            
+            // Load the root manifest.
+            let rootInput = PackageGraphRootInput(packages: [packageDir], dependencies: [])
+            let rootManifests = try tsc_await {
+                workspace.loadRootManifests(
+                    packages: rootInput.packages,
+                    observabilityScope: observability.topScope,
+                    completion: $0
+                )
+            }
+            XCTAssert(rootManifests.count == 1, "\(rootManifests)")
+
+            // Load the package graph.
+            let packageGraph = try workspace.loadPackageGraph(rootInput: rootInput, observabilityScope: observability.topScope)
+            XCTAssert(observability.diagnostics.isEmpty, "\(observability.diagnostics)")
+            XCTAssert(packageGraph.packages.count == 1, "\(packageGraph.packages)")
+            
+            // Find the build tool plugin.
+            let buildToolPlugin = try XCTUnwrap(packageGraph.packages[0].targets.first{ $0.type == .plugin })
+            XCTAssertEqual(buildToolPlugin.name, "MyPlugin")
+            
+            let pluginCacheDir = tmpPath.appending(component: "plugin-cache")
+            let pluginScriptRunner = DefaultPluginScriptRunner(cacheDir: pluginCacheDir, toolchain: ToolchainConfiguration.default)
+            let result = try pluginScriptRunner.compilePluginScript(sources: buildToolPlugin.sources, toolsVersion: .currentToolsVersion)
+            
+            // Expect a failure since our input code is intentionally broken.
+            XCTAssert(result.compilerResult.exitStatus == .terminated(code: 1), "\(result.compilerResult.exitStatus)")
+            XCTAssert(result.compiledExecutable == .none, "\(result.compiledExecutable?.pathString ?? "-")")
+            XCTAssert(result.diagnosticsFile.suffix == ".dia", "\(result.diagnosticsFile.pathString)")
+        }
     }
 }
