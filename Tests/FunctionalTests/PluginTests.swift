@@ -206,9 +206,8 @@ class PluginTests: XCTestCase {
                         .plugin(
                             name: "MyPlugin",
                             capability: .command(
-                                verb: "mycmd",
-                                description: "What is mycmd anyway?",
-                                permissions: [ .packageWritability(reason: "YOLO") ]
+                                intent: .custom(verb: "mycmd", description: "What is mycmd anyway?"),
+                                permissions: [.packageWritability(reason: "YOLO")]
                             )
                         ),
                     ]

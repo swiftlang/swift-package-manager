@@ -664,7 +664,7 @@ public final class PluginTarget: Target {
 
 public enum PluginCapability: Hashable, Codable {
     case buildTool
-    case command(verb: String, description: String, permissions: [PluginPermission])
+    case command(intent: PluginCommandIntent, permissions: [PluginPermission])
 
     private enum CodingKeys: String, CodingKey {
         case buildTool, command
@@ -675,11 +675,10 @@ public enum PluginCapability: Hashable, Codable {
         switch self {
         case .buildTool:
             try container.encodeNil(forKey: .buildTool)
-        case .command(let a1, let a2, let a3):
+        case .command(let a1, let a2):
             var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .command)
             try unkeyedContainer.encode(a1)
             try unkeyedContainer.encode(a2)
-            try unkeyedContainer.encode(a3)
         }
     }
 
@@ -693,10 +692,9 @@ public enum PluginCapability: Hashable, Codable {
             self = .buildTool
         case .command:
             var unkeyedValues = try values.nestedUnkeyedContainer(forKey: key)
-            let a1 = try unkeyedValues.decode(String.self)
-            let a2 = try unkeyedValues.decode(String.self)
-            let a3 = try unkeyedValues.decode([PluginPermission].self)
-            self = .command(verb: a1, description: a2, permissions: a3)
+            let a1 = try unkeyedValues.decode(PluginCommandIntent.self)
+            let a2 = try unkeyedValues.decode([PluginPermission].self)
+            self = .command(intent: a1, permissions: a2)
         }
     }
 
@@ -704,8 +702,25 @@ public enum PluginCapability: Hashable, Codable {
         switch desc {
         case .buildTool:
             self = .buildTool
-        case .command(let verb, let description, let permissions):
-            self = .command(verb: verb, description: description, permissions: permissions.map{ .init(from: $0) })
+        case .command(let intent, let permissions):
+            self = .command(intent: .init(from: intent), permissions: permissions.map{ .init(from: $0) })
+        }
+    }
+}
+
+public enum PluginCommandIntent: Hashable, Codable {
+    case documentationGeneration
+    case sourceCodeFormatting
+    case custom(verb: String, description: String)
+
+    public init(from desc: TargetDescription.PluginCommandIntent) {
+        switch desc {
+        case .documentationGeneration:
+            self = .documentationGeneration
+        case .sourceCodeFormatting:
+            self = .sourceCodeFormatting
+        case .custom(let verb, let description):
+            self = .custom(verb: verb, description: description)
         }
     }
 }

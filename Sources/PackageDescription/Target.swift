@@ -131,7 +131,7 @@ public final class Target {
     /// this enum will be extended as new plugin capabilities are added.
     public enum PluginCapability {
         case _buildTool
-        case _command(verb: String, description: String, permissions: [PluginPermission])
+        case _command(intent: PluginCommandIntent, permissions: [PluginPermission])
     }
     
     /// The target's C build settings.
@@ -1020,20 +1020,34 @@ extension Target.PluginCapability {
     /// using the SwiftPM CLI (`swift package <verb>`), or in an IDE that supports
     /// Swift Packages.
     public static func command(
-        /// The `swift package` CLI verb through which the plugin can be invoked.
-        verb: String,
-        
-        /// A description of the functionality of the custom command, suitable for
-        /// showing in help text output.
-        description: String,
-        
+        /// The semantic intent of the plugin (either one of the predefined intents,
+        /// or a custom intent).
+        intent: PluginCommandIntent,
+
         /// Any permissions needed by the command plugin. This affects what the
         /// sandbox in which the plugin is run allows. Some permissions may require
         /// approval by the user.
         permissions: [PluginPermission] = []
     ) -> Target.PluginCapability {
-        return ._command(verb: verb, description: description, permissions: permissions)
+        return ._command(intent: intent, permissions: permissions)
     }
+}
+
+public enum PluginCommandIntent {
+    /// The intent of the command is to generate documentation, either by parsing the
+    /// package contents directly or by using the build system support for generating
+    /// symbol graphs. Invoked by a `generate-documentation` verb to `swift package`.
+    case documentationGeneration
+    
+    /// The intent of the command is to modify the source code in the package based
+    /// on a set of rules. Invoked by a `format-source-code` verb to `swift package`.
+    case sourceCodeFormatting
+
+    /// Any future enum cases should use @available()
+
+    /// An intent that doesn't fit into any of the other categories, with a custom
+    /// verb through which it can be invoked.
+    case custom(verb: String, description: String)
 }
 
 public enum PluginPermission {

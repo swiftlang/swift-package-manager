@@ -144,33 +144,56 @@ struct DescribedPackage: Encodable {
     /// Represents a plugin capability for the sole purpose of generating a description.
     struct DescribedPluginCapability: Encodable {
         let type: String
-        let verb: String?
-        let description: String?
+        let intent: PluginCommandIntent?
         let permissions: [PluginPermission]?
 
         init(from capability: PluginCapability, in package: Package) {
             switch capability {
             case .buildTool:
                 self.type = "buildTool"
-                self.verb = nil
-                self.description = nil
+                self.intent = nil
                 self.permissions = nil
-            case .command(let verb, let description, let permissions):
+            case .command(let intent, let permissions):
                 self.type = "command"
-                self.verb = verb
-                self.description = description
-                self.permissions = permissions.map{
-                    switch $0 {
-                    case .packageWritability(let reason):
-                        return PluginPermission(type: "packageWritability", reason: reason)
-                    }
-                }
+                self.intent = .init(from: intent)
+                self.permissions = permissions.map{ .init(from: $0) }
             }
         }
         
+        struct PluginCommandIntent: Encodable {
+            let type: String
+            let verb: String?
+            let description: String?
+            
+            init(from intent: PackageModel.PluginCommandIntent) {
+                switch intent {
+                case .documentationGeneration:
+                    self.type = "documentationGeneration"
+                    self.verb = nil
+                    self.description = nil
+                case .sourceCodeFormatting:
+                    self.type = "sourceCodeFormatting"
+                    self.verb = nil
+                    self.description = nil
+                case .custom(let verb, let description):
+                    self.type = "documentationGeneration"
+                    self.verb = verb
+                    self.description = description
+                }
+            }
+        }
+
         struct PluginPermission: Encodable {
             let type: String
             let reason: String
+            
+            init(from permission: PackageModel.PluginPermission) {
+                switch permission {
+                case .packageWritability(let reason):
+                    self.type = "packageWritability"
+                    self.reason = reason
+                }
+            }
         }
     }
 

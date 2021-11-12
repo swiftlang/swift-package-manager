@@ -597,10 +597,27 @@ extension TargetDescription.PluginCapability {
         case "buildTool":
             self = .buildTool
         case "command":
+            let intent = try TargetDescription.PluginCommandIntent(v4: json.getJSON("intent"))
+            let permissions = try json.getArray("permissions").map(TargetDescription.PluginPermission.init(v4:))
+            self = .command(intent: intent, permissions: permissions)
+        default:
+            throw InternalError("invalid type \(type)")
+        }
+    }
+}
+
+extension TargetDescription.PluginCommandIntent {
+    fileprivate init(v4 json: JSON) throws {
+        let type = try json.get(String.self, forKey: "type")
+        switch type {
+        case "documentationGeneration":
+            self = .documentationGeneration
+        case "sourceCodeFormatting":
+            self = .sourceCodeFormatting
+        case "custom":
             let verb = try json.get(String.self, forKey: "verb")
             let description = try json.get(String.self, forKey: "description")
-            let permissions = try json.getArray("permissions").map(TargetDescription.PluginPermission.init(v4:))
-            self = .command(verb: verb, description: description, permissions: permissions)
+            self = .custom(verb: verb, description: description)
         default:
             throw InternalError("invalid type \(type)")
         }

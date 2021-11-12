@@ -103,8 +103,7 @@ class PackageDescription5_6LoadingTests: PackageDescriptionLoadingTests {
                    .plugin(
                        name: "Foo",
                        capability: .command(
-                           verb: "mycmd",
-                           description: "helpful description of mycmd",
+                           intent: .custom(verb: "mycmd", description: "helpful description of mycmd"),
                            permissions: [ .packageWritability(reason: "YOLO") ]
                        )
                    )
@@ -117,7 +116,7 @@ class PackageDescription5_6LoadingTests: PackageDescriptionLoadingTests {
         XCTAssertNoDiagnostics(observability.diagnostics)
 
         XCTAssertEqual(manifest.targets[0].type, .plugin)
-        XCTAssertEqual(manifest.targets[0].pluginCapability, .command(verb: "mycmd", description: "helpful description of mycmd", permissions: [.packageWritability(reason: "YOLO")]))
+        XCTAssertEqual(manifest.targets[0].pluginCapability, .command(intent: .custom(verb: "mycmd", description: "helpful description of mycmd"), permissions: [.packageWritability(reason: "YOLO")]))
     }
 
     func testPluginTargetCustomization() throws {
