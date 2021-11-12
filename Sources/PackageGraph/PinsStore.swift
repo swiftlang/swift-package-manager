@@ -238,7 +238,7 @@ fileprivate struct PinsStorage {
         struct Pin: Codable {
             let package: String?
             let repositoryURL: String
-            let state: PinStateInfo
+            let state: State
 
             init(_ pin: PinsStore.Pin, mirrors: DependencyMirrors) throws {
                 let location: String
@@ -258,7 +258,7 @@ fileprivate struct PinsStorage {
             }
         }
 
-        struct PinStateInfo: Codable {
+        struct State: Codable {
             let revision: String
             let branch: String?
             let version: String?
@@ -302,7 +302,7 @@ fileprivate struct PinsStorage {
             let identity: PackageIdentity
             let kind: Kind
             let location: String
-            let state: PinStateInfo
+            let state: State
 
             init(_ pin: PinsStore.Pin, mirrors: DependencyMirrors) throws {
                 let kind: Kind
@@ -316,7 +316,7 @@ fileprivate struct PinsStorage {
                     location = url.absoluteString
                 case .registry:
                     kind = .registry
-                    location = ""
+                    location = "" // FIXME: this is likely not correct
                 default:
                     throw StringError("invalid package type \(pin.packageRef.kind)")
                 }
@@ -335,7 +335,7 @@ fileprivate struct PinsStorage {
             case registry
         }
 
-        struct PinStateInfo: Codable {
+        struct State: Codable {
             let version: String?
             let branch: String?
             let revision: String?
@@ -384,7 +384,7 @@ extension PinsStore.Pin {
 }
 
 extension PinsStore.PinState {
-    fileprivate init(_ state: PinsStorage.V1.PinStateInfo) throws {
+    fileprivate init(_ state: PinsStorage.V1.State) throws {
         let revision = state.revision
         if let version = state.version {
             self = try .version(Version(versionString: version), revision: revision)
@@ -421,7 +421,7 @@ extension PinsStore.Pin {
 }
 
 extension PinsStore.PinState {
-    fileprivate init(_ state: PinsStorage.V2.PinStateInfo) throws {
+    fileprivate init(_ state: PinsStorage.V2.State) throws {
         if let version = state.version {
             self = try .version(Version(versionString: version), revision: state.revision)
         } else if let branch = state.branch, let revision = state.revision {

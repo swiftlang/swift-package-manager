@@ -1252,7 +1252,7 @@ extension Workspace {
         }
 
         // Form the edit working repo path.
-        let path = self.location.editsSubdirectory(for: dependency)
+        let path = self.location.editSubdirectory(for: dependency)
         // Check for uncommited and unpushed changes if force removal is off.
         if !forceRemove {
             let workingCopy = try repositoryManager.openWorkingCopy(at: path)
@@ -1557,7 +1557,7 @@ extension Workspace {
         case .registry:
             return self.location.registryDownloadSubdirectory(for: dependency)
         case .edited(_, let path):
-            return path ?? self.location.editsSubdirectory(for: dependency)
+            return path ?? self.location.editSubdirectory(for: dependency)
         case .fileSystem(let path):
             return path
         }
@@ -3578,5 +3578,22 @@ extension CheckoutState {
         case .branch(let branch, _):
             return .revision(branch)
         }
+    }
+}
+
+extension Workspace.Location {
+    /// Returns the path to the dependency's repository checkout directory.
+    fileprivate func repositoriesCheckoutSubdirectory(for dependency: Workspace.ManagedDependency) -> AbsolutePath {
+        self.repositoriesCheckoutsDirectory.appending(dependency.subpath)
+    }
+
+    /// Returns the path to the  dependency's download directory.
+    fileprivate func registryDownloadSubdirectory(for dependency: Workspace.ManagedDependency) -> AbsolutePath {
+        self.registryDownloadDirectory.appending(dependency.subpath)
+    }
+
+    /// Returns the path to the dependency's edit directory.
+    fileprivate func editSubdirectory(for dependency: Workspace.ManagedDependency) -> AbsolutePath {
+        self.editsDirectory.appending(dependency.subpath)
     }
 }
