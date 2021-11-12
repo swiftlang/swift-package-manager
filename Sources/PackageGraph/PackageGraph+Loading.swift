@@ -315,9 +315,7 @@ private func createResolvedPackages(
             }
         }
 
-        packageBuilder.dependencies = dependencies.values
-            // Restore determinism:
-            .sorted(by: { $0.package.identity < $1.package.identity })
+        packageBuilder.dependencies = Array(dependencies.values)
 
         // Create target builders for each target in the package.
         let targetBuilders = package.targets.map{ ResolvedTargetBuilder(target: $0, observabilityScope: observabilityScope) }
