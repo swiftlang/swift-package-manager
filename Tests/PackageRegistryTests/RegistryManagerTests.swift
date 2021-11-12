@@ -8,16 +8,14 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-import Foundation
-import XCTest
-
-import SPMTestSupport
-import TSCBasic
-
 import Basics
+import Foundation
 import PackageLoading
 import PackageModel
 import PackageRegistry
+import SPMTestSupport
+import TSCBasic
+import XCTest
 
 final class RegistryManagerTests: XCTestCase {
     func testFetchVersions() throws {

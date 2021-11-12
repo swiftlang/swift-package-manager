@@ -8,17 +8,15 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
+import Basics
 import Dispatch
 import struct Foundation.URL
 import struct Foundation.URLComponents
 import struct Foundation.URLQueryItem
-
-import TSCBasic
-import TSCUtility
-
-import Basics
 import PackageLoading
 import PackageModel
+import TSCBasic
+import TSCUtility
 
 /// Package registry client.
 /// API specification: https://github.com/apple/swift-package-manager/blob/main/Documentation/Registry.md
