@@ -59,18 +59,6 @@ extension Workspace {
         /// The state of the managed dependency.
         public let state: State
 
-        /// Returns true if state is a source control checkout.
-        var isSourceControl: Bool {
-            if case .sourceControl = self.state { return true }
-            return false
-        }
-
-        /// Returns true if the dependency is edited.
-        public var isEdited: Bool {
-            if case .edited = self.state { return true }
-            return false
-        }
-
         /// The checked out path of the dependency on disk, relative to the workspace checkouts path.
         public let subpath: RelativePath
 

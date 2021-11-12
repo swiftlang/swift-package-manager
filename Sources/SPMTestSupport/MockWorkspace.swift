@@ -402,9 +402,26 @@ public final class MockWorkspace {
         check(ResolutionPrecomputationResult(result: result, diagnostics: observability.diagnostics))
     }
 
-    // TODO: expand to handler registry as well
     public func set(
         pins: [PackageReference: CheckoutState] = [:],
+        managedDependencies: [Workspace.ManagedDependency] = [],
+        managedArtifacts: [Workspace.ManagedArtifact] = []
+    ) throws {
+        let pins = pins.mapValues { checkoutState -> PinsStore.PinState in
+            switch checkoutState {
+            case .version(let version, let revision):
+                return .version(version, revision: revision.identifier)
+            case .branch(let name, let revision):
+                return .branch(name: name, revision: revision.identifier)
+            case.revision(let revision):
+                return .revision(revision.identifier)
+            }
+        }
+        try self.set(pins: pins, managedDependencies: managedDependencies, managedArtifacts: managedArtifacts)
+    }
+
+    public func set(
+        pins: [PackageReference: PinsStore.PinState] = [:],
         managedDependencies: [Workspace.ManagedDependency] = [],
         managedArtifacts: [Workspace.ManagedArtifact] = []
     ) throws {
@@ -412,14 +429,7 @@ public final class MockWorkspace {
         let pinsStore = try workspace.pinsStore.load()
 
         for (ref, state) in pins {
-            switch state {
-            case .version(let version, let revision):
-                pinsStore.pin(packageRef: ref, state: .version(version, revision: revision.identifier))
-            case .branch(let branch, let revision):
-                pinsStore.pin(packageRef: ref, state: .branch(name: branch, revision: revision.identifier))
-            case .revision(let revision):
-                pinsStore.pin(packageRef: ref, state: .revision(revision.identifier))
-            }
+            pinsStore.pin(packageRef: ref, state: state)
         }
 
         for dependency in managedDependencies {

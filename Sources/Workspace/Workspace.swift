@@ -3111,28 +3111,6 @@ extension Workspace: PackageContainerProvider {
         }
     }
 
-    /// Retrieves the given `package` at a given `checkoutState`.
-    ///
-    /// - Parameters:
-    ///   - package: The package to retrieve.
-    ///   - checkoutState: The state to retrieve at.
-    /// - Returns: The path of the local copy of the package.
-    /*
-    func retrieve(package: PackageReference, at checkoutState: CheckoutState) throws -> AbsolutePath {
-        switch package.kind {
-        case .root, .fileSystem:
-            throw InternalError("local dependencies are supported")
-        case .localSourceControl, .remoteSourceControl:
-            return try self.checkoutRepository(package: package, at: checkoutState)
-        case .registry:
-            guard case .version(let version, _) = checkoutState else {
-                throw InternalError("cannot download source archive for package \(package) with checkout state \(checkoutState)")
-            }
-
-            return try self.downloadSourceArchive(for: package, at: version)
-        }
-    }*/
-
     /// Removes the clone and checkout of the provided specifier.
     ///
     /// - Parameters:

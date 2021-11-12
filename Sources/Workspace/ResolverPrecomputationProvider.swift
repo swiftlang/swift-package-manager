@@ -167,6 +167,13 @@ private struct LocalPackageContainer: PackageContainer {
     }
 }
 
+private extension Workspace.ManagedDependency {
+    var isSourceControl: Bool {
+        if case .sourceControl = self.state { return true }
+        return false
+    }
+}
+
 private extension Workspace.ManagedDependency.State {
     var checkout: CheckoutState? {
         switch self {
