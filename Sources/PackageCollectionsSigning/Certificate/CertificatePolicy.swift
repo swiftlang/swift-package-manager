@@ -346,13 +346,21 @@ private struct BoringSSLOCSPClient {
                         return
                     }
 
-                    guard let response = d2i_OCSP_RESPONSE_bio(bio, nil),
-                          let basicResp = OCSP_response_get1_basic(response) else {
+                    let response = d2i_OCSP_RESPONSE_bio(bio, nil)
+                    defer { OCSP_RESPONSE_free(response) }
+                    
+                    guard let response = response else {
                         results.append(.failure(OCSPError.responseConversionFailure))
                         return
                     }
-                    defer { OCSP_RESPONSE_free(response) }
+                    
+                    let basicResp = OCSP_response_get1_basic(response)
                     defer { OCSP_BASICRESP_free(basicResp) }
+                    
+                    guard let basicResp = basicResp else {
+                        results.append(.failure(OCSPError.responseConversionFailure))
+                        return
+                    }
 
                     // This is just the OCSP response status, not the certificate's status
                     guard OCSP_response_status(response) == OCSP_RESPONSE_STATUS_SUCCESSFUL,
