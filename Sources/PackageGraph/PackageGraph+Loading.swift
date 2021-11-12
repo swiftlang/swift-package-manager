@@ -230,7 +230,7 @@ private func createResolvedPackages(
             metadata: package.diagnosticsMetadata
         )
 
-        var dependencies = [PackageIdentity: ResolvedPackageBuilder]()
+        var dependencies = OrderedDictionary<PackageIdentity, ResolvedPackageBuilder>()
         var dependenciesByNameForTargetDependencyResolution = [String: ResolvedPackageBuilder]()
 
         // Establish the manifest-declared package dependencies.
@@ -257,7 +257,7 @@ private func createResolvedPackages(
                 // check if this resolved package already listed in the dependencies
                 // this means that the dependencies share the same identity
                 // FIXME: this works but the way we find out about this is based on a side effect, need to improve it
-                guard !dependencies.keys.contains(resolvedPackage.package.identity) else {
+                guard dependencies[resolvedPackage.package.identity] == nil else {
                     let error = PackageGraphError.dependencyAlreadySatisfiedByIdentifier(
                         package: package.identity.description,
                         dependencyLocation: dependencyLocation,

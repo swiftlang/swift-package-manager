@@ -1269,6 +1269,98 @@ class PackageGraphTests: XCTestCase {
         })
     }
 
+    func testResolutionDeterminism() throws {
+        let fileSystem = InMemoryFileSystem(
+            emptyFiles: [
+                "/A/Sources/A/A.swift",
+                "/B/Sources/B/B.swift",
+                "/C/Sources/C/C.swift",
+                "/D/Sources/D/D.swift",
+                "/E/Sources/E/E.swift",
+                "/F/Sources/F/F.swift",
+            ]
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        _ = try loadPackageGraph(
+            fs: fileSystem,
+            manifests: [
+                Manifest.createRootManifest(
+                    name: "A",
+                    path: .init("/A"),
+                    dependencies: [
+                        .localSourceControl(path: .init("/B"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init("/C"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init("/D"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init("/E"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init("/F"), requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    targets: [
+                        TargetDescription(name: "A", dependencies: []),
+                    ]),
+                Manifest.createFileSystemManifest(
+                    name: "B",
+                    path: .init("/B"),
+                    products: [
+                        ProductDescription(name: "B", type: .library(.automatic), targets: ["B"])
+                    ],
+                    targets: [
+                        TargetDescription(name: "B"),
+                    ]
+                ),
+                Manifest.createFileSystemManifest(
+                    name: "C",
+                    path: .init("/C"),
+                    products: [
+                        ProductDescription(name: "C", type: .library(.automatic), targets: ["C"])
+                    ],
+                    targets: [
+                        TargetDescription(name: "C"),
+                    ]
+                ),
+                Manifest.createFileSystemManifest(
+                    name: "D",
+                    path: .init("/D"),
+                    products: [
+                        ProductDescription(name: "D", type: .library(.automatic), targets: ["D"])
+                    ],
+                    targets: [
+                        TargetDescription(name: "D"),
+                    ]
+                ),
+                Manifest.createFileSystemManifest(
+                    name: "E",
+                    path: .init("/E"),
+                    products: [
+                        ProductDescription(name: "E", type: .library(.automatic), targets: ["E"])
+                    ],
+                    targets: [
+                        TargetDescription(name: "E"),
+                    ]
+                ),
+                Manifest.createFileSystemManifest(
+                    name: "F",
+                    path: .init("/F"),
+                    products: [
+                        ProductDescription(name: "F", type: .library(.automatic), targets: ["F"])
+                    ],
+                    targets: [
+                        TargetDescription(name: "F"),
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+
+        testDiagnostics(observability.diagnostics) { result in
+            result.check(diagnostic: "dependency 'b' is not used by any target", severity: .warning)
+            result.check(diagnostic: "dependency 'c' is not used by any target", severity: .warning)
+            result.check(diagnostic: "dependency 'd' is not used by any target", severity: .warning)
+            result.check(diagnostic: "dependency 'e' is not used by any target", severity: .warning)
+            result.check(diagnostic: "dependency 'f' is not used by any target", severity: .warning)
+        }
+    }
+
     func testTargetDependencies_Pre52() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Foo/Sources/Foo/foo.swift",
