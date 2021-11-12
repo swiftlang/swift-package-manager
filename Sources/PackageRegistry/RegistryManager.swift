@@ -40,19 +40,19 @@ public final class RegistryManager {
 
     private let configuration: RegistryConfiguration
     private let identityResolver: IdentityResolver
-    private let archiverFactory: (FileSystem) -> Archiver
+    private let archiverProvider: (FileSystem) -> Archiver
     private let httpClient: HTTPClient
     private let authorizationProvider: HTTPClientAuthorizationProvider?
 
     public init(configuration: RegistryConfiguration,
                 identityResolver: IdentityResolver,
-                customArchiverFactory: ((FileSystem) -> Archiver)? = nil,
+                customArchiverProvider: ((FileSystem) -> Archiver)? = nil,
                 customHTTPClient: HTTPClient? = nil,
                 authorizationProvider: HTTPClientAuthorizationProvider? = nil)
     {
         self.configuration = configuration
         self.identityResolver = identityResolver
-        self.archiverFactory = customArchiverFactory ?? { fileSystem in SourceArchiver(fileSystem: fileSystem) }
+        self.archiverProvider = customArchiverProvider ?? { fileSystem in SourceArchiver(fileSystem: fileSystem) }
         self.httpClient = customHTTPClient ?? HTTPClient()
         self.authorizationProvider = authorizationProvider
     }
@@ -337,7 +337,7 @@ public final class RegistryManager {
                             let archivePath = destinationPath.withExtension("zip")
                             try fileSystem.writeFileContents(archivePath, bytes: contents)
 
-                            let archiver = self.archiverFactory(fileSystem)
+                            let archiver = self.archiverProvider(fileSystem)
                             // TODO: Bail if archive contains relative paths or overlapping files
                             archiver.extract(from: archivePath, to: destinationPath) { result in
                                 completion(result)
@@ -420,7 +420,7 @@ public final class RegistryManager {
     }
 }
 
-public extension RegistryManager {
+private extension RegistryManager {
     enum APIVersion: String {
         case v1 = "1"
     }

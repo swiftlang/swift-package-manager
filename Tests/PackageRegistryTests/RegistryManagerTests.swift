@@ -72,7 +72,7 @@ final class RegistryManagerTests: XCTestCase {
         let registryManager = RegistryManager(
             configuration: configuration,
             identityResolver: DefaultIdentityResolver(),
-            customArchiverFactory: { _ in MockArchiver() },
+            customArchiverProvider: { _ in MockArchiver() },
             customHTTPClient: httpClient
         )
 
@@ -131,7 +131,7 @@ final class RegistryManagerTests: XCTestCase {
         let registryManager = RegistryManager(
             configuration: configuration,
             identityResolver: DefaultIdentityResolver(),
-            customArchiverFactory: { _ in MockArchiver() },
+            customArchiverProvider: { _ in MockArchiver() },
             customHTTPClient: httpClient
         )
 
@@ -286,7 +286,7 @@ final class RegistryManagerTests: XCTestCase {
         let registryManager = RegistryManager(
             configuration: configuration,
             identityResolver: DefaultIdentityResolver(),
-            customArchiverFactory: { _ in MockArchiver() },
+            customArchiverProvider: { _ in MockArchiver() },
             customHTTPClient: httpClient
         )
 
@@ -337,7 +337,7 @@ final class RegistryManagerTests: XCTestCase {
         let registryManager = RegistryManager(
             configuration: configuration,
             identityResolver: DefaultIdentityResolver(),
-            customArchiverFactory: { _ in MockArchiver() },
+            customArchiverProvider: { _ in MockArchiver() },
             customHTTPClient: httpClient
         )
 
@@ -431,7 +431,7 @@ final class RegistryManagerTests: XCTestCase {
         let registryManager = RegistryManager(
             configuration: configuration,
             identityResolver: DefaultIdentityResolver(),
-            customArchiverFactory: { _ in MockArchiver() },
+            customArchiverProvider: { _ in MockArchiver() },
             customHTTPClient: httpClient
         )
 
@@ -496,7 +496,7 @@ final class RegistryManagerTests: XCTestCase {
         let registryManager = RegistryManager(
             configuration: configuration,
             identityResolver: DefaultIdentityResolver(),
-            customArchiverFactory: { _ in MockArchiver() },
+            customArchiverProvider: { _ in MockArchiver() },
             customHTTPClient: httpClient
         )
 
