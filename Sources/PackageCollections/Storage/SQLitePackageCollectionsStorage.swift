@@ -789,19 +789,6 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
             try statement.step()
         }
 
-        // Run VACUUM asynchronously since it's just an optimization measure and could take some time to complete.
-        // Add a delay since VACUUM often fails if run immediately after the deletions.
-        DispatchQueue.sharedConcurrent.asyncAfter(deadline: .now() + 0.5) {
-            // Repack database file to reduce size (rdar://77077510)
-            do {
-                try self.withDB { db in
-                    try db.exec(query: "VACUUM;")
-                }
-            } catch {
-                self.observabilityScope.emit(info: "Failed to 'VACUUM' the database: \(error)")
-            }
-        }
-
         self.targetTrie.remove { $0.collection == identifier }
     }
 
