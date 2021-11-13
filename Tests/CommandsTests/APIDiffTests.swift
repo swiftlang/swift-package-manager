@@ -18,7 +18,7 @@ import TSCBasic
 import Workspace
 import XCTest
 
-final class APIDiffTests: XCTestCase {
+final class APIDiffTests: CommandsTestCase {
     @discardableResult
     private func execute(
         _ args: [String],

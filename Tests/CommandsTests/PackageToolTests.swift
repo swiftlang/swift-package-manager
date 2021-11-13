@@ -22,7 +22,7 @@ import Workspace
 import Xcodeproj
 import XCTest
 
-final class PackageToolTests: XCTestCase {
+final class PackageToolTests: CommandsTestCase {
     @discardableResult
     private func execute(
         _ args: [String],

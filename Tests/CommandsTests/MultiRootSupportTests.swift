@@ -15,7 +15,7 @@ import TSCBasic
 import Workspace
 import XCTest
 
-final class MultiRootSupportTests: XCTestCase {
+final class MultiRootSupportTests: CommandsTestCase {
 
     func testWorkspaceLoader() throws {
         let fs = InMemoryFileSystem(emptyFiles: [

@@ -13,7 +13,8 @@ import XCTest
 import SPMTestSupport
 import Commands
 
-final class TestToolTests: XCTestCase {
+final class TestToolTests: CommandsTestCase {
+    
     private func execute(_ args: [String]) throws -> (stdout: String, stderr: String) {
         return try SwiftPMProduct.SwiftTest.execute(args)
     }
