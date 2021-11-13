@@ -50,13 +50,15 @@ final class RegistryManagerTests: XCTestCase {
                 }
                 """#.data(using: .utf8)!
 
-                completion(.success(.init(statusCode: 200,
-                                          headers: .init([
-                                              .init(name: "Content-Length", value: "\(data.count)"),
-                                              .init(name: "Content-Type", value: "application/json"),
-                                              .init(name: "Content-Version", value: "1"),
-                                          ]),
-                                          body: data)))
+                completion(.success(.init(
+                    statusCode: 200,
+                    headers: .init([
+                        .init(name: "Content-Length", value: "\(data.count)"),
+                        .init(name: "Content-Type", value: "application/json"),
+                        .init(name: "Content-Version", value: "1"),
+                    ]),
+                    body: data
+                )))
             default:
                 XCTFail("method and url should match")
             }
@@ -76,7 +78,7 @@ final class RegistryManagerTests: XCTestCase {
             customHTTPClient: httpClient
         )
 
-        let versions = try tsc_await { callback in registryManager.fetchVersions(of: identity, observabilityScope: ObservabilitySystem.NOOP, completion: callback) }
+        let versions = try registryManager.fetchVersions(package: identity)
         XCTAssertEqual(["1.1.1", "1.0.0"], versions)
     }
 
@@ -109,13 +111,15 @@ final class RegistryManagerTests: XCTestCase {
                 )
                 """#.data(using: .utf8)!
 
-                completion(.success(.init(statusCode: 200,
-                                          headers: .init([
-                                              .init(name: "Content-Length", value: "\(data.count)"),
-                                              .init(name: "Content-Type", value: "text/x-swift"),
-                                              .init(name: "Content-Version", value: "1"),
-                                          ]),
-                                          body: data)))
+                completion(.success(.init(
+                    statusCode: 200,
+                    headers: .init([
+                        .init(name: "Content-Length", value: "\(data.count)"),
+                        .init(name: "Content-Type", value: "text/x-swift"),
+                        .init(name: "Content-Version", value: "1"),
+                    ]),
+                    body: data
+                )))
             default:
                 XCTFail("method and url should match")
             }
@@ -136,9 +140,12 @@ final class RegistryManagerTests: XCTestCase {
         )
 
         let manifestLoader = ManifestLoader(toolchain: .default)
-        let manifest = try tsc_await { callback in
-            registryManager.fetchManifest(for: version, of: identity, using: manifestLoader, observabilityScope: ObservabilitySystem.NOOP, completion: callback)
-        }
+        let manifest = try registryManager.fetchManifest(
+            package: identity,
+            version: version,
+            manifestLoader: manifestLoader,
+            toolsVersion: .none
+        )
 
         XCTAssertEqual(manifest.displayName, "LinkedList")
 
@@ -157,20 +164,20 @@ final class RegistryManagerTests: XCTestCase {
 
     // FIXME: this fails with error "the package manifest at '/Package.swift' cannot be accessed (/Package.swift doesn't exist in file system)"
     /*
-     func testFetchManifestForSwiftVersion() throws {
-         let registryURL = "https://packages.example.com"
-         let identity = PackageIdentity.plain("mona.LinkedList")
-         let (scope, name) = identity.scopeAndName!
-         let version = Version("1.1.1")
-         let swiftVersion = SwiftLanguageVersion(string: "5.0")!
-         let manifestURL = URL(string: "\(registryURL)/\(scope)/\(name)/\(version)/Package.swift?swift-version=\(swiftVersion)")!
+    func testFetchManifestForToolsVersion() throws {
+        let registryURL = "https://packages.example.com"
+        let identity = PackageIdentity.plain("mona.LinkedList")
+        let (scope, name) = identity.scopeAndName!
+        let version = Version("1.1.1")
+        let toolsVersion = ToolsVersion.v5
+        let manifestURL = URL(string: "\(registryURL)/\(scope)/\(name)/\(version)/Package.swift?swift-version=\(toolsVersion)")!
 
-         let handler: HTTPClient.Handler = { request, _, completion in
-             switch (request.method, request.url) {
-             case (.get, manifestURL):
-                 XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+swift")
+        let handler: HTTPClient.Handler = { request, _, completion in
+            switch (request.method, request.url) {
+            case (.get, manifestURL):
+                XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+swift")
 
-                 let data = #"""
+                let data = #"""
                  // swift-tools-version:5.0
                  import PackageDescription
 
@@ -187,53 +194,56 @@ final class RegistryManagerTests: XCTestCase {
                  )
                  """#.data(using: .utf8)!
 
-                 completion(.success(.init(statusCode: 200,
-                                           headers: .init([
-                                             .init(name: "Content-Length", value: "\(data.count)"),
-                                             .init(name: "Content-Type", value: "text/x-swift"),
-                                             .init(name: "Content-Version", value: "1")
-                                           ]),
-                                           body: data)))
-             default:
-                 XCTFail("method and url should match")
-             }
-         }
+                completion(.success(.init(
+                    statusCode: 200,
+                    headers: .init([
+                        .init(name: "Content-Length", value: "\(data.count)"),
+                        .init(name: "Content-Type", value: "text/x-swift"),
+                        .init(name: "Content-Version", value: "1")
+                    ]),
+                    body: data
+                )))
+            default:
+                XCTFail("method and url should match")
+            }
+        }
 
-         var httpClient = HTTPClient(handler: handler)
-         httpClient.configuration.circuitBreakerStrategy = .none
-         httpClient.configuration.retryStrategy = .none
+        var httpClient = HTTPClient(handler: handler)
+        httpClient.configuration.circuitBreakerStrategy = .none
+        httpClient.configuration.retryStrategy = .none
 
-         var configuration = RegistryConfiguration()
-         configuration.defaultRegistry = Registry(url: URL(string: registryURL)!)
+        var configuration = RegistryConfiguration()
+        configuration.defaultRegistry = Registry(url: URL(string: registryURL)!)
 
-         let registryManager = RegistryManager(
-             configuration: configuration,
-             identityResolver: DefaultIdentityResolver(),
-             customArchiverFactory: { _ in MockArchiver() },
-             customHTTPClient: httpClient
-         )
+        let registryManager = RegistryManager(
+            configuration: configuration,
+            identityResolver: DefaultIdentityResolver(),
+            customArchiverProvider: { _ in MockArchiver() },
+            customHTTPClient: httpClient
+        )
 
-         let manifestLoader = ManifestLoader(toolchain: .default)
-         let manifest = try tsc_await { callback in
-             registryManager.fetchManifest(for: version, of: identity, using: manifestLoader, swiftLanguageVersion: swiftVersion,
-                                              observabilityScope: ObservabilitySystem.NOOP, completion: callback)
-         }
+        let manifestLoader = ManifestLoader(toolchain: .default)
+        let manifest = try registryManager.fetchManifest(
+            package: identity,
+            version: version,
+            manifestLoader: manifestLoader,
+            toolsVersion: toolsVersion
+        )
 
-         XCTAssertEqual(manifest.displayName, "LinkedList")
+        XCTAssertEqual(manifest.displayName, "LinkedList")
 
-         XCTAssertEqual(manifest.products.count, 1)
-         XCTAssertEqual(manifest.products.first?.name, "LinkedList")
-         XCTAssertEqual(manifest.products.first?.type, .library(.automatic))
+        XCTAssertEqual(manifest.products.count, 1)
+        XCTAssertEqual(manifest.products.first?.name, "LinkedList")
+        XCTAssertEqual(manifest.products.first?.type, .library(.automatic))
 
-         XCTAssertEqual(manifest.targets.count, 2)
-         XCTAssertEqual(manifest.targets.first?.name, "LinkedList")
-         XCTAssertEqual(manifest.targets.first?.type, .regular)
-         XCTAssertEqual(manifest.targets.last?.name, "LinkedListTests")
-         XCTAssertEqual(manifest.targets.last?.type, .test)
+        XCTAssertEqual(manifest.targets.count, 2)
+        XCTAssertEqual(manifest.targets.first?.name, "LinkedList")
+        XCTAssertEqual(manifest.targets.first?.type, .regular)
+        XCTAssertEqual(manifest.targets.last?.name, "LinkedListTests")
+        XCTAssertEqual(manifest.targets.last?.type, .test)
 
-         XCTAssertEqual(manifest.swiftLanguageVersions, [.v4, .v5])
-     }
-      */
+        XCTAssertEqual(manifest.swiftLanguageVersions, [.v4, .v5])
+    }*/
 
     func testFetchSourceArchiveChecksum() throws {
         let registryURL = "https://packages.example.com"
@@ -264,13 +274,15 @@ final class RegistryManagerTests: XCTestCase {
                 }
                 """#.data(using: .utf8)!
 
-                completion(.success(.init(statusCode: 200,
-                                          headers: .init([
-                                              .init(name: "Content-Length", value: "\(data.count)"),
-                                              .init(name: "Content-Type", value: "application/json"),
-                                              .init(name: "Content-Version", value: "1"),
-                                          ]),
-                                          body: data)))
+                completion(.success(.init(
+                    statusCode: 200,
+                    headers: .init([
+                        .init(name: "Content-Length", value: "\(data.count)"),
+                        .init(name: "Content-Type", value: "application/json"),
+                        .init(name: "Content-Version", value: "1"),
+                    ]),
+                    body: data
+                )))
             default:
                 XCTFail("method and url should match")
             }
@@ -290,9 +302,7 @@ final class RegistryManagerTests: XCTestCase {
             customHTTPClient: httpClient
         )
 
-        let checksum = try tsc_await { callback in
-            registryManager.fetchSourceArchiveChecksum(for: version, of: identity, observabilityScope: ObservabilitySystem.NOOP, completion: callback)
-        }
+        let checksum = try registryManager.fetchSourceArchiveChecksum(package: identity, version: version)
         XCTAssertEqual("a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812", checksum)
     }
 
@@ -313,15 +323,17 @@ final class RegistryManagerTests: XCTestCase {
 
                 let data = Data(emptyZipFile.contents)
 
-                completion(.success(.init(statusCode: 200,
-                                          headers: .init([
-                                              .init(name: "Content-Length", value: "\(data.count)"),
-                                              .init(name: "Content-Type", value: "application/zip"),
-                                              .init(name: "Content-Version", value: "1"),
-                                              .init(name: "Content-Disposition", value: #"attachment; filename="LinkedList-1.1.1.zip""#),
-                                              .init(name: "Digest", value: "sha-256=bc6c9a5d2f2226cfa1ef4fad8344b10e1cc2e82960f468f70d9ed696d26b3283"),
-                                          ]),
-                                          body: data)))
+                completion(.success(.init(
+                    statusCode: 200,
+                    headers: .init([
+                        .init(name: "Content-Length", value: "\(data.count)"),
+                        .init(name: "Content-Type", value: "application/zip"),
+                        .init(name: "Content-Version", value: "1"),
+                        .init(name: "Content-Disposition", value: #"attachment; filename="LinkedList-1.1.1.zip""#),
+                        .init(name: "Digest", value: "sha-256=bc6c9a5d2f2226cfa1ef4fad8344b10e1cc2e82960f468f70d9ed696d26b3283"),
+                    ]),
+                    body: data
+                )))
             default:
                 XCTFail("method and url should match")
             }
@@ -341,25 +353,22 @@ final class RegistryManagerTests: XCTestCase {
             customHTTPClient: httpClient
         )
 
-        let expectation = XCTestExpectation(description: "download source archive")
-
         let fileSystem = InMemoryFileSystem()
         let path = AbsolutePath("/LinkedList-1.1.1")
-        registryManager.downloadSourceArchive(for: version, of: identity, into: fileSystem, at: path,
-                                              expectedChecksum: expectedChecksum, checksumAlgorithm: checksumAlgorithm,
-                                              observabilityScope: ObservabilitySystem.NOOP) { result in
-            defer { expectation.fulfill() }
 
-            guard case .success = result else {
-                return XCTAssertResultSuccess(result)
-            }
+        try registryManager.downloadSourceArchive(
+            package: identity,
+            version: version,
+            fileSystem: fileSystem,
+            destinationPath: path,
+            expectedChecksum: expectedChecksum,
+            checksumAlgorithm: checksumAlgorithm
+        )
 
-            XCTAssertNoThrow {
-                let data = try fileSystem.readFileContents(path)
-                XCTAssertEqual(data, emptyZipFile)
-            }
+        XCTAssertNoThrow {
+            let data = try fileSystem.readFileContents(path)
+            XCTAssertEqual(data, emptyZipFile)
         }
-        wait(for: [expectation], timeout: 10.0)
     }
 
     func testDownloadSourceArchiveWithoutExpectedChecksumProvided() throws {
@@ -381,14 +390,14 @@ final class RegistryManagerTests: XCTestCase {
 
                 completion(.success(.init(statusCode: 200,
                                           headers: .init([
-                                              .init(name: "Content-Length", value: "\(data.count)"),
-                                              .init(name: "Content-Type", value: "application/zip"),
-                                              .init(name: "Content-Version", value: "1"),
-                                              .init(name: "Content-Disposition", value: #"attachment; filename="LinkedList-1.1.1.zip""#),
-                                              .init(name: "Digest", value: "sha-256=bc6c9a5d2f2226cfa1ef4fad8344b10e1cc2e82960f468f70d9ed696d26b3283"),
+                                            .init(name: "Content-Length", value: "\(data.count)"),
+                                            .init(name: "Content-Type", value: "application/zip"),
+                                            .init(name: "Content-Version", value: "1"),
+                                            .init(name: "Content-Disposition", value: #"attachment; filename="LinkedList-1.1.1.zip""#),
+                                            .init(name: "Digest", value: "sha-256=bc6c9a5d2f2226cfa1ef4fad8344b10e1cc2e82960f468f70d9ed696d26b3283"),
                                           ]),
                                           body: data)))
-            // `downloadSourceArchive` calls this API to fetch checksum
+                // `downloadSourceArchive` calls this API to fetch checksum
             case (.get, metadataURL):
                 XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+json")
 
@@ -409,13 +418,15 @@ final class RegistryManagerTests: XCTestCase {
                 }
                 """.data(using: .utf8)!
 
-                completion(.success(.init(statusCode: 200,
-                                          headers: .init([
-                                              .init(name: "Content-Length", value: "\(data.count)"),
-                                              .init(name: "Content-Type", value: "application/json"),
-                                              .init(name: "Content-Version", value: "1"),
-                                          ]),
-                                          body: data)))
+                completion(.success(.init(
+                    statusCode: 200,
+                    headers: .init([
+                        .init(name: "Content-Length", value: "\(data.count)"),
+                        .init(name: "Content-Type", value: "application/json"),
+                        .init(name: "Content-Version", value: "1"),
+                    ]),
+                    body: data
+                )))
             default:
                 XCTFail("method and url should match")
             }
@@ -435,25 +446,22 @@ final class RegistryManagerTests: XCTestCase {
             customHTTPClient: httpClient
         )
 
-        let expectation = XCTestExpectation(description: "download source archive")
-
         let fileSystem = InMemoryFileSystem()
         let path = AbsolutePath("/LinkedList-1.1.1")
-        registryManager.downloadSourceArchive(for: version, of: identity, into: fileSystem, at: path,
-                                              expectedChecksum: nil, checksumAlgorithm: checksumAlgorithm,
-                                              observabilityScope: ObservabilitySystem.NOOP) { result in
-            defer { expectation.fulfill() }
 
-            guard case .success = result else {
-                return XCTAssertResultSuccess(result)
-            }
+        try registryManager.downloadSourceArchive(
+            package: identity,
+            version: version,
+            fileSystem: fileSystem,
+            destinationPath: path,
+            expectedChecksum: .none,
+            checksumAlgorithm: checksumAlgorithm
+        )
 
-            XCTAssertNoThrow {
-                let data = try fileSystem.readFileContents(path)
-                XCTAssertEqual(data, emptyZipFile)
-            }
+        XCTAssertNoThrow {
+            let data = try fileSystem.readFileContents(path)
+            XCTAssertEqual(data, emptyZipFile)
         }
-        wait(for: [expectation], timeout: 10.0)
     }
 
     func testLookupIdentities() throws {
@@ -474,13 +482,15 @@ final class RegistryManagerTests: XCTestCase {
                 }
                 """#.data(using: .utf8)!
 
-                completion(.success(.init(statusCode: 200,
-                                          headers: .init([
-                                              .init(name: "Content-Length", value: "\(data.count)"),
-                                              .init(name: "Content-Type", value: "application/json"),
-                                              .init(name: "Content-Version", value: "1"),
-                                          ]),
-                                          body: data)))
+                completion(.success(.init(
+                    statusCode: 200,
+                    headers: .init([
+                        .init(name: "Content-Length", value: "\(data.count)"),
+                        .init(name: "Content-Type", value: "application/json"),
+                        .init(name: "Content-Version", value: "1"),
+                    ]),
+                    body: data
+                )))
             default:
                 XCTFail("method and url should match")
             }
@@ -500,7 +510,87 @@ final class RegistryManagerTests: XCTestCase {
             customHTTPClient: httpClient
         )
 
-        let identities = try tsc_await { callback in registryManager.lookupIdentities(for: packageURL, observabilityScope: ObservabilitySystem.NOOP, completion: callback) }
+        let identities = try registryManager.lookupIdentities(url: packageURL)
         XCTAssertEqual([PackageIdentity.plain("mona.LinkedList")], identities)
+    }
+}
+
+// MARK - Sugar
+
+extension RegistryManager {
+    public func fetchVersions(package: PackageIdentity) throws -> [Version] {
+        return try tsc_await {
+            self.fetchVersions(
+                package: package,
+                observabilityScope: ObservabilitySystem.NOOP,
+                callbackQueue: .sharedConcurrent,
+                completion: $0
+            )
+        }
+    }
+
+    public func fetchManifest(
+        package: PackageIdentity,
+        version: Version,
+        manifestLoader: ManifestLoaderProtocol,
+        toolsVersion: ToolsVersion?
+    ) throws -> Manifest {
+        return try tsc_await {
+            self.fetchManifest(
+                package: package,
+                version: version,
+                manifestLoader: manifestLoader,
+                toolsVersion: toolsVersion,
+                observabilityScope: ObservabilitySystem.NOOP,
+                callbackQueue: .sharedConcurrent,
+                completion: $0
+            )
+        }
+    }
+
+    public func fetchSourceArchiveChecksum(package: PackageIdentity, version: Version) throws -> String {
+        return try tsc_await {
+            self.fetchSourceArchiveChecksum(
+                package: package,
+                version: version,
+                observabilityScope: ObservabilitySystem.NOOP,
+                callbackQueue: .sharedConcurrent,
+                completion: $0
+            )
+        }
+    }
+
+    public func downloadSourceArchive(
+        package: PackageIdentity,
+        version: Version,
+        fileSystem: FileSystem,
+        destinationPath: AbsolutePath,
+        expectedChecksum: String?,
+        checksumAlgorithm: HashAlgorithm
+    ) throws -> Void {
+        return try tsc_await {
+            self.downloadSourceArchive(
+                package: package,
+                version: version,
+                fileSystem: fileSystem,
+                destinationPath: destinationPath,
+                expectedChecksum: expectedChecksum,
+                checksumAlgorithm: checksumAlgorithm,
+                observabilityScope: ObservabilitySystem.NOOP,
+                callbackQueue: .sharedConcurrent,
+                completion: $0
+            )
+        }
+    }
+
+    public func lookupIdentities(url: Foundation.URL) throws -> Set<PackageIdentity> {
+        return try tsc_await {
+            self.lookupIdentities(
+                url: url,
+                observabilityScope: ObservabilitySystem.NOOP,
+                callbackQueue: .sharedConcurrent,
+                completion: $0
+            )
+        }
     }
 }

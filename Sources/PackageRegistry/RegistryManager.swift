@@ -58,10 +58,10 @@ public final class RegistryManager {
     }
 
     public func fetchVersions(
-        of package: PackageIdentity,
-        timeout: DispatchTimeInterval? = nil,
-        callbackQueue: DispatchQueue = .sharedConcurrent,
+        package: PackageIdentity,
+        timeout: DispatchTimeInterval? = .none,
         observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue,
         completion: @escaping (Result<[Version], Error>) -> Void
     ) {
         let completion = self.makeAsync(completion, on: callbackQueue)
@@ -112,14 +112,13 @@ public final class RegistryManager {
     }
 
     public func fetchManifest(
-        for version: Version,
-        of package: PackageIdentity,
-        using manifestLoader: ManifestLoaderProtocol,
-        toolsVersion: ToolsVersion = .currentToolsVersion,
-        swiftLanguageVersion: SwiftLanguageVersion? = nil,
-        timeout: DispatchTimeInterval? = nil,
-        callbackQueue: DispatchQueue = .sharedConcurrent,
+        package: PackageIdentity,
+        version: Version,
+        manifestLoader: ManifestLoaderProtocol,
+        toolsVersion: ToolsVersion?,
+        timeout: DispatchTimeInterval? = .none,
         observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue,
         completion: @escaping (Result<Manifest, Error>) -> Void
     ) {
         let completion = self.makeAsync(completion, on: callbackQueue)
@@ -135,9 +134,9 @@ public final class RegistryManager {
         var components = URLComponents(url: registry.url, resolvingAgainstBaseURL: true)
         components?.appendPathComponents("\(scope)", "\(name)", "\(version)", "Package.swift")
 
-        if let swiftLanguageVersion = swiftLanguageVersion {
+        if let toolsVersion = toolsVersion {
             components?.queryItems = [
-                URLQueryItem(name: "swift-version", value: swiftLanguageVersion.rawValue),
+                URLQueryItem(name: "swift-version", value: toolsVersion.description),
             ]
         }
 
@@ -169,8 +168,8 @@ public final class RegistryManager {
                     let fileSystem = InMemoryFileSystem()
 
                     let filename: String
-                    if let swiftLanguageVersion = swiftLanguageVersion {
-                        filename = Manifest.basename + "@swift-\(swiftLanguageVersion).swift"
+                    if let toolsVersion = toolsVersion {
+                        filename = Manifest.basename + "@swift-\(toolsVersion).swift"
                     } else {
                         filename = Manifest.basename + ".swift"
                     }
@@ -185,7 +184,7 @@ public final class RegistryManager {
                         packageLocation: package.description, // FIXME: was originally PackageReference.locationString
                         version: version,
                         revision: nil,
-                        toolsVersion: .currentToolsVersion,
+                        toolsVersion: toolsVersion ?? .currentToolsVersion,
                         identityResolver: self.identityResolver,
                         fileSystem: fileSystem,
                         observabilityScope: observabilityScope,
@@ -202,11 +201,11 @@ public final class RegistryManager {
     }
 
     public func fetchSourceArchiveChecksum(
-        for version: Version,
-        of package: PackageIdentity,
-        timeout: DispatchTimeInterval? = nil,
-        callbackQueue: DispatchQueue = .sharedConcurrent,
+        package: PackageIdentity,
+        version: Version,
+        timeout: DispatchTimeInterval? = .none,
         observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue,
         completion: @escaping (Result<String, Error>) -> Void
     ) {
         let completion = self.makeAsync(completion, on: callbackQueue)
@@ -262,15 +261,15 @@ public final class RegistryManager {
     }
 
     public func downloadSourceArchive(
-        for version: Version,
-        of package: PackageIdentity,
-        into fileSystem: FileSystem,
-        at destinationPath: AbsolutePath,
-        expectedChecksum: String? = nil, // previously recorded checksum, if any
+        package: PackageIdentity,
+        version: Version,
+        fileSystem: FileSystem,
+        destinationPath: AbsolutePath,
+        expectedChecksum: String?, // previously recorded checksum, if any
         checksumAlgorithm: HashAlgorithm, // the same algorithm used by `package compute-checksum` tool
-        timeout: DispatchTimeInterval? = nil,
-        callbackQueue: DispatchQueue = .sharedConcurrent,
+        timeout: DispatchTimeInterval? = .none,
         observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue,
         completion: @escaping (Result<Void, Error>) -> Void
     ) {
         let completion = self.makeAsync(completion, on: callbackQueue)
@@ -288,7 +287,13 @@ public final class RegistryManager {
             if let expectedChecksum = expectedChecksum {
                 return body(.success(expectedChecksum))
             }
-            self.fetchSourceArchiveChecksum(for: version, of: package, callbackQueue: callbackQueue, observabilityScope: observabilityScope, completion: body)
+            self.fetchSourceArchiveChecksum(
+                package: package,
+                version: version,
+                observabilityScope: observabilityScope,
+                callbackQueue: callbackQueue,
+                completion: body
+            )
         }
 
         var components = URLComponents(url: registry.url, resolvingAgainstBaseURL: true)
@@ -358,10 +363,10 @@ public final class RegistryManager {
     }
 
     public func lookupIdentities(
-        for url: Foundation.URL,
-        timeout: DispatchTimeInterval? = nil,
-        callbackQueue: DispatchQueue = .sharedConcurrent,
+        url: Foundation.URL,
+        timeout: DispatchTimeInterval? = .none,
         observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue,
         completion: @escaping (Result<Set<PackageIdentity>, Error>) -> Void
     ) {
         let completion = self.makeAsync(completion, on: callbackQueue)

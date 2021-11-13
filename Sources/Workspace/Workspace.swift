@@ -3342,20 +3342,25 @@ extension Workspace {
          }
 
          let downloadPath = self.location.registryDownloadDirectory.appending(components: package.identity.description, version.description)
-         if !self.fileSystem.exists(downloadPath) {
-             _ = try temp_await {
-                 registryManager.downloadSourceArchive(
-                    for: version,
-                       of: package,
-                       into: self.fileSystem,
-                       at: downloadPath,
-                       observabilityScope: observabilityScope,
-                       on: .sharedConcurrent,
-                       completion: $0
-                 )
-             }
-             // TODO: make download read-only?
+         if self.fileSystem.exists(downloadPath) {
+             return downloadPath
          }
+
+         try temp_await {
+             registryManager.downloadSourceArchive(
+                package: package.identity,
+                version: version,
+                fileSystem: self.fileSystem,
+                destinationPath: downloadPath,
+                expectedChecksum: nil, // we dont know at this point
+                checksumAlgorithm: self.checksumAlgorithm,
+                observabilityScope: observabilityScope,
+                callbackQueue: .sharedConcurrent,
+                completion: $0
+             )
+         }
+
+         // TODO: make download read-only?
 
          self.state.dependencies.add(
             try .registry(
