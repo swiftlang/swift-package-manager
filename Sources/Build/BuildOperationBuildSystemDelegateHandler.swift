@@ -612,9 +612,44 @@ final class BuildOperationBuildSystemDelegateHandler: LLBuildBuildSystemDelegate
                 // next we want to try and scoop out any errors from the output (if reasonable size, otherwise this will be very slow),
                 // so they can later be passed to the advice provider in case of failure.
                 if output.utf8.count < 1024 * 10 {
-                    let regex = try! RegEx(pattern: #".*(error:[^\n]*)\n.*"#, options: .dotMatchesLineSeparators)
+
+                    do {
+                        let regex = try! RegEx(pattern: #"^(.*):(\d+):(\d+):\s*(error|warning|note|remark)\S?\s*(.*)$"#, options: [.anchorsMatchLines])
+                        for match in regex.matchGroups(in: output) {
+                            if let filePath = try? AbsolutePath(validating: match[0]) {
+
+                                var severity: Basics.Diagnostic.Severity {
+                                    switch match[3] {
+                                    case "error":
+                                        return .error
+                                    case "warning":
+                                        return .warning
+                                    case "note":
+                                        return .info
+                                    case "remark":
+                                        return .info
+                                    default:
+                                        return .debug
+                                    }
+                                }
+
+                                var metadata = ObservabilityMetadata()
+                                metadata.fileLocation = FileLocation(filePath, line: Int(match[1]), column: Int(match[2]))
+                                self.observabilityScope.emit(
+                                    Basics.Diagnostic(
+                                        severity: severity,
+                                        message: match[4],
+                                        metadata: metadata
+                                    )
+                                )
+                            }
+                        }
+                    }
+
+                    let regex = try! RegEx(pattern: #"(error:[^\n]*)\n.*"#, options: .dotMatchesLineSeparators)
                     for match in regex.matchGroups(in: output) {
                         self.errorMessagesByTarget[parser.targetName] = (self.errorMessagesByTarget[parser.targetName] ?? []) + [match[0]]
+
                     }
                 }
             }

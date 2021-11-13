@@ -859,13 +859,24 @@ extension ObservabilityMetadata {
 public struct FileLocation: Equatable, CustomStringConvertible {
     public let file: AbsolutePath
     public let line: Int?
+    public let column: Int?
 
-    public init(_ file: AbsolutePath, line: Int?) {
+    public init(_ file: AbsolutePath, line: Int?, column: Int? = nil) {
         self.file = file
         self.line = line
+        self.column = column
     }
 
     public var description: String {
-        "\(self.file)\(self.line?.description.appending(" ") ?? "")"
+        var desc = self.file.description
+        if let line = line {
+            desc += ":\(line)"
+        }
+
+        if let column = column {
+            desc += ":\(column)"
+        }
+
+        return desc
     }
 }
