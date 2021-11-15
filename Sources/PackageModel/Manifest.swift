@@ -256,6 +256,9 @@ public final class Manifest {
             for targetDependency in target.dependencies {
                 register(targetDependency: targetDependency, registry: &registry, availablePackages: availablePackages)
             }
+            for requiredPlugIn in target.pluginUsages ?? [] {
+                register(requiredPlugIn: requiredPlugIn, registry: &registry, availablePackages: availablePackages)
+            }
         }
 
         // Products whose package could not be determined are marked as needed on every dependency.
@@ -358,6 +361,35 @@ public final class Manifest {
                             registry.unknown.insert(product)
                         }
                 }
+            }
+        }
+    }
+
+    /// Registers a required plug‐in with a particular dependency if possible, or registers it as unknown.
+    ///
+    /// - Parameters:
+    ///   - requiredPlugIn: The plug‐in to register.
+    ///   - registry: The registry in which to record the assocation.
+    ///   - availablePackages: The set of available packages.
+    private func register(
+        requiredPlugIn: TargetDescription.PluginUsage,
+        registry: inout (known: [PackageIdentity: ProductFilter], unknown: Set<String>),
+        availablePackages: Set<PackageIdentity>
+    ) {
+        switch requiredPlugIn {
+        case .plugin(let name, let package):
+            if let package = package {
+                if !register(
+                    product: name,
+                    inPackage: .plain(package),
+                    registry: &registry.known,
+                    availablePackages: availablePackages) {
+                    // Invalid, diagnosed later; see the dependency version of this method.
+                    registry.unknown.insert(name)
+                }
+            } else {
+                // The plug‐in is in the same package.
+                break
             }
         }
     }

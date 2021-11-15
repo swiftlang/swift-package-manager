@@ -59,6 +59,7 @@ class ManifestTests: XCTestCase {
                 "Bar",
                 "Baz",
                 "Foo",
+                "MyPlugin",
             ])
             #endif
         }

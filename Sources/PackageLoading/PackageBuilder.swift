@@ -1255,37 +1255,46 @@ public final class PackageBuilder {
             append(Product(name: product.name, type: product.type, targets: targets))
         }
 
-        // Add implicit executables - for root packages only.
+        // Add implicit executables - for root packages and for dependency plugins.
 
-        if self.manifest.packageKind.isRoot {
-            // Compute the list of targets which are being used in an
-            // executable product so we don't create implicit executables
-            // for them.
-            let explicitProductsTargets = Set(self.manifest.products.flatMap{ product -> [String] in
-                switch product.type {
-                case .library, .plugin, .test:
-                    return []
-                case .executable, .snippet:
-                    return product.targets
-                }
-            })
-
-            let productMap = products.reduce(into: [String: Product]()) { partial, iterator in
-                partial[iterator.key] = iterator.item
+        // Compute the list of targets which are being used in an
+        // executable product so we don't create implicit executables
+        // for them.
+        let explicitProductsTargets = Set(self.manifest.products.flatMap{ product -> [String] in
+            switch product.type {
+            case .library, .plugin, .test:
+                return []
+            case .executable, .snippet:
+                return product.targets
             }
+        })
 
-            for target in targets where target.type == .executable {
-                if explicitProductsTargets.contains(target.name) {
-                    // If there is already an executable target with this name, skip generating a product for it
-                    continue
-                } else if let product = productMap[target.name] {
-                    // If there is already a product with this name skip generating a product for it,
-                    // but warn if that product is not executable
-                    if product.type != .executable {
-                        self.observabilityScope.emit(warning: "The target named '\(target.name)' was identified as an executable target but a non-executable product with this name already exists.")
-                    }
-                    continue
-                } else {
+        let productMap = products.reduce(into: [String: Product]()) { partial, iterator in
+            partial[iterator.key] = iterator.item
+        }
+
+        let implicitPlugInExecutables = Set(
+            targets.lazy
+                .filter({ $0.type == .plugin })
+                .flatMap({ $0.dependencies })
+                .map({ $0.name })
+        )
+
+        for target in targets where target.type == .executable {
+            if self.manifest.packageKind.isRoot && explicitProductsTargets.contains(target.name) {
+                // If there is already an executable target with this name, skip generating a product for it
+                // (This shortcut only works for the root manifest, because for dependencies,
+                // products that correspond to plug‐ins may have been culled during resolution.)
+                continue
+            } else if let product = productMap[target.name] {
+                // If there is already a product with this name skip generating a product for it,
+                // but warn if that product is not executable
+                if product.type != .executable {
+                    self.observabilityScope.emit(warning: "The target named '\(target.name)' was identified as an executable target but a non-executable product with this name already exists.")
+                }
+                continue
+            } else {
+                if self.manifest.packageKind.isRoot || implicitPlugInExecutables.contains(target.name) {
                     // Generate an implicit product for the executable target
                     let product = Product(name: target.name, type: .executable, targets: [target])
                     append(product)
