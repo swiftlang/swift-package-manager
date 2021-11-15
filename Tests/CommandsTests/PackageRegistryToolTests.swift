@@ -19,7 +19,7 @@ import XCTest
 let defaultRegistryBaseURL = URL(string: "https://packages.example.com")!
 let customRegistryBaseURL = URL(string: "https://custom.packages.example.com")!
 
-final class PackageRegistryToolTests: XCTestCase {
+final class PackageRegistryToolTests: CommandsTestCase {
     @discardableResult
     private func execute(
         _ args: [String],

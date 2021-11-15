@@ -14,7 +14,8 @@ import SPMTestSupport
 import TSCBasic
 import XCTest
 
-final class SwiftToolTests: XCTestCase {
+final class SwiftToolTests: CommandsTestCase {
+    
     func testVerbosityLogLevel() throws {
         fixture(name: "Miscellaneous/Simple") { packageRoot in
             do {

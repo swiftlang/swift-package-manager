@@ -14,7 +14,8 @@ import SPMTestSupport
 import Commands
 import TSCBasic
 
-final class RunToolTests: XCTestCase {
+final class RunToolTests: CommandsTestCase {
+    
     private func execute(
         _ args: [String],
         packagePath: AbsolutePath? = nil

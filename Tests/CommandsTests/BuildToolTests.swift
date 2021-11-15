@@ -25,7 +25,7 @@ struct BuildResult {
     let binContents: [String]
 }
 
-final class BuildToolTests: XCTestCase {
+final class BuildToolTests: CommandsTestCase {
     @discardableResult
     private func execute(
         _ args: [String],
