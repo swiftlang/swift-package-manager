@@ -182,54 +182,85 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
     }
 
     fileprivate func invoke(compiledExec: AbsolutePath, pluginArguments: [String], toolsVersion: ToolsVersion, writableDirectories: [AbsolutePath], input: Data) throws -> (outputJSON: Data, stdoutText: Data) {
-        // Construct the command line.
-        
-        // FIXME: Need to pass down the arguments and not ignore them.
-        
-        // FIXME: It would be more robust to pass it as `stdin` data, but we need TSC support for that.  When this is
-        // changed, PackagePlugin will need to change as well (but no plugins need to change).
-        var command = [compiledExec.pathString]
+        // Construct the command line.  We just pass along any arguments intended for the plugin.
+        var command = [compiledExec.pathString] + pluginArguments
         command += [String(decoding: input, as: UTF8.self)]
 
         // If enabled, run command in a sandbox.
         // This provides some safety against arbitrary code execution when invoking the plugin.
         // We only allow the permissions which are absolutely necessary.
         if self.enableSandbox {
-            command = Sandbox.apply(command: command, writableDirectories: writableDirectories)
+            command = Sandbox.apply(command: command, writableDirectories: writableDirectories + [self.cacheDir])
         }
 
-        // Invoke the plugin script as a subprocess.
-        let result: ProcessResult
+        // Create and configure a Process.
+        let process = Process()
+        process.launchPath = command.first!
+        process.arguments = Array(command.dropFirst())
+        process.environment = ProcessInfo.processInfo.environment
+        process.currentDirectoryURL = self.cacheDir.asURL
+            
+        // Create a dispatch group for waiting until the process has terminated and the data has been read.
+        let waiters = DispatchGroup()
+        // Set up for capturing stdout data.
+        let stdoutPipe = Pipe()
+        var stdoutData = Data()
+        waiters.enter()
+        stdoutPipe.fileHandleForReading.readabilityHandler = { (fileHandle: FileHandle) -> Void in
+            let newData = fileHandle.availableData
+            if newData.isEmpty {
+                fileHandle.readabilityHandler = nil
+                waiters.leave()
+            }
+            else {
+                stdoutData.append(contentsOf: newData)
+            }
+        }
+        process.standardOutput = stdoutPipe
+        
+        // Set up for capturing stderr data.
+        waiters.enter()
+        let stderrPipe = Pipe()
+        var stderrData = Data()
+        stderrPipe.fileHandleForReading.readabilityHandler = { (fileHandle: FileHandle) -> Void in
+            let newData = fileHandle.availableData
+            if newData.isEmpty {
+                fileHandle.readabilityHandler = nil
+                waiters.leave()
+            }
+            else {
+                stderrData.append(contentsOf: newData)
+            }
+        }
+        process.standardError = stderrPipe
+        
+        // Set up a termination handler.
+        process.terminationHandler = { _ in
+            waiters.leave()
+        }
+
+        // Start the process.
+        waiters.enter()
         do {
-            result = try Process.popen(arguments: command)
+            try process.run()
         } catch {
             throw DefaultPluginScriptRunnerError.subprocessDidNotStart("\(error)", command: command)
         }
 
-        // Collect the output. The `PackagePlugin` runtime library writes the output as a zero byte followed by
-        // the JSON-serialized PluginEvaluationResult. Since this appears after any free-form output from the
-        // script, it can be safely split out while maintaining the ability to see debug output without resorting
-        // to side-channel communication that might be not be very cross-platform (e.g. pipes, file handles, etc).
-        // We end up with an optional Data for the JSON, and two Datas for stdout and stderr respectively.
-        var stdoutPieces = (try? result.output.get().split(separator: 0, omittingEmptySubsequences: false)) ?? []
-        let jsonData = (stdoutPieces.count > 1) ? Data(stdoutPieces.removeLast()) : nil
-        let stdoutData = Data(stdoutPieces.joined())
-        let stderrData = (try? Data(result.stderrOutput.get())) ?? Data()
+        // Wait for the process to terminate and the readers to finish collecting all output.
+        waiters.wait()
+
+        
+        // Now `stdoutData` contains a JSON-encoded output structure, and `stderrData` contains any free text output from the plugin process.
+        let stderrText = String(decoding: stderrData, as: UTF8.self)
 
         // Throw an error if we the subprocess ended badly.
-        if result.exitStatus != .terminated(code: 0) {
-            let output = String(decoding: stdoutData + stderrData, as: UTF8.self)
-            throw DefaultPluginScriptRunnerError.subprocessFailed("\(result.exitStatus)", command: command, output: output)
-        }
-
-        // Throw an error if we didn't get the JSON data.
-        guard let json = jsonData else {
-            let output = String(decoding: stdoutData + stderrData, as: UTF8.self)
-            throw DefaultPluginScriptRunnerError.missingPluginJSON("didn't receive JSON output data", command: command, output: output)
+        if !(process.terminationReason == .exit && process.terminationStatus == 0) {
+            throw DefaultPluginScriptRunnerError.subprocessFailed("\(process.terminationStatus)", command: command, output: stderrText)
         }
 
         // Otherwise return the JSON data and any output text.
-        return (outputJSON: json, stdoutText: stdoutData + stderrData)
+        return (outputJSON: stdoutData, stdoutText: stderrData)
     }
 }
 
