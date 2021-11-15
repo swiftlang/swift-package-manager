@@ -218,7 +218,7 @@ public struct PubgrubDependencyResolver {
             let updatePackage = try container.underlying.loadPackageReference(at: boundVersion)
 
             if var existing = flattenedAssignments[updatePackage] {
-                assert(existing.binding == boundVersion, "Two products in one package resolved to different versions: \(existing.products)@\(existing.binding) vs \(products)@\(boundVersion) in \(updatePackage.name)")
+                assert(existing.binding == boundVersion, "Two products in one package resolved to different versions: \(existing.products)@\(existing.binding) vs \(products)@\(boundVersion)")
                 existing.products.formUnion(products)
                 flattenedAssignments[updatePackage] = existing
             } else {
