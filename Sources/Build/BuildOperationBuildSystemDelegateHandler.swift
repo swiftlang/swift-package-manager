@@ -648,7 +648,6 @@ final class BuildOperationBuildSystemDelegateHandler: LLBuildBuildSystemDelegate
                     let regex = try! RegEx(pattern: #"(error:[^\n]*)\n.*"#, options: .dotMatchesLineSeparators)
                     for match in regex.matchGroups(in: output) {
                         self.errorMessagesByTarget[parser.targetName] = (self.errorMessagesByTarget[parser.targetName] ?? []) + [match[0]]
-
                     }
                 }
             }
