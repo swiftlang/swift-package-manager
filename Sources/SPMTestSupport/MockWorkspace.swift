@@ -823,7 +823,7 @@ extension PackageReference.Kind {
 
 extension Workspace.ManagedDependency {
     fileprivate var checkoutState: CheckoutState? {
-        if case .sourceControl(let checkoutState) = self.state {
+        if case .sourceControlCheckout(let checkoutState) = self.state {
             return checkoutState
         }
         return .none

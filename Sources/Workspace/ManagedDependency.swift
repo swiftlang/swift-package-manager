@@ -27,10 +27,10 @@ extension Workspace {
             case fileSystem(AbsolutePath)
 
             /// The dependency is a managed source control checkout.
-            case sourceControl(CheckoutState)
+            case sourceControlCheckout(CheckoutState)
 
             /// The dependency is downloaded from a registry.
-            case registry(version: Version)
+            case registryDownload(version: Version)
 
             /// The dependency is in edited state.
             ///
@@ -43,10 +43,10 @@ extension Workspace {
                 switch self {
                 case .fileSystem(let path):
                     return "fileSystem (\(path))"
-                case .sourceControl(let checkoutState):
-                    return "sourceControl (\(checkoutState))"
-                case .registry(let version):
-                    return "registry (\(version))"
+                case .sourceControlCheckout(let checkoutState):
+                    return "sourceControlCheckout (\(checkoutState))"
+                case .registryDownload(let version):
+                    return "registryDownload (\(version))"
                 case .edited:
                     return "edited"
                 }
@@ -78,8 +78,15 @@ extension Workspace {
         /// - Parameters:
         ///     - subpath: The subpath inside the editable directory.
         ///     - unmanagedPath: A custom absolute path instead of the subpath.
-        public func edited(subpath: RelativePath, unmanagedPath: AbsolutePath?) -> ManagedDependency {
-            return .edited(packageRef: self.packageRef, subpath: subpath, basedOn: self, unmanagedPath: unmanagedPath)
+        public func edited(subpath: RelativePath, unmanagedPath: AbsolutePath?) throws -> ManagedDependency {
+            guard case .sourceControlCheckout =  self.state else {
+                throw InternalError("invalid depenedency state: \(self.state)")
+            }
+            return ManagedDependency(
+                packageRef: self.packageRef,
+                state: .edited(basedOn: self, unmanagedPath: unmanagedPath),
+                subpath: subpath
+            )
         }
 
         /// Create a dependency present locally on the filesystem.
@@ -100,7 +107,7 @@ extension Workspace {
         }
 
         /// Create a source control dependency checked out
-        public static func sourceControl(
+        public static func sourceControlCheckout(
             packageRef: PackageReference,
             state: CheckoutState,
             subpath: RelativePath
@@ -109,7 +116,7 @@ extension Workspace {
             case .localSourceControl, .remoteSourceControl:
                 return ManagedDependency(
                     packageRef: packageRef,
-                    state: .sourceControl(state),
+                    state: .sourceControlCheckout(state),
                     subpath: subpath
                 )
             default:
@@ -117,8 +124,8 @@ extension Workspace {
             }
         }
 
-        /// Create a registry  dependency downloaded
-        public static func registry(
+        /// Create a registry dependency downloaded
+        public static func registryDownload(
             packageRef: PackageReference,
             version: Version,
             subpath: RelativePath
@@ -128,7 +135,7 @@ extension Workspace {
             }
             return ManagedDependency(
                 packageRef: packageRef,
-                state: .registry(version: version),
+                state: .registryDownload(version: version),
                 subpath: subpath
             )
         }

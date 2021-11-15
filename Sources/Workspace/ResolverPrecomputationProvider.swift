@@ -97,7 +97,7 @@ private struct LocalPackageContainer: PackageContainer {
     let currentToolsVersion: ToolsVersion
 
     func versionsAscending() throws -> [Version] {
-        if case .version(let version, revision: _) = dependency?.state.checkout {
+        if case .sourceControlCheckout(.version(let version, revision: _)) = dependency?.state {
             return [version]
         } else {
             return []
@@ -123,7 +123,7 @@ private struct LocalPackageContainer: PackageContainer {
 
     func getDependencies(at version: Version, productFilter: ProductFilter) throws -> [PackageContainerConstraint] {
         // Because of the implementation of `reversedVersions`, we should only get the exact same version.
-        guard case .sourceControl(.version(version, revision: _)) = dependency?.state else {
+        guard case .sourceControlCheckout(.version(version, revision: _)) = dependency?.state else {
             throw InternalError("expected version checkout state, but state was \(String(describing: dependency?.state))")
         }
         return try manifest.dependencyConstraints(productFilter: productFilter)
@@ -133,7 +133,7 @@ private struct LocalPackageContainer: PackageContainer {
         // Return the dependencies if the checkout state matches the revision.
         let revision = Revision(identifier: revisionString)
         switch dependency?.state {
-        case .sourceControl(.branch(_, revision: revision)), .sourceControl(.revision(revision)):
+        case .sourceControlCheckout(.branch(_, revision: revision)), .sourceControlCheckout(.revision(revision)):
             return try manifest.dependencyConstraints(productFilter: productFilter)
         default:
             throw ResolverPrecomputationError.differentRequirement(
@@ -146,7 +146,7 @@ private struct LocalPackageContainer: PackageContainer {
 
     func getUnversionedDependencies(productFilter: ProductFilter) throws -> [PackageContainerConstraint] {
         // Throw an error when the dependency is not unversioned to fail resolution.
-        guard dependency?.isSourceControl != true else {
+        guard dependency?.isSourceControlCheckout != true else {
             throw ResolverPrecomputationError.differentRequirement(
                 package: package,
                 state: dependency?.state,
@@ -168,19 +168,8 @@ private struct LocalPackageContainer: PackageContainer {
 }
 
 private extension Workspace.ManagedDependency {
-    var isSourceControl: Bool {
-        if case .sourceControl = self.state { return true }
+    var isSourceControlCheckout: Bool {
+        if case .sourceControlCheckout = self.state { return true }
         return false
-    }
-}
-
-private extension Workspace.ManagedDependency.State {
-    var checkout: CheckoutState? {
-        switch self {
-        case .sourceControl(let state):
-            return state
-        default:
-            return nil
-        }
     }
 }
