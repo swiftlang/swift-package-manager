@@ -236,7 +236,7 @@ extension WorkspaceStateStorage {
                         let path = try container.decode(AbsolutePath?.self, forKey: .path)
                         return try self.init(underlying: .edited(basedOn: basedOn.map { try .init($0) }, unmanagedPath: path))
                     default:
-                        throw InternalError("unknown checkout state \(kind)")
+                        throw StringError("unknown dependency state \(kind)")
                     }
                 }
 
@@ -318,7 +318,7 @@ extension WorkspaceStateStorage {
                         let checksum = try container.decode(String.self, forKey: .checksum)
                         self.init(underlying: .remote(url: url, checksum: checksum))
                     default:
-                        throw InternalError("unknown checkout state \(kind)")
+                        throw StringError("unknown artifact source \(kind)")
                     }
                 }
 
@@ -518,7 +518,7 @@ extension WorkspaceStateStorage {
                         let path = try container.decode(AbsolutePath?.self, forKey: .path)
                         return try self.init(underlying: .edited(basedOn: basedOn.map { try .init($0) }, unmanagedPath: path))
                     default:
-                        throw InternalError("unknown checkout state \(kind)")
+                        throw StringError("unknown dependency state \(kind)")
                     }
                 }
 
@@ -578,7 +578,7 @@ extension WorkspaceStateStorage {
                         let checksum = try container.decode(String.self, forKey: .checksum)
                         self.init(underlying: .remote(url: url, checksum: checksum))
                     default:
-                        throw InternalError("unknown checkout state \(kind)")
+                        throw StringError("unknown artifact source \(kind)")
                     }
                 }
 

@@ -1255,7 +1255,7 @@ public final class PackageBuilder {
             append(Product(name: product.name, type: product.type, targets: targets))
         }
 
-        // Add implicit executables - for root packages and for dependency plug‐ins.
+        // Add implicit executables - for root packages and for dependency plugins.
 
         // Compute the list of targets which are being used in an
         // executable product so we don't create implicit executables
@@ -1273,10 +1273,12 @@ public final class PackageBuilder {
             partial[iterator.key] = iterator.item
         }
 
-        let implicitPlugInExecutables = Set(targets.lazy
-             .filter({ $0.type == .plugin })
-             .flatMap({ $0.dependencies })
-             .map { $0.name })
+        let implicitPlugInExecutables = Set(
+            targets.lazy
+                .filter({ $0.type == .plugin })
+                .flatMap({ $0.dependencies })
+                .map({ $0.name })
+        )
 
         for target in targets where target.type == .executable {
             if self.manifest.packageKind.isRoot && explicitProductsTargets.contains(target.name) {
