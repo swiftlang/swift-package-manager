@@ -1170,3 +1170,10 @@ extension SwiftToolOptions {
         }
     }
 }
+
+extension Workspace.ManagedDependency {
+    fileprivate var isEdited: Bool {
+        if case .edited = self.state { return true }
+        return false
+    }
+}
