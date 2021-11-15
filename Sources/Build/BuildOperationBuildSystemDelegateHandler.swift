@@ -612,9 +612,8 @@ final class BuildOperationBuildSystemDelegateHandler: LLBuildBuildSystemDelegate
                 // next we want to try and scoop out any errors from the output (if reasonable size, otherwise this will be very slow),
                 // so they can later be passed to the advice provider in case of failure.
                 if output.utf8.count < 1024 * 10 {
-
                     do {
-                        let regex = try! RegEx(pattern: #"^(.*):(\d+):(\d+):\s*(error|warning|note|remark)\S?\s*(.*)$"#, options: [.anchorsMatchLines])
+                        let regex = try! RegEx(pattern: #"^(.*):(\d+):(\d+):\s*(error|warning|note|remark)\S?\s*(.*)$"#, options: .anchorsMatchLines)
                         for match in regex.matchGroups(in: output) {
                             if let filePath = try? AbsolutePath(validating: match[0]) {
 
