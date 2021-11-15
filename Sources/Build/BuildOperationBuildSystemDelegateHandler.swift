@@ -9,14 +9,14 @@
 */
 
 import Basics
-import TSCBasic
-import TSCUtility
-import SPMLLBuild
-import PackageModel
 import Dispatch
 import Foundation
 import LLBuildManifest
+import PackageModel
 import SPMBuildCore
+import SPMLLBuild
+import TSCBasic
+import TSCUtility
 
 #if canImport(llbuildSwift)
 typealias LLBuildBuildSystemDelegate = llbuildSwift.BuildSystemDelegate
@@ -635,12 +635,12 @@ final class BuildOperationBuildSystemDelegateHandler: LLBuildBuildSystemDelegate
         }
     }
 
-    func buildComplete(success: Bool) {
+    func buildComplete(success: Bool, duration: DispatchTimeInterval) {
         queue.sync {
             self.progressAnimation.complete(success: success)
             if success {
                 self.progressAnimation.clear()
-                self.outputStream <<< "Build complete!\n"
+                self.outputStream <<< "Build complete! (\(duration.descriptionInSeconds))\n"
                 self.outputStream.flush()
             }
         }

@@ -272,15 +272,17 @@ final class BuildToolTests: CommandsTestCase {
         fixture(name: "DependencyResolution/Internal/Simple") { path in
             do {
                 let result = try execute([], packagePath: path)
-                // Number of steps must be greater than 0. e.g., [8/8] Build complete!
-                XCTAssertMatch(result.stdout, .regex("\\[[1-9][0-9]*\\/[1-9][0-9]*\\] Linking Foo"))
-                XCTAssertMatch(result.stdout, .suffix("\nBuild complete!\n"))
+                XCTAssertMatch(result.stdout, .regex("\\[[1-9][0-9]*\\/[1-9][0-9]*\\] Compiling"))
+                let lines = result.stdout.split(separator: "\n")
+                XCTAssertMatch(String(lines.last!), .regex("Build complete! \\([0-9]*\\.[0-9]*s\\)"))
             }
 
             do {
-                let result = try execute([], packagePath: path)
                 // test second time, to make sure message is presented even when nothing to build (cached)
-                XCTAssertMatch(result.stdout, .equal("[1/1] Planning build\nBuilding for debugging...\nBuild complete!\n"))
+                let result = try execute([], packagePath: path)
+                XCTAssertNoMatch(result.stdout, .regex("\\[[1-9][0-9]*\\/[1-9][0-9]*\\] Compiling"))
+                let lines = result.stdout.split(separator: "\n")
+                XCTAssertMatch(String(lines.last!), .regex("Build complete! \\([0-9]*\\.[0-9]*s\\)"))
             }
         }
     }
