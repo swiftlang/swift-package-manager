@@ -25,9 +25,8 @@ extension PackageDependency {
             case .remote(let url):
                 packageKind = .remoteSourceControl(url)
             }
-        case .registry:
-            // FIXME
-            fatalError("registry based dependencies not implemented yet")
+        case .registry(let settings):
+            packageKind = .registry(settings.identity)
         }
         return PackageReference(identity: self.identity, kind: packageKind)
     }

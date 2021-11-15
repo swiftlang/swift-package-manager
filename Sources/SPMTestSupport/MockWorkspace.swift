@@ -407,6 +407,24 @@ public final class MockWorkspace {
         managedDependencies: [Workspace.ManagedDependency] = [],
         managedArtifacts: [Workspace.ManagedArtifact] = []
     ) throws {
+        let pins = pins.mapValues { checkoutState -> PinsStore.PinState in
+            switch checkoutState {
+            case .version(let version, let revision):
+                return .version(version, revision: revision.identifier)
+            case .branch(let name, let revision):
+                return .branch(name: name, revision: revision.identifier)
+            case.revision(let revision):
+                return .revision(revision.identifier)
+            }
+        }
+        try self.set(pins: pins, managedDependencies: managedDependencies, managedArtifacts: managedArtifacts)
+    }
+
+    public func set(
+        pins: [PackageReference: PinsStore.PinState] = [:],
+        managedDependencies: [Workspace.ManagedDependency] = [],
+        managedArtifacts: [Workspace.ManagedArtifact] = []
+    ) throws {
         let workspace = try self.getOrCreateWorkspace()
         let pinsStore = try workspace.pinsStore.load()
 
@@ -490,7 +508,7 @@ public final class MockWorkspace {
                     return
                 }
             case .local:
-                guard case .local(_) = dependency.state  else {
+                guard case .fileSystem(_) = dependency.state  else {
                     XCTFail("Expected local dependency", file: file, line: line)
                     return
                 }
@@ -604,14 +622,16 @@ public final class MockWorkspace {
                 return
             }
             switch state {
-            case .checkout(let state):
-                switch state {
-                case .version(let version):
-                    XCTAssertEqual(pin.state.version, version, file: file, line: line)
-                case .revision(let revision):
-                    XCTAssertEqual(pin.state.revision.identifier, revision, file: file, line: line)
-                case .branch(let branch):
-                    XCTAssertEqual(pin.state.branch, branch, file: file, line: line)
+            case .checkout(let checkoutState):
+                switch (checkoutState, pin.state) {
+                case (.version(let checkoutVersion), .version(let pinVersion, _)):
+                    XCTAssertEqual(pinVersion, checkoutVersion, file: file, line: line)
+                case (.revision(let checkoutRevision), .revision(let pinRevision)):
+                    XCTAssertEqual(checkoutRevision, pinRevision, file: file, line: line)
+                case (.branch(let checkoutBranch), .branch(let pinBranch, _)):
+                    XCTAssertEqual(checkoutBranch, pinBranch, file: file, line: line)
+                default:
+                    XCTFail("state dont match \(checkoutState) \(pin.state)", file: file, line: line)
                 }
             case .edited, .local:
                 XCTFail("Unimplemented", file: file, line: line)
@@ -803,10 +823,25 @@ extension PackageReference.Kind {
 
 extension Workspace.ManagedDependency {
     fileprivate var checkoutState: CheckoutState? {
-        if case .checkout(let checkoutState) = state {
+        if case .sourceControlCheckout(let checkoutState) = self.state {
             return checkoutState
         }
         return .none
+    }
+}
+
+extension CheckoutState {
+    fileprivate var revision: Revision {
+        get {
+            switch self {
+            case .revision(let revision):
+                return revision
+            case .version(_, let revision):
+                return revision
+            case .branch(_, let revision):
+                return revision
+            }
+        }
     }
 }
 

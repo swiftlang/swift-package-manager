@@ -7,6 +7,7 @@
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
 add_library(Workspace
+  CheckoutState.swift
   DefaultPluginScriptRunner.swift
   Destination.swift
   Diagnostics.swift

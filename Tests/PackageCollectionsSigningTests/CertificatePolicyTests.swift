@@ -172,7 +172,7 @@ class CertificatePolicyTests: XCTestCase {
             let certPath = directoryPath.appending(components: "Signing", "development.cer")
             let certificate = try Certificate(derEncoded: Data(try localFileSystem.readFileContents(certPath).contents))
 
-            let intermediateCAPath = directoryPath.appending(components: "Signing", "AppleWWDRCA.cer")
+            let intermediateCAPath = directoryPath.appending(components: "Signing", "AppleWWDRCAG3.cer")
             let intermediateCA = try Certificate(derEncoded: Data(try localFileSystem.readFileContents(intermediateCAPath).contents))
 
             let rootCAPath = directoryPath.appending(components: "Signing", "AppleIncRoot.cer")
@@ -310,7 +310,7 @@ class CertificatePolicyTests: XCTestCase {
             let certPath = directoryPath.appending(components: "Signing", "development.cer")
             let certificate = try Certificate(derEncoded: Data(try localFileSystem.readFileContents(certPath).contents))
 
-            let intermediateCAPath = directoryPath.appending(components: "Signing", "AppleWWDRCA.cer")
+            let intermediateCAPath = directoryPath.appending(components: "Signing", "AppleWWDRCAG3.cer")
             let intermediateCA = try Certificate(derEncoded: Data(try localFileSystem.readFileContents(intermediateCAPath).contents))
 
             let rootCAPath = directoryPath.appending(components: "Signing", "AppleIncRoot.cer")
@@ -318,7 +318,7 @@ class CertificatePolicyTests: XCTestCase {
 
             let certChain = [certificate, intermediateCA, rootCA]
 
-#if os(macOS)
+            #if os(macOS)
             // The Apple root certs come preinstalled on Apple platforms and they are automatically trusted
             do {
                 let policy = AppleDistributionCertificatePolicy(
@@ -378,7 +378,7 @@ class CertificatePolicyTests: XCTestCase {
             let certPath = directoryPath.appending(components: "Signing", "development.cer")
             let certificate = try Certificate(derEncoded: Data(try localFileSystem.readFileContents(certPath).contents))
 
-            let intermediateCAPath = directoryPath.appending(components: "Signing", "AppleWWDRCA.cer")
+            let intermediateCAPath = directoryPath.appending(components: "Signing", "AppleWWDRCAG3.cer")
             let intermediateCA = try Certificate(derEncoded: Data(try localFileSystem.readFileContents(intermediateCAPath).contents))
 
             let rootCAPath = directoryPath.appending(components: "Signing", "AppleIncRoot.cer")
@@ -532,7 +532,7 @@ class CertificatePolicyTests: XCTestCase {
             let certPath = directoryPath.appending(components: "Signing", "development.cer")
             let certificate = try Certificate(derEncoded: Data(try localFileSystem.readFileContents(certPath).contents))
 
-            let intermediateCAPath = directoryPath.appending(components: "Signing", "AppleWWDRCA.cer")
+            let intermediateCAPath = directoryPath.appending(components: "Signing", "AppleWWDRCAG3.cer")
             let intermediateCA = try Certificate(derEncoded: Data(try localFileSystem.readFileContents(intermediateCAPath).contents))
 
             let rootCAPath = directoryPath.appending(components: "Signing", "AppleIncRoot.cer")

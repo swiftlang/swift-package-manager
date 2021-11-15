@@ -9,6 +9,7 @@
 */
 
 import Basics
+import Foundation
 import PackageModel
 import PackageLoading
 import SPMTestSupport
@@ -655,30 +656,55 @@ class TargetSourcesBuilderTests: XCTestCase {
             "/Bar.swift"
         ])
 
-        let observability = ObservabilitySystem.makeForTesting()
 
-        let builder = TargetSourcesBuilder(
-            packageIdentity: .plain("test"),
-            packageKind: .root(.init("/test")),
-            packagePath: .init("/test"),
-            target: target,
-            path: .root,
-            defaultLocalization: nil,
-            toolsVersion: .v5,
-            fileSystem: fs,
-            observabilityScope: observability.topScope
-        )
+        do {
+            let observability = ObservabilitySystem.makeForTesting()
 
-        testDiagnostics(observability.diagnostics) { result in
-            var diagnosticsFound = [Basics.Diagnostic?]()
-            diagnosticsFound.append(result.checkUnordered(diagnostic: "Invalid Exclude '/fileOutsideRoot.py': File not found.", severity: .warning))
-            diagnosticsFound.append(result.checkUnordered(diagnostic: "Invalid Exclude '/fakeDir': File not found.", severity: .warning))
+            let builder = TargetSourcesBuilder(
+                packageIdentity: .plain("test"),
+                packageKind: .root(.init("/test")),
+                packagePath: .init("/test"),
+                target: target,
+                path: .root,
+                defaultLocalization: nil,
+                toolsVersion: .v5,
+                fileSystem: fs,
+                observabilityScope: observability.topScope
+            )
+            _ = try builder.run()
 
-            for diagnostic in diagnosticsFound {
-                XCTAssertEqual(diagnostic?.metadata?.packageIdentity, builder.packageIdentity)
-                XCTAssertEqual(diagnostic?.metadata?.packageKind, builder.packageKind)
-                XCTAssertEqual(diagnostic?.metadata?.targetName, target.name)
+            testDiagnostics(observability.diagnostics) { result in
+                var diagnosticsFound = [Basics.Diagnostic?]()
+                diagnosticsFound.append(result.checkUnordered(diagnostic: "Invalid Exclude '/fileOutsideRoot.py': File not found.", severity: .warning))
+                diagnosticsFound.append(result.checkUnordered(diagnostic: "Invalid Exclude '/fakeDir': File not found.", severity: .warning))
+
+                for diagnostic in diagnosticsFound {
+                    XCTAssertEqual(diagnostic?.metadata?.packageIdentity, builder.packageIdentity)
+                    XCTAssertEqual(diagnostic?.metadata?.packageKind, builder.packageKind)
+                    XCTAssertEqual(diagnostic?.metadata?.targetName, target.name)
+                }
             }
+        }
+
+        // should not emit for "remote" packages
+
+        do {
+            let observability = ObservabilitySystem.makeForTesting()
+
+            let builder = TargetSourcesBuilder(
+                packageIdentity: .plain("test"),
+                packageKind: .remoteSourceControl(URL(string: "https://some.where/foo/bar")!),
+                packagePath: .init("/test"),
+                target: target,
+                path: .root,
+                defaultLocalization: nil,
+                toolsVersion: .v5,
+                fileSystem: fs,
+                observabilityScope: observability.topScope
+            )
+            _ = try builder.run()
+
+            XCTAssertNoDiagnostics(observability.diagnostics)
         }
     }
     
@@ -700,33 +726,57 @@ class TargetSourcesBuilderTests: XCTestCase {
             "/Bar.swift"
         ])
 
-        let observability = ObservabilitySystem.makeForTesting()
+        do {
+            let observability = ObservabilitySystem.makeForTesting()
 
-        let builder = TargetSourcesBuilder(
-            packageIdentity: .plain("test"),
-            packageKind: .root(.root),
-            packagePath: .root,
-            target: target,
-            path: .root,
-            defaultLocalization: nil,
-            toolsVersion: .v5,
-            fileSystem: fs,
-            observabilityScope: observability.topScope
-        )
-        _ = try builder.run()
+            let builder = TargetSourcesBuilder(
+                packageIdentity: .plain("test"),
+                packageKind: .root(.root),
+                packagePath: .root,
+                target: target,
+                path: .root,
+                defaultLocalization: nil,
+                toolsVersion: .v5,
+                fileSystem: fs,
+                observabilityScope: observability.topScope
+            )
+            _ = try builder.run()
 
-        testDiagnostics(observability.diagnostics) { result in
-            var diagnosticsFound = [Basics.Diagnostic?]()
-            diagnosticsFound.append(result.checkUnordered(diagnostic: "Invalid Resource '../../../Fake.txt': File not found.", severity: .warning))
-            diagnosticsFound.append(result.checkUnordered(diagnostic: "Invalid Resource 'NotReal': File not found.", severity: .warning))
+            testDiagnostics(observability.diagnostics) { result in
+                var diagnosticsFound = [Basics.Diagnostic?]()
+                diagnosticsFound.append(result.checkUnordered(diagnostic: "Invalid Resource '../../../Fake.txt': File not found.", severity: .warning))
+                diagnosticsFound.append(result.checkUnordered(diagnostic: "Invalid Resource 'NotReal': File not found.", severity: .warning))
 
-            for diagnostic in diagnosticsFound {
-                XCTAssertEqual(diagnostic?.metadata?.packageIdentity, builder.packageIdentity)
-                XCTAssertEqual(diagnostic?.metadata?.packageKind, builder.packageKind)
-                XCTAssertEqual(diagnostic?.metadata?.targetName, target.name)
+                for diagnostic in diagnosticsFound {
+                    XCTAssertEqual(diagnostic?.metadata?.packageIdentity, builder.packageIdentity)
+                    XCTAssertEqual(diagnostic?.metadata?.packageKind, builder.packageKind)
+                    XCTAssertEqual(diagnostic?.metadata?.targetName, target.name)
+                }
             }
         }
+
+        // should not emit for "remote" packages
+
+        do {
+            let observability = ObservabilitySystem.makeForTesting()
+
+            let builder = TargetSourcesBuilder(
+                packageIdentity: .plain("test"),
+                packageKind: .remoteSourceControl(URL(string: "https://some.where/foo/bar")!),
+                packagePath: .root,
+                target: target,
+                path: .root,
+                defaultLocalization: nil,
+                toolsVersion: .v5,
+                fileSystem: fs,
+                observabilityScope: observability.topScope
+            )
+            _ = try builder.run()
+
+            XCTAssertNoDiagnostics(observability.diagnostics)
+        }
     }
+
     
     func testMissingSource() throws {
         let target = try TargetDescription(
@@ -811,6 +861,68 @@ class TargetSourcesBuilderTests: XCTestCase {
             let diagnostic = result.check(diagnostic: "found 1 file(s) which are unhandled; explicitly declare them as resources or exclude from the target\n    /Foo.xcdatamodel\n", severity: .warning)
             XCTAssertEqual(diagnostic?.metadata?.packageIdentity, builder.packageIdentity)
             XCTAssertEqual(diagnostic?.metadata?.targetName, target.name)
+        }
+    }
+
+    func testUnhandledResources() throws {
+        let target = try TargetDescription(
+            name: "Foo",
+            path: nil,
+            exclude: [],
+            sources: ["File.swift"],
+            resources: [],
+            publicHeadersPath: nil,
+            type: .regular
+        )
+
+        let fs = InMemoryFileSystem()
+        fs.createEmptyFiles(at: .root, files: [
+            "/File.swift",
+            "/foo.bar"
+        ])
+
+        do {
+            let observability = ObservabilitySystem.makeForTesting()
+
+            let builder = TargetSourcesBuilder(
+                packageIdentity: .plain("test"),
+                packageKind: .root(.init("/test")),
+                packagePath: .root,
+                target: target,
+                path: .root,
+                defaultLocalization: nil,
+                toolsVersion: .v5_5,
+                fileSystem: fs,
+                observabilityScope: observability.topScope
+            )
+            _ = try builder.run()
+
+            testDiagnostics(observability.diagnostics) { result in
+                let diagnostic = result.check(diagnostic: "found 1 file(s) which are unhandled; explicitly declare them as resources or exclude from the target\n    /foo.bar\n", severity: .warning)
+                XCTAssertEqual(diagnostic?.metadata?.packageIdentity, builder.packageIdentity)
+                XCTAssertEqual(diagnostic?.metadata?.targetName, target.name)
+            }
+        }
+
+        // should not emit for "remote" packages
+
+        do {
+            let observability = ObservabilitySystem.makeForTesting()
+
+            let builder = TargetSourcesBuilder(
+                packageIdentity: .plain("test"),
+                packageKind: .remoteSourceControl(URL(string: "https://some.where/foo/bar")!),
+                packagePath: .root,
+                target: target,
+                path: .root,
+                defaultLocalization: nil,
+                toolsVersion: .v5_5,
+                fileSystem: fs,
+                observabilityScope: observability.topScope
+            )
+            _ = try builder.run()
+
+            XCTAssertNoDiagnostics(observability.diagnostics)
         }
     }
 

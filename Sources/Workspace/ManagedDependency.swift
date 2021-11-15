@@ -22,9 +22,15 @@ extension Workspace {
     /// particular revision, and may have an associated version.
     public struct ManagedDependency: Equatable {
         /// Represents the state of the managed dependency.
-        public indirect enum State: Equatable {
-            /// The dependency is a managed checkout.
-            case checkout(CheckoutState)
+        public indirect enum State: Equatable, CustomStringConvertible {
+            /// The dependency is a local package on the file system.
+            case fileSystem(AbsolutePath)
+
+            /// The dependency is a managed source control checkout.
+            case sourceControlCheckout(CheckoutState)
+
+            /// The dependency is downloaded from a registry.
+            case registryDownload(version: Version)
 
             /// The dependency is in edited state.
             ///
@@ -33,8 +39,18 @@ extension Workspace {
             /// for top of the tree style development.
             case edited(basedOn: ManagedDependency?, unmanagedPath: AbsolutePath?)
 
-            // The dependency is a local package.
-            case local(AbsolutePath)
+            public var description: String {
+                switch self {
+                case .fileSystem(let path):
+                    return "fileSystem (\(path))"
+                case .sourceControlCheckout(let checkoutState):
+                    return "sourceControlCheckout (\(checkoutState))"
+                case .registryDownload(let version):
+                    return "registryDownload (\(version))"
+                case .edited:
+                    return "edited"
+                }
+            }
         }
 
         /// The package reference.
@@ -42,18 +58,6 @@ extension Workspace {
 
         /// The state of the managed dependency.
         public let state: State
-
-        /// Returns true if state is checkout.
-        var isCheckout: Bool {
-            if case .checkout = self.state { return true }
-            return false
-        }
-
-        /// Returns true if the dependency is edited.
-        public var isEdited: Bool {
-            if case .edited = self.state { return true }
-            return false
-        }
 
         /// The checked out path of the dependency on disk, relative to the workspace checkouts path.
         public let subpath: RelativePath
@@ -74,21 +78,26 @@ extension Workspace {
         /// - Parameters:
         ///     - subpath: The subpath inside the editable directory.
         ///     - unmanagedPath: A custom absolute path instead of the subpath.
-        public func edited(subpath: RelativePath, unmanagedPath: AbsolutePath?) -> ManagedDependency {
-            return .edited(packageRef: self.packageRef, subpath: subpath, basedOn: self, unmanagedPath: unmanagedPath)
+        public func edited(subpath: RelativePath, unmanagedPath: AbsolutePath?) throws -> ManagedDependency {
+            guard case .sourceControlCheckout =  self.state else {
+                throw InternalError("invalid depenedency state: \(self.state)")
+            }
+            return ManagedDependency(
+                packageRef: self.packageRef,
+                state: .edited(basedOn: self, unmanagedPath: unmanagedPath),
+                subpath: subpath
+            )
         }
 
         /// Create a dependency present locally on the filesystem.
-        public static func local(
+        public static func fileSystem(
             packageRef: PackageReference
         ) throws -> ManagedDependency {
             switch packageRef.kind {
-            case .root(let path),
-                    .fileSystem(let path),
-                    .localSourceControl(let path):
+            case .root(let path), .fileSystem(let path), .localSourceControl(let path):
                 return ManagedDependency(
                     packageRef: packageRef,
-                    state: .local(path),
+                    state: .fileSystem(path),
                     // FIXME: This is just a fake entry, we should fix it.
                     subpath: RelativePath(packageRef.identity.description)
                 )
@@ -97,15 +106,36 @@ extension Workspace {
             }
         }
 
-        /// Create a remote dependency checked out
-        public static func remote(
+        /// Create a source control dependency checked out
+        public static func sourceControlCheckout(
             packageRef: PackageReference,
             state: CheckoutState,
             subpath: RelativePath
-        ) -> ManagedDependency {
+        ) throws -> ManagedDependency {
+            switch packageRef.kind {
+            case .localSourceControl, .remoteSourceControl:
+                return ManagedDependency(
+                    packageRef: packageRef,
+                    state: .sourceControlCheckout(state),
+                    subpath: subpath
+                )
+            default:
+                throw InternalError("invalid package type: \(packageRef.kind)")
+            }
+        }
+
+        /// Create a registry dependency downloaded
+        public static func registryDownload(
+            packageRef: PackageReference,
+            version: Version,
+            subpath: RelativePath
+        ) throws -> ManagedDependency {
+            guard case .registry = packageRef.kind else {
+                throw InternalError("invalid package type: \(packageRef.kind)")
+            }
             return ManagedDependency(
                 packageRef: packageRef,
-                state: .checkout(state),
+                state: .registryDownload(version: version),
                 subpath: subpath
             )
         }

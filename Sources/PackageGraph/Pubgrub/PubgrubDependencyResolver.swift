@@ -346,7 +346,7 @@ public struct PubgrubDependencyResolver {
             // already a commit, then its pin entry doesn't matter in practice.
             let revisionForDependencies: String
             if case .branch(revision, let pinRevision) = pinsMap[package.identity]?.state {
-                revisionForDependencies = pinRevision.identifier
+                revisionForDependencies = pinRevision
 
                 // Mark the package as overridden with the pinned revision and record the branch as well.
                 overriddenPackages[package] = (version: .revision(revisionForDependencies, branch: revision), products: constraint.products)

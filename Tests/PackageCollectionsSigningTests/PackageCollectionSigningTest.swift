@@ -210,7 +210,7 @@ class PackageCollectionSigningTests: XCTestCase {
             let collection = try jsonDecoder.decode(PackageCollectionModel.V1.Collection.self, from: collectionData)
 
             let certPath = directoryPath.appending(components: "Signing", "development.cer")
-            let intermediateCAPath = directoryPath.appending(components: "Signing", "AppleWWDRCA.cer")
+            let intermediateCAPath = directoryPath.appending(components: "Signing", "AppleWWDRCAG3.cer")
             let rootCAPath = directoryPath.appending(components: "Signing", "AppleIncRoot.cer")
             let rootCAData = Data(try localFileSystem.readFileContents(rootCAPath).contents)
             let certChainPaths = [certPath, intermediateCAPath, rootCAPath].map { $0.asURL }
@@ -320,7 +320,7 @@ class PackageCollectionSigningTests: XCTestCase {
 
             // This must be an Apple Distribution cert
             let certPath = directoryPath.appending(components: "Signing", "development.cer")
-            let intermediateCAPath = directoryPath.appending(components: "Signing", "AppleWWDRCA.cer")
+            let intermediateCAPath = directoryPath.appending(components: "Signing", "AppleWWDRCAG3.cer")
             let rootCAPath = directoryPath.appending(components: "Signing", "AppleIncRoot.cer")
             let rootCAData = Data(try localFileSystem.readFileContents(rootCAPath).contents)
             let certChainPaths = [certPath, intermediateCAPath, rootCAPath].map { $0.asURL }
@@ -507,7 +507,7 @@ class PackageCollectionSigningTests: XCTestCase {
             let collection = try jsonDecoder.decode(PackageCollectionModel.V1.Collection.self, from: collectionData)
 
             let certPath = directoryPath.appending(components: "Signing", "development.cer")
-            let intermediateCAPath = directoryPath.appending(components: "Signing", "AppleWWDRCA.cer")
+            let intermediateCAPath = directoryPath.appending(components: "Signing", "AppleWWDRCAG3.cer")
             let rootCAPath = directoryPath.appending(components: "Signing", "AppleIncRoot.cer")
             let certChainPaths = [certPath, intermediateCAPath, rootCAPath].map { $0.asURL }
 
@@ -562,7 +562,7 @@ class PackageCollectionSigningTests: XCTestCase {
 
             // This must be an Apple Distribution cert
             let certPath = directoryPath.appending(components: "Signing", "development.cer")
-            let intermediateCAPath = directoryPath.appending(components: "Signing", "AppleWWDRCA.cer")
+            let intermediateCAPath = directoryPath.appending(components: "Signing", "AppleWWDRCAG3.cer")
             let rootCAPath = directoryPath.appending(components: "Signing", "AppleIncRoot.cer")
             let certChainPaths = [certPath, intermediateCAPath, rootCAPath].map { $0.asURL }
 
