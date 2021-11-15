@@ -348,13 +348,23 @@ private struct BoringSSLOCSPClient {
 
                     let response = d2i_OCSP_RESPONSE_bio(bio, nil)
                     defer { OCSP_RESPONSE_free(response) }
+                    
+                    guard let response = response else {
+                        results.append(.failure(OCSPError.responseConversionFailure))
+                        return
+                    }
+                    
                     let basicResp = OCSP_response_get1_basic(response)
                     defer { OCSP_BASICRESP_free(basicResp) }
+                    
+                    guard let basicResp = basicResp else {
+                        results.append(.failure(OCSPError.responseConversionFailure))
+                        return
+                    }
 
                     // This is just the OCSP response status, not the certificate's status
                     guard OCSP_response_status(response) == OCSP_RESPONSE_STATUS_SUCCESSFUL,
-                        CCryptoBoringSSL_OBJ_obj2nid(response?.pointee.responseBytes.pointee.responseType) == NID_id_pkix_OCSP_basic,
-                        let basicRespData = basicResp?.pointee.tbsResponseData.pointee else {
+                        CCryptoBoringSSL_OBJ_obj2nid(response.pointee.responseBytes.pointee.responseType) == NID_id_pkix_OCSP_basic else {
                         results.append(.failure(OCSPError.badResponse))
                         return
                     }
@@ -373,6 +383,7 @@ private struct BoringSSLOCSPClient {
                     }
 
                     // Inspect the OCSP response
+                    let basicRespData = basicResp.pointee.tbsResponseData.pointee
                     for i in 0 ..< sk_OCSP_SINGLERESP_num(basicRespData.responses) {
                         guard let singleResp = sk_OCSP_SINGLERESP_value(basicRespData.responses, numericCast(i)),
                             let certStatus = singleResp.pointee.certStatus else {
