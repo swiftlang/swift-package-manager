@@ -515,7 +515,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
         completion: @escaping (Result<ManifestJSONParser.Result, Error>) -> Void
-    ) throws {
+    ) {
         let cache = self.databaseCacheDir.map { cacheDir -> SQLiteBackedCache<EvaluationResult> in
             let path = Self.manifestCacheDBPath(cacheDir)
             var configuration = SQLiteBackedCacheConfiguration()
@@ -532,14 +532,19 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         // TODO: we could wrap the failure here with diagnostics if it wasn't optional throughout
         defer { try? cache?.close() }
 
-        let key = try CacheKey(
-            packageIdentity: packageIdentity,
-            manifestPath: path,
-            toolsVersion: toolsVersion,
-            env: ProcessEnv.vars,
-            swiftpmVersion: SwiftVersion.currentVersion.displayString,
-            fileSystem: fileSystem
-        )
+        let key : CacheKey
+        do {
+            key = try CacheKey(
+                packageIdentity: packageIdentity,
+                manifestPath: path,
+                toolsVersion: toolsVersion,
+                env: ProcessEnv.vars,
+                swiftpmVersion: SwiftVersion.currentVersion.displayString,
+                fileSystem: fileSystem
+            )
+        } catch {
+            return completion(.failure(error))
+        }
 
         do {
             // try to get it from the cache
@@ -556,7 +561,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             }
         } catch {
             observabilityScope.emit(warning: "failed loading cached manifest for '\(key.packageIdentity)': \(error)")
-            completion(.failure(error))
+            return completion(.failure(error))
         }
 
         // shells out and compiles the manifest, finally output a JSON
