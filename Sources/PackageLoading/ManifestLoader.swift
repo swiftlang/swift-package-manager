@@ -568,13 +568,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             delegateQueue: delegateQueue
         ) { result in
             do {
-                let evaluationResult : EvaluationResult
-                switch result {
-                case .success(let result):
-                    evaluationResult = result
-                case .failure(let error):
-                    return completion(.failure(error))
-                }
+                let evaluationResult = try result.get()
                 // only cache successfully parsed manifests
                 let parseManifest = try self.parseManifest(
                     evaluationResult,
@@ -820,14 +814,8 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             // Compile the manifest.
             Process.popen(arguments: cmd, environment: toolchain.swiftCompilerEnvironment) { result in
                 let compilerResult : ProcessResult
-                switch result {
-                case .success(let result):
-                    compilerResult = result
-                case .failure(let error):
-                    return completion(.failure(error))
-                }
-                
                 do {
+                    compilerResult = try result.get()
                     evaluationResult.compilerOutput = try (compilerResult.utf8Output() + compilerResult.utf8stderrOutput()).spm_chuzzle()
                 } catch {
                     return completion(.failure(error))
@@ -882,15 +870,8 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                     defer { cleanupTmpDir(tmpDir) }
                     fclose(jsonOutputFileDesc)
                     
-                    let runResult : ProcessResult
-                    switch result {
-                    case .success(let result):
-                        runResult = result
-                    case .failure(let error):
-                        return completion(.failure(error))
-                    }
-                    
                     do {
+                        let runResult = try result.get()
                         if let runOutput = try (runResult.utf8Output() + runResult.utf8stderrOutput()).spm_chuzzle() {
                             // Append the runtime output to any compiler output we've received.
                             evaluationResult.compilerOutput = (evaluationResult.compilerOutput ?? "") + runOutput
