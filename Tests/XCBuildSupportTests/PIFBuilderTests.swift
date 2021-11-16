@@ -97,11 +97,6 @@ class PIFBuilderTests: XCTestCase {
     }
 
     func testProject() throws {
-        #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
-        #else
-        try XCTSkipIf(true)
-        #endif
-
         let fs = InMemoryFileSystem(emptyFiles:
             "/Foo/Sources/foo/main.swift",
             "/Foo/Tests/FooTests/tests.swift",
@@ -706,11 +701,6 @@ class PIFBuilderTests: XCTestCase {
     }
 
     func testTestProducts() throws {
-        #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
-        #else
-        try XCTSkipIf(true)
-        #endif
-
         let fs = InMemoryFileSystem(emptyFiles:
             "/Foo/Sources/FooTests/FooTests.swift",
             "/Foo/Sources/CFooTests/CFooTests.m",

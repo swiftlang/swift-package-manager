@@ -54,14 +54,12 @@ class ManifestTests: XCTestCase {
                 targets: targets
             )
 
-            #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
             XCTAssertEqual(manifest.targetsRequired(for: .specific(["Foo", "Bar"])).map({ $0.name }).sorted(), [
                 "Bar",
                 "Baz",
                 "Foo",
                 "MyPlugin",
             ])
-            #endif
         }
     }
 

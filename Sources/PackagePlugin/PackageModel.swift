@@ -15,7 +15,7 @@ public struct Package {
     public typealias ID = String
 
     /// The name of the package (for display purposes only).
-    public let name: String
+    public let displayName: String
 
     /// The absolute path of the package directory in the local file system.
     public let directory: Path
