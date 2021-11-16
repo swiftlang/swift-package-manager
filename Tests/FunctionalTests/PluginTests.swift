@@ -192,7 +192,7 @@ class PluginTests: XCTestCase {
             let packageDir = tmpPath.appending(components: "MyPackage")
             try localFileSystem.writeFileContents(packageDir.appending(component: "Package.swift")) {
                 $0 <<< """
-                // swift-tools-version: 5.6
+                // swift-tools-version: 999.0
                 import PackageDescription
                 let package = Package(
                     name: "MyPackage",
