@@ -202,7 +202,7 @@ public class Workspace {
 
     /// The registry manager.
     // var for backwards compatibility with deprecated initializers, remove with them
-    fileprivate var registryManager: RegistryManager?
+    fileprivate var registryClient: RegistryClient?
 
     /// The http client used for downloading binary artifacts.
     fileprivate let httpClient: HTTPClient
@@ -267,7 +267,7 @@ public class Workspace {
         customManifestLoader: ManifestLoaderProtocol? = .none,
         customRepositoryManager: RepositoryManager? = .none,
         customRepositoryProvider: RepositoryProvider? = .none,
-        customRegistryManager: RegistryManager? = .none,
+        customRegistryClient: RegistryClient? = .none,
         customIdentityResolver: IdentityResolver? = .none,
         customHTTPClient: HTTPClient? = .none,
         customArchiver: Archiver? = .none,
@@ -296,10 +296,12 @@ public class Workspace {
             delegate: delegate.map(WorkspaceRepositoryManagerDelegate.init(workspaceDelegate:)),
             cachePath: sharedRepositoriesCacheEnabled ? location.sharedRepositoriesCacheDirectory : .none
         )
-        let registryManager = customRegistryManager ?? registries.map { configuration in
-            RegistryManager(configuration: configuration,
-                            identityResolver: identityResolver,
-                            authorizationProvider: authorizationProvider?.httpAuthorizationHeader(for:))
+        let registryClient = customRegistryClient ?? registries.map { configuration in
+            RegistryClient(
+                configuration: configuration,
+                identityResolver: identityResolver,
+                authorizationProvider: authorizationProvider?.httpAuthorizationHeader(for:)
+            )
         }
 
         // FIXME: use workspace scope when migrating workspace to new observability API
@@ -329,7 +331,7 @@ public class Workspace {
         self.httpClient = httpClient
         self.archiver = archiver
         self.repositoryManager = repositoryManager
-        self.registryManager = registryManager
+        self.registryClient = registryClient
         self.identityResolver = identityResolver
         self.checksumAlgorithm = checksumAlgorithm
 
@@ -1741,7 +1743,6 @@ extension Workspace {
             version = .none
         }
 
-
         // Load and return the manifest.
         self.loadManifest(
             packageIdentity: managedDependency.packageRef.identity,
@@ -2594,8 +2595,10 @@ extension Workspace {
                 }
                 let revision = try container.getRevision(forTag: tag)
                 return try self.checkoutRepository(package: package, at: .version(version, revision: revision), observabilityScope: observabilityScope)
+            } else if let _ = container as? RegistryPackageContainer {
+                return try self.downloadRegistryArchive(package: package, at: version, observabilityScope: observabilityScope)
             } else {
-                throw InternalError("invalid container for \(package) expected a RepositoryPackageContainer")
+                throw InternalError("invalid container for \(package.identity) of type \(package.kind)")
             }
 
         case .revision(let revision, .none):
@@ -2842,7 +2845,7 @@ extension Workspace {
                 guard let container = (try temp_await {
                     self.getContainer(for: packageRef, skipUpdate: true, observabilityScope: observabilityScope, on: .sharedConcurrent, completion: $0)
                 }) as? SourceControlPackageContainer else {
-                    throw InternalError("invalid container for \(packageRef) expected a RepositoryPackageContainer")
+                    throw InternalError("invalid container for \(packageRef) expected a SourceControlPackageContainer")
                 }
                 var revision = try container.getRevision(forIdentifier: identifier)
                 let branch = branch ?? (identifier == revision.identifier ? nil : identifier)
@@ -3015,11 +3018,11 @@ extension Workspace: PackageContainerProvider {
         on queue: DispatchQueue,
         completion: @escaping (Result<PackageContainer, Swift.Error>) -> Void
     ) {
-        switch package.kind {
-        case .root, .fileSystem:
-            queue.async {
+        queue.async {
+            do {
+                switch package.kind {
                 // If the container is local, just create and return a local package container.
-                do {
+                case .root, .fileSystem:
                     let container = try FileSystemPackageContainer(
                         package: package,
                         identityResolver: self.identityResolver,
@@ -3030,16 +3033,10 @@ extension Workspace: PackageContainerProvider {
                         observabilityScope: observabilityScope
                     )
                     completion(.success(container))
-                } catch {
-                    completion(.failure(error))
-                }
-            }
-        case .localSourceControl, .remoteSourceControl:
-            // Resolve the container using the repository manager.
-            do {
-                let repositorySpecifier = try package.makeRepositorySpecifier()
-                repositoryManager.lookup(repository: repositorySpecifier, skipUpdate: skipUpdate, on: queue) { result in
-                    queue.async {
+                // Resolve the container using the repository manager.
+                case .localSourceControl, .remoteSourceControl:
+                    let repositorySpecifier = try package.makeRepositorySpecifier()
+                    self.repositoryManager.lookup(repository: repositorySpecifier, skipUpdate: skipUpdate, on: queue) { result in
                         // Create the container wrapper.
                         let result = result.tryMap { handle -> PackageContainer in
                             // Open the repository.
@@ -3059,14 +3056,27 @@ extension Workspace: PackageContainerProvider {
                         }
                         completion(result)
                     }
+                // Resolve the container using the registry
+                case .registry:
+                    guard let registryClient = self.registryClient else {
+                        throw StringError("registry not configured")
+                    }
+                    let container = RegistryPackageContainer(
+                        package: package,
+                        identityResolver: self.identityResolver,
+                        registryClient: registryClient,
+                        manifestLoader: self.manifestLoader,
+                        toolsVersionLoader: self.toolsVersionLoader,
+                        currentToolsVersion: self.currentToolsVersion,
+                        observabilityScope: observabilityScope
+                    )
+                    completion(.success(container))
                 }
             } catch {
                 queue.async {
                     completion(.failure(error))
                 }
             }
-        case .registry:
-            fatalError("registry dependencies are not supported at this point")
         }
     }
 
@@ -3294,10 +3304,11 @@ extension Workspace {
      func downloadRegistryArchive(
         package: PackageReference,
         at version: Version,
+        progressHandler: ((_ bytesReceived: Int64, _ totalBytes: Int64?) -> Void)? = .none,
         observabilityScope: ObservabilityScope
      ) throws -> AbsolutePath {
-         guard let registryManager = self.registryManager else {
-             throw InternalError("registry manager not initialized")
+         guard let registryClient = self.registryClient else {
+             throw StringError("registry not configured")
          }
 
          let downloadPath = self.location.registryDownloadDirectory.appending(components: package.identity.description, version.description)
@@ -3306,13 +3317,14 @@ extension Workspace {
          }
 
          try temp_await {
-             registryManager.downloadSourceArchive(
+             registryClient.downloadSourceArchive(
                 package: package.identity,
                 version: version,
                 fileSystem: self.fileSystem,
                 destinationPath: downloadPath,
                 expectedChecksum: nil, // we dont know at this point
                 checksumAlgorithm: self.checksumAlgorithm,
+                progressHandler: progressHandler,
                 observabilityScope: observabilityScope,
                 callbackQueue: .sharedConcurrent,
                 completion: $0
@@ -3336,11 +3348,17 @@ extension Workspace {
      func downloadRegistryArchive(
         package: PackageReference,
         at pinState: PinsStore.PinState,
+        progressHandler: ((_ bytesReceived: Int64, _ totalBytes: Int64?) -> Void)? = .none,
         observabilityScope: ObservabilityScope
      ) throws -> AbsolutePath {
          switch pinState {
          case .version(let version, _):
-             return try self.downloadRegistryArchive(package: package, at: version, observabilityScope: observabilityScope)
+             return try self.downloadRegistryArchive(
+                package: package,
+                at: version,
+                progressHandler: progressHandler,
+                observabilityScope: observabilityScope
+             )
          default:
              throw InternalError("invalid pin state: \(pinState)")
          }

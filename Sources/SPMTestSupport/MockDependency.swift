@@ -13,9 +13,10 @@ import PackageLoading
 import PackageModel
 import TSCBasic
 
-public struct MockDependency {
-    public typealias Requirement = PackageDependency.SourceControl.Requirement
+public typealias SourceControlRequirement = PackageDependency.SourceControl.Requirement
+public typealias RegistryRequirement = PackageDependency.Registry.Requirement
 
+public struct MockDependency {
     public let deprecatedName: String?
     public let location: Location
     public let products: ProductFilter
@@ -63,6 +64,12 @@ public struct MockDependency {
                 requirement: requirement,
                 productFilter: self.products
             )
+        case .registry(let identity, let requirement):
+            return .registry(
+                identity: identity,
+                requirement: requirement,
+                productFilter: self.products
+            )
         }
     }
 
@@ -70,29 +77,38 @@ public struct MockDependency {
         MockDependency(location: .fileSystem(path: RelativePath(path)), products: products)
     }
 
-    public static func sourceControl(path: String, requirement: Requirement, products: ProductFilter = .everything) -> MockDependency {
+    public static func sourceControl(path: String, requirement: SourceControlRequirement, products: ProductFilter = .everything) -> MockDependency {
         .sourceControl(path: RelativePath(path), requirement: requirement, products: products)
     }
 
-    public static func sourceControl(path: RelativePath, requirement: Requirement, products: ProductFilter = .everything) -> MockDependency {
+    public static func sourceControl(path: RelativePath, requirement: SourceControlRequirement, products: ProductFilter = .everything) -> MockDependency {
         MockDependency(location: .localSourceControl(path: path, requirement: requirement), products: products)
     }
 
-    public static func sourceControlWithDeprecatedName(name: String, path: String, requirement: Requirement, products: ProductFilter = .everything) -> MockDependency {
+    public static func sourceControlWithDeprecatedName(name: String, path: String, requirement: SourceControlRequirement, products: ProductFilter = .everything) -> MockDependency {
         MockDependency(deprecatedName: name, location: .localSourceControl(path: RelativePath(path), requirement: requirement), products: products)
     }
 
-    public static func sourceControl(url: String, requirement: Requirement, products: ProductFilter = .everything) -> MockDependency {
+    public static func sourceControl(url: String, requirement: SourceControlRequirement, products: ProductFilter = .everything) -> MockDependency {
         .sourceControl(url: URL(string: url)!, requirement: requirement, products: products)
     }
 
-    public static func sourceControl(url: URL, requirement: Requirement, products: ProductFilter = .everything) -> MockDependency {
+    public static func sourceControl(url: URL, requirement: SourceControlRequirement, products: ProductFilter = .everything) -> MockDependency {
         MockDependency(location: .remoteSourceControl(url: url, requirement: requirement), products: products)
+    }
+
+    public static func registry(identity: String, requirement: RegistryRequirement, products: ProductFilter = .everything) -> MockDependency {
+        .registry(identity: .plain(identity), requirement: requirement)
+    }
+
+    public static func registry(identity: PackageIdentity, requirement: RegistryRequirement, products: ProductFilter = .everything) -> MockDependency {
+        MockDependency(location: .registry(identity: identity, requirement: requirement), products: products)
     }
 
     public enum Location {
         case fileSystem(path: RelativePath)
-        case localSourceControl(path: RelativePath, requirement: Requirement)
-        case remoteSourceControl(url: URL, requirement: Requirement)
+        case localSourceControl(path: RelativePath, requirement: SourceControlRequirement)
+        case remoteSourceControl(url: URL, requirement: SourceControlRequirement)
+        case registry(identity: PackageIdentity, requirement: RegistryRequirement)
     }
 }

@@ -65,14 +65,14 @@ public struct PackageIdentity: CustomStringConvertible {
     }
 
     // TODO: formalize package registry identifier
-    public var scopeAndName: (Scope, Name)? {
+    public var scopeAndName: (scope: Scope, name: Name)? {
         let components = description.split(separator: ".", maxSplits: 1, omittingEmptySubsequences: true)
         guard components.count == 2,
               let scope = Scope(components.first),
               let name = Name(components.last)
-        else { return nil }
+        else { return .none }
 
-        return (scope, name)
+        return (scope: scope, name: name)
     }
 }
 
