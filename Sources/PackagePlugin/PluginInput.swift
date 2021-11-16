@@ -264,8 +264,8 @@ fileprivate struct PluginInputDeserializer {
         let products = try wirePackage.productIds.map { try self.product(for: $0) }
         let targets = try wirePackage.targetIds.map { try self.target(for: $0) }
         let package = Package(
-            id: String(id),
-            name: wirePackage.name,
+            id: wirePackage.identity,
+            displayName: wirePackage.displayName,
             directory: directory,
             origin: .root,
             toolsVersion: toolsVersion,
@@ -312,7 +312,8 @@ fileprivate struct WireInput: Decodable {
     /// their ID numbers.
     struct Package: Decodable {
         typealias Id = Int
-        let name: String
+        let identity: String
+        let displayName: String
         let directoryId: Path.Id
         let origin: Origin
         let toolsVersion: ToolsVersion

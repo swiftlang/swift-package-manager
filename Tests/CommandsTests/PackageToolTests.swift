@@ -1039,6 +1039,67 @@ final class PackageToolTests: CommandsTestCase {
       #endif
     }
 
+    func testBuildToolPlugin() throws {
+        
+        try testWithTemporaryDirectory { tmpPath in
+            // Create a sample package with a library target and a plugin.
+            let packageDir = tmpPath.appending(components: "MyPackage")
+            try localFileSystem.writeFileContents(packageDir.appending(component: "Package.swift")) {
+                $0 <<< """
+                // swift-tools-version: 999.0
+                import PackageDescription
+                let package = Package(
+                    name: "MyPackage",
+                    targets: [
+                        .target(
+                            name: "MyLibrary",
+                            plugins: [
+                                "MyPlugin",
+                            ]
+                        ),
+                        .plugin(
+                            name: "MyPlugin",
+                            capability: .buildTool()
+                        ),
+                    ]
+                )
+                """
+            }
+            try localFileSystem.writeFileContents(packageDir.appending(components: "Sources", "MyLibrary", "library.swift")) {
+                $0 <<< """
+                    public func Foo() { }
+                """
+            }
+            try localFileSystem.writeFileContents(packageDir.appending(components: "Plugins", "MyPlugin", "plugin.swift")) {
+                $0 <<< """
+                    import PackagePlugin
+                    
+                    @main
+                    struct MyBuildToolPlugin: BuildToolPlugin {
+                        func createBuildCommands(
+                            context: PluginContext,
+                            target: Target
+                        ) throws -> [Command] {
+                            guard context.package.displayName == "MyPackage" else {
+                                throw Error.inconsistentDisplayName(context.package.displayName)
+                            }
+                            return []
+                        }
+
+                        enum Error : Swift.Error {
+                        case inconsistentDisplayName(String)
+                        }
+                    }
+                """
+            }
+            
+            // Invoke it, and check the results.
+            let result = try SwiftPMProduct.SwiftBuild.executeProcess([], packagePath: packageDir)
+            XCTAssertEqual(result.exitStatus, .terminated(code: 0))
+            XCTAssert(try result.utf8Output().contains("Build complete!"))
+        }
+    }
+
     func testArchiveSource() throws {
         fixture(name: "DependencyResolution/External/Simple") { prefix in
             let packageRoot = prefix.appending(component: "Bar")

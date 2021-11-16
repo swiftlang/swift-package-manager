@@ -395,7 +395,8 @@ struct PluginScriptRunnerInput: Codable {
     /// their ID numbers.
     struct Package: Codable {
         typealias Id = Int
-        let name: String
+        let identity: String
+        let displayName: String
         let directoryId: Path.Id
         let origin: Origin
         let toolsVersion: ToolsVersion
@@ -790,8 +791,8 @@ struct PluginScriptRunnerInputSerializer {
         // Assign the next wire ID to the package and append a serialized Package record.
         let id = packages.count
         packages.append(.init(
-            // FIXME: can we use package identity instead?
-            name: package.manifest.displayName,
+            identity: package.identity.description,
+            displayName: package.manifest.displayName,
             directoryId: try serialize(path: package.path),
             origin: try origin(for: package),
             toolsVersion: .init(
