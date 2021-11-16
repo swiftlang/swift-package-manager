@@ -253,16 +253,8 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                     fileSystem: fileSystem,
                     observabilityScope: observabilityScope
                 ) { parseResult in
-                    let parsedManifest : ManifestJSONParser.Result
-                    switch parseResult {
-                    case .success(let result):
-                        parsedManifest = result
-                    case .failure(let error):
-                        return queue.async {
-                            completion(.failure(error))
-                        }
-                    }
                     do {
+                        let parsedManifest = try parseResult.get()
                         // Convert legacy system packages to the current target‐based model.
                         var products = parsedManifest.products
                         var targets = parsedManifest.targets
