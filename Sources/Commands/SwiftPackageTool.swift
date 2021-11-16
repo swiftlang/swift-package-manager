@@ -60,7 +60,9 @@ public struct SwiftPackageTool: ParsableCommand {
             ComputeChecksum.self,
             ArchiveSource.self,
             CompletionTool.self,
-        ] + (ProcessInfo.processInfo.environment["SWIFTPM_ENABLE_SNIPPETS"] == "1" ? [Learn.self] : [ParsableCommand.Type]()),
+        ]
+        + (ProcessInfo.processInfo.environment["SWIFTPM_ENABLE_SNIPPETS"] == "1" ? [Learn.self] : [])
+        + (ProcessInfo.processInfo.environment["SWIFTPM_ENABLE_COMMAND_PLUGINS"] == "1" ? [PluginCommand.self] : []),
         helpNames: [.short, .long, .customLong("help", withSingleDash: true)])
 
     @OptionGroup()
@@ -861,6 +863,138 @@ extension SwiftPackageTool {
             }
 
             swiftTool.outputStream.flush()
+        }
+    }
+    
+    // Experimental command to invoke user command plugins. This will probably change so that command that is not
+    // recognized as a built-in command will cause `swift-package` to search for plugin commands, instead of using
+    // a separate `plugin` subcommand for this.
+    struct PluginCommand: SwiftCommand {
+        static let configuration = CommandConfiguration(
+            commandName: "plugin",
+            abstract: "Invoke a command plugin (note: the use of a `plugin` subcommand for this is temporary)"
+        )
+
+        @OptionGroup(_hiddenFromHelp: true)
+        var swiftOptions: SwiftToolOptions
+
+        /// The specific target to apply the plugin to.
+        @Option(name: .customLong("target"), help: "Target(s) to which the plugin command should be applied")
+        var targetNames: [String] = []
+
+        @Argument(help: "Name of the command plugin to invoke")
+        var command: String
+
+        @Argument(help: "Any arguments to pass to the plugin")
+        var arguments: [String] = []
+        
+        func findPlugins(matching command: String, in graph: PackageGraph) -> [PluginTarget] {
+            // Find all the available plugin targets.
+            let availablePlugins = graph.allTargets.compactMap{ $0.underlyingTarget as? PluginTarget }
+            
+            // Find and return the plugins that match the command.
+            return availablePlugins.filter {
+                // Filter out any non-command plugins.
+                guard case .command(let intent, _) = $0.capability else { return false }
+                // FIXME: We shouldn't hardcode these verbs.
+                switch intent {
+                case .documentationGeneration:
+                    return command == "generate-documentation"
+                case .sourceCodeFormatting:
+                    return command == "format-source-code"
+                case .custom(let verb, _):
+                    return command == verb
+                }
+            }
+        }
+
+        func run(_ swiftTool: SwiftTool) throws {
+            // Load the workspace and resolve the package graph.
+            let packageGraph = try swiftTool.loadPackageGraph()
+            
+            // Find the plugins that match the command.
+            let matchingPlugins = findPlugins(matching: command, in: packageGraph)
+
+            // Complain if we didn't find exactly one.
+            if matchingPlugins.isEmpty {
+                swiftTool.observabilityScope.emit(error: "No plugins found for '\(command)'")
+                throw ExitCode.failure
+            }
+            else if matchingPlugins.count > 1 {
+                swiftTool.observabilityScope.emit(error: "\(matchingPlugins.count) plugins found for '\(command)'")
+                throw ExitCode.failure
+            }
+            
+            // At this point we know we found exactly one command plugin, so we run it.
+            let plugin = matchingPlugins[0]
+            print("Running plugin \(plugin)")
+            
+            // Find the targets (if any) specified by the user.
+            var targets: [String: ResolvedTarget] = [:]
+            for target in packageGraph.allTargets {
+                if targetNames.contains(target.name) {
+                    if targets[target.name] != nil {
+                        swiftTool.observabilityScope.emit(error: "Ambiguous target name: ‘\(target.name)’")
+                        throw ExitCode.failure
+                    }
+                    targets[target.name] = target
+                }
+            }
+            assert(targets.count <= targetNames.count)
+            if targets.count != targetNames.count {
+                let unknownTargetNames = Set(targetNames).subtracting(targets.keys)
+                swiftTool.observabilityScope.emit(error: "Unknown targets: ‘\(unknownTargetNames.sorted().joined(separator: "’, ‘"))’")
+                throw ExitCode.failure
+            }
+
+            // Configure the plugin invocation inputs.
+
+            // The `plugins` directory is inside the workspace's main data directory, and contains all temporary files related to all plugins in the workspace.
+            let dataDir = try swiftTool.getActiveWorkspace().location.workingDirectory
+            let pluginsDir = dataDir.appending(component: "plugins")
+
+            // The `cache` directory is in the plugins directory and is where the plugin script runner caches compiled plugin binaries and any other derived information.
+            let cacheDir = pluginsDir.appending(component: "cache")
+            let pluginScriptRunner = DefaultPluginScriptRunner(cacheDir: cacheDir, toolchain: try swiftTool.getToolchain().configuration, enableSandbox: false)
+
+            // The `outputs` directory contains subdirectories for each combination of package, target, and plugin. Each usage of a plugin has an output directory that is writable by the plugin, where it can write additional files, and to which it can configure tools to write their outputs, etc.
+            let outputDir = pluginsDir.appending(component: "outputs")
+
+            // Build the map of tools that are available to the plugin. This should include the tools in the executables in the toolchain, as well as any executables the plugin depends on (built executables as well as prebuilt binaries).
+            // FIXME: At the moment we just pass the built products directory for the host. We will need to extend this with a map of the names of tools available to each plugin. In particular this would not work with any binary targets.
+            let builtToolsDir = dataDir.appending(components: "plugin-tools")
+
+            // Create the cache directory, if needed.
+            try localFileSystem.createDirectory(cacheDir, recursive: true)
+            
+            // FIXME: Need to determine the correct root package.
+            
+            // FIXME: Need to
+            // Determine the tools to which this plugin has access, and create a name-to-path mapping from tool
+            // names to the corresponding paths. Built tools are assumed to be in the build tools directory.
+            let accessibleTools = plugin.accessibleTools(for: pluginScriptRunner.hostTriple)
+            let toolNamesToPaths = accessibleTools.reduce(into: [String: AbsolutePath](), { dict, tool in
+                switch tool {
+                case .builtTool(let name, let path):
+                    dict[name] = builtToolsDir.appending(path)
+                case .vendedTool(let name, let path):
+                    dict[name] = path
+                }
+            })
+
+            // Run the plugin.
+            let result = try plugin.invoke(
+                action: .performCommand(targets: Array(targets.values), arguments: arguments),
+                package: packageGraph.rootPackages[0], // FIXME: This should be the package that contains all the targets (and we should make sure all are in one)
+                buildEnvironment: try swiftTool.buildParameters().buildEnvironment,
+                scriptRunner: pluginScriptRunner,
+                outputDirectory: outputDir,
+                toolNamesToPaths: toolNamesToPaths,
+                observabilityScope: swiftTool.observabilityScope,
+                fileSystem: localFileSystem)
+            
+            // Temporary: emit any output from the plugin.
+            print(result.textOutput)
         }
     }
 }

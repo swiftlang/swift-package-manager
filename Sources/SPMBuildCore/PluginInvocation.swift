@@ -294,7 +294,7 @@ extension PackageGraph {
 
 
 /// A description of a tool to which a plugin has access.
-enum PluginAccessibleTool: Hashable {
+public enum PluginAccessibleTool: Hashable {
     /// A tool that is built by an ExecutableTarget (the path is relative to the built-products directory).
     case builtTool(name: String, path: RelativePath)
 
@@ -302,7 +302,7 @@ enum PluginAccessibleTool: Hashable {
     case vendedTool(name: String, path: AbsolutePath)
 }
 
-extension PluginTarget {
+public extension PluginTarget {
 
     /// The set of tools that are accessible to this plugin.
     func accessibleTools(for hostTriple: Triple) -> Set<PluginAccessibleTool> {
