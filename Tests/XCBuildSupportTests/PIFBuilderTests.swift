@@ -89,7 +89,7 @@ class PIFBuilderTests: XCTestCase {
             XCTAssertEqual(targetAExeDependencies.map{ $0.targetGUID }, ["PACKAGE-PRODUCT:blib", "PACKAGE-TARGET:A2", "PACKAGE-TARGET:A3"])
             let projectBTargetNames = pif.workspace.projects[1].targets.map({ $0.name })
             #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
-            XCTAssertEqual(projectBTargetNames, ["blib", "B2"])
+            XCTAssertEqual(projectBTargetNames, ["blib_7AE74026D_PackageProduct", "B2"])
             #else
             XCTAssertEqual(projectBTargetNames, ["bexe_7ADFD1428_PackageProduct", "blib_7AE74026D_PackageProduct", "B2"])
             #endif
@@ -97,11 +97,6 @@ class PIFBuilderTests: XCTestCase {
     }
 
     func testProject() throws {
-        #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
-        #else
-        try XCTSkipIf(true)
-        #endif
-
         let fs = InMemoryFileSystem(emptyFiles:
             "/Foo/Sources/foo/main.swift",
             "/Foo/Tests/FooTests/tests.swift",
@@ -177,6 +172,7 @@ class PIFBuilderTests: XCTestCase {
                         XCTAssertEqual(settings[.CODE_SIGNING_REQUIRED], "NO")
                         XCTAssertEqual(settings[.COPY_PHASE_STRIP], "NO")
                         XCTAssertEqual(settings[.DEBUG_INFORMATION_FORMAT], "dwarf")
+                        XCTAssertEqual(settings[.DRIVERKIT_DEPLOYMENT_TARGET], "19.0")
                         XCTAssertEqual(settings[.DYLIB_INSTALL_NAME_BASE], "@rpath")
                         XCTAssertEqual(settings[.ENABLE_NS_ASSERTIONS], "YES")
                         XCTAssertEqual(settings[.ENABLE_TESTABILITY], "YES")
@@ -185,6 +181,7 @@ class PIFBuilderTests: XCTestCase {
                         XCTAssertEqual(settings[.GCC_OPTIMIZATION_LEVEL], "0")
                         XCTAssertEqual(settings[.GCC_PREPROCESSOR_DEFINITIONS], ["$(inherited)", "SWIFT_PACKAGE", "DEBUG=1"])
                         XCTAssertEqual(settings[.IPHONEOS_DEPLOYMENT_TARGET], "9.0")
+                        XCTAssertEqual(settings[.IPHONEOS_DEPLOYMENT_TARGET, for: .macCatalyst], "13.0")
                         XCTAssertEqual(settings[.KEEP_PRIVATE_EXTERNS], "NO")
                         XCTAssertEqual(settings[.MACOSX_DEPLOYMENT_TARGET], "10.10")
                         XCTAssertEqual(settings[.ONLY_ACTIVE_ARCH], "YES")
@@ -223,12 +220,14 @@ class PIFBuilderTests: XCTestCase {
                         XCTAssertEqual(settings[.CODE_SIGNING_REQUIRED], "NO")
                         XCTAssertEqual(settings[.COPY_PHASE_STRIP], "YES")
                         XCTAssertEqual(settings[.DEBUG_INFORMATION_FORMAT], "dwarf-with-dsym")
+                        XCTAssertEqual(settings[.DRIVERKIT_DEPLOYMENT_TARGET], "19.0")
                         XCTAssertEqual(settings[.DYLIB_INSTALL_NAME_BASE], "@rpath")
                         XCTAssertEqual(settings[.ENABLE_TESTING_SEARCH_PATHS], "YES")
                         XCTAssertEqual(settings[.ENTITLEMENTS_REQUIRED], "NO")
                         XCTAssertEqual(settings[.GCC_OPTIMIZATION_LEVEL], "s")
                         XCTAssertEqual(settings[.GCC_PREPROCESSOR_DEFINITIONS], ["$(inherited)", "SWIFT_PACKAGE"])
                         XCTAssertEqual(settings[.IPHONEOS_DEPLOYMENT_TARGET], "9.0")
+                        XCTAssertEqual(settings[.IPHONEOS_DEPLOYMENT_TARGET, for: .macCatalyst], "13.0")
                         XCTAssertEqual(settings[.KEEP_PRIVATE_EXTERNS], "NO")
                         XCTAssertEqual(settings[.MACOSX_DEPLOYMENT_TARGET], "10.10")
                         XCTAssertEqual(settings[.OTHER_LDRFLAGS], [])
@@ -275,6 +274,7 @@ class PIFBuilderTests: XCTestCase {
                         XCTAssertEqual(settings[.CODE_SIGNING_REQUIRED], "NO")
                         XCTAssertEqual(settings[.COPY_PHASE_STRIP], "NO")
                         XCTAssertEqual(settings[.DEBUG_INFORMATION_FORMAT], "dwarf")
+                        XCTAssertEqual(settings[.DRIVERKIT_DEPLOYMENT_TARGET], "19.0")
                         XCTAssertEqual(settings[.DYLIB_INSTALL_NAME_BASE], "@rpath")
                         XCTAssertEqual(settings[.ENABLE_NS_ASSERTIONS], "YES")
                         XCTAssertEqual(settings[.ENABLE_TESTABILITY], "YES")
@@ -283,6 +283,7 @@ class PIFBuilderTests: XCTestCase {
                         XCTAssertEqual(settings[.GCC_OPTIMIZATION_LEVEL], "0")
                         XCTAssertEqual(settings[.GCC_PREPROCESSOR_DEFINITIONS], ["$(inherited)", "SWIFT_PACKAGE", "DEBUG=1"])
                         XCTAssertEqual(settings[.IPHONEOS_DEPLOYMENT_TARGET], "12.0")
+                        XCTAssertEqual(settings[.IPHONEOS_DEPLOYMENT_TARGET, for: .macCatalyst], "13.0")
                         XCTAssertEqual(settings[.KEEP_PRIVATE_EXTERNS], "NO")
                         XCTAssertEqual(settings[.MACOSX_DEPLOYMENT_TARGET], "10.14")
                         XCTAssertEqual(settings[.ONLY_ACTIVE_ARCH], "YES")
@@ -321,12 +322,14 @@ class PIFBuilderTests: XCTestCase {
                         XCTAssertEqual(settings[.CODE_SIGNING_REQUIRED], "NO")
                         XCTAssertEqual(settings[.COPY_PHASE_STRIP], "YES")
                         XCTAssertEqual(settings[.DEBUG_INFORMATION_FORMAT], "dwarf-with-dsym")
+                        XCTAssertEqual(settings[.DRIVERKIT_DEPLOYMENT_TARGET], "19.0")
                         XCTAssertEqual(settings[.DYLIB_INSTALL_NAME_BASE], "@rpath")
                         XCTAssertEqual(settings[.ENABLE_TESTING_SEARCH_PATHS], "YES")
                         XCTAssertEqual(settings[.ENTITLEMENTS_REQUIRED], "NO")
                         XCTAssertEqual(settings[.GCC_OPTIMIZATION_LEVEL], "s")
                         XCTAssertEqual(settings[.GCC_PREPROCESSOR_DEFINITIONS], ["$(inherited)", "SWIFT_PACKAGE"])
                         XCTAssertEqual(settings[.IPHONEOS_DEPLOYMENT_TARGET], "12.0")
+                        XCTAssertEqual(settings[.IPHONEOS_DEPLOYMENT_TARGET, for: .macCatalyst], "13.0")
                         XCTAssertEqual(settings[.KEEP_PRIVATE_EXTERNS], "NO")
                         XCTAssertEqual(settings[.MACOSX_DEPLOYMENT_TARGET], "10.14")
                         XCTAssertEqual(settings[.OTHER_LDRFLAGS], [])
@@ -698,11 +701,6 @@ class PIFBuilderTests: XCTestCase {
     }
 
     func testTestProducts() throws {
-        #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
-        #else
-        try XCTSkipIf(true)
-        #endif
-
         let fs = InMemoryFileSystem(emptyFiles:
             "/Foo/Sources/FooTests/FooTests.swift",
             "/Foo/Sources/CFooTests/CFooTests.m",
@@ -712,7 +710,8 @@ class PIFBuilderTests: XCTestCase {
             "/Bar/Sources/bar/main.swift",
             "/Bar/Sources/BarTests/BarTests.swift",
             "/Bar/Sources/CBarTests/CBarTests.m",
-            "/Bar/Sources/BarLib/lib.swift"
+            "/Bar/Sources/BarLib/lib.swift",
+            inputsDir.appending(component: "Foo.pc").pathString
         )
 
         let observability = ObservabilitySystem.makeForTesting()
@@ -779,7 +778,7 @@ class PIFBuilderTests: XCTestCase {
         PIFTester(pif) { workspace in
             workspace.checkProject("PACKAGE:/Foo") { project in
                 project.checkTarget("PACKAGE-PRODUCT:FooTests") { target in
-                    XCTAssertEqual(target.name, "FooTests")
+                    XCTAssertEqual(target.name, "FooTests_-5E24708DC81AF5C1_PackageProduct")
                     XCTAssertEqual(target.productType, .unitTest)
                     XCTAssertEqual(target.productName, "FooTests")
                     XCTAssertEqual(target.dependencies, [
@@ -809,6 +808,10 @@ class PIFBuilderTests: XCTestCase {
                                 "@loader_path/Frameworks",
                                 "@loader_path/../Frameworks"
                             ])
+                            XCTAssertEqual(settings[.LIBRARY_SEARCH_PATHS], [
+                                "$(inherited)",
+                                "/toolchain/lib/swift/macosx"
+                            ])
                             XCTAssertEqual(settings[.PACKAGE_RESOURCE_TARGET_KIND], "regular")
                             XCTAssertEqual(settings[.PRODUCT_BUNDLE_IDENTIFIER], "FooTests")
                             XCTAssertEqual(settings[.PRODUCT_MODULE_NAME], "FooTests")
@@ -837,6 +840,10 @@ class PIFBuilderTests: XCTestCase {
                                 "@loader_path/Frameworks",
                                 "@loader_path/../Frameworks"
                             ])
+                            XCTAssertEqual(settings[.LIBRARY_SEARCH_PATHS], [
+                                "$(inherited)",
+                                "/toolchain/lib/swift/macosx"
+                            ])
                             XCTAssertEqual(settings[.PACKAGE_RESOURCE_TARGET_KIND], "regular")
                             XCTAssertEqual(settings[.PRODUCT_BUNDLE_IDENTIFIER], "FooTests")
                             XCTAssertEqual(settings[.PRODUCT_MODULE_NAME], "FooTests")
@@ -856,7 +863,7 @@ class PIFBuilderTests: XCTestCase {
                 }
 
                 project.checkTarget("PACKAGE-PRODUCT:CFooTests") { target in
-                    XCTAssertEqual(target.name, "CFooTests")
+                    XCTAssertEqual(target.name, "CFooTests_A328606A9BCFA83_PackageProduct")
                     XCTAssertEqual(target.productType, .unitTest)
                     XCTAssertEqual(target.productName, "CFooTests")
                     XCTAssertEqual(target.dependencies, [])
@@ -879,6 +886,10 @@ class PIFBuilderTests: XCTestCase {
                                 "$(inherited)",
                                 "@loader_path/Frameworks",
                                 "@loader_path/../Frameworks"
+                            ])
+                            XCTAssertEqual(settings[.LIBRARY_SEARCH_PATHS], [
+                                "$(inherited)",
+                                "/toolchain/lib/swift/macosx"
                             ])
                             XCTAssertEqual(settings[.PACKAGE_RESOURCE_TARGET_KIND], "regular")
                             XCTAssertEqual(settings[.PRODUCT_BUNDLE_IDENTIFIER], "CFooTests")
@@ -910,6 +921,10 @@ class PIFBuilderTests: XCTestCase {
                                 "$(inherited)",
                                 "@loader_path/Frameworks",
                                 "@loader_path/../Frameworks"
+                            ])
+                            XCTAssertEqual(settings[.LIBRARY_SEARCH_PATHS], [
+                                "$(inherited)",
+                                "/toolchain/lib/swift/macosx"
                             ])
                             XCTAssertEqual(settings[.PACKAGE_RESOURCE_TARGET_KIND], "regular")
                             XCTAssertEqual(settings[.PRODUCT_BUNDLE_IDENTIFIER], "CFooTests")
