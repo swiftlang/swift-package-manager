@@ -45,6 +45,15 @@ class CustomLLBuildCommand: SPMLLBuild.ExternalCommand {
     }
 }
 
+private extension IndexStore.TestCaseClass.TestMethod {
+
+    var allTestsEntry: String {
+        let baseName = name.hasSuffix("()") ? String(name.dropLast(2)) : name
+
+        return "(\"\(baseName)\", \(isAsync ? "asyncTest(\(baseName))" : baseName ))"
+    }
+}
+
 final class TestDiscoveryCommand: CustomLLBuildCommand {
 
     private func write(
@@ -61,13 +70,12 @@ final class TestDiscoveryCommand: CustomLLBuildCommand {
 
         for iterator in testsByClassNames {
             let className = iterator.key
-            let testMethods = iterator.value.flatMap{ $0.methods }
+            let testMethods = iterator.value.flatMap{ $0.testMethods }
             stream <<< "\n"
             stream <<< "fileprivate extension " <<< className <<< " {" <<< "\n"
             stream <<< indent(4) <<< "static let __allTests__\(className) = [" <<< "\n"
             for method in testMethods {
-                let method = method.hasSuffix("()") ? String(method.dropLast(2)) : method
-                stream <<< indent(8) <<< "(\"\(method)\", \(method))," <<< "\n"
+                stream <<< indent(8) <<< method.allTestsEntry <<< ",\n"
             }
             stream <<< indent(4) <<< "]" <<< "\n"
             stream <<< "}" <<< "\n"
