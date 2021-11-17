@@ -80,7 +80,7 @@ public class RegistryPackageContainer: PackageContainer {
             // with only the header line which is all that is needed by ToolsVersionLoader
             let fileSystem = InMemoryFileSystem()
             for manifest in manifests {
-                try fileSystem.writeFileContents(AbsolutePath.root.appending(component: manifest.key), string: "// swift-tools-version: \(manifest.value)")
+                try fileSystem.writeFileContents(AbsolutePath.root.appending(component: manifest.key), string: "// swift-tools-version:\(manifest.value)")
             }
             return try self.toolsVersionLoader.load(at: .root, fileSystem: fileSystem)
         }
@@ -109,9 +109,7 @@ public class RegistryPackageContainer: PackageContainer {
     }
 
     public func getDependencies(at version: Version, productFilter: ProductFilter) throws -> [PackageContainerConstraint] {
-        let manifest = try manifestsCache.memoize(version) {
-            return try self.loadManifest(version: version)
-        }
+        let manifest = try self.loadManifest(version: version)
         return try manifest.dependencyConstraints(productFilter: productFilter)
     }
 
@@ -127,76 +125,93 @@ public class RegistryPackageContainer: PackageContainer {
         return self.package
     }
 
-    // FIXME: make this DRYer with toolsVersion(for:)
-    // FIXME: improve the concurrency
     private func loadManifest(version: Version) throws -> Manifest {
-        let manifests = try temp_await {
-            self.registryClient.getAvailableManifests(
-                package: self.package.identity,
-                version: version,
-                observabilityScope: self.observabilityScope,
-                callbackQueue: .sharedConcurrent,
-                completion: $0
-            )
+        return try self.manifestsCache.memoize(version) {
+            try temp_await {
+                loadManifest(version: version, completion: $0)
+            }
         }
+    }
 
-        // ToolsVersionLoader is designed to scan files to decide which is the best tools-version
-        // as such, this writes a fake manifest based on the information returned by the registry
-        // with only the header line which is all that is needed by ToolsVersionLoader
-        let fileSystem = InMemoryFileSystem()
-        for manifest in manifests {
-            try fileSystem.writeFileContents(AbsolutePath.root.appending(component: manifest.key), string: "// swift-tools-version: \(manifest.value)")
-        }
-        guard let mainToolsVersion = manifests.first(where: { $0.key == Manifest.filename })?.value else {
-            throw StringError("Could not find the '\(Manifest.filename)' file for '\(self.package.identity)' '\(version)'")
-        }
-        let preferredToolsVersion = try self.toolsVersionLoader.load(at: .root, fileSystem: fileSystem)
-        let customToolsVersion = preferredToolsVersion != mainToolsVersion ? preferredToolsVersion : nil
+    // FIXME: make this DRYer with toolsVersion(for:)
+    private func loadManifest(version: Version,  completion: @escaping (Result<Manifest, Error>) -> Void) {
+        self.registryClient.getAvailableManifests(
+            package: self.package.identity,
+            version: version,
+            observabilityScope: self.observabilityScope,
+            callbackQueue: .sharedConcurrent
+        ) { result in
+                switch result {
+                case .failure(let error):
+                    return completion(.failure(error))
+                case .success(let manifests):
+                    do {
+                        let fileSystem = InMemoryFileSystem()
+                        // first, decide the tools-version we should use
+                        // ToolsVersionLoader is designed to scan files to decide which is the best tools-version
+                        // as such, this writes a fake manifest based on the information returned by the registry
+                        // with only the header line which is all that is needed by ToolsVersionLoader
+                        for manifest in manifests {
+                            try fileSystem.writeFileContents(AbsolutePath.root.appending(component: manifest.key), string: "// swift-tools-version:\(manifest.value)")
+                        }
+                        guard let mainToolsVersion = manifests.first(where: { $0.key == Manifest.filename })?.value else {
+                            throw StringError("Could not find the '\(Manifest.filename)' file for '\(self.package.identity)' '\(version)'")
+                        }
+                        let preferredToolsVersion = try self.toolsVersionLoader.load(at: .root, fileSystem: fileSystem)
+                        let customToolsVersion = preferredToolsVersion != mainToolsVersion ? preferredToolsVersion : nil
 
-        // now that we know the tools version we need, fetch the manifest content
-        let manifestContent = try temp_await {
-            self.registryClient.getManifestContent(
-                package: self.package.identity,
-                version: version,
-                customToolsVersion: customToolsVersion,
-                observabilityScope: self.observabilityScope,
-                callbackQueue: .sharedConcurrent,
-                completion: $0
-            )
-        }
+                        // now that we know the tools version we need, fetch the manifest content
+                        self.registryClient.getManifestContent(
+                            package: self.package.identity,
+                            version: version,
+                            customToolsVersion: customToolsVersion,
+                            observabilityScope: self.observabilityScope,
+                            callbackQueue: .sharedConcurrent
+                        ) { result in
+                                switch result {
+                                case .failure(let error):
+                                    return completion(.failure(error))
+                                case .success(let manifestContent):
+                                    do {
+                                        // replace the fake manifest with the real manifest content
+                                        let filename: String
+                                        if let toolsVersion = customToolsVersion {
+                                            filename = Manifest.basename + "@swift-\(toolsVersion).swift"
+                                        } else {
+                                            filename = Manifest.filename
+                                        }
+                                        try fileSystem.writeFileContents(AbsolutePath.root.appending(component: filename), string: manifestContent)
 
-        // replace the fake manifest with the real manifest content
-        let filename: String
-        if let toolsVersion = customToolsVersion {
-            filename = Manifest.basename + "@swift-\(toolsVersion).swift"
-        } else {
-            filename = Manifest.filename
-        }
-        try fileSystem.writeFileContents(AbsolutePath.root.appending(component: filename), string: manifestContent)
+                                        // validate the tools version.
+                                        try preferredToolsVersion.validateToolsVersion(
+                                            self.currentToolsVersion,
+                                            packageIdentity: self.package.identity
+                                        )
 
-        // Validate the tools version.
-        try preferredToolsVersion.validateToolsVersion(
-            self.currentToolsVersion,
-            packageIdentity: self.package.identity,
-            packageVersion: "FIMXE"
-        )
-
-        // Load the manifest.
-        return try temp_await {
-            self.manifestLoader.load(
-                at: .root,
-                packageIdentity: self.package.identity,
-                packageKind: self.package.kind,
-                packageLocation: self.package.locationString,
-                version: version,
-                revision: nil,
-                toolsVersion: preferredToolsVersion,
-                identityResolver: self.identityResolver,
-                fileSystem: fileSystem,
-                observabilityScope: self.observabilityScope,
-                on: .sharedConcurrent,
-                completion: $0
-            )
+                                        // finally, load the manifest
+                                        self.manifestLoader.load(
+                                            at: .root,
+                                            packageIdentity: self.package.identity,
+                                            packageKind: self.package.kind,
+                                            packageLocation: self.package.locationString,
+                                            version: version,
+                                            revision: nil,
+                                            toolsVersion: preferredToolsVersion,
+                                            identityResolver: self.identityResolver,
+                                            fileSystem: fileSystem,
+                                            observabilityScope: self.observabilityScope,
+                                            on: .sharedConcurrent,
+                                            completion: completion
+                                        )
+                                    } catch {
+                                        return completion(.failure(error))
+                                    }
+                                }
+                        }
+                    } catch {
+                        return completion(.failure(error))
+                    }
+                }
         }
     }
 }
