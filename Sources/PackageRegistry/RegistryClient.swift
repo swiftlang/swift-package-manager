@@ -18,6 +18,7 @@ import PackageLoading
 import PackageModel
 import TSCBasic
 import protocol TSCUtility.Archiver
+import struct TSCUtility.ZipArchiver
 
 /// Package registry client.
 /// API specification: https://github.com/apple/swift-package-manager/blob/main/Documentation/Registry.md
@@ -55,7 +56,7 @@ public final class RegistryClient {
     {
         self.configuration = configuration
         self.identityResolver = identityResolver
-        self.archiverProvider = customArchiverProvider ?? { fileSystem in SourceArchiver(fileSystem: fileSystem) }
+        self.archiverProvider = customArchiverProvider ?? { fileSystem in ZipArchiver(fileSystem: fileSystem) }
         self.httpClient = customHTTPClient ?? HTTPClient()
         self.authorizationProvider = authorizationProvider
         self.jsonDecoder = JSONDecoder.makeWithDefaults()
@@ -426,7 +427,10 @@ public final class RegistryClient {
                             // TODO: Bail if archive contains relative paths or overlapping files
                             archiver.extract(from: downloadPath, to: destinationPath) { result in
                                 defer { try? fileSystem.removeFileTree(downloadPath) }
-                                completion(result.mapError { error in
+                                completion(result.tryMap {
+                                    // strip first level component
+                                    try fileSystem.stripFirstLevel(of: destinationPath)
+                                }.mapError { error in
                                     StringError("failed extracting '\(downloadPath)' to '\(destinationPath)': \(error)")
                                 })
                             }
