@@ -841,7 +841,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             cmd += ["-o", compiledManifestFile.pathString]
 
             // Compile the manifest.
-            Process.popen(arguments: cmd, environment: toolchain.swiftCompilerEnvironment) { result in
+            Process.popen(arguments: cmd, environment: toolchain.swiftCompilerEnvironment, queue: delegateQueue) { result in
                 var cleanupIfError = DelayableAction(target: tmpDir, action: cleanupTmpDir)
                 defer { cleanupIfError.perform() }
 
@@ -899,7 +899,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
     #endif
 
                 let cleanupAfterRunning = cleanupIfError.delay()
-                Process.popen(arguments: cmd, environment: environment) { result in
+                Process.popen(arguments: cmd, environment: environment, queue: delegateQueue) { result in
                     defer { cleanupAfterRunning.perform() }
                     fclose(jsonOutputFileDesc)
                     
