@@ -592,8 +592,8 @@ extension RegistryClient {
             }
 
             public struct Problem: Codable {
-                public var status: Int
-                public var title: String
+                public var status: Int?
+                public var title: String?
                 public var detail: String
 
                 public init(status: Int, title: String, detail: String) {

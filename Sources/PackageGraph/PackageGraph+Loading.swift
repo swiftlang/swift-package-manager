@@ -248,7 +248,6 @@ private func createResolvedPackages(
                     dependencyLocation = url.absoluteString
                 }
             case .registry(let settings):
-                // TODO: this is
                 dependencyLocation = settings.identity.description
             }
 
