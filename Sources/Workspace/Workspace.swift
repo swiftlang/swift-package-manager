@@ -3311,7 +3311,11 @@ extension Workspace {
              throw StringError("registry not configured")
          }
 
-         let downloadPath = self.location.registryDownloadDirectory.appending(components: package.identity.description, version.description)
+         guard case (let scope, let name)? = package.identity.scopeAndName else {
+             throw StringError("invalid package identity")
+         }
+
+         let downloadPath = self.location.registryDownloadDirectory.appending(components: scope.description, name.description, version.description)
          if self.fileSystem.exists(downloadPath) {
              return downloadPath
          }

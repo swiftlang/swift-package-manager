@@ -378,12 +378,17 @@ public final class RegistryClient {
         // prepare target download locations
         let downloadPath = destinationPath.withExtension("zip")
         do {
+            // prepare directories
+            if !fileSystem.exists(downloadPath.parentDirectory) {
+                try fileSystem.createDirectory(downloadPath.parentDirectory, recursive: true)
+            }
+            // clear out download path if exists
+            try fileSystem.removeFileTree(downloadPath)
             // validate that the destination does not already exist
             guard !fileSystem.exists(destinationPath) else {
                 throw RegistryError.pathAlreadyExists(destinationPath)
             }
-            // clear out download path if exists
-            try fileSystem.removeFileTree(downloadPath)
+            try fileSystem.createDirectory(destinationPath, recursive: true)
         } catch {
             return completion(.failure(error))
         }
@@ -421,7 +426,9 @@ public final class RegistryClient {
                             // TODO: Bail if archive contains relative paths or overlapping files
                             archiver.extract(from: downloadPath, to: destinationPath) { result in
                                 defer { try? fileSystem.removeFileTree(downloadPath) }
-                                completion(result)
+                                completion(result.mapError { error in
+                                    StringError("failed extracting '\(downloadPath)' to '\(destinationPath)': \(error)")
+                                })
                             }
                         } catch {
                             completion(.failure(error))
@@ -628,7 +635,7 @@ extension RegistryClient {
             }
 
             public struct AdditionalMetadata: Codable {
-                public let description: String
+                public let description: String?
 
                 public init(description: String) {
                     self.description = description
