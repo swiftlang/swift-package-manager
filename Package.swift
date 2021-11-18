@@ -63,7 +63,7 @@ if useSwiftCryptoV2 {
 let package = Package(
     name: "SwiftPM",
     platforms: [
-        .macOS(.v10_15),
+        .macOS("10.15.4"),
         .iOS(.v13)
     ],
     products:
