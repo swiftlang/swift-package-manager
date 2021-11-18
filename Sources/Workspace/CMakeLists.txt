@@ -15,6 +15,7 @@ add_library(Workspace
   InitPackage.swift
   ManagedArtifact.swift
   ManagedDependency.swift
+  RegistryPackageContainer.swift
   ResolvedFileWatcher.swift
   ResolverPrecomputationProvider.swift
   SourceControlPackageContainer.swift

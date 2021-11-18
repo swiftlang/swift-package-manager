@@ -64,7 +64,17 @@ public extension PackageDependency {
 }
 
 // backwards compatibility with existing tests
+
 extension PackageDependency.SourceControl.Requirement {
+    public static func upToNextMajor(from version: Version) -> Self {
+        return .range(.upToNextMajor(from: version))
+    }
+    public static func upToNextMinor(from version: Version) -> Self {
+        return .range(.upToNextMinor(from: version))
+    }
+}
+
+extension PackageDependency.Registry.Requirement {
     public static func upToNextMajor(from version: Version) -> Self {
         return .range(.upToNextMajor(from: version))
     }

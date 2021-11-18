@@ -60,7 +60,7 @@ final class RegistryManagerTests: XCTestCase {
                     body: data
                 )))
             default:
-                XCTFail("method and url should match")
+                completion(.failure(StringError("method and url should match")))
             }
         }
 
@@ -71,7 +71,7 @@ final class RegistryManagerTests: XCTestCase {
         var configuration = RegistryConfiguration()
         configuration.defaultRegistry = Registry(url: URL(string: registryURL)!)
 
-        let registryManager = RegistryManager(
+        let registryManager = RegistryClient(
             configuration: configuration,
             identityResolver: DefaultIdentityResolver(),
             customArchiverProvider: { _ in MockArchiver() },
@@ -82,7 +82,7 @@ final class RegistryManagerTests: XCTestCase {
         XCTAssertEqual(["1.1.1", "1.0.0"], versions)
     }
 
-    func testFetchManifest() throws {
+    func testAvailableManifests() throws {
         let registryURL = "https://packages.example.com"
         let identity = PackageIdentity.plain("mona.LinkedList")
         let (scope, name) = identity.scopeAndName!
@@ -95,7 +95,7 @@ final class RegistryManagerTests: XCTestCase {
                 XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+swift")
 
                 let data = #"""
-                // swift-tools-version:5.0
+                // swift-tools-version:5.5
                 import PackageDescription
 
                 let package = Package(
@@ -111,17 +111,24 @@ final class RegistryManagerTests: XCTestCase {
                 )
                 """#.data(using: .utf8)!
 
+                let links = """
+                <http://packages.example.com/mona/LinkedList/1.1.1/Package.swift?swift-version=4>; rel="alternate"; filename="Package@swift-4.swift"; swift-tools-version="4.0",
+                <http://packages.example.com/mona/LinkedList/1.1.1/Package.swift?swift-version=4.2>; rel="alternate"; filename="Package@swift-4.2.swift"; swift-tools-version="4.2",
+                <http://packages.example.com/mona/LinkedList/1.1.1/Package.swift?swift-version=5.3>; rel="alternate"; filename="Package@swift-5.3.swift"; swift-tools-version="5.3"
+                """
+
                 completion(.success(.init(
                     statusCode: 200,
                     headers: .init([
                         .init(name: "Content-Length", value: "\(data.count)"),
                         .init(name: "Content-Type", value: "text/x-swift"),
                         .init(name: "Content-Version", value: "1"),
+                        .init(name: "Link", value: links),
                     ]),
                     body: data
                 )))
             default:
-                XCTFail("method and url should match")
+                completion(.failure(StringError("method and url should match")))
             }
         }
 
@@ -132,67 +139,51 @@ final class RegistryManagerTests: XCTestCase {
         var configuration = RegistryConfiguration()
         configuration.defaultRegistry = Registry(url: URL(string: registryURL)!)
 
-        let registryManager = RegistryManager(
+        let registryManager = RegistryClient(
             configuration: configuration,
             identityResolver: DefaultIdentityResolver(),
             customArchiverProvider: { _ in MockArchiver() },
             customHTTPClient: httpClient
         )
 
-        let manifestLoader = ManifestLoader(toolchain: .default)
-        let manifest = try registryManager.fetchManifest(
+        let availableManifests = try registryManager.getAvailableManifests(
             package: identity,
-            version: version,
-            manifestLoader: manifestLoader,
-            toolsVersion: .none
+            version: version
         )
-
-        XCTAssertEqual(manifest.displayName, "LinkedList")
-
-        XCTAssertEqual(manifest.products.count, 1)
-        XCTAssertEqual(manifest.products.first?.name, "LinkedList")
-        XCTAssertEqual(manifest.products.first?.type, .library(.automatic))
-
-        XCTAssertEqual(manifest.targets.count, 2)
-        XCTAssertEqual(manifest.targets.first?.name, "LinkedList")
-        XCTAssertEqual(manifest.targets.first?.type, .regular)
-        XCTAssertEqual(manifest.targets.last?.name, "LinkedListTests")
-        XCTAssertEqual(manifest.targets.last?.type, .test)
-
-        XCTAssertEqual(manifest.swiftLanguageVersions, [.v4, .v5])
+        XCTAssertEqual(availableManifests,
+            [
+                "Package.swift": .v5_5,
+                "Package@swift-4.swift": .v4,
+                "Package@swift-4.2.swift": .v4_2,
+                "Package@swift-5.3.swift": .v5_3,
+            ]
+        )
     }
 
-    // FIXME: this fails with error "the package manifest at '/Package.swift' cannot be accessed (/Package.swift doesn't exist in file system)"
-    /*
-    func testFetchManifestForToolsVersion() throws {
+    func testGetManifestContent() throws {
         let registryURL = "https://packages.example.com"
         let identity = PackageIdentity.plain("mona.LinkedList")
         let (scope, name) = identity.scopeAndName!
         let version = Version("1.1.1")
-        let toolsVersion = ToolsVersion.v5
-        let manifestURL = URL(string: "\(registryURL)/\(scope)/\(name)/\(version)/Package.swift?swift-version=\(toolsVersion)")!
+        let manifestURL = URL(string: "\(registryURL)/\(scope)/\(name)/\(version)/Package.swift")!
 
         let handler: HTTPClient.Handler = { request, _, completion in
-            switch (request.method, request.url) {
+            var components = URLComponents(url: request.url, resolvingAgainstBaseURL: false)!
+            let toolsVersion = components.queryItems?.first{ $0.name == "swift-version" }.flatMap{ ToolsVersion(string: $0.value!) } ?? ToolsVersion.currentToolsVersion
+            // remove query
+            components.query = nil
+            let urlWithoutQuery = components.url
+            switch (request.method, urlWithoutQuery) {
             case (.get, manifestURL):
                 XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+swift")
 
-                let data = #"""
-                 // swift-tools-version:5.0
-                 import PackageDescription
+                let data = """
+                // swift-tools-version:\(toolsVersion)
 
-                 let package = Package(
-                     name: "LinkedList",
-                     products: [
-                         .library(name: "LinkedList", targets: ["LinkedList"])
-                     ],
-                     targets: [
-                         .target(name: "LinkedList"),
-                         .testTarget(name: "LinkedListTests", dependencies: ["LinkedList"]),
-                     ],
-                     swiftLanguageVersions: [.v4, .v5]
-                 )
-                 """#.data(using: .utf8)!
+                import PackageDescription
+
+                let package = Package()
+                """.data(using: .utf8)!
 
                 completion(.success(.init(
                     statusCode: 200,
@@ -204,7 +195,7 @@ final class RegistryManagerTests: XCTestCase {
                     body: data
                 )))
             default:
-                XCTFail("method and url should match")
+                completion(.failure(StringError("method and url should match")))
             }
         }
 
@@ -215,35 +206,46 @@ final class RegistryManagerTests: XCTestCase {
         var configuration = RegistryConfiguration()
         configuration.defaultRegistry = Registry(url: URL(string: registryURL)!)
 
-        let registryManager = RegistryManager(
+        let registryManager = RegistryClient(
             configuration: configuration,
             identityResolver: DefaultIdentityResolver(),
             customArchiverProvider: { _ in MockArchiver() },
             customHTTPClient: httpClient
         )
 
-        let manifestLoader = ManifestLoader(toolchain: .default)
-        let manifest = try registryManager.fetchManifest(
-            package: identity,
-            version: version,
-            manifestLoader: manifestLoader,
-            toolsVersion: toolsVersion
-        )
+        do {
+            let manifest = try registryManager.getManifestContent(
+                package: identity,
+                version: version,
+                customToolsVersion: nil
+            )
+            let toolsVersionLoader = ToolsVersionLoader()
+            let parsedToolsVersion = try toolsVersionLoader.load(utf8String: manifest)
+            XCTAssertEqual(parsedToolsVersion, .currentToolsVersion)
+        }
 
-        XCTAssertEqual(manifest.displayName, "LinkedList")
+        do {
+            let manifest = try registryManager.getManifestContent(
+                package: identity,
+                version: version,
+                customToolsVersion: .v5_3
+            )
+            let toolsVersionLoader = ToolsVersionLoader()
+            let parsedToolsVersion = try toolsVersionLoader.load(utf8String: manifest)
+            XCTAssertEqual(parsedToolsVersion, .v5_3)
+        }
 
-        XCTAssertEqual(manifest.products.count, 1)
-        XCTAssertEqual(manifest.products.first?.name, "LinkedList")
-        XCTAssertEqual(manifest.products.first?.type, .library(.automatic))
-
-        XCTAssertEqual(manifest.targets.count, 2)
-        XCTAssertEqual(manifest.targets.first?.name, "LinkedList")
-        XCTAssertEqual(manifest.targets.first?.type, .regular)
-        XCTAssertEqual(manifest.targets.last?.name, "LinkedListTests")
-        XCTAssertEqual(manifest.targets.last?.type, .test)
-
-        XCTAssertEqual(manifest.swiftLanguageVersions, [.v4, .v5])
-    }*/
+        do {
+            let manifest = try registryManager.getManifestContent(
+                package: identity,
+                version: version,
+                customToolsVersion: .v4
+            )
+            let toolsVersionLoader = ToolsVersionLoader()
+            let parsedToolsVersion = try toolsVersionLoader.load(utf8String: manifest)
+            XCTAssertEqual(parsedToolsVersion, .v4)
+        }
+    }
 
     func testFetchSourceArchiveChecksum() throws {
         let registryURL = "https://packages.example.com"
@@ -284,7 +286,7 @@ final class RegistryManagerTests: XCTestCase {
                     body: data
                 )))
             default:
-                XCTFail("method and url should match")
+                completion(.failure(StringError("method and url should match")))
             }
         }
 
@@ -295,7 +297,7 @@ final class RegistryManagerTests: XCTestCase {
         var configuration = RegistryConfiguration()
         configuration.defaultRegistry = Registry(url: URL(string: registryURL)!)
 
-        let registryManager = RegistryManager(
+        let registryManager = RegistryClient(
             configuration: configuration,
             identityResolver: DefaultIdentityResolver(),
             customArchiverProvider: { _ in MockArchiver() },
@@ -317,11 +319,12 @@ final class RegistryManagerTests: XCTestCase {
         let expectedChecksum = checksumAlgorithm.hash(emptyZipFile).hexadecimalRepresentation
 
         let handler: HTTPClient.Handler = { request, _, completion in
-            switch (request.method, request.url) {
-            case (.get, downloadURL):
+            switch (request.kind,  request.method, request.url) {
+            case (.download(let fileSystem, let path), .get, downloadURL):
                 XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+zip")
 
                 let data = Data(emptyZipFile.contents)
+                try! fileSystem.writeFileContents(path, data: data)
 
                 completion(.success(.init(
                     statusCode: 200,
@@ -332,10 +335,10 @@ final class RegistryManagerTests: XCTestCase {
                         .init(name: "Content-Disposition", value: #"attachment; filename="LinkedList-1.1.1.zip""#),
                         .init(name: "Digest", value: "sha-256=bc6c9a5d2f2226cfa1ef4fad8344b10e1cc2e82960f468f70d9ed696d26b3283"),
                     ]),
-                    body: data
+                    body: nil
                 )))
             default:
-                XCTFail("method and url should match")
+                completion(.failure(StringError("method and url should match")))
             }
         }
 
@@ -346,7 +349,7 @@ final class RegistryManagerTests: XCTestCase {
         var configuration = RegistryConfiguration()
         configuration.defaultRegistry = Registry(url: URL(string: registryURL)!)
 
-        let registryManager = RegistryManager(
+        let registryManager = RegistryClient(
             configuration: configuration,
             identityResolver: DefaultIdentityResolver(),
             customArchiverProvider: { _ in MockArchiver() },
@@ -382,23 +385,26 @@ final class RegistryManagerTests: XCTestCase {
         let checksumAlgorithm: HashAlgorithm = SHA256()
 
         let handler: HTTPClient.Handler = { request, _, completion in
-            switch (request.method, request.url) {
-            case (.get, downloadURL):
+            switch (request.kind, request.method, request.url) {
+            case (.download(let fileSystem, let path), .get, downloadURL):
                 XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+zip")
 
                 let data = Data(emptyZipFile.contents)
+                try! fileSystem.writeFileContents(path, data: data)
 
-                completion(.success(.init(statusCode: 200,
-                                          headers: .init([
-                                            .init(name: "Content-Length", value: "\(data.count)"),
-                                            .init(name: "Content-Type", value: "application/zip"),
-                                            .init(name: "Content-Version", value: "1"),
-                                            .init(name: "Content-Disposition", value: #"attachment; filename="LinkedList-1.1.1.zip""#),
-                                            .init(name: "Digest", value: "sha-256=bc6c9a5d2f2226cfa1ef4fad8344b10e1cc2e82960f468f70d9ed696d26b3283"),
-                                          ]),
-                                          body: data)))
+                completion(.success(.init(
+                    statusCode: 200,
+                    headers: .init([
+                        .init(name: "Content-Length", value: "\(data.count)"),
+                        .init(name: "Content-Type", value: "application/zip"),
+                        .init(name: "Content-Version", value: "1"),
+                        .init(name: "Content-Disposition", value: #"attachment; filename="LinkedList-1.1.1.zip""#),
+                        .init(name: "Digest", value: "sha-256=bc6c9a5d2f2226cfa1ef4fad8344b10e1cc2e82960f468f70d9ed696d26b3283"),
+                    ]),
+                    body: nil
+                )))
                 // `downloadSourceArchive` calls this API to fetch checksum
-            case (.get, metadataURL):
+            case (.generic, .get, metadataURL):
                 XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+json")
 
                 let data = """
@@ -428,7 +434,7 @@ final class RegistryManagerTests: XCTestCase {
                     body: data
                 )))
             default:
-                XCTFail("method and url should match")
+                completion(.failure(StringError("method and url should match")))
             }
         }
 
@@ -439,7 +445,7 @@ final class RegistryManagerTests: XCTestCase {
         var configuration = RegistryConfiguration()
         configuration.defaultRegistry = Registry(url: URL(string: registryURL)!)
 
-        let registryManager = RegistryManager(
+        let registryManager = RegistryClient(
             configuration: configuration,
             identityResolver: DefaultIdentityResolver(),
             customArchiverProvider: { _ in MockArchiver() },
@@ -492,7 +498,7 @@ final class RegistryManagerTests: XCTestCase {
                     body: data
                 )))
             default:
-                XCTFail("method and url should match")
+                completion(.failure(StringError("method and url should match")))
             }
         }
 
@@ -503,7 +509,7 @@ final class RegistryManagerTests: XCTestCase {
         var configuration = RegistryConfiguration()
         configuration.defaultRegistry = Registry(url: URL(string: registryURL)!)
 
-        let registryManager = RegistryManager(
+        let registryManager = RegistryClient(
             configuration: configuration,
             identityResolver: DefaultIdentityResolver(),
             customArchiverProvider: { _ in MockArchiver() },
@@ -517,7 +523,7 @@ final class RegistryManagerTests: XCTestCase {
 
 // MARK - Sugar
 
-extension RegistryManager {
+extension RegistryClient {
     public func fetchVersions(package: PackageIdentity) throws -> [Version] {
         return try tsc_await {
             self.fetchVersions(
@@ -529,18 +535,31 @@ extension RegistryManager {
         }
     }
 
-    public func fetchManifest(
+    public func getAvailableManifests(
         package: PackageIdentity,
-        version: Version,
-        manifestLoader: ManifestLoaderProtocol,
-        toolsVersion: ToolsVersion?
-    ) throws -> Manifest {
+        version: Version
+    ) throws -> [String : ToolsVersion] {
         return try tsc_await {
-            self.fetchManifest(
+            self.getAvailableManifests(
                 package: package,
                 version: version,
-                manifestLoader: manifestLoader,
-                toolsVersion: toolsVersion,
+                observabilityScope: ObservabilitySystem.NOOP,
+                callbackQueue: .sharedConcurrent,
+                completion: $0
+            )
+        }
+    }
+
+    public func getManifestContent(
+        package: PackageIdentity,
+        version: Version,
+        customToolsVersion: ToolsVersion?
+    ) throws -> String {
+        return try tsc_await {
+            self.getManifestContent(
+                package: package,
+                version: version,
+                customToolsVersion: customToolsVersion,
                 observabilityScope: ObservabilitySystem.NOOP,
                 callbackQueue: .sharedConcurrent,
                 completion: $0
@@ -576,6 +595,7 @@ extension RegistryManager {
                 destinationPath: destinationPath,
                 expectedChecksum: expectedChecksum,
                 checksumAlgorithm: checksumAlgorithm,
+                progressHandler: .none,
                 observabilityScope: ObservabilitySystem.NOOP,
                 callbackQueue: .sharedConcurrent,
                 completion: $0

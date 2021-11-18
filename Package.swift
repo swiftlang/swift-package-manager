@@ -381,6 +381,7 @@ let package = Package(
                 "Basics",
                 "PackageGraph",
                 "PackageLoading",
+                "PackageRegistry",
                 "SourceControl",
                 .product(name: "TSCTestSupport", package: "swift-tools-support-core"),
                 "Workspace",

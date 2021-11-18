@@ -247,9 +247,8 @@ private func createResolvedPackages(
                 case .remote(let url):
                     dependencyLocation = url.absoluteString
                 }
-            case .registry:
-                // FIXME
-                fatalError("registry based dependencies not implemented yet")
+            case .registry(let settings):
+                dependencyLocation = settings.identity.description
             }
 
             // Otherwise, look it up by its identity.

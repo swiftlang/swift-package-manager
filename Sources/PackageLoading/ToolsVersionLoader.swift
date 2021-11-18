@@ -353,9 +353,13 @@ public struct ToolsVersionLoader: ToolsVersionLoaderProtocol {
         guard let manifestContentsDecodedWithUTF8 = manifestContents.validDescription else {
             throw Error.nonUTF8EncodedManifest(path: file)
         }
-        
+
+        return try self.load(utf8String: manifestContentsDecodedWithUTF8)
+    }
+
+    public func load(utf8String: String) throws -> ToolsVersion {
         /// The manifest represented in its constituent parts.
-        let manifestComponents = ToolsVersionLoader.split(manifestContentsDecodedWithUTF8)
+        let manifestComponents = ToolsVersionLoader.split(utf8String)
         /// The Swift tools version specification represented in its constituent parts.
         let toolsVersionSpecificationComponents = manifestComponents.toolsVersionSpecificationComponents
         

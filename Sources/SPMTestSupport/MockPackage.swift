@@ -63,6 +63,26 @@ public struct MockPackage {
         self.toolsVersion = toolsVersion
     }
 
+    public init(
+        name: String,
+        platforms: [PlatformDescription] = [],
+        identity: String,
+        targets: [MockTarget],
+        products: [MockProduct],
+        dependencies: [MockDependency] = [],
+        versions: [String?] = [],
+        toolsVersion: ToolsVersion? = nil
+    ) {
+        self.name = name
+        self.platforms = platforms
+        self.location = .registry(identity: .plain(identity))
+        self.targets = targets
+        self.products = products
+        self.dependencies = dependencies
+        self.versions = versions
+        self.toolsVersion = toolsVersion
+    }
+
     public static func genericPackage1(named name: String) throws -> MockPackage {
         return MockPackage(
             name: name,
@@ -79,5 +99,6 @@ public struct MockPackage {
     public enum Location {
         case fileSystem(path: RelativePath)
         case sourceControl(url: Foundation.URL)
+        case registry(identity: PackageIdentity)
     }
 }
