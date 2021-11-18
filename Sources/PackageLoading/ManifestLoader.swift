@@ -505,6 +505,25 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         )
     }
 
+    /// Represents behavior that can be deferred until a more appropriate time.
+    internal struct DelayableAction<T> {
+        var target: T?
+        var action: ((T) -> Void)?
+
+        func perform() {
+            if let value = target, let cleanup = action {
+                cleanup(value)
+            }
+        }
+
+        mutating func delay() -> DelayableAction {
+            let next = DelayableAction(target: target, action: action)
+            target = nil
+            action = nil
+            return next
+        }
+    }
+
     private func parseAndCacheManifest(
         at path: AbsolutePath,
         packageIdentity: PackageIdentity,
@@ -530,7 +549,8 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         }
 
         // TODO: we could wrap the failure here with diagnostics if it wasn't optional throughout
-        defer { try? cache?.close() }
+        var closeAfterRead = DelayableAction(target: cache) { try? $0.close() }
+        defer { closeAfterRead.perform() }
 
         let key : CacheKey
         do {
@@ -564,6 +584,9 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             return completion(.failure(error))
         }
 
+        // delay closing cache until after write.
+        let closeAfterWrite = closeAfterRead.delay()
+
         // shells out and compiles the manifest, finally output a JSON
         self.evaluateManifest(
             packageIdentity: key.packageIdentity,
@@ -573,6 +596,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             delegateQueue: delegateQueue
         ) { result in
             do {
+                defer { closeAfterWrite.perform() }
                 let evaluationResult = try result.get()
                 // only cache successfully parsed manifests
                 let parseManifest = try self.parseManifest(
@@ -818,6 +842,9 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
             // Compile the manifest.
             Process.popen(arguments: cmd, environment: toolchain.swiftCompilerEnvironment) { result in
+                var cleanupIfError = DelayableAction(target: tmpDir, action: cleanupTmpDir)
+                defer { cleanupIfError.perform() }
+
                 let compilerResult : ProcessResult
                 do {
                     compilerResult = try result.get()
@@ -870,9 +897,10 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                 let windowsPathComponent = runtimePath.pathString.replacingOccurrences(of: "/", with: "\\")
                 environment["Path"] = "\(windowsPathComponent);\(environment["Path"] ?? "")"
     #endif
-    
+
+                let cleanupAfterRunning = cleanupIfError.delay()
                 Process.popen(arguments: cmd, environment: environment) { result in
-                    defer { cleanupTmpDir(tmpDir) }
+                    defer { cleanupAfterRunning.perform() }
                     fclose(jsonOutputFileDesc)
                     
                     do {
