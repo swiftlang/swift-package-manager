@@ -3321,7 +3321,7 @@ final class WorkspaceTests: XCTestCase {
 
         let workspace = try MockWorkspace(
             sandbox: sandbox,
-            fs: fs,
+            fileSystem: fs,
             roots: [
                 MockPackage(
                     name: "Root",
