@@ -2400,8 +2400,6 @@ extension Workspace {
         explicitProduct: String? = nil,
         forceResolution: Bool,
         constraints: [PackageContainerConstraint],
-        retryOnPackagePathMismatch: Bool = true,
-        resetPinsStoreOnFailure: Bool = true,
         observabilityScope: ObservabilityScope
     ) throws -> DependencyManifests {
         // Ensure the cache path exists and validate that edited dependencies.
@@ -2488,51 +2486,12 @@ extension Workspace {
 
         // Update the pinsStore.
         let updatedDependencyManifests = try self.loadDependencyManifests(root: graphRoot, observabilityScope: observabilityScope)
-
-        // If we still have required URLs, we probably cloned a wrong URL for
-        // some package dependency.
-        //
-        // This would usually happen when we're resolving from scratch and the
-        // resolved file has an outdated entry for a transitive dependency whose
-        // URL was changed. For e.g., the resolved file could refer to a dependency
-        // through a ssh url but its new reference is now changed to http.
+        // If we still have missing packages, something is fundamentally wrong with the resolution of the graph
         let stillMissingPackages = updatedDependencyManifests.computePackages().missing
-        if !stillMissingPackages.isEmpty {
-            if retryOnPackagePathMismatch {
-                // Retry resolution which will most likely resolve correctly now since
-                // we have the manifest files of all the dependencies.
-                return try self.resolve(
-                    root: root,
-                    explicitProduct: explicitProduct,
-                    forceResolution: forceResolution,
-                    constraints: constraints,
-                    retryOnPackagePathMismatch: false,
-                    resetPinsStoreOnFailure: resetPinsStoreOnFailure,
-                    observabilityScope: observabilityScope
-                )
-            } else if resetPinsStoreOnFailure, !pinsStore.pinsMap.isEmpty {
-                // If we weren't able to resolve properly even after a retry, it
-                // could mean that the dependency at fault has a different
-                // version of the manifest file which contains dependencies that
-                // have also changed their package references.
-                pinsStore.unpinAll()
-                try pinsStore.saveState(toolsVersion: rootManifestsMinimumToolsVersion)
-                // try again with pins reset
-                return try self.resolve(
-                    root: root,
-                    explicitProduct: explicitProduct,
-                    forceResolution: forceResolution,
-                    constraints: constraints,
-                    retryOnPackagePathMismatch: false,
-                    resetPinsStoreOnFailure: false,
-                    observabilityScope: observabilityScope
-                )
-            } else {
-                // give up
-                let missing = stillMissingPackages.map{ $0.description }
-                observabilityScope.emit(error: "exhausted attempts to resolve the dependencies graph, with '\(missing.joined(separator: "', '"))' unresolved.")
-                return updatedDependencyManifests
-            }
+        guard stillMissingPackages.isEmpty else {
+            let missing = stillMissingPackages.map{ $0.description }
+            observabilityScope.emit(error: "exhausted attempts to resolve the dependencies graph, with '\(missing.joined(separator: "', '"))' unresolved.")
+            return updatedDependencyManifests
         }
 
         self.pinAll(

@@ -3237,7 +3237,10 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testDependencySwitchWithSameIdentity() throws {
+
+    // Test that switching between two same local packages placed at
+    // different locations works correctly.
+    func testDependencySwitchLocalWithSameIdentity() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -3279,9 +3282,6 @@ final class WorkspaceTests: XCTestCase {
             ]
         )
 
-        // Test that switching between two same local packages placed at
-        // different locations works correctly.
-
         var deps: [MockDependency] = [
             .fileSystem(path: "./Foo", products: .specific(["Foo"])),
         ]
@@ -3312,6 +3312,84 @@ final class WorkspaceTests: XCTestCase {
         do {
             let ws = try workspace.getOrCreateWorkspace()
             XCTAssertEqual(ws.state.dependencies[.plain("foo")]?.packageRef.locationString, "/tmp/ws/pkgs/Nested/Foo")
+        }
+    }
+
+    // Test that switching between two remote packages at
+    // different locations works correctly.
+    func testDependencySwitchRemoteWithSameIdentity() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    targets: [
+                        MockTarget(name: "Root", dependencies: []),
+                    ],
+                    products: [],
+                    dependencies: []
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "Foo",
+                    url: "https://scm.com/org/foo",
+                    targets: [
+                        MockTarget(name: "Foo"),
+                    ],
+                    products: [
+                        MockProduct(name: "Foo", targets: ["Foo"]),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                MockPackage(
+                    name: "Foo",
+                    url: "https://scm.com/other/foo",
+                    targets: [
+                        MockTarget(name: "OtherFoo"),
+                    ],
+                    products: [
+                        MockProduct(name: "OtherFoo", targets: ["OtherFoo"]),
+                    ],
+                    versions: ["1.1.0"]
+                ),
+            ]
+        )
+
+        var deps: [MockDependency] = [
+            .sourceControl(url: "https://scm.com/org/foo", requirement: .exact("1.0.0")),
+        ]
+        try workspace.checkPackageGraph(roots: ["Root"], deps: deps) { graph, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+            PackageGraphTester(graph) { result in
+                result.check(roots: "Root")
+                result.check(packages: "Foo", "Root")
+            }
+        }
+        workspace.checkManagedDependencies { result in
+            result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
+        }
+        do {
+            let ws = try workspace.getOrCreateWorkspace()
+            XCTAssertEqual(ws.state.dependencies[.plain("foo")]?.packageRef.locationString, "https://scm.com/org/foo")
+        }
+
+        deps = [
+            .sourceControl(url: "https://scm.com/other/foo", requirement: .exact("1.1.0"))
+        ]
+        try workspace.checkPackageGraph(roots: ["Root"], deps: deps) { _, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkManagedDependencies { result in
+            result.check(dependency: "foo", at: .checkout(.version("1.1.0")))
+        }
+        do {
+            let ws = try workspace.getOrCreateWorkspace()
+            XCTAssertEqual(ws.state.dependencies[.plain("foo")]?.packageRef.locationString, "https://scm.com/other/foo")
         }
     }
 
@@ -3525,6 +3603,9 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
+    // In this test, we get into a state where an entry in the resolved
+    // file for a transitive dependency whose URL is later changed to
+    // something else, while keeping the same package identity.
     func testTransitiveDependencySwitchWithSameIdentity() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
@@ -3536,44 +3617,59 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Root",
                     targets: [
-                        MockTarget(name: "Root", dependencies: ["Bar"]),
+                        MockTarget(
+                            name: "Root",
+                            dependencies: [
+                                .product(name: "Bar", package: "bar")
+                            ]),
                     ],
                     products: [],
                     dependencies: [
-                        .sourceControl(path: "./Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(url: "https://scm.com/org/bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
                 ),
             ],
             packages: [
                 MockPackage(
                     name: "Bar",
+                    url: "https://scm.com/org/bar",
                     targets: [
-                        MockTarget(name: "Bar", dependencies: ["Foo"]),
+                        MockTarget(
+                            name: "Bar",
+                            dependencies: [
+                                .product(name: "Foo", package: "foo")
+                            ]),
                     ],
                     products: [
                         MockProduct(name: "Bar", targets: ["Bar"]),
                     ],
                     dependencies: [
-                        .sourceControl(path: "./Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(url: "https://scm.com/org/foo", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     versions: ["1.0.0"]
                 ),
                 MockPackage(
                     name: "Bar",
+                    url: "https://scm.com/org/bar",
                     targets: [
-                        MockTarget(name: "Bar", dependencies: ["Nested/Foo"]),
+                        MockTarget(
+                            name: "Bar",
+                            dependencies: [
+                                .product(name: "OtherFoo", package: "foo")
+                            ]),
                     ],
                     products: [
                         MockProduct(name: "Bar", targets: ["Bar"]),
                     ],
                     dependencies: [
-                        .sourceControl(path: "Nested/Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(url: "https://scm.com/other/foo", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     versions: ["1.1.0"],
                     toolsVersion: .v5
                 ),
                 MockPackage(
                     name: "Foo",
+                    url: "https://scm.com/org/foo",
                     targets: [
                         MockTarget(name: "Foo"),
                     ],
@@ -3584,40 +3680,27 @@ final class WorkspaceTests: XCTestCase {
                 ),
                 MockPackage(
                     name: "Foo",
-                    path: "Nested/Foo",
+                    url: "https://scm.com/other/foo",
                     targets: [
-                        MockTarget(name: "Foo"),
+                        MockTarget(name: "OtherFoo"),
                     ],
                     products: [
-                        MockProduct(name: "Nested/Foo", targets: ["Foo"]),
+                        MockProduct(name: "OtherFoo", targets: ["OtherFoo"]),
                     ],
                     versions: ["1.0.0"]
                 ),
             ]
         )
 
-        // In this test, we get into a state where add an entry in the resolved
-        // file for a transitive dependency whose URL is later changed to
-        // something else, while keeping the same package identity.
-        //
-        // This is normally detected during pins validation before the
-        // dependency resolution process even begins but if we're starting with
-        // a clean slate, we don't even know about the correct urls of the
-        // transitive dependencies. We will end up fetching the wrong
-        // dependency as we prefetch the pins. If we get into this case, it
-        // should kick off another dependency resolution operation which will
-        // have enough information to remove the invalid pins of transitive
-        // dependencies.
-
         var deps: [MockDependency] = [
-            .sourceControl(path: "./Bar", requirement: .exact("1.0.0"), products: .specific(["Bar"])),
+            .sourceControl(url: "https://scm.com/org/bar", requirement: .exact("1.0.0")),
         ]
         try workspace.checkPackageGraph(roots: ["Root"], deps: deps) { graph, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
             PackageGraphTester(graph) { result in
                 result.check(roots: "Root")
                 result.check(packages: "Bar", "Foo", "Root")
             }
-            XCTAssertNoDiagnostics(diagnostics)
         }
         workspace.checkManagedDependencies { result in
             result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
@@ -3626,7 +3709,7 @@ final class WorkspaceTests: XCTestCase {
 
         do {
             let ws = try workspace.getOrCreateWorkspace()
-            XCTAssertEqual(ws.state.dependencies[.plain("foo")]?.packageRef.locationString, "/tmp/ws/pkgs/Foo")
+            XCTAssertEqual(ws.state.dependencies[.plain("foo")]?.packageRef.locationString, "https://scm.com/org/foo")
         }
 
         workspace.checkReset { diagnostics in
@@ -3634,14 +3717,14 @@ final class WorkspaceTests: XCTestCase {
         }
 
         deps = [
-            .sourceControl(path: "./Bar", requirement: .exact("1.1.0"), products: .specific(["Bar"])),
+            .sourceControl(url: "https://scm.com/org/bar", requirement: .exact("1.1.0")),
         ]
         try workspace.checkPackageGraph(roots: ["Root"], deps: deps) { graph, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
             PackageGraphTester(graph) { result in
                 result.check(roots: "Root")
                 result.check(packages: "Bar", "Foo", "Root")
             }
-            XCTAssertNoDiagnostics(diagnostics)
         }
         workspace.checkManagedDependencies { result in
             result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
@@ -3650,7 +3733,7 @@ final class WorkspaceTests: XCTestCase {
 
         do {
             let ws = try workspace.getOrCreateWorkspace()
-            XCTAssertEqual(ws.state.dependencies[.plain("foo")]?.packageRef.locationString, "/tmp/ws/pkgs/Nested/Foo")
+            XCTAssertEqual(ws.state.dependencies[.plain("foo")]?.packageRef.locationString, "https://scm.com/other/foo")
         }
     }
 
