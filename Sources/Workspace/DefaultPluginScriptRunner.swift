@@ -43,7 +43,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
         guard let compiledExecutable = result.compiledExecutable else {
             throw DefaultPluginScriptRunnerError.compilationFailed(result)
         }
-        return try self.invoke(compiledExec: compiledExecutable, pluginArguments: pluginArguments, toolsVersion: toolsVersion, writableDirectories: writableDirectories, input: inputJSON)
+        return try self.invoke(compiledExec: compiledExecutable, pluginArguments: pluginArguments, writableDirectories: writableDirectories, inputData: inputJSON)
     }
 
     public var hostTriple: Triple {
@@ -180,29 +180,33 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
         guard let versionString = try runResult.utf8Output().components(separatedBy: "\n").first(where: { $0.contains("minos") })?.components(separatedBy: " ").last else { return nil }
         return PlatformVersion(versionString)
     }
-
-    fileprivate func invoke(compiledExec: AbsolutePath, pluginArguments: [String], toolsVersion: ToolsVersion, writableDirectories: [AbsolutePath], input: Data) throws -> (outputJSON: Data, stdoutText: Data) {
-        // Construct the command line.  We just pass along any arguments intended for the plugin.
+    
+    /// Private function that invokes a compiled plugin executable with a particular set of arguments and JSON-encoded input data.
+    fileprivate func invoke(
+        compiledExec: AbsolutePath,
+        pluginArguments: [String],
+        writableDirectories: [AbsolutePath],
+        inputData: Data
+    ) throws -> (outputJSON: Data, stdoutText: Data) {
+        // Construct the command line. We just pass along any arguments intended for the plugin.
         var command = [compiledExec.pathString] + pluginArguments
-        command += [String(decoding: input, as: UTF8.self)]
 
-        // If enabled, run command in a sandbox.
-        // This provides some safety against arbitrary code execution when invoking the plugin.
-        // We only allow the permissions which are absolutely necessary.
+        // Optionally wrap the command in a sandbox, which places some limits on what it can do. In particular, it blocks network access and restricts the paths to which the plugin can make file system changes.
         if self.enableSandbox {
             command = Sandbox.apply(command: command, writableDirectories: writableDirectories + [self.cacheDir])
         }
 
-        // Create and configure a Process.
+        // Create and configure a Process. We set the working directory to the cache directory, so that relative paths end up there.
         let process = Process()
-        process.launchPath = command.first!
+        process.executableURL = Foundation.URL(fileURLWithPath: command[0])
         process.arguments = Array(command.dropFirst())
         process.environment = ProcessInfo.processInfo.environment
         process.currentDirectoryURL = self.cacheDir.asURL
-            
-        // Create a dispatch group for waiting until the process has terminated and the data has been read.
+        
+        // Create a dispatch group for waiting until on the process as well as all output from it.
         let waiters = DispatchGroup()
-        // Set up for capturing stdout data.
+        
+        // Set up a pipe for receiving stdout data (the JSON-encoded output results).
         let stdoutPipe = Pipe()
         var stdoutData = Data()
         waiters.enter()
@@ -218,7 +222,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
         }
         process.standardOutput = stdoutPipe
         
-        // Set up for capturing stderr data.
+        // Set up a pipe for receiving stderr data (free-form printed text from the plugin).
         waiters.enter()
         let stderrPipe = Pipe()
         var stderrData = Data()
@@ -233,9 +237,14 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
             }
         }
         process.standardError = stderrPipe
-        
+
+        // Set up a pipe for sending stdin data (the JSON-encoded input context).
+        let stdinPipe = Pipe()
+        process.standardInput = stdinPipe
+
         // Set up a termination handler.
         process.terminationHandler = { _ in
+            // We don't do anything special other than note the process exit.
             waiters.leave()
         }
 
@@ -247,10 +256,14 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
             throw DefaultPluginScriptRunnerError.subprocessDidNotStart("\(error)", command: command)
         }
 
+        // Write the input data to the plugin, and close the stream to tell the plugin we're done.
+        // TODO: We should do this asynchronously; this is coming up as part of the more flexible communication between host and plugin.
+        try stdinPipe.fileHandleForWriting.write(contentsOf: inputData)
+        try stdinPipe.fileHandleForWriting.close()
+        
         // Wait for the process to terminate and the readers to finish collecting all output.
         waiters.wait()
 
-        
         // Now `stdoutData` contains a JSON-encoded output structure, and `stderrData` contains any free text output from the plugin process.
         let stderrText = String(decoding: stderrData, as: UTF8.self)
 

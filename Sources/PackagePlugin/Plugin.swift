@@ -16,65 +16,103 @@
 
 @_implementationOnly import Foundation
 #if os(Windows)
-@_implementationOnly import ucrt    // for stdio functions
+@_implementationOnly import ucrt
 #endif
 
-// The way in which SwiftPM communicates with the plugin is an implementation
-// detail, but the way it currently works is that the plugin is compiled (in
-// a very similar way to the package manifest) and then run in a sandbox.
+// The specifics of how SwiftPM communicates with the plugin are implementation
+// details, but the way it currently works is that the plugin is compiled as an
+// executable and then run in a sandbox that blocks network access and prevents
+// changes to all except a few file system locations.
 //
-// Currently the plugin input is provided in the form of a JSON-encoded input
-// structure passed as the last command line argument; however, this will very
-// likely change so that it is instead passed on `stdin` of the process that
-// runs the plugin, since that avoids any command line length limitations.
+// The "plugin host" (SwiftPM or an IDE using libSwiftPM) sends a JSON-encoded
+// context struct to the plugin process on its original standard-input pipe, and
+///when finished, the plugin sends a JSON-encoded result struct back to the host
+// on its original standard-output pipe. The plugin host treats output on the
+// standard-error pipe as free-form output text from the plugin (for debugging
+// purposes, etc).
+
+// Within the plugin process, `stdout` is redirected to `stderr` so that print
+// statements from the plugin are treated as plain-text output, and `stdin` is
+// closed so that attemps by the plugin logic to read from console input return
+// errors instead of blocking. The original `stdin` and `stdout` are duplicated
+// for use as messaging pipes, and are not directly used by the plugin logic.
 //
-// An output structure containing any generated commands and diagnostics is
-// passed back to SwiftPM on `stdout`. All freeform output from the plugin
-// is redirected to `stderr`, which SwiftPM shows to the user without inter-
-// preting it in any way.
+// Using the standard input and output streams avoids having to make allowances
+// in the sandbox for other channels of communication, and seems a more portable
+// approach than many of the alternatives.
 //
-// The exit code of the compiled plugin determines success or failure (though
-// failure to decode the output is also considered a failure to run the ex-
-// tension).
+// The exit code of the plugin process determines whether the plugin invocation
+// is considered successful. A failure result should also be accompanied by an
+// emitted error diagnostic, so that errors are understandable by the user.
 
 extension Plugin {
     
     public static func main(_ arguments: [String]) throws {
-        
-        // Use the initial `stdout` for returning JSON, and redirect `stdout`
-        // to `stderr` for capturing freeform text.
-        let jsonOut = fdopen(dup(fileno(stdout)), "w")
-        dup2(fileno(stderr), fileno(stdout))
-        
-        // Close `stdin` to avoid blocking if the plugin tries to read input.
-        close(fileno(stdin))
-
-        // Private function for reporting internal errors and halting execution.
+        // Private function to report internal errors and then exit.
         func internalError(_ message: String) -> Never {
             Diagnostics.error("Internal Error: \(message)")
             fputs("Internal Error: \(message)", stderr)
             exit(1)
         }
         
-        // Look for the input JSON as the last argument of the invocation.
-        guard let inputData = ProcessInfo.processInfo.arguments.last?.data(using: .utf8) else {
-            internalError("Expected last argument to contain JSON input data in UTF-8 encoding, but didn't find it.")
+        // Private function to construct an error message from an `errno` code.
+        func describe(errno: Int32) -> String {
+            if let cStr = strerror(errno) { return String(cString: cStr) }
+            return String(describing: errno)
         }
         
-        // Deserialize the input JSON.
-        let input: PluginInput
+        // Duplicate the `stdin` file descriptor, which we will then use as an
+        // input stream from which we receive messages from the plugin host.
+        let inputFD = dup(fileno(stdin))
+        guard inputFD >= 0 else {
+            internalError("Could not duplicate `stdin`: \(describe(errno: errno)).")
+        }
+        
+        // Having duplicated the original standard-input descriptor, we close
+        // `stdin` so that attempts by the plugin to read console input (which
+        // are usually a mistake) return errors instead of blocking.
+        guard close(fileno(stdin)) >= 0 else {
+            internalError("Could not close `stdin`: \(describe(errno: errno)).")
+        }
+
+        // Duplicate the `stdout` file descriptor, which we will then use as a
+        // message stream to which we send output to the plugin host.
+        let outputFD = dup(fileno(stdout))
+        guard outputFD >= 0 else {
+            internalError("Could not dup `stdout`: \(describe(errno: errno)).")
+        }
+        
+        // Having duplicated the original standard-output descriptor, redirect
+        // `stdout` to `stderr` so that all free-form text output goes there.
+        guard dup2(fileno(stderr), fileno(stdout)) >= 0 else {
+            internalError("Could not dup2 `stdout` to `stderr`: \(describe(errno: errno)).")
+        }
+        
+        // Turn off full buffering so printed text appears as soon as possible.
+        setlinebuf(stdout)
+        
+        // Open input and output handles for read from and writing to the host.
+        let inputHandle = FileHandle(fileDescriptor: inputFD)
+        let outputHandle = FileHandle(fileDescriptor: outputFD)
+
+        // Read the input data (a JSON-encoded struct) from the host. It has
+        // all the input context for the plugin invocation.
+        guard let inputData = try inputHandle.readToEnd() else {
+            internalError("Couldn’t read input JSON.")
+        }
+        let inputStruct: PluginInput
         do {
-            input = try PluginInput(from: inputData)
+            inputStruct = try PluginInput(from: inputData)
         } catch {
             internalError("Couldn’t decode input JSON: \(error).")
         }
         
         // Construct a PluginContext from the deserialized input.
         let context = PluginContext(
-            package: input.package,
-            pluginWorkDirectory: input.pluginWorkDirectory,
-            builtProductsDirectory: input.builtProductsDirectory,
-            toolNamesToPaths: input.toolNamesToPaths)
+            package: inputStruct.package,
+            pluginWorkDirectory: inputStruct.pluginWorkDirectory,
+            builtProductsDirectory: inputStruct.builtProductsDirectory,
+            toolNamesToPaths: inputStruct.toolNamesToPaths)
         
         // Instantiate the plugin. For now there are no parameters, but this is
         // where we would set them up, most likely as properties of the plugin
@@ -85,7 +123,7 @@ extension Plugin {
         // Invoke the appropriate protocol method, based on the plugin action
         // that SwiftPM specified.
         let generatedCommands: [Command]
-        switch input.pluginAction {
+        switch inputStruct.pluginAction {
             
         case .createBuildToolCommands(let target):
             // Check that the plugin implements the appropriate protocol for its
@@ -112,18 +150,14 @@ extension Plugin {
             generatedCommands = []
         }
         
-        // Construct the output structure to send back to SwiftPM.
-        let output: PluginOutput
+        // Send back the output data (a JSON-encoded struct) to the plugin host.
+        let outputStruct: PluginOutput
         do {
-            output = try PluginOutput(commands: generatedCommands, diagnostics: Diagnostics.emittedDiagnostics)
+            outputStruct = try PluginOutput(commands: generatedCommands, diagnostics: Diagnostics.emittedDiagnostics)
         } catch {
             internalError("Couldn’t encode output JSON: \(error).")
         }
-
-        // On stdout, write a zero byte followed by the JSON data — this is what libSwiftPM expects to see. Anything before the last zero byte is treated as freeform output from the plugin (such as debug output from `print` statements). Since `FileHandle.write()` doesn't obey buffering we first have to flush any existing output.
-        if fwrite([UInt8](output.outputData), 1, output.outputData.count, jsonOut) != output.outputData.count {
-            internalError("Couldn’t write output JSON: \(strerror(errno).map{ String(cString: $0) } ?? String(describing: errno)).")
-        }
+        try outputHandle.write(contentsOf: outputStruct.outputData)
     }
     
     public static func main() throws {
