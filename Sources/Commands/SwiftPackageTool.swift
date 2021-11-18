@@ -894,17 +894,9 @@ extension SwiftPackageTool {
             
             // Find and return the plugins that match the command.
             return availablePlugins.filter {
-                // Filter out any non-command plugins.
+                // Filter out any non-command plugins and any whose verb is different.
                 guard case .command(let intent, _) = $0.capability else { return false }
-                // FIXME: We shouldn't hardcode these verbs.
-                switch intent {
-                case .documentationGeneration:
-                    return command == "generate-documentation"
-                case .sourceCodeFormatting:
-                    return command == "format-source-code"
-                case .custom(let verb, _):
-                    return command == verb
-                }
+                return command == intent.invocationVerb
             }
         }
 
@@ -927,7 +919,7 @@ extension SwiftPackageTool {
             
             // At this point we know we found exactly one command plugin, so we run it.
             let plugin = matchingPlugins[0]
-            print("Running plugin \(plugin)")
+            swiftTool.observabilityScope.emit(info: "Running plugin \(plugin)")
             
             // Find the targets (if any) specified by the user.
             var targets: [String: ResolvedTarget] = [:]
@@ -950,18 +942,18 @@ extension SwiftPackageTool {
             // Configure the plugin invocation inputs.
 
             // The `plugins` directory is inside the workspace's main data directory, and contains all temporary files related to all plugins in the workspace.
-            let dataDir = try swiftTool.getActiveWorkspace().location.workingDirectory
-            let pluginsDir = dataDir.appending(component: "plugins")
+            let pluginsDir = try swiftTool.getActiveWorkspace().location.pluginDataDirectory
 
             // The `cache` directory is in the plugins directory and is where the plugin script runner caches compiled plugin binaries and any other derived information.
             let cacheDir = pluginsDir.appending(component: "cache")
-            let pluginScriptRunner = DefaultPluginScriptRunner(cacheDir: cacheDir, toolchain: try swiftTool.getToolchain().configuration, enableSandbox: false)
+            let pluginScriptRunner = DefaultPluginScriptRunner(cacheDir: cacheDir, toolchain: try swiftTool.getToolchain().configuration)
 
             // The `outputs` directory contains subdirectories for each combination of package, target, and plugin. Each usage of a plugin has an output directory that is writable by the plugin, where it can write additional files, and to which it can configure tools to write their outputs, etc.
             let outputDir = pluginsDir.appending(component: "outputs")
 
             // Build the map of tools that are available to the plugin. This should include the tools in the executables in the toolchain, as well as any executables the plugin depends on (built executables as well as prebuilt binaries).
             // FIXME: At the moment we just pass the built products directory for the host. We will need to extend this with a map of the names of tools available to each plugin. In particular this would not work with any binary targets.
+            let dataDir = try swiftTool.getActiveWorkspace().location.pluginDataDirectory
             let builtToolsDir = dataDir.appending(components: "plugin-tools")
 
             // Create the cache directory, if needed.
@@ -1086,6 +1078,19 @@ extension SwiftPackageTool {
                     observabilityScope: swiftTool.observabilityScope
                 ).runXcodeprojWatcher(xcodeprojOptions())
             }
+        }
+    }
+}
+
+extension PluginCommandIntent {
+    var invocationVerb: String {
+        switch self {
+        case .documentationGeneration:
+            return "generate-documentation"
+        case .sourceCodeFormatting:
+            return "format-source-code"
+        case .custom(let verb, _):
+            return verb
         }
     }
 }

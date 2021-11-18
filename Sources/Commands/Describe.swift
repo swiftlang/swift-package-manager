@@ -144,8 +144,8 @@ struct DescribedPackage: Encodable {
     /// Represents a plugin capability for the sole purpose of generating a description.
     struct DescribedPluginCapability: Encodable {
         let type: String
-        let intent: PluginCommandIntent?
-        let permissions: [PluginPermission]?
+        let intent: CommandIntent?
+        let permissions: [Permission]?
 
         init(from capability: PluginCapability, in package: Package) {
             switch capability {
@@ -160,7 +160,7 @@ struct DescribedPackage: Encodable {
             }
         }
         
-        struct PluginCommandIntent: Encodable {
+        struct CommandIntent: Encodable {
             let type: String
             let verb: String?
             let description: String?
@@ -176,14 +176,14 @@ struct DescribedPackage: Encodable {
                     self.verb = nil
                     self.description = nil
                 case .custom(let verb, let description):
-                    self.type = "documentationGeneration"
+                    self.type = "custom"
                     self.verb = verb
                     self.description = description
                 }
             }
         }
 
-        struct PluginPermission: Encodable {
+        struct Permission: Encodable {
             let type: String
             let reason: String
             
