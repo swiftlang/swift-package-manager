@@ -352,7 +352,17 @@ final class RegistryManagerTests: XCTestCase {
         let registryManager = RegistryClient(
             configuration: configuration,
             identityResolver: DefaultIdentityResolver(),
-            customArchiverProvider: { _ in MockArchiver() },
+            customArchiverProvider: { fileSystem in
+                MockArchiver(handler: { _, from, to, callback in
+                    let data = try fileSystem.readFileContents(from)
+                    XCTAssertEqual(data, emptyZipFile)
+
+                    let packagePath = to.appending(component: "package")
+                    try fileSystem.createDirectory(packagePath, recursive: true)
+                    try fileSystem.writeFileContents(packagePath.appending(component: "Package.swift"), string: "")
+                    callback(.success(()))
+                })
+            },
             customHTTPClient: httpClient
         )
 
@@ -368,10 +378,8 @@ final class RegistryManagerTests: XCTestCase {
             checksumAlgorithm: checksumAlgorithm
         )
 
-        XCTAssertNoThrow {
-            let data = try fileSystem.readFileContents(path)
-            XCTAssertEqual(data, emptyZipFile)
-        }
+        let contents = try fileSystem.getDirectoryContents(path)
+        XCTAssertEqual(contents, ["Package.swift"])
     }
 
     func testDownloadSourceArchiveWithoutExpectedChecksumProvided() throws {
@@ -448,7 +456,17 @@ final class RegistryManagerTests: XCTestCase {
         let registryManager = RegistryClient(
             configuration: configuration,
             identityResolver: DefaultIdentityResolver(),
-            customArchiverProvider: { _ in MockArchiver() },
+            customArchiverProvider: { fileSystem in
+                MockArchiver(handler: { _, from, to, callback in
+                    let data = try fileSystem.readFileContents(from)
+                    XCTAssertEqual(data, emptyZipFile)
+
+                    let packagePath = to.appending(component: "package")
+                    try fileSystem.createDirectory(packagePath, recursive: true)
+                    try fileSystem.writeFileContents(packagePath.appending(component: "Package.swift"), string: "")
+                    callback(.success(()))
+                })
+            },
             customHTTPClient: httpClient
         )
 
@@ -464,10 +482,8 @@ final class RegistryManagerTests: XCTestCase {
             checksumAlgorithm: checksumAlgorithm
         )
 
-        XCTAssertNoThrow {
-            let data = try fileSystem.readFileContents(path)
-            XCTAssertEqual(data, emptyZipFile)
-        }
+        let contents = try fileSystem.getDirectoryContents(path)
+        XCTAssertEqual(contents, ["Package.swift"])
     }
 
     func testLookupIdentities() throws {

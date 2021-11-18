@@ -10,6 +10,7 @@
 
 import class Foundation.FileManager
 import struct Foundation.Data
+import struct Foundation.UUID
 import TSCBasic
 
 // MARK: - user level
@@ -142,5 +143,24 @@ extension FileSystem {
             try self.removeFileTree(path)
         }
         try self.createDirectory(path, recursive: true)
+    }
+}
+
+extension FileSystem {
+    public func stripFirstLevel(of path: AbsolutePath) throws {
+        let topLevelContents = try self.getDirectoryContents(path)
+        guard topLevelContents.count == 1, let rootPath = topLevelContents.first.map({ path.appending(component: $0) }), self.isDirectory(rootPath) else {
+            throw StringError("stripFirstLevel requires single top level directory")
+        }
+
+        let tempDirectory = path.parentDirectory.appending(component: UUID().uuidString)
+        try self.move(from: rootPath, to: tempDirectory)
+
+        let rootContents = try self.getDirectoryContents(tempDirectory)
+        for entry in rootContents {
+            try self.move(from: tempDirectory.appending(component: entry), to: path.appending(component: entry))
+        }
+
+        try self.removeFileTree(tempDirectory)
     }
 }

@@ -13,7 +13,7 @@ import TSCBasic
 import TSCUtility
 
 public class MockArchiver: Archiver {
-    public typealias Handler = (MockArchiver, AbsolutePath, AbsolutePath, (Result<Void, Error>) -> Void) -> Void
+    public typealias Handler = (MockArchiver, AbsolutePath, AbsolutePath, (Result<Void, Error>) -> Void) throws -> Void
 
     public struct Extraction: Equatable {
         public let archivePath: AbsolutePath
@@ -38,11 +38,15 @@ public class MockArchiver: Archiver {
         to destinationPath: AbsolutePath,
         completion: @escaping (Result<Void, Error>) -> Void
     ) {
-        if let handler = self.handler {
-            handler(self, archivePath, destinationPath, completion)
-        } else {
-            self.extractions.append(Extraction(archivePath: archivePath, destinationPath: destinationPath))
-            completion(.success(()))
+        do {
+            if let handler = self.handler {
+                try handler(self, archivePath, destinationPath, completion)
+            } else {
+                self.extractions.append(Extraction(archivePath: archivePath, destinationPath: destinationPath))
+                completion(.success(()))
+            }
+        } catch {
+            completion(.failure(error))
         }
     }
 }

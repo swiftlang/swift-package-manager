@@ -9,8 +9,7 @@
 add_library(PackageRegistry
   Registry.swift
   RegistryConfiguration.swift
-  RegistryClient.swift
-  SourceArchiver.swift)
+  RegistryClient.swift)
 target_link_libraries(PackageRegistry PUBLIC
   Basics
   PackageLoading
