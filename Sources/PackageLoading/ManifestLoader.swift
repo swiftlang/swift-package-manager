@@ -243,7 +243,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                     throw PackageModel.Package.Error.noManifest(at: path, version: version?.description)
                 }
 
-                try self.parseAndCacheManifest(
+                self.parseAndCacheManifest(
                     at: path,
                     packageIdentity: packageIdentity,
                     packageKind: packageKind,
