@@ -1160,8 +1160,7 @@ final class PackageToolTests: CommandsTestCase {
 
                 let stderrOutput = try result.utf8stderrOutput()
                 XCTAssert(
-                    stderrOutput.contains("error: Couldn’t create an archive:") &&
-                        stderrOutput.contains("fatal: could not create archive file '/': Is a directory"),
+                    stderrOutput.contains("error: Couldn’t create an archive:"),
                     #"actual: "\#(stderrOutput)""#
                 )
             }
