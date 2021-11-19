@@ -581,7 +581,6 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             }
         } catch {
             observabilityScope.emit(warning: "failed loading cached manifest for '\(key.packageIdentity)': \(error)")
-            return completion(.failure(error))
         }
 
         // delay closing cache until after write.
