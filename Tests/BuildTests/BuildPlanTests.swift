@@ -1482,9 +1482,9 @@ final class BuildPlanTests: XCTestCase {
 
         #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
         XCTAssertEqual(observability.diagnostics.count, 1)
-        let firstDiagnostic = observability.diagnostics.first.map({ $0.message.text })
+        let firstDiagnostic = observability.diagnostics.first.map({ $0.message })
         XCTAssert(
-            firstDiagnostic == "dependency 'C' is not used by any target",
+            firstDiagnostic == "dependency 'c' is not used by any target",
             "Unexpected diagnostic: " + (firstDiagnostic ?? "[none]")
         )
         #endif

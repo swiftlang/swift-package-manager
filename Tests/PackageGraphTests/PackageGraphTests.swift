@@ -1855,6 +1855,43 @@ class PackageGraphTests: XCTestCase {
             XCTAssertNoDiagnostics(observability.diagnostics)
         }
     }
+
+    // test backwards compatibility 5.2 < 5.4
+    // TODO: remove this when we remove explicit dependency name
+    func testTargetDependencies_Post52_AliasFindsIdentity() throws {
+        let manifest = Manifest.createRootManifest(
+            name: "Package",
+            path: .init("/Package"),
+            toolsVersion: .v5_2,
+            dependencies: [
+                .localSourceControl(
+                    deprecatedName: "Alias",
+                    path: .init("/Identity"),
+                    requirement: .upToNextMajor(from: "1.0.0")
+                ),
+                .localSourceControl(
+                    path: .init("/Unrelated"),
+                    requirement: .upToNextMajor(from: "1.0.0")
+                )
+            ],
+            targets: [
+                try TargetDescription(
+                    name: "Target",
+                    dependencies: [
+                        .product(name: "Product", package: "Alias"),
+                        .product(name: "Unrelated", package: "Unrelated")
+                    ]
+                ),
+            ])
+        // Make sure aliases are found properly and do not fall back to pre‐5.2 behaviour, leaking across onto other dependencies.
+        let required = manifest.dependenciesRequired(for: .everything)
+        let unrelated = try XCTUnwrap(required.first(where: { $0.nameForTargetDependencyResolutionOnly == "Unrelated" }))
+        let requestedProducts = unrelated.productFilter
+        #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
+        // Unrelated should not have been asked for Product, because it should know Product comes from Identity.
+        XCTAssertFalse(requestedProducts.contains("Product"), "Product requests are leaking.")
+        #endif
+    }
 }
 
 
