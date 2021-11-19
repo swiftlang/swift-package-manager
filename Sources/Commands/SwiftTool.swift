@@ -739,7 +739,7 @@ public class SwiftTool {
             // The `plugins` directory is inside the workspace's main data directory, and contains all temporary
             // files related to all plugins in the workspace.
             let buildEnvironment = try buildParameters().buildEnvironment
-            let pluginsDir = try self.getActiveWorkspace().location.pluginDataDirectory
+            let pluginsDir = try self.getActiveWorkspace().location.pluginWorkingDirectory
 
             // The `cache` directory is in the plugins directory and is where the plugin script runner caches
             // compiled plugin binaries and any other derived information.

@@ -74,9 +74,7 @@ extension PluginTarget {
             pluginAction: action)
         
         // Serialize the PluginEvaluationInput to JSON.
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
-        let inputJSON = try encoder.encode(inputStruct)
+        let inputJSON = try JSONEncoder.makeWithDefaults().encode(inputStruct)
         
         // Call the plugin script runner to actually invoke the plugin.
         // TODO: This should be asynchronous.
@@ -92,8 +90,7 @@ extension PluginTarget {
         // Deserialize the JSON to an PluginScriptRunnerOutput.
         let outputStruct: PluginScriptRunnerOutput
         do {
-            let decoder = JSONDecoder()
-            outputStruct = try decoder.decode(PluginScriptRunnerOutput.self, from: outputJSON)
+            outputStruct = try JSONDecoder.makeWithDefaults().decode(PluginScriptRunnerOutput.self, from: outputJSON)
         }
         catch {
             throw PluginEvaluationError.decodingPluginOutputFailed(json: outputJSON, underlyingError: error)
@@ -154,7 +151,6 @@ extension PluginTarget {
             prebuildCommands: prebuildCommands)
     }
 }
-
 
 extension PackageGraph {
 

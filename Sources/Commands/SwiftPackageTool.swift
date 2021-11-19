@@ -942,7 +942,7 @@ extension SwiftPackageTool {
             // Configure the plugin invocation inputs.
 
             // The `plugins` directory is inside the workspace's main data directory, and contains all temporary files related to all plugins in the workspace.
-            let pluginsDir = try swiftTool.getActiveWorkspace().location.pluginDataDirectory
+            let pluginsDir = try swiftTool.getActiveWorkspace().location.pluginWorkingDirectory
 
             // The `cache` directory is in the plugins directory and is where the plugin script runner caches compiled plugin binaries and any other derived information.
             let cacheDir = pluginsDir.appending(component: "cache")
@@ -953,7 +953,7 @@ extension SwiftPackageTool {
 
             // Build the map of tools that are available to the plugin. This should include the tools in the executables in the toolchain, as well as any executables the plugin depends on (built executables as well as prebuilt binaries).
             // FIXME: At the moment we just pass the built products directory for the host. We will need to extend this with a map of the names of tools available to each plugin. In particular this would not work with any binary targets.
-            let dataDir = try swiftTool.getActiveWorkspace().location.pluginDataDirectory
+            let dataDir = try swiftTool.getActiveWorkspace().location.pluginWorkingDirectory
             let builtToolsDir = dataDir.appending(components: "plugin-tools")
 
             // Create the cache directory, if needed.

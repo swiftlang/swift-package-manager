@@ -78,7 +78,7 @@ extension Workspace {
         }
         
         // Path to temporary files related to running plugins in the workspace
-        public var pluginDataDirectory: AbsolutePath {
+        public var pluginWorkingDirectory: AbsolutePath {
             self.workingDirectory.appending(component: "plugins")
         }
 
