@@ -17,7 +17,7 @@ import SPMTestSupport
 import TSCBasic
 import XCTest
 
-final class RegistryManagerTests: XCTestCase {
+final class RegistryClientTests: XCTestCase {
     func testFetchVersions() throws {
         let registryURL = "https://packages.example.com"
         let identity = PackageIdentity.plain("mona.LinkedList")
