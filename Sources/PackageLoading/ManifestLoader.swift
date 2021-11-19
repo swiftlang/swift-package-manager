@@ -855,7 +855,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
                 // Return now if there was an error.
                 if compilerResult.exitStatus != .terminated(code: 0) {
-                    return completion(.failure(ProcessResult.Error.nonZeroExit(compilerResult)))
+                    return completion(.success(evaluationResult))
                 }
 
                 // Pass an open file descriptor of a file to which the JSON representation of the manifest will be written.
