@@ -318,7 +318,7 @@ public final class Manifest {
     /// (although it may actually be a dangling reference diagnosed later).
     private func packageIdentity(referencedBy packageName: String) -> PackageIdentity {
         return packageDependency(referencedBy: packageName)?.identity
-            ?? .plain(packageName)
+        ?? .plain(packageName)
     }
 
     /// Registers a required product with a particular dependency if possible, or registers it as unknown.

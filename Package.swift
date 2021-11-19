@@ -1,4 +1,4 @@
-// swift-tools-version:5.4
+// swift-tools-version:5.5
 
 /*
  This source file is part of the Swift.org open source project
@@ -63,7 +63,7 @@ if useSwiftCryptoV2 {
 let package = Package(
     name: "SwiftPM",
     platforms: [
-        .macOS(.v10_15),
+        .macOS("10.15.4"),
         .iOS(.v13)
     ],
     products:
@@ -381,6 +381,7 @@ let package = Package(
                 "Basics",
                 "PackageGraph",
                 "PackageLoading",
+                "PackageRegistry",
                 "SourceControl",
                 .product(name: "TSCTestSupport", package: "swift-tools-support-core"),
                 "Workspace",

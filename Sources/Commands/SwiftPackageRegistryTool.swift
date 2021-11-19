@@ -84,9 +84,7 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
         var url: String
 
         func run(_ swiftTool: SwiftTool) throws {
-            guard let url = URL(string: self.url),
-                  url.scheme == "https"
-            else {
+            guard let url = URL(string: self.url), url.scheme == "https" else {
                 throw RegistryConfigurationError.invalidURL(self.url)
             }
 

@@ -60,6 +60,10 @@ public struct Version {
     ///   - patch: The patch version number.
     ///   - prereleaseIdentifiers: The pre-release identifier.
     ///   - buildMetaDataIdentifiers: Build metadata that identifies a build.
+    ///
+    /// - Precondition: `major >= 0 && minor >= 0 && patch >= 0`.
+    /// - Precondition: `prereleaseIdentifiers` can conatin only ASCII alpha-numeric characters and "-".
+    /// - Precondition: `buildMetaDataIdentifiers` can conatin only ASCII alpha-numeric characters and "-".
     public init(
         _ major: Int,
         _ minor: Int,
@@ -68,6 +72,18 @@ public struct Version {
         buildMetadataIdentifiers: [String] = []
     ) {
         precondition(major >= 0 && minor >= 0 && patch >= 0, "Negative versioning is invalid.")
+        precondition(
+            prereleaseIdentifiers.allSatisfy {
+                $0.allSatisfy { $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "-") }
+            },
+            #"Pre-release identifiers can contain only ASCII alpha-numeric characters and "-"."#
+        )
+        precondition(
+            buildMetadataIdentifiers.allSatisfy {
+                $0.allSatisfy { $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "-") }
+            },
+            #"Build metadata identifiers can contain only ASCII alpha-numeric characters and "-"."#
+        )
         self.major = major
         self.minor = minor
         self.patch = patch
@@ -99,22 +115,24 @@ extension Version: Comparable {
             return true // Prerelease lhs < non-prerelease rhs 
         }
         
-        let zippedIdentifiers = zip(lhs.prereleaseIdentifiers, rhs.prereleaseIdentifiers)
-        for (lhsPrereleaseIdentifier, rhsPrereleaseIdentifier) in zippedIdentifiers {
+        for (lhsPrereleaseIdentifier, rhsPrereleaseIdentifier) in zip(lhs.prereleaseIdentifiers, rhs.prereleaseIdentifiers) {
             if lhsPrereleaseIdentifier == rhsPrereleaseIdentifier {
                 continue
             }
             
-            let typedLhsIdentifier: Any = Int(lhsPrereleaseIdentifier) ?? lhsPrereleaseIdentifier
-            let typedRhsIdentifier: Any = Int(rhsPrereleaseIdentifier) ?? rhsPrereleaseIdentifier
+            // Check if either of the 2 pre-release identifiers is numeric.
+            let lhsNumericPrereleaseIdentifier = Int(lhsPrereleaseIdentifier)
+            let rhsNumericPrereleaseIdentifier = Int(rhsPrereleaseIdentifier)
             
-            switch (typedLhsIdentifier, typedRhsIdentifier) {
-            case let (int1 as Int, int2 as Int): return int1 < int2
-            case let (string1 as String, string2 as String): return string1 < string2
-            case (is Int, is String): return true // Int prereleases < String prereleases
-            case (is String, is Int): return false
-            default:
-                return false
+            if let lhsNumericPrereleaseIdentifier = lhsNumericPrereleaseIdentifier,
+               let rhsNumericPrereleaseIdentifier = rhsNumericPrereleaseIdentifier {
+                return lhsNumericPrereleaseIdentifier < rhsNumericPrereleaseIdentifier
+            } else if lhsNumericPrereleaseIdentifier != nil {
+                return true // numeric pre-release < non-numeric pre-release
+            } else if rhsNumericPrereleaseIdentifier != nil {
+                return false // non-numeric pre-release > numeric pre-release
+            } else {
+                return lhsPrereleaseIdentifier < rhsPrereleaseIdentifier
             }
         }
         

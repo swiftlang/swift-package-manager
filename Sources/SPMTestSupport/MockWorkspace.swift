@@ -8,7 +8,6 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-
 import Basics
 import PackageGraph
 import PackageLoading
@@ -22,7 +21,7 @@ public typealias Diagnostic = TSCBasic.Diagnostic
 
 public final class MockWorkspace {
     let sandbox: AbsolutePath
-    let fs: FileSystem
+    let fileSystem: InMemoryFileSystem
     public let httpClient: HTTPClient
     public let archiver: MockArchiver
     public let checksumAlgorithm: MockHashAlgorithm
@@ -31,14 +30,15 @@ public final class MockWorkspace {
     public let mirrors: DependencyMirrors
     let identityResolver: IdentityResolver
     public var manifestLoader: MockManifestLoader
-    public var repoProvider: InMemoryGitRepositoryProvider
+    public var repositoryProvider: InMemoryGitRepositoryProvider
+    let registry: MockRegistry
     public let delegate = MockWorkspaceDelegate()
     let toolsVersion: ToolsVersion
     let resolverUpdateEnabled: Bool
 
     public init(
         sandbox: AbsolutePath,
-        fs: FileSystem,
+        fileSystem: InMemoryFileSystem,
         httpClient: HTTPClient? = nil,
         archiver: MockArchiver = MockArchiver(),
         checksumAlgorithm: MockHashAlgorithm = MockHashAlgorithm(),
@@ -49,8 +49,8 @@ public final class MockWorkspace {
         resolverUpdateEnabled: Bool = true
     ) throws {
         self.sandbox = sandbox
-        self.fs = fs
-        self.httpClient = httpClient ?? HTTPClient.mock(fileSystem: fs)
+        self.fileSystem = fileSystem
+        self.httpClient = httpClient ?? HTTPClient.mock(fileSystem: fileSystem)
         self.archiver = archiver
         self.checksumAlgorithm = checksumAlgorithm
         self.mirrors = mirrors ?? DependencyMirrors()
@@ -59,7 +59,12 @@ public final class MockWorkspace {
         self.packages = packages
 
         self.manifestLoader = MockManifestLoader(manifests: [:])
-        self.repoProvider = InMemoryGitRepositoryProvider()
+        self.repositoryProvider = InMemoryGitRepositoryProvider()
+        self.registry = MockRegistry(
+            identityResolver: self.identityResolver,
+            checksumAlgorithm: self.checksumAlgorithm,
+            filesystem: self.fileSystem
+        )
         self.toolsVersion = toolsVersion
         self.resolverUpdateEnabled = resolverUpdateEnabled
 
@@ -84,61 +89,76 @@ public final class MockWorkspace {
 
     private func create() throws {
         // Remove the sandbox if present.
-        try self.fs.removeFileTree(self.sandbox)
+        try self.fileSystem.removeFileTree(self.sandbox)
 
         // Create directories.
-        try self.fs.createDirectory(self.sandbox, recursive: true)
-        try self.fs.createDirectory(self.rootsDir)
-        try self.fs.createDirectory(self.packagesDir)
+        try self.fileSystem.createDirectory(self.sandbox, recursive: true)
+        try self.fileSystem.createDirectory(self.rootsDir)
+        try self.fileSystem.createDirectory(self.packagesDir)
 
         var manifests: [MockManifestLoader.Key: Manifest] = [:]
 
         func create(package: MockPackage, basePath: AbsolutePath, isRoot: Bool) throws {
+
             let packagePath: AbsolutePath
             switch package.location {
             case .fileSystem(let path):
                 packagePath = basePath.appending(path)
             case .sourceControl(let url):
-                packagePath = basePath.appending(RelativePath(url.absoluteString.spm_mangledToC99ExtendedIdentifier()))
+                packagePath = basePath.appending(components: "sourceControl", url.absoluteString.spm_mangledToC99ExtendedIdentifier())
+            case .registry(let identity):
+                packagePath = basePath.appending(components: "registry", identity.description.spm_mangledToC99ExtendedIdentifier())
             }
 
             let packageLocation: String
-            let specifier: RepositorySpecifier
             let packageKind: PackageReference.Kind
+            let packageVersions: [String?] = isRoot ? [nil] : package.versions
+
+            var sourceControlSpecifier: RepositorySpecifier? = nil
+            var registryIdentity: PackageIdentity? = nil
+
             switch (isRoot, package.location) {
             case (true, _):
                 packageLocation = packagePath.pathString
-                specifier = RepositorySpecifier(path: packagePath)
                 packageKind = .root(packagePath)
+                sourceControlSpecifier = RepositorySpecifier(path: packagePath)
             case (_, .fileSystem(let path)):
                 packageLocation = self.packagesDir.appending(path).pathString
-                specifier = RepositorySpecifier(path: self.packagesDir.appending(path))
                 packageKind = .fileSystem(packagePath)
+                sourceControlSpecifier = RepositorySpecifier(path: self.packagesDir.appending(path))
             case (_, .sourceControl(let url)):
                 packageLocation = url.absoluteString
-                specifier = RepositorySpecifier(url: url)
                 packageKind = .remoteSourceControl(url)
+                sourceControlSpecifier = RepositorySpecifier(url: url)
+            case (_, .registry(let identity)):
+                packageLocation = identity.description
+                packageKind = .registry(identity)
+                registryIdentity = identity
             }
+
+            let toolsVersion = package.toolsVersion ?? .currentToolsVersion
 
             // Create targets on disk.
-            let repo = self.repoProvider.specifierMap[specifier] ?? InMemoryGitRepository(path: packagePath, fs: self.fs as! InMemoryFileSystem)
-            let repoSourcesDir = AbsolutePath("/Sources")
-            for target in package.targets {
-                let repoTargetDir = repoSourcesDir.appending(component: target.name)
-                try repo.createDirectory(repoTargetDir, recursive: true)
-                try repo.writeFileContents(repoTargetDir.appending(component: "file.swift"), bytes: "")
+            if let specifier = sourceControlSpecifier {
+                let repository = self.repositoryProvider.specifierMap[specifier] ?? .init(path: packagePath, fs: self.fileSystem)
+                try writePackageContent(fileSystem: repository, root: .root, toolsVersion: toolsVersion)
+                try repository.commit()
+                for version in packageVersions.compactMap({ $0 }) {
+                    try repository.tag(name: version)
+                }
+                self.repositoryProvider.add(specifier: specifier, repository: repository)
+            } else if let identity = registryIdentity {
+                let source = InMemoryRegistrySource(path: packagePath, fileSystem: self.fileSystem)
+                try writePackageContent(fileSystem: source.fileSystem, root: source.path, toolsVersion: toolsVersion)
+                self.registry.addPackage(identity: identity, versions: packageVersions.compactMap({ $0 }), source: source)
+            } else {
+                throw InternalError("unknown package type")
             }
-            let toolsVersion = package.toolsVersion ?? .currentToolsVersion
-            let repoManifestPath = AbsolutePath.root.appending(component: Manifest.filename)
-            try repo.writeFileContents(repoManifestPath, bytes: "")
-            try rewriteToolsVersionSpecification(toDefaultManifestIn: .root, specifying: toolsVersion, fileSystem: repo)
-            try repo.commit()
 
-            let versions: [String?] = isRoot ? [nil] : package.versions
             let manifestPath = packagePath.appending(component: Manifest.filename)
-            for version in versions {
+            for version in packageVersions {
                 let v = version.flatMap(Version.init(_:))
-                manifests[.init(url: specifier.location.description, version: v)] = try Manifest(
+                manifests[.init(url: packageLocation, version: v)] = try Manifest(
                     displayName: package.name,
                     path: manifestPath,
                     packageKind: packageKind,
@@ -150,12 +170,19 @@ public final class MockWorkspace {
                     products: package.products.map { ProductDescription(name: $0.name, type: .library(.automatic), targets: $0.targets) },
                     targets: try package.targets.map { try $0.convert() }
                 )
-                if let version = version {
-                    try repo.tag(name: version)
-                }
             }
 
-            self.repoProvider.add(specifier: specifier, repository: repo)
+            func writePackageContent(fileSystem: FileSystem, root: AbsolutePath, toolsVersion: ToolsVersion) throws {
+                let sourcesDir = root.appending(component: "Sources")
+                for target in package.targets {
+                    let targetDir = sourcesDir.appending(component: target.name)
+                    try fileSystem.createDirectory(targetDir, recursive: true)
+                    try fileSystem.writeFileContents(targetDir.appending(component: "file.swift"), bytes: "")
+                }
+                let manifestPath = root.appending(component: Manifest.filename)
+                try fileSystem.writeFileContents(manifestPath, bytes: "")
+                try rewriteToolsVersionSpecification(toDefaultManifestIn: root, specifying: toolsVersion, fileSystem: fileSystem)
+            }
         }
 
         // Create root packages.
@@ -177,18 +204,19 @@ public final class MockWorkspace {
         }
 
         let workspace = try Workspace(
-            fileSystem: self.fs,
+            fileSystem: self.fileSystem,
             location: .init(
                 workingDirectory: self.sandbox.appending(component: ".build"),
                 editsDirectory: self.sandbox.appending(component: "edits"),
                 resolvedVersionsFile: self.sandbox.appending(component: "Package.resolved"),
-                sharedCacheDirectory: self.fs.swiftPMCacheDirectory,
-                sharedConfigurationDirectory: self.fs.swiftPMConfigDirectory
+                sharedCacheDirectory: self.fileSystem.swiftPMCacheDirectory,
+                sharedConfigurationDirectory: self.fileSystem.swiftPMConfigDirectory
             ),
             mirrors: self.mirrors,
             customToolsVersion: self.toolsVersion,
             customManifestLoader: self.manifestLoader,
-            customRepositoryProvider: self.repoProvider,
+            customRepositoryProvider: self.repositoryProvider,
+            customRegistryClient: self.registry.registryClient,
             customIdentityResolver: self.identityResolver,
             customHTTPClient: self.httpClient,
             customArchiver: self.archiver,
@@ -433,12 +461,12 @@ public final class MockWorkspace {
         }
 
         for dependency in managedDependencies {
-            try self.fs.createDirectory(workspace.path(to: dependency), recursive: true)
+            try self.fileSystem.createDirectory(workspace.path(to: dependency), recursive: true)
             workspace.state.dependencies.add(dependency)
         }
 
         for artifact in managedArtifacts {
-            try self.fs.createDirectory(artifact.path, recursive: true)
+            try self.fileSystem.createDirectory(artifact.path, recursive: true)
 
             workspace.state.artifacts.add(artifact)
         }
@@ -459,6 +487,7 @@ public final class MockWorkspace {
         }
 
         case checkout(CheckoutState)
+        case registryDownload(TSCUtility.Version)
         case edited(AbsolutePath?)
         case local
     }
@@ -489,19 +518,26 @@ public final class MockWorkspace {
 
         public func check(dependency dependencyId: PackageIdentity, at state: State, file: StaticString = #file, line: UInt = #line) {
             guard let dependency = managedDependencies[dependencyId] else {
-                XCTFail("\(dependencyId) does not exists", file: file, line: line)
-                return
+                return XCTFail("\(dependencyId) does not exists", file: file, line: line)
             }
             switch state {
             case .checkout(let checkoutState):
+                guard case .sourceControlCheckout(let dependencyCheckoutState) = dependency.state else {
+                    return XCTFail("invalid dependency state \(dependency.state)", file: file, line: line)
+                }
                 switch checkoutState {
                 case .version(let version):
-                    XCTAssertEqual(dependency.checkoutState?.version, version, file: file, line: line)
+                    XCTAssertEqual(dependencyCheckoutState.version, version, file: file, line: line)
                 case .revision(let revision):
-                    XCTAssertEqual(dependency.checkoutState?.revision.identifier, revision, file: file, line: line)
+                    XCTAssertEqual(dependencyCheckoutState.revision.identifier, revision, file: file, line: line)
                 case .branch(let branch):
-                    XCTAssertEqual(dependency.checkoutState?.branch, branch, file: file, line: line)
+                    XCTAssertEqual(dependencyCheckoutState.branch, branch, file: file, line: line)
                 }
+            case .registryDownload(let downloadVersion):
+                guard case .registryDownload(let dependencyVersion) = dependency.state else {
+                    return XCTFail("invalid dependency state \(dependency.state)", file: file, line: line)
+                }
+                XCTAssertEqual(dependencyVersion, downloadVersion, file: file, line: line)
             case .edited(let path):
                 guard case .edited(_,  unmanagedPath: path) = dependency.state else {
                     XCTFail("Expected edited dependency; found '\(dependency.state)' instead", file: file, line: line)
@@ -633,6 +669,11 @@ public final class MockWorkspace {
                 default:
                     XCTFail("state dont match \(checkoutState) \(pin.state)", file: file, line: line)
                 }
+            case .registryDownload(let downloadVersion):
+                guard case .version(let pinVersion, _) = pin.state else {
+                    return XCTFail("invalid pin state \(pin.state)", file: file, line: line)
+                }
+                XCTAssertEqual(pinVersion, downloadVersion, file: file, line: line)
             case .edited, .local:
                 XCTFail("Unimplemented", file: file, line: line)
             }
@@ -818,15 +859,6 @@ extension PackageReference.Kind {
         case .registry:
             return "registry"
         }
-    }
-}
-
-extension Workspace.ManagedDependency {
-    fileprivate var checkoutState: CheckoutState? {
-        if case .sourceControlCheckout(let checkoutState) = self.state {
-            return checkoutState
-        }
-        return .none
     }
 }
 

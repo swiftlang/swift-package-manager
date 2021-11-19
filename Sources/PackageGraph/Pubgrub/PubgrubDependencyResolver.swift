@@ -1402,14 +1402,14 @@ private final class ContainerProvider {
     /// Get the container for the given identifier, loading it if necessary.
     func getContainer(for package: PackageReference, completion: @escaping (Result<PubGrubPackageContainer, Error>) -> Void) {
         // Return the cached container, if available.
-        if let container = self.containersCache[package] {
+        if let container = self.containersCache[package], package.equalsIncludingLocation(container.package) {
             return completion(.success(container))
         }
 
         if let prefetchSync = self.prefetches[package] {
             // If this container is already being prefetched, wait for that to complete
             prefetchSync.notify(queue: .sharedConcurrent) {
-                if let container = self.containersCache[package] {
+                if let container = self.containersCache[package], package.equalsIncludingLocation(container.package) {
                     // should be in the cache once prefetch completed
                     return completion(.success(container))
                 } else {

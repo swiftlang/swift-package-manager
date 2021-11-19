@@ -387,7 +387,11 @@ public struct HTTPClientResponse {
 
 extension HTTPClientResponse {
     public static func okay(body: String? = nil) -> HTTPClientResponse {
-        return HTTPClientResponse(statusCode: 200, body: body?.data(using: .utf8))
+        return .okay(body: body?.data(using: .utf8))
+    }
+
+    public static func okay(body: Data?) -> HTTPClientResponse {
+        return HTTPClientResponse(statusCode: 200, body: body)
     }
 
     public static func notFound(reason: String? = nil) -> HTTPClientResponse {

@@ -1883,12 +1883,14 @@ class PackageGraphTests: XCTestCase {
                     ]
                 ),
             ])
-        // Make sure aliases are found properly and do not fall back to pre‐4.2 behaviour, leaking across onto other dependencies.
+        // Make sure aliases are found properly and do not fall back to pre‐5.2 behaviour, leaking across onto other dependencies.
         let required = manifest.dependenciesRequired(for: .everything)
         let unrelated = try XCTUnwrap(required.first(where: { $0.nameForTargetDependencyResolutionOnly == "Unrelated" }))
         let requestedProducts = unrelated.productFilter
+        #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
         // Unrelated should not have been asked for Product, because it should know Product comes from Identity.
         XCTAssertFalse(requestedProducts.contains("Product"), "Product requests are leaking.")
+        #endif
     }
 }
 
