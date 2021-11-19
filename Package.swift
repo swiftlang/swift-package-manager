@@ -558,3 +558,12 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         .package(path: "../swift-crypto"),
     ]
 }
+
+// FIXME: Once we are confident target based dependency resolution is reliable, this switch can be removed.
+if ProcessInfo.processInfo.environment["DISABLE_TARGET_BASED_DEPENDENCY_RESOLUTION"] == nil {  // Currently enabled by default.
+    for target in package.targets {
+        var swiftSettings = target.swiftSettings ?? []
+        defer { target.swiftSettings = swiftSettings }
+        swiftSettings.append(.define("ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION"))
+    }
+}
