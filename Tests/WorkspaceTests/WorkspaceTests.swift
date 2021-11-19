@@ -7629,7 +7629,7 @@ final class WorkspaceTests: XCTestCase {
                 // this package never gets loaded since its identity is the same as "FooPackage"
                 MockPackage(
                     name: "OtherUtilityPackage",
-                    path: "other/utility",
+                    path: "other-foo/utility",
                     targets: [
                         MockTarget(name: "OtherUtilityTarget"),
                     ],
