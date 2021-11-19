@@ -597,6 +597,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         ) { result in
             do {
                 defer { closeAfterWrite.perform() }
+                
                 let evaluationResult = try result.get()
                 // only cache successfully parsed manifests
                 let parseManifest = try self.parseManifest(
@@ -609,12 +610,15 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                     observabilityScope: observabilityScope
                 )
 
-                // FIXME: (diagnostics) pass in observability scope when we have one
-                try cache?.put(key: key.sha256Checksum, value: evaluationResult)
+                do {
+                    // FIXME: (diagnostics) pass in observability scope when we have one
+                    try cache?.put(key: key.sha256Checksum, value: evaluationResult)
+                } catch {
+                    observabilityScope.emit(warning: "failed storing manifest for '\(key.packageIdentity)' in cache: \(error)")
+                }
 
                 completion(.success(parseManifest))
             } catch {
-                observabilityScope.emit(warning: "failed storing manifest for '\(key.packageIdentity)' in cache: \(error)")
                 completion(.failure(error))
             }
         }
