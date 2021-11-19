@@ -37,13 +37,22 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
     }
 
     /// Public protocol function that compiles and runs the plugin as a subprocess.  The tools version controls the availability of APIs in PackagePlugin, and should be set to the tools version of the package that defines the plugin (not of the target to which it is being applied).
-    public func runPluginScript(sources: Sources, inputJSON: Data, pluginArguments: [String], toolsVersion: ToolsVersion, writableDirectories: [AbsolutePath], observabilityScope: ObservabilityScope, fileSystem: FileSystem) throws -> (outputJSON: Data, stdoutText: Data) {
+    public func runPluginScript(
+        sources: Sources,
+        input: PluginScriptRunnerInput,
+        toolsVersion: ToolsVersion,
+        writableDirectories: [AbsolutePath],
+        observabilityScope: ObservabilityScope,
+        textOutputHandler: @escaping (Data) -> Void,
+        handlerQueue: DispatchQueue,
+        fileSystem: FileSystem
+    ) throws -> PluginScriptRunnerOutput {
         // FIXME: We should only compile the plugin script again if needed.
-        let result = try self.compile(sources: sources, toolsVersion: toolsVersion, cacheDir: self.cacheDir)
-        guard let compiledExecutable = result.compiledExecutable else {
-            throw DefaultPluginScriptRunnerError.compilationFailed(result)
+        let compilationResult = try self.compile(sources: sources, toolsVersion: toolsVersion, cacheDir: self.cacheDir)
+        guard let compiledExecutable = compilationResult.compiledExecutable else {
+            throw DefaultPluginScriptRunnerError.compilationFailed(compilationResult)
         }
-        return try self.invoke(compiledExec: compiledExecutable, pluginArguments: pluginArguments, writableDirectories: writableDirectories, inputData: inputJSON)
+        return try self.invoke(compiledExec: compiledExecutable, writableDirectories: writableDirectories, input: input, textOutputHandler: textOutputHandler, handlerQueue: handlerQueue)
     }
 
     public var hostTriple: Triple {
@@ -181,15 +190,16 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
         return PlatformVersion(versionString)
     }
     
-    /// Private function that invokes a compiled plugin executable with a particular set of arguments and JSON-encoded input data.
+    /// Private function that invokes a compiled plugin executable and communicates with it until it finishes.
     fileprivate func invoke(
         compiledExec: AbsolutePath,
-        pluginArguments: [String],
         writableDirectories: [AbsolutePath],
-        inputData: Data
-    ) throws -> (outputJSON: Data, stdoutText: Data) {
-        // Construct the command line. We just pass along any arguments intended for the plugin.
-        var command = [compiledExec.pathString] + pluginArguments
+        input: PluginScriptRunnerInput,
+        textOutputHandler: @escaping (Data) -> Void,
+        handlerQueue: DispatchQueue
+    ) throws -> PluginScriptRunnerOutput {
+        // Construct the command line. Currently we just invoke the executable built from the plugin without any parameters.
+        var command = [compiledExec.pathString]
 
         // Optionally wrap the command in a sandbox, which places some limits on what it can do. In particular, it blocks network access and restricts the paths to which the plugin can make file system changes.
         if self.enableSandbox {
@@ -203,30 +213,18 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
         process.environment = ProcessInfo.processInfo.environment
         process.currentDirectoryURL = self.cacheDir.asURL
         
-        // Create a dispatch group for waiting until on the process as well as all output from it.
+        // Create a dispatch group for waiting on proces termination and all output from it.
         let waiters = DispatchGroup()
         
-        // Set up a pipe for receiving stdout data (the JSON-encoded output results).
-        let stdoutPipe = Pipe()
-        var stdoutData = Data()
-        waiters.enter()
-        stdoutPipe.fileHandleForReading.readabilityHandler = { (fileHandle: FileHandle) -> Void in
-            let newData = fileHandle.availableData
-            if newData.isEmpty {
-                fileHandle.readabilityHandler = nil
-                waiters.leave()
-            }
-            else {
-                stdoutData.append(contentsOf: newData)
-            }
-        }
-        process.standardOutput = stdoutPipe
-        
-        // Set up a pipe for receiving stderr data (free-form printed text from the plugin).
+        // Set up a pipe for receiving free-form text output from the plugin on its stderr.
         waiters.enter()
         let stderrPipe = Pipe()
         var stderrData = Data()
+        func emit(data: Data) {
+            handlerQueue.sync { textOutputHandler(data) }
+        }
         stderrPipe.fileHandleForReading.readabilityHandler = { (fileHandle: FileHandle) -> Void in
+            // We just pass the data on to our given output handler.
             let newData = fileHandle.availableData
             if newData.isEmpty {
                 fileHandle.readabilityHandler = nil
@@ -234,12 +232,19 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
             }
             else {
                 stderrData.append(contentsOf: newData)
+                emit(data: newData)
             }
         }
         process.standardError = stderrPipe
 
-        // Set up a pipe for sending stdin data (the JSON-encoded input context).
+        // Set up a pipe for receiving structured messages from the plugin on its stdout.
+        let stdoutPipe = Pipe()
+        let inputHandle = stdoutPipe.fileHandleForReading
+        process.standardOutput = stdoutPipe
+        
+        // Set up a pipe for sending structured messages to the plugin on its stdin.
         let stdinPipe = Pipe()
+        let outputHandle = stdinPipe.fileHandleForWriting
         process.standardInput = stdinPipe
 
         // Set up a termination handler.
@@ -248,32 +253,41 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
             waiters.leave()
         }
 
-        // Start the process.
+        // Start the plugin process.
         waiters.enter()
         do {
             try process.run()
         } catch {
             throw DefaultPluginScriptRunnerError.subprocessDidNotStart("\(error)", command: command)
         }
-
-        // Write the input data to the plugin, and close the stream to tell the plugin we're done.
-        // TODO: We should do this asynchronously; this is coming up as part of the more flexible communication between host and plugin.
-        try stdinPipe.fileHandleForWriting.write(contentsOf: inputData)
-        try stdinPipe.fileHandleForWriting.close()
+        
+        /// Send an initial message to the plugin to ask it to perform its action based on the input data.
+        try outputHandle.writePluginMessage(.performAction(input: input))
+        
+        /// Get messages from the plugin. It might tell us it's done or ask us for more information.
+        var result: PluginScriptRunnerOutput? = nil
+        while let message = try inputHandle.readPluginMessage() {
+            switch message {
+            case .provideResult(let output):
+                // The plugin has completed the action and is providing results.
+                result = output
+                try outputHandle.writePluginMessage(.quit)
+            }
+        }
         
         // Wait for the process to terminate and the readers to finish collecting all output.
         waiters.wait()
 
-        // Now `stdoutData` contains a JSON-encoded output structure, and `stderrData` contains any free text output from the plugin process.
-        let stderrText = String(decoding: stderrData, as: UTF8.self)
-
         // Throw an error if we the subprocess ended badly.
         if !(process.terminationReason == .exit && process.terminationStatus == 0) {
-            throw DefaultPluginScriptRunnerError.subprocessFailed("\(process.terminationStatus)", command: command, output: stderrText)
+            throw DefaultPluginScriptRunnerError.subprocessFailed("\(process.terminationStatus)", command: command, output: String(decoding: stderrData, as: UTF8.self))
+        }
+        guard let result = result else {
+            throw DefaultPluginScriptRunnerError.missingPluginJSON("didn’t receive output from plugin", command: command, output: String(decoding: stderrData, as: UTF8.self))
         }
 
-        // Otherwise return the JSON data and any output text.
-        return (outputJSON: stdoutData, stdoutText: stderrData)
+        // Otherwise return the result returned by the plugin.
+        return result
     }
 }
 
@@ -321,5 +335,61 @@ extension DefaultPluginScriptRunnerError: CustomStringConvertible {
         case .missingPluginJSON(let message, _, let output):
             return "plugin script did not emit JSON output: \(message):\(output.isEmpty ? " (no output)" : "\n" + output)"
         }
+    }
+}
+
+/// A message that the host can send to the plugin.
+enum HostToPluginMessage: Codable {
+    case performAction(input: PluginScriptRunnerInput)
+    case quit
+}
+
+/// A message that the plugin can send to the host.
+enum PluginToHostMessage: Codable {
+    case provideResult(output: PluginScriptRunnerOutput)
+}
+
+fileprivate extension FileHandle {
+    
+    func writePluginMessage(_ message: HostToPluginMessage) throws {
+        // Encode the message as JSON.
+        let payload = try JSONEncoder().encode(message)
+        
+        // Write the header (a 64-bit length field in little endian byte order).
+        var count = UInt64(littleEndian: UInt64(payload.count))
+        let header = Swift.withUnsafeBytes(of: &count) { Data($0) }
+        assert(header.count == 8)
+        try self.write(contentsOf: header)
+        
+        // Write the payload.
+        try self.write(contentsOf: payload)
+    }
+    
+    func readPluginMessage() throws -> PluginToHostMessage? {
+        // Read the header (a 64-bit length field in little endian byte order).
+        guard let header = try self.read(upToCount: 8) else { return nil }
+        guard header.count == 8 else {
+            throw PluginMessageError.truncatedHeader
+        }
+        
+        // Decode the count.
+        let count = header.withUnsafeBytes{ $0.load(as: UInt64.self).littleEndian }
+        guard count >= 2 else {
+            throw PluginMessageError.invalidPayloadSize
+        }
+
+        // Read the JSON payload.
+        guard let payload = try self.read(upToCount: Int(count)), payload.count == count else {
+            throw PluginMessageError.truncatedPayload
+        }
+
+        // Decode and return the message.
+        return try JSONDecoder().decode(PluginToHostMessage.self, from: payload)
+    }
+
+    enum PluginMessageError: Swift.Error {
+        case truncatedHeader
+        case invalidPayloadSize
+        case truncatedPayload
     }
 }

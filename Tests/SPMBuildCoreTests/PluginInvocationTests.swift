@@ -90,33 +90,34 @@ class PluginInvocationTests: XCTestCase {
             }
             func runPluginScript(
                 sources: Sources,
-                inputJSON: Data,
-                pluginArguments: [String],
+                input: PluginScriptRunnerInput,
                 toolsVersion: ToolsVersion,
                 writableDirectories: [AbsolutePath],
                 observabilityScope: ObservabilityScope,
+                textOutputHandler: @escaping (Data) -> Void,
+                handlerQueue: DispatchQueue,
                 fileSystem: FileSystem
-            ) throws -> (outputJSON: Data, stdoutText: Data) {
+            ) throws -> PluginScriptRunnerOutput {
                 // Check that we were given the right sources.
                 XCTAssertEqual(sources.root, AbsolutePath("/Foo/Plugins/FooPlugin"))
                 XCTAssertEqual(sources.relativePaths, [RelativePath("source.swift")])
 
-                // Deserialize and check the input.
-                let decoder = JSONDecoder()
-                let context = try decoder.decode(PluginScriptRunnerInput.self, from: inputJSON)
-                XCTAssertEqual(context.products.count, 2, "unexpected products: \(dump(context.products))")
-                XCTAssertEqual(context.products[0].name, "Foo", "unexpected products: \(dump(context.products))")
-                XCTAssertEqual(context.products[0].targetIds.count, 1, "unexpected product targets: \(dump(context.products[0].targetIds))")
-                XCTAssertEqual(context.products[1].name, "FooTool", "unexpected products: \(dump(context.products))")
-                XCTAssertEqual(context.products[1].targetIds.count, 1, "unexpected product targets: \(dump(context.products[1].targetIds))")
-                XCTAssertEqual(context.targets.count, 2, "unexpected targets: \(dump(context.targets))")
-                XCTAssertEqual(context.targets[0].name, "Foo", "unexpected targets: \(dump(context.targets))")
-                XCTAssertEqual(context.targets[0].dependencies.count, 0, "unexpected target dependencies: \(dump(context.targets[0].dependencies))")
-                XCTAssertEqual(context.targets[1].name, "FooTool", "unexpected targets: \(dump(context.targets))")
-                XCTAssertEqual(context.targets[1].dependencies.count, 0, "unexpected target dependencies: \(dump(context.targets[1].dependencies))")
+                // Check the input structure we received.
+                XCTAssertEqual(input.products.count, 2, "unexpected products: \(dump(input.products))")
+                XCTAssertEqual(input.products[0].name, "Foo", "unexpected products: \(dump(input.products))")
+                XCTAssertEqual(input.products[0].targetIds.count, 1, "unexpected product targets: \(dump(input.products[0].targetIds))")
+                XCTAssertEqual(input.products[1].name, "FooTool", "unexpected products: \(dump(input.products))")
+                XCTAssertEqual(input.products[1].targetIds.count, 1, "unexpected product targets: \(dump(input.products[1].targetIds))")
+                XCTAssertEqual(input.targets.count, 2, "unexpected targets: \(dump(input.targets))")
+                XCTAssertEqual(input.targets[0].name, "Foo", "unexpected targets: \(dump(input.targets))")
+                XCTAssertEqual(input.targets[0].dependencies.count, 0, "unexpected target dependencies: \(dump(input.targets[0].dependencies))")
+                XCTAssertEqual(input.targets[1].name, "FooTool", "unexpected targets: \(dump(input.targets))")
+                XCTAssertEqual(input.targets[1].dependencies.count, 0, "unexpected target dependencies: \(dump(input.targets[1].dependencies))")
 
-                // Emit and return a serialized output PluginInvocationResult JSON.
-                let encoder = JSONEncoder()
+                // Pretend the plugin emitted some output.
+                textOutputHandler(Data("Hello Plugin!".utf8))
+                
+                // Return a serialized output PluginInvocationResult JSON.
                 let result = PluginScriptRunnerOutput(
                     diagnostics: [
                         .init(
@@ -142,8 +143,7 @@ class PluginInvocationTests: XCTestCase {
                     prebuildCommands: [
                     ]
                 )
-                let outputJSON = try encoder.encode(result)
-                return (outputJSON: outputJSON, stdoutText: "Hello Plugin!".data(using: .utf8)!)
+                return result
             }
         }
 

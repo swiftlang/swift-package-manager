@@ -14,7 +14,7 @@
 /// SwiftPM. The output structure is currently much simpler than the input
 /// (which is actually a directed acyclic graph), and can be directly encoded.
 struct PluginOutput {
-    let outputData: Data
+    let output: WireOutput
     
     public init(commands: [Command], diagnostics: [Diagnostic]) throws {
         // Construct a `WireOutput` struture containing the information that
@@ -43,10 +43,8 @@ struct PluginOutput {
             }
         }
         
-        // Encode the output structure to JSON, and keep it around until asked.
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
-        self.outputData = try encoder.encode(output)
+        // Keep the output structure around until asked for it.
+        self.output = output
     }
 }
 
@@ -54,7 +52,7 @@ struct PluginOutput {
 
 /// The output structure sent as JSON to SwiftPM. This structure is currently
 /// much simpler than the input structure (which is a directed acyclic graph).
-fileprivate struct WireOutput: Encodable {
+internal struct WireOutput: Encodable {
     var buildCommands: [BuildCommand] = []
     var prebuildCommands: [PrebuildCommand] = []
     var diagnostics: [Diagnostic] = []

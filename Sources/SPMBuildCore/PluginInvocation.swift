@@ -73,28 +73,20 @@ extension PluginTarget {
             toolNamesToPaths: toolNamesToPaths,
             pluginAction: action)
         
-        // Serialize the PluginEvaluationInput to JSON.
-        let inputJSON = try JSONEncoder.makeWithDefaults().encode(inputStruct)
-        
         // Call the plugin script runner to actually invoke the plugin.
         // TODO: This should be asynchronous.
-        let (outputJSON, outputText) = try scriptRunner.runPluginScript(
+        var outputText = Data()
+        let outputStruct = try scriptRunner.runPluginScript(
             sources: sources,
-            inputJSON: inputJSON,
-            pluginArguments: [],
+            input: inputStruct,
             toolsVersion: self.apiVersion,
             writableDirectories: [outputDirectory],
             observabilityScope: observabilityScope,
+            textOutputHandler: { data in
+                outputText.append(contentsOf: data)
+            },
+            handlerQueue: DispatchQueue(label: "plugin-invocation"),
             fileSystem: fileSystem)
-
-        // Deserialize the JSON to an PluginScriptRunnerOutput.
-        let outputStruct: PluginScriptRunnerOutput
-        do {
-            outputStruct = try JSONDecoder.makeWithDefaults().decode(PluginScriptRunnerOutput.self, from: outputJSON)
-        }
-        catch {
-            throw PluginEvaluationError.decodingPluginOutputFailed(json: outputJSON, underlyingError: error)
-        }
 
         // Generate emittable Diagnostics from the plugin output.
         let diagnostics: [Diagnostic] = try outputStruct.diagnostics.map { diag in
@@ -248,44 +240,6 @@ extension PackageGraph {
         }
         return pluginResultsByTarget
     }
-    
-    
-    /// Private helper function that serializes a PluginEvaluationInput as input JSON, calls the plugin runner to invoke the plugin, and finally deserializes the output JSON it emits to a PluginScriptRunnerOutput.  Adds any errors or warnings to `diagnostics`, and throws an error if there was a failure.
-    /// FIXME: This should be asynchronous, taking a queue and a completion closure.
-    fileprivate func runPluginScript(
-        sources: Sources,
-        input: PluginScriptRunnerInput,
-        toolsVersion: ToolsVersion,
-        writableDirectories: [AbsolutePath],
-        pluginScriptRunner: PluginScriptRunner,
-        observabilityScope: ObservabilityScope,
-        fileSystem: FileSystem
-    ) throws -> (output: PluginScriptRunnerOutput, stdoutText: Data) {
-        // Serialize the PluginEvaluationInput to JSON.
-        let encoder = JSONEncoder()
-        let inputJSON = try encoder.encode(input)
-
-        // Call the plugin runner.
-        let (outputJSON, stdoutText) = try pluginScriptRunner.runPluginScript(
-            sources: sources,
-            inputJSON: inputJSON,
-            pluginArguments: [],
-            toolsVersion: toolsVersion,
-            writableDirectories: writableDirectories,
-            observabilityScope: observabilityScope,
-            fileSystem: fileSystem)
-
-        // Deserialize the JSON to an PluginScriptRunnerOutput.
-        let output: PluginScriptRunnerOutput
-        do {
-            let decoder = JSONDecoder()
-            output = try decoder.decode(PluginScriptRunnerOutput.self, from: outputJSON)
-        }
-        catch {
-            throw PluginEvaluationError.decodingPluginOutputFailed(json: outputJSON, underlyingError: error)
-        }
-        return (output: output, stdoutText: stdoutText)
-    }
 }
 
 
@@ -401,22 +355,22 @@ public protocol PluginScriptRunner {
     /// by the package graph when it is evaluating package plugins.
     ///
     /// The `sources` refer to the Swift source files and are accessible in the provided `fileSystem`. The input is
-    /// a serialized PluginScriptRunnerInput, and the output should be a serialized PluginScriptRunnerOutput as
-    /// well as any free-form output produced by the script (for debugging purposes).
+    /// a PluginScriptRunnerInput structure, and the output will be a PluginScriptRunnerOutput structure.
     ///
-    /// Any errors or warnings related to the running of the plugin will be added to `diagnostics`.  Any errors
-    /// or warnings emitted by the plugin itself will be part of the returned output.
+    /// The text output callback handler will receive free-form output from the script as it's running. Structured
+    /// diagnostics emitted by the plugin will be added to the observability scope.
     ///
-    /// Every concrete implementation should cache any intermediates as necessary for fast evaluation.
+    /// Every concrete implementation should cache any intermediates as necessary to avoid redundant work.
     func runPluginScript(
         sources: Sources,
-        inputJSON: Data,
-        pluginArguments: [String],
+        input: PluginScriptRunnerInput,
         toolsVersion: ToolsVersion,
         writableDirectories: [AbsolutePath],
         observabilityScope: ObservabilityScope,
+        textOutputHandler: @escaping (Data) -> Void,
+        handlerQueue: DispatchQueue,
         fileSystem: FileSystem
-    ) throws -> (outputJSON: Data, stdoutText: Data)
+    ) throws -> PluginScriptRunnerOutput
 
     /// Returns the Triple that represents the host for which plugin script tools should be built, or for which binary
     /// tools should be selected.
@@ -424,7 +378,7 @@ public protocol PluginScriptRunner {
 }
 
 
-/// Serializable context that's passed as input to the invocation of the plugin.
+/// Serializable context that's passed as input to an invocation of a plugin.
 /// This is the transport data to a particular invocation of a plugin for a
 /// particular purpose; everything we can communicate to the plugin is here.
 ///
@@ -436,7 +390,7 @@ public protocol PluginScriptRunner {
 /// Other information includes a mapping from names of command line tools that
 /// are available to the plugin to their corresponding paths, and a serialized
 /// representation of the plugin action.
-struct PluginScriptRunnerInput: Codable {
+public struct PluginScriptRunnerInput: Codable {
     let paths: [Path]
     let targets: [Target]
     let products: [Product]
@@ -876,7 +830,7 @@ struct PluginScriptRunnerInputSerializer {
 
 /// Deserializable result that's received as output from the invocation of the plugin. This is the transport data from
 /// the invocation of the plugin for a particular target; everything the plugin can commuicate to us is here.
-struct PluginScriptRunnerOutput: Codable {
+public struct PluginScriptRunnerOutput: Codable {
     var diagnostics: [Diagnostic]
     struct Diagnostic: Codable {
         enum Severity: String, Codable {

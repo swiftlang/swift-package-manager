@@ -94,73 +94,148 @@ extension Plugin {
         // Open input and output handles for read from and writing to the host.
         let inputHandle = FileHandle(fileDescriptor: inputFD)
         let outputHandle = FileHandle(fileDescriptor: outputFD)
+        
+        // Read and process messages from the plugin host. At present there is
+        // only one action message per plugin invocation followed by a message
+        // to exit, but this can be extended in the future.
+        while let message = try inputHandle.readPluginMessage() {
+            switch message {
+            // Invokes an action defined in the input JSON. This is an interim
+            // message to bridge to the old logic; this will be separateed out
+            // into different messages for different plugin capabilities, etc.
+            // This will let us avoid the double encoded JSON.
+            case .performAction(let wireInput):
+                // Decode the plugin input structure. We'll resolve this doubly
+                // encoded JSON in an upcoming change.
+                let inputStruct: PluginInput
+                do {
+                    inputStruct = try PluginInput(from: wireInput)
+                } catch {
+                    internalError("Couldn’t decode input JSON: \(error).")
+                }
+                
+                // Construct a PluginContext from the deserialized input.
+                let context = PluginContext(
+                    package: inputStruct.package,
+                    pluginWorkDirectory: inputStruct.pluginWorkDirectory,
+                    builtProductsDirectory: inputStruct.builtProductsDirectory,
+                    toolNamesToPaths: inputStruct.toolNamesToPaths)
+                
+                // Instantiate the plugin. For now there are no parameters, but
+                // this is where we would set them up, most likely as properties
+                // of the plugin instance (similar to how SwiftArgumentParser
+                // allows commands to annotate arguments). It could use property
+                // wrappers to mark up properties in the plugin.
+                let plugin = self.init()
+                
+                // Invoke the appropriate protocol method, based on the plugin
+                // action that SwiftPM specified.
+                let generatedCommands: [Command]
+                switch inputStruct.pluginAction {
+                    
+                case .createBuildToolCommands(let target):
+                    // Check that the plugin implements the appropriate protocol
+                    // for its declared capability.
+                    guard let plugin = plugin as? BuildToolPlugin else {
+                        throw PluginDeserializationError.malformedInputJSON("Plugin declared with `buildTool` capability but doesn't conform to `BuildToolPlugin` protocol")
+                    }
+                    
+                    // Ask the plugin to create build commands for the target.
+                    generatedCommands = try plugin.createBuildCommands(context: context, target: target)
+                    
+                case .performCommand(let targets, let arguments):
+                    // Check that the plugin implements the appropriate protocol
+                    // for its declared capability.
+                    guard let plugin = plugin as? CommandPlugin else {
+                        throw PluginDeserializationError.malformedInputJSON("Plugin declared with `command` capability but doesn't conform to `CommandPlugin` protocol")
+                    }
+                    
+                    // Invoke the plugin.
+                    try plugin.performCommand(context: context, targets: targets, arguments: arguments)
+                    
+                    // For command plugin there are currently no return commands
+                    // (any commands invoked by the plugin are invoked directly).
+                    generatedCommands = []
+                }
+                
+                // Send back the output data (a JSON-encoded struct) to the plugin host.
+                let outputStruct: PluginOutput
+                do {
+                    outputStruct = try PluginOutput(commands: generatedCommands, diagnostics: Diagnostics.emittedDiagnostics)
+                } catch {
+                    internalError("Couldn’t encode output JSON: \(error).")
+                }
+                try outputHandle.writePluginMessage(.provideResult(output: outputStruct.output))
+            
+            // Exits the plugin logic.
+            case .quit:
+                exit(0)
 
-        // Read the input data (a JSON-encoded struct) from the host. It has
-        // all the input context for the plugin invocation.
-        guard let inputData = try inputHandle.readToEnd() else {
-            internalError("Couldn’t read input JSON.")
-        }
-        let inputStruct: PluginInput
-        do {
-            inputStruct = try PluginInput(from: inputData)
-        } catch {
-            internalError("Couldn’t decode input JSON: \(error).")
-        }
-        
-        // Construct a PluginContext from the deserialized input.
-        let context = PluginContext(
-            package: inputStruct.package,
-            pluginWorkDirectory: inputStruct.pluginWorkDirectory,
-            builtProductsDirectory: inputStruct.builtProductsDirectory,
-            toolNamesToPaths: inputStruct.toolNamesToPaths)
-        
-        // Instantiate the plugin. For now there are no parameters, but this is
-        // where we would set them up, most likely as properties of the plugin
-        // instance (in a manner similar to SwiftArgumentParser). This would
-        // use property wrappers to mark up properties in the plugin.
-        let plugin = self.init()
-        
-        // Invoke the appropriate protocol method, based on the plugin action
-        // that SwiftPM specified.
-        let generatedCommands: [Command]
-        switch inputStruct.pluginAction {
-            
-        case .createBuildToolCommands(let target):
-            // Check that the plugin implements the appropriate protocol for its
-            // declared capability.
-            guard let plugin = plugin as? BuildToolPlugin else {
-                throw PluginDeserializationError.malformedInputJSON("Plugin declared with `buildTool` capability but doesn't conform to `BuildToolPlugin` protocol")
+            // Ignore other messages
+            default:
+                continue
             }
-            
-            // Ask the plugin to create build commands for the input target.
-            generatedCommands = try plugin.createBuildCommands(context: context, target: target)
-            
-        case .performCommand(let targets, let arguments):
-            // Check that the plugin implements the appropriate protocol for its
-            // declared capability.
-            guard let plugin = plugin as? CommandPlugin else {
-                throw PluginDeserializationError.malformedInputJSON("Plugin declared with `command` capability but doesn't conform to `CommandPlugin` protocol")
-            }
-            
-            // Invoke the plugin.
-            try plugin.performCommand(context: context, targets: targets, arguments: arguments)
-
-            // For command plugin there are currently no return commands (any
-            // commands invoked by the plugin are invoked directly).
-            generatedCommands = []
         }
-        
-        // Send back the output data (a JSON-encoded struct) to the plugin host.
-        let outputStruct: PluginOutput
-        do {
-            outputStruct = try PluginOutput(commands: generatedCommands, diagnostics: Diagnostics.emittedDiagnostics)
-        } catch {
-            internalError("Couldn’t encode output JSON: \(error).")
-        }
-        try outputHandle.write(contentsOf: outputStruct.outputData)
     }
     
     public static func main() throws {
         try self.main(CommandLine.arguments)
+    }
+}
+
+
+/// A message that the host can send to the plugin.
+enum HostToPluginMessage: Decodable {
+    case performAction(input: WireInput)
+    case quit
+}
+
+/// A message that the plugin can send to the host.
+enum PluginToHostMessage: Encodable {
+    case provideResult(output: WireOutput)
+}
+
+fileprivate extension FileHandle {
+    
+    func writePluginMessage(_ message: PluginToHostMessage) throws {
+        // Encode the message as JSON.
+        let payload = try JSONEncoder().encode(message)
+        
+        // Write the header (a 64-bit length field in little endian byte order).
+        var count = UInt64(littleEndian: UInt64(payload.count))
+        let header = Swift.withUnsafeBytes(of: &count) { Data($0) }
+        assert(header.count == 8)
+        try self.write(contentsOf: header)
+
+        // Write the payload.
+        try self.write(contentsOf: payload)
+    }
+    
+    func waitForNextMessage() throws -> RX? {
+        // Read the header (a 64-bit length field in little endian byte order).
+        guard let header = try self.read(upToCount: 8) else { return nil }
+        guard header.count == 8 else {
+            throw PluginMessageError.truncatedHeader
+        }
+        
+        // Decode the count.
+        let count = header.withUnsafeBytes{ $0.load(as: UInt64.self).littleEndian }
+        guard count >= 2 else {
+            throw PluginMessageError.invalidPayloadSize
+        }
+
+        // Read the JSON payload.
+        guard let payload = try self.read(upToCount: Int(count)), payload.count == count else {
+            throw PluginMessageError.truncatedPayload
+        }
+
+        // Decode and return the message.
+        return try JSONDecoder().decode(HostToPluginMessage.self, from: payload)
+    }
+
+    enum PluginMessageError: Swift.Error {
+        case truncatedHeader
+        case invalidPayloadSize
+        case truncatedPayload
     }
 }
