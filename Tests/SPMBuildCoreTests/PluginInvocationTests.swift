@@ -93,11 +93,12 @@ class PluginInvocationTests: XCTestCase {
                 input: PluginScriptRunnerInput,
                 toolsVersion: ToolsVersion,
                 writableDirectories: [AbsolutePath],
+                fileSystem: FileSystem,
                 observabilityScope: ObservabilityScope,
-                textOutputHandler: @escaping (Data) -> Void,
-                handlerQueue: DispatchQueue,
-                fileSystem: FileSystem
-            ) throws -> PluginScriptRunnerOutput {
+                on queue: DispatchQueue,
+                outputHandler: @escaping (Data) -> Void,
+                completion: @escaping (Result<PluginScriptRunnerOutput, Error>) -> Void
+            ) {
                 // Check that we were given the right sources.
                 XCTAssertEqual(sources.root, AbsolutePath("/Foo/Plugins/FooPlugin"))
                 XCTAssertEqual(sources.relativePaths, [RelativePath("source.swift")])
@@ -115,7 +116,7 @@ class PluginInvocationTests: XCTestCase {
                 XCTAssertEqual(input.targets[1].dependencies.count, 0, "unexpected target dependencies: \(dump(input.targets[1].dependencies))")
 
                 // Pretend the plugin emitted some output.
-                textOutputHandler(Data("Hello Plugin!".utf8))
+                queue.sync { outputHandler(Data("Hello Plugin!".utf8)) }
                 
                 // Return a serialized output PluginInvocationResult JSON.
                 let result = PluginScriptRunnerOutput(
@@ -143,7 +144,7 @@ class PluginInvocationTests: XCTestCase {
                     prebuildCommands: [
                     ]
                 )
-                return result
+                callbackQueue.sync { completion(.success(result)) }
             }
         }
 
@@ -251,7 +252,7 @@ class PluginInvocationTests: XCTestCase {
             
             let pluginCacheDir = tmpPath.appending(component: "plugin-cache")
             let pluginScriptRunner = DefaultPluginScriptRunner(cacheDir: pluginCacheDir, toolchain: ToolchainConfiguration.default)
-            let result = try pluginScriptRunner.compilePluginScript(sources: buildToolPlugin.sources, toolsVersion: .currentToolsVersion)
+            let result = try tsc_await { pluginScriptRunner.compilePluginScript(sources: buildToolPlugin.sources, toolsVersion: .currentToolsVersion, observabilityScope: observability.topScope, on: DispatchQueue(label: "plugin-compilation"), completion: $0) }
             
             // Expect a failure since our input code is intentionally broken.
             XCTAssert(result.compilerResult.exitStatus == .terminated(code: 1), "\(result.compilerResult.exitStatus)")

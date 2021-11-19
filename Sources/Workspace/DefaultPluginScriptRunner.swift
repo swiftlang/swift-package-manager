@@ -32,27 +32,47 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
         self.enableSandbox = enableSandbox
     }
     
-    public func compilePluginScript(sources: Sources, toolsVersion: ToolsVersion) throws -> PluginCompilationResult {
-        return try self.compile(sources: sources, toolsVersion: toolsVersion, cacheDir: self.cacheDir)
+    public func compilePluginScript(
+        sources: Sources,
+        toolsVersion: ToolsVersion,
+        observabilityScope: ObservabilityScope,
+        on queue: DispatchQueue,
+        completion: @escaping (Result<PluginCompilationResult, Error>) -> Void
+    ) {
+        self.compile(sources: sources, toolsVersion: toolsVersion, cacheDir: self.cacheDir, observabilityScope: observabilityScope, on: queue, completion: completion)
     }
 
-    /// Public protocol function that compiles and runs the plugin as a subprocess.  The tools version controls the availability of APIs in PackagePlugin, and should be set to the tools version of the package that defines the plugin (not of the target to which it is being applied).
+    /// Public protocol function that starting evaluating a plugin by compiling it and running it as a subprocess. The tools version controls the availability of APIs in PackagePlugin, and should be set to the tools version of the package that defines the plugin (not of the target to which it is being applied). This function returns immediately and then calls the output handler as plain-text output is received from the plugin, and calls the completion handler once it finishes running.
     public func runPluginScript(
         sources: Sources,
         input: PluginScriptRunnerInput,
         toolsVersion: ToolsVersion,
         writableDirectories: [AbsolutePath],
+        fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
-        textOutputHandler: @escaping (Data) -> Void,
-        handlerQueue: DispatchQueue,
-        fileSystem: FileSystem
-    ) throws -> PluginScriptRunnerOutput {
-        // FIXME: We should only compile the plugin script again if needed.
-        let compilationResult = try self.compile(sources: sources, toolsVersion: toolsVersion, cacheDir: self.cacheDir)
-        guard let compiledExecutable = compilationResult.compiledExecutable else {
-            throw DefaultPluginScriptRunnerError.compilationFailed(compilationResult)
+        on queue: DispatchQueue,
+        outputHandler: @escaping (Data) -> Void,
+        completion: @escaping (Result<PluginScriptRunnerOutput, Error>) -> Void
+    ) {
+        // TODO: Skip compiling the plugin script if it has already been compiled and hasn't changed.
+        self.compile(sources: sources, toolsVersion: toolsVersion, cacheDir: self.cacheDir, observabilityScope: observabilityScope, on: queue) { result in
+            switch result {
+            case .success(let result):
+                guard let compiledExecutable = result.compiledExecutable else {
+                    return completion(.failure(DefaultPluginScriptRunnerError.compilationFailed(result)))
+                }
+                self.invoke(
+                    compiledExec: compiledExecutable,
+                    writableDirectories: writableDirectories,
+                    input: input,
+                    observabilityScope: observabilityScope,
+                    on: queue,
+                    outputHandler: outputHandler,
+                    completion: completion)
+            case .failure(let error):
+                completion(.failure(error))
+            }
         }
-        return try self.invoke(compiledExec: compiledExecutable, writableDirectories: writableDirectories, input: input, textOutputHandler: textOutputHandler, handlerQueue: handlerQueue)
     }
 
     public var hostTriple: Triple {
@@ -61,8 +81,15 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
         }
     }
     
-    /// Helper function that compiles a plugin script as an executable and returns the path of the executable, any emitted diagnostics, etc. This function only throws an error if it wasn't even possible to start compiling the plugin — any regular compilation errors or warnings will be reflected in the returned compilation result.
-    fileprivate func compile(sources: Sources, toolsVersion: ToolsVersion, cacheDir: AbsolutePath) throws -> PluginCompilationResult {
+    /// Helper function that starts compiling a plugin script as an executable and when done, calls the completion handler with the path of the executable and with any emitted diagnostics, etc. This function only returns an error if it wasn't even possible to start compiling the plugin — any regular compilation errors or warnings will be reflected in the returned compilation result.
+    fileprivate func compile(
+        sources: Sources,
+        toolsVersion: ToolsVersion,
+        cacheDir: AbsolutePath,
+        observabilityScope: ObservabilityScope,
+        on queue: DispatchQueue,
+        completion: @escaping (Result<PluginCompilationResult, Error>) -> Void
+    ) {
         // FIXME: Much of this is copied from the ManifestLoader and should be consolidated.
 
         // Get access to the path containing the PackagePlugin module and library.
@@ -99,9 +126,8 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
         // Use the same minimum deployment target as the PackageDescription library (with a fallback of 10.15).
         #if os(macOS)
         let triple = self.hostTriple
-
-        let version = try Self._packageDescriptionMinimumDeploymentTarget.memoize {
-            (try Self.computeMinimumDeploymentTarget(of: macOSPackageDescriptionPath))?.versionString ?? "10.15"
+        let version = Self._packageDescriptionMinimumDeploymentTarget.memoize {
+            (try? Self.computeMinimumDeploymentTarget(of: macOSPackageDescriptionPath))?.versionString ?? "10.15"
         }
         command += ["-target", "\(triple.tripleString(forPlatformVersion: version))"]
         #endif
@@ -148,15 +174,20 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
         let executableFile = cacheDir.appending(component: "compiled-plugin")
         command += ["-o", executableFile.pathString]
         
-        // Make sure the cache directory in which we'll be placing the compiled executable exists.
-        try FileManager.default.createDirectory(at: cacheDir.asURL, withIntermediateDirectories: true, attributes: nil)
+        // Create the cache directory in which we'll be placing the compiled executable if needed. Any failure to create it will be reported by the compiler.
+        try? FileManager.default.createDirectory(at: cacheDir.asURL, withIntermediateDirectories: true, attributes: nil)
         
-        // Invoke the compiler and get back the result.
-        let compilerResult = try Process.popen(arguments: command, environment: toolchain.swiftCompilerEnvironment)
-
-        // Finally return the result. We return the path of the compiled executable only if the compilation succeeded.
-        let compiledExecutable = (compilerResult.exitStatus == .terminated(code: 0)) ? executableFile : nil
-        return PluginCompilationResult(compiledExecutable: compiledExecutable, diagnosticsFile: diagnosticsFile, compilerResult: compilerResult)
+        Process.popen(arguments: command, environment: toolchain.swiftCompilerEnvironment, queue: queue) { result in
+            switch result {
+            case .success(let processResult):
+                // We return the path of the compiled executable only if the compilation succeeded.
+                let compiledExecutable = (processResult.exitStatus == .terminated(code: 0)) ? executableFile : nil
+                let compilationResult = PluginCompilationResult(compiledExecutable: compiledExecutable, diagnosticsFile: diagnosticsFile, compilerResult: processResult)
+                completion(.success(compilationResult))
+            case .failure(let error):
+                completion(.failure(error))
+            }
+        }
     }
 
     /// Returns path to the sdk, if possible.
@@ -195,9 +226,11 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
         compiledExec: AbsolutePath,
         writableDirectories: [AbsolutePath],
         input: PluginScriptRunnerInput,
-        textOutputHandler: @escaping (Data) -> Void,
-        handlerQueue: DispatchQueue
-    ) throws -> PluginScriptRunnerOutput {
+        observabilityScope: ObservabilityScope,
+        on queue: DispatchQueue,
+        outputHandler: @escaping (Data) -> Void,
+        completion: @escaping (Result<PluginScriptRunnerOutput, Error>) -> Void
+    ) {
         // Construct the command line. Currently we just invoke the executable built from the plugin without any parameters.
         var command = [compiledExec.pathString]
 
@@ -220,9 +253,6 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
         waiters.enter()
         let stderrPipe = Pipe()
         var stderrData = Data()
-        func emit(data: Data) {
-            handlerQueue.sync { textOutputHandler(data) }
-        }
         stderrPipe.fileHandleForReading.readabilityHandler = { (fileHandle: FileHandle) -> Void in
             // We just pass the data on to our given output handler.
             let newData = fileHandle.availableData
@@ -232,7 +262,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
             }
             else {
                 stderrData.append(contentsOf: newData)
-                emit(data: newData)
+                queue.async { outputHandler(newData) }
             }
         }
         process.standardError = stderrPipe
@@ -253,41 +283,45 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
             waiters.leave()
         }
 
-        // Start the plugin process.
         waiters.enter()
         do {
+            // Start the plugin process.
             try process.run()
-        } catch {
-            throw DefaultPluginScriptRunnerError.subprocessDidNotStart("\(error)", command: command)
-        }
-        
-        /// Send an initial message to the plugin to ask it to perform its action based on the input data.
-        try outputHandle.writePluginMessage(.performAction(input: input))
-        
-        /// Get messages from the plugin. It might tell us it's done or ask us for more information.
-        var result: PluginScriptRunnerOutput? = nil
-        while let message = try inputHandle.readPluginMessage() {
-            switch message {
-            case .provideResult(let output):
-                // The plugin has completed the action and is providing results.
-                result = output
-                try outputHandle.writePluginMessage(.quit)
+            
+            /// Send an initial message to the plugin to ask it to perform its action based on the input data.
+            try outputHandle.writePluginMessage(.performAction(input: input))
+            
+            /// Get messages from the plugin. It might tell us it's done or ask us for more information.
+            var result: PluginScriptRunnerOutput? = nil
+            while let message = try inputHandle.readPluginMessage() {
+                switch message {
+                case .provideResult(let output):
+                    result = output
+                    try outputHandle.writePluginMessage(.quit)
+                }
             }
-        }
-        
-        // Wait for the process to terminate and the readers to finish collecting all output.
-        waiters.wait()
+            
+            // Wait for the process to terminate and the readers to finish collecting all output.
+            waiters.wait()
 
-        // Throw an error if we the subprocess ended badly.
-        if !(process.terminationReason == .exit && process.terminationStatus == 0) {
-            throw DefaultPluginScriptRunnerError.subprocessFailed("\(process.terminationStatus)", command: command, output: String(decoding: stderrData, as: UTF8.self))
+            switch process.terminationReason {
+            case .uncaughtSignal:
+                throw StringError("plugin process ended by an uncaught signal")
+            case .exit:
+                if process.terminationStatus != 0 {
+                    throw StringError("plugin process ended with a non-zero exit code: \(process.terminationStatus)")
+                }
+            default:
+                throw StringError("plugin process ended for unexpected reason")
+            }
+            guard let result = result else {
+                throw StringError("didn’t receive output from plugin")
+            }
+            queue.async { completion(.success(result)) }
         }
-        guard let result = result else {
-            throw DefaultPluginScriptRunnerError.missingPluginJSON("didn’t receive output from plugin", command: command, output: String(decoding: stderrData, as: UTF8.self))
+        catch {
+            queue.async { completion(.failure(DefaultPluginScriptRunnerError.invocationFailed(error, command: command))) }
         }
-
-        // Otherwise return the result returned by the plugin.
-        return result
     }
 }
 
@@ -306,34 +340,17 @@ public struct PluginCompilationResult {
 
 /// An error encountered by the default plugin runner.
 public enum DefaultPluginScriptRunnerError: Error {
-    /// Failed to compile the plugin script, so it cannot be run.
     case compilationFailed(PluginCompilationResult)
-    
-    /// Failed to start running the compiled plugin script as a subprocess.  The message describes the error, and the
-    /// command is the full command line that the runner tried to launch.
-    case subprocessDidNotStart(_ message: String, command: [String])
-
-    /// Running the compiled plugin script as a subprocess failed.  The message describes the error, the command is
-    /// the full command line, and the output contains any emitted stdout and stderr.
-    case subprocessFailed(_ message: String, command: [String], output: String)
-
-    /// The compiled plugin script completed successfully, but did not emit any JSON output that could be decoded to
-    /// transmit plugin information to SwiftPM.  The message describes the problem, the command is the full command
-    /// line, and the output contains any emitted stdout and stderr.
-    case missingPluginJSON(_ message: String, command: [String], output: String)
+    case invocationFailed(_ error: Error, command: [String])
 }
 
 extension DefaultPluginScriptRunnerError: CustomStringConvertible {
     public var description: String {
         switch self {
         case .compilationFailed(let result):
-            return "could not compile plugin script: \(result)"
-        case .subprocessDidNotStart(let message, _):
-            return "could not run plugin script: \(message)"
-        case .subprocessFailed(let message, _, let output):
-            return "running plugin script failed: \(message):\(output.isEmpty ? " (no output)" : "\n" + output)"
-        case .missingPluginJSON(let message, _, let output):
-            return "plugin script did not emit JSON output: \(message):\(output.isEmpty ? " (no output)" : "\n" + output)"
+            return "plugin script compilation failed: \(result)"
+        case .invocationFailed(let message, _):
+            return "plugin invocation failed: \(message)"
         }
     }
 }

@@ -274,17 +274,20 @@ class PluginTests: XCTestCase {
             let pluginCacheDir = tmpPath.appending(component: "plugin-cache")
             let pluginOutputDir = tmpPath.appending(component: "plugin-output")
             let pluginScriptRunner = DefaultPluginScriptRunner(cacheDir: pluginCacheDir, toolchain: ToolchainConfiguration.default)
-            let result = try pluginTarget.invoke(
+            let target = try XCTUnwrap(package.targets.first{ $0.underlyingTarget == libraryTarget })
+            let result = try tsc_await { pluginTarget.invoke(
                 action: .performCommand(
-                    targets: [ try XCTUnwrap(package.targets.first{ $0.underlyingTarget == libraryTarget }) ],
+                    targets: [ target ],
                     arguments: ["veni", "vidi", "vici"]),
                 package: package,
                 buildEnvironment: BuildEnvironment(platform: .macOS, configuration: .debug),
                 scriptRunner: pluginScriptRunner,
                 outputDirectory: pluginOutputDir,
                 toolNamesToPaths: [:],
+                fileSystem: localFileSystem,
                 observabilityScope: observability.topScope,
-                fileSystem: localFileSystem)
+                on: DispatchQueue(label: "plugin-invocation"),
+                completion: $0) }
             
             // Check the results.
             XCTAssertTrue(result.textOutput.trimmingCharacters(in: .whitespacesAndNewlines).hasSuffix("This is MyCommandPlugin."))

@@ -975,15 +975,18 @@ extension SwiftPackageTool {
             })
 
             // Run the plugin.
-            let result = try plugin.invoke(
+            let buildEnvironment = try swiftTool.buildParameters().buildEnvironment
+            let result = try tsc_await { plugin.invoke(
                 action: .performCommand(targets: Array(targets.values), arguments: arguments),
                 package: packageGraph.rootPackages[0], // FIXME: This should be the package that contains all the targets (and we should make sure all are in one)
-                buildEnvironment: try swiftTool.buildParameters().buildEnvironment,
+                buildEnvironment: buildEnvironment,
                 scriptRunner: pluginScriptRunner,
                 outputDirectory: outputDir,
                 toolNamesToPaths: toolNamesToPaths,
+                fileSystem: localFileSystem,
                 observabilityScope: swiftTool.observabilityScope,
-                fileSystem: localFileSystem)
+                on: DispatchQueue(label: "plugin-invocation"),
+                completion: $0) }
             
             // Temporary: emit any output from the plugin.
             print(result.textOutput)

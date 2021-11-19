@@ -52,95 +52,107 @@ extension PluginTarget {
         scriptRunner: PluginScriptRunner,
         outputDirectory: AbsolutePath,
         toolNamesToPaths: [String: AbsolutePath],
+        fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
-        fileSystem: FileSystem
-    ) throws -> PluginInvocationResult {
+        on queue: DispatchQueue,
+        completion: @escaping (Result<PluginInvocationResult, Error>) -> Void
+    ) {
         // Create the plugin working directory if needed (but don't do anything with it if it already exists).
         do {
             try fileSystem.createDirectory(outputDirectory, recursive: true)
         }
         catch {
-            throw PluginEvaluationError.outputDirectoryCouldNotBeCreated(path: outputDirectory, underlyingError: error)
+            return completion(.failure(PluginEvaluationError.couldNotCreateOuputDirectory(path: outputDirectory, underlyingError: error)))
         }
 
         // Create the input context to send to the plugin.
         // TODO: Some of this could probably be cached.
         var serializer = PluginScriptRunnerInputSerializer(buildEnvironment: buildEnvironment)
-        let inputStruct = try serializer.makePluginScriptRunnerInput(
-            rootPackage: package,
-            pluginWorkDir: outputDirectory,
-            builtProductsDir: outputDirectory,  // FIXME — what is this parameter needed for?
-            toolNamesToPaths: toolNamesToPaths,
-            pluginAction: action)
+        let inputStruct: PluginScriptRunnerInput
+        do {
+            inputStruct = try serializer.makePluginScriptRunnerInput(
+                rootPackage: package,
+                pluginWorkDir: outputDirectory,
+                builtProductsDir: outputDirectory,  // FIXME — what is this parameter needed for?
+                toolNamesToPaths: toolNamesToPaths,
+                pluginAction: action)
+        }
+        catch {
+            return completion(.failure(PluginEvaluationError.couldNotSerializePluginInput(underlyingError: error)))
+        }
         
         // Call the plugin script runner to actually invoke the plugin.
-        // TODO: This should be asynchronous.
         var outputText = Data()
-        let outputStruct = try scriptRunner.runPluginScript(
+        scriptRunner.runPluginScript(
             sources: sources,
             input: inputStruct,
             toolsVersion: self.apiVersion,
             writableDirectories: [outputDirectory],
+            fileSystem: fileSystem,
             observabilityScope: observabilityScope,
-            textOutputHandler: { data in
+            on: DispatchQueue(label: "plugin-invocation"),
+            outputHandler: { data in
                 outputText.append(contentsOf: data)
-            },
-            handlerQueue: DispatchQueue(label: "plugin-invocation"),
-            fileSystem: fileSystem)
+            }) { result in
+                switch result {
+                case .success(let output):
+                    // Generate emittable Diagnostics from the plugin output.
+                    let diagnostics: [Diagnostic] = output.diagnostics.map { diag in
+                        let metadata: ObservabilityMetadata? = diag.file.map {
+                            var metadata = ObservabilityMetadata()
+                            metadata.fileLocation = try? .init(.init(validating: $0), line: diag.line)
+                            return metadata
+                        }
 
-        // Generate emittable Diagnostics from the plugin output.
-        let diagnostics: [Diagnostic] = try outputStruct.diagnostics.map { diag in
-            let metadata: ObservabilityMetadata? = try diag.file.map {
-                var metadata = ObservabilityMetadata()
-                metadata.fileLocation = try .init(.init(validating: $0), line: diag.line)
-                return metadata
+                        switch diag.severity {
+                        case .error:
+                            return .error(diag.message, metadata: metadata)
+                        case .warning:
+                            return .warning(diag.message, metadata: metadata)
+                        case .remark:
+                            return .info(diag.message, metadata: metadata)
+                        }
+                    }
+
+                    // FIXME: Validate the plugin output structure here, e.g. paths, etc.
+                    
+                    // Generate commands from the plugin output. This is where we translate from the transport JSON to our
+                    // internal form. We deal with BuildCommands and PrebuildCommands separately.
+                    // FIXME: This feels a bit too specific to have here.
+                    // FIXME: Also there is too much repetition here, need to unify it.
+                    let buildCommands = output.buildCommands.map { cmd in
+                        PluginInvocationResult.BuildCommand(
+                            configuration: .init(
+                                displayName: cmd.displayName,
+                                executable: cmd.executable,
+                                arguments: cmd.arguments,
+                                environment: cmd.environment,
+                                workingDirectory: cmd.workingDirectory.map{ AbsolutePath($0) }),
+                            inputFiles: cmd.inputFiles.map{ AbsolutePath($0) },
+                            outputFiles: cmd.outputFiles.map{ AbsolutePath($0) })
+                    }
+                    let prebuildCommands = output.prebuildCommands.map { cmd in
+                        PluginInvocationResult.PrebuildCommand(
+                            configuration: .init(
+                                displayName: cmd.displayName,
+                                executable: cmd.executable,
+                                arguments: cmd.arguments,
+                                environment: cmd.environment,
+                                workingDirectory: cmd.workingDirectory.map{ AbsolutePath($0) }),
+                            outputFilesDirectory: AbsolutePath(cmd.outputFilesDirectory))
+                    }
+
+                    // Create and return an evaluation result for the invocation.
+                    completion(.success(PluginInvocationResult(
+                        plugin: self,
+                        diagnostics: diagnostics,
+                        textOutput: String(decoding: outputText, as: UTF8.self),
+                        buildCommands: buildCommands,
+                        prebuildCommands: prebuildCommands)))
+                case .failure(let error):
+                    completion(.failure(error))
+                }
             }
-
-            switch diag.severity {
-            case .error:
-                return .error(diag.message, metadata: metadata)
-            case .warning:
-                return .warning(diag.message, metadata: metadata)
-            case .remark:
-                return .info(diag.message, metadata: metadata)
-            }
-        }
-
-        // FIXME: Validate the plugin output structure here, e.g. paths, etc.
-        
-        // Generate commands from the plugin output. This is where we translate from the transport JSON to our
-        // internal form. We deal with BuildCommands and PrebuildCommands separately.
-        // FIXME: This feels a bit too specific to have here.
-        // FIXME: Also there is too much repetition here, need to unify it.
-        let buildCommands = outputStruct.buildCommands.map { cmd in
-            PluginInvocationResult.BuildCommand(
-                configuration: .init(
-                    displayName: cmd.displayName,
-                    executable: cmd.executable,
-                    arguments: cmd.arguments,
-                    environment: cmd.environment,
-                    workingDirectory: cmd.workingDirectory.map{ AbsolutePath($0) }),
-                inputFiles: cmd.inputFiles.map{ AbsolutePath($0) },
-                outputFiles: cmd.outputFiles.map{ AbsolutePath($0) })
-        }
-        let prebuildCommands = outputStruct.prebuildCommands.map { cmd in
-            PluginInvocationResult.PrebuildCommand(
-                configuration: .init(
-                    displayName: cmd.displayName,
-                    executable: cmd.executable,
-                    arguments: cmd.arguments,
-                    environment: cmd.environment,
-                    workingDirectory: cmd.workingDirectory.map{ AbsolutePath($0) }),
-                outputFilesDirectory: AbsolutePath(cmd.outputFilesDirectory))
-        }
-
-        // Create and return an evaluation result for the invocation.
-        return PluginInvocationResult(
-            plugin: self,
-            diagnostics: diagnostics,
-            textOutput: String(decoding: outputText, as: UTF8.self),
-            buildCommands: buildCommands,
-            prebuildCommands: prebuildCommands)
     }
 }
 
@@ -223,15 +235,17 @@ extension PackageGraph {
                 let pluginOutputDir = outputDir.appending(components: package.identity.description, target.name, pluginTarget.name)
 
                 // Invoke the plugin.
-                let result = try pluginTarget.invoke(
+                let result = try tsc_await { pluginTarget.invoke(
                     action: .createBuildToolCommands(target: target),
                     package: package,
                     buildEnvironment: buildEnvironment,
                     scriptRunner: pluginScriptRunner,
                     outputDirectory: pluginOutputDir,
                     toolNamesToPaths: toolNamesToPaths,
+                    fileSystem: fileSystem,
                     observabilityScope: observabilityScope,
-                    fileSystem: fileSystem)
+                    on: DispatchQueue(label: "plugin-invocation"),
+                    completion: $0) }
                 pluginResults.append(result)
             }
 
@@ -342,7 +356,8 @@ public struct PluginInvocationResult {
 
 /// An error in plugin evaluation.
 public enum PluginEvaluationError: Swift.Error {
-    case outputDirectoryCouldNotBeCreated(path: AbsolutePath, underlyingError: Error)
+    case couldNotCreateOuputDirectory(path: AbsolutePath, underlyingError: Error)
+    case couldNotSerializePluginInput(underlyingError: Error)
     case runningPluginFailed(underlyingError: Error)
     case decodingPluginOutputFailed(json: Data, underlyingError: Error)
 }
@@ -366,11 +381,12 @@ public protocol PluginScriptRunner {
         input: PluginScriptRunnerInput,
         toolsVersion: ToolsVersion,
         writableDirectories: [AbsolutePath],
+        fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
-        textOutputHandler: @escaping (Data) -> Void,
-        handlerQueue: DispatchQueue,
-        fileSystem: FileSystem
-    ) throws -> PluginScriptRunnerOutput
+        on queue: DispatchQueue,
+        outputHandler: @escaping (Data) -> Void,
+        completion: @escaping (Result<PluginScriptRunnerOutput, Error>) -> Void
+    )
 
     /// Returns the Triple that represents the host for which plugin script tools should be built, or for which binary
     /// tools should be selected.
