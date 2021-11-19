@@ -98,4 +98,15 @@ public protocol CommandPlugin: Plugin {
         /// Any literal arguments passed after the verb in the command invocation.
         arguments: [String]
     ) throws
+
+    /// A proxy to the Swift Package Manager or IDE hosting the package plugin,
+    /// through which the plugin can ask for specialized information or actions.
+    var packageManager: PackageManager { get }
+}
+
+extension CommandPlugin {
+    
+    var packageManager: PackageManager {
+        return PackageManager()
+    }
 }
