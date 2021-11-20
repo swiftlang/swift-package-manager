@@ -186,12 +186,21 @@ Clone the following repositories beside the SwiftPM directory:
    $> git clone https://github.com/apple/swift-crypto --branch 1.1.6
    ```
 
+76. [swift-system] and check out tag with the [latest version](https://github.com/apple/swift-system/tags).
+
+    For example, if the latest tag is 1.0.0:
+    ```sh
+    $> git clone https://github.com/apple/swift-system --branch 1.0.0
+    ```
+
 [swift-argument-parser]: https://github.com/apple/swift-argument-parser
 [swift-crypto]: https://github.com/apple/swift-crypto
 [swift-driver]: https://github.com/apple/swift-driver
 [swift-llbuild]: https://github.com/apple/swift-llbuild
+[swift-system]: https://github.com/apple/swift-system
 [swift-tools-support-core]: https://github.com/apple/swift-tools-support-core
 [Yams]: https://github.com/jpsim/yams
+
 
 #### Building
 

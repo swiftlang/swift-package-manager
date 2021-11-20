@@ -26,6 +26,7 @@ add_library(Basics
   SQLiteBackedCache.swift
   Version+Extensions.swift)
 target_link_libraries(Basics PUBLIC
+  SwiftSystem::SystemPackage
   TSCBasic
   TSCUtility)
 target_link_libraries(Basics PRIVATE

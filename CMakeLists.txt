@@ -37,12 +37,13 @@ string(COMPARE EQUAL ${CMAKE_SYSTEM_NAME} Windows CMAKE_INSTALL_DEFAULT)
 option(USE_CMAKE_INSTALL
   "Install build products using cmake's install() instead of the bootstrap script's install()"
   ${CMAKE_INSTALL_DEFAULT})
-  
+
 if(BUILD_SHARED_LIBS)
   set(CMAKE_POSITION_INDEPENDENT_CODE YES)
 endif()
 
 if(FIND_PM_DEPS)
+  find_package(SwiftSystem CONFIG REQUIRED)
   find_package(TSC CONFIG REQUIRED)
 
   find_package(LLBuild CONFIG)
