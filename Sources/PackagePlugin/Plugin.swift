@@ -166,14 +166,6 @@ extension Plugin {
                     internalError("Couldn’t encode output JSON: \(error).")
                 }
                 try outputHandle.writePluginMessage(.provideResult(output: outputStruct.output))
-            
-            // Exits the plugin logic.
-            case .quit:
-                exit(0)
-
-            // Ignore other messages
-            default:
-                continue
             }
         }
     }
@@ -187,7 +179,6 @@ extension Plugin {
 /// A message that the host can send to the plugin.
 enum HostToPluginMessage: Decodable {
     case performAction(input: WireInput)
-    case quit
 }
 
 /// A message that the plugin can send to the host.

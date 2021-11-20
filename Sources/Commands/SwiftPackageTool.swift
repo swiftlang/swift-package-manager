@@ -985,7 +985,7 @@ extension SwiftPackageTool {
                 toolNamesToPaths: toolNamesToPaths,
                 fileSystem: localFileSystem,
                 observabilityScope: swiftTool.observabilityScope,
-                on: DispatchQueue(label: "plugin-invocation"),
+                callbackQueue: DispatchQueue(label: "plugin-invocation"),
                 completion: $0) }
             
             // Temporary: emit any output from the plugin.

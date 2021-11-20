@@ -95,7 +95,7 @@ class PluginInvocationTests: XCTestCase {
                 writableDirectories: [AbsolutePath],
                 fileSystem: FileSystem,
                 observabilityScope: ObservabilityScope,
-                on queue: DispatchQueue,
+                callbackQueue: DispatchQueue,
                 outputHandler: @escaping (Data) -> Void,
                 completion: @escaping (Result<PluginScriptRunnerOutput, Error>) -> Void
             ) {
@@ -116,7 +116,7 @@ class PluginInvocationTests: XCTestCase {
                 XCTAssertEqual(input.targets[1].dependencies.count, 0, "unexpected target dependencies: \(dump(input.targets[1].dependencies))")
 
                 // Pretend the plugin emitted some output.
-                queue.sync { outputHandler(Data("Hello Plugin!".utf8)) }
+                callbackQueue.sync { outputHandler(Data("Hello Plugin!".utf8)) }
                 
                 // Return a serialized output PluginInvocationResult JSON.
                 let result = PluginScriptRunnerOutput(
@@ -215,10 +215,14 @@ class PluginInvocationTests: XCTestCase {
                 """
             }
             try localFileSystem.writeFileContents(packageDir.appending(components: "Sources", "MyLibrary", "library.swift")) {
-                $0 <<< "public func Foo() { }\n"
+                $0 <<< """
+                public func Foo() { }
+                """
             }
             try localFileSystem.writeFileContents(packageDir.appending(components: "Plugins", "MyPlugin", "plugin.swift")) {
-                $0 <<< "syntax error\n"
+                $0 <<< """
+                syntax error
+                """
             }
 
             // Load a workspace from the package.
@@ -250,14 +254,59 @@ class PluginInvocationTests: XCTestCase {
             let buildToolPlugin = try XCTUnwrap(packageGraph.packages[0].targets.first{ $0.type == .plugin })
             XCTAssertEqual(buildToolPlugin.name, "MyPlugin")
             
+            // Try to compile the broken plugin script and check that we get the expected error.
             let pluginCacheDir = tmpPath.appending(component: "plugin-cache")
             let pluginScriptRunner = DefaultPluginScriptRunner(cacheDir: pluginCacheDir, toolchain: ToolchainConfiguration.default)
-            let result = try tsc_await { pluginScriptRunner.compilePluginScript(sources: buildToolPlugin.sources, toolsVersion: .currentToolsVersion, observabilityScope: observability.topScope, on: DispatchQueue(label: "plugin-compilation"), completion: $0) }
+            XCTAssertThrowsError(try tsc_await { pluginScriptRunner.compilePluginScript(
+                sources: buildToolPlugin.sources,
+                toolsVersion: .currentToolsVersion,
+                observabilityScope: observability.topScope,
+                callbackQueue: DispatchQueue(label: "plugin-compilation"),
+                completion: $0)
+            }) { error in
+                guard case DefaultPluginScriptRunnerError.compilationFailed(let result) = error else {
+                    return XCTFail("unexpected error: \(error)")
+                }
+                XCTAssert(result.compilerResult.exitStatus == .terminated(code: 1), "\(result.compilerResult.exitStatus)")
+                XCTAssert(result.compiledExecutable.components.contains("plugin-cache"), "\(result.compiledExecutable.pathString)")
+                XCTAssert(result.diagnosticsFile.suffix == ".dia", "\(result.diagnosticsFile.pathString)")
+            }
             
-            // Expect a failure since our input code is intentionally broken.
-            XCTAssert(result.compilerResult.exitStatus == .terminated(code: 1), "\(result.compilerResult.exitStatus)")
-            XCTAssert(result.compiledExecutable == .none, "\(result.compiledExecutable?.pathString ?? "-")")
+            // Now replace the plugin script source with syntactically valid contents that still produces a warning.
+            try localFileSystem.writeFileContents(packageDir.appending(components: "Plugins", "MyPlugin", "plugin.swift")) {
+                $0 <<< """
+                import PackagePlugin
+                
+                @main
+                struct MyBuildToolPlugin: BuildToolPlugin {
+                    func createBuildCommands(
+                        context: PluginContext,
+                        target: Target
+                    ) throws -> [Command] {
+                        var unused: Int
+                        return []
+                    }
+                }
+                """
+            }
+            
+            // Try to compile the fixed plugin. This time it should succeed but we expect a warning.
+            let result = try tsc_await { pluginScriptRunner.compilePluginScript(
+                sources: buildToolPlugin.sources,
+                toolsVersion: .currentToolsVersion,
+                observabilityScope: observability.topScope,
+                callbackQueue: DispatchQueue(label: "plugin-compilation"),
+                completion: $0) }
+            
+            // Now we expect compilation to succeed but with a warning.
+            XCTAssert(result.compilerResult.exitStatus == .terminated(code: 0), "\(result.compilerResult.exitStatus)")
+            XCTAssert(result.compiledExecutable.components.contains("plugin-cache"), "\(result.compiledExecutable.pathString)")
             XCTAssert(result.diagnosticsFile.suffix == ".dia", "\(result.diagnosticsFile.pathString)")
+            let contents = try localFileSystem.readFileContents(result.diagnosticsFile)
+            let diags = try SerializedDiagnostics(bytes: contents)
+            XCTAssertEqual(diags.diagnostics.count, 1)
+            let warningDiag = try XCTUnwrap(diags.diagnostics.first)
+            XCTAssertTrue(warningDiag.text.hasPrefix("variable \'unused\' was never used"), "\(warningDiag)")
         }
     }
 }

@@ -32,17 +32,24 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
         self.enableSandbox = enableSandbox
     }
     
+    /// Public protocol function that starts compiling the plugin script to an exectutable. The tools version controls the availability of APIs in PackagePlugin, and should be set to the tools version of the package that defines the plugin (not of the target to which it is being applied). This function returns immediately and then calls the completion handler on the callbackq queue when compilation ends.
     public func compilePluginScript(
         sources: Sources,
         toolsVersion: ToolsVersion,
         observabilityScope: ObservabilityScope,
-        on queue: DispatchQueue,
+        callbackQueue: DispatchQueue,
         completion: @escaping (Result<PluginCompilationResult, Error>) -> Void
     ) {
-        self.compile(sources: sources, toolsVersion: toolsVersion, cacheDir: self.cacheDir, observabilityScope: observabilityScope, on: queue, completion: completion)
+        self.compile(
+            sources: sources,
+            toolsVersion: toolsVersion,
+            cacheDir: self.cacheDir,
+            observabilityScope: observabilityScope,
+            callbackQueue: callbackQueue,
+            completion: completion)
     }
 
-    /// Public protocol function that starting evaluating a plugin by compiling it and running it as a subprocess. The tools version controls the availability of APIs in PackagePlugin, and should be set to the tools version of the package that defines the plugin (not of the target to which it is being applied). This function returns immediately and then calls the output handler as plain-text output is received from the plugin, and calls the completion handler once it finishes running.
+    /// Public protocol function that starts evaluating a plugin by compiling it and running it as a subprocess. The tools version controls the availability of APIs in PackagePlugin, and should be set to the tools version of the package that defines the plugin (not of the target to which it is being applied). This function returns immediately and then calls the output handler on the given callback queue when any plain-text output is received from the plugin, and calls the completion handler once it finishes running.
     public func runPluginScript(
         sources: Sources,
         input: PluginScriptRunnerInput,
@@ -50,29 +57,35 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
         writableDirectories: [AbsolutePath],
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
-        on queue: DispatchQueue,
+        callbackQueue: DispatchQueue,
         outputHandler: @escaping (Data) -> Void,
         completion: @escaping (Result<PluginScriptRunnerOutput, Error>) -> Void
     ) {
+        // Asynchronously compile the plugin script to an executable.
         // TODO: Skip compiling the plugin script if it has already been compiled and hasn't changed.
-        self.compile(sources: sources, toolsVersion: toolsVersion, cacheDir: self.cacheDir, observabilityScope: observabilityScope, on: queue) { result in
-            switch result {
-            case .success(let result):
-                guard let compiledExecutable = result.compiledExecutable else {
-                    return completion(.failure(DefaultPluginScriptRunnerError.compilationFailed(result)))
+        self.compile(
+            sources: sources,
+            toolsVersion: toolsVersion,
+            cacheDir: self.cacheDir,
+            observabilityScope: observabilityScope,
+            callbackQueue: callbackQueue,
+            completion: { result in
+                // If compilation suceeded, asynchronously run the executable.
+                switch result {
+                case .success(let result):
+                    self.invoke(
+                        compiledExec: result.compiledExecutable,
+                        writableDirectories: writableDirectories,
+                        input: input,
+                        observabilityScope: observabilityScope,
+                        callbackQueue: callbackQueue,
+                        outputHandler: outputHandler,
+                        completion: completion)
+                case .failure(let error):
+                    completion(.failure(error))
                 }
-                self.invoke(
-                    compiledExec: compiledExecutable,
-                    writableDirectories: writableDirectories,
-                    input: input,
-                    observabilityScope: observabilityScope,
-                    on: queue,
-                    outputHandler: outputHandler,
-                    completion: completion)
-            case .failure(let error):
-                completion(.failure(error))
             }
-        }
+        )
     }
 
     public var hostTriple: Triple {
@@ -87,10 +100,10 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
         toolsVersion: ToolsVersion,
         cacheDir: AbsolutePath,
         observabilityScope: ObservabilityScope,
-        on queue: DispatchQueue,
+        callbackQueue: DispatchQueue,
         completion: @escaping (Result<PluginCompilationResult, Error>) -> Void
     ) {
-        // FIXME: Much of this is copied from the ManifestLoader and should be consolidated.
+        // FIXME: Much of this is similar to what the ManifestLoader is doing. This should be consolidated.
 
         // Get access to the path containing the PackagePlugin module and library.
         let runtimePath = self.toolchain.swiftPMLibrariesLocation.pluginAPI
@@ -174,19 +187,25 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
         let executableFile = cacheDir.appending(component: "compiled-plugin")
         command += ["-o", executableFile.pathString]
         
-        // Create the cache directory in which we'll be placing the compiled executable if needed. Any failure to create it will be reported by the compiler.
-        try? FileManager.default.createDirectory(at: cacheDir.asURL, withIntermediateDirectories: true, attributes: nil)
+        do {
+            // Create the cache directory in which we'll be placing the compiled executable if needed.
+            try FileManager.default.createDirectory(at: cacheDir.asURL, withIntermediateDirectories: true, attributes: nil)
         
-        Process.popen(arguments: command, environment: toolchain.swiftCompilerEnvironment, queue: queue) { result in
-            switch result {
-            case .success(let processResult):
-                // We return the path of the compiled executable only if the compilation succeeded.
-                let compiledExecutable = (processResult.exitStatus == .terminated(code: 0)) ? executableFile : nil
-                let compilationResult = PluginCompilationResult(compiledExecutable: compiledExecutable, diagnosticsFile: diagnosticsFile, compilerResult: processResult)
-                completion(.success(compilationResult))
-            case .failure(let error):
-                completion(.failure(error))
+            // Compile the plugin script asynchronously.
+            Process.popen(arguments: command, environment: toolchain.swiftCompilerEnvironment, queue: callbackQueue) {
+                // We are now on our caller's requested callback queue, so we just call the completion handler directly.
+                completion($0.tryMap {
+                    let result = PluginCompilationResult(compilerResult: $0, diagnosticsFile: diagnosticsFile, compiledExecutable: executableFile)
+                    guard $0.exitStatus == .terminated(code: 0) else {
+                        throw DefaultPluginScriptRunnerError.compilationFailed(result)
+                    }
+                    return result
+                })
             }
+        }
+        catch {
+            // We get here if we didn't even get far enough to invoke the compiler before hitting an error.
+            callbackQueue.async { completion(.failure(DefaultPluginScriptRunnerError.compilationSetupFailed(error: error))) }
         }
     }
 
@@ -227,7 +246,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
         writableDirectories: [AbsolutePath],
         input: PluginScriptRunnerInput,
         observabilityScope: ObservabilityScope,
-        on queue: DispatchQueue,
+        callbackQueue: DispatchQueue,
         outputHandler: @escaping (Data) -> Void,
         completion: @escaping (Result<PluginScriptRunnerOutput, Error>) -> Void
     ) {
@@ -246,24 +265,12 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
         process.environment = ProcessInfo.processInfo.environment
         process.currentDirectoryURL = self.cacheDir.asURL
         
-        // Create a dispatch group for waiting on proces termination and all output from it.
-        let waiters = DispatchGroup()
-        
         // Set up a pipe for receiving free-form text output from the plugin on its stderr.
-        waiters.enter()
         let stderrPipe = Pipe()
-        var stderrData = Data()
         stderrPipe.fileHandleForReading.readabilityHandler = { (fileHandle: FileHandle) -> Void in
             // We just pass the data on to our given output handler.
             let newData = fileHandle.availableData
-            if newData.isEmpty {
-                fileHandle.readabilityHandler = nil
-                waiters.leave()
-            }
-            else {
-                stderrData.append(contentsOf: newData)
-                queue.async { outputHandler(newData) }
-            }
+            callbackQueue.async { outputHandler(newData) }
         }
         process.standardError = stderrPipe
 
@@ -277,13 +284,6 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
         let outputHandle = stdinPipe.fileHandleForWriting
         process.standardInput = stdinPipe
 
-        // Set up a termination handler.
-        process.terminationHandler = { _ in
-            // We don't do anything special other than note the process exit.
-            waiters.leave()
-        }
-
-        waiters.enter()
         do {
             // Start the plugin process.
             try process.run()
@@ -297,49 +297,49 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
                 switch message {
                 case .provideResult(let output):
                     result = output
-                    try outputHandle.writePluginMessage(.quit)
+                    try outputHandle.close()
                 }
             }
             
+            // Read and pass on any remaining free-form text output from the plugin.
+            stderrPipe.fileHandleForReading.readabilityHandler?(stderrPipe.fileHandleForReading)
+            
             // Wait for the process to terminate and the readers to finish collecting all output.
-            waiters.wait()
+            process.waitUntilExit()
 
-            switch process.terminationReason {
-            case .uncaughtSignal:
+            if process.terminationReason == .uncaughtSignal {
                 throw StringError("plugin process ended by an uncaught signal")
-            case .exit:
-                if process.terminationStatus != 0 {
-                    throw StringError("plugin process ended with a non-zero exit code: \(process.terminationStatus)")
-                }
-            default:
-                throw StringError("plugin process ended for unexpected reason")
+            }
+            else if process.terminationStatus != 0 {
+                throw StringError("plugin process ended with a non-zero exit code: \(process.terminationStatus)")
             }
             guard let result = result else {
                 throw StringError("didn’t receive output from plugin")
             }
-            queue.async { completion(.success(result)) }
+            callbackQueue.async { completion(.success(result)) }
         }
         catch {
-            queue.async { completion(.failure(DefaultPluginScriptRunnerError.invocationFailed(error, command: command))) }
+            callbackQueue.async { completion(.failure(DefaultPluginScriptRunnerError.invocationFailed(error, command: command))) }
         }
     }
 }
 
 /// The result of compiling a plugin. The executable path will only be present if the compilation succeeds, while the other properties are present in all cases.
 public struct PluginCompilationResult {
-    /// Path of the compiled executable, or .none if compilation failed.
-    public var compiledExecutable: AbsolutePath?
+    /// Process result of invoking the Swift compiler to produce the executable (contains command line, environment, exit status, and any output).
+    public var compilerResult: ProcessResult
     
     /// Path of the libClang diagnostics file emitted by the compiler (even if compilation succeded, it might contain warnings).
     public  var diagnosticsFile: AbsolutePath
     
-    /// Process result of invoking the Swift compiler to produce the executable (contains command line, environment, exit status, and any output).
-    public var compilerResult: ProcessResult
+    /// Path of the compiled executable.
+    public var compiledExecutable: AbsolutePath
 }
 
 
 /// An error encountered by the default plugin runner.
 public enum DefaultPluginScriptRunnerError: Error {
+    case compilationSetupFailed(error: Error)
     case compilationFailed(PluginCompilationResult)
     case invocationFailed(_ error: Error, command: [String])
 }
@@ -347,6 +347,8 @@ public enum DefaultPluginScriptRunnerError: Error {
 extension DefaultPluginScriptRunnerError: CustomStringConvertible {
     public var description: String {
         switch self {
+        case .compilationSetupFailed(let error):
+            return "plugin script compilation failed: \(error)"
         case .compilationFailed(let result):
             return "plugin script compilation failed: \(result)"
         case .invocationFailed(let message, _):
@@ -358,7 +360,6 @@ extension DefaultPluginScriptRunnerError: CustomStringConvertible {
 /// A message that the host can send to the plugin.
 enum HostToPluginMessage: Codable {
     case performAction(input: PluginScriptRunnerInput)
-    case quit
 }
 
 /// A message that the plugin can send to the host.

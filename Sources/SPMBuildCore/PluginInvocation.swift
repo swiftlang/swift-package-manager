@@ -54,7 +54,7 @@ extension PluginTarget {
         toolNamesToPaths: [String: AbsolutePath],
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
-        on queue: DispatchQueue,
+        callbackQueue: DispatchQueue,
         completion: @escaping (Result<PluginInvocationResult, Error>) -> Void
     ) {
         // Create the plugin working directory if needed (but don't do anything with it if it already exists).
@@ -62,11 +62,10 @@ extension PluginTarget {
             try fileSystem.createDirectory(outputDirectory, recursive: true)
         }
         catch {
-            return completion(.failure(PluginEvaluationError.couldNotCreateOuputDirectory(path: outputDirectory, underlyingError: error)))
+            return callbackQueue.async { completion(.failure(PluginEvaluationError.couldNotCreateOuputDirectory(path: outputDirectory, underlyingError: error))) }
         }
 
         // Create the input context to send to the plugin.
-        // TODO: Some of this could probably be cached.
         var serializer = PluginScriptRunnerInputSerializer(buildEnvironment: buildEnvironment)
         let inputStruct: PluginScriptRunnerInput
         do {
@@ -78,7 +77,7 @@ extension PluginTarget {
                 pluginAction: action)
         }
         catch {
-            return completion(.failure(PluginEvaluationError.couldNotSerializePluginInput(underlyingError: error)))
+            return callbackQueue.async { completion(.failure(PluginEvaluationError.couldNotSerializePluginInput(underlyingError: error))) }
         }
         
         // Call the plugin script runner to actually invoke the plugin.
@@ -90,12 +89,13 @@ extension PluginTarget {
             writableDirectories: [outputDirectory],
             fileSystem: fileSystem,
             observabilityScope: observabilityScope,
-            on: DispatchQueue(label: "plugin-invocation"),
+            callbackQueue: DispatchQueue(label: "plugin-invocation"),
             outputHandler: { data in
                 outputText.append(contentsOf: data)
-            }) { result in
-                switch result {
-                case .success(let output):
+            },
+            completion: { result in
+                // Translate the PluginScriptRunnerOutput into a PluginInvocationResult.
+                completion(result.tryMap { output in
                     // Generate emittable Diagnostics from the plugin output.
                     let diagnostics: [Diagnostic] = output.diagnostics.map { diag in
                         let metadata: ObservabilityMetadata? = diag.file.map {
@@ -143,16 +143,14 @@ extension PluginTarget {
                     }
 
                     // Create and return an evaluation result for the invocation.
-                    completion(.success(PluginInvocationResult(
+                    return PluginInvocationResult(
                         plugin: self,
                         diagnostics: diagnostics,
                         textOutput: String(decoding: outputText, as: UTF8.self),
                         buildCommands: buildCommands,
-                        prebuildCommands: prebuildCommands)))
-                case .failure(let error):
-                    completion(.failure(error))
-                }
-            }
+                        prebuildCommands: prebuildCommands)
+                })
+            })
     }
 }
 
@@ -244,7 +242,7 @@ extension PackageGraph {
                     toolNamesToPaths: toolNamesToPaths,
                     fileSystem: fileSystem,
                     observabilityScope: observabilityScope,
-                    on: DispatchQueue(label: "plugin-invocation"),
+                    callbackQueue: DispatchQueue(label: "plugin-invocation"),
                     completion: $0) }
                 pluginResults.append(result)
             }
@@ -383,7 +381,7 @@ public protocol PluginScriptRunner {
         writableDirectories: [AbsolutePath],
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
-        on queue: DispatchQueue,
+        callbackQueue: DispatchQueue,
         outputHandler: @escaping (Data) -> Void,
         completion: @escaping (Result<PluginScriptRunnerOutput, Error>) -> Void
     )

@@ -286,7 +286,7 @@ class PluginTests: XCTestCase {
                 toolNamesToPaths: [:],
                 fileSystem: localFileSystem,
                 observabilityScope: observability.topScope,
-                on: DispatchQueue(label: "plugin-invocation"),
+                callbackQueue: DispatchQueue(label: "plugin-invocation"),
                 completion: $0) }
             
             // Check the results.
