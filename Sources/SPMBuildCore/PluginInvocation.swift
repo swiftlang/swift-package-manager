@@ -80,6 +80,8 @@ extension PluginTarget {
             return callbackQueue.async { completion(.failure(PluginEvaluationError.couldNotSerializePluginInput(underlyingError: error))) }
         }
         
+        let callbackQueue = DispatchQueue(label: "plugin-invocation")
+        
         // Call the plugin script runner to actually invoke the plugin.
         var outputText = Data()
         scriptRunner.runPluginScript(
@@ -89,12 +91,13 @@ extension PluginTarget {
             writableDirectories: [outputDirectory],
             fileSystem: fileSystem,
             observabilityScope: observabilityScope,
-            callbackQueue: DispatchQueue(label: "plugin-invocation"),
+            callbackQueue: callbackQueue,
             outputHandler: { data in
                 outputText.append(contentsOf: data)
             },
             completion: { result in
                 // Translate the PluginScriptRunnerOutput into a PluginInvocationResult.
+                dispatchPrecondition(condition: .onQueue(callbackQueue))
                 completion(result.tryMap { output in
                     // Generate emittable Diagnostics from the plugin output.
                     let diagnostics: [Diagnostic] = output.diagnostics.map { diag in

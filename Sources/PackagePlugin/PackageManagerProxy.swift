@@ -31,8 +31,8 @@ public struct PackageManager {
     
     /// Specifies a subset of products and targets of a package to build.
     public enum BuildSubset {
-        /// Represents the subset consisting of all products and either all targets
-        /// or, if `includingTests` is false, just the non-test targets.
+        /// Represents the subset consisting of all products and of either all
+        /// targets or (if `includingTests` is false) just non-test targets.
         case all(includingTests: Bool)
 
         /// Represents a specific product.

@@ -106,7 +106,9 @@ public protocol CommandPlugin: Plugin {
 
 extension CommandPlugin {
     
-    var packageManager: PackageManager {
+    /// A proxy to the Swift Package Manager or IDE hosting the package plugin,
+    /// through which the plugin can ask for specialized information or actions.
+    public var packageManager: PackageManager {
         return PackageManager()
     }
 }

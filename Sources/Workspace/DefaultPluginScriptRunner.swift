@@ -49,7 +49,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
             completion: completion)
     }
 
-    /// Public protocol function that starts evaluating a plugin by compiling it and running it as a subprocess. The tools version controls the availability of APIs in PackagePlugin, and should be set to the tools version of the package that defines the plugin (not of the target to which it is being applied). This function returns immediately and then calls the output handler on the given callback queue when any plain-text output is received from the plugin, and calls the completion handler once it finishes running.
+    /// Public protocol function that starts evaluating a plugin by compiling it and running it as a subprocess. The tools version controls the availability of APIs in PackagePlugin, and should be set to the tools version of the package that defines the plugin (not the package containing the target to which it is being applied). This function returns immediately and then repeated calls the output handler on the given callback queue as plain-text output is received from the plugin, and then eventually calls the completion handler on the given callback queue once the plugin is done.
     public func runPluginScript(
         sources: Sources,
         input: PluginScriptRunnerInput,
@@ -61,18 +61,19 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
         outputHandler: @escaping (Data) -> Void,
         completion: @escaping (Result<PluginScriptRunnerOutput, Error>) -> Void
     ) {
-        // Asynchronously compile the plugin script to an executable.
+        // If needed, compile the plugin script to an executable (asynchronously).
         // TODO: Skip compiling the plugin script if it has already been compiled and hasn't changed.
         self.compile(
             sources: sources,
             toolsVersion: toolsVersion,
             cacheDir: self.cacheDir,
             observabilityScope: observabilityScope,
-            callbackQueue: callbackQueue,
-            completion: { result in
-                // If compilation suceeded, asynchronously run the executable.
-                switch result {
+            callbackQueue: DispatchQueue.sharedConcurrent,
+            completion: {
+                dispatchPrecondition(condition: .onQueue(DispatchQueue.sharedConcurrent))
+                switch $0 {
                 case .success(let result):
+                    // Compilation succeeded, so run the executable. We are already running on an asynchronous queue.
                     self.invoke(
                         compiledExec: result.compiledExecutable,
                         writableDirectories: writableDirectories,
@@ -82,7 +83,8 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
                         outputHandler: outputHandler,
                         completion: completion)
                 case .failure(let error):
-                    completion(.failure(error))
+                    // Compilation failed, so just call the callback block on the appropriate queue.
+                    callbackQueue.async { completion(.failure(error)) }
                 }
             }
         )
@@ -194,6 +196,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
             // Compile the plugin script asynchronously.
             Process.popen(arguments: command, environment: toolchain.swiftCompilerEnvironment, queue: callbackQueue) {
                 // We are now on our caller's requested callback queue, so we just call the completion handler directly.
+                dispatchPrecondition(condition: .onQueue(callbackQueue))
                 completion($0.tryMap {
                     let result = PluginCompilationResult(compilerResult: $0, diagnosticsFile: diagnosticsFile, compiledExecutable: executableFile)
                     guard $0.exitStatus == .terminated(code: 0) else {
@@ -265,61 +268,87 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
         process.environment = ProcessInfo.processInfo.environment
         process.currentDirectoryURL = self.cacheDir.asURL
         
-        // Set up a pipe for receiving free-form text output from the plugin on its stderr.
-        let stderrPipe = Pipe()
-        stderrPipe.fileHandleForReading.readabilityHandler = { (fileHandle: FileHandle) -> Void in
-            // We just pass the data on to our given output handler.
-            let newData = fileHandle.availableData
-            callbackQueue.async { outputHandler(newData) }
-        }
-        process.standardError = stderrPipe
-
-        // Set up a pipe for receiving structured messages from the plugin on its stdout.
-        let stdoutPipe = Pipe()
-        let inputHandle = stdoutPipe.fileHandleForReading
-        process.standardOutput = stdoutPipe
-        
         // Set up a pipe for sending structured messages to the plugin on its stdin.
         let stdinPipe = Pipe()
         let outputHandle = stdinPipe.fileHandleForWriting
+        let outputQueue = DispatchQueue(label: "plugin-send-queue")
         process.standardInput = stdinPipe
 
-        do {
-            // Start the plugin process.
-            try process.run()
-            
-            /// Send an initial message to the plugin to ask it to perform its action based on the input data.
-            try outputHandle.writePluginMessage(.performAction(input: input))
-            
-            /// Get messages from the plugin. It might tell us it's done or ask us for more information.
-            var result: PluginScriptRunnerOutput? = nil
-            while let message = try inputHandle.readPluginMessage() {
-                switch message {
-                case .provideResult(let output):
-                    result = output
-                    try outputHandle.close()
+        var result: PluginScriptRunnerOutput? = nil
+        
+        func handle(message: PluginToHostMessage) {
+            dispatchPrecondition(condition: .onQueue(callbackQueue))
+            switch message {
+            case .provideResult(let output):
+                result = output
+                outputQueue.async {
+                    try? outputHandle.close()
                 }
             }
-            
+        }
+
+        // Set up a pipe for receiving structured messages from the plugin on its stdout.
+        let stdoutPipe = Pipe()
+        let stdoutLock = Lock()
+        stdoutPipe.fileHandleForReading.readabilityHandler = { fileHandle in
+            // Parse the next message and pass it on to the delegate.
+            stdoutLock.withLock {
+                if let message = try? fileHandle.readPluginMessage() {
+                    callbackQueue.async { handle(message: message) }
+                }
+            }
+        }
+        process.standardOutput = stdoutPipe
+
+        // Set up a pipe for receiving free-form text output from the plugin on its stderr.
+        let stderrPipe = Pipe()
+        let stderrLock = Lock()
+        stderrPipe.fileHandleForReading.readabilityHandler = { fileHandle in
+            // Pass on any available data to the delegate.
+            stderrLock.withLock {
+                let newData = fileHandle.availableData
+                if newData.isEmpty { return }
+                //print("[output] \(String(decoding: newData, as: UTF8.self))")
+                callbackQueue.async { outputHandler(newData) }
+            }
+        }
+        process.standardError = stderrPipe
+        
+        // Set up a handler to deal with the exit of the plugin process.
+        process.terminationHandler = { process in
             // Read and pass on any remaining free-form text output from the plugin.
             stderrPipe.fileHandleForReading.readabilityHandler?(stderrPipe.fileHandleForReading)
             
-            // Wait for the process to terminate and the readers to finish collecting all output.
-            process.waitUntilExit()
-
-            if process.terminationReason == .uncaughtSignal {
-                throw StringError("plugin process ended by an uncaught signal")
+            // Call the completion block with a result that depends on how the process ended.
+            callbackQueue.async {
+                completion(Result {
+                    if process.terminationReason == .uncaughtSignal {
+                        throw StringError("plugin process ended by an uncaught signal")
+                    }
+                    if process.terminationStatus != 0 {
+                        throw StringError("plugin process ended with a non-zero exit code: \(process.terminationStatus)")
+                    }
+                    guard let result = result else {
+                        throw StringError("didn’t receive output from plugin")
+                    }
+                    return result
+                })
             }
-            else if process.terminationStatus != 0 {
-                throw StringError("plugin process ended with a non-zero exit code: \(process.terminationStatus)")
-            }
-            guard let result = result else {
-                throw StringError("didn’t receive output from plugin")
-            }
-            callbackQueue.async { completion(.success(result)) }
+        }
+ 
+        // Start the plugin process.
+        do {
+            try process.run()
         }
         catch {
-            callbackQueue.async { completion(.failure(DefaultPluginScriptRunnerError.invocationFailed(error, command: command))) }
+            callbackQueue.async {
+                completion(.failure(DefaultPluginScriptRunnerError.invocationFailed(error, command: command)))
+            }
+        }
+
+        /// Send an initial message to the plugin to ask it to perform its action based on the input data.
+        outputQueue.async {
+            try? outputHandle.writePluginMessage(.performAction(input: input))
         }
     }
 }
@@ -330,7 +359,7 @@ public struct PluginCompilationResult {
     public var compilerResult: ProcessResult
     
     /// Path of the libClang diagnostics file emitted by the compiler (even if compilation succeded, it might contain warnings).
-    public  var diagnosticsFile: AbsolutePath
+    public var diagnosticsFile: AbsolutePath
     
     /// Path of the compiled executable.
     public var compiledExecutable: AbsolutePath
