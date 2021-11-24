@@ -96,7 +96,7 @@ class PluginInvocationTests: XCTestCase {
                 fileSystem: FileSystem,
                 observabilityScope: ObservabilityScope,
                 callbackQueue: DispatchQueue,
-                outputHandler: @escaping (Data) -> Void,
+                delegate: PluginInvocationDelegate,
                 completion: @escaping (Result<PluginScriptRunnerOutput, Error>) -> Void
             ) {
                 // Check that we were given the right sources.
@@ -116,7 +116,7 @@ class PluginInvocationTests: XCTestCase {
                 XCTAssertEqual(input.targets[1].dependencies.count, 0, "unexpected target dependencies: \(dump(input.targets[1].dependencies))")
 
                 // Pretend the plugin emitted some output.
-                callbackQueue.sync { outputHandler(Data("Hello Plugin!".utf8)) }
+                callbackQueue.sync { delegate.pluginEmittedOutput(data: Data("Hello Plugin!".utf8)) }
                 
                 // Return a serialized output PluginInvocationResult JSON.
                 let result = PluginScriptRunnerOutput(

@@ -159,7 +159,7 @@ extension Plugin {
             } catch {
                 internalError("Couldn’t encode output JSON: \(error).")
             }
-            try pluginHostConnection.sendMessage(.provideResult(output: outputStruct.output))
+            try pluginHostConnection.sendMessage(.pluginFinished(result: outputStruct.output))
             
         default:
             internalError("unexpected top-level message \(message)")
@@ -185,12 +185,17 @@ internal fileprivate(set) var pluginHostConnection: PluginHostConnection!
 
 /// A message that the host can send to the plugin.
 enum HostToPluginMessage: Decodable {
+    /// The host is requesting that the plugin perform one of its declared plugin actions.
     case performAction(input: WireInput)
+    
+    /// A response of an error while trying to complete a request.
+    case errorResponse(error: String)
 }
 
 /// A message that the plugin can send to the host.
 enum PluginToHostMessage: Encodable {
-    case provideResult(output: WireOutput)
+    /// The plugin has finished the requested action and is returning a result.
+    case pluginFinished(result: WireOutput)
 }
 
 

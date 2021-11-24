@@ -55,6 +55,7 @@ extension PluginTarget {
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
+        delegate: PluginInvocationDelegate,
         completion: @escaping (Result<PluginInvocationResult, Error>) -> Void
     ) {
         // Create the plugin working directory if needed (but don't do anything with it if it already exists).
@@ -80,8 +81,6 @@ extension PluginTarget {
             return callbackQueue.async { completion(.failure(PluginEvaluationError.couldNotSerializePluginInput(underlyingError: error))) }
         }
         
-        let callbackQueue = DispatchQueue(label: "plugin-invocation")
-        
         // Call the plugin script runner to actually invoke the plugin.
         var outputText = Data()
         scriptRunner.runPluginScript(
@@ -92,9 +91,7 @@ extension PluginTarget {
             fileSystem: fileSystem,
             observabilityScope: observabilityScope,
             callbackQueue: callbackQueue,
-            outputHandler: { data in
-                outputText.append(contentsOf: data)
-            },
+            delegate: delegate,
             completion: { result in
                 // Translate the PluginScriptRunnerOutput into a PluginInvocationResult.
                 dispatchPrecondition(condition: .onQueue(callbackQueue))
@@ -235,7 +232,34 @@ extension PackageGraph {
                 // Assign a plugin working directory based on the package, target, and plugin.
                 let pluginOutputDir = outputDir.appending(components: package.identity.description, target.name, pluginTarget.name)
 
-                // Invoke the plugin.
+                // Set up a delegate to handle callbacks from the build tool plugin.
+                let delegateQueue = DispatchQueue(label: "plugin-invocation")
+                class PluginDelegate: PluginInvocationDelegate {
+                    let delegateQueue: DispatchQueue
+                    var bufferedData: Data
+                    
+                    init(delegateQueue: DispatchQueue) {
+                        self.delegateQueue = delegateQueue
+                        self.bufferedData = Data()
+                    }
+                    
+                    func pluginEmittedOutput(data: Data) {
+                        dispatchPrecondition(condition: .onQueue(delegateQueue))
+                        // Send the data by newline, taking into account any buffered partial line.
+                        bufferedData += data
+                        while let newlineIdx = bufferedData.firstIndex(of: UInt8(ascii: "\n")) {
+                            let lineData = bufferedData[bufferedData.startIndex..<newlineIdx.advanced(by: 1)]
+                            print("🧩 \(String(decoding: lineData, as: UTF8.self))")
+                            bufferedData = bufferedData[newlineIdx.advanced(by: 1)...]
+                        }
+                    }
+                    
+                    func pluginEmittedDiagnostic(severity: PluginInvocationDiagnosticSeverity, message: String, file: String?, line: Int?) {
+                        dispatchPrecondition(condition: .onQueue(delegateQueue))
+                    }
+                }
+
+                // Invoke the build tool plugin.
                 let result = try tsc_await { pluginTarget.invoke(
                     action: .createBuildToolCommands(target: target),
                     package: package,
@@ -245,7 +269,8 @@ extension PackageGraph {
                     toolNamesToPaths: toolNamesToPaths,
                     fileSystem: fileSystem,
                     observabilityScope: observabilityScope,
-                    callbackQueue: DispatchQueue(label: "plugin-invocation"),
+                    callbackQueue: delegateQueue,
+                    delegate: PluginDelegate(delegateQueue: delegateQueue),
                     completion: $0) }
                 pluginResults.append(result)
             }
@@ -385,13 +410,26 @@ public protocol PluginScriptRunner {
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
-        outputHandler: @escaping (Data) -> Void,
+        delegate: PluginInvocationDelegate,
         completion: @escaping (Result<PluginScriptRunnerOutput, Error>) -> Void
     )
 
     /// Returns the Triple that represents the host for which plugin script tools should be built, or for which binary
     /// tools should be selected.
     var hostTriple: Triple { get }
+}
+
+
+public protocol PluginInvocationDelegate {
+    /// Called for each piece of textual output data emitted by the plugin. Note that there is no guarantee that the data begins and ends on a UTF-8 byte sequence boundary (much less on a line boundary) so the delegate should buffer partial data as appropriate.
+    func pluginEmittedOutput(data: Data)
+    
+    /// Called when a plugin emits a diagnostic through the PackagePlugin APIs.
+    func pluginEmittedDiagnostic(severity: PluginInvocationDiagnosticSeverity, message: String, file: String?, line: Int?)
+}
+
+public enum PluginInvocationDiagnosticSeverity: String, Decodable {
+    case error, warning, remark
 }
 
 

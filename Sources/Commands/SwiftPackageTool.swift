@@ -909,7 +909,7 @@ extension SwiftPackageTool {
 
             // Complain if we didn't find exactly one.
             if matchingPlugins.isEmpty {
-                swiftTool.observabilityScope.emit(error: "No plugins found for '\(command)'")
+                swiftTool.observabilityScope.emit(error: "No command plugins found for '\(command)'")
                 throw ExitCode.failure
             }
             else if matchingPlugins.count > 1 {
@@ -949,10 +949,10 @@ extension SwiftPackageTool {
             let pluginScriptRunner = DefaultPluginScriptRunner(cacheDir: cacheDir, toolchain: try swiftTool.getToolchain().configuration)
 
             // The `outputs` directory contains subdirectories for each combination of package, target, and plugin. Each usage of a plugin has an output directory that is writable by the plugin, where it can write additional files, and to which it can configure tools to write their outputs, etc.
+            // FIXME: Revisit this path.
             let outputDir = pluginsDir.appending(component: "outputs")
 
             // Build the map of tools that are available to the plugin. This should include the tools in the executables in the toolchain, as well as any executables the plugin depends on (built executables as well as prebuilt binaries).
-            // FIXME: At the moment we just pass the built products directory for the host. We will need to extend this with a map of the names of tools available to each plugin. In particular this would not work with any binary targets.
             let dataDir = try swiftTool.getActiveWorkspace().location.pluginWorkingDirectory
             let builtToolsDir = dataDir.appending(components: "plugin-tools")
 
@@ -961,7 +961,6 @@ extension SwiftPackageTool {
             
             // FIXME: Need to determine the correct root package.
             
-            // FIXME: Need to
             // Determine the tools to which this plugin has access, and create a name-to-path mapping from tool
             // names to the corresponding paths. Built tools are assumed to be in the build tools directory.
             let accessibleTools = plugin.accessibleTools(for: pluginScriptRunner.hostTriple)
@@ -973,8 +972,41 @@ extension SwiftPackageTool {
                     dict[name] = path
                 }
             })
+            
+            class PluginOutputEmitter {
+                var bufferedOutput: Data
+                init() {
+                    self.bufferedOutput = Data()
+                }
+                func emit(data: Data) {
+                    bufferedOutput += data
+                    while let newlineIdx = bufferedOutput.firstIndex(of: UInt8(ascii: "\n")) {
+                        let lineData = bufferedOutput.prefix(upTo: newlineIdx)
+                        print("🧩 \(String(decoding: lineData, as: UTF8.self))")
+                        bufferedOutput = bufferedOutput.suffix(from: newlineIdx.advanced(by: 1))
+                    }
+                }
+            }
+            
+            // Set up a delegate to handle callbacks from the command plugin.
+            let delegateQueue = DispatchQueue(label: "plugin-invocation")
+            struct PluginDelegate: PluginInvocationDelegate {
+                let swiftTool: SwiftTool
+                let delegateQueue: DispatchQueue
+                var outputEmitter = PluginOutputEmitter()
+                
+                func pluginEmittedOutput(data: Data) {
+                    dispatchPrecondition(condition: .onQueue(delegateQueue))
+                    outputEmitter.emit(data: data)
+                }
+                
+                func pluginEmittedDiagnostic(severity: PluginInvocationDiagnosticSeverity, message: String, file: String?, line: Int?) {
+                }
+            }
+            let pluginDelegate = PluginDelegate(swiftTool: swiftTool, delegateQueue: delegateQueue)
 
-            // Run the plugin.
+
+            // Run the command plugin.
             let buildEnvironment = try swiftTool.buildParameters().buildEnvironment
             let result = try tsc_await { plugin.invoke(
                 action: .performCommand(targets: Array(targets.values), arguments: arguments),
@@ -985,11 +1017,12 @@ extension SwiftPackageTool {
                 toolNamesToPaths: toolNamesToPaths,
                 fileSystem: localFileSystem,
                 observabilityScope: swiftTool.observabilityScope,
-                callbackQueue: DispatchQueue(label: "plugin-invocation"),
+                callbackQueue: delegateQueue,
+                delegate: pluginDelegate,
                 completion: $0) }
             
-            // Temporary: emit any output from the plugin.
-            print(result.textOutput)
+            // Should we also emit a final line of output regarding the result?
+            print(result)
         }
     }
 }

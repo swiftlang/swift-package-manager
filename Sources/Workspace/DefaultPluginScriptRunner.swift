@@ -58,7 +58,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
-        outputHandler: @escaping (Data) -> Void,
+        delegate: PluginInvocationDelegate,
         completion: @escaping (Result<PluginScriptRunnerOutput, Error>) -> Void
     ) {
         // If needed, compile the plugin script to an executable (asynchronously).
@@ -80,7 +80,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
                         input: input,
                         observabilityScope: observabilityScope,
                         callbackQueue: callbackQueue,
-                        outputHandler: outputHandler,
+                        delegate: delegate,
                         completion: completion)
                 case .failure(let error):
                     // Compilation failed, so just call the callback block on the appropriate queue.
@@ -250,7 +250,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
         input: PluginScriptRunnerInput,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
-        outputHandler: @escaping (Data) -> Void,
+        delegate: PluginInvocationDelegate,
         completion: @escaping (Result<PluginScriptRunnerOutput, Error>) -> Void
     ) {
         // Construct the command line. Currently we just invoke the executable built from the plugin without any parameters.
@@ -279,7 +279,8 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
         func handle(message: PluginToHostMessage) {
             dispatchPrecondition(condition: .onQueue(callbackQueue))
             switch message {
-            case .provideResult(let output):
+            case .pluginFinished(let output):
+                // The plugin has indicated that it's finished the action it was requested to perform, and is returning a response.
                 result = output
                 outputQueue.async {
                     try? outputHandle.close()
@@ -309,7 +310,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
                 let newData = fileHandle.availableData
                 if newData.isEmpty { return }
                 //print("[output] \(String(decoding: newData, as: UTF8.self))")
-                callbackQueue.async { outputHandler(newData) }
+                callbackQueue.async { delegate.pluginEmittedOutput(data: newData) }
             }
         }
         process.standardError = stderrPipe
@@ -387,13 +388,18 @@ extension DefaultPluginScriptRunnerError: CustomStringConvertible {
 }
 
 /// A message that the host can send to the plugin.
-enum HostToPluginMessage: Codable {
+enum HostToPluginMessage: Encodable {
+    /// The host is requesting that the plugin perform one of its declared plugin actions.
     case performAction(input: PluginScriptRunnerInput)
+    
+    /// A response of an error while trying to complete a request.
+    case errorResponse(error: String)
 }
 
 /// A message that the plugin can send to the host.
-enum PluginToHostMessage: Codable {
-    case provideResult(output: PluginScriptRunnerOutput)
+enum PluginToHostMessage: Decodable {
+    /// The plugin has finished the requested action and is returning a result.
+    case pluginFinished(result: PluginScriptRunnerOutput)
 }
 
 fileprivate extension FileHandle {

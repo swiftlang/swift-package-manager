@@ -270,12 +270,32 @@ class PluginTests: XCTestCase {
             let pluginTarget = try XCTUnwrap(package.targets.map(\.underlyingTarget).first{ $0.name == "MyPlugin" } as? PluginTarget)
             XCTAssertEqual(pluginTarget.type, .plugin)
             
-            // Invoke it.
+            // Set up a delegate to handle callbacks from the command plugin.
+            let delegateQueue = DispatchQueue(label: "plugin-invocation")
+            class PluginDelegate: PluginInvocationDelegate {
+                let delegateQueue: DispatchQueue
+                var outputData = Data()
+
+                init(delegateQueue: DispatchQueue) {
+                    self.delegateQueue = delegateQueue
+                }
+                
+                func pluginEmittedOutput(data: Data) {
+                    dispatchPrecondition(condition: .onQueue(delegateQueue))
+                    outputData.append(contentsOf: data)
+                }
+                
+                func pluginEmittedDiagnostic(severity: PluginInvocationDiagnosticSeverity, message: String, file: String?, line: Int?) {
+                }
+            }
+            let pluginDelegate = PluginDelegate(delegateQueue: delegateQueue)
+
+            // Invoke the command plugin.
             let pluginCacheDir = tmpPath.appending(component: "plugin-cache")
             let pluginOutputDir = tmpPath.appending(component: "plugin-output")
             let pluginScriptRunner = DefaultPluginScriptRunner(cacheDir: pluginCacheDir, toolchain: ToolchainConfiguration.default)
             let target = try XCTUnwrap(package.targets.first{ $0.underlyingTarget == libraryTarget })
-            let result = try tsc_await { pluginTarget.invoke(
+            let _ = try tsc_await { pluginTarget.invoke(
                 action: .performCommand(
                     targets: [ target ],
                     arguments: ["veni", "vidi", "vici"]),
@@ -286,11 +306,13 @@ class PluginTests: XCTestCase {
                 toolNamesToPaths: [:],
                 fileSystem: localFileSystem,
                 observabilityScope: observability.topScope,
-                callbackQueue: DispatchQueue(label: "plugin-invocation"),
+                callbackQueue: delegateQueue,
+                delegate: pluginDelegate,
                 completion: $0) }
             
             // Check the results.
-            XCTAssertTrue(result.textOutput.trimmingCharacters(in: .whitespacesAndNewlines).hasSuffix("This is MyCommandPlugin."))
+            let outputText = String(decoding: pluginDelegate.outputData, as: UTF8.self)
+            XCTAssertTrue(outputText.trimmingCharacters(in: .whitespacesAndNewlines).hasSuffix("This is MyCommandPlugin."))
         }
     }
 }
