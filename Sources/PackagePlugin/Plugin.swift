@@ -14,35 +14,39 @@
 #endif
 
 //
-// This source file contains the main entry point for all plugins. It decodes
-// input from SwiftPM, determines which protocol function to call, and finally
-// encodes output for SwiftPM.
+// This source file contains the main entry point for all kinds of plugins.
+// A plugin receives messages from the "plugin host" (either SwiftPM or some
+// IDE that uses libSwiftPM), and sends back messages in return based on its
+// actions and events. A plugin can also request services from the host.
 //
-// The specifics of how SwiftPM communicates with the plugin are implementation
-// details, but the way it currently works is that the plugin is compiled as an
-// executable and then run in a sandbox that blocks network access and prevents
-// changes to all except a few file system locations.
+// Exactly how the plugin host invokes a plugin is an implementation detail,
+// but the current approach is to compile the Swift source files that make up
+// the plugin into an executable for the host platform, and to then invoke the
+// executable in a sandbox that blocks network access and prevents changes to
+// all except for a few specific file system locations.
 //
-// The "plugin host" (SwiftPM or an IDE using libSwiftPM) sends a JSON-encoded
-// context struct to the plugin process on its original standard-input pipe, and
-// when finished, the plugin sends a JSON-encoded result struct back to the host
-// on its original standard-output pipe. The plugin host treats output on the
-// standard-error pipe as free-form output text from the plugin (for debugging
-// purposes, etc).
-
+// The host process and the plugin communicate using messages in the form of
+// length-prefixed JSON-encoded Swift enums. The host sends messages to the
+// plugin through its standard-input pipe, and receives messages through the
+// plugin's standard-output pipe. All output received through the plugin's
+// standard-error pipe is considered to be free-form textual console output.
+//
 // Within the plugin process, `stdout` is redirected to `stderr` so that print
 // statements from the plugin are treated as plain-text output, and `stdin` is
-// closed so that attemps by the plugin logic to read from console input return
-// errors instead of blocking. The original `stdin` and `stdout` are duplicated
-// for use as messaging pipes, and are not directly used by the plugin logic.
+// closed so that any attemps by the plugin logic to read from console result
+// in errors instead of blocking the process. The original `stdin` and `stdout`
+// are duplicated for use as messaging pipes, and are not directly used by the
+// plugin logic.
 //
-// Using the standard input and output streams avoids having to make allowances
-// in the sandbox for other channels of communication, and seems a more portable
-// approach than many of the alternatives.
-//
-// The exit code of the plugin process determines whether the plugin invocation
+// The exit code of the plugin process indicates whether the plugin invocation
 // is considered successful. A failure result should also be accompanied by an
 // emitted error diagnostic, so that errors are understandable by the user.
+//
+// Using standard input and output streams for messaging avoids having to make
+// allowances in the sandbox for other channels of communication, and seems a
+// more portable approach than many of the alternatives. This is all somewhat
+// temporary in any case — in the long term, something like distributed actors
+// or something similar can hopefully replace the custom messaging.
 //
 
 extension Plugin {
