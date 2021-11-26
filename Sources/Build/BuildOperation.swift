@@ -30,7 +30,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     let packageGraphLoader: () throws -> PackageGraph
     
     /// The closure for invoking plugins in the package graph.
-    let pluginInvoker: (PackageGraph) throws -> [ResolvedTarget: [PluginInvocationResult]]
+    let pluginInvoker: (PackageGraph) throws -> [ResolvedTarget: [BuildToolPluginInvocationResult]]
 
     /// The llbuild build delegate reference.
     private var buildSystemDelegate: BuildOperationBuildSystemDelegateHandler?
@@ -70,7 +70,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         buildParameters: BuildParameters,
         cacheBuildManifest: Bool,
         packageGraphLoader: @escaping () throws -> PackageGraph,
-        pluginInvoker: @escaping (PackageGraph) throws -> [ResolvedTarget: [PluginInvocationResult]],
+        pluginInvoker: @escaping (PackageGraph) throws -> [ResolvedTarget: [BuildToolPluginInvocationResult]],
         outputStream: OutputByteStream,
         logLevel: Basics.Diagnostic.Severity,
         fileSystem: TSCBasic.FileSystem,
@@ -92,7 +92,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         }
     }
     
-    public func getPluginInvocationResults(for graph: PackageGraph) throws -> [ResolvedTarget: [PluginInvocationResult]] {
+    public func getPluginInvocationResults(for graph: PackageGraph) throws -> [ResolvedTarget: [BuildToolPluginInvocationResult]] {
         return try self.pluginInvoker(graph)
     }
 
@@ -295,7 +295,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 
     /// Runs any prebuild commands associated with the given list of plugin invocation results, in order, and returns the
     /// results of running those prebuild commands.
-    private func runPrebuildCommands(for pluginResults: [PluginInvocationResult]) throws -> [PrebuildCommandResult] {
+    private func runPrebuildCommands(for pluginResults: [BuildToolPluginInvocationResult]) throws -> [PrebuildCommandResult] {
         // Run through all the commands from all the plugin usages in the target.
         return try pluginResults.map { pluginResult in
             // As we go we will collect a list of prebuild output directories whose contents should be input to the build,
@@ -303,12 +303,12 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             var derivedSourceFiles: [AbsolutePath] = []
             var prebuildOutputDirs: [AbsolutePath] = []
             for command in pluginResult.prebuildCommands {
-                self.observabilityScope.emit(info: "Running" + command.configuration.displayName)
+                self.observabilityScope.emit(info: "Running" + (command.configuration.displayName ?? command.configuration.executable.basename))
 
                 // Run the command configuration as a subshell. This doesn't return until it is done.
                 // TODO: We need to also use any working directory, but that support isn't yet available on all platforms at a lower level.
                 // TODO: Invoke it in a sandbox that allows writing to only the temporary location.
-                let commandLine = [command.configuration.executable] + command.configuration.arguments
+                let commandLine = [command.configuration.executable.pathString] + command.configuration.arguments
                 let processResult = try Process.popen(arguments: commandLine, environment: command.configuration.environment)
                 let output = try processResult.utf8Output() + processResult.utf8stderrOutput()
                 if processResult.exitStatus != .terminated(code: 0) {

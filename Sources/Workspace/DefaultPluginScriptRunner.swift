@@ -59,7 +59,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
         delegate: PluginInvocationDelegate,
-        completion: @escaping (Result<PluginScriptRunnerOutput, Error>) -> Void
+        completion: @escaping (Result<Bool, Error>) -> Void
     ) {
         // If needed, compile the plugin script to an executable (asynchronously).
         // TODO: Skip compiling the plugin script if it has already been compiled and hasn't changed.
@@ -251,7 +251,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
         delegate: PluginInvocationDelegate,
-        completion: @escaping (Result<PluginScriptRunnerOutput, Error>) -> Void
+        completion: @escaping (Result<Bool, Error>) -> Void
     ) {
         // Construct the command line. Currently we just invoke the executable built from the plugin without any parameters.
         var command = [compiledExec.pathString]
@@ -274,14 +274,52 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
         let outputQueue = DispatchQueue(label: "plugin-send-queue")
         process.standardInput = stdinPipe
 
-        var result: PluginScriptRunnerOutput? = nil
-        
-        func handle(message: PluginToHostMessage) {
+        // Private message handler method. Always invoked on the callback queue.
+        var result: Bool? = .none
+        func handle(message: PluginToHostMessage) throws {
             dispatchPrecondition(condition: .onQueue(callbackQueue))
             switch message {
-            case .pluginFinished(let output):
-                // The plugin has indicated that it's finished the action it was requested to perform, and is returning a response.
-                result = output
+                
+            case .emitDiagnostic(let severity, let message, let file, let line):
+                let metadata: ObservabilityMetadata? = file.map {
+                    var metadata = ObservabilityMetadata()
+                    // FIXME: We should probably report some kind of protocol error if the path isn't valid.
+                    metadata.fileLocation = try? .init(.init(validating: $0), line: line)
+                    return metadata
+                }
+                let diagnostic: Basics.Diagnostic
+                switch severity {
+                case .error:
+                    diagnostic = .error(message, metadata: metadata)
+                case .warning:
+                    diagnostic = .warning(message, metadata: metadata)
+                case .remark:
+                    diagnostic = .info(message, metadata: metadata)
+                }
+                delegate.pluginEmittedDiagnostic(diagnostic)
+                
+            case .defineBuildCommand(let config, let inputFiles, let outputFiles):
+                delegate.pluginDefinedBuildCommand(
+                    displayName: config.displayName,
+                    executable: try AbsolutePath(validating: config.executable),
+                    arguments: config.arguments,
+                    environment: config.environment,
+                    workingDirectory: try config.workingDirectory.map{ try AbsolutePath(validating: $0) },
+                    inputFiles: try inputFiles.map{ try AbsolutePath(validating: $0) },
+                    outputFiles: try outputFiles.map{ try AbsolutePath(validating: $0) })
+                
+            case .definePrebuildCommand(let config, let outputFilesDir):
+                delegate.pluginDefinedPrebuildCommand(
+                    displayName: config.displayName,
+                    executable: try AbsolutePath(validating: config.executable),
+                    arguments: config.arguments,
+                    environment: config.environment,
+                    workingDirectory: try config.workingDirectory.map{ try AbsolutePath(validating: $0) },
+                    outputFilesDirectory: try AbsolutePath(validating: outputFilesDir))
+
+            case .actionComplete(let success):
+                // The plugin has indicated that it's finished the requested action.
+                result = success
                 outputQueue.async {
                     try? outputHandle.close()
                 }
@@ -295,7 +333,8 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
             // Parse the next message and pass it on to the delegate.
             stdoutLock.withLock {
                 if let message = try? fileHandle.readPluginMessage() {
-                    callbackQueue.async { handle(message: message) }
+                    // FIXME: We should handle errors here.
+                    callbackQueue.async { try? handle(message: message) }
                 }
             }
         }
@@ -310,7 +349,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
                 let newData = fileHandle.availableData
                 if newData.isEmpty { return }
                 //print("[output] \(String(decoding: newData, as: UTF8.self))")
-                callbackQueue.async { delegate.pluginEmittedOutput(data: newData) }
+                callbackQueue.async { delegate.pluginEmittedOutput(newData) }
             }
         }
         process.standardError = stderrPipe
@@ -330,7 +369,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
                         throw StringError("plugin process ended with a non-zero exit code: \(process.terminationStatus)")
                     }
                     guard let result = result else {
-                        throw StringError("didn’t receive output from plugin")
+                        throw StringError("didn’t receive output result from plugin")
                     }
                     return result
                 })
@@ -398,8 +437,29 @@ enum HostToPluginMessage: Encodable {
 
 /// A message that the plugin can send to the host.
 enum PluginToHostMessage: Decodable {
-    /// The plugin has finished the requested action and is returning a result.
-    case pluginFinished(result: PluginScriptRunnerOutput)
+    /// The plugin emits a diagnostic.
+    case emitDiagnostic(severity: DiagnosticSeverity, message: String, file: String?, line: Int?)
+
+    enum DiagnosticSeverity: String, Decodable {
+        case error, warning, remark
+    }
+    
+    /// The plugin defines a build command.
+    case defineBuildCommand(configuration: CommandConfiguration, inputFiles: [String], outputFiles: [String])
+
+    /// The plugin defines a prebuild command.
+    case definePrebuildCommand(configuration: CommandConfiguration, outputFilesDirectory: String)
+    
+    struct CommandConfiguration: Decodable {
+        var displayName: String?
+        var executable: String
+        var arguments: [String]
+        var environment: [String: String]
+        var workingDirectory: String?
+    }
+
+    /// The plugin has finished the requested action.
+    case actionComplete(success: Bool)
 }
 
 fileprivate extension FileHandle {

@@ -995,12 +995,12 @@ extension SwiftPackageTool {
                 let delegateQueue: DispatchQueue
                 var outputEmitter = PluginOutputEmitter()
                 
-                func pluginEmittedOutput(data: Data) {
+                func pluginEmittedOutput(_ data: Data) {
                     dispatchPrecondition(condition: .onQueue(delegateQueue))
                     outputEmitter.emit(data: data)
                 }
                 
-                func pluginEmittedDiagnostic(severity: PluginInvocationDiagnosticSeverity, message: String, file: String?, line: Int?) {
+                func pluginEmittedDiagnostic(_ diagnostic: Basics.Diagnostic) {
                 }
             }
             let pluginDelegate = PluginDelegate(swiftTool: swiftTool, delegateQueue: delegateQueue)

@@ -22,7 +22,7 @@ import XCTest
 class PluginInvocationTests: XCTestCase {
 
     func testBasics() throws {
-        // Construct a canned file system and package graph with a single package and a library that uses a plugin that uses a tool.
+        // Construct a canned file system and package graph with a single package and a library that uses a build tool plugin that invokes a tool.
         let fileSystem = InMemoryFileSystem(emptyFiles:
             "/Foo/Plugins/FooPlugin/source.swift",
             "/Foo/Sources/FooTool/source.swift",
@@ -97,7 +97,7 @@ class PluginInvocationTests: XCTestCase {
                 observabilityScope: ObservabilityScope,
                 callbackQueue: DispatchQueue,
                 delegate: PluginInvocationDelegate,
-                completion: @escaping (Result<PluginScriptRunnerOutput, Error>) -> Void
+                completion: @escaping (Result<Bool, Error>) -> Void
             ) {
                 // Check that we were given the right sources.
                 XCTAssertEqual(sources.root, AbsolutePath("/Foo/Plugins/FooPlugin"))
@@ -116,35 +116,35 @@ class PluginInvocationTests: XCTestCase {
                 XCTAssertEqual(input.targets[1].dependencies.count, 0, "unexpected target dependencies: \(dump(input.targets[1].dependencies))")
 
                 // Pretend the plugin emitted some output.
-                callbackQueue.sync { delegate.pluginEmittedOutput(data: Data("Hello Plugin!".utf8)) }
+                callbackQueue.sync {
+                    delegate.pluginEmittedOutput(Data("Hello Plugin!".utf8))
+                }
                 
-                // Return a serialized output PluginInvocationResult JSON.
-                let result = PluginScriptRunnerOutput(
-                    diagnostics: [
-                        .init(
-                            severity: .warning,
-                            message: "A warning",
-                            file: "/Foo/Sources/Foo/SomeFile.abc",
-                            line: 42
-                        )
-                    ],
-                    buildCommands: [
-                        .init(
-                            displayName: "Do something",
-                            executable: "/bin/FooTool",
-                            arguments: ["-c", "/Foo/Sources/Foo/SomeFile.abc"],
-                            environment: [
-                                "X": "Y"
-                            ],
-                            workingDirectory: "/Foo/Sources/Foo",
-                            inputFiles: [],
-                            outputFiles: []
-                        )
-                    ],
-                    prebuildCommands: [
-                    ]
-                )
-                callbackQueue.sync { completion(.success(result)) }
+                // Pretend it emitted a warning.
+                callbackQueue.sync {
+                    var locationMetadata = ObservabilityMetadata()
+                    locationMetadata.fileLocation = .init(AbsolutePath("/Foo/Sources/Foo/SomeFile.abc"), line: 42)
+                    delegate.pluginEmittedDiagnostic(.warning("A warning", metadata: locationMetadata))
+                }
+                
+                // Pretend it defined a build command.
+                callbackQueue.sync {
+                    delegate.pluginDefinedBuildCommand(
+                        displayName: "Do something",
+                        executable: AbsolutePath("/bin/FooTool"),
+                        arguments: ["-c", "/Foo/Sources/Foo/SomeFile.abc"],
+                        environment: [
+                            "X": "Y"
+                        ],
+                        workingDirectory: AbsolutePath("/Foo/Sources/Foo"),
+                        inputFiles: [],
+                        outputFiles: [])
+                }
+                
+                // Finally, invoke the completion handler.
+                callbackQueue.sync {
+                    completion(.success(true))
+                }
             }
         }
 
@@ -152,7 +152,7 @@ class PluginInvocationTests: XCTestCase {
         let outputDir = AbsolutePath("/Foo/.build")
         let builtToolsDir = AbsolutePath("/Foo/.build/debug")
         let pluginRunner = MockPluginScriptRunner()
-        let results = try graph.invokePlugins(
+        let results = try graph.invokeBuildToolPlugins(
             outputDir: outputDir,
             builtToolsDir: builtToolsDir,
             buildEnvironment: BuildEnvironment(platform: .macOS, configuration: .debug),
@@ -173,7 +173,7 @@ class PluginInvocationTests: XCTestCase {
         XCTAssertEqual(evalFirstResult.buildCommands.count, 1)
         let evalFirstCommand = try XCTUnwrap(evalFirstResult.buildCommands.first)
         XCTAssertEqual(evalFirstCommand.configuration.displayName, "Do something")
-        XCTAssertEqual(evalFirstCommand.configuration.executable, "/bin/FooTool")
+        XCTAssertEqual(evalFirstCommand.configuration.executable, AbsolutePath("/bin/FooTool"))
         XCTAssertEqual(evalFirstCommand.configuration.arguments, ["-c", "/Foo/Sources/Foo/SomeFile.abc"])
         XCTAssertEqual(evalFirstCommand.configuration.environment, ["X": "Y"])
         XCTAssertEqual(evalFirstCommand.configuration.workingDirectory, AbsolutePath("/Foo/Sources/Foo"))

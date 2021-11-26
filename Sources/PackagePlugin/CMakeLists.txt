@@ -15,7 +15,6 @@ add_library(PackagePlugin
   Path.swift
   Plugin.swift
   PluginInput.swift
-  PluginOutput.swift
   Protocols.swift)
 
 target_compile_options(PackagePlugin PUBLIC

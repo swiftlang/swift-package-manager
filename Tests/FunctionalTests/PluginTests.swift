@@ -280,12 +280,12 @@ class PluginTests: XCTestCase {
                     self.delegateQueue = delegateQueue
                 }
                 
-                func pluginEmittedOutput(data: Data) {
+                func pluginEmittedOutput(_ data: Data) {
                     dispatchPrecondition(condition: .onQueue(delegateQueue))
                     outputData.append(contentsOf: data)
                 }
                 
-                func pluginEmittedDiagnostic(severity: PluginInvocationDiagnosticSeverity, message: String, file: String?, line: Int?) {
+                func pluginEmittedDiagnostic(_ diagnostic: Basics.Diagnostic) {
                 }
             }
             let pluginDelegate = PluginDelegate(delegateQueue: delegateQueue)

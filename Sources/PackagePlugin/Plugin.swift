@@ -54,8 +54,8 @@ extension Plugin {
     /// Main entry point of the plugin — sets up a communication channel with
     /// the plugin host and runs the main message loop.
     public static func main() throws {
-        // Duplicate the `stdin` file descriptor, which we will then use as an
-        // input stream from which we receive messages from the plugin host.
+        // Duplicate the `stdin` file descriptor, which we will then use for
+        // receiving messages from the plugin host.
         let inputFD = dup(fileno(stdin))
         guard inputFD >= 0 else {
             internalError("Could not duplicate `stdin`: \(describe(errno: errno)).")
@@ -68,8 +68,8 @@ extension Plugin {
             internalError("Could not close `stdin`: \(describe(errno: errno)).")
         }
 
-        // Duplicate the `stdout` file descriptor, which we will then use as an
-        // output stream to which we send messages to the plugin host.
+        // Duplicate the `stdout` file descriptor, which we will then use for
+        // sending messages to the plugin host.
         let outputFD = dup(fileno(stdout))
         guard outputFD >= 0 else {
             internalError("Could not dup `stdout`: \(describe(errno: errno)).")
@@ -89,7 +89,7 @@ extension Plugin {
             inputStream: FileHandle(fileDescriptor: inputFD),
             outputStream: FileHandle(fileDescriptor: outputFD))
         
-        // Process messages from the host until the input stream is closed,
+        // Handle messages from the host until the input stream is closed,
         // indicating that we're done.
         while let message = try pluginHostConnection.waitForNextMessage() {
             try handleMessage(message)
@@ -98,13 +98,11 @@ extension Plugin {
     
     fileprivate static func handleMessage(_ message: HostToPluginMessage) throws {
         switch message {
-        // Invokes an action defined in the input JSON. This is an interim
-        // message to bridge to the old logic; this will be separateed out
-        // into different messages for different plugin capabilities, etc.
-        // This will let us avoid the double encoded JSON.
+
         case .performAction(let wireInput):
-            // Decode the plugin input structure. We'll resolve this doubly
-            // encoded JSON in an upcoming change.
+            // Invokes an action defined in the input JSON. This is an interim
+            // bridge to the old logic; the intent is to separate each action
+            // into its own message type with customized input payload.
             let inputStruct: PluginInput
             do {
                 inputStruct = try PluginInput(from: wireInput)
@@ -123,12 +121,13 @@ extension Plugin {
             // this is where we would set them up, most likely as properties
             // of the plugin instance (similar to how SwiftArgumentParser
             // allows commands to annotate arguments). It could use property
-            // wrappers to mark up properties in the plugin.
+            // wrappers to mark up properties in the plugin, and a separate
+            // message could be used to query the plugin for its parameter
+            // definitions.
             let plugin = self.init()
             
             // Invoke the appropriate protocol method, based on the plugin
             // action that SwiftPM specified.
-            let generatedCommands: [Command]
             switch inputStruct.pluginAction {
                 
             case .createBuildToolCommands(let target):
@@ -138,8 +137,39 @@ extension Plugin {
                     throw PluginDeserializationError.malformedInputJSON("Plugin declared with `buildTool` capability but doesn't conform to `BuildToolPlugin` protocol")
                 }
                 
-                // Ask the plugin to create build commands for the target.
-                generatedCommands = try plugin.createBuildCommands(context: context, target: target)
+                // Invoke the plugin to create build commands for the target.
+                let generatedCommands = try plugin.createBuildCommands(context: context, target: target)
+                
+                // Send each of the generated commands to the host.
+                for command in generatedCommands {
+                    switch command {
+                        
+                    case let ._buildCommand(name, exec, args, env, workdir, inputs, outputs):
+                        let command = PluginToHostMessage.CommandConfiguration(
+                            displayName: name,
+                            executable: exec.string,
+                            arguments: args,
+                            environment: env,
+                            workingDirectory: workdir?.string)
+                        let message = PluginToHostMessage.defineBuildCommand(
+                            configuration: command,
+                            inputFiles: inputs.map{ $0.string },
+                            outputFiles: outputs.map{ $0.string })
+                        try pluginHostConnection.sendMessage(message)
+                        
+                    case let ._prebuildCommand(name, exec, args, env, workdir, outdir):
+                        let command = PluginToHostMessage.CommandConfiguration(
+                            displayName: name,
+                            executable: exec.string,
+                            arguments: args,
+                            environment: env,
+                            workingDirectory: workdir?.string)
+                        let message = PluginToHostMessage.definePrebuildCommand(
+                            configuration: command,
+                            outputFilesDirectory: outdir.string)
+                        try pluginHostConnection.sendMessage(message)
+                    }
+                }
                 
             case .performCommand(let targets, let arguments):
                 // Check that the plugin implements the appropriate protocol
@@ -148,22 +178,32 @@ extension Plugin {
                     throw PluginDeserializationError.malformedInputJSON("Plugin declared with `command` capability but doesn't conform to `CommandPlugin` protocol")
                 }
                 
-                // Invoke the plugin.
+                // Invoke the plugin to perform its custom logic.
                 try plugin.performCommand(context: context, targets: targets, arguments: arguments)
-                
-                // For command plugin there are currently no return commands
-                // (any commands invoked by the plugin are invoked directly).
-                generatedCommands = []
             }
             
-            // Send back the output data (a JSON-encoded struct) to the plugin host.
-            let outputStruct: PluginOutput
-            do {
-                outputStruct = try PluginOutput(commands: generatedCommands, diagnostics: Diagnostics.emittedDiagnostics)
-            } catch {
-                internalError("Couldn’t encode output JSON: \(error).")
+            // Send any emitted diagnostics to the host.
+            // FIXME: We should really be doing while diagnostics are emitted.
+            for diagnostic in Diagnostics.emittedDiagnostics {
+                let severity: PluginToHostMessage.DiagnosticSeverity
+                switch diagnostic.severity {
+                case .error:
+                    severity = .error
+                case .warning:
+                    severity = .warning
+                case .remark:
+                    severity = .remark
+                }
+                let message = PluginToHostMessage.emitDiagnostic(
+                    severity: severity,
+                    message: diagnostic.message,
+                    file: diagnostic.file?.string,
+                    line: diagnostic.line)
+                try pluginHostConnection.sendMessage(message)
             }
-            try pluginHostConnection.sendMessage(.pluginFinished(result: outputStruct.output))
+            
+            // Send back a message to the host indicating that we're done.
+            try pluginHostConnection.sendMessage(.actionComplete(success: true))
             
         default:
             internalError("unexpected top-level message \(message)")
@@ -186,7 +226,6 @@ extension Plugin {
 /// Message channel for communicating with the plugin host.
 internal fileprivate(set) var pluginHostConnection: PluginHostConnection!
 
-
 /// A message that the host can send to the plugin.
 enum HostToPluginMessage: Decodable {
     /// The host is requesting that the plugin perform one of its declared plugin actions.
@@ -198,14 +237,34 @@ enum HostToPluginMessage: Decodable {
 
 /// A message that the plugin can send to the host.
 enum PluginToHostMessage: Encodable {
-    /// The plugin has finished the requested action and is returning a result.
-    case pluginFinished(result: WireOutput)
-}
+    /// The plugin emits a diagnostic.
+    case emitDiagnostic(severity: DiagnosticSeverity, message: String, file: String?, line: Int?)
 
+    enum DiagnosticSeverity: String, Encodable {
+        case error, warning, remark
+    }
+    
+    /// The plugin defines a build command.
+    case defineBuildCommand(configuration: CommandConfiguration, inputFiles: [String], outputFiles: [String])
+
+    /// The plugin defines a prebuild command.
+    case definePrebuildCommand(configuration: CommandConfiguration, outputFilesDirectory: String)
+    
+    struct CommandConfiguration: Encodable {
+        var displayName: String?
+        var executable: String
+        var arguments: [String]
+        var environment: [String: String]
+        var workingDirectory: String?
+    }
+    
+    /// The plugin has finished the requested action.
+    case actionComplete(success: Bool)
+}
 
 typealias PluginHostConnection = MessageConnection<PluginToHostMessage, HostToPluginMessage>
 
-struct MessageConnection<TX,RX> where TX: Encodable, RX: Decodable {
+internal struct MessageConnection<TX,RX> where TX: Encodable, RX: Decodable {
     let inputStream: FileHandle
     let outputStream: FileHandle
 

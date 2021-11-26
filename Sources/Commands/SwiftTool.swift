@@ -732,7 +732,7 @@ public class SwiftTool {
     }
 
     /// Invoke plugins for any reachable targets in the graph, and return a mapping from targets to corresponding evaluation results.
-    func invokePlugins(graph: PackageGraph) throws -> [ResolvedTarget: [PluginInvocationResult]] {
+    func invokePlugins(graph: PackageGraph) throws -> [ResolvedTarget: [BuildToolPluginInvocationResult]] {
         do {
             // Configure the plugin invocation inputs.
 
@@ -763,7 +763,7 @@ public class SwiftTool {
             try localFileSystem.createDirectory(cacheDir, recursive: true)
 
             // Ask the graph to invoke plugins, and return the result.
-            let result = try graph.invokePlugins(
+            let result = try graph.invokeBuildToolPlugins(
                 outputDir: outputDir,
                 builtToolsDir: builtToolsDir,
                 buildEnvironment: buildEnvironment,
