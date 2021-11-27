@@ -55,7 +55,7 @@ class PackageDescriptionNextLoadingTests: PackageDescriptionLoadingTests {
                        name: "Foo",
                        capability: .command(
                            intent: .custom(verb: "mycmd", description: "helpful description of mycmd"),
-                           permissions: [ .packageWritability(reason: "YOLO") ]
+                           permissions: [ .writeToPackageDirectory(reason: "YOLO") ]
                        )
                    )
                ]
@@ -67,6 +67,6 @@ class PackageDescriptionNextLoadingTests: PackageDescriptionLoadingTests {
         XCTAssertNoDiagnostics(observability.diagnostics)
 
         XCTAssertEqual(manifest.targets[0].type, .plugin)
-        XCTAssertEqual(manifest.targets[0].pluginCapability, .command(intent: .custom(verb: "mycmd", description: "helpful description of mycmd"), permissions: [.packageWritability(reason: "YOLO")]))
+        XCTAssertEqual(manifest.targets[0].pluginCapability, .command(intent: .custom(verb: "mycmd", description: "helpful description of mycmd"), permissions: [.writeToPackageDirectory(reason: "YOLO")]))
     }
 }

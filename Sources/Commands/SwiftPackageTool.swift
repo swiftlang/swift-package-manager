@@ -878,8 +878,8 @@ extension SwiftPackageTool {
         @OptionGroup(_hiddenFromHelp: true)
         var swiftOptions: SwiftToolOptions
 
-        /// The specific target to apply the plugin to.
-        @Option(name: .customLong("target"), help: "Target(s) to which the plugin command should be applied")
+        @Option(name: .customLong("target"),
+                help: "Target(s) to which the plugin command should be applied")
         var targetNames: [String] = []
 
         @Argument(help: "Name of the command plugin to invoke")
@@ -1016,7 +1016,6 @@ extension SwiftPackageTool {
                         let buildOperation = try swiftTool.createBuildOperation(cacheBuildManifest: false)  // We only get a build plan if we don't cache
                         try buildOperation.build(subset: .target(targetName))
                         let symbolGraphExtract = try SymbolGraphExtract(tool: swiftTool.getToolchain().getSymbolGraphExtract())
-                        // YUCK:
                         let minimumAccessLevel: AccessLevel
                         switch options.minimumAccessLevel {
                         case .private:
@@ -1030,7 +1029,7 @@ extension SwiftPackageTool {
                         case .open:
                             minimumAccessLevel = .open
                         }
-                        // Extract the symbol graph and return the directory to the caller.
+                        // Extract the symbol graph.
                         try symbolGraphExtract.dumpSymbolGraph(
                             buildPlan: buildOperation.buildPlan!,
                             prettyPrint: false,
@@ -1038,7 +1037,10 @@ extension SwiftPackageTool {
                             minimumAccessLevel: minimumAccessLevel,
                             skipInheritedDocs: true,
                             includeSPISymbols: options.includeSPI)
-                        return PluginInvocationSymbolGraphResult(directoryPath: buildParameters.symbolGraph.pathString)
+                        
+                        // Return the results to the plugin.
+                        return PluginInvocationSymbolGraphResult(
+                            directoryPath: buildParameters.symbolGraph.pathString)
                     })}
                 }
             }
@@ -1046,7 +1048,7 @@ extension SwiftPackageTool {
 
             // Run the command plugin.
             let buildEnvironment = try swiftTool.buildParameters().buildEnvironment
-            let result = try tsc_await { plugin.invoke(
+            let _ = try tsc_await { plugin.invoke(
                 action: .performCommand(targets: Array(targets.values), arguments: arguments),
                 package: packageGraph.rootPackages[0], // FIXME: This should be the package that contains all the targets (and we should make sure all are in one)
                 buildEnvironment: buildEnvironment,
@@ -1059,8 +1061,7 @@ extension SwiftPackageTool {
                 delegate: pluginDelegate,
                 completion: $0) }
             
-            // Should we also emit a final line of output regarding the result?
-            print(result)
+            // TODO: We should also emit a final line of output regarding the result.
         }
     }
 }

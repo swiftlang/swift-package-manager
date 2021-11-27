@@ -319,14 +319,14 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
 
             case .symbolGraphRequest(let targetName, let options):
                 // The plugin requested symbol graph information for a target. We ask the delegate and then send a response.
-                delegate.pluginRequestedSymbolGraph(forTarget: targetName, options: options, completion: {
+                delegate.pluginRequestedSymbolGraph(forTarget: targetName, options: options) {
                     switch $0 {
-                    case .success(let info):
-                        outputQueue.async { try? outputHandle.writePluginMessage(.symbolGraphResponse(info: info)) }
+                    case .success(let result):
+                        outputQueue.async { try? outputHandle.writePluginMessage(.symbolGraphResponse(result: result)) }
                     case .failure(let error):
                         outputQueue.async { try? outputHandle.writePluginMessage(.errorResponse(error: String(describing: error))) }
                     }
-                })
+                }
 
             case .actionComplete(let success):
                 // The plugin has indicated that it's finished the requested action.
@@ -443,7 +443,7 @@ enum HostToPluginMessage: Encodable {
     case performAction(input: PluginScriptRunnerInput)
     
     /// A response to a request for symbol graph information for a target.
-    case symbolGraphResponse(info: PluginInvocationSymbolGraphResult)
+    case symbolGraphResponse(result: PluginInvocationSymbolGraphResult)
     
     /// A response of an error while trying to complete a request.
     case errorResponse(error: String)

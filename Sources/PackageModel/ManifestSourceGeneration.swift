@@ -437,16 +437,16 @@ fileprivate extension SourceCodeFragment {
                 SourceCodeFragment(key: "verb", string: verb),
                 SourceCodeFragment(key: "description", string: description)
             ]
-            self.init(enum: "packageWritability", subnodes: params)
+            self.init(enum: "writeToPackageDirectory", subnodes: params)
         }
     }
 
     /// Instantiates a SourceCodeFragment to represent a single plugin permission.
     init(from permission: TargetDescription.PluginPermission) {
         switch permission {
-        case .packageWritability(let reason):
+        case .writeToPackageDirectory(let reason):
             let param = SourceCodeFragment(key: "reason", string: reason)
-            self.init(enum: "packageWritability", subnodes: [param])
+            self.init(enum: "writeToPackageDirectory", subnodes: [param])
         }
     }
 

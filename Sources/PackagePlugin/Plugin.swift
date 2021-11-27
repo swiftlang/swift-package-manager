@@ -212,7 +212,7 @@ enum HostToPluginMessage: Decodable {
     case performAction(input: WireInput)
     
     /// A response to a request for symbol graph information for a target.
-    case symbolGraphResponse(info: PackageManager.SymbolGraphInfo)
+    case symbolGraphResponse(result: PackageManager.SymbolGraphResult)
     
     /// A response of an error while trying to complete a request.
     case errorResponse(error: String)

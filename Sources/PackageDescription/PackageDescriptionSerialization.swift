@@ -274,14 +274,14 @@ extension PluginPermission: Encodable {
     }
 
     private enum PermissionType: String, Encodable {
-        case packageWritability
+        case writeToPackageDirectory
     }
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         switch self {
-        case .packageWritability(let reason):
-            try container.encode(PermissionType.packageWritability, forKey: .type)
+        case .writeToPackageDirectory(let reason):
+            try container.encode(PermissionType.writeToPackageDirectory, forKey: .type)
             try container.encode(reason, forKey: .reason)
         }
     }

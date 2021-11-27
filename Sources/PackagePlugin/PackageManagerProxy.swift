@@ -15,13 +15,18 @@
 public struct PackageManager {
 
     /// Performs a build of all or a subset of products and targets in a package.
-    /// Any errors encountered during the build are reported in the build result.
-    /// The SwiftPM CLI or any IDE supporting packages may show the progress of
-    /// the build as it happens.
+    ///
+    /// Any errors encountered during the build are reported in the build result,
+    /// as is the log of the build commands that were run. This method throws an
+    /// error if the input parameters are invalid or in case the build cannot be
+    /// started.
+    ///
+    /// The SwiftPM CLI or any IDE that supports packages may show the progress
+    /// of the build as it happens.
     public func build(
         _ subset: BuildSubset,
         parameters: BuildParameters
-    ) -> BuildResult {
+    ) throws -> BuildResult {
         return BuildResult(
             succeeded: false,
             logText: "Unimplemented",
@@ -30,45 +35,57 @@ public struct PackageManager {
     }
     
     /// Specifies a subset of products and targets of a package to build.
-    public enum BuildSubset {
+    public enum BuildSubset: Encodable {
         /// Represents the subset consisting of all products and of either all
         /// targets or (if `includingTests` is false) just non-test targets.
         case all(includingTests: Bool)
 
-        /// Represents a specific product.
+        /// Represents the product with the specified name.
         case product(String)
 
-        /// Represents a specific target.
+        /// Represents the target with the specified name.
         case target(String)
     }
     
     /// Parameters and options to apply during a build.
-    public struct BuildParameters {
+    public struct BuildParameters: Encodable {
         /// Whether to build for debug or release.
         public var configuration: BuildConfiguration
         
-        /// Controls the amount of detail in the log.
+        /// Controls the amount of detail in the log returned in the build result.
         public var logging: BuildLogVerbosity
         
-        // More parameters would almost certainly be added in future proposals.
+        /// Additional flags to pass to all C compiler invocations.
+        public var otherCFlags: [String] = []
+
+        /// Additional flags to pass to all C++ compiler invocations.
+        public var otherCxxFlags: [String] = []
+
+        /// Additional flags to pass to all Swift compiler invocations.
+        public var otherSwiftcFlags: [String] = []
+        
+        /// Additional flags to pass to all linker invocations.
+        public var otherLinkerFlags: [String] = []
+
+        public init(configuration: BuildConfiguration = .debug, logging: BuildLogVerbosity = .concise) {
+            self.configuration = configuration
+            self.logging = logging
+        }
     }
     
     /// Represents an overall purpose of the build, which affects such things
     /// asoptimization and generation of debug symbols.
-    public enum BuildConfiguration {
-        case debug
-        case release
+    public enum BuildConfiguration: Encodable {
+        case debug, release
     }
     
-    /// Represents the amount of detail in a log.
-    public enum BuildLogVerbosity {
-        case concise
-        case verbose
-        case debug
+    /// Represents the amount of detail in a build log.
+    public enum BuildLogVerbosity: Encodable {
+        case concise, verbose, debug
     }
     
     /// Represents the results of running a build.
-    public struct BuildResult {
+    public struct BuildResult: Decodable {
         /// Whether the build succeeded or failed.
         public var succeeded: Bool
         
@@ -80,7 +97,7 @@ public struct PackageManager {
         public var builtArtifacts: [BuiltArtifact]
         
         /// Represents a single artifact produced during a build.
-        public struct BuiltArtifact {
+        public struct BuiltArtifact: Decodable {
             /// Full path of the built artifact in the local file system.
             public var path: Path
             
@@ -90,27 +107,34 @@ public struct PackageManager {
             /// Represents the kind of artifact that was built. The specific file
             /// formats may vary from platform to platform — for example, on macOS
             /// a dynamic library may in fact be built as a framework.
-            public enum Kind {
-                case executable
-                case dynamicLibrary
-                case staticLibrary
+            public enum Kind: Decodable {
+                case executable, dynamicLibrary, staticLibrary
             }
         }
     }
     
     /// Runs all or a specified subset of the unit tests of the package, after
-    /// doing an incremental build if necessary.
+    /// an incremental build if necessary (the same as `swift test` does).
+    ///
+    /// Any test failures are reported in the test result. This method throws an
+    /// error if the input parameters are invalid or in case the test cannot be
+    /// started.
+    ///
+    /// The SwiftPM CLI or any IDE that supports packages may show the progress
+    /// of the tests as they happen.
     public func test(
         _ subset: TestSubset,
         parameters: TestParameters
-    ) -> TestResult {
+    ) throws -> TestResult {
         return TestResult(
-            codeCoveragePath: nil
+            succeeded: false,
+            testTargets: [],
+            codeCoverageDataFile: .none
         )
     }
         
     /// Specifies what tests in a package to run.
-    public enum TestSubset {
+    public enum TestSubset: Encodable {
         /// Represents all tests in the package.
         case all
 
@@ -120,45 +144,69 @@ public struct PackageManager {
         case filtered([String])
     }
     
-    /// Parameters that control how the test is run.
-    public struct TestParameters {
-        /// Whether to enable code coverage collection while running the tests.
+    /// Parameters that control how the tests are run.
+    public struct TestParameters: Encodable {
+        /// Whether to collect code coverage information while running the tests.
         public var enableCodeCoverage: Bool
         
-        /// There are likely other parameters we would want to add here.
+        public init(enableCodeCoverage: Bool = false) {
+            self.enableCodeCoverage = enableCodeCoverage
+        }
     }
     
-    /// Represents the result of running tests.
-    public struct TestResult {
-        /// Path of the code coverage JSON file, if code coverage was requested.
-        public var codeCoveragePath: Path?
+    /// Represents the result of running unit tests.
+    public struct TestResult: Decodable {
+        /// Whether the test run succeeded or failed.
+        public var succeeded: Bool
         
-        /// This should also contain information about the tests that were run
-        /// and whether each succeeded/failed.
+        /// Results for all the test targets that were run (filtered based on
+        /// the input subset passed when running the test).
+        public var testTargets: [TestTarget]
+        
+        /// Represents the results of running some or all of the tests in a
+        /// single test target.
+        public struct TestTarget: Decodable {
+            public var name: String
+            public var testCases: [TestCase]
+            
+            /// Represents the results of running some or all of the tests in
+            /// a single test case.
+            public struct TestCase: Decodable {
+                public var name: String
+                public var tests: [Test]
+
+                /// Represents the results of running a single test.
+                public struct Test: Decodable {
+                    public var name: String
+                    public var outcome: Outcome
+                    public var duration: Double
+
+                    /// Represents the outcome of running a single test.
+                    public enum Outcome: Decodable {
+                        case succeeded, skipped, failed
+                    }
+                }
+            }
+        }
+        
+        /// Path of a generated `.profdata` file suitable for processing using
+        /// `llvm-cov`, if `enableCodeCoverage` was set in the test parameters.
+        public var codeCoverageDataFile: Path?
     }
     
     /// Return a directory containing symbol graph files for the given target
     /// and options. If the symbol graphs need to be created or updated first,
     /// they will be. SwiftPM or an IDE may generate these symbol graph files
     /// in any way it sees fit.
-    public func getSymbolGraphDirectory(
+    public func getSymbolGraph(
         for target: Target,
         options: SymbolGraphOptions
-    ) throws -> SymbolGraphInfo {
-        try pluginHostConnection.sendMessage(.symbolGraphRequest(targetName: target.name, options: options))
-        let message = try pluginHostConnection.waitForNextMessage()
-        switch message {
-        case .symbolGraphResponse(let info):
-            return info
-        case .errorResponse(let message):
-            throw PackageManagerProxyError.unspecified(message)
-        default:
-            if let message = message {
-                throw PackageManagerProxyError.unspecified("internal error: unexpected response message \(message)")
-            }
-            else {
-                throw PackageManagerProxyError.unspecified("internal error: unexpected lack of response message")
-            }
+    ) throws -> SymbolGraphResult {
+        // Ask the plugin host for symbol graph information for the target, and wait for a response.
+        // FIXME: We'll want to make this asynchronous when there is back deployment support for it.
+        return try sendMessageAndWaitForReply(.symbolGraphRequest(targetName: target.name, options: options)) {
+            guard case .symbolGraphResponse(let result) = $0 else { return nil }
+            return result
         }
     }
 
@@ -185,10 +233,25 @@ public struct PackageManager {
         }
     }
 
-    /// Represents results of symbol graph generation.
-    public struct SymbolGraphInfo: Decodable {
+    /// Represents the result of symbol graph generation.
+    public struct SymbolGraphResult: Decodable {
         /// The directory that contains the symbol graph files for the target.
         public var directoryPath: Path
+    }
+    
+    /// Private helper function that sends a message to the host and waits for a reply. The reply handler should return nil for any reply message it doesn't recognize.
+    fileprivate func sendMessageAndWaitForReply<T>(_ message: PluginToHostMessage, replyHandler: (HostToPluginMessage) -> T?) throws -> T {
+        try pluginHostConnection.sendMessage(message)
+        guard let reply = try pluginHostConnection.waitForNextMessage() else {
+            throw PackageManagerProxyError.unspecified("internal error: unexpected lack of response message")
+        }
+        if case .errorResponse(let message) = reply {
+            throw PackageManagerProxyError.unspecified(message)
+        }
+        if let result = replyHandler(reply) {
+            return result
+        }
+        throw PackageManagerProxyError.unspecified("internal error: unexpected response message \(message)")
     }
 }
 

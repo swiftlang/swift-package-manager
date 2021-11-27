@@ -1054,10 +1054,10 @@ public enum PluginCommandIntent {
 
 @available(_PackageDescription, introduced: 999.0)
 public enum PluginPermission {
-    /// The custom command plugin requests permission to modify the files inside the
-    /// package directory. The `reason` string is shown to the user at the time of
-    /// request for approval, explaining why the plugin is requesting this access.
-    case packageWritability(reason: String)
+    /// The command plugin wants permission to modify the files under the package
+    /// directory. The `reason` string is shown to the user at the time of request
+    /// for approval, explaining why the plugin is requesting this access.
+    case writeToPackageDirectory(reason: String)
 
     /// Any future enum cases should use @available()
 }

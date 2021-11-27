@@ -189,8 +189,8 @@ struct DescribedPackage: Encodable {
             
             init(from permission: PackageModel.PluginPermission) {
                 switch permission {
-                case .packageWritability(let reason):
-                    self.type = "packageWritability"
+                case .writeToPackageDirectory(let reason):
+                    self.type = "writeToPackageDirectory"
                     self.reason = reason
                 }
             }

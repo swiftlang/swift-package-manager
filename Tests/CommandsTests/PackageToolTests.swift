@@ -1190,7 +1190,7 @@ final class PackageToolTests: CommandsTestCase {
                             name: "MyPlugin",
                             capability: .command(
                                 intent: .custom(verb: "mycmd", description: "What is mycmd anyway?"),
-                                permissions: [.packageWritability(reason: "YOLO")]
+                                permissions: [.writeToPackageDirectory(reason: "YOLO")]
                             )
                         ),
                     ]

@@ -120,7 +120,7 @@ public struct TargetDescription: Equatable, Codable {
     }
 
     public enum PluginPermission: Equatable, Codable {
-        case packageWritability(reason: String)
+        case writeToPackageDirectory(reason: String)
     }
 
     /// The target-specific build settings declared in this target.

@@ -81,7 +81,7 @@ extension BuildToolPlugin {
     }
 }
 
-/// Defines functionality for all plugins that have a `customCommand` capability.
+/// Defines functionality for all plugins that have a `command` capability.
 public protocol CommandPlugin: Plugin {
     /// Invoked by SwiftPM to perform the custom actions of the command.
     func performCommand(
@@ -99,14 +99,14 @@ public protocol CommandPlugin: Plugin {
         arguments: [String]
     ) throws
 
-    /// A proxy to the Swift Package Manager or IDE hosting the package plugin,
+    /// A proxy to the Swift Package Manager or IDE hosting the command plugin,
     /// through which the plugin can ask for specialized information or actions.
     var packageManager: PackageManager { get }
 }
 
 extension CommandPlugin {
     
-    /// A proxy to the Swift Package Manager or IDE hosting the package plugin,
+    /// A proxy to the Swift Package Manager or IDE hosting the command plugin,
     /// through which the plugin can ask for specialized information or actions.
     public var packageManager: PackageManager {
         return PackageManager()

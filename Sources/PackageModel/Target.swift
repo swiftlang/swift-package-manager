@@ -726,12 +726,12 @@ public enum PluginCommandIntent: Hashable, Codable {
 }
 
 public enum PluginPermission: Hashable, Codable {
-    case packageWritability(reason: String)
+    case writeToPackageDirectory(reason: String)
 
     public init(from desc: TargetDescription.PluginPermission) {
         switch desc {
-        case .packageWritability(let reason):
-            self = .packageWritability(reason: reason)
+        case .writeToPackageDirectory(let reason):
+            self = .writeToPackageDirectory(reason: reason)
         }
     }
 }

@@ -628,9 +628,9 @@ extension TargetDescription.PluginPermission {
     fileprivate init(v4 json: JSON) throws {
         let type = try json.get(String.self, forKey: "type")
         switch type {
-        case "packageWritability":
+        case "writeToPackageDirectory":
             let reason = try json.get(String.self, forKey: "reason")
-            self = .packageWritability(reason: reason)
+            self = .writeToPackageDirectory(reason: reason)
         default:
             throw InternalError("invalid type \(type)")
         }
