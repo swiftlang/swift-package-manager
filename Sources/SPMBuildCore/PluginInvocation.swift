@@ -397,12 +397,34 @@ public protocol PluginInvocationDelegate {
 
     /// Called when a plugin defines a prebuild command through the PackagePlugin APIs.
     func pluginDefinedPrebuildCommand(displayName: String?, executable: AbsolutePath, arguments: [String], environment: [String: String], workingDirectory: AbsolutePath?, outputFilesDirectory: AbsolutePath)
+    
+    /// Called when a plugin requests that the host computes and returns symbol graph information for a particular target.
+    func pluginRequestedSymbolGraph(forTarget name: String, options: PluginInvocationSymbolGraphOptions, completion: @escaping (Result<PluginInvocationSymbolGraphResult, Error>) -> Void)
+}
+
+public struct PluginInvocationSymbolGraphOptions: Decodable {
+    public var minimumAccessLevel: AccessLevel
+    public enum AccessLevel: String, Decodable {
+        case `private`, `fileprivate`, `internal`, `public`, `open`
+    }
+    public var includeSynthesized: Bool
+    public var includeSPI: Bool
+}
+
+public struct PluginInvocationSymbolGraphResult: Encodable {
+    public var directoryPath: String
+    public init(directoryPath: String) {
+        self.directoryPath = directoryPath
+    }
 }
 
 public extension PluginInvocationDelegate {
     func pluginDefinedBuildCommand(displayName: String?, executable: AbsolutePath, arguments: [String], environment: [String : String], workingDirectory: AbsolutePath?, inputFiles: [AbsolutePath], outputFiles: [AbsolutePath]) {
     }
     func pluginDefinedPrebuildCommand(displayName: String?, executable: AbsolutePath, arguments: [String], environment: [String : String], workingDirectory: AbsolutePath?, outputFilesDirectory: AbsolutePath) {
+    }
+    func pluginRequestedSymbolGraph(forTarget name: String, options: PluginInvocationSymbolGraphOptions, completion: @escaping (Result<PluginInvocationSymbolGraphResult, Error>) -> Void) {
+        DispatchQueue.sharedConcurrent.async { completion(Result.failure(StringError("unimplemented"))) }
     }
 }
 

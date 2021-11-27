@@ -144,21 +144,51 @@ public struct PackageManager {
     public func getSymbolGraphDirectory(
         for target: Target,
         options: SymbolGraphOptions
-    ) throws -> Path {
-        throw PackageManagerProxyError.unimlemented("not yet implemented")
+    ) throws -> SymbolGraphInfo {
+        try pluginHostConnection.sendMessage(.symbolGraphRequest(targetName: target.name, options: options))
+        let message = try pluginHostConnection.waitForNextMessage()
+        switch message {
+        case .symbolGraphResponse(let info):
+            return info
+        case .errorResponse(let message):
+            throw PackageManagerProxyError.unspecified(message)
+        default:
+            if let message = message {
+                throw PackageManagerProxyError.unspecified("internal error: unexpected response message \(message)")
+            }
+            else {
+                throw PackageManagerProxyError.unspecified("internal error: unexpected lack of response message")
+            }
+        }
     }
 
-    /// Represents options for symbol graph generation. These options are taken
-    /// into account when determining whether generated information is already
-    /// up-to-date.
-    public struct SymbolGraphOptions {
+    /// Represents options for symbol graph generation.
+    public struct SymbolGraphOptions: Encodable {
         /// The symbol graph will include symbols at this access level and higher.
-        public var minimumAccessLevel: AccessLevel = AccessLevel.public
-        
+        public var minimumAccessLevel: AccessLevel
+
         /// Represents a Swift access level.
-        public enum AccessLevel: String, CaseIterable {
+        public enum AccessLevel: String, CaseIterable, Encodable {
             case `private`, `fileprivate`, `internal`, `public`, `open`
         }
+
+        /// Whether to include synthesized members.
+        public var includeSynthesized: Bool
+        
+        /// Whether to include symbols marked as SPI.
+        public var includeSPI: Bool
+        
+        public init(minimumAccessLevel: AccessLevel = .public, includeSynthesized: Bool = false, includeSPI: Bool = false) {
+            self.minimumAccessLevel = minimumAccessLevel
+            self.includeSynthesized = includeSynthesized
+            self.includeSPI = includeSPI
+        }
+    }
+
+    /// Represents results of symbol graph generation.
+    public struct SymbolGraphInfo: Decodable {
+        /// The directory that contains the symbol graph files for the target.
+        public var directoryPath: Path
     }
 }
 

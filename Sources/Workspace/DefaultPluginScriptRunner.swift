@@ -317,6 +317,17 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
                     workingDirectory: try config.workingDirectory.map{ try AbsolutePath(validating: $0) },
                     outputFilesDirectory: try AbsolutePath(validating: outputFilesDir))
 
+            case .symbolGraphRequest(let targetName, let options):
+                // The plugin requested symbol graph information for a target. We ask the delegate and then send a response.
+                delegate.pluginRequestedSymbolGraph(forTarget: targetName, options: options, completion: {
+                    switch $0 {
+                    case .success(let info):
+                        outputQueue.async { try? outputHandle.writePluginMessage(.symbolGraphResponse(info: info)) }
+                    case .failure(let error):
+                        outputQueue.async { try? outputHandle.writePluginMessage(.errorResponse(error: String(describing: error))) }
+                    }
+                })
+
             case .actionComplete(let success):
                 // The plugin has indicated that it's finished the requested action.
                 result = success
@@ -431,6 +442,9 @@ enum HostToPluginMessage: Encodable {
     /// The host is requesting that the plugin perform one of its declared plugin actions.
     case performAction(input: PluginScriptRunnerInput)
     
+    /// A response to a request for symbol graph information for a target.
+    case symbolGraphResponse(info: PluginInvocationSymbolGraphResult)
+    
     /// A response of an error while trying to complete a request.
     case errorResponse(error: String)
 }
@@ -458,6 +472,9 @@ enum PluginToHostMessage: Decodable {
         var workingDirectory: String?
     }
 
+    /// The plugin is requesting symbol graph information for a given target and set of options.
+    case symbolGraphRequest(targetName: String, options: PluginInvocationSymbolGraphOptions)
+    
     /// The plugin has finished the requested action.
     case actionComplete(success: Bool)
 }

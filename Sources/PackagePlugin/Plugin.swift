@@ -231,6 +231,9 @@ enum HostToPluginMessage: Decodable {
     /// The host is requesting that the plugin perform one of its declared plugin actions.
     case performAction(input: WireInput)
     
+    /// A response to a request for symbol graph information for a target.
+    case symbolGraphResponse(info: PackageManager.SymbolGraphInfo)
+    
     /// A response of an error while trying to complete a request.
     case errorResponse(error: String)
 }
@@ -257,6 +260,9 @@ enum PluginToHostMessage: Encodable {
         var environment: [String: String]
         var workingDirectory: String?
     }
+    
+    /// The plugin is requesting symbol graph information for a given target and set of options.
+    case symbolGraphRequest(targetName: String, options: PackageManager.SymbolGraphOptions)
     
     /// The plugin has finished the requested action.
     case actionComplete(success: Bool)

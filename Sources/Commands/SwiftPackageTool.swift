@@ -938,6 +938,9 @@ extension SwiftPackageTool {
                 swiftTool.observabilityScope.emit(error: "Unknown targets: ‘\(unknownTargetNames.sorted().joined(separator: "’, ‘"))’")
                 throw ExitCode.failure
             }
+            
+            // If the plugin requires additional permissions, we ask the user for approval.
+            // TODO: Ask for approval here.
 
             // Configure the plugin invocation inputs.
 
@@ -1001,10 +1004,45 @@ extension SwiftPackageTool {
                 }
                 
                 func pluginEmittedDiagnostic(_ diagnostic: Basics.Diagnostic) {
+                    swiftTool.observabilityScope.emit(diagnostic)
+                }
+
+                func pluginRequestedSymbolGraph(forTarget targetName: String, options: PluginInvocationSymbolGraphOptions, completion: @escaping (Result<PluginInvocationSymbolGraphResult, Error>) -> Void) {
+                    // Extract the symbol graph in the background and call the completion handler when done.
+                    dispatchPrecondition(condition: .onQueue(delegateQueue))
+                    DispatchQueue.sharedConcurrent.async { completion(Result {
+                        // Current implementation uses `SymbolGraphExtract()` but we can probably do better in the future.
+                        let buildParameters = try swiftTool.buildParameters()
+                        let buildOperation = try swiftTool.createBuildOperation(cacheBuildManifest: false)  // We only get a build plan if we don't cache
+                        try buildOperation.build(subset: .target(targetName))
+                        let symbolGraphExtract = try SymbolGraphExtract(tool: swiftTool.getToolchain().getSymbolGraphExtract())
+                        // YUCK:
+                        let minimumAccessLevel: AccessLevel
+                        switch options.minimumAccessLevel {
+                        case .private:
+                            minimumAccessLevel = .private
+                        case .fileprivate:
+                            minimumAccessLevel = .fileprivate
+                        case .internal:
+                            minimumAccessLevel = .internal
+                        case .public:
+                            minimumAccessLevel = .public
+                        case .open:
+                            minimumAccessLevel = .open
+                        }
+                        // Extract the symbol graph and return the directory to the caller.
+                        try symbolGraphExtract.dumpSymbolGraph(
+                            buildPlan: buildOperation.buildPlan!,
+                            prettyPrint: false,
+                            skipSynthesisedMembers: !options.includeSynthesized,
+                            minimumAccessLevel: minimumAccessLevel,
+                            skipInheritedDocs: true,
+                            includeSPISymbols: options.includeSPI)
+                        return PluginInvocationSymbolGraphResult(directoryPath: buildParameters.symbolGraph.pathString)
+                    })}
                 }
             }
             let pluginDelegate = PluginDelegate(swiftTool: swiftTool, delegateQueue: delegateQueue)
-
 
             // Run the command plugin.
             let buildEnvironment = try swiftTool.buildParameters().buildEnvironment
