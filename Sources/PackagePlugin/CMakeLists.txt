@@ -11,6 +11,7 @@ add_library(PackagePlugin
   Context.swift
   Diagnostics.swift
   Errors.swift
+  PackageManagerProxy.swift
   PackageModel.swift
   Path.swift
   Plugin.swift
