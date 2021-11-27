@@ -182,26 +182,6 @@ extension Plugin {
                 try plugin.performCommand(context: context, targets: targets, arguments: arguments)
             }
             
-            // Send any emitted diagnostics to the host.
-            // FIXME: We should really be doing while diagnostics are emitted.
-            for diagnostic in Diagnostics.emittedDiagnostics {
-                let severity: PluginToHostMessage.DiagnosticSeverity
-                switch diagnostic.severity {
-                case .error:
-                    severity = .error
-                case .warning:
-                    severity = .warning
-                case .remark:
-                    severity = .remark
-                }
-                let message = PluginToHostMessage.emitDiagnostic(
-                    severity: severity,
-                    message: diagnostic.message,
-                    file: diagnostic.file?.string,
-                    line: diagnostic.line)
-                try pluginHostConnection.sendMessage(message)
-            }
-            
             // Send back a message to the host indicating that we're done.
             try pluginHostConnection.sendMessage(.actionComplete(success: true))
             

@@ -12,11 +12,6 @@
 /// plugin. After emitting one or more errors, the plugin should return a
 /// non-zero exit code.
 public struct Diagnostics {
-    // Internal variable collecting the diagnostics that have been emitted.
-    static var emittedDiagnostics: [Diagnostic] = []
-    
-    // This prevents a Diagnostics struct from being instantiated by the script.
-    internal init() {}
 
     /// Severity of the diagnostic.
     public enum Severity: String, Encodable {
@@ -24,8 +19,18 @@ public struct Diagnostics {
     }
     
     /// Emits an error with a specified severity and message, and optional file path and line number.
-    public static func emit(_ severity: Severity, _ message: String, file: Path? = #file, line: Int? = #line) {
-        self.emittedDiagnostics.append(Diagnostic(severity: severity, message: message, file: file, line: line))
+    public static func emit(_ severity: Severity, _ description: String, file: Path? = #file, line: Int? = #line) {
+        let message: PluginToHostMessage
+        switch severity {
+        case .error:
+            message = .emitDiagnostic(severity: .error, message: description, file: file?.string, line: line)
+        case .warning:
+            message = .emitDiagnostic(severity: .warning, message: description, file: file?.string, line: line)
+        case .remark:
+            message = .emitDiagnostic(severity: .remark, message: description, file: file?.string, line: line)
+        }
+        // FIXME: Handle problems sending the message.
+        try? pluginHostConnection.sendMessage(message)
     }
 
     /// Emits an error with the specified message, and optional file path and line number.
@@ -42,11 +47,4 @@ public struct Diagnostics {
     public static func remark(_ message: String, file: Path? = #file, line: Int? = #line) {
         self.emit(.remark, message, file: file, line: line)
     }
-}
-
-struct Diagnostic {
-    var severity: Diagnostics.Severity
-    var message: String
-    var file: Path?
-    var line: Int?
 }
