@@ -163,6 +163,10 @@ public struct PackageManager {
         /// the input subset passed when running the test).
         public var testTargets: [TestTarget]
         
+        /// Path of a generated `.profdata` file suitable for processing using
+        /// `llvm-cov`, if `enableCodeCoverage` was set in the test parameters.
+        public var codeCoverageDataFile: Path?
+
         /// Represents the results of running some or all of the tests in a
         /// single test target.
         public struct TestTarget: Decodable {
@@ -188,10 +192,6 @@ public struct PackageManager {
                 }
             }
         }
-        
-        /// Path of a generated `.profdata` file suitable for processing using
-        /// `llvm-cov`, if `enableCodeCoverage` was set in the test parameters.
-        public var codeCoverageDataFile: Path?
     }
     
     /// Return a directory containing symbol graph files for the given target
