@@ -975,7 +975,7 @@ extension SwiftPackageTool {
             
             // Set up a delegate to handle callbacks from the command plugin.
             let delegateQueue = DispatchQueue(label: "plugin-invocation")
-            let pluginDelegate = PluginDelegate(swiftTool: swiftTool, delegateQueue: delegateQueue)
+            let pluginDelegate = PluginDelegate(swiftTool: swiftTool, plugin: plugin, outputStream: swiftTool.outputStream, delegateQueue: delegateQueue)
 
             // Run the command plugin.
             let buildEnvironment = try swiftTool.buildParameters().buildEnvironment
@@ -999,22 +999,31 @@ extension SwiftPackageTool {
 
 final class PluginDelegate: PluginInvocationDelegate {
     let swiftTool: SwiftTool
+    let plugin: PluginTarget
+    let outputStream: OutputByteStream
     let delegateQueue: DispatchQueue
-    var bufferedOutput: Data
+    var lineBufferedOutput: Data
     
-    init(swiftTool: SwiftTool, delegateQueue: DispatchQueue) {
+    init(swiftTool: SwiftTool, plugin: PluginTarget, outputStream: OutputByteStream, delegateQueue: DispatchQueue) {
         self.swiftTool = swiftTool
+        self.plugin = plugin
         self.delegateQueue = delegateQueue
-        self.bufferedOutput = Data()
+        self.outputStream = outputStream
+        self.lineBufferedOutput = Data()
     }
 
     func pluginEmittedOutput(_ data: Data) {
         dispatchPrecondition(condition: .onQueue(delegateQueue))
-        bufferedOutput += data
-        while let newlineIdx = bufferedOutput.firstIndex(of: UInt8(ascii: "\n")) {
-            let lineData = bufferedOutput.prefix(upTo: newlineIdx)
-            print("[plugin] \(String(decoding: lineData, as: UTF8.self))")
-            bufferedOutput = bufferedOutput.suffix(from: newlineIdx.advanced(by: 1))
+        lineBufferedOutput += data
+        var needsFlush = false
+        while let newlineIdx = lineBufferedOutput.firstIndex(of: UInt8(ascii: "\n")) {
+            let lineData = lineBufferedOutput.prefix(upTo: newlineIdx)
+            outputStream <<< "[plugin ‘\(plugin.name)’] " <<< String(decoding: lineData, as: UTF8.self) <<< "\n"
+            needsFlush = true
+            lineBufferedOutput = lineBufferedOutput.suffix(from: newlineIdx.advanced(by: 1))
+        }
+        if needsFlush {
+            outputStream.flush()
         }
     }
     
