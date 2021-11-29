@@ -317,6 +317,26 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
                     workingDirectory: try config.workingDirectory.map{ try AbsolutePath(validating: $0) },
                     outputFilesDirectory: try AbsolutePath(validating: outputFilesDir))
 
+            case .buildOperationRequest(let subset, let parameters):
+                delegate.pluginRequestedBuildOperation(subset: subset, parameters: parameters) {
+                    switch $0 {
+                    case .success(let result):
+                        outputQueue.async { try? outputHandle.writePluginMessage(.buildOperationResponse(result: result)) }
+                    case .failure(let error):
+                        outputQueue.async { try? outputHandle.writePluginMessage(.errorResponse(error: String(describing: error))) }
+                    }
+                }
+
+            case .testOperationRequest(let subset, let parameters):
+                delegate.pluginRequestedTestOperation(subset: subset, parameters: parameters) {
+                    switch $0 {
+                    case .success(let result):
+                        outputQueue.async { try? outputHandle.writePluginMessage(.testOperationResponse(result: result)) }
+                    case .failure(let error):
+                        outputQueue.async { try? outputHandle.writePluginMessage(.errorResponse(error: String(describing: error))) }
+                    }
+                }
+
             case .symbolGraphRequest(let targetName, let options):
                 // The plugin requested symbol graph information for a target. We ask the delegate and then send a response.
                 delegate.pluginRequestedSymbolGraph(forTarget: targetName, options: options) {
@@ -442,6 +462,12 @@ enum HostToPluginMessage: Encodable {
     /// The host is requesting that the plugin perform one of its declared plugin actions.
     case performAction(input: PluginScriptRunnerInput)
     
+    /// A response to a request to run a build operation.
+    case buildOperationResponse(result: PluginInvocationBuildResult)
+
+    /// A response to a request to run a test.
+    case testOperationResponse(result: PluginInvocationTestResult)
+
     /// A response to a request for symbol graph information for a target.
     case symbolGraphResponse(result: PluginInvocationSymbolGraphResult)
     
@@ -471,6 +497,12 @@ enum PluginToHostMessage: Decodable {
         var environment: [String: String]
         var workingDirectory: String?
     }
+
+    /// The plugin is requesting that a build operation be run.
+    case buildOperationRequest(subset: PluginInvocationBuildSubset, parameters: PluginInvocationBuildParameters)
+    
+    /// The plugin is requesting that a test operation be run.
+    case testOperationRequest(subset: PluginInvocationTestSubset, parameters: PluginInvocationTestParameters)
 
     /// The plugin is requesting symbol graph information for a given target and set of options.
     case symbolGraphRequest(targetName: String, options: PluginInvocationSymbolGraphOptions)

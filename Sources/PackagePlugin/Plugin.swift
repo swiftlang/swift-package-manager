@@ -211,6 +211,12 @@ enum HostToPluginMessage: Decodable {
     /// The host is requesting that the plugin perform one of its declared plugin actions.
     case performAction(input: WireInput)
     
+    /// A response to a request to run a build operation.
+    case buildOperationResponse(result: PackageManager.BuildResult)
+
+    /// A response to a request to run a test operation.
+    case testOperationResponse(result: PackageManager.TestResult)
+
     /// A response to a request for symbol graph information for a target.
     case symbolGraphResponse(result: PackageManager.SymbolGraphResult)
     
@@ -241,6 +247,12 @@ enum PluginToHostMessage: Encodable {
         var workingDirectory: String?
     }
     
+    /// The plugin is requesting that a build operation be run.
+    case buildOperationRequest(subset: PackageManager.BuildSubset, parameters: PackageManager.BuildParameters)
+    
+    /// The plugin is requesting that a test operation be run.
+    case testOperationRequest(subset: PackageManager.TestSubset, parameters: PackageManager.TestParameters)
+
     /// The plugin is requesting symbol graph information for a given target and set of options.
     case symbolGraphRequest(targetName: String, options: PackageManager.SymbolGraphOptions)
     

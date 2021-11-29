@@ -27,11 +27,12 @@ public struct PackageManager {
         _ subset: BuildSubset,
         parameters: BuildParameters
     ) throws -> BuildResult {
-        return BuildResult(
-            succeeded: false,
-            logText: "Unimplemented",
-            builtArtifacts: []
-        )
+        // Ask the plugin host for symbol graph information for the target, and wait for a response.
+        // FIXME: We'll want to make this asynchronous when there is back deployment support for it.
+        return try sendMessageAndWaitForReply(.buildOperationRequest(subset: subset, parameters: parameters)) {
+            guard case .buildOperationResponse(let result) = $0 else { return nil }
+            return result
+        }
     }
     
     /// Specifies a subset of products and targets of a package to build.
@@ -126,11 +127,12 @@ public struct PackageManager {
         _ subset: TestSubset,
         parameters: TestParameters
     ) throws -> TestResult {
-        return TestResult(
-            succeeded: false,
-            testTargets: [],
-            codeCoverageDataFile: .none
-        )
+        // Ask the plugin host for symbol graph information for the target, and wait for a response.
+        // FIXME: We'll want to make this asynchronous when there is back deployment support for it.
+        return try sendMessageAndWaitForReply(.testOperationRequest(subset: subset, parameters: parameters)) {
+            guard case .testOperationResponse(let result) = $0 else { return nil }
+            return result
+        }
     }
         
     /// Specifies what tests in a package to run.

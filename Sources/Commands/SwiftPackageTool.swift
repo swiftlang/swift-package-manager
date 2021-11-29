@@ -973,74 +973,8 @@ extension SwiftPackageTool {
                 }
             })
             
-            class PluginOutputEmitter {
-                var bufferedOutput: Data
-                init() {
-                    self.bufferedOutput = Data()
-                }
-                func emit(data: Data) {
-                    bufferedOutput += data
-                    while let newlineIdx = bufferedOutput.firstIndex(of: UInt8(ascii: "\n")) {
-                        let lineData = bufferedOutput.prefix(upTo: newlineIdx)
-                        print("🧩 \(String(decoding: lineData, as: UTF8.self))")
-                        bufferedOutput = bufferedOutput.suffix(from: newlineIdx.advanced(by: 1))
-                    }
-                }
-            }
-            
             // Set up a delegate to handle callbacks from the command plugin.
             let delegateQueue = DispatchQueue(label: "plugin-invocation")
-            struct PluginDelegate: PluginInvocationDelegate {
-                let swiftTool: SwiftTool
-                let delegateQueue: DispatchQueue
-                var outputEmitter = PluginOutputEmitter()
-                
-                func pluginEmittedOutput(_ data: Data) {
-                    dispatchPrecondition(condition: .onQueue(delegateQueue))
-                    outputEmitter.emit(data: data)
-                }
-                
-                func pluginEmittedDiagnostic(_ diagnostic: Basics.Diagnostic) {
-                    swiftTool.observabilityScope.emit(diagnostic)
-                }
-
-                func pluginRequestedSymbolGraph(forTarget targetName: String, options: PluginInvocationSymbolGraphOptions, completion: @escaping (Result<PluginInvocationSymbolGraphResult, Error>) -> Void) {
-                    // Extract the symbol graph in the background and call the completion handler when done.
-                    dispatchPrecondition(condition: .onQueue(delegateQueue))
-                    DispatchQueue.sharedConcurrent.async { completion(Result {
-                        // Current implementation uses `SymbolGraphExtract()` but we can probably do better in the future.
-                        let buildParameters = try swiftTool.buildParameters()
-                        let buildOperation = try swiftTool.createBuildOperation(cacheBuildManifest: false)  // We only get a build plan if we don't cache
-                        try buildOperation.build(subset: .target(targetName))
-                        let symbolGraphExtract = try SymbolGraphExtract(tool: swiftTool.getToolchain().getSymbolGraphExtract())
-                        let minimumAccessLevel: AccessLevel
-                        switch options.minimumAccessLevel {
-                        case .private:
-                            minimumAccessLevel = .private
-                        case .fileprivate:
-                            minimumAccessLevel = .fileprivate
-                        case .internal:
-                            minimumAccessLevel = .internal
-                        case .public:
-                            minimumAccessLevel = .public
-                        case .open:
-                            minimumAccessLevel = .open
-                        }
-                        // Extract the symbol graph.
-                        try symbolGraphExtract.dumpSymbolGraph(
-                            buildPlan: buildOperation.buildPlan!,
-                            prettyPrint: false,
-                            skipSynthesisedMembers: !options.includeSynthesized,
-                            minimumAccessLevel: minimumAccessLevel,
-                            skipInheritedDocs: true,
-                            includeSPISymbols: options.includeSPI)
-                        
-                        // Return the results to the plugin.
-                        return PluginInvocationSymbolGraphResult(
-                            directoryPath: buildParameters.symbolGraph.pathString)
-                    })}
-                }
-            }
             let pluginDelegate = PluginDelegate(swiftTool: swiftTool, delegateQueue: delegateQueue)
 
             // Run the command plugin.
@@ -1062,6 +996,182 @@ extension SwiftPackageTool {
         }
     }
 }
+
+final class PluginDelegate: PluginInvocationDelegate {
+    let swiftTool: SwiftTool
+    let delegateQueue: DispatchQueue
+    var bufferedOutput: Data
+    
+    init(swiftTool: SwiftTool, delegateQueue: DispatchQueue) {
+        self.swiftTool = swiftTool
+        self.delegateQueue = delegateQueue
+        self.bufferedOutput = Data()
+    }
+
+    func pluginEmittedOutput(_ data: Data) {
+        dispatchPrecondition(condition: .onQueue(delegateQueue))
+        bufferedOutput += data
+        while let newlineIdx = bufferedOutput.firstIndex(of: UInt8(ascii: "\n")) {
+            let lineData = bufferedOutput.prefix(upTo: newlineIdx)
+            print("[plugin] \(String(decoding: lineData, as: UTF8.self))")
+            bufferedOutput = bufferedOutput.suffix(from: newlineIdx.advanced(by: 1))
+        }
+    }
+    
+    func pluginEmittedDiagnostic(_ diagnostic: Basics.Diagnostic) {
+        dispatchPrecondition(condition: .onQueue(delegateQueue))
+        swiftTool.observabilityScope.emit(diagnostic)
+    }
+    
+    func pluginRequestedBuildOperation(subset: PluginInvocationBuildSubset, parameters: PluginInvocationBuildParameters, completion: @escaping (Result<PluginInvocationBuildResult, Error>) -> Void) {
+        // Run the build in the background and call the completion handler when done.
+        dispatchPrecondition(condition: .onQueue(delegateQueue))
+        DispatchQueue.sharedConcurrent.async {
+            completion(Result {
+                return try self.doBuild(subset: subset, parameters: parameters)
+            })
+        }
+    }
+    
+    private func doBuild(subset: PluginInvocationBuildSubset, parameters: PluginInvocationBuildParameters) throws -> PluginInvocationBuildResult {
+        // Configure the build parameters.
+        var buildParameters = try self.swiftTool.buildParameters()
+        switch parameters.configuration {
+        case .debug:
+            buildParameters.configuration = .debug
+        case .release:
+            buildParameters.configuration = .release
+        }
+        buildParameters.flags.cCompilerFlags.append(contentsOf: parameters.otherCFlags)
+        buildParameters.flags.cxxCompilerFlags.append(contentsOf: parameters.otherCxxFlags)
+        buildParameters.flags.swiftCompilerFlags.append(contentsOf: parameters.otherSwiftcFlags)
+        buildParameters.flags.linkerFlags.append(contentsOf: parameters.otherLinkerFlags)
+
+        // Determine the subset of products and targets to build.
+        let buildSubset: BuildSubset
+        switch subset {
+        case .all(let includingTests):
+            buildSubset = includingTests ? .allIncludingTests : .allExcludingTests
+        case .product(let name):
+            buildSubset = .product(name)
+        case .target(let name):
+            buildSubset = .target(name)
+        }
+        
+        final class BuildOpDelegate: BuildSystemDelegate {
+            var logText = ""
+            var logLock = Lock()
+            var result = false
+            func buildSystem(_ buildSystem: BuildSystem, didStartCommand command: BuildSystemCommand) {
+                logLock.withLock {
+                    logText.append("\(command.description)\n")
+                }
+            }
+            func buildSystem(_ buildSystem: BuildSystem, didFinishWithResult success: Bool) {
+                result = success
+            }
+        }
+        
+        // Create a build operation. We have to disable the cache in order to get a build plan created.
+        let buildOperation = try self.swiftTool.createBuildOperation(cacheBuildManifest: false)
+        let delegate = BuildOpDelegate()
+        buildOperation.delegate = delegate
+        let _ = try buildOperation.getBuildDescription()
+        let buildPlan = buildOperation.buildPlan!
+        
+        // Run the build. This doesn't return until the build is complete.
+        try buildOperation.build(subset: buildSubset)
+        
+        // Create and return the build result record based on what the delegate collected and what's in the build plan.
+        let builtArtifacts: [PluginInvocationBuildResult.BuiltArtifact] = buildPlan.buildProducts.compactMap {
+            switch $0.product.type {
+            case .library(let kind):
+                return .init(path: $0.binary.pathString, kind: (kind == .dynamic) ? .dynamicLibrary : .staticLibrary)
+            case .executable:
+                return .init(path: $0.binary.pathString, kind: .executable)
+            default:
+                return nil
+            }
+        }
+        return PluginInvocationBuildResult(
+            succeeded: delegate.result,
+            logText: delegate.logText,
+            builtArtifacts: builtArtifacts)
+    }
+
+    func pluginRequestedTestOperation(subset: PluginInvocationTestSubset, parameters: PluginInvocationTestParameters, completion: @escaping (Result<PluginInvocationTestResult, Error>) -> Void) {
+        // Run the test in the background and call the completion handler when done.
+        dispatchPrecondition(condition: .onQueue(delegateQueue))
+        DispatchQueue.sharedConcurrent.async {
+            completion(Result {
+                return try self.doTest(subset: subset, parameters: parameters)
+            })
+        }
+    }
+    
+    private func doTest(subset: PluginInvocationTestSubset, parameters: PluginInvocationTestParameters) throws -> PluginInvocationTestResult {
+        // FIXME: To implement this we should factor out a lot of the code in SwiftTestTool.
+        throw StringError("Running tests from a plugin is not yet implemented")
+    }
+
+    func pluginRequestedSymbolGraph(forTarget targetName: String, options: PluginInvocationSymbolGraphOptions, completion: @escaping (Result<PluginInvocationSymbolGraphResult, Error>) -> Void) {
+        // Extract the symbol graph in the background and call the completion handler when done.
+        dispatchPrecondition(condition: .onQueue(delegateQueue))
+        DispatchQueue.sharedConcurrent.async {
+            completion(Result {
+                return try self.createSymbolGraph(forTarget: targetName, options: options)
+            })
+        }
+    }
+
+    private func createSymbolGraph(forTarget targetName: String, options: PluginInvocationSymbolGraphOptions) throws -> PluginInvocationSymbolGraphResult {
+        // Current implementation uses `SymbolGraphExtract()` but we can probably do better in the future.
+        let buildParameters = try swiftTool.buildParameters()
+        let buildOperation = try swiftTool.createBuildOperation(cacheBuildManifest: false)  // We only get a build plan if we don't cache
+        try buildOperation.build(subset: .target(targetName))
+        let symbolGraphExtract = try SymbolGraphExtract(tool: swiftTool.getToolchain().getSymbolGraphExtract())
+        let minimumAccessLevel: AccessLevel
+        switch options.minimumAccessLevel {
+        case .private:
+            minimumAccessLevel = .private
+        case .fileprivate:
+            minimumAccessLevel = .fileprivate
+        case .internal:
+            minimumAccessLevel = .internal
+        case .public:
+            minimumAccessLevel = .public
+        case .open:
+            minimumAccessLevel = .open
+        }
+        
+        // Extract the symbol graph.
+        try symbolGraphExtract.dumpSymbolGraph(
+            buildPlan: buildOperation.buildPlan!,
+            prettyPrint: false,
+            skipSynthesisedMembers: !options.includeSynthesized,
+            minimumAccessLevel: minimumAccessLevel,
+            skipInheritedDocs: true,
+            includeSPISymbols: options.includeSPI)
+        
+        // Return the results to the plugin.
+        return PluginInvocationSymbolGraphResult(
+            directoryPath: buildParameters.symbolGraph.pathString)
+    }
+}
+
+extension PluginCommandIntent {
+    var invocationVerb: String {
+        switch self {
+        case .documentationGeneration:
+            return "generate-documentation"
+        case .sourceCodeFormatting:
+            return "format-source-code"
+        case .custom(let verb, _):
+            return verb
+        }
+    }
+}
+
 
 extension SwiftPackageTool {
     struct GenerateXcodeProject: SwiftCommand {
@@ -1150,19 +1260,6 @@ extension SwiftPackageTool {
                     observabilityScope: swiftTool.observabilityScope
                 ).runXcodeprojWatcher(xcodeprojOptions())
             }
-        }
-    }
-}
-
-extension PluginCommandIntent {
-    var invocationVerb: String {
-        switch self {
-        case .documentationGeneration:
-            return "generate-documentation"
-        case .sourceCodeFormatting:
-            return "format-source-code"
-        case .custom(let verb, _):
-            return verb
         }
     }
 }

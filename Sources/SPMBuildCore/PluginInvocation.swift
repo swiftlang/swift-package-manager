@@ -398,6 +398,12 @@ public protocol PluginInvocationDelegate {
     /// Called when a plugin defines a prebuild command through the PackagePlugin APIs.
     func pluginDefinedPrebuildCommand(displayName: String?, executable: AbsolutePath, arguments: [String], environment: [String: String], workingDirectory: AbsolutePath?, outputFilesDirectory: AbsolutePath)
     
+    /// Called when a plugin requests a build operation through the PackagePlugin APIs.
+    func pluginRequestedBuildOperation(subset: PluginInvocationBuildSubset, parameters: PluginInvocationBuildParameters, completion: @escaping (Result<PluginInvocationBuildResult, Error>) -> Void)
+
+    /// Called when a plugin requests a test operation through the PackagePlugin APIs.
+    func pluginRequestedTestOperation(subset: PluginInvocationTestSubset, parameters: PluginInvocationTestParameters, completion: @escaping (Result<PluginInvocationTestResult, Error>) -> Void)
+
     /// Called when a plugin requests that the host computes and returns symbol graph information for a particular target.
     func pluginRequestedSymbolGraph(forTarget name: String, options: PluginInvocationSymbolGraphOptions, completion: @escaping (Result<PluginInvocationSymbolGraphResult, Error>) -> Void)
 }
@@ -418,10 +424,111 @@ public struct PluginInvocationSymbolGraphResult: Encodable {
     }
 }
 
+public enum PluginInvocationBuildSubset: Decodable {
+    case all(includingTests: Bool)
+    case product(String)
+    case target(String)
+}
+
+public struct PluginInvocationBuildParameters: Decodable {
+    public var configuration: Configuration
+    public enum Configuration: Decodable {
+        case debug, release
+    }
+    public var logging: LogVerbosity
+    public enum LogVerbosity: Decodable {
+        case concise, verbose, debug
+    }
+    public var otherCFlags: [String]
+    public var otherCxxFlags: [String]
+    public var otherSwiftcFlags: [String]
+    public var otherLinkerFlags: [String]
+}
+
+public struct PluginInvocationBuildResult: Encodable {
+    public var succeeded: Bool
+    public var logText: String
+    public var builtArtifacts: [BuiltArtifact]
+    public struct BuiltArtifact: Encodable {
+        public var path: String
+        public var kind: Kind
+        public enum Kind: String, Encodable {
+            case executable, dynamicLibrary, staticLibrary
+        }
+        public init(path: String, kind: Kind) {
+            self.path = path
+            self.kind = kind
+        }
+    }
+    public init(succeeded: Bool, logText: String, builtArtifacts: [BuiltArtifact]) {
+        self.succeeded = succeeded
+        self.logText = logText
+        self.builtArtifacts = builtArtifacts
+    }
+}
+
+public enum PluginInvocationTestSubset: Decodable {
+    case all
+    case filtered([String])
+}
+
+public struct PluginInvocationTestParameters: Decodable {
+    public var enableCodeCoverage: Bool
+}
+
+public struct PluginInvocationTestResult: Encodable {
+    public var succeeded: Bool
+    public var testTargets: [TestTarget]
+    public var codeCoverageDataFile: String?
+
+    public struct TestTarget: Encodable {
+        public var name: String
+        public var testCases: [TestCase]
+        public struct TestCase: Encodable {
+            public var name: String
+            public var tests: [Test]
+            public struct Test: Encodable {
+                public var name: String
+                public var output: String
+                public var status: Status
+                public var duration: Double
+                public enum Status: String, CaseIterable, Encodable {
+                    case succeeded, skipped, failed
+                }
+                public init(name: String, output: String, status: Status, duration: Double) {
+                    self.name = name
+                    self.output = output
+                    self.status = status
+                    self.duration = duration
+                }
+            }
+            public init(name: String, tests: [Test]) {
+                self.name = name
+                self.tests = tests
+            }
+        }
+        public init(name: String, testCases: [TestCase]) {
+            self.name = name
+            self.testCases = testCases
+        }
+    }
+    public init(succeeded: Bool, testTargets: [TestTarget], codeCoverageDataFile: String?) {
+        self.succeeded = succeeded
+        self.testTargets = testTargets
+        self.codeCoverageDataFile = codeCoverageDataFile
+    }
+}
+
 public extension PluginInvocationDelegate {
     func pluginDefinedBuildCommand(displayName: String?, executable: AbsolutePath, arguments: [String], environment: [String : String], workingDirectory: AbsolutePath?, inputFiles: [AbsolutePath], outputFiles: [AbsolutePath]) {
     }
     func pluginDefinedPrebuildCommand(displayName: String?, executable: AbsolutePath, arguments: [String], environment: [String : String], workingDirectory: AbsolutePath?, outputFilesDirectory: AbsolutePath) {
+    }
+    func pluginRequestedBuildOperation(subset: PluginInvocationBuildSubset, parameters: PluginInvocationBuildParameters, completion: @escaping (Result<PluginInvocationBuildResult, Error>) -> Void) {
+        DispatchQueue.sharedConcurrent.async { completion(Result.failure(StringError("unimplemented"))) }
+    }
+    func pluginRequestedTestOperation(subset: PluginInvocationTestSubset, parameters: PluginInvocationTestParameters, completion: @escaping (Result<PluginInvocationTestResult, Error>) -> Void) {
+        DispatchQueue.sharedConcurrent.async { completion(Result.failure(StringError("unimplemented"))) }
     }
     func pluginRequestedSymbolGraph(forTarget name: String, options: PluginInvocationSymbolGraphOptions, completion: @escaping (Result<PluginInvocationSymbolGraphResult, Error>) -> Void) {
         DispatchQueue.sharedConcurrent.async { completion(Result.failure(StringError("unimplemented"))) }
