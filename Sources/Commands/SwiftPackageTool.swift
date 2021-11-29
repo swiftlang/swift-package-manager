@@ -921,9 +921,10 @@ extension SwiftPackageTool {
             let plugin = matchingPlugins[0]
             swiftTool.observabilityScope.emit(info: "Running plugin \(plugin)")
             
-            // Find the targets (if any) specified by the user.
+            // Find the targets (if any) specified by the user. We expect them in the root package.
+            let package = packageGraph.rootPackages[0]
             var targets: [String: ResolvedTarget] = [:]
-            for target in packageGraph.allTargets {
+            for target in package.targets {
                 if targetNames.contains(target.name) {
                     if targets[target.name] != nil {
                         swiftTool.observabilityScope.emit(error: "Ambiguous target name: ‘\(target.name)’")
@@ -942,8 +943,6 @@ extension SwiftPackageTool {
             // If the plugin requires additional permissions, we ask the user for approval.
             // TODO: Ask for approval here.
 
-            // Configure the plugin invocation inputs.
-
             // The `plugins` directory is inside the workspace's main data directory, and contains all temporary files related to all plugins in the workspace.
             let pluginsDir = try swiftTool.getActiveWorkspace().location.pluginWorkingDirectory
 
@@ -961,8 +960,6 @@ extension SwiftPackageTool {
 
             // Create the cache directory, if needed.
             try localFileSystem.createDirectory(cacheDir, recursive: true)
-            
-            // FIXME: Need to determine the correct root package.
             
             // Determine the tools to which this plugin has access, and create a name-to-path mapping from tool
             // names to the corresponding paths. Built tools are assumed to be in the build tools directory.
@@ -1050,7 +1047,7 @@ extension SwiftPackageTool {
             let buildEnvironment = try swiftTool.buildParameters().buildEnvironment
             let _ = try tsc_await { plugin.invoke(
                 action: .performCommand(targets: Array(targets.values), arguments: arguments),
-                package: packageGraph.rootPackages[0], // FIXME: This should be the package that contains all the targets (and we should make sure all are in one)
+                package: package,
                 buildEnvironment: buildEnvironment,
                 scriptRunner: pluginScriptRunner,
                 outputDirectory: outputDir,
