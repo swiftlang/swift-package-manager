@@ -974,8 +974,8 @@ extension SwiftPackageTool {
             })
             
             // Set up a delegate to handle callbacks from the command plugin.
+            let pluginDelegate = PluginDelegate(swiftTool: swiftTool, plugin: plugin, outputStream: swiftTool.outputStream)
             let delegateQueue = DispatchQueue(label: "plugin-invocation")
-            let pluginDelegate = PluginDelegate(swiftTool: swiftTool, plugin: plugin, outputStream: swiftTool.outputStream, delegateQueue: delegateQueue)
 
             // Run the command plugin.
             let buildEnvironment = try swiftTool.buildParameters().buildEnvironment
@@ -1001,19 +1001,16 @@ final class PluginDelegate: PluginInvocationDelegate {
     let swiftTool: SwiftTool
     let plugin: PluginTarget
     let outputStream: OutputByteStream
-    let delegateQueue: DispatchQueue
     var lineBufferedOutput: Data
     
-    init(swiftTool: SwiftTool, plugin: PluginTarget, outputStream: OutputByteStream, delegateQueue: DispatchQueue) {
+    init(swiftTool: SwiftTool, plugin: PluginTarget, outputStream: OutputByteStream) {
         self.swiftTool = swiftTool
         self.plugin = plugin
-        self.delegateQueue = delegateQueue
         self.outputStream = outputStream
         self.lineBufferedOutput = Data()
     }
 
     func pluginEmittedOutput(_ data: Data) {
-        dispatchPrecondition(condition: .onQueue(delegateQueue))
         lineBufferedOutput += data
         var needsFlush = false
         while let newlineIdx = lineBufferedOutput.firstIndex(of: UInt8(ascii: "\n")) {
@@ -1028,13 +1025,11 @@ final class PluginDelegate: PluginInvocationDelegate {
     }
     
     func pluginEmittedDiagnostic(_ diagnostic: Basics.Diagnostic) {
-        dispatchPrecondition(condition: .onQueue(delegateQueue))
         swiftTool.observabilityScope.emit(diagnostic)
     }
     
     func pluginRequestedBuildOperation(subset: PluginInvocationBuildSubset, parameters: PluginInvocationBuildParameters, completion: @escaping (Result<PluginInvocationBuildResult, Error>) -> Void) {
         // Run the build in the background and call the completion handler when done.
-        dispatchPrecondition(condition: .onQueue(delegateQueue))
         DispatchQueue.sharedConcurrent.async {
             completion(Result {
                 return try self.doBuild(subset: subset, parameters: parameters)
@@ -1110,7 +1105,6 @@ final class PluginDelegate: PluginInvocationDelegate {
 
     func pluginRequestedTestOperation(subset: PluginInvocationTestSubset, parameters: PluginInvocationTestParameters, completion: @escaping (Result<PluginInvocationTestResult, Error>) -> Void) {
         // Run the test in the background and call the completion handler when done.
-        dispatchPrecondition(condition: .onQueue(delegateQueue))
         DispatchQueue.sharedConcurrent.async {
             completion(Result {
                 return try self.doTest(subset: subset, parameters: parameters)
@@ -1125,7 +1119,6 @@ final class PluginDelegate: PluginInvocationDelegate {
 
     func pluginRequestedSymbolGraph(forTarget targetName: String, options: PluginInvocationSymbolGraphOptions, completion: @escaping (Result<PluginInvocationSymbolGraphResult, Error>) -> Void) {
         // Extract the symbol graph in the background and call the completion handler when done.
-        dispatchPrecondition(condition: .onQueue(delegateQueue))
         DispatchQueue.sharedConcurrent.async {
             completion(Result {
                 return try self.createSymbolGraph(forTarget: targetName, options: options)
