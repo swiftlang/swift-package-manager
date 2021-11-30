@@ -264,7 +264,8 @@ class RepositoryManagerTests: XCTestCase {
 
             delegate.willFetchGroup?.enter()
             delegate.didFetchGroup?.enter()
-            manager.lookup(repository: dummyRepo, on: .global()) { result in
+            let delegateQueue = DispatchQueue(label: "delegateQueue")
+            manager.lookup(repository: dummyRepo, on: delegateQueue) { result in
                 guard case .success(let handle) = result else {
                     XCTFail("Could not get handle")
                     return
@@ -286,7 +287,7 @@ class RepositoryManagerTests: XCTestCase {
                 lookupExpectation.fulfill()
             }
 
-            waitForExpectations(timeout: 1)
+            wait(for: [lookupExpectation], timeout: 100)
 
             XCTAssertEqual(Set(delegate.willFetch.map { $0.repository }), [dummyRepo])
             XCTAssertEqual(Set(delegate.didFetch.map { $0.repository }), [dummyRepo])
@@ -297,7 +298,7 @@ class RepositoryManagerTests: XCTestCase {
 
             delegate.willFetchGroup?.enter()
             delegate.didFetchGroup?.enter()
-            manager.lookup(repository: badDummyRepo, on: .global()) { result in
+            manager.lookup(repository: badDummyRepo, on: delegateQueue) { result in
                 guard case .failure(let error) = result else {
                     XCTFail("Unexpected success")
                     return
@@ -306,7 +307,7 @@ class RepositoryManagerTests: XCTestCase {
                 badLookupExpectation.fulfill()
             }
 
-            waitForExpectations(timeout: 1)
+            wait(for: [badLookupExpectation], timeout: 100)
 
             XCTAssertEqual(Set(delegate.willFetch.map { $0.repository }), [dummyRepo, badDummyRepo])
             XCTAssertEqual(Set(delegate.didFetch.map { $0.repository }), [dummyRepo, badDummyRepo])
@@ -320,7 +321,7 @@ class RepositoryManagerTests: XCTestCase {
                 delegate.didFetchGroup?.enter()
                 delegate.willUpdateGroup?.enter()
                 delegate.didUpdateGroup?.enter()
-                try XCTAssert($0 === manager.lookup(repository: dummyRepo))
+                try XCTAssert($0 == manager.lookup(repository: dummyRepo))
             }
             // Since we looked up this repo again, we should have made a fetch call.
             XCTAssertEqual(provider.numFetches, 1)
@@ -337,9 +338,10 @@ class RepositoryManagerTests: XCTestCase {
                 XCTAssertEqual(jsonData.dictionary?["object"]?.dictionary?["repositories"]?.dictionary?[dummyRepo.location.description], nil)
             }
 
+            // Handles are now structs, not references.
             // We should get a new handle now because we deleted the existing repository.
-            XCTNonNil(prevHandle) {
-                try XCTAssert($0 !== manager.lookup(repository: dummyRepo))
+            XCTNonNil(prevHandle) { _ in
+                try manager.lookup(repository: dummyRepo)
             }
 
             // We should have tried fetching these two.
