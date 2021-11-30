@@ -82,7 +82,7 @@ extension Plugin {
         }
         
         // Turn off full buffering so printed text appears as soon as possible.
-        setlinebuf(stdout)
+        setvbuf(stdout, nil, _IOLBF, 0)
         
         // Open a message channel for communicating with the plugin host.
         pluginHostConnection = PluginHostConnection(
