@@ -64,7 +64,7 @@ let package = Package(
     name: "SwiftPM",
     platforms: [
         .macOS("10.15.4"),
-        .iOS(.v13)
+        .iOS("13.4")
     ],
     products:
         autoProducts.flatMap {
