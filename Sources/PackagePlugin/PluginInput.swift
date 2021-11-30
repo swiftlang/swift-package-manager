@@ -20,11 +20,15 @@ struct PluginInput {
     let pluginAction: PluginAction
     enum PluginAction {
         case createBuildToolCommands(target: Target)
-        case performCommand(targets: [Target], arguments: [String])
     }
     
-    internal init(from input: WireInput) throws {
-        // Create a deserializer to unpack the input structures.
+    internal init(from data: Data) throws {
+        // Decode the input JSON, which is expected to be the serialized form
+        // of a `WireInput` structure.
+        let decoder = JSONDecoder()
+        let input = try decoder.decode(WireInput.self, from: data)
+        
+        // Create a deserializer to unpack the decoded input structures.
         var deserializer = PluginInputDeserializer(with: input)
         
         // Unpack the individual pieces from which we'll create the plugin context.
@@ -37,8 +41,6 @@ struct PluginInput {
         switch input.pluginAction {
         case .createBuildToolCommands(let targetId):
             self.pluginAction = .createBuildToolCommands(target: try deserializer.target(for: targetId))
-        case .performCommand(let targetIds, let arguments):
-            self.pluginAction = .performCommand(targets: try targetIds.map{ try deserializer.target(for: $0) }, arguments: arguments)
         }
     }
 }
@@ -280,7 +282,7 @@ fileprivate struct PluginInputDeserializer {
 /// of flat structures for each kind of entity. All references to entities use
 /// ID numbers that correspond to the indices into these arrays. The directed
 /// acyclic graph is then deserialized from this structure.
-internal struct WireInput: Decodable {
+fileprivate struct WireInput: Decodable {
     let paths: [Path]
     let targets: [Target]
     let products: [Product]
@@ -295,7 +297,6 @@ internal struct WireInput: Decodable {
     /// the capabilities declared for the plugin.
     enum PluginAction: Decodable {
         case createBuildToolCommands(targetId: Target.Id)
-        case performCommand(targetIds: [Target.Id], arguments: [String])
     }
 
     /// A single absolute path in the wire structure, represented as a tuple

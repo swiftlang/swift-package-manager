@@ -76,11 +76,6 @@ extension Workspace {
         public var sharedRegistriesConfigurationFile: AbsolutePath? {
             self.sharedConfigurationDirectory.map { DefaultLocations.registriesConfigurationFile(at: $0) }
         }
-        
-        // Path to temporary files related to running plugins in the workspace
-        public var pluginWorkingDirectory: AbsolutePath {
-            self.workingDirectory.appending(component: "plugins")
-        }
 
         /// Create a new workspace location.
         ///

@@ -8,16 +8,9 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import Basics
-import PackageGraph
-import PackageLoading
-import PackageModel
-@testable import SPMBuildCore
+import XCTest
 import SPMTestSupport
 import TSCBasic
-import TSCUtility
-import Workspace
-import XCTest
 
 class PluginTests: XCTestCase {
     
@@ -184,135 +177,5 @@ class PluginTests: XCTestCase {
             }
         }
         #endif
-    }
-    
-    func testCommandPluginInvocation() throws {
-        try testWithTemporaryDirectory { tmpPath in
-            // Create a sample package with a library target and a plugin.
-            let packageDir = tmpPath.appending(components: "MyPackage")
-            try localFileSystem.writeFileContents(packageDir.appending(component: "Package.swift")) {
-                $0 <<< """
-                // swift-tools-version: 999.0
-                import PackageDescription
-                let package = Package(
-                    name: "MyPackage",
-                    targets: [
-                        .target(
-                            name: "MyLibrary",
-                            plugins: [
-                                "MyPlugin",
-                            ]
-                        ),
-                        .plugin(
-                            name: "MyPlugin",
-                            capability: .command(
-                                intent: .custom(verb: "mycmd", description: "What is mycmd anyway?"),
-                                permissions: [.writeToPackageDirectory(reason: "YOLO")]
-                            )
-                        ),
-                    ]
-                )
-                """
-            }
-            try localFileSystem.writeFileContents(packageDir.appending(components: "Sources", "MyLibrary", "library.swift")) {
-                $0 <<< """
-                    public func Foo() { }
-                """
-            }
-            try localFileSystem.writeFileContents(packageDir.appending(components: "Plugins", "MyPlugin", "plugin.swift")) {
-                $0 <<< """
-                    import PackagePlugin
-                    
-                    @main
-                    struct MyCommandPlugin: CommandPlugin {
-                        func performCommand(
-                            context: PluginContext,
-                            targets: [Target],
-                            arguments: [String]
-                        ) throws {
-                            print("This is MyCommandPlugin.")
-                        }
-                    }
-                """
-            }
-
-            // Load a workspace from the package.
-            let observability = ObservabilitySystem.makeForTesting()
-            let workspace = try Workspace(
-                fileSystem: localFileSystem,
-                location: .init(forRootPackage: packageDir, fileSystem: localFileSystem),
-                customManifestLoader: ManifestLoader(toolchain: ToolchainConfiguration.default),
-                delegate: MockWorkspaceDelegate()
-            )
-            
-            // Load the root manifest.
-            let rootInput = PackageGraphRootInput(packages: [packageDir], dependencies: [])
-            let rootManifests = try tsc_await {
-                workspace.loadRootManifests(
-                    packages: rootInput.packages,
-                    observabilityScope: observability.topScope,
-                    completion: $0
-                )
-            }
-            XCTAssert(rootManifests.count == 1, "\(rootManifests)")
-
-            // Load the package graph.
-            let packageGraph = try workspace.loadPackageGraph(rootInput: rootInput, observabilityScope: observability.topScope)
-            XCTAssert(observability.diagnostics.isEmpty, "\(observability.diagnostics)")
-            XCTAssert(packageGraph.packages.count == 1, "\(packageGraph.packages)")
-            let package = try XCTUnwrap(packageGraph.packages.first)
-            
-            // Find the regular target in our test package.
-            let libraryTarget = try XCTUnwrap(package.targets.map(\.underlyingTarget).first{ $0.name == "MyLibrary" } as? SwiftTarget)
-            XCTAssertEqual(libraryTarget.type, .library)
-            
-            // Find the command plugin in our test package.
-            let pluginTarget = try XCTUnwrap(package.targets.map(\.underlyingTarget).first{ $0.name == "MyPlugin" } as? PluginTarget)
-            XCTAssertEqual(pluginTarget.type, .plugin)
-            
-            // Set up a delegate to handle callbacks from the command plugin.
-            let delegateQueue = DispatchQueue(label: "plugin-invocation")
-            class PluginDelegate: PluginInvocationDelegate {
-                let delegateQueue: DispatchQueue
-                var outputData = Data()
-
-                init(delegateQueue: DispatchQueue) {
-                    self.delegateQueue = delegateQueue
-                }
-                
-                func pluginEmittedOutput(_ data: Data) {
-                    dispatchPrecondition(condition: .onQueue(delegateQueue))
-                    outputData.append(contentsOf: data)
-                }
-                
-                func pluginEmittedDiagnostic(_ diagnostic: Basics.Diagnostic) {
-                }
-            }
-            let pluginDelegate = PluginDelegate(delegateQueue: delegateQueue)
-
-            // Invoke the command plugin.
-            let pluginCacheDir = tmpPath.appending(component: "plugin-cache")
-            let pluginOutputDir = tmpPath.appending(component: "plugin-output")
-            let pluginScriptRunner = DefaultPluginScriptRunner(cacheDir: pluginCacheDir, toolchain: ToolchainConfiguration.default)
-            let target = try XCTUnwrap(package.targets.first{ $0.underlyingTarget == libraryTarget })
-            let _ = try tsc_await { pluginTarget.invoke(
-                action: .performCommand(
-                    targets: [ target ],
-                    arguments: ["veni", "vidi", "vici"]),
-                package: package,
-                buildEnvironment: BuildEnvironment(platform: .macOS, configuration: .debug),
-                scriptRunner: pluginScriptRunner,
-                outputDirectory: pluginOutputDir,
-                toolNamesToPaths: [:],
-                fileSystem: localFileSystem,
-                observabilityScope: observability.topScope,
-                callbackQueue: delegateQueue,
-                delegate: pluginDelegate,
-                completion: $0) }
-            
-            // Check the results.
-            let outputText = String(decoding: pluginDelegate.outputData, as: UTF8.self)
-            XCTAssertTrue(outputText.trimmingCharacters(in: .whitespacesAndNewlines).hasSuffix("This is MyCommandPlugin."))
-        }
     }
 }

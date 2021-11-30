@@ -607,12 +607,11 @@ extension LLBuildManifestBuilder {
         // Add any regular build commands created by plugins for the target (prebuild commands are handled separately).
         for command in target.pluginInvocationResults.reduce([], { $0 + $1.buildCommands }) {
             // Create a shell command to invoke the executable. We include the path of the executable as a dependency, and make sure the name is unique.
-            let execPath = command.configuration.executable
+            let execPath = AbsolutePath(command.configuration.executable, relativeTo: buildParameters.buildPath)
             let uniquedName = ([execPath.pathString] + command.configuration.arguments).joined(separator: "|")
-            let displayName = command.configuration.displayName ?? execPath.basename
             manifest.addShellCmd(
-                name: displayName + "-" + ByteString(encodingAsUTF8: uniquedName).sha256Checksum,
-                description: displayName,
+                name: command.configuration.displayName + "-" + ByteString(encodingAsUTF8: uniquedName).sha256Checksum,
+                description: command.configuration.displayName,
                 inputs: [.file(execPath)] + command.inputFiles.map{ .file($0) },
                 outputs: command.outputFiles.map{ .file($0) },
                 arguments: [execPath.pathString] + command.configuration.arguments,

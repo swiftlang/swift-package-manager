@@ -224,11 +224,11 @@ extension SystemPackageProvider: Encodable {
 
 extension Target.PluginCapability: Encodable {
     private enum CodingKeys: CodingKey {
-        case type, intent, permissions
+        case type
     }
 
     private enum Capability: String, Encodable {
-        case buildTool, command
+        case buildTool
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -236,53 +236,6 @@ extension Target.PluginCapability: Encodable {
         switch self {
         case ._buildTool:
             try container.encode(Capability.buildTool, forKey: .type)
-        case ._command(let intent, let permissions):
-            try container.encode(Capability.command, forKey: .type)
-            try container.encode(intent, forKey: .intent)
-            try container.encode(permissions, forKey: .permissions)
-        }
-    }
-}
-
-extension PluginCommandIntent: Encodable {
-    private enum CodingKeys: CodingKey {
-        case type, verb, description
-    }
-
-    private enum IntentType: String, Encodable {
-        case documentationGeneration, sourceCodeFormatting, custom
-    }
-
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        switch self {
-        case .documentationGeneration:
-            try container.encode(IntentType.documentationGeneration, forKey: .type)
-        case .sourceCodeFormatting:
-            try container.encode(IntentType.sourceCodeFormatting, forKey: .type)
-        case .custom(let verb, let description):
-            try container.encode(IntentType.custom, forKey: .type)
-            try container.encode(verb, forKey: .verb)
-            try container.encode(description, forKey: .description)
-        }
-    }
-}
-
-extension PluginPermission: Encodable {
-    private enum CodingKeys: CodingKey {
-        case type, reason
-    }
-
-    private enum PermissionType: String, Encodable {
-        case writeToPackageDirectory
-    }
-
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        switch self {
-        case .writeToPackageDirectory(let reason):
-            try container.encode(PermissionType.writeToPackageDirectory, forKey: .type)
-            try container.encode(reason, forKey: .reason)
         }
     }
 }
