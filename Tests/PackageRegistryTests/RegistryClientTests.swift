@@ -17,7 +17,7 @@ import SPMTestSupport
 import TSCBasic
 import XCTest
 
-final class RegistryManagerTests: XCTestCase {
+final class RegistryClientTests: XCTestCase {
     func testFetchVersions() throws {
         let registryURL = "https://packages.example.com"
         let identity = PackageIdentity.plain("mona.LinkedList")
@@ -539,8 +539,8 @@ final class RegistryManagerTests: XCTestCase {
 
 // MARK - Sugar
 
-extension RegistryClient {
-    public func fetchVersions(package: PackageIdentity) throws -> [Version] {
+private extension RegistryClient {
+    func fetchVersions(package: PackageIdentity) throws -> [Version] {
         return try tsc_await {
             self.fetchVersions(
                 package: package,
@@ -551,7 +551,7 @@ extension RegistryClient {
         }
     }
 
-    public func getAvailableManifests(
+    func getAvailableManifests(
         package: PackageIdentity,
         version: Version
     ) throws -> [String : ToolsVersion] {
@@ -566,7 +566,7 @@ extension RegistryClient {
         }
     }
 
-    public func getManifestContent(
+    func getManifestContent(
         package: PackageIdentity,
         version: Version,
         customToolsVersion: ToolsVersion?
@@ -583,7 +583,7 @@ extension RegistryClient {
         }
     }
 
-    public func fetchSourceArchiveChecksum(package: PackageIdentity, version: Version) throws -> String {
+    func fetchSourceArchiveChecksum(package: PackageIdentity, version: Version) throws -> String {
         return try tsc_await {
             self.fetchSourceArchiveChecksum(
                 package: package,
@@ -595,7 +595,7 @@ extension RegistryClient {
         }
     }
 
-    public func downloadSourceArchive(
+    func downloadSourceArchive(
         package: PackageIdentity,
         version: Version,
         fileSystem: FileSystem,
@@ -619,7 +619,7 @@ extension RegistryClient {
         }
     }
 
-    public func lookupIdentities(url: Foundation.URL) throws -> Set<PackageIdentity> {
+    func lookupIdentities(url: Foundation.URL) throws -> Set<PackageIdentity> {
         return try tsc_await {
             self.lookupIdentities(
                 url: url,

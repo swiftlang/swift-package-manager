@@ -258,6 +258,15 @@ let package = Package(
             ],
             exclude: ["CMakeLists.txt"]
         ),
+        
+        .target(
+            name: "PackageFingerprint",
+            dependencies: [
+                "Basics",
+                "PackageModel",
+            ],
+            exclude: ["CMakeLists.txt"]
+        ),
 
         // MARK: Package Manager Functionality
 
@@ -483,6 +492,10 @@ let package = Package(
         .testTarget(
             name: "PackageCollectionsTests",
             dependencies: ["PackageCollections", "SPMTestSupport"]
+        ),
+        .testTarget(
+            name: "PackageFingerprintTests",
+            dependencies: ["PackageFingerprint", "SPMTestSupport"]
         ),
         .testTarget(
             name: "PackageRegistryTests",
