@@ -217,6 +217,36 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         }
     }
 
+    @available(macOS 12.0, *)
+    public func load(
+        at path: AbsolutePath,
+        packageIdentity: PackageIdentity,
+        packageKind: PackageReference.Kind,
+        packageLocation: String,
+        version: Version?,
+        revision: String?,
+        toolsVersion: ToolsVersion,
+        identityResolver: IdentityResolver,
+        fileSystem: FileSystem,
+        observabilityScope: ObservabilityScope,
+        on queue: DispatchQueue
+    ) async throws -> Manifest {
+        let manifestPath = try Manifest.path(atPackagePath: path, fileSystem: fileSystem)
+        return try await self.loadFile(
+            at: manifestPath,
+            packageIdentity: packageIdentity,
+            packageKind: packageKind,
+            packageLocation: packageLocation,
+            version: version,
+            revision: revision,
+            toolsVersion: toolsVersion,
+            identityResolver: identityResolver,
+            fileSystem: fileSystem,
+            observabilityScope: observabilityScope,
+            on: queue
+        )
+    }
+
     private func loadFile(
         at path: AbsolutePath,
         packageIdentity: PackageIdentity,
@@ -315,6 +345,89 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                 }
             }
         }
+    }
+
+    @available(macOS 12.0, *)
+    private func loadFile(
+        at path: AbsolutePath,
+        packageIdentity: PackageIdentity,
+        packageKind: PackageReference.Kind,
+        packageLocation: String,
+        version: Version?,
+        revision: String?,
+        toolsVersion: ToolsVersion,
+        identityResolver: IdentityResolver,
+        fileSystem: FileSystem,
+        observabilityScope: ObservabilityScope,
+        on queue: DispatchQueue
+    ) async throws -> Manifest {
+        // Inform the delegate.
+        queue.async {
+            self.delegate?.willLoad(manifest: path)
+        }
+
+        // Validate that the file exists.
+        guard fileSystem.isFile(path) else {
+            throw PackageModel.Package.Error.noManifest(at: path, version: version?.description)
+        }
+
+        let parsedManifest = try await self.parseAndCacheManifest(
+            at: path,
+            packageIdentity: packageIdentity,
+            packageKind: packageKind,
+            toolsVersion: toolsVersion,
+            identityResolver: identityResolver,
+            delegateQueue: queue,
+            fileSystem: fileSystem,
+            observabilityScope: observabilityScope
+        )
+
+        // Convert legacy system packages to the current target‐based model.
+        var products = parsedManifest.products
+        var targets = parsedManifest.targets
+        if products.isEmpty, targets.isEmpty,
+           fileSystem.isFile(path.parentDirectory.appending(component: moduleMapFilename)) {
+            products.append(ProductDescription(
+                name: parsedManifest.name,
+                type: .library(.automatic),
+                targets: [parsedManifest.name])
+            )
+            targets.append(try TargetDescription(
+                name: parsedManifest.name,
+                path: "",
+                type: .system,
+                pkgConfig: parsedManifest.pkgConfig,
+                providers: parsedManifest.providers
+            ))
+        }
+        
+        let manifest = Manifest(
+            displayName: parsedManifest.name,
+            path: path,
+            packageKind: packageKind,
+            packageLocation: packageLocation,
+            defaultLocalization: parsedManifest.defaultLocalization,
+            platforms: parsedManifest.platforms,
+            version: version,
+            revision: revision,
+            toolsVersion: toolsVersion,
+            pkgConfig: parsedManifest.pkgConfig,
+            providers: parsedManifest.providers,
+            cLanguageStandard: parsedManifest.cLanguageStandard,
+            cxxLanguageStandard: parsedManifest.cxxLanguageStandard,
+            swiftLanguageVersions: parsedManifest.swiftLanguageVersions,
+            dependencies: parsedManifest.dependencies,
+            products: products,
+            targets: targets
+        )
+        
+        try self.validate(manifest, toolsVersion: toolsVersion, observabilityScope: observabilityScope)
+        
+        if observabilityScope.errorsReported {
+            throw Diagnostics.fatalError
+        }
+        
+        return manifest
     }
 
     /// Validate the provided manifest.
@@ -623,6 +736,89 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         }
     }
 
+    @available(macOS 12.0, *)
+    private func parseAndCacheManifest(
+        at path: AbsolutePath,
+        packageIdentity: PackageIdentity,
+        packageKind: PackageReference.Kind,
+        toolsVersion: ToolsVersion,
+        identityResolver: IdentityResolver,
+        delegateQueue: DispatchQueue,
+        fileSystem: FileSystem,
+        observabilityScope: ObservabilityScope
+    ) async throws -> ManifestJSONParser.Result {
+        let cache = self.databaseCacheDir.map { cacheDir -> SQLiteBackedCache<EvaluationResult> in
+            let path = Self.manifestCacheDBPath(cacheDir)
+            var configuration = SQLiteBackedCacheConfiguration()
+            // FIXME: expose as user-facing configuration
+            configuration.maxSizeInMegabytes = 100
+            configuration.truncateWhenFull = true
+            return SQLiteBackedCache<EvaluationResult>(
+                tableName: "MANIFEST_CACHE",
+                location: .path(path),
+                configuration: configuration
+            )
+        }
+
+        // TODO: we could wrap the failure here with diagnostics if it wasn't optional throughout
+        defer { try? cache?.close() }
+
+        let key = try CacheKey(
+            packageIdentity: packageIdentity,
+            manifestPath: path,
+            toolsVersion: toolsVersion,
+            env: ProcessEnv.vars,
+            swiftpmVersion: SwiftVersion.currentVersion.displayString,
+            fileSystem: fileSystem
+        )
+
+        do {
+            // try to get it from the cache
+            if let result = try cache?.get(key: key.sha256Checksum), let manifestJSON = result.manifestJSON, !manifestJSON.isEmpty {
+                return try self.parseManifest(
+                    result,
+                    packageIdentity: packageIdentity,
+                    packageKind: packageKind,
+                    toolsVersion: toolsVersion,
+                    identityResolver: identityResolver,
+                    fileSystem: fileSystem,
+                    observabilityScope: observabilityScope
+                )
+            }
+        } catch {
+            observabilityScope.emit(warning: "failed loading cached manifest for '\(key.packageIdentity)': \(error)")
+        }
+
+        // shells out and compiles the manifest, finally output a JSON
+        let evaluationResult = try await self.evaluateManifest(
+            packageIdentity: key.packageIdentity,
+            manifestPath: key.manifestPath,
+            manifestContents: key.manifestContents,
+            toolsVersion: key.toolsVersion,
+            delegateQueue: delegateQueue
+        )
+        
+        // only cache successfully parsed manifests
+        let parsedManifest = try self.parseManifest(
+            evaluationResult,
+            packageIdentity: packageIdentity,
+            packageKind: packageKind,
+            toolsVersion: toolsVersion,
+            identityResolver: identityResolver,
+            fileSystem: fileSystem,
+            observabilityScope: observabilityScope
+        )
+
+        do {
+            // FIXME: (diagnostics) pass in observability scope when we have one
+            try cache?.put(key: key.sha256Checksum, value: evaluationResult)
+        } catch {
+            observabilityScope.emit(warning: "failed storing manifest for '\(key.packageIdentity)' in cache: \(error)")
+        }
+        
+        return parsedManifest
+    }
+
     internal struct CacheKey: Hashable {
         let packageIdentity: PackageIdentity
         let manifestPath: AbsolutePath
@@ -702,7 +898,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         }
     }
 
-    /// Compiler the manifest at the given path and retrieve the JSON.
+    /// Compile the manifest at the given path and retrieve the JSON.
     fileprivate func evaluateManifest(
         packageIdentity: PackageIdentity,
         manifestPath: AbsolutePath,
@@ -736,6 +932,34 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             }
         } catch {
             completion(.failure(error))
+        }
+    }
+
+    @available(macOS 12.0, *)
+    fileprivate func evaluateManifest(
+        packageIdentity: PackageIdentity,
+        manifestPath: AbsolutePath,
+        manifestContents: [UInt8],
+        toolsVersion: ToolsVersion,
+        delegateQueue: DispatchQueue
+    ) async throws -> EvaluationResult {
+        if localFileSystem.isFile(manifestPath) {
+            return try await self.evaluateManifest(
+                at: manifestPath,
+                packageIdentity: packageIdentity,
+                toolsVersion: toolsVersion,
+                delegateQueue:  delegateQueue
+            )
+        } else {
+            return try await withTemporaryFile(suffix: ".swift") { tempFile in
+                try localFileSystem.writeFileContents(tempFile.path, bytes: ByteString(manifestContents))
+                return try await self.evaluateManifest(
+                    at: tempFile.path,
+                    packageIdentity: packageIdentity,
+                    toolsVersion: toolsVersion,
+                    delegateQueue: delegateQueue
+                )
+            }
         }
     }
 
@@ -946,6 +1170,181 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         } catch {
             return completion(.failure(error))
         }
+    }
+
+    @available(macOS 12.0, *)
+    func evaluateManifest(
+        at manifestPath: AbsolutePath,
+        packageIdentity: PackageIdentity,
+        toolsVersion: ToolsVersion,
+        delegateQueue: DispatchQueue
+    ) async throws -> EvaluationResult {
+        var evaluationResult = EvaluationResult()
+
+        delegateQueue.async {
+            self.delegate?.willParse(manifest: manifestPath)
+        }
+
+        // The compiler has special meaning for files with extensions like .ll, .bc etc.
+        // Assert that we only try to load files with extension .swift to avoid unexpected loading behavior.
+        assert(manifestPath.extension == "swift",
+               "Manifest files must contain .swift suffix in their name, given: \(manifestPath).")
+
+        // For now, we load the manifest by having Swift interpret it directly.
+        // Eventually, we should have two loading processes, one that loads only
+        // the declarative package specification using the Swift compiler directly
+        // and validates it.
+
+        // Compute the path to runtime we need to load.
+        let runtimePath = self.runtimePath(for: toolsVersion)
+
+        // FIXME: Workaround for the module cache bug that's been haunting Swift CI
+        // <rdar://problem/48443680>
+        let moduleCachePath = (ProcessEnv.vars["SWIFTPM_MODULECACHE_OVERRIDE"] ?? ProcessEnv.vars["SWIFTPM_TESTS_MODULECACHE"]).flatMap{ AbsolutePath.init($0) }
+
+        var cmd: [String] = []
+        cmd += [self.toolchain.swiftCompilerPath.pathString]
+        cmd += verbosity.ccArgs
+
+        let macOSPackageDescriptionPath: AbsolutePath
+        // if runtimePath is set to "PackageFrameworks" that means we could be developing SwiftPM in Xcode
+        // which produces a framework for dynamic package products.
+        if runtimePath.extension == "framework" {
+            cmd += [
+                "-F", runtimePath.parentDirectory.pathString,
+                "-framework", "PackageDescription",
+                "-Xlinker", "-rpath", "-Xlinker", runtimePath.parentDirectory.pathString,
+            ]
+
+            macOSPackageDescriptionPath = runtimePath.appending(component: "PackageDescription")
+        } else {
+            cmd += [
+                "-L", runtimePath.pathString,
+                "-lPackageDescription",
+            ]
+#if !os(Windows)
+            // -rpath argument is not supported on Windows,
+            // so we add runtimePath to PATH when executing the manifest instead
+            cmd += ["-Xlinker", "-rpath", "-Xlinker", runtimePath.pathString]
+#endif
+
+            // note: this is not correct for all platforms, but we only actually use it on macOS.
+            macOSPackageDescriptionPath = runtimePath.appending(component: "libPackageDescription.dylib")
+        }
+
+        // Use the same minimum deployment target as the PackageDescription library (with a fallback of 10.15).
+#if os(macOS)
+        let triple = Self._hostTriple.memoize {
+            Triple.getHostTriple(usingSwiftCompiler: self.toolchain.swiftCompilerPath)
+        }
+
+        let version = try Self._packageDescriptionMinimumDeploymentTarget.memoize {
+            (try MinimumDeploymentTarget.computeMinimumDeploymentTarget(of: macOSPackageDescriptionPath, platform: .macOS))?.versionString ?? "10.15"
+        }
+        cmd += ["-target", "\(triple.tripleString(forPlatformVersion: version))"]
+#endif
+
+        // Add any extra flags required as indicated by the ManifestLoader.
+        cmd += self.toolchain.swiftCompilerFlags
+
+        cmd += self.interpreterFlags(for: toolsVersion)
+        if let moduleCachePath = moduleCachePath {
+            cmd += ["-module-cache-path", moduleCachePath.pathString]
+        }
+
+        // Add the arguments for emitting serialized diagnostics, if requested.
+        if self.serializedDiagnostics, let databaseCacheDir = self.databaseCacheDir {
+            let diaDir = databaseCacheDir.appending(component: "ManifestLoading")
+            let diagnosticFile = diaDir.appending(component: "\(packageIdentity).dia")
+            try localFileSystem.createDirectory(diaDir, recursive: true)
+            cmd += ["-Xfrontend", "-serialize-diagnostics-path", "-Xfrontend", diagnosticFile.pathString]
+            evaluationResult.diagnosticFile = diagnosticFile
+        }
+
+        cmd += [manifestPath.pathString]
+
+        cmd += self.extraManifestFlags
+
+        try await withTemporaryDirectory { tmpDir in
+            // Set path to compiled manifest executable.
+#if os(Windows)
+            let executableSuffix = ".exe"
+#else
+            let executableSuffix = ""
+#endif
+            let compiledManifestFile = tmpDir.appending(component: "\(packageIdentity)-manifest\(executableSuffix)")
+            cmd += ["-o", compiledManifestFile.pathString]
+
+            // Compile the manifest.
+            let compilerResult = try await Process.popen(arguments: cmd, environment: toolchain.swiftCompilerEnvironment)
+
+            evaluationResult.compilerOutput = try (compilerResult.utf8Output() + compilerResult.utf8stderrOutput()).spm_chuzzle()
+
+            // Return now if there was an error.
+            if compilerResult.exitStatus != .terminated(code: 0) {
+                return
+            }
+
+            // Pass an open file descriptor of a file to which the JSON representation of the manifest will be written.
+            let jsonOutputFile = tmpDir.appending(component: "\(packageIdentity)-output.json")
+            guard let jsonOutputFileDesc = fopen(jsonOutputFile.pathString, "w") else {
+                throw StringError("couldn't create the manifest's JSON output file")
+            }
+
+            cmd = [compiledManifestFile.pathString]
+#if os(Windows)
+            // NOTE: `_get_osfhandle` returns a non-owning, unsafe,
+            // unretained HANDLE.  DO NOT invoke `CloseHandle` on `hFile`.
+            let hFile: Int = _get_osfhandle(_fileno(jsonOutputFileDesc))
+            cmd += ["-handle", "\(String(hFile, radix: 16))"]
+#else
+            cmd += ["-fileno", "\(fileno(jsonOutputFileDesc))"]
+#endif
+
+            let packageDirectory = manifestPath.parentDirectory.pathString
+            let contextModel = ContextModel(packageDirectory: packageDirectory)
+            cmd += ["-context", try contextModel.encode()]
+
+            // If enabled, run command in a sandbox.
+            // This provides some safety against arbitrary code execution when parsing manifest files.
+            // We only allow the permissions which are absolutely necessary.
+            if self.isManifestSandboxEnabled {
+                let cacheDirectories = [self.databaseCacheDir, moduleCachePath].compactMap{ $0 }
+                let strictness: Sandbox.Strictness = toolsVersion < .v5_3 ? .manifest_pre_53 : .default
+                cmd = Sandbox.apply(command: cmd, writableDirectories: cacheDirectories, strictness: strictness)
+            }
+
+            // Run the compiled manifest.
+            var environment = ProcessEnv.vars
+#if os(Windows)
+            let windowsPathComponent = runtimePath.pathString.replacingOccurrences(of: "/", with: "\\")
+            environment["Path"] = "\(windowsPathComponent);\(environment["Path"] ?? "")"
+#endif
+
+            let runResult = try await Process.popen(arguments: cmd, environment: environment)
+            fclose(jsonOutputFileDesc)
+
+            if let runOutput = try (runResult.utf8Output() + runResult.utf8stderrOutput()).spm_chuzzle() {
+                // Append the runtime output to any compiler output we've received.
+                evaluationResult.compilerOutput = (evaluationResult.compilerOutput ?? "") + runOutput
+            }
+
+            // Return now if there was an error.
+            if runResult.exitStatus != .terminated(code: 0) {
+                // TODO: should this simply be an error?
+                // return completion(.failure(ProcessResult.Error.nonZeroExit(runResult)))
+                evaluationResult.errorOutput = evaluationResult.compilerOutput
+                return
+            }
+
+            // Read the JSON output that was emitted by libPackageDescription.
+            guard let jsonOutput = try localFileSystem.readFileContents(jsonOutputFile).validDescription else {
+                throw StringError("the manifest's JSON output has invalid encoding")
+            }
+            evaluationResult.manifestJSON = jsonOutput
+        }
+        
+        return evaluationResult
     }
 
     /// Returns path to the sdk, if possible.

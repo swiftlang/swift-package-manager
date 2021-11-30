@@ -167,6 +167,19 @@ class PackageDescription5_6LoadingTests: PackageDescriptionLoadingTests {
             ])
         }
     }
+
+    @available(macOS 12.0, *)
+    func testAsyncManifestLoading() async throws {
+        let content = """
+            import PackageDescription
+            let package = Package(name: "AsyncManifestLoading")
+            """
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let manifest = try await loadManifest(content, observabilityScope: observability.topScope)
+
+        XCTAssertEqual(manifest.displayName, "AsyncManifestLoading")
+    }
     
     /// Tests use of Context.current.packageDirectory
     func testPackageContextName() throws {

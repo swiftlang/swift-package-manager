@@ -47,6 +47,23 @@ class PackageDescriptionLoadingTests: XCTestCase, ManifestLoaderDelegate {
         )
     }
 
+    @available(macOS 12.0, *)
+    func loadManifest(
+        _ contents: String,
+        toolsVersion: ToolsVersion? = nil,
+        packageKind: PackageReference.Kind? = nil,
+        observabilityScope: ObservabilityScope,
+        file: StaticString = #file,
+        line: UInt = #line
+    ) async throws -> Manifest {
+        try await self.loadManifest(
+            ByteString(encodingAsUTF8: contents),
+            toolsVersion: toolsVersion,
+            packageKind: packageKind,
+            observabilityScope: observabilityScope
+        )
+    }
+
     func loadManifest(
         _ bytes: ByteString,
         toolsVersion: ToolsVersion? = nil,
@@ -73,6 +90,47 @@ class PackageDescriptionLoadingTests: XCTestCase, ManifestLoaderDelegate {
         let manifestPath = packagePath.appending(component: Manifest.filename)
         try fileSystem.writeFileContents(manifestPath, bytes: bytes)
         let manifest = try manifestLoader.load(
+            at: packagePath,
+            packageKind: packageKind,
+            toolsVersion: toolsVersion,
+            fileSystem: fileSystem,
+            observabilityScope: observabilityScope
+        )
+
+        if manifest.toolsVersion != toolsVersion {
+            XCTFail("Invalid manifest version", file: file, line: line)
+        }
+
+        return manifest
+    }
+
+    @available(macOS 12.0, *)
+    func loadManifest(
+        _ bytes: ByteString,
+        toolsVersion: ToolsVersion? = nil,
+        packageKind: PackageReference.Kind? = nil,
+        observabilityScope: ObservabilityScope,
+        file: StaticString = #file,
+        line: UInt = #line
+    ) async throws -> Manifest {
+        let packageKind = packageKind ?? .fileSystem(.root)
+        let packagePath: AbsolutePath
+        switch packageKind {
+        case .root(let path):
+            packagePath = path
+        case .fileSystem(let path):
+            packagePath = path
+        case .localSourceControl(let path):
+            packagePath = path
+        case .remoteSourceControl, .registry:
+            throw InternalError("invalid package kind \(packageKind)")
+        }
+
+        let toolsVersion = toolsVersion ?? self.toolsVersion
+        let fileSystem = InMemoryFileSystem()
+        let manifestPath = packagePath.appending(component: Manifest.filename)
+        try fileSystem.writeFileContents(manifestPath, bytes: bytes)
+        let manifest = try await manifestLoader.load(
             at: packagePath,
             packageKind: packageKind,
             toolsVersion: toolsVersion,

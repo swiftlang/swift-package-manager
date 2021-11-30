@@ -83,7 +83,7 @@ extension ManifestLoader {
         identityResolver: IdentityResolver = DefaultIdentityResolver(),
         fileSystem: TSCBasic.FileSystem,
         observabilityScope: ObservabilityScope
-    ) throws -> Manifest{
+    ) throws -> Manifest {
         let packageIdentity: PackageIdentity
         let packageLocation: String
         switch packageKind {
@@ -120,5 +120,50 @@ extension ManifestLoader {
                 completion: $0
             )
         }
+    }
+
+    @available(macOS 12.0, *)
+    public func load(
+        at path: TSCBasic.AbsolutePath,
+        packageKind: PackageModel.PackageReference.Kind,
+        toolsVersion: PackageModel.ToolsVersion,
+        identityResolver: IdentityResolver = DefaultIdentityResolver(),
+        fileSystem: TSCBasic.FileSystem,
+        observabilityScope: ObservabilityScope
+    ) async throws -> Manifest {
+        let packageIdentity: PackageIdentity
+        let packageLocation: String
+        switch packageKind {
+        case .root(let path):
+            packageIdentity = try identityResolver.resolveIdentity(for: path)
+            packageLocation = path.pathString
+        case .fileSystem(let path):
+            packageIdentity = try identityResolver.resolveIdentity(for: path)
+            packageLocation = path.pathString
+        case .localSourceControl(let path):
+            packageIdentity = try identityResolver.resolveIdentity(for: path)
+            packageLocation = path.pathString
+        case .remoteSourceControl(let url):
+            packageIdentity = try identityResolver.resolveIdentity(for: url)
+            packageLocation = url.absoluteString
+        case .registry(let identity):
+            packageIdentity = identity
+            // FIXME: placeholder
+            packageLocation = identity.description
+        }
+        
+        return try await self.load(
+            at: path,
+            packageIdentity: packageIdentity,
+            packageKind: packageKind,
+            packageLocation: packageLocation,
+            version: nil,
+            revision: nil,
+            toolsVersion: toolsVersion,
+            identityResolver: identityResolver,
+            fileSystem: fileSystem,
+            observabilityScope: observabilityScope,
+            on: .sharedConcurrent
+        )
     }
 }
