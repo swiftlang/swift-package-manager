@@ -19,7 +19,8 @@ import XCTest
 final class FilePackageFingerprintStorageTests: XCTestCase {
     func testHappyCase() throws {
         let mockFileSystem = InMemoryFileSystem()
-        let storage = FilePackageFingerprintStorage(customFileSystem: mockFileSystem)
+        let directoryPath = AbsolutePath("/fingerprints")
+        let storage = FilePackageFingerprintStorage(fileSystem: mockFileSystem, directoryPath: directoryPath)
         let registryURL = Foundation.URL(string: "https://example.packages.com")!
         let sourceControlURL = Foundation.URL(string: "https://example.com/mona/LinkedList.git")!
 
@@ -33,8 +34,8 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
         try storage.put(package: otherPackage, version: Version("1.0.0"), fingerprint: .init(origin: .registry(registryURL), value: "checksum-1.0.0"))
 
         // A checksum file should have been created for each package
-        XCTAssertTrue(mockFileSystem.exists(storage.directory.appending(component: package.fingerprintFilename)))
-        XCTAssertTrue(mockFileSystem.exists(storage.directory.appending(component: otherPackage.fingerprintFilename)))
+        XCTAssertTrue(mockFileSystem.exists(storage.directoryPath.appending(component: package.fingerprintFilename)))
+        XCTAssertTrue(mockFileSystem.exists(storage.directoryPath.appending(component: otherPackage.fingerprintFilename)))
 
         // Fingerprints should be saved
         do {
@@ -67,7 +68,8 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
 
     func testNotFound() throws {
         let mockFileSystem = InMemoryFileSystem()
-        let storage = FilePackageFingerprintStorage(customFileSystem: mockFileSystem)
+        let directoryPath = AbsolutePath("/fingerprints")
+        let storage = FilePackageFingerprintStorage(fileSystem: mockFileSystem, directoryPath: directoryPath)
         let registryURL = Foundation.URL(string: "https://example.packages.com")!
 
         let package = PackageIdentity.plain("mona.LinkedList")
@@ -91,7 +93,8 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
 
     func testSingleFingerprintPerKind() throws {
         let mockFileSystem = InMemoryFileSystem()
-        let storage = FilePackageFingerprintStorage(customFileSystem: mockFileSystem)
+        let directoryPath = AbsolutePath("/fingerprints")
+        let storage = FilePackageFingerprintStorage(fileSystem: mockFileSystem, directoryPath: directoryPath)
         let registryURL = Foundation.URL(string: "https://example.packages.com")!
 
         let package = PackageIdentity.plain("mona.LinkedList")

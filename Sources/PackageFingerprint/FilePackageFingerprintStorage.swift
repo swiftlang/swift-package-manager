@@ -17,14 +17,14 @@ import TSCUtility
 
 public struct FilePackageFingerprintStorage: PackageFingerprintStorage {
     let fileSystem: FileSystem
-    let directory: AbsolutePath
+    let directoryPath: AbsolutePath
 
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
 
-    init(customFileSystem: FileSystem? = nil, customDirectory: AbsolutePath? = nil) {
-        self.fileSystem = customFileSystem ?? localFileSystem
-        self.directory = customDirectory ?? self.fileSystem.dotSwiftPM.appending(component: "fingerprints")
+    init(fileSystem: FileSystem, directoryPath: AbsolutePath) {
+        self.fileSystem = fileSystem
+        self.directoryPath = directoryPath
 
         self.encoder = JSONEncoder.makeWithDefaults()
         self.decoder = JSONDecoder.makeWithDefaults()
@@ -88,7 +88,7 @@ public struct FilePackageFingerprintStorage: PackageFingerprintStorage {
     }
 
     private func loadFromDisk(package: PackageIdentity) throws -> PackageFingerprints {
-        let path = self.directory.appending(component: package.fingerprintFilename)
+        let path = self.directoryPath.appending(component: package.fingerprintFilename)
 
         guard self.fileSystem.exists(path) else {
             return .init()
@@ -104,22 +104,22 @@ public struct FilePackageFingerprintStorage: PackageFingerprintStorage {
     }
 
     private func saveToDisk(package: PackageIdentity, fingerprints: PackageFingerprints) throws {
-        if !self.fileSystem.exists(self.directory) {
-            try self.fileSystem.createDirectory(self.directory, recursive: true)
+        if !self.fileSystem.exists(self.directoryPath) {
+            try self.fileSystem.createDirectory(self.directoryPath, recursive: true)
         }
 
         let container = StorageModel.Container(fingerprints)
         let buffer = try encoder.encode(container)
 
-        let path = self.directory.appending(component: package.fingerprintFilename)
+        let path = self.directoryPath.appending(component: package.fingerprintFilename)
         try self.fileSystem.writeFileContents(path, bytes: ByteString(buffer))
     }
 
     private func withLock<T>(_ body: () throws -> T) throws -> T {
-        if !self.fileSystem.exists(self.directory) {
-            try self.fileSystem.createDirectory(self.directory, recursive: true)
+        if !self.fileSystem.exists(self.directoryPath) {
+            try self.fileSystem.createDirectory(self.directoryPath, recursive: true)
         }
-        return try self.fileSystem.withLock(on: self.directory, type: .exclusive, body)
+        return try self.fileSystem.withLock(on: self.directoryPath, type: .exclusive, body)
     }
 
     private func makeAsync<T>(_ closure: @escaping (Result<T, Error>) -> Void, on queue: DispatchQueue) -> (Result<T, Error>) -> Void {
