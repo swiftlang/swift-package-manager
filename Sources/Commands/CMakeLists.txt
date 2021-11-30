@@ -34,6 +34,7 @@ target_link_libraries(Commands PUBLIC
   Basics
   Build
   PackageCollections
+  PackageFingerprint
   PackageGraph
   SourceControl
   TSCBasic

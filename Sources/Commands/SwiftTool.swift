@@ -658,6 +658,7 @@ public class SwiftTool {
                 workingDirectory: buildPath,
                 editsDirectory: self.editsDirectory(),
                 resolvedVersionsFile: self.resolvedVersionsFile(),
+                sharedSecurityDirectory: localFileSystem.swiftPMSecurityDirectory,
                 sharedCacheDirectory: sharedCacheDirectory,
                 sharedConfigurationDirectory: sharedConfigurationDirectory
             ),
@@ -669,6 +670,7 @@ public class SwiftTool {
             additionalFileRules: isXcodeBuildSystemEnabled ? FileRuleDescription.xcbuildFileTypes : FileRuleDescription.swiftpmFileTypes,
             resolverUpdateEnabled: !options.skipDependencyUpdate,
             resolverPrefetchingEnabled: options.shouldEnableResolverPrefetching,
+            resolverFingerprintCheckingMode: self.options.resolverFingerprintCheckingMode,
             sharedRepositoriesCacheEnabled: self.options.useRepositoriesCache,
             delegate: delegate
         )

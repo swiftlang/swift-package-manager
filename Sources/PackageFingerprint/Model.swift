@@ -14,6 +14,11 @@ import TSCUtility
 public struct Fingerprint: Equatable {
     public let origin: Origin
     public let value: String
+
+    public init(origin: Origin, value: String) {
+        self.origin = origin
+        self.value = value
+    }
 }
 
 public extension Fingerprint {
@@ -26,7 +31,7 @@ public extension Fingerprint {
         case sourceControl(Foundation.URL)
         case registry(Foundation.URL)
 
-        var kind: Fingerprint.Kind {
+        public var kind: Fingerprint.Kind {
             switch self {
             case .sourceControl:
                 return .sourceControl
@@ -35,7 +40,7 @@ public extension Fingerprint {
             }
         }
 
-        var url: Foundation.URL? {
+        public var url: Foundation.URL? {
             switch self {
             case .sourceControl(let url):
                 return url
@@ -56,3 +61,9 @@ public extension Fingerprint {
 }
 
 public typealias PackageFingerprints = [Version: [Fingerprint.Kind: Fingerprint]]
+
+public enum FingerprintCheckingMode: String {
+    case strict
+    case warn
+    case none
+}

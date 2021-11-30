@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2020 Apple Inc. and the Swift project authors
+ Copyright (c) 2014 - 2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -27,6 +27,7 @@ public final class MockWorkspace {
     public var registryClient: RegistryClient
     public let archiver: MockArchiver
     public let checksumAlgorithm: MockHashAlgorithm
+    public let fingerprintStorage: MockPackageFingerprintStorage
     let roots: [MockPackage]
     let packages: [MockPackage]
     public let mirrors: DependencyMirrors
@@ -49,6 +50,7 @@ public final class MockWorkspace {
         customRegistryClient: RegistryClient? = .none,
         customBinaryArchiver: MockArchiver? = .none,
         customChecksumAlgorithm: MockHashAlgorithm? = .none,
+        customFingerprintStorage: MockPackageFingerprintStorage? = .none,
         resolverUpdateEnabled: Bool = true
     ) throws {
         let archiver = customBinaryArchiver ?? MockArchiver()
@@ -59,6 +61,7 @@ public final class MockWorkspace {
         self.httpClient = httpClient
         self.archiver = archiver
         self.checksumAlgorithm = customChecksumAlgorithm ?? MockHashAlgorithm()
+        self.fingerprintStorage = customFingerprintStorage ?? MockPackageFingerprintStorage()
         self.mirrors = mirrors ?? DependencyMirrors()
         self.identityResolver = DefaultIdentityResolver(locationMapper: self.mirrors.effectiveURL(for:))
         self.roots = roots
@@ -69,7 +72,8 @@ public final class MockWorkspace {
         self.registry = MockRegistry(
             identityResolver: self.identityResolver,
             checksumAlgorithm: self.checksumAlgorithm,
-            filesystem: self.fileSystem
+            filesystem: self.fileSystem,
+            fingerprintStorage: self.fingerprintStorage
         )
         self.registryClient = customRegistryClient ?? self.registry.registryClient
         self.toolsVersion = toolsVersion
@@ -148,10 +152,17 @@ public final class MockWorkspace {
             if let specifier = sourceControlSpecifier {
                 let repository = self.repositoryProvider.specifierMap[specifier] ?? .init(path: packagePath, fs: self.fileSystem)
                 try writePackageContent(fileSystem: repository, root: .root, toolsVersion: toolsVersion)
-                try repository.commit()
-                for version in packageVersions.compactMap({ $0 }) {
-                    try repository.tag(name: version)
+                
+                let versions = packageVersions.compactMap({ $0 })
+                if versions.isEmpty {
+                    try repository.commit()
+                } else {
+                    for version in versions {
+                        try repository.commit(hash: package.revisionProvider.map { $0(version) })
+                        try repository.tag(name: version)
+                    }
                 }
+
                 self.repositoryProvider.add(specifier: specifier, repository: repository)
             } else if let identity = registryIdentity {
                 let source = InMemoryRegistrySource(path: packagePath, fileSystem: self.fileSystem)
@@ -215,6 +226,7 @@ public final class MockWorkspace {
                 workingDirectory: self.sandbox.appending(component: ".build"),
                 editsDirectory: self.sandbox.appending(component: "edits"),
                 resolvedVersionsFile: self.sandbox.appending(component: "Package.resolved"),
+                sharedSecurityDirectory: self.fileSystem.swiftPMSecurityDirectory,  
                 sharedCacheDirectory: self.fileSystem.swiftPMCacheDirectory,
                 sharedConfigurationDirectory: self.fileSystem.swiftPMConfigDirectory
             ),
@@ -227,8 +239,10 @@ public final class MockWorkspace {
             customHTTPClient: self.httpClient,
             customArchiver: self.archiver,
             customChecksumAlgorithm: self.checksumAlgorithm,
+            customFingerprintStorage: self.fingerprintStorage,
             resolverUpdateEnabled: self.resolverUpdateEnabled,
             resolverPrefetchingEnabled: true,
+            resolverFingerprintCheckingMode: .strict,
             delegate: self.delegate
         )
 
