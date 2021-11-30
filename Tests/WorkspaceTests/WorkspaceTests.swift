@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2020 Apple Inc. and the Swift project authors
+ Copyright (c) 2014 - 2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -9,6 +9,7 @@
  */
 
 import Basics
+import PackageFingerprint
 import PackageGraph
 import PackageLoading
 import PackageModel
@@ -3608,6 +3609,10 @@ final class WorkspaceTests: XCTestCase {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
+        // Use the same revision (hash) for "foo" to indicate they are the same
+        // package despite having different URLs.
+        let fooRevision = String((UUID().uuidString + UUID().uuidString).prefix(40))
+        
         let workspace = try MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
@@ -3674,7 +3679,8 @@ final class WorkspaceTests: XCTestCase {
                     products: [
                         MockProduct(name: "Foo", targets: ["Foo"]),
                     ],
-                    versions: ["1.0.0"]
+                    versions: ["1.0.0"],
+                    revisionProvider: { _ in fooRevision }
                 ),
                 MockPackage(
                     name: "Foo",
@@ -3685,7 +3691,8 @@ final class WorkspaceTests: XCTestCase {
                     products: [
                         MockProduct(name: "OtherFoo", targets: ["OtherFoo"]),
                     ],
-                    versions: ["1.0.0"]
+                    versions: ["1.0.0"],
+                    revisionProvider: { _ in fooRevision }
                 ),
             ]
         )
@@ -9334,6 +9341,8 @@ final class WorkspaceTests: XCTestCase {
         fileSystem: FileSystem,
         configuration: PackageRegistry.RegistryConfiguration? = .none,
         identityResolver: IdentityResolver? = .none,
+        fingerprintStorage: PackageFingerprintStorage? = .none,
+        fingerprintCheckingMode: FingerprintCheckingMode = .strict,
         authorizationProvider: AuthorizationProvider? = .none,
         releasesRequestHandler: HTTPClient.Handler? = .none,
         versionMetadataRequestHandler: HTTPClient.Handler? = .none,
@@ -9430,10 +9439,13 @@ final class WorkspaceTests: XCTestCase {
         }
 
         let archiver = archiver ?? MockArchiver()
+        let fingerprintStorage = fingerprintStorage ?? MockPackageFingerprintStorage()
 
         return RegistryClient(
             configuration: configuration!,
             identityResolver: identityResolver,
+            fingerprintStorage: fingerprintStorage,
+            fingerprintCheckingMode: fingerprintCheckingMode,
             authorizationProvider: authorizationProvider?.httpAuthorizationHeader(for:),
             customHTTPClient: HTTPClient(configuration: .init(), handler: { request, progress , completion in
                 switch request.url {
