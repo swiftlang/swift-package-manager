@@ -253,6 +253,11 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
         delegate: PluginInvocationDelegate,
         completion: @escaping (Result<Bool, Error>) -> Void
     ) {
+#if os(iOS) || os(watchOS) || os(tvOS)
+        callbackQueue.async {
+            completion(.failure(DefaultPluginScriptRunnerError.invocationFailed(StringError("subprocess invocations are unavailable on this platform"), command: [])))
+        }
+#else
         // Construct the command line. Currently we just invoke the executable built from the plugin without any parameters.
         var command = [compiledExec.pathString]
 
@@ -421,6 +426,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
         outputQueue.async {
             try? outputHandle.writePluginMessage(.performAction(input: input))
         }
+#endif
     }
 }
 
