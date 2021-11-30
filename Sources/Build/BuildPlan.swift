@@ -602,7 +602,7 @@ public final class SwiftTargetBuildDescription {
     private(set) var moduleMap: AbsolutePath?
     
     /// The results of applying any plugins to this target.
-    public let pluginInvocationResults: [PluginInvocationResult]
+    public let pluginInvocationResults: [BuildToolPluginInvocationResult]
 
     /// The results of running any prebuild commands for this target.
     public let prebuildCommandResults: [PrebuildCommandResult]
@@ -612,7 +612,7 @@ public final class SwiftTargetBuildDescription {
         target: ResolvedTarget,
         toolsVersion: ToolsVersion,
         buildParameters: BuildParameters,
-        pluginInvocationResults: [PluginInvocationResult] = [],
+        pluginInvocationResults: [BuildToolPluginInvocationResult] = [],
         prebuildCommandResults: [PrebuildCommandResult] = [],
         isTestTarget: Bool? = nil,
         testDiscoveryTarget: Bool = false,
@@ -1424,7 +1424,7 @@ public class BuildPlan {
     }
 
     /// The results of invoking any plugins used by targets in this build.
-    public let pluginInvocationResults: [ResolvedTarget: [PluginInvocationResult]]
+    public let pluginInvocationResults: [ResolvedTarget: [BuildToolPluginInvocationResult]]
 
     /// The results of running any prebuild commands for the targets in this build.  This includes any derived
     /// source files as well as directories to which any changes should cause us to reevaluate the build plan.
@@ -1523,7 +1523,7 @@ public class BuildPlan {
     public convenience init(
         buildParameters: BuildParameters,
         graph: PackageGraph,
-        pluginInvocationResults: [ResolvedTarget: [PluginInvocationResult]] = [:],
+        pluginInvocationResults: [ResolvedTarget: [BuildToolPluginInvocationResult]] = [:],
         prebuildCommandResults: [ResolvedTarget: [PrebuildCommandResult]] = [:],
         diagnostics: DiagnosticsEngine,
         fileSystem: FileSystem
@@ -1541,7 +1541,7 @@ public class BuildPlan {
     public init(
         buildParameters: BuildParameters,
         graph: PackageGraph,
-        pluginInvocationResults: [ResolvedTarget: [PluginInvocationResult]] = [:],
+        pluginInvocationResults: [ResolvedTarget: [BuildToolPluginInvocationResult]] = [:],
         prebuildCommandResults: [ResolvedTarget: [PrebuildCommandResult]] = [:],
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope

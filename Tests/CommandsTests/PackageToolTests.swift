@@ -1166,4 +1166,62 @@ final class PackageToolTests: CommandsTestCase {
             }
         }
     }
+    
+    func testCommandPlugin() throws {
+        
+        try testWithTemporaryDirectory { tmpPath in
+            // Create a sample package with a library target and a plugin.
+            let packageDir = tmpPath.appending(components: "MyPackage")
+            try localFileSystem.writeFileContents(packageDir.appending(component: "Package.swift")) {
+                $0 <<< """
+                // swift-tools-version: 999.0
+                import PackageDescription
+                let package = Package(
+                    name: "MyPackage",
+                    targets: [
+                        .target(
+                            name: "MyLibrary",
+                            plugins: [
+                                "MyPlugin",
+                            ]
+                        ),
+                        .plugin(
+                            name: "MyPlugin",
+                            capability: .command(
+                                intent: .custom(verb: "mycmd", description: "What is mycmd anyway?"),
+                                permissions: [.writeToPackageDirectory(reason: "YOLO")]
+                            )
+                        ),
+                    ]
+                )
+                """
+            }
+            try localFileSystem.writeFileContents(packageDir.appending(components: "Sources", "MyLibrary", "library.swift")) {
+                $0 <<< """
+                    public func Foo() { }
+                """
+            }
+            try localFileSystem.writeFileContents(packageDir.appending(components: "Plugins", "MyPlugin", "plugin.swift")) {
+                $0 <<< """
+                    import PackagePlugin
+                    
+                    @main
+                    struct MyCommandPlugin: CommandPlugin {
+                        func performCommand(
+                            context: PluginContext,
+                            targets: [Target],
+                            arguments: [String]
+                        ) throws {
+                            print("This is MyCommandPlugin.")
+                        }
+                    }
+                """
+            }
+            
+            // Invoke it, and check the results.
+            let result = try SwiftPMProduct.SwiftPackage.executeProcess(["plugin", "mycmd"], packagePath: packageDir, env: ["SWIFTPM_ENABLE_COMMAND_PLUGINS": "1"])
+            XCTAssertEqual(result.exitStatus, .terminated(code: 0))
+            XCTAssert(try result.utf8Output().contains("This is MyCommandPlugin."))
+        }
+    }
 }

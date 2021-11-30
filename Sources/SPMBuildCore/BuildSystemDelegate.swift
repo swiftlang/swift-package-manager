@@ -35,7 +35,9 @@ public protocol BuildSystemDelegate: AnyObject {
 
 public extension BuildSystemDelegate {
     func buildSystem(_ buildSystem: BuildSystem, willStartCommand command: BuildSystemCommand) { }
+    func buildSystem(_ buildSystem: BuildSystem, didStartCommand command: BuildSystemCommand) { }
     func buildSystem(_ buildSystem: BuildSystem, didUpdateTaskProgress text: String) { }
+    func buildSystem(_ buildSystem: BuildSystem, didFinishCommand command: BuildSystemCommand) { }
     func buildSystemDidDetectCycleInRules(_ buildSystem: BuildSystem) { }
     func buildSystem(_ buildSystem: BuildSystem, didFinishWithResult success: Bool) { }
     func buildSystemDidCancel(_ buildSystem: BuildSystem) { }

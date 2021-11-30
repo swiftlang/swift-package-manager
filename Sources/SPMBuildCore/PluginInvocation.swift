@@ -18,6 +18,83 @@ import TSCUtility
 
 public typealias Diagnostic = Basics.Diagnostic
 
+public enum PluginAction {
+    case createBuildToolCommands(target: ResolvedTarget)
+    case performCommand(targets: [ResolvedTarget], arguments: [String])
+}
+
+extension PluginTarget {
+    /// Invokes the plugin by compiling its source code (if needed) and then running it as a subprocess. The specified
+    /// plugin action determines which entry point is called in the subprocess, and the package and the tool mapping
+    /// determine the context that is available to the plugin.
+    ///
+    /// The working directory should be a path in the file system into which the plugin is allowed to write information
+    /// that persists between all invocations of a plugin for the same purpose. The exact meaning of "same" means here
+    /// depends on the particular plugin; for a build tool plugin, it might be the combination of the plugin and target
+    /// for which it is being invoked.
+    ///
+    /// Note that errors thrown by this function relate to problems actually invoking the plugin. Any diagnostics that
+    /// are emitted by the plugin are contained in the returned result structure.
+    ///
+    /// - Parameters:
+    ///   - action: The plugin action (i.e. entry point) to invoke, possibly containing parameters.
+    ///   - package: The root of the package graph to pass down to the plugin.
+    ///   - scriptRunner: Entity responsible for actually running the code of the plugin.
+    ///   - outputDirectory: A directory under which the plugin can write anything it wants to.
+    ///   - toolNamesToPaths: A mapping from name of tools available to the plugin to the corresponding absolute paths.
+    ///   - fileSystem: The file system to which all of the paths refers.
+    ///
+    /// - Returns: A PluginInvocationResult that contains the results of invoking the plugin.
+    public func invoke(
+        action: PluginAction,
+        package: ResolvedPackage,
+        buildEnvironment: BuildEnvironment,
+        scriptRunner: PluginScriptRunner,
+        outputDirectory: AbsolutePath,
+        toolNamesToPaths: [String: AbsolutePath],
+        fileSystem: FileSystem,
+        observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue,
+        delegate: PluginInvocationDelegate,
+        completion: @escaping (Result<Bool, Error>) -> Void
+    ) {
+        // Create the plugin working directory if needed (but don't do anything with it if it already exists).
+        do {
+            try fileSystem.createDirectory(outputDirectory, recursive: true)
+        }
+        catch {
+            return callbackQueue.async { completion(.failure(PluginEvaluationError.couldNotCreateOuputDirectory(path: outputDirectory, underlyingError: error))) }
+        }
+
+        // Create the input context to send to the plugin.
+        var serializer = PluginScriptRunnerInputSerializer(buildEnvironment: buildEnvironment)
+        let inputStruct: PluginScriptRunnerInput
+        do {
+            inputStruct = try serializer.makePluginScriptRunnerInput(
+                rootPackage: package,
+                pluginWorkDir: outputDirectory,
+                builtProductsDir: outputDirectory,  // FIXME — what is this parameter needed for?
+                toolNamesToPaths: toolNamesToPaths,
+                pluginAction: action)
+        }
+        catch {
+            return callbackQueue.async { completion(.failure(PluginEvaluationError.couldNotSerializePluginInput(underlyingError: error))) }
+        }
+        
+        // Call the plugin script runner to actually invoke the plugin.
+        scriptRunner.runPluginScript(
+            sources: sources,
+            input: inputStruct,
+            toolsVersion: self.apiVersion,
+            writableDirectories: [outputDirectory],
+            fileSystem: fileSystem,
+            observabilityScope: observabilityScope,
+            callbackQueue: callbackQueue,
+            delegate: delegate,
+            completion: completion)
+    }
+}
+
 extension PackageGraph {
 
     /// Traverses the graph of reachable targets in a package graph, and applies plugins to targets as needed. Each
@@ -26,10 +103,10 @@ extension PackageGraph {
     /// output in the form of commands that will later be run before or during the build, and can also emit debug
     /// output and diagnostics.
     ///
-    /// This function returns a dictionary mapping the resolved targets that specify at least one plugin to the
+    /// This function returns a dictionary that maps each resolved target that specifies at least one plugin to the
     /// results of invoking those plugins in order. Each result includes an ordered list of commands to run before
-    /// the build of the target, and another of the commands to incorporate into the build graph so they run during
-    /// the build.
+    /// the build of the target, and another list of the commands to incorporate into the build graph so they run
+    /// at the appropriate times during the build.
     ///
     /// This function may cache anything it wants to under the `cacheDir` directory. The `builtToolsDir` directory
     /// is where executables for any dependencies of targets will be made available. Any warnings and errors related
@@ -38,26 +115,27 @@ extension PackageGraph {
     ///
     /// Note that warnings emitted by the the plugin itself will be returned in the PluginEvaluationResult structures
     /// for later showing to the user, and not added directly to the diagnostics engine.
-    public func invokePlugins(
+    ///
+    // TODO: Convert this function to be asynchronous, taking a completion closure. This may require changes to the package graph APIs to make them accessible concurrently.
+    public func invokeBuildToolPlugins(
         outputDir: AbsolutePath,
         builtToolsDir: AbsolutePath,
         buildEnvironment: BuildEnvironment,
         pluginScriptRunner: PluginScriptRunner,
         observabilityScope: ObservabilityScope,
         fileSystem: FileSystem
-    ) throws -> [ResolvedTarget: [PluginInvocationResult]] {
-        // TODO: Convert this to be asynchronous, taking a completion closure. This may require changes to the package
-        // graph APIs to make them accessible concurrently.
-        var pluginResultsByTarget: [ResolvedTarget: [PluginInvocationResult]] = [:]
+    ) throws -> [ResolvedTarget: [BuildToolPluginInvocationResult]] {
+        var pluginResultsByTarget: [ResolvedTarget: [BuildToolPluginInvocationResult]] = [:]
 
         for target in self.reachableTargets.sorted(by: { $0.name < $1.name }) {
-            // Infer plugins from the declared dependencies, and collect them as well as any regular dependnencies.  Although plugin usage is declared separately from dependencies in the manifest, in the internal model we currently consider both to be dependencies.
+            // Infer plugins from the declared dependencies, and collect them as well as any regular dependencies. Although usage of build tool plugins is declared separately from dependencies in the manifest, in the internal model we currently consider both to be dependencies.
             var pluginTargets: [PluginTarget] = []
             var dependencyTargets: [Target] = []
             for dependency in target.dependencies(satisfying: buildEnvironment) {
                 switch dependency {
                 case .target(let target, _):
                     if let pluginTarget = target.underlyingTarget as? PluginTarget {
+                        assert(pluginTarget.capability == .buildTool)
                         pluginTargets.append(pluginTarget)
                     }
                     else {
@@ -78,8 +156,8 @@ extension PackageGraph {
                 throw InternalError("could not determine package for target \(target)")
             }
 
-            // Apply each plugin used by the target in order, creating a list of results (one for each plugin usage).
-            var pluginResults: [PluginInvocationResult] = []
+            // Apply each build tool plugin used by the target in order, creating a list of results (one for each plugin usage).
+            var buildToolPluginResults: [BuildToolPluginInvocationResult] = []
             for pluginTarget in pluginTargets {
                 // Determine the tools to which this plugin has access, and create a name-to-path mapping from tool
                 // names to the corresponding paths. Built tools are assumed to be in the build tools directory.
@@ -93,134 +171,94 @@ extension PackageGraph {
                     }
                 })
 
-                // Give each invocation of a plugin a separate output directory.
+                // Assign a plugin working directory based on the package, target, and plugin.
                 let pluginOutputDir = outputDir.appending(components: package.identity.description, target.name, pluginTarget.name)
-                do {
-                    try fileSystem.createDirectory(pluginOutputDir, recursive: true)
-                }
-                catch {
-                    throw PluginEvaluationError.outputDirectoryCouldNotBeCreated(path: pluginOutputDir, underlyingError: error)
-                }
 
-                // Create the input context to pass when applying the plugin to the target.
-                var serializer = PluginScriptRunnerInputSerializer(buildEnvironment: buildEnvironment)
-                let pluginInput = try serializer.makePluginScriptRunnerInput(
-                    rootPackage: package,
-                    pluginWorkDir: pluginOutputDir,
-                    builtProductsDir: builtToolsDir,
+                // Set up a delegate to handle callbacks from the build tool plugin. We'll capture free-form text output as well as defined commands and diagnostics.
+                let delegateQueue = DispatchQueue(label: "plugin-invocation")
+                class PluginDelegate: PluginInvocationDelegate {
+                    let delegateQueue: DispatchQueue
+                    var outputData = Data()
+                    var diagnostics = [Diagnostic]()
+                    var buildCommands = [BuildToolPluginInvocationResult.BuildCommand]()
+                    var prebuildCommands = [BuildToolPluginInvocationResult.PrebuildCommand]()
+                    
+                    init(delegateQueue: DispatchQueue) {
+                        self.delegateQueue = delegateQueue
+                    }
+                    
+                    func pluginEmittedOutput(_ data: Data) {
+                        dispatchPrecondition(condition: .onQueue(delegateQueue))
+                        outputData.append(contentsOf: data)
+                    }
+                    
+                    func pluginEmittedDiagnostic(_ diagnostic: Diagnostic) {
+                        dispatchPrecondition(condition: .onQueue(delegateQueue))
+                        diagnostics.append(diagnostic)
+                    }
+
+                    func pluginDefinedBuildCommand(displayName: String?, executable: AbsolutePath, arguments: [String], environment: [String : String], workingDirectory: AbsolutePath?, inputFiles: [AbsolutePath], outputFiles: [AbsolutePath]) {
+                        dispatchPrecondition(condition: .onQueue(delegateQueue))
+                        buildCommands.append(.init(
+                            configuration: .init(
+                                displayName: displayName,
+                                executable: executable,
+                                arguments: arguments,
+                                environment: environment,
+                                workingDirectory: workingDirectory),
+                            inputFiles: inputFiles,
+                            outputFiles: outputFiles))
+                    }
+                    
+                    func pluginDefinedPrebuildCommand(displayName: String?, executable: AbsolutePath, arguments: [String], environment: [String : String], workingDirectory: AbsolutePath?, outputFilesDirectory: AbsolutePath) {
+                        dispatchPrecondition(condition: .onQueue(delegateQueue))
+                        prebuildCommands.append(.init(
+                            configuration: .init(
+                                displayName: displayName,
+                                executable: executable,
+                                arguments: arguments,
+                                environment: environment,
+                                workingDirectory: workingDirectory),
+                            outputFilesDirectory: outputFilesDirectory))
+                    }
+                }
+                let delegate = PluginDelegate(delegateQueue: delegateQueue)
+
+                // Invoke the build tool plugin with the input parameters and the delegate that will collect outputs.
+                let success = try tsc_await { pluginTarget.invoke(
+                    action: .createBuildToolCommands(target: target),
+                    package: package,
+                    buildEnvironment: buildEnvironment,
+                    scriptRunner: pluginScriptRunner,
+                    outputDirectory: pluginOutputDir,
                     toolNamesToPaths: toolNamesToPaths,
-                    pluginAction: .createBuildToolCommands(target: target))
-                
-                // Run the plugin in the context of the target. The details of this are left to the plugin runner.
-                // TODO: This should be asynchronous.
-                let (pluginOutput, emittedText) = try runPluginScript(
-                    sources: pluginTarget.sources,
-                    input: pluginInput,
-                    toolsVersion: package.manifest.toolsVersion,
-                    writableDirectories: [pluginOutputDir],
-                    pluginScriptRunner: pluginScriptRunner,
+                    fileSystem: fileSystem,
                     observabilityScope: observabilityScope,
-                    fileSystem: fileSystem
-                )
+                    callbackQueue: delegateQueue,
+                    delegate: delegate,
+                    completion: $0) }
 
-                // Generate emittable Diagnostics from the plugin output.
-                let diagnostics: [Diagnostic] = try pluginOutput.diagnostics.map { diag in
-                    let metadata: ObservabilityMetadata? = try diag.file.map {
-                        var metadata = ObservabilityMetadata()
-                        metadata.fileLocation = try .init(.init(validating: $0), line: diag.line)
-                        return metadata
-                    }
-
-                    switch diag.severity {
-                    case .error:
-                        return .error(diag.message, metadata: metadata)
-                    case .warning:
-                        return .warning(diag.message, metadata: metadata)
-                    case .remark:
-                        return .info(diag.message, metadata: metadata)
-                    }
+                // Add a BuildToolPluginInvocationResult to the mapping.
+                if success {
+                    buildToolPluginResults.append(.init(
+                        plugin: pluginTarget,
+                        diagnostics: delegate.diagnostics,
+                        textOutput: String(decoding: delegate.outputData, as: UTF8.self),
+                        buildCommands: delegate.buildCommands,
+                        prebuildCommands: delegate.prebuildCommands))
                 }
-
-                // Extract any emitted text output (received from the stdout/stderr of the plugin invocation).
-                let textOutput = String(decoding: emittedText, as: UTF8.self)
-
-                // FIXME: Validate the plugin output structure here, e.g. paths, etc.
-
-                // Generate commands from the plugin output. This is where we translate from the transport JSON to our
-                // internal form. We deal with BuildCommands and PrebuildCommands separately.
-                let buildCommands = pluginOutput.buildCommands.map { cmd in
-                    PluginInvocationResult.BuildCommand(
-                        configuration: .init(
-                            displayName: cmd.displayName,
-                            executable: cmd.executable,
-                            arguments: cmd.arguments,
-                            environment: cmd.environment,
-                            workingDirectory: cmd.workingDirectory.map{ AbsolutePath($0) }),
-                        inputFiles: cmd.inputFiles.map{ AbsolutePath($0) },
-                        outputFiles: cmd.outputFiles.map{ AbsolutePath($0) })
-                }
-                let prebuildCommands = pluginOutput.prebuildCommands.map { cmd in
-                    PluginInvocationResult.PrebuildCommand(
-                        configuration: .init(
-                            displayName: cmd.displayName,
-                            executable: cmd.executable,
-                            arguments: cmd.arguments,
-                            environment: cmd.environment,
-                            workingDirectory: cmd.workingDirectory.map{ AbsolutePath($0) }),
-                        outputFilesDirectory: AbsolutePath(cmd.outputFilesDirectory))
-                }
-
-                // Create an evaluation result from the usage of the plugin by the target.
-                pluginResults.append(PluginInvocationResult(plugin: pluginTarget, diagnostics: diagnostics, textOutput: textOutput, buildCommands: buildCommands, prebuildCommands: prebuildCommands))
             }
 
             // Associate the list of results with the target. The list will have one entry for each plugin used by the target.
-            pluginResultsByTarget[target] = pluginResults
+            pluginResultsByTarget[target] = buildToolPluginResults
         }
         return pluginResultsByTarget
-    }
-    
-    
-    /// Private helper function that serializes a PluginEvaluationInput as input JSON, calls the plugin runner to invoke the plugin, and finally deserializes the output JSON it emits to a PluginScriptRunnerOutput.  Adds any errors or warnings to `diagnostics`, and throws an error if there was a failure.
-    /// FIXME: This should be asynchronous, taking a queue and a completion closure.
-    fileprivate func runPluginScript(
-        sources: Sources,
-        input: PluginScriptRunnerInput,
-        toolsVersion: ToolsVersion,
-        writableDirectories: [AbsolutePath],
-        pluginScriptRunner: PluginScriptRunner,
-        observabilityScope: ObservabilityScope,
-        fileSystem: FileSystem
-    ) throws -> (output: PluginScriptRunnerOutput, stdoutText: Data) {
-        // Serialize the PluginEvaluationInput to JSON.
-        let encoder = JSONEncoder()
-        let inputJSON = try encoder.encode(input)
-
-        // Call the plugin runner.
-        let (outputJSON, stdoutText) = try pluginScriptRunner.runPluginScript(
-            sources: sources,
-            inputJSON: inputJSON,
-            toolsVersion: toolsVersion,
-            writableDirectories: writableDirectories,
-            observabilityScope: observabilityScope,
-            fileSystem: fileSystem)
-
-        // Deserialize the JSON to an PluginScriptRunnerOutput.
-        let output: PluginScriptRunnerOutput
-        do {
-            let decoder = JSONDecoder()
-            output = try decoder.decode(PluginScriptRunnerOutput.self, from: outputJSON)
-        }
-        catch {
-            throw PluginEvaluationError.decodingPluginOutputFailed(json: outputJSON, underlyingError: error)
-        }
-        return (output: output, stdoutText: stdoutText)
     }
 }
 
 
 /// A description of a tool to which a plugin has access.
-enum PluginAccessibleTool: Hashable {
+public enum PluginAccessibleTool: Hashable {
     /// A tool that is built by an ExecutableTarget (the path is relative to the built-products directory).
     case builtTool(name: String, path: RelativePath)
 
@@ -228,7 +266,7 @@ enum PluginAccessibleTool: Hashable {
     case vendedTool(name: String, path: AbsolutePath)
 }
 
-extension PluginTarget {
+public extension PluginTarget {
 
     /// The set of tools that are accessible to this plugin.
     func accessibleTools(for hostTriple: Triple) -> Set<PluginAccessibleTool> {
@@ -255,9 +293,8 @@ extension PluginTarget {
 }
 
 
-/// Represents the result of invoking a plugin for a particular target.  The result includes generated build
-/// commands as well as any diagnostics and stdout/stderr output emitted by the plugin.
-public struct PluginInvocationResult {
+/// Represents the result of invoking a build tool plugin for a particular target. The result includes generated build commands and prebuild commands as well as any diagnostics and stdout/stderr output emitted by the plugin.
+public struct BuildToolPluginInvocationResult {
     /// The plugin that produced the results.
     public var plugin: PluginTarget
 
@@ -273,32 +310,24 @@ public struct PluginInvocationResult {
     /// The prebuild commands generated by the plugin (in the order in which they should run).
     public var prebuildCommands: [PrebuildCommand]
 
-    /// A command to incorporate into the build graph so that it runs during the build whenever it needs to. In
-    /// particular it will run whenever any of the specified output files are missing or when the input files have
-    /// changed from the last time when it ran.
-    ///
-    /// This is the preferred kind of command to generate when the input and output paths are known before the
-    /// command is run (i.e. when the outputs depend only on the names of the inputs, not on their contents).
-    /// The specified output files are processed in the same way as the target's source files.
+    /// A command to incorporate into the build graph so that it runs during the build whenever it needs to.
     public struct BuildCommand {
         public var configuration: CommandConfiguration
         public var inputFiles: [AbsolutePath]
         public var outputFiles: [AbsolutePath]
     }
 
-    /// A command to run before the start of every build. The command is expected to populate the output directory
-    /// with any files that should be processed in the same way as the target's source files.
+    /// A command to run before the start of every build.
     public struct PrebuildCommand {
-        // TODO: In the future these should be folded into regular build commands when the build system can handle not
-        // knowing the names of all the outputs before the command runs.
+        // TODO: In the future these should be folded into regular build commands when the build system can handle not knowing the names of all the outputs before the command runs.
         public var configuration: CommandConfiguration
         public var outputFilesDirectory: AbsolutePath
     }
 
     /// Launch configuration of a command that can be run (including a display name to show in logs etc).
     public struct CommandConfiguration {
-        public var displayName: String
-        public var executable: String
+        public var displayName: String?
+        public var executable: AbsolutePath
         public var arguments: [String]
         public var environment: [String: String]
         public var workingDirectory: AbsolutePath?
@@ -318,7 +347,8 @@ public struct PluginInvocationResult {
 
 /// An error in plugin evaluation.
 public enum PluginEvaluationError: Swift.Error {
-    case outputDirectoryCouldNotBeCreated(path: AbsolutePath, underlyingError: Error)
+    case couldNotCreateOuputDirectory(path: AbsolutePath, underlyingError: Error)
+    case couldNotSerializePluginInput(underlyingError: Error)
     case runningPluginFailed(underlyingError: Error)
     case decodingPluginOutputFailed(json: Data, underlyingError: Error)
 }
@@ -331,21 +361,23 @@ public protocol PluginScriptRunner {
     /// by the package graph when it is evaluating package plugins.
     ///
     /// The `sources` refer to the Swift source files and are accessible in the provided `fileSystem`. The input is
-    /// a serialized PluginScriptRunnerInput, and the output should be a serialized PluginScriptRunnerOutput as
-    /// well as any free-form output produced by the script (for debugging purposes).
+    /// a PluginScriptRunnerInput structure, and the output will be a PluginScriptRunnerOutput structure.
     ///
-    /// Any errors or warnings related to the running of the plugin will be added to `diagnostics`.  Any errors
-    /// or warnings emitted by the plugin itself will be part of the returned output.
+    /// The text output callback handler will receive free-form output from the script as it's running. Structured
+    /// diagnostics emitted by the plugin will be added to the observability scope.
     ///
-    /// Every concrete implementation should cache any intermediates as necessary for fast evaluation.
+    /// Every concrete implementation should cache any intermediates as necessary to avoid redundant work.
     func runPluginScript(
         sources: Sources,
-        inputJSON: Data,
+        input: PluginScriptRunnerInput,
         toolsVersion: ToolsVersion,
         writableDirectories: [AbsolutePath],
+        fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
-        fileSystem: FileSystem
-    ) throws -> (outputJSON: Data, stdoutText: Data)
+        callbackQueue: DispatchQueue,
+        delegate: PluginInvocationDelegate,
+        completion: @escaping (Result<Bool, Error>) -> Void
+    )
 
     /// Returns the Triple that represents the host for which plugin script tools should be built, or for which binary
     /// tools should be selected.
@@ -353,7 +385,157 @@ public protocol PluginScriptRunner {
 }
 
 
-/// Serializable context that's passed as input to the invocation of the plugin.
+public protocol PluginInvocationDelegate {
+    /// Called for each piece of textual output data emitted by the plugin. Note that there is no guarantee that the data begins and ends on a UTF-8 byte sequence boundary (much less on a line boundary) so the delegate should buffer partial data as appropriate.
+    func pluginEmittedOutput(_: Data)
+    
+    /// Called when a plugin emits a diagnostic through the PackagePlugin APIs.
+    func pluginEmittedDiagnostic(_: Diagnostic)
+
+    /// Called when a plugin defines a build command through the PackagePlugin APIs.
+    func pluginDefinedBuildCommand(displayName: String?, executable: AbsolutePath, arguments: [String], environment: [String: String], workingDirectory: AbsolutePath?, inputFiles: [AbsolutePath], outputFiles: [AbsolutePath])
+
+    /// Called when a plugin defines a prebuild command through the PackagePlugin APIs.
+    func pluginDefinedPrebuildCommand(displayName: String?, executable: AbsolutePath, arguments: [String], environment: [String: String], workingDirectory: AbsolutePath?, outputFilesDirectory: AbsolutePath)
+    
+    /// Called when a plugin requests a build operation through the PackagePlugin APIs.
+    func pluginRequestedBuildOperation(subset: PluginInvocationBuildSubset, parameters: PluginInvocationBuildParameters, completion: @escaping (Result<PluginInvocationBuildResult, Error>) -> Void)
+
+    /// Called when a plugin requests a test operation through the PackagePlugin APIs.
+    func pluginRequestedTestOperation(subset: PluginInvocationTestSubset, parameters: PluginInvocationTestParameters, completion: @escaping (Result<PluginInvocationTestResult, Error>) -> Void)
+
+    /// Called when a plugin requests that the host computes and returns symbol graph information for a particular target.
+    func pluginRequestedSymbolGraph(forTarget name: String, options: PluginInvocationSymbolGraphOptions, completion: @escaping (Result<PluginInvocationSymbolGraphResult, Error>) -> Void)
+}
+
+public struct PluginInvocationSymbolGraphOptions: Decodable {
+    public var minimumAccessLevel: AccessLevel
+    public enum AccessLevel: String, Decodable {
+        case `private`, `fileprivate`, `internal`, `public`, `open`
+    }
+    public var includeSynthesized: Bool
+    public var includeSPI: Bool
+}
+
+public struct PluginInvocationSymbolGraphResult: Encodable {
+    public var directoryPath: String
+    public init(directoryPath: String) {
+        self.directoryPath = directoryPath
+    }
+}
+
+public enum PluginInvocationBuildSubset: Decodable {
+    case all(includingTests: Bool)
+    case product(String)
+    case target(String)
+}
+
+public struct PluginInvocationBuildParameters: Decodable {
+    public var configuration: Configuration
+    public enum Configuration: Decodable {
+        case debug, release
+    }
+    public var logging: LogVerbosity
+    public enum LogVerbosity: Decodable {
+        case concise, verbose, debug
+    }
+    public var otherCFlags: [String]
+    public var otherCxxFlags: [String]
+    public var otherSwiftcFlags: [String]
+    public var otherLinkerFlags: [String]
+}
+
+public struct PluginInvocationBuildResult: Encodable {
+    public var succeeded: Bool
+    public var logText: String
+    public var builtArtifacts: [BuiltArtifact]
+    public struct BuiltArtifact: Encodable {
+        public var path: String
+        public var kind: Kind
+        public enum Kind: String, Encodable {
+            case executable, dynamicLibrary, staticLibrary
+        }
+        public init(path: String, kind: Kind) {
+            self.path = path
+            self.kind = kind
+        }
+    }
+    public init(succeeded: Bool, logText: String, builtArtifacts: [BuiltArtifact]) {
+        self.succeeded = succeeded
+        self.logText = logText
+        self.builtArtifacts = builtArtifacts
+    }
+}
+
+public enum PluginInvocationTestSubset: Decodable {
+    case all
+    case filtered([String])
+}
+
+public struct PluginInvocationTestParameters: Decodable {
+    public var enableCodeCoverage: Bool
+}
+
+public struct PluginInvocationTestResult: Encodable {
+    public var succeeded: Bool
+    public var testTargets: [TestTarget]
+    public var codeCoverageDataFile: String?
+
+    public struct TestTarget: Encodable {
+        public var name: String
+        public var testCases: [TestCase]
+        public struct TestCase: Encodable {
+            public var name: String
+            public var tests: [Test]
+            public struct Test: Encodable {
+                public var name: String
+                public var output: String
+                public var status: Status
+                public var duration: Double
+                public enum Status: String, CaseIterable, Encodable {
+                    case succeeded, skipped, failed
+                }
+                public init(name: String, output: String, status: Status, duration: Double) {
+                    self.name = name
+                    self.output = output
+                    self.status = status
+                    self.duration = duration
+                }
+            }
+            public init(name: String, tests: [Test]) {
+                self.name = name
+                self.tests = tests
+            }
+        }
+        public init(name: String, testCases: [TestCase]) {
+            self.name = name
+            self.testCases = testCases
+        }
+    }
+    public init(succeeded: Bool, testTargets: [TestTarget], codeCoverageDataFile: String?) {
+        self.succeeded = succeeded
+        self.testTargets = testTargets
+        self.codeCoverageDataFile = codeCoverageDataFile
+    }
+}
+
+public extension PluginInvocationDelegate {
+    func pluginDefinedBuildCommand(displayName: String?, executable: AbsolutePath, arguments: [String], environment: [String : String], workingDirectory: AbsolutePath?, inputFiles: [AbsolutePath], outputFiles: [AbsolutePath]) {
+    }
+    func pluginDefinedPrebuildCommand(displayName: String?, executable: AbsolutePath, arguments: [String], environment: [String : String], workingDirectory: AbsolutePath?, outputFilesDirectory: AbsolutePath) {
+    }
+    func pluginRequestedBuildOperation(subset: PluginInvocationBuildSubset, parameters: PluginInvocationBuildParameters, completion: @escaping (Result<PluginInvocationBuildResult, Error>) -> Void) {
+        DispatchQueue.sharedConcurrent.async { completion(Result.failure(StringError("unimplemented"))) }
+    }
+    func pluginRequestedTestOperation(subset: PluginInvocationTestSubset, parameters: PluginInvocationTestParameters, completion: @escaping (Result<PluginInvocationTestResult, Error>) -> Void) {
+        DispatchQueue.sharedConcurrent.async { completion(Result.failure(StringError("unimplemented"))) }
+    }
+    func pluginRequestedSymbolGraph(forTarget name: String, options: PluginInvocationSymbolGraphOptions, completion: @escaping (Result<PluginInvocationSymbolGraphResult, Error>) -> Void) {
+        DispatchQueue.sharedConcurrent.async { completion(Result.failure(StringError("unimplemented"))) }
+    }
+}
+
+/// Serializable context that's passed as input to an invocation of a plugin.
 /// This is the transport data to a particular invocation of a plugin for a
 /// particular purpose; everything we can communicate to the plugin is here.
 ///
@@ -365,7 +547,7 @@ public protocol PluginScriptRunner {
 /// Other information includes a mapping from names of command line tools that
 /// are available to the plugin to their corresponding paths, and a serialized
 /// representation of the plugin action.
-struct PluginScriptRunnerInput: Codable {
+public struct PluginScriptRunnerInput: Codable {
     let paths: [Path]
     let targets: [Target]
     let products: [Product]
@@ -380,6 +562,7 @@ struct PluginScriptRunnerInput: Codable {
     /// the capabilities declared for the plugin.
     enum PluginAction: Codable {
         case createBuildToolCommands(targetId: Target.Id)
+        case performCommand(targetIds: [Target.Id], arguments: [String])
     }
 
     /// A single absolute path in the wire structure, represented as a tuple
@@ -552,13 +735,6 @@ struct PluginScriptRunnerInputSerializer {
     var packages: [PluginScriptRunnerInput.Package] = []
     var packagesToIds: [ResolvedPackage: PluginScriptRunnerInput.Package.Id] = [:]
     
-    /// The action that SwiftPM wants to invoke on the plugin.
-    enum PluginAction {
-        case createBuildToolCommands(target: ResolvedTarget)
-    }
-    
-    /// Constructs the codable, serialized input to the plugin, based on a
-    /// plugin action, a package subgraph, and other parameters.
     mutating func makePluginScriptRunnerInput(
         rootPackage: ResolvedPackage,
         pluginWorkDir: AbsolutePath,
@@ -574,8 +750,10 @@ struct PluginScriptRunnerInputSerializer {
         switch pluginAction {
         case .createBuildToolCommands(let target):
             serializedPluginAction = .createBuildToolCommands(targetId: try serialize(target: target)!)
+        case .performCommand(let targets, let arguments):
+            serializedPluginAction = .performCommand(targetIds: try targets.compactMap { try serialize(target: $0) }, arguments: arguments)
         }
-        let input = PluginScriptRunnerInput(
+        return PluginScriptRunnerInput(
             paths: paths,
             targets: targets,
             products: products,
@@ -585,7 +763,6 @@ struct PluginScriptRunnerInputSerializer {
             builtProductsDirId: builtProductsDirId,
             toolNamesToPathIds: toolNamesToPathIds,
             pluginAction: serializedPluginAction)
-        return input
     }
     
     /// Adds a path to the serialized structure, if it isn't already there.
@@ -810,7 +987,7 @@ struct PluginScriptRunnerInputSerializer {
 
 /// Deserializable result that's received as output from the invocation of the plugin. This is the transport data from
 /// the invocation of the plugin for a particular target; everything the plugin can commuicate to us is here.
-struct PluginScriptRunnerOutput: Codable {
+public struct PluginScriptRunnerOutput: Codable {
     var diagnostics: [Diagnostic]
     struct Diagnostic: Codable {
         enum Severity: String, Codable {

@@ -127,10 +127,12 @@ public final class Target {
     private var _pluginCapability: PluginCapability?
     
     /// The different types of capability that a plugin can provide. In this
-    /// version of SwiftPM, only build tool plugins are supported; this enum
-    /// will be extended as new plugin capabilities are added.
+    /// version of SwiftPM, only build tool and command plugins are supported;
+    /// this enum will be extended as new plugin capabilities are added.
     public enum PluginCapability {
         case _buildTool
+        @available(_PackageDescription, introduced: 999.0)
+        case _command(intent: PluginCommandIntent, permissions: [PluginPermission])
     }
     
     /// The target's C build settings.
@@ -1010,6 +1012,54 @@ extension Target.PluginCapability {
     public static func buildTool() -> Target.PluginCapability {
         return ._buildTool
     }
+
+    /// Specifies that the plugin provides a user command capability. It will
+    /// be available to invoke manually on one or more targets in a package.
+    /// The package can specify the verb that is used to invoke the command.
+    @available(_PackageDescription, introduced: 999.0)
+    /// Plugins that specify a `command` capability define commands that can be run
+    /// using the SwiftPM CLI (`swift package <verb>`), or in an IDE that supports
+    /// Swift Packages.
+    public static func command(
+        /// The semantic intent of the plugin (either one of the predefined intents,
+        /// or a custom intent).
+        intent: PluginCommandIntent,
+
+        /// Any permissions needed by the command plugin. This affects what the
+        /// sandbox in which the plugin is run allows. Some permissions may require
+        /// approval by the user.
+        permissions: [PluginPermission] = []
+    ) -> Target.PluginCapability {
+        return ._command(intent: intent, permissions: permissions)
+    }
+}
+
+@available(_PackageDescription, introduced: 999.0)
+public enum PluginCommandIntent {
+    /// The intent of the command is to generate documentation, either by parsing the
+    /// package contents directly or by using the build system support for generating
+    /// symbol graphs. Invoked by a `generate-documentation` verb to `swift package`.
+    case documentationGeneration
+    
+    /// The intent of the command is to modify the source code in the package based
+    /// on a set of rules. Invoked by a `format-source-code` verb to `swift package`.
+    case sourceCodeFormatting
+
+    /// Any future enum cases should use @available()
+
+    /// An intent that doesn't fit into any of the other categories, with a custom
+    /// verb through which it can be invoked.
+    case custom(verb: String, description: String)
+}
+
+@available(_PackageDescription, introduced: 999.0)
+public enum PluginPermission {
+    /// The command plugin wants permission to modify the files under the package
+    /// directory. The `reason` string is shown to the user at the time of request
+    /// for approval, explaining why the plugin is requesting this access.
+    case writeToPackageDirectory(reason: String)
+
+    /// Any future enum cases should use @available()
 }
 
 extension Target.PluginUsage {
