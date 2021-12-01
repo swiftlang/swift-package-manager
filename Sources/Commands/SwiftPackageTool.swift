@@ -922,16 +922,11 @@ extension SwiftPackageTool {
             let plugin = matchingPlugins[0]
             swiftTool.observabilityScope.emit(info: "Running plugin \(plugin)")
             
-            // The proposal calls for applying plugins to regular targets.
-            func isEligible(target: ResolvedTarget) -> Bool {
-                return ![.plugin, .snippet, .systemModule].contains(target.type)
-            }
-            
             // In SwiftPM CLI, we have only one root package.
             let package = packageGraph.rootPackages[0]
 
             // If no targets were specified, default to all the applicable ones in the package.
-            let targetNames = targetNames.isEmpty ? package.targets.filter(isEligible).map(\.name) : targetNames
+            let targetNames = targetNames.isEmpty ? package.targets.filter(\.isEligibleForPluginCommand).map(\.name) : targetNames
             
             // Find the targets (if any) specified by the user. We expect them in the root package.
             var targets: [String: ResolvedTarget] = [:]
@@ -940,7 +935,9 @@ extension SwiftPackageTool {
                     swiftTool.observabilityScope.emit(error: "Ambiguous target name: ‘\(target.name)’")
                     throw ExitCode.failure
                 }
-                targets[target.name] = target
+                if target.isEligibleForPluginCommand {
+                    targets[target.name] = target
+                }
             }
             assert(targets.count <= targetNames.count)
             if targets.count != targetNames.count {
@@ -963,28 +960,40 @@ extension SwiftPackageTool {
             // FIXME: Revisit this path.
             let outputDir = pluginsDir.appending(component: "outputs")
 
-            // Build the map of tools that are available to the plugin. This should include the tools in the executables in the toolchain, as well as any executables the plugin depends on (built executables as well as prebuilt binaries).
-            let dataDir = try swiftTool.getActiveWorkspace().location.pluginWorkingDirectory
-            let builtToolsDir = dataDir.appending(components: "plugin-tools")
-            
             // Use the directory containing the compiler as an additional search directory.
             let toolSearchDirs = [try swiftTool.getToolchain().swiftCompilerPath.parentDirectory]
 
             // Create the cache directory, if needed.
             try localFileSystem.createDirectory(cacheDir, recursive: true)
             
-            // Determine the tools to which this plugin has access, and create a name-to-path mapping from tool
-            // names to the corresponding paths. Built tools are assumed to be in the build tools directory.
-            let accessibleTools = plugin.accessibleTools(for: pluginScriptRunner.hostTriple)
-            let toolNamesToPaths = accessibleTools.reduce(into: [String: AbsolutePath](), { dict, tool in
-                switch tool {
-                case .builtTool(let name, let path):
-                    dict[name] = builtToolsDir.appending(path)
-                case .vendedTool(let name, let path):
-                    dict[name] = path
+            // Build or bring up-to-date any executable host-side tools on which this plugin depends. Add them and any binary dependencies to the tool-names-to-path map.
+            var toolNamesToPaths: [String: AbsolutePath] = [:]
+            for dep in plugin.dependencies {
+                let buildOperation = try swiftTool.createBuildOperation(cacheBuildManifest: false)
+                switch dep {
+                case .product(let productRef, _):
+                    // Build the product referenced by the tool, and add the executable to the tool map.
+                    try buildOperation.build(subset: .product(productRef.name))
+                    if let builtTool = buildOperation.buildPlan?.buildProducts.first(where: { $0.product.name == productRef.name}) {
+                        toolNamesToPaths[productRef.name] = builtTool.binary
+                    }
+                case .target(let target, _):
+                    if let target = target as? BinaryTarget {
+                        // Add the executables vended by the binary target to the tool map.
+                        for exec in try target.parseArtifactArchives(for: pluginScriptRunner.hostTriple, fileSystem: localFileSystem) {
+                            toolNamesToPaths[exec.name] = exec.executablePath
+                        }
+                    }
+                    else {
+                        // Build the target referenced by the tool, and add the executable to the tool map.
+                        try buildOperation.build(subset: .target(target.name))
+                        if let builtTool = buildOperation.buildPlan?.buildProducts.first(where: { $0.product.name == target.name}) {
+                            toolNamesToPaths[target.name] = builtTool.binary
+                        }
+                    }
                 }
-            })
-            
+            }
+
             // Set up a delegate to handle callbacks from the command plugin.
             let pluginDelegate = PluginDelegate(swiftTool: swiftTool, plugin: plugin, outputStream: swiftTool.outputStream)
             let delegateQueue = DispatchQueue(label: "plugin-invocation")
@@ -1006,6 +1015,18 @@ extension SwiftPackageTool {
                 completion: $0) }
             
             // TODO: We should also emit a final line of output regarding the result.
+        }
+    }
+}
+
+fileprivate extension ResolvedTarget {
+    // The proposal calls for applying plugins to regular targets.
+    var isEligibleForPluginCommand: Bool {
+        switch type {
+        case .library, .executable, .binary, .test:
+            return true
+        case .systemModule, .plugin, .snippet:
+            return false
         }
     }
 }
