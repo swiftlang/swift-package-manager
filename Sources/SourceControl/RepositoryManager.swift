@@ -398,7 +398,7 @@ extension RepositoryManager {
         fileprivate let subpath: RelativePath
 
         /// Create a handle.
-        fileprivate init(manager: RepositoryManager, repository: RepositorySpecifier, subpath: RelativePath/*, status: Status = .uninitialized*/) {
+        fileprivate init(manager: RepositoryManager, repository: RepositorySpecifier, subpath: RelativePath) {
             self.manager = manager
             self.repository = repository
             self.subpath = subpath
