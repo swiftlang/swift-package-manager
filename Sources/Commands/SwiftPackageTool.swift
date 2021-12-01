@@ -905,6 +905,7 @@ extension SwiftPackageTool {
             let packageGraph = try swiftTool.loadPackageGraph()
             
             // Find the plugins that match the command.
+            swiftTool.observabilityScope.emit(info: "Finding plugin for command '\(command) '")
             let matchingPlugins = findPlugins(matching: command, in: packageGraph)
 
             // Complain if we didn't find exactly one.
@@ -921,17 +922,25 @@ extension SwiftPackageTool {
             let plugin = matchingPlugins[0]
             swiftTool.observabilityScope.emit(info: "Running plugin \(plugin)")
             
-            // Find the targets (if any) specified by the user. We expect them in the root package.
+            // The proposal calls for applying plugins to regular targets.
+            func isEligible(target: ResolvedTarget) -> Bool {
+                return ![.plugin, .snippet, .systemModule].contains(target.type)
+            }
+            
+            // In SwiftPM CLI, we have only one root package.
             let package = packageGraph.rootPackages[0]
+
+            // If no targets were specified, default to all the applicable ones in the package.
+            let targetNames = targetNames.isEmpty ? package.targets.filter(isEligible).map(\.name) : targetNames
+            
+            // Find the targets (if any) specified by the user. We expect them in the root package.
             var targets: [String: ResolvedTarget] = [:]
-            for target in package.targets {
-                if targetNames.contains(target.name) {
-                    if targets[target.name] != nil {
-                        swiftTool.observabilityScope.emit(error: "Ambiguous target name: ‘\(target.name)’")
-                        throw ExitCode.failure
-                    }
-                    targets[target.name] = target
+            for target in package.targets where targetNames.contains(target.name) {
+                if targets[target.name] != nil {
+                    swiftTool.observabilityScope.emit(error: "Ambiguous target name: ‘\(target.name)’")
+                    throw ExitCode.failure
                 }
+                targets[target.name] = target
             }
             assert(targets.count <= targetNames.count)
             if targets.count != targetNames.count {
