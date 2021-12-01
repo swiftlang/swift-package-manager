@@ -1170,19 +1170,22 @@ final class PackageToolTests: CommandsTestCase {
     func testCommandPlugin() throws {
         
         try testWithTemporaryDirectory { tmpPath in
-            // Create a sample package with a library target and a plugin.
+            // Create a sample package with a library target, a plugin, and a local tool. It depends on a sample package which also has a tool.
             let packageDir = tmpPath.appending(components: "MyPackage")
-            try localFileSystem.writeFileContents(packageDir.appending(component: "Package.swift")) {
+            try localFileSystem.writeFileContents(packageDir.appending(components: "Package.swift")) {
                 $0 <<< """
                 // swift-tools-version: 999.0
                 import PackageDescription
                 let package = Package(
                     name: "MyPackage",
+                    dependencies: [
+                        .package(name: "HelperPackage", path: "VendoredDependencies/HelperPackage")
+                    ],
                     targets: [
                         .target(
                             name: "MyLibrary",
-                            plugins: [
-                                "MyPlugin",
+                            dependencies: [
+                                .product(name: "HelperLibrary", package: "HelperPackage")
                             ]
                         ),
                         .plugin(
@@ -1190,36 +1193,132 @@ final class PackageToolTests: CommandsTestCase {
                             capability: .command(
                                 intent: .custom(verb: "mycmd", description: "What is mycmd anyway?"),
                                 permissions: [.writeToPackageDirectory(reason: "YOLO")]
-                            )
+                            ),
+                            dependencies: [
+                                .target(name: "LocalBuiltTool"),
+                                .target(name: "LocalBinaryTool"),
+                                .product(name: "RemoteBuiltTool", package: "HelperPackage")
+                            ]
                         ),
+                        .binaryTarget(
+                            name: "LocalBinaryTool",
+                            path: "Binaries/LocalBinaryTool.artifactbundle"
+                        ),
+                        .executableTarget(
+                            name: "LocalBuiltTool"
+                        )
                     ]
                 )
                 """
             }
             try localFileSystem.writeFileContents(packageDir.appending(components: "Sources", "MyLibrary", "library.swift")) {
                 $0 <<< """
-                    public func Foo() { }
+                public func Foo() { }
+                """
+            }
+            let hostTriple = try UserToolchain(destination: .hostDestination()).triple
+            let hostTripleString = hostTriple.isDarwin() ? hostTriple.tripleString(forPlatformVersion: "") : hostTriple.tripleString
+            try localFileSystem.writeFileContents(packageDir.appending(components: "Binaries", "LocalBinaryTool.artifactbundle", "info.json")) {
+                $0 <<< """
+                {   "schemaVersion": "1.0",
+                    "artifacts": {
+                        "LocalBinaryTool": {
+                            "type": "executable",
+                            "version": "1.2.3",
+                            "variants": [
+                                {   "path": "LocalBinaryTool.sh",
+                                    "supportedTriples": ["\(hostTripleString)"]
+                                },
+                            ]
+                        }
+                    }
+                }
+                """
+            }
+            try localFileSystem.writeFileContents(packageDir.appending(components: "Sources", "LocalBuiltTool", "main.swift")) {
+                $0 <<< """
+                print("Hello")
                 """
             }
             try localFileSystem.writeFileContents(packageDir.appending(components: "Plugins", "MyPlugin", "plugin.swift")) {
                 $0 <<< """
-                    import PackagePlugin
-                    
-                    @main
-                    struct MyCommandPlugin: CommandPlugin {
-                        func performCommand(
-                            context: PluginContext,
-                            targets: [Target],
-                            arguments: [String]
-                        ) throws {
-                            print("This is MyCommandPlugin.")
-                        }
+                import PackagePlugin
+
+                @main
+                struct MyCommandPlugin: CommandPlugin {
+                    func performCommand(
+                        context: PluginContext,
+                        targets: [Target],
+                        arguments: [String]
+                    ) throws {
+                        print("This is MyCommandPlugin.")
+
+                        // Check that we can find a binary-provided tool in the same package.
+                        print("Looking for LocalBinaryTool...")
+                        let localBinaryTool = try context.tool(named: "LocalBinaryTool")
+                        print("... found it at \\(localBinaryTool.path)")
+
+                        // Check that we can find a source-built tool in the same package.
+                        print("Looking for LocalBuiltTool...")
+                        let localBuiltTool = try context.tool(named: "LocalBuiltTool")
+                        print("... found it at \\(localBuiltTool.path)")
+
+                        // Check that we can find a source-built tool in another package.
+                        print("Looking for RemoteBuiltTool...")
+                        let remoteBuiltTool = try context.tool(named: "RemoteBuiltTool")
+                        print("... found it at \\(remoteBuiltTool.path)")
+
+                        // Check that we can find a tool in the toolchain.
+                        print("Looking for swiftc...")
+                        let swiftc = try context.tool(named: "swiftc")
+                        print("... found it at \\(swiftc.path)")
                     }
+                }
                 """
             }
-            
+
+            // Create the sample vendored dependency package.
+            try localFileSystem.writeFileContents(packageDir.appending(components: "VendoredDependencies", "HelperPackage", "Package.swift")) {
+                $0 <<< """
+                // swift-tools-version: 5.5
+                import PackageDescription
+                let package = Package(
+                    name: "HelperPackage",
+                    products: [
+                        .library(
+                            name: "HelperLibrary",
+                            targets: ["HelperLibrary"]
+                        ),
+                        .executable(
+                            name: "RemoteBuiltTool",
+                            targets: ["RemoteBuiltTool"]
+                        ),
+                    ],
+                    targets: [
+                        .target(
+                            name: "HelperLibrary"
+                        ),
+                        .executableTarget(
+                            name: "RemoteBuiltTool"
+                        ),
+                    ]
+                )
+                """
+            }
+            try localFileSystem.writeFileContents(packageDir.appending(components: "VendoredDependencies", "HelperPackage", "Sources", "HelperLibrary", "library.swift")) {
+                $0 <<< """
+                public func Bar() { }
+                """
+            }
+            try localFileSystem.writeFileContents(packageDir.appending(components: "VendoredDependencies", "HelperPackage", "Sources", "RemoteBuiltTool", "main.swift")) {
+                $0 <<< """
+                print("Hello")
+                """
+            }
+
             // Invoke it, and check the results.
             let result = try SwiftPMProduct.SwiftPackage.executeProcess(["plugin", "mycmd"], packagePath: packageDir, env: ["SWIFTPM_ENABLE_COMMAND_PLUGINS": "1"])
+            print(try result.utf8Output() + result.utf8stderrOutput())
             XCTAssertEqual(result.exitStatus, .terminated(code: 0))
             XCTAssert(try result.utf8Output().contains("This is MyCommandPlugin."))
         }
