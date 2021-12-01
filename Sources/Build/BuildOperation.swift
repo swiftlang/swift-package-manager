@@ -45,10 +45,10 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     public private(set) var buildPlan: BuildPlan?
 
     /// The build description resulting from planing.
-    private var buildDescription: BuildDescription?
+    private let buildDescription = ThreadSafeBox<BuildDescription>()
 
     /// The loaded package graph.
-    private var packageGraph: PackageGraph?
+    private let packageGraph = ThreadSafeBox<PackageGraph>()
 
     /// The output stream for the build delegate.
     private let outputStream: OutputByteStream
@@ -87,7 +87,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     }
 
     public func getPackageGraph() throws -> PackageGraph {
-        try memoize(to: &packageGraph) {
+        try self.packageGraph.memoize {
             try self.packageGraphLoader()
         }
     }
@@ -101,7 +101,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     /// This will try skip build planning if build manifest caching is enabled
     /// and the package structure hasn't changed.
     public func getBuildDescription() throws -> BuildDescription {
-        try memoize(to: &buildDescription) {
+        return try self.buildDescription.memoize {
             if self.cacheBuildManifest {
                 do {
                     try self.buildPackageStructure()
@@ -118,7 +118,6 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                     self.observabilityScope.emit(warning: "failed to load the cached build description: \(error)")
                 }
             }
-
             // We need to perform actual planning if we reach here.
             return try self.plan()
         }
