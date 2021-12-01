@@ -115,7 +115,8 @@ extension Plugin {
                 package: inputStruct.package,
                 pluginWorkDirectory: inputStruct.pluginWorkDirectory,
                 builtProductsDirectory: inputStruct.builtProductsDirectory,
-                toolNamesToPaths: inputStruct.toolNamesToPaths)
+                toolNamesToPaths: inputStruct.toolNamesToPaths,
+                toolSearchDirectories: inputStruct.toolSearchDirectories)
             
             // Instantiate the plugin. For now there are no parameters, but
             // this is where we would set them up, most likely as properties

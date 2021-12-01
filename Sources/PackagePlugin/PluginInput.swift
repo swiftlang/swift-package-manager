@@ -16,6 +16,7 @@ struct PluginInput {
     let package: Package
     let pluginWorkDirectory: Path
     let builtProductsDirectory: Path
+    let toolSearchDirectories: [Path]
     let toolNamesToPaths: [String: Path]
     let pluginAction: PluginAction
     enum PluginAction {
@@ -31,6 +32,7 @@ struct PluginInput {
         self.package = try deserializer.package(for: input.rootPackageId)
         self.pluginWorkDirectory = try deserializer.path(for: input.pluginWorkDirId)
         self.builtProductsDirectory = try deserializer.path(for: input.builtProductsDirId)
+        self.toolSearchDirectories = try input.toolSearchDirIds.map { try deserializer.path(for: $0) }
         self.toolNamesToPaths = try input.toolNamesToPathIds.mapValues { try deserializer.path(for: $0) }
         
         // Unpack the plugin action, which will determine which plugin functionality to invoke.
@@ -288,6 +290,7 @@ internal struct WireInput: Decodable {
     let rootPackageId: Package.Id
     let pluginWorkDirId: Path.Id
     let builtProductsDirId: Path.Id
+    let toolSearchDirIds: [Path.Id]
     let toolNamesToPathIds: [String: Path.Id]
     let pluginAction: PluginAction
 

@@ -156,6 +156,7 @@ class PluginInvocationTests: XCTestCase {
             outputDir: outputDir,
             builtToolsDir: builtToolsDir,
             buildEnvironment: BuildEnvironment(platform: .macOS, configuration: .debug),
+            toolSearchDirectories: [UserToolchain.default.swiftCompilerPath.parentDirectory],
             pluginScriptRunner: pluginRunner,
             observabilityScope: observability.topScope,
             fileSystem: fileSystem

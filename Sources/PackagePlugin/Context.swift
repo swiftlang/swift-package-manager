@@ -8,6 +8,8 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+@_implementationOnly import Foundation
+
 /// Provides information about the package for which the plugin is invoked,
 /// as well as contextual information based on the plugin's stated intent
 /// and requirements.
@@ -39,7 +41,21 @@ public struct PluginContext {
     /// target on which the package plugin target depends. This function throws
     /// an error if the tool cannot be found. The lookup is case sensitive.
     public func tool(named name: String) throws -> Tool {
-        if let path = self.toolNamesToPaths[name] { return Tool(name: name, path: path) }
+        if let path = self.toolNamesToPaths[name] {
+            return Tool(name: name, path: path)
+        } else {
+            for dir in toolSearchDirectories {
+#if os(Windows)
+                let hostExecutableSuffix = ".exe"
+#else
+                let hostExecutableSuffix = ""
+#endif
+                let path = dir.appending(name + hostExecutableSuffix)
+                if FileManager.default.isExecutableFile(atPath: path.string) {
+                    return Tool(name: name, path: path)
+                }
+            }
+        }
         throw PluginContextError.toolNotFound(name: name)
     }
 
@@ -47,6 +63,10 @@ public struct PluginContext {
     /// to the plugin, but used by the `tool(named:)` API.
     let toolNamesToPaths: [String: Path]
     
+    /// The paths of directories of in which to search for tools that aren't in
+    /// the `toolNamesToPaths` map.
+    let toolSearchDirectories: [Path]
+
     /// Information about a particular tool that is available to a plugin.
     public struct Tool {
         /// Name of the tool (suitable for display purposes).

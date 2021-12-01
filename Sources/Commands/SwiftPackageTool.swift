@@ -957,6 +957,9 @@ extension SwiftPackageTool {
             // Build the map of tools that are available to the plugin. This should include the tools in the executables in the toolchain, as well as any executables the plugin depends on (built executables as well as prebuilt binaries).
             let dataDir = try swiftTool.getActiveWorkspace().location.pluginWorkingDirectory
             let builtToolsDir = dataDir.appending(components: "plugin-tools")
+            
+            // Use the directory containing the compiler as an additional search directory.
+            let toolSearchDirs = [try swiftTool.getToolchain().swiftCompilerPath.parentDirectory]
 
             // Create the cache directory, if needed.
             try localFileSystem.createDirectory(cacheDir, recursive: true)
@@ -985,6 +988,7 @@ extension SwiftPackageTool {
                 buildEnvironment: buildEnvironment,
                 scriptRunner: pluginScriptRunner,
                 outputDirectory: outputDir,
+                toolSearchDirectories: toolSearchDirs,
                 toolNamesToPaths: toolNamesToPaths,
                 fileSystem: localFileSystem,
                 observabilityScope: swiftTool.observabilityScope,

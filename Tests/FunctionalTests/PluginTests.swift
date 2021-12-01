@@ -231,6 +231,11 @@ class PluginTests: XCTestCase {
                             arguments: [String]
                         ) throws {
                             print("This is MyCommandPlugin.")
+                    
+                            // Check that we can find a tool in the toolchain.
+                            print("Looking for swiftc...")
+                            let swiftc = try context.tool(named: "swiftc")
+                            print("... found it at \\(swiftc)")
                         }
                     }
                 """
@@ -283,9 +288,11 @@ class PluginTests: XCTestCase {
                 func pluginEmittedOutput(_ data: Data) {
                     dispatchPrecondition(condition: .onQueue(delegateQueue))
                     outputData.append(contentsOf: data)
+                    print("🧩 \(String(decoding: data, as: UTF8.self))")
                 }
                 
                 func pluginEmittedDiagnostic(_ diagnostic: Basics.Diagnostic) {
+                    dispatchPrecondition(condition: .onQueue(delegateQueue))
                 }
             }
             let pluginDelegate = PluginDelegate(delegateQueue: delegateQueue)
@@ -303,6 +310,7 @@ class PluginTests: XCTestCase {
                 buildEnvironment: BuildEnvironment(platform: .macOS, configuration: .debug),
                 scriptRunner: pluginScriptRunner,
                 outputDirectory: pluginOutputDir,
+                toolSearchDirectories: [UserToolchain.default.swiftCompilerPath.parentDirectory],
                 toolNamesToPaths: [:],
                 fileSystem: localFileSystem,
                 observabilityScope: observability.topScope,
@@ -312,7 +320,8 @@ class PluginTests: XCTestCase {
             
             // Check the results.
             let outputText = String(decoding: pluginDelegate.outputData, as: UTF8.self)
-            XCTAssertTrue(outputText.trimmingCharacters(in: .whitespacesAndNewlines).hasSuffix("This is MyCommandPlugin."))
+            XCTAssertTrue(outputText.trimmingCharacters(in: .whitespacesAndNewlines).hasPrefix("This is MyCommandPlugin."), outputText)
+            XCTAssertTrue(outputText.trimmingCharacters(in: .whitespacesAndNewlines).contains("/swiftc"), outputText)
         }
     }
 }
