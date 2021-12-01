@@ -76,12 +76,12 @@ public struct PackageManager {
     
     /// Represents an overall purpose of the build, which affects such things
     /// asoptimization and generation of debug symbols.
-    public enum BuildConfiguration: Encodable {
+    public enum BuildConfiguration: String, Encodable {
         case debug, release
     }
     
     /// Represents the amount of detail in a build log.
-    public enum BuildLogVerbosity: Encodable {
+    public enum BuildLogVerbosity: String, Encodable {
         case concise, verbose, debug
     }
     
@@ -108,7 +108,7 @@ public struct PackageManager {
             /// Represents the kind of artifact that was built. The specific file
             /// formats may vary from platform to platform — for example, on macOS
             /// a dynamic library may in fact be built as a framework.
-            public enum Kind: Decodable {
+            public enum Kind: String, Decodable {
                 case executable, dynamicLibrary, staticLibrary
             }
         }
@@ -188,7 +188,7 @@ public struct PackageManager {
                     public var duration: Double
 
                     /// Represents the outcome of running a single test.
-                    public enum Outcome: Decodable {
+                    public enum Outcome: String, Decodable {
                         case succeeded, skipped, failed
                     }
                 }
