@@ -885,7 +885,7 @@ struct PluginScriptRunnerInputSerializer {
             return nil
         }
         
-        // We only get this far if we are serializing the target. If so we also serialize its dependencies.
+        // We only get this far if we are serializing the target. If so we also serialize its dependencies. This needs to be done before assigning the next wire ID for the target we're serializing, to make sure we end up with the correct one.
         let dependencies: [PluginScriptRunnerInput.Target.Dependency] = try target.dependencies(satisfying: buildEnvironment).compactMap {
             switch $0 {
             case .target(let target, _):
@@ -973,6 +973,11 @@ struct PluginScriptRunnerInputSerializer {
             }
         }
 
+        // Serialize the dependency packages. This needs to be done assigning the next wire ID to the package we're serializing, to make sure we end up with the correct one.
+        let dependencies = try package.dependencies.map {
+            PluginScriptRunnerInput.Package.Dependency(packageId: try serialize(package: $0))
+        }
+
         // Assign the next wire ID to the package and append a serialized Package record.
         let id = packages.count
         packages.append(.init(
@@ -984,7 +989,7 @@ struct PluginScriptRunnerInputSerializer {
                 major: package.manifest.toolsVersion.major,
                 minor: package.manifest.toolsVersion.minor,
                 patch: package.manifest.toolsVersion.patch),
-            dependencies: try package.dependencies.map{ .init(packageId: try serialize(package: $0)) },
+            dependencies: dependencies,
             productIds: try package.products.compactMap{ try serialize(product: $0) },
             targetIds: try package.targets.compactMap{ try serialize(target: $0) }))
         packagesToIds[package] = id

@@ -188,7 +188,7 @@ class PluginTests: XCTestCase {
     
     func testCommandPluginInvocation() throws {
         try testWithTemporaryDirectory { tmpPath in
-            // Create a sample package with a library target and a plugin.
+            // Create a sample package with a library target and a plugin. It depends on a sample package.
             let packageDir = tmpPath.appending(components: "MyPackage")
             try localFileSystem.writeFileContents(packageDir.appending(component: "Package.swift")) {
                 $0 <<< """
@@ -196,11 +196,14 @@ class PluginTests: XCTestCase {
                 import PackageDescription
                 let package = Package(
                     name: "MyPackage",
+                    dependencies: [
+                        .package(name: "HelperPackage", path: "VendoredDependencies/HelperPackage")
+                    ],
                     targets: [
                         .target(
                             name: "MyLibrary",
-                            plugins: [
-                                "MyPlugin",
+                            dependencies: [
+                                .product(name: "HelperLibrary", package: "HelperPackage")
                             ]
                         ),
                         .plugin(
@@ -230,14 +233,41 @@ class PluginTests: XCTestCase {
                             targets: [Target],
                             arguments: [String]
                         ) throws {
-                            print("This is MyCommandPlugin.")
+                            // Check the identity of the root packages.
+                            print("Root package is \\(context.package.displayName).")
                     
                             // Check that we can find a tool in the toolchain.
-                            print("Looking for swiftc...")
                             let swiftc = try context.tool(named: "swiftc")
-                            print("... found it at \\(swiftc)")
+                            print("Found the swiftc tool at \\(swiftc.path).")
                         }
                     }
+                """
+            }
+
+            // Create the sample vendored dependency package.
+            try localFileSystem.writeFileContents(packageDir.appending(components: "VendoredDependencies", "HelperPackage", "Package.swift")) {
+                $0 <<< """
+                // swift-tools-version: 5.5
+                import PackageDescription
+                let package = Package(
+                    name: "HelperPackage",
+                    products: [
+                        .library(
+                            name: "HelperLibrary",
+                            targets: ["HelperLibrary"]
+                        ),
+                    ],
+                    targets: [
+                        .target(
+                            name: "HelperLibrary"
+                        ),
+                    ]
+                )
+                """
+            }
+            try localFileSystem.writeFileContents(packageDir.appending(components: "VendoredDependencies", "HelperPackage", "Sources", "HelperLibrary", "library.swift")) {
+                $0 <<< """
+                    public func Bar() { }
                 """
             }
 
@@ -263,9 +293,10 @@ class PluginTests: XCTestCase {
 
             // Load the package graph.
             let packageGraph = try workspace.loadPackageGraph(rootInput: rootInput, observabilityScope: observability.topScope)
-            XCTAssert(observability.diagnostics.isEmpty, "\(observability.diagnostics)")
-            XCTAssert(packageGraph.packages.count == 1, "\(packageGraph.packages)")
-            let package = try XCTUnwrap(packageGraph.packages.first)
+            XCTAssertNoDiagnostics(observability.diagnostics)
+            XCTAssert(packageGraph.packages.count == 2, "\(packageGraph.packages)")
+            XCTAssert(packageGraph.rootPackages.count == 1, "\(packageGraph.rootPackages)")
+            let package = try XCTUnwrap(packageGraph.rootPackages.first)
             
             // Find the regular target in our test package.
             let libraryTarget = try XCTUnwrap(package.targets.map(\.underlyingTarget).first{ $0.name == "MyLibrary" } as? SwiftTarget)
@@ -288,7 +319,11 @@ class PluginTests: XCTestCase {
                 func pluginEmittedOutput(_ data: Data) {
                     dispatchPrecondition(condition: .onQueue(delegateQueue))
                     outputData.append(contentsOf: data)
-                    print("🧩 \(String(decoding: data, as: UTF8.self))")
+                    print(String(decoding: data, as: UTF8.self)
+                        .split(separator: "\n")
+                        .map{ "🧩 \($0)" }
+                        .joined(separator: "\n")
+                    )
                 }
                 
                 func pluginEmittedDiagnostic(_ diagnostic: Basics.Diagnostic) {
@@ -320,8 +355,8 @@ class PluginTests: XCTestCase {
             
             // Check the results.
             let outputText = String(decoding: pluginDelegate.outputData, as: UTF8.self)
-            XCTAssertTrue(outputText.trimmingCharacters(in: .whitespacesAndNewlines).hasPrefix("This is MyCommandPlugin."), outputText)
-            XCTAssertTrue(outputText.trimmingCharacters(in: .whitespacesAndNewlines).contains("/swiftc"), outputText)
+            XCTAssertTrue(outputText.contains("Root package is MyPackage."), outputText)
+            XCTAssertTrue(outputText.contains("Found the swiftc tool"), outputText)
         }
     }
 }
