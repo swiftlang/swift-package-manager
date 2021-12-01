@@ -442,6 +442,19 @@ public struct PluginCompilationResult {
     public var compiledExecutable: AbsolutePath
 }
 
+extension PluginCompilationResult: CustomStringConvertible {
+    public var description: String {
+        return """
+            <PluginCompilationResult(
+                exitStatus: \(compilerResult.exitStatus),
+                stdout: \((try? compilerResult.utf8Output()) ?? ""),
+                stderr: \((try? compilerResult.utf8stderrOutput()) ?? ""),
+                compiledExecutable: \(compiledExecutable.prettyPath())
+            )>
+            """
+    }
+}
+
 
 /// An error encountered by the default plugin runner.
 public enum DefaultPluginScriptRunnerError: Error {
