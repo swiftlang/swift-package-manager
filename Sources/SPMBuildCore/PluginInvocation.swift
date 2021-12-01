@@ -446,11 +446,11 @@ public enum PluginInvocationBuildSubset: Decodable {
 
 public struct PluginInvocationBuildParameters: Decodable {
     public var configuration: Configuration
-    public enum Configuration: Decodable {
+    public enum Configuration: String, Decodable {
         case debug, release
     }
     public var logging: LogVerbosity
-    public enum LogVerbosity: Decodable {
+    public enum LogVerbosity: String, Decodable {
         case concise, verbose, debug
     }
     public var otherCFlags: [String]
@@ -503,16 +503,14 @@ public struct PluginInvocationTestResult: Encodable {
             public var tests: [Test]
             public struct Test: Encodable {
                 public var name: String
-                public var output: String
-                public var status: Status
+                public var outcome: Outcome
                 public var duration: Double
-                public enum Status: String, CaseIterable, Encodable {
+                public enum Outcome: String, Encodable {
                     case succeeded, skipped, failed
                 }
-                public init(name: String, output: String, status: Status, duration: Double) {
+                public init(name: String, outcome: Outcome, duration: Double) {
                     self.name = name
-                    self.output = output
-                    self.status = status
+                    self.outcome = outcome
                     self.duration = duration
                 }
             }
