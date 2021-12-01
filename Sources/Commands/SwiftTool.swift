@@ -758,6 +758,9 @@ public class SwiftTool {
             // binary targets.
             let dataDir = try self.getActiveWorkspace().location.workingDirectory
             let builtToolsDir = dataDir.appending(components: try self._hostToolchain.get().triple.platformBuildPathComponent(), buildEnvironment.configuration.dirname)
+            
+            // Use the directory containing the compiler as an additional search directory.
+            let toolSearchDirs = [try self.getToolchain().swiftCompilerPath.parentDirectory]
 
             // Create the cache directory, if needed.
             try localFileSystem.createDirectory(cacheDir, recursive: true)
@@ -767,6 +770,7 @@ public class SwiftTool {
                 outputDir: outputDir,
                 builtToolsDir: builtToolsDir,
                 buildEnvironment: buildEnvironment,
+                toolSearchDirectories: toolSearchDirs,
                 pluginScriptRunner: pluginScriptRunner,
                 observabilityScope: self.observabilityScope,
                 fileSystem: localFileSystem

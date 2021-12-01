@@ -51,6 +51,7 @@ extension PluginTarget {
         buildEnvironment: BuildEnvironment,
         scriptRunner: PluginScriptRunner,
         outputDirectory: AbsolutePath,
+        toolSearchDirectories: [AbsolutePath],
         toolNamesToPaths: [String: AbsolutePath],
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
@@ -74,6 +75,7 @@ extension PluginTarget {
                 rootPackage: package,
                 pluginWorkDir: outputDirectory,
                 builtProductsDir: outputDirectory,  // FIXME — what is this parameter needed for?
+                toolSearchDirs: toolSearchDirectories,
                 toolNamesToPaths: toolNamesToPaths,
                 pluginAction: action)
         }
@@ -121,6 +123,7 @@ extension PackageGraph {
         outputDir: AbsolutePath,
         builtToolsDir: AbsolutePath,
         buildEnvironment: BuildEnvironment,
+        toolSearchDirectories: [AbsolutePath],
         pluginScriptRunner: PluginScriptRunner,
         observabilityScope: ObservabilityScope,
         fileSystem: FileSystem
@@ -231,6 +234,7 @@ extension PackageGraph {
                     buildEnvironment: buildEnvironment,
                     scriptRunner: pluginScriptRunner,
                     outputDirectory: pluginOutputDir,
+                    toolSearchDirectories: toolSearchDirectories,
                     toolNamesToPaths: toolNamesToPaths,
                     fileSystem: fileSystem,
                     observabilityScope: observabilityScope,
@@ -555,6 +559,7 @@ public struct PluginScriptRunnerInput: Codable {
     let rootPackageId: Package.Id
     let pluginWorkDirId: Path.Id
     let builtProductsDirId: Path.Id
+    let toolSearchDirIds: [Path.Id]
     let toolNamesToPathIds: [String: Path.Id]
     let pluginAction: PluginAction
 
@@ -739,12 +744,14 @@ struct PluginScriptRunnerInputSerializer {
         rootPackage: ResolvedPackage,
         pluginWorkDir: AbsolutePath,
         builtProductsDir: AbsolutePath,
+        toolSearchDirs: [AbsolutePath],
         toolNamesToPaths: [String: AbsolutePath],
         pluginAction: PluginAction
     ) throws -> PluginScriptRunnerInput {
         let rootPackageId = try serialize(package: rootPackage)
         let pluginWorkDirId = try serialize(path: pluginWorkDir)
         let builtProductsDirId = try serialize(path: builtProductsDir)
+        let toolSearchDirIds = try toolSearchDirs.map{ try serialize(path: $0) }
         let toolNamesToPathIds = try toolNamesToPaths.mapValues{ try serialize(path: $0) }
         let serializedPluginAction: PluginScriptRunnerInput.PluginAction
         switch pluginAction {
@@ -761,6 +768,7 @@ struct PluginScriptRunnerInputSerializer {
             rootPackageId: rootPackageId,
             pluginWorkDirId: pluginWorkDirId,
             builtProductsDirId: builtProductsDirId,
+            toolSearchDirIds: toolSearchDirIds,
             toolNamesToPathIds: toolNamesToPathIds,
             pluginAction: serializedPluginAction)
     }
