@@ -412,7 +412,7 @@ class MiscellaneousTestCase: XCTestCase {
             // something that doesn't exist.
             XCTAssert(result.exitStatus != .terminated(code: 0))
             let output = try result.utf8stderrOutput()
-            XCTAssert(output.contains("does not exist"), "Error from git was not propogated to process output: \(output)")
+            XCTAssert(output.contains("does not exist"), "Error from git was not propagated to process output: \(output)")
         }
     }
     

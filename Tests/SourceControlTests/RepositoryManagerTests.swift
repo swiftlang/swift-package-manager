@@ -307,6 +307,7 @@ class RepositoryManagerTests: XCTestCase {
             }
 
             waitForExpectations(timeout: 1)
+            XCTAssertNotNil(prevHandle)
 
             XCTAssertEqual(Set(delegate.willFetch.map { $0.repository }), [dummyRepo, badDummyRepo])
             XCTAssertEqual(Set(delegate.didFetch.map { $0.repository }), [dummyRepo, badDummyRepo])
@@ -314,39 +315,43 @@ class RepositoryManagerTests: XCTestCase {
             XCTAssert(delegate.willUpdate.isEmpty)
             XCTAssert(delegate.didUpdate.isEmpty)
 
-            // We should always get back the same handle once fetched.
-            XCTNonNil(prevHandle) {
+            do {
                 delegate.willFetchGroup?.enter()
                 delegate.didFetchGroup?.enter()
                 delegate.willUpdateGroup?.enter()
                 delegate.didUpdateGroup?.enter()
-                try XCTAssert($0 === manager.lookup(repository: dummyRepo))
+                let handle = try manager.lookup(repository: dummyRepo)
+                XCTAssertEqual(handle.repository, dummyRepo)
+                XCTAssertEqual(handle.repository, prevHandle?.repository)
+
+                // We should always get back the same handle once fetched.
+                // Since we looked up this repo again, we should have made a fetch call.
+                XCTAssertEqual(provider.numFetches, 1)
+                XCTAssertEqual(delegate.willUpdate, [dummyRepo])
+                XCTAssertEqual(delegate.didUpdate, [dummyRepo])
             }
-            // Since we looked up this repo again, we should have made a fetch call.
-            XCTAssertEqual(provider.numFetches, 1)
-            XCTAssertEqual(delegate.willUpdate, [dummyRepo])
-            XCTAssertEqual(delegate.didUpdate, [dummyRepo])
 
             // Remove the repo.
-            try manager.remove(repository: dummyRepo)
-
-            // Check removing the repo updates the persistent file.
             do {
-                let checkoutsStateFile = path.appending(component: "checkouts-state.json")
-                let jsonData = try JSON(bytes: localFileSystem.readFileContents(checkoutsStateFile))
-                XCTAssertEqual(jsonData.dictionary?["object"]?.dictionary?["repositories"]?.dictionary?[dummyRepo.location.description], nil)
-            }
+                try manager.remove(repository: dummyRepo)
 
-            // We should get a new handle now because we deleted the existing repository.
-            XCTNonNil(prevHandle) {
-                try XCTAssert($0 !== manager.lookup(repository: dummyRepo))
-            }
+                // Check removing the repo updates the persistent file.
+                do {
+                    let checkoutsStateFile = path.appending(component: "checkouts-state.json")
+                    let jsonData = try JSON(bytes: localFileSystem.readFileContents(checkoutsStateFile))
+                    XCTAssertEqual(jsonData.dictionary?["object"]?.dictionary?["repositories"]?.dictionary?[dummyRepo.location.description], nil)
+                }
 
-            // We should have tried fetching these two.
-            XCTAssertEqual(Set(delegate.willFetch.map { $0.repository }), [dummyRepo, badDummyRepo])
-            XCTAssertEqual(Set(delegate.didFetch.map { $0.repository }), [dummyRepo, badDummyRepo])
-            XCTAssertEqual(delegate.willUpdate, [dummyRepo])
-            XCTAssertEqual(delegate.didUpdate, [dummyRepo])
+                // We should get a new handle now because we deleted the existing repository.
+                let handle = try manager.lookup(repository: dummyRepo)
+                XCTAssertEqual(handle.repository, dummyRepo)
+
+                // We should have tried fetching these two.
+                XCTAssertEqual(Set(delegate.willFetch.map { $0.repository }), [dummyRepo, badDummyRepo])
+                XCTAssertEqual(Set(delegate.didFetch.map { $0.repository }), [dummyRepo, badDummyRepo])
+                XCTAssertEqual(delegate.willUpdate, [dummyRepo])
+                XCTAssertEqual(delegate.didUpdate, [dummyRepo])
+            }
         }
     }
 
