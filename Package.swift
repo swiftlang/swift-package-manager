@@ -457,7 +457,7 @@ let package = Package(
         .testTarget(
             name: "PackageLoadingTests",
             dependencies: ["PackageLoading", "SPMTestSupport"],
-            exclude: ["Inputs"]
+            exclude: ["Inputs", "pkgconfigInputs"]
         ),
         .testTarget(
             name: "PackageLoadingPerformanceTests",

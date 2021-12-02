@@ -9,11 +9,10 @@
 */
 
 import Basics
-import PackageLoading
+@testable import PackageLoading
 import PackageModel
 import SPMTestSupport
 import TSCBasic
-import TSCUtility
 import XCTest
 
 extension SystemLibraryTarget {
@@ -128,7 +127,7 @@ class PkgConfigTests: XCTestCase {
         // Use additionalSearchPaths instead of pkgConfigArgs to test handling
         // of search paths when loading dependencies.
         let observability = ObservabilitySystem.makeForTesting()
-        let result = try PkgConfig(name: "Dependent", additionalSearchPaths: [inputsDir], diagnostics: observability.topScope.makeDiagnosticsEngine(), brewPrefix: nil)
+        let result = try PkgConfig(name: "Dependent", additionalSearchPaths: [inputsDir], fileSystem: localFileSystem, observabilityScope: observability.topScope)
 
         XCTAssertEqual(result.name, "Dependent")
         XCTAssertEqual(result.cFlags, ["-I/path/to/dependent/include", "-I/path/to/dependency/include"])
