@@ -18,13 +18,13 @@ import XCTest
 
 class PackageDescriptionLoadingTests: XCTestCase, ManifestLoaderDelegate {
     lazy var manifestLoader = ManifestLoader(toolchain: ToolchainConfiguration.default, delegate: self)
-    var parsedManifest : AbsolutePath?
-
+    var parsedManifest = ThreadSafeBox<AbsolutePath>()
+    
     public func willLoad(manifest: AbsolutePath) {
     }
     
     public func willParse(manifest: AbsolutePath) {
-        parsedManifest = manifest
+        parsedManifest.put(manifest)
     }
 
     var toolsVersion: ToolsVersion {

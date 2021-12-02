@@ -159,6 +159,7 @@ public final class ThreadSafeArrayStore<Value> {
 }
 
 /// Thread-safe value boxing structure
+@dynamicMemberLookup
 public final class ThreadSafeBox<Value> {
     private var underlying: Value?
     private let lock = Lock()
@@ -196,6 +197,27 @@ public final class ThreadSafeBox<Value> {
     public func put(_ newValue: Value) {
         self.lock.withLock {
             self.underlying = newValue
+        }
+    }
+
+    public subscript<T>(dynamicMember keyPath: KeyPath<Value, T>) -> T? {
+        self.lock.withLock {
+            self.underlying?[keyPath: keyPath]
+        }
+    }
+
+    public subscript<T>(dynamicMember keyPath: WritableKeyPath<Value, T?>) -> T? {
+        get {
+            self.lock.withLock {
+                self.underlying?[keyPath: keyPath]
+            }
+        }
+        set {
+            self.lock.withLock {
+                if var value = self.underlying {
+                    value[keyPath: keyPath] = newValue
+                }
+            }
         }
     }
 }
