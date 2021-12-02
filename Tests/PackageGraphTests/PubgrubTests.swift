@@ -2398,7 +2398,7 @@ extension Term: ExpressibleByStringLiteral {
         guard case let .versionSet(vs) = requirement! else {
             fatalError()
         }
-        self.init(node: .product(packageReference.name, package: packageReference),
+        self.init(node: .product(packageReference.identity.description, package: packageReference),
                   requirement: vs,
                   isPositive: isPositive)
     }
