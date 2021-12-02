@@ -525,8 +525,11 @@ public class SwiftTool {
         let legacyPath = try self.getPackageRoot().appending(components: ".swiftpm", "config")
         let newPath = try Workspace.DefaultLocations.mirrorsConfigurationFile(forRootPackage: self.getPackageRoot())
         if localFileSystem.exists(legacyPath) {
-            try localFileSystem.createDirectory(newPath.parentDirectory, recursive: true)
-            try localFileSystem.move(from: legacyPath, to: newPath)
+            observabilityScope.emit(warning: "Usage of \(legacyPath) has been deprecated. Please delete it and use the new \(newPath) instead.")
+            if !localFileSystem.exists(newPath) {
+                try localFileSystem.createDirectory(newPath.parentDirectory, recursive: true)
+                try localFileSystem.copy(from: legacyPath, to: newPath)
+            }
         }
         return newPath
     }
