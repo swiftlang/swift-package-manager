@@ -11,7 +11,7 @@
 import Basics
 import PackageModel
 import TSCBasic
-import TSCUtility
+import enum TSCUtility.Platform
 
 /// Wrapper struct containing result of a pkgConfig query.
 public struct PkgConfigResult {
@@ -72,9 +72,9 @@ public func pkgConfigArgs(for target: SystemLibraryTarget, brewPrefix: AbsoluteP
             let pkgConfig = try PkgConfig(
                 name: pkgConfigName,
                 additionalSearchPaths: additionalSearchPaths,
-                diagnostics: observabilityScope.makeDiagnosticsEngine(),
+                brewPrefix: brewPrefix,
                 fileSystem: fileSystem,
-                brewPrefix: brewPrefix
+                observabilityScope: observabilityScope
             )
 
             // Run the allow list checker.

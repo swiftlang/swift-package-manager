@@ -1,0 +1,8 @@
+prefix=/usr/local/bin
+exec_prefix=${prefix}
+my_dep=atk
+#some comment
+
+Requires: gdk-3.0 >= 1.0.0 ${my_dep}
+Libs: -L${prefix} -lgtk-3 
+Cflags: -I
