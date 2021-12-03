@@ -1127,8 +1127,7 @@ public final class SwiftTargetBuildDescription {
     }
 
     private var stdlibArguments: [String] {
-        if buildParameters.shouldLinkStaticSwiftStdlib &&
-            buildParameters.triple.isSupportingStaticStdlib {
+        if buildParameters.shouldStaticallyLinkSwiftRuntimeLibrary {
             return ["-static-stdlib"]
         } else {
             return []
@@ -1304,12 +1303,8 @@ public final class ProductBuildDescription {
             args += deadStripArguments
         case .executable, .snippet:
             // Link the Swift stdlib statically, if requested.
-            if buildParameters.shouldLinkStaticSwiftStdlib {
-                if buildParameters.triple.isDarwin() {
-                    self.observabilityScope.emit(.swiftBackDeployError)
-                } else if buildParameters.triple.isSupportingStaticStdlib {
-                    args += ["-static-stdlib"]
-                }
+            if buildParameters.shouldStaticallyLinkSwiftRuntimeLibrary {
+                args += ["-static-stdlib"]
             }
             args += ["-emit-executable"]
             args += deadStripArguments
@@ -2284,8 +2279,23 @@ private func generateResourceInfoPlist(
     return true
 }
 
-fileprivate extension TSCUtility.Triple {
-    var isSupportingStaticStdlib: Bool {
+extension BuildParameters {
+    fileprivate var shouldStaticallyLinkSwiftRuntimeLibrary: Bool {
+        guard !self.disableAutomaticSwiftRuntimeStaticLinking else {
+            return false
+        }
+        guard self.triple.isSupportingStaticStdlib else {
+            return false
+        }
+        guard self.configuration == .release else {
+            return false
+        }
+        return true
+    }
+}
+
+extension TSCUtility.Triple {
+    fileprivate var isSupportingStaticStdlib: Bool {
         isLinux() || arch == .wasm32
     }
 }

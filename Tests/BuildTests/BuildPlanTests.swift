@@ -67,7 +67,7 @@ final class BuildPlanTests: XCTestCase {
         config: BuildConfiguration = .debug,
         toolchain: PackageModel.Toolchain = MockToolchain(),
         flags: BuildFlags = BuildFlags(),
-        shouldLinkStaticSwiftStdlib: Bool = false,
+        disableAutomaticSwiftRuntimeStaticLinking: Bool = false,
         canRenameEntrypointFunctionName: Bool = false,
         destinationTriple: TSCUtility.Triple = hostTriple,
         indexStoreMode: BuildParameters.IndexStoreMode = .off,
@@ -82,7 +82,7 @@ final class BuildPlanTests: XCTestCase {
             destinationTriple: destinationTriple,
             flags: flags,
             jobs: 3,
-            shouldLinkStaticSwiftStdlib: shouldLinkStaticSwiftStdlib,
+            disableAutomaticSwiftRuntimeStaticLinking: disableAutomaticSwiftRuntimeStaticLinking,
             canRenameEntrypointFunctionName: canRenameEntrypointFunctionName,
             indexStoreMode: indexStoreMode,
             useExplicitModuleBuild: useExplicitModuleBuild,
@@ -131,7 +131,7 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertNoDiagnostics(observability.diagnostics)
 
         let result = try BuildPlanResult(plan: BuildPlan(
-            buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
+            buildParameters: mockBuildParameters(),
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope
@@ -146,7 +146,7 @@ final class BuildPlanTests: XCTestCase {
         let lib = try result.target(for: "lib").swiftTarget().compileArguments()
         XCTAssertMatch(lib, ["-swift-version", "4", "-enable-batch-mode", "-Onone", "-enable-testing", "-g", .equal(j), "-DSWIFT_PACKAGE", "-DDEBUG", "-module-cache-path", "/path/to/build/debug/ModuleCache", .anySequence])
 
-      #if os(macOS)
+        #if os(macOS)
         let linkArguments = [
             "/fake/path/to/swiftc", "-L", "/path/to/build/debug",
             "-o", "/path/to/build/debug/exe", "-module-name", "exe",
@@ -158,7 +158,7 @@ final class BuildPlanTests: XCTestCase {
             "-Xlinker", "/path/to/build/debug/exe.build/exe.swiftmodule", "-Xlinker", "-add_ast_path",
             "-Xlinker", "/path/to/build/debug/lib.swiftmodule",
         ]
-      #else
+        #else
         let linkArguments = [
             "/fake/path/to/swiftc", "-L", "/path/to/build/debug",
             "-o", "/path/to/build/debug/exe", "-module-name", "exe",
@@ -167,17 +167,10 @@ final class BuildPlanTests: XCTestCase {
             "@/path/to/build/debug/exe.product/Objects.LinkFileList",
             "-target", defaultTargetTriple,
         ]
-      #endif
+        #endif
 
         XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), linkArguments)
-
-      #if os(macOS)
-        testDiagnostics(observability.diagnostics) { result in
-            result.check(diagnostic: .contains("can be downloaded"), severity: .warning)
-        }
-      #else
         XCTAssertNoDiagnostics(observability.diagnostics)
-      #endif
     }
 
     func testExplicitSwiftPackageBuild() throws {
@@ -1118,7 +1111,7 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertNoDiagnostics(observability.diagnostics)
 
         let result = try BuildPlanResult(plan: BuildPlan(
-            buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
+            buildParameters: mockBuildParameters(),
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope
@@ -1834,8 +1827,8 @@ final class BuildPlanTests: XCTestCase {
         
         XCTAssertNoDiagnostics(observability.diagnostics)
         
-        let result = try BuildPlanResult(plan: try BuildPlan(
-            buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
+        let result = try BuildPlanResult(plan: BuildPlan(
+            buildParameters: mockBuildParameters(),
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope
@@ -1910,8 +1903,8 @@ final class BuildPlanTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
         
-        let result = try BuildPlanResult(plan: try BuildPlan(
-            buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
+        let result = try BuildPlanResult(plan: BuildPlan(
+            buildParameters: mockBuildParameters(),
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope
@@ -2906,7 +2899,7 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertMatch(executablePathExtension, "exe")
     }
 
-    func testWASITarget() throws {
+    func testWASITargetDebug() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Pkg/Sources/app/main.swift",
             "/Pkg/Sources/lib/lib.c",
@@ -2922,8 +2915,8 @@ final class BuildPlanTests: XCTestCase {
                     name: "Pkg",
                     path: .init("/Pkg"),
                     targets: [
-                        TargetDescription(name: "app", dependencies: ["lib"]),
-                        TargetDescription(name: "lib", dependencies: []),
+                        TargetDescription(name: "app", dependencies: ["lib"], type: .executable),
+                        TargetDescription(name: "lib", dependencies: [], type: .regular),
                         TargetDescription(name: "test", dependencies: ["lib"], type: .test)
                     ]
                 ),
@@ -2932,8 +2925,7 @@ final class BuildPlanTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        var parameters = mockBuildParameters(destinationTriple: .wasi)
-        parameters.shouldLinkStaticSwiftStdlib = true
+        let parameters = mockBuildParameters(destinationTriple: .wasi)
         let result = try BuildPlanResult(plan: BuildPlan(
             buildParameters: parameters,
             graph: graph,
@@ -2971,7 +2963,7 @@ final class BuildPlanTests: XCTestCase {
             [
                 "/fake/path/to/swiftc", "-L", "/path/to/build/debug",
                 "-o", "/path/to/build/debug/app.wasm",
-                 "-module-name", "app", "-static-stdlib", "-emit-executable",
+                 "-module-name", "app", "-emit-executable",
                  "@/path/to/build/debug/app.product/Objects.LinkFileList",
                  "-target", "wasm32-unknown-wasi"
             ]
@@ -2988,6 +2980,94 @@ final class BuildPlanTests: XCTestCase {
                 "-o", "/path/to/build/debug/PkgPackageTests.wasm",
                 "-module-name", "PkgPackageTests", "-emit-executable",
                 "@/path/to/build/debug/PkgPackageTests.product/Objects.LinkFileList",
+                "-target", "wasm32-unknown-wasi"
+            ]
+        )
+
+        let testPathExtension = testBuildDescription.binary.extension
+        XCTAssertEqual(testPathExtension, "wasm")
+    }
+
+    func testWASITargetRelease() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Pkg/Sources/app/main.swift",
+            "/Pkg/Sources/lib/lib.c",
+            "/Pkg/Sources/lib/include/lib.h",
+            "/Pkg/Tests/test/TestCase.swift"
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadPackageGraph(
+            fs: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    name: "Pkg",
+                    path: .init("/Pkg"),
+                    targets: [
+                        TargetDescription(name: "app", dependencies: ["lib"], type: .executable),
+                        TargetDescription(name: "lib", dependencies: [], type: .regular),
+                        TargetDescription(name: "test", dependencies: ["lib"], type: .test)
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        let parameters = mockBuildParameters(config: .release, destinationTriple: .wasi)
+        let result = try BuildPlanResult(plan: BuildPlan(
+            buildParameters: parameters,
+            graph: graph,
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        ))
+        result.checkProductsCount(2)
+        result.checkTargetsCount(4)
+
+        let lib = try result.target(for: "lib").clangTarget()
+        let args = [
+            "-target", "wasm32-unknown-wasi", "-g", "-O2", "-DSWIFT_PACKAGE=1",
+            "-fblocks", "-fmodules", "-fmodule-name=lib", "-I", "/Pkg/Sources/lib/include",
+            "-fmodules-cache-path=/path/to/build/release/ModuleCache"
+        ]
+        XCTAssertEqual(try lib.basicArguments(isCXX: false), args)
+        XCTAssertEqual(lib.objects, [AbsolutePath("/path/to/build/release/lib.build/lib.c.o")])
+        XCTAssertEqual(lib.moduleMap, AbsolutePath("/path/to/build/release/lib.build/module.modulemap"))
+
+        let exe = try result.target(for: "app").swiftTarget().compileArguments()
+        XCTAssertMatch(
+            exe,
+            [
+                "-swift-version", "4", "-O", "-g", .equal(j),
+                "-DSWIFT_PACKAGE", "-Xcc", "-fmodule-map-file=/path/to/build/release/lib.build/module.modulemap",
+                "-Xcc", "-I", "-Xcc", "/Pkg/Sources/lib/include",
+                "-module-cache-path", "/path/to/build/release/ModuleCache", .anySequence
+            ]
+        )
+
+        let appBuildDescription = try result.buildProduct(for: "app")
+        XCTAssertEqual(
+            try appBuildDescription.linkArguments(),
+            [
+                "/fake/path/to/swiftc", "-g", "-L", "/path/to/build/release",
+                "-o", "/path/to/build/release/app.wasm",
+                 "-module-name", "app", "-static-stdlib", "-emit-executable",
+                 "@/path/to/build/release/app.product/Objects.LinkFileList",
+                 "-target", "wasm32-unknown-wasi"
+            ]
+        )
+
+        let executablePathExtension = appBuildDescription.binary.extension
+        XCTAssertEqual(executablePathExtension, "wasm")
+
+        let testBuildDescription = try result.buildProduct(for: "PkgPackageTests")
+        XCTAssertEqual(
+            try testBuildDescription.linkArguments(),
+            [
+                "/fake/path/to/swiftc", "-g", "-L", "/path/to/build/release",
+                "-o", "/path/to/build/release/PkgPackageTests.wasm",
+                "-module-name", "PkgPackageTests", "-emit-executable",
+                "@/path/to/build/release/PkgPackageTests.product/Objects.LinkFileList",
                 "-target", "wasm32-unknown-wasi"
             ]
         )
@@ -3875,7 +3955,7 @@ final class BuildPlanTests: XCTestCase {
         ])
     }
 
-    func testShouldLinkStaticSwiftStdlib() throws {
+    func testShouldLinkStaticSwiftStdlibRelease() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Pkg/Sources/exe/main.swift",
             "/Pkg/Sources/lib/lib.swift"
@@ -3890,8 +3970,8 @@ final class BuildPlanTests: XCTestCase {
                     name: "Pkg",
                     path: .init("/Pkg"),
                     targets: [
-                        TargetDescription(name: "exe", dependencies: ["lib"]),
-                        TargetDescription(name: "lib", dependencies: []),
+                        TargetDescription(name: "exe", dependencies: ["lib"], type: .executable),
+                        TargetDescription(name: "lib",  dependencies: [], type: .regular),
                     ]),
             ],
             observabilityScope: observability.topScope
@@ -3899,19 +3979,38 @@ final class BuildPlanTests: XCTestCase {
 
         let supportingTriples: [TSCUtility.Triple] = [.x86_64Linux, .arm64Linux, .wasi]
         for triple in supportingTriples {
-            let result = try BuildPlanResult(plan: BuildPlan(
-                buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true, destinationTriple: triple),
-                graph: graph,
-                fileSystem: fs,
-                observabilityScope: observability.topScope
-            ))
+            // should static link in release
+            do {
+                let result = try BuildPlanResult(plan: BuildPlan(
+                    buildParameters: mockBuildParameters(config: .release,  destinationTriple: triple),
+                    graph: graph,
+                    fileSystem: fs,
+                    observabilityScope: observability.topScope
+                ))
 
-            let exe = try result.target(for: "exe").swiftTarget().compileArguments()
-            XCTAssertMatch(exe, ["-static-stdlib"])
-            let lib = try result.target(for: "lib").swiftTarget().compileArguments()
-            XCTAssertMatch(lib, ["-static-stdlib"])
-            let link = try result.buildProduct(for: "exe").linkArguments()
-            XCTAssertMatch(link, ["-static-stdlib"])
+                let exe = try result.target(for: "exe").swiftTarget().compileArguments()
+                XCTAssertMatch(exe, ["-static-stdlib"])
+                let lib = try result.target(for: "lib").swiftTarget().compileArguments()
+                XCTAssertMatch(lib, ["-static-stdlib"])
+                let link = try result.buildProduct(for: "exe").linkArguments()
+                XCTAssertMatch(link, ["-static-stdlib"])
+            }
+            // should not static link in debug
+            do {
+                let result = try BuildPlanResult(plan: BuildPlan(
+                    buildParameters: mockBuildParameters(config: .debug,  destinationTriple: triple),
+                    graph: graph,
+                    fileSystem: fs,
+                    observabilityScope: observability.topScope
+                ))
+
+                let exe = try result.target(for: "exe").swiftTarget().compileArguments()
+                XCTAssertNoMatch(exe, ["-static-stdlib"])
+                let lib = try result.target(for: "lib").swiftTarget().compileArguments()
+                XCTAssertNoMatch(lib, ["-static-stdlib"])
+                let link = try result.buildProduct(for: "exe").linkArguments()
+                XCTAssertNoMatch(link, ["-static-stdlib"])
+            }
         }
     }
 
@@ -4197,7 +4296,7 @@ final class BuildPlanTests: XCTestCase {
         // Unrealistic: we can't enable all of these at once on all platforms.
         // This test codifies current behavior, not ideal behavior, and
         // may need to be amended if we change it.
-        var parameters = mockBuildParameters(shouldLinkStaticSwiftStdlib: true)
+        var parameters = mockBuildParameters()
         parameters.sanitizers = EnabledSanitizers([sanitizer])
 
         let result = try BuildPlanResult(plan: BuildPlan(

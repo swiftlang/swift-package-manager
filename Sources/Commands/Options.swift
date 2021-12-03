@@ -200,7 +200,6 @@ struct ResolverOptions: ParsableArguments {
     @Flag(name: .customLong("skip-update"), help: "Skip updating dependencies from their remote during a resolution")
     var skipDependencyUpdate: Bool = false
 
-
     @Flag(help: "Define automatic transformation of source control based dependencies to registry based ones")
     var sourceControlToRegistryDependencyTransformation: SourceControlToRegistryDependencyTransformation = .disabled
 
@@ -338,6 +337,14 @@ struct BuildOptions: ParsableArguments {
     /// Whether to use the explicit module build flow (with the integrated driver)
     @Flag(name: .customLong("experimental-explicit-module-build"))
     var useExplicitModuleBuild: Bool = false
+
+    /// If should link the Swift stdlib statically.
+    @Flag(name: .customLong("static-swift-stdlib"), inversion: .prefixedNo, help: .hidden)
+    var _deprecated_shouldLinkStaticSwiftStdlib: Bool?
+
+    /// If should link the Swift stdlib statically.
+    @Flag(name: .customLong("disable-static-swift-runtime"), help: "Disable static linking of the Swift runtime libraries (which is done automatically on supported platforms like Linux)")
+    var disableAutomaticSwiftRuntimeStaticLinking: Bool = false
 
     /// Whether to output a graphviz file visualization of the combined job graph for all targets
     @Flag(
