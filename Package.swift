@@ -399,6 +399,11 @@ let package = Package(
             ]
         ),
 
+        .target(
+            /** Test for thread-santizer. */
+            name: "tsan_utils",
+            dependencies: []),
+
         // MARK: SwiftPM tests
 
         .testTarget(
