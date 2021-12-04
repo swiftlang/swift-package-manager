@@ -408,7 +408,7 @@ let package = Package(
 
         .testTarget(
             name: "BasicsTests",
-            dependencies: ["Basics", "SPMTestSupport"]
+            dependencies: ["Basics", "SPMTestSupport", "tsan_utils"]
         ),
         .testTarget(
             name: "BuildTests",
@@ -496,7 +496,7 @@ let package = Package(
         ),
         .testTarget(
             name: "PackageCollectionsTests",
-            dependencies: ["PackageCollections", "SPMTestSupport"]
+            dependencies: ["PackageCollections", "SPMTestSupport", "tsan_utils"]
         ),
         .testTarget(
             name: "PackageFingerprintTests",
