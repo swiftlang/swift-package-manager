@@ -63,7 +63,7 @@ fileprivate func macOSSandboxProfile(
 
     // Allow writing only to certain directories.
     var writableDirectoriesExpression = writableDirectories.map {
-        "(subpath \"\(resolveSymlinks($0).pathString)\")"
+        "(subpath \(resolveSymlinks($0).quotedAsSubpathForSandboxProfile))"
     }
     // The following accesses are only needed when interpreting the manifest (versus running a compiled version).
     if strictness == .manifest_pre_53 {
@@ -75,7 +75,7 @@ fileprivate func macOSSandboxProfile(
     else if strictness == .writableTemporaryDirectory {
         writableDirectoriesExpression.append("(subpath \"/private/tmp\")")
         if let tmpDir = try? TSCBasic.determineTempDirectory() {
-            writableDirectoriesExpression += ["(subpath \"\(resolveSymlinks(tmpDir).pathString)\")"]
+            writableDirectoriesExpression += ["(subpath \(resolveSymlinks(tmpDir).quotedAsSubpathForSandboxProfile))"]
         }
     }
 
@@ -88,6 +88,16 @@ fileprivate func macOSSandboxProfile(
     }
 
     return contents
+}
+
+fileprivate extension AbsolutePath {
+    /// Private computed property that returns a version of the path as a string quoted for use as a subpath in a .sb sandbox profile.
+    var quotedAsSubpathForSandboxProfile: String {
+        return "\"" + self.pathString
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "\"", with: "\\\"")
+            + "\""
+    }
 }
 
 extension TSCUtility.Platform {
