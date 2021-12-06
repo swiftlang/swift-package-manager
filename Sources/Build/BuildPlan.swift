@@ -601,8 +601,8 @@ public final class SwiftTargetBuildDescription {
     /// The modulemap file for this target, if any.
     private(set) var moduleMap: AbsolutePath?
     
-    /// The results of applying any plugins to this target.
-    public let pluginInvocationResults: [BuildToolPluginInvocationResult]
+    /// The results of applying any build tool plugins to this target.
+    public let buildToolPluginInvocationResults: [BuildToolPluginInvocationResult]
 
     /// The results of running any prebuild commands for this target.
     public let prebuildCommandResults: [PrebuildCommandResult]
@@ -612,7 +612,7 @@ public final class SwiftTargetBuildDescription {
         target: ResolvedTarget,
         toolsVersion: ToolsVersion,
         buildParameters: BuildParameters,
-        pluginInvocationResults: [BuildToolPluginInvocationResult] = [],
+        buildToolPluginInvocationResults: [BuildToolPluginInvocationResult] = [],
         prebuildCommandResults: [PrebuildCommandResult] = [],
         isTestTarget: Bool? = nil,
         testDiscoveryTarget: Bool = false,
@@ -629,11 +629,11 @@ public final class SwiftTargetBuildDescription {
         self.tempsPath = buildParameters.buildPath.appending(component: target.c99name + ".build")
         self.derivedSources = Sources(paths: [], root: tempsPath.appending(component: "DerivedSources"))
         self.pluginDerivedSources = Sources(paths: [], root: buildParameters.dataPath)
-        self.pluginInvocationResults = pluginInvocationResults
+        self.buildToolPluginInvocationResults = buildToolPluginInvocationResults
         self.prebuildCommandResults = prebuildCommandResults
 
         // Add any derived source files that were declared for any commands from plugin invocations.
-        for command in pluginInvocationResults.reduce([], { $0 + $1.buildCommands }) {
+        for command in buildToolPluginInvocationResults.reduce([], { $0 + $1.buildCommands }) {
             // TODO: What should we do if we find non-Swift sources here?
             for absPath in command.outputFiles {
                 let relPath = absPath.relative(to: self.pluginDerivedSources.root)
@@ -1423,8 +1423,8 @@ public class BuildPlan {
         return AnySequence(productMap.values)
     }
 
-    /// The results of invoking any plugins used by targets in this build.
-    public let pluginInvocationResults: [ResolvedTarget: [BuildToolPluginInvocationResult]]
+    /// The results of invoking any build tool plugins used by targets in this build.
+    public let buildToolPluginInvocationResults: [ResolvedTarget: [BuildToolPluginInvocationResult]]
 
     /// The results of running any prebuild commands for the targets in this build.  This includes any derived
     /// source files as well as directories to which any changes should cause us to reevaluate the build plan.
@@ -1523,7 +1523,7 @@ public class BuildPlan {
     public convenience init(
         buildParameters: BuildParameters,
         graph: PackageGraph,
-        pluginInvocationResults: [ResolvedTarget: [BuildToolPluginInvocationResult]] = [:],
+        buildToolPluginInvocationResults: [ResolvedTarget: [BuildToolPluginInvocationResult]] = [:],
         prebuildCommandResults: [ResolvedTarget: [PrebuildCommandResult]] = [:],
         diagnostics: DiagnosticsEngine,
         fileSystem: FileSystem
@@ -1541,14 +1541,14 @@ public class BuildPlan {
     public init(
         buildParameters: BuildParameters,
         graph: PackageGraph,
-        pluginInvocationResults: [ResolvedTarget: [BuildToolPluginInvocationResult]] = [:],
+        buildToolPluginInvocationResults: [ResolvedTarget: [BuildToolPluginInvocationResult]] = [:],
         prebuildCommandResults: [ResolvedTarget: [PrebuildCommandResult]] = [:],
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
     ) throws {
         self.buildParameters = buildParameters
         self.graph = graph
-        self.pluginInvocationResults = pluginInvocationResults
+        self.buildToolPluginInvocationResults = buildToolPluginInvocationResults
         self.prebuildCommandResults = prebuildCommandResults
         self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope.makeChildScope(description: "Build Plan")
@@ -1582,7 +1582,7 @@ public class BuildPlan {
                     target: target,
                     toolsVersion: toolsVersion,
                     buildParameters: buildParameters,
-                    pluginInvocationResults: pluginInvocationResults[target] ?? [],
+                    buildToolPluginInvocationResults: buildToolPluginInvocationResults[target] ?? [],
                     prebuildCommandResults: prebuildCommandResults[target] ?? [],
                     fileSystem: fileSystem)
                 )

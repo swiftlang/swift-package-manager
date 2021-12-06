@@ -605,7 +605,7 @@ extension LLBuildManifestBuilder {
         }
 
         // Add any regular build commands created by plugins for the target (prebuild commands are handled separately).
-        for command in target.pluginInvocationResults.reduce([], { $0 + $1.buildCommands }) {
+        for command in target.buildToolPluginInvocationResults.reduce([], { $0 + $1.buildCommands }) {
             // Create a shell command to invoke the executable. We include the path of the executable as a dependency, and make sure the name is unique.
             let execPath = command.configuration.executable
             let uniquedName = ([execPath.pathString] + command.configuration.arguments).joined(separator: "|")

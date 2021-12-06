@@ -734,8 +734,8 @@ public class SwiftTool {
         }
     }
 
-    /// Invoke plugins for any reachable targets in the graph, and return a mapping from targets to corresponding evaluation results.
-    func invokePlugins(graph: PackageGraph) throws -> [ResolvedTarget: [BuildToolPluginInvocationResult]] {
+    /// Invoke build tool plugins for any reachable targets in the graph, and return a mapping from targets to corresponding evaluation results.
+    func invokeBuildToolPlugins(graph: PackageGraph) throws -> [ResolvedTarget: [BuildToolPluginInvocationResult]] {
         do {
             // Configure the plugin invocation inputs.
 
@@ -828,7 +828,7 @@ public class SwiftTool {
             buildParameters: buildParameters(),
             cacheBuildManifest: cacheBuildManifest && self.canUseCachedBuildManifest(),
             packageGraphLoader: graphLoader,
-            pluginInvoker: { _ in [:] },
+            buildToolPluginInvoker: { _ in [:] },
             outputStream: self.outputStream,
             logLevel: self.logLevel,
             fileSystem: localFileSystem,
@@ -845,12 +845,12 @@ public class SwiftTool {
         switch options.buildSystem {
         case .native:
             let graphLoader = { try self.loadPackageGraph(explicitProduct: explicitProduct) }
-            let pluginInvoker = { try self.invokePlugins(graph: $0) }
+            let buildToolPluginInvoker = { try self.invokeBuildToolPlugins(graph: $0) }
             buildSystem = try BuildOperation(
                 buildParameters: buildParameters ?? self.buildParameters(),
                 cacheBuildManifest: self.canUseCachedBuildManifest(),
                 packageGraphLoader: graphLoader,
-                pluginInvoker: pluginInvoker,
+                buildToolPluginInvoker: buildToolPluginInvoker,
                 outputStream: self.outputStream,
                 logLevel: self.logLevel,
                 fileSystem: localFileSystem,

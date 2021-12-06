@@ -29,8 +29,8 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     /// The closure for loading the package graph.
     let packageGraphLoader: () throws -> PackageGraph
     
-    /// The closure for invoking plugins in the package graph.
-    let pluginInvoker: (PackageGraph) throws -> [ResolvedTarget: [BuildToolPluginInvocationResult]]
+    /// The closure for invoking build tool plugins in the package graph.
+    let buildToolPluginInvoker: (PackageGraph) throws -> [ResolvedTarget: [BuildToolPluginInvocationResult]]
 
     /// The llbuild build delegate reference.
     private var buildSystemDelegate: BuildOperationBuildSystemDelegateHandler?
@@ -70,7 +70,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         buildParameters: BuildParameters,
         cacheBuildManifest: Bool,
         packageGraphLoader: @escaping () throws -> PackageGraph,
-        pluginInvoker: @escaping (PackageGraph) throws -> [ResolvedTarget: [BuildToolPluginInvocationResult]],
+        buildToolPluginInvoker: @escaping (PackageGraph) throws -> [ResolvedTarget: [BuildToolPluginInvocationResult]],
         outputStream: OutputByteStream,
         logLevel: Basics.Diagnostic.Severity,
         fileSystem: TSCBasic.FileSystem,
@@ -79,7 +79,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         self.buildParameters = buildParameters
         self.cacheBuildManifest = cacheBuildManifest
         self.packageGraphLoader = packageGraphLoader
-        self.pluginInvoker = pluginInvoker
+        self.buildToolPluginInvoker = buildToolPluginInvoker
         self.outputStream = outputStream
         self.logLevel = logLevel
         self.fileSystem = fileSystem
@@ -92,8 +92,8 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         }
     }
     
-    public func getPluginInvocationResults(for graph: PackageGraph) throws -> [ResolvedTarget: [BuildToolPluginInvocationResult]] {
-        return try self.pluginInvoker(graph)
+    public func getBuildToolPluginInvocationResults(for graph: PackageGraph) throws -> [ResolvedTarget: [BuildToolPluginInvocationResult]] {
+        return try self.buildToolPluginInvoker(graph)
     }
 
     /// Compute and return the latest build description.
@@ -195,19 +195,19 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         // Load the package graph.
         let graph = try getPackageGraph()
         
-        // Invoke any plugins in the graph, and get the results.
-        let pluginInvocationResults = try getPluginInvocationResults(for: graph)
+        // Invoke any build tool plugins in the graph to generate prebuild commands and build commands.
+        let buildToolPluginInvocationResults = try getBuildToolPluginInvocationResults(for: graph)
 
-        // Run any prebuild commands provided by plugins. Any failure stops the build.
+        // Run any prebuild commands provided by build tool plugins. Any failure stops the build.
         let prebuildCommandResults = try graph.reachableTargets.reduce(into: [:], { partial, target in
-            partial[target] = try pluginInvocationResults[target].map { try self.runPrebuildCommands(for: $0) }
+            partial[target] = try buildToolPluginInvocationResults[target].map { try self.runPrebuildCommands(for: $0) }
         })
         
         // Create the build plan based, on the graph and any information from plugins.
         let plan = try BuildPlan(
             buildParameters: buildParameters,
             graph: graph,
-            pluginInvocationResults: pluginInvocationResults,
+            buildToolPluginInvocationResults: buildToolPluginInvocationResults,
             prebuildCommandResults: prebuildCommandResults,
             fileSystem: self.fileSystem,
             observabilityScope: self.observabilityScope

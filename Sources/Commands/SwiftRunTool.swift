@@ -122,7 +122,7 @@ public struct SwiftRunTool: SwiftCommand {
                 buildParameters: buildParameters,
                 cacheBuildManifest: false,
                 packageGraphLoader: graphLoader,
-                pluginInvoker: { _ in [:] },
+                buildToolPluginInvoker: { _ in [:] },
                 outputStream: swiftTool.outputStream,
                 logLevel: swiftTool.logLevel,
                 fileSystem: localFileSystem,
