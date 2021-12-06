@@ -246,6 +246,7 @@ extension PackageGraph {
                 if success {
                     buildToolPluginResults.append(.init(
                         plugin: pluginTarget,
+                        pluginOutputDirectory: pluginOutputDir,
                         diagnostics: delegate.diagnostics,
                         textOutput: String(decoding: delegate.outputData, as: UTF8.self),
                         buildCommands: delegate.buildCommands,
@@ -301,6 +302,9 @@ public extension PluginTarget {
 public struct BuildToolPluginInvocationResult {
     /// The plugin that produced the results.
     public var plugin: PluginTarget
+
+    /// The directory given to the plugin as a place in which it and the commands are allowed to write.
+    public var pluginOutputDirectory: AbsolutePath
 
     /// Any diagnostics emitted by the plugin.
     public var diagnostics: [Diagnostic]
