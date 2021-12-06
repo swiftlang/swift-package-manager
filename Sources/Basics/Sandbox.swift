@@ -29,6 +29,7 @@ public enum Sandbox {
     public enum Strictness: Equatable {
         case `default`
         case manifest_pre_53 // backwards compatibility for manifests
+        case writableTemporaryDirectory
     }
 }
 
@@ -68,6 +69,13 @@ fileprivate func macOSSandboxProfile(
     if strictness == .manifest_pre_53 {
         writableDirectoriesExpression += Platform.threadSafeDarwinCacheDirectories.get().map {
             ##"(regex #"^\##($0.pathString)/org\.llvm\.clang.*")"##
+        }
+    }
+    // Optionally allow writing to temporary directories (a lot of use of Foundation requires this).
+    else if strictness == .writableTemporaryDirectory {
+        writableDirectoriesExpression.append("(subpath \"/private/tmp\")")
+        if let tmpDir = try? TSCBasic.determineTempDirectory() {
+            writableDirectoriesExpression += ["(subpath \"\(resolveSymlinks(tmpDir).pathString)\")"]
         }
     }
 
