@@ -33,7 +33,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     let buildToolPluginInvoker: (PackageGraph) throws -> [ResolvedTarget: [BuildToolPluginInvocationResult]]
 
     /// Whether to sandbox commands from build tool plugins.
-    public let enableSandboxForPluginCommands: Bool
+    public let disableSandboxForPluginCommands: Bool
 
     /// The llbuild build delegate reference.
     private var buildSystemDelegate: BuildOperationBuildSystemDelegateHandler?
@@ -74,7 +74,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         cacheBuildManifest: Bool,
         packageGraphLoader: @escaping () throws -> PackageGraph,
         buildToolPluginInvoker: @escaping (PackageGraph) throws -> [ResolvedTarget: [BuildToolPluginInvocationResult]],
-        enableSandboxForPluginCommands: Bool = true,
+        disableSandboxForPluginCommands: Bool = false,
         outputStream: OutputByteStream,
         logLevel: Basics.Diagnostic.Severity,
         fileSystem: TSCBasic.FileSystem,
@@ -84,7 +84,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         self.cacheBuildManifest = cacheBuildManifest
         self.packageGraphLoader = packageGraphLoader
         self.buildToolPluginInvoker = buildToolPluginInvoker
-        self.enableSandboxForPluginCommands = enableSandboxForPluginCommands
+        self.disableSandboxForPluginCommands = disableSandboxForPluginCommands
         self.outputStream = outputStream
         self.logLevel = logLevel
         self.fileSystem = fileSystem
@@ -221,7 +221,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 
         let (buildDescription, buildManifest) = try BuildDescription.create(
             with: plan,
-            enableSandboxForPluginCommands: self.enableSandboxForPluginCommands,
+            disableSandboxForPluginCommands: self.disableSandboxForPluginCommands,
             fileSystem: self.fileSystem,
             observabilityScope: self.observabilityScope
         )
@@ -313,7 +313,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                 // Run the command configuration as a subshell. This doesn't return until it is done.
                 // TODO: We need to also use any working directory, but that support isn't yet available on all platforms at a lower level.
                 var commandLine = [command.configuration.executable.pathString] + command.configuration.arguments
-                if self.enableSandboxForPluginCommands {
+                if !self.disableSandboxForPluginCommands {
                     commandLine = Sandbox.apply(command: commandLine, writableDirectories: [pluginResult.pluginOutputDirectory], strictness: .writableTemporaryDirectory)
                 }
                 let processResult = try Process.popen(arguments: commandLine, environment: command.configuration.environment)
@@ -374,9 +374,9 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 }
 
 extension BuildDescription {
-    static func create(with plan: BuildPlan, enableSandboxForPluginCommands: Bool, fileSystem: TSCBasic.FileSystem, observabilityScope: ObservabilityScope) throws -> (BuildDescription, BuildManifest) {
+    static func create(with plan: BuildPlan, disableSandboxForPluginCommands: Bool, fileSystem: TSCBasic.FileSystem, observabilityScope: ObservabilityScope) throws -> (BuildDescription, BuildManifest) {
         // Generate the llbuild manifest.
-        let llbuild = LLBuildManifestBuilder(plan, enableSandboxForPluginCommands: enableSandboxForPluginCommands, fileSystem: fileSystem, observabilityScope: observabilityScope)
+        let llbuild = LLBuildManifestBuilder(plan, disableSandboxForPluginCommands: disableSandboxForPluginCommands, fileSystem: fileSystem, observabilityScope: observabilityScope)
         let buildManifest = try llbuild.generateManifest(at: plan.buildParameters.llbuildManifest)
 
         let swiftCommands = llbuild.manifest.getCmdToolMap(kind: SwiftCompilerTool.self)

@@ -34,7 +34,7 @@ public class LLBuildManifestBuilder {
     public let plan: BuildPlan
 
     /// Whether to sandbox commands from build tool plugins.
-    public let enableSandboxForPluginCommands: Bool
+    public let disableSandboxForPluginCommands: Bool
 
     /// File system reference.
     private let fileSystem: FileSystem
@@ -49,9 +49,9 @@ public class LLBuildManifestBuilder {
     var buildEnvironment: BuildEnvironment { buildParameters.buildEnvironment }
 
     /// Create a new builder with a build plan.
-    public init(_ plan: BuildPlan, enableSandboxForPluginCommands: Bool = true, fileSystem: FileSystem, observabilityScope: ObservabilityScope) {
+    public init(_ plan: BuildPlan, disableSandboxForPluginCommands: Bool = false, fileSystem: FileSystem, observabilityScope: ObservabilityScope) {
         self.plan = plan
-        self.enableSandboxForPluginCommands = enableSandboxForPluginCommands
+        self.disableSandboxForPluginCommands = disableSandboxForPluginCommands
         self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope
     }
@@ -617,7 +617,7 @@ extension LLBuildManifestBuilder {
                 let uniquedName = ([execPath.pathString] + command.configuration.arguments).joined(separator: "|")
                 let displayName = command.configuration.displayName ?? execPath.basename
                 var commandLine = [execPath.pathString] + command.configuration.arguments
-                if self.enableSandboxForPluginCommands {
+                if !self.disableSandboxForPluginCommands {
                     commandLine = Sandbox.apply(command: commandLine, writableDirectories: [result.pluginOutputDirectory], strictness: .writableTemporaryDirectory)
                 }
                 manifest.addShellCmd(
