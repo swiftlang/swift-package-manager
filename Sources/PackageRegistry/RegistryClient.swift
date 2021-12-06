@@ -586,10 +586,10 @@ extension RegistryClient {
             }
 
             public struct Release: Codable {
-                public var url: String
+                public var url: String?
                 public var problem: Problem?
 
-                public init(url: String, problem: Problem? = .none) {
+                public init(url: String?, problem: Problem? = .none) {
                     self.url = url
                     self.problem = problem
                 }
