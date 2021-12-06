@@ -851,6 +851,7 @@ public class SwiftTool {
                 cacheBuildManifest: self.canUseCachedBuildManifest(),
                 packageGraphLoader: graphLoader,
                 buildToolPluginInvoker: buildToolPluginInvoker,
+                enableSandboxForPluginCommands: !self.options.shouldDisableSandbox,
                 outputStream: self.outputStream,
                 logLevel: self.logLevel,
                 fileSystem: localFileSystem,
