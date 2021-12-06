@@ -32,6 +32,9 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     /// The closure for invoking build tool plugins in the package graph.
     let buildToolPluginInvoker: (PackageGraph) throws -> [ResolvedTarget: [BuildToolPluginInvocationResult]]
 
+    /// Whether to sandbox commands from build tool plugins.
+    public let enableSandboxForPluginCommands: Bool
+
     /// The llbuild build delegate reference.
     private var buildSystemDelegate: BuildOperationBuildSystemDelegateHandler?
 
@@ -71,6 +74,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         cacheBuildManifest: Bool,
         packageGraphLoader: @escaping () throws -> PackageGraph,
         buildToolPluginInvoker: @escaping (PackageGraph) throws -> [ResolvedTarget: [BuildToolPluginInvocationResult]],
+        enableSandboxForPluginCommands: Bool = true,
         outputStream: OutputByteStream,
         logLevel: Basics.Diagnostic.Severity,
         fileSystem: TSCBasic.FileSystem,
@@ -80,6 +84,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         self.cacheBuildManifest = cacheBuildManifest
         self.packageGraphLoader = packageGraphLoader
         self.buildToolPluginInvoker = buildToolPluginInvoker
+        self.enableSandboxForPluginCommands = enableSandboxForPluginCommands
         self.outputStream = outputStream
         self.logLevel = logLevel
         self.fileSystem = fileSystem
@@ -216,6 +221,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 
         let (buildDescription, buildManifest) = try BuildDescription.create(
             with: plan,
+            enableSandboxForPluginCommands: self.enableSandboxForPluginCommands,
             fileSystem: self.fileSystem,
             observabilityScope: self.observabilityScope
         )
@@ -306,8 +312,10 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 
                 // Run the command configuration as a subshell. This doesn't return until it is done.
                 // TODO: We need to also use any working directory, but that support isn't yet available on all platforms at a lower level.
-                // TODO: Invoke it in a sandbox that allows writing to only the temporary location.
-                let commandLine = [command.configuration.executable.pathString] + command.configuration.arguments
+                var commandLine = [command.configuration.executable.pathString] + command.configuration.arguments
+                if self.enableSandboxForPluginCommands {
+                    commandLine = Sandbox.apply(command: commandLine, writableDirectories: [pluginResult.pluginOutputDirectory])
+                }
                 let processResult = try Process.popen(arguments: commandLine, environment: command.configuration.environment)
                 let output = try processResult.utf8Output() + processResult.utf8stderrOutput()
                 if processResult.exitStatus != .terminated(code: 0) {
@@ -366,9 +374,9 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 }
 
 extension BuildDescription {
-    static func create(with plan: BuildPlan, fileSystem: TSCBasic.FileSystem, observabilityScope: ObservabilityScope) throws -> (BuildDescription, BuildManifest) {
+    static func create(with plan: BuildPlan, enableSandboxForPluginCommands: Bool, fileSystem: TSCBasic.FileSystem, observabilityScope: ObservabilityScope) throws -> (BuildDescription, BuildManifest) {
         // Generate the llbuild manifest.
-        let llbuild = LLBuildManifestBuilder(plan, fileSystem: fileSystem, observabilityScope: observabilityScope)
+        let llbuild = LLBuildManifestBuilder(plan, enableSandboxForPluginCommands: enableSandboxForPluginCommands, fileSystem: fileSystem, observabilityScope: observabilityScope)
         let buildManifest = try llbuild.generateManifest(at: plan.buildParameters.llbuildManifest)
 
         let swiftCommands = llbuild.manifest.getCmdToolMap(kind: SwiftCompilerTool.self)

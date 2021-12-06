@@ -33,6 +33,9 @@ public class LLBuildManifestBuilder {
     /// The build plan to work on.
     public let plan: BuildPlan
 
+    /// Whether to sandbox commands from build tool plugins.
+    public let enableSandboxForPluginCommands: Bool
+
     /// File system reference.
     private let fileSystem: FileSystem
 
@@ -46,8 +49,9 @@ public class LLBuildManifestBuilder {
     var buildEnvironment: BuildEnvironment { buildParameters.buildEnvironment }
 
     /// Create a new builder with a build plan.
-    public init(_ plan: BuildPlan, fileSystem: FileSystem, observabilityScope: ObservabilityScope) {
+    public init(_ plan: BuildPlan, enableSandboxForPluginCommands: Bool = true, fileSystem: FileSystem, observabilityScope: ObservabilityScope) {
         self.plan = plan
+        self.enableSandboxForPluginCommands = enableSandboxForPluginCommands
         self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope
     }
@@ -604,20 +608,27 @@ extension LLBuildManifestBuilder {
             }
         }
 
-        // Add any regular build commands created by plugins for the target (prebuild commands are handled separately).
-        for command in target.buildToolPluginInvocationResults.reduce([], { $0 + $1.buildCommands }) {
-            // Create a shell command to invoke the executable. We include the path of the executable as a dependency, and make sure the name is unique.
-            let execPath = command.configuration.executable
-            let uniquedName = ([execPath.pathString] + command.configuration.arguments).joined(separator: "|")
-            let displayName = command.configuration.displayName ?? execPath.basename
-            manifest.addShellCmd(
-                name: displayName + "-" + ByteString(encodingAsUTF8: uniquedName).sha256Checksum,
-                description: displayName,
-                inputs: [.file(execPath)] + command.inputFiles.map{ .file($0) },
-                outputs: command.outputFiles.map{ .file($0) },
-                arguments: [execPath.pathString] + command.configuration.arguments,
-                environment: command.configuration.environment,
-                workingDirectory: command.configuration.workingDirectory?.pathString)
+        // Add any regular build commands created by plugins for the target.
+        for result in target.buildToolPluginInvocationResults {
+            // Only go through the regular build commands — prebuild commands are handled separately.
+            for command in result.buildCommands {
+                // Create a shell command to invoke the executable. We include the path of the executable as a dependency, and make sure the name is unique.
+                let execPath = command.configuration.executable
+                let uniquedName = ([execPath.pathString] + command.configuration.arguments).joined(separator: "|")
+                let displayName = command.configuration.displayName ?? execPath.basename
+                var commandLine = [execPath.pathString] + command.configuration.arguments
+                if self.enableSandboxForPluginCommands {
+                    commandLine = Sandbox.apply(command: commandLine, writableDirectories: [result.pluginOutputDirectory])
+                }
+                manifest.addShellCmd(
+                    name: displayName + "-" + ByteString(encodingAsUTF8: uniquedName).sha256Checksum,
+                    description: displayName,
+                    inputs: [.file(execPath)] + command.inputFiles.map{ .file($0) },
+                    outputs: command.outputFiles.map{ .file($0) },
+                    arguments: commandLine,
+                    environment: command.configuration.environment,
+                    workingDirectory: command.configuration.workingDirectory?.pathString)
+            }
         }
 
         return inputs
