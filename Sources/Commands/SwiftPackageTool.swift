@@ -954,7 +954,7 @@ extension SwiftPackageTool {
 
             // The `cache` directory is in the plugins directory and is where the plugin script runner caches compiled plugin binaries and any other derived information.
             let cacheDir = pluginsDir.appending(component: "cache")
-            let pluginScriptRunner = DefaultPluginScriptRunner(cacheDir: cacheDir, toolchain: try swiftTool.getToolchain().configuration)
+            let pluginScriptRunner = DefaultPluginScriptRunner(cacheDir: cacheDir, toolchain: try swiftTool.getToolchain().configuration, enableSandbox: !swiftTool.options.shouldDisableSandbox)
 
             // The `outputs` directory contains subdirectories for each combination of package, target, and plugin. Each usage of a plugin has an output directory that is writable by the plugin, where it can write additional files, and to which it can configure tools to write their outputs, etc.
             // FIXME: Revisit this path.
