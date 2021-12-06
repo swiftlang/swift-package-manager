@@ -263,7 +263,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
 
         // Optionally wrap the command in a sandbox, which places some limits on what it can do. In particular, it blocks network access and restricts the paths to which the plugin can make file system changes.
         if self.enableSandbox {
-            command = Sandbox.apply(command: command, writableDirectories: writableDirectories + [self.cacheDir])
+            command = Sandbox.apply(command: command, writableDirectories: writableDirectories + [self.cacheDir], strictness: .writableTemporaryDirectory)
         }
 
         // Create and configure a Process. We set the working directory to the cache directory, so that relative paths end up there.
