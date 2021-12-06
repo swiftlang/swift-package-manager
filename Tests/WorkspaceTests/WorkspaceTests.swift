@@ -1235,7 +1235,10 @@ final class WorkspaceTests: XCTestCase {
 
         try workspace.checkPrecomputeResolution { result in
             XCTAssertEqual(result.diagnostics.hasErrors, false)
-            XCTAssertEqual(result.result, .required(reason: .other))
+            XCTAssertEqual(
+                result.result,
+                .required(reason: .other("Dependencies could not be resolved because no versions of \'c\' match the requirement 2.0.0..<3.0.0 and root depends on \'c\' 2.0.0..<3.0.0."))
+            )
         }
     }
 

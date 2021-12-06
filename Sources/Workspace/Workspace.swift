@@ -36,7 +36,7 @@ public enum WorkspaceResolveReason: Equatable {
     )
 
     /// An unknown reason.
-    case other
+    case other(String)
 }
 
 /// The delegate interface used by the workspace to report status information.
@@ -2665,8 +2665,8 @@ extension Workspace {
                 state: state,
                 requirement: requirement
             ))
-        default:
-            return .required(reason: .other)
+        case .failure(let error):
+            return .required(reason: .other("\(error)"))
         }
     }
 
