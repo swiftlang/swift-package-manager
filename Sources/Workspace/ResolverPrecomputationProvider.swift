@@ -79,7 +79,6 @@ struct ResolverPrecomputationProvider: PackageContainerProvider {
                     dependency: nil,
                     currentToolsVersion: self.currentToolsVersion
                 )
-
                 return completion(.success(container))
             }
 
@@ -97,9 +96,12 @@ private struct LocalPackageContainer: PackageContainer {
     let currentToolsVersion: ToolsVersion
 
     func versionsAscending() throws -> [Version] {
-        if case .sourceControlCheckout(.version(let version, revision: _)) = dependency?.state {
+        switch dependency?.state {
+        case .sourceControlCheckout(.version(let version, revision: _)):
             return [version]
-        } else {
+        case .registryDownload(let version):
+            return [version]
+        default:
             return []
         }
     }
@@ -123,19 +125,24 @@ private struct LocalPackageContainer: PackageContainer {
 
     func getDependencies(at version: Version, productFilter: ProductFilter) throws -> [PackageContainerConstraint] {
         // Because of the implementation of `reversedVersions`, we should only get the exact same version.
-        guard case .sourceControlCheckout(.version(version, revision: _)) = dependency?.state else {
-            throw InternalError("expected version checkout state, but state was \(String(describing: dependency?.state))")
+        switch dependency?.state {
+        case .sourceControlCheckout(.version(version, revision: _)):
+            return try manifest.dependencyConstraints(productFilter: productFilter)
+        case .registryDownload(version: version):
+            return try manifest.dependencyConstraints(productFilter: productFilter)
+        default:
+            throw InternalError("expected version based state, but state was \(String(describing: dependency?.state))")
         }
-        return try manifest.dependencyConstraints(productFilter: productFilter)
     }
 
     func getDependencies(at revisionString: String, productFilter: ProductFilter) throws -> [PackageContainerConstraint] {
-        // Return the dependencies if the checkout state matches the revision.
         let revision = Revision(identifier: revisionString)
         switch dependency?.state {
         case .sourceControlCheckout(.branch(_, revision: revision)), .sourceControlCheckout(.revision(revision)):
+            // Return the dependencies if the checkout state matches the revision.
             return try manifest.dependencyConstraints(productFilter: productFilter)
         default:
+            // Throw an error when the dependency is not revision based to fail resolution.
             throw ResolverPrecomputationError.differentRequirement(
                 package: self.package,
                 state: self.dependency?.state,
@@ -145,16 +152,17 @@ private struct LocalPackageContainer: PackageContainer {
     }
 
     func getUnversionedDependencies(productFilter: ProductFilter) throws -> [PackageContainerConstraint] {
-        // Throw an error when the dependency is not unversioned to fail resolution.
-        guard dependency?.isSourceControlCheckout != true else {
+        switch dependency?.state {
+        case .none, .fileSystem, .edited:
+            return try manifest.dependencyConstraints(productFilter: productFilter)
+        default:
+            // Throw an error when the dependency is not unversioned to fail resolution.
             throw ResolverPrecomputationError.differentRequirement(
                 package: package,
                 state: dependency?.state,
                 requirement: .unversioned
             )
         }
-
-        return try manifest.dependencyConstraints(productFilter: productFilter)
     }
 
     // Gets the package reference from the managed dependency or computes it for root packages.
@@ -164,12 +172,5 @@ private struct LocalPackageContainer: PackageContainer {
         } else {
             return .root(identity: self.package.identity, path: self.manifest.path)
         }
-    }
-}
-
-private extension Workspace.ManagedDependency {
-    var isSourceControlCheckout: Bool {
-        if case .sourceControlCheckout = self.state { return true }
-        return false
     }
 }
