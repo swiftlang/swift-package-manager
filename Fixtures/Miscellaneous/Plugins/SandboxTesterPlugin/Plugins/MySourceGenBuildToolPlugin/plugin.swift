@@ -7,17 +7,25 @@ struct MyPlugin: BuildToolPlugin {
     func createBuildCommands(context: TargetBuildContext) throws -> [Command] {
  
         // Check that we can write to the output directory.
-        let allowedOutputPath = context.pluginWorkDirectory.appending("Foo")
-        if mkdir(allowedOutputPath.string, 0o777) != 0 {
+        let allowedOutputPath = context.pluginWorkDirectory.string + "/" + UUID().uuidString
+        if mkdir(allowedOutputPath, 0o777) != 0 {
              throw StringError("unexpectedly could not write to '\(allowedOutputPath)': \(String(utf8String: strerror(errno)))")
         }
+        rmdir(allowedOutputPath)
 
-        // Check that we cannot write to the source directory.
-        let disallowedOutputPath = context.targetDirectory.appending("Bar")
-        if mkdir(disallowedOutputPath.string, 0o777) == 0 {
+        // Check that we cannot write to the user's home directory.
+        let disallowedOutputPath = NSHomeDirectory() + "/" + UUID().uuidString
+        if mkdir(disallowedOutputPath, 0o777) == 0 {
              throw StringError("unexpectedly could write to '\(disallowedOutputPath)'")
         }
         
+        // Check that we can write to the temporary directory.
+        let allowedTemporaryPath = NSTemporaryDirectory() + "/" + UUID().uuidString
+        if mkdir(allowedTemporaryPath, 0o777) != 0 {
+             throw StringError("unexpectedly could not write to '\(allowedTemporaryPath)': \(String(utf8String: strerror(errno)))")
+        }
+        rmdir(allowedTemporaryPath)
+
         return []
     }
 
