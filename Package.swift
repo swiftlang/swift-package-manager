@@ -79,6 +79,19 @@ let package = Package(
                 "Workspace"
             ]
         ),
+        .library(
+            name: "SwiftPMDataModel-auto",
+            targets: [
+                "SourceControl",
+                "PackageCollections",
+                "PackageCollectionsModel",
+                "PackageModel",
+                "PackageLoading",
+                "PackageGraph",
+                "Xcodeproj",
+                "Workspace"
+            ]
+        ),
 
         .library(
             name: "XCBuildSupport",
