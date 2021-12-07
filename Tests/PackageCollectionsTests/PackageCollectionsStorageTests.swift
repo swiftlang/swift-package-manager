@@ -70,7 +70,7 @@ class PackageCollectionsStorageTests: XCTestCase {
     }
 
     func testFileDeleted() throws {
-        if is_tsan_enabled() { return }
+        try XCTSkipIf(is_tsan_enabled())
         
         try testWithTemporaryDirectory { tmpPath in
             let path = tmpPath.appending(component: "test.db")
@@ -109,7 +109,7 @@ class PackageCollectionsStorageTests: XCTestCase {
     }
 
     func testFileCorrupt() throws {
-        if is_tsan_enabled() { return }
+        try XCTSkipIf(is_tsan_enabled())
         
         try testWithTemporaryDirectory { tmpPath in
             let path = tmpPath.appending(component: "test.db")
