@@ -28,7 +28,7 @@ public struct MockPackage {
         platforms: [PlatformDescription] = [],
         path: String? = nil,
         targets: [MockTarget],
-        products: [MockProduct],
+        products: [MockProduct] = [],
         dependencies: [MockDependency] = [],
         versions: [String?] = [],
         toolsVersion: ToolsVersion? = nil

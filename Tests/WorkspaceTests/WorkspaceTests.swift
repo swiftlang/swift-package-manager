@@ -12,6 +12,7 @@ import Basics
 import PackageGraph
 import PackageLoading
 import PackageModel
+import PackageRegistry
 import SourceControl
 import SPMBuildCore
 import SPMTestSupport
@@ -4394,7 +4395,6 @@ final class WorkspaceTests: XCTestCase {
         let workspace = try MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
-            archiver: archiver,
             roots: [
                 MockPackage(
                     name: "Foo",
@@ -4447,7 +4447,8 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     versions: ["1.0.0"]
                 )
-            ]
+            ],
+            customBinaryArchiver: archiver
         )
 
         // Create dummy xcframework/artifactbundle zip files
@@ -4605,8 +4606,6 @@ final class WorkspaceTests: XCTestCase {
         let workspace = try MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
-            httpClient: httpClient,
-            archiver: archiver,
             roots: [
                 MockPackage(
                     name: "Foo",
@@ -4658,7 +4657,9 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     versions: ["1.0.0"]
                 )
-            ]
+            ],
+            customHttpClient: httpClient,
+            customBinaryArchiver: archiver
         )
 
         // Create dummy xcframework directories and zip files
@@ -4800,7 +4801,6 @@ final class WorkspaceTests: XCTestCase {
         let workspace = try MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
-            archiver: archiver,
             roots: [
                 MockPackage(
                     name: "Foo",
@@ -4830,7 +4830,8 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     versions: ["1.0.0"]
                 ),
-            ]
+            ],
+            customBinaryArchiver: archiver
         )
 
         // Create dummy zip files
@@ -4854,7 +4855,6 @@ final class WorkspaceTests: XCTestCase {
         let workspace = try MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
-            archiver: archiver,
             roots: [
                 MockPackage(
                     name: "Foo",
@@ -4890,7 +4890,8 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     versions: ["1.0.0"]
                 ),
-            ]
+            ],
+            customBinaryArchiver: archiver
         )
 
         workspace.checkPackageGraphFailure(roots: ["Foo"]) { diagnostics in
@@ -4928,7 +4929,6 @@ final class WorkspaceTests: XCTestCase {
         let workspace = try MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
-            archiver: archiver,
             roots: [
                 MockPackage(
                     name: "Foo",
@@ -4965,7 +4965,8 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     versions: ["1.0.0"]
                 )
-            ]
+            ],
+            customBinaryArchiver: archiver
         )
 
         // Create dummy zip files
@@ -5014,7 +5015,6 @@ final class WorkspaceTests: XCTestCase {
         let workspace = try MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
-            archiver: archiver,
             roots: [
                 MockPackage(
                     name: "Foo",
@@ -5051,7 +5051,8 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     versions: ["1.0.0"]
                 )
-            ]
+            ],
+            customBinaryArchiver: archiver
         )
 
         // Pin A to 1.0.0, Checkout B to 1.0.0
@@ -5231,8 +5232,6 @@ final class WorkspaceTests: XCTestCase {
         let workspace = try MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
-            httpClient: httpClient,
-            archiver: archiver,
             roots: [
                 MockPackage(
                     name: "Foo",
@@ -5288,7 +5287,9 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     versions: ["1.0.0"]
                 ),
-            ]
+            ],
+            customHttpClient: httpClient,
+            customBinaryArchiver: archiver
         )
 
         try workspace.checkPackageGraph(roots: ["Foo"]) { graph, diagnostics in
@@ -5414,8 +5415,6 @@ final class WorkspaceTests: XCTestCase {
         let workspace = try MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
-            httpClient: httpClient,
-            archiver: archiver,
             roots: [
                 MockPackage(
                     name: "Foo",
@@ -5494,7 +5493,9 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     versions: ["1.0.0"]
                 ),
-            ]
+            ],
+            customHttpClient: httpClient,
+            customBinaryArchiver: archiver
         )
 
         let a4FrameworkPath = workspace.packagesDir.appending(components: "A", "XCFrameworks", "A4.xcframework")
@@ -5697,8 +5698,6 @@ final class WorkspaceTests: XCTestCase {
         let workspace = try MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
-            httpClient: httpClient,
-            archiver: archiver,
             roots: [
                 MockPackage(
                     name: "Foo",
@@ -5729,7 +5728,9 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     versions: ["1.0.0"]
                 )
-            ]
+            ],
+            customHttpClient: httpClient,
+            customBinaryArchiver: archiver
         )
 
         try workspace.checkPackageGraph(roots: ["Foo"]) { graph, diagnostics in
@@ -5816,8 +5817,6 @@ final class WorkspaceTests: XCTestCase {
         let workspace = try MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
-            httpClient: httpClient,
-            archiver: archiver,
             roots: [
                 MockPackage(
                     name: "Foo",
@@ -5863,7 +5862,9 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     versions: ["1.0.0"]
                 ),
-            ]
+            ],
+            customHttpClient: httpClient,
+            customBinaryArchiver: archiver
         )
 
         workspace.checkPackageGraphFailure(roots: ["Foo"]) { diagnostics in
@@ -5887,7 +5888,6 @@ final class WorkspaceTests: XCTestCase {
         let workspace = try MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
-            httpClient: httpClient,
             roots: [
                 MockPackage(
                     name: "Foo",
@@ -5911,7 +5911,8 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     versions: ["0.9.0", "1.0.0"]
                 ),
-            ]
+            ],
+            customHttpClient: httpClient
         )
 
         // Pin A to 1.0.0, Checkout A to 1.0.0
@@ -6001,8 +6002,6 @@ final class WorkspaceTests: XCTestCase {
         let workspace = try MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
-            httpClient: httpClient,
-            archiver: archiver,
             roots: [
                 MockPackage(
                     name: "Foo",
@@ -6033,7 +6032,9 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     versions: ["1.0.0"]
                 )
-            ]
+            ],
+            customHttpClient: httpClient,
+            customBinaryArchiver: archiver
         )
 
         try workspace.checkPackageGraph(roots: ["Foo"]) { graph, diagnostics in
@@ -6106,8 +6107,6 @@ final class WorkspaceTests: XCTestCase {
         let workspace = try MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
-            httpClient: httpClient,
-            archiver: archiver,
             roots: [
                 MockPackage(
                     name: "Foo",
@@ -6182,7 +6181,9 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     versions: ["1.0.0"]
                 )
-            ]
+            ],
+            customHttpClient: httpClient,
+            customBinaryArchiver: archiver
         )
 
         try workspace.checkPackageGraph(roots: ["Foo"]) { graph, diagnostics in
@@ -6323,9 +6324,6 @@ final class WorkspaceTests: XCTestCase {
         let workspace = try MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
-            httpClient: httpClient,
-            archiver: archiver,
-            checksumAlgorithm: checksumAlgorithm,
             roots: [
                 MockPackage(
                     name: "Foo",
@@ -6381,7 +6379,10 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     versions: ["1.0.0"]
                 ),
-            ]
+            ],
+            customHttpClient: httpClient,
+            customBinaryArchiver: archiver,
+            customChecksumAlgorithm: checksumAlgorithm
         )
 
         try workspace.checkPackageGraph(roots: ["Foo"]) { graph, diagnostics in
@@ -6455,7 +6456,6 @@ final class WorkspaceTests: XCTestCase {
         let workspace = try MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
-            httpClient: httpClient,
             roots: [
                 MockPackage(
                     name: "Foo",
@@ -6479,7 +6479,8 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     versions: ["0.9.0", "1.0.0"]
                 ),
-            ]
+            ],
+            customHttpClient: httpClient
         )
 
         workspace.checkPackageGraphFailure(roots: ["Foo"]) { diagnostics in
@@ -6528,7 +6529,6 @@ final class WorkspaceTests: XCTestCase {
         let workspace = try MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
-            httpClient: httpClient,
             roots: [
                 MockPackage(
                     name: "Foo",
@@ -6552,7 +6552,8 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     versions: ["0.9.0", "1.0.0"]
                 ),
-            ]
+            ],
+            customHttpClient: httpClient
         )
 
         workspace.checkPackageGraphFailure(roots: ["Foo"]) { diagnostics in
@@ -6707,8 +6708,6 @@ final class WorkspaceTests: XCTestCase {
         let workspace = try MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
-            httpClient: httpClient,
-            archiver: archiver,
             roots: [
                 MockPackage(
                     name: "Foo",
@@ -6732,7 +6731,9 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     versions: ["0.9.0", "1.0.0"]
                 ),
-            ]
+            ],
+            customHttpClient: httpClient,
+            customBinaryArchiver: archiver
         )
 
         workspace.checkPackageGraphFailure(roots: ["Foo"]) { diagnostics in
@@ -6786,7 +6787,6 @@ final class WorkspaceTests: XCTestCase {
         let workspace = try MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
-            httpClient: httpClient,
             roots: [
                 MockPackage(
                     name: "Foo",
@@ -6810,7 +6810,8 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     versions: ["0.9.0", "1.0.0"]
                 ),
-            ]
+            ],
+            customHttpClient: httpClient
         )
 
         workspace.checkPackageGraphFailure(roots: ["Foo"]) { diagnostics in
@@ -6862,7 +6863,6 @@ final class WorkspaceTests: XCTestCase {
         let workspace = try MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
-            httpClient: httpClient,
             roots: [
                 MockPackage(
                     name: "Foo",
@@ -6886,7 +6886,8 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     versions: ["0.9.0", "1.0.0"]
                 ),
-            ]
+            ],
+            customHttpClient: httpClient
         )
 
         workspace.checkPackageGraphFailure(roots: ["Foo"]) { diagnostics in
@@ -8892,6 +8893,568 @@ final class WorkspaceTests: XCTestCase {
         XCTAssertMatch(workspace.delegate.events, ["did load manifest for remoteSourceControl package: http://localhost/org/bar"])
         XCTAssertMatch(workspace.delegate.events, ["will load manifest for registry package: org.baz"])
         XCTAssertMatch(workspace.delegate.events, ["did load manifest for registry package: org.baz"])
+    }
+
+    func testRegistryMissingConfigurationErrors() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let registryClient = try makeRegistryClient(
+            packageIdentity: .plain("org.foo"),
+            packageVersion: "1.0.0",
+            workspaceDirectory: sandbox,
+            fileSystem: fs,
+            configuration: .init()
+        )
+
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "MyPackage",
+                    targets: [
+                        MockTarget(
+                            name: "MyTarget",
+                            dependencies: [
+                                .product(name: "Foo", package: "org.foo")
+                            ]),
+                    ],
+                    dependencies: [
+                        .registry(identity: "org.foo", requirement: .upToNextMajor(from: "1.0.0")),
+                    ]
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "Foo",
+                    identity: "org.foo",
+                    targets: [
+                        MockTarget(name: "Foo"),
+                    ],
+                    products: [
+                        MockProduct(name: "Foo", targets: ["Foo"]),
+                    ],
+                    versions: ["1.0.0"]
+                )
+            ],
+            customRegistryClient: registryClient
+        )
+
+        workspace.checkPackageGraphFailure(roots: ["MyPackage"]) { diagnostics in
+            testDiagnostics(diagnostics) { result in
+                result.check(diagnostic: .equal("No registry configured for scope 'org'"), severity: .error)
+            }
+        }
+    }
+
+    func testRegistryReleasesServerErrors() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "MyPackage",
+                    targets: [
+                        MockTarget(
+                            name: "MyTarget",
+                            dependencies: [
+                                .product(name: "Foo", package: "org.foo")
+                            ]),
+                    ],
+                    dependencies: [
+                        .registry(identity: "org.foo", requirement: .upToNextMajor(from: "1.0.0")),
+                    ]
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "Foo",
+                    identity: "org.foo",
+                    targets: [
+                        MockTarget(name: "Foo"),
+                    ],
+                    products: [
+                        MockProduct(name: "Foo", targets: ["Foo"]),
+                    ],
+                    versions: ["1.0.0"]
+                )
+            ]
+        )
+
+        do {
+            let registryClient = try makeRegistryClient(
+                packageIdentity: .plain("org.foo"),
+                packageVersion: "1.0.0",
+                workspaceDirectory: sandbox,
+                fileSystem: fs,
+                releasesRequestHandler: { _, _ , completion in
+                    completion(.failure(StringError("boom")))
+                }
+            )
+
+            workspace.checkReset{ XCTAssertNoDiagnostics($0) }
+            workspace.closeWorkspace()
+            workspace.registryClient = registryClient
+            workspace.checkPackageGraphFailure(roots: ["MyPackage"]) { diagnostics in
+                testDiagnostics(diagnostics) { result in
+                    result.check(diagnostic: .equal("Failed fetching releases from registry: boom"), severity: .error)
+                }
+            }
+        }
+
+        do {
+            let registryClient = try makeRegistryClient(
+                packageIdentity: .plain("org.foo"),
+                packageVersion: "1.0.0",
+                workspaceDirectory: sandbox,
+                fileSystem: fs,
+                releasesRequestHandler: { _, _ , completion in
+                    completion(.success(.serverError()))
+                }
+            )
+
+            workspace.checkReset{ XCTAssertNoDiagnostics($0) }
+            workspace.closeWorkspace()
+            workspace.registryClient = registryClient
+            workspace.checkPackageGraphFailure(roots: ["MyPackage"]) { diagnostics in
+                testDiagnostics(diagnostics) { result in
+                    result.check(diagnostic: .equal("Failed fetching releases from registry: Invalid registry response status '500', expected '200'"), severity: .error)
+                }
+            }
+        }
+    }
+
+    func testRegistryVersionMetadataServerErrors() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "MyPackage",
+                    targets: [
+                        MockTarget(
+                            name: "MyTarget",
+                            dependencies: [
+                                .product(name: "Foo", package: "org.foo")
+                            ]),
+                    ],
+                    dependencies: [
+                        .registry(identity: "org.foo", requirement: .upToNextMajor(from: "1.0.0")),
+                    ]
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "Foo",
+                    identity: "org.foo",
+                    targets: [
+                        MockTarget(name: "Foo"),
+                    ],
+                    products: [
+                        MockProduct(name: "Foo", targets: ["Foo"]),
+                    ],
+                    versions: ["1.0.0"]
+                )
+            ]
+        )
+
+        do {
+            let registryClient = try makeRegistryClient(
+                packageIdentity: .plain("org.foo"),
+                packageVersion: "1.0.0",
+                workspaceDirectory: sandbox,
+                fileSystem: fs,
+                versionMetadataRequestHandler: { _, _ , completion in
+                    completion(.failure(StringError("boom")))
+                }
+            )
+
+            workspace.checkReset{ XCTAssertNoDiagnostics($0) }
+            workspace.closeWorkspace()
+            workspace.registryClient = registryClient
+            workspace.checkPackageGraphFailure(roots: ["MyPackage"]) { diagnostics in
+                testDiagnostics(diagnostics) { result in
+                    result.check(diagnostic: .equal("Failed determining registry source archive checksum: Failed fetching release metadata from registry: boom"), severity: .error)
+                }
+            }
+        }
+
+        do {
+            let registryClient = try makeRegistryClient(
+                packageIdentity: .plain("org.foo"),
+                packageVersion: "1.0.0",
+                workspaceDirectory: sandbox,
+                fileSystem: fs,
+                versionMetadataRequestHandler: { _, _ , completion in
+                    completion(.success(.serverError()))
+                }
+            )
+
+            workspace.checkReset{ XCTAssertNoDiagnostics($0) }
+            workspace.closeWorkspace()
+            workspace.registryClient = registryClient
+            workspace.checkPackageGraphFailure(roots: ["MyPackage"]) { diagnostics in
+                testDiagnostics(diagnostics) { result in
+                    result.check(diagnostic: .equal("Failed determining registry source archive checksum: Failed fetching release metadata from registry: Invalid registry response status '500', expected '200'"), severity: .error)
+                }
+            }
+        }
+    }
+
+    func testRegistryManifestServerErrors() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "MyPackage",
+                    targets: [
+                        MockTarget(
+                            name: "MyTarget",
+                            dependencies: [
+                                .product(name: "Foo", package: "org.foo")
+                            ]),
+                    ],
+                    dependencies: [
+                        .registry(identity: "org.foo", requirement: .upToNextMajor(from: "1.0.0")),
+                    ]
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "Foo",
+                    identity: "org.foo",
+                    targets: [
+                        MockTarget(name: "Foo"),
+                    ],
+                    products: [
+                        MockProduct(name: "Foo", targets: ["Foo"]),
+                    ],
+                    versions: ["1.0.0"]
+                )
+            ]
+        )
+
+        do {
+            let registryClient = try makeRegistryClient(
+                packageIdentity: .plain("org.foo"),
+                packageVersion: "1.0.0",
+                workspaceDirectory: sandbox,
+                fileSystem: fs,
+                manifestRequestHandler: { _, _ , completion in
+                    completion(.failure(StringError("boom")))
+                }
+            )
+
+            workspace.checkReset{ XCTAssertNoDiagnostics($0) }
+            workspace.closeWorkspace()
+            workspace.registryClient = registryClient
+            workspace.checkPackageGraphFailure(roots: ["MyPackage"]) { diagnostics in
+                testDiagnostics(diagnostics) { result in
+                    result.check(diagnostic: .equal("Failed retrieving manifest from registry: boom"), severity: .error)
+                }
+            }
+        }
+
+        do {
+            let registryClient = try makeRegistryClient(
+                packageIdentity: .plain("org.foo"),
+                packageVersion: "1.0.0",
+                workspaceDirectory: sandbox,
+                fileSystem: fs,
+                manifestRequestHandler: { _, _ , completion in
+                    completion(.success(.serverError()))
+                }
+            )
+
+            workspace.checkReset{ XCTAssertNoDiagnostics($0) }
+            workspace.closeWorkspace()
+            workspace.registryClient = registryClient
+            workspace.checkPackageGraphFailure(roots: ["MyPackage"]) { diagnostics in
+                testDiagnostics(diagnostics) { result in
+                    result.check(diagnostic: .equal("Failed retrieving manifest from registry: Invalid registry response status '500', expected '200'"), severity: .error)
+                }
+            }
+        }
+    }
+
+    func testRegistryDownloadServerErrors() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "MyPackage",
+                    targets: [
+                        MockTarget(
+                            name: "MyTarget",
+                            dependencies: [
+                                .product(name: "Foo", package: "org.foo")
+                            ]),
+                    ],
+                    dependencies: [
+                        .registry(identity: "org.foo", requirement: .upToNextMajor(from: "1.0.0")),
+                    ]
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "Foo",
+                    identity: "org.foo",
+                    targets: [
+                        MockTarget(name: "Foo"),
+                    ],
+                    products: [
+                        MockProduct(name: "Foo", targets: ["Foo"]),
+                    ],
+                    versions: ["1.0.0"]
+                )
+            ]
+        )
+
+        do {
+            let registryClient = try makeRegistryClient(
+                packageIdentity: .plain("org.foo"),
+                packageVersion: "1.0.0",
+                workspaceDirectory: sandbox,
+                fileSystem: fs,
+                downloadArchiveRequestHandler: { _, _ , completion in
+                    completion(.failure(StringError("boom")))
+                }
+            )
+
+            workspace.checkReset{ XCTAssertNoDiagnostics($0) }
+            workspace.closeWorkspace()
+            workspace.registryClient = registryClient
+            workspace.checkPackageGraphFailure(roots: ["MyPackage"]) { diagnostics in
+                testDiagnostics(diagnostics) { result in
+                    result.check(diagnostic: .equal("Failed downloading source archive from registry: boom"), severity: .error)
+                }
+            }
+        }
+
+        do {
+            let registryClient = try makeRegistryClient(
+                packageIdentity: .plain("org.foo"),
+                packageVersion: "1.0.0",
+                workspaceDirectory: sandbox,
+                fileSystem: fs,
+                downloadArchiveRequestHandler: { _, _ , completion in
+                    completion(.success(.serverError()))
+                }
+            )
+
+            workspace.checkReset{ XCTAssertNoDiagnostics($0) }
+            workspace.closeWorkspace()
+            workspace.registryClient = registryClient
+            workspace.checkPackageGraphFailure(roots: ["MyPackage"]) { diagnostics in
+                testDiagnostics(diagnostics) { result in
+                    result.check(diagnostic: .equal("Failed downloading source archive from registry: Invalid registry response status '500', expected '200'"), severity: .error)
+                }
+            }
+        }
+    }
+
+    func testRegistryArchiveErrors() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "MyPackage",
+                    targets: [
+                        MockTarget(
+                            name: "MyTarget",
+                            dependencies: [
+                                .product(name: "Foo", package: "org.foo")
+                            ]),
+                    ],
+                    dependencies: [
+                        .registry(identity: "org.foo", requirement: .upToNextMajor(from: "1.0.0")),
+                    ]
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "Foo",
+                    identity: "org.foo",
+                    targets: [
+                        MockTarget(name: "Foo"),
+                    ],
+                    products: [
+                        MockProduct(name: "Foo", targets: ["Foo"]),
+                    ],
+                    versions: ["1.0.0"]
+                )
+            ]
+        )
+
+        do {
+            let registryClient = try makeRegistryClient(
+                packageIdentity: .plain("org.foo"),
+                packageVersion: "1.0.0",
+                workspaceDirectory: sandbox,
+                fileSystem: fs,
+                archiver: MockArchiver(handler: { archiver, from, to, completion in
+                    completion(.failure(StringError("boom")))
+                })
+            )
+
+            workspace.checkReset{ XCTAssertNoDiagnostics($0) }
+            workspace.closeWorkspace()
+            workspace.registryClient = registryClient
+            workspace.checkPackageGraphFailure(roots: ["MyPackage"]) { diagnostics in
+                testDiagnostics(diagnostics) { result in
+                    result.check(diagnostic: .equal("failed extracting '\(sandbox.pathString)/.build/registry/downloads/org/foo/1.0.0.zip' to '\(sandbox.pathString)/.build/registry/downloads/org/foo/1.0.0': boom"), severity: .error)
+                }
+            }
+        }
+    }
+
+    func makeRegistryClient(
+        packageIdentity: PackageIdentity,
+        packageVersion: Version,
+        workspaceDirectory: AbsolutePath,
+        fileSystem: FileSystem,
+        configuration: PackageRegistry.RegistryConfiguration? = .none,
+        identityResolver: IdentityResolver? = .none,
+        authorizationProvider: AuthorizationProvider? = .none,
+        releasesRequestHandler: HTTPClient.Handler? = .none,
+        versionMetadataRequestHandler: HTTPClient.Handler? = .none,
+        manifestRequestHandler: HTTPClient.Handler? = .none,
+        downloadArchiveRequestHandler: HTTPClient.Handler? = .none,
+        archiver: Archiver? = .none
+    ) throws -> RegistryClient {
+        let jsonEncoder = JSONEncoder.makeWithDefaults()
+
+        let identityResolver = identityResolver ?? DefaultIdentityResolver()
+
+        guard let (packageScope, packageName) = packageIdentity.scopeAndName else {
+            throw StringError("Invalid package identity")
+        }
+
+        var configuration = configuration
+        if configuration == nil {
+            configuration = PackageRegistry.RegistryConfiguration()
+            configuration!.defaultRegistry = .init(url: URL(string: "http://localhost")!)
+        }
+
+        let releasesRequestHandler = releasesRequestHandler ?? { request, _ , completion in
+            let metadata = RegistryClient.Serialization.PackageMetadata(
+                releases: [packageVersion.description:  .init(url: .none, problem: .none)]
+            )
+            completion(.success(
+                HTTPClientResponse(
+                    statusCode: 200,
+                    headers: [
+                        "Content-Version": "1",
+                        "Content-Type": "application/json"
+                    ],
+                    body: try! jsonEncoder.encode(metadata)
+                )
+            ))
+        }
+
+        let versionMetadataRequestHandler = versionMetadataRequestHandler ?? { request, _ , completion in
+            let metadata = RegistryClient.Serialization.VersionMetadata(
+                id: packageIdentity.description,
+                version: packageVersion.description,
+                resources: [
+                    .init(
+                        name: "source-archive",
+                        type: "application/zip",
+                        checksum: ""
+                    )
+                ],
+                metadata: .init(description: "")
+            )
+            completion(.success(
+                HTTPClientResponse(
+                    statusCode: 200,
+                    headers: [
+                        "Content-Version": "1",
+                        "Content-Type": "application/json"
+                    ],
+                    body: try! jsonEncoder.encode(metadata)
+                )
+            ))
+        }
+
+        let manifestRequestHandler = manifestRequestHandler ?? { request, _ , completion in
+            completion(.success(
+                HTTPClientResponse(
+                    statusCode: 200,
+                    headers: [
+                        "Content-Version": "1",
+                        "Content-Type": "text/x-swift"
+                    ],
+                    body: "// swift-tools-version: \(ToolsVersion.currentToolsVersion)".data(using: .utf8)
+                )
+            ))
+        }
+
+        let downloadArchiveRequestHandler = downloadArchiveRequestHandler ?? { request, _ , completion in
+            // meh
+            let path = workspaceDirectory
+                .appending(components: ".build", "registry", "downloads", packageScope.description, packageName.description)
+                .appending(component: "\(packageVersion).zip")
+            try! fileSystem.createDirectory(path.parentDirectory, recursive: true)
+            try! fileSystem.writeFileContents(path, string: "")
+
+            completion(.success(
+                HTTPClientResponse(
+                    statusCode: 200,
+                    headers: [
+                        "Content-Version": "1",
+                        "Content-Type": "application/zip"
+                    ],
+                    body: "".data(using: .utf8)
+                )
+            ))
+        }
+
+        let archiver = archiver ?? MockArchiver()
+
+        return RegistryClient(
+            configuration: configuration!,
+            identityResolver: identityResolver,
+            authorizationProvider: authorizationProvider?.httpAuthorizationHeader(for:),
+            customHTTPClient: HTTPClient(configuration: .init(), handler: { request, progress , completion in
+                switch request.url {
+                // request to get package releases
+                case URL(string: "http://localhost/\(packageScope)/\(packageName)")!:
+                    releasesRequestHandler(request, progress, completion)
+                // request to get package version metadata
+                case URL(string: "http://localhost/\(packageScope)/\(packageName)/\(packageVersion)")!:
+                    versionMetadataRequestHandler(request, progress, completion)
+                // request to get package manifest
+                case URL(string: "http://localhost/\(packageScope)/\(packageName)/\(packageVersion)/Package.swift")!:
+                    manifestRequestHandler(request, progress, completion)
+                // request to get download the version source archive
+                case URL(string: "http://localhost/\(packageScope)/\(packageName)/\(packageVersion).zip")!:
+                    downloadArchiveRequestHandler(request, progress, completion)
+                default:
+                    completion(.failure(StringError("unexpected url \(request.url)")))
+                }
+            }),
+            customArchiverProvider: { _ in archiver }
+        )
     }
 }
 

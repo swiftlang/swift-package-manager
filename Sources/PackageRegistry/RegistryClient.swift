@@ -22,10 +22,10 @@ import struct TSCUtility.ZipArchiver
 
 /// Package registry client.
 /// API specification: https://github.com/apple/swift-package-manager/blob/main/Documentation/Registry.md
-public enum RegistryError: Error {
+public enum RegistryError: Error, CustomStringConvertible {
     case registryNotConfigured(scope: PackageIdentity.Scope?)
     case invalidPackage(PackageIdentity)
-    case invalidURL
+    case invalidURL(URL)
     case invalidResponseStatus(expected: Int, actual: Int)
     case invalidContentVersion(expected: String, actual: String?)
     case invalidContentType(expected: String, actual: String?)
@@ -36,6 +36,49 @@ public enum RegistryError: Error {
     case failedToDetermineExpectedChecksum(Error)
     case invalidChecksum(expected: String, actual: String)
     case pathAlreadyExists(AbsolutePath)
+    case failedRetrievingReleases(Error)
+    case failedRetrievingReleaseMetadata(Error)
+    case failedRetrievingManifest(Error)
+    case failedDownloadingSourceArchive(Error)
+
+    public var description: String {
+        switch self {
+        case .registryNotConfigured(let scope):
+            return "No registry configured for scope '\(scope ?? "")'"
+        case .invalidPackage(let package):
+            return "Invalid package '\(package)'"
+        case .invalidURL(let url):
+            return "Invalid URL '\(url)'"
+        case .invalidResponseStatus(let expected, let actual):
+            return "Invalid registry response status '\(actual)', expected '\(expected)'"
+        case .invalidContentVersion(expected: let expected, actual: let actual):
+            return "Invalid registry response content version '\(actual ?? "")', expected '\(expected)'"
+        case .invalidContentType(let expected, let actual):
+            return "Invalid registry response content type '\(actual ?? "")', expected '\(expected)'"
+        case .invalidResponse:
+            return "Invalid registry response"
+        case .missingSourceArchive:
+            return "Missing registry source archive"
+        case .invalidSourceArchive:
+            return "Invalid registry source archive"
+        case .unsupportedHashAlgorithm(let algorithm):
+            return "Unsupported hash algorithm '\(algorithm)'"
+        case .failedToDetermineExpectedChecksum(let error):
+            return "Failed determining registry source archive checksum: \(error)"
+        case .invalidChecksum(let expected, let actual):
+            return "Invalid registry source archive checksum '\(actual)', expected '\(expected)'"
+        case .pathAlreadyExists(let path):
+            return "Path already exists '\(path)'"
+        case .failedRetrievingReleases(let error):
+            return "Failed fetching releases from registry: \(error)"
+        case .failedRetrievingReleaseMetadata(let error):
+            return "Failed fetching release metadata from registry: \(error)"
+        case .failedRetrievingManifest(let error):
+            return "Failed retrieving manifest from registry: \(error)"
+        case .failedDownloadingSourceArchive(let error):
+            return "Failed downloading source archive from registry: \(error)"
+        }
+    }
 }
 
 public final class RegistryClient {
@@ -48,17 +91,18 @@ public final class RegistryClient {
     private let authorizationProvider: HTTPClientAuthorizationProvider?
     private let jsonDecoder: JSONDecoder
 
-    public init(configuration: RegistryConfiguration,
-                identityResolver: IdentityResolver,
-                customArchiverProvider: ((FileSystem) -> Archiver)? = nil,
-                customHTTPClient: HTTPClient? = nil,
-                authorizationProvider: HTTPClientAuthorizationProvider? = nil)
-    {
+    public init(
+        configuration: RegistryConfiguration,
+        identityResolver: IdentityResolver,
+        authorizationProvider: HTTPClientAuthorizationProvider? = .none,
+        customHTTPClient: HTTPClient? = .none,
+        customArchiverProvider: ((FileSystem) -> Archiver)? = .none
+    ) {
         self.configuration = configuration
         self.identityResolver = identityResolver
-        self.archiverProvider = customArchiverProvider ?? { fileSystem in ZipArchiver(fileSystem: fileSystem) }
-        self.httpClient = customHTTPClient ?? HTTPClient()
         self.authorizationProvider = authorizationProvider
+        self.httpClient = customHTTPClient ?? HTTPClient()
+        self.archiverProvider = customArchiverProvider ?? { fileSystem in ZipArchiver(fileSystem: fileSystem) }
         self.jsonDecoder = JSONDecoder.makeWithDefaults()
     }
 
@@ -79,11 +123,12 @@ public final class RegistryClient {
             return completion(.failure(RegistryError.registryNotConfigured(scope: scope)))
         }
 
-        var components = URLComponents(url: registry.url, resolvingAgainstBaseURL: true)
-        components?.appendPathComponents("\(scope)", "\(name)")
-
-        guard let url = components?.url else {
-            return completion(.failure(RegistryError.invalidURL))
+        guard var components = URLComponents(url: registry.url, resolvingAgainstBaseURL: true) else {
+            return completion(.failure(RegistryError.invalidURL(registry.url)))
+        }
+        components.appendPathComponents("\(scope)", "\(name)")
+        guard let url = components.url else {
+            return completion(.failure(RegistryError.invalidURL(registry.url)))
         }
 
         let request = HTTPClient.Request(
@@ -96,20 +141,24 @@ public final class RegistryClient {
         )
 
         self.httpClient.execute(request, observabilityScope: observabilityScope, progress: nil) { result in
-            completion(result.tryMap { response in
-                try self.checkResponseStatusAndHeaders(response, expectedStatusCode: 200, expectedContentType: .json)
+            completion(
+                result.tryMap { response in
+                    try self.checkResponseStatusAndHeaders(response, expectedStatusCode: 200, expectedContentType: .json)
 
-                guard let data = response.body else {
-                    throw RegistryError.invalidResponse
+                    guard let data = response.body else {
+                        throw RegistryError.invalidResponse
+                    }
+
+                    let packageMetadata = try self.jsonDecoder.decode(Serialization.PackageMetadata.self, from: data)
+
+                    let versions = packageMetadata.releases.filter { $0.value.problem == nil }
+                        .compactMap { Version($0.key) }
+                        .sorted(by: >)
+                    return versions
+                }.mapError{
+                    RegistryError.failedRetrievingReleases($0)
                 }
-
-                let packageMetadata = try self.jsonDecoder.decode(Serialization.PackageMetadata.self, from: data)
-
-                let versions = packageMetadata.releases.filter { $0.value.problem == nil }
-                    .compactMap { Version($0.key) }
-                    .sorted(by: >)
-                return versions
-            })
+            )
         }
     }
 
@@ -131,11 +180,13 @@ public final class RegistryClient {
             return completion(.failure(RegistryError.registryNotConfigured(scope: scope)))
         }
 
-        var components = URLComponents(url: registry.url, resolvingAgainstBaseURL: true)
-        components?.appendPathComponents("\(scope)", "\(name)", "\(version)", Manifest.filename)
+        guard var components = URLComponents(url: registry.url, resolvingAgainstBaseURL: true) else {
+            return completion(.failure(RegistryError.invalidURL(registry.url)))
+        }
+        components.appendPathComponents("\(scope)", "\(name)", "\(version)", Manifest.filename)
 
-        guard let url = components?.url else {
-            return completion(.failure(RegistryError.invalidURL))
+        guard let url = components.url else {
+            return completion(.failure(RegistryError.invalidURL(registry.url)))
         }
 
         let request = HTTPClient.Request(
@@ -148,26 +199,30 @@ public final class RegistryClient {
         )
 
         self.httpClient.execute(request, observabilityScope: observabilityScope, progress: nil) { result in
-            completion(result.tryMap { response in
-                try self.checkResponseStatusAndHeaders(response, expectedStatusCode: 200, expectedContentType: .swift)
+            completion(
+                result.tryMap { response in
+                    try self.checkResponseStatusAndHeaders(response, expectedStatusCode: 200, expectedContentType: .swift)
 
-                guard let data = response.body else {
-                    throw RegistryError.invalidResponse
-                }
-                guard let manifestContent = String(data: data, encoding: .utf8) else {
-                    throw RegistryError.invalidResponse
-                }
+                    guard let data = response.body else {
+                        throw RegistryError.invalidResponse
+                    }
+                    guard let manifestContent = String(data: data, encoding: .utf8) else {
+                        throw RegistryError.invalidResponse
+                    }
 
-                var result = [String: ToolsVersion]()
-                let toolsVersion = try ToolsVersionLoader().load(utf8String: manifestContent)
-                result[Manifest.filename] = toolsVersion
+                    var result = [String: ToolsVersion]()
+                    let toolsVersion = try ToolsVersionLoader().load(utf8String: manifestContent)
+                    result[Manifest.filename] = toolsVersion
 
-                let alternativeManifests = try response.headers.get("Link").map { try parseLinkHeader($0) }.flatMap{ $0 }
-                for alternativeManifest in alternativeManifests {
-                    result[alternativeManifest.filename] = alternativeManifest.toolsVersion
+                    let alternativeManifests = try response.headers.get("Link").map { try parseLinkHeader($0) }.flatMap{ $0 }
+                    for alternativeManifest in alternativeManifests {
+                        result[alternativeManifest.filename] = alternativeManifest.toolsVersion
+                    }
+                    return result
+                }.mapError{
+                    RegistryError.failedRetrievingManifest($0)
                 }
-                return result
-            })
+            )
         }
 
         func parseLinkHeader(_ value: String) throws -> [ManifestLink] {
@@ -252,17 +307,19 @@ public final class RegistryClient {
             return completion(.failure(RegistryError.registryNotConfigured(scope: scope)))
         }
 
-        var components = URLComponents(url: registry.url, resolvingAgainstBaseURL: true)
-        components?.appendPathComponents("\(scope)", "\(name)", "\(version)", "Package.swift")
+        guard var components = URLComponents(url: registry.url, resolvingAgainstBaseURL: true) else {
+            return completion(.failure(RegistryError.invalidURL(registry.url)))
+        }
+        components.appendPathComponents("\(scope)", "\(name)", "\(version)", "Package.swift")
 
         if let toolsVersion = customToolsVersion {
-            components?.queryItems = [
+            components.queryItems = [
                 URLQueryItem(name: "swift-version", value: toolsVersion.description),
             ]
         }
 
-        guard let url = components?.url else {
-            return completion(.failure(RegistryError.invalidURL))
+        guard let url = components.url else {
+            return completion(.failure(RegistryError.invalidURL(registry.url)))
         }
 
         let request = HTTPClient.Request(
@@ -275,18 +332,22 @@ public final class RegistryClient {
         )
 
         self.httpClient.execute(request, observabilityScope: observabilityScope, progress: nil) { result in
-            completion(result.tryMap { response -> String in
-                try self.checkResponseStatusAndHeaders(response, expectedStatusCode: 200, expectedContentType: .swift)
+            completion(
+                result.tryMap { response -> String in
+                    try self.checkResponseStatusAndHeaders(response, expectedStatusCode: 200, expectedContentType: .swift)
 
-                guard let data = response.body else {
-                    throw RegistryError.invalidResponse
-                }
-                guard let manifestContent = String(data: data, encoding: .utf8) else {
-                    throw RegistryError.invalidResponse
-                }
+                    guard let data = response.body else {
+                        throw RegistryError.invalidResponse
+                    }
+                    guard let manifestContent = String(data: data, encoding: .utf8) else {
+                        throw RegistryError.invalidResponse
+                    }
 
-                return manifestContent
-            })
+                    return manifestContent
+                }.mapError{
+                    RegistryError.failedRetrievingManifest($0)
+                }
+            )
         }
     }
 
@@ -308,11 +369,13 @@ public final class RegistryClient {
             return completion(.failure(RegistryError.registryNotConfigured(scope: scope)))
         }
 
-        var components = URLComponents(url: registry.url, resolvingAgainstBaseURL: true)
-        components?.appendPathComponents("\(scope)", "\(name)", "\(version)")
+        guard var components = URLComponents(url: registry.url, resolvingAgainstBaseURL: true) else {
+            return completion(.failure(RegistryError.invalidURL(registry.url)))
+        }
+        components.appendPathComponents("\(scope)", "\(name)", "\(version)")
 
-        guard let url = components?.url else {
-            return completion(.failure(RegistryError.invalidURL))
+        guard let url = components.url else {
+            return completion(.failure(RegistryError.invalidURL(registry.url)))
         }
 
         let request = HTTPClient.Request(
@@ -325,24 +388,29 @@ public final class RegistryClient {
         )
 
         self.httpClient.execute(request, observabilityScope: observabilityScope, progress: nil) { result in
-            completion(result.tryMap { response in
-                try self.checkResponseStatusAndHeaders(response, expectedStatusCode: 200, expectedContentType: .json)
+            completion(
+                result.tryMap { response in
+                    try self.checkResponseStatusAndHeaders(response, expectedStatusCode: 200, expectedContentType: .json)
 
-                guard let data = response.body else {
-                    throw RegistryError.invalidResponse
+                    guard let data = response.body else {
+                        throw RegistryError.invalidResponse
+                    }
+
+                    let versionMetadata = try self.jsonDecoder.decode(Serialization.VersionMetadata.self, from: data)
+                    guard let sourceArchive = versionMetadata.resources.first(where: { $0.name == "source-archive" }) else {
+                        throw RegistryError.missingSourceArchive
+                    }
+
+                    guard let checksum = sourceArchive.checksum else {
+                        throw RegistryError.invalidSourceArchive
+                    }
+
+                    return checksum
+                }.mapError{
+                    // FIXME
+                    RegistryError.failedRetrievingReleaseMetadata($0)
                 }
-
-                let versionMetadata = try self.jsonDecoder.decode(Serialization.VersionMetadata.self, from: data)
-                guard let sourceArchive = versionMetadata.resources.first(where: { $0.name == "source-archive" }) else {
-                    throw RegistryError.missingSourceArchive
-                }
-
-                guard let checksum = sourceArchive.checksum else {
-                    throw RegistryError.invalidSourceArchive
-                }
-
-                return checksum
-            })
+            )
         }
     }
 
@@ -369,11 +437,13 @@ public final class RegistryClient {
             return completion(.failure(RegistryError.registryNotConfigured(scope: scope)))
         }
 
-        var components = URLComponents(url: registry.url, resolvingAgainstBaseURL: true)
-        components?.appendPathComponents("\(scope)", "\(name)", "\(version).zip")
+        guard var components = URLComponents(url: registry.url, resolvingAgainstBaseURL: true) else {
+            return completion(.failure(RegistryError.invalidURL(registry.url)))
+        }
+        components.appendPathComponents("\(scope)", "\(name)", "\(version).zip")
 
-        guard let url = components?.url else {
-            return completion(.failure(RegistryError.invalidURL))
+        guard let url = components.url else {
+            return completion(.failure(RegistryError.invalidURL(registry.url)))
         }
 
         // prepare target download locations
@@ -410,7 +480,7 @@ public final class RegistryClient {
                 do {
                     try self.checkResponseStatusAndHeaders(response, expectedStatusCode: 200, expectedContentType: .zip)
                 } catch {
-                    return completion(.failure(error))
+                    return completion(.failure(RegistryError.failedDownloadingSourceArchive(error)))
                 }
 
                 withExpectedChecksum { result in
@@ -435,14 +505,14 @@ public final class RegistryClient {
                                 })
                             }
                         } catch {
-                            completion(.failure(error))
+                            completion(.failure(RegistryError.failedToDetermineExpectedChecksum(error)))
                         }
                     case .failure(let error):
                         completion(.failure(RegistryError.failedToDetermineExpectedChecksum(error)))
                     }
                 }
             case .failure(let error):
-                completion(.failure(error))
+                completion(.failure(RegistryError.failedDownloadingSourceArchive(error)))
             }
         }
 
@@ -474,15 +544,17 @@ public final class RegistryClient {
             return completion(.failure(RegistryError.registryNotConfigured(scope: nil)))
         }
 
-        var components = URLComponents(url: registry.url, resolvingAgainstBaseURL: true)
-        components?.appendPathComponents("identifiers")
+        guard var components = URLComponents(url: registry.url, resolvingAgainstBaseURL: true) else {
+            return completion(.failure(RegistryError.invalidURL(registry.url)))
+        }
+        components.appendPathComponents("identifiers")
 
-        components?.queryItems = [
+        components.queryItems = [
             URLQueryItem(name: "url", value: url.absoluteString),
         ]
 
-        guard let url = components?.url else {
-            return completion(.failure(RegistryError.invalidURL))
+        guard let url = components.url else {
+            return completion(.failure(RegistryError.invalidURL(registry.url)))
         }
 
         let request = HTTPClient.Request(

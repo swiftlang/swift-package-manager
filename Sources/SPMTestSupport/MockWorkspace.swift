@@ -12,6 +12,7 @@ import Basics
 import PackageGraph
 import PackageLoading
 import PackageModel
+import PackageRegistry
 import SourceControl
 import TSCBasic
 import Workspace
@@ -23,6 +24,7 @@ public final class MockWorkspace {
     let sandbox: AbsolutePath
     let fileSystem: InMemoryFileSystem
     public let httpClient: HTTPClient
+    public var registryClient: RegistryClient
     public let archiver: MockArchiver
     public let checksumAlgorithm: MockHashAlgorithm
     let roots: [MockPackage]
@@ -39,20 +41,24 @@ public final class MockWorkspace {
     public init(
         sandbox: AbsolutePath,
         fileSystem: InMemoryFileSystem,
-        httpClient: HTTPClient? = nil,
-        archiver: MockArchiver = MockArchiver(),
-        checksumAlgorithm: MockHashAlgorithm = MockHashAlgorithm(),
         mirrors: DependencyMirrors? = nil,
         roots: [MockPackage],
         packages: [MockPackage],
         toolsVersion: ToolsVersion = ToolsVersion.currentToolsVersion,
+        customHttpClient: HTTPClient? = .none,
+        customRegistryClient: RegistryClient? = .none,
+        customBinaryArchiver: MockArchiver? = .none,
+        customChecksumAlgorithm: MockHashAlgorithm? = .none,
         resolverUpdateEnabled: Bool = true
     ) throws {
+        let archiver = customBinaryArchiver ?? MockArchiver()
+        let httpClient = customHttpClient ?? HTTPClient.mock(fileSystem: fileSystem)
+
         self.sandbox = sandbox
         self.fileSystem = fileSystem
-        self.httpClient = httpClient ?? HTTPClient.mock(fileSystem: fileSystem)
+        self.httpClient = httpClient
         self.archiver = archiver
-        self.checksumAlgorithm = checksumAlgorithm
+        self.checksumAlgorithm = customChecksumAlgorithm ?? MockHashAlgorithm()
         self.mirrors = mirrors ?? DependencyMirrors()
         self.identityResolver = DefaultIdentityResolver(locationMapper: self.mirrors.effectiveURL(for:))
         self.roots = roots
@@ -65,6 +71,7 @@ public final class MockWorkspace {
             checksumAlgorithm: self.checksumAlgorithm,
             filesystem: self.fileSystem
         )
+        self.registryClient = customRegistryClient ?? self.registry.registryClient
         self.toolsVersion = toolsVersion
         self.resolverUpdateEnabled = resolverUpdateEnabled
 
@@ -99,7 +106,6 @@ public final class MockWorkspace {
         var manifests: [MockManifestLoader.Key: Manifest] = [:]
 
         func create(package: MockPackage, basePath: AbsolutePath, isRoot: Bool) throws {
-
             let packagePath: AbsolutePath
             switch package.location {
             case .fileSystem(let path):
@@ -216,7 +222,7 @@ public final class MockWorkspace {
             customToolsVersion: self.toolsVersion,
             customManifestLoader: self.manifestLoader,
             customRepositoryProvider: self.repositoryProvider,
-            customRegistryClient: self.registry.registryClient,
+            customRegistryClient: self.registryClient,
             customIdentityResolver: self.identityResolver,
             customHTTPClient: self.httpClient,
             customArchiver: self.archiver,
