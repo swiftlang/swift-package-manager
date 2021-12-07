@@ -106,90 +106,89 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
         completion: @escaping (Result<PluginCompilationResult, Error>) -> Void
     ) {
         // FIXME: Much of this is similar to what the ManifestLoader is doing. This should be consolidated.
+        do {
+            // Get access to the path containing the PackagePlugin module and library.
+            let runtimePath = self.toolchain.swiftPMLibrariesLocation.pluginAPI
 
-        // Get access to the path containing the PackagePlugin module and library.
-        let runtimePath = self.toolchain.swiftPMLibrariesLocation.pluginAPI
+            // We use the toolchain's Swift compiler for compiling the plugin.
+            var command = [self.toolchain.swiftCompilerPath.pathString]
 
-        // We use the toolchain's Swift compiler for compiling the plugin.
-        var command = [self.toolchain.swiftCompilerPath.pathString]
+            let macOSPackageDescriptionPath: AbsolutePath
+            // if runtimePath is set to "PackageFrameworks" that means we could be developing SwiftPM in Xcode
+            // which produces a framework for dynamic package products.
+            if runtimePath.extension == "framework" {
+                command += [
+                    "-F", runtimePath.parentDirectory.pathString,
+                    "-framework", "PackagePlugin",
+                    "-Xlinker", "-rpath", "-Xlinker", runtimePath.parentDirectory.pathString,
+                ]
+                macOSPackageDescriptionPath = runtimePath.appending(component: "PackagePlugin")
+            } else {
+                command += [
+                    "-L", runtimePath.pathString,
+                    "-lPackagePlugin",
+                ]
+                #if !os(Windows)
+                // -rpath argument is not supported on Windows,
+                // so we add runtimePath to PATH when executing the manifest instead
+                command += ["-Xlinker", "-rpath", "-Xlinker", runtimePath.pathString]
+                #endif
 
-        let macOSPackageDescriptionPath: AbsolutePath
-        // if runtimePath is set to "PackageFrameworks" that means we could be developing SwiftPM in Xcode
-        // which produces a framework for dynamic package products.
-        if runtimePath.extension == "framework" {
-            command += [
-                "-F", runtimePath.parentDirectory.pathString,
-                "-framework", "PackagePlugin",
-                "-Xlinker", "-rpath", "-Xlinker", runtimePath.parentDirectory.pathString,
-            ]
-            macOSPackageDescriptionPath = runtimePath.appending(component: "PackagePlugin")
-        } else {
-            command += [
-                "-L", runtimePath.pathString,
-                "-lPackagePlugin",
-            ]
-            #if !os(Windows)
-            // -rpath argument is not supported on Windows,
-            // so we add runtimePath to PATH when executing the manifest instead
-            command += ["-Xlinker", "-rpath", "-Xlinker", runtimePath.pathString]
+                // note: this is not correct for all platforms, but we only actually use it on macOS.
+                macOSPackageDescriptionPath = runtimePath.appending(component: "libPackagePlugin.dylib")
+            }
+
+            // Use the same minimum deployment target as the PackageDescription library (with a fallback of 10.15).
+            #if os(macOS)
+            let triple = self.hostTriple
+            let version = try Self._packageDescriptionMinimumDeploymentTarget.memoize {
+                (try Self.computeMinimumDeploymentTarget(of: macOSPackageDescriptionPath))?.versionString ?? "10.15"
+            }
+            command += ["-target", "\(triple.tripleString(forPlatformVersion: version))"]
             #endif
 
-            // note: this is not correct for all platforms, but we only actually use it on macOS.
-            macOSPackageDescriptionPath = runtimePath.appending(component: "libPackagePlugin.dylib")
-        }
+            // Add any extra flags required as indicated by the ManifestLoader.
+            command += self.toolchain.swiftCompilerFlags
 
-        // Use the same minimum deployment target as the PackageDescription library (with a fallback of 10.15).
-        #if os(macOS)
-        let triple = self.hostTriple
-        let version = Self._packageDescriptionMinimumDeploymentTarget.memoize {
-            (try? Self.computeMinimumDeploymentTarget(of: macOSPackageDescriptionPath))?.versionString ?? "10.15"
-        }
-        command += ["-target", "\(triple.tripleString(forPlatformVersion: version))"]
-        #endif
+            // Add the Swift language version implied by the package tools version.
+            command += ["-swift-version", toolsVersion.swiftLanguageVersion.rawValue]
 
-        // Add any extra flags required as indicated by the ManifestLoader.
-        command += self.toolchain.swiftCompilerFlags
+            // Add the PackageDescription version specified by the package tools version, which controls what PackagePlugin API is seen.
+            command += ["-package-description-version", toolsVersion.description]
 
-        // Add the Swift language version implied by the package tools version.
-        command += ["-swift-version", toolsVersion.swiftLanguageVersion.rawValue]
+            // if runtimePath is set to "PackageFrameworks" that means we could be developing SwiftPM in Xcode
+            // which produces a framework for dynamic package products.
+            if runtimePath.extension == "framework" {
+                command += ["-I", runtimePath.parentDirectory.parentDirectory.pathString]
+            } else {
+                command += ["-I", runtimePath.pathString]
+            }
+            #if os(macOS)
+            if let sdkRoot = self.toolchain.sdkRootPath ?? self.sdkRoot() {
+                command += ["-sdk", sdkRoot.pathString]
+            }
+            #endif
 
-        // Add the PackageDescription version specified by the package tools version, which controls what PackagePlugin API is seen.
-        command += ["-package-description-version", toolsVersion.description]
+            // Honor any module cache override that's set in the environment.
+            let moduleCachePath = ProcessEnv.vars["SWIFTPM_MODULECACHE_OVERRIDE"] ?? ProcessEnv.vars["SWIFTPM_TESTS_MODULECACHE"]
+            if let moduleCachePath = moduleCachePath {
+                command += ["-module-cache-path", moduleCachePath]
+            }
 
-        // if runtimePath is set to "PackageFrameworks" that means we could be developing SwiftPM in Xcode
-        // which produces a framework for dynamic package products.
-        if runtimePath.extension == "framework" {
-            command += ["-I", runtimePath.parentDirectory.parentDirectory.pathString]
-        } else {
-            command += ["-I", runtimePath.pathString]
-        }
-        #if os(macOS)
-        if let sdkRoot = self.toolchain.sdkRootPath ?? self.sdkRoot() {
-            command += ["-sdk", sdkRoot.pathString]
-        }
-        #endif
+            // Parse the plugin as a library so that `@main` is supported even though there might be only a single source file.
+            command += ["-parse-as-library"]
+
+            // Add options to create a .dia file containing any diagnostics emitted by the compiler.
+            let diagnosticsFile = cacheDir.appending(component: "diagnostics.dia")
+            command += ["-Xfrontend", "-serialize-diagnostics-path", "-Xfrontend", diagnosticsFile.pathString]
+
+            // Add all the source files that comprise the plugin scripts.
+            command += sources.paths.map { $0.pathString }
+
+            // Add the path of the compiled executable.
+            let executableFile = cacheDir.appending(component: "compiled-plugin")
+            command += ["-o", executableFile.pathString]
         
-        // Honor any module cache override that's set in the environment.
-        let moduleCachePath = ProcessEnv.vars["SWIFTPM_MODULECACHE_OVERRIDE"] ?? ProcessEnv.vars["SWIFTPM_TESTS_MODULECACHE"]
-        if let moduleCachePath = moduleCachePath {
-            command += ["-module-cache-path", moduleCachePath]
-        }
-
-        // Parse the plugin as a library so that `@main` is supported even though there might be only a single source file.
-        command += ["-parse-as-library"]
-        
-        // Add options to create a .dia file containing any diagnostics emitted by the compiler.
-        let diagnosticsFile = cacheDir.appending(component: "diagnostics.dia")
-        command += ["-Xfrontend", "-serialize-diagnostics-path", "-Xfrontend", diagnosticsFile.pathString]
-        
-        // Add all the source files that comprise the plugin scripts.
-        command += sources.paths.map { $0.pathString }
-        
-        // Add the path of the compiled executable.
-        let executableFile = cacheDir.appending(component: "compiled-plugin")
-        command += ["-o", executableFile.pathString]
-        
-        do {
             // Create the cache directory in which we'll be placing the compiled executable if needed.
             try FileManager.default.createDirectory(at: cacheDir.asURL, withIntermediateDirectories: true, attributes: nil)
         
@@ -198,6 +197,11 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
                 // We are now on our caller's requested callback queue, so we just call the completion handler directly.
                 dispatchPrecondition(condition: .onQueue(callbackQueue))
                 completion($0.tryMap {
+                    // Emit the compiler output as observable info.
+                    let compilerOutput = ((try? $0.utf8Output()) ?? "") + ((try? $0.utf8stderrOutput()) ?? "")
+                    observabilityScope.emit(info: compilerOutput)
+
+                    // We return a PluginCompilationResult for both the successful and unsuccessful cases (to convey diagnostics, etc).
                     let result = PluginCompilationResult(compilerResult: $0, diagnosticsFile: diagnosticsFile, compiledExecutable: executableFile)
                     guard $0.exitStatus == .terminated(code: 0) else {
                         throw DefaultPluginScriptRunnerError.compilationFailed(result)
@@ -208,7 +212,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
         }
         catch {
             // We get here if we didn't even get far enough to invoke the compiler before hitting an error.
-            callbackQueue.async { completion(.failure(DefaultPluginScriptRunnerError.compilationSetupFailed(error: error))) }
+            callbackQueue.async { completion(.failure(DefaultPluginScriptRunnerError.compilationPreparationFailed(error: error))) }
         }
     }
 
@@ -255,7 +259,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
     ) {
 #if os(iOS) || os(watchOS) || os(tvOS)
         callbackQueue.async {
-            completion(.failure(DefaultPluginScriptRunnerError.invocationFailed(StringError("subprocess invocations are unavailable on this platform"), command: [])))
+            completion(.failure(DefaultPluginScriptRunnerError.pluginUnavailable(reason: "subprocess invocations are unavailable on this platform")))
         }
 #else
         // Construct the command line. Currently we just invoke the executable built from the plugin without any parameters.
@@ -379,12 +383,13 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
         // Set up a pipe for receiving free-form text output from the plugin on its stderr.
         let stderrPipe = Pipe()
         let stderrLock = Lock()
+        var stderrData = Data()
         stderrPipe.fileHandleForReading.readabilityHandler = { fileHandle in
             // Pass on any available data to the delegate.
             stderrLock.withLock {
                 let newData = fileHandle.availableData
                 if newData.isEmpty { return }
-                //print("[output] \(String(decoding: newData, as: UTF8.self))")
+                stderrData.append(contentsOf: newData)
                 callbackQueue.async { delegate.pluginEmittedOutput(newData) }
             }
         }
@@ -399,13 +404,22 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
             callbackQueue.async {
                 completion(Result {
                     if process.terminationReason == .uncaughtSignal {
-                        throw StringError("plugin process ended by an uncaught signal")
+                        throw DefaultPluginScriptRunnerError.invocationEndedBySignal(
+                            signal: process.terminationStatus,
+                            command: command,
+                            output: String(decoding: stderrData, as: UTF8.self))
                     }
                     if process.terminationStatus != 0 {
-                        throw StringError("plugin process ended with a non-zero exit code: \(process.terminationStatus)")
+                        throw DefaultPluginScriptRunnerError.invocationEndedWithNonZeroExitCode(
+                            exitCode: process.terminationStatus,
+                            command: command,
+                            output: String(decoding: stderrData, as: UTF8.self))
                     }
                     guard let result = result else {
-                        throw StringError("didn’t receive output result from plugin")
+                        throw DefaultPluginScriptRunnerError.pluginCommunicationError(
+                            message: "didn’t receive output result from plugin",
+                            command: command,
+                            output: String(decoding: stderrData, as: UTF8.self))
                     }
                     return result
                 })
@@ -418,7 +432,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
         }
         catch {
             callbackQueue.async {
-                completion(.failure(DefaultPluginScriptRunnerError.invocationFailed(error, command: command)))
+                completion(.failure(DefaultPluginScriptRunnerError.invocationFailed(error: error, command: command)))
             }
         }
 
@@ -457,21 +471,48 @@ extension PluginCompilationResult: CustomStringConvertible {
 
 
 /// An error encountered by the default plugin runner.
-public enum DefaultPluginScriptRunnerError: Error {
-    case compilationSetupFailed(error: Error)
-    case compilationFailed(PluginCompilationResult)
-    case invocationFailed(_ error: Error, command: [String])
-}
+public enum DefaultPluginScriptRunnerError: Error, CustomStringConvertible {
+    /// The plugin is not available for some reason.
+    case pluginUnavailable(reason: String)
 
-extension DefaultPluginScriptRunnerError: CustomStringConvertible {
+    /// An error occurred while preparing to compile the plugin script.
+    case compilationPreparationFailed(error: Error)
+
+    /// An error occurred while compiling the plugin script (e.g. syntax error).
+    /// The diagnostics are available in the plugin compilation result.
+    case compilationFailed(PluginCompilationResult)
+
+    /// The plugin invocation couldn't be started.
+    case invocationFailed(error: Error, command: [String])
+
+    /// The plugin invocation ended by a signal.
+    case invocationEndedBySignal(signal: Int32, command: [String], output: String)
+
+    /// The plugin invocation ended with a non-zero exit code.
+    case invocationEndedWithNonZeroExitCode(exitCode: Int32, command: [String], output: String)
+
+    /// There was an error communicating with the plugin.
+    case pluginCommunicationError(message: String, command: [String], output: String)
+
     public var description: String {
+        func makeContextString(_ command: [String], _ output: String) -> String {
+            return "<command: \(command.map{ $0.spm_shellEscaped() }.joined(separator: " "))>, <output:\n\(output.spm_shellEscaped())>"
+        }
         switch self {
-        case .compilationSetupFailed(let error):
-            return "plugin script compilation failed: \(error)"
+        case .pluginUnavailable(let reason):
+            return "plugin is unavailable: \(reason)"
+        case .compilationPreparationFailed(let error):
+            return "plugin compilation preparation failed: \(error)"
         case .compilationFailed(let result):
-            return "plugin script compilation failed: \(result)"
-        case .invocationFailed(let message, _):
-            return "plugin invocation failed: \(message)"
+            return "plugin compilation failed: \(result)"
+        case .invocationFailed(let error, let command):
+            return "plugin invocation failed: \(error) \(makeContextString(command, ""))"
+        case .invocationEndedBySignal(let signal, let command, let output):
+            return "plugin process ended by an uncaught signal: \(signal) \(makeContextString(command, output))"
+        case .invocationEndedWithNonZeroExitCode(let exitCode, let command, let output):
+            return "plugin process ended with a non-zero exit code: \(exitCode) \(makeContextString(command, output))"
+        case .pluginCommunicationError(let message, let command, let output):
+            return "plugin communication error: \(message) \(makeContextString(command, output))"
         }
     }
 }
