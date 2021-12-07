@@ -8781,6 +8781,118 @@ final class WorkspaceTests: XCTestCase {
         XCTAssertMatch(workspace.delegate.events, ["will load manifest for registry package: org.baz"])
         XCTAssertMatch(workspace.delegate.events, ["did load manifest for registry package: org.baz"])
     }
+
+    func testBasicMixedTransitiveResolution() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "MyPackage",
+                    targets: [
+                        MockTarget(
+                            name: "MyTarget1",
+                            dependencies: [
+                                .product(name: "Foo", package: "org.foo")
+                            ]),
+                        MockTarget(
+                            name: "MyTarget2",
+                            dependencies: [
+                                .product(name: "Bar", package: "org.bar")
+                            ]),
+                    ],
+                    products: [
+                        MockProduct(name: "MyProduct", targets: ["MyTarget1", "MyTarget2"]),
+                    ],
+                    dependencies: [
+                        .registry(identity: "org.foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(url: "http://localhost/org/bar", requirement: .upToNextMajor(from: "2.0.0")),
+                    ]
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "Foo",
+                    identity: "org.foo",
+                    targets: [
+                        MockTarget(
+                            name: "Foo",
+                            dependencies: [
+                                .product(name: "Baz", package: "org.baz")
+                            ]),
+                    ],
+                    products: [
+                        MockProduct(name: "Foo", targets: ["Foo"]),
+                    ],
+                    dependencies: [
+                        .registry(identity: "org.baz", requirement: .range("2.0.0" ..< "4.0.0")),
+                    ],
+                    versions: ["1.0.0", "1.1.0"]
+                ),
+                MockPackage(
+                    name: "Bar",
+                    url: "http://localhost/org/bar",
+                    targets: [
+                        MockTarget(
+                            name: "Bar",
+                            dependencies: [
+                                .product(name: "Baz", package: "org.baz")
+                            ]),
+                    ],
+                    products: [
+                        MockProduct(name: "Bar", targets: ["Bar"]),
+                    ],
+                    dependencies: [
+                        .registry(identity: "org.baz", requirement: .upToNextMajor(from: "3.0.0")),
+                    ],
+                    versions: ["1.0.0", "1.1.0", "2.0.0", "2.1.0"]
+                ),
+                MockPackage(
+                    name: "Baz",
+                    identity: "org.baz",
+                    targets: [
+                        MockTarget(name: "Baz"),
+                    ],
+                    products: [
+                        MockProduct(name: "Baz", targets: ["Baz"]),
+                    ],
+                    versions: ["1.0.0", "1.1.0", "2.0.0", "2.1.0", "3.0.0", "3.1.0"]
+                ),
+            ]
+        )
+
+        try workspace.checkPackageGraph(roots: ["MyPackage"]) { graph, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+            PackageGraphTester(graph) { result in
+                result.check(roots: "MyPackage")
+                result.check(packages: "Bar", "Baz", "Foo", "MyPackage")
+                result.check(targets: "Foo", "Bar", "Baz", "MyTarget1", "MyTarget2")
+                result.checkTarget("MyTarget1") { result in result.check(dependencies: "Foo") }
+                result.checkTarget("MyTarget2") { result in result.check(dependencies: "Bar") }
+                result.checkTarget("Foo") { result in result.check(dependencies: "Baz") }
+                result.checkTarget("Bar") { result in result.check(dependencies: "Baz") }
+            }
+        }
+
+        workspace.checkManagedDependencies { result in
+            result.check(dependency: "org.foo", at: .registryDownload("1.1.0"))
+            result.check(dependency: "bar", at: .checkout(.version("2.1.0")))
+            result.check(dependency: "org.baz", at: .registryDownload("3.1.0"))
+        }
+
+        // Check the load-package callbacks.
+        XCTAssertMatch(workspace.delegate.events, ["will load manifest for root package: /tmp/ws/roots/MyPackage"])
+        XCTAssertMatch(workspace.delegate.events, ["did load manifest for root package: /tmp/ws/roots/MyPackage"])
+        XCTAssertMatch(workspace.delegate.events, ["will load manifest for registry package: org.foo"])
+        XCTAssertMatch(workspace.delegate.events, ["did load manifest for registry package: org.foo"])
+        XCTAssertMatch(workspace.delegate.events, ["will load manifest for remoteSourceControl package: http://localhost/org/bar"])
+        XCTAssertMatch(workspace.delegate.events, ["did load manifest for remoteSourceControl package: http://localhost/org/bar"])
+        XCTAssertMatch(workspace.delegate.events, ["will load manifest for registry package: org.baz"])
+        XCTAssertMatch(workspace.delegate.events, ["did load manifest for registry package: org.baz"])
+    }
 }
 
 struct DummyError: LocalizedError, Equatable {
