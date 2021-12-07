@@ -109,15 +109,17 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         return try self.buildDescription.memoize {
             if self.cacheBuildManifest {
                 do {
-                    try self.buildPackageStructure()
-                    // confirm the step above created the build description as expected
-                    // we trust it to update the build description when needed
-                    let buildDescriptionPath = self.buildParameters.buildDescriptionPath
-                    guard self.fileSystem.exists(buildDescriptionPath) else {
-                        throw InternalError("could not find build descriptor at \(buildDescriptionPath)")
+                    // if buildPackageStructure returns a valid description we use that, otherwise we perform full planning
+                    if try self.buildPackageStructure() {
+                        // confirm the step above created the build description as expected
+                        // we trust it to update the build description when needed
+                        let buildDescriptionPath = self.buildParameters.buildDescriptionPath
+                        guard self.fileSystem.exists(buildDescriptionPath) else {
+                            throw InternalError("could not find build descriptor at \(buildDescriptionPath)")
+                        }
+                        // return the build description that's on disk.
+                        return try BuildDescription.load(from: buildDescriptionPath)
                     }
-                    // return the build description that's on disk.
-                    return try BuildDescription.load(from: buildDescriptionPath)
                 } catch {
                     // since caching is an optimization, warn about failing to load the cached version
                     self.observabilityScope.emit(warning: "failed to load the cached build description: \(error)")
@@ -241,14 +243,12 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     }
 
     /// Build the package structure target.
-    private func buildPackageStructure() throws {
+    private func buildPackageStructure() throws -> Bool {
         let buildSystem = try self.createBuildSystem(buildDescription: .none)
         self.buildSystem = buildSystem
 
         // Build the package structure target which will re-generate the llbuild manifest, if necessary.
-        if !buildSystem.build(target: "PackageStructure") {
-            throw StringError("LLBuild::build failed building package structure")
-        }
+        return buildSystem.build(target: "PackageStructure")
     }
 
     /// Create the build system using the given build description.
