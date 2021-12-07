@@ -113,13 +113,12 @@ func makeMockCollections(count: Int = Int.random(in: 50 ... 100), maxPackages: I
 func makeMockPackageBasicMetadata() -> PackageCollectionsModel.PackageBasicMetadata {
     return .init(summary: UUID().uuidString,
                  keywords: (0 ..< Int.random(in: 1 ... 3)).map { "keyword \($0)" },
-                 versions: (0 ..< Int.random(in: 1 ... 10)).map { .init(version: TSCUtility.Version($0, 0, 0), title: "title \($0)", summary: "description \($0)", createdAt: Date(), publishedAt: nil) },
+                 versions: (0 ..< Int.random(in: 1 ... 10)).map { .init(version: TSCUtility.Version($0, 0, 0), title: "title \($0)", summary: "description \($0)", createdAt: Date()) },
                  watchersCount: Int.random(in: 0 ... 50),
                  readmeURL: URL(string: "https://package-readme")!,
                  license: PackageCollectionsModel.License(type: .Apache2_0, url: URL(string: "https://package-license")!),
                  authors: (0 ..< Int.random(in: 1 ... 10)).map { .init(username: "\($0)", url: nil, service: nil) },
-                 languages: ["Swift"],
-                 processedAt: Date())
+                 languages: ["Swift"])
 }
 
 func makeMockStorage(_ collectionsStorageConfig: SQLitePackageCollectionsStorage.Configuration = .init()) -> PackageCollections.Storage {
@@ -150,7 +149,7 @@ struct MockCollectionsProvider: PackageCollectionProvider {
 }
 
 struct MockMetadataProvider: PackageMetadataProvider {
-    var name: String = "MockMetadataProvider"
+    let name: String = "MockMetadataProvider"
 
     let packages: [PackageIdentity: PackageCollectionsModel.PackageBasicMetadata]
 
@@ -158,19 +157,17 @@ struct MockMetadataProvider: PackageMetadataProvider {
         self.packages = packages
     }
 
-    func get(identity: PackageIdentity, location: String, callback: @escaping (Result<PackageCollectionsModel.PackageBasicMetadata, Error>) -> Void) {
+    func get(
+        identity: PackageIdentity,
+        location: String,
+        callback: @escaping (Result<PackageCollectionsModel.PackageBasicMetadata, Error>, PackageMetadataProviderContext?) -> Void
+    ) {
         if let package = self.packages[identity] {
-            callback(.success(package))
+            callback(.success(package), nil)
         } else {
-            callback(.failure(NotFoundError("\(identity)")))
+            callback(.failure(NotFoundError("\(identity)")), nil)
         }
     }
-
-    func getAuthTokenType(for location: String) -> AuthTokenType? {
-        nil
-    }
-
-    func close() throws {}
 }
 
 struct MockCollectionSignatureValidator: PackageCollectionSignatureValidator {

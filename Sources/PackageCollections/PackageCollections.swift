@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2020-2021 Apple Inc. and the Swift project authors
+ Copyright (c) 2020-2022 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -26,7 +26,6 @@ public struct PackageCollections: PackageCollectionsProtocol {
     private let storageContainer: (storage: Storage, owned: Bool)
     private let collectionProviders: [Model.CollectionSourceType: PackageCollectionProvider]
     let metadataProvider: PackageMetadataProvider
-    let searchProvider: PackageSearchProvider
 
     private var storage: Storage {
         self.storageContainer.storage
@@ -34,6 +33,14 @@ public struct PackageCollections: PackageCollectionsProtocol {
 
     // initialize with defaults
     public init(configuration: Configuration = .init(), observabilityScope: ObservabilityScope) {
+        self.init(configuration: configuration, customMetadataProvider: nil, observabilityScope: observabilityScope)
+    }
+    
+    init(
+        configuration: Configuration = .init(),
+        customMetadataProvider: PackageMetadataProvider?,
+        observabilityScope: ObservabilityScope
+    ) {
         let storage = Storage(
             sources: FilePackageCollectionsSourcesStorage(
                 path: configuration.configurationDirectory?.appending(component: "collections.json")
@@ -48,22 +55,19 @@ public struct PackageCollections: PackageCollectionsProtocol {
             Model.CollectionSourceType.json: JSONPackageCollectionProvider(observabilityScope: observabilityScope)
         ]
 
-        let metadataProvider = GitHubPackageMetadataProvider(
+        let metadataProvider = customMetadataProvider ?? GitHubPackageMetadataProvider(
             configuration: .init(
                 authTokens: configuration.authTokens,
                 cacheDir: configuration.cacheDirectory?.appending(components: "package-metadata")
             ),
             observabilityScope: observabilityScope
         )
-        
-        let searchProvider = StorageBackedPackageSearchProvider(storage: storage.collections)
 
         self.configuration = configuration
         self.observabilityScope = observabilityScope
         self.storageContainer = (storage, true)
         self.collectionProviders = collectionProviders
         self.metadataProvider = metadataProvider
-        self.searchProvider = searchProvider
     }
 
     // internal initializer for testing
@@ -71,21 +75,23 @@ public struct PackageCollections: PackageCollectionsProtocol {
          observabilityScope: ObservabilityScope,
          storage: Storage,
          collectionProviders: [Model.CollectionSourceType: PackageCollectionProvider],
-         metadataProvider: PackageMetadataProvider,
-         customSearchProvider: PackageSearchProvider? = nil) {
+         metadataProvider: PackageMetadataProvider
+    ) {
         self.configuration = configuration
         self.observabilityScope = observabilityScope
         self.storageContainer = (storage, false)
         self.collectionProviders = collectionProviders
         self.metadataProvider = metadataProvider
-        self.searchProvider = customSearchProvider ?? StorageBackedPackageSearchProvider(storage: storage.collections)
     }
 
     public func shutdown() throws {
         if self.storageContainer.owned {
             try self.storageContainer.storage.close()
         }
-        try self.metadataProvider.close()
+        
+        if let metadataProvider = self.metadataProvider as? Closable {
+            try metadataProvider.close()
+        }
     }
 
     // MARK: - Collections
@@ -322,7 +328,7 @@ public struct PackageCollections: PackageCollectionsProtocol {
                 if identifiers.isEmpty {
                     return callback(.success(Model.PackageSearchResult(items: [])))
                 }
-                self.searchProvider.searchPackages(query, collections: Set(identifiers), callback: callback)
+                self.storage.collections.searchPackages(identifiers: identifiers, query: query, callback: callback)
             }
         }
     }
@@ -398,30 +404,11 @@ public struct PackageCollections: PackageCollectionsProtocol {
             case .failure(let error):
                 callback(.failure(error))
             case .success(let packageSearchResult):
-
                 // then try to get more metadata from provider (optional)
-                let authTokenType = self.metadataProvider.getAuthTokenType(for: packageSearchResult.package.location)
-                let isAuthTokenConfigured = authTokenType.flatMap { self.configuration.authTokens()?[$0] } != nil
-
-                self.metadataProvider.get(identity: packageSearchResult.package.identity, location: packageSearchResult.package.location) { result in
+                self.metadataProvider.get(identity: packageSearchResult.package.identity, location: packageSearchResult.package.location) { result, provider in
                     switch result {
                     case .failure(let error):
-                        self.observabilityScope.emit(warning: "Failed fetching information about \(identity) from \(self.metadataProvider.name): \(error)")
-
-                        let provider: PackageMetadataProviderContext?
-                        switch error {
-                        case let error as GitHubPackageMetadataProvider.Errors:
-                            let providerError = PackageMetadataProviderError.from(error)
-                            if providerError == nil {
-                                // The metadata provider cannot be used for the package
-                                provider = nil
-                            } else {
-                                provider = PackageMetadataProviderContext(authTokenType: authTokenType, isAuthTokenConfigured: isAuthTokenConfigured, error: providerError)
-                            }
-                        default:
-                            // For all other errors, including NotFoundError, assume the provider is not intended for the package.
-                            provider = nil
-                        }
+                        self.observabilityScope.emit(warning: "Failed fetching information about \(identity) from \(self.metadataProvider.self): \(error)")
                         let metadata = Model.PackageMetadata(
                             package: Self.mergedPackageMetadata(package: packageSearchResult.package, basicMetadata: nil),
                             collections: packageSearchResult.collections,
@@ -433,7 +420,7 @@ public struct PackageCollections: PackageCollectionsProtocol {
                         let metadata = Model.PackageMetadata(
                             package: Self.mergedPackageMetadata(package: packageSearchResult.package, basicMetadata: basicMetadata),
                             collections: packageSearchResult.collections,
-                            provider: PackageMetadataProviderContext(authTokenType: authTokenType, isAuthTokenConfigured: isAuthTokenConfigured)
+                            provider: provider
                         )
                         callback(.success(metadata))
                     }
@@ -480,7 +467,7 @@ public struct PackageCollections: PackageCollectionsProtocol {
                 if identifiers.isEmpty {
                     return callback(.success(.init(items: [])))
                 }
-                self.searchProvider.searchTargets(query, searchType: searchType, collections: Set(identifiers), callback: callback)
+                self.storage.collections.searchTargets(identifiers: identifiers, query: query, type: searchType, callback: callback)
             }
         }
     }

@@ -1,15 +1,18 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2020-2021 Apple Inc. and the Swift project authors
+ Copyright (c) 2020-2022 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
+import struct Foundation.URL
 import PackageModel
 import SourceControl
+
+// MARK: - Package collection
 
 public protocol PackageCollectionsProtocol {
     // MARK: - Package collection APIs
@@ -247,4 +250,193 @@ public enum PackageCollectionError: Equatable, Error {
     case missingSignature
 
     case unsupportedPlatform
+}
+
+// MARK: - Package index
+
+public protocol PackageIndexProtocol {
+    /// Sets package index URL.
+    ///
+    /// - Parameters:
+    ///   - callback: The closure to invoke when result becomes available
+    func set(
+        url: Foundation.URL,
+        callback: @escaping (Result<Void, Error>) -> Void
+    )
+
+    /// Unsets package index URL.
+    ///
+    /// - Parameters:
+    ///   - callback: The closure to invoke when result becomes available
+    func unset(callback: @escaping (Result<Void, Error>) -> Void)
+    
+    /// Returns package index URL.
+    ///
+    /// - Parameters:
+    ///   - callback: The closure to invoke when result becomes available
+    func get(callback: @escaping (Result<Foundation.URL?, Error>) -> Void)
+
+    /// Returns metadata for the package identified by the given `PackageIdentity`.
+    ///
+    /// A failure is returned if the package is not found.
+    ///
+    /// - Parameters:
+    ///   - identity: The package identity
+    ///   - location: The package location (optional for deduplication)
+    ///   - callback: The closure to invoke when result becomes available
+    func getPackageMetadata(
+        identity: PackageIdentity,
+        location: String?,
+        callback: @escaping (Result<PackageCollectionsModel.PackageMetadata, Error>) -> Void
+    )
+
+    /// Finds and returns packages that match the query.
+    ///
+    /// - Parameters:
+    ///   - query: The search query
+    ///   - callback: The closure to invoke when result becomes available
+    func findPackages(
+        _ query: String,
+        callback: @escaping (Result<PackageCollectionsModel.PackageSearchResult, Error>) -> Void
+    )
+    
+    /// A paginated list of packages in the index.
+    ///
+    /// - Parameters:
+    ///   - offset: Offset of the first item in the result
+    ///   - limit: Number of items to return in the result. Implementations might impose a threshold for this.
+    ///   - callback: The closure to invoke when result becomes available
+    func listPackages(
+        offset: Int,
+        limit: Int,
+        callback: @escaping (Result<PackageCollectionsModel.PaginatedPackageList, Error>) -> Void
+    )
+}
+
+public enum PackageIndexError: Equatable, Error {
+    /// Package index support is disabled
+    case featureDisabled
+    /// No package index configured
+    case notConfigured
+}
+
+// MARK: - Package index and collection combined
+
+// It's on purpose that the protocol does not conform to `PackageCollectionsProtocol` and `PackageIndexProtocol`,
+// so that we can exclude APIs that we believe are not required and have more flexibility around return types.
+public protocol PackageIndexAndCollectionsProtocol {
+    // MARK: - Package collection specific APIs
+    
+    /// - SeeAlso: `PackageCollectionsProtocol.listCollections`
+    func listCollections(
+        identifiers: Set<PackageCollectionsModel.CollectionIdentifier>?,
+        callback: @escaping (Result<[PackageCollectionsModel.Collection], Error>) -> Void
+    )
+
+    /// - SeeAlso: `PackageCollectionsProtocol.refreshCollections`
+    func refreshCollections(callback: @escaping (Result<[PackageCollectionsModel.CollectionSource], Error>) -> Void)
+
+    /// - SeeAlso: `PackageCollectionsProtocol.refreshCollection`
+    func refreshCollection(
+        _ source: PackageCollectionsModel.CollectionSource,
+        callback: @escaping (Result<PackageCollectionsModel.Collection, Error>) -> Void
+    )
+
+    /// - SeeAlso: `PackageCollectionsProtocol.addCollection`
+    func addCollection(
+        _ source: PackageCollectionsModel.CollectionSource,
+        order: Int?,
+        trustConfirmationProvider: ((PackageCollectionsModel.Collection, @escaping (Bool) -> Void) -> Void)?,
+        callback: @escaping (Result<PackageCollectionsModel.Collection, Error>) -> Void
+    )
+
+    /// - SeeAlso: `PackageCollectionsProtocol.removeCollection`
+    func removeCollection(
+        _ source: PackageCollectionsModel.CollectionSource,
+        callback: @escaping (Result<Void, Error>) -> Void
+    )
+
+    /// - SeeAlso: `PackageCollectionsProtocol.getCollection`
+    func getCollection(
+        _ source: PackageCollectionsModel.CollectionSource,
+        callback: @escaping (Result<PackageCollectionsModel.Collection, Error>) -> Void
+    )
+
+    /// - SeeAlso: `PackageCollectionsProtocol.listPackages`
+    func listPackages(
+        collections: Set<PackageCollectionsModel.CollectionIdentifier>?,
+        callback: @escaping (Result<PackageCollectionsModel.PackageSearchResult, Error>) -> Void
+    )
+
+    /// - SeeAlso: `PackageCollectionsProtocol.listTargets`
+    func listTargets(
+        collections: Set<PackageCollectionsModel.CollectionIdentifier>?,
+        callback: @escaping (Result<PackageCollectionsModel.TargetListResult, Error>) -> Void
+    )
+    
+    /// - SeeAlso: `PackageCollectionsProtocol.findTargets`
+    func findTargets(
+        _ query: String,
+        searchType: PackageCollectionsModel.TargetSearchType?,
+        collections: Set<PackageCollectionsModel.CollectionIdentifier>?,
+        callback: @escaping (Result<PackageCollectionsModel.TargetSearchResult, Error>) -> Void
+    )
+
+    // MARK: - Package index specific APIs
+    
+    /// Indicates if package index is configured.
+    ///
+    /// - Parameters:
+    ///   - callback: The closure to invoke when result becomes available
+    func isIndexEnabled(callback: @escaping (Result<Bool, Error>) -> Void)
+
+    /// - SeeAlso: `PackageIndexProtocol.set`
+    func setIndex(
+        url: Foundation.URL,
+        callback: @escaping (Result<Void, Error>) -> Void
+    )
+
+    /// - SeeAlso: `PackageIndexProtocol.unset`
+    func unsetIndex(callback: @escaping (Result<Void, Error>) -> Void)
+    
+    /// - SeeAlso: `PackageIndexProtocol.set`
+    func getIndex(callback: @escaping (Result<Foundation.URL?, Error>) -> Void)
+    
+    /// - SeeAlso: `PackageIndexProtocol.listPackages`
+    func listPackagesInIndex(
+        offset: Int,
+        limit: Int,
+        callback: @escaping (Result<PackageCollectionsModel.PaginatedPackageList, Error>) -> Void
+    )
+    
+    // MARK: - APIs that make use of both package index and collections
+    
+    /// Returns metadata for the package identified by the given `PackageIdentity`, using package index (if configured)
+    /// and collections data.
+    ///
+    /// A failure is returned if the package is not found.
+    ///
+    /// - Parameters:
+    ///   - identity: The package identity
+    ///   - location: The package location (optional for deduplication)
+    ///   - collections: Optional. If specified, only these collections are used to construct the result.
+    ///   - callback: The closure to invoke when result becomes available
+    func getPackageMetadata(
+        identity: PackageIdentity,
+        location: String?,
+        collections: Set<PackageCollectionsModel.CollectionIdentifier>?,
+        callback: @escaping (Result<PackageCollectionsModel.PackageMetadata, Error>) -> Void
+    )
+    
+    /// Finds and returns packages that match the query.
+    ///
+    /// - Parameters:
+    ///   - query: The search query
+    ///   - collections: Optional. If specified, only search within these collections.
+    ///   - callback: The closure to invoke when result becomes available
+    func findPackages(
+        _ query: String,
+        collections: Set<PackageCollectionsModel.CollectionIdentifier>?,
+        callback: @escaping (Result<PackageCollectionsModel.PackageSearchResult, Error>) -> Void
+    )
 }
