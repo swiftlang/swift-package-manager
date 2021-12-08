@@ -34,17 +34,22 @@ public enum RegistryError: Error, CustomStringConvertible {
     case invalidSourceArchive
     case unsupportedHashAlgorithm(String)
     case failedToDetermineExpectedChecksum(Error)
+    case failedToComputeChecksum(Error)
     case invalidChecksum(expected: String, actual: String)
     case pathAlreadyExists(AbsolutePath)
     case failedRetrievingReleases(Error)
-    case failedRetrievingReleaseMetadata(Error)
+    case failedRetrievingReleaseChecksum(Error)
     case failedRetrievingManifest(Error)
     case failedDownloadingSourceArchive(Error)
 
     public var description: String {
         switch self {
         case .registryNotConfigured(let scope):
-            return "No registry configured for scope '\(scope ?? "")'"
+            if let scope = scope {
+                return "No registry configured for '\(scope)' scope"
+            } else {
+                return "No registry configured'"
+            }
         case .invalidPackage(let package):
             return "Invalid package '\(package)'"
         case .invalidURL(let url):
@@ -65,14 +70,16 @@ public enum RegistryError: Error, CustomStringConvertible {
             return "Unsupported hash algorithm '\(algorithm)'"
         case .failedToDetermineExpectedChecksum(let error):
             return "Failed determining registry source archive checksum: \(error)"
+        case .failedToComputeChecksum(let error):
+            return "Failed computing registry source archive checksum: \(error)"
         case .invalidChecksum(let expected, let actual):
             return "Invalid registry source archive checksum '\(actual)', expected '\(expected)'"
         case .pathAlreadyExists(let path):
             return "Path already exists '\(path)'"
         case .failedRetrievingReleases(let error):
             return "Failed fetching releases from registry: \(error)"
-        case .failedRetrievingReleaseMetadata(let error):
-            return "Failed fetching release metadata from registry: \(error)"
+        case .failedRetrievingReleaseChecksum(let error):
+            return "Failed fetching release checksum from registry: \(error)"
         case .failedRetrievingManifest(let error):
             return "Failed retrieving manifest from registry: \(error)"
         case .failedDownloadingSourceArchive(let error):
@@ -407,8 +414,7 @@ public final class RegistryClient {
 
                     return checksum
                 }.mapError{
-                    // FIXME
-                    RegistryError.failedRetrievingReleaseMetadata($0)
+                    RegistryError.failedRetrievingReleaseChecksum($0)
                 }
             )
         }
@@ -505,8 +511,10 @@ public final class RegistryClient {
                                 })
                             }
                         } catch {
-                            completion(.failure(RegistryError.failedToDetermineExpectedChecksum(error)))
+                            completion(.failure(RegistryError.failedToComputeChecksum(error)))
                         }
+                    case .failure(let error as RegistryError):
+                        completion(.failure(error))
                     case .failure(let error):
                         completion(.failure(RegistryError.failedToDetermineExpectedChecksum(error)))
                     }

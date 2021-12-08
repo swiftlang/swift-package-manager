@@ -8943,7 +8943,7 @@ final class WorkspaceTests: XCTestCase {
 
         workspace.checkPackageGraphFailure(roots: ["MyPackage"]) { diagnostics in
             testDiagnostics(diagnostics) { result in
-                result.check(diagnostic: .equal("No registry configured for scope 'org'"), severity: .error)
+                result.check(diagnostic: .equal("No registry configured for 'org' scope"), severity: .error)
             }
         }
     }
@@ -9028,7 +9028,7 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testRegistryVersionMetadataServerErrors() throws {
+    func testRegistryReleaseChecksumServerErrors() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -9081,7 +9081,7 @@ final class WorkspaceTests: XCTestCase {
             workspace.registryClient = registryClient
             workspace.checkPackageGraphFailure(roots: ["MyPackage"]) { diagnostics in
                 testDiagnostics(diagnostics) { result in
-                    result.check(diagnostic: .equal("Failed determining registry source archive checksum: Failed fetching release metadata from registry: boom"), severity: .error)
+                    result.check(diagnostic: .equal("Failed fetching release checksum from registry: boom"), severity: .error)
                 }
             }
         }
@@ -9102,7 +9102,7 @@ final class WorkspaceTests: XCTestCase {
             workspace.registryClient = registryClient
             workspace.checkPackageGraphFailure(roots: ["MyPackage"]) { diagnostics in
                 testDiagnostics(diagnostics) { result in
-                    result.check(diagnostic: .equal("Failed determining registry source archive checksum: Failed fetching release metadata from registry: Invalid registry response status '500', expected '200'"), severity: .error)
+                    result.check(diagnostic: .equal("Failed fetching release checksum from registry: Invalid registry response status '500', expected '200'"), severity: .error)
                 }
             }
         }
