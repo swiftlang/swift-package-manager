@@ -8,6 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
+import Foundation
 import TSCBasic
 import TSCUtility
 
@@ -73,8 +74,13 @@ fileprivate func macOSSandboxProfile(
     }
     // Optionally allow writing to temporary directories (a lot of use of Foundation requires this).
     else if strictness == .writableTemporaryDirectory {
-        writableDirectoriesExpression.append("(subpath \"/private/tmp\")")
-        if let tmpDir = try? TSCBasic.determineTempDirectory() {
+        // Add the standard and Foundation temporary directories, and the one determined by TSC (which also taked into account environment variables).
+        var temporaryDirectories = Set([AbsolutePath("/tmp"), AbsolutePath(NSTemporaryDirectory())])
+        if let tscTmpDir = try? TSCBasic.determineTempDirectory() {
+            temporaryDirectories.insert(tscTmpDir)
+        }
+        // Add `subpath` expressions for all of them.
+        for tmpDir in temporaryDirectories.sorted() {
             writableDirectoriesExpression += ["(subpath \(resolveSymlinks(tmpDir).quotedAsSubpathForSandboxProfile))"]
         }
     }
