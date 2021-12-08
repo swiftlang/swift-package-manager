@@ -20,7 +20,7 @@ public typealias Diagnostic = Basics.Diagnostic
 
 public enum PluginAction {
     case createBuildToolCommands(target: ResolvedTarget)
-    case performCommand(targets: [ResolvedTarget], arguments: [String])
+    case performCommand(targets: [ResolvedTarget], arguments: [String], outputPath: AbsolutePath?)
 }
 
 extension PluginTarget {
@@ -82,13 +82,19 @@ extension PluginTarget {
         catch {
             return callbackQueue.async { completion(.failure(PluginEvaluationError.couldNotSerializePluginInput(underlyingError: error))) }
         }
+
+        // Determine the set of writable directories.
+        var writableDirectories = [outputDirectory]
+        if case .performCommand(_, _, let outputPath) = action, let outputPath = outputPath {
+            writableDirectories.append(outputPath)
+        }
         
         // Call the plugin script runner to actually invoke the plugin.
         scriptRunner.runPluginScript(
             sources: sources,
             input: inputStruct,
             toolsVersion: self.apiVersion,
-            writableDirectories: [outputDirectory],
+            writableDirectories: writableDirectories,
             fileSystem: fileSystem,
             observabilityScope: observabilityScope,
             callbackQueue: callbackQueue,
@@ -571,7 +577,7 @@ public struct PluginScriptRunnerInput: Codable {
     /// the capabilities declared for the plugin.
     enum PluginAction: Codable {
         case createBuildToolCommands(targetId: Target.Id)
-        case performCommand(targetIds: [Target.Id], arguments: [String])
+        case performCommand(targetIds: [Target.Id], arguments: [String], outputPathId: Path.Id?)
     }
 
     /// A single absolute path in the wire structure, represented as a tuple
@@ -760,9 +766,14 @@ struct PluginScriptRunnerInputSerializer {
         let serializedPluginAction: PluginScriptRunnerInput.PluginAction
         switch pluginAction {
         case .createBuildToolCommands(let target):
-            serializedPluginAction = .createBuildToolCommands(targetId: try serialize(target: target)!)
-        case .performCommand(let targets, let arguments):
-            serializedPluginAction = .performCommand(targetIds: try targets.compactMap { try serialize(target: $0) }, arguments: arguments)
+            guard let targetId = try serialize(target: target) else {
+                throw StringError("unexpectedly was unable to serialize target \(target)")
+            }
+            serializedPluginAction = .createBuildToolCommands(targetId: targetId)
+        case .performCommand(let targets, let arguments, let outputPath):
+            let targetIds = try targets.compactMap { try serialize(target: $0) }
+            let outputPathId = try outputPath.map{ try serialize(path: $0) }
+            serializedPluginAction = .performCommand(targetIds: targetIds, arguments: arguments, outputPathId: outputPathId)
         }
         return PluginScriptRunnerInput(
             paths: paths,

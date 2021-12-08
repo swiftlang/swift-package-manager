@@ -135,11 +135,14 @@ extension Plugin {
                 // Check that the plugin implements the appropriate protocol
                 // for its declared capability.
                 guard let plugin = plugin as? BuildToolPlugin else {
-                    throw PluginDeserializationError.malformedInputJSON("Plugin declared with `buildTool` capability but doesn't conform to `BuildToolPlugin` protocol")
+                    throw PluginDeserializationError.malformedInputJSON(
+                        "Plugin declared with `buildTool` capability but doesn't conform to `BuildToolPlugin` protocol")
                 }
                 
                 // Invoke the plugin to create build commands for the target.
-                let generatedCommands = try plugin.createBuildCommands(context: context, target: target)
+                let generatedCommands = try plugin.createBuildCommands(
+                    context: context,
+                    target: target)
                 
                 // Send each of the generated commands to the host.
                 for command in generatedCommands {
@@ -172,15 +175,20 @@ extension Plugin {
                     }
                 }
                 
-            case .performCommand(let targets, let arguments):
+            case .performCommand(let targets, let arguments, let outputPath):
                 // Check that the plugin implements the appropriate protocol
                 // for its declared capability.
                 guard let plugin = plugin as? CommandPlugin else {
-                    throw PluginDeserializationError.malformedInputJSON("Plugin declared with `command` capability but doesn't conform to `CommandPlugin` protocol")
+                    throw PluginDeserializationError.malformedInputJSON(
+                        "Plugin declared with `command` capability but doesn't conform to `CommandPlugin` protocol")
                 }
                 
                 // Invoke the plugin to perform its custom logic.
-                try plugin.performCommand(context: context, targets: targets, arguments: arguments)
+                try plugin.performCommand(
+                    context: context,
+                    targets: targets,
+                    arguments: arguments,
+                    outputPath: outputPath)
             }
             
             // Send back a message to the host indicating that we're done.
