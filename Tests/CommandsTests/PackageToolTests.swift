@@ -1317,10 +1317,18 @@ final class PackageToolTests: CommandsTestCase {
             }
 
             // Invoke it, and check the results.
-            let result = try SwiftPMProduct.SwiftPackage.executeProcess(["plugin", "mycmd"], packagePath: packageDir, env: ["SWIFTPM_ENABLE_COMMAND_PLUGINS": "1"])
-            print(try result.utf8Output() + result.utf8stderrOutput())
-            XCTAssertEqual(result.exitStatus, .terminated(code: 0))
-            XCTAssert(try result.utf8Output().contains("This is MyCommandPlugin."))
+            do {
+                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["plugin", "mycmd"], packagePath: packageDir, env: ["SWIFTPM_ENABLE_COMMAND_PLUGINS": "1"])
+                XCTAssertEqual(result.exitStatus, .terminated(code: 0))
+                XCTAssert(try result.utf8Output().contains("This is MyCommandPlugin."))
+            }
+
+            // Testing listing the available command plugins.
+            do {
+                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["plugin", "--list"], packagePath: packageDir, env: ["SWIFTPM_ENABLE_COMMAND_PLUGINS": "1"])
+                XCTAssertEqual(result.exitStatus, .terminated(code: 0))
+                XCTAssert(try result.utf8Output().contains("‘mycmd’ (plugin ‘MyPlugin’ in package ‘MyPackage’)"))
+            }
         }
     }
 }

@@ -882,39 +882,48 @@ extension SwiftPackageTool {
                 help: "Target(s) to which the plugin command should be applied")
         var targetNames: [String] = []
 
-        @Argument(help: "Name of the command plugin to invoke")
-        var command: String
+        @Flag(name: .customLong("list"),
+              help: "List the available plugin commands")
+        var listCommands: Bool = false
 
-        @Argument(help: "Any arguments to pass to the plugin")
-        var arguments: [String] = []
-        
-        func findPlugins(matching command: String, in graph: PackageGraph) -> [PluginTarget] {
-            // Find all the available plugin targets.
-            let availablePlugins = graph.allTargets.compactMap{ $0.underlyingTarget as? PluginTarget }
-            
-            // Find and return the plugins that match the command.
-            return availablePlugins.filter {
-                // Filter out any non-command plugins and any whose verb is different.
-                guard case .command(let intent, _) = $0.capability else { return false }
-                return command == intent.invocationVerb
-            }
-        }
+        @Argument(parsing: .unconditionalRemaining,
+                  help: "Name and arguments of the command plugin to invoke")
+        var pluginCommand: [String] = []
 
         func run(_ swiftTool: SwiftTool) throws {
             // Load the workspace and resolve the package graph.
             let packageGraph = try swiftTool.loadPackageGraph()
-            
-            // Find the plugins that match the command.
-            swiftTool.observabilityScope.emit(info: "Finding plugin for command '\(command) '")
-            let matchingPlugins = findPlugins(matching: command, in: packageGraph)
+
+            // List the available plugins, if asked to.
+            if listCommands {
+                let allPlugins = availableCommandPlugins(in: packageGraph)
+                for plugin in allPlugins.sorted(by: { $0.name < $1.name }) {
+                    guard case .command(let intent, _) = plugin.capability else { return }
+                    swiftTool.outputStream <<< "‘\(intent.invocationVerb)’ (plugin ‘\(plugin.name)’"
+                    if let package = packageGraph.packages.first(where: { $0.targets.contains(where: { $0.name == plugin.name }) }) {
+                        swiftTool.outputStream <<< " in package ‘\(package.manifest.displayName)’"
+                    }
+                    swiftTool.outputStream <<< ")\n"
+                }
+                swiftTool.outputStream.flush()
+                return
+            }
+
+            // Otherwise find the plugins that match the command verb.
+            guard let commandVerb = pluginCommand.first else {
+                swiftTool.observabilityScope.emit(error: "No plugin command name specified")
+                throw ExitCode.failure
+            }
+            swiftTool.observabilityScope.emit(info: "Finding plugin for command '\(commandVerb)'")
+            let matchingPlugins = findPlugins(matching: commandVerb, in: packageGraph)
 
             // Complain if we didn't find exactly one.
             if matchingPlugins.isEmpty {
-                swiftTool.observabilityScope.emit(error: "No command plugins found for '\(command)'")
+                swiftTool.observabilityScope.emit(error: "No command plugins found for '\(commandVerb)'")
                 throw ExitCode.failure
             }
             else if matchingPlugins.count > 1 {
-                swiftTool.observabilityScope.emit(error: "\(matchingPlugins.count) plugins found for '\(command)'")
+                swiftTool.observabilityScope.emit(error: "\(matchingPlugins.count) plugins found for '\(commandVerb)'")
                 throw ExitCode.failure
             }
             
@@ -1001,7 +1010,7 @@ extension SwiftPackageTool {
             // Run the command plugin.
             let buildEnvironment = try swiftTool.buildParameters().buildEnvironment
             let _ = try tsc_await { plugin.invoke(
-                action: .performCommand(targets: Array(targets.values), arguments: arguments),
+                action: .performCommand(targets: Array(targets.values), arguments: Array(pluginCommand.dropFirst())),
                 package: package,
                 buildEnvironment: buildEnvironment,
                 scriptRunner: pluginScriptRunner,
@@ -1015,6 +1024,19 @@ extension SwiftPackageTool {
                 completion: $0) }
             
             // TODO: We should also emit a final line of output regarding the result.
+        }
+
+        func availableCommandPlugins(in graph: PackageGraph) -> [PluginTarget] {
+            return graph.allTargets.compactMap{ $0.underlyingTarget as? PluginTarget }
+        }
+
+        func findPlugins(matching verb: String, in graph: PackageGraph) -> [PluginTarget] {
+            // Find and return the command plugins that match the command.
+            return self.availableCommandPlugins(in: graph).filter {
+                // Filter out any non-command plugins and any whose verb is different.
+                guard case .command(let intent, _) = $0.capability else { return false }
+                return verb == intent.invocationVerb
+            }
         }
     }
 }
