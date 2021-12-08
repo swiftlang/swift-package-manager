@@ -337,7 +337,7 @@ class PluginTests: XCTestCase {
             let pluginOutputDir = tmpPath.appending(component: "plugin-output")
             let pluginScriptRunner = DefaultPluginScriptRunner(cacheDir: pluginCacheDir, toolchain: ToolchainConfiguration.default)
             let target = try XCTUnwrap(package.targets.first{ $0.underlyingTarget == libraryTarget })
-            let _ = try tsc_await { pluginTarget.invoke(
+            let invocationSucceeded = try tsc_await { pluginTarget.invoke(
                 action: .performCommand(
                     targets: [ target ],
                     arguments: ["veni", "vidi", "vici"]),
@@ -354,6 +354,7 @@ class PluginTests: XCTestCase {
                 completion: $0) }
             
             // Check the results.
+            XCTAssertTrue(invocationSucceeded)
             let outputText = String(decoding: pluginDelegate.outputData, as: UTF8.self)
             XCTAssertTrue(outputText.contains("Root package is MyPackage."), outputText)
             XCTAssertTrue(outputText.contains("Found the swiftc tool"), outputText)
