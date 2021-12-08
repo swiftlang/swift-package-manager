@@ -222,7 +222,17 @@ class PluginInvocationTests: XCTestCase {
             }
             try localFileSystem.writeFileContents(packageDir.appending(components: "Plugins", "MyPlugin", "plugin.swift")) {
                 $0 <<< """
-                syntax error
+                import PackagePlugin
+
+                @main
+                struct MyBuildToolPlugin: BuildToolPlugin {
+                    func createBuildCommands(
+                        context: PluginContext,
+                        target: Target
+                    ) throws -> [Command] {
+                        // missing return statement
+                    }
+                }
                 """
             }
 
@@ -252,27 +262,47 @@ class PluginInvocationTests: XCTestCase {
             XCTAssert(packageGraph.packages.count == 1, "\(packageGraph.packages)")
             
             // Find the build tool plugin.
-            let buildToolPlugin = try XCTUnwrap(packageGraph.packages[0].targets.first{ $0.type == .plugin })
+            let buildToolPlugin = try XCTUnwrap(packageGraph.packages[0].targets.map(\.underlyingTarget).first{ $0.name == "MyPlugin" } as? PluginTarget)
             XCTAssertEqual(buildToolPlugin.name, "MyPlugin")
-            
-            // Try to compile the broken plugin script and check that we get the expected error.
+            XCTAssertEqual(buildToolPlugin.capability, .buildTool)
+
+            // Create a plugin script runner for the duration of the test.
             let pluginCacheDir = tmpPath.appending(component: "plugin-cache")
             let pluginScriptRunner = DefaultPluginScriptRunner(cacheDir: pluginCacheDir, toolchain: ToolchainConfiguration.default)
-            XCTAssertThrowsError(try tsc_await { pluginScriptRunner.compilePluginScript(
-                sources: buildToolPlugin.sources,
-                toolsVersion: .currentToolsVersion,
-                observabilityScope: observability.topScope,
-                callbackQueue: DispatchQueue(label: "plugin-compilation"),
-                completion: $0)
-            }) { error in
-                guard case DefaultPluginScriptRunnerError.compilationFailed(let result) = error else {
-                    return XCTFail("unexpected error: \(error)")
+
+            // Try to compile the broken plugin script.
+            do {
+                var compilationResult: PluginCompilationResult? = .none
+                XCTAssertThrowsError(try pluginScriptRunner.compilePluginScript(
+                    sources: buildToolPlugin.sources,
+                    toolsVersion: buildToolPlugin.apiVersion,
+                    observabilityScope: observability.topScope)
+                ) { error in
+                    // Check that we got the expected error, and capture the result.
+                    guard case DefaultPluginScriptRunnerError.compilationFailed(let result) = error else {
+                        return XCTFail("unexpected error: \(error)")
+                    }
+                    compilationResult = result
                 }
-                XCTAssert(result.compilerResult.exitStatus == .terminated(code: 1), "\(result.compilerResult.exitStatus)")
+
+                // This should invoke the compiler but should fail.
+                let result = try XCTUnwrap(compilationResult)
+                XCTAssert(result.wasCached == false)
+                XCTAssert(result.compilerResult?.exitStatus == .terminated(code: 1), "\(String(describing: result.compilerResult?.exitStatus))")
                 XCTAssert(result.compiledExecutable.components.contains("plugin-cache"), "\(result.compiledExecutable.pathString)")
                 XCTAssert(result.diagnosticsFile.suffix == ".dia", "\(result.diagnosticsFile.pathString)")
+
+                // Check the serialized diagnostics. We should have an error.
+                let diaFileContents = try localFileSystem.readFileContents(result.diagnosticsFile)
+                let diagnosticsSet = try SerializedDiagnostics(bytes: diaFileContents)
+                XCTAssertEqual(diagnosticsSet.diagnostics.count, 1)
+                let errorDiagnostic = try XCTUnwrap(diagnosticsSet.diagnostics.first)
+                XCTAssertTrue(errorDiagnostic.text.hasPrefix("missing return"), "\(errorDiagnostic)")
+
+                // Check that the executable file doesn't exist.
+                XCTAssertFalse(localFileSystem.exists(result.compiledExecutable), "\(result.compiledExecutable.pathString)")
             }
-            
+
             // Now replace the plugin script source with syntactically valid contents that still produces a warning.
             try localFileSystem.writeFileContents(packageDir.appending(components: "Plugins", "MyPlugin", "plugin.swift")) {
                 $0 <<< """
@@ -291,23 +321,157 @@ class PluginInvocationTests: XCTestCase {
                 """
             }
             
-            // Try to compile the fixed plugin. This time it should succeed but we expect a warning.
-            let result = try tsc_await { pluginScriptRunner.compilePluginScript(
-                sources: buildToolPlugin.sources,
-                toolsVersion: .currentToolsVersion,
-                observabilityScope: observability.topScope,
-                callbackQueue: DispatchQueue(label: "plugin-compilation"),
-                completion: $0) }
-            
-            // Now we expect compilation to succeed but with a warning.
-            XCTAssert(result.compilerResult.exitStatus == .terminated(code: 0), "\(result.compilerResult.exitStatus)")
-            XCTAssert(result.compiledExecutable.components.contains("plugin-cache"), "\(result.compiledExecutable.pathString)")
-            XCTAssert(result.diagnosticsFile.suffix == ".dia", "\(result.diagnosticsFile.pathString)")
-            let contents = try localFileSystem.readFileContents(result.diagnosticsFile)
-            let diags = try SerializedDiagnostics(bytes: contents)
-            XCTAssertEqual(diags.diagnostics.count, 1)
-            let warningDiag = try XCTUnwrap(diags.diagnostics.first)
-            XCTAssertTrue(warningDiag.text.hasPrefix("variable \'unused\' was never used"), "\(warningDiag)")
+            // Try to compile the fixed plugin.
+            let firstExecModTime: Date
+            do {
+                let result = try pluginScriptRunner.compilePluginScript(
+                    sources: buildToolPlugin.sources,
+                    toolsVersion: buildToolPlugin.apiVersion,
+                    observabilityScope: observability.topScope)
+
+                // This should invoke the compiler and this time should succeed.
+                XCTAssert(result.wasCached == false)
+                XCTAssert(result.compilerResult?.exitStatus == .terminated(code: 0), "\(String(describing: result.compilerResult?.exitStatus))")
+                XCTAssert(result.compiledExecutable.components.contains("plugin-cache"), "\(result.compiledExecutable.pathString)")
+                XCTAssert(result.diagnosticsFile.suffix == ".dia", "\(result.diagnosticsFile.pathString)")
+
+                // Check the serialized diagnostics. We should no longer have an error but now have a warning.
+                let diaFileContents = try localFileSystem.readFileContents(result.diagnosticsFile)
+                let diagnosticsSet = try SerializedDiagnostics(bytes: diaFileContents)
+                XCTAssertEqual(diagnosticsSet.diagnostics.count, 1)
+                let warningDiagnostic = try XCTUnwrap(diagnosticsSet.diagnostics.first)
+                XCTAssertTrue(warningDiagnostic.text.hasPrefix("variable \'unused\' was never used"), "\(warningDiagnostic)")
+
+                // Check that the executable file exists.
+                XCTAssertTrue(localFileSystem.exists(result.compiledExecutable), "\(result.compiledExecutable.pathString)")
+
+                // Capture the timestamp of the executable so we can compare it later.
+                firstExecModTime = try localFileSystem.getFileInfo(result.compiledExecutable).modTime
+            }
+
+            // Recompile the command plugin again without changing its source code.
+            let secondExecModTime: Date
+            do {
+                let result = try pluginScriptRunner.compilePluginScript(
+                    sources: buildToolPlugin.sources,
+                    toolsVersion: buildToolPlugin.apiVersion,
+                    observabilityScope: observability.topScope)
+
+                // This should not invoke the compiler (just reuse the cached executable).
+                XCTAssert(result.wasCached == true)
+                XCTAssert(result.compilerResult == nil, "\(String(describing: result.compilerResult))")
+                XCTAssert(result.compiledExecutable.components.contains("plugin-cache"), "\(result.compiledExecutable.pathString)")
+                XCTAssert(result.diagnosticsFile.suffix == ".dia", "\(result.diagnosticsFile.pathString)")
+
+                // Check that the diagnostics still have the same warning as before.
+                let diaFileContents = try localFileSystem.readFileContents(result.diagnosticsFile)
+                let diagnosticsSet = try SerializedDiagnostics(bytes: diaFileContents)
+                XCTAssertEqual(diagnosticsSet.diagnostics.count, 1)
+                let warningDiagnostic = try XCTUnwrap(diagnosticsSet.diagnostics.first)
+                XCTAssertTrue(warningDiagnostic.text.hasPrefix("variable \'unused\' was never used"), "\(warningDiagnostic)")
+
+                // Check that the executable file exists.
+                XCTAssertTrue(localFileSystem.exists(result.compiledExecutable), "\(result.compiledExecutable.pathString)")
+
+                // Check that the timestamp hasn't changed (at least a mild indication that it wasn't recompiled).
+                secondExecModTime = try localFileSystem.getFileInfo(result.compiledExecutable).modTime
+                XCTAssert(secondExecModTime == firstExecModTime, "firstExecModTime: \(firstExecModTime), secondExecModTime: \(secondExecModTime)")
+            }
+
+            // Now replace the plugin script source with syntactically valid contents that no longer produces a warning.
+            try localFileSystem.writeFileContents(packageDir.appending(components: "Plugins", "MyPlugin", "plugin.swift")) {
+                $0 <<< """
+                import PackagePlugin
+
+                @main
+                struct MyBuildToolPlugin: BuildToolPlugin {
+                    func createBuildCommands(
+                        context: PluginContext,
+                        target: Target
+                    ) throws -> [Command] {
+                        return []
+                    }
+                }
+                """
+            }
+
+            // Recompile the plugin again.
+            let thirdExecModTime: Date
+            do {
+                let result = try pluginScriptRunner.compilePluginScript(
+                    sources: buildToolPlugin.sources,
+                    toolsVersion: buildToolPlugin.apiVersion,
+                    observabilityScope: observability.topScope)
+
+                // This should invoke the compiler and not use the cache.
+                XCTAssert(result.wasCached == false)
+                XCTAssert(result.compilerResult?.exitStatus == .terminated(code: 0), "\(String(describing: result.compilerResult?.exitStatus))")
+                XCTAssert(result.compiledExecutable.components.contains("plugin-cache"), "\(result.compiledExecutable.pathString)")
+                XCTAssert(result.diagnosticsFile.suffix == ".dia", "\(result.diagnosticsFile.pathString)")
+
+                // Check that the diagnostics no longer have a warning.
+                let diaFileContents = try localFileSystem.readFileContents(result.diagnosticsFile)
+                let diagnosticsSet = try SerializedDiagnostics(bytes: diaFileContents)
+                XCTAssertEqual(diagnosticsSet.diagnostics.count, 0)
+
+                // Check that the executable file exists.
+                XCTAssertTrue(localFileSystem.exists(result.compiledExecutable), "\(result.compiledExecutable.pathString)")
+
+                // Check that the timestamp has changed (at least a mild indication that it was recompiled).
+                thirdExecModTime = try localFileSystem.getFileInfo(result.compiledExecutable).modTime
+                XCTAssert(thirdExecModTime != firstExecModTime, "thirdExecModTime: \(thirdExecModTime), firstExecModTime: \(firstExecModTime)")
+                XCTAssert(thirdExecModTime != secondExecModTime, "thirdExecModTime: \(thirdExecModTime), secondExecModTime: \(secondExecModTime)")
+            }
+
+            // Now replace the plugin script source with a broken one again.
+            try localFileSystem.writeFileContents(packageDir.appending(components: "Plugins", "MyPlugin", "plugin.swift")) {
+                $0 <<< """
+                import PackagePlugin
+
+                @main
+                struct MyBuildToolPlugin: BuildToolPlugin {
+                    func createBuildCommands(
+                        context: PluginContext,
+                        target: Target
+                    ) throws -> [Command] {
+                        return nil  // returning the wrong type
+                    }
+                }
+                """
+            }
+
+            // Recompile the plugin again.
+            do {
+                var compilationResult: PluginCompilationResult? = .none
+                XCTAssertThrowsError(try pluginScriptRunner.compilePluginScript(
+                    sources: buildToolPlugin.sources,
+                    toolsVersion: buildToolPlugin.apiVersion,
+                    observabilityScope: observability.topScope)
+                ) { error in
+                    // Check that we got the expected error, and capture the result.
+                    guard case DefaultPluginScriptRunnerError.compilationFailed(let result) = error else {
+                        return XCTFail("unexpected error: \(error)")
+                    }
+                    compilationResult = result
+                }
+
+                // This should again invoke the compiler but should fail.
+                let result = try XCTUnwrap(compilationResult)
+                XCTAssert(result.wasCached == false)
+                XCTAssert(result.compilerResult?.exitStatus == .terminated(code: 1), "\(String(describing: result.compilerResult?.exitStatus))")
+                XCTAssert(result.compiledExecutable.components.contains("plugin-cache"), "\(result.compiledExecutable.pathString)")
+                XCTAssert(result.diagnosticsFile.suffix == ".dia", "\(result.diagnosticsFile.pathString)")
+
+                // Check that the diagnostics. We should have a different error than the original one.
+                let diaFileContents = try localFileSystem.readFileContents(result.diagnosticsFile)
+                let diagnosticsSet = try SerializedDiagnostics(bytes: diaFileContents)
+                XCTAssertEqual(diagnosticsSet.diagnostics.count, 1)
+                let errorDiagnostic = try XCTUnwrap(diagnosticsSet.diagnostics.first)
+                XCTAssertTrue(errorDiagnostic.text.hasPrefix("'nil' is incompatible with return type"), "\(errorDiagnostic)")
+
+                // Check that the executable file no longer exists.
+                XCTAssertFalse(localFileSystem.exists(result.compiledExecutable), "\(result.compiledExecutable.pathString)")
+            }
         }
     }
 }
