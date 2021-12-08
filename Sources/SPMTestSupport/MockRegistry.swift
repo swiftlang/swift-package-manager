@@ -43,9 +43,9 @@ class MockRegistry {
         self.registryClient = RegistryClient(
             configuration: configuration,
             identityResolver: identityResolver,
-            customArchiverProvider: { fileSystem in MockRegistryArchiver(fileSystem: fileSystem) },
+            authorizationProvider: .none,
             customHTTPClient: HTTPClient(handler: self.httpHandler),
-            authorizationProvider: .none
+            customArchiverProvider: { fileSystem in MockRegistryArchiver(fileSystem: fileSystem) }
         )
     }
 
