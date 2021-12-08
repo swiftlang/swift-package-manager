@@ -74,14 +74,9 @@ fileprivate func macOSSandboxProfile(
     }
     // Optionally allow writing to temporary directories (a lot of use of Foundation requires this).
     else if strictness == .writableTemporaryDirectory {
-        // Add the standard and Foundation temporary directories, and the one determined by TSC (which also taked into account environment variables).
-        var temporaryDirectories = Set([AbsolutePath("/tmp"), AbsolutePath(NSTemporaryDirectory())])
-        if let tscTmpDir = try? TSCBasic.determineTempDirectory() {
-            temporaryDirectories.insert(tscTmpDir)
-        }
-        // Add `subpath` expressions for all of them.
-        for tmpDir in temporaryDirectories.sorted() {
-            writableDirectoriesExpression += ["(subpath \(resolveSymlinks(tmpDir).quotedAsSubpathForSandboxProfile))"]
+        // Add `subpath` expressions for the regular and the Foundation temporary directories.
+        for tmpDir in ["/tmp", NSTemporaryDirectory()] {
+            writableDirectoriesExpression += ["(subpath \(resolveSymlinks(AbsolutePath(tmpDir)).quotedAsSubpathForSandboxProfile))"]
         }
     }
 
