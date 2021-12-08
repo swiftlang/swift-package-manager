@@ -21,7 +21,7 @@ struct PluginInput {
     let pluginAction: PluginAction
     enum PluginAction {
         case createBuildToolCommands(target: Target)
-        case performCommand(targets: [Target], arguments: [String])
+        case performCommand(targets: [Target], arguments: [String], outputPath: Path?)
     }
     
     internal init(from input: WireInput) throws {
@@ -38,9 +38,12 @@ struct PluginInput {
         // Unpack the plugin action, which will determine which plugin functionality to invoke.
         switch input.pluginAction {
         case .createBuildToolCommands(let targetId):
-            self.pluginAction = .createBuildToolCommands(target: try deserializer.target(for: targetId))
-        case .performCommand(let targetIds, let arguments):
-            self.pluginAction = .performCommand(targets: try targetIds.map{ try deserializer.target(for: $0) }, arguments: arguments)
+            let target = try deserializer.target(for: targetId)
+            self.pluginAction = .createBuildToolCommands(target: target)
+        case .performCommand(let targetIds, let arguments, let outputPathId):
+            let targets = try targetIds.map{ try deserializer.target(for: $0) }
+            let outputPath = try outputPathId.map{ try deserializer.path(for: $0) }
+            self.pluginAction = .performCommand(targets: targets, arguments: arguments, outputPath: outputPath)
         }
     }
 }
@@ -298,7 +301,7 @@ internal struct WireInput: Decodable {
     /// the capabilities declared for the plugin.
     enum PluginAction: Decodable {
         case createBuildToolCommands(targetId: Target.Id)
-        case performCommand(targetIds: [Target.Id], arguments: [String])
+        case performCommand(targetIds: [Target.Id], arguments: [String], outputPathId: Path.Id?)
     }
 
     /// A single absolute path in the wire structure, represented as a tuple

@@ -882,6 +882,10 @@ extension SwiftPackageTool {
                 help: "Target(s) to which the plugin command should be applied")
         var targetNames: [String] = []
 
+        @Option(name: .customLong("output"),
+                help: "Optional output directory passed to the command plugin")
+        var outputPath: String?
+
         @Flag(name: .customLong("list"),
               help: "List the available plugin commands")
         var listCommands: Bool = false
@@ -936,6 +940,9 @@ extension SwiftPackageTool {
 
             // If no targets were specified, default to all the applicable ones in the package.
             let targetNames = targetNames.isEmpty ? package.targets.filter(\.isEligibleForPluginCommand).map(\.name) : targetNames
+
+            // If the user specified an output path, we validate it.
+            let outputPath = try self.outputPath.map{ try AbsolutePath(validating: $0) }
             
             // Find the targets (if any) specified by the user. We expect them in the root package.
             var targets: [String: ResolvedTarget] = [:]
@@ -1010,7 +1017,10 @@ extension SwiftPackageTool {
             // Run the command plugin.
             let buildEnvironment = try swiftTool.buildParameters().buildEnvironment
             let _ = try tsc_await { plugin.invoke(
-                action: .performCommand(targets: Array(targets.values), arguments: Array(pluginCommand.dropFirst())),
+                action: .performCommand(
+                    targets: Array(targets.values),
+                    arguments: Array(pluginCommand.dropFirst()),
+                    outputPath: outputPath),
                 package: package,
                 buildEnvironment: buildEnvironment,
                 scriptRunner: pluginScriptRunner,
