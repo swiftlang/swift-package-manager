@@ -13,6 +13,7 @@ import Basics
 import TSCBasic
 import TSCTestSupport
 import TSCUtility
+import tsan_utils
 import XCTest
 
 class PackageCollectionsStorageTests: XCTestCase {
@@ -69,6 +70,8 @@ class PackageCollectionsStorageTests: XCTestCase {
     }
 
     func testFileDeleted() throws {
+        try XCTSkipIf(is_tsan_enabled())
+        
         try testWithTemporaryDirectory { tmpPath in
             let path = tmpPath.appending(component: "test.db")
             let storage = SQLitePackageCollectionsStorage(path: path)
@@ -106,6 +109,8 @@ class PackageCollectionsStorageTests: XCTestCase {
     }
 
     func testFileCorrupt() throws {
+        try XCTSkipIf(is_tsan_enabled())
+        
         try testWithTemporaryDirectory { tmpPath in
             let path = tmpPath.appending(component: "test.db")
             let storage = SQLitePackageCollectionsStorage(path: path)

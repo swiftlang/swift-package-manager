@@ -1,0 +1,4 @@
+module tsan_utils {
+    header "tsan_utils.h"
+    export *
+}
