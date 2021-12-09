@@ -74,8 +74,8 @@ final class RegistryClientTests: XCTestCase {
         let registryManager = RegistryClient(
             configuration: configuration,
             identityResolver: DefaultIdentityResolver(),
-            customArchiverProvider: { _ in MockArchiver() },
-            customHTTPClient: httpClient
+            customHTTPClient: httpClient,
+            customArchiverProvider: { _ in MockArchiver() }
         )
 
         let versions = try registryManager.fetchVersions(package: identity)
@@ -142,8 +142,8 @@ final class RegistryClientTests: XCTestCase {
         let registryManager = RegistryClient(
             configuration: configuration,
             identityResolver: DefaultIdentityResolver(),
-            customArchiverProvider: { _ in MockArchiver() },
-            customHTTPClient: httpClient
+            customHTTPClient: httpClient,
+            customArchiverProvider: { _ in MockArchiver() }
         )
 
         let availableManifests = try registryManager.getAvailableManifests(
@@ -209,8 +209,8 @@ final class RegistryClientTests: XCTestCase {
         let registryManager = RegistryClient(
             configuration: configuration,
             identityResolver: DefaultIdentityResolver(),
-            customArchiverProvider: { _ in MockArchiver() },
-            customHTTPClient: httpClient
+            customHTTPClient: httpClient,
+            customArchiverProvider: { _ in MockArchiver() }
         )
 
         do {
@@ -300,8 +300,8 @@ final class RegistryClientTests: XCTestCase {
         let registryManager = RegistryClient(
             configuration: configuration,
             identityResolver: DefaultIdentityResolver(),
-            customArchiverProvider: { _ in MockArchiver() },
-            customHTTPClient: httpClient
+            customHTTPClient: httpClient,
+            customArchiverProvider: { _ in MockArchiver() }
         )
 
         let checksum = try registryManager.fetchSourceArchiveChecksum(package: identity, version: version)
@@ -352,6 +352,7 @@ final class RegistryClientTests: XCTestCase {
         let registryManager = RegistryClient(
             configuration: configuration,
             identityResolver: DefaultIdentityResolver(),
+            customHTTPClient: httpClient,
             customArchiverProvider: { fileSystem in
                 MockArchiver(handler: { _, from, to, callback in
                     let data = try fileSystem.readFileContents(from)
@@ -362,8 +363,7 @@ final class RegistryClientTests: XCTestCase {
                     try fileSystem.writeFileContents(packagePath.appending(component: "Package.swift"), string: "")
                     callback(.success(()))
                 })
-            },
-            customHTTPClient: httpClient
+            }
         )
 
         let fileSystem = InMemoryFileSystem()
@@ -456,6 +456,7 @@ final class RegistryClientTests: XCTestCase {
         let registryManager = RegistryClient(
             configuration: configuration,
             identityResolver: DefaultIdentityResolver(),
+            customHTTPClient: httpClient,
             customArchiverProvider: { fileSystem in
                 MockArchiver(handler: { _, from, to, callback in
                     let data = try fileSystem.readFileContents(from)
@@ -466,8 +467,7 @@ final class RegistryClientTests: XCTestCase {
                     try fileSystem.writeFileContents(packagePath.appending(component: "Package.swift"), string: "")
                     callback(.success(()))
                 })
-            },
-            customHTTPClient: httpClient
+            }
         )
 
         let fileSystem = InMemoryFileSystem()
@@ -528,8 +528,8 @@ final class RegistryClientTests: XCTestCase {
         let registryManager = RegistryClient(
             configuration: configuration,
             identityResolver: DefaultIdentityResolver(),
-            customArchiverProvider: { _ in MockArchiver() },
-            customHTTPClient: httpClient
+            customHTTPClient: httpClient,
+            customArchiverProvider: { _ in MockArchiver() }
         )
 
         let identities = try registryManager.lookupIdentities(url: packageURL)
@@ -537,7 +537,7 @@ final class RegistryClientTests: XCTestCase {
     }
 }
 
-// MARK - Sugar
+// MARK: - Sugar
 
 private extension RegistryClient {
     func fetchVersions(package: PackageIdentity) throws -> [Version] {
