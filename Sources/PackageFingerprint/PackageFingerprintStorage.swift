@@ -28,6 +28,24 @@ public protocol PackageFingerprintStorage {
              callback: @escaping (Result<Void, Error>) -> Void)
 }
 
+public extension PackageFingerprintStorage {
+    func get(package: PackageIdentity,
+             version: Version,
+             kind: Fingerprint.Kind,
+             observabilityScope: ObservabilityScope,
+             callbackQueue: DispatchQueue,
+             callback: @escaping (Result<Fingerprint, Error>) -> Void) {
+        self.get(package: package, version: version, observabilityScope: observabilityScope, callbackQueue: callbackQueue) { result in
+            callback(result.tryMap { fingerprints in
+                guard let fingerprint = fingerprints[kind] else {
+                    throw PackageFingerprintStorageError.notFound
+                }
+                return fingerprint
+            })
+        }
+    }
+}
+
 public enum PackageFingerprintStorageError: Error, Equatable {
     case conflict(given: Fingerprint, existing: Fingerprint)
     case notFound

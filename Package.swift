@@ -155,6 +155,7 @@ let package = Package(
             name: "PackageRegistry",
             dependencies: [
                 "Basics",
+                "PackageFingerprint",
                 "PackageLoading",
                 "PackageModel"
             ],
@@ -309,6 +310,7 @@ let package = Package(
             name: "Workspace",
             dependencies: [
                 "Basics",
+                "PackageFingerprint",
                 "PackageGraph",
                 "PackageModel",
                 "SourceControl",
@@ -328,6 +330,7 @@ let package = Package(
                 "Basics",
                 "Build",
                 "PackageCollections",
+                "PackageFingerprint",
                 "PackageGraph",
                 "SourceControl",
                 "Workspace",
@@ -388,6 +391,7 @@ let package = Package(
             name: "SPMTestSupport",
             dependencies: [
                 "Basics",
+                "PackageFingerprint",
                 "PackageGraph",
                 "PackageLoading",
                 "PackageRegistry",

@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2020 Apple Inc. and the Swift project authors
+ Copyright (c) 2014 - 2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -14,6 +14,7 @@ import TSCUtility
 import Foundation
 import PackageLoading
 import PackageModel
+import PackageFingerprint
 import PackageGraph
 import PackageRegistry
 import SourceControl
@@ -214,12 +215,18 @@ public class Workspace {
 
     /// The algorithm used for generating file checksums.
     fileprivate let checksumAlgorithm: HashAlgorithm
+    
+    /// The package fingerprint storage
+    fileprivate let fingerprintStorage: PackageFingerprintStorage
 
     /// Enable prefetching containers in resolver.
     fileprivate let resolverPrefetchingEnabled: Bool
 
     /// Update containers while fetching them.
     fileprivate let resolverUpdateEnabled: Bool
+    
+    /// Fingerprint checking mode.
+    fileprivate let resolverFingerprintCheckingMode: FingerprintCheckingMode
 
     fileprivate let additionalFileRules: [FileRuleDescription]
 
@@ -254,8 +261,9 @@ public class Workspace {
     ///   - customChecksumAlgorithm: A custom checksum algorithm.
     ///   - additionalFileRules: File rules to determine resource handling behavior.
     ///   - resolverUpdateEnabled: Enables the dependencies resolver automatic version update check.  Enabled by default. When disabled the resolver relies only on the resolved version file
-    ///   - resolverPrefetchingEnabled: Enables the dependencies resolver prefetching based on the resolved version file.  Enabled by default..
-    ///   - sharedRepositoriesCacheEnabled: Enables the shared repository cache. Enabled by default..
+    ///   - resolverPrefetchingEnabled: Enables the dependencies resolver prefetching based on the resolved version file.  Enabled by default.
+    ///   - resolverFingerprintCheckingMode: Fingerprint checking mode. Defaults to `.warn`.
+    ///   - sharedRepositoriesCacheEnabled: Enables the shared repository cache. Enabled by default.
     ///   - delegate: Delegate for workspace events
     public init(
         fileSystem: FileSystem,
@@ -272,9 +280,11 @@ public class Workspace {
         customHTTPClient: HTTPClient? = .none,
         customArchiver: Archiver? = .none,
         customChecksumAlgorithm: HashAlgorithm? = .none,
+        customFingerprintStorage: PackageFingerprintStorage? = .none,
         additionalFileRules: [FileRuleDescription]? = .none,
         resolverUpdateEnabled: Bool? = .none,
         resolverPrefetchingEnabled: Bool? = .none,
+        resolverFingerprintCheckingMode: FingerprintCheckingMode = .warn,
         sharedRepositoriesCacheEnabled: Bool? = .none,
         delegate: WorkspaceDelegate? = .none
     ) throws {
@@ -295,11 +305,18 @@ public class Workspace {
             provider: repositoryProvider,
             delegate: delegate.map(WorkspaceRepositoryManagerDelegate.init(workspaceDelegate:)),
             cachePath: sharedRepositoriesCacheEnabled ? location.sharedRepositoriesCacheDirectory : .none
+        )        
+        let fingerprintStorage = customFingerprintStorage ?? FilePackageFingerprintStorage(
+            fileSystem: fileSystem,
+            directoryPath: location.sharedFingerprintsDirectory
         )
+
         let registryClient = customRegistryClient ?? registries.map { configuration in
             RegistryClient(
                 configuration: configuration,
                 identityResolver: identityResolver,
+                fingerprintStorage: fingerprintStorage,
+                fingerprintCheckingMode: resolverFingerprintCheckingMode,
                 authorizationProvider: authorizationProvider?.httpAuthorizationHeader(for:)
             )
         }
@@ -334,6 +351,7 @@ public class Workspace {
         self.registryClient = registryClient
         self.identityResolver = identityResolver
         self.checksumAlgorithm = checksumAlgorithm
+        self.fingerprintStorage = fingerprintStorage
 
         self.pinsStore = LoadableResult {
             try PinsStore(
@@ -347,6 +365,7 @@ public class Workspace {
         self.additionalFileRules = additionalFileRules
         self.resolverUpdateEnabled = resolverUpdateEnabled
         self.resolverPrefetchingEnabled = resolverPrefetchingEnabled
+        self.resolverFingerprintCheckingMode = resolverFingerprintCheckingMode
 
         self.state = WorkspaceState(dataPath: self.location.workingDirectory, fileSystem: fileSystem)
     }
@@ -386,6 +405,7 @@ public class Workspace {
                 workingDirectory: dataPath,
                 editsDirectory: editablesPath,
                 resolvedVersionsFile: pinsFile,
+                sharedSecurityDirectory: fileSystem.swiftPMSecurityDirectory,
                 sharedCacheDirectory: cachePath,
                 sharedConfigurationDirectory: nil // legacy
             ),
@@ -455,8 +475,8 @@ public class Workspace {
     public convenience init(
         fileSystem: FileSystem? = .none,
         forRootPackage packagePath: AbsolutePath,
-        customManifestLoader: ManifestLoaderProtocol? =  .none,
-        delegate: WorkspaceDelegate? =  .none
+        customManifestLoader: ManifestLoaderProtocol? = .none,
+        delegate: WorkspaceDelegate? = .none
     ) throws {
         let fileSystem = fileSystem ?? localFileSystem
         let location = Location(forRootPackage: packagePath, fileSystem: fileSystem)
@@ -2594,6 +2614,7 @@ extension Workspace {
                     throw InternalError("unable to get tag for \(package) \(version); available versions \(try container.versionsDescending())")
                 }
                 let revision = try container.getRevision(forTag: tag)
+                try container.checkIntegrity(version: version, revision: revision)
                 return try self.checkoutRepository(package: package, at: .version(version, revision: revision), observabilityScope: observabilityScope)
             } else if let _ = container as? RegistryPackageContainer {
                 return try self.downloadRegistryArchive(package: package, at: version, observabilityScope: observabilityScope)
@@ -3051,6 +3072,8 @@ extension Workspace: PackageContainerProvider {
                                 manifestLoader: self.manifestLoader,
                                 toolsVersionLoader: self.toolsVersionLoader,
                                 currentToolsVersion: self.currentToolsVersion,
+                                fingerprintStorage: self.fingerprintStorage,
+                                fingerprintCheckingMode: self.resolverFingerprintCheckingMode,
                                 observabilityScope: observabilityScope
                             )
                         }
@@ -3326,7 +3349,6 @@ extension Workspace {
                 version: version,
                 fileSystem: self.fileSystem,
                 destinationPath: downloadPath,
-                expectedChecksum: nil, // we dont know at this point
                 checksumAlgorithm: self.checksumAlgorithm,
                 progressHandler: progressHandler,
                 observabilityScope: observabilityScope,

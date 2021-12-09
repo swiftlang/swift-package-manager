@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2020 Apple Inc. and the Swift project authors
+ Copyright (c) 2014 - 2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -20,6 +20,8 @@ public struct MockPackage {
     public let products: [MockProduct]
     public let dependencies: [MockDependency]
     public let versions: [String?]
+    /// Provides revision identifier for the given version. A random identifier might be assigned if this is nil.
+    public let revisionProvider: ((String) -> String)?
     // FIXME: This should be per-version.
     public let toolsVersion: ToolsVersion?
 
@@ -31,6 +33,7 @@ public struct MockPackage {
         products: [MockProduct] = [],
         dependencies: [MockDependency] = [],
         versions: [String?] = [],
+        revisionProvider: ((String) -> String)? = nil,
         toolsVersion: ToolsVersion? = nil
     ) {
         self.name = name
@@ -40,6 +43,7 @@ public struct MockPackage {
         self.products = products
         self.dependencies = dependencies
         self.versions = versions
+        self.revisionProvider = revisionProvider
         self.toolsVersion = toolsVersion
     }
 
@@ -51,6 +55,7 @@ public struct MockPackage {
         products: [MockProduct],
         dependencies: [MockDependency] = [],
         versions: [String?] = [],
+        revisionProvider: ((String) -> String)? = nil,
         toolsVersion: ToolsVersion? = nil
     ) {
         self.name = name
@@ -60,6 +65,7 @@ public struct MockPackage {
         self.products = products
         self.dependencies = dependencies
         self.versions = versions
+        self.revisionProvider = revisionProvider
         self.toolsVersion = toolsVersion
     }
 
@@ -71,6 +77,7 @@ public struct MockPackage {
         products: [MockProduct],
         dependencies: [MockDependency] = [],
         versions: [String?] = [],
+        revisionProvider: ((String) -> String)? = nil,
         toolsVersion: ToolsVersion? = nil
     ) {
         self.name = name
@@ -80,6 +87,7 @@ public struct MockPackage {
         self.products = products
         self.dependencies = dependencies
         self.versions = versions
+        self.revisionProvider = revisionProvider
         self.toolsVersion = toolsVersion
     }
 
