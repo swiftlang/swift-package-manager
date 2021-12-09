@@ -352,7 +352,17 @@ extension Package.Dependency {
     /// The following example allows the Swift Package Manager to pick
     /// versions 1.2.3, 1.2.4, 1.2.5, as well as 1.2.6.
     ///
-    ///     .package(url: "https://example.com/example-package.git", "1.2.3"..."1.2.6"),
+    ///    .package(url: "https://example.com/example-package.git", "1.2.3"..."1.2.6"),
+    ///
+    /// The following example allows the Swift Package Manager to pick
+    /// versions between 1.0.0 and 2.0.0
+    ///
+    ///    .package(url: "https://example.com/example-package.git", .upToNextMajor("1.0.0"),
+    ///
+    /// The following example allows the Swift Package Manager to pick
+    /// versions between 1.0.0 and 1.1.0
+    ///
+    ///    .package(url: "https://example.com/example-package.git", .upToNextMinor("1.0.0"),
     ///
     /// - Parameters:
     ///     - name: The name of the package, or `nil` to deduce it from the URL.
@@ -367,6 +377,18 @@ extension Package.Dependency {
         return .package(name: name, url: url, closedRange: range)
     }
 
+    /// Adds a package dependency starting with a specific minimum version, going
+    /// up to and including a specific maximum version.
+    ///
+    /// The following example allows the Swift Package Manager to pick
+    /// versions 1.2.3, 1.2.4, 1.2.5, as well as 1.2.6.
+    ///
+    ///    .package(url: "https://example.com/example-package.git", "1.2.3"..."1.2.6"),
+    ///
+    /// - Parameters:
+    ///     - name: The name of the package, or `nil` to deduce it from the URL.
+    ///     - url: The valid Git URL of the package.
+    ///     - range: The closed version range requirement.
     private static func package(
         name: String?,
         url: String,
@@ -504,7 +526,17 @@ extension Package.Dependency {
     /// The following example allows the Swift Package Manager to pick
     /// versions `1.2.3`, `1.2.4`, `1.2.5`, but not `1.2.6`.
     ///
-    ///     .package(id: "scope.name", "1.2.3"..<"1.2.6"),
+    ///    .package(id: "scope.name", "1.2.3"..<"1.2.6"),
+    ///
+    /// The following example allows the Swift Package Manager to pick
+    /// versions between 1.0.0 and 2.0.0
+    ///
+    ///    .package(id: "scope.name", .upToNextMajor("1.0.0"),
+    ///
+    /// The following example allows the Swift Package Manager to pick
+    /// versions between 1.0.0 and 1.1.0
+    ///
+    ///    .package(id: "scope.name", .upToNextMinor("1.0.0"),
     ///
     /// - Parameters:
     ///     - id: The identity of the package.
@@ -523,7 +555,7 @@ extension Package.Dependency {
     /// The following example allows the Swift Package Manager to pick
     /// versions 1.2.3, 1.2.4, 1.2.5, as well as 1.2.6.
     ///
-    ///     .package(id: "scope.name", "1.2.3"..."1.2.6"),
+    ///    .package(id: "scope.name", "1.2.3"..."1.2.6"),
     ///
     /// - Parameters:
     ///     - id: The identity of the package.
