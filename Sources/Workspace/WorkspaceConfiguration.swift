@@ -32,7 +32,7 @@ extension Workspace {
         public var resolvedVersionsFile: AbsolutePath
         
         /// Path to the shared security directory
-        public var sharedSecurityDirectory: AbsolutePath
+        public var sharedSecurityDirectory: AbsolutePath?
 
         /// Path to the shared cache directory
         public var sharedCacheDirectory: AbsolutePath?
@@ -61,8 +61,8 @@ extension Workspace {
         }
         
         /// Path to the shared fingerprints directory.
-        public var sharedFingerprintsDirectory: AbsolutePath {
-            self.sharedSecurityDirectory.appending(component: "fingerprints")
+        public var sharedFingerprintsDirectory: AbsolutePath? {
+            self.sharedSecurityDirectory.map { $0.appending(component: "fingerprints") }
         }
 
         /// Path to the shared repositories cache.
@@ -103,7 +103,7 @@ extension Workspace {
             workingDirectory: AbsolutePath,
             editsDirectory: AbsolutePath,
             resolvedVersionsFile: AbsolutePath,
-            sharedSecurityDirectory: AbsolutePath,
+            sharedSecurityDirectory: AbsolutePath?,
             sharedCacheDirectory: AbsolutePath?,
             sharedConfigurationDirectory: AbsolutePath?
         ) {
