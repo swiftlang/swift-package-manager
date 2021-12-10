@@ -640,6 +640,20 @@ public class SwiftTool {
             return .none
         }
     }
+    
+    private func getSharedSecurityDirectory() throws -> AbsolutePath? {
+        do {
+            let fileSystem = localFileSystem
+            let sharedSecurityDirectory = fileSystem.swiftPMSecurityDirectory
+            if !fileSystem.exists(sharedSecurityDirectory) {
+                try fileSystem.createDirectory(sharedSecurityDirectory, recursive: true)
+            }
+            return sharedSecurityDirectory
+        } catch {
+            self.observabilityScope.emit(warning: "Failed creating shared security directory: \(error)")
+            return .none
+        }
+    }
 
     /// Returns the currently active workspace.
     func getActiveWorkspace() throws -> Workspace {
@@ -649,7 +663,8 @@ public class SwiftTool {
 
         let delegate = ToolWorkspaceDelegate(self.outputStream, logLevel: self.logLevel, observabilityScope: self.observabilityScope)
         let provider = GitRepositoryProvider(processSet: processSet)
-        let sharedCacheDirectory =  try self.getSharedCacheDirectory()
+        let sharedSecurityDirectory = try self.getSharedSecurityDirectory()
+        let sharedCacheDirectory = try self.getSharedCacheDirectory()
         let sharedConfigurationDirectory = try self.getSharedConfigurationDirectory()
         let isXcodeBuildSystemEnabled = self.options.buildSystem == .xcode
         let workspace = try Workspace(
@@ -658,7 +673,7 @@ public class SwiftTool {
                 workingDirectory: buildPath,
                 editsDirectory: self.editsDirectory(),
                 resolvedVersionsFile: self.resolvedVersionsFile(),
-                sharedSecurityDirectory: localFileSystem.swiftPMSecurityDirectory,
+                sharedSecurityDirectory: sharedSecurityDirectory,
                 sharedCacheDirectory: sharedCacheDirectory,
                 sharedConfigurationDirectory: sharedConfigurationDirectory
             ),

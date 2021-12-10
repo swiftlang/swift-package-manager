@@ -65,5 +65,4 @@ public typealias PackageFingerprints = [Version: [Fingerprint.Kind: Fingerprint]
 public enum FingerprintCheckingMode: String {
     case strict
     case warn
-    case none
 }
