@@ -21,7 +21,7 @@ import TSCBasic
 /// There is no need to perform any git operations on such packages and they
 /// should be used as-is. In fact, they might not even have a git repository.
 /// Examples: Root packages, local dependencies, edited packages.
-internal struct FileSystemPackageContainer: PackageContainer {
+public struct FileSystemPackageContainer: PackageContainer {
     public let package: PackageReference
     private let identityResolver: IdentityResolver
     private let manifestLoader: ManifestLoaderProtocol

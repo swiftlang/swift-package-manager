@@ -231,8 +231,8 @@ public func loadPackageGraph(
     observabilityScope: ObservabilityScope
 ) throws -> PackageGraph {
     let rootManifests = manifests.filter { $0.packageKind.isRoot }.spm_createDictionary{ ($0.path, $0) }
-    let externalManifests = try manifests.filter { !$0.packageKind.isRoot }.reduce(into: OrderedDictionary<PackageIdentity, Manifest>()) { partial, item in
-        partial[try identityResolver.resolveIdentity(for: item.packageKind)] = item
+    let externalManifests = try manifests.filter { !$0.packageKind.isRoot }.reduce(into: OrderedDictionary<PackageIdentity, (manifest: Manifest, fs: FileSystem)>()) { partial, item in
+        partial[try identityResolver.resolveIdentity(for: item.packageKind)] = (item, fs)
     }
 
     let packages = Array(rootManifests.keys)

@@ -197,6 +197,12 @@ public class Workspace {
     // var for backwards compatibility with deprecated initializers, remove with them
     fileprivate var identityResolver: IdentityResolver
 
+    /// The custom package container provider used by this workspace, if any.
+    fileprivate let customPackageContainerProvider: PackageContainerProvider?
+
+    /// The package container provider used by this workspace.
+    fileprivate var packageContainerProvider: PackageContainerProvider { return customPackageContainerProvider ?? self }
+
     /// The repository manager.
     // var for backwards compatibility with deprecated initializers, remove with them
     fileprivate var repositoryManager: RepositoryManager
@@ -273,6 +279,7 @@ public class Workspace {
         authorizationProvider: AuthorizationProvider? = .none,
         customToolsVersion: ToolsVersion? = .none,
         customManifestLoader: ManifestLoaderProtocol? = .none,
+        customPackageContainerProvider: PackageContainerProvider? = .none,
         customRepositoryManager: RepositoryManager? = .none,
         customRepositoryProvider: RepositoryProvider? = .none,
         customRegistryClient: RegistryClient? = .none,
@@ -297,6 +304,7 @@ public class Workspace {
         )
         let mirrors = mirrors ?? DependencyMirrors()
         let identityResolver = customIdentityResolver ?? DefaultIdentityResolver(locationMapper: mirrors.effectiveURL(for:))
+        let packageContainerProvider = customPackageContainerProvider
         let repositoryProvider = customRepositoryProvider ?? GitRepositoryProvider()
         let sharedRepositoriesCacheEnabled = sharedRepositoriesCacheEnabled ?? true
         let repositoryManager = customRepositoryManager ?? RepositoryManager(
@@ -352,6 +360,7 @@ public class Workspace {
         self.identityResolver = identityResolver
         self.checksumAlgorithm = checksumAlgorithm
         self.fingerprintStorage = fingerprintStorage
+        self.customPackageContainerProvider = packageContainerProvider
 
         self.pinsStore = LoadableResult {
             try PinsStore(
@@ -628,7 +637,7 @@ extension Workspace {
         switch dependency.state {
         case .sourceControlCheckout(let checkoutState):
             defaultRequirement = checkoutState.requirement
-        case .registryDownload(let version):
+        case .registryDownload(let version), .custom(let version, _):
             defaultRequirement = .versionSet(.exact(version))
         case .fileSystem:
             throw StringError("local dependency '\(dependency.packageRef.identity)' can't be resolved")
@@ -1155,6 +1164,9 @@ extension Workspace {
         case .registryDownload:
             observabilityScope.emit(error: "registry dependency '\(dependency.packageRef.identity)' can't be edited")
             return
+        case .custom:
+            observabilityScope.emit(error: "custom dependency '\(dependency.packageRef.identity)' can't be edited")
+            return
         }
 
         // If a path is provided then we use it as destination. If not, we
@@ -1371,7 +1383,7 @@ fileprivate extension PinsStore {
                 packageRef: dependency.packageRef,
                 state: .version(version, revision: .none)
             )
-        case .edited, .fileSystem:
+        case .edited, .fileSystem, .custom:
             // NOOP
             break
         }
@@ -1387,13 +1399,13 @@ extension Workspace {
         let root: PackageGraphRoot
 
         /// The dependency manifests in the transitive closure of root manifest.
-        let dependencies: [(manifest: Manifest, dependency: ManagedDependency, productFilter: ProductFilter)]
+        let dependencies: [(manifest: Manifest, dependency: ManagedDependency, productFilter: ProductFilter, fileSystem: FileSystem)]
 
         let workspace: Workspace
 
         fileprivate init(
             root: PackageGraphRoot,
-            dependencies: [(manifest: Manifest, dependency: ManagedDependency, productFilter: ProductFilter)],
+            dependencies: [(manifest: Manifest, dependency: ManagedDependency, productFilter: ProductFilter, fileSystem: FileSystem)],
             workspace: Workspace
         ) {
             self.root = root
@@ -1402,9 +1414,9 @@ extension Workspace {
         }
 
         /// Returns all manifests contained in DependencyManifests.
-        public func allDependencyManifests() -> OrderedDictionary<PackageIdentity, Manifest> {
-            return self.dependencies.reduce(into: OrderedDictionary<PackageIdentity, Manifest>()) { partial, item in
-                partial[item.dependency.packageRef.identity] = item.manifest
+        public func allDependencyManifests() -> OrderedDictionary<PackageIdentity, (manifest: Manifest, fs: FileSystem)> {
+            return self.dependencies.reduce(into: OrderedDictionary<PackageIdentity, (manifest: Manifest, fs: FileSystem)>()) { partial, item in
+                partial[item.dependency.packageRef.identity] = (item.manifest, item.fileSystem)
             }
         }
 
@@ -1424,7 +1436,7 @@ extension Workspace {
                     if checkout.isBranchOrRevisionBased {
                         result.insert(dependency.packageRef)
                     }
-                case .registryDownload, .edited:
+                case .registryDownload, .edited, .custom:
                     continue
                 case .fileSystem:
                     result.insert(dependency.packageRef)
@@ -1446,13 +1458,13 @@ extension Workspace {
             var inputIdentities: Set<PackageReference> = []
             let inputNodes: [GraphLoadingNode] = self.root.packages.map{ identity, package in
                 inputIdentities.insert(package.reference)
-                let node = GraphLoadingNode(identity: identity, manifest: package.manifest, productFilter: .everything)
+                let node = GraphLoadingNode(identity: identity, manifest: package.manifest, productFilter: .everything, fileSystem: self.workspace.fileSystem)
                 return node
             } + self.root.dependencies.compactMap{ dependency in
                 let package = dependency.createPackageRef()
                 inputIdentities.insert(package)
                 return manifestsMap[dependency.identity].map { manifest in
-                    GraphLoadingNode(identity: dependency.identity, manifest: manifest, productFilter: dependency.productFilter)
+                    GraphLoadingNode(identity: dependency.identity, manifest: manifest, productFilter: dependency.productFilter, fileSystem: self.workspace.fileSystem)
                 }
             }
 
@@ -1463,7 +1475,7 @@ extension Workspace {
                     let package = dependency.createPackageRef()
                     requiredIdentities.insert(package)
                     return manifestsMap[dependency.identity].map { manifest in
-                        GraphLoadingNode(identity: dependency.identity, manifest: manifest, productFilter: dependency.productFilter)
+                        GraphLoadingNode(identity: dependency.identity, manifest: manifest, productFilter: dependency.productFilter, fileSystem: self.workspace.fileSystem)
                     }
                 }
             }
@@ -1494,7 +1506,7 @@ extension Workspace {
         func dependencyConstraints() throws -> [PackageContainerConstraint] {
             var allConstraints = [PackageContainerConstraint]()
 
-            for (externalManifest, managedDependency, productFilter) in dependencies {
+            for (externalManifest, managedDependency, productFilter, _) in dependencies {
                 // For edited packages, add a constraint with unversioned requirement so the
                 // resolver doesn't try to resolve it.
                 switch managedDependency.state {
@@ -1510,7 +1522,7 @@ extension Workspace {
                         requirement: .unversioned,
                         products: productFilter)
                     allConstraints.append(constraint)
-                case .sourceControlCheckout, .registryDownload, .fileSystem:
+                case .sourceControlCheckout, .registryDownload, .fileSystem, .custom:
                     break
                 }
                 allConstraints += try externalManifest.dependencyConstraints(productFilter: productFilter)
@@ -1523,9 +1535,9 @@ extension Workspace {
         public func editedPackagesConstraints() -> [PackageContainerConstraint] {
             var constraints = [PackageContainerConstraint]()
 
-            for (_, managedDependency, productFilter) in dependencies {
+            for (_, managedDependency, productFilter, _) in dependencies {
                 switch managedDependency.state {
-                case .sourceControlCheckout, .registryDownload, .fileSystem: continue
+                case .sourceControlCheckout, .registryDownload, .fileSystem, .custom: continue
                 case .edited: break
                 }
                 // FIXME: We shouldn't need to construct a new package reference object here.
@@ -1581,6 +1593,8 @@ extension Workspace {
         case .edited(_, let path):
             return path ?? self.location.editSubdirectory(for: dependency)
         case .fileSystem(let path):
+            return path
+        case .custom(_, let path):
             return path
         }
     }
@@ -1696,11 +1710,14 @@ extension Workspace {
             }
         }
 
-        let dependencies = try dependencyManifests.map{ identity, manifest, productFilter -> (Manifest, ManagedDependency, ProductFilter) in
+        let dependencies = try dependencyManifests.map{ identity, manifest, productFilter -> (Manifest, ManagedDependency, ProductFilter, FileSystem) in
             guard let dependency = self.state.dependencies[identity] else {
                 throw InternalError("dependency not found for \(identity) at \(manifest.packageLocation)")
             }
-            return (manifest, dependency, productFilter)
+
+            let packageRef = PackageReference(identity: identity, kind: manifest.packageKind)
+            let fileSystem = try self.getFileSystem(package: packageRef, state: dependency.state, observabilityScope: observabilityScope)
+            return (manifest, dependency, productFilter, fileSystem ?? self.fileSystem)
         }
 
         return DependencyManifests(root: root, dependencies: dependencies, workspace: self)
@@ -1758,9 +1775,21 @@ extension Workspace {
         case .registryDownload(let downloadedVersion):
             packageKind = managedDependency.packageRef.kind
             version = downloadedVersion
+        case .custom(let availableVersion, _):
+            packageKind = managedDependency.packageRef.kind
+            version = availableVersion
         case .edited, .fileSystem:
             packageKind = .fileSystem(packagePath)
             version = .none
+        }
+
+        let fileSystem: FileSystem?
+        do {
+            fileSystem = try self.getFileSystem(package: package, state: managedDependency.state, observabilityScope: observabilityScope)
+        } catch {
+            // only warn here in case of issues since we should not even get here without a valid package container
+            observabilityScope.emit(warning: "unexpected failure while accessing custom package container: \(error)")
+            fileSystem = nil
         }
 
         // Load and return the manifest.
@@ -1770,6 +1799,7 @@ extension Workspace {
             packagePath: packagePath,
             packageLocation: managedDependency.packageRef.locationString,
             version: version,
+            fileSystem: fileSystem,
             observabilityScope: observabilityScope
         ) { result in
             // error is added to diagnostics in the function above
@@ -1786,9 +1816,12 @@ extension Workspace {
         packagePath: AbsolutePath,
         packageLocation: String,
         version: Version? = nil,
+        fileSystem: FileSystem? = nil,
         observabilityScope: ObservabilityScope,
         completion: @escaping (Result<Manifest, Error>) -> Void
     ) {
+        let fileSystem = fileSystem ?? self.fileSystem
+
         // Load the manifest, bracketed by the calls to the delegate callbacks.
         delegate?.willLoadManifest(packagePath: packagePath, url: packageLocation, version: version, packageKind: packageKind)
 
@@ -1826,7 +1859,7 @@ extension Workspace {
                     revision: nil,
                     toolsVersion: toolsVersion,
                     identityResolver: self.identityResolver,
-                    fileSystem: localFileSystem,
+                    fileSystem: fileSystem,
                     observabilityScope: manifestLoadingScope,
                     on: .sharedConcurrent
                 ) { result in
@@ -1881,6 +1914,19 @@ extension Workspace {
                     _ = try self.downloadRegistryArchive(package: dependency.packageRef, at: version, observabilityScope: observabilityScope)
                     observabilityScope.emit(.registryDependencyMissing(packageName: dependency.packageRef.identity.description))
 
+                case .custom(let version, let path):
+                    let container = try temp_await { packageContainerProvider.getContainer(for: dependency.packageRef, skipUpdate: true, observabilityScope: observabilityScope, on: .sharedConcurrent, completion: $0) }
+                    if let customContainer = container as? CustomPackageContainer {
+                        let newPath = try customContainer.retrieve(at: version, observabilityScope: observabilityScope)
+                        observabilityScope.emit(.customDependencyMissing(packageName: dependency.packageRef.identity.description))
+
+                        // FIXME: We should be able to handle this case and also allow changed paths for registry and SCM downloads.
+                        if newPath != path {
+                            observabilityScope.emit(error: "custom dependency was retrieved at a different path: \(newPath)")
+                        }
+                    } else {
+                        observabilityScope.emit(error: "invalid custom dependency container: \(container)")
+                    }
                 case .edited:
                     // If some edited dependency has been removed, mark it as unedited.
                     //
@@ -2022,7 +2068,7 @@ extension Workspace {
     private func parseArtifacts(from manifests: DependencyManifests) throws -> (local: [ManagedArtifact], remote: [RemoteArtifact]) {
         let packageAndManifests: [(reference: PackageReference, manifest: Manifest)] =
             manifests.root.packages.values + // Root package and manifests.
-            manifests.dependencies.map({ manifest, managed, _ in (managed.packageRef, manifest) }) // Dependency package and manifests.
+            manifests.dependencies.map({ manifest, managed, _, _ in (managed.packageRef, manifest) }) // Dependency package and manifests.
 
         var localArtifacts: [ManagedArtifact] = []
         var remoteArtifacts: [RemoteArtifact] = []
@@ -2348,7 +2394,7 @@ extension Workspace {
         // We just request the packages here, repository manager will
         // automatically manage the parallelism.
         for pin in pinsStore.pins {
-            self.getContainer(for: pin.packageRef, skipUpdate: true, observabilityScope: observabilityScope, on: .sharedConcurrent, completion: { _ in })
+            packageContainerProvider.getContainer(for: pin.packageRef, skipUpdate: true, observabilityScope: observabilityScope, on: .sharedConcurrent, completion: { _ in })
         }
 
         // Compute the pins that we need to actually clone.
@@ -2365,7 +2411,7 @@ extension Workspace {
                 return !pin.state.equals(checkoutState)
             case .registryDownload(let version):
                 return !pin.state.equals(version)
-            case .edited, .fileSystem:
+            case .edited, .fileSystem, .custom:
                 return true
             }
         }
@@ -2597,7 +2643,7 @@ extension Workspace {
         case .version(let version):
             // FIXME: this should not block
             let container = try temp_await {
-                self.getContainer(
+                packageContainerProvider.getContainer(
                     for: package,
                     skipUpdate: true,
                     observabilityScope: observabilityScope,
@@ -2618,6 +2664,12 @@ extension Workspace {
                 return try self.checkoutRepository(package: package, at: .version(version, revision: revision), observabilityScope: observabilityScope)
             } else if let _ = container as? RegistryPackageContainer {
                 return try self.downloadRegistryArchive(package: package, at: version, observabilityScope: observabilityScope)
+            } else if let customContainer = container as? CustomPackageContainer {
+                let path = try customContainer.retrieve(at: version, observabilityScope: observabilityScope)
+                let dependency = ManagedDependency(packageRef: package, state: .custom(version: version, path: path), subpath: RelativePath(""))
+                self.state.dependencies.add(dependency)
+                try self.state.save()
+                return path
             } else {
                 throw InternalError("invalid container for \(package.identity) of type \(package.kind)")
             }
@@ -2707,7 +2759,7 @@ extension Workspace {
         for dependency in self.state.dependencies {
             switch dependency.state {
             case .sourceControlCheckout, .registryDownload: break
-            case .edited, .fileSystem: continue
+            case .edited, .fileSystem, .custom: continue
             }
 
             // also comparing location as it may have changed at this point
@@ -2854,6 +2906,8 @@ extension Workspace {
                         packageStateChanges[packageRef.identity] = (packageRef, .updated(newState))
                     case .registryDownload:
                         throw InternalError("Unexpected unversioned binding for downloaded dependency")
+                    case .custom:
+                        throw InternalError("Unexpected unversioned binding for custom dependency")
                     }
                 } else {
                     let newState = PackageStateChange.State(requirement: .unversioned, products: products)
@@ -2864,7 +2918,7 @@ extension Workspace {
                 // Get the latest revision from the container.
                 // TODO: replace with async/await when available
                 guard let container = (try temp_await {
-                    self.getContainer(for: packageRef, skipUpdate: true, observabilityScope: observabilityScope, on: .sharedConcurrent, completion: $0)
+                    packageContainerProvider.getContainer(for: packageRef, skipUpdate: true, observabilityScope: observabilityScope, on: .sharedConcurrent, completion: $0)
                 }) as? SourceControlPackageContainer else {
                     throw InternalError("invalid container for \(packageRef) expected a SourceControlPackageContainer")
                 }
@@ -2903,9 +2957,12 @@ extension Workspace {
 
             case .version(let version):
                 if let currentDependency = currentDependency {
+                    // FIXME: This should probably be refactored into a switch statement to avoid missing new cases.
                     if case .sourceControlCheckout(let checkoutState) = currentDependency.state, case .version(version, _) = checkoutState {
                         packageStateChanges[packageRef.identity] = (packageRef, .unchanged)
                     } else if case .registryDownload(version) = currentDependency.state {
+                        packageStateChanges[packageRef.identity] = (packageRef, .unchanged)
+                    } else if case .custom(version, _) = currentDependency.state {
                         packageStateChanges[packageRef.identity] = (packageRef, .unchanged)
                     } else {
                         let newState = PackageStateChange.State(requirement: .version(version), products: products)
@@ -2939,7 +2996,7 @@ extension Workspace {
         }
 
         return PubgrubDependencyResolver(
-            provider: self,
+            provider: packageContainerProvider,
             pinsMap: pinsMap,
             updateEnabled: self.resolverUpdateEnabled,
             prefetchingEnabled: self.resolverPrefetchingEnabled,
@@ -3500,7 +3557,7 @@ extension Workspace {
                 case .unversioned:
                     result.append("unversioned")
                 }
-            case .registryDownload(let version)?:
+            case .registryDownload(let version)?, .custom(let version, _):
                 result.append("resolved to '\(version)'")
             case .edited?:
                 result.append("edited")
@@ -3586,6 +3643,28 @@ extension CheckoutState {
         case .branch(let branch, _):
             return .revision(branch)
         }
+    }
+}
+
+extension Workspace {
+    fileprivate func getFileSystem(package: PackageReference, state: Workspace.ManagedDependency.State, observabilityScope: ObservabilityScope) throws -> FileSystem? {
+        // Only custom containers may provide a file system.
+        guard self.customPackageContainerProvider != nil else {
+            return nil
+        }
+
+        guard case .custom(_, _) = state else {
+            observabilityScope.emit(error: "invalid managed dependency state for custom dependency: \(state)")
+            return nil
+        }
+
+        let container = try temp_await { packageContainerProvider.getContainer(for: package, skipUpdate: true, observabilityScope: observabilityScope, on: .sharedConcurrent, completion: $0) }
+        guard let customContainer = container as? CustomPackageContainer else {
+            observabilityScope.emit(error: "invalid custom dependency container: \(container)")
+            return nil
+        }
+
+        return try customContainer.getFileSystem()
     }
 }
 
