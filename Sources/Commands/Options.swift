@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
+ Copyright (c) 2014 - 2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -11,6 +11,7 @@
 import ArgumentParser
 import TSCBasic
 import TSCUtility
+import PackageFingerprint
 import PackageModel
 import SPMBuildCore
 import Build
@@ -88,6 +89,12 @@ extension AbsolutePath: ExpressibleByArgument {
 enum BuildSystemKind: String, ExpressibleByArgument, CaseIterable {
     case native
     case xcode
+}
+
+extension FingerprintCheckingMode: ExpressibleByArgument {
+    public init?(argument: String) {
+        self.init(rawValue: argument)
+    }
 }
 
 public extension Sanitizer {
@@ -348,6 +355,9 @@ public struct SwiftToolOptions: ParsableArguments {
           help: .hidden)
     var keychain: Bool = false
 #endif
+    
+    @Option(name: .customLong("resolver-fingerprint-checking"))
+    var resolverFingerprintCheckingMode: FingerprintCheckingMode = .warn
 
     @Flag(name: .customLong("netrc"), help: .hidden)
     var _deprecated_netrc: Bool = false

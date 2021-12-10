@@ -14,14 +14,13 @@ import class Foundation.JSONDecoder
 import struct Foundation.URL
 import struct Foundation.URLComponents
 import struct Foundation.URLQueryItem
+import PackageFingerprint
 import PackageLoading
 import PackageModel
 import TSCBasic
 import protocol TSCUtility.Archiver
 import struct TSCUtility.ZipArchiver
 
-/// Package registry client.
-/// API specification: https://github.com/apple/swift-package-manager/blob/main/Documentation/Registry.md
 public enum RegistryError: Error, CustomStringConvertible {
     case registryNotConfigured(scope: PackageIdentity.Scope?)
     case invalidPackage(PackageIdentity)
@@ -35,6 +34,7 @@ public enum RegistryError: Error, CustomStringConvertible {
     case unsupportedHashAlgorithm(String)
     case failedToDetermineExpectedChecksum(Error)
     case failedToComputeChecksum(Error)
+    case checksumChanged(latest: String, previous: String)
     case invalidChecksum(expected: String, actual: String)
     case pathAlreadyExists(AbsolutePath)
     case failedRetrievingReleases(Error)
@@ -72,6 +72,8 @@ public enum RegistryError: Error, CustomStringConvertible {
             return "Failed determining registry source archive checksum: \(error)"
         case .failedToComputeChecksum(let error):
             return "Failed computing registry source archive checksum: \(error)"
+        case .checksumChanged(let latest, let previous):
+            return "The latest checksum '\(latest)' is different from the previously recorded value '\(previous)'"
         case .invalidChecksum(let expected, let actual):
             return "Invalid registry source archive checksum '\(actual)', expected '\(expected)'"
         case .pathAlreadyExists(let path):
@@ -88,6 +90,8 @@ public enum RegistryError: Error, CustomStringConvertible {
     }
 }
 
+/// Package registry client.
+/// API specification: https://github.com/apple/swift-package-manager/blob/main/Documentation/Registry.md
 public final class RegistryClient {
     private let apiVersion: APIVersion = .v1
 
@@ -96,11 +100,15 @@ public final class RegistryClient {
     private let archiverProvider: (FileSystem) -> Archiver
     private let httpClient: HTTPClient
     private let authorizationProvider: HTTPClientAuthorizationProvider?
+    private let fingerprintStorage: PackageFingerprintStorage
+    private let fingerprintCheckingMode: FingerprintCheckingMode
     private let jsonDecoder: JSONDecoder
 
     public init(
         configuration: RegistryConfiguration,
         identityResolver: IdentityResolver,
+        fingerprintStorage: PackageFingerprintStorage,
+        fingerprintCheckingMode: FingerprintCheckingMode,
         authorizationProvider: HTTPClientAuthorizationProvider? = .none,
         customHTTPClient: HTTPClient? = .none,
         customArchiverProvider: ((FileSystem) -> Archiver)? = .none
@@ -110,6 +118,8 @@ public final class RegistryClient {
         self.authorizationProvider = authorizationProvider
         self.httpClient = customHTTPClient ?? HTTPClient()
         self.archiverProvider = customArchiverProvider ?? { fileSystem in ZipArchiver(fileSystem: fileSystem) }
+        self.fingerprintStorage = fingerprintStorage
+        self.fingerprintCheckingMode = fingerprintCheckingMode
         self.jsonDecoder = JSONDecoder.makeWithDefaults()
     }
 
@@ -162,7 +172,7 @@ public final class RegistryClient {
                         .compactMap { Version($0.key) }
                         .sorted(by: >)
                     return versions
-                }.mapError{
+                }.mapError {
                     RegistryError.failedRetrievingReleases($0)
                 }
             )
@@ -221,19 +231,19 @@ public final class RegistryClient {
                     let toolsVersion = try ToolsVersionLoader().load(utf8String: manifestContent)
                     result[Manifest.filename] = toolsVersion
 
-                    let alternativeManifests = try response.headers.get("Link").map { try parseLinkHeader($0) }.flatMap{ $0 }
+                    let alternativeManifests = try response.headers.get("Link").map { try parseLinkHeader($0) }.flatMap { $0 }
                     for alternativeManifest in alternativeManifests {
                         result[alternativeManifest.filename] = alternativeManifest.toolsVersion
                     }
                     return result
-                }.mapError{
+                }.mapError {
                     RegistryError.failedRetrievingManifest($0)
                 }
             )
         }
 
         func parseLinkHeader(_ value: String) throws -> [ManifestLink] {
-            let linkLines = value.split(separator: ",").map(String.init).map{ $0.spm_chuzzle() ?? $0 }
+            let linkLines = value.split(separator: ",").map(String.init).map { $0.spm_chuzzle() ?? $0 }
             return try linkLines.compactMap { linkLine in
                 try parseLinkLine(linkLine)
             }
@@ -243,7 +253,7 @@ public final class RegistryClient {
         func parseLinkLine(_ value: String) throws -> ManifestLink? {
             let fields = value.split(separator: ";")
                 .map(String.init)
-                .map{ $0.spm_chuzzle() ?? $0 }
+                .map { $0.spm_chuzzle() ?? $0 }
 
             guard fields.count == 4 else {
                 return nil
@@ -279,7 +289,7 @@ public final class RegistryClient {
         func parseLinkFieldValue(_ field: String) -> String? {
             let parts = field.split(separator: "=")
                 .map(String.init)
-                .map{ $0.spm_chuzzle() ?? $0 }
+                .map { $0.spm_chuzzle() ?? $0 }
 
             guard parts.count == 2 else {
                 return nil
@@ -351,7 +361,7 @@ public final class RegistryClient {
                     }
 
                     return manifestContent
-                }.mapError{
+                }.mapError {
                     RegistryError.failedRetrievingManifest($0)
                 }
             )
@@ -395,8 +405,9 @@ public final class RegistryClient {
         )
 
         self.httpClient.execute(request, observabilityScope: observabilityScope, progress: nil) { result in
-            completion(
-                result.tryMap { response in
+            switch result {
+            case .success(let response):
+                do {
                     try self.checkResponseStatusAndHeaders(response, expectedStatusCode: 200, expectedContentType: .json)
 
                     guard let data = response.body else {
@@ -412,11 +423,34 @@ public final class RegistryClient {
                         throw RegistryError.invalidSourceArchive
                     }
 
-                    return checksum
-                }.mapError{
-                    RegistryError.failedRetrievingReleaseChecksum($0)
+                    self.fingerprintStorage.put(package: package,
+                                                version: version,
+                                                fingerprint: .init(origin: .registry(registry.url), value: checksum),
+                                                observabilityScope: observabilityScope,
+                                                callbackQueue: callbackQueue) { storageResult in
+                        switch storageResult {
+                        case .success:
+                            completion(.success(checksum))
+                        case .failure(PackageFingerprintStorageError.conflict(_, let existing)):
+                            switch self.fingerprintCheckingMode {
+                            case .strict:
+                                completion(.failure(RegistryError.checksumChanged(latest: checksum, previous: existing.value)))
+                            case .warn:
+                                observabilityScope.emit(warning: "The checksum \(checksum) from \(registry.url.absoluteString) does not match previously recorded value \(existing.value) from \(String(describing: existing.origin.url?.absoluteString))")
+                                completion(.success(checksum))
+                            case .none:
+                                completion(.success(checksum))
+                            }
+                        case .failure(let error):
+                            completion(.failure(error))
+                        }
+                    }
+                } catch {
+                    completion(.failure(RegistryError.failedRetrievingReleaseChecksum(error)))
                 }
-            )
+            case .failure(let error):
+                completion(.failure(RegistryError.failedRetrievingReleaseChecksum(error)))
+            }
         }
     }
 
@@ -425,7 +459,6 @@ public final class RegistryClient {
         version: Version,
         fileSystem: FileSystem,
         destinationPath: AbsolutePath,
-        expectedChecksum: String?, // previously recorded checksum, if any
         checksumAlgorithm: HashAlgorithm, // the same algorithm used by `package compute-checksum` tool
         progressHandler: ((_ bytesReceived: Int64, _ totalBytes: Int64?) -> Void)?,
         timeout: DispatchTimeInterval? = .none,
@@ -495,8 +528,16 @@ public final class RegistryClient {
                         do {
                             let contents = try fileSystem.readFileContents(downloadPath)
                             let actualChecksum = checksumAlgorithm.hash(contents).hexadecimalRepresentation
-                            guard expectedChecksum == actualChecksum else {
-                                return completion(.failure(RegistryError.invalidChecksum(expected: expectedChecksum, actual: actualChecksum)))
+
+                            if expectedChecksum != actualChecksum {
+                                switch self.fingerprintCheckingMode {
+                                case .strict:
+                                    return completion(.failure(RegistryError.invalidChecksum(expected: expectedChecksum, actual: actualChecksum)))
+                                case .warn:
+                                    observabilityScope.emit(warning: "The checksum \(actualChecksum) does not match previously recorded value \(expectedChecksum)")
+                                case .none:
+                                    break
+                                }
                             }
 
                             let archiver = self.archiverProvider(fileSystem)
@@ -526,16 +567,26 @@ public final class RegistryClient {
 
         // We either use a previously recorded checksum, or fetch it from the registry
         func withExpectedChecksum(body: @escaping (Result<String, Error>) -> Void) {
-            if let expectedChecksum = expectedChecksum {
-                return body(.success(expectedChecksum))
+            self.fingerprintStorage.get(package: package,
+                                        version: version,
+                                        kind: .registry,
+                                        observabilityScope: observabilityScope,
+                                        callbackQueue: callbackQueue) { result in
+                switch result {
+                case .success(let fingerprint):
+                    body(.success(fingerprint.value))
+                case .failure(let error):
+                    if error as? PackageFingerprintStorageError != .notFound {
+                        observabilityScope.emit(error: "Failed to get registry fingerprint for \(package) \(version) from storage: \(error)")
+                    }
+                    // Try fetching checksum from registry again no matter which kind of error it is
+                    self.fetchSourceArchiveChecksum(package: package,
+                                                    version: version,
+                                                    observabilityScope: observabilityScope,
+                                                    callbackQueue: callbackQueue,
+                                                    completion: body)
+                }
             }
-            self.fetchSourceArchiveChecksum(
-                package: package,
-                version: version,
-                observabilityScope: observabilityScope,
-                callbackQueue: callbackQueue,
-                completion: body
-            )
         }
     }
 
@@ -655,9 +706,8 @@ private extension RegistryClient {
 
 // MARK: - Serialization
 
-extension RegistryClient {
-    public enum Serialization {
-
+public extension RegistryClient {
+    enum Serialization {
         public struct PackageMetadata: Codable {
             public var releases: [String: Release]
 

@@ -30,6 +30,7 @@ target_link_libraries(Workspace PUBLIC
   TSCUtility
   Basics
   SPMBuildCore
+  PackageFingerprint
   PackageGraph
   PackageLoading
   PackageModel

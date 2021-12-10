@@ -22,7 +22,7 @@ public struct FilePackageFingerprintStorage: PackageFingerprintStorage {
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
 
-    init(fileSystem: FileSystem, directoryPath: AbsolutePath) {
+    public init(fileSystem: FileSystem, directoryPath: AbsolutePath) {
         self.fileSystem = fileSystem
         self.directoryPath = directoryPath
 
