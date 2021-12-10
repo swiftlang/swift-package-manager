@@ -185,7 +185,7 @@ public final class RegistryClient {
         timeout: DispatchTimeInterval? = .none,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
-        completion: @escaping (Result<[String: ToolsVersion], Error>) -> Void
+        completion: @escaping (Result<[String: (toolsVersion: ToolsVersion, content: String?)], Error>) -> Void
     ) {
         let completion = self.makeAsync(completion, on: callbackQueue)
 
@@ -227,13 +227,13 @@ public final class RegistryClient {
                         throw RegistryError.invalidResponse
                     }
 
-                    var result = [String: ToolsVersion]()
+                    var result = [String: (toolsVersion: ToolsVersion, content: String?)]()
                     let toolsVersion = try ToolsVersionLoader().load(utf8String: manifestContent)
-                    result[Manifest.filename] = toolsVersion
+                    result[Manifest.filename] = (toolsVersion: toolsVersion, content: manifestContent)
 
                     let alternativeManifests = try response.headers.get("Link").map { try parseLinkHeader($0) }.flatMap { $0 }
                     for alternativeManifest in alternativeManifests {
-                        result[alternativeManifest.filename] = alternativeManifest.toolsVersion
+                        result[alternativeManifest.filename] = (toolsVersion: alternativeManifest.toolsVersion, content: .none)
                     }
                     return result
                 }.mapError {

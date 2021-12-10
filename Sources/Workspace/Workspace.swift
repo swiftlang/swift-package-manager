@@ -290,7 +290,7 @@ public class Workspace {
     ) throws {
         // defaults
         let currentToolsVersion = customToolsVersion ?? ToolsVersion.currentToolsVersion
-        let toolsVersionLoader = ToolsVersionLoader()
+        let toolsVersionLoader = ToolsVersionLoader(currentToolsVersion: currentToolsVersion)
         let manifestLoader = try customManifestLoader ?? ManifestLoader(
             toolchain: UserToolchain(destination: .hostDestination()).configuration,
             cacheDir: location.sharedManifestsCacheDirectory

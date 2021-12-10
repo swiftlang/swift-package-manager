@@ -161,7 +161,7 @@ private let v1: Version = "1.0.0"
 private let v2: Version = "2.0.0"
 private let v1Range: VersionSetSpecifier = .range("1.0.0" ..< "2.0.0")
 
-class PackageContainerProviderTests: XCTestCase {
+class SourceControlPackageContainerTests: XCTestCase {
     func testVprefixVersions() throws {
         let fs = InMemoryFileSystem()
 
