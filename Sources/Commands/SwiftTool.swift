@@ -662,8 +662,10 @@ public class SwiftTool {
         }
 
         let delegate = ToolWorkspaceDelegate(self.outputStream, logLevel: self.logLevel, observabilityScope: self.observabilityScope)
-        let provider = GitRepositoryProvider(processSet: processSet)
-        let sharedSecurityDirectory = try self.getSharedSecurityDirectory()
+        let provider = GitRepositoryProvider(processSet: processSet)        
+        // FIXME: rdar://86367436
+        //let sharedSecurityDirectory = try self.getSharedSecurityDirectory()
+        let sharedSecurityDirectory: AbsolutePath? = nil
         let sharedCacheDirectory = try self.getSharedCacheDirectory()
         let sharedConfigurationDirectory = try self.getSharedConfigurationDirectory()
         let isXcodeBuildSystemEnabled = self.options.buildSystem == .xcode
