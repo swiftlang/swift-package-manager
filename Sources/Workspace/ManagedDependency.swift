@@ -39,6 +39,8 @@ extension Workspace {
             /// for top of the tree style development.
             case edited(basedOn: ManagedDependency?, unmanagedPath: AbsolutePath?)
 
+            case custom(version: Version, path: AbsolutePath)
+
             public var description: String {
                 switch self {
                 case .fileSystem(let path):
@@ -49,6 +51,8 @@ extension Workspace {
                     return "registryDownload (\(version))"
                 case .edited:
                     return "edited"
+                case .custom:
+                    return "custom"
                 }
             }
         }
