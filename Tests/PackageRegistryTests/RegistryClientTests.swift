@@ -350,6 +350,74 @@ final class RegistryClientTests: XCTestCase {
         var configuration = RegistryConfiguration()
         configuration.defaultRegistry = Registry(url: URL(string: registryURL)!)
 
+        let fingerprintStorage = MockPackageFingerprintStorage([
+            identity: [
+                version: [.registry: Fingerprint(origin: .registry(URL(string: registryURL)!), value: "non-matching checksum")],
+            ],
+        ])
+        let registryClient = makeRegistryClient(configuration: configuration,
+                                                httpClient: httpClient,
+                                                fingerprintStorage: fingerprintStorage,
+                                                fingerprintCheckingMode: .strict)
+
+        XCTAssertThrowsError(try registryClient.fetchSourceArchiveChecksum(package: identity, version: version)) { error in
+            guard case RegistryError.checksumChanged = error else {
+                return XCTFail("Expected RegistryError.checksumChanged, got \(error)")
+            }
+        }
+    }
+
+    func testFetchSourceArchiveChecksum_storageConflict_fingerprintChecking_warn() throws {
+        let registryURL = "https://packages.example.com"
+        let identity = PackageIdentity.plain("mona.LinkedList")
+        let (scope, name) = identity.scopeAndName!
+        let version = Version("1.1.1")
+        let metadataURL = URL(string: "\(registryURL)/\(scope)/\(name)/\(version)")!
+        let checksum = "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
+
+        let handler: HTTPClient.Handler = { request, _, completion in
+            switch (request.method, request.url) {
+            case (.get, metadataURL):
+                XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+json")
+
+                let data = """
+                {
+                    "id": "mona.LinkedList",
+                    "version": "1.1.1",
+                    "resources": [
+                        {
+                            "name": "source-archive",
+                            "type": "application/zip",
+                            "checksum": "\(checksum)"
+                        }
+                    ],
+                    "metadata": {
+                        "description": "One thing links to another."
+                    }
+                }
+                """.data(using: .utf8)!
+
+                completion(.success(.init(
+                    statusCode: 200,
+                    headers: .init([
+                        .init(name: "Content-Length", value: "\(data.count)"),
+                        .init(name: "Content-Type", value: "application/json"),
+                        .init(name: "Content-Version", value: "1"),
+                    ]),
+                    body: data
+                )))
+            default:
+                completion(.failure(StringError("method and url should match")))
+            }
+        }
+
+        var httpClient = HTTPClient(handler: handler)
+        httpClient.configuration.circuitBreakerStrategy = .none
+        httpClient.configuration.retryStrategy = .none
+
+        var configuration = RegistryConfiguration()
+        configuration.defaultRegistry = Registry(url: URL(string: registryURL)!)
+
         let storedChecksum = "non-matching checksum"
         let fingerprintStorage = MockPackageFingerprintStorage([
             identity: [
@@ -359,11 +427,12 @@ final class RegistryClientTests: XCTestCase {
         let registryClient = makeRegistryClient(configuration: configuration,
                                                 httpClient: httpClient,
                                                 fingerprintStorage: fingerprintStorage,
-                                                fingerprintCheckingMode: .strict)
+                                                fingerprintCheckingMode: .warn)
 
         let observability = ObservabilitySystem.makeForTesting()
 
-        // The checksum differs from that in storage, but we don't throw write errors
+        // The checksum differs from that in storage, but error is not thrown
+        // because fingerprintCheckingMode=.warn
         let checksumResponse = try registryClient.fetchSourceArchiveChecksum(
             package: identity,
             version: version,
@@ -371,9 +440,9 @@ final class RegistryClientTests: XCTestCase {
         )
         XCTAssertEqual(checksum, checksumResponse)
 
-        // There should be a warning though
+        // But there should be a warning
         testDiagnostics(observability.diagnostics) { result in
-            result.check(diagnostic: .contains("different from previously recorded value"), severity: .warning)
+            result.check(diagnostic: .contains("does not match previously recorded value"), severity: .warning)
         }
 
         // Storage should NOT be updated

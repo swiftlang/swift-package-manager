@@ -185,8 +185,14 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
                         callback: $0
                     )
                 }
-            } catch {
-                observabilityScope.emit(warning: "Failed to save revision '\(revision.identifier) from \(sourceControlURL) to fingerprints storage: \(error)")
+            } catch PackageFingerprintStorageError.conflict(_, let existing) {
+                let message = "Revision \(revision.identifier) for \(self.package) version \(version) does not match previously recorded value \(existing.value) from \(String(describing: existing.origin.url?.absoluteString))"
+                switch self.fingerprintCheckingMode {
+                case .strict:
+                    throw StringError(message)
+                case .warn:
+                    observabilityScope.emit(warning: message)
+                }
             }
         } catch {
             self.observabilityScope.emit(error: "Failed to get source control fingerprint for \(self.package) version \(version) from storage: \(error)")
