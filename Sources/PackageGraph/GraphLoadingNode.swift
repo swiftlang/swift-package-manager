@@ -28,15 +28,29 @@ public struct GraphLoadingNode: Equatable, Hashable {
     /// The product filter applied to the package.
     public let productFilter: ProductFilter
 
-    public init(identity: PackageIdentity, manifest: Manifest, productFilter: ProductFilter) {
+    /// The file system to use for loading the given package.
+    public let fileSystem: FileSystem
+
+    public init(identity: PackageIdentity, manifest: Manifest, productFilter: ProductFilter, fileSystem: FileSystem) {
         self.identity = identity
         self.manifest = manifest
         self.productFilter = productFilter
+        self.fileSystem = fileSystem
     }
 
     /// Returns the dependencies required by this node.
     internal func requiredDependencies() -> [PackageDependency] {
         return manifest.dependenciesRequired(for: productFilter)
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(identity)
+        hasher.combine(manifest)
+        hasher.combine(productFilter)
+    }
+
+    public static func == (lhs: GraphLoadingNode, rhs: GraphLoadingNode) -> Bool {
+        return lhs.identity == rhs.identity && lhs.manifest == rhs.manifest && lhs.productFilter == rhs.productFilter
     }
 }
 

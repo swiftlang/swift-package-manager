@@ -28,6 +28,7 @@ public final class MockWorkspace {
     public let archiver: MockArchiver
     public let checksumAlgorithm: MockHashAlgorithm
     public let fingerprintStorage: MockPackageFingerprintStorage
+    public let customPackageContainerProvider: MockPackageContainerProvider?
     let roots: [MockPackage]
     let packages: [MockPackage]
     public let mirrors: DependencyMirrors
@@ -51,6 +52,7 @@ public final class MockWorkspace {
         customBinaryArchiver: MockArchiver? = .none,
         customChecksumAlgorithm: MockHashAlgorithm? = .none,
         customFingerprintStorage: MockPackageFingerprintStorage? = .none,
+        customPackageContainerProvider: MockPackageContainerProvider? = .none,
         resolverUpdateEnabled: Bool = true
     ) throws {
         let archiver = customBinaryArchiver ?? MockArchiver()
@@ -64,6 +66,7 @@ public final class MockWorkspace {
         self.fingerprintStorage = customFingerprintStorage ?? MockPackageFingerprintStorage()
         self.mirrors = mirrors ?? DependencyMirrors()
         self.identityResolver = DefaultIdentityResolver(locationMapper: self.mirrors.effectiveURL(for:))
+        self.customPackageContainerProvider = customPackageContainerProvider
         self.roots = roots
         self.packages = packages
 
@@ -115,7 +118,17 @@ public final class MockWorkspace {
             case .fileSystem(let path):
                 packagePath = basePath.appending(path)
             case .sourceControl(let url):
-                packagePath = basePath.appending(components: "sourceControl", url.absoluteString.spm_mangledToC99ExtendedIdentifier())
+                if let containerProvider = customPackageContainerProvider {
+                    let observability = ObservabilitySystem.makeForTesting()
+                    let packageRef = PackageReference(identity: PackageIdentity(url: url), kind: .remoteSourceControl(url))
+                    let container = try temp_await { containerProvider.getContainer(for: packageRef, skipUpdate: true, observabilityScope: observability.topScope, on: .sharedConcurrent, completion: $0) }
+                    guard let customContainer = container as? CustomPackageContainer else {
+                        throw StringError("invalid custom container: \(container)")
+                    }
+                    packagePath = try customContainer.retrieve(at: try Version(versionString: package.versions.first!!), observabilityScope: observability.topScope)
+                } else {
+                    packagePath = basePath.appending(components: "sourceControl", url.absoluteString.spm_mangledToC99ExtendedIdentifier())
+                }
             case .registry(let identity):
                 packagePath = basePath.appending(components: "registry", identity.description.spm_mangledToC99ExtendedIdentifier())
             }
@@ -233,6 +246,7 @@ public final class MockWorkspace {
             mirrors: self.mirrors,
             customToolsVersion: self.toolsVersion,
             customManifestLoader: self.manifestLoader,
+            customPackageContainerProvider: self.customPackageContainerProvider,
             customRepositoryProvider: self.repositoryProvider,
             customRegistryClient: self.registryClient,
             customIdentityResolver: self.identityResolver,
@@ -510,6 +524,7 @@ public final class MockWorkspace {
         case registryDownload(TSCUtility.Version)
         case edited(AbsolutePath?)
         case local
+        case custom(TSCUtility.Version, AbsolutePath)
     }
 
     public struct ManagedDependencyResult {
@@ -568,6 +583,11 @@ public final class MockWorkspace {
                     XCTFail("Expected local dependency", file: file, line: line)
                     return
                 }
+            case .custom(let currentVersion, let currentPath):
+                guard case .custom(let version, let path) = dependency.state else {
+                    return XCTFail("invalid dependency state \(dependency.state)", file: file, line: line)
+                }
+                XCTAssertTrue(currentVersion == version && currentPath == path, file: file, line: line)
             }
         }
     }
@@ -694,7 +714,7 @@ public final class MockWorkspace {
                     return XCTFail("invalid pin state \(pin.state)", file: file, line: line)
                 }
                 XCTAssertEqual(pinVersion, downloadVersion, file: file, line: line)
-            case .edited, .local:
+            case .edited, .local, .custom:
                 XCTFail("Unimplemented", file: file, line: line)
             }
         }
