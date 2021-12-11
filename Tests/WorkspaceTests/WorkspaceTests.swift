@@ -1832,7 +1832,7 @@ final class WorkspaceTests: XCTestCase {
 
         try workspace.loadDependencyManifests(roots: ["Root1"]) { manifests, diagnostics in
             // Ensure that the order of the manifests is stable.
-            XCTAssertEqual(manifests.allDependencyManifests().map { $0.value.displayName }, ["Foo", "Baz", "Bam", "Bar"])
+            XCTAssertEqual(manifests.allDependencyManifests().map { $0.value.manifest.displayName }, ["Foo", "Baz", "Bam", "Bar"])
             XCTAssertNoDiagnostics(diagnostics)
         }
     }
@@ -8900,6 +8900,79 @@ final class WorkspaceTests: XCTestCase {
         XCTAssertMatch(workspace.delegate.events, ["did load manifest for remoteSourceControl package: http://localhost/org/bar"])
         XCTAssertMatch(workspace.delegate.events, ["will load manifest for registry package: org.baz"])
         XCTAssertMatch(workspace.delegate.events, ["did load manifest for registry package: org.baz"])
+    }
+
+    func testCustomPackageContainerProvider() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let customFS = InMemoryFileSystem()
+        let sourcesDir = AbsolutePath("/Sources")
+        let targetDir = sourcesDir.appending(component: "Baz")
+        try customFS.createDirectory(targetDir, recursive: true)
+        try customFS.writeFileContents(targetDir.appending(component: "file.swift"), bytes: "")
+
+        let bazURL = try XCTUnwrap(URL(string: "https://example.com/baz"))
+        let bazPackageReference = PackageReference(identity: PackageIdentity(url: bazURL), kind: .remoteSourceControl(bazURL))
+        let bazContainer = MockPackageContainer(package: bazPackageReference, dependencies: ["1.0.0": []], fileSystem: customFS, customRetrievalPath: .root)
+
+        let fooPath = AbsolutePath("/tmp/ws/Foo")
+        let fooPackageReference = PackageReference(identity: PackageIdentity(path: fooPath), kind: .root(fooPath))
+        let fooContainer = MockPackageContainer(package: fooPackageReference)
+
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Foo",
+                    targets: [
+                        MockTarget(name: "Foo", dependencies: ["Bar"]),
+                        MockTarget(name: "Bar", dependencies: [.product(name: "Baz", package: "baz")]),
+                        MockTarget(name: "BarTests", dependencies: ["Bar"], type: .test),
+                    ],
+                    products: [
+                        MockProduct(name: "Foo", targets: ["Foo", "Bar"]),
+                    ],
+                    dependencies: [
+                        .sourceControl(url: bazURL, requirement: .upToNextMajor(from: "1.0.0")),
+                    ]
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "Baz",
+                    url: bazURL.absoluteString,
+                    targets: [
+                        MockTarget(name: "Baz"),
+                    ],
+                    products: [
+                        MockProduct(name: "Baz", targets: ["Baz"]),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+            ],
+            customPackageContainerProvider: MockPackageContainerProvider(containers: [fooContainer, bazContainer])
+        )
+
+        let deps: [MockDependency] = [
+            .sourceControl(url: bazURL, requirement: .exact("1.0.0")),
+        ]
+        try workspace.checkPackageGraph(roots: ["Foo"], deps: deps) { graph, diagnostics in
+            PackageGraphTester(graph) { result in
+                result.check(roots: "Foo")
+                result.check(packages: "Baz", "Foo")
+                result.check(targets: "Bar", "Baz", "Foo")
+                result.check(testModules: "BarTests")
+                result.checkTarget("Foo") { result in result.check(dependencies: "Bar") }
+                result.checkTarget("Bar") { result in result.check(dependencies: "Baz") }
+                result.checkTarget("BarTests") { result in result.check(dependencies: "Bar") }
+            }
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkManagedDependencies { result in
+            result.check(dependency: "baz", at: .custom(Version(1, 0, 0), .root))
+        }
     }
 
     func testRegistryMissingConfigurationErrors() throws {

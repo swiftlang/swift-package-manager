@@ -20,7 +20,7 @@ extension PackageGraph {
         root: PackageGraphRoot,
         identityResolver: IdentityResolver,
         additionalFileRules: [FileRuleDescription] = [],
-        externalManifests: OrderedDictionary<PackageIdentity, Manifest>,
+        externalManifests: OrderedDictionary<PackageIdentity, (manifest: Manifest, fs: FileSystem)>,
         requiredDependencies: Set<PackageReference> = [],
         unsafeAllowedPackages: Set<PackageReference> = [],
         binaryArtifacts: [BinaryArtifact] = [],
@@ -37,13 +37,13 @@ extension PackageGraph {
         var manifestMap = externalManifests
         // prefer roots
         root.manifests.forEach {
-            manifestMap[$0.key] = $0.value
+            manifestMap[$0.key] = ($0.value, fileSystem)
         }
 
         let successors: (GraphLoadingNode) -> [GraphLoadingNode] = { node in
             node.requiredDependencies().compactMap{ dependency in
-                return manifestMap[dependency.identity].map { manifest in
-                    GraphLoadingNode(identity: dependency.identity, manifest: manifest, productFilter: dependency.productFilter)
+                return manifestMap[dependency.identity].map { (manifest, fileSystem) in
+                    GraphLoadingNode(identity: dependency.identity, manifest: manifest, productFilter: dependency.productFilter, fileSystem: fileSystem)
                 }
             }
         }
@@ -51,14 +51,14 @@ extension PackageGraph {
         // Construct the root manifest and root dependencies set.
         let rootManifestSet = Set(root.manifests.values)
         let rootDependencies = Set(root.dependencies.compactMap{
-            manifestMap[$0.identity]
+            manifestMap[$0.identity]?.manifest
         })
         let rootManifestNodes = root.packages.map { identity, package in
-            GraphLoadingNode(identity: identity, manifest: package.manifest, productFilter: .everything)
+            GraphLoadingNode(identity: identity, manifest: package.manifest, productFilter: .everything, fileSystem: fileSystem)
         }
         let rootDependencyNodes = root.dependencies.lazy.compactMap { (dependency: PackageDependency) -> GraphLoadingNode? in
             manifestMap[dependency.identity].map {
-                GraphLoadingNode(identity: dependency.identity, manifest: $0, productFilter: dependency.productFilter)
+                GraphLoadingNode(identity: dependency.identity, manifest: $0.manifest, productFilter: dependency.productFilter, fileSystem: $0.fs)
             }
         }
         let inputManifests = rootManifestNodes + rootDependencyNodes
@@ -82,7 +82,8 @@ extension PackageGraph {
                 let merged = GraphLoadingNode(
                     identity: node.identity,
                     manifest: node.manifest,
-                    productFilter: existing.productFilter.union(node.productFilter)
+                    productFilter: existing.productFilter.union(node.productFilter),
+                    fileSystem: node.fileSystem
                 )
                 flattenedManifests[node.identity] = merged
             } else {
@@ -117,7 +118,7 @@ extension PackageGraph {
                     xcTestMinimumDeploymentTargets: xcTestMinimumDeploymentTargets,
                     shouldCreateMultipleTestProducts: shouldCreateMultipleTestProducts,
                     createREPLProduct: manifest.packageKind.isRoot ? createREPLProduct : false,
-                    fileSystem: fileSystem,
+                    fileSystem: node.fileSystem,
                     observabilityScope: nodeObservabilityScope
                 )
                 let package = try builder.construct()

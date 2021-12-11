@@ -18,7 +18,7 @@ import XCTest
 
 import struct TSCUtility.Version
 
-public class MockPackageContainer: PackageContainer {
+public class MockPackageContainer: CustomPackageContainer {
     public typealias Constraint = PackageContainerConstraint
 
     public typealias Dependency = (container: PackageReference, requirement: PackageRequirement)
@@ -28,6 +28,8 @@ public class MockPackageContainer: PackageContainer {
     let dependencies: [String: [Dependency]]
     let filteredMode: Bool
     let filteredDependencies: [ProductFilter: [Dependency]]
+    let fileSystem: FileSystem?
+    let customRetrievalPath: AbsolutePath?
 
     public var unversionedDeps: [MockPackageContainer.Constraint] = []
 
@@ -81,6 +83,18 @@ public class MockPackageContainer: PackageContainer {
         return true
     }
 
+    public func retrieve(at version: Version, progressHandler: ((Int64, Int64?) -> Void)?, observabilityScope: ObservabilityScope) throws -> AbsolutePath {
+        if let path = customRetrievalPath {
+            return path
+        } else {
+            throw StringError("no path configured for mock package container")
+        }
+    }
+
+    public func getFileSystem() throws -> FileSystem? {
+        return fileSystem
+    }
+
     public convenience init(
         name: String,
         dependenciesByVersion: [Version: [(container: String, versionRequirement: VersionSetSpecifier)]]
@@ -100,13 +114,18 @@ public class MockPackageContainer: PackageContainer {
 
     public init(
         package: PackageReference,
-        dependencies: [String: [Dependency]] = [:]
+        dependencies: [String: [Dependency]] = [:],
+        fileSystem: FileSystem? = nil,
+        customRetrievalPath: AbsolutePath? = nil
     ) {
         self.package = package
         self._versions = dependencies.keys.compactMap(Version.init(_:)).sorted()
         self.dependencies = dependencies
         self.filteredMode = false
         self.filteredDependencies = [:]
+
+        self.fileSystem = fileSystem
+        self.customRetrievalPath = customRetrievalPath
     }
 
     public init(
@@ -128,6 +147,9 @@ public class MockPackageContainer: PackageContainer {
         self.dependencies = [:]
         self.filteredMode = true
         self.filteredDependencies = dependencies
+
+        self.fileSystem = nil
+        self.customRetrievalPath = nil
     }
 }
 

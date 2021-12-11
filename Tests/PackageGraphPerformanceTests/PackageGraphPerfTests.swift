@@ -25,7 +25,7 @@ class PackageGraphPerfTests: XCTestCasePerf {
         let fs = InMemoryFileSystem(emptyFiles: files)
 
         let identityResolver = DefaultIdentityResolver()
-        var externalManifests = OrderedDictionary<PackageIdentity, Manifest>()
+        var externalManifests = OrderedDictionary<PackageIdentity, (manifest: Manifest, fs: FileSystem)>()
         var rootManifest: Manifest!
         for pkg in 1...N {
             let name = "Foo\(pkg)"
@@ -63,7 +63,7 @@ class PackageGraphPerfTests: XCTestCasePerf {
                 rootManifest = manifest
             } else {
                 let identity = try identityResolver.resolveIdentity(for: manifest.packageKind)
-                externalManifests[identity] = manifest
+                externalManifests[identity] = (manifest, fs)
             }
         }
 
