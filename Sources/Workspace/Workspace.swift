@@ -417,9 +417,9 @@ public class Workspace {
                 workingDirectory: dataPath,
                 editsDirectory: editablesPath,
                 resolvedVersionsFile: pinsFile,
-                sharedSecurityDirectory: fileSystem.swiftPMSecurityDirectory,
                 sharedCacheDirectory: cachePath,
-                sharedConfigurationDirectory: nil // legacy
+                sharedConfigurationDirectory: nil, // legacy
+                sharedFingerprintsDirectory: fileSystem.swiftPMFingerprintsDirectory
             ),
             mirrors: config?.mirrors,
             authorizationProvider: netrcFilePath.map {

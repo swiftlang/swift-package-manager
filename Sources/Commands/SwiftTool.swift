@@ -641,16 +641,16 @@ public class SwiftTool {
         }
     }
     
-    private func getSharedSecurityDirectory() throws -> AbsolutePath? {
+    private func getSharedFingerprintsDirectory() throws -> AbsolutePath? {
         do {
             let fileSystem = localFileSystem
-            let sharedSecurityDirectory = fileSystem.swiftPMSecurityDirectory
-            if !fileSystem.exists(sharedSecurityDirectory) {
-                try fileSystem.createDirectory(sharedSecurityDirectory, recursive: true)
+            let sharedFingerprintsDirectory = fileSystem.swiftPMFingerprintsDirectory
+            if !fileSystem.exists(sharedFingerprintsDirectory) {
+                try fileSystem.createDirectory(sharedFingerprintsDirectory, recursive: true)
             }
-            return sharedSecurityDirectory
+            return sharedFingerprintsDirectory
         } catch {
-            self.observabilityScope.emit(warning: "Failed creating shared security directory: \(error)")
+            self.observabilityScope.emit(warning: "Failed creating shared fingerprints directory: \(error)")
             return .none
         }
     }
@@ -662,12 +662,10 @@ public class SwiftTool {
         }
 
         let delegate = ToolWorkspaceDelegate(self.outputStream, logLevel: self.logLevel, observabilityScope: self.observabilityScope)
-        let provider = GitRepositoryProvider(processSet: processSet)        
-        // FIXME: rdar://86367436
-        //let sharedSecurityDirectory = try self.getSharedSecurityDirectory()
-        let sharedSecurityDirectory: AbsolutePath? = nil
+        let provider = GitRepositoryProvider(processSet: processSet)
         let sharedCacheDirectory = try self.getSharedCacheDirectory()
         let sharedConfigurationDirectory = try self.getSharedConfigurationDirectory()
+        let sharedFingerprintsDirectory = try self.getSharedFingerprintsDirectory()
         let isXcodeBuildSystemEnabled = self.options.buildSystem == .xcode
         let workspace = try Workspace(
             fileSystem: localFileSystem,
@@ -675,9 +673,9 @@ public class SwiftTool {
                 workingDirectory: buildPath,
                 editsDirectory: self.editsDirectory(),
                 resolvedVersionsFile: self.resolvedVersionsFile(),
-                sharedSecurityDirectory: sharedSecurityDirectory,
                 sharedCacheDirectory: sharedCacheDirectory,
-                sharedConfigurationDirectory: sharedConfigurationDirectory
+                sharedConfigurationDirectory: sharedConfigurationDirectory,
+                sharedFingerprintsDirectory: sharedFingerprintsDirectory
             ),
             mirrors: self.getMirrorsConfig(sharedConfigurationDirectory: sharedConfigurationDirectory).mirrors,
             registries: try self.getRegistriesConfig(sharedConfigurationDirectory: sharedConfigurationDirectory).configuration,

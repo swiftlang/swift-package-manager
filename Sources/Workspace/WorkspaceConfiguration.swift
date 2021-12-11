@@ -30,15 +30,15 @@ extension Workspace {
 
         /// Path to the Package.resolved file.
         public var resolvedVersionsFile: AbsolutePath
-        
-        /// Path to the shared security directory
-        public var sharedSecurityDirectory: AbsolutePath?
 
         /// Path to the shared cache directory
         public var sharedCacheDirectory: AbsolutePath?
 
         /// Path to the shared configuration directory
         public var sharedConfigurationDirectory: AbsolutePath?
+        
+        /// Path to the shared fingerprints directory
+        public var sharedFingerprintsDirectory: AbsolutePath?
 
         /// Path to the repositories clones.
         public var repositoriesDirectory: AbsolutePath {
@@ -58,11 +58,6 @@ extension Workspace {
         /// Path to the downloaded binary artifacts.
         public var artifactsDirectory: AbsolutePath {
             self.workingDirectory.appending(component: "artifacts")
-        }
-        
-        /// Path to the shared fingerprints directory.
-        public var sharedFingerprintsDirectory: AbsolutePath? {
-            self.sharedSecurityDirectory.map { $0.appending(component: "fingerprints") }
         }
 
         /// Path to the shared repositories cache.
@@ -96,23 +91,23 @@ extension Workspace {
         ///   - workingDirectory: Path to working directory for this workspace.
         ///   - editsDirectory: Path to store the editable versions of dependencies.
         ///   - resolvedVersionsFile: Path to the Package.resolved file.
-        ///   - sharedSecurityDirectory: Path to the shared security directory.
         ///   - sharedCacheDirectory: Path to the shared cache directory.
         ///   - sharedConfigurationDirectory: Path to the shared configuration directory.
+        ///   - sharedFingerprintsDirectory: Path to the shared fingerprints directory.
         public init(
             workingDirectory: AbsolutePath,
             editsDirectory: AbsolutePath,
             resolvedVersionsFile: AbsolutePath,
-            sharedSecurityDirectory: AbsolutePath?,
             sharedCacheDirectory: AbsolutePath?,
-            sharedConfigurationDirectory: AbsolutePath?
+            sharedConfigurationDirectory: AbsolutePath?,
+            sharedFingerprintsDirectory: AbsolutePath?
         ) {
             self.workingDirectory = workingDirectory
             self.editsDirectory = editsDirectory
             self.resolvedVersionsFile = resolvedVersionsFile
-            self.sharedSecurityDirectory = sharedSecurityDirectory
             self.sharedCacheDirectory = sharedCacheDirectory
             self.sharedConfigurationDirectory = sharedConfigurationDirectory
+            self.sharedFingerprintsDirectory = sharedFingerprintsDirectory
         }
 
         /// Create a new workspace location.
@@ -124,9 +119,9 @@ extension Workspace {
                 workingDirectory: DefaultLocations.workingDirectory(forRootPackage: rootPath),
                 editsDirectory: DefaultLocations.editsDirectory(forRootPackage: rootPath),
                 resolvedVersionsFile: DefaultLocations.resolvedVersionsFile(forRootPackage: rootPath),
-                sharedSecurityDirectory: fileSystem.swiftPMSecurityDirectory,
                 sharedCacheDirectory: fileSystem.swiftPMCacheDirectory,
-                sharedConfigurationDirectory: fileSystem.swiftPMConfigDirectory
+                sharedConfigurationDirectory: fileSystem.swiftPMConfigDirectory,
+                sharedFingerprintsDirectory: fileSystem.swiftPMFingerprintsDirectory
             )
         }
     }

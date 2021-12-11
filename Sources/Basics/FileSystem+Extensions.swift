@@ -20,11 +20,6 @@ extension FileSystem {
     public var dotSwiftPM: AbsolutePath {
         self.homeDirectory.appending(component: ".swiftpm")
     }
-    
-    /// SwiftPM security directory
-    public var swiftPMSecurityDirectory: AbsolutePath {
-        self.dotSwiftPM.appending(component: "security")
-    }
 }
 
 // MARK: - cache
@@ -114,6 +109,19 @@ extension FileSystem {
             try self.createSymbolicLink(dotSwiftPMConfigDirectory, pointingAt: idiomaticConfigDirectory, relative: false)
         }
         return idiomaticConfigDirectory
+    }
+}
+
+// MARK: - security
+
+extension FileSystem {
+    /// SwiftPM security directory
+    public var swiftPMSecurityDirectory: AbsolutePath {
+        self.dotSwiftPM.appending(component: "security")
+    }
+    
+    public var swiftPMFingerprintsDirectory: AbsolutePath {
+        self.swiftPMSecurityDirectory.appending(component: "fingerprints")
     }
 }
 
