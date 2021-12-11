@@ -418,7 +418,7 @@ class RegistryPackageContainerTests: XCTestCase {
             configuration: configuration!,
             identityResolver: identityResolver,
             fingerprintStorage: fingerprintStorage,
-            fingerprintCheckingMode: .none,
+            fingerprintCheckingMode: .strict,
             authorizationProvider: .none,
             customHTTPClient: HTTPClient(configuration: .init(), handler: { request, progress , completion in
                 var pathComponents = request.url.pathComponents
