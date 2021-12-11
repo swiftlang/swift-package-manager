@@ -125,6 +125,7 @@ final class WorkspaceTests: XCTestCase {
 
     func testInterpreterFlags() throws {
         let fs = localFileSystem
+
         try testWithTemporaryDirectory { path in
             let foo = path.appending(component: "foo")
 
@@ -138,7 +139,7 @@ final class WorkspaceTests: XCTestCase {
                 let sandbox = path.appending(component: "ws")
                 return try Workspace(
                     fileSystem: fs,
-                    location: .init(forRootPackage: sandbox, fileSystem: fs),
+                    forRootPackage: sandbox,
                     customManifestLoader: manifestLoader,
                     delegate: MockWorkspaceDelegate()
                 )
@@ -178,6 +179,7 @@ final class WorkspaceTests: XCTestCase {
 
     func testManifestParseError() throws {
         let observability = ObservabilitySystem.makeForTesting()
+
         try testWithTemporaryDirectory { path in
             let pkgDir = path.appending(component: "MyPkg")
             try localFileSystem.writeFileContents(pkgDir.appending(component: "Package.swift")) {
@@ -193,7 +195,7 @@ final class WorkspaceTests: XCTestCase {
             }
             let workspace = try Workspace(
                 fileSystem: localFileSystem,
-                location: .init(forRootPackage: pkgDir, fileSystem: localFileSystem),
+                forRootPackage: pkgDir,
                 customManifestLoader: ManifestLoader(toolchain: ToolchainConfiguration.default),
                 delegate: MockWorkspaceDelegate()
             )
@@ -2776,7 +2778,7 @@ final class WorkspaceTests: XCTestCase {
                     versions: ["1.5.0"]
                 ),
             ],
-            resolverUpdateEnabled: false
+            skipDependenciesUpdates: true
         )
 
         // Run update and remove all events.
@@ -3707,7 +3709,6 @@ final class WorkspaceTests: XCTestCase {
         let workspace = try MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
-            mirrors: mirrors,
             roots: [
                 MockPackage(
                     name: "Foo",
@@ -3768,7 +3769,8 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     versions: ["1.0.0", "1.5.0"]
                 ),
-            ]
+            ],
+            mirrors: mirrors
         )
 
         let deps: [MockDependency] = [
@@ -4150,7 +4152,10 @@ final class WorkspaceTests: XCTestCase {
 
             // Load the workspace.
             let observability = ObservabilitySystem.makeForTesting()
-            let workspace = try Workspace(forRootPackage: packagePath, customToolchain: UserToolchain.default)
+            let workspace = try Workspace(
+                forRootPackage: packagePath,
+                customToolchain: UserToolchain.default
+            )
 
             // From here the API should be simple and straightforward:
             let manifest = try tsc_await {
@@ -4733,7 +4738,7 @@ final class WorkspaceTests: XCTestCase {
                     versions: ["1.0.0"]
                 )
             ],
-            customBinaryArchiver: archiver
+            binaryArchiver: archiver
         )
 
         // Create dummy xcframework/artifactbundle zip files
@@ -4943,8 +4948,8 @@ final class WorkspaceTests: XCTestCase {
                     versions: ["1.0.0"]
                 )
             ],
-            customHttpClient: httpClient,
-            customBinaryArchiver: archiver
+            httpClient: httpClient,
+            binaryArchiver: archiver
         )
 
         // Create dummy xcframework directories and zip files
@@ -5116,7 +5121,7 @@ final class WorkspaceTests: XCTestCase {
                     versions: ["1.0.0"]
                 ),
             ],
-            customBinaryArchiver: archiver
+            binaryArchiver: archiver
         )
 
         // Create dummy zip files
@@ -5176,7 +5181,7 @@ final class WorkspaceTests: XCTestCase {
                     versions: ["1.0.0"]
                 ),
             ],
-            customBinaryArchiver: archiver
+            binaryArchiver: archiver
         )
 
         workspace.checkPackageGraphFailure(roots: ["Foo"]) { diagnostics in
@@ -5251,7 +5256,7 @@ final class WorkspaceTests: XCTestCase {
                     versions: ["1.0.0"]
                 )
             ],
-            customBinaryArchiver: archiver
+            binaryArchiver: archiver
         )
 
         // Create dummy zip files
@@ -5337,7 +5342,7 @@ final class WorkspaceTests: XCTestCase {
                     versions: ["1.0.0"]
                 )
             ],
-            customBinaryArchiver: archiver
+            binaryArchiver: archiver
         )
 
         // Pin A to 1.0.0, Checkout B to 1.0.0
@@ -5472,7 +5477,7 @@ final class WorkspaceTests: XCTestCase {
                     versions: ["1.0.0"]
                 )
             ],
-            customBinaryArchiver: archiver
+            binaryArchiver: archiver
         )
 
         // create the mock archives
@@ -5691,8 +5696,8 @@ final class WorkspaceTests: XCTestCase {
                     versions: ["1.0.0"]
                 ),
             ],
-            customHttpClient: httpClient,
-            customBinaryArchiver: archiver
+            httpClient: httpClient,
+            binaryArchiver: archiver
         )
 
         try workspace.checkPackageGraph(roots: ["Foo"]) { graph, diagnostics in
@@ -5897,8 +5902,8 @@ final class WorkspaceTests: XCTestCase {
                     versions: ["1.0.0"]
                 ),
             ],
-            customHttpClient: httpClient,
-            customBinaryArchiver: archiver
+            httpClient: httpClient,
+            binaryArchiver: archiver
         )
 
         let a4FrameworkPath = workspace.packagesDir.appending(components: "A", "XCFrameworks", "A4.xcframework")
@@ -6132,8 +6137,8 @@ final class WorkspaceTests: XCTestCase {
                     versions: ["1.0.0"]
                 )
             ],
-            customHttpClient: httpClient,
-            customBinaryArchiver: archiver
+            httpClient: httpClient,
+            binaryArchiver: archiver
         )
 
         try workspace.checkPackageGraph(roots: ["Foo"]) { graph, diagnostics in
@@ -6266,8 +6271,8 @@ final class WorkspaceTests: XCTestCase {
                     versions: ["1.0.0"]
                 ),
             ],
-            customHttpClient: httpClient,
-            customBinaryArchiver: archiver
+            httpClient: httpClient,
+            binaryArchiver: archiver
         )
 
         workspace.checkPackageGraphFailure(roots: ["Foo"]) { diagnostics in
@@ -6315,7 +6320,7 @@ final class WorkspaceTests: XCTestCase {
                     versions: ["0.9.0", "1.0.0"]
                 ),
             ],
-            customHttpClient: httpClient
+            httpClient: httpClient
         )
 
         // Pin A to 1.0.0, Checkout A to 1.0.0
@@ -6436,8 +6441,8 @@ final class WorkspaceTests: XCTestCase {
                     versions: ["1.0.0"]
                 )
             ],
-            customHttpClient: httpClient,
-            customBinaryArchiver: archiver
+            httpClient: httpClient,
+            binaryArchiver: archiver
         )
 
         try workspace.checkPackageGraph(roots: ["Foo"]) { graph, diagnostics in
@@ -6585,8 +6590,8 @@ final class WorkspaceTests: XCTestCase {
                     versions: ["1.0.0"]
                 )
             ],
-            customHttpClient: httpClient,
-            customBinaryArchiver: archiver
+            httpClient: httpClient,
+            binaryArchiver: archiver
         )
 
         try workspace.checkPackageGraph(roots: ["Foo"]) { graph, diagnostics in
@@ -6715,8 +6720,8 @@ final class WorkspaceTests: XCTestCase {
                     versions: ["1.0.0"]
                 )
             ],
-            customHttpClient: httpClient,
-            customBinaryArchiver: archiver
+            httpClient: httpClient,
+            binaryArchiver: archiver
         )
 
         // write the file to test it gets deleted
@@ -6836,8 +6841,8 @@ final class WorkspaceTests: XCTestCase {
                 ),
             ],
             packages: packages,
-            customHttpClient: httpClient,
-            customBinaryArchiver: archiver
+            httpClient: httpClient,
+            binaryArchiver: archiver
         )
 
         try workspace.checkPackageGraph(roots: ["App"]) { graph, diagnostics in
@@ -6973,8 +6978,8 @@ final class WorkspaceTests: XCTestCase {
                     versions: ["1.0.0"]
                 )
             ],
-            customHttpClient: httpClient,
-            customBinaryArchiver: archiver
+            httpClient: httpClient,
+            binaryArchiver: archiver
         )
         
         try workspace.checkPackageGraph(roots: ["App"]) { graph, diagnostics in
@@ -7192,9 +7197,9 @@ final class WorkspaceTests: XCTestCase {
                     versions: ["1.0.0"]
                 ),
             ],
-            customHttpClient: httpClient,
-            customBinaryArchiver: archiver,
-            customChecksumAlgorithm: checksumAlgorithm
+            httpClient: httpClient,
+            binaryArchiver: archiver,
+            checksumAlgorithm: checksumAlgorithm
         )
 
         try workspace.checkPackageGraph(roots: ["Foo"]) { graph, diagnostics in
@@ -7292,7 +7297,7 @@ final class WorkspaceTests: XCTestCase {
                     versions: ["0.9.0", "1.0.0"]
                 ),
             ],
-            customHttpClient: httpClient
+            httpClient: httpClient
         )
 
         workspace.checkPackageGraphFailure(roots: ["Foo"]) { diagnostics in
@@ -7365,7 +7370,7 @@ final class WorkspaceTests: XCTestCase {
                     versions: ["0.9.0", "1.0.0"]
                 ),
             ],
-            customHttpClient: httpClient
+            httpClient: httpClient
         )
 
         workspace.checkPackageGraphFailure(roots: ["Foo"]) { diagnostics in
@@ -7544,8 +7549,8 @@ final class WorkspaceTests: XCTestCase {
                     versions: ["0.9.0", "1.0.0"]
                 ),
             ],
-            customHttpClient: httpClient,
-            customBinaryArchiver: archiver
+            httpClient: httpClient,
+            binaryArchiver: archiver
         )
 
         workspace.checkPackageGraphFailure(roots: ["Foo"]) { diagnostics in
@@ -7623,7 +7628,7 @@ final class WorkspaceTests: XCTestCase {
                     versions: ["0.9.0", "1.0.0"]
                 ),
             ],
-            customHttpClient: httpClient
+            httpClient: httpClient
         )
 
         workspace.checkPackageGraphFailure(roots: ["Foo"]) { diagnostics in
@@ -7699,7 +7704,7 @@ final class WorkspaceTests: XCTestCase {
                     versions: ["0.9.0", "1.0.0"]
                 ),
             ],
-            customHttpClient: httpClient
+            httpClient: httpClient
         )
 
         workspace.checkPackageGraphFailure(roots: ["Foo"]) { diagnostics in
@@ -9210,7 +9215,7 @@ final class WorkspaceTests: XCTestCase {
             let sandbox = path.appending(component: "ws")
             let workspace = try Workspace(
                 fileSystem: fs,
-                location: .init(forRootPackage: sandbox, fileSystem: fs),
+                forRootPackage: sandbox,
                 customManifestLoader: manifestLoader,
                 delegate: MockWorkspaceDelegate()
             )
@@ -9275,7 +9280,7 @@ final class WorkspaceTests: XCTestCase {
             let delegate = MockWorkspaceDelegate()
             let workspace = try Workspace(
                 fileSystem: fs,
-                location: .init(forRootPackage: .root, fileSystem: fs),
+                forRootPackage: .root,
                 customManifestLoader: TestLoader(error: .none),
                 delegate: delegate
             )
@@ -9290,7 +9295,7 @@ final class WorkspaceTests: XCTestCase {
             let delegate = MockWorkspaceDelegate()
             let workspace = try Workspace(
                 fileSystem: fs,
-                location: .init(forRootPackage: .root, fileSystem: fs),
+                forRootPackage: .root,
                 customManifestLoader: TestLoader(error: Diagnostics.fatalError),
                 delegate: delegate
             )
@@ -9305,7 +9310,7 @@ final class WorkspaceTests: XCTestCase {
             let delegate = MockWorkspaceDelegate()
             let workspace = try Workspace(
                 fileSystem: fs,
-                location: .init(forRootPackage: .root, fileSystem: fs),
+                forRootPackage: .root,
                 customManifestLoader: TestLoader(error: StringError("boom")),
                 delegate: delegate
             )
@@ -9933,7 +9938,7 @@ final class WorkspaceTests: XCTestCase {
                     versions: ["1.0.0"]
                 )
             ],
-            customRegistryClient: registryClient
+            registryClient: registryClient
         )
 
         workspace.checkPackageGraphFailure(roots: ["MyPackage"]) { diagnostics in

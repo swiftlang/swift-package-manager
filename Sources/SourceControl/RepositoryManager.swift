@@ -82,14 +82,14 @@ public class RepositoryManager {
         fileSystem: FileSystem,
         path: AbsolutePath,
         provider: RepositoryProvider,
-        delegate: RepositoryManagerDelegate? = nil,
-        cachePath: AbsolutePath? = nil,
-        cacheLocalPackages: Bool? = nil
+        cachePath: AbsolutePath? =  .none,
+        cacheLocalPackages: Bool = false,
+        delegate: RepositoryManagerDelegate? = .none
     ) {
         self.fileSystem = fileSystem
         self.path = path
         self.cachePath = cachePath
-        self.cacheLocalPackages = cacheLocalPackages ?? false
+        self.cacheLocalPackages = cacheLocalPackages
 
         self.provider = provider
         self.delegate = delegate
@@ -108,7 +108,7 @@ public class RepositoryManager {
             self.repositories = [:]
             try? self.storage.reset()
             // FIXME: We should emit a warning here using the diagnostic engine.
-            TSCBasic.stderrStream.write("warning: unable to restore checkouts state: \(error)")
+            TSCBasic.stderrStream.write("warning: unable to restore checkouts state: \(error)\n")
             TSCBasic.stderrStream.flush()
         }
     }

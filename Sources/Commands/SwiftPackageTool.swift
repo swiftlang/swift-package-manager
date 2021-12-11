@@ -1549,20 +1549,20 @@ extension SwiftPackageTool.Config {
         var mirrorURL: String
 
         func run(_ swiftTool: SwiftTool) throws {
-            let config = try swiftTool.getMirrorsConfig()
+            let config = try getMirrorsConfig(swiftTool)
 
-            if packageURL != nil {
+            if self.packageURL != nil {
                 swiftTool.observabilityScope.emit(
                     warning: "'--package-url' option is deprecated; use '--original-url' instead")
             }
 
-            guard let originalURL = packageURL ?? originalURL else {
+            guard let originalURL = self.packageURL ?? self.originalURL else {
                 swiftTool.observabilityScope.emit(.missingRequiredArg("--original-url"))
                 throw ExitCode.failure
             }
 
             try config.applyLocal { mirrors in
-                mirrors.set(mirrorURL: mirrorURL, forURL: originalURL)
+                mirrors.set(mirrorURL: self.mirrorURL, forURL: originalURL)
             }
         }
     }
@@ -1584,14 +1584,14 @@ extension SwiftPackageTool.Config {
         var mirrorURL: String?
 
         func run(_ swiftTool: SwiftTool) throws {
-            let config = try swiftTool.getMirrorsConfig()
+            let config = try getMirrorsConfig(swiftTool)
 
-            if packageURL != nil {
+            if self.packageURL != nil {
                 swiftTool.observabilityScope.emit(
                     warning: "'--package-url' option is deprecated; use '--original-url' instead")
             }
 
-            guard let originalOrMirrorURL = packageURL ?? originalURL ?? mirrorURL else {
+            guard let originalOrMirrorURL = self.packageURL ?? self.originalURL ?? self.mirrorURL else {
                 swiftTool.observabilityScope.emit(.missingRequiredArg("--original-url or --mirror-url"))
                 throw ExitCode.failure
             }
@@ -1616,14 +1616,14 @@ extension SwiftPackageTool.Config {
         var originalURL: String?
 
         func run(_ swiftTool: SwiftTool) throws {
-            let config = try swiftTool.getMirrorsConfig()
+            let config = try getMirrorsConfig(swiftTool)
 
-            if packageURL != nil {
+            if self.packageURL != nil {
                 swiftTool.observabilityScope.emit(
                     warning: "'--package-url' option is deprecated; use '--original-url' instead")
             }
 
-            guard let originalURL = packageURL ?? originalURL else {
+            guard let originalURL = self.packageURL ?? self.originalURL else {
                 swiftTool.observabilityScope.emit(.missingRequiredArg("--original-url"))
                 throw ExitCode.failure
             }
@@ -1636,6 +1636,15 @@ extension SwiftPackageTool.Config {
                 throw ExitCode.failure
             }
         }
+    }
+
+    static func getMirrorsConfig(_ swiftTool: SwiftTool) throws -> Workspace.Configuration.Mirrors {
+        let workspace = try swiftTool.getActiveWorkspace()
+        return try .init(
+            fileSystem: localFileSystem,
+            localMirrorsFile: workspace.location.localMirrorsConfigurationFile,
+            sharedMirrorsFile: workspace.location.sharedMirrorsConfigurationFile
+        )
     }
 }
 

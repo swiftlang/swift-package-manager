@@ -89,7 +89,7 @@ extension FileSystem {
 }
 
 extension FileSystem {
-    public func getOrCreateSwiftPMConfigurationDirectory(observabilityScope: ObservabilityScope?) throws -> AbsolutePath {
+    public func getOrCreateSwiftPMConfigurationDirectory() throws -> AbsolutePath {
         let idiomaticConfigurationDirectory = self.swiftPMConfigurationDirectory
 
         // temporary 5.6, remove on next version: transition from previous configuration location
@@ -108,10 +108,12 @@ extension FileSystem {
                     .filter{ self.isFile($0) && !self.isSymlink($0) && $0.extension != "lock"}
                 for file in configurationFiles {
                     let destination = idiomaticConfigurationDirectory.appending(component: file.basename)
-                    observabilityScope?.emit(warning: "Usage of \(file) has been deprecated. Please delete it and use the new \(destination) instead.")
                     if !self.exists(destination) {
                         try self.copy(from: file, to: destination)
                     }
+                    // FIXME: We should emit a warning here using the diagnostic engine.
+                    TSCBasic.stderrStream.write("warning: Usage of \(file) has been deprecated. Please delete it and use the new \(destination) instead.\n")
+                    TSCBasic.stderrStream.flush()
                 }
             }
         // in the case where ~/.swiftpm/configuration is the idiomatic location (eg on Linux)
@@ -125,10 +127,12 @@ extension FileSystem {
                     .filter{ self.isFile($0) && !self.isSymlink($0) && $0.extension != "lock"}
                 for file in configurationFiles {
                     let destination = idiomaticConfigurationDirectory.appending(component: file.basename)
-                    observabilityScope?.emit(warning: "Usage of \(file) has been deprecated. Please delete it and use the new \(destination) instead.")
                     if !self.exists(destination) {
                         try self.copy(from: file, to: destination)
                     }
+                    // FIXME: We should emit a warning here using the diagnostic engine.
+                    TSCBasic.stderrStream.write("warning: Usage of \(file) has been deprecated. Please delete it and use the new \(destination) instead.\n")
+                    TSCBasic.stderrStream.flush()
                 }
             }
         }

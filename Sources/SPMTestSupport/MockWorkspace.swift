@@ -23,65 +23,60 @@ public typealias Diagnostic = TSCBasic.Diagnostic
 public final class MockWorkspace {
     let sandbox: AbsolutePath
     let fileSystem: InMemoryFileSystem
-    public let httpClient: HTTPClient
-    public var registryClient: RegistryClient
-    public let archiver: MockArchiver
-    public let checksumAlgorithm: MockHashAlgorithm
-    public let fingerprintStorage: MockPackageFingerprintStorage
-    public let customPackageContainerProvider: MockPackageContainerProvider?
     let roots: [MockPackage]
     let packages: [MockPackage]
-    public let mirrors: DependencyMirrors
-    let identityResolver: IdentityResolver
-    public var manifestLoader: MockManifestLoader
-    public var repositoryProvider: InMemoryGitRepositoryProvider
-    let registry: MockRegistry
-    public let delegate = MockWorkspaceDelegate()
     let toolsVersion: ToolsVersion
-    let resolverUpdateEnabled: Bool
+    let fingerprints: MockPackageFingerprintStorage
+    let mirrors: DependencyMirrors
+    public var  httpClient: HTTPClient
+    public var registryClient: RegistryClient
+    let registry: MockRegistry
+    public var archiver: MockArchiver
+    public var checksumAlgorithm: MockHashAlgorithm
+    public private(set) var manifestLoader: MockManifestLoader
+    public let repositoryProvider: InMemoryGitRepositoryProvider
+    let identityResolver: IdentityResolver
+    let customPackageContainerProvider: MockPackageContainerProvider?
+    public let delegate = MockWorkspaceDelegate()
+    let skipDependenciesUpdates: Bool
 
     public init(
         sandbox: AbsolutePath,
         fileSystem: InMemoryFileSystem,
-        mirrors: DependencyMirrors? = nil,
         roots: [MockPackage],
         packages: [MockPackage],
         toolsVersion: ToolsVersion = ToolsVersion.currentToolsVersion,
-        customHttpClient: HTTPClient? = .none,
-        customRegistryClient: RegistryClient? = .none,
-        customBinaryArchiver: MockArchiver? = .none,
-        customChecksumAlgorithm: MockHashAlgorithm? = .none,
-        customFingerprintStorage: MockPackageFingerprintStorage? = .none,
+        fingerprints customFingerprints: MockPackageFingerprintStorage? = .none,
+        mirrors customMirrors: DependencyMirrors? = nil,
+        httpClient customHttpClient: HTTPClient? = .none,
+        registryClient customRegistryClient: RegistryClient? = .none,
+        binaryArchiver customBinaryArchiver: MockArchiver? = .none,
+        checksumAlgorithm customChecksumAlgorithm: MockHashAlgorithm? = .none,
         customPackageContainerProvider: MockPackageContainerProvider? = .none,
-        resolverUpdateEnabled: Bool = true
+        skipDependenciesUpdates: Bool = false
     ) throws {
-        let archiver = customBinaryArchiver ?? MockArchiver()
-        let httpClient = customHttpClient ?? HTTPClient.mock(fileSystem: fileSystem)
-
         self.sandbox = sandbox
         self.fileSystem = fileSystem
-        self.httpClient = httpClient
-        self.archiver = archiver
-        self.checksumAlgorithm = customChecksumAlgorithm ?? MockHashAlgorithm()
-        self.fingerprintStorage = customFingerprintStorage ?? MockPackageFingerprintStorage()
-        self.mirrors = mirrors ?? DependencyMirrors()
-        self.identityResolver = DefaultIdentityResolver(locationMapper: self.mirrors.effectiveURL(for:))
-        self.customPackageContainerProvider = customPackageContainerProvider
         self.roots = roots
         self.packages = packages
-
+        self.fingerprints = customFingerprints ?? MockPackageFingerprintStorage()
+        self.mirrors = customMirrors ?? DependencyMirrors()
+        self.identityResolver = DefaultIdentityResolver(locationMapper: self.mirrors.effectiveURL(for:))
         self.manifestLoader = MockManifestLoader(manifests: [:])
+        self.customPackageContainerProvider = customPackageContainerProvider
+        self.checksumAlgorithm = customChecksumAlgorithm ?? MockHashAlgorithm()
         self.repositoryProvider = InMemoryGitRepositoryProvider()
         self.registry = MockRegistry(
             identityResolver: self.identityResolver,
             checksumAlgorithm: self.checksumAlgorithm,
             filesystem: self.fileSystem,
-            fingerprintStorage: self.fingerprintStorage
+            fingerprintStorage: self.fingerprints
         )
         self.registryClient = customRegistryClient ?? self.registry.registryClient
         self.toolsVersion = toolsVersion
-        self.resolverUpdateEnabled = resolverUpdateEnabled
-
+        self.skipDependenciesUpdates = skipDependenciesUpdates
+        self.httpClient = customHttpClient ?? HTTPClient.mock(fileSystem: fileSystem)
+        self.archiver = customBinaryArchiver ?? MockArchiver()
         try self.create()
     }
 
@@ -233,17 +228,26 @@ public final class MockWorkspace {
             return workspace
         }
 
-        let workspace = try Workspace(
+        let workspace = try Workspace._init(
             fileSystem: self.fileSystem,
             location: .init(
                 workingDirectory: self.sandbox.appending(component: ".build"),
                 editsDirectory: self.sandbox.appending(component: "edits"),
                 resolvedVersionsFile: self.sandbox.appending(component: "Package.resolved"),
-                sharedSecurityDirectory: self.fileSystem.swiftPMSecurityDirectory,  
-                sharedCacheDirectory: self.fileSystem.swiftPMCacheDirectory,
-                sharedConfigurationDirectory: self.fileSystem.swiftPMConfigurationDirectory
+                localConfigurationDirectory: Workspace.DefaultLocations.configurationDirectory(forRootPackage: self.sandbox),
+                sharedConfigurationDirectory: self.fileSystem.swiftPMConfigurationDirectory,
+                sharedSecurityDirectory: self.fileSystem.swiftPMSecurityDirectory,
+                sharedCacheDirectory: self.fileSystem.swiftPMCacheDirectory
             ),
-            mirrors: self.mirrors,
+            configuration: .init(
+                skipDependenciesUpdates: self.skipDependenciesUpdates,
+                prefetchBasedOnResolvedFile: WorkspaceConfiguration.default.prefetchBasedOnResolvedFile,
+                additionalFileRules: WorkspaceConfiguration.default.additionalFileRules,
+                sharedRepositoriesCacheEnabled: WorkspaceConfiguration.default.sharedRepositoriesCacheEnabled,
+                fingerprintCheckingMode: .strict
+            ),
+            customFingerprints: self.fingerprints,
+            customMirrors: self.mirrors,
             customToolsVersion: self.toolsVersion,
             customManifestLoader: self.manifestLoader,
             customPackageContainerProvider: self.customPackageContainerProvider,
@@ -253,10 +257,6 @@ public final class MockWorkspace {
             customHTTPClient: self.httpClient,
             customArchiver: self.archiver,
             customChecksumAlgorithm: self.checksumAlgorithm,
-            customFingerprintStorage: self.fingerprintStorage,
-            resolverUpdateEnabled: self.resolverUpdateEnabled,
-            resolverPrefetchingEnabled: true,
-            resolverFingerprintCheckingMode: .strict,
             delegate: self.delegate
         )
 

@@ -242,7 +242,7 @@ class PluginInvocationTests: XCTestCase {
             let observability = ObservabilitySystem.makeForTesting()
             let workspace = try Workspace(
                 fileSystem: localFileSystem,
-                location: .init(forRootPackage: packageDir, fileSystem: localFileSystem),
+                forRootPackage: packageDir,
                 customManifestLoader: ManifestLoader(toolchain: ToolchainConfiguration.default),
                 delegate: MockWorkspaceDelegate()
             )
