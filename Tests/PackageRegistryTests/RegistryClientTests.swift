@@ -84,27 +84,29 @@ final class RegistryClientTests: XCTestCase {
         let version = Version("1.1.1")
         let manifestURL = URL(string: "\(registryURL)/\(scope)/\(name)/\(version)/Package.swift")!
 
+        let defaultManifest = """
+        // swift-tools-version:5.5
+        import PackageDescription
+
+        let package = Package(
+            name: "LinkedList",
+            products: [
+                .library(name: "LinkedList", targets: ["LinkedList"])
+            ],
+            targets: [
+                .target(name: "LinkedList"),
+                .testTarget(name: "LinkedListTests", dependencies: ["LinkedList"]),
+            ],
+            swiftLanguageVersions: [.v4, .v5]
+        )
+        """
+
         let handler: HTTPClient.Handler = { request, _, completion in
             switch (request.method, request.url) {
             case (.get, manifestURL):
                 XCTAssertEqual(request.headers.get("Accept").first, "application/vnd.swift.registry.v1+swift")
 
-                let data = #"""
-                // swift-tools-version:5.5
-                import PackageDescription
-
-                let package = Package(
-                    name: "LinkedList",
-                    products: [
-                        .library(name: "LinkedList", targets: ["LinkedList"])
-                    ],
-                    targets: [
-                        .target(name: "LinkedList"),
-                        .testTarget(name: "LinkedListTests", dependencies: ["LinkedList"]),
-                    ],
-                    swiftLanguageVersions: [.v4, .v5]
-                )
-                """#.data(using: .utf8)!
+                let defaultManifestData = defaultManifest.data(using: .utf8)!
 
                 let links = """
                 <http://packages.example.com/mona/LinkedList/1.1.1/Package.swift?swift-version=4>; rel="alternate"; filename="Package@swift-4.swift"; swift-tools-version="4.0",
@@ -115,12 +117,12 @@ final class RegistryClientTests: XCTestCase {
                 completion(.success(.init(
                     statusCode: 200,
                     headers: .init([
-                        .init(name: "Content-Length", value: "\(data.count)"),
+                        .init(name: "Content-Length", value: "\(defaultManifestData.count)"),
                         .init(name: "Content-Type", value: "text/x-swift"),
                         .init(name: "Content-Version", value: "1"),
                         .init(name: "Link", value: links),
                     ]),
-                    body: data
+                    body: defaultManifestData
                 )))
             default:
                 completion(.failure(StringError("method and url should match")))
@@ -139,13 +141,15 @@ final class RegistryClientTests: XCTestCase {
             package: identity,
             version: version
         )
-        XCTAssertEqual(availableManifests,
-                       [
-                           "Package.swift": .v5_5,
-                           "Package@swift-4.swift": .v4,
-                           "Package@swift-4.2.swift": .v4_2,
-                           "Package@swift-5.3.swift": .v5_3,
-                       ])
+
+        XCTAssertEqual(availableManifests["Package.swift"]?.toolsVersion, .v5_5)
+        XCTAssertEqual(availableManifests["Package.swift"]?.content, defaultManifest)
+        XCTAssertEqual(availableManifests["Package@swift-4.swift"]?.toolsVersion, .v4)
+        XCTAssertEqual(availableManifests["Package@swift-4.swift"]?.content, .none)
+        XCTAssertEqual(availableManifests["Package@swift-4.2.swift"]?.toolsVersion, .v4_2)
+        XCTAssertEqual(availableManifests["Package@swift-4.2.swift"]?.content, .none)
+        XCTAssertEqual(availableManifests["Package@swift-5.3.swift"]?.toolsVersion, .v5_3)
+        XCTAssertEqual(availableManifests["Package@swift-5.3.swift"]?.content, .none)
     }
 
     func testGetManifestContent() throws {
@@ -809,7 +813,7 @@ private extension RegistryClient {
     func getAvailableManifests(
         package: PackageIdentity,
         version: Version
-    ) throws -> [String: ToolsVersion] {
+    ) throws -> [String: (toolsVersion: ToolsVersion, content: String?)] {
         return try tsc_await {
             self.getAvailableManifests(
                 package: package,
@@ -889,11 +893,12 @@ private extension RegistryClient {
     }
 }
 
-private func makeRegistryClient(configuration: RegistryConfiguration,
-                                httpClient: HTTPClient,
-                                fingerprintStorage: PackageFingerprintStorage = MockPackageFingerprintStorage(),
-                                fingerprintCheckingMode: FingerprintCheckingMode = .strict) -> RegistryClient
-{
+private func makeRegistryClient(
+    configuration: RegistryConfiguration,
+    httpClient: HTTPClient,
+    fingerprintStorage: PackageFingerprintStorage = MockPackageFingerprintStorage(),
+    fingerprintCheckingMode: FingerprintCheckingMode = .strict
+) -> RegistryClient {
     RegistryClient(
         configuration: configuration,
         identityResolver: DefaultIdentityResolver(),
