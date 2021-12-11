@@ -328,7 +328,7 @@ public struct ToolsVersionLoader: ToolsVersionLoaderProtocol {
 
     public func load(at path: AbsolutePath, fileSystem: FileSystem) throws -> ToolsVersion {
         // The file which contains the tools version.
-        let file = try Manifest.path(atPackagePath: path, currentToolsVersion: currentToolsVersion, fileSystem: fileSystem)
+        let file = try Manifest.path(atPackagePath: path, currentToolsVersion: self.currentToolsVersion, fileSystem: fileSystem)
         guard fileSystem.isFile(file) else {
             // FIXME: We should return an error from here but Workspace tests rely on this in order to work.
             // This doesn't really cause issues (yet) in practice though.

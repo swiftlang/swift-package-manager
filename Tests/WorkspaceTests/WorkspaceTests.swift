@@ -9413,7 +9413,7 @@ final class WorkspaceTests: XCTestCase {
                         "Content-Version": "1",
                         "Content-Type": "text/x-swift"
                     ],
-                    body: "// swift-tools-version: \(ToolsVersion.currentToolsVersion)".data(using: .utf8)
+                    body: "// swift-tools-version:\(ToolsVersion.currentToolsVersion)".data(using: .utf8)
                 )
             ))
         }
@@ -9438,7 +9438,14 @@ final class WorkspaceTests: XCTestCase {
             ))
         }
 
-        let archiver = archiver ?? MockArchiver()
+        let archiver = archiver ?? MockArchiver(handler: { archiver, from, to, completion in
+            do {
+                try fileSystem.createDirectory(to.appending(component: "top"), recursive: true)
+                completion(.success(()))
+            } catch {
+                completion(.failure(error))
+            }
+        })
         let fingerprintStorage = fingerprintStorage ?? MockPackageFingerprintStorage()
 
         return RegistryClient(
