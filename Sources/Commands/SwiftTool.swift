@@ -648,6 +648,8 @@ public class SwiftTool {
             if !fileSystem.exists(sharedFingerprintsDirectory) {
                 try fileSystem.createDirectory(sharedFingerprintsDirectory, recursive: true)
             }
+            // And make sure we can lock the directory (which writes a lock file)
+            try fileSystem.withLock(on: sharedFingerprintsDirectory, type: .exclusive) { }
             return sharedFingerprintsDirectory
         } catch {
             self.observabilityScope.emit(warning: "Failed creating shared fingerprints directory: \(error)")
