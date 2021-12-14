@@ -256,11 +256,11 @@ extension PluginCommandIntent: Encodable {
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         switch self {
-        case .documentationGeneration:
+        case ._documentationGeneration:
             try container.encode(IntentType.documentationGeneration, forKey: .type)
-        case .sourceCodeFormatting:
+        case ._sourceCodeFormatting:
             try container.encode(IntentType.sourceCodeFormatting, forKey: .type)
-        case .custom(let verb, let description):
+        case ._custom(let verb, let description):
             try container.encode(IntentType.custom, forKey: .type)
             try container.encode(verb, forKey: .verb)
             try container.encode(description, forKey: .description)
@@ -280,7 +280,7 @@ extension PluginPermission: Encodable {
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         switch self {
-        case .writeToPackageDirectory(let reason):
+        case ._writeToPackageDirectory(let reason):
             try container.encode(PermissionType.writeToPackageDirectory, forKey: .type)
             try container.encode(reason, forKey: .reason)
         }
