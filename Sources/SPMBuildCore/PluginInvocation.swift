@@ -503,14 +503,14 @@ public struct PluginInvocationTestResult: Encodable {
             public var tests: [Test]
             public struct Test: Encodable {
                 public var name: String
-                public var outcome: Outcome
+                public var result: Result
                 public var duration: Double
-                public enum Outcome: String, Encodable {
+                public enum Result: String, Encodable {
                     case succeeded, skipped, failed
                 }
-                public init(name: String, outcome: Outcome, duration: Double) {
+                public init(name: String, result: Result, duration: Double) {
                     self.name = name
-                    self.outcome = outcome
+                    self.result = result
                     self.duration = duration
                 }
             }
