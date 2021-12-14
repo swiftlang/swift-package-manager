@@ -648,6 +648,8 @@ public class SwiftTool {
             if !fileSystem.exists(sharedSecurityDirectory) {
                 try fileSystem.createDirectory(sharedSecurityDirectory, recursive: true)
             }
+            // And make sure we can write files (locking the directory writes a lock file)
+            try fileSystem.withLock(on: sharedSecurityDirectory, type: .exclusive) { }
             return sharedSecurityDirectory
         } catch {
             self.observabilityScope.emit(warning: "Failed creating shared security directory: \(error)")
