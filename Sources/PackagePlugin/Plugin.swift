@@ -140,9 +140,7 @@ extension Plugin {
                 }
                 
                 // Invoke the plugin to create build commands for the target.
-                let generatedCommands = try plugin.createBuildCommands(
-                    context: context,
-                    target: target)
+                let generatedCommands = try plugin.createBuildCommands(context: context, target: target)
                 
                 // Send each of the generated commands to the host.
                 for command in generatedCommands {
@@ -175,7 +173,7 @@ extension Plugin {
                     }
                 }
                 
-            case .performCommand(let targets, let arguments, let outputPath):
+            case .performCommand(let targets, let arguments):
                 // Check that the plugin implements the appropriate protocol
                 // for its declared capability.
                 guard let plugin = plugin as? CommandPlugin else {
@@ -184,11 +182,7 @@ extension Plugin {
                 }
                 
                 // Invoke the plugin to perform its custom logic.
-                try plugin.performCommand(
-                    context: context,
-                    targets: targets,
-                    arguments: arguments,
-                    outputPath: outputPath)
+                try plugin.performCommand(context: context, targets: targets, arguments: arguments)
             }
             
             // Send back a message to the host indicating that we're done.
