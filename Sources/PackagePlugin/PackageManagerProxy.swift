@@ -27,7 +27,7 @@ public struct PackageManager {
         _ subset: BuildSubset,
         parameters: BuildParameters
     ) throws -> BuildResult {
-        // Ask the plugin host for symbol graph information for the target, and wait for a response.
+        // Ask the plugin host to build the specified products and targets, and wait for a response.
         // FIXME: We'll want to make this asynchronous when there is back deployment support for it.
         return try sendMessageAndWaitForReply(.buildOperationRequest(subset: subset, parameters: parameters)) {
             guard case .buildOperationResponse(let result) = $0 else { return nil }
@@ -127,7 +127,7 @@ public struct PackageManager {
         _ subset: TestSubset,
         parameters: TestParameters
     ) throws -> TestResult {
-        // Ask the plugin host for symbol graph information for the target, and wait for a response.
+        // Ask the plugin host to run the specified tests, and wait for a response.
         // FIXME: We'll want to make this asynchronous when there is back deployment support for it.
         return try sendMessageAndWaitForReply(.testOperationRequest(subset: subset, parameters: parameters)) {
             guard case .testOperationResponse(let result) = $0 else { return nil }
