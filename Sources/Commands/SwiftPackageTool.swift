@@ -1019,8 +1019,7 @@ extension SwiftPackageTool {
             let _ = try tsc_await { plugin.invoke(
                 action: .performCommand(
                     targets: Array(targets.values),
-                    arguments: Array(pluginCommand.dropFirst()),
-                    outputPath: outputPath),
+                    arguments: Array(pluginCommand.dropFirst())),
                 package: package,
                 buildEnvironment: buildEnvironment,
                 scriptRunner: pluginScriptRunner,

@@ -231,8 +231,7 @@ class PluginTests: XCTestCase {
                         func performCommand(
                             context: PluginContext,
                             targets: [Target],
-                            arguments: [String],
-                            outputPath: Path?
+                            arguments: [String]
                         ) throws {
                             // Check the identity of the root packages.
                             print("Root package is \\(context.package.displayName).")
@@ -240,12 +239,7 @@ class PluginTests: XCTestCase {
                             // Check that we can find a tool in the toolchain.
                             let swiftc = try context.tool(named: "swiftc")
                             print("Found the swiftc tool at \\(swiftc.path).")
-
-                            // Check the output path.
-                            if let outputPath = outputPath {
-                                print("Got output path \\(outputPath.string).")
-                            }
-                       }
+                        }
                     }
                 """
             }
@@ -343,12 +337,10 @@ class PluginTests: XCTestCase {
             let pluginOutputDir = tmpPath.appending(component: "plugin-output")
             let pluginScriptRunner = DefaultPluginScriptRunner(cacheDir: pluginCacheDir, toolchain: ToolchainConfiguration.default)
             let target = try XCTUnwrap(package.targets.first{ $0.underlyingTarget == libraryTarget })
-            let outputPath = tmpPath.appending(component: UUID().uuidString)
             let invocationSucceeded = try tsc_await { pluginTarget.invoke(
                 action: .performCommand(
-                    targets: [target],
-                    arguments: ["veni", "vidi", "vici"],
-                    outputPath: outputPath),
+                    targets: [ target ],
+                    arguments: ["veni", "vidi", "vici"]),
                 package: package,
                 buildEnvironment: BuildEnvironment(platform: .macOS, configuration: .debug),
                 scriptRunner: pluginScriptRunner,
@@ -366,7 +358,6 @@ class PluginTests: XCTestCase {
             let outputText = String(decoding: pluginDelegate.outputData, as: UTF8.self)
             XCTAssertTrue(outputText.contains("Root package is MyPackage."), outputText)
             XCTAssertTrue(outputText.contains("Found the swiftc tool"), outputText)
-            XCTAssertTrue(outputText.contains("Got output path \(outputPath.pathString)"), outputText)
         }
     }
 }
