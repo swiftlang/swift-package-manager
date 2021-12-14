@@ -375,7 +375,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
         process.standardInput = stdinPipe
 
         // Private message handler method. Always invoked on the callback queue.
-        var result: Bool? = .none
+        var emittedAtLeastOneError = false
         func handle(message: PluginToHostMessage) throws {
             dispatchPrecondition(condition: .onQueue(callbackQueue))
             switch message {
@@ -390,6 +390,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
                 let diagnostic: Basics.Diagnostic
                 switch severity {
                 case .error:
+                    emittedAtLeastOneError = true
                     diagnostic = .error(message, metadata: metadata)
                 case .warning:
                     diagnostic = .warning(message, metadata: metadata)
@@ -447,13 +448,6 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
                         outputQueue.async { try? outputHandle.writePluginMessage(.errorResponse(error: String(describing: error))) }
                     }
                 }
-
-            case .actionComplete(let success):
-                // The plugin has indicated that it's finished the requested action.
-                result = success
-                outputQueue.async {
-                    try? outputHandle.close()
-                }
             }
         }
 
@@ -463,7 +457,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
         stdoutPipe.fileHandleForReading.readabilityHandler = { fileHandle in
             // Parse the next message and pass it on to the delegate.
             stdoutLock.withLock {
-                if let message = try? fileHandle.readPluginMessage() {
+                while let message = try? fileHandle.readPluginMessage() {
                     // FIXME: We should handle errors here.
                     callbackQueue.async { try? handle(message: message) }
                 }
@@ -488,31 +482,35 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
         
         // Set up a handler to deal with the exit of the plugin process.
         process.terminationHandler = { process in
+            // Close the output handle through which we talked to the plugin.
+            try? outputHandle.close()
+
+            // Read and pass on any remaining messages from the plugin.
+            stdoutPipe.fileHandleForReading.readabilityHandler?(stdoutPipe.fileHandleForReading)
+
             // Read and pass on any remaining free-form text output from the plugin.
             stderrPipe.fileHandleForReading.readabilityHandler?(stderrPipe.fileHandleForReading)
-            
+
             // Call the completion block with a result that depends on how the process ended.
             callbackQueue.async {
                 completion(Result {
+                    // We throw an error if the plugin ended with a signal.
                     if process.terminationReason == .uncaughtSignal {
                         throw DefaultPluginScriptRunnerError.invocationEndedBySignal(
                             signal: process.terminationStatus,
                             command: command,
                             output: String(decoding: stderrData, as: UTF8.self))
                     }
-                    if process.terminationStatus != 0 {
-                        throw DefaultPluginScriptRunnerError.invocationEndedWithNonZeroExitCode(
-                            exitCode: process.terminationStatus,
-                            command: command,
-                            output: String(decoding: stderrData, as: UTF8.self))
+                    // Otherwise we return a result based on its exit code. If
+                    // the plugin exits with an error but hasn't already emitted
+                    // an error, we do so for it.
+                    let success = (process.terminationStatus == 0)
+                    if !success && !emittedAtLeastOneError {
+                        delegate.pluginEmittedDiagnostic(
+                            .error("Plugin ended with exit code \(process.terminationStatus)")
+                        )
                     }
-                    guard let result = result else {
-                        throw DefaultPluginScriptRunnerError.pluginCommunicationError(
-                            message: "didn’t receive output result from plugin",
-                            command: command,
-                            output: String(decoding: stderrData, as: UTF8.self))
-                    }
-                    return result
+                    return success
                 })
             }
         }
@@ -660,9 +658,6 @@ enum PluginToHostMessage: Decodable {
 
     /// The plugin is requesting symbol graph information for a given target and set of options.
     case symbolGraphRequest(targetName: String, options: PluginInvocationSymbolGraphOptions)
-    
-    /// The plugin has finished the requested action.
-    case actionComplete(success: Bool)
 }
 
 fileprivate extension FileHandle {

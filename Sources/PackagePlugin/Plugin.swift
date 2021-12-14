@@ -92,7 +92,15 @@ extension Plugin {
         // Handle messages from the host until the input stream is closed,
         // indicating that we're done.
         while let message = try pluginHostConnection.waitForNextMessage() {
-            try handleMessage(message)
+            do {
+                try handleMessage(message)
+            }
+            catch {
+                // Emit a diagnostic and indicate failure to the plugin host,
+                // and exit with an error code.
+                Diagnostics.error(String(describing: error))
+                exit(1)
+            }
         }
     }
     
@@ -185,8 +193,8 @@ extension Plugin {
                 try plugin.performCommand(context: context, targets: targets, arguments: arguments)
             }
             
-            // Send back a message to the host indicating that we're done.
-            try pluginHostConnection.sendMessage(.actionComplete(success: true))
+            // Exit with a zero exit code to indicate success.
+            exit(0)
             
         default:
             internalError("unexpected top-level message \(message)")
@@ -258,9 +266,6 @@ enum PluginToHostMessage: Encodable {
 
     /// The plugin is requesting symbol graph information for a given target and set of options.
     case symbolGraphRequest(targetName: String, options: PackageManager.SymbolGraphOptions)
-    
-    /// The plugin has finished the requested action.
-    case actionComplete(success: Bool)
 }
 
 typealias PluginHostConnection = MessageConnection<PluginToHostMessage, HostToPluginMessage>
