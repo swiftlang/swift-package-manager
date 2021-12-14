@@ -437,7 +437,7 @@ fileprivate extension SourceCodeFragment {
                 SourceCodeFragment(key: "verb", string: verb),
                 SourceCodeFragment(key: "description", string: description)
             ]
-            self.init(enum: "writeToPackageDirectory", subnodes: params)
+            self.init(enum: "custom", subnodes: params)
         }
     }
 
