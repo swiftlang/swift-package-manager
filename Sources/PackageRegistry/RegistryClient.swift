@@ -432,10 +432,16 @@ public final class RegistryClient {
                             switch storageResult {
                             case .success:
                                 completion(.success(checksum))
+                            case .failure(PackageFingerprintStorageError.conflict(_, let existing)):
+                                switch self.fingerprintCheckingMode {
+                                case .strict:
+                                    completion(.failure(RegistryError.checksumChanged(latest: checksum, previous: existing.value)))
+                                case .warn:
+                                    observabilityScope.emit(warning: "The checksum \(checksum) from \(registry.url.absoluteString) does not match previously recorded value \(existing.value) from \(String(describing: existing.origin.url?.absoluteString))")
+                                    completion(.success(checksum))
+                                }
                             case .failure(let error):
-                                // Don't throw write errors
-                                observabilityScope.emit(warning: "Failed to save checksum '\(checksum) from \(registry.url) to fingerprints storage: \(error)")
-                                completion(.success(checksum))
+                                completion(.failure(error))
                             }
                         }
                     } else {
