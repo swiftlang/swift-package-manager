@@ -126,7 +126,7 @@ extension Workspace {
                 resolvedVersionsFile: DefaultLocations.resolvedVersionsFile(forRootPackage: rootPath),
                 sharedSecurityDirectory: fileSystem.swiftPMSecurityDirectory,
                 sharedCacheDirectory: fileSystem.swiftPMCacheDirectory,
-                sharedConfigurationDirectory: fileSystem.swiftPMConfigDirectory
+                sharedConfigurationDirectory: fileSystem.swiftPMConfigurationDirectory
             )
         }
     }

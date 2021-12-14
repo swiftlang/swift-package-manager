@@ -21,10 +21,9 @@ extension FileSystem {
     public var dotSwiftPM: AbsolutePath {
         self.homeDirectory.appending(component: ".swiftpm")
     }
-    
-    /// SwiftPM security directory
-    public var swiftPMSecurityDirectory: AbsolutePath {
-        self.dotSwiftPM.appending(component: "security")
+
+    fileprivate var idiomaticSwiftPMDirectory: AbsolutePath? {
+        return FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask).first.flatMap { AbsolutePath($0.path) }?.appending(component: "org.swift.swiftpm")
     }
 }
 
@@ -69,52 +68,126 @@ extension FileSystem {
     }
 }
 
-// MARK: - config
+// MARK: - configuration
 
 extension FileSystem {
-    private var idiomaticUserConfigDirectory: AbsolutePath? {
-        return FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask).first.flatMap { AbsolutePath($0.path) }
-    }
-
     /// SwiftPM config directory under user's config directory (if exists)
-    public var swiftPMConfigDirectory: AbsolutePath {
-        if let path = self.idiomaticUserConfigDirectory {
-            return path.appending(component: "org.swift.swiftpm")
+    public var swiftPMConfigurationDirectory: AbsolutePath {
+        if let path = self.idiomaticSwiftPMDirectory {
+            return path.appending(component: "configuration")
         } else {
-            return self.dotSwiftPMConfigDirectory
+            return self.dotSwiftPMConfigurationDirectory
         }
     }
 
-    fileprivate var dotSwiftPMConfigDirectory: AbsolutePath {
-        return self.dotSwiftPM.appending(component: "config")
+    fileprivate var dotSwiftPMConfigurationDirectory: AbsolutePath {
+        return self.dotSwiftPM.appending(component: "configuration")
     }
 }
 
 extension FileSystem {
-    public func getOrCreateSwiftPMConfigDirectory() throws -> AbsolutePath {
-        let idiomaticConfigDirectory = self.swiftPMConfigDirectory
+    public func getOrCreateSwiftPMConfigurationDirectory(observabilityScope: ObservabilityScope?) throws -> AbsolutePath {
+        let idiomaticConfigurationDirectory = self.swiftPMConfigurationDirectory
 
-        // temporary 5.5, remove on next version: transition from ~/.swiftpm/config to idiomatic location + symbolic link
-        if idiomaticConfigDirectory != self.dotSwiftPMConfigDirectory &&
-            self.exists(self.dotSwiftPMConfigDirectory) && self.isDirectory(self.dotSwiftPMConfigDirectory) &&
-            !self.exists(idiomaticConfigDirectory) {
-            print("transitioning \(self.dotSwiftPMConfigDirectory) to \(idiomaticConfigDirectory)")
-            try self.move(from: self.dotSwiftPMConfigDirectory, to: idiomaticConfigDirectory)
+        // temporary 5.6, remove on next version: transition from previous configuration location
+        if !self.exists(idiomaticConfigurationDirectory) {
+            try self.createDirectory(idiomaticConfigurationDirectory, recursive: true)
         }
 
+        // in the case where ~/.swiftpm/configuration is not the idiomatic location (eg on macOS where its /Users/<user>/Library/org.swift.swiftpm/configuration)
+        if idiomaticConfigurationDirectory != self.dotSwiftPMConfigurationDirectory {
+            // copy the configuration files from old location (eg /Users/<user>/Library/org.swift.swiftpm) to new one (eg /Users/<user>/Library/org.swift.swiftpm/configuration)
+            // but leave them there for backwards compatibility (eg older xcode)
+            let oldConfigDirectory = idiomaticConfigurationDirectory.parentDirectory
+            if self.exists(oldConfigDirectory, followSymlink: false) && self.isDirectory(oldConfigDirectory) {
+                let content = try self.getDirectoryContents(oldConfigDirectory).filter{ !$0.hasSuffix(".lock") }
+                for item in content {
+                    if self.isFile(oldConfigDirectory.appending(component: item)) &&
+                        !self.isSymlink(oldConfigDirectory.appending(component: item)) &&
+                        !self.exists(idiomaticConfigurationDirectory.appending(component: item)) {
+                        observabilityScope?.emit(warning: "Usage of \(oldConfigDirectory.appending(component: item)) has been deprecated. Please delete it and use the new \(idiomaticConfigurationDirectory.appending(component: item)) instead.")
+                        try self.copy(from: oldConfigDirectory.appending(component: item), to: idiomaticConfigurationDirectory.appending(component: item))
+                    }
+                }
+            }
+        // in the case where ~/.swiftpm/configuration is the idiomatic location (eg on Linux)
+        } else {
+            // copy the configuration files from old location (~/.swiftpm/config) to new one (~/.swiftpm/configuration)
+            // but leave them there for backwards compatibility (eg older toolchain)
+            let oldConfigDirectory = self.dotSwiftPM.appending(component: "config")
+            if self.exists(oldConfigDirectory, followSymlink: false) && self.isDirectory(oldConfigDirectory) {
+                let content = try self.getDirectoryContents(oldConfigDirectory).filter{ !$0.hasSuffix(".lock") }
+                for item in content {
+                    if self.isFile(oldConfigDirectory.appending(component: item)) &&
+                        !self.isSymlink(oldConfigDirectory.appending(component: item)) &&
+                        !self.exists(idiomaticConfigurationDirectory.appending(component: item)) {
+                        observabilityScope?.emit(warning: "Usage of \(oldConfigDirectory.appending(component: item)) has been deprecated. Please delete it and use the new \(idiomaticConfigurationDirectory.appending(component: item)) instead.")
+                        try self.copy(from: oldConfigDirectory.appending(component: item), to: idiomaticConfigurationDirectory.appending(component: item))
+                    }
+                }
+            }
+        }
+        // ~temporary 5.6 migration
+
         // Create idiomatic if necessary
-        if !self.exists(idiomaticConfigDirectory) {
-            try self.createDirectory(idiomaticConfigDirectory, recursive: true)
+        if !self.exists(idiomaticConfigurationDirectory) {
+            try self.createDirectory(idiomaticConfigurationDirectory, recursive: true)
         }
         // Create ~/.swiftpm if necessary
         if !self.exists(self.dotSwiftPM) {
             try self.createDirectory(self.dotSwiftPM, recursive: true)
         }
-        // Create ~/.swiftpm/config symlink if necessary
-        if !self.exists(self.dotSwiftPMConfigDirectory, followSymlink: false) {
-            try self.createSymbolicLink(dotSwiftPMConfigDirectory, pointingAt: idiomaticConfigDirectory, relative: false)
+        // Create ~/.swiftpm/configuration symlink if necessary
+        if !self.exists(self.dotSwiftPMConfigurationDirectory, followSymlink: false) {
+            try self.createSymbolicLink(dotSwiftPMConfigurationDirectory, pointingAt: idiomaticConfigurationDirectory, relative: false)
         }
-        return idiomaticConfigDirectory
+
+        return idiomaticConfigurationDirectory
+    }
+}
+
+// MARK: - security
+
+extension FileSystem {
+    /// SwiftPM security directory under user's security directory (if exists)
+    public var swiftPMSecurityDirectory: AbsolutePath {
+        if let path = self.idiomaticSwiftPMDirectory {
+            return path.appending(component: "security")
+        } else {
+            return self.dotSwiftPMSecurityDirectory
+        }
+    }
+
+    fileprivate var dotSwiftPMSecurityDirectory: AbsolutePath {
+        return self.dotSwiftPM.appending(component: "security")
+    }
+}
+
+extension FileSystem {
+    public func getOrCreateSwiftPMSecurityDirectory() throws -> AbsolutePath {
+        let idiomaticSecurityDirectory = self.swiftPMSecurityDirectory
+
+        // temporary 5.6, remove on next version: transition from ~/.swiftpm/security to idiomatic location + symbolic link
+        if idiomaticSecurityDirectory != self.dotSwiftPMSecurityDirectory &&
+            self.exists(self.dotSwiftPMSecurityDirectory) &&
+            self.isDirectory(self.dotSwiftPMSecurityDirectory) {
+            try self.removeFileTree(self.dotSwiftPMSecurityDirectory)
+        }
+        // ~temporary 5.6 migration
+
+        // Create idiomatic if necessary
+        if !self.exists(idiomaticSecurityDirectory) {
+            try self.createDirectory(idiomaticSecurityDirectory, recursive: true)
+        }
+        // Create ~/.swiftpm if necessary
+        if !self.exists(self.dotSwiftPM) {
+            try self.createDirectory(self.dotSwiftPM, recursive: true)
+        }
+        // Create ~/.swiftpm/security symlink if necessary
+        if !self.exists(self.dotSwiftPMSecurityDirectory, followSymlink: false) {
+            try self.createSymbolicLink(dotSwiftPMSecurityDirectory, pointingAt: idiomaticSecurityDirectory, relative: false)
+        }
+        return idiomaticSecurityDirectory
     }
 }
 

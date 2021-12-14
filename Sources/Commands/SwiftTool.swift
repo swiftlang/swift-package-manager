@@ -246,6 +246,8 @@ protocol SwiftCommand: ParsableCommand {
 extension SwiftCommand {
     public func run() throws {
         let swiftTool = try SwiftTool(options: swiftOptions)
+        // make sure common directories are created
+        try swiftTool.createSharedDirectories()
         try self.run(swiftTool)
         if swiftTool.observabilityScope.errorsReported || swiftTool.executionStatus == .failure {
             throw ExitCode.failure
@@ -634,7 +636,7 @@ public class SwiftTool {
         }
 
         do {
-            return try localFileSystem.getOrCreateSwiftPMConfigDirectory()
+            return try localFileSystem.getOrCreateSwiftPMConfigurationDirectory(observabilityScope: self.observabilityScope)
         } catch {
             self.observabilityScope.emit(warning: "Failed creating default configuration location, \(error)")
             return .none
@@ -642,19 +644,29 @@ public class SwiftTool {
     }
     
     private func getSharedSecurityDirectory() throws -> AbsolutePath? {
-        do {
-            let fileSystem = localFileSystem
-            let sharedSecurityDirectory = fileSystem.swiftPMSecurityDirectory
-            if !fileSystem.exists(sharedSecurityDirectory) {
-                try fileSystem.createDirectory(sharedSecurityDirectory, recursive: true)
+        if let explicitSecurityPath = options.securityPath {
+            // Create the explicit security path if necessary
+            if !localFileSystem.exists(explicitSecurityPath) {
+                try localFileSystem.createDirectory(explicitSecurityPath, recursive: true)
             }
+            return explicitSecurityPath
+        }
+
+        do {
+            let sharedSecurityDirectory = try localFileSystem.getOrCreateSwiftPMSecurityDirectory()
             // And make sure we can write files (locking the directory writes a lock file)
-            try fileSystem.withLock(on: sharedSecurityDirectory, type: .exclusive) { }
+            try localFileSystem.withLock(on: sharedSecurityDirectory, type: .exclusive) { }
             return sharedSecurityDirectory
         } catch {
-            self.observabilityScope.emit(warning: "Failed creating shared security directory: \(error)")
+            self.observabilityScope.emit(warning: "Failed creating default security location, \(error)")
             return .none
         }
+    }
+
+    fileprivate func createSharedDirectories() throws {
+        _ = try getSharedCacheDirectory()
+        _ = try getSharedConfigurationDirectory()
+        _ = try getSharedSecurityDirectory()
     }
 
     /// Returns the currently active workspace.
