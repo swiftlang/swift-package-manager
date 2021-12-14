@@ -99,49 +99,13 @@ public protocol CommandPlugin: Plugin {
         arguments: [String]
     ) throws
 
-    /// Invoked by SwiftPM to perform the custom actions of the command.
-    func performCommand(
-        /// The context in which the plugin is invoked. This is the same for all
-        /// kinds of plugins, and provides access to the package graph, to cache
-        /// directories, etc.
-        context: PluginContext,
-
-        /// The targets to which the command should be applied. If the invoker of
-        /// the command has not specified particular targets, this will be a list
-        /// of all the targets in the package to which the command is applied.
-        targets: [Target],
-
-        /// Any literal arguments passed after the verb in the command invocation.
-        arguments: [String],
-
-        /// Optional output path to which the command is allowed to write.
-        outputPath: Path?
-    ) throws
-
     /// A proxy to the Swift Package Manager or IDE hosting the command plugin,
     /// through which the plugin can ask for specialized information or actions.
     var packageManager: PackageManager { get }
 }
 
 extension CommandPlugin {
-
-    public func performCommand(
-        context: PluginContext,
-        targets: [Target],
-        arguments: [String]
-    ) throws {
-        try self.performCommand(context: context, targets: targets, arguments: arguments, outputPath: .none)
-    }
-
-    public func performCommand(
-        context: PluginContext,
-        targets: [Target],
-        arguments: [String],
-        outputPath: Path?
-    ) throws {
-        try self.performCommand(context: context, targets: targets, arguments: arguments)
-    }
-
+    
     /// A proxy to the Swift Package Manager or IDE hosting the command plugin,
     /// through which the plugin can ask for specialized information or actions.
     public var packageManager: PackageManager {
