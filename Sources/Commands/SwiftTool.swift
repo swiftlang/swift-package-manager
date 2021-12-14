@@ -648,6 +648,8 @@ public class SwiftTool {
             if !fileSystem.exists(sharedSecurityDirectory) {
                 try fileSystem.createDirectory(sharedSecurityDirectory, recursive: true)
             }
+            // And make sure we can write files (locking the directory writes a lock file)
+            try fileSystem.withLock(on: sharedSecurityDirectory, type: .exclusive) { }
             return sharedSecurityDirectory
         } catch {
             self.observabilityScope.emit(warning: "Failed creating shared security directory: \(error)")
@@ -662,10 +664,8 @@ public class SwiftTool {
         }
 
         let delegate = ToolWorkspaceDelegate(self.outputStream, logLevel: self.logLevel, observabilityScope: self.observabilityScope)
-        let provider = GitRepositoryProvider(processSet: processSet)        
-        // FIXME: rdar://86367436
-        //let sharedSecurityDirectory = try self.getSharedSecurityDirectory()
-        let sharedSecurityDirectory: AbsolutePath? = nil
+        let provider = GitRepositoryProvider(processSet: processSet)
+        let sharedSecurityDirectory = try self.getSharedSecurityDirectory()
         let sharedCacheDirectory = try self.getSharedCacheDirectory()
         let sharedConfigurationDirectory = try self.getSharedConfigurationDirectory()
         let isXcodeBuildSystemEnabled = self.options.buildSystem == .xcode
