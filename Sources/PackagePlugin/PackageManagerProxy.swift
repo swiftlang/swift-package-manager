@@ -184,11 +184,11 @@ public struct PackageManager {
                 /// Represents the results of running a single test.
                 public struct Test: Decodable {
                     public var name: String
-                    public var outcome: Outcome
+                    public var result: Result
                     public var duration: Double
 
-                    /// Represents the outcome of running a single test.
-                    public enum Outcome: String, Decodable {
+                    /// Represents the result of running a single test.
+                    public enum Result: String, Decodable {
                         case succeeded, skipped, failed
                     }
                 }
