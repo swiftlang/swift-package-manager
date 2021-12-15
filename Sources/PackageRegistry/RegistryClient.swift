@@ -100,14 +100,14 @@ public final class RegistryClient {
     private let archiverProvider: (FileSystem) -> Archiver
     private let httpClient: HTTPClient
     private let authorizationProvider: HTTPClientAuthorizationProvider?
-    private let fingerprintStorage: PackageFingerprintStorage
+    private let fingerprintStorage: PackageFingerprintStorage?
     private let fingerprintCheckingMode: FingerprintCheckingMode
     private let jsonDecoder: JSONDecoder
 
     public init(
         configuration: RegistryConfiguration,
         identityResolver: IdentityResolver,
-        fingerprintStorage: PackageFingerprintStorage,
+        fingerprintStorage: PackageFingerprintStorage? = .none,
         fingerprintCheckingMode: FingerprintCheckingMode,
         authorizationProvider: HTTPClientAuthorizationProvider? = .none,
         customHTTPClient: HTTPClient? = .none,
@@ -423,27 +423,29 @@ public final class RegistryClient {
                         throw RegistryError.invalidSourceArchive
                     }
 
-                    self.fingerprintStorage.put(package: package,
-                                                version: version,
-                                                fingerprint: .init(origin: .registry(registry.url), value: checksum),
-                                                observabilityScope: observabilityScope,
-                                                callbackQueue: callbackQueue) { storageResult in
-                        switch storageResult {
-                        case .success:
-                            completion(.success(checksum))
-                        case .failure(PackageFingerprintStorageError.conflict(_, let existing)):
-                            switch self.fingerprintCheckingMode {
-                            case .strict:
-                                completion(.failure(RegistryError.checksumChanged(latest: checksum, previous: existing.value)))
-                            case .warn:
-                                observabilityScope.emit(warning: "The checksum \(checksum) from \(registry.url.absoluteString) does not match previously recorded value \(existing.value) from \(String(describing: existing.origin.url?.absoluteString))")
+                    if let fingerprintStorage = self.fingerprintStorage {
+                        fingerprintStorage.put(package: package,
+                                               version: version,
+                                               fingerprint: .init(origin: .registry(registry.url), value: checksum),
+                                               observabilityScope: observabilityScope,
+                                               callbackQueue: callbackQueue) { storageResult in
+                            switch storageResult {
+                            case .success:
                                 completion(.success(checksum))
-                            case .none:
-                                completion(.success(checksum))
+                            case .failure(PackageFingerprintStorageError.conflict(_, let existing)):
+                                switch self.fingerprintCheckingMode {
+                                case .strict:
+                                    completion(.failure(RegistryError.checksumChanged(latest: checksum, previous: existing.value)))
+                                case .warn:
+                                    observabilityScope.emit(warning: "The checksum \(checksum) from \(registry.url.absoluteString) does not match previously recorded value \(existing.value) from \(String(describing: existing.origin.url?.absoluteString))")
+                                    completion(.success(checksum))
+                                }
+                            case .failure(let error):
+                                completion(.failure(error))
                             }
-                        case .failure(let error):
-                            completion(.failure(error))
                         }
+                    } else {
+                        completion(.success(checksum))
                     }
                 } catch {
                     completion(.failure(RegistryError.failedRetrievingReleaseChecksum(error)))
@@ -535,8 +537,6 @@ public final class RegistryClient {
                                     return completion(.failure(RegistryError.invalidChecksum(expected: expectedChecksum, actual: actualChecksum)))
                                 case .warn:
                                     observabilityScope.emit(warning: "The checksum \(actualChecksum) does not match previously recorded value \(expectedChecksum)")
-                                case .none:
-                                    break
                                 }
                             }
 
@@ -567,25 +567,33 @@ public final class RegistryClient {
 
         // We either use a previously recorded checksum, or fetch it from the registry
         func withExpectedChecksum(body: @escaping (Result<String, Error>) -> Void) {
-            self.fingerprintStorage.get(package: package,
-                                        version: version,
-                                        kind: .registry,
-                                        observabilityScope: observabilityScope,
-                                        callbackQueue: callbackQueue) { result in
-                switch result {
-                case .success(let fingerprint):
-                    body(.success(fingerprint.value))
-                case .failure(let error):
-                    if error as? PackageFingerprintStorageError != .notFound {
-                        observabilityScope.emit(error: "Failed to get registry fingerprint for \(package) \(version) from storage: \(error)")
+            if let fingerprintStorage = self.fingerprintStorage {
+                fingerprintStorage.get(package: package,
+                                       version: version,
+                                       kind: .registry,
+                                       observabilityScope: observabilityScope,
+                                       callbackQueue: callbackQueue) { result in
+                    switch result {
+                    case .success(let fingerprint):
+                        body(.success(fingerprint.value))
+                    case .failure(let error):
+                        if error as? PackageFingerprintStorageError != .notFound {
+                            observabilityScope.emit(error: "Failed to get registry fingerprint for \(package) \(version) from storage: \(error)")
+                        }
+                        // Try fetching checksum from registry again no matter which kind of error it is
+                        self.fetchSourceArchiveChecksum(package: package,
+                                                        version: version,
+                                                        observabilityScope: observabilityScope,
+                                                        callbackQueue: callbackQueue,
+                                                        completion: body)
                     }
-                    // Try fetching checksum from registry again no matter which kind of error it is
-                    self.fetchSourceArchiveChecksum(package: package,
-                                                    version: version,
-                                                    observabilityScope: observabilityScope,
-                                                    callbackQueue: callbackQueue,
-                                                    completion: body)
                 }
+            } else {
+                self.fetchSourceArchiveChecksum(package: package,
+                                                version: version,
+                                                observabilityScope: observabilityScope,
+                                                callbackQueue: callbackQueue,
+                                                completion: body)
             }
         }
     }

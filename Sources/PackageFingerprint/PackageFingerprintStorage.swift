@@ -46,7 +46,16 @@ public extension PackageFingerprintStorage {
     }
 }
 
-public enum PackageFingerprintStorageError: Error, Equatable {
+public enum PackageFingerprintStorageError: Error, Equatable, CustomStringConvertible {
     case conflict(given: Fingerprint, existing: Fingerprint)
     case notFound
+    
+    public var description: String {
+        switch self {
+        case .conflict(let given, let existing):
+            return "Fingerprint \(given) is different from previously recorded value \(existing)"
+        case .notFound:
+            return "Not found"
+        }
+    }
 }

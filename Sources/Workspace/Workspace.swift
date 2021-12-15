@@ -223,7 +223,7 @@ public class Workspace {
     fileprivate let checksumAlgorithm: HashAlgorithm
     
     /// The package fingerprint storage
-    fileprivate let fingerprintStorage: PackageFingerprintStorage
+    fileprivate let fingerprintStorage: PackageFingerprintStorage?
 
     /// Enable prefetching containers in resolver.
     fileprivate let resolverPrefetchingEnabled: Bool
@@ -265,6 +265,7 @@ public class Workspace {
     ///   - customHTTPClient: A custom http client.
     ///   - customArchiver: A custom archiver.
     ///   - customChecksumAlgorithm: A custom checksum algorithm.
+    ///   - customFingerprintStorage: A custom fingerprint storage.
     ///   - additionalFileRules: File rules to determine resource handling behavior.
     ///   - resolverUpdateEnabled: Enables the dependencies resolver automatic version update check.  Enabled by default. When disabled the resolver relies only on the resolved version file
     ///   - resolverPrefetchingEnabled: Enables the dependencies resolver prefetching based on the resolved version file.  Enabled by default.
@@ -314,10 +315,12 @@ public class Workspace {
             delegate: delegate.map(WorkspaceRepositoryManagerDelegate.init(workspaceDelegate:)),
             cachePath: sharedRepositoriesCacheEnabled ? location.sharedRepositoriesCacheDirectory : .none
         )        
-        let fingerprintStorage = customFingerprintStorage ?? FilePackageFingerprintStorage(
-            fileSystem: fileSystem,
-            directoryPath: location.sharedFingerprintsDirectory
-        )
+        let fingerprintStorage = customFingerprintStorage ?? location.sharedFingerprintsDirectory.map {
+            FilePackageFingerprintStorage(
+                fileSystem: fileSystem,
+                directoryPath: $0
+            )
+        }
 
         let registryClient = customRegistryClient ?? registries.map { configuration in
             RegistryClient(
