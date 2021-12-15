@@ -100,13 +100,14 @@ extension FileSystem {
             // but leave them there for backwards compatibility (eg older xcode)
             let oldConfigDirectory = idiomaticConfigurationDirectory.parentDirectory
             if self.exists(oldConfigDirectory, followSymlink: false) && self.isDirectory(oldConfigDirectory) {
-                let content = try self.getDirectoryContents(oldConfigDirectory).filter{ !$0.hasSuffix(".lock") }
-                for item in content {
-                    if self.isFile(oldConfigDirectory.appending(component: item)) &&
-                        !self.isSymlink(oldConfigDirectory.appending(component: item)) &&
-                        !self.exists(idiomaticConfigurationDirectory.appending(component: item)) {
-                        observabilityScope?.emit(warning: "Usage of \(oldConfigDirectory.appending(component: item)) has been deprecated. Please delete it and use the new \(idiomaticConfigurationDirectory.appending(component: item)) instead.")
-                        try self.copy(from: oldConfigDirectory.appending(component: item), to: idiomaticConfigurationDirectory.appending(component: item))
+                let configurationFiles = try self.getDirectoryContents(oldConfigDirectory)
+                    .map{ oldConfigDirectory.appending(component: $0) }
+                    .filter{ self.isFile($0) && !self.isSymlink($0) && $0.extension != "lock"}
+                for file in configurationFiles {
+                    let destination = idiomaticConfigurationDirectory.appending(component: file.basename)
+                    observabilityScope?.emit(warning: "Usage of \(file) has been deprecated. Please delete it and use the new \(destination) instead.")
+                    if !self.exists(destination) {
+                        try self.copy(from: file, to: destination)
                     }
                 }
             }
@@ -116,13 +117,14 @@ extension FileSystem {
             // but leave them there for backwards compatibility (eg older toolchain)
             let oldConfigDirectory = self.dotSwiftPM.appending(component: "config")
             if self.exists(oldConfigDirectory, followSymlink: false) && self.isDirectory(oldConfigDirectory) {
-                let content = try self.getDirectoryContents(oldConfigDirectory).filter{ !$0.hasSuffix(".lock") }
-                for item in content {
-                    if self.isFile(oldConfigDirectory.appending(component: item)) &&
-                        !self.isSymlink(oldConfigDirectory.appending(component: item)) &&
-                        !self.exists(idiomaticConfigurationDirectory.appending(component: item)) {
-                        observabilityScope?.emit(warning: "Usage of \(oldConfigDirectory.appending(component: item)) has been deprecated. Please delete it and use the new \(idiomaticConfigurationDirectory.appending(component: item)) instead.")
-                        try self.copy(from: oldConfigDirectory.appending(component: item), to: idiomaticConfigurationDirectory.appending(component: item))
+                let configurationFiles = try self.getDirectoryContents(oldConfigDirectory)
+                    .map{ oldConfigDirectory.appending(component: $0) }
+                    .filter{ self.isFile($0) && !self.isSymlink($0) && $0.extension != "lock"}
+                for file in configurationFiles {
+                    let destination = idiomaticConfigurationDirectory.appending(component: file.basename)
+                    observabilityScope?.emit(warning: "Usage of \(file) has been deprecated. Please delete it and use the new \(destination) instead.")
+                    if !self.exists(destination) {
+                        try self.copy(from: file, to: destination)
                     }
                 }
             }
