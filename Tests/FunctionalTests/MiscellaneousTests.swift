@@ -649,6 +649,8 @@ class MiscellaneousTestCase: XCTestCase {
             XCTAssertDirectoryExists(customCachePath)
         }
 
+        // `FileSystem` does not support `chmod` on Linux
+        #if os(macOS)
         fixture(name: "Miscellaneous/Simple") { path in
             try localFileSystem.chmod(.userUnWritable, path: path)
             let customCachePath = path.appending(components: "custom", "cache")
@@ -659,6 +661,7 @@ class MiscellaneousTestCase: XCTestCase {
             XCTAssert(output.contains("error: You don’t have permission"), "expected permissions error")
             XCTAssertNoSuchPath(customCachePath)
         }
+        #endif
     }
 
     func testCustomConfigPath() {
@@ -669,6 +672,8 @@ class MiscellaneousTestCase: XCTestCase {
             XCTAssertDirectoryExists(customConfigPath)
         }
 
+        // `FileSystem` does not support `chmod` on Linux
+        #if os(macOS)
         fixture(name: "Miscellaneous/Simple") { path in
             try localFileSystem.chmod(.userUnWritable, path: path)
             let customConfigPath = path.appending(components: "custom", "config")
@@ -679,6 +684,7 @@ class MiscellaneousTestCase: XCTestCase {
             XCTAssert(output.contains("error: You don’t have permission"), "expected permissions error")
             XCTAssertNoSuchPath(customConfigPath)
         }
+        #endif
     }
 
     func testCustomSecurityPath() {
@@ -689,6 +695,8 @@ class MiscellaneousTestCase: XCTestCase {
             XCTAssertDirectoryExists(customSecurityPath)
         }
 
+        // `FileSystem` does not support `chmod` on Linux
+        #if os(macOS)
         fixture(name: "Miscellaneous/Simple") { path in
             try localFileSystem.chmod(.userUnWritable, path: path)
             let customSecurityPath = path.appending(components: "custom", "security")
@@ -699,5 +707,6 @@ class MiscellaneousTestCase: XCTestCase {
             XCTAssert(output.contains("error: You don’t have permission"), "expected permissions error")
             XCTAssertNoSuchPath(customSecurityPath)
         }
+        #endif
     }
 }
