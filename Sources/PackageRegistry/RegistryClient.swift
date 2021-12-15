@@ -750,13 +750,13 @@ public extension RegistryClient {
             public var id: String
             public var version: String
             public var resources: [Resource]
-            public var metadata: AdditionalMetadata
+            public var metadata: AdditionalMetadata?
 
             public init(
                 id: String,
                 version: String,
                 resources: [Resource],
-                metadata: AdditionalMetadata
+                metadata: AdditionalMetadata?
             ) {
                 self.id = id
                 self.version = version
