@@ -1167,13 +1167,13 @@ public final class PackageBuilder {
         // Collect all test targets.
         let testModules = targets.filter({ target in
             guard target.type == .test else { return false }
-          #if os(Linux)
+            #if os(Linux)
             // FIXME: Ignore C language test targets on linux for now.
             if target is ClangTarget {
-                self.observabilityScope.emit(.unsupportedCTestTarget(package: manifest.name, target: target.name))
+                self.observabilityScope.emit(.unsupportedCTestTarget(package: self.identity.description, target: target.name))
                 return false
             }
-          #endif
+            #endif
             return true
         })
 
