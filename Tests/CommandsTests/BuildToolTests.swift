@@ -135,42 +135,42 @@ final class BuildToolTests: CommandsTestCase {
                 _ = try execute(["--product", "exec1", "--target", "exec2"], packagePath: path)
                 XCTFail("Expected to fail")
             } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
-                XCTAssertEqual(stderr, "error: '--product' and '--target' are mutually exclusive\n")
+                XCTAssertMatch(stderr, .contains("error: '--product' and '--target' are mutually exclusive"))
             }
 
             do {
                 _ = try execute(["--product", "exec1", "--build-tests"], packagePath: path)
                 XCTFail("Expected to fail")
             } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
-                XCTAssertEqual(stderr, "error: '--product' and '--build-tests' are mutually exclusive\n")
+                XCTAssertMatch(stderr, .contains("error: '--product' and '--build-tests' are mutually exclusive"))
             }
 
             do {
                 _ = try execute(["--build-tests", "--target", "exec2"], packagePath: path)
                 XCTFail("Expected to fail")
             } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
-                XCTAssertEqual(stderr, "error: '--target' and '--build-tests' are mutually exclusive\n")
+                XCTAssertMatch(stderr, .contains("error: '--target' and '--build-tests' are mutually exclusive"))
             }
 
             do {
                 _ = try execute(["--build-tests", "--target", "exec2", "--product", "exec1"], packagePath: path)
                 XCTFail("Expected to fail")
             } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
-                XCTAssertEqual(stderr, "error: '--product', '--target', and '--build-tests' are mutually exclusive\n")
+                XCTAssertMatch(stderr, .contains("error: '--product', '--target', and '--build-tests' are mutually exclusive"))
             }
 
             do {
                 _ = try execute(["--product", "UnkownProduct"], packagePath: path)
                 XCTFail("Expected to fail")
             } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
-                XCTAssertEqual(stderr, "error: no product named 'UnkownProduct'\n")
+                XCTAssertMatch(stderr, .contains("error: no product named 'UnkownProduct'"))
             }
 
             do {
                 _ = try execute(["--target", "UnkownTarget"], packagePath: path)
                 XCTFail("Expected to fail")
             } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
-                XCTAssertEqual(stderr, "error: no target named 'UnkownTarget'\n")
+                XCTAssertMatch(stderr, .contains("error: no target named 'UnkownTarget'"))
             }
         }
     }
