@@ -572,7 +572,7 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         .package(url: "https://github.com/apple/swift-argument-parser.git", .upToNextMinor(from: "1.0.1")),
         .package(url: "https://github.com/apple/swift-driver.git", .branch(relatedDependenciesBranch)),
         .package(url: "https://github.com/apple/swift-crypto.git", .upToNextMinor(from: minimumCryptoVersion)),
-        .package(url: "https://github.com/apple/swift-system.git", .upToNextMinor(from: "1.0.0")),
+        .package(url: "https://github.com/apple/swift-system.git", .upToNextMinor(from: "1.1.1")),
     ]
 } else {
     package.dependencies += [
