@@ -241,7 +241,7 @@ public final class MockWorkspace {
                 resolvedVersionsFile: self.sandbox.appending(component: "Package.resolved"),
                 sharedSecurityDirectory: self.fileSystem.swiftPMSecurityDirectory,  
                 sharedCacheDirectory: self.fileSystem.swiftPMCacheDirectory,
-                sharedConfigurationDirectory: self.fileSystem.swiftPMConfigDirectory
+                sharedConfigurationDirectory: self.fileSystem.swiftPMConfigurationDirectory
             ),
             mirrors: self.mirrors,
             customToolsVersion: self.toolsVersion,
