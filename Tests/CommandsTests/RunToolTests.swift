@@ -57,7 +57,7 @@ final class RunToolTests: CommandsTestCase {
                 _ = try execute(["unknown"], packagePath: path)
                 XCTFail("Unexpected success")
             } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
-                XCTAssertEqual(stderr, "error: no executable product named 'unknown'\n")
+                XCTAssertMatch(stderr, .contains("error: no executable product named 'unknown'"))
             }
         }
     }
@@ -68,7 +68,7 @@ final class RunToolTests: CommandsTestCase {
                 _ = try execute([], packagePath: path)
                 XCTFail("Unexpected success")
             } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
-                XCTAssertEqual(stderr, "error: multiple executable products available: exec1, exec2\n")
+                XCTAssertMatch(stderr, .contains("error: multiple executable products available: exec1, exec2"))
             }
             
             var (runOutput, _) = try execute(["exec1"], packagePath: path)
@@ -103,7 +103,7 @@ final class RunToolTests: CommandsTestCase {
                 _ = try execute(["--build-tests", "--skip-build"], packagePath: path)
                 XCTFail("Expected to fail")
             } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
-                XCTAssertEqual(stderr, "error: '--build-tests' and '--skip-build' are mutually exclusive\n")
+                XCTAssertMatch(stderr, .contains("error: '--build-tests' and '--skip-build' are mutually exclusive"))
             }
         }
     }
