@@ -852,7 +852,7 @@ final class PackageToolTests: CommandsTestCase {
                     try execute("resolve", "bar")
                     XCTFail("This should have been an error")
                 } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
-                    XCTAssertMatch(stderr, .prefix("error: edited dependency 'bar' can't be resolved"))
+                    XCTAssertMatch(stderr, .contains("error: edited dependency 'bar' can't be resolved"))
                 }
                 try execute("unedit", "bar")
             }
@@ -979,7 +979,7 @@ final class PackageToolTests: CommandsTestCase {
                     try block()
                     XCTFail()
                 } catch SwiftPMProductError.executionFailure(_, _, let stderrOutput) {
-                    XCTAssertEqual(stderrOutput, stderr)
+                    XCTAssertMatch(stderrOutput, .contains(stderr))
                 } catch {
                     XCTFail("unexpected error: \(error)")
                 }
