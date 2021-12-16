@@ -61,8 +61,11 @@ extension FileSystem {
             try self.createDirectory(self.dotSwiftPM, recursive: true)
         }
         // Create ~/.swiftpm/cache symlink if necessary
-        if !self.exists(self.dotSwiftPMCachesDirectory, followSymlink: false) {
-            try self.createSymbolicLink(dotSwiftPMCachesDirectory, pointingAt: idiomaticCacheDirectory, relative: false)
+        // locking ~/.swiftpm to protect from concurrent access
+        try self.withLock(on: self.dotSwiftPM, type: .exclusive) {
+            if !self.exists(self.dotSwiftPMCachesDirectory, followSymlink: false) {
+                try self.createSymbolicLink(dotSwiftPMCachesDirectory, pointingAt: idiomaticCacheDirectory, relative: false)
+            }
         }
         return idiomaticCacheDirectory
     }
@@ -140,8 +143,11 @@ extension FileSystem {
             try self.createDirectory(self.dotSwiftPM, recursive: true)
         }
         // Create ~/.swiftpm/configuration symlink if necessary
-        if !self.exists(self.dotSwiftPMConfigurationDirectory, followSymlink: false) {
-            try self.createSymbolicLink(dotSwiftPMConfigurationDirectory, pointingAt: idiomaticConfigurationDirectory, relative: false)
+        // locking ~/.swiftpm to protect from concurrent access
+        try self.withLock(on: self.dotSwiftPM, type: .exclusive) {
+            if !self.exists(self.dotSwiftPMConfigurationDirectory, followSymlink: false) {
+                try self.createSymbolicLink(dotSwiftPMConfigurationDirectory, pointingAt: idiomaticConfigurationDirectory, relative: false)
+            }
         }
 
         return idiomaticConfigurationDirectory
@@ -186,8 +192,11 @@ extension FileSystem {
             try self.createDirectory(self.dotSwiftPM, recursive: true)
         }
         // Create ~/.swiftpm/security symlink if necessary
-        if !self.exists(self.dotSwiftPMSecurityDirectory, followSymlink: false) {
-            try self.createSymbolicLink(dotSwiftPMSecurityDirectory, pointingAt: idiomaticSecurityDirectory, relative: false)
+        // locking ~/.swiftpm to protect from concurrent access
+        try self.withLock(on: self.dotSwiftPM, type: .exclusive) {
+            if !self.exists(self.dotSwiftPMSecurityDirectory, followSymlink: false) {
+                try self.createSymbolicLink(dotSwiftPMSecurityDirectory, pointingAt: idiomaticSecurityDirectory, relative: false)
+            }
         }
         return idiomaticSecurityDirectory
     }
