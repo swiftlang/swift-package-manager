@@ -140,14 +140,14 @@ class PackageBuilderTests: XCTestCase {
 
             package.checkProduct("MyPackage") { _ in }
 
-          #if os(Linux)
+            #if os(Linux)
             diagnostics.check(
-                diagnostic: "ignoring target 'MyPackageTests' in package 'MyPackage'; C language in tests is not yet supported",
+                diagnostic: "ignoring target 'MyPackageTests' in package '\(package.packageIdentity)'; C language in tests is not yet supported",
                 severity: .warning
             )
-          #elseif os(macOS) || os(Android)
+            #elseif os(macOS) || os(Android)
             package.checkProduct("MyPackagePackageTests") { _ in }
-          #endif
+            #endif
         }
     }
 
