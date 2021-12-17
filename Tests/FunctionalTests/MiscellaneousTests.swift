@@ -416,19 +416,31 @@ class MiscellaneousTestCase: XCTestCase {
         }
     }
 
-    func testLocalPackageUsedAsURL() throws {
-        fixture(name: "Miscellaneous/LocalPackageAsURL", createGitRepo: false) { prefix in
+    func testLocalPackageUsedAsURLValidation() throws {
+        fixture(name: "Miscellaneous/LocalPackageAsURL", createGitRepo: false) { path in
             // This fixture has a setup that is trying to use a local package
             // as a url that hasn't been initialized as a repo
-
-            // Launch swift-build.
-            let app = prefix.appending(component: "Bar")
-
-            let result = try SwiftPMProduct.SwiftBuild.executeProcess([], packagePath: app)
-
+            let result = try SwiftPMProduct.SwiftBuild.executeProcess([], packagePath: path.appending(component: "Bar"))
             XCTAssert(result.exitStatus != .terminated(code: 0))
             let output = try result.utf8stderrOutput()
             XCTAssert(output.contains("Cannot clone from local directory"), "Didn't find expected output: \(output)")
+        }
+    }
+
+    func testInvalidRefsValidation() throws {
+        fixture(name: "Miscellaneous/InvalidRefs", createGitRepo: false) { path in
+            do {
+                let result = try SwiftPMProduct.SwiftBuild.executeProcess([], packagePath: path.appending(component: "InvalidBranch"))
+                XCTAssert(result.exitStatus != .terminated(code: 0))
+                let output = try result.utf8stderrOutput()
+                XCTAssert(output.contains("Invalid branch name: "), "Didn't find expected output: \(output)")
+            }
+            do {
+                let result = try SwiftPMProduct.SwiftBuild.executeProcess([], packagePath: path.appending(component: "InvalidRevision"))
+                XCTAssert(result.exitStatus != .terminated(code: 0))
+                let output = try result.utf8stderrOutput()
+                XCTAssert(output.contains("Invalid revision: "), "Didn't find expected output: \(output)")
+            }
         }
     }
 

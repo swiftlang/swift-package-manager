@@ -116,17 +116,9 @@ extension PackageDependency.SourceControl.Requirement {
         case .range(let range):
             return .versionSet(.range(range))
         case .revision(let identifier):
-            // FIXME: this validation could/should move somewhere more appropriate
-            guard Git.checkRefFormat(ref: identifier) else {
-                throw StringError("Could not find revision: '\(identifier)'")
-            }
             return .revision(identifier)
-        case .branch(let identifier):
-            // FIXME: this validation could/should move somewhere more appropriate
-            guard Git.checkRefFormat(ref: identifier) else {
-                throw StringError("Could not find branch: '\(identifier)'")
-            }
-            return .revision(identifier)
+        case .branch(let name):
+            return .revision(name)
         case .exact(let version):
             return .versionSet(.exact(version))
         }
