@@ -11,7 +11,6 @@
 import Basics
 import Foundation
 import PackageModel
-import SourceControl // FIXME: remove this dependency
 import TSCBasic
 import TSCUtility
 
@@ -188,15 +187,6 @@ enum ManifestJSONParser {
         location = identityResolver.mappedLocation(for: location)
         // a package in a git location, may be a remote URL or on disk
         if let localPath = try? AbsolutePath(validating: location) {
-            // if exists, validate location is in fact a git repo
-            // there is a case to be made to throw early (here) if the path does not exists
-            // but many of our tests assume they can pass a non existent path
-            if fileSystem.exists(localPath) {
-                let gitRepoProvider = GitRepositoryProvider()
-                guard gitRepoProvider.isValidDirectory(location) else {
-                    throw StringError("Cannot clone from local directory \(localPath)\nPlease git init or use \"path:\" for \(location)")
-                }
-            }
             // in the future this will check with the registries for the identity of the URL
             let identity = try identityResolver.resolveIdentity(for: localPath)
             return .localSourceControl(

@@ -132,6 +132,14 @@ private class MockRepositories: RepositoryProvider {
     func openWorkingCopy(at path: AbsolutePath) throws -> WorkingCheckout {
         fatalError("unexpected API call")
     }
+
+    func isValidDirectory(_ directory: AbsolutePath) -> Bool {
+        return true
+    }
+
+    func isValidRefFormat(_ ref: String) -> Bool {
+        return true
+    }
 }
 
 private class MockResolverDelegate: RepositoryManagerDelegate {

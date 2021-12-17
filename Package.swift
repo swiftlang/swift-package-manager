@@ -190,8 +190,7 @@ let package = Package(
             name: "PackageLoading",
             dependencies: [
                 "Basics",
-                "PackageModel",
-                "SourceControl"
+                "PackageModel"
             ],
             exclude: ["CMakeLists.txt", "README.md"]
         ),
