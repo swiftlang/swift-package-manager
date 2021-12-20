@@ -3585,10 +3585,10 @@ extension Workspace {
         case .forced:
             result.append("it was forced")
         case .newPackages(let packages):
-            let dependencies = packages.lazy.map({ "'\($0.identity)'" }).joined(separator: ", ")
+            let dependencies = packages.lazy.map({ "'\($0.identity)' (\($0.kind.locationString))" }).joined(separator: ", ")
             result.append("the following dependencies were added: \(dependencies)")
         case .packageRequirementChange(let package, let state, let requirement):
-            result.append("dependency '\(package.identity)' was ")
+            result.append("dependency '\(package.identity)' (\(package.kind.locationString)) was ")
 
             switch state {
             case .sourceControlCheckout(let checkoutState)?:
