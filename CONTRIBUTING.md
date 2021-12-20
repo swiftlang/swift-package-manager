@@ -43,8 +43,10 @@ SwiftPM is typically built with a pre-existing version of SwiftPM present on the
 ### Using Xcode (Easiest)
 
 1. Install Xcode from [https://developer.apple.com/xcode](https://developer.apple.com/xcode) (including betas!).
-2. Verify the expected version of Xcode was installed.
-3. Open SwiftPM's `Package.swift` manifest with Xcode, and use Xcode to edit the code, build, and run the tests.
+2. Verify the expected version of Xcode was installed
+3. Open SwiftPM's `Package.swift` manifest with Xcode
+4. Use Xcode to inspect, edit, and build the code
+5. Select the `SwiftPM-Package` scheme to run the tests from Xcode
 
 ### Using the Command Line
 
