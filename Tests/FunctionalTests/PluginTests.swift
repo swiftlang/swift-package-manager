@@ -187,6 +187,7 @@ class PluginTests: XCTestCase {
     }
     
     func testCommandPluginInvocation() throws {
+        // FIXME: This test is getting quite long — we should add some support functionality for creating synthetic plugin tests and factor this out into separate tests.
         try testWithTemporaryDirectory { tmpPath in
             // Create a sample package with a library target and a plugin. It depends on a sample package.
             let packageDir = tmpPath.appending(components: "MyPackage")
@@ -207,10 +208,22 @@ class PluginTests: XCTestCase {
                             ]
                         ),
                         .plugin(
-                            name: "MyPlugin",
+                            name: "PluginPrintingInfo",
                             capability: .command(
-                                intent: .custom(verb: "mycmd", description: "What is mycmd anyway?"),
-                                permissions: [.writeToPackageDirectory(reason: "YOLO")]
+                                intent: .custom(verb: "print-info", description: "Description of the command"),
+                                permissions: [.writeToPackageDirectory(reason: "Reason for wanting to write to package directory")]
+                            )
+                        ),
+                        .plugin(
+                            name: "PluginFailingWithError",
+                            capability: .command(
+                                intent: .custom(verb: "fail-with-error", description: "Sample plugin that throws an error")
+                            )
+                        ),
+                        .plugin(
+                            name: "PluginFailingWithoutError",
+                            capability: .command(
+                                intent: .custom(verb: "fail-without-error", description: "Sample plugin that exits without error")
                             )
                         ),
                     ]
@@ -222,7 +235,7 @@ class PluginTests: XCTestCase {
                     public func Foo() { }
                 """
             }
-            try localFileSystem.writeFileContents(packageDir.appending(components: "Plugins", "MyPlugin", "plugin.swift")) {
+            try localFileSystem.writeFileContents(packageDir.appending(components: "Plugins", "PluginPrintingInfo", "plugin.swift")) {
                 $0 <<< """
                     import PackagePlugin
                     
@@ -241,6 +254,49 @@ class PluginTests: XCTestCase {
                             print("Found the swiftc tool at \\(swiftc.path).")
                         }
                     }
+                """
+            }
+            try localFileSystem.writeFileContents(packageDir.appending(components: "Plugins", "PluginFailingWithError", "plugin.swift")) {
+                $0 <<< """
+                    import PackagePlugin
+
+                    @main
+                    struct MyCommandPlugin: CommandPlugin {
+                        func performCommand(
+                            context: PluginContext,
+                            targets: [Target],
+                            arguments: [String]
+                        ) throws {
+                            // Print some output that should appear before the error diagnostic.
+                            print("This text should appear before the error.")
+
+                            // Throw an uncaught error that should be reported as a diagnostics.
+                            throw "Houston, we have a problem."
+                        }
+                    }
+                    extension String: Error { }
+                """
+            }
+            try localFileSystem.writeFileContents(packageDir.appending(components: "Plugins", "PluginFailingWithoutError", "plugin.swift")) {
+                $0 <<< """
+                    import PackagePlugin
+                    import Foundation
+
+                    @main
+                    struct MyCommandPlugin: CommandPlugin {
+                        func performCommand(
+                            context: PluginContext,
+                            targets: [Target],
+                            arguments: [String]
+                        ) throws {
+                            // Print some output that should appear before we exit.
+                            print("This text should appear before we exit.")
+
+                            // Just exit with an error code without an emitting error.
+                            exit(1)
+                        }
+                    }
+                    extension String: Error { }
                 """
             }
 
@@ -302,62 +358,110 @@ class PluginTests: XCTestCase {
             let libraryTarget = try XCTUnwrap(package.targets.map(\.underlyingTarget).first{ $0.name == "MyLibrary" } as? SwiftTarget)
             XCTAssertEqual(libraryTarget.type, .library)
             
-            // Find the command plugin in our test package.
-            let pluginTarget = try XCTUnwrap(package.targets.map(\.underlyingTarget).first{ $0.name == "MyPlugin" } as? PluginTarget)
-            XCTAssertEqual(pluginTarget.type, .plugin)
-            
             // Set up a delegate to handle callbacks from the command plugin.
             let delegateQueue = DispatchQueue(label: "plugin-invocation")
             class PluginDelegate: PluginInvocationDelegate {
                 let delegateQueue: DispatchQueue
-                var outputData = Data()
+                var diagnostics: [Basics.Diagnostic] = []
 
                 init(delegateQueue: DispatchQueue) {
                     self.delegateQueue = delegateQueue
                 }
                 
                 func pluginEmittedOutput(_ data: Data) {
+                    // Add each line of emitted output as a `.info` diagnostic.
                     dispatchPrecondition(condition: .onQueue(delegateQueue))
-                    outputData.append(contentsOf: data)
-                    print(String(decoding: data, as: UTF8.self)
-                        .split(separator: "\n")
-                        .map{ "🧩 \($0)" }
-                        .joined(separator: "\n")
-                    )
+                    let textlines = String(decoding: data, as: UTF8.self).split(separator: "\n")
+                    print(textlines.map{ "🧩 \($0)" }.joined(separator: "\n"))
+                    diagnostics.append(contentsOf: textlines.map{
+                        Basics.Diagnostic(severity: .info, message: String($0), metadata: .none)
+                    })
                 }
                 
                 func pluginEmittedDiagnostic(_ diagnostic: Basics.Diagnostic) {
+                    // Add the diagnostic as-is.
                     dispatchPrecondition(condition: .onQueue(delegateQueue))
+                    diagnostics.append(diagnostic)
                 }
             }
-            let pluginDelegate = PluginDelegate(delegateQueue: delegateQueue)
 
-            // Invoke the command plugin.
-            let pluginCacheDir = tmpPath.appending(component: "plugin-cache")
-            let pluginOutputDir = tmpPath.appending(component: "plugin-output")
-            let pluginScriptRunner = DefaultPluginScriptRunner(cacheDir: pluginCacheDir, toolchain: ToolchainConfiguration.default)
-            let target = try XCTUnwrap(package.targets.first{ $0.underlyingTarget == libraryTarget })
-            let invocationSucceeded = try tsc_await { pluginTarget.invoke(
-                action: .performCommand(
-                    targets: [ target ],
-                    arguments: ["veni", "vidi", "vici"]),
-                package: package,
-                buildEnvironment: BuildEnvironment(platform: .macOS, configuration: .debug),
-                scriptRunner: pluginScriptRunner,
-                outputDirectory: pluginOutputDir,
-                toolSearchDirectories: [UserToolchain.default.swiftCompilerPath.parentDirectory],
-                toolNamesToPaths: [:],
-                fileSystem: localFileSystem,
-                observabilityScope: observability.topScope,
-                callbackQueue: delegateQueue,
-                delegate: pluginDelegate,
-                completion: $0) }
-            
-            // Check the results.
-            XCTAssertTrue(invocationSucceeded)
-            let outputText = String(decoding: pluginDelegate.outputData, as: UTF8.self)
-            XCTAssertTrue(outputText.contains("Root package is MyPackage."), outputText)
-            XCTAssertTrue(outputText.contains("Found the swiftc tool"), outputText)
+            // Helper function to invoke a plugin with given input and to check its outputs.
+            func testCommand(
+                package: ResolvedPackage,
+                plugin pluginName: String,
+                targets targetNames: [String],
+                arguments: [String],
+                toolSearchDirectories: [AbsolutePath] = [UserToolchain.default.swiftCompilerPath.parentDirectory],
+                toolNamesToPaths: [String: AbsolutePath] = [:],
+                file: StaticString = #file,
+                line: UInt = #line,
+                expectFailure: Bool = false,
+                diagnosticsChecker: (DiagnosticsTestResult) throws -> Void
+            ) {
+                // Find the named plugin.
+                let plugins = package.targets.compactMap{ $0.underlyingTarget as? PluginTarget }
+                guard let plugin = plugins.first(where: { $0.name == pluginName }) else {
+                    return XCTFail("There is no plugin target named ‘\(pluginName)’")
+                }
+                XCTAssertTrue(plugin.type == .plugin, "Target \(plugin) isn’t a plugin")
+
+                // Find the named input targets to the plugin.
+                var targets: [ResolvedTarget] = []
+                for targetName in targetNames {
+                    guard let target = package.targets.first(where: { $0.underlyingTarget.name == targetName }) else {
+                        return XCTFail("There is no target named ‘\(targetName)’")
+                    }
+                    XCTAssertTrue(target.type != .plugin, "Target \(target) is a plugin")
+                    targets.append(target)
+                }
+
+                let pluginDir = tmpPath.appending(components: package.identity.description, plugin.name)
+                let scriptRunner = DefaultPluginScriptRunner(cacheDir: pluginDir.appending(component: "cache"), toolchain: ToolchainConfiguration.default)
+                let delegate = PluginDelegate(delegateQueue: delegateQueue)
+                do {
+                    let success = try tsc_await { plugin.invoke(
+                        action: .performCommand(targets: targets, arguments: arguments),
+                        package: package,
+                        buildEnvironment: BuildEnvironment(platform: .macOS, configuration: .debug),
+                        scriptRunner: scriptRunner,
+                        outputDirectory: pluginDir.appending(component: "output"),
+                        toolSearchDirectories: [UserToolchain.default.swiftCompilerPath.parentDirectory],
+                        toolNamesToPaths: [:],
+                        fileSystem: localFileSystem,
+                        observabilityScope: observability.topScope,
+                        callbackQueue: delegateQueue,
+                        delegate: delegate,
+                        completion: $0) }
+                    if expectFailure {
+                        XCTAssertFalse(success, "expected command to fail, but it succeeded", file: file, line: line)
+                    }
+                    else {
+                        XCTAssertTrue(success, "expected command to succeed, but it failed", file: file, line: line)
+                    }
+                }
+                catch {
+                    XCTFail("error \(String(describing: error))", file: file, line: line)
+                }
+                testDiagnostics(delegate.diagnostics, problemsOnly: false, file: file, line: line, handler: diagnosticsChecker)
+            }
+
+            // Invoke the command plugin that prints out various things it was given, and check them.
+            testCommand(package: package, plugin: "PluginPrintingInfo", targets: ["MyLibrary"], arguments: ["veni", "vidi", "vici"]) { output in
+                output.check(diagnostic: .equal("Root package is MyPackage."), severity: .info)
+                output.check(diagnostic: .and(.prefix("Found the swiftc tool"), .suffix(".")), severity: .info)
+            }
+
+            // Invoke the command plugin that throws an unhandled error at the top level.
+            testCommand(package: package, plugin: "PluginFailingWithError", targets: [], arguments: [], expectFailure: true) { output in
+                output.check(diagnostic: .equal("This text should appear before the error."), severity: .info)
+                output.check(diagnostic: .equal("Houston, we have a problem."), severity: .error)
+
+            }
+            // Invoke the command plugin that exits with code 1 without returning an error.
+            testCommand(package: package, plugin: "PluginFailingWithoutError", targets: [], arguments: [], expectFailure: true) { output in
+                output.check(diagnostic: .equal("This text should appear before we exit."), severity: .info)
+                output.check(diagnostic: .equal("Plugin ended with exit code 1"), severity: .error)
+            }
         }
     }
 }
