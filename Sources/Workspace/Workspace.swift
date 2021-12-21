@@ -1874,6 +1874,7 @@ extension Workspace {
                         manifestLoadingScope.emit(error)
                         self.delegate?.didLoadManifest(packagePath: packagePath, url: packageLocation, version: version, packageKind: packageKind, manifest: nil, diagnostics: manifestLoadingDiagnostics.get())
                     case .success(let manifest):
+                        manifestLoadingScope.trap { try self.validateManifest(manifest) }
                         self.delegate?.didLoadManifest(packagePath: packagePath, url: packageLocation, version: version, packageKind: packageKind, manifest: manifest, diagnostics: manifestLoadingDiagnostics.get())
                     }
                     completion(result)
@@ -1884,6 +1885,48 @@ extension Workspace {
             }
         //}
     }
+
+    // TODO: move more manifest validation in here from other parts of the code, e.g. from ManifestLoader
+    private func validateManifest(_ manifest: Manifest) throws {
+        // validate dependency requirements
+        for dependency in manifest.dependencies {
+            switch dependency {
+            case .sourceControl(let sourceControl):
+                try validateSourceControlDependency(sourceControl)
+            default:
+                break
+            }
+        }
+
+        func validateSourceControlDependency(_ dependency: PackageDependency.SourceControl) throws {
+            // validate source control ref
+            switch dependency.requirement {
+            case .branch(let name):
+                guard self.repositoryManager.isValidRefFormat(name) else {
+                    throw StringError("Invalid branch name: '\(name)'")
+                }
+            case .revision(let revision):
+                guard self.repositoryManager.isValidRefFormat(revision) else {
+                    throw StringError("Invalid revision: '\(revision)'")
+                }
+            default:
+                break
+            }
+            // if a location is on file system, validate it is in fact a git repo
+            // there is a case to be made to throw early (here) if the path does not exists
+            // but many of our tests assume they can pass a non existent path
+            if case .local(let localPath) = dependency.location, self.fileSystem.exists(localPath) {
+                guard self.repositoryManager.isValidDirectory(localPath) else {
+                    // Provides better feedback when mistakingly using url: for a dependency that
+                    // is a local package. Still allows for using url with a local package that has
+                    // also been initialized by git
+                    throw StringError("Cannot clone from local directory \(localPath)\nPlease git init or use \"path:\" for \(location)")
+                }
+            }
+        }
+
+    }
+
 
     /// Validates that all the edited dependencies are still present in the file system.
     /// If some checkout dependency is removed form the file system, clone it again.

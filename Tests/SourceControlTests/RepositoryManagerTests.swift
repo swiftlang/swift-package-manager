@@ -42,6 +42,14 @@ private class DummyRepository: Repository {
         fatalError("unexpected API call")
     }
 
+    func isValidDirectory(_ directory: AbsolutePath) -> Bool {
+        fatalError("unexpected API call")
+    }
+
+    func isValidRefFormat(_ ref: String) -> Bool {
+        fatalError("unexpected API call")
+    }
+
     func fetch() throws {
         self.provider.increaseFetchCount()
     }
@@ -106,6 +114,14 @@ private class DummyRepositoryProvider: RepositoryProvider {
 
     func openWorkingCopy(at path: AbsolutePath) throws -> WorkingCheckout {
         return DummyWorkingCheckout(at: path)
+    }
+
+    func isValidDirectory(_ directory: AbsolutePath) -> Bool {
+        return true
+    }
+
+    func isValidRefFormat(_ ref: String) -> Bool {
+        return true
     }
 
     func increaseFetchCount() {

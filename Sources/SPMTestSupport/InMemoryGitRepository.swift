@@ -430,4 +430,12 @@ public final class InMemoryGitRepositoryProvider: RepositoryProvider {
     public func openWorkingCopy(at path: AbsolutePath) throws -> WorkingCheckout {
         return checkoutsMap[path]!
     }
+
+    public func isValidDirectory(_ directory: AbsolutePath) -> Bool {
+        return true
+    }
+
+    public func isValidRefFormat(_ ref: String) -> Bool {
+        return true
+    }
 }
