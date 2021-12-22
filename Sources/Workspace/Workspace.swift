@@ -336,13 +336,7 @@ public class Workspace {
         let httpClient = customHTTPClient ?? HTTPClient()
         let archiver = customArchiver ?? ZipArchiver()
 
-        var checksumAlgorithm = customChecksumAlgorithm ?? SHA256()
-        #if canImport(CryptoKit)
-        if checksumAlgorithm is SHA256, #available(macOS 10.15, *) {
-            checksumAlgorithm = CryptoKitSHA256()
-        }
-        #endif
-
+        let checksumAlgorithm = customChecksumAlgorithm ?? SHA256()
         let additionalFileRules = additionalFileRules ?? []
         let resolverUpdateEnabled = resolverUpdateEnabled ?? true
         let resolverPrefetchingEnabled = resolverPrefetchingEnabled ?? false
