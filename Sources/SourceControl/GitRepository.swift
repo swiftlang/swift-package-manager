@@ -890,6 +890,10 @@ private class GitFileSystemView: FileSystem {
         fatalError("unsupported")
     }
 
+    public var tempDirectory: AbsolutePath {
+        fatalError("unsupported")
+    }
+
     func createDirectory(_ path: AbsolutePath) throws {
         throw FileSystemError(.unsupported, path)
     }

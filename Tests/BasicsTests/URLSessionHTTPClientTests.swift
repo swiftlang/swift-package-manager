@@ -704,6 +704,10 @@ class FailingFileSystem: FileSystem {
         fatalError("unexpected call")
     }
 
+    var tempDirectory: AbsolutePath {
+        fatalError("unexpected call")
+    }
+
     func changeCurrentWorkingDirectory(to path: AbsolutePath) throws {
         fatalError("unexpected call")
     }
