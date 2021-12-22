@@ -1035,8 +1035,8 @@ private func getSharedSecurityDirectory(options: SwiftToolOptions, observability
 
     do {
         let sharedSecurityDirectory = try localFileSystem.getOrCreateSwiftPMSecurityDirectory()
-        // And make sure we can write files (locking the directory writes a lock file)
-        try localFileSystem.withLock(on: sharedSecurityDirectory, type: .exclusive) { }
+        // make sure we can write files
+        try withTemporaryFile(dir: sharedSecurityDirectory) { _ in }
         return sharedSecurityDirectory
     } catch {
         observabilityScope.emit(warning: "Failed creating default security location, \(error)")
@@ -1054,7 +1054,10 @@ private func getSharedConfigurationDirectory(options: SwiftToolOptions, observab
     }
 
     do {
-        return try localFileSystem.getOrCreateSwiftPMConfigurationDirectory(observabilityScope: observabilityScope)
+        let sharedConfigurationDirector = try localFileSystem.getOrCreateSwiftPMConfigurationDirectory(observabilityScope: observabilityScope)
+        // make sure we can write files
+        try withTemporaryFile(dir: sharedConfigurationDirector) { _ in }
+        return sharedConfigurationDirector
     } catch {
         observabilityScope.emit(warning: "Failed creating default configuration location, \(error)")
         return .none
@@ -1071,7 +1074,10 @@ private func getSharedCacheDirectory(options: SwiftToolOptions, observabilitySco
     }
 
     do {
-        return try localFileSystem.getOrCreateSwiftPMCacheDirectory()
+        let sharedCacheDirector = try localFileSystem.getOrCreateSwiftPMCacheDirectory()
+        // make sure we can write files
+        try withTemporaryFile(dir: sharedCacheDirector) { _ in }
+        return sharedCacheDirector
     } catch {
         observabilityScope.emit(warning: "Failed creating default cache location, \(error)")
         return .none
