@@ -485,11 +485,11 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
             // Close the output handle through which we talked to the plugin.
             try? outputHandle.close()
 
-            // Read and pass on any remaining messages from the plugin.
-            stdoutPipe.fileHandleForReading.readabilityHandler?(stdoutPipe.fileHandleForReading)
-
             // Read and pass on any remaining free-form text output from the plugin.
             stderrPipe.fileHandleForReading.readabilityHandler?(stderrPipe.fileHandleForReading)
+
+            // Read and pass on any remaining messages from the plugin.
+            stdoutPipe.fileHandleForReading.readabilityHandler?(stdoutPipe.fileHandleForReading)
 
             // Call the completion block with a result that depends on how the process ended.
             callbackQueue.async {
