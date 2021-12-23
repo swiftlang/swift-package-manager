@@ -154,7 +154,7 @@ extension PackageReference: Equatable {
 
     // TODO: consider rolling into Equatable
     public func equalsIncludingLocation(_ other: PackageReference) -> Bool {
-        return self.identity == other.identity && self.kind.locationString == other.kind.locationString
+        return self.identity == other.identity && self.kind.locationString.caseInsensitiveCompare(other.kind.locationString) == .orderedSame
     }
 }
 

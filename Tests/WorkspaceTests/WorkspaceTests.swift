@@ -4094,6 +4094,78 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
+    func testManagedDependenciesNotCaseSensitive() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Foo",
+                    targets: [
+                        MockTarget(name: "Foo", dependencies: [
+                            .product(name: "Bar", package: "bar"),
+                            .product(name: "Baz", package: "baz")
+                        ])
+                    ],
+                    products: [],
+                    dependencies: [
+                        .sourceControl(url: "https://localhost/bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(url: "https://localhost/baz", requirement: .upToNextMajor(from: "1.0.0"))
+                    ]
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "Bar",
+                    url: "https://localhost/bar",
+                    targets: [
+                        MockTarget(name: "Bar", dependencies: [
+                            .product(name: "Baz", package: "Baz")
+                        ]),
+                    ],
+                    products: [
+                        MockProduct(name: "Bar", targets: ["Bar"])
+                    ],
+                    dependencies: [
+                        .sourceControl(url: "https://localhost/Baz", requirement: .upToNextMajor(from: "1.0.0"))
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                MockPackage(
+                    name: "Baz",
+                    url: "https://localhost/baz",
+                    targets: [
+                        MockTarget(name: "Baz"),
+                    ],
+                    products: [
+                        MockProduct(name: "Baz", targets: ["Baz"])
+                    ],
+                    versions: ["1.0.0"]
+                ),
+            ]
+        )
+
+        try workspace.checkPackageGraph(roots: ["Foo"]) { graph, diagnostics in
+            PackageGraphTester(graph) { result in
+                result.check(roots: "Foo")
+                result.check(packages: "Bar", "Baz", "Foo")
+                result.checkTarget("Foo") { result in result.check(dependencies: "Bar", "Baz") }
+                result.checkTarget("Bar") { result in result.check(dependencies: "Baz") }
+            }
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkManagedDependencies { result in
+            result.check(dependency: "bar", at: .checkout(.version("1.0.0")))
+            result.check(dependency: "baz", at: .checkout(.version("1.0.0")))
+            XCTAssertEqual(result.managedDependencies[.plain("bar")]?.packageRef.locationString, "https://localhost/bar")
+            // root casing should win, so testing for lower case
+            XCTAssertEqual(result.managedDependencies[.plain("baz")]?.packageRef.locationString, "https://localhost/baz")
+        }
+    }
+
     func testUnsafeFlags() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
