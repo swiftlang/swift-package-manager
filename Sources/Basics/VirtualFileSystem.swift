@@ -177,6 +177,8 @@ public class VirtualFileSystem: FileSystem {
 
     public var cachesDirectory: AbsolutePath? = nil
 
+    public var tempDirectory = AbsolutePath("/")
+
     public func createSymbolicLink(_ path: AbsolutePath, pointingAt destination: AbsolutePath, relative: Bool) throws {
         throw Errors.readOnlyFileSystem
     }
