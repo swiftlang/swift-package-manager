@@ -268,10 +268,10 @@ class PluginTests: XCTestCase {
                             arguments: [String]
                         ) throws {
                             // Print some output that should appear before the error diagnostic.
-                            print("This text should appear before the error.")
+                            print("This text should appear before the uncaught thrown error.")
 
                             // Throw an uncaught error that should be reported as a diagnostics.
-                            throw "Houston, we have a problem."
+                            throw "This is the uncaught thrown error."
                         }
                     }
                     extension String: Error { }
@@ -372,7 +372,7 @@ class PluginTests: XCTestCase {
                     // Add each line of emitted output as a `.info` diagnostic.
                     dispatchPrecondition(condition: .onQueue(delegateQueue))
                     let textlines = String(decoding: data, as: UTF8.self).split(separator: "\n")
-                    print(textlines.map{ "🧩 \($0)" }.joined(separator: "\n"))
+                    print(textlines.map{ "[TEXT] \($0)" }.joined(separator: "\n"))
                     diagnostics.append(contentsOf: textlines.map{
                         Basics.Diagnostic(severity: .info, message: String($0), metadata: .none)
                     })
@@ -381,6 +381,7 @@ class PluginTests: XCTestCase {
                 func pluginEmittedDiagnostic(_ diagnostic: Basics.Diagnostic) {
                     // Add the diagnostic as-is.
                     dispatchPrecondition(condition: .onQueue(delegateQueue))
+                    print("[DIAG] \(diagnostic)")
                     diagnostics.append(diagnostic)
                 }
             }
@@ -453,8 +454,8 @@ class PluginTests: XCTestCase {
 
             // Invoke the command plugin that throws an unhandled error at the top level.
             testCommand(package: package, plugin: "PluginFailingWithError", targets: [], arguments: [], expectFailure: true) { output in
-                output.check(diagnostic: .equal("This text should appear before the error."), severity: .info)
-                output.check(diagnostic: .equal("Houston, we have a problem."), severity: .error)
+                output.check(diagnostic: .equal("This text should appear before the uncaught thrown error."), severity: .info)
+                output.check(diagnostic: .equal("This is the uncaught thrown error."), severity: .error)
 
             }
             // Invoke the command plugin that exits with code 1 without returning an error.
