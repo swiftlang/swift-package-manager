@@ -1746,7 +1746,7 @@ extension Workspace {
                     // dependencies that have the same identity but from a different location
                     // which is an error case we diagnose an report about in the GraphLoading part which
                     // is prepared to handle the case where not all manifest are available
-                    $0.packageKind.canonicalLocation == dependency.createPackageRef().canonicalLocation ?
+                    $0.canonicalPackageLocation == dependency.createPackageRef().canonicalLocation ?
                     KeyedPair($0, key: Key(identity: dependency.identity, productFilter: dependency.productFilter)) : nil
                 }
             }

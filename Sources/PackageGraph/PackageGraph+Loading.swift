@@ -255,7 +255,7 @@ private func createResolvedPackages(
                 // check if the resolved package location is the same as the dependency one
                 // if not, this means that the dependencies share the same identity
                 // which only allowed when overriding
-                if resolvedPackage.package.manifest.packageKind.canonicalLocation != dependencyPackageRef.canonicalLocation && !resolvedPackage.allowedToOverride {
+                if resolvedPackage.package.manifest.canonicalPackageLocation != dependencyPackageRef.canonicalLocation && !resolvedPackage.allowedToOverride {
                     let error = PackageGraphError.dependencyAlreadySatisfiedByIdentifier(
                         package: package.identity.description,
                         dependencyLocation: dependencyPackageRef.locationString,
