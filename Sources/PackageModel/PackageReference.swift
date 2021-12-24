@@ -34,7 +34,7 @@ public struct PackageReference {
         /// A package from  a registry.
         case registry(PackageIdentity)
 
-        // FIXME: we should not need this
+        // FIXME: we should not need this once we migrate off URLs
         //@available(*, deprecated)
         public var locationString: String {
             switch self {
@@ -50,6 +50,12 @@ public struct PackageReference {
                 // FIXME: this is a placeholder
                 return identity.description
             }
+        }
+
+        // FIXME: we should not need this once we migrate off URLs
+        //@available(*, deprecated)
+        public var canonicalLocation: CanonicalPackageLocation {
+            return CanonicalPackageLocation(self.locationString)
         }
 
         public var description: String {
@@ -92,10 +98,16 @@ public struct PackageReference {
     /// The location of the package.
     ///
     /// This could be a remote repository, local repository or local package.
-    // FIXME: we should not need this
+    // FIXME: we should not need this once we migrate off URLs
     //@available(*, deprecated)
     public var locationString: String {
         self.kind.locationString
+    }
+
+    // FIXME: we should not need this once we migrate off URLs
+    //@available(*, deprecated)
+    public var canonicalLocation: CanonicalPackageLocation {
+        self.kind.canonicalLocation
     }
 
     /// The kind of package: root, local, or remote.
@@ -107,13 +119,13 @@ public struct PackageReference {
         self.kind = kind
         switch kind {
         case .root(let path):
-            self.deprecatedName = name ?? LegacyPackageIdentity.computeDefaultName(fromPath: path)
+            self.deprecatedName = name ?? PackageIdentityParser.computeDefaultName(fromPath: path)
         case .fileSystem(let path):
-            self.deprecatedName = name ?? LegacyPackageIdentity.computeDefaultName(fromPath: path)
+            self.deprecatedName = name ?? PackageIdentityParser.computeDefaultName(fromPath: path)
         case .localSourceControl(let path):
-            self.deprecatedName = name ?? LegacyPackageIdentity.computeDefaultName(fromPath: path)
+            self.deprecatedName = name ?? PackageIdentityParser.computeDefaultName(fromPath: path)
         case .remoteSourceControl(let url):
-            self.deprecatedName = name ?? LegacyPackageIdentity.computeDefaultName(fromURL: url)
+            self.deprecatedName = name ?? PackageIdentityParser.computeDefaultName(fromURL: url)
         case .registry(let identity):
             // FIXME: this is a placeholder
             self.deprecatedName = name ?? identity.description
@@ -154,7 +166,7 @@ extension PackageReference: Equatable {
 
     // TODO: consider rolling into Equatable
     public func equalsIncludingLocation(_ other: PackageReference) -> Bool {
-        return self.identity == other.identity && self.kind.locationString.caseInsensitiveCompare(other.kind.locationString) == .orderedSame
+        return self.identity == other.identity && self.canonicalLocation == other.canonicalLocation
     }
 }
 

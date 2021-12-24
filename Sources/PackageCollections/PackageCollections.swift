@@ -571,7 +571,7 @@ public struct PackageCollections: PackageCollectionsProtocol {
                         let matches: [PackageCollectionsModel.Package]
                         if let location = location {
                             // A package identity can be associated with multiple repository URLs
-                            matches = packagesCollections.packages.filter { CanonicalPackageIdentity($0.location) == CanonicalPackageIdentity(location) }
+                            matches = packagesCollections.packages.filter { CanonicalPackageLocation($0.location) == CanonicalPackageLocation(location) }
                         }
                         else {
                             matches = packagesCollections.packages

@@ -1740,13 +1740,13 @@ extension Workspace {
             let dependenciesToLoad = dependenciesRequired.map{ $0.createPackageRef() }.filter { !loadedManifests.keys.contains($0.identity) }
             let dependenciesManifests = try temp_await { self.loadManagedManifests(for: dependenciesToLoad, observabilityScope: observabilityScope, completion: $0) }
             dependenciesManifests.forEach { loadedManifests[$0.key] = $0.value }
-            return pair.item.dependenciesRequired(for: pair.key.productFilter).compactMap{ dependency in
+            return pair.item.dependenciesRequired(for: pair.key.productFilter).compactMap { dependency in
                 loadedManifests[dependency.identity].flatMap {
                     // we also compare the location as this function may attempt to load
                     // dependencies that have the same identity but from a different location
                     // which is an error case we diagnose an report about in the GraphLoading part which
                     // is prepared to handle the case where not all manifest are available
-                    $0.packageLocation.caseInsensitiveCompare(dependency.locationString) == .orderedSame ?
+                    $0.packageKind.canonicalLocation == dependency.createPackageRef().canonicalLocation ?
                     KeyedPair($0, key: Key(identity: dependency.identity, productFilter: dependency.productFilter)) : nil
                 }
             }
@@ -3372,9 +3372,8 @@ extension Workspace {
         try workingCopy.checkout(revision: checkoutState.revision)
         try? fileSystem.chmod(.userUnWritable, path: checkoutPath, options: [.recursive, .onlyFiles])
 
-        print("********************* adding \(package.locationString) to managed deps")
-
-        // Write the state record.
+        // Record the new state.
+        observabilityScope.emit(debug: "adding '\(package.identity)' (\(package.locationString)) to managed dependencies")
         self.state.dependencies.add(
             try .sourceControlCheckout(
                 packageRef: package,
@@ -3532,8 +3531,8 @@ extension Workspace {
              )
          }
 
-         // TODO: make download read-only?
-
+         // Record the new state.
+         observabilityScope.emit(debug: "adding '\(package.identity)' (\(package.locationString)) to managed dependencies")
          self.state.dependencies.add(
             try .registryDownload(
                 packageRef: package,
