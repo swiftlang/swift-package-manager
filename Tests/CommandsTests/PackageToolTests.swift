@@ -1046,7 +1046,7 @@ final class PackageToolTests: CommandsTestCase {
             let packageDir = tmpPath.appending(components: "MyPackage")
             try localFileSystem.writeFileContents(packageDir.appending(component: "Package.swift")) {
                 $0 <<< """
-                // swift-tools-version: 999.0
+                // swift-tools-version: 5.5
                 import PackageDescription
                 let package = Package(
                     name: "MyPackage",
@@ -1174,7 +1174,7 @@ final class PackageToolTests: CommandsTestCase {
             let packageDir = tmpPath.appending(components: "MyPackage")
             try localFileSystem.writeFileContents(packageDir.appending(components: "Package.swift")) {
                 $0 <<< """
-                // swift-tools-version: 999.0
+                // swift-tools-version: 5.6
                 import PackageDescription
                 let package = Package(
                     name: "MyPackage",
@@ -1318,14 +1318,14 @@ final class PackageToolTests: CommandsTestCase {
 
             // Invoke it, and check the results.
             do {
-                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["plugin", "mycmd"], packagePath: packageDir, env: ["SWIFTPM_ENABLE_COMMAND_PLUGINS": "1"])
+                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["plugin", "mycmd"], packagePath: packageDir)
                 XCTAssertEqual(result.exitStatus, .terminated(code: 0))
                 XCTAssert(try result.utf8Output().contains("This is MyCommandPlugin."))
             }
 
             // Testing listing the available command plugins.
             do {
-                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["plugin", "--list"], packagePath: packageDir, env: ["SWIFTPM_ENABLE_COMMAND_PLUGINS": "1"])
+                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["plugin", "--list"], packagePath: packageDir)
                 XCTAssertEqual(result.exitStatus, .terminated(code: 0))
                 XCTAssert(try result.utf8Output().contains("‘mycmd’ (plugin ‘MyPlugin’ in package ‘MyPackage’)"))
             }

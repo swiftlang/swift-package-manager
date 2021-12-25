@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2020 Apple Inc. and the Swift project authors
+ Copyright (c) 2014 - 2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -60,9 +60,9 @@ public struct SwiftPackageTool: ParsableCommand {
             ComputeChecksum.self,
             ArchiveSource.self,
             CompletionTool.self,
+            PluginCommand.self,
         ]
-        + (ProcessInfo.processInfo.environment["SWIFTPM_ENABLE_SNIPPETS"] == "1" ? [Learn.self] : [])
-        + (ProcessInfo.processInfo.environment["SWIFTPM_ENABLE_COMMAND_PLUGINS"] == "1" ? [PluginCommand.self] : []),
+        + (ProcessInfo.processInfo.environment["SWIFTPM_ENABLE_SNIPPETS"] == "1" ? [Learn.self] : []),
         helpNames: [.short, .long, .customLong("help", withSingleDash: true)])
 
     @OptionGroup()

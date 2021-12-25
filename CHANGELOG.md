@@ -2,6 +2,10 @@ Note: This is in reverse chronological order, so newer entries are added to the 
 
 Swift 5.6
 -----------
+* [SE-0332]
+
+  Package plugins of the type `command` can now be declared in packages that specify a tools version of 5.6 or later, and can be invoked using the `swift package` subcommand.
+
 * [#3649]
 
   Semantic version dependencies can now be resolved against Git tag names that contain only major and minor version identifiers.  A tag with the form `X.Y` will be treated as `X.Y.0`. This improves compatibility with existing repositories.
