@@ -58,7 +58,7 @@ public struct Platform: Encodable, Equatable {
     public static let wasi: Platform = Platform(name: "wasi")
     
     /// The OpenBSD platform.
-    @available(_PackageDescription, introduced: 999.0)
+    @available(_PackageDescription, introduced: 5.6)
     public static let openbsd: Platform = Platform(name: "openbsd")
 }
 

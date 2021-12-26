@@ -2,6 +2,8 @@ Note: This is in reverse chronological order, so newer entries are added to the 
 
 Swift 5.6
 -----------
+* `openbsd` has been added to the set of possible platform values for packages that specify a 5.6 tools version.
+
 * [#3649]
 
   Semantic version dependencies can now be resolved against Git tag names that contain only major and minor version identifiers.  A tag with the form `X.Y` will be treated as `X.Y.0`. This improves compatibility with existing repositories.
