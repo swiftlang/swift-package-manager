@@ -14,7 +14,9 @@ target_link_libraries(PackageFingerprint PUBLIC
   Basics
   PackageModel
   TSCBasic
-  TSCUtility)
+  TSCUtility
+  $<$<NOT:$<PLATFORM_ID:Darwin>>:dispatch>
+  $<$<NOT:$<PLATFORM_ID:Darwin>>:Foundation>)
 # NOTE(compnerd) workaround for CMake not setting up include flags yet
 set_target_properties(PackageFingerprint PROPERTIES
   INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})
