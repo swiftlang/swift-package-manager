@@ -855,13 +855,13 @@ class TargetSourcesBuilderTests: XCTestCase {
             fileSystem: fs,
             observabilityScope: observability.topScope
         )
-        _ = try builder.run()
+        let outputs = try builder.run()
+        XCTAssertEqual(outputs.sources.paths, [AbsolutePath("/File.swift")])
+        XCTAssertEqual(outputs.resources, [])
+        XCTAssertEqual(outputs.others, [AbsolutePath("/Foo.xcdatamodel")])
 
-        testDiagnostics(observability.diagnostics) { result in
-            let diagnostic = result.check(diagnostic: "found 1 file(s) which are unhandled; explicitly declare them as resources or exclude from the target\n    /Foo.xcdatamodel\n", severity: .warning)
-            XCTAssertEqual(diagnostic?.metadata?.packageIdentity, builder.packageIdentity)
-            XCTAssertEqual(diagnostic?.metadata?.targetName, target.name)
-        }
+        XCTAssertFalse(observability.hasWarningDiagnostics)
+        XCTAssertFalse(observability.hasErrorDiagnostics)
     }
 
     func testUnhandledResources() throws {
@@ -895,13 +895,13 @@ class TargetSourcesBuilderTests: XCTestCase {
                 fileSystem: fs,
                 observabilityScope: observability.topScope
             )
-            _ = try builder.run()
+            let outputs = try builder.run()
+            XCTAssertEqual(outputs.sources.paths, [AbsolutePath("/File.swift")])
+            XCTAssertEqual(outputs.resources, [])
+            XCTAssertEqual(outputs.others, [AbsolutePath("/foo.bar")])
 
-            testDiagnostics(observability.diagnostics) { result in
-                let diagnostic = result.check(diagnostic: "found 1 file(s) which are unhandled; explicitly declare them as resources or exclude from the target\n    /foo.bar\n", severity: .warning)
-                XCTAssertEqual(diagnostic?.metadata?.packageIdentity, builder.packageIdentity)
-                XCTAssertEqual(diagnostic?.metadata?.targetName, target.name)
-            }
+            XCTAssertFalse(observability.hasWarningDiagnostics)
+            XCTAssertFalse(observability.hasErrorDiagnostics)
         }
 
         // should not emit for "remote" packages

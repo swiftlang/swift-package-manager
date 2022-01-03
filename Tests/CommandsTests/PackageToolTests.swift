@@ -1070,6 +1070,16 @@ final class PackageToolTests: CommandsTestCase {
                     public func Foo() { }
                 """
             }
+            try localFileSystem.writeFileContents(packageDir.appending(components: "Sources", "MyLibrary", "library.foo")) {
+                $0 <<< """
+                    a file with a filename suffix handled by the plugin
+                """
+            }
+            try localFileSystem.writeFileContents(packageDir.appending(components: "Sources", "MyLibrary", "library.bar")) {
+                $0 <<< """
+                    a file with a filename suffix not handled by the plugin
+                """
+            }
             try localFileSystem.writeFileContents(packageDir.appending(components: "Plugins", "MyPlugin", "plugin.swift")) {
                 $0 <<< """
                     import PackagePlugin
@@ -1080,16 +1090,17 @@ final class PackageToolTests: CommandsTestCase {
                             context: PluginContext,
                             target: Target
                         ) throws -> [Command] {
+                            // Check that the package display name is what we expect.
                             guard context.package.displayName == "MyPackage" else {
-                                throw Error.inconsistentDisplayName(context.package.displayName)
+                                throw "expected display name to be ‘MyPackage’ but found ‘\\(context.package.displayName)’"
                             }
-                            return []
+                            // Create and return a build command that uses all the `.foo` files in the target as inputs, so they get counted as having been handled.
+                            let fooFiles = (target as? SourceModuleTarget)?.sourceFiles.compactMap{ $0.path.extension == "foo" ? $0.path : nil } ?? []
+                            return [ .buildCommand(displayName: "A command", executable: "/bin/echo", arguments: ["Hello"], inputFiles: fooFiles) ]
                         }
 
-                        enum Error : Swift.Error {
-                        case inconsistentDisplayName(String)
-                        }
                     }
+                    extension String : Error {}
                 """
             }
             
@@ -1097,6 +1108,12 @@ final class PackageToolTests: CommandsTestCase {
             let result = try SwiftPMProduct.SwiftBuild.executeProcess([], packagePath: packageDir)
             XCTAssertEqual(result.exitStatus, .terminated(code: 0))
             XCTAssert(try result.utf8Output().contains("Build complete!"))
+            
+            // We expect a warning about `library.bar` but not about `library.foo`.
+            let stderrOutput = try result.utf8stderrOutput()
+            XCTAssertMatch(stderrOutput, .contains("found 1 file(s) which are unhandled"))
+            XCTAssertNoMatch(stderrOutput, .contains("Sources/MyLibrary/library.foo"))
+            XCTAssertMatch(stderrOutput, .contains("Sources/MyLibrary/library.bar"))
         }
     }
 
