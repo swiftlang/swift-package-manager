@@ -434,6 +434,7 @@ public final class ClangTarget: Target {
         type: Kind,
         sources: Sources,
         resources: [Resource] = [],
+        others: [AbsolutePath] = [],
         dependencies: [Target.Dependency] = [],
         buildSettings: BuildSettings.AssignmentTable = .init()
     ) {
@@ -452,6 +453,7 @@ public final class ClangTarget: Target {
             type: type,
             sources: sources,
             resources: resources,
+            others: others,
             dependencies: dependencies,
             buildSettings: buildSettings,
             pluginUsages: []
