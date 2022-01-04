@@ -1343,36 +1343,34 @@ extension Workspace {
             }
         }
 
-        // FIXME
-        // load the pin store from disk so we can compare for any changes
-        // this is needed as we want to avoid re-writing the resolved files
-        // unless absolutely required
-        guard let storedPinStore = observabilityScope.trap({ try self.pinsStore.load() }) else {
-            return
-        }
-
-        // compare for any differences between the existing state and the stored one
-        // subtle changes between versions of SwiftPM could treat URLs differently
-        // in which case we dont want to cause unnecessary churn
+        // try to load the pin store from disk so we can compare for any changes
+        // this is needed as we want to avoid re-writing the resolved files unless absolutely necessary
         var needsUpdate = false
-        if dependenciesToPin.count != storedPinStore.pinsMap.count {
-            needsUpdate = true
-        } else {
-            for dependency in dependenciesToPin {
-                if let pin = storedPinStore.pinsMap.first(where: { $0.value.packageRef.equalsIncludingLocation(dependency.packageRef) }) {
-                    if pin.value.state != PinsStore.Pin(dependency)?.state {
+        if let storedPinStore = try? self.pinsStore.load() {
+            // compare for any differences between the existing state and the stored one
+            // subtle changes between versions of SwiftPM could treat URLs differently
+            // in which case we don't want to cause unnecessary churn
+            if dependenciesToPin.count != storedPinStore.pinsMap.count {
+                needsUpdate = true
+            } else {
+                for dependency in dependenciesToPin {
+                    if let pin = storedPinStore.pinsMap.first(where: { $0.value.packageRef.equalsIncludingLocation(dependency.packageRef) }) {
+                        if pin.value.state != PinsStore.Pin(dependency)?.state {
+                            needsUpdate = true
+                            break
+                        }
+                    } else {
                         needsUpdate = true
                         break
                     }
-                } else {
-                    needsUpdate = true
-                    break
                 }
             }
+        } else {
+            needsUpdate = true
         }
 
         // exist early is there is nothing to do
-        guard needsUpdate else {
+        if !needsUpdate {
             return
         }
 
@@ -1381,29 +1379,6 @@ extension Workspace {
         for dependency in dependenciesToPin {
             pinsStore.pin(dependency)
         }
-
-        /*
-        // Reset the pinsStore and start pinning the required dependencies.
-        pinsStore.unpinAll()
-
-        let requiredDependencies = dependencyManifests.computePackages().required.filter({ $0.kind.isPinnable })
-        for dependency in requiredDependencies {
-            if let managedDependency = self.state.dependencies[comparingLocation: dependency] {
-                pinsStore.pin(managedDependency)
-            } else {
-                observabilityScope.emit(warning: "required dependency \(dependency.identity) (\(dependency.locationString)) was not found in managed dependencies and will not be recorded in resolved file")
-            }
-        }
-        */
-
-
-        /*
-        let requiredDependencies = dependencyManifests.computePackages().required
-        for dependency in self.state.dependencies  {
-            if requiredDependencies.contains(where: { $0.equalsIncludingLocation(dependency.packageRef) }) {
-                pinsStore.pin(dependency)
-            }
-        }*/
 
         observabilityScope.trap {
             try pinsStore.saveState(toolsVersion: rootManifestsMinimumToolsVersion)
