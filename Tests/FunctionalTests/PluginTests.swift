@@ -428,6 +428,7 @@ class PluginTests: XCTestCase {
                         outputDirectory: pluginDir.appending(component: "output"),
                         toolSearchDirectories: [UserToolchain.default.swiftCompilerPath.parentDirectory],
                         toolNamesToPaths: [:],
+                        writableDirectories: [pluginDir.appending(component: "output")],
                         fileSystem: localFileSystem,
                         observabilityScope: observability.topScope,
                         callbackQueue: delegateQueue,

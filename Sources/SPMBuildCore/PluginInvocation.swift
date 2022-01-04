@@ -53,6 +53,7 @@ extension PluginTarget {
         outputDirectory: AbsolutePath,
         toolSearchDirectories: [AbsolutePath],
         toolNamesToPaths: [String: AbsolutePath],
+        writableDirectories: [AbsolutePath],
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
@@ -83,10 +84,6 @@ extension PluginTarget {
             return callbackQueue.async { completion(.failure(PluginEvaluationError.couldNotSerializePluginInput(underlyingError: error))) }
         }
 
-        // Determine the set of writable directories.
-        let writableDirectories = [outputDirectory]
-        // TODO: Here we will append any additional writable directories provided by the user.
-        
         // Call the plugin script runner to actually invoke the plugin.
         scriptRunner.runPluginScript(
             sources: sources,
@@ -181,6 +178,13 @@ extension PackageGraph {
                 // Assign a plugin working directory based on the package, target, and plugin.
                 let pluginOutputDir = outputDir.appending(components: package.identity.description, target.name, pluginTarget.name)
 
+                // Determine the set of directories under which plugins are allowed to write. We always include the output directory and temporary directories, and for now there is no possibility of opting into others.
+                let writableDirectories = [
+                    outputDir,
+                    AbsolutePath("/tmp"),
+                    AbsolutePath(NSTemporaryDirectory())
+                ]
+
                 // Set up a delegate to handle callbacks from the build tool plugin. We'll capture free-form text output as well as defined commands and diagnostics.
                 let delegateQueue = DispatchQueue(label: "plugin-invocation")
                 class PluginDelegate: PluginInvocationDelegate {
@@ -240,6 +244,7 @@ extension PackageGraph {
                     outputDirectory: pluginOutputDir,
                     toolSearchDirectories: toolSearchDirectories,
                     toolNamesToPaths: toolNamesToPaths,
+                    writableDirectories: writableDirectories,
                     fileSystem: fileSystem,
                     observabilityScope: observabilityScope,
                     callbackQueue: delegateQueue,
