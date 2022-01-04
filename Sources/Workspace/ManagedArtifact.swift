@@ -115,10 +115,22 @@ extension Workspace {
             AnyCollection(self.artifactMap.values.lazy.flatMap{ $0.values })
         }
 
-        init(_ artifacts: [ManagedArtifact] = []) {
+        init() {
+            self.artifactMap = [:]
+        }
+
+        init(_ artifacts: [ManagedArtifact]) throws {
             let artifactsByPackagePath = Dictionary(grouping: artifacts, by: { $0.packageRef.identity })
-            self.artifactMap = artifactsByPackagePath.mapValues{ artifacts in
-                Dictionary(uniqueKeysWithValues: artifacts.map{ ($0.targetName, $0) })
+            self.artifactMap = try artifactsByPackagePath.mapValues{ artifacts in
+                // rdar://86857825 do not use Dictionary(uniqueKeysWithValues:) as it can crash the process when input is incorrect such as in older versions of SwiftPM
+                var map = [String: ManagedArtifact]()
+                for artifact in artifacts {
+                    if map[artifact.targetName] != nil {
+                        throw StringError("binary artifact for '\(artifact.targetName)' already exists in managed artifacts")
+                    }
+                    map[artifact.targetName] = artifact
+                }
+                return map
             }
         }
 

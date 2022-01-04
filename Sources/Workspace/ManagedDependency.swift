@@ -171,11 +171,21 @@ extension Workspace.ManagedDependency: CustomStringConvertible {
 extension Workspace {
     /// A collection of managed dependencies.
     final public class ManagedDependencies {
-        // FIXME: this should be identity based
         private var dependencies: [PackageIdentity: ManagedDependency]
 
-        init(_ dependencies: [ManagedDependency] = []) {
-            self.dependencies = Dictionary(uniqueKeysWithValues: dependencies.map{ ($0.packageRef.identity, $0) })
+        init() {
+            self.dependencies = [:]
+        }
+
+        init(_ dependencies: [ManagedDependency]) throws {
+            // rdar://86857825 do not use Dictionary(uniqueKeysWithValues:) as it can crash the process when input is incorrect such as in older versions of SwiftPM
+            self.dependencies = [:]
+            for dependency in dependencies {
+                if self.dependencies[dependency.packageRef.identity] != nil {
+                    throw StringError("\(dependency.packageRef.identity) already exists in managed dependencies")
+                }
+                self.dependencies[dependency.packageRef.identity] = dependency
+            }
         }
 
         public subscript(identity: PackageIdentity) -> ManagedDependency? {
