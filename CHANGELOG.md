@@ -162,6 +162,7 @@ Swift 3.0
 [SE-0201]: https://github.com/apple/swift-evolution/blob/master/proposals/0201-package-manager-local-dependencies.md
 [SE-0208]: https://github.com/apple/swift-evolution/blob/master/proposals/0208-package-manager-system-library-targets.md
 [SE-0209]: https://github.com/apple/swift-evolution/blob/master/proposals/0209-package-manager-swift-lang-version-update.md
+[SE-0332]: https://github.com/apple/swift-evolution/blob/main/proposals/0332-swiftpm-command-plugins.md
 
 [SR-5918]: https://bugs.swift.org/browse/SR-5918
 [SR-6978]: https://bugs.swift.org/browse/SR-6978
