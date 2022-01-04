@@ -90,7 +90,17 @@ public func testDiagnostics(
     line: UInt = #line,
     handler: (DiagnosticsTestResult) throws -> Void
 ) {
-    let diagnostics = problemsOnly ? diagnostics.filter({ $0.severity >= .warning }) : diagnostics
+    testDiagnostics(diagnostics, minSeverity: problemsOnly ? .warning : .debug, file: file, line: line, handler: handler)
+}
+
+public func testDiagnostics(
+    _ diagnostics: [Basics.Diagnostic],
+    minSeverity: Basics.Diagnostic.Severity,
+    file: StaticString = #file,
+    line: UInt = #line,
+    handler: (DiagnosticsTestResult) throws -> Void
+) {
+    let diagnostics = diagnostics.filter{ $0.severity >= minSeverity }
     let testResult = DiagnosticsTestResult(diagnostics)
 
     do {

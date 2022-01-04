@@ -4112,15 +4112,15 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     products: [],
                     dependencies: [
-                        .sourceControl(url: "https://localhost/bar", requirement: .upToNextMajor(from: "1.0.0")),
-                        .sourceControl(url: "https://localhost/baz", requirement: .upToNextMajor(from: "1.0.0"))
+                        .sourceControl(url: "https://localhost/org/bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(url: "https://localhost/org/baz", requirement: .upToNextMajor(from: "1.0.0"))
                     ]
                 ),
             ],
             packages: [
                 MockPackage(
                     name: "Bar",
-                    url: "https://localhost/bar",
+                    url: "https://localhost/org/bar",
                     targets: [
                         MockTarget(name: "Bar", dependencies: [
                             .product(name: "Baz", package: "Baz")
@@ -4130,13 +4130,24 @@ final class WorkspaceTests: XCTestCase {
                         MockProduct(name: "Bar", targets: ["Bar"])
                     ],
                     dependencies: [
-                        .sourceControl(url: "https://localhost/Baz", requirement: .upToNextMajor(from: "1.0.0"))
+                        .sourceControl(url: "https://localhost/org/Baz", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
                     versions: ["1.0.0"]
                 ),
                 MockPackage(
                     name: "Baz",
-                    url: "https://localhost/baz",
+                    url: "https://localhost/org/baz",
+                    targets: [
+                        MockTarget(name: "Baz"),
+                    ],
+                    products: [
+                        MockProduct(name: "Baz", targets: ["Baz"])
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                MockPackage(
+                    name: "Baz",
+                    url: "https://localhost/org/Baz",
                     targets: [
                         MockTarget(name: "Baz"),
                     ],
@@ -4155,14 +4166,19 @@ final class WorkspaceTests: XCTestCase {
                 result.checkTarget("Foo") { result in result.check(dependencies: "Bar", "Baz") }
                 result.checkTarget("Bar") { result in result.check(dependencies: "Baz") }
             }
-            XCTAssertNoDiagnostics(diagnostics)
+            testDiagnostics(diagnostics, minSeverity: .info) { result in
+                result.checkUnordered(
+                    diagnostic: "dependency on 'baz' is represented by similar locations ('https://localhost/org/baz' and 'https://localhost/org/Baz') which are treated as the same canonical location 'localhost/org/baz'.",
+                    severity: .info
+                )
+            }
         }
         workspace.checkManagedDependencies { result in
             result.check(dependency: "bar", at: .checkout(.version("1.0.0")))
             result.check(dependency: "baz", at: .checkout(.version("1.0.0")))
-            XCTAssertEqual(result.managedDependencies[.plain("bar")]?.packageRef.locationString, "https://localhost/bar")
+            XCTAssertEqual(result.managedDependencies[.plain("bar")]?.packageRef.locationString, "https://localhost/org/bar")
             // root casing should win, so testing for lower case
-            XCTAssertEqual(result.managedDependencies[.plain("baz")]?.packageRef.locationString, "https://localhost/baz")
+            XCTAssertEqual(result.managedDependencies[.plain("baz")]?.packageRef.locationString, "https://localhost/org/baz")
         }
     }
 
@@ -8104,6 +8120,116 @@ final class WorkspaceTests: XCTestCase {
                 result.check(
                     diagnostic: "'bar' dependency on 'https://github.com/foo-moved/foo.git' conflicts with dependency on 'https://github.com/foo/foo.git' which has the same identity 'foo'. this will be escalated to an error in future versions of SwiftPM.",
                     severity: .warning
+                )
+            }
+        }
+    }
+
+    func testDuplicateTransitiveIdentityWithSimilarURLs() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    targets: [
+                        MockTarget(name: "RootTarget", dependencies: [
+                            .product(name: "FooProduct", package: "foo"),
+                            .product(name: "BarProduct", package: "bar"),
+                            .product(name: "BazProduct", package: "baz")
+                        ]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        .sourceControl(url: "https://github.com/org/foo.git", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(url: "https://github.com/org/bar.git", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(url: "https://github.com/org/baz.git", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    toolsVersion: .v5_6
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "FooPackage",
+                    url: "https://github.com/org/foo.git",
+                    targets: [
+                        MockTarget(name: "FooTarget"),
+                    ],
+                    products: [
+                        MockProduct(name: "FooProduct", targets: ["FooTarget"]),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                MockPackage(
+                    name: "BarPackage",
+                    url: "https://github.com/org/bar.git",
+                    targets: [
+                        MockTarget(name: "BarTarget", dependencies: [
+                            .product(name: "FooProduct", package: "Foo"),
+                            .product(name: "BazProduct", package: "baz"),
+                        ]),
+                    ],
+                    products: [
+                        MockProduct(name: "BarProduct", targets: ["BarTarget"]),
+                    ],
+                    dependencies: [
+                        .sourceControl(url: "https://github.com/ORG/Foo.git", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(url: "https://github.com/org/baz", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                MockPackage(
+                    name: "BazPackage",
+                    url: "https://github.com/org/baz.git",
+                    targets: [
+                        MockTarget(name: "BazTarget"),
+                    ],
+                    products: [
+                        MockProduct(name: "BazProduct", targets: ["BazTarget"]),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                // URL with different casing
+                MockPackage(
+                    name: "FooPackage",
+                    url: "https://github.com/ORG/Foo.git",
+                    targets: [
+                        MockTarget(name: "FooTarget"),
+                    ],
+                    products: [
+                        MockProduct(name: "FooProduct", targets: ["FooTarget"]),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                // URL with no .git extension
+                MockPackage(
+                    name: "BazPackage",
+                    url: "https://github.com/org/baz",
+                    targets: [
+                        MockTarget(name: "BazTarget"),
+                    ],
+                    products: [
+                        MockProduct(name: "BazProduct", targets: ["BazTarget"]),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+            ]
+        )
+
+        // 9/2021 this is currently emitting a warning only to support backwards compatibility
+        // we will escalate this to an error in a few versions to tighten up the validation
+        try workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
+            testDiagnostics(diagnostics, minSeverity: .info) { result in
+                result.checkUnordered(
+                    diagnostic: "dependency on 'foo' is represented by similar locations ('https://github.com/org/foo.git' and 'https://github.com/ORG/Foo.git') which are treated as the same canonical location 'github.com/org/foo'.",
+                    severity: .info
+                )
+                result.checkUnordered(
+                    diagnostic: "dependency on 'baz' is represented by similar locations ('https://github.com/org/baz.git' and 'https://github.com/org/baz') which are treated as the same canonical location 'github.com/org/baz'.",
+                    severity: .info
                 )
             }
         }

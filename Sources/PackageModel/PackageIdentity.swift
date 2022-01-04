@@ -384,7 +384,7 @@ struct PackageIdentityParser {
 ///   ```
 ///   file:///Users/mona/LinkedList → /Users/mona/LinkedList
 ///   ```
-public struct CanonicalPackageLocation: Equatable {
+public struct CanonicalPackageLocation: Equatable, CustomStringConvertible {
     /// A textual representation of this instance.
     public let description: String
 

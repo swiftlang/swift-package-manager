@@ -270,6 +270,10 @@ private func createResolvedPackages(
                     } else {
                         return packageObservabilityScope.emit(error)
                     }
+                } else if resolvedPackage.package.manifest.canonicalPackageLocation == dependencyPackageRef.canonicalLocation &&
+                            resolvedPackage.package.manifest.packageLocation != dependencyPackageRef.locationString  &&
+                            !resolvedPackage.allowedToOverride {
+                    packageObservabilityScope.emit(info: "dependency on '\(resolvedPackage.package.identity)' is represented by similar locations ('\(resolvedPackage.package.manifest.packageLocation)' and '\(dependencyPackageRef.locationString)') which are treated as the same canonical location '\(dependencyPackageRef.canonicalLocation)'.")
                 }
 
                 // checks if two dependencies have the same explicit name which can cause target based dependency package lookup issue
