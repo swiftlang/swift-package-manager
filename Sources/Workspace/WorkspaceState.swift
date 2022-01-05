@@ -96,12 +96,12 @@ fileprivate struct WorkspaceStateStorage {
                 let v4 = try self.decoder.decode(path: self.path, fileSystem: self.fileSystem, as: V4.self)
                 let dependencies = try v4.object.dependencies.map{ try Workspace.ManagedDependency($0) }
                 let artifacts = try v4.object.artifacts.map{ try Workspace.ManagedArtifact($0) }
-                return (dependencies: .init(dependencies), artifacts: .init(artifacts))
+                return try (dependencies: .init(dependencies), artifacts: .init(artifacts))
             case 5:
                 let v5 = try self.decoder.decode(path: self.path, fileSystem: self.fileSystem, as: V5.self)
                 let dependencies = try v5.object.dependencies.map{ try Workspace.ManagedDependency($0) }
                 let artifacts = try v5.object.artifacts.map{ try Workspace.ManagedArtifact($0) }
-                return (dependencies: .init(dependencies), artifacts: .init(artifacts))
+                return try (dependencies: .init(dependencies), artifacts: .init(artifacts))
             default:
                 throw StringError("unknown 'WorkspaceStateStorage' version '\(version.version)' at '\(self.path)'")
             }
