@@ -162,26 +162,11 @@ public struct TargetSourcesBuilder {
             pathToRule[path] = self.computeRule(for: path)
         }
 
-        // Emit an error if we found files without a matching rule in
-        // tools version >= v5_3. This will be activated once resources
-        // support is complete.
-        var others: [AbsolutePath] = []
-        if toolsVersion >= .v5_3 {
-            let filesWithNoRules = pathToRule.filter { $0.value.rule == .none }
-            if !filesWithNoRules.isEmpty, self.packageKind.emitAuthorWarnings {
-                var warning = "found \(filesWithNoRules.count) file(s) which are unhandled; explicitly declare them as resources or exclude from the target\n"
-                for (file, _) in filesWithNoRules {
-                    warning += "    " + file.pathString + "\n"
-                }
-                self.observabilityScope.emit(warning: warning)
-            }
-            others.append(contentsOf: filesWithNoRules.keys)
-        }
-
         let headers = pathToRule.lazy.filter { $0.value.rule == .header }.map { $0.key }.sorted()
         let compilePaths = pathToRule.lazy.filter { $0.value.rule == .compile }.map { $0.key }
         let sources = Sources(paths: Array(compilePaths), root: targetPath)
         let resources: [Resource] = pathToRule.compactMap { resource(for: $0.key, with: $0.value) }
+        let others = pathToRule.filter { $0.value.rule == .none }.map { $0.key }
 
         diagnoseConflictingResources(in: resources)
         diagnoseCopyConflictsWithLocalizationDirectories(in: resources)
