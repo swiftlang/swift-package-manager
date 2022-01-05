@@ -2,6 +2,10 @@ Note: This is in reverse chronological order, so newer entries are added to the 
 
 Swift 5.6
 -----------
+* [SE-0332]
+
+  Package plugins of the type `command` can now be declared in packages that specify a tools version of 5.6 or later, and can be invoked using the `swift package` subcommand.
+
 * [#3649]
 
   Semantic version dependencies can now be resolved against Git tag names that contain only major and minor version identifiers.  A tag with the form `X.Y` will be treated as `X.Y.0`. This improves compatibility with existing repositories.
@@ -153,11 +157,12 @@ Swift 3.0
 
 * The `Package` initializer now requires the `name:` parameter.
 
-[SE-0129]: https://github.com/apple/swift-evolution/blob/master/proposals/0129-package-manager-test-naming-conventions.md
-[SE-0135]: https://github.com/apple/swift-evolution/blob/master/proposals/0135-package-manager-support-for-differentiating-packages-by-swift-version.md
-[SE-0201]: https://github.com/apple/swift-evolution/blob/master/proposals/0201-package-manager-local-dependencies.md
-[SE-0208]: https://github.com/apple/swift-evolution/blob/master/proposals/0208-package-manager-system-library-targets.md
-[SE-0209]: https://github.com/apple/swift-evolution/blob/master/proposals/0209-package-manager-swift-lang-version-update.md
+[SE-0129]: https://github.com/apple/swift-evolution/blob/main/proposals/0129-package-manager-test-naming-conventions.md
+[SE-0135]: https://github.com/apple/swift-evolution/blob/main/proposals/0135-package-manager-support-for-differentiating-packages-by-swift-version.md
+[SE-0201]: https://github.com/apple/swift-evolution/blob/main/proposals/0201-package-manager-local-dependencies.md
+[SE-0208]: https://github.com/apple/swift-evolution/blob/main/proposals/0208-package-manager-system-library-targets.md
+[SE-0209]: https://github.com/apple/swift-evolution/blob/main/proposals/0209-package-manager-swift-lang-version-update.md
+[SE-0332]: https://github.com/apple/swift-evolution/blob/main/proposals/0332-swiftpm-command-plugins.md
 
 [SR-5918]: https://bugs.swift.org/browse/SR-5918
 [SR-6978]: https://bugs.swift.org/browse/SR-6978
