@@ -3293,10 +3293,7 @@ final class WorkspaceTests: XCTestCase {
         }
         workspace.checkManagedDependencies { result in
             result.check(dependency: "foo", at: .local)
-        }
-        do {
-            let ws = try workspace.getOrCreateWorkspace()
-            XCTAssertEqual(ws.state.dependencies[.plain("foo")]?.packageRef.locationString, "/tmp/ws/pkgs/Foo")
+            XCTAssertEqual(result.managedDependencies[.plain("foo")]?.packageRef.locationString, "/tmp/ws/pkgs/Foo")
         }
 
         deps = [
@@ -3307,10 +3304,7 @@ final class WorkspaceTests: XCTestCase {
         }
         workspace.checkManagedDependencies { result in
             result.check(dependency: "foo", at: .local)
-        }
-        do {
-            let ws = try workspace.getOrCreateWorkspace()
-            XCTAssertEqual(ws.state.dependencies[.plain("foo")]?.packageRef.locationString, "/tmp/ws/pkgs/Nested/Foo")
+            XCTAssertEqual(result.managedDependencies[.plain("foo")]?.packageRef.locationString, "/tmp/ws/pkgs/Nested/Foo")
         }
     }
 
@@ -3504,6 +3498,201 @@ final class WorkspaceTests: XCTestCase {
             let minToolsVersion = [pair.0, pair.1].min()!
             let expectedSchemeVersion = minToolsVersion >= .v5_6 ? 2 : 1
             XCTAssertEqual(try workspace.getOrCreateWorkspace().pinsStore.load().schemeVersion(), expectedSchemeVersion)
+        }
+    }
+
+    func testResolvedFileStableCanonicalLocation() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    targets: [
+                        MockTarget(name: "Root", dependencies: []),
+                    ],
+                    products: [],
+                    dependencies: []
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "Foo",
+                    url: "https://localhost/org/foo",
+                    targets: [
+                        MockTarget(name: "Foo"),
+                    ],
+                    products: [
+                        MockProduct(name: "Foo", targets: ["Foo"]),
+                    ],
+                    versions: ["1.0.0"],
+                    revisionProvider: { version in version } // stable revisions
+                ),
+                MockPackage(
+                    name: "Bar",
+                    url: "https://localhost/org/bar",
+                    targets: [
+                        MockTarget(name: "Bar"),
+                    ],
+                    products: [
+                        MockProduct(name: "Bar", targets: ["Bar"]),
+                    ],
+                    versions: ["1.0.0"],
+                    revisionProvider: { version in version } // stable revisions
+                ),
+                MockPackage(
+                    name: "Foo",
+                    url: "https://localhost/ORG/FOO", // diff: case
+                    targets: [
+                        MockTarget(name: "Foo"),
+                    ],
+                    products: [
+                        MockProduct(name: "Foo", targets: ["Foo"]),
+                    ],
+                    versions: ["1.0.0", "1.1.0"],
+                    revisionProvider: { version in version } // stable revisions
+                ),
+                MockPackage(
+                    name: "Foo",
+                    url: "https://localhost/org/foo.git", // diff: .git extension
+                    targets: [
+                        MockTarget(name: "Foo"),
+                    ],
+                    products: [
+                        MockProduct(name: "Foo", targets: ["Foo"]),
+                    ],
+                    versions: ["1.0.0", "1.1.0"],
+                    revisionProvider: { version in version } // stable revisions
+                ),
+                MockPackage(
+                    name: "Bar",
+                    url: "https://localhost/org/bar.git", // diff: .git extension
+                    targets: [
+                        MockTarget(name: "Bar"),
+                    ],
+                    products: [
+                        MockProduct(name: "Bar", targets: ["Bar"]),
+                    ],
+                    versions: ["1.0.0", "1.1.0"],
+                    revisionProvider: { version in version } // stable revisions
+                ),
+            ]
+        )
+
+        // case 1: initial loading
+
+        var deps: [MockDependency] = [
+            .sourceControl(url: "https://localhost/org/foo", requirement: .exact("1.0.0")),
+            .sourceControl(url: "https://localhost/org/bar", requirement: .exact("1.0.0")),
+        ]
+        try workspace.checkPackageGraph(roots: ["Root"], deps: deps) { graph, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkManagedDependencies { result in
+            result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
+            result.check(dependency: "bar", at: .checkout(.version("1.0.0")))
+            XCTAssertEqual(result.managedDependencies[.plain("foo")]?.packageRef.locationString, "https://localhost/org/foo")
+            XCTAssertEqual(result.managedDependencies[.plain("bar")]?.packageRef.locationString, "https://localhost/org/bar")
+        }
+        workspace.checkResolved { result in
+            result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
+            result.check(dependency: "bar", at: .checkout(.version("1.0.0")))
+            XCTAssertEqual(result.store.pinsMap[.plain("foo")]?.packageRef.locationString, "https://localhost/org/foo")
+            XCTAssertEqual(result.store.pinsMap[.plain("bar")]?.packageRef.locationString, "https://localhost/org/bar")
+        }
+
+        // case 2: set state with slightly different URLs that are canonically the same
+
+        deps = [
+            .sourceControl(url: "https://localhost/ORG/FOO", requirement: .exact("1.0.0")),
+            .sourceControl(url: "https://localhost/org/bar.git", requirement: .exact("1.0.0")),
+        ]
+
+        // reset state, excluding the resolved file
+        workspace.checkReset { XCTAssertNoDiagnostics($0) }
+        workspace.closeWorkspace()
+        XCTAssertTrue(fs.exists(sandbox.appending(component: "Package.resolved")))
+        // run update
+        try workspace.checkUpdate(roots: ["Root"], deps: deps) { diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+
+        workspace.checkManagedDependencies { result in
+            result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
+            result.check(dependency: "bar", at: .checkout(.version("1.0.0")))
+            // URLs should reflect the actual dependencies
+            XCTAssertEqual(result.managedDependencies[.plain("foo")]?.packageRef.locationString, "https://localhost/ORG/FOO")
+            XCTAssertEqual(result.managedDependencies[.plain("bar")]?.packageRef.locationString, "https://localhost/org/bar.git")
+        }
+        workspace.checkResolved { result in
+            result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
+            result.check(dependency: "bar", at: .checkout(.version("1.0.0")))
+            // URLs should be stable since URLs are canonically the same and we kept the resolved file between the two iterations
+            XCTAssertEqual(result.store.pinsMap[.plain("foo")]?.packageRef.locationString, "https://localhost/org/foo")
+            XCTAssertEqual(result.store.pinsMap[.plain("bar")]?.packageRef.locationString, "https://localhost/org/bar")
+        }
+
+        // case 2: set state with slightly different URLs that are canonically the same but request different versions
+
+        deps = [
+            .sourceControl(url: "https://localhost/ORG/FOO", requirement: .exact("1.1.0")),
+            .sourceControl(url: "https://localhost/org/bar.git", requirement: .exact("1.1.0")),
+        ]
+        // reset state, excluding the resolved file
+        workspace.checkReset { XCTAssertNoDiagnostics($0) }
+        workspace.closeWorkspace()
+        XCTAssertTrue(fs.exists(sandbox.appending(component: "Package.resolved")))
+        // run update
+        try workspace.checkUpdate(roots: ["Root"], deps: deps) { diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+
+        workspace.checkManagedDependencies { result in
+            result.check(dependency: "foo", at: .checkout(.version("1.1.0")))
+            result.check(dependency: "bar", at: .checkout(.version("1.1.0")))
+            // URLs should reflect the actual dependencies
+            XCTAssertEqual(result.managedDependencies[.plain("foo")]?.packageRef.locationString, "https://localhost/ORG/FOO")
+            XCTAssertEqual(result.managedDependencies[.plain("bar")]?.packageRef.locationString, "https://localhost/org/bar.git")
+        }
+        workspace.checkResolved { result in
+            result.check(dependency: "foo", at: .checkout(.version("1.1.0")))
+            result.check(dependency: "bar", at: .checkout(.version("1.1.0")))
+            // URLs should reflect the actual dependencies since the new version forces rewrite of the resolved file
+            XCTAssertEqual(result.store.pinsMap[.plain("foo")]?.packageRef.locationString, "https://localhost/ORG/FOO")
+            XCTAssertEqual(result.store.pinsMap[.plain("bar")]?.packageRef.locationString, "https://localhost/org/bar.git")
+        }
+
+        // case 3: set state with slightly different URLs that are canonically the same but remove resolved file
+
+        deps = [
+            .sourceControl(url: "https://localhost/org/foo.git", requirement: .exact("1.0.0")),
+            .sourceControl(url: "https://localhost/org/bar.git", requirement: .exact("1.0.0")),
+        ]
+        // reset state, including the resolved file
+        workspace.checkReset { XCTAssertNoDiagnostics($0) }
+        try fs.removeFileTree(sandbox.appending(component: "Package.resolved"))
+        XCTAssertFalse(fs.exists(sandbox.appending(component: "Package.resolved")))
+        // run update
+        try workspace.checkUpdate(roots: ["Root"], deps: deps) { diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+
+        workspace.checkManagedDependencies { result in
+            result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
+            result.check(dependency: "bar", at: .checkout(.version("1.0.0")))
+            // URLs should reflect the actual dependencies
+            XCTAssertEqual(result.managedDependencies[.plain("foo")]?.packageRef.locationString, "https://localhost/org/foo.git")
+            XCTAssertEqual(result.managedDependencies[.plain("bar")]?.packageRef.locationString, "https://localhost/org/bar.git")
+        }
+        workspace.checkResolved { result in
+            result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
+            result.check(dependency: "bar", at: .checkout(.version("1.0.0")))
+            // URLs should reflect the actual dependencies since we deleted the resolved file
+            XCTAssertEqual(result.store.pinsMap[.plain("foo")]?.packageRef.locationString, "https://localhost/org/foo.git")
+            XCTAssertEqual(result.store.pinsMap[.plain("bar")]?.packageRef.locationString, "https://localhost/org/bar.git")
         }
     }
 
@@ -3710,16 +3899,16 @@ final class WorkspaceTests: XCTestCase {
         workspace.checkManagedDependencies { result in
             result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
             result.check(dependency: "bar", at: .checkout(.version("1.0.0")))
+            XCTAssertEqual(result.managedDependencies[.plain("foo")]?.packageRef.locationString, "https://scm.com/org/foo")
+        }
+        workspace.checkResolved { result in
+            result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
+            result.check(dependency: "bar", at: .checkout(.version("1.0.0")))
+            XCTAssertEqual(result.store.pinsMap[.plain("foo")]?.packageRef.locationString, "https://scm.com/org/foo")
         }
 
-        do {
-            let ws = try workspace.getOrCreateWorkspace()
-            XCTAssertEqual(ws.state.dependencies[.plain("foo")]?.packageRef.locationString, "https://scm.com/org/foo")
-        }
-
-        workspace.checkReset { diagnostics in
-            XCTAssertNoDiagnostics(diagnostics)
-        }
+        // reset state
+        workspace.checkReset { XCTAssertNoDiagnostics($0) }
 
         deps = [
             .sourceControl(url: "https://scm.com/org/bar", requirement: .exact("1.1.0")),
@@ -3734,11 +3923,12 @@ final class WorkspaceTests: XCTestCase {
         workspace.checkManagedDependencies { result in
             result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
             result.check(dependency: "bar", at: .checkout(.version("1.1.0")))
+            XCTAssertEqual(result.managedDependencies[.plain("foo")]?.packageRef.locationString, "https://scm.com/other/foo")
         }
-
-        do {
-            let ws = try workspace.getOrCreateWorkspace()
-            XCTAssertEqual(ws.state.dependencies[.plain("foo")]?.packageRef.locationString, "https://scm.com/other/foo")
+        workspace.checkResolved { result in
+            result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
+            result.check(dependency: "bar", at: .checkout(.version("1.1.0")))
+            XCTAssertEqual(result.store.pinsMap[.plain("foo")]?.packageRef.locationString, "https://scm.com/other/foo")
         }
     }
 
