@@ -131,7 +131,7 @@ public final class Target {
     /// this enum will be extended as new plugin capabilities are added.
     public enum PluginCapability {
         case _buildTool
-        @available(_PackageDescription, introduced: 999.0)
+        @available(_PackageDescription, introduced: 5.6)
         case _command(intent: PluginCommandIntent, permissions: [PluginPermission])
     }
     
@@ -1016,7 +1016,7 @@ extension Target.PluginCapability {
     /// Specifies that the plugin provides a user command capability. It will
     /// be available to invoke manually on one or more targets in a package.
     /// The package can specify the verb that is used to invoke the command.
-    @available(_PackageDescription, introduced: 999.0)
+    @available(_PackageDescription, introduced: 5.6)
     /// Plugins that specify a `command` capability define commands that can be run
     /// using the SwiftPM CLI (`swift package <verb>`), or in an IDE that supports
     /// Swift Packages.
@@ -1034,14 +1034,14 @@ extension Target.PluginCapability {
     }
 }
 
-@available(_PackageDescription, introduced: 999.0)
+@available(_PackageDescription, introduced: 5.6)
 public enum PluginCommandIntent {
     case _documentationGeneration
     case _sourceCodeFormatting
     case _custom(verb: String, description: String)
 }
 
-@available(_PackageDescription, introduced: 999.0)
+@available(_PackageDescription, introduced: 5.6)
 public extension PluginCommandIntent {
     /// The intent of the command is to generate documentation, either by parsing the
     /// package contents directly or by using the build system support for generating
@@ -1063,12 +1063,12 @@ public extension PluginCommandIntent {
     }
 }
 
-@available(_PackageDescription, introduced: 999.0)
+@available(_PackageDescription, introduced: 5.6)
 public enum PluginPermission {
     case _writeToPackageDirectory(reason: String)
 }
 
-@available(_PackageDescription, introduced: 999.0)
+@available(_PackageDescription, introduced: 5.6)
 public extension PluginPermission {
     /// The command plugin wants permission to modify the files under the package
     /// directory. The `reason` string is shown to the user at the time of request
