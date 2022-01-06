@@ -145,7 +145,7 @@ func XCTAssertXcodeBuild(project: AbsolutePath, file: StaticString = #file, line
         let stream = BufferedOutputByteStream()
         stream <<< "SWIFT_EXEC = " <<< swiftCompilerPath.pathString <<< "\n"
 
-        // Override Swift libary path, if present.
+        // Override Swift library path, if present.
         let swiftLibraryPath = resolveSymlinks(swiftCompilerPath).appending(components: "..", "..", "lib", "swift", "macosx")
         if localFileSystem.exists(swiftCompilerPath) {
             stream <<< "SWIFT_LIBRARY_PATH = " <<< swiftLibraryPath.pathString <<< "\n"
