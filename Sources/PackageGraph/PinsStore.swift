@@ -101,6 +101,13 @@ public final class PinsStore {
         self._pins[pin.packageRef.identity] = pin
     }
 
+    /// Remove a pin.
+    ///
+    /// This will replace any previous pin with same package name.
+    public func remove(_ pin: Pin) {
+        self._pins[pin.packageRef.identity] = nil
+    }
+
     /// Unpin all of the currently pinned dependencies.
     ///
     /// This method does not automatically write to state file.
