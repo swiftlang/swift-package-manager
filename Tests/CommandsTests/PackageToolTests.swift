@@ -1336,14 +1336,28 @@ final class PackageToolTests: CommandsTestCase {
             do {
                 let result = try SwiftPMProduct.SwiftPackage.executeProcess(["plugin", "mycmd"], packagePath: packageDir)
                 XCTAssertEqual(result.exitStatus, .terminated(code: 0))
-                XCTAssert(try result.utf8Output().contains("This is MyCommandPlugin."))
+                XCTAssertMatch(try result.utf8Output(), .contains("This is MyCommandPlugin."))
+            }
+
+            // Check that we can also invoke it without the "plugin" subcommand.
+            do {
+                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["mycmd"], packagePath: packageDir)
+                XCTAssertEqual(result.exitStatus, .terminated(code: 0))
+                XCTAssertMatch(try result.utf8Output(), .contains("This is MyCommandPlugin."))
             }
 
             // Testing listing the available command plugins.
             do {
                 let result = try SwiftPMProduct.SwiftPackage.executeProcess(["plugin", "--list"], packagePath: packageDir)
                 XCTAssertEqual(result.exitStatus, .terminated(code: 0))
-                XCTAssert(try result.utf8Output().contains("‘mycmd’ (plugin ‘MyPlugin’ in package ‘MyPackage’)"))
+                XCTAssertMatch(try result.utf8Output(), .contains("‘mycmd’ (plugin ‘MyPlugin’ in package ‘MyPackage’)"))
+            }
+
+            // Check that we get the expected error if trying to invoke a plugin with the wrong name.
+            do {
+                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["my-nonexistent-cmd"], packagePath: packageDir)
+                XCTAssertNotEqual(result.exitStatus, .terminated(code: 0))
+                XCTAssertMatch(try result.utf8stderrOutput(), .contains("No command plugins found for ‘my-nonexistent-cmd’"))
             }
         }
     }

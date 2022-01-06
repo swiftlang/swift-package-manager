@@ -63,6 +63,7 @@ public struct SwiftPackageTool: ParsableCommand {
             PluginCommand.self,
         ]
         + (ProcessInfo.processInfo.environment["SWIFTPM_ENABLE_SNIPPETS"] == "1" ? [Learn.self] : []),
+        defaultSubcommand: PluginCommand.self,
         helpNames: [.short, .long, .customLong("help", withSingleDash: true)])
 
     @OptionGroup()
@@ -872,7 +873,7 @@ extension SwiftPackageTool {
     struct PluginCommand: SwiftCommand {
         static let configuration = CommandConfiguration(
             commandName: "plugin",
-            abstract: "Invoke a command plugin (note: the use of a `plugin` subcommand for this is temporary)"
+            abstract: "Invoke a command plugin or perform other actions on command plugins"
         )
 
         @OptionGroup(_hiddenFromHelp: true)
@@ -923,20 +924,17 @@ extension SwiftPackageTool {
 
             // Otherwise find the plugins that match the command verb.
             guard let commandVerb = pluginCommand.first else {
-                swiftTool.observabilityScope.emit(error: "No plugin command name specified")
-                throw ExitCode.failure
+                throw ValidationError("No plugin command name specified")
             }
-            swiftTool.observabilityScope.emit(info: "Finding plugin for command '\(commandVerb)'")
+            swiftTool.observabilityScope.emit(info: "Finding plugin for command ‘\(commandVerb)’")
             let matchingPlugins = findPlugins(matching: commandVerb, in: packageGraph)
 
             // Complain if we didn't find exactly one.
             if matchingPlugins.isEmpty {
-                swiftTool.observabilityScope.emit(error: "No command plugins found for '\(commandVerb)'")
-                throw ExitCode.failure
+                throw ValidationError("No command plugins found for ‘\(commandVerb)’")
             }
             else if matchingPlugins.count > 1 {
-                swiftTool.observabilityScope.emit(error: "\(matchingPlugins.count) plugins found for '\(commandVerb)'")
-                throw ExitCode.failure
+                throw ValidationError("\(matchingPlugins.count) plugins found for ‘\(commandVerb)’")
             }
             
             // At this point we know we found exactly one command plugin, so we run it.
@@ -953,8 +951,7 @@ extension SwiftPackageTool {
             var targets: [String: ResolvedTarget] = [:]
             for target in package.targets where targetNames.contains(target.name) {
                 if targets[target.name] != nil {
-                    swiftTool.observabilityScope.emit(error: "Ambiguous target name: ‘\(target.name)’")
-                    throw ExitCode.failure
+                    throw ValidationError("Ambiguous target name: ‘\(target.name)’")
                 }
                 if target.isEligibleForPluginCommand {
                     targets[target.name] = target
@@ -963,8 +960,7 @@ extension SwiftPackageTool {
             assert(targets.count <= targetNames.count)
             if targets.count != targetNames.count {
                 let unknownTargetNames = Set(targetNames).subtracting(targets.keys)
-                swiftTool.observabilityScope.emit(error: "Unknown targets: ‘\(unknownTargetNames.sorted().joined(separator: "’, ‘"))’")
-                throw ExitCode.failure
+                throw ValidationError("Unknown targets: ‘\(unknownTargetNames.sorted().joined(separator: "’, ‘"))’")
             }
 
             // The `plugins` directory is inside the workspace's main data directory, and contains all temporary files related to all plugins in the workspace.
