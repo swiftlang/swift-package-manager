@@ -1208,8 +1208,7 @@ final class PackageToolTests: CommandsTestCase {
                         .plugin(
                             name: "MyPlugin",
                             capability: .command(
-                                intent: .custom(verb: "mycmd", description: "What is mycmd anyway?"),
-                                permissions: [.writeToPackageDirectory(reason: "YOLO")]
+                                intent: .custom(verb: "mycmd", description: "What is mycmd anyway?")
                             ),
                             dependencies: [
                                 .target(name: "LocalBuiltTool"),
@@ -1359,6 +1358,82 @@ final class PackageToolTests: CommandsTestCase {
                 let result = try SwiftPMProduct.SwiftPackage.executeProcess(["my-nonexistent-cmd"], packagePath: packageDir)
                 XCTAssertNotEqual(result.exitStatus, .terminated(code: 0))
                 XCTAssertMatch(try result.utf8stderrOutput(), .contains("No command plugins found for ‘my-nonexistent-cmd’"))
+            }
+        }
+    }
+
+    func testCommandPluginPermissions() throws {
+
+        try testWithTemporaryDirectory { tmpPath in
+            // Create a sample package with a library target and a plugin.
+            let packageDir = tmpPath.appending(components: "MyPackage")
+            try localFileSystem.writeFileContents(packageDir.appending(components: "Package.swift")) {
+                $0 <<< """
+                // swift-tools-version: 999.0
+                import PackageDescription
+                let package = Package(
+                    name: "MyPackage",
+                    targets: [
+                        .target(
+                            name: "MyLibrary"
+                        ),
+                        .plugin(
+                            name: "MyPlugin",
+                            capability: .command(
+                                intent: .custom(verb: "PackageScribbler", description: "Help description"),
+                                permissions: [.writeToPackageDirectory(reason: "For testing purposes")]
+                            )
+                        ),
+                    ]
+                )
+                """
+            }
+            try localFileSystem.writeFileContents(packageDir.appending(components: "Sources", "MyLibrary", "library.swift")) {
+                $0 <<< """
+                public func Foo() { }
+                """
+            }
+            try localFileSystem.writeFileContents(packageDir.appending(components: "Plugins", "MyPlugin", "plugin.swift")) {
+                $0 <<< """
+                import PackagePlugin
+                import Foundation
+
+                @main
+                struct MyCommandPlugin: CommandPlugin {
+                    func performCommand(
+                        context: PluginContext,
+                        targets: [Target],
+                        arguments: [String]
+                    ) throws {
+                        // Check that we can write to the package directory.
+                        print("Trying to write to the package directory...")
+                        guard FileManager.default.createFile(atPath: context.package.directory.appending("Foo").string, contents: Data("Hello".utf8)) else {
+                            throw "Couldn’t create file at path \\(context.package.directory.appending("Foo"))"
+                        }
+                        print("... successfully created it")
+                    }
+                }
+
+                extension String: Error {}
+                """
+            }
+
+            // Invoke the plugin, and check that we can't write to the package directory by default.  Note that need to pass `--block-writing-to-temporary-directory` here since the test artifact is itself under the temporary directory.  Note that sandboxing is only currently supported on macOS.
+          #if os(macOS)
+            do {
+                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["plugin", "--block-writing-to-temporary-directory", "PackageScribbler"], packagePath: packageDir, env: ["SWIFTPM_ENABLE_COMMAND_PLUGINS": "1"])
+                XCTAssertNotEqual(result.exitStatus, .terminated(code: 0))
+                XCTAssertNoMatch(try result.utf8Output(), .contains("successfully created it"))
+                XCTAssertMatch(try result.utf8stderrOutput(), .contains("error: Plugin ‘MyPlugin’ needs permission to write to the package directory (stated reason: “For testing purposes”)"))
+            }
+          #endif
+
+            // Invoke the plugin, and check that we can write to the package directory if we pass `--allow-writing-to-package-directory`.  Note that need to pass `--block-writing-to-temporary-directory` here since the test artifact is itself under the temporary directory.
+            do {
+                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["plugin", "--allow-writing-to-package-directory", "PackageScribbler"], packagePath: packageDir, env: ["SWIFTPM_ENABLE_COMMAND_PLUGINS": "1"])
+                XCTAssertEqual(result.exitStatus, .terminated(code: 0))
+                XCTAssertMatch(try result.utf8Output(), .contains("successfully created it"))
+                XCTAssertNoMatch(try result.utf8stderrOutput(), .contains("error: Couldn’t create file at path"))
             }
         }
     }
