@@ -505,9 +505,10 @@ public class SwiftTool {
         return try Workspace.DefaultLocations.resolvedVersionsFile(forRootPackage: self.getPackageRoot())
     }
 
-    func getMirrorsConfig(sharedConfigurationDirectory: AbsolutePath? = nil) throws -> Workspace.Configuration.Mirrors {
-        let sharedConfigurationDirectory = sharedConfigurationDirectory ?? self.sharedConfigurationDirectory
-        let sharedMirrorFile = sharedConfigurationDirectory.map { Workspace.DefaultLocations.mirrorsConfigurationFile(at: $0) }
+    func getMirrorsConfig() throws -> Workspace.Configuration.Mirrors {
+        let sharedMirrorFile = self.sharedConfigurationDirectory.map {
+            Workspace.DefaultLocations.mirrorsConfigurationFile(at: $0)
+        }
         return try .init(
             localMirrorFile: self.mirrorsConfigFile(),
             sharedMirrorFile: sharedMirrorFile,
@@ -548,11 +549,9 @@ public class SwiftTool {
         return newPath
     }
 
-    func getRegistriesConfig(sharedConfigurationDirectory: AbsolutePath? = nil) throws -> Workspace.Configuration.Registries {
+    func getRegistriesConfig() throws -> Workspace.Configuration.Registries {
         let localRegistriesFile = try Workspace.DefaultLocations.registriesConfigurationFile(forRootPackage: self.getPackageRoot())
-
-        let sharedConfigurationDirectory = sharedConfigurationDirectory ?? self.sharedConfigurationDirectory
-        let sharedRegistriesFile = sharedConfigurationDirectory.map {
+        let sharedRegistriesFile = self.sharedConfigurationDirectory.map {
             Workspace.DefaultLocations.registriesConfigurationFile(at: $0)
         }
 
@@ -640,8 +639,8 @@ public class SwiftTool {
                 sharedCacheDirectory: self.sharedCacheDirectory,
                 sharedConfigurationDirectory: self.sharedConfigurationDirectory
             ),
-            mirrors: self.getMirrorsConfig(sharedConfigurationDirectory: self.sharedConfigurationDirectory).mirrors,
-            registries: try self.getRegistriesConfig(sharedConfigurationDirectory: self.sharedConfigurationDirectory).configuration,
+            mirrors: self.getMirrorsConfig().mirrors,
+            registries: try self.getRegistriesConfig().configuration,
             authorizationProvider: self.getAuthorizationProvider(),
             customManifestLoader: self.getManifestLoader(), // FIXME: doe we really need to customize it?
             customRepositoryProvider: provider, // FIXME: doe we really need to customize it?
