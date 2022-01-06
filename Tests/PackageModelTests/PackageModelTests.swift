@@ -14,23 +14,6 @@ import TSCBasic
 import PackageModel
 
 class PackageModelTests: XCTestCase {
-
-    func testLegacyIdentities() throws {
-        XCTAssertTrue(PackageModel._useLegacyIdentities)
-        
-        PackageModel._useLegacyIdentities = false
-        XCTAssertEqual(
-            PackageIdentity(url: URL(string: "git@github.com/foo/bar/baz.git")!).description,
-            "github.com/foo/bar/baz"
-        )
-
-        PackageModel._useLegacyIdentities = true
-        XCTAssertEqual(
-            PackageIdentity(url: URL(string: "git@github.com/foo/bar/baz.git")!).description,
-            "baz"
-        )
-    }
-
     func testProductTypeCodable() throws {
         struct Foo: Codable, Equatable {
             var type: ProductType

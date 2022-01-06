@@ -72,13 +72,13 @@ public enum PackageDependency: Equatable {
     public var nameForTargetDependencyResolutionOnly: String {
         switch self {
         case .fileSystem(let settings):
-            return settings.nameForTargetDependencyResolutionOnly ?? LegacyPackageIdentity.computeDefaultName(fromPath: settings.path)
+            return settings.nameForTargetDependencyResolutionOnly ?? PackageIdentityParser.computeDefaultName(fromPath: settings.path)
         case .sourceControl(let settings):
             switch settings.location {
             case .local(let path):
-                return settings.nameForTargetDependencyResolutionOnly ?? LegacyPackageIdentity.computeDefaultName(fromPath: path)
+                return settings.nameForTargetDependencyResolutionOnly ?? PackageIdentityParser.computeDefaultName(fromPath: path)
             case .remote(let url):
-                return settings.nameForTargetDependencyResolutionOnly ?? LegacyPackageIdentity.computeDefaultName(fromURL: url)
+                return settings.nameForTargetDependencyResolutionOnly ?? PackageIdentityParser.computeDefaultName(fromURL: url)
             }
         case .registry:
             return self.identity.description

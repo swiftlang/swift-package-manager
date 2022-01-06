@@ -12,24 +12,8 @@ import Foundation
 import TSCBasic
 import TSCUtility
 
-/// When set to `false`,
-/// `PackageIdentity` uses the canonical location of package dependencies as its identity.
-/// Otherwise, only the last path component is used to identify package dependencies.
-public var _useLegacyIdentities: Bool = true {
-    willSet {
-        PackageIdentity.provider = newValue ? LegacyPackageIdentity.self : CanonicalPackageIdentity.self
-    }
-}
-
-internal protocol PackageIdentityProvider: CustomStringConvertible {
-    init(_ string: String)
-}
-
 /// The canonical identifier for a package, based on its source location.
 public struct PackageIdentity: CustomStringConvertible {
-    /// The underlying type used to create package identities.
-    internal static var provider: PackageIdentityProvider.Type = LegacyPackageIdentity.self
-
     /// A textual representation of this instance.
     public let description: String
 
@@ -49,13 +33,13 @@ public struct PackageIdentity: CustomStringConvertible {
     /// - Parameter urlString: The package's URL.
     // FIXME: deprecate this
     public init(urlString: String) {
-        self.description = Self.provider.init(urlString).description
+        self.description = PackageIdentityParser(urlString).description
     }
 
     /// Creates a package identity from a file path.
     /// - Parameter path: An absolute path to the package.
     public init(path: AbsolutePath) {
-        self.description = Self.provider.init(path.pathString).description
+        self.description = PackageIdentityParser(path.pathString).description
     }
 
     /// Creates a plain package identity for a root package
@@ -282,7 +266,7 @@ extension PackageIdentity {
 
 // MARK: -
 
-struct LegacyPackageIdentity: PackageIdentityProvider, Equatable {
+struct PackageIdentityParser {
     /// A textual representation of this instance.
     public let description: String
 
@@ -329,7 +313,7 @@ struct LegacyPackageIdentity: PackageIdentityProvider, Equatable {
     }
 }
 
-/// A canonicalized package identity.
+/// A canonicalized package location.
 ///
 /// A package may declare external packages as dependencies in its manifest.
 /// Each external package is uniquely identified by the location of its source code.
@@ -400,7 +384,7 @@ struct LegacyPackageIdentity: PackageIdentityProvider, Equatable {
 ///   ```
 ///   file:///Users/mona/LinkedList → /Users/mona/LinkedList
 ///   ```
-public struct CanonicalPackageIdentity: PackageIdentityProvider, Equatable {
+public struct CanonicalPackageLocation: Equatable, CustomStringConvertible {
     /// A textual representation of this instance.
     public let description: String
 
