@@ -236,21 +236,7 @@ private func createResolvedPackages(
 
         // Establish the manifest-declared package dependencies.
         package.manifest.dependenciesRequired(for: packageBuilder.productFilter).forEach { dependency in
-            // FIXME: change this validation logic to use identity instead of location
-            let dependencyLocation: String
-            switch dependency {
-            case .fileSystem(let settings):
-                dependencyLocation = settings.path.pathString
-            case .sourceControl(let settings):
-                switch settings.location {
-                case .local(let path):
-                    dependencyLocation = path.pathString
-                case .remote(let url):
-                    dependencyLocation = url.absoluteString
-                }
-            case .registry(let settings):
-                dependencyLocation = settings.identity.description
-            }
+            let dependencyPackageRef = dependency.createPackageRef()
 
             // Otherwise, look it up by its identity.
             if let resolvedPackage = packagesByIdentity[dependency.identity] {
@@ -260,7 +246,7 @@ private func createResolvedPackages(
                 guard dependencies[resolvedPackage.package.identity] == nil else {
                     let error = PackageGraphError.dependencyAlreadySatisfiedByIdentifier(
                         package: package.identity.description,
-                        dependencyLocation: dependencyLocation,
+                        dependencyLocation: dependencyPackageRef.locationString,
                         otherDependencyURL: resolvedPackage.package.manifest.packageLocation,
                         identity: dependency.identity)
                     return packageObservabilityScope.emit(error)
@@ -269,10 +255,10 @@ private func createResolvedPackages(
                 // check if the resolved package location is the same as the dependency one
                 // if not, this means that the dependencies share the same identity
                 // which only allowed when overriding
-                if !LocationComparator.areEqual(resolvedPackage.package.manifest.packageLocation, dependencyLocation) && !resolvedPackage.allowedToOverride {
+                if resolvedPackage.package.manifest.canonicalPackageLocation != dependencyPackageRef.canonicalLocation && !resolvedPackage.allowedToOverride {
                     let error = PackageGraphError.dependencyAlreadySatisfiedByIdentifier(
                         package: package.identity.description,
-                        dependencyLocation: dependencyLocation,
+                        dependencyLocation: dependencyPackageRef.locationString,
                         otherDependencyURL: resolvedPackage.package.manifest.packageLocation,
                         identity: dependency.identity)
                     // 9/2021 this is currently emitting a warning only to support
@@ -284,6 +270,10 @@ private func createResolvedPackages(
                     } else {
                         return packageObservabilityScope.emit(error)
                     }
+                } else if resolvedPackage.package.manifest.canonicalPackageLocation == dependencyPackageRef.canonicalLocation &&
+                            resolvedPackage.package.manifest.packageLocation != dependencyPackageRef.locationString  &&
+                            !resolvedPackage.allowedToOverride {
+                    packageObservabilityScope.emit(info: "dependency on '\(resolvedPackage.package.identity)' is represented by similar locations ('\(resolvedPackage.package.manifest.packageLocation)' and '\(dependencyPackageRef.locationString)') which are treated as the same canonical location '\(dependencyPackageRef.canonicalLocation)'.")
                 }
 
                 // checks if two dependencies have the same explicit name which can cause target based dependency package lookup issue
@@ -291,7 +281,7 @@ private func createResolvedPackages(
                     if let previouslyResolvedPackage = dependenciesByNameForTargetDependencyResolution[explicitDependencyName] {
                         let error = PackageGraphError.dependencyAlreadySatisfiedByName(
                             package: package.identity.description,
-                            dependencyLocation: dependencyLocation,
+                            dependencyLocation: dependencyPackageRef.locationString,
                             otherDependencyURL: previouslyResolvedPackage.package.manifest.packageLocation,
                             name: explicitDependencyName)
                         return packageObservabilityScope.emit(error)
@@ -302,7 +292,7 @@ private func createResolvedPackages(
                 if let previouslyResolvedPackage = dependenciesByNameForTargetDependencyResolution[dependency.identity.description] {
                     let error = PackageGraphError.dependencyAlreadySatisfiedByName(
                         package: package.identity.description,
-                        dependencyLocation: dependencyLocation,
+                        dependencyLocation: dependencyPackageRef.locationString,
                         otherDependencyURL: previouslyResolvedPackage.package.manifest.packageLocation,
                         name: dependency.identity.description)
                     return packageObservabilityScope.emit(error)
@@ -673,23 +663,4 @@ fileprivate func findCycle(
     }
     // Couldn't find any cycle in the graph.
     return nil
-}
-
-
-// TODO: model package location better / encapsulate into a new type (PackageLocation) so that such comparison is reusable
-// additionally move and rename CanonicalPackageIdentity to become a detail function of the PackageLocation abstraction, as it is not used otherwise
-struct LocationComparator {
-    static func areEqual(_ lhs: String, _ rhs: String) -> Bool {
-        if lhs == rhs {
-            return true
-        }
-
-        let canonicalLHS = CanonicalPackageIdentity(lhs)
-        let canonicalRHS = CanonicalPackageIdentity(rhs)
-        if canonicalLHS == canonicalRHS {
-            return true
-        }
-
-        return false
-    }
 }

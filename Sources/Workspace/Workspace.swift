@@ -815,7 +815,7 @@ extension Workspace {
         let resolver = try self.createResolver(pinsMap: pinsMap, observabilityScope: observabilityScope)
         self.activeResolver = resolver
 
-        let updateResults = resolveDependencies(
+        let updateResults = self.resolveDependencies(
             resolver: resolver,
             constraints: updateConstraints,
             observabilityScope: observabilityScope
@@ -836,8 +836,8 @@ extension Workspace {
         // Load the updated manifests.
         let updatedDependencyManifests = try self.loadDependencyManifests(root: graphRoot, observabilityScope: observabilityScope)
 
-        // Update the pins store.
-        self.pinAll(
+        // Update the resolved file.
+        self.saveResolvedFile(
             pinsStore: pinsStore,
             dependencyManifests: updatedDependencyManifests,
             rootManifestsMinimumToolsVersion: rootManifestsMinimumToolsVersion,
@@ -1326,25 +1326,61 @@ extension Workspace {
 // MARK: - Pinning Functions
 
 extension Workspace {
-
     /// Pins all of the current managed dependencies at their checkout state.
-    fileprivate func pinAll(
+    fileprivate func saveResolvedFile(
         pinsStore: PinsStore,
         dependencyManifests: DependencyManifests,
         rootManifestsMinimumToolsVersion: ToolsVersion,
         observabilityScope: ObservabilityScope
-    ) {
-        // Reset the pinsStore and start pinning the required dependencies.
-        pinsStore.unpinAll()
-
-        let requiredDependencies = dependencyManifests.computePackages().required
-        for dependency in self.state.dependencies  {
-            if requiredDependencies.contains(where: { $0.equalsIncludingLocation(dependency.packageRef) }) {
-                pinsStore.pin(dependency)
+    )  {
+        var dependenciesToPin = [ManagedDependency]()
+        let requiredDependencies = dependencyManifests.computePackages().required.filter({ $0.kind.isPinnable })
+        for dependency in requiredDependencies {
+            if let managedDependency = self.state.dependencies[comparingLocation: dependency] {
+                dependenciesToPin.append(managedDependency)
+            } else {
+                observabilityScope.emit(warning: "required dependency \(dependency.identity) (\(dependency.locationString)) was not found in managed dependencies and will not be recorded in resolved file")
             }
         }
 
-        observabilityScope.trap{
+        // try to load the pin store from disk so we can compare for any changes
+        // this is needed as we want to avoid re-writing the resolved files unless absolutely necessary
+        var needsUpdate = false
+        if let storedPinStore = try? self.pinsStore.load() {
+            // compare for any differences between the existing state and the stored one
+            // subtle changes between versions of SwiftPM could treat URLs differently
+            // in which case we don't want to cause unnecessary churn
+            if dependenciesToPin.count != storedPinStore.pinsMap.count {
+                needsUpdate = true
+            } else {
+                for dependency in dependenciesToPin {
+                    if let pin = storedPinStore.pinsMap.first(where: { $0.value.packageRef.equalsIncludingLocation(dependency.packageRef) }) {
+                        if pin.value.state != PinsStore.Pin(dependency)?.state {
+                            needsUpdate = true
+                            break
+                        }
+                    } else {
+                        needsUpdate = true
+                        break
+                    }
+                }
+            }
+        } else {
+            needsUpdate = true
+        }
+
+        // exist early is there is nothing to do
+        if !needsUpdate {
+            return
+        }
+
+        // reset the pinsStore and start pinning the required dependencies.
+        pinsStore.unpinAll()
+        for dependency in dependenciesToPin {
+            pinsStore.pin(dependency)
+        }
+
+        observabilityScope.trap {
             try pinsStore.saveState(toolsVersion: rootManifestsMinimumToolsVersion)
         }
 
@@ -1359,30 +1395,38 @@ fileprivate extension PinsStore {
     ///
     /// This method does nothing if the dependency is in edited state.
     func pin(_ dependency: Workspace.ManagedDependency) {
+        if let pin = PinsStore.Pin(dependency) {
+            self.add(pin)
+        }
+    }
+}
+
+fileprivate extension PinsStore.Pin {
+    init?(_ dependency: Workspace.ManagedDependency) {
         switch dependency.state {
         case .sourceControlCheckout(.version(let version, let revision)):
-            self.pin(
+            self.init(
                 packageRef: dependency.packageRef,
                 state: .version(version, revision: revision.identifier)
             )
         case .sourceControlCheckout(.branch(let branch, let revision)):
-            self.pin(
+            self.init(
                 packageRef: dependency.packageRef,
                 state: .branch(name: branch, revision: revision.identifier)
             )
         case .sourceControlCheckout(.revision(let revision)):
-            self.pin(
+            self.init(
                 packageRef: dependency.packageRef,
                 state: .revision(revision.identifier)
             )
         case .registryDownload(let version):
-            self.pin(
+            self.init(
                 packageRef: dependency.packageRef,
                 state: .version(version, revision: .none)
             )
         case .edited, .fileSystem, .custom:
             // NOOP
-            break
+            return nil
         }
     }
 }
@@ -1398,7 +1442,7 @@ extension Workspace {
         /// The dependency manifests in the transitive closure of root manifest.
         let dependencies: [(manifest: Manifest, dependency: ManagedDependency, productFilter: ProductFilter, fileSystem: FileSystem)]
 
-        let workspace: Workspace
+        private let workspace: Workspace
 
         fileprivate init(
             root: PackageGraphRoot,
@@ -1649,7 +1693,7 @@ extension Workspace {
         })
 
         // optimization: preload first level dependencies manifest (in parallel)
-        let firstLevelDependencies = topLevelManifests.values.map { $0.dependencies.map{ $0.createPackageRef() } }.flatMap { $0 }
+        let firstLevelDependencies = topLevelManifests.values.map { $0.dependencies.map{ $0.createPackageRef() } }.flatMap({ $0 })
         let firstLevelManifests = try temp_await { self.loadManagedManifests(for: firstLevelDependencies, observabilityScope: observabilityScope, completion: $0) } // FIXME: this should not block
 
         // Continue to load the rest of the manifest for this graph
@@ -1671,13 +1715,13 @@ extension Workspace {
             let dependenciesToLoad = dependenciesRequired.map{ $0.createPackageRef() }.filter { !loadedManifests.keys.contains($0.identity) }
             let dependenciesManifests = try temp_await { self.loadManagedManifests(for: dependenciesToLoad, observabilityScope: observabilityScope, completion: $0) }
             dependenciesManifests.forEach { loadedManifests[$0.key] = $0.value }
-            return pair.item.dependenciesRequired(for: pair.key.productFilter).compactMap{ dependency in
+            return pair.item.dependenciesRequired(for: pair.key.productFilter).compactMap { dependency in
                 loadedManifests[dependency.identity].flatMap {
                     // we also compare the location as this function may attempt to load
                     // dependencies that have the same identity but from a different location
                     // which is an error case we diagnose an report about in the GraphLoading part which
                     // is prepared to handle the case where not all manifest are available
-                    $0.packageLocation == dependency.locationString ?
+                    $0.canonicalPackageLocation == dependency.createPackageRef().canonicalLocation ?
                     KeyedPair($0, key: Key(identity: dependency.identity, productFilter: dependency.productFilter)) : nil
                 }
             }
@@ -2524,10 +2568,18 @@ extension Workspace {
             return currentManifests
         }
 
-        self.validatePinsStore(dependencyManifests: currentManifests, rootManifestsMinimumToolsVersion: rootManifestsMinimumToolsVersion, observabilityScope: observabilityScope)
+        // load and update the pins store with any changes from loading the top level dependencies
+        guard let pinsStore = self.loadAndUpdatePinsStore(
+            dependencyManifests: currentManifests,
+            rootManifestsMinimumToolsVersion: rootManifestsMinimumToolsVersion,
+            observabilityScope: observabilityScope
+        ) else {
+            // abort if PinsStore reported any errors.
+            return currentManifests
+        }
 
-        // Abort if pinsStore is unloadable or if diagnostics has errors.
-        guard !observabilityScope.errorsReported, let pinsStore = observabilityScope.trap({ try pinsStore.load() }) else {
+        // abort if PinsStore reported any errors.
+        guard !observabilityScope.errorsReported else {
             return currentManifests
         }
 
@@ -2551,6 +2603,15 @@ extension Workspace {
 
             switch result {
             case .notRequired:
+                // since nothing changed we can exit early,
+                // but need update resolved file and download an missing binary artifact
+                self.saveResolvedFile(
+                    pinsStore: pinsStore,
+                    dependencyManifests: currentManifests,
+                    rootManifestsMinimumToolsVersion: rootManifestsMinimumToolsVersion,
+                    observabilityScope: observabilityScope
+                )
+
                 try self.updateBinaryArtifacts(
                     manifests: currentManifests,
                     addedOrUpdatedPackages: [],
@@ -2601,7 +2662,8 @@ extension Workspace {
             return updatedDependencyManifests
         }
 
-        self.pinAll(
+        // Update the resolved file.
+        self.saveResolvedFile(
             pinsStore: pinsStore,
             dependencyManifests: updatedDependencyManifests,
             rootManifestsMinimumToolsVersion: rootManifestsMinimumToolsVersion,
@@ -2784,43 +2846,32 @@ extension Workspace {
     }
 
     /// Validates that each checked out managed dependency has an entry in pinsStore.
-    private func validatePinsStore(
+    private func loadAndUpdatePinsStore(
         dependencyManifests: DependencyManifests,
         rootManifestsMinimumToolsVersion: ToolsVersion,
         observabilityScope: ObservabilityScope
-    ) {
-        guard let pinsStore = observabilityScope.trap({ try pinsStore.load() }) else {
-            return
+    ) -> PinsStore?  {
+        guard let pinsStore = observabilityScope.trap({ try self.pinsStore.load() }) else {
+            return nil
         }
 
-        let pins = pinsStore.pinsMap.keys
-        let requiredDependencies = dependencyManifests.computePackages().required
-
-        for dependency in self.state.dependencies {
-            switch dependency.state {
-            case .sourceControlCheckout, .registryDownload: break
-            case .edited, .fileSystem, .custom: continue
-            }
-
+        let requiredDependencies = dependencyManifests.computePackages().required.filter({ $0.kind.isPinnable })
+        for dependency in self.state.dependencies.filter({ $0.packageRef.kind.isPinnable }) {
+            // a required dependency that is already loaded (managed) should be represented in the pins store.
             // also comparing location as it may have changed at this point
             if requiredDependencies.contains(where: { $0.equalsIncludingLocation(dependency.packageRef) }) {
-                // If required identity contains this dependency, it should be in the pins store.
-                // also comparing location as it may have changed at this point
-                if let pin = pinsStore.pinsMap[dependency.packageRef.identity], pin.packageRef.equalsIncludingLocation(dependency.packageRef) {
-                    continue
+                let pin = pinsStore.pinsMap[dependency.packageRef.identity]
+                // if pin not found, or location is different (it may have changed at this point) pin it
+                if !(pin?.packageRef.equalsIncludingLocation(dependency.packageRef) ?? false) {
+                    pinsStore.pin(dependency)
                 }
-            } else if !pins.contains(dependency.packageRef.identity) {
-                // Otherwise, it should *not* be in the pins store.
-                continue
+            } else if let pin = pinsStore.pinsMap[dependency.packageRef.identity]  {
+                // otherwise, it should *not* be in the pins store.
+                pinsStore.remove(pin)
             }
-
-            return self.pinAll(
-                pinsStore: pinsStore,
-                dependencyManifests: dependencyManifests,
-                rootManifestsMinimumToolsVersion: rootManifestsMinimumToolsVersion,
-                observabilityScope: observabilityScope
-            )
         }
+
+        return pinsStore
     }
 
     /// This enum represents state of an external package.
@@ -3296,7 +3347,8 @@ extension Workspace {
         try workingCopy.checkout(revision: checkoutState.revision)
         try? fileSystem.chmod(.userUnWritable, path: checkoutPath, options: [.recursive, .onlyFiles])
 
-        // Write the state record.
+        // Record the new state.
+        observabilityScope.emit(debug: "adding '\(package.identity)' (\(package.locationString)) to managed dependencies")
         self.state.dependencies.add(
             try .sourceControlCheckout(
                 packageRef: package,
@@ -3454,8 +3506,8 @@ extension Workspace {
              )
          }
 
-         // TODO: make download read-only?
-
+         // Record the new state.
+         observabilityScope.emit(debug: "adding '\(package.identity)' (\(package.locationString)) to managed dependencies")
          self.state.dependencies.add(
             try .registryDownload(
                 packageRef: package,
@@ -3553,6 +3605,17 @@ internal extension PackageReference {
             return .init(url: url)
         default:
             throw StringError("invalid dependency kind \(self.kind)")
+        }
+    }
+}
+
+fileprivate extension PackageReference.Kind {
+    var isPinnable: Bool {
+        switch self {
+        case .remoteSourceControl, .localSourceControl, .registry:
+            return true
+        default:
+            return false
         }
     }
 }
