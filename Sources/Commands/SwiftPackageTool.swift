@@ -886,6 +886,18 @@ extension SwiftPackageTool {
               help: "List the available plugin commands")
         var listCommands: Bool = false
 
+        @Flag(name: .customLong("allow-writing-to-package-directory"),
+              help: "Allow the plugin to write to the package directory")
+        var allowWritingToPackageDirectory: Bool = false
+
+        @Option(name: .customLong("allow-writing-to-directory"),
+              help: "Allow the plugin to write to an additional directory")
+        var additionalAllowedWritableDirectories: [String] = []
+
+        @Flag(name: .customLong("block-writing-to-temporary-directory"),
+              help: "Block the plugin from writing to the package directory (by default this is allowed)")
+        var blockWritingToTemporaryDirectory: Bool = false
+
         @Argument(parsing: .unconditionalRemaining,
                   help: "Name and arguments of the command plugin to invoke")
         var pluginCommand: [String] = []
@@ -954,9 +966,6 @@ extension SwiftPackageTool {
                 swiftTool.observabilityScope.emit(error: "Unknown targets: ‘\(unknownTargetNames.sorted().joined(separator: "’, ‘"))’")
                 throw ExitCode.failure
             }
-            
-            // If the plugin requires additional permissions, we ask the user for approval.
-            // TODO: Ask for approval here.
 
             // The `plugins` directory is inside the workspace's main data directory, and contains all temporary files related to all plugins in the workspace.
             let pluginsDir = try swiftTool.getActiveWorkspace().location.pluginWorkingDirectory
@@ -968,6 +977,31 @@ extension SwiftPackageTool {
             // The `outputs` directory contains subdirectories for each combination of package, target, and plugin. Each usage of a plugin has an output directory that is writable by the plugin, where it can write additional files, and to which it can configure tools to write their outputs, etc.
             // FIXME: Revisit this path.
             let outputDir = pluginsDir.appending(component: "outputs")
+
+            // Determine the set of directories under which plugins are allowed to write. We always include the output directory.
+            var writableDirectories = [outputDir]
+            if allowWritingToPackageDirectory {
+                writableDirectories.append(package.path)
+            }
+            if !blockWritingToTemporaryDirectory {
+                writableDirectories.append(AbsolutePath("/tmp"))
+                writableDirectories.append(AbsolutePath(NSTemporaryDirectory()))
+            }
+            if allowWritingToPackageDirectory {
+                writableDirectories.append(package.path)
+            }
+            else {
+                // If the plugin requires write permission but it wasn't provided, we ask the user for approval.
+                if case .command(_, let permissions) = plugin.capability {
+                    for case PluginPermission.writeToPackageDirectory(let reason) in permissions {
+                        // TODO: Ask for approval here if connected to TTY; only emit an error if not.
+                        throw ValidationError("Plugin ‘\(plugin.name)’ needs permission to write to the package directory (stated reason: “\(reason)”)")
+                    }
+                }
+            }
+            for pathString in additionalAllowedWritableDirectories {
+                writableDirectories.append(AbsolutePath(pathString, relativeTo: swiftTool.originalWorkingDirectory))
+            }
 
             // Use the directory containing the compiler as an additional search directory.
             let toolSearchDirs = [try swiftTool.getToolchain().swiftCompilerPath.parentDirectory]
@@ -1019,6 +1053,7 @@ extension SwiftPackageTool {
                 outputDirectory: outputDir,
                 toolSearchDirectories: toolSearchDirs,
                 toolNamesToPaths: toolNamesToPaths,
+                writableDirectories: writableDirectories,
                 fileSystem: localFileSystem,
                 observabilityScope: swiftTool.observabilityScope,
                 callbackQueue: delegateQueue,
