@@ -2,6 +2,12 @@ Note: This is in reverse chronological order, so newer entries are added to the 
 
 Swift 5.6
 -----------
+
+* [#3890]
+
+  The fingerprint of a package is now being recorded when the package is first downloaded from a Git repository or package registry. Subsequent downloads must have fingerpints matching previous recorded values, otherwise it would result in build warnings or failures depending on settings. 
+
+
 * [SE-0332]
 
   Package plugins of the type `command` can now be declared in packages that specify a tools version of 5.6 or later, and can be invoked using the `swift package` subcommand.
