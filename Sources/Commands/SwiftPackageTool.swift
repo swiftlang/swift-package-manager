@@ -999,8 +999,9 @@ extension SwiftPackageTool {
                 writableDirectories.append(AbsolutePath(pathString, relativeTo: swiftTool.originalWorkingDirectory))
             }
 
-            // Use the directory containing the compiler as an additional search directory.
+            // Use the directory containing the compiler as an additional search directory, and add the $PATH.
             let toolSearchDirs = [try swiftTool.getToolchain().swiftCompilerPath.parentDirectory]
+                + getEnvSearchPaths(pathString: ProcessEnv.path, currentWorkingDirectory: .none)
 
             // Create the cache directory, if needed.
             try localFileSystem.createDirectory(cacheDir, recursive: true)
