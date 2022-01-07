@@ -54,7 +54,7 @@ automatic linking type with `-auto` suffix appended to product's name.
 let autoProducts = [swiftPMProduct, swiftPMDataModelProduct]
 
 let useSwiftCryptoV2 = ProcessInfo.processInfo.environment["SWIFTPM_USE_SWIFT_CRYPTO_V2"] != nil
-let minimumCryptoVersion: Version = useSwiftCryptoV2 ? "2.0.1" : "1.1.4"
+let minimumCryptoVersion: Version = useSwiftCryptoV2 ? "2.0.3" : "1.1.4"
 var swiftSettings: [SwiftSetting] = []
 if useSwiftCryptoV2 {
     swiftSettings.append(.define("CRYPTO_v2"))
@@ -64,7 +64,7 @@ let package = Package(
     name: "SwiftPM",
     platforms: [
         .macOS("10.15.4"),
-        .iOS(.v13)
+        .iOS("13.4")
     ],
     products:
         autoProducts.flatMap {
@@ -139,6 +139,7 @@ let package = Package(
             name: "Basics",
             dependencies: [
                 .product(name: "SwiftToolsSupport-auto", package: "swift-tools-support-core"),
+                .product(name: "SystemPackage", package: "swift-system"),
             ],
             exclude: ["CMakeLists.txt"]
         ),
@@ -155,6 +156,7 @@ let package = Package(
             name: "PackageRegistry",
             dependencies: [
                 "Basics",
+                "PackageFingerprint",
                 "PackageLoading",
                 "PackageModel"
             ],
@@ -189,8 +191,7 @@ let package = Package(
             name: "PackageLoading",
             dependencies: [
                 "Basics",
-                "PackageModel",
-                "SourceControl"
+                "PackageModel"
             ],
             exclude: ["CMakeLists.txt", "README.md"]
         ),
@@ -258,6 +259,15 @@ let package = Package(
             ],
             exclude: ["CMakeLists.txt"]
         ),
+        
+        .target(
+            name: "PackageFingerprint",
+            dependencies: [
+                "Basics",
+                "PackageModel",
+            ],
+            exclude: ["CMakeLists.txt"]
+        ),
 
         // MARK: Package Manager Functionality
 
@@ -300,6 +310,7 @@ let package = Package(
             name: "Workspace",
             dependencies: [
                 "Basics",
+                "PackageFingerprint",
                 "PackageGraph",
                 "PackageModel",
                 "SourceControl",
@@ -319,6 +330,7 @@ let package = Package(
                 "Basics",
                 "Build",
                 "PackageCollections",
+                "PackageFingerprint",
                 "PackageGraph",
                 "SourceControl",
                 "Workspace",
@@ -379,6 +391,7 @@ let package = Package(
             name: "SPMTestSupport",
             dependencies: [
                 "Basics",
+                "PackageFingerprint",
                 "PackageGraph",
                 "PackageLoading",
                 "PackageRegistry",
@@ -390,11 +403,16 @@ let package = Package(
             ]
         ),
 
+        .target(
+            /** Test for thread-santizer. */
+            name: "tsan_utils",
+            dependencies: []),
+
         // MARK: SwiftPM tests
 
         .testTarget(
             name: "BasicsTests",
-            dependencies: ["Basics", "SPMTestSupport"]
+            dependencies: ["Basics", "SPMTestSupport", "tsan_utils"]
         ),
         .testTarget(
             name: "BuildTests",
@@ -448,7 +466,7 @@ let package = Package(
         .testTarget(
             name: "PackageLoadingTests",
             dependencies: ["PackageLoading", "SPMTestSupport"],
-            exclude: ["Inputs"]
+            exclude: ["Inputs", "pkgconfigInputs"]
         ),
         .testTarget(
             name: "PackageLoadingPerformanceTests",
@@ -482,7 +500,11 @@ let package = Package(
         ),
         .testTarget(
             name: "PackageCollectionsTests",
-            dependencies: ["PackageCollections", "SPMTestSupport"]
+            dependencies: ["PackageCollections", "SPMTestSupport", "tsan_utils"]
+        ),
+        .testTarget(
+            name: "PackageFingerprintTests",
+            dependencies: ["PackageFingerprint", "SPMTestSupport"]
         ),
         .testTarget(
             name: "PackageRegistryTests",
@@ -549,6 +571,7 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         .package(url: "https://github.com/apple/swift-argument-parser.git", .upToNextMinor(from: "1.0.1")),
         .package(url: "https://github.com/apple/swift-driver.git", .branch(relatedDependenciesBranch)),
         .package(url: "https://github.com/apple/swift-crypto.git", .upToNextMinor(from: minimumCryptoVersion)),
+        .package(url: "https://github.com/apple/swift-system.git", .upToNextMinor(from: "1.1.1")),
     ]
 } else {
     package.dependencies += [
@@ -556,6 +579,7 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         .package(path: "../swift-argument-parser"),
         .package(path: "../swift-driver"),
         .package(path: "../swift-crypto"),
+        .package(path: "../swift-system"),
     ]
 }
 

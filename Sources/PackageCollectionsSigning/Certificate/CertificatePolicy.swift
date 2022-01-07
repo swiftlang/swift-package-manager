@@ -73,7 +73,7 @@ extension CertificatePolicy {
         let revocationPolicy = SecPolicyCreateRevocation(kSecRevocationOCSPMethod)
 
         var secTrust: SecTrust?
-        guard SecTrustCreateWithCertificates(certChain.map { $0.underlying } as CFArray,
+        guard SecTrustCreateWithCertificates(certChain.map({ $0.underlying }) as CFArray,
                                              [policy, revocationPolicy] as CFArray,
                                              &secTrust) == errSecSuccess,
             let trust = secTrust else {

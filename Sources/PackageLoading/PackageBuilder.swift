@@ -829,24 +829,18 @@ public final class PackageBuilder {
 
         // Deal with package plugin targets.
         if potentialModule.type == .plugin {
+            // Check that the target has a declared capability; we should not have come this far if not.
             guard let declaredCapability = manifestTarget.pluginCapability else {
                 throw ModuleError.pluginCapabilityNotDeclared(target: manifestTarget.name)
             }
 
-            // Translate the capability from the target description form coming in from the manifest
-            // to the package model form.
-            let capability: PluginCapability
-            switch declaredCapability {
-            case .buildTool:
-                capability = .buildTool
-            }
-
-            // Crate and return an PluginTarget configured with the information from the manifest.
+            // Create and return an PluginTarget configured with the information from the manifest.
             return PluginTarget(
                 name: potentialModule.name,
                 platforms: self.platforms(),  // FIXME: this should be host platform
                 sources: sources,
-                pluginCapability: capability,
+                apiVersion: self.manifest.toolsVersion,
+                pluginCapability: PluginCapability(from: declaredCapability),
                 dependencies: dependencies)
         }
 
@@ -1173,13 +1167,13 @@ public final class PackageBuilder {
         // Collect all test targets.
         let testModules = targets.filter({ target in
             guard target.type == .test else { return false }
-          #if os(Linux)
+            #if os(Linux)
             // FIXME: Ignore C language test targets on linux for now.
             if target is ClangTarget {
-                self.observabilityScope.emit(.unsupportedCTestTarget(package: manifest.name, target: target.name))
+                self.observabilityScope.emit(.unsupportedCTestTarget(package: self.identity.description, target: target.name))
                 return false
             }
-          #endif
+            #endif
             return true
         })
 

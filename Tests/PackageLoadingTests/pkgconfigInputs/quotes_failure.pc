@@ -1,0 +1,8 @@
+prefix=/usr/local/bin
+exec_prefix=${prefix}
+my_dep=atk
+#some comment
+
+Requires: gdk-3.0 >= 1.0.0 ${my_dep}
+Libs: -L"${prefix}" -l"gt"k3" -wantareal\\here -one\\ -two
+Cflags: -I/usr/local/Wine\ Cellar/gtk+3/3.18.9/include/gtk-3.0    -I/after/extra/spaces

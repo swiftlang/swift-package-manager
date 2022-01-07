@@ -412,26 +412,38 @@ class MiscellaneousTestCase: XCTestCase {
             // something that doesn't exist.
             XCTAssert(result.exitStatus != .terminated(code: 0))
             let output = try result.utf8stderrOutput()
-            XCTAssert(output.contains("does not exist"), "Error from git was not propogated to process output: \(output)")
+            XCTAssert(output.contains("does not exist"), "Error from git was not propagated to process output: \(output)")
         }
     }
-    
-    func testLocalPackageUsedAsURL() throws {
-        fixture(name: "Miscellaneous/LocalPackageAsURL", createGitRepo: false) { prefix in
+
+    func testLocalPackageUsedAsURLValidation() throws {
+        fixture(name: "Miscellaneous/LocalPackageAsURL", createGitRepo: false) { path in
             // This fixture has a setup that is trying to use a local package
             // as a url that hasn't been initialized as a repo
-
-            // Launch swift-build.
-            let app = prefix.appending(component: "Bar")
-
-            let result = try SwiftPMProduct.SwiftBuild.executeProcess([], packagePath: app)
-
+            let result = try SwiftPMProduct.SwiftBuild.executeProcess([], packagePath: path.appending(component: "Bar"))
             XCTAssert(result.exitStatus != .terminated(code: 0))
             let output = try result.utf8stderrOutput()
             XCTAssert(output.contains("Cannot clone from local directory"), "Didn't find expected output: \(output)")
         }
     }
-    
+
+    func testInvalidRefsValidation() throws {
+        fixture(name: "Miscellaneous/InvalidRefs", createGitRepo: false) { path in
+            do {
+                let result = try SwiftPMProduct.SwiftBuild.executeProcess([], packagePath: path.appending(component: "InvalidBranch"))
+                XCTAssert(result.exitStatus != .terminated(code: 0))
+                let output = try result.utf8stderrOutput()
+                XCTAssert(output.contains("Invalid branch name: "), "Didn't find expected output: \(output)")
+            }
+            do {
+                let result = try SwiftPMProduct.SwiftBuild.executeProcess([], packagePath: path.appending(component: "InvalidRevision"))
+                XCTAssert(result.exitStatus != .terminated(code: 0))
+                let output = try result.utf8stderrOutput()
+                XCTAssert(output.contains("Invalid revision: "), "Didn't find expected output: \(output)")
+            }
+        }
+    }
+
     func testUnicode() {
         #if !os(Linux) && !os(Android) // TODO: - Linux has trouble with this and needs investigation.
         fixture(name: "Miscellaneous/Unicode") { prefix in
@@ -505,7 +517,7 @@ class MiscellaneousTestCase: XCTestCase {
             XCTAssertMatch(stderr, .contains("warning: '--generate-linuxmain' option is deprecated"))
         }
     }
-    
+
     func testGenerateLinuxMain() {
         #if os(macOS)
         fixture(name: "Miscellaneous/TestDiscovery/Simple") { path in
@@ -552,13 +564,13 @@ class MiscellaneousTestCase: XCTestCase {
         }
         #endif
     }
-    
+
     func testTestsCanLinkAgainstExecutable() throws {
         // Check if the host compiler supports the '-entry-point-function-name' flag.
         #if swift(<5.5)
         try XCTSkipIf(true, "skipping because host compiler doesn't support '-entry-point-function-name'")
         #endif
-        
+
         fixture(name: "Miscellaneous/TestableExe") { prefix in
             do {
                 let (stdout, _) = try executeSwiftTest(prefix)
@@ -648,6 +660,20 @@ class MiscellaneousTestCase: XCTestCase {
             try SwiftPMProduct.SwiftBuild.execute(["--cache-path", customCachePath.pathString], packagePath: path)
             XCTAssertDirectoryExists(customCachePath)
         }
+
+        // `FileSystem` does not support `chmod` on Linux
+        #if os(macOS)
+        fixture(name: "Miscellaneous/Simple") { path in
+            try localFileSystem.chmod(.userUnWritable, path: path)
+            let customCachePath = path.appending(components: "custom", "cache")
+            XCTAssertNoSuchPath(customCachePath)
+            let result = try SwiftPMProduct.SwiftBuild.executeProcess(["--cache-path", customCachePath.pathString], packagePath: path)
+            XCTAssert(result.exitStatus != .terminated(code: 0))
+            let output = try result.utf8stderrOutput()
+            XCTAssert(output.contains("error: You don’t have permission"), "expected permissions error")
+            XCTAssertNoSuchPath(customCachePath)
+        }
+        #endif
     }
 
     func testCustomConfigPath() {
@@ -657,5 +683,42 @@ class MiscellaneousTestCase: XCTestCase {
             try SwiftPMProduct.SwiftBuild.execute(["--config-path", customConfigPath.pathString], packagePath: path)
             XCTAssertDirectoryExists(customConfigPath)
         }
+
+        // `FileSystem` does not support `chmod` on Linux
+        #if os(macOS)
+        fixture(name: "Miscellaneous/Simple") { path in
+            try localFileSystem.chmod(.userUnWritable, path: path)
+            let customConfigPath = path.appending(components: "custom", "config")
+            XCTAssertNoSuchPath(customConfigPath)
+            let result = try SwiftPMProduct.SwiftBuild.executeProcess(["--config-path", customConfigPath.pathString], packagePath: path)
+            XCTAssert(result.exitStatus != .terminated(code: 0))
+            let output = try result.utf8stderrOutput()
+            XCTAssert(output.contains("error: You don’t have permission"), "expected permissions error")
+            XCTAssertNoSuchPath(customConfigPath)
+        }
+        #endif
+    }
+
+    func testCustomSecurityPath() {
+        fixture(name: "Miscellaneous/Simple") { path in
+            let customSecurityPath = path.appending(components: "custom", "security")
+            XCTAssertNoSuchPath(customSecurityPath)
+            try SwiftPMProduct.SwiftBuild.execute(["--security-path", customSecurityPath.pathString], packagePath: path)
+            XCTAssertDirectoryExists(customSecurityPath)
+        }
+
+        // `FileSystem` does not support `chmod` on Linux
+        #if os(macOS)
+        fixture(name: "Miscellaneous/Simple") { path in
+            try localFileSystem.chmod(.userUnWritable, path: path)
+            let customSecurityPath = path.appending(components: "custom", "security")
+            XCTAssertNoSuchPath(customSecurityPath)
+            let result = try SwiftPMProduct.SwiftBuild.executeProcess(["--security-path", customSecurityPath.pathString], packagePath: path)
+            XCTAssert(result.exitStatus != .terminated(code: 0))
+            let output = try result.utf8stderrOutput()
+            XCTAssert(output.contains("error: You don’t have permission"), "expected permissions error")
+            XCTAssertNoSuchPath(customSecurityPath)
+        }
+        #endif
     }
 }

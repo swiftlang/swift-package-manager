@@ -44,7 +44,9 @@ SwiftPM is typically built with a pre-existing version of SwiftPM present on the
 
 1. Install Xcode from [https://developer.apple.com/xcode](https://developer.apple.com/xcode) (including betas!).
 2. Verify the expected version of Xcode was installed.
-3. Open SwiftPM's `Package.swift` manifest with Xcode, and use Xcode to edit the code, build, and run the tests.
+3. Open SwiftPM's `Package.swift` manifest with Xcode.
+4. Use Xcode to inspect, edit, and build the code.
+5. Select the `SwiftPM-Package` scheme to run the tests from Xcode.
 
 ### Using the Command Line
 
@@ -186,12 +188,21 @@ Clone the following repositories beside the SwiftPM directory:
    $> git clone https://github.com/apple/swift-crypto --branch 1.1.6
    ```
 
+76. [swift-system] and check out tag with the [latest version](https://github.com/apple/swift-system/tags).
+
+    For example, if the latest tag is 1.0.0:
+    ```sh
+    $> git clone https://github.com/apple/swift-system --branch 1.0.0
+    ```
+
 [swift-argument-parser]: https://github.com/apple/swift-argument-parser
 [swift-crypto]: https://github.com/apple/swift-crypto
 [swift-driver]: https://github.com/apple/swift-driver
 [swift-llbuild]: https://github.com/apple/swift-llbuild
+[swift-system]: https://github.com/apple/swift-system
 [swift-tools-support-core]: https://github.com/apple/swift-tools-support-core
 [Yams]: https://github.com/jpsim/yams
+
 
 #### Building
 

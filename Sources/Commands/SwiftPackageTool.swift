@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2020 Apple Inc. and the Swift project authors
+ Copyright (c) 2014 - 2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -60,7 +60,10 @@ public struct SwiftPackageTool: ParsableCommand {
             ComputeChecksum.self,
             ArchiveSource.self,
             CompletionTool.self,
-        ] + (ProcessInfo.processInfo.environment["SWIFTPM_ENABLE_SNIPPETS"] == "1" ? [Learn.self] : [ParsableCommand.Type]()),
+            PluginCommand.self,
+        ]
+        + (ProcessInfo.processInfo.environment["SWIFTPM_ENABLE_SNIPPETS"] == "1" ? [Learn.self] : []),
+        defaultSubcommand: PluginCommand.self,
         helpNames: [.short, .long, .customLong("help", withSingleDash: true)])
 
     @OptionGroup()
@@ -863,7 +866,404 @@ extension SwiftPackageTool {
             swiftTool.outputStream.flush()
         }
     }
+    
+    // Experimental command to invoke user command plugins. This will probably change so that command that is not
+    // recognized as a built-in command will cause `swift-package` to search for plugin commands, instead of using
+    // a separate `plugin` subcommand for this.
+    struct PluginCommand: SwiftCommand {
+        static let configuration = CommandConfiguration(
+            commandName: "plugin",
+            abstract: "Invoke a command plugin or perform other actions on command plugins"
+        )
+
+        @OptionGroup(_hiddenFromHelp: true)
+        var swiftOptions: SwiftToolOptions
+
+        @Option(name: .customLong("target"),
+                help: "Target(s) to which the plugin command should be applied")
+        var targetNames: [String] = []
+
+        @Flag(name: .customLong("list"),
+              help: "List the available plugin commands")
+        var listCommands: Bool = false
+
+        @Flag(name: .customLong("allow-writing-to-package-directory"),
+              help: "Allow the plugin to write to the package directory")
+        var allowWritingToPackageDirectory: Bool = false
+
+        @Option(name: .customLong("allow-writing-to-directory"),
+              help: "Allow the plugin to write to an additional directory")
+        var additionalAllowedWritableDirectories: [String] = []
+
+        @Flag(name: .customLong("block-writing-to-temporary-directory"),
+              help: "Block the plugin from writing to the package directory (by default this is allowed)")
+        var blockWritingToTemporaryDirectory: Bool = false
+
+        @Argument(parsing: .unconditionalRemaining,
+                  help: "Name and arguments of the command plugin to invoke")
+        var pluginCommand: [String] = []
+
+        func run(_ swiftTool: SwiftTool) throws {
+            // Load the workspace and resolve the package graph.
+            let packageGraph = try swiftTool.loadPackageGraph()
+
+            // List the available plugins, if asked to.
+            if listCommands {
+                let allPlugins = availableCommandPlugins(in: packageGraph)
+                for plugin in allPlugins.sorted(by: { $0.name < $1.name }) {
+                    guard case .command(let intent, _) = plugin.capability else { return }
+                    swiftTool.outputStream <<< "‘\(intent.invocationVerb)’ (plugin ‘\(plugin.name)’"
+                    if let package = packageGraph.packages.first(where: { $0.targets.contains(where: { $0.name == plugin.name }) }) {
+                        swiftTool.outputStream <<< " in package ‘\(package.manifest.displayName)’"
+                    }
+                    swiftTool.outputStream <<< ")\n"
+                }
+                swiftTool.outputStream.flush()
+                return
+            }
+
+            // Otherwise find the plugins that match the command verb.
+            guard let commandVerb = pluginCommand.first else {
+                throw ValidationError("No plugin command name specified")
+            }
+            swiftTool.observabilityScope.emit(info: "Finding plugin for command ‘\(commandVerb)’")
+            let matchingPlugins = findPlugins(matching: commandVerb, in: packageGraph)
+
+            // Complain if we didn't find exactly one.
+            if matchingPlugins.isEmpty {
+                throw ValidationError("No command plugins found for ‘\(commandVerb)’")
+            }
+            else if matchingPlugins.count > 1 {
+                throw ValidationError("\(matchingPlugins.count) plugins found for ‘\(commandVerb)’")
+            }
+            
+            // At this point we know we found exactly one command plugin, so we run it.
+            let plugin = matchingPlugins[0]
+            swiftTool.observabilityScope.emit(info: "Running plugin \(plugin)")
+            
+            // In SwiftPM CLI, we have only one root package.
+            let package = packageGraph.rootPackages[0]
+
+            // If no targets were specified, default to all the applicable ones in the package.
+            let targetNames = targetNames.isEmpty ? package.targets.filter(\.isEligibleForPluginCommand).map(\.name) : targetNames
+
+            // Find the targets (if any) specified by the user. We expect them in the root package.
+            var targets: [String: ResolvedTarget] = [:]
+            for target in package.targets where targetNames.contains(target.name) {
+                if targets[target.name] != nil {
+                    throw ValidationError("Ambiguous target name: ‘\(target.name)’")
+                }
+                if target.isEligibleForPluginCommand {
+                    targets[target.name] = target
+                }
+            }
+            assert(targets.count <= targetNames.count)
+            if targets.count != targetNames.count {
+                let unknownTargetNames = Set(targetNames).subtracting(targets.keys)
+                throw ValidationError("Unknown targets: ‘\(unknownTargetNames.sorted().joined(separator: "’, ‘"))’")
+            }
+
+            // The `plugins` directory is inside the workspace's main data directory, and contains all temporary files related to all plugins in the workspace.
+            let pluginsDir = try swiftTool.getActiveWorkspace().location.pluginWorkingDirectory
+
+            // The `cache` directory is in the plugins directory and is where the plugin script runner caches compiled plugin binaries and any other derived information.
+            let cacheDir = pluginsDir.appending(component: "cache")
+            let pluginScriptRunner = DefaultPluginScriptRunner(cacheDir: cacheDir, toolchain: try swiftTool.getToolchain().configuration, enableSandbox: !swiftTool.options.shouldDisableSandbox)
+
+            // The `outputs` directory contains subdirectories for each combination of package, target, and plugin. Each usage of a plugin has an output directory that is writable by the plugin, where it can write additional files, and to which it can configure tools to write their outputs, etc.
+            // FIXME: Revisit this path.
+            let outputDir = pluginsDir.appending(component: "outputs")
+
+            // Determine the set of directories under which plugins are allowed to write. We always include the output directory.
+            var writableDirectories = [outputDir]
+            if allowWritingToPackageDirectory {
+                writableDirectories.append(package.path)
+            }
+            if !blockWritingToTemporaryDirectory {
+                writableDirectories.append(AbsolutePath("/tmp"))
+                writableDirectories.append(AbsolutePath(NSTemporaryDirectory()))
+            }
+            if allowWritingToPackageDirectory {
+                writableDirectories.append(package.path)
+            }
+            else {
+                // If the plugin requires write permission but it wasn't provided, we ask the user for approval.
+                if case .command(_, let permissions) = plugin.capability {
+                    for case PluginPermission.writeToPackageDirectory(let reason) in permissions {
+                        // TODO: Ask for approval here if connected to TTY; only emit an error if not.
+                        throw ValidationError("Plugin ‘\(plugin.name)’ needs permission to write to the package directory (stated reason: “\(reason)”)")
+                    }
+                }
+            }
+            for pathString in additionalAllowedWritableDirectories {
+                writableDirectories.append(AbsolutePath(pathString, relativeTo: swiftTool.originalWorkingDirectory))
+            }
+
+            // Use the directory containing the compiler as an additional search directory, and add the $PATH.
+            let toolSearchDirs = [try swiftTool.getToolchain().swiftCompilerPath.parentDirectory]
+                + getEnvSearchPaths(pathString: ProcessEnv.path, currentWorkingDirectory: .none)
+
+            // Create the cache directory, if needed.
+            try localFileSystem.createDirectory(cacheDir, recursive: true)
+            
+            // Build or bring up-to-date any executable host-side tools on which this plugin depends. Add them and any binary dependencies to the tool-names-to-path map.
+            var toolNamesToPaths: [String: AbsolutePath] = [:]
+            for dep in plugin.dependencies {
+                let buildOperation = try swiftTool.createBuildOperation(cacheBuildManifest: false)
+                switch dep {
+                case .product(let productRef, _):
+                    // Build the product referenced by the tool, and add the executable to the tool map.
+                    try buildOperation.build(subset: .product(productRef.name))
+                    if let builtTool = buildOperation.buildPlan?.buildProducts.first(where: { $0.product.name == productRef.name}) {
+                        toolNamesToPaths[productRef.name] = builtTool.binary
+                    }
+                case .target(let target, _):
+                    if let target = target as? BinaryTarget {
+                        // Add the executables vended by the binary target to the tool map.
+                        for exec in try target.parseArtifactArchives(for: pluginScriptRunner.hostTriple, fileSystem: localFileSystem) {
+                            toolNamesToPaths[exec.name] = exec.executablePath
+                        }
+                    }
+                    else {
+                        // Build the target referenced by the tool, and add the executable to the tool map.
+                        try buildOperation.build(subset: .target(target.name))
+                        if let builtTool = buildOperation.buildPlan?.buildProducts.first(where: { $0.product.name == target.name}) {
+                            toolNamesToPaths[target.name] = builtTool.binary
+                        }
+                    }
+                }
+            }
+
+            // Set up a delegate to handle callbacks from the command plugin.
+            let pluginDelegate = PluginDelegate(swiftTool: swiftTool, plugin: plugin, outputStream: swiftTool.outputStream)
+            let delegateQueue = DispatchQueue(label: "plugin-invocation")
+
+            // Run the command plugin.
+            let buildEnvironment = try swiftTool.buildParameters().buildEnvironment
+            let _ = try tsc_await { plugin.invoke(
+                action: .performCommand(
+                    targets: Array(targets.values),
+                    arguments: Array(pluginCommand.dropFirst())),
+                package: package,
+                buildEnvironment: buildEnvironment,
+                scriptRunner: pluginScriptRunner,
+                outputDirectory: outputDir,
+                toolSearchDirectories: toolSearchDirs,
+                toolNamesToPaths: toolNamesToPaths,
+                writableDirectories: writableDirectories,
+                fileSystem: localFileSystem,
+                observabilityScope: swiftTool.observabilityScope,
+                callbackQueue: delegateQueue,
+                delegate: pluginDelegate,
+                completion: $0) }
+            
+            // TODO: We should also emit a final line of output regarding the result.
+        }
+
+        func availableCommandPlugins(in graph: PackageGraph) -> [PluginTarget] {
+            return graph.allTargets.compactMap{ $0.underlyingTarget as? PluginTarget }
+        }
+
+        func findPlugins(matching verb: String, in graph: PackageGraph) -> [PluginTarget] {
+            // Find and return the command plugins that match the command.
+            return self.availableCommandPlugins(in: graph).filter {
+                // Filter out any non-command plugins and any whose verb is different.
+                guard case .command(let intent, _) = $0.capability else { return false }
+                return verb == intent.invocationVerb
+            }
+        }
+    }
 }
+
+fileprivate extension ResolvedTarget {
+    // The proposal calls for applying plugins to regular targets.
+    var isEligibleForPluginCommand: Bool {
+        switch type {
+        case .library, .executable, .binary, .test:
+            return true
+        case .systemModule, .plugin, .snippet:
+            return false
+        }
+    }
+}
+
+final class PluginDelegate: PluginInvocationDelegate {
+    let swiftTool: SwiftTool
+    let plugin: PluginTarget
+    let outputStream: OutputByteStream
+    var lineBufferedOutput: Data
+    
+    init(swiftTool: SwiftTool, plugin: PluginTarget, outputStream: OutputByteStream) {
+        self.swiftTool = swiftTool
+        self.plugin = plugin
+        self.outputStream = outputStream
+        self.lineBufferedOutput = Data()
+    }
+
+    func pluginEmittedOutput(_ data: Data) {
+        lineBufferedOutput += data
+        var needsFlush = false
+        while let newlineIdx = lineBufferedOutput.firstIndex(of: UInt8(ascii: "\n")) {
+            let lineData = lineBufferedOutput.prefix(upTo: newlineIdx)
+            outputStream <<< String(decoding: lineData, as: UTF8.self) <<< "\n"
+            needsFlush = true
+            lineBufferedOutput = lineBufferedOutput.suffix(from: newlineIdx.advanced(by: 1))
+        }
+        if needsFlush {
+            outputStream.flush()
+        }
+    }
+    
+    func pluginEmittedDiagnostic(_ diagnostic: Basics.Diagnostic) {
+        swiftTool.observabilityScope.emit(diagnostic)
+    }
+    
+    func pluginRequestedBuildOperation(subset: PluginInvocationBuildSubset, parameters: PluginInvocationBuildParameters, completion: @escaping (Result<PluginInvocationBuildResult, Error>) -> Void) {
+        // Run the build in the background and call the completion handler when done.
+        DispatchQueue.sharedConcurrent.async {
+            completion(Result {
+                return try self.doBuild(subset: subset, parameters: parameters)
+            })
+        }
+    }
+    
+    private func doBuild(subset: PluginInvocationBuildSubset, parameters: PluginInvocationBuildParameters) throws -> PluginInvocationBuildResult {
+        // Configure the build parameters.
+        var buildParameters = try self.swiftTool.buildParameters()
+        switch parameters.configuration {
+        case .debug:
+            buildParameters.configuration = .debug
+        case .release:
+            buildParameters.configuration = .release
+        }
+        buildParameters.flags.cCompilerFlags.append(contentsOf: parameters.otherCFlags)
+        buildParameters.flags.cxxCompilerFlags.append(contentsOf: parameters.otherCxxFlags)
+        buildParameters.flags.swiftCompilerFlags.append(contentsOf: parameters.otherSwiftcFlags)
+        buildParameters.flags.linkerFlags.append(contentsOf: parameters.otherLinkerFlags)
+
+        // Determine the subset of products and targets to build.
+        let buildSubset: BuildSubset
+        switch subset {
+        case .all(let includingTests):
+            buildSubset = includingTests ? .allIncludingTests : .allExcludingTests
+        case .product(let name):
+            buildSubset = .product(name)
+        case .target(let name):
+            buildSubset = .target(name)
+        }
+        
+        final class BuildOpDelegate: BuildSystemDelegate {
+            var logText = ""
+            var logLock = Lock()
+            var result = false
+            func buildSystem(_ buildSystem: BuildSystem, didStartCommand command: BuildSystemCommand) {
+                logLock.withLock {
+                    logText.append("\(command.description)\n")
+                }
+            }
+            func buildSystem(_ buildSystem: BuildSystem, didFinishWithResult success: Bool) {
+                result = success
+            }
+        }
+        
+        // Create a build operation. We have to disable the cache in order to get a build plan created.
+        let buildOperation = try self.swiftTool.createBuildOperation(cacheBuildManifest: false)
+        let delegate = BuildOpDelegate()
+        buildOperation.delegate = delegate
+        let _ = try buildOperation.getBuildDescription()
+        let buildPlan = buildOperation.buildPlan!
+        
+        // Run the build. This doesn't return until the build is complete.
+        try buildOperation.build(subset: buildSubset)
+        
+        // Create and return the build result record based on what the delegate collected and what's in the build plan.
+        let builtArtifacts: [PluginInvocationBuildResult.BuiltArtifact] = buildPlan.buildProducts.compactMap {
+            switch $0.product.type {
+            case .library(let kind):
+                return .init(path: $0.binary.pathString, kind: (kind == .dynamic) ? .dynamicLibrary : .staticLibrary)
+            case .executable:
+                return .init(path: $0.binary.pathString, kind: .executable)
+            default:
+                return nil
+            }
+        }
+        return PluginInvocationBuildResult(
+            succeeded: delegate.result,
+            logText: delegate.logText,
+            builtArtifacts: builtArtifacts)
+    }
+
+    func pluginRequestedTestOperation(subset: PluginInvocationTestSubset, parameters: PluginInvocationTestParameters, completion: @escaping (Result<PluginInvocationTestResult, Error>) -> Void) {
+        // Run the test in the background and call the completion handler when done.
+        DispatchQueue.sharedConcurrent.async {
+            completion(Result {
+                return try self.doTest(subset: subset, parameters: parameters)
+            })
+        }
+    }
+    
+    private func doTest(subset: PluginInvocationTestSubset, parameters: PluginInvocationTestParameters) throws -> PluginInvocationTestResult {
+        // FIXME: To implement this we should factor out a lot of the code in SwiftTestTool.
+        throw StringError("Running tests from a plugin is not yet implemented")
+    }
+
+    func pluginRequestedSymbolGraph(forTarget targetName: String, options: PluginInvocationSymbolGraphOptions, completion: @escaping (Result<PluginInvocationSymbolGraphResult, Error>) -> Void) {
+        // Extract the symbol graph in the background and call the completion handler when done.
+        DispatchQueue.sharedConcurrent.async {
+            completion(Result {
+                return try self.createSymbolGraph(forTarget: targetName, options: options)
+            })
+        }
+    }
+
+    private func createSymbolGraph(forTarget targetName: String, options: PluginInvocationSymbolGraphOptions) throws -> PluginInvocationSymbolGraphResult {
+        // Current implementation uses `SymbolGraphExtract()` but we can probably do better in the future.
+        let buildParameters = try swiftTool.buildParameters()
+        let buildOperation = try swiftTool.createBuildOperation(cacheBuildManifest: false)  // We only get a build plan if we don't cache
+        try buildOperation.build(subset: .target(targetName))
+        let symbolGraphExtract = try SymbolGraphExtract(tool: swiftTool.getToolchain().getSymbolGraphExtract())
+        let minimumAccessLevel: AccessLevel
+        switch options.minimumAccessLevel {
+        case .private:
+            minimumAccessLevel = .private
+        case .fileprivate:
+            minimumAccessLevel = .fileprivate
+        case .internal:
+            minimumAccessLevel = .internal
+        case .public:
+            minimumAccessLevel = .public
+        case .open:
+            minimumAccessLevel = .open
+        }
+        
+        // Extract the symbol graph.
+        try symbolGraphExtract.dumpSymbolGraph(
+            buildPlan: buildOperation.buildPlan!,
+            prettyPrint: false,
+            skipSynthesisedMembers: !options.includeSynthesized,
+            minimumAccessLevel: minimumAccessLevel,
+            skipInheritedDocs: true,
+            includeSPISymbols: options.includeSPI)
+        
+        // Return the results to the plugin.
+        return PluginInvocationSymbolGraphResult(
+            directoryPath: buildParameters.symbolGraph.pathString)
+    }
+}
+
+extension PluginCommandIntent {
+    var invocationVerb: String {
+        switch self {
+        case .documentationGeneration:
+            return "generate-documentation"
+        case .sourceCodeFormatting:
+            return "format-source-code"
+        case .custom(let verb, _):
+            return verb
+        }
+    }
+}
+
 
 extension SwiftPackageTool {
     struct GenerateXcodeProject: SwiftCommand {

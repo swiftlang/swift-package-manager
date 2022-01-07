@@ -111,12 +111,19 @@ public struct GitRepositoryProvider: RepositoryProvider {
                          progress: progressHandler)
     }
     
-    public func isValidDirectory(_ directory: String) -> Bool {
-        // Provides better feedback when mistakingly using url: for a dependency that
-        // is a local package. Still allows for using url with a local package that has
-        // also been initialized by git
+    public func isValidDirectory(_ directory: AbsolutePath) -> Bool {
         do {
-            _ = try self.git.run(["-C", directory, "rev-parse", "--git-dir"])
+            _ = try self.git.run(["-C", directory.pathString, "rev-parse", "--git-dir"])
+            return true
+        } catch {
+            return false
+        }
+    }
+
+    /// Returns true if the git reference name is well formed.
+    public func isValidRefFormat(_ ref: String) -> Bool {
+        do {
+            _ = try self.git.run(["check-ref-format", "--allow-onelevel", ref])
             return true
         } catch {
             return false
@@ -880,6 +887,10 @@ private class GitFileSystemView: FileSystem {
     }
 
     public var cachesDirectory: AbsolutePath? {
+        fatalError("unsupported")
+    }
+
+    public var tempDirectory: AbsolutePath {
         fatalError("unsupported")
     }
 

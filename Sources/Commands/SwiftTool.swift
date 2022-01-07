@@ -294,6 +294,15 @@ public class SwiftTool {
     /// Path to the build directory.
     let buildPath: AbsolutePath
 
+    /// Path to the shared security directory
+    let sharedSecurityDirectory: AbsolutePath?
+
+    /// Path to the shared cache directory
+    let sharedCacheDirectory: AbsolutePath?
+
+    /// Path to the shared configuration directory
+    let sharedConfigurationDirectory: AbsolutePath?
+
     /// The process set to hold the launched processes. These will be terminated on any signal
     /// received by the swift tools.
     let processSet: ProcessSet
@@ -333,7 +342,7 @@ public class SwiftTool {
             self.observabilityScope.emit(error: "couldn't determine the current working directory")
             throw ExitCode.failure
         }
-        originalWorkingDirectory = cwd
+        self.originalWorkingDirectory = cwd
 
         do {
             try Self.postprocessArgParserResult(options: options, observabilityScope: self.observabilityScope)
@@ -416,6 +425,11 @@ public class SwiftTool {
         customBuildPath ??
         (packageRoot ?? cwd).appending(component: ".build")
 
+        // make sure common directories are created
+        self.sharedSecurityDirectory = try getSharedSecurityDirectory(options: self.options, observabilityScope: self.observabilityScope)
+        self.sharedConfigurationDirectory = try getSharedConfigurationDirectory(options: self.options, observabilityScope: self.observabilityScope)
+        self.sharedCacheDirectory = try getSharedCacheDirectory(options: self.options, observabilityScope: self.observabilityScope)
+
         // set verbosity globals.
         // TODO: get rid of this global settings in TSC
         switch self.logLevel {
@@ -491,9 +505,10 @@ public class SwiftTool {
         return try Workspace.DefaultLocations.resolvedVersionsFile(forRootPackage: self.getPackageRoot())
     }
 
-    func getMirrorsConfig(sharedConfigurationDirectory: AbsolutePath? = nil) throws -> Workspace.Configuration.Mirrors {
-        let sharedConfigurationDirectory = try sharedConfigurationDirectory ?? self.getSharedConfigurationDirectory()
-        let sharedMirrorFile = sharedConfigurationDirectory.map { Workspace.DefaultLocations.mirrorsConfigurationFile(at: $0) }
+    func getMirrorsConfig() throws -> Workspace.Configuration.Mirrors {
+        let sharedMirrorFile = self.sharedConfigurationDirectory.map {
+            Workspace.DefaultLocations.mirrorsConfigurationFile(at: $0)
+        }
         return try .init(
             localMirrorFile: self.mirrorsConfigFile(),
             sharedMirrorFile: sharedMirrorFile,
@@ -525,17 +540,18 @@ public class SwiftTool {
         let legacyPath = try self.getPackageRoot().appending(components: ".swiftpm", "config")
         let newPath = try Workspace.DefaultLocations.mirrorsConfigurationFile(forRootPackage: self.getPackageRoot())
         if localFileSystem.exists(legacyPath) {
-            try localFileSystem.createDirectory(newPath.parentDirectory, recursive: true)
-            try localFileSystem.move(from: legacyPath, to: newPath)
+            observabilityScope.emit(warning: "Usage of \(legacyPath) has been deprecated. Please delete it and use the new \(newPath) instead.")
+            if !localFileSystem.exists(newPath) {
+                try localFileSystem.createDirectory(newPath.parentDirectory, recursive: true)
+                try localFileSystem.copy(from: legacyPath, to: newPath)
+            }
         }
         return newPath
     }
 
-    func getRegistriesConfig(sharedConfigurationDirectory: AbsolutePath? = nil) throws -> Workspace.Configuration.Registries {
+    func getRegistriesConfig() throws -> Workspace.Configuration.Registries {
         let localRegistriesFile = try Workspace.DefaultLocations.registriesConfigurationFile(forRootPackage: self.getPackageRoot())
-
-        let sharedConfigurationDirectory = try sharedConfigurationDirectory ?? self.getSharedConfigurationDirectory()
-        let sharedRegistriesFile = sharedConfigurationDirectory.map {
+        let sharedRegistriesFile = self.sharedConfigurationDirectory.map {
             Workspace.DefaultLocations.registriesConfigurationFile(at: $0)
         }
 
@@ -604,40 +620,6 @@ public class SwiftTool {
         return providers
     }
 
-    private func getSharedCacheDirectory() throws -> AbsolutePath? {
-        if let explicitCachePath = options.cachePath {
-            // Create the explicit cache path if necessary
-            if !localFileSystem.exists(explicitCachePath) {
-                try localFileSystem.createDirectory(explicitCachePath, recursive: true)
-            }
-            return explicitCachePath
-        }
-
-        do {
-            return try localFileSystem.getOrCreateSwiftPMCacheDirectory()
-        } catch {
-            self.observabilityScope.emit(warning: "Failed creating default cache location, \(error)")
-            return .none
-        }
-    }
-
-    private func getSharedConfigurationDirectory() throws -> AbsolutePath? {
-        if let explicitConfigPath = options.configPath {
-            // Create the explicit config path if necessary
-            if !localFileSystem.exists(explicitConfigPath) {
-                try localFileSystem.createDirectory(explicitConfigPath, recursive: true)
-            }
-            return explicitConfigPath
-        }
-
-        do {
-            return try localFileSystem.getOrCreateSwiftPMConfigDirectory()
-        } catch {
-            self.observabilityScope.emit(warning: "Failed creating default configuration location, \(error)")
-            return .none
-        }
-    }
-
     /// Returns the currently active workspace.
     func getActiveWorkspace() throws -> Workspace {
         if let workspace = _workspace {
@@ -646,26 +628,26 @@ public class SwiftTool {
 
         let delegate = ToolWorkspaceDelegate(self.outputStream, logLevel: self.logLevel, observabilityScope: self.observabilityScope)
         let provider = GitRepositoryProvider(processSet: processSet)
-        let sharedCacheDirectory =  try self.getSharedCacheDirectory()
-        let sharedConfigurationDirectory = try self.getSharedConfigurationDirectory()
         let isXcodeBuildSystemEnabled = self.options.buildSystem == .xcode
         let workspace = try Workspace(
             fileSystem: localFileSystem,
             location: .init(
-                workingDirectory: buildPath,
+                workingDirectory: self.buildPath,
                 editsDirectory: self.editsDirectory(),
                 resolvedVersionsFile: self.resolvedVersionsFile(),
-                sharedCacheDirectory: sharedCacheDirectory,
-                sharedConfigurationDirectory: sharedConfigurationDirectory
+                sharedSecurityDirectory: self.sharedSecurityDirectory,
+                sharedCacheDirectory: self.sharedCacheDirectory,
+                sharedConfigurationDirectory: self.sharedConfigurationDirectory
             ),
-            mirrors: self.getMirrorsConfig(sharedConfigurationDirectory: sharedConfigurationDirectory).mirrors,
-            registries: try self.getRegistriesConfig(sharedConfigurationDirectory: sharedConfigurationDirectory).configuration,
+            mirrors: self.getMirrorsConfig().mirrors,
+            registries: try self.getRegistriesConfig().configuration,
             authorizationProvider: self.getAuthorizationProvider(),
             customManifestLoader: self.getManifestLoader(), // FIXME: doe we really need to customize it?
             customRepositoryProvider: provider, // FIXME: doe we really need to customize it?
             additionalFileRules: isXcodeBuildSystemEnabled ? FileRuleDescription.xcbuildFileTypes : FileRuleDescription.swiftpmFileTypes,
-            resolverUpdateEnabled: !options.skipDependencyUpdate,
-            resolverPrefetchingEnabled: options.shouldEnableResolverPrefetching,
+            resolverUpdateEnabled: !self.options.skipDependencyUpdate,
+            resolverPrefetchingEnabled: self.options.shouldEnableResolverPrefetching,
+            resolverFingerprintCheckingMode: self.options.resolverFingerprintCheckingMode,
             sharedRepositoriesCacheEnabled: self.options.useRepositoriesCache,
             delegate: delegate
         )
@@ -731,21 +713,20 @@ public class SwiftTool {
         }
     }
 
-    /// Invoke plugins for any reachable targets in the graph, and return a mapping from targets to corresponding evaluation results.
-    func invokePlugins(graph: PackageGraph) throws -> [ResolvedTarget: [PluginInvocationResult]] {
+    /// Invoke build tool plugins for any reachable targets in the graph, and return a mapping from targets to corresponding evaluation results.
+    func invokeBuildToolPlugins(graph: PackageGraph) throws -> [ResolvedTarget: [BuildToolPluginInvocationResult]] {
         do {
             // Configure the plugin invocation inputs.
 
             // The `plugins` directory is inside the workspace's main data directory, and contains all temporary
             // files related to all plugins in the workspace.
             let buildEnvironment = try buildParameters().buildEnvironment
-            let dataDir = try self.getActiveWorkspace().location.workingDirectory
-            let pluginsDir = dataDir.appending(component: "plugins")
+            let pluginsDir = try self.getActiveWorkspace().location.pluginWorkingDirectory
 
             // The `cache` directory is in the plugins directory and is where the plugin script runner caches
             // compiled plugin binaries and any other derived information.
             let cacheDir = pluginsDir.appending(component: "cache")
-            let pluginScriptRunner = try DefaultPluginScriptRunner(cacheDir: cacheDir, toolchain: self._hostToolchain.get().configuration)
+            let pluginScriptRunner = try DefaultPluginScriptRunner(cacheDir: cacheDir, toolchain: self._hostToolchain.get().configuration, enableSandbox: !self.options.shouldDisableSandbox)
 
             // The `outputs` directory contains subdirectories for each combination of package, target, and plugin.
             // Each usage of a plugin has an output directory that is writable by the plugin, where it can write
@@ -757,16 +738,21 @@ public class SwiftTool {
             // FIXME: At the moment we just pass the built products directory for the host. We will need to extend this
             // with a map of the names of tools available to each plugin. In particular this would not work with any
             // binary targets.
+            let dataDir = try self.getActiveWorkspace().location.workingDirectory
             let builtToolsDir = dataDir.appending(components: try self._hostToolchain.get().triple.platformBuildPathComponent(), buildEnvironment.configuration.dirname)
+            
+            // Use the directory containing the compiler as an additional search directory.
+            let toolSearchDirs = [try self.getToolchain().swiftCompilerPath.parentDirectory]
 
             // Create the cache directory, if needed.
             try localFileSystem.createDirectory(cacheDir, recursive: true)
 
             // Ask the graph to invoke plugins, and return the result.
-            let result = try graph.invokePlugins(
+            let result = try graph.invokeBuildToolPlugins(
                 outputDir: outputDir,
                 builtToolsDir: builtToolsDir,
                 buildEnvironment: buildEnvironment,
+                toolSearchDirectories: toolSearchDirs,
                 pluginScriptRunner: pluginScriptRunner,
                 observabilityScope: self.observabilityScope,
                 fileSystem: localFileSystem
@@ -817,11 +803,12 @@ public class SwiftTool {
         let graphLoader = { try self.loadPackageGraph(explicitProduct: explicitProduct) }
 
         // Construct the build operation.
+        // FIXME: We need to implement the build tool invocation closure here so that build tool plugins work with dumping the symbol graph (the only case that currently goes through this path, as far as I can tell). rdar://86112934
         let buildOp = try BuildOperation(
             buildParameters: buildParameters(),
             cacheBuildManifest: cacheBuildManifest && self.canUseCachedBuildManifest(),
             packageGraphLoader: graphLoader,
-            pluginInvoker: { _ in [:] },
+            buildToolPluginInvoker: { _ in [:] },
             outputStream: self.outputStream,
             logLevel: self.logLevel,
             fileSystem: localFileSystem,
@@ -838,12 +825,13 @@ public class SwiftTool {
         switch options.buildSystem {
         case .native:
             let graphLoader = { try self.loadPackageGraph(explicitProduct: explicitProduct) }
-            let pluginInvoker = { try self.invokePlugins(graph: $0) }
+            let buildToolPluginInvoker = { try self.invokeBuildToolPlugins(graph: $0) }
             buildSystem = try BuildOperation(
                 buildParameters: buildParameters ?? self.buildParameters(),
                 cacheBuildManifest: self.canUseCachedBuildManifest(),
                 packageGraphLoader: graphLoader,
-                pluginInvoker: pluginInvoker,
+                buildToolPluginInvoker: buildToolPluginInvoker,
+                disableSandboxForPluginCommands: self.options.shouldDisableSandbox,
                 outputStream: self.outputStream,
                 logLevel: self.logLevel,
                 fileSystem: localFileSystem,
@@ -983,7 +971,7 @@ public class SwiftTool {
             case (false, .local):
                 cachePath = self.buildPath
             case (false, .shared):
-                cachePath = try self.getSharedCacheDirectory().map{ Workspace.DefaultLocations.manifestsDirectory(at: $0) }
+                cachePath = self.sharedCacheDirectory.map{ Workspace.DefaultLocations.manifestsDirectory(at: $0) }
             }
 
             var extraManifestFlags = self.options.manifestFlags
@@ -1032,6 +1020,67 @@ private func getEnvBuildPath(workingDir: AbsolutePath) -> AbsolutePath? {
     guard ProcessEnv.vars["SWIFTPM_TESTS_MODULECACHE"] == nil else { return nil }
     guard let env = ProcessEnv.vars["SWIFTPM_BUILD_DIR"] else { return nil }
     return AbsolutePath(env, relativeTo: workingDir)
+}
+
+
+private func getSharedSecurityDirectory(options: SwiftToolOptions, observabilityScope: ObservabilityScope) throws -> AbsolutePath? {
+    if let explicitSecurityPath = options.securityPath {
+        // Create the explicit security path if necessary
+        if !localFileSystem.exists(explicitSecurityPath) {
+            try localFileSystem.createDirectory(explicitSecurityPath, recursive: true)
+        }
+        return explicitSecurityPath
+    }
+
+    do {
+        let sharedSecurityDirectory = try localFileSystem.getOrCreateSwiftPMSecurityDirectory()
+        // make sure we can write files
+        try withTemporaryFile(dir: sharedSecurityDirectory) { _ in }
+        return sharedSecurityDirectory
+    } catch {
+        observabilityScope.emit(warning: "Failed creating default security location, \(error)")
+        return .none
+    }
+}
+
+private func getSharedConfigurationDirectory(options: SwiftToolOptions, observabilityScope: ObservabilityScope) throws -> AbsolutePath? {
+    if let explicitConfigPath = options.configPath {
+        // Create the explicit config path if necessary
+        if !localFileSystem.exists(explicitConfigPath) {
+            try localFileSystem.createDirectory(explicitConfigPath, recursive: true)
+        }
+        return explicitConfigPath
+    }
+
+    do {
+        let sharedConfigurationDirector = try localFileSystem.getOrCreateSwiftPMConfigurationDirectory(observabilityScope: observabilityScope)
+        // make sure we can write files
+        try withTemporaryFile(dir: sharedConfigurationDirector) { _ in }
+        return sharedConfigurationDirector
+    } catch {
+        observabilityScope.emit(warning: "Failed creating default configuration location, \(error)")
+        return .none
+    }
+}
+
+private func getSharedCacheDirectory(options: SwiftToolOptions, observabilityScope: ObservabilityScope) throws -> AbsolutePath? {
+    if let explicitCachePath = options.cachePath {
+        // Create the explicit cache path if necessary
+        if !localFileSystem.exists(explicitCachePath) {
+            try localFileSystem.createDirectory(explicitCachePath, recursive: true)
+        }
+        return explicitCachePath
+    }
+
+    do {
+        let sharedCacheDirector = try localFileSystem.getOrCreateSwiftPMCacheDirectory()
+        // make sure we can write files
+        try withTemporaryFile(dir: sharedCacheDirector) { _ in }
+        return sharedCacheDirector
+    } catch {
+        observabilityScope.emit(warning: "Failed creating default cache location, \(error)")
+        return .none
+    }
 }
 
 /// A wrapper to hold the build system so we can use it inside

@@ -90,7 +90,7 @@ public struct Path {
     
     /// The result of appending a subpath.
     public func appending(subpath: String) -> Path {
-        return Path(_string + "/" + subpath)
+        return Path(_string + (_string.hasSuffix("/") ? "" : "/") + subpath)
     }
 
     /// The result of appending one or more path components.

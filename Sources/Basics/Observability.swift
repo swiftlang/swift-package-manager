@@ -270,10 +270,6 @@ public struct Diagnostic: CustomStringConvertible {
         if metadata.underlyingError == nil {
             metadata.underlyingError = .init(error)
         }
-        // FIXME: this brings in the TSC API still
-        if let errorProvidingLocation = error as? DiagnosticLocationProviding, let diagnosticLocation = errorProvidingLocation.diagnosticLocation {
-            metadata.legacyDiagnosticLocation = .init(diagnosticLocation)
-        }
 
         let message: String
         // FIXME: this brings in the TSC API still

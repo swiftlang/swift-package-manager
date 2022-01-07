@@ -48,6 +48,11 @@ public final class Manifest {
     /// The repository URL the manifest was loaded from.
     public let packageLocation: String
 
+    /// The canonical repository URL the manifest was loaded from.
+    public var canonicalPackageLocation: CanonicalPackageLocation {
+        CanonicalPackageLocation(self.packageLocation)
+    }
+
     // FIXME: deprecated 2/2021, remove once clients migrate
     @available(*, deprecated, message: "use packageLocation instead")
     public var url: String {

@@ -121,11 +121,12 @@ struct APIDigesterBaselineDumper {
         buildParameters.dataPath = workspace.location.workingDirectory
 
         // Build the baseline module.
+        // FIXME: We need to implement the build tool invocation closure here so that build tool plugins work with the APIDigester. rdar://86112934
         let buildOp = BuildOperation(
             buildParameters: buildParameters,
             cacheBuildManifest: false,
             packageGraphLoader: { graph },
-            pluginInvoker: { _ in [:] },
+            buildToolPluginInvoker: { _ in [:] },
             outputStream: outputStream,
             logLevel: logLevel,
             fileSystem: localFileSystem,

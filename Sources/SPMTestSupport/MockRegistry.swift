@@ -10,6 +10,7 @@
 
 import Basics
 import Foundation
+import PackageFingerprint
 import PackageGraph
 import PackageLoading
 import PackageModel
@@ -31,7 +32,8 @@ class MockRegistry {
     init(
         identityResolver: IdentityResolver,
         checksumAlgorithm: HashAlgorithm,
-        filesystem: FileSystem
+        filesystem: FileSystem,
+        fingerprintStorage: PackageFingerprintStorage
     ) {
         self.checksumAlgorithm = checksumAlgorithm
         self.fileSystem = filesystem
@@ -43,9 +45,11 @@ class MockRegistry {
         self.registryClient = RegistryClient(
             configuration: configuration,
             identityResolver: identityResolver,
-            customArchiverProvider: { fileSystem in MockRegistryArchiver(fileSystem: fileSystem) },
+            fingerprintStorage: fingerprintStorage,
+            fingerprintCheckingMode: .strict,
+            authorizationProvider: .none,
             customHTTPClient: HTTPClient(handler: self.httpHandler),
-            authorizationProvider: .none
+            customArchiverProvider: { fileSystem in MockRegistryArchiver(fileSystem: fileSystem) }
         )
     }
 

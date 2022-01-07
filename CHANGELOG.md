@@ -2,6 +2,10 @@ Note: This is in reverse chronological order, so newer entries are added to the 
 
 Swift 5.6
 -----------
+* [SE-0332]
+
+  Package plugins of the type `command` can now be declared in packages that specify a tools version of 5.6 or later, and can be invoked using the `swift package` subcommand.
+
 * [#3649]
 
   Semantic version dependencies can now be resolved against Git tag names that contain only major and minor version identifiers.  A tag with the form `X.Y` will be treated as `X.Y.0`. This improves compatibility with existing repositories.
@@ -16,7 +20,7 @@ Swift 5.6
 
 * [#3641]
 
-  Soft deprecate `.package(name:, url:)` dependency syntax in favour of `.package(url:)`, given that an explicit `name` attribute is no longer needed for target depedendencies lookup.
+  Soft deprecate `.package(name:, url:)` dependency syntax in favor of `.package(url:)`, given that an explicit `name` attribute is no longer needed for target dependencies lookup.
 
 * [#3641]
 
@@ -38,11 +42,11 @@ Swift 5.5
 
 * [#3280]
 
-  A more intuitive `.product(name:, package:)` target depedendency syntax is now accepted, where `package` is the package identifier as defined by the package URL.
+  A more intuitive `.product(name:, package:)` target dependency syntax is now accepted, where `package` is the package identifier as defined by the package URL.
 
 * [#3316]
 
-  Test targets can now link against executable targets as if they were libraries, so that they can test any data strutures or algorithms in them.  All the code in the executable except for the main entry point itself is available to the unit test.  Separate executables are still linked, and can be tested as a subprocess in the same way as before.  This feature is available to tests defined in packages that have a tools version of `5.5` or newer. 
+  Test targets can now link against executable targets as if they were libraries, so that they can test any data structures or algorithms in them.  All the code in the executable except for the main entry point itself is available to the unit test.  Separate executables are still linked, and can be tested as a subprocess in the same way as before.  This feature is available to tests defined in packages that have a tools version of `5.5` or newer. 
 
 Swift 5.4
 -----------
@@ -54,7 +58,7 @@ Swift 5.4
     
     [SR-13566] The Swift tools version specification in each manifest file now accepts any combination of _horizontal_ whitespace characters surrounding `swift-tools-version`, if and only if the specified version ≥ `5.4`. For example, `//swift-tools-version:	5.4` and `//		 swift-tools-version: 5.4` are valid.
   
-    All [Unicode line terminators](https://www.unicode.org/reports/tr14/) are now recognised in `Package` manifests. This ensures correctness in parsing manifests that are edited and/or built on many non-Unix-like platforms that use ASCII or Unicode encodings. 
+    All [Unicode line terminators](https://www.unicode.org/reports/tr14/) are now recognized in `Package` manifests. This ensures correctness in parsing manifests that are edited and/or built on many non-Unix-like platforms that use ASCII or Unicode encodings. 
   
   * API Removal
   
@@ -153,11 +157,12 @@ Swift 3.0
 
 * The `Package` initializer now requires the `name:` parameter.
 
-[SE-0129]: https://github.com/apple/swift-evolution/blob/master/proposals/0129-package-manager-test-naming-conventions.md
-[SE-0135]: https://github.com/apple/swift-evolution/blob/master/proposals/0135-package-manager-support-for-differentiating-packages-by-swift-version.md
-[SE-0201]: https://github.com/apple/swift-evolution/blob/master/proposals/0201-package-manager-local-dependencies.md
-[SE-0208]: https://github.com/apple/swift-evolution/blob/master/proposals/0208-package-manager-system-library-targets.md
-[SE-0209]: https://github.com/apple/swift-evolution/blob/master/proposals/0209-package-manager-swift-lang-version-update.md
+[SE-0129]: https://github.com/apple/swift-evolution/blob/main/proposals/0129-package-manager-test-naming-conventions.md
+[SE-0135]: https://github.com/apple/swift-evolution/blob/main/proposals/0135-package-manager-support-for-differentiating-packages-by-swift-version.md
+[SE-0201]: https://github.com/apple/swift-evolution/blob/main/proposals/0201-package-manager-local-dependencies.md
+[SE-0208]: https://github.com/apple/swift-evolution/blob/main/proposals/0208-package-manager-system-library-targets.md
+[SE-0209]: https://github.com/apple/swift-evolution/blob/main/proposals/0209-package-manager-swift-lang-version-update.md
+[SE-0332]: https://github.com/apple/swift-evolution/blob/main/proposals/0332-swiftpm-command-plugins.md
 
 [SR-5918]: https://bugs.swift.org/browse/SR-5918
 [SR-6978]: https://bugs.swift.org/browse/SR-6978

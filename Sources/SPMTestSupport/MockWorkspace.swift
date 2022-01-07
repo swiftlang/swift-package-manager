@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2020 Apple Inc. and the Swift project authors
+ Copyright (c) 2014 - 2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -12,6 +12,7 @@ import Basics
 import PackageGraph
 import PackageLoading
 import PackageModel
+import PackageRegistry
 import SourceControl
 import TSCBasic
 import Workspace
@@ -23,8 +24,11 @@ public final class MockWorkspace {
     let sandbox: AbsolutePath
     let fileSystem: InMemoryFileSystem
     public let httpClient: HTTPClient
+    public var registryClient: RegistryClient
     public let archiver: MockArchiver
     public let checksumAlgorithm: MockHashAlgorithm
+    public let fingerprintStorage: MockPackageFingerprintStorage
+    public let customPackageContainerProvider: MockPackageContainerProvider?
     let roots: [MockPackage]
     let packages: [MockPackage]
     public let mirrors: DependencyMirrors
@@ -39,22 +43,30 @@ public final class MockWorkspace {
     public init(
         sandbox: AbsolutePath,
         fileSystem: InMemoryFileSystem,
-        httpClient: HTTPClient? = nil,
-        archiver: MockArchiver = MockArchiver(),
-        checksumAlgorithm: MockHashAlgorithm = MockHashAlgorithm(),
         mirrors: DependencyMirrors? = nil,
         roots: [MockPackage],
         packages: [MockPackage],
         toolsVersion: ToolsVersion = ToolsVersion.currentToolsVersion,
+        customHttpClient: HTTPClient? = .none,
+        customRegistryClient: RegistryClient? = .none,
+        customBinaryArchiver: MockArchiver? = .none,
+        customChecksumAlgorithm: MockHashAlgorithm? = .none,
+        customFingerprintStorage: MockPackageFingerprintStorage? = .none,
+        customPackageContainerProvider: MockPackageContainerProvider? = .none,
         resolverUpdateEnabled: Bool = true
     ) throws {
+        let archiver = customBinaryArchiver ?? MockArchiver()
+        let httpClient = customHttpClient ?? HTTPClient.mock(fileSystem: fileSystem)
+
         self.sandbox = sandbox
         self.fileSystem = fileSystem
-        self.httpClient = httpClient ?? HTTPClient.mock(fileSystem: fileSystem)
+        self.httpClient = httpClient
         self.archiver = archiver
-        self.checksumAlgorithm = checksumAlgorithm
+        self.checksumAlgorithm = customChecksumAlgorithm ?? MockHashAlgorithm()
+        self.fingerprintStorage = customFingerprintStorage ?? MockPackageFingerprintStorage()
         self.mirrors = mirrors ?? DependencyMirrors()
         self.identityResolver = DefaultIdentityResolver(locationMapper: self.mirrors.effectiveURL(for:))
+        self.customPackageContainerProvider = customPackageContainerProvider
         self.roots = roots
         self.packages = packages
 
@@ -63,8 +75,10 @@ public final class MockWorkspace {
         self.registry = MockRegistry(
             identityResolver: self.identityResolver,
             checksumAlgorithm: self.checksumAlgorithm,
-            filesystem: self.fileSystem
+            filesystem: self.fileSystem,
+            fingerprintStorage: self.fingerprintStorage
         )
+        self.registryClient = customRegistryClient ?? self.registry.registryClient
         self.toolsVersion = toolsVersion
         self.resolverUpdateEnabled = resolverUpdateEnabled
 
@@ -99,13 +113,22 @@ public final class MockWorkspace {
         var manifests: [MockManifestLoader.Key: Manifest] = [:]
 
         func create(package: MockPackage, basePath: AbsolutePath, isRoot: Bool) throws {
-
             let packagePath: AbsolutePath
             switch package.location {
             case .fileSystem(let path):
                 packagePath = basePath.appending(path)
             case .sourceControl(let url):
-                packagePath = basePath.appending(components: "sourceControl", url.absoluteString.spm_mangledToC99ExtendedIdentifier())
+                if let containerProvider = customPackageContainerProvider {
+                    let observability = ObservabilitySystem.makeForTesting()
+                    let packageRef = PackageReference(identity: PackageIdentity(url: url), kind: .remoteSourceControl(url))
+                    let container = try temp_await { containerProvider.getContainer(for: packageRef, skipUpdate: true, observabilityScope: observability.topScope, on: .sharedConcurrent, completion: $0) }
+                    guard let customContainer = container as? CustomPackageContainer else {
+                        throw StringError("invalid custom container: \(container)")
+                    }
+                    packagePath = try customContainer.retrieve(at: try Version(versionString: package.versions.first!!), observabilityScope: observability.topScope)
+                } else {
+                    packagePath = basePath.appending(components: "sourceControl", url.absoluteString.spm_mangledToC99ExtendedIdentifier())
+                }
             case .registry(let identity):
                 packagePath = basePath.appending(components: "registry", identity.description.spm_mangledToC99ExtendedIdentifier())
             }
@@ -142,10 +165,17 @@ public final class MockWorkspace {
             if let specifier = sourceControlSpecifier {
                 let repository = self.repositoryProvider.specifierMap[specifier] ?? .init(path: packagePath, fs: self.fileSystem)
                 try writePackageContent(fileSystem: repository, root: .root, toolsVersion: toolsVersion)
-                try repository.commit()
-                for version in packageVersions.compactMap({ $0 }) {
-                    try repository.tag(name: version)
+                
+                let versions = packageVersions.compactMap({ $0 })
+                if versions.isEmpty {
+                    try repository.commit()
+                } else {
+                    for version in versions {
+                        try repository.commit(hash: package.revisionProvider.map { $0(version) })
+                        try repository.tag(name: version)
+                    }
                 }
+
                 self.repositoryProvider.add(specifier: specifier, repository: repository)
             } else if let identity = registryIdentity {
                 let source = InMemoryRegistrySource(path: packagePath, fileSystem: self.fileSystem)
@@ -209,20 +239,24 @@ public final class MockWorkspace {
                 workingDirectory: self.sandbox.appending(component: ".build"),
                 editsDirectory: self.sandbox.appending(component: "edits"),
                 resolvedVersionsFile: self.sandbox.appending(component: "Package.resolved"),
+                sharedSecurityDirectory: self.fileSystem.swiftPMSecurityDirectory,  
                 sharedCacheDirectory: self.fileSystem.swiftPMCacheDirectory,
-                sharedConfigurationDirectory: self.fileSystem.swiftPMConfigDirectory
+                sharedConfigurationDirectory: self.fileSystem.swiftPMConfigurationDirectory
             ),
             mirrors: self.mirrors,
             customToolsVersion: self.toolsVersion,
             customManifestLoader: self.manifestLoader,
+            customPackageContainerProvider: self.customPackageContainerProvider,
             customRepositoryProvider: self.repositoryProvider,
-            customRegistryClient: self.registry.registryClient,
+            customRegistryClient: self.registryClient,
             customIdentityResolver: self.identityResolver,
             customHTTPClient: self.httpClient,
             customArchiver: self.archiver,
             customChecksumAlgorithm: self.checksumAlgorithm,
+            customFingerprintStorage: self.fingerprintStorage,
             resolverUpdateEnabled: self.resolverUpdateEnabled,
             resolverPrefetchingEnabled: true,
+            resolverFingerprintCheckingMode: .strict,
             delegate: self.delegate
         )
 
@@ -490,6 +524,7 @@ public final class MockWorkspace {
         case registryDownload(TSCUtility.Version)
         case edited(AbsolutePath?)
         case local
+        case custom(TSCUtility.Version, AbsolutePath)
     }
 
     public struct ManagedDependencyResult {
@@ -548,6 +583,11 @@ public final class MockWorkspace {
                     XCTFail("Expected local dependency", file: file, line: line)
                     return
                 }
+            case .custom(let currentVersion, let currentPath):
+                guard case .custom(let version, let path) = dependency.state else {
+                    return XCTFail("invalid dependency state \(dependency.state)", file: file, line: line)
+                }
+                XCTAssertTrue(currentVersion == version && currentPath == path, file: file, line: line)
             }
         }
     }
@@ -674,7 +714,7 @@ public final class MockWorkspace {
                     return XCTFail("invalid pin state \(pin.state)", file: file, line: line)
                 }
                 XCTAssertEqual(pinVersion, downloadVersion, file: file, line: line)
-            case .edited, .local:
+            case .edited, .local, .custom:
                 XCTFail("Unimplemented", file: file, line: line)
             }
         }

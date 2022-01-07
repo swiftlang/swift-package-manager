@@ -29,8 +29,11 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     /// The closure for loading the package graph.
     let packageGraphLoader: () throws -> PackageGraph
     
-    /// The closure for invoking plugins in the package graph.
-    let pluginInvoker: (PackageGraph) throws -> [ResolvedTarget: [PluginInvocationResult]]
+    /// The closure for invoking build tool plugins in the package graph.
+    let buildToolPluginInvoker: (PackageGraph) throws -> [ResolvedTarget: [BuildToolPluginInvocationResult]]
+
+    /// Whether to sandbox commands from build tool plugins.
+    public let disableSandboxForPluginCommands: Bool
 
     /// The llbuild build delegate reference.
     private var buildSystemDelegate: BuildOperationBuildSystemDelegateHandler?
@@ -45,10 +48,10 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     public private(set) var buildPlan: BuildPlan?
 
     /// The build description resulting from planing.
-    private var buildDescription: BuildDescription?
+    private let buildDescription = ThreadSafeBox<BuildDescription>()
 
     /// The loaded package graph.
-    private var packageGraph: PackageGraph?
+    private let packageGraph = ThreadSafeBox<PackageGraph>()
 
     /// The output stream for the build delegate.
     private let outputStream: OutputByteStream
@@ -70,7 +73,8 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         buildParameters: BuildParameters,
         cacheBuildManifest: Bool,
         packageGraphLoader: @escaping () throws -> PackageGraph,
-        pluginInvoker: @escaping (PackageGraph) throws -> [ResolvedTarget: [PluginInvocationResult]],
+        buildToolPluginInvoker: @escaping (PackageGraph) throws -> [ResolvedTarget: [BuildToolPluginInvocationResult]],
+        disableSandboxForPluginCommands: Bool = false,
         outputStream: OutputByteStream,
         logLevel: Basics.Diagnostic.Severity,
         fileSystem: TSCBasic.FileSystem,
@@ -79,7 +83,8 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         self.buildParameters = buildParameters
         self.cacheBuildManifest = cacheBuildManifest
         self.packageGraphLoader = packageGraphLoader
-        self.pluginInvoker = pluginInvoker
+        self.buildToolPluginInvoker = buildToolPluginInvoker
+        self.disableSandboxForPluginCommands = disableSandboxForPluginCommands
         self.outputStream = outputStream
         self.logLevel = logLevel
         self.fileSystem = fileSystem
@@ -87,13 +92,13 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     }
 
     public func getPackageGraph() throws -> PackageGraph {
-        try memoize(to: &packageGraph) {
+        try self.packageGraph.memoize {
             try self.packageGraphLoader()
         }
     }
     
-    public func getPluginInvocationResults(for graph: PackageGraph) throws -> [ResolvedTarget: [PluginInvocationResult]] {
-        return try self.pluginInvoker(graph)
+    public func getBuildToolPluginInvocationResults(for graph: PackageGraph) throws -> [ResolvedTarget: [BuildToolPluginInvocationResult]] {
+        return try self.buildToolPluginInvoker(graph)
     }
 
     /// Compute and return the latest build description.
@@ -101,24 +106,25 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     /// This will try skip build planning if build manifest caching is enabled
     /// and the package structure hasn't changed.
     public func getBuildDescription() throws -> BuildDescription {
-        try memoize(to: &buildDescription) {
+        return try self.buildDescription.memoize {
             if self.cacheBuildManifest {
                 do {
-                    try self.buildPackageStructure()
-                    // confirm the step above created the build description as expected
-                    // we trust it to update the build description when needed
-                    let buildDescriptionPath = self.buildParameters.buildDescriptionPath
-                    guard self.fileSystem.exists(buildDescriptionPath) else {
-                        throw InternalError("could not find build descriptor at \(buildDescriptionPath)")
+                    // if buildPackageStructure returns a valid description we use that, otherwise we perform full planning
+                    if try self.buildPackageStructure() {
+                        // confirm the step above created the build description as expected
+                        // we trust it to update the build description when needed
+                        let buildDescriptionPath = self.buildParameters.buildDescriptionPath
+                        guard self.fileSystem.exists(buildDescriptionPath) else {
+                            throw InternalError("could not find build descriptor at \(buildDescriptionPath)")
+                        }
+                        // return the build description that's on disk.
+                        return try BuildDescription.load(from: buildDescriptionPath)
                     }
-                    // return the build description that's on disk.
-                    return try BuildDescription.load(from: buildDescriptionPath)
                 } catch {
                     // since caching is an optimization, warn about failing to load the cached version
                     self.observabilityScope.emit(warning: "failed to load the cached build description: \(error)")
                 }
             }
-
             // We need to perform actual planning if we reach here.
             return try self.plan()
         }
@@ -196,19 +202,49 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         // Load the package graph.
         let graph = try getPackageGraph()
         
-        // Invoke any plugins in the graph, and get the results.
-        let pluginInvocationResults = try getPluginInvocationResults(for: graph)
+        // Invoke any build tool plugins in the graph to generate prebuild commands and build commands.
+        let buildToolPluginInvocationResults = try getBuildToolPluginInvocationResults(for: graph)
 
-        // Run any prebuild commands provided by plugins. Any failure stops the build.
+        // Run any prebuild commands provided by build tool plugins. Any failure stops the build.
         let prebuildCommandResults = try graph.reachableTargets.reduce(into: [:], { partial, target in
-            partial[target] = try pluginInvocationResults[target].map { try self.runPrebuildCommands(for: $0) }
+            partial[target] = try buildToolPluginInvocationResults[target].map { try self.runPrebuildCommands(for: $0) }
         })
+
+        // Emit warnings about any unhandled files in authored packages. We do this after applying build tool plugins, once we know what files they handled.
+        for package in graph.rootPackages where package.manifest.toolsVersion >= .v5_3 {
+            for target in package.targets {
+                // Get the set of unhandled files in targets.
+                var unhandledFiles = Set(target.underlyingTarget.others)
+                if unhandledFiles.isEmpty { continue }
+                
+                // Subtract out any that were inputs to any commands generated by plugins.
+                if let result = buildToolPluginInvocationResults[target] {
+                    let handledFiles = result.flatMap{ $0.buildCommands.flatMap{ $0.inputFiles } }
+                    unhandledFiles.subtract(handledFiles)
+                }
+                if unhandledFiles.isEmpty { continue }
+                
+                // Emit a diagnostic if any remain. This is kept the same as the previous message for now, but this could be improved.
+                let diagnosticsEmitter = self.observabilityScope.makeDiagnosticsEmitter {
+                    var metadata = ObservabilityMetadata()
+                    metadata.packageIdentity = package.identity
+                    metadata.packageKind = package.manifest.packageKind
+                    metadata.targetName = target.name
+                    return metadata
+                }
+                var warning = "found \(unhandledFiles.count) file(s) which are unhandled; explicitly declare them as resources or exclude from the target\n"
+                for file in unhandledFiles {
+                    warning += "    " + file.pathString + "\n"
+                }
+                diagnosticsEmitter.emit(warning: warning)
+            }
+        }
         
         // Create the build plan based, on the graph and any information from plugins.
         let plan = try BuildPlan(
             buildParameters: buildParameters,
             graph: graph,
-            pluginInvocationResults: pluginInvocationResults,
+            buildToolPluginInvocationResults: buildToolPluginInvocationResults,
             prebuildCommandResults: prebuildCommandResults,
             fileSystem: self.fileSystem,
             observabilityScope: self.observabilityScope
@@ -217,6 +253,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 
         let (buildDescription, buildManifest) = try BuildDescription.create(
             with: plan,
+            disableSandboxForPluginCommands: self.disableSandboxForPluginCommands,
             fileSystem: self.fileSystem,
             observabilityScope: self.observabilityScope
         )
@@ -236,14 +273,12 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     }
 
     /// Build the package structure target.
-    private func buildPackageStructure() throws {
+    private func buildPackageStructure() throws -> Bool {
         let buildSystem = try self.createBuildSystem(buildDescription: .none)
         self.buildSystem = buildSystem
 
         // Build the package structure target which will re-generate the llbuild manifest, if necessary.
-        if !buildSystem.build(target: "PackageStructure") {
-            throw StringError("LLBuild::build failed building package structure")
-        }
+        return buildSystem.build(target: "PackageStructure")
     }
 
     /// Create the build system using the given build description.
@@ -295,7 +330,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 
     /// Runs any prebuild commands associated with the given list of plugin invocation results, in order, and returns the
     /// results of running those prebuild commands.
-    private func runPrebuildCommands(for pluginResults: [PluginInvocationResult]) throws -> [PrebuildCommandResult] {
+    private func runPrebuildCommands(for pluginResults: [BuildToolPluginInvocationResult]) throws -> [PrebuildCommandResult] {
         // Run through all the commands from all the plugin usages in the target.
         return try pluginResults.map { pluginResult in
             // As we go we will collect a list of prebuild output directories whose contents should be input to the build,
@@ -303,12 +338,14 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             var derivedSourceFiles: [AbsolutePath] = []
             var prebuildOutputDirs: [AbsolutePath] = []
             for command in pluginResult.prebuildCommands {
-                self.observabilityScope.emit(info: "Running" + command.configuration.displayName)
+                self.observabilityScope.emit(info: "Running" + (command.configuration.displayName ?? command.configuration.executable.basename))
 
                 // Run the command configuration as a subshell. This doesn't return until it is done.
                 // TODO: We need to also use any working directory, but that support isn't yet available on all platforms at a lower level.
-                // TODO: Invoke it in a sandbox that allows writing to only the temporary location.
-                let commandLine = [command.configuration.executable] + command.configuration.arguments
+                var commandLine = [command.configuration.executable.pathString] + command.configuration.arguments
+                if !self.disableSandboxForPluginCommands {
+                    commandLine = Sandbox.apply(command: commandLine, writableDirectories: [pluginResult.pluginOutputDirectory], strictness: .writableTemporaryDirectory)
+                }
                 let processResult = try Process.popen(arguments: commandLine, environment: command.configuration.environment)
                 let output = try processResult.utf8Output() + processResult.utf8stderrOutput()
                 if processResult.exitStatus != .terminated(code: 0) {
@@ -367,9 +404,9 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 }
 
 extension BuildDescription {
-    static func create(with plan: BuildPlan, fileSystem: TSCBasic.FileSystem, observabilityScope: ObservabilityScope) throws -> (BuildDescription, BuildManifest) {
+    static func create(with plan: BuildPlan, disableSandboxForPluginCommands: Bool, fileSystem: TSCBasic.FileSystem, observabilityScope: ObservabilityScope) throws -> (BuildDescription, BuildManifest) {
         // Generate the llbuild manifest.
-        let llbuild = LLBuildManifestBuilder(plan, fileSystem: fileSystem, observabilityScope: observabilityScope)
+        let llbuild = LLBuildManifestBuilder(plan, disableSandboxForPluginCommands: disableSandboxForPluginCommands, fileSystem: fileSystem, observabilityScope: observabilityScope)
         let buildManifest = try llbuild.generateManifest(at: plan.buildParameters.llbuildManifest)
 
         let swiftCommands = llbuild.manifest.getCmdToolMap(kind: SwiftCompilerTool.self)

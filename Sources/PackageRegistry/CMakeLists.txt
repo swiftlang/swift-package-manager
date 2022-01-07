@@ -12,6 +12,7 @@ add_library(PackageRegistry
   RegistryClient.swift)
 target_link_libraries(PackageRegistry PUBLIC
   Basics
+  PackageFingerprint
   PackageLoading
   PackageModel
   TSCBasic

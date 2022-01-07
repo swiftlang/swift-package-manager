@@ -44,6 +44,10 @@ class VersionTests: XCTestCase {
         )
     }
     
+    // Don't refactor out either `XCTAssertGreaterThan` or `XCTAssertFalse(<)`.
+    // They may appear redundant, but they test different things.
+    // `XCTAssertGreaterThan` tests the "true" path of `>` which is basically the "true" path of `<`.
+    // `XCTAssertFalse(<)` tests the "false" path of `<`.
     func testVersionComparison() {
         
         // MARK: version core vs. version core
@@ -52,11 +56,18 @@ class VersionTests: XCTestCase {
         XCTAssertGreaterThan(Version(1, 3, 1), Version(1, 2, 3))
         XCTAssertGreaterThan(Version(1, 2, 4), Version(1, 2, 3))
         
+        XCTAssertFalse(Version(2, 1, 1) < Version(1, 2, 3))
+        XCTAssertFalse(Version(1, 3, 1) < Version(1, 2, 3))
+        XCTAssertFalse(Version(1, 2, 4) < Version(1, 2, 3))
+        
         // MARK: version core vs. version core + pre-release
         
         XCTAssertGreaterThan(Version(1, 2, 3), Version(1, 2, 3, prereleaseIdentifiers: [""]))
         XCTAssertGreaterThan(Version(1, 2, 3), Version(1, 2, 3, prereleaseIdentifiers: ["beta"]))
         XCTAssertLessThan(Version(1, 2, 2), Version(1, 2, 3, prereleaseIdentifiers: ["beta"]))
+        
+        XCTAssertFalse(Version(1, 2, 3) < Version(1, 2, 3, prereleaseIdentifiers: [""]))
+        XCTAssertFalse(Version(1, 2, 3) < Version(1, 2, 3, prereleaseIdentifiers: ["beta"]))
         
         // MARK: version core + pre-release vs. version core + pre-release
         
@@ -100,6 +111,10 @@ class VersionTests: XCTestCase {
         XCTAssertGreaterThan(Version(1, 3, 3, prereleaseIdentifiers: ["alpha"]), Version(1, 2, 3, buildMetadataIdentifiers: ["beta"]))
         XCTAssertGreaterThan(Version(1, 2, 4, prereleaseIdentifiers: ["223"]), Version(1, 2, 3, buildMetadataIdentifiers: ["123alpha"]))
         
+        XCTAssertFalse(Version(2, 2, 3, prereleaseIdentifiers: [""]) < Version(1, 2, 3, buildMetadataIdentifiers: [""]))
+        XCTAssertFalse(Version(1, 3, 3, prereleaseIdentifiers: ["alpha"]) < Version(1, 2, 3, buildMetadataIdentifiers: ["beta"]))
+        XCTAssertFalse(Version(1, 2, 4, prereleaseIdentifiers: ["223"]) < Version(1, 2, 3, buildMetadataIdentifiers: ["123alpha"]))
+        
         // MARK: version core + build metadata vs. version core + build metadata
         
         XCTAssertEqual(Version(1, 2, 3, buildMetadataIdentifiers: [""]), Version(1, 2, 3, buildMetadataIdentifiers: [""]))
@@ -127,6 +142,11 @@ class VersionTests: XCTestCase {
         XCTAssertGreaterThan(Version(1, 2, 3), Version(1, 2, 3, prereleaseIdentifiers: ["beta"], buildMetadataIdentifiers: ["123"]))
         XCTAssertLessThan(Version(1, 2, 2), Version(1, 2, 3, prereleaseIdentifiers: ["beta"], buildMetadataIdentifiers: ["alpha", "beta"]))
         XCTAssertLessThan(Version(1, 2, 2), Version(1, 2, 3, prereleaseIdentifiers: ["beta"], buildMetadataIdentifiers: ["alpha-"]))
+        
+        XCTAssertFalse(Version(1, 2, 3) < Version(1, 2, 3, prereleaseIdentifiers: [""], buildMetadataIdentifiers: [""]))
+        XCTAssertFalse(Version(1, 2, 3) < Version(1, 2, 3, prereleaseIdentifiers: [""], buildMetadataIdentifiers: ["123alpha"]))
+        XCTAssertFalse(Version(1, 2, 3) < Version(1, 2, 3, prereleaseIdentifiers: ["alpha"], buildMetadataIdentifiers: ["alpha"]))
+        XCTAssertFalse(Version(1, 2, 3) < Version(1, 2, 3, prereleaseIdentifiers: ["beta"], buildMetadataIdentifiers: ["123"]))
         
         // MARK: version core + pre-release vs. version core + pre-release + build metadata
         

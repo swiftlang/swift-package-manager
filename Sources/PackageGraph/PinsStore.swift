@@ -101,6 +101,13 @@ public final class PinsStore {
         self._pins[pin.packageRef.identity] = pin
     }
 
+    /// Remove a pin.
+    ///
+    /// This will replace any previous pin with same package name.
+    public func remove(_ pin: Pin) {
+        self._pins[pin.packageRef.identity] = nil
+    }
+
     /// Unpin all of the currently pinned dependencies.
     ///
     /// This method does not automatically write to state file.
@@ -184,7 +191,9 @@ fileprivate struct PinsStorage {
                 data = try self.encoder.encode(container)
             } else {
                 let container = try V1(pins: pins, mirrors: mirrors)
-                data = try self.encoder.encode(container)
+                let json = container.toLegacyJSON()
+                let bytes = json.toBytes(prettyPrint: true)
+                data = Data(bytes.contents)
             }
 #if !os(Windows)
             // rdar://83646952: add newline for POSIXy systems
@@ -231,8 +240,23 @@ fileprivate struct PinsStorage {
             )
         }
 
+        // backwards compatibility of JSON format
+        func toLegacyJSON() -> JSON {
+            return .init([
+                "version": self.version.toJSON(),
+                "object": self.object.toLegacyJSON()
+            ])
+        }
+
         struct Container: Codable {
             var pins: [Pin]
+
+            // backwards compatibility of JSON format
+            func toLegacyJSON() -> JSON {
+                return .init([
+                    "pins": self.pins.map { $0.toLegacyJSON() },
+                ])
+            }
         }
 
         struct Pin: Codable {
@@ -255,6 +279,15 @@ fileprivate struct PinsStorage {
                 // rdar://52529014, rdar://52529011: pin file should store the original location but remap when loading
                 self.repositoryURL = mirrors.originalURL(for: location) ?? location
                 self.state = try .init(pin.state)
+            }
+
+            // backwards compatibility of JSON format
+            func toLegacyJSON() -> JSON {
+                return .init([
+                    "package": self.package.toJSON(),
+                    "repositoryURL": self.repositoryURL.toJSON(),
+                    "state": self.state.toLegacyJSON()
+                ])
             }
         }
 
@@ -280,6 +313,15 @@ fileprivate struct PinsStorage {
                 default:
                     throw StringError("invalid pin state: \(state)")
                 }
+            }
+
+            // backwards compatibility of JSON format
+            func toLegacyJSON() -> JSON {
+                return .init([
+                    "revision": self.revision.toJSON(),
+                    "version": self.version.toJSON(),
+                    "branch": self.branch.toJSON()
+                ])
             }
         }
     }

@@ -107,9 +107,9 @@ public final class InMemoryGitRepository {
 
     /// Commits the current state of the repository filesystem and returns the commit identifier.
     @discardableResult
-    public func commit() throws -> String {
+    public func commit(hash: String? = nil) throws -> String {
         // Create a fake hash for this commit.
-        let hash = String((UUID().uuidString + UUID().uuidString).prefix(40))
+        let hash = hash ?? String((UUID().uuidString + UUID().uuidString).prefix(40))
         self.lock.withLock {
             self.head.hash = hash
             // Store the commit in history.
@@ -204,7 +204,6 @@ public final class InMemoryGitRepository {
 }
 
 extension InMemoryGitRepository: FileSystem {
-
     public func exists(_ path: AbsolutePath, followSymlink: Bool) -> Bool {
         self.lock.withLock {
             self.head.fileSystem.exists(path, followSymlink: followSymlink)
@@ -248,6 +247,10 @@ extension InMemoryGitRepository: FileSystem {
     }
 
     public var cachesDirectory: AbsolutePath? {
+        fatalError("Unsupported")
+    }
+
+    public var tempDirectory: AbsolutePath {
         fatalError("Unsupported")
     }
 
@@ -429,5 +432,13 @@ public final class InMemoryGitRepositoryProvider: RepositoryProvider {
 
     public func openWorkingCopy(at path: AbsolutePath) throws -> WorkingCheckout {
         return checkoutsMap[path]!
+    }
+
+    public func isValidDirectory(_ directory: AbsolutePath) -> Bool {
+        return true
+    }
+
+    public func isValidRefFormat(_ ref: String) -> Bool {
+        return true
     }
 }

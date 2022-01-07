@@ -2329,7 +2329,7 @@ class DependencyGraphBuilder {
         }
         for (product, filteredDependencies) in dependencies {
             let packageDependencies: [MockContainer.Dependency] = filteredDependencies.map {
-                (container: reference(for: $0), requirement: $1.0, products: $1.1)
+                (container: reference(for: $0), requirement: $1.0, productFilter: $1.1)
             }
             container.dependencies[version.description, default: [:]][product, default: []] += packageDependencies
         }
@@ -2398,7 +2398,7 @@ extension Term: ExpressibleByStringLiteral {
         guard case let .versionSet(vs) = requirement! else {
             fatalError()
         }
-        self.init(node: .product(packageReference.name, package: packageReference),
+        self.init(node: .product(packageReference.identity.description, package: packageReference),
                   requirement: vs,
                   isPositive: isPositive)
     }

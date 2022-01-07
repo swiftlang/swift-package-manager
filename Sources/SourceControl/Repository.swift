@@ -142,6 +142,12 @@ public protocol RepositoryProvider {
     ///   - sourcePath: the source path.
     ///   - destinationPath: the destination  path.
     func copy(from sourcePath: AbsolutePath, to destinationPath: AbsolutePath) throws
+
+    /// Returns true if the directory is valid git location.
+    func isValidDirectory(_ directory: AbsolutePath) -> Bool
+
+    /// Returns true if the git reference name is well formed.
+    func isValidRefFormat(_ ref: String) -> Bool
 }
 
 /// Abstract repository operations.

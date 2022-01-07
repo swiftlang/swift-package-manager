@@ -12,6 +12,7 @@
 import TSCBasic
 import TSCTestSupport
 import TSCUtility
+import tsan_utils
 import XCTest
 
 final class SQLiteBackedCacheTests: XCTestCase {
@@ -51,6 +52,8 @@ final class SQLiteBackedCacheTests: XCTestCase {
     }
 
     func testFileDeleted() throws {
+        try XCTSkipIf(is_tsan_enabled())
+        
         try testWithTemporaryDirectory { tmpPath in
             let path = tmpPath.appending(component: "test.db")
             let cache = SQLiteBackedCache<String>(tableName: "SQLiteBackedCacheTest", path: path)
@@ -91,6 +94,8 @@ final class SQLiteBackedCacheTests: XCTestCase {
     }
 
     func testFileCorrupt() throws {
+        try XCTSkipIf(is_tsan_enabled())
+
         try testWithTemporaryDirectory { tmpPath in
             let path = tmpPath.appending(component: "test.db")
             let cache = SQLiteBackedCache<String>(tableName: "SQLiteBackedCacheTest", path: path)

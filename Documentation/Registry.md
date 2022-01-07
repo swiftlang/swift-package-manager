@@ -593,7 +593,7 @@ the name of the manifest file
 It is RECOMMENDED for clients and servers to support
 caching as described by [RFC 7234].
 
-A server SHOULD include a `Link` header field
+A server MUST include a `Link` header field
 with a value for each version-specific package manifest file
 in the release's source archive,
 whose filename matches the following regular expression pattern:

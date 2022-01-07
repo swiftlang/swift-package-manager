@@ -233,7 +233,7 @@ public struct SwiftTestTool: SwiftCommand {
                 throw StringError("invalid manifests at \(root.packages)")
             }
             let buildParameters = try swiftTool.buildParametersForTest()
-            print(codeCovAsJSONPath(buildParameters: buildParameters, packageName: rootManifest.name))
+            print(codeCovAsJSONPath(buildParameters: buildParameters, packageName: rootManifest.displayName))
 
         case .generateLinuxMain:
             // this functionality is deprecated as of 12/2020

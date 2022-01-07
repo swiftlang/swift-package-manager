@@ -10,6 +10,7 @@
 
 import Basics
 import Dispatch
+import PackageFingerprint
 import PackageGraph
 import PackageLoading
 import PackageModel
@@ -54,6 +55,8 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
     private let manifestLoader: ManifestLoaderProtocol
     private let toolsVersionLoader: ToolsVersionLoaderProtocol
     private let currentToolsVersion: ToolsVersion
+    private let fingerprintStorage: PackageFingerprintStorage?
+    private let fingerprintCheckingMode: FingerprintCheckingMode
     private let observabilityScope: ObservabilityScope
 
     /// The cached dependency information.
@@ -76,6 +79,8 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
         manifestLoader: ManifestLoaderProtocol,
         toolsVersionLoader: ToolsVersionLoaderProtocol,
         currentToolsVersion: ToolsVersion,
+        fingerprintStorage: PackageFingerprintStorage?,
+        fingerprintCheckingMode: FingerprintCheckingMode,
         observabilityScope: ObservabilityScope
     ) throws {
         self.package = package
@@ -85,6 +90,8 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
         self.manifestLoader = manifestLoader
         self.toolsVersionLoader = toolsVersionLoader
         self.currentToolsVersion = currentToolsVersion
+        self.fingerprintStorage = fingerprintStorage
+        self.fingerprintCheckingMode = fingerprintCheckingMode
         self.observabilityScope = observabilityScope
     }
 
@@ -140,6 +147,68 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
 
     public func getTag(for version: Version) -> String? {
         return try? self.knownVersions()[version]
+    }
+
+    func checkIntegrity(version: Version, revision: Revision) throws {
+        guard let fingerprintStorage = self.fingerprintStorage else {
+            return
+        }
+
+        guard case .remoteSourceControl(let sourceControlURL) = self.package.kind else {
+            return
+        }
+        
+        let packageIdentity = self.package.identity
+        let fingerprint: Fingerprint
+        do {
+            fingerprint = try temp_await {
+                fingerprintStorage.get(
+                    package: packageIdentity,
+                    version: version,
+                    kind: .sourceControl,
+                    observabilityScope: self.observabilityScope,
+                    callbackQueue: .sharedConcurrent,
+                    callback: $0
+                )
+            }
+        } catch PackageFingerprintStorageError.notFound {
+            fingerprint = Fingerprint(origin: .sourceControl(sourceControlURL), value: revision.identifier)
+            // Write to storage if fingerprint not yet recorded
+            do {
+                try temp_await {
+                    fingerprintStorage.put(
+                        package: packageIdentity,
+                        version: version,
+                        fingerprint: fingerprint,
+                        observabilityScope: self.observabilityScope,
+                        callbackQueue: .sharedConcurrent,
+                        callback: $0
+                    )
+                }
+            } catch PackageFingerprintStorageError.conflict(_, let existing) {
+                let message = "Revision \(revision.identifier) for \(self.package) version \(version) does not match previously recorded value \(existing.value) from \(String(describing: existing.origin.url?.absoluteString))"
+                switch self.fingerprintCheckingMode {
+                case .strict:
+                    throw StringError(message)
+                case .warn:
+                    observabilityScope.emit(warning: message)
+                }
+            }
+        } catch {
+            self.observabilityScope.emit(error: "Failed to get source control fingerprint for \(self.package) version \(version) from storage: \(error)")
+            throw error
+        }
+        
+        // The revision (i.e., hash) must match that in fingerprint storage otherwise the integrity check fails
+        if revision.identifier != fingerprint.value {
+            let message = "Revision \(revision.identifier) for \(self.package) version \(version) does not match previously recorded value \(fingerprint.value)"
+            switch self.fingerprintCheckingMode {
+            case .strict:
+                throw StringError(message)
+            case .warn:
+                observabilityScope.emit(warning: message)
+            }
+        }
     }
 
     /// Returns revision for the given tag.

@@ -16,12 +16,6 @@ extension ByteString {
     /// Secure Hashing Algorithm 2 (SHA-2) hashing with a 256-bit digest, when available,
     /// falling back on a native implementation in Swift provided by TSCBasic.
     public var sha256Checksum: String {
-        #if canImport(CryptoKit)
-        if #available(macOS 10.15, *) {
-            return CryptoKitSHA256().hash(self).hexadecimalRepresentation
-        }
-        #endif
-
         return SHA256().hash(self).hexadecimalRepresentation
     }
 }

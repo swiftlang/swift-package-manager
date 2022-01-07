@@ -1,6 +1,7 @@
 import XCTest
 @testable import Async
 
+@available(macOS 12.0, *)
 class AsyncTests: XCTestCase {
 
     func testAsync() async {

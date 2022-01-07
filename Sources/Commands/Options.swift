@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2017 Apple Inc. and the Swift project authors
+ Copyright (c) 2014 - 2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -11,6 +11,7 @@
 import ArgumentParser
 import TSCBasic
 import TSCUtility
+import PackageFingerprint
 import PackageModel
 import SPMBuildCore
 import Build
@@ -90,6 +91,12 @@ enum BuildSystemKind: String, ExpressibleByArgument, CaseIterable {
     case xcode
 }
 
+extension FingerprintCheckingMode: ExpressibleByArgument {
+    public init?(argument: String) {
+        self.init(rawValue: argument)
+    }
+}
+
 public extension Sanitizer {
     init(argument: String) throws {
         if let sanitizer = Sanitizer(rawValue: argument) {
@@ -141,6 +148,9 @@ public struct SwiftToolOptions: ParsableArguments {
 
     @Option(help: "Specify the shared configuration directory")
     var configPath: AbsolutePath?
+
+    @Option(help: "Specify the shared security directory")
+    var securityPath: AbsolutePath?
 
     /// Disables repository caching.
     @Flag(name: .customLong("repository-cache"), inversion: .prefixedEnableDisable, help: "Use a shared cache when fetching repositories")
@@ -348,6 +358,9 @@ public struct SwiftToolOptions: ParsableArguments {
           help: .hidden)
     var keychain: Bool = false
 #endif
+    
+    @Option(name: .customLong("resolver-fingerprint-checking"))
+    var resolverFingerprintCheckingMode: FingerprintCheckingMode = .warn
 
     @Flag(name: .customLong("netrc"), help: .hidden)
     var _deprecated_netrc: Bool = false

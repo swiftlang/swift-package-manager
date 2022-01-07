@@ -11,6 +11,8 @@
 import Basics
 import Dispatch
 import PackageModel
+import struct TSCBasic.AbsolutePath
+import protocol TSCBasic.FileSystem
 import struct TSCUtility.Version
 
 /// A container of packages.
@@ -100,6 +102,24 @@ extension PackageContainer {
 
     public func versionsDescending() throws -> [Version] {
         try self.versionsAscending().reversed()
+    }
+}
+
+public protocol CustomPackageContainer: PackageContainer {
+    /// Retrieve the package using this package container.
+    func retrieve(
+       at version: Version,
+       progressHandler: ((_ bytesReceived: Int64, _ totalBytes: Int64?) -> Void)?,
+       observabilityScope: ObservabilityScope
+    ) throws -> AbsolutePath
+
+    /// Get the custom file system for this package container.
+    func getFileSystem() throws -> FileSystem?
+}
+
+public extension CustomPackageContainer {
+    func retrieve(at version: Version, observabilityScope: ObservabilityScope) throws -> AbsolutePath {
+        return try self.retrieve(at: version, progressHandler: .none, observabilityScope: observabilityScope)
     }
 }
 

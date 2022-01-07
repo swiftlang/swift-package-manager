@@ -16,31 +16,31 @@ struct PluginInput {
     let package: Package
     let pluginWorkDirectory: Path
     let builtProductsDirectory: Path
+    let toolSearchDirectories: [Path]
     let toolNamesToPaths: [String: Path]
     let pluginAction: PluginAction
     enum PluginAction {
         case createBuildToolCommands(target: Target)
+        case performCommand(targets: [Target], arguments: [String])
     }
     
-    internal init(from data: Data) throws {
-        // Decode the input JSON, which is expected to be the serialized form
-        // of a `WireInput` structure.
-        let decoder = JSONDecoder()
-        let input = try decoder.decode(WireInput.self, from: data)
-        
-        // Create a deserializer to unpack the decoded input structures.
+    internal init(from input: WireInput) throws {
+        // Create a deserializer to unpack the input structures.
         var deserializer = PluginInputDeserializer(with: input)
         
         // Unpack the individual pieces from which we'll create the plugin context.
         self.package = try deserializer.package(for: input.rootPackageId)
         self.pluginWorkDirectory = try deserializer.path(for: input.pluginWorkDirId)
         self.builtProductsDirectory = try deserializer.path(for: input.builtProductsDirId)
+        self.toolSearchDirectories = try input.toolSearchDirIds.map { try deserializer.path(for: $0) }
         self.toolNamesToPaths = try input.toolNamesToPathIds.mapValues { try deserializer.path(for: $0) }
         
         // Unpack the plugin action, which will determine which plugin functionality to invoke.
         switch input.pluginAction {
         case .createBuildToolCommands(let targetId):
             self.pluginAction = .createBuildToolCommands(target: try deserializer.target(for: targetId))
+        case .performCommand(let targetIds, let arguments):
+            self.pluginAction = .performCommand(targets: try targetIds.map{ try deserializer.target(for: $0) }, arguments: arguments)
         }
     }
 }
@@ -282,7 +282,7 @@ fileprivate struct PluginInputDeserializer {
 /// of flat structures for each kind of entity. All references to entities use
 /// ID numbers that correspond to the indices into these arrays. The directed
 /// acyclic graph is then deserialized from this structure.
-fileprivate struct WireInput: Decodable {
+internal struct WireInput: Decodable {
     let paths: [Path]
     let targets: [Target]
     let products: [Product]
@@ -290,6 +290,7 @@ fileprivate struct WireInput: Decodable {
     let rootPackageId: Package.Id
     let pluginWorkDirId: Path.Id
     let builtProductsDirId: Path.Id
+    let toolSearchDirIds: [Path.Id]
     let toolNamesToPathIds: [String: Path.Id]
     let pluginAction: PluginAction
 
@@ -297,6 +298,7 @@ fileprivate struct WireInput: Decodable {
     /// the capabilities declared for the plugin.
     enum PluginAction: Decodable {
         case createBuildToolCommands(targetId: Target.Id)
+        case performCommand(targetIds: [Target.Id], arguments: [String])
     }
 
     /// A single absolute path in the wire structure, represented as a tuple

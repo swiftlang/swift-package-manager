@@ -852,7 +852,7 @@ final class PackageToolTests: CommandsTestCase {
                     try execute("resolve", "bar")
                     XCTFail("This should have been an error")
                 } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
-                    XCTAssertMatch(stderr, .prefix("error: edited dependency 'bar' can't be resolved"))
+                    XCTAssertMatch(stderr, .contains("error: edited dependency 'bar' can't be resolved"))
                 }
                 try execute("unedit", "bar")
             }
@@ -979,7 +979,7 @@ final class PackageToolTests: CommandsTestCase {
                     try block()
                     XCTFail()
                 } catch SwiftPMProductError.executionFailure(_, _, let stderrOutput) {
-                    XCTAssertEqual(stderrOutput, stderr)
+                    XCTAssertMatch(stderrOutput, .contains(stderr))
                 } catch {
                     XCTFail("unexpected error: \(error)")
                 }
@@ -1046,7 +1046,7 @@ final class PackageToolTests: CommandsTestCase {
             let packageDir = tmpPath.appending(components: "MyPackage")
             try localFileSystem.writeFileContents(packageDir.appending(component: "Package.swift")) {
                 $0 <<< """
-                // swift-tools-version: 999.0
+                // swift-tools-version: 5.5
                 import PackageDescription
                 let package = Package(
                     name: "MyPackage",
@@ -1070,6 +1070,16 @@ final class PackageToolTests: CommandsTestCase {
                     public func Foo() { }
                 """
             }
+            try localFileSystem.writeFileContents(packageDir.appending(components: "Sources", "MyLibrary", "library.foo")) {
+                $0 <<< """
+                    a file with a filename suffix handled by the plugin
+                """
+            }
+            try localFileSystem.writeFileContents(packageDir.appending(components: "Sources", "MyLibrary", "library.bar")) {
+                $0 <<< """
+                    a file with a filename suffix not handled by the plugin
+                """
+            }
             try localFileSystem.writeFileContents(packageDir.appending(components: "Plugins", "MyPlugin", "plugin.swift")) {
                 $0 <<< """
                     import PackagePlugin
@@ -1080,16 +1090,17 @@ final class PackageToolTests: CommandsTestCase {
                             context: PluginContext,
                             target: Target
                         ) throws -> [Command] {
+                            // Check that the package display name is what we expect.
                             guard context.package.displayName == "MyPackage" else {
-                                throw Error.inconsistentDisplayName(context.package.displayName)
+                                throw "expected display name to be ‘MyPackage’ but found ‘\\(context.package.displayName)’"
                             }
-                            return []
+                            // Create and return a build command that uses all the `.foo` files in the target as inputs, so they get counted as having been handled.
+                            let fooFiles = (target as? SourceModuleTarget)?.sourceFiles.compactMap{ $0.path.extension == "foo" ? $0.path : nil } ?? []
+                            return [ .buildCommand(displayName: "A command", executable: "/bin/echo", arguments: ["Hello"], inputFiles: fooFiles) ]
                         }
 
-                        enum Error : Swift.Error {
-                        case inconsistentDisplayName(String)
-                        }
                     }
+                    extension String : Error {}
                 """
             }
             
@@ -1097,6 +1108,12 @@ final class PackageToolTests: CommandsTestCase {
             let result = try SwiftPMProduct.SwiftBuild.executeProcess([], packagePath: packageDir)
             XCTAssertEqual(result.exitStatus, .terminated(code: 0))
             XCTAssert(try result.utf8Output().contains("Build complete!"))
+            
+            // We expect a warning about `library.bar` but not about `library.foo`.
+            let stderrOutput = try result.utf8stderrOutput()
+            XCTAssertMatch(stderrOutput, .contains("found 1 file(s) which are unhandled"))
+            XCTAssertNoMatch(stderrOutput, .contains("Sources/MyLibrary/library.foo"))
+            XCTAssertMatch(stderrOutput, .contains("Sources/MyLibrary/library.bar"))
         }
     }
 
@@ -1160,10 +1177,268 @@ final class PackageToolTests: CommandsTestCase {
 
                 let stderrOutput = try result.utf8stderrOutput()
                 XCTAssert(
-                    stderrOutput.contains("error: Couldn’t create an archive:") &&
-                        stderrOutput.contains("fatal: could not create archive file '/': Is a directory"),
+                    stderrOutput.contains("error: Couldn’t create an archive:"),
                     #"actual: "\#(stderrOutput)""#
                 )
+            }
+        }
+    }
+    
+    func testCommandPlugin() throws {
+        
+        try testWithTemporaryDirectory { tmpPath in
+            // Create a sample package with a library target, a plugin, and a local tool. It depends on a sample package which also has a tool.
+            let packageDir = tmpPath.appending(components: "MyPackage")
+            try localFileSystem.writeFileContents(packageDir.appending(components: "Package.swift")) {
+                $0 <<< """
+                // swift-tools-version: 5.6
+                import PackageDescription
+                let package = Package(
+                    name: "MyPackage",
+                    dependencies: [
+                        .package(name: "HelperPackage", path: "VendoredDependencies/HelperPackage")
+                    ],
+                    targets: [
+                        .target(
+                            name: "MyLibrary",
+                            dependencies: [
+                                .product(name: "HelperLibrary", package: "HelperPackage")
+                            ]
+                        ),
+                        .plugin(
+                            name: "MyPlugin",
+                            capability: .command(
+                                intent: .custom(verb: "mycmd", description: "What is mycmd anyway?")
+                            ),
+                            dependencies: [
+                                .target(name: "LocalBuiltTool"),
+                                .target(name: "LocalBinaryTool"),
+                                .product(name: "RemoteBuiltTool", package: "HelperPackage")
+                            ]
+                        ),
+                        .binaryTarget(
+                            name: "LocalBinaryTool",
+                            path: "Binaries/LocalBinaryTool.artifactbundle"
+                        ),
+                        .executableTarget(
+                            name: "LocalBuiltTool"
+                        )
+                    ]
+                )
+                """
+            }
+            try localFileSystem.writeFileContents(packageDir.appending(components: "Sources", "MyLibrary", "library.swift")) {
+                $0 <<< """
+                public func Foo() { }
+                """
+            }
+            let hostTriple = try UserToolchain(destination: .hostDestination()).triple
+            let hostTripleString = hostTriple.isDarwin() ? hostTriple.tripleString(forPlatformVersion: "") : hostTriple.tripleString
+            try localFileSystem.writeFileContents(packageDir.appending(components: "Binaries", "LocalBinaryTool.artifactbundle", "info.json")) {
+                $0 <<< """
+                {   "schemaVersion": "1.0",
+                    "artifacts": {
+                        "LocalBinaryTool": {
+                            "type": "executable",
+                            "version": "1.2.3",
+                            "variants": [
+                                {   "path": "LocalBinaryTool.sh",
+                                    "supportedTriples": ["\(hostTripleString)"]
+                                },
+                            ]
+                        }
+                    }
+                }
+                """
+            }
+            try localFileSystem.writeFileContents(packageDir.appending(components: "Sources", "LocalBuiltTool", "main.swift")) {
+                $0 <<< """
+                print("Hello")
+                """
+            }
+            try localFileSystem.writeFileContents(packageDir.appending(components: "Plugins", "MyPlugin", "plugin.swift")) {
+                $0 <<< """
+                import PackagePlugin
+
+                @main
+                struct MyCommandPlugin: CommandPlugin {
+                    func performCommand(
+                        context: PluginContext,
+                        targets: [Target],
+                        arguments: [String]
+                    ) throws {
+                        print("This is MyCommandPlugin.")
+
+                        // Check that we can find a binary-provided tool in the same package.
+                        print("Looking for LocalBinaryTool...")
+                        let localBinaryTool = try context.tool(named: "LocalBinaryTool")
+                        print("... found it at \\(localBinaryTool.path)")
+
+                        // Check that we can find a source-built tool in the same package.
+                        print("Looking for LocalBuiltTool...")
+                        let localBuiltTool = try context.tool(named: "LocalBuiltTool")
+                        print("... found it at \\(localBuiltTool.path)")
+
+                        // Check that we can find a source-built tool in another package.
+                        print("Looking for RemoteBuiltTool...")
+                        let remoteBuiltTool = try context.tool(named: "RemoteBuiltTool")
+                        print("... found it at \\(remoteBuiltTool.path)")
+
+                        // Check that we can find a tool in the toolchain.
+                        print("Looking for swiftc...")
+                        let swiftc = try context.tool(named: "swiftc")
+                        print("... found it at \\(swiftc.path)")
+
+                        // Check that we can find a standard tool.
+                        print("Looking for sed...")
+                        let sed = try context.tool(named: "sed")
+                        print("... found it at \\(sed.path)")
+                    }
+                }
+                """
+            }
+
+            // Create the sample vendored dependency package.
+            try localFileSystem.writeFileContents(packageDir.appending(components: "VendoredDependencies", "HelperPackage", "Package.swift")) {
+                $0 <<< """
+                // swift-tools-version: 5.5
+                import PackageDescription
+                let package = Package(
+                    name: "HelperPackage",
+                    products: [
+                        .library(
+                            name: "HelperLibrary",
+                            targets: ["HelperLibrary"]
+                        ),
+                        .executable(
+                            name: "RemoteBuiltTool",
+                            targets: ["RemoteBuiltTool"]
+                        ),
+                    ],
+                    targets: [
+                        .target(
+                            name: "HelperLibrary"
+                        ),
+                        .executableTarget(
+                            name: "RemoteBuiltTool"
+                        ),
+                    ]
+                )
+                """
+            }
+            try localFileSystem.writeFileContents(packageDir.appending(components: "VendoredDependencies", "HelperPackage", "Sources", "HelperLibrary", "library.swift")) {
+                $0 <<< """
+                public func Bar() { }
+                """
+            }
+            try localFileSystem.writeFileContents(packageDir.appending(components: "VendoredDependencies", "HelperPackage", "Sources", "RemoteBuiltTool", "main.swift")) {
+                $0 <<< """
+                print("Hello")
+                """
+            }
+
+            // Invoke it, and check the results.
+            do {
+                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["plugin", "mycmd"], packagePath: packageDir)
+                XCTAssertEqual(result.exitStatus, .terminated(code: 0))
+                XCTAssertMatch(try result.utf8Output(), .contains("This is MyCommandPlugin."))
+            }
+
+            // Check that we can also invoke it without the "plugin" subcommand.
+            do {
+                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["mycmd"], packagePath: packageDir)
+                XCTAssertEqual(result.exitStatus, .terminated(code: 0))
+                XCTAssertMatch(try result.utf8Output(), .contains("This is MyCommandPlugin."))
+            }
+
+            // Testing listing the available command plugins.
+            do {
+                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["plugin", "--list"], packagePath: packageDir)
+                XCTAssertEqual(result.exitStatus, .terminated(code: 0))
+                XCTAssertMatch(try result.utf8Output(), .contains("‘mycmd’ (plugin ‘MyPlugin’ in package ‘MyPackage’)"))
+            }
+
+            // Check that we get the expected error if trying to invoke a plugin with the wrong name.
+            do {
+                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["my-nonexistent-cmd"], packagePath: packageDir)
+                XCTAssertNotEqual(result.exitStatus, .terminated(code: 0))
+                XCTAssertMatch(try result.utf8stderrOutput(), .contains("No command plugins found for ‘my-nonexistent-cmd’"))
+            }
+        }
+    }
+
+    func testCommandPluginPermissions() throws {
+
+        try testWithTemporaryDirectory { tmpPath in
+            // Create a sample package with a library target and a plugin.
+            let packageDir = tmpPath.appending(components: "MyPackage")
+            try localFileSystem.writeFileContents(packageDir.appending(components: "Package.swift")) {
+                $0 <<< """
+                // swift-tools-version: 999.0
+                import PackageDescription
+                let package = Package(
+                    name: "MyPackage",
+                    targets: [
+                        .target(
+                            name: "MyLibrary"
+                        ),
+                        .plugin(
+                            name: "MyPlugin",
+                            capability: .command(
+                                intent: .custom(verb: "PackageScribbler", description: "Help description"),
+                                permissions: [.writeToPackageDirectory(reason: "For testing purposes")]
+                            )
+                        ),
+                    ]
+                )
+                """
+            }
+            try localFileSystem.writeFileContents(packageDir.appending(components: "Sources", "MyLibrary", "library.swift")) {
+                $0 <<< """
+                public func Foo() { }
+                """
+            }
+            try localFileSystem.writeFileContents(packageDir.appending(components: "Plugins", "MyPlugin", "plugin.swift")) {
+                $0 <<< """
+                import PackagePlugin
+                import Foundation
+
+                @main
+                struct MyCommandPlugin: CommandPlugin {
+                    func performCommand(
+                        context: PluginContext,
+                        targets: [Target],
+                        arguments: [String]
+                    ) throws {
+                        // Check that we can write to the package directory.
+                        print("Trying to write to the package directory...")
+                        guard FileManager.default.createFile(atPath: context.package.directory.appending("Foo").string, contents: Data("Hello".utf8)) else {
+                            throw "Couldn’t create file at path \\(context.package.directory.appending("Foo"))"
+                        }
+                        print("... successfully created it")
+                    }
+                }
+
+                extension String: Error {}
+                """
+            }
+
+            // Invoke the plugin, and check that we can't write to the package directory by default.  Note that need to pass `--block-writing-to-temporary-directory` here since the test artifact is itself under the temporary directory.  Note that sandboxing is only currently supported on macOS.
+          #if os(macOS)
+            do {
+                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["plugin", "--block-writing-to-temporary-directory", "PackageScribbler"], packagePath: packageDir, env: ["SWIFTPM_ENABLE_COMMAND_PLUGINS": "1"])
+                XCTAssertNotEqual(result.exitStatus, .terminated(code: 0))
+                XCTAssertNoMatch(try result.utf8Output(), .contains("successfully created it"))
+                XCTAssertMatch(try result.utf8stderrOutput(), .contains("error: Plugin ‘MyPlugin’ needs permission to write to the package directory (stated reason: “For testing purposes”)"))
+            }
+          #endif
+
+            // Invoke the plugin, and check that we can write to the package directory if we pass `--allow-writing-to-package-directory`.  Note that need to pass `--block-writing-to-temporary-directory` here since the test artifact is itself under the temporary directory.
+            do {
+                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["plugin", "--allow-writing-to-package-directory", "PackageScribbler"], packagePath: packageDir, env: ["SWIFTPM_ENABLE_COMMAND_PLUGINS": "1"])
+                XCTAssertEqual(result.exitStatus, .terminated(code: 0))
+                XCTAssertMatch(try result.utf8Output(), .contains("successfully created it"))
+                XCTAssertNoMatch(try result.utf8stderrOutput(), .contains("error: Couldn’t create file at path"))
             }
         }
     }

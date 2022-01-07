@@ -178,7 +178,7 @@ class PackageDescription5_6LoadingTests: PackageDescriptionLoadingTests {
         let observability = ObservabilitySystem.makeForTesting()
         let manifest = try loadManifest(content, observabilityScope: observability.topScope)
 
-        let name = parsedManifest?.parentDirectory.pathString ?? ""
+        let name = parsedManifest.parentDirectory?.pathString ?? ""
         XCTAssertEqual(manifest.displayName, name)
     }
 
@@ -198,7 +198,7 @@ class PackageDescription5_6LoadingTests: PackageDescriptionLoadingTests {
         let observability = ObservabilitySystem.makeForTesting()
         let manifest = try loadManifest(content, observabilityScope: observability.topScope)
 
-        let name = parsedManifest?.components.last ?? ""
+        let name = parsedManifest.components?.last ?? ""
         let swiftFiles = manifest.displayName.split(separator: ",").map(String.init)
         XCTAssertNotNil(swiftFiles.firstIndex(of: name))
     }

@@ -11,11 +11,11 @@ add_library(PackagePlugin
   Context.swift
   Diagnostics.swift
   Errors.swift
+  PackageManagerProxy.swift
   PackageModel.swift
   Path.swift
   Plugin.swift
   PluginInput.swift
-  PluginOutput.swift
   Protocols.swift)
 
 target_compile_options(PackagePlugin PUBLIC

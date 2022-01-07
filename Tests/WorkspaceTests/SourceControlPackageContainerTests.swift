@@ -132,6 +132,14 @@ private class MockRepositories: RepositoryProvider {
     func openWorkingCopy(at path: AbsolutePath) throws -> WorkingCheckout {
         fatalError("unexpected API call")
     }
+
+    func isValidDirectory(_ directory: AbsolutePath) -> Bool {
+        return true
+    }
+
+    func isValidRefFormat(_ ref: String) -> Bool {
+        return true
+    }
 }
 
 private class MockResolverDelegate: RepositoryManagerDelegate {
@@ -161,7 +169,7 @@ private let v1: Version = "1.0.0"
 private let v2: Version = "2.0.0"
 private let v1Range: VersionSetSpecifier = .range("1.0.0" ..< "2.0.0")
 
-class PackageContainerProviderTests: XCTestCase {
+class SourceControlPackageContainerTests: XCTestCase {
     func testVprefixVersions() throws {
         let fs = InMemoryFileSystem()
 

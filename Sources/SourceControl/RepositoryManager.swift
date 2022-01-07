@@ -60,10 +60,14 @@ public class RepositoryManager {
     /// The filesystem to operate on.
     private let fileSystem: FileSystem
 
-    /// storage
+    // storage and cache
     private let storage: RepositoryManagerStorage
+
     private var repositories = [String: RepositoryManager.RepositoryHandle]()
     private var repositoriesLock = Lock()
+
+    private var pendingLookups = [RepositorySpecifier: DispatchGroup]()
+    private var pendingLookupsLock = NSLock()
 
     /// Create a new empty manager.
     ///
@@ -126,83 +130,100 @@ public class RepositoryManager {
         on queue: DispatchQueue,
         completion: @escaping LookupCompletion
     ) {
-        // Dispatch the action we want to take on the serial queue of the handle.
         self.lookupQueue.addOperation {
-            // First look for the handle.
-            let handle = self.getHandle(for: repository)
-            let repositoryPath = self.path.appending(handle.subpath)
+            // First look for a cached version of the handle.
+            // Also check state file / storage for resiliency.
+            let cachedHandle = self.storage.fileExists() ? self.repositoriesLock.withLock {
+                return self.repositories[repository.location.description]
+            } : nil
 
-            handle.withStatusLock {
-                // state file / storage resiliency
-                if handle.status == .available && !self.storage.fileExists() {
-                    handle.status = .error
+            if let handle = cachedHandle {
+                let result = LookupResult(catching: {
+                    let start = DispatchTime.now()
+                    // Update the repository when it is being looked up.
+                    let repo = try handle.open()
+
+                    // Skip update if asked to.
+                    if skipUpdate {
+                        return handle
+                    }
+
+                    queue.async {
+                        self.delegate?.handleWillUpdate(handle: handle)
+                    }
+
+                    try repo.fetch()
+
+                    let duration = start.distance(to: .now())
+                    queue.async {
+                        self.delegate?.handleDidUpdate(handle: handle, duration: duration)
+                    }
+
+                    return handle
+                })
+
+                return queue.async {
+                    completion(result)
+                }
+            }
+
+            // next we check if there is a pending lookup
+            self.pendingLookupsLock.lock()
+            if let pendingLookup = self.pendingLookups[repository] {
+                self.pendingLookupsLock.unlock()
+                // chain onto the pending lookup
+                pendingLookup.notify(queue: queue) {
+                    // at this point the previous lookup should be complete and we can re-lookup
+                    self.lookup(repository: repository, on: queue, completion: completion)
+                }
+            } else {
+                // record the pending lookup
+                assert(self.pendingLookups[repository] == nil)
+                let group = DispatchGroup()
+                group.enter()
+                self.pendingLookups[repository] = group
+                self.pendingLookupsLock.unlock()
+
+                let subpath = RelativePath(repository.fileSystemIdentifier)
+                let handle = RepositoryHandle(manager: self, repository: repository, subpath: subpath)
+                let repositoryPath = self.path.appending(handle.subpath)
+
+                // Change the state to pending.
+                // Make sure destination is free.
+                try? self.fileSystem.removeFileTree(repositoryPath)
+                let isCached = self.cachePath.map{ self.fileSystem.exists($0.appending(handle.subpath)) } ?? false
+
+                // Inform delegate.
+                queue.async {
+                    let details = FetchDetails(fromCache: isCached, updatedCache: false)
+                    self.delegate?.fetchingWillBegin(handle: handle, fetchDetails: details)
                 }
 
                 let result: LookupResult
+                let start = DispatchTime.now()
 
-                switch handle.status {
-                case .available:
-                    result = LookupResult(catching: {
-                        let start = DispatchTime.now()
-                        // Update the repository when it is being looked up.
-                        let repo = try handle.open()
+                // Fetch the repo.
+                var fetchError: Swift.Error? = nil
+                var fetchDetails: FetchDetails? = nil
+                do {
+                    // Start fetching.
+                    fetchDetails = try self.fetchAndPopulateCache(handle: handle, repositoryPath: repositoryPath, delegateQueue: queue)
 
-                        // Skip update if asked to.
-                        if skipUpdate {
-                            return handle
-                        }
+                    // Update status to available.
+                    result = .success(handle)
+                } catch {
+                    fetchError = error
+                    result = .failure(error)
+                }
 
-                        queue.async {
-                            self.delegate?.handleWillUpdate(handle: handle)
-                        }
+                // Inform delegate.
+                let duration = start.distance(to: .now())
+                queue.async {
+                    self.delegate?.fetchingDidFinish(handle: handle, fetchDetails: fetchDetails, error: fetchError, duration: duration)
+                }
 
-                        try repo.fetch()
-
-                        let duration = start.distance(to: .now())
-                        queue.async {
-                            self.delegate?.handleDidUpdate(handle: handle, duration: duration)
-                        }
-
-                        return handle
-                    })
-                case .pending, .uninitialized, .error:
-                    let start = DispatchTime.now()
-
-                    // Change the state to pending.
-                    handle.status = .pending
-                    // Make sure destination is free.
-                    try? self.fileSystem.removeFileTree(repositoryPath)
-                    let isCached = self.cachePath.map{ self.fileSystem.exists($0.appending(handle.subpath)) } ?? false
-
-                    // Inform delegate.
-                    queue.async {
-                        let details = FetchDetails(fromCache: isCached, updatedCache: false)
-                        self.delegate?.fetchingWillBegin(handle: handle, fetchDetails: details)
-                    }
-
-                    // Fetch the repo.
-                    var fetchError: Swift.Error? = nil
-                    var fetchDetails: FetchDetails? = nil
-                    do {
-                        // Start fetching.
-                        fetchDetails = try self.fetchAndPopulateCache(handle: handle, repositoryPath: repositoryPath, delegateQueue: queue)
-
-                        // Update status to available.
-                        handle.status = .available
-                        result = .success(handle)
-                    } catch {
-                        handle.status = .error
-                        fetchError = error
-                        result = .failure(error)
-                    }
-
-                    // Inform delegate.
-                    let duration = start.distance(to: .now())
-                    queue.async {
-                        self.delegate?.fetchingDidFinish(handle: handle, fetchDetails: fetchDetails, error: fetchError, duration: duration)
-                    }
-
-                    // Save the manager state.
+                // if successful, save and cache state
+                if case .success = result {
                     do {
                         // Update the serialized repositories map.
                         //
@@ -217,7 +238,13 @@ public class RepositoryManager {
                         fatalError("unable to save manager state \(error)")
                     }
                 }
-                // Call the completion handler.
+
+                // remove the pending lookup
+                self.pendingLookupsLock.lock()
+                self.pendingLookups[repository]?.leave()
+                self.pendingLookups[repository] = nil
+                self.pendingLookupsLock.unlock()
+
                 queue.async {
                     completion(result)
                 }
@@ -289,19 +316,6 @@ public class RepositoryManager {
         try self.provider.openWorkingCopy(at: path)
     }
 
-    /// Returns the handle for repository if available, otherwise creates a new one.
-    ///
-    /// Note: This method is thread safe.
-    private func getHandle(for repository: RepositorySpecifier) -> RepositoryHandle {
-        self.repositoriesLock.withLock {
-            return self.repositories.memoize(key: repository.location.description) {
-                let subpath = RelativePath(repository.fileSystemIdentifier)
-                let handle = RepositoryHandle(manager: self, repository: repository, subpath: subpath)
-                return handle
-            }
-        }
-    }
-
     /// Open a repository from a handle.
     private func open(_ handle: RepositoryHandle) throws -> Repository {
         try self.provider.open(
@@ -337,6 +351,16 @@ public class RepositoryManager {
         }
     }
 
+    /// Returns true if the directory is valid git location.
+    public func isValidDirectory(_ directory: AbsolutePath) -> Bool {
+        self.provider.isValidDirectory(directory)
+    }
+
+    /// Returns true if the git reference name is well formed.
+    public func isValidRefFormat(_ ref: String) -> Bool {
+        self.provider.isValidRefFormat(ref)
+    }
+
     /// Reset the repository manager.
     ///
     /// Note: This also removes the cloned repositories from the disk.
@@ -370,24 +394,7 @@ public class RepositoryManager {
 
 extension RepositoryManager {
     /// Handle to a managed repository.
-    public class RepositoryHandle {
-        enum Status: String {
-            /// The repository has not been requested.
-            case uninitialized
-
-            /// The repository is being fetched.
-            case pending
-
-            /// The repository is available.
-            case available
-
-            /// The repository is available in the cache
-            //case cached
-
-            /// The repository was unable to be fetched.
-            case error
-        }
-
+    public struct RepositoryHandle {
         /// The manager this repository is owned by.
         private unowned let manager: RepositoryManager
 
@@ -400,26 +407,15 @@ extension RepositoryManager {
         /// allowed to move repositories transparently.
         fileprivate let subpath: RelativePath
 
-        /// The status of the repository.
-        fileprivate var status: Status
-
-        /// Lock to protect  the operations like updating the state
-        /// of the handle and fetching the repositories from its remote.
-        private let statusLock = Lock()
-
         /// Create a handle.
-        fileprivate init(manager: RepositoryManager, repository: RepositorySpecifier, subpath: RelativePath, status: Status = .uninitialized) {
+        fileprivate init(manager: RepositoryManager, repository: RepositorySpecifier, subpath: RelativePath) {
             self.manager = manager
             self.repository = repository
             self.subpath = subpath
-            self.status = status
         }
 
         /// Open the given repository.
         public func open() throws -> Repository {
-            guard status == .available else {
-                throw InternalError("open() called in invalid state \(status)")
-            }
             return try self.manager.open(self)
         }
 
@@ -431,14 +427,7 @@ extension RepositoryManager {
         ///
         ///   - editable: The clone is expected to be edited by user.
         public func createWorkingCopy(at path: AbsolutePath, editable: Bool) throws -> WorkingCheckout {
-            guard status == .available else {
-                throw InternalError("createWorkingCopy() called in invalid state \(status)")
-            }
             return try self.manager.createWorkingCopy(self, at: path, editable: editable)
-        }
-
-        func withStatusLock(_ body: () throws -> Void) rethrows {
-            try self.statusLock.withLock(body)
         }
     }
 }
@@ -536,12 +525,10 @@ fileprivate struct RepositoryManagerStorage {
 
         struct Repository: Codable {
             let repositoryURL: String
-            let status: String
             let subpath: String
 
             init(_ repository: RepositoryManager.RepositoryHandle) {
                 self.repositoryURL = repository.repository.location.description
-                self.status = repository.status.rawValue
                 self.subpath = repository.subpath.pathString
             }
         }
@@ -549,10 +536,7 @@ fileprivate struct RepositoryManagerStorage {
 }
 
 extension RepositoryManager.RepositoryHandle {
-    fileprivate convenience init(_ repository: RepositoryManagerStorage.V1.Repository, manager: RepositoryManager) throws {
-        guard let status = Status(rawValue: repository.status) else {
-            throw StringError("unknown status :\(repository.status)")
-        }
+    fileprivate init(_ repository: RepositoryManagerStorage.V1.Repository, manager: RepositoryManager) throws {
         // FIXME: encode the type
         let repositorySpecifier: RepositorySpecifier
         if let path = try? AbsolutePath(validating: repository.repositoryURL) {
@@ -566,8 +550,7 @@ extension RepositoryManager.RepositoryHandle {
         self.init(
             manager: manager,
             repository: repositorySpecifier,
-            subpath: RelativePath(repository.subpath),
-            status: status
+            subpath: RelativePath(repository.subpath)
         )
     }
 }

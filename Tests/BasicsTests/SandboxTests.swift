@@ -113,4 +113,22 @@ final class SandboxTest: XCTestCase {
             XCTAssertNoThrow(try Process.checkNonZeroExit(arguments: command))
         }
     }
+
+    func testWritingToTemporaryDirectoryAllowed() throws {
+        #if !os(macOS)
+        try XCTSkipIf(true, "test is only supported on macOS")
+        #endif
+
+        // Try writing to the per-user temporary directory, which is under /var/folders/.../TemporaryItems.
+        let tmpFile1 = NSTemporaryDirectory() + "/" + UUID().uuidString
+        let command1 = Sandbox.apply(command: ["touch", tmpFile1], strictness: .writableTemporaryDirectory)
+        XCTAssertNoThrow(try Process.checkNonZeroExit(arguments: command1))
+        try? FileManager.default.removeItem(atPath: tmpFile1)
+
+        let tmpFile2 = "/tmp" + "/" + UUID().uuidString
+        let command2 = Sandbox.apply(command: ["touch", tmpFile2], strictness: .writableTemporaryDirectory)
+        XCTAssertNoThrow(try Process.checkNonZeroExit(arguments: command2))
+        try? FileManager.default.removeItem(atPath: tmpFile2)
+    }
+
 }

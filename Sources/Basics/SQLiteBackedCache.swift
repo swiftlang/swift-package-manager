@@ -148,7 +148,7 @@ public final class SQLiteBackedCache<Value: Codable>: Closable {
             return db
         }
 
-        let db = try self.withStateLock { () -> SQLite in
+        return try self.withStateLock { () -> T in
             let db: SQLite
             switch (self.location, self.state) {
             case (.path(let path), .connected(let database)):
@@ -170,17 +170,8 @@ public final class SQLiteBackedCache<Value: Codable>: Closable {
                 db = try createDB()
             }
             self.state = .connected(db)
-            return db
-        }
-
-        // FIXME: workaround linux sqlite concurrency issues causing CI failures
-        #if os(Linux)
-        return try self.withStateLock {
             return try body(db)
         }
-        #else
-        return try body(db)
-        #endif
     }
 
     private func createSchemaIfNecessary(db: SQLite) throws {

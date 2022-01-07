@@ -41,7 +41,7 @@ final class TestToolTests: CommandsTestCase {
             do {
                 _ = try execute(["--num-workers", "1"])
             } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
-                XCTAssertEqual(stderr, "error: --num-workers must be used with --parallel\n")
+                XCTAssertMatch(stderr, .contains("error: --num-workers must be used with --parallel"))
             }
         }
         #endif
@@ -53,7 +53,7 @@ final class TestToolTests: CommandsTestCase {
             do {
                 _ = try execute(["--parallel", "--num-workers", "0"])
             } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
-                XCTAssertEqual(stderr, "error: '--num-workers' must be greater than zero\n")
+                XCTAssertMatch(stderr, .contains("error: '--num-workers' must be greater than zero"))
             }
         }
         #endif

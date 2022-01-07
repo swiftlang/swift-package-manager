@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2020 Apple Inc. and the Swift project authors
+ Copyright (c) 2014 - 2021 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -9,9 +9,11 @@
  */
 
 import Basics
+import PackageFingerprint
 import PackageGraph
 import PackageLoading
 import PackageModel
+import PackageRegistry
 import SourceControl
 import SPMBuildCore
 import SPMTestSupport
@@ -1235,7 +1237,10 @@ final class WorkspaceTests: XCTestCase {
 
         try workspace.checkPrecomputeResolution { result in
             XCTAssertEqual(result.diagnostics.hasErrors, false)
-            XCTAssertEqual(result.result, .required(reason: .other))
+            XCTAssertEqual(
+                result.result,
+                .required(reason: .other("Dependencies could not be resolved because no versions of \'c\' match the requirement 2.0.0..<3.0.0 and root depends on \'c\' 2.0.0..<3.0.0."))
+            )
         }
     }
 
@@ -1827,7 +1832,7 @@ final class WorkspaceTests: XCTestCase {
 
         try workspace.loadDependencyManifests(roots: ["Root1"]) { manifests, diagnostics in
             // Ensure that the order of the manifests is stable.
-            XCTAssertEqual(manifests.allDependencyManifests().map { $0.value.displayName }, ["Foo", "Baz", "Bam", "Bar"])
+            XCTAssertEqual(manifests.allDependencyManifests().map { $0.value.manifest.displayName }, ["Foo", "Baz", "Bam", "Bar"])
             XCTAssertNoDiagnostics(diagnostics)
         }
     }
@@ -3288,10 +3293,7 @@ final class WorkspaceTests: XCTestCase {
         }
         workspace.checkManagedDependencies { result in
             result.check(dependency: "foo", at: .local)
-        }
-        do {
-            let ws = try workspace.getOrCreateWorkspace()
-            XCTAssertEqual(ws.state.dependencies[.plain("foo")]?.packageRef.locationString, "/tmp/ws/pkgs/Foo")
+            XCTAssertEqual(result.managedDependencies[.plain("foo")]?.packageRef.locationString, "/tmp/ws/pkgs/Foo")
         }
 
         deps = [
@@ -3302,10 +3304,7 @@ final class WorkspaceTests: XCTestCase {
         }
         workspace.checkManagedDependencies { result in
             result.check(dependency: "foo", at: .local)
-        }
-        do {
-            let ws = try workspace.getOrCreateWorkspace()
-            XCTAssertEqual(ws.state.dependencies[.plain("foo")]?.packageRef.locationString, "/tmp/ws/pkgs/Nested/Foo")
+            XCTAssertEqual(result.managedDependencies[.plain("foo")]?.packageRef.locationString, "/tmp/ws/pkgs/Nested/Foo")
         }
     }
 
@@ -3502,6 +3501,201 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
+    func testResolvedFileStableCanonicalLocation() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    targets: [
+                        MockTarget(name: "Root", dependencies: []),
+                    ],
+                    products: [],
+                    dependencies: []
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "Foo",
+                    url: "https://localhost/org/foo",
+                    targets: [
+                        MockTarget(name: "Foo"),
+                    ],
+                    products: [
+                        MockProduct(name: "Foo", targets: ["Foo"]),
+                    ],
+                    versions: ["1.0.0"],
+                    revisionProvider: { version in version } // stable revisions
+                ),
+                MockPackage(
+                    name: "Bar",
+                    url: "https://localhost/org/bar",
+                    targets: [
+                        MockTarget(name: "Bar"),
+                    ],
+                    products: [
+                        MockProduct(name: "Bar", targets: ["Bar"]),
+                    ],
+                    versions: ["1.0.0"],
+                    revisionProvider: { version in version } // stable revisions
+                ),
+                MockPackage(
+                    name: "Foo",
+                    url: "https://localhost/ORG/FOO", // diff: case
+                    targets: [
+                        MockTarget(name: "Foo"),
+                    ],
+                    products: [
+                        MockProduct(name: "Foo", targets: ["Foo"]),
+                    ],
+                    versions: ["1.0.0", "1.1.0"],
+                    revisionProvider: { version in version } // stable revisions
+                ),
+                MockPackage(
+                    name: "Foo",
+                    url: "https://localhost/org/foo.git", // diff: .git extension
+                    targets: [
+                        MockTarget(name: "Foo"),
+                    ],
+                    products: [
+                        MockProduct(name: "Foo", targets: ["Foo"]),
+                    ],
+                    versions: ["1.0.0", "1.1.0"],
+                    revisionProvider: { version in version } // stable revisions
+                ),
+                MockPackage(
+                    name: "Bar",
+                    url: "https://localhost/org/bar.git", // diff: .git extension
+                    targets: [
+                        MockTarget(name: "Bar"),
+                    ],
+                    products: [
+                        MockProduct(name: "Bar", targets: ["Bar"]),
+                    ],
+                    versions: ["1.0.0", "1.1.0"],
+                    revisionProvider: { version in version } // stable revisions
+                ),
+            ]
+        )
+
+        // case 1: initial loading
+
+        var deps: [MockDependency] = [
+            .sourceControl(url: "https://localhost/org/foo", requirement: .exact("1.0.0")),
+            .sourceControl(url: "https://localhost/org/bar", requirement: .exact("1.0.0")),
+        ]
+        try workspace.checkPackageGraph(roots: ["Root"], deps: deps) { graph, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkManagedDependencies { result in
+            result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
+            result.check(dependency: "bar", at: .checkout(.version("1.0.0")))
+            XCTAssertEqual(result.managedDependencies[.plain("foo")]?.packageRef.locationString, "https://localhost/org/foo")
+            XCTAssertEqual(result.managedDependencies[.plain("bar")]?.packageRef.locationString, "https://localhost/org/bar")
+        }
+        workspace.checkResolved { result in
+            result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
+            result.check(dependency: "bar", at: .checkout(.version("1.0.0")))
+            XCTAssertEqual(result.store.pinsMap[.plain("foo")]?.packageRef.locationString, "https://localhost/org/foo")
+            XCTAssertEqual(result.store.pinsMap[.plain("bar")]?.packageRef.locationString, "https://localhost/org/bar")
+        }
+
+        // case 2: set state with slightly different URLs that are canonically the same
+
+        deps = [
+            .sourceControl(url: "https://localhost/ORG/FOO", requirement: .exact("1.0.0")),
+            .sourceControl(url: "https://localhost/org/bar.git", requirement: .exact("1.0.0")),
+        ]
+
+        // reset state, excluding the resolved file
+        workspace.checkReset { XCTAssertNoDiagnostics($0) }
+        workspace.closeWorkspace()
+        XCTAssertTrue(fs.exists(sandbox.appending(component: "Package.resolved")))
+        // run update
+        try workspace.checkUpdate(roots: ["Root"], deps: deps) { diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+
+        workspace.checkManagedDependencies { result in
+            result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
+            result.check(dependency: "bar", at: .checkout(.version("1.0.0")))
+            // URLs should reflect the actual dependencies
+            XCTAssertEqual(result.managedDependencies[.plain("foo")]?.packageRef.locationString, "https://localhost/ORG/FOO")
+            XCTAssertEqual(result.managedDependencies[.plain("bar")]?.packageRef.locationString, "https://localhost/org/bar.git")
+        }
+        workspace.checkResolved { result in
+            result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
+            result.check(dependency: "bar", at: .checkout(.version("1.0.0")))
+            // URLs should be stable since URLs are canonically the same and we kept the resolved file between the two iterations
+            XCTAssertEqual(result.store.pinsMap[.plain("foo")]?.packageRef.locationString, "https://localhost/org/foo")
+            XCTAssertEqual(result.store.pinsMap[.plain("bar")]?.packageRef.locationString, "https://localhost/org/bar")
+        }
+
+        // case 2: set state with slightly different URLs that are canonically the same but request different versions
+
+        deps = [
+            .sourceControl(url: "https://localhost/ORG/FOO", requirement: .exact("1.1.0")),
+            .sourceControl(url: "https://localhost/org/bar.git", requirement: .exact("1.1.0")),
+        ]
+        // reset state, excluding the resolved file
+        workspace.checkReset { XCTAssertNoDiagnostics($0) }
+        workspace.closeWorkspace()
+        XCTAssertTrue(fs.exists(sandbox.appending(component: "Package.resolved")))
+        // run update
+        try workspace.checkUpdate(roots: ["Root"], deps: deps) { diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+
+        workspace.checkManagedDependencies { result in
+            result.check(dependency: "foo", at: .checkout(.version("1.1.0")))
+            result.check(dependency: "bar", at: .checkout(.version("1.1.0")))
+            // URLs should reflect the actual dependencies
+            XCTAssertEqual(result.managedDependencies[.plain("foo")]?.packageRef.locationString, "https://localhost/ORG/FOO")
+            XCTAssertEqual(result.managedDependencies[.plain("bar")]?.packageRef.locationString, "https://localhost/org/bar.git")
+        }
+        workspace.checkResolved { result in
+            result.check(dependency: "foo", at: .checkout(.version("1.1.0")))
+            result.check(dependency: "bar", at: .checkout(.version("1.1.0")))
+            // URLs should reflect the actual dependencies since the new version forces rewrite of the resolved file
+            XCTAssertEqual(result.store.pinsMap[.plain("foo")]?.packageRef.locationString, "https://localhost/ORG/FOO")
+            XCTAssertEqual(result.store.pinsMap[.plain("bar")]?.packageRef.locationString, "https://localhost/org/bar.git")
+        }
+
+        // case 3: set state with slightly different URLs that are canonically the same but remove resolved file
+
+        deps = [
+            .sourceControl(url: "https://localhost/org/foo.git", requirement: .exact("1.0.0")),
+            .sourceControl(url: "https://localhost/org/bar.git", requirement: .exact("1.0.0")),
+        ]
+        // reset state, including the resolved file
+        workspace.checkReset { XCTAssertNoDiagnostics($0) }
+        try fs.removeFileTree(sandbox.appending(component: "Package.resolved"))
+        XCTAssertFalse(fs.exists(sandbox.appending(component: "Package.resolved")))
+        // run update
+        try workspace.checkUpdate(roots: ["Root"], deps: deps) { diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+
+        workspace.checkManagedDependencies { result in
+            result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
+            result.check(dependency: "bar", at: .checkout(.version("1.0.0")))
+            // URLs should reflect the actual dependencies
+            XCTAssertEqual(result.managedDependencies[.plain("foo")]?.packageRef.locationString, "https://localhost/org/foo.git")
+            XCTAssertEqual(result.managedDependencies[.plain("bar")]?.packageRef.locationString, "https://localhost/org/bar.git")
+        }
+        workspace.checkResolved { result in
+            result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
+            result.check(dependency: "bar", at: .checkout(.version("1.0.0")))
+            // URLs should reflect the actual dependencies since we deleted the resolved file
+            XCTAssertEqual(result.store.pinsMap[.plain("foo")]?.packageRef.locationString, "https://localhost/org/foo.git")
+            XCTAssertEqual(result.store.pinsMap[.plain("bar")]?.packageRef.locationString, "https://localhost/org/bar.git")
+        }
+    }
+
     func testPackageMirror() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
@@ -3604,6 +3798,10 @@ final class WorkspaceTests: XCTestCase {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
+        // Use the same revision (hash) for "foo" to indicate they are the same
+        // package despite having different URLs.
+        let fooRevision = String((UUID().uuidString + UUID().uuidString).prefix(40))
+        
         let workspace = try MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
@@ -3670,7 +3868,8 @@ final class WorkspaceTests: XCTestCase {
                     products: [
                         MockProduct(name: "Foo", targets: ["Foo"]),
                     ],
-                    versions: ["1.0.0"]
+                    versions: ["1.0.0"],
+                    revisionProvider: { _ in fooRevision }
                 ),
                 MockPackage(
                     name: "Foo",
@@ -3681,7 +3880,8 @@ final class WorkspaceTests: XCTestCase {
                     products: [
                         MockProduct(name: "OtherFoo", targets: ["OtherFoo"]),
                     ],
-                    versions: ["1.0.0"]
+                    versions: ["1.0.0"],
+                    revisionProvider: { _ in fooRevision }
                 ),
             ]
         )
@@ -3699,16 +3899,16 @@ final class WorkspaceTests: XCTestCase {
         workspace.checkManagedDependencies { result in
             result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
             result.check(dependency: "bar", at: .checkout(.version("1.0.0")))
+            XCTAssertEqual(result.managedDependencies[.plain("foo")]?.packageRef.locationString, "https://scm.com/org/foo")
+        }
+        workspace.checkResolved { result in
+            result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
+            result.check(dependency: "bar", at: .checkout(.version("1.0.0")))
+            XCTAssertEqual(result.store.pinsMap[.plain("foo")]?.packageRef.locationString, "https://scm.com/org/foo")
         }
 
-        do {
-            let ws = try workspace.getOrCreateWorkspace()
-            XCTAssertEqual(ws.state.dependencies[.plain("foo")]?.packageRef.locationString, "https://scm.com/org/foo")
-        }
-
-        workspace.checkReset { diagnostics in
-            XCTAssertNoDiagnostics(diagnostics)
-        }
+        // reset state
+        workspace.checkReset { XCTAssertNoDiagnostics($0) }
 
         deps = [
             .sourceControl(url: "https://scm.com/org/bar", requirement: .exact("1.1.0")),
@@ -3723,11 +3923,12 @@ final class WorkspaceTests: XCTestCase {
         workspace.checkManagedDependencies { result in
             result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
             result.check(dependency: "bar", at: .checkout(.version("1.1.0")))
+            XCTAssertEqual(result.managedDependencies[.plain("foo")]?.packageRef.locationString, "https://scm.com/other/foo")
         }
-
-        do {
-            let ws = try workspace.getOrCreateWorkspace()
-            XCTAssertEqual(ws.state.dependencies[.plain("foo")]?.packageRef.locationString, "https://scm.com/other/foo")
+        workspace.checkResolved { result in
+            result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
+            result.check(dependency: "bar", at: .checkout(.version("1.1.0")))
+            XCTAssertEqual(result.store.pinsMap[.plain("foo")]?.packageRef.locationString, "https://scm.com/other/foo")
         }
     }
 
@@ -4083,6 +4284,94 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
+    func testManagedDependenciesNotCaseSensitive() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Foo",
+                    targets: [
+                        MockTarget(name: "Foo", dependencies: [
+                            .product(name: "Bar", package: "bar"),
+                            .product(name: "Baz", package: "baz")
+                        ])
+                    ],
+                    products: [],
+                    dependencies: [
+                        .sourceControl(url: "https://localhost/org/bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(url: "https://localhost/org/baz", requirement: .upToNextMajor(from: "1.0.0"))
+                    ]
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "Bar",
+                    url: "https://localhost/org/bar",
+                    targets: [
+                        MockTarget(name: "Bar", dependencies: [
+                            .product(name: "Baz", package: "Baz")
+                        ]),
+                    ],
+                    products: [
+                        MockProduct(name: "Bar", targets: ["Bar"])
+                    ],
+                    dependencies: [
+                        .sourceControl(url: "https://localhost/org/Baz", requirement: .upToNextMajor(from: "1.0.0"))
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                MockPackage(
+                    name: "Baz",
+                    url: "https://localhost/org/baz",
+                    targets: [
+                        MockTarget(name: "Baz"),
+                    ],
+                    products: [
+                        MockProduct(name: "Baz", targets: ["Baz"])
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                MockPackage(
+                    name: "Baz",
+                    url: "https://localhost/org/Baz",
+                    targets: [
+                        MockTarget(name: "Baz"),
+                    ],
+                    products: [
+                        MockProduct(name: "Baz", targets: ["Baz"])
+                    ],
+                    versions: ["1.0.0"]
+                ),
+            ]
+        )
+
+        try workspace.checkPackageGraph(roots: ["Foo"]) { graph, diagnostics in
+            PackageGraphTester(graph) { result in
+                result.check(roots: "Foo")
+                result.check(packages: "Bar", "Baz", "Foo")
+                result.checkTarget("Foo") { result in result.check(dependencies: "Bar", "Baz") }
+                result.checkTarget("Bar") { result in result.check(dependencies: "Baz") }
+            }
+            testDiagnostics(diagnostics, minSeverity: .info) { result in
+                result.checkUnordered(
+                    diagnostic: "dependency on 'baz' is represented by similar locations ('https://localhost/org/baz' and 'https://localhost/org/Baz') which are treated as the same canonical location 'localhost/org/baz'.",
+                    severity: .info
+                )
+            }
+        }
+        workspace.checkManagedDependencies { result in
+            result.check(dependency: "bar", at: .checkout(.version("1.0.0")))
+            result.check(dependency: "baz", at: .checkout(.version("1.0.0")))
+            XCTAssertEqual(result.managedDependencies[.plain("bar")]?.packageRef.locationString, "https://localhost/org/bar")
+            // root casing should win, so testing for lower case
+            XCTAssertEqual(result.managedDependencies[.plain("baz")]?.packageRef.locationString, "https://localhost/org/baz")
+        }
+    }
+
     func testUnsafeFlags() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
@@ -4391,7 +4680,6 @@ final class WorkspaceTests: XCTestCase {
         let workspace = try MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
-            archiver: archiver,
             roots: [
                 MockPackage(
                     name: "Foo",
@@ -4444,7 +4732,8 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     versions: ["1.0.0"]
                 )
-            ]
+            ],
+            customBinaryArchiver: archiver
         )
 
         // Create dummy xcframework/artifactbundle zip files
@@ -4602,8 +4891,6 @@ final class WorkspaceTests: XCTestCase {
         let workspace = try MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
-            httpClient: httpClient,
-            archiver: archiver,
             roots: [
                 MockPackage(
                     name: "Foo",
@@ -4655,7 +4942,9 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     versions: ["1.0.0"]
                 )
-            ]
+            ],
+            customHttpClient: httpClient,
+            customBinaryArchiver: archiver
         )
 
         // Create dummy xcframework directories and zip files
@@ -4797,7 +5086,6 @@ final class WorkspaceTests: XCTestCase {
         let workspace = try MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
-            archiver: archiver,
             roots: [
                 MockPackage(
                     name: "Foo",
@@ -4827,7 +5115,8 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     versions: ["1.0.0"]
                 ),
-            ]
+            ],
+            customBinaryArchiver: archiver
         )
 
         // Create dummy zip files
@@ -4851,7 +5140,6 @@ final class WorkspaceTests: XCTestCase {
         let workspace = try MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
-            archiver: archiver,
             roots: [
                 MockPackage(
                     name: "Foo",
@@ -4887,7 +5175,8 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     versions: ["1.0.0"]
                 ),
-            ]
+            ],
+            customBinaryArchiver: archiver
         )
 
         workspace.checkPackageGraphFailure(roots: ["Foo"]) { diagnostics in
@@ -4925,7 +5214,6 @@ final class WorkspaceTests: XCTestCase {
         let workspace = try MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
-            archiver: archiver,
             roots: [
                 MockPackage(
                     name: "Foo",
@@ -4962,7 +5250,8 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     versions: ["1.0.0"]
                 )
-            ]
+            ],
+            customBinaryArchiver: archiver
         )
 
         // Create dummy zip files
@@ -5011,7 +5300,6 @@ final class WorkspaceTests: XCTestCase {
         let workspace = try MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
-            archiver: archiver,
             roots: [
                 MockPackage(
                     name: "Foo",
@@ -5048,7 +5336,8 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     versions: ["1.0.0"]
                 )
-            ]
+            ],
+            customBinaryArchiver: archiver
         )
 
         // Pin A to 1.0.0, Checkout B to 1.0.0
@@ -5228,8 +5517,6 @@ final class WorkspaceTests: XCTestCase {
         let workspace = try MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
-            httpClient: httpClient,
-            archiver: archiver,
             roots: [
                 MockPackage(
                     name: "Foo",
@@ -5285,7 +5572,9 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     versions: ["1.0.0"]
                 ),
-            ]
+            ],
+            customHttpClient: httpClient,
+            customBinaryArchiver: archiver
         )
 
         try workspace.checkPackageGraph(roots: ["Foo"]) { graph, diagnostics in
@@ -5411,8 +5700,6 @@ final class WorkspaceTests: XCTestCase {
         let workspace = try MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
-            httpClient: httpClient,
-            archiver: archiver,
             roots: [
                 MockPackage(
                     name: "Foo",
@@ -5491,7 +5778,9 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     versions: ["1.0.0"]
                 ),
-            ]
+            ],
+            customHttpClient: httpClient,
+            customBinaryArchiver: archiver
         )
 
         let a4FrameworkPath = workspace.packagesDir.appending(components: "A", "XCFrameworks", "A4.xcframework")
@@ -5694,8 +5983,6 @@ final class WorkspaceTests: XCTestCase {
         let workspace = try MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
-            httpClient: httpClient,
-            archiver: archiver,
             roots: [
                 MockPackage(
                     name: "Foo",
@@ -5726,7 +6013,9 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     versions: ["1.0.0"]
                 )
-            ]
+            ],
+            customHttpClient: httpClient,
+            customBinaryArchiver: archiver
         )
 
         try workspace.checkPackageGraph(roots: ["Foo"]) { graph, diagnostics in
@@ -5813,8 +6102,6 @@ final class WorkspaceTests: XCTestCase {
         let workspace = try MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
-            httpClient: httpClient,
-            archiver: archiver,
             roots: [
                 MockPackage(
                     name: "Foo",
@@ -5860,7 +6147,9 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     versions: ["1.0.0"]
                 ),
-            ]
+            ],
+            customHttpClient: httpClient,
+            customBinaryArchiver: archiver
         )
 
         workspace.checkPackageGraphFailure(roots: ["Foo"]) { diagnostics in
@@ -5884,7 +6173,6 @@ final class WorkspaceTests: XCTestCase {
         let workspace = try MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
-            httpClient: httpClient,
             roots: [
                 MockPackage(
                     name: "Foo",
@@ -5908,7 +6196,8 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     versions: ["0.9.0", "1.0.0"]
                 ),
-            ]
+            ],
+            customHttpClient: httpClient
         )
 
         // Pin A to 1.0.0, Checkout A to 1.0.0
@@ -5998,8 +6287,6 @@ final class WorkspaceTests: XCTestCase {
         let workspace = try MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
-            httpClient: httpClient,
-            archiver: archiver,
             roots: [
                 MockPackage(
                     name: "Foo",
@@ -6030,7 +6317,9 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     versions: ["1.0.0"]
                 )
-            ]
+            ],
+            customHttpClient: httpClient,
+            customBinaryArchiver: archiver
         )
 
         try workspace.checkPackageGraph(roots: ["Foo"]) { graph, diagnostics in
@@ -6103,8 +6392,6 @@ final class WorkspaceTests: XCTestCase {
         let workspace = try MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
-            httpClient: httpClient,
-            archiver: archiver,
             roots: [
                 MockPackage(
                     name: "Foo",
@@ -6179,7 +6466,9 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     versions: ["1.0.0"]
                 )
-            ]
+            ],
+            customHttpClient: httpClient,
+            customBinaryArchiver: archiver
         )
 
         try workspace.checkPackageGraph(roots: ["Foo"]) { graph, diagnostics in
@@ -6320,9 +6609,6 @@ final class WorkspaceTests: XCTestCase {
         let workspace = try MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
-            httpClient: httpClient,
-            archiver: archiver,
-            checksumAlgorithm: checksumAlgorithm,
             roots: [
                 MockPackage(
                     name: "Foo",
@@ -6378,7 +6664,10 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     versions: ["1.0.0"]
                 ),
-            ]
+            ],
+            customHttpClient: httpClient,
+            customBinaryArchiver: archiver,
+            customChecksumAlgorithm: checksumAlgorithm
         )
 
         try workspace.checkPackageGraph(roots: ["Foo"]) { graph, diagnostics in
@@ -6452,7 +6741,6 @@ final class WorkspaceTests: XCTestCase {
         let workspace = try MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
-            httpClient: httpClient,
             roots: [
                 MockPackage(
                     name: "Foo",
@@ -6476,7 +6764,8 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     versions: ["0.9.0", "1.0.0"]
                 ),
-            ]
+            ],
+            customHttpClient: httpClient
         )
 
         workspace.checkPackageGraphFailure(roots: ["Foo"]) { diagnostics in
@@ -6525,7 +6814,6 @@ final class WorkspaceTests: XCTestCase {
         let workspace = try MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
-            httpClient: httpClient,
             roots: [
                 MockPackage(
                     name: "Foo",
@@ -6549,7 +6837,8 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     versions: ["0.9.0", "1.0.0"]
                 ),
-            ]
+            ],
+            customHttpClient: httpClient
         )
 
         workspace.checkPackageGraphFailure(roots: ["Foo"]) { diagnostics in
@@ -6704,8 +6993,6 @@ final class WorkspaceTests: XCTestCase {
         let workspace = try MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
-            httpClient: httpClient,
-            archiver: archiver,
             roots: [
                 MockPackage(
                     name: "Foo",
@@ -6729,7 +7016,9 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     versions: ["0.9.0", "1.0.0"]
                 ),
-            ]
+            ],
+            customHttpClient: httpClient,
+            customBinaryArchiver: archiver
         )
 
         workspace.checkPackageGraphFailure(roots: ["Foo"]) { diagnostics in
@@ -6783,7 +7072,6 @@ final class WorkspaceTests: XCTestCase {
         let workspace = try MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
-            httpClient: httpClient,
             roots: [
                 MockPackage(
                     name: "Foo",
@@ -6807,7 +7095,8 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     versions: ["0.9.0", "1.0.0"]
                 ),
-            ]
+            ],
+            customHttpClient: httpClient
         )
 
         workspace.checkPackageGraphFailure(roots: ["Foo"]) { diagnostics in
@@ -6859,7 +7148,6 @@ final class WorkspaceTests: XCTestCase {
         let workspace = try MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
-            httpClient: httpClient,
             roots: [
                 MockPackage(
                     name: "Foo",
@@ -6883,7 +7171,8 @@ final class WorkspaceTests: XCTestCase {
                     ],
                     versions: ["0.9.0", "1.0.0"]
                 ),
-            ]
+            ],
+            customHttpClient: httpClient
         )
 
         workspace.checkPackageGraphFailure(roots: ["Foo"]) { diagnostics in
@@ -8026,6 +8315,116 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
+    func testDuplicateTransitiveIdentityWithSimilarURLs() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    targets: [
+                        MockTarget(name: "RootTarget", dependencies: [
+                            .product(name: "FooProduct", package: "foo"),
+                            .product(name: "BarProduct", package: "bar"),
+                            .product(name: "BazProduct", package: "baz")
+                        ]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        .sourceControl(url: "https://github.com/org/foo.git", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(url: "https://github.com/org/bar.git", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(url: "https://github.com/org/baz.git", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    toolsVersion: .v5_6
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "FooPackage",
+                    url: "https://github.com/org/foo.git",
+                    targets: [
+                        MockTarget(name: "FooTarget"),
+                    ],
+                    products: [
+                        MockProduct(name: "FooProduct", targets: ["FooTarget"]),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                MockPackage(
+                    name: "BarPackage",
+                    url: "https://github.com/org/bar.git",
+                    targets: [
+                        MockTarget(name: "BarTarget", dependencies: [
+                            .product(name: "FooProduct", package: "Foo"),
+                            .product(name: "BazProduct", package: "baz"),
+                        ]),
+                    ],
+                    products: [
+                        MockProduct(name: "BarProduct", targets: ["BarTarget"]),
+                    ],
+                    dependencies: [
+                        .sourceControl(url: "https://github.com/ORG/Foo.git", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(url: "https://github.com/org/baz", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                MockPackage(
+                    name: "BazPackage",
+                    url: "https://github.com/org/baz.git",
+                    targets: [
+                        MockTarget(name: "BazTarget"),
+                    ],
+                    products: [
+                        MockProduct(name: "BazProduct", targets: ["BazTarget"]),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                // URL with different casing
+                MockPackage(
+                    name: "FooPackage",
+                    url: "https://github.com/ORG/Foo.git",
+                    targets: [
+                        MockTarget(name: "FooTarget"),
+                    ],
+                    products: [
+                        MockProduct(name: "FooProduct", targets: ["FooTarget"]),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                // URL with no .git extension
+                MockPackage(
+                    name: "BazPackage",
+                    url: "https://github.com/org/baz",
+                    targets: [
+                        MockTarget(name: "BazTarget"),
+                    ],
+                    products: [
+                        MockProduct(name: "BazProduct", targets: ["BazTarget"]),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+            ]
+        )
+
+        // 9/2021 this is currently emitting a warning only to support backwards compatibility
+        // we will escalate this to an error in a few versions to tighten up the validation
+        try workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
+            testDiagnostics(diagnostics, minSeverity: .info) { result in
+                result.checkUnordered(
+                    diagnostic: "dependency on 'foo' is represented by similar locations ('https://github.com/org/foo.git' and 'https://github.com/ORG/Foo.git') which are treated as the same canonical location 'github.com/org/foo'.",
+                    severity: .info
+                )
+                result.checkUnordered(
+                    diagnostic: "dependency on 'baz' is represented by similar locations ('https://github.com/org/baz.git' and 'https://github.com/org/baz') which are treated as the same canonical location 'github.com/org/baz'.",
+                    severity: .info
+                )
+            }
+        }
+    }
+
     func testDuplicateNestedTransitiveIdentityWithNames() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
@@ -8777,6 +9176,765 @@ final class WorkspaceTests: XCTestCase {
         XCTAssertMatch(workspace.delegate.events, ["did load manifest for registry package: org.bar"])
         XCTAssertMatch(workspace.delegate.events, ["will load manifest for registry package: org.baz"])
         XCTAssertMatch(workspace.delegate.events, ["did load manifest for registry package: org.baz"])
+    }
+
+    func testBasicMixedTransitiveResolution() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "MyPackage",
+                    targets: [
+                        MockTarget(
+                            name: "MyTarget1",
+                            dependencies: [
+                                .product(name: "Foo", package: "org.foo")
+                            ]),
+                        MockTarget(
+                            name: "MyTarget2",
+                            dependencies: [
+                                .product(name: "Bar", package: "org.bar")
+                            ]),
+                    ],
+                    products: [
+                        MockProduct(name: "MyProduct", targets: ["MyTarget1", "MyTarget2"]),
+                    ],
+                    dependencies: [
+                        .registry(identity: "org.foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(url: "http://localhost/org/bar", requirement: .upToNextMajor(from: "2.0.0")),
+                    ]
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "Foo",
+                    identity: "org.foo",
+                    targets: [
+                        MockTarget(
+                            name: "Foo",
+                            dependencies: [
+                                .product(name: "Baz", package: "org.baz")
+                            ]),
+                    ],
+                    products: [
+                        MockProduct(name: "Foo", targets: ["Foo"]),
+                    ],
+                    dependencies: [
+                        .registry(identity: "org.baz", requirement: .range("2.0.0" ..< "4.0.0")),
+                    ],
+                    versions: ["1.0.0", "1.1.0"]
+                ),
+                MockPackage(
+                    name: "Bar",
+                    url: "http://localhost/org/bar",
+                    targets: [
+                        MockTarget(
+                            name: "Bar",
+                            dependencies: [
+                                .product(name: "Baz", package: "org.baz")
+                            ]),
+                    ],
+                    products: [
+                        MockProduct(name: "Bar", targets: ["Bar"]),
+                    ],
+                    dependencies: [
+                        .registry(identity: "org.baz", requirement: .upToNextMajor(from: "3.0.0")),
+                    ],
+                    versions: ["1.0.0", "1.1.0", "2.0.0", "2.1.0"]
+                ),
+                MockPackage(
+                    name: "Baz",
+                    identity: "org.baz",
+                    targets: [
+                        MockTarget(name: "Baz"),
+                    ],
+                    products: [
+                        MockProduct(name: "Baz", targets: ["Baz"]),
+                    ],
+                    versions: ["1.0.0", "1.1.0", "2.0.0", "2.1.0", "3.0.0", "3.1.0"]
+                ),
+            ]
+        )
+
+        try workspace.checkPackageGraph(roots: ["MyPackage"]) { graph, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+            PackageGraphTester(graph) { result in
+                result.check(roots: "MyPackage")
+                result.check(packages: "Bar", "Baz", "Foo", "MyPackage")
+                result.check(targets: "Foo", "Bar", "Baz", "MyTarget1", "MyTarget2")
+                result.checkTarget("MyTarget1") { result in result.check(dependencies: "Foo") }
+                result.checkTarget("MyTarget2") { result in result.check(dependencies: "Bar") }
+                result.checkTarget("Foo") { result in result.check(dependencies: "Baz") }
+                result.checkTarget("Bar") { result in result.check(dependencies: "Baz") }
+            }
+        }
+
+        workspace.checkManagedDependencies { result in
+            result.check(dependency: "org.foo", at: .registryDownload("1.1.0"))
+            result.check(dependency: "bar", at: .checkout(.version("2.1.0")))
+            result.check(dependency: "org.baz", at: .registryDownload("3.1.0"))
+        }
+
+        // Check the load-package callbacks.
+        XCTAssertMatch(workspace.delegate.events, ["will load manifest for root package: /tmp/ws/roots/MyPackage"])
+        XCTAssertMatch(workspace.delegate.events, ["did load manifest for root package: /tmp/ws/roots/MyPackage"])
+        XCTAssertMatch(workspace.delegate.events, ["will load manifest for registry package: org.foo"])
+        XCTAssertMatch(workspace.delegate.events, ["did load manifest for registry package: org.foo"])
+        XCTAssertMatch(workspace.delegate.events, ["will load manifest for remoteSourceControl package: http://localhost/org/bar"])
+        XCTAssertMatch(workspace.delegate.events, ["did load manifest for remoteSourceControl package: http://localhost/org/bar"])
+        XCTAssertMatch(workspace.delegate.events, ["will load manifest for registry package: org.baz"])
+        XCTAssertMatch(workspace.delegate.events, ["did load manifest for registry package: org.baz"])
+    }
+
+    func testCustomPackageContainerProvider() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let customFS = InMemoryFileSystem()
+        let sourcesDir = AbsolutePath("/Sources")
+        let targetDir = sourcesDir.appending(component: "Baz")
+        try customFS.createDirectory(targetDir, recursive: true)
+        try customFS.writeFileContents(targetDir.appending(component: "file.swift"), bytes: "")
+
+        let bazURL = try XCTUnwrap(URL(string: "https://example.com/baz"))
+        let bazPackageReference = PackageReference(identity: PackageIdentity(url: bazURL), kind: .remoteSourceControl(bazURL))
+        let bazContainer = MockPackageContainer(package: bazPackageReference, dependencies: ["1.0.0": []], fileSystem: customFS, customRetrievalPath: .root)
+
+        let fooPath = AbsolutePath("/tmp/ws/Foo")
+        let fooPackageReference = PackageReference(identity: PackageIdentity(path: fooPath), kind: .root(fooPath))
+        let fooContainer = MockPackageContainer(package: fooPackageReference)
+
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Foo",
+                    targets: [
+                        MockTarget(name: "Foo", dependencies: ["Bar"]),
+                        MockTarget(name: "Bar", dependencies: [.product(name: "Baz", package: "baz")]),
+                        MockTarget(name: "BarTests", dependencies: ["Bar"], type: .test),
+                    ],
+                    products: [
+                        MockProduct(name: "Foo", targets: ["Foo", "Bar"]),
+                    ],
+                    dependencies: [
+                        .sourceControl(url: bazURL, requirement: .upToNextMajor(from: "1.0.0")),
+                    ]
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "Baz",
+                    url: bazURL.absoluteString,
+                    targets: [
+                        MockTarget(name: "Baz"),
+                    ],
+                    products: [
+                        MockProduct(name: "Baz", targets: ["Baz"]),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+            ],
+            customPackageContainerProvider: MockPackageContainerProvider(containers: [fooContainer, bazContainer])
+        )
+
+        let deps: [MockDependency] = [
+            .sourceControl(url: bazURL, requirement: .exact("1.0.0")),
+        ]
+        try workspace.checkPackageGraph(roots: ["Foo"], deps: deps) { graph, diagnostics in
+            PackageGraphTester(graph) { result in
+                result.check(roots: "Foo")
+                result.check(packages: "Baz", "Foo")
+                result.check(targets: "Bar", "Baz", "Foo")
+                result.check(testModules: "BarTests")
+                result.checkTarget("Foo") { result in result.check(dependencies: "Bar") }
+                result.checkTarget("Bar") { result in result.check(dependencies: "Baz") }
+                result.checkTarget("BarTests") { result in result.check(dependencies: "Bar") }
+            }
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkManagedDependencies { result in
+            result.check(dependency: "baz", at: .custom(Version(1, 0, 0), .root))
+        }
+    }
+
+    func testRegistryMissingConfigurationErrors() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let registryClient = try makeRegistryClient(
+            packageIdentity: .plain("org.foo"),
+            packageVersion: "1.0.0",
+            workspaceDirectory: sandbox,
+            fileSystem: fs,
+            configuration: .init()
+        )
+
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "MyPackage",
+                    targets: [
+                        MockTarget(
+                            name: "MyTarget",
+                            dependencies: [
+                                .product(name: "Foo", package: "org.foo")
+                            ]),
+                    ],
+                    dependencies: [
+                        .registry(identity: "org.foo", requirement: .upToNextMajor(from: "1.0.0")),
+                    ]
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "Foo",
+                    identity: "org.foo",
+                    targets: [
+                        MockTarget(name: "Foo"),
+                    ],
+                    products: [
+                        MockProduct(name: "Foo", targets: ["Foo"]),
+                    ],
+                    versions: ["1.0.0"]
+                )
+            ],
+            customRegistryClient: registryClient
+        )
+
+        workspace.checkPackageGraphFailure(roots: ["MyPackage"]) { diagnostics in
+            testDiagnostics(diagnostics) { result in
+                result.check(diagnostic: .equal("No registry configured for 'org' scope"), severity: .error)
+            }
+        }
+    }
+
+    func testRegistryReleasesServerErrors() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "MyPackage",
+                    targets: [
+                        MockTarget(
+                            name: "MyTarget",
+                            dependencies: [
+                                .product(name: "Foo", package: "org.foo")
+                            ]),
+                    ],
+                    dependencies: [
+                        .registry(identity: "org.foo", requirement: .upToNextMajor(from: "1.0.0")),
+                    ]
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "Foo",
+                    identity: "org.foo",
+                    targets: [
+                        MockTarget(name: "Foo"),
+                    ],
+                    products: [
+                        MockProduct(name: "Foo", targets: ["Foo"]),
+                    ],
+                    versions: ["1.0.0"]
+                )
+            ]
+        )
+
+        do {
+            let registryClient = try makeRegistryClient(
+                packageIdentity: .plain("org.foo"),
+                packageVersion: "1.0.0",
+                workspaceDirectory: sandbox,
+                fileSystem: fs,
+                releasesRequestHandler: { _, _ , completion in
+                    completion(.failure(StringError("boom")))
+                }
+            )
+
+            workspace.checkReset{ XCTAssertNoDiagnostics($0) }
+            workspace.closeWorkspace()
+            workspace.registryClient = registryClient
+            workspace.checkPackageGraphFailure(roots: ["MyPackage"]) { diagnostics in
+                testDiagnostics(diagnostics) { result in
+                    result.check(diagnostic: .equal("Failed fetching releases from registry: boom"), severity: .error)
+                }
+            }
+        }
+
+        do {
+            let registryClient = try makeRegistryClient(
+                packageIdentity: .plain("org.foo"),
+                packageVersion: "1.0.0",
+                workspaceDirectory: sandbox,
+                fileSystem: fs,
+                releasesRequestHandler: { _, _ , completion in
+                    completion(.success(.serverError()))
+                }
+            )
+
+            workspace.checkReset{ XCTAssertNoDiagnostics($0) }
+            workspace.closeWorkspace()
+            workspace.registryClient = registryClient
+            workspace.checkPackageGraphFailure(roots: ["MyPackage"]) { diagnostics in
+                testDiagnostics(diagnostics) { result in
+                    result.check(diagnostic: .equal("Failed fetching releases from registry: Invalid registry response status '500', expected '200'"), severity: .error)
+                }
+            }
+        }
+    }
+
+    func testRegistryReleaseChecksumServerErrors() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "MyPackage",
+                    targets: [
+                        MockTarget(
+                            name: "MyTarget",
+                            dependencies: [
+                                .product(name: "Foo", package: "org.foo")
+                            ]),
+                    ],
+                    dependencies: [
+                        .registry(identity: "org.foo", requirement: .upToNextMajor(from: "1.0.0")),
+                    ]
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "Foo",
+                    identity: "org.foo",
+                    targets: [
+                        MockTarget(name: "Foo"),
+                    ],
+                    products: [
+                        MockProduct(name: "Foo", targets: ["Foo"]),
+                    ],
+                    versions: ["1.0.0"]
+                )
+            ]
+        )
+
+        do {
+            let registryClient = try makeRegistryClient(
+                packageIdentity: .plain("org.foo"),
+                packageVersion: "1.0.0",
+                workspaceDirectory: sandbox,
+                fileSystem: fs,
+                versionMetadataRequestHandler: { _, _ , completion in
+                    completion(.failure(StringError("boom")))
+                }
+            )
+
+            workspace.checkReset{ XCTAssertNoDiagnostics($0) }
+            workspace.closeWorkspace()
+            workspace.registryClient = registryClient
+            workspace.checkPackageGraphFailure(roots: ["MyPackage"]) { diagnostics in
+                testDiagnostics(diagnostics) { result in
+                    result.check(diagnostic: .equal("Failed fetching release checksum from registry: boom"), severity: .error)
+                }
+            }
+        }
+
+        do {
+            let registryClient = try makeRegistryClient(
+                packageIdentity: .plain("org.foo"),
+                packageVersion: "1.0.0",
+                workspaceDirectory: sandbox,
+                fileSystem: fs,
+                versionMetadataRequestHandler: { _, _ , completion in
+                    completion(.success(.serverError()))
+                }
+            )
+
+            workspace.checkReset{ XCTAssertNoDiagnostics($0) }
+            workspace.closeWorkspace()
+            workspace.registryClient = registryClient
+            workspace.checkPackageGraphFailure(roots: ["MyPackage"]) { diagnostics in
+                testDiagnostics(diagnostics) { result in
+                    result.check(diagnostic: .equal("Failed fetching release checksum from registry: Invalid registry response status '500', expected '200'"), severity: .error)
+                }
+            }
+        }
+    }
+
+    func testRegistryManifestServerErrors() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "MyPackage",
+                    targets: [
+                        MockTarget(
+                            name: "MyTarget",
+                            dependencies: [
+                                .product(name: "Foo", package: "org.foo")
+                            ]),
+                    ],
+                    dependencies: [
+                        .registry(identity: "org.foo", requirement: .upToNextMajor(from: "1.0.0")),
+                    ]
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "Foo",
+                    identity: "org.foo",
+                    targets: [
+                        MockTarget(name: "Foo"),
+                    ],
+                    products: [
+                        MockProduct(name: "Foo", targets: ["Foo"]),
+                    ],
+                    versions: ["1.0.0"]
+                )
+            ]
+        )
+
+        do {
+            let registryClient = try makeRegistryClient(
+                packageIdentity: .plain("org.foo"),
+                packageVersion: "1.0.0",
+                workspaceDirectory: sandbox,
+                fileSystem: fs,
+                manifestRequestHandler: { _, _ , completion in
+                    completion(.failure(StringError("boom")))
+                }
+            )
+
+            workspace.checkReset{ XCTAssertNoDiagnostics($0) }
+            workspace.closeWorkspace()
+            workspace.registryClient = registryClient
+            workspace.checkPackageGraphFailure(roots: ["MyPackage"]) { diagnostics in
+                testDiagnostics(diagnostics) { result in
+                    result.check(diagnostic: .equal("Failed retrieving manifest from registry: boom"), severity: .error)
+                }
+            }
+        }
+
+        do {
+            let registryClient = try makeRegistryClient(
+                packageIdentity: .plain("org.foo"),
+                packageVersion: "1.0.0",
+                workspaceDirectory: sandbox,
+                fileSystem: fs,
+                manifestRequestHandler: { _, _ , completion in
+                    completion(.success(.serverError()))
+                }
+            )
+
+            workspace.checkReset{ XCTAssertNoDiagnostics($0) }
+            workspace.closeWorkspace()
+            workspace.registryClient = registryClient
+            workspace.checkPackageGraphFailure(roots: ["MyPackage"]) { diagnostics in
+                testDiagnostics(diagnostics) { result in
+                    result.check(diagnostic: .equal("Failed retrieving manifest from registry: Invalid registry response status '500', expected '200'"), severity: .error)
+                }
+            }
+        }
+    }
+
+    func testRegistryDownloadServerErrors() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "MyPackage",
+                    targets: [
+                        MockTarget(
+                            name: "MyTarget",
+                            dependencies: [
+                                .product(name: "Foo", package: "org.foo")
+                            ]),
+                    ],
+                    dependencies: [
+                        .registry(identity: "org.foo", requirement: .upToNextMajor(from: "1.0.0")),
+                    ]
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "Foo",
+                    identity: "org.foo",
+                    targets: [
+                        MockTarget(name: "Foo"),
+                    ],
+                    products: [
+                        MockProduct(name: "Foo", targets: ["Foo"]),
+                    ],
+                    versions: ["1.0.0"]
+                )
+            ]
+        )
+
+        do {
+            let registryClient = try makeRegistryClient(
+                packageIdentity: .plain("org.foo"),
+                packageVersion: "1.0.0",
+                workspaceDirectory: sandbox,
+                fileSystem: fs,
+                downloadArchiveRequestHandler: { _, _ , completion in
+                    completion(.failure(StringError("boom")))
+                }
+            )
+
+            workspace.checkReset{ XCTAssertNoDiagnostics($0) }
+            workspace.closeWorkspace()
+            workspace.registryClient = registryClient
+            workspace.checkPackageGraphFailure(roots: ["MyPackage"]) { diagnostics in
+                testDiagnostics(diagnostics) { result in
+                    result.check(diagnostic: .equal("Failed downloading source archive from registry: boom"), severity: .error)
+                }
+            }
+        }
+
+        do {
+            let registryClient = try makeRegistryClient(
+                packageIdentity: .plain("org.foo"),
+                packageVersion: "1.0.0",
+                workspaceDirectory: sandbox,
+                fileSystem: fs,
+                downloadArchiveRequestHandler: { _, _ , completion in
+                    completion(.success(.serverError()))
+                }
+            )
+
+            workspace.checkReset{ XCTAssertNoDiagnostics($0) }
+            workspace.closeWorkspace()
+            workspace.registryClient = registryClient
+            workspace.checkPackageGraphFailure(roots: ["MyPackage"]) { diagnostics in
+                testDiagnostics(diagnostics) { result in
+                    result.check(diagnostic: .equal("Failed downloading source archive from registry: Invalid registry response status '500', expected '200'"), severity: .error)
+                }
+            }
+        }
+    }
+
+    func testRegistryArchiveErrors() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "MyPackage",
+                    targets: [
+                        MockTarget(
+                            name: "MyTarget",
+                            dependencies: [
+                                .product(name: "Foo", package: "org.foo")
+                            ]),
+                    ],
+                    dependencies: [
+                        .registry(identity: "org.foo", requirement: .upToNextMajor(from: "1.0.0")),
+                    ]
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "Foo",
+                    identity: "org.foo",
+                    targets: [
+                        MockTarget(name: "Foo"),
+                    ],
+                    products: [
+                        MockProduct(name: "Foo", targets: ["Foo"]),
+                    ],
+                    versions: ["1.0.0"]
+                )
+            ]
+        )
+
+        do {
+            let registryClient = try makeRegistryClient(
+                packageIdentity: .plain("org.foo"),
+                packageVersion: "1.0.0",
+                workspaceDirectory: sandbox,
+                fileSystem: fs,
+                archiver: MockArchiver(handler: { archiver, from, to, completion in
+                    completion(.failure(StringError("boom")))
+                })
+            )
+
+            workspace.checkReset{ XCTAssertNoDiagnostics($0) }
+            workspace.closeWorkspace()
+            workspace.registryClient = registryClient
+            workspace.checkPackageGraphFailure(roots: ["MyPackage"]) { diagnostics in
+                testDiagnostics(diagnostics) { result in
+                    result.check(diagnostic: .equal("failed extracting '\(sandbox.pathString)/.build/registry/downloads/org/foo/1.0.0.zip' to '\(sandbox.pathString)/.build/registry/downloads/org/foo/1.0.0': boom"), severity: .error)
+                }
+            }
+        }
+    }
+
+    func makeRegistryClient(
+        packageIdentity: PackageIdentity,
+        packageVersion: Version,
+        workspaceDirectory: AbsolutePath,
+        fileSystem: FileSystem,
+        configuration: PackageRegistry.RegistryConfiguration? = .none,
+        identityResolver: IdentityResolver? = .none,
+        fingerprintStorage: PackageFingerprintStorage? = .none,
+        fingerprintCheckingMode: FingerprintCheckingMode = .strict,
+        authorizationProvider: AuthorizationProvider? = .none,
+        releasesRequestHandler: HTTPClient.Handler? = .none,
+        versionMetadataRequestHandler: HTTPClient.Handler? = .none,
+        manifestRequestHandler: HTTPClient.Handler? = .none,
+        downloadArchiveRequestHandler: HTTPClient.Handler? = .none,
+        archiver: Archiver? = .none
+    ) throws -> RegistryClient {
+        let jsonEncoder = JSONEncoder.makeWithDefaults()
+
+        let identityResolver = identityResolver ?? DefaultIdentityResolver()
+
+        guard let (packageScope, packageName) = packageIdentity.scopeAndName else {
+            throw StringError("Invalid package identity")
+        }
+
+        var configuration = configuration
+        if configuration == nil {
+            configuration = PackageRegistry.RegistryConfiguration()
+            configuration!.defaultRegistry = .init(url: URL(string: "http://localhost")!)
+        }
+
+        let releasesRequestHandler = releasesRequestHandler ?? { request, _ , completion in
+            let metadata = RegistryClient.Serialization.PackageMetadata(
+                releases: [packageVersion.description:  .init(url: .none, problem: .none)]
+            )
+            completion(.success(
+                HTTPClientResponse(
+                    statusCode: 200,
+                    headers: [
+                        "Content-Version": "1",
+                        "Content-Type": "application/json"
+                    ],
+                    body: try! jsonEncoder.encode(metadata)
+                )
+            ))
+        }
+
+        let versionMetadataRequestHandler = versionMetadataRequestHandler ?? { request, _ , completion in
+            let metadata = RegistryClient.Serialization.VersionMetadata(
+                id: packageIdentity.description,
+                version: packageVersion.description,
+                resources: [
+                    .init(
+                        name: "source-archive",
+                        type: "application/zip",
+                        checksum: ""
+                    )
+                ],
+                metadata: .init(description: "")
+            )
+            completion(.success(
+                HTTPClientResponse(
+                    statusCode: 200,
+                    headers: [
+                        "Content-Version": "1",
+                        "Content-Type": "application/json"
+                    ],
+                    body: try! jsonEncoder.encode(metadata)
+                )
+            ))
+        }
+
+        let manifestRequestHandler = manifestRequestHandler ?? { request, _ , completion in
+            completion(.success(
+                HTTPClientResponse(
+                    statusCode: 200,
+                    headers: [
+                        "Content-Version": "1",
+                        "Content-Type": "text/x-swift"
+                    ],
+                    body: "// swift-tools-version:\(ToolsVersion.currentToolsVersion)".data(using: .utf8)
+                )
+            ))
+        }
+
+        let downloadArchiveRequestHandler = downloadArchiveRequestHandler ?? { request, _ , completion in
+            // meh
+            let path = workspaceDirectory
+                .appending(components: ".build", "registry", "downloads", packageScope.description, packageName.description)
+                .appending(component: "\(packageVersion).zip")
+            try! fileSystem.createDirectory(path.parentDirectory, recursive: true)
+            try! fileSystem.writeFileContents(path, string: "")
+
+            completion(.success(
+                HTTPClientResponse(
+                    statusCode: 200,
+                    headers: [
+                        "Content-Version": "1",
+                        "Content-Type": "application/zip"
+                    ],
+                    body: "".data(using: .utf8)
+                )
+            ))
+        }
+
+        let archiver = archiver ?? MockArchiver(handler: { archiver, from, to, completion in
+            do {
+                try fileSystem.createDirectory(to.appending(component: "top"), recursive: true)
+                completion(.success(()))
+            } catch {
+                completion(.failure(error))
+            }
+        })
+        let fingerprintStorage = fingerprintStorage ?? MockPackageFingerprintStorage()
+
+        return RegistryClient(
+            configuration: configuration!,
+            identityResolver: identityResolver,
+            fingerprintStorage: fingerprintStorage,
+            fingerprintCheckingMode: fingerprintCheckingMode,
+            authorizationProvider: authorizationProvider?.httpAuthorizationHeader(for:),
+            customHTTPClient: HTTPClient(configuration: .init(), handler: { request, progress , completion in
+                switch request.url {
+                // request to get package releases
+                case URL(string: "http://localhost/\(packageScope)/\(packageName)")!:
+                    releasesRequestHandler(request, progress, completion)
+                // request to get package version metadata
+                case URL(string: "http://localhost/\(packageScope)/\(packageName)/\(packageVersion)")!:
+                    versionMetadataRequestHandler(request, progress, completion)
+                // request to get package manifest
+                case URL(string: "http://localhost/\(packageScope)/\(packageName)/\(packageVersion)/Package.swift")!:
+                    manifestRequestHandler(request, progress, completion)
+                // request to get download the version source archive
+                case URL(string: "http://localhost/\(packageScope)/\(packageName)/\(packageVersion).zip")!:
+                    downloadArchiveRequestHandler(request, progress, completion)
+                default:
+                    completion(.failure(StringError("unexpected url \(request.url)")))
+                }
+            }),
+            customArchiverProvider: { _ in archiver }
+        )
     }
 }
 

@@ -8,9 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import class Foundation.JSONDecoder
-import class Foundation.JSONEncoder
-import class Foundation.ProcessInfo
+import Foundation
 
 struct ContextModel {
     let packageDirectory : String
