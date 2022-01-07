@@ -496,7 +496,7 @@ final class PubgrubTests: XCTestCase {
         ])
     }
 
-    func testCycle1() {
+    func _testCycle1() {
         builder.serve("foo", at: v1_1, with: ["foo": ["foo": (.versionSet(v1Range), .specific(["foo"]))]])
 
         let resolver = builder.create()
