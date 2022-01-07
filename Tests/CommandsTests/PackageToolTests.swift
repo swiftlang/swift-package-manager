@@ -1288,6 +1288,11 @@ final class PackageToolTests: CommandsTestCase {
                         print("Looking for swiftc...")
                         let swiftc = try context.tool(named: "swiftc")
                         print("... found it at \\(swiftc.path)")
+
+                        // Check that we can find a standard tool.
+                        print("Looking for sed...")
+                        let sed = try context.tool(named: "sed")
+                        print("... found it at \\(sed.path)")
                     }
                 }
                 """
