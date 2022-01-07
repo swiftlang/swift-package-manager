@@ -1104,7 +1104,7 @@ final class PluginDelegate: PluginInvocationDelegate {
         var needsFlush = false
         while let newlineIdx = lineBufferedOutput.firstIndex(of: UInt8(ascii: "\n")) {
             let lineData = lineBufferedOutput.prefix(upTo: newlineIdx)
-            outputStream <<< "[plugin ‘\(plugin.name)’] " <<< String(decoding: lineData, as: UTF8.self) <<< "\n"
+            outputStream <<< String(decoding: lineData, as: UTF8.self) <<< "\n"
             needsFlush = true
             lineBufferedOutput = lineBufferedOutput.suffix(from: newlineIdx.advanced(by: 1))
         }
