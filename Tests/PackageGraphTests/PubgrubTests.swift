@@ -359,10 +359,10 @@ final class PubgrubTests: XCTestCase {
 
         XCTAssertEqual(state2.incompatibilities.count, 3)
         XCTAssertEqual(state2.incompatibilities[.product("a", package: "a")], [
-            try Incompatibility("a^1.0.0", Term(not: .product("b", package: "b"), v1Range),
+            try Incompatibility("a@1.0.0", Term(not: .product("b", package: "b"), v1Range),
                                               root: rootNode,
                                               cause: .dependency(node: .product("a", package: "a"))),
-            try Incompatibility("a^1.0.0", Term(not: .empty(package: "a"), .exact("1.0.0")),
+            try Incompatibility("a@1.0.0", Term(not: .empty(package: "a"), .exact("1.0.0")),
                                               root: rootNode,
                                               cause: .dependency(node: .product("a", package: "a"))),
         ])
@@ -496,7 +496,7 @@ final class PubgrubTests: XCTestCase {
         ])
     }
 
-    func _testCycle1() {
+    func testCycle1() {
         builder.serve("foo", at: v1_1, with: ["foo": ["foo": (.versionSet(v1Range), .specific(["foo"]))]])
 
         let resolver = builder.create()
@@ -1199,7 +1199,7 @@ final class PubgrubTests: XCTestCase {
                 Incompatibility(
                     terms: [
                         Term(
-                            node: .product("FilterA", package: other), requirement: .range(Version(0, 0, 0)..<Version(2, 0, 0)),
+                            node: .product("FilterA", package: other), requirement: .exact(Version(1, 0, 0)),
                             isPositive: true
                         ),
                         Term(
@@ -1212,7 +1212,7 @@ final class PubgrubTests: XCTestCase {
                 Incompatibility(
                     terms: [
                         Term(
-                            node: .product("FilterA", package: other), requirement: .range(Version(0, 0, 0)..<Version(2, 0, 0)),
+                            node: .product("FilterA", package: other), requirement: .exact(Version(1, 0, 0)),
                             isPositive: true
                         ),
                         Term(
@@ -1238,7 +1238,7 @@ final class PubgrubTests: XCTestCase {
                 Incompatibility(
                     terms: [
                         Term(
-                            node: .product("FilterB", package: other), requirement: .range(Version(0, 0, 0)..<Version(2, 0, 0)),
+                            node: .product("FilterB", package: other), requirement: .exact(Version(1, 0, 0)),
                             isPositive: true
                         ),
                         Term(
@@ -1251,7 +1251,7 @@ final class PubgrubTests: XCTestCase {
                 Incompatibility(
                     terms: [
                         Term(
-                            node: .product("FilterB", package: other), requirement: .range(Version(0, 0, 0)..<Version(2, 0, 0)),
+                            node: .product("FilterB", package: other), requirement: .exact(Version(1, 0, 0)),
                             isPositive: true
                         ),
                         Term(
@@ -1434,7 +1434,9 @@ final class PubGrubDiagnosticsTests: XCTestCase {
 
         XCTAssertEqual(result.errorMsg, """
             Dependencies could not be resolved because root depends on 'foo' 1.0.0..<2.0.0 and root depends on 'baz' 1.0.0..<2.0.0.
-            'foo' practically depends on 'baz' 3.0.0..<4.0.0 because 'foo' depends on 'bar' 2.0.0..<3.0.0 and 'bar' depends on 'baz' 3.0.0..<4.0.0.
+            'foo\' >= 1.0.0 practically depends on 'baz' 3.0.0..<4.0.0.
+            'bar\' >= 2.0.0 practically depends on 'baz' 3.0.0..<4.0.0 because 'bar' 2.0.0 depends on 'baz' 3.0.0..<4.0.0 and no versions of 'bar' match the requirement 2.0.1..<3.0.0.
+            'foo\' >= 1.0.0 practically depends on 'bar' 2.0.0..<3.0.0 because 'foo' 1.0.0 depends on 'bar' 2.0.0..<3.0.0 and no versions of 'foo' match the requirement 1.0.1..<2.0.0.
             """)
     }
 
@@ -1464,14 +1466,17 @@ final class PubGrubDiagnosticsTests: XCTestCase {
         ])
         let result = resolver.solve(constraints: dependencies)
 
+        print(result.errorMsg!)
+
         XCTAssertEqual(result.errorMsg, """
-          Dependencies could not be resolved because root depends on 'foo' 1.0.0..<2.0.0.
-          'foo' cannot be used because 'foo' < 1.1.0 cannot be used (1).
-          'foo' >= 1.1.0 cannot be used because 'foo' >= 1.1.0 depends on 'y' 1.0.0..<2.0.0.
-          'foo' >= 1.1.0 practically depends on 'y' 2.0.0..<3.0.0 because 'x' depends on 'y' 2.0.0..<3.0.0 and 'foo' >= 1.1.0 depends on 'x' 1.0.0..<2.0.0.
-          'foo' < 1.1.0 practically depends on 'b' 2.0.0..<3.0.0 because 'a' depends on 'b' 2.0.0..<3.0.0 and 'foo' < 1.1.0 depends on 'a' 1.0.0..<2.0.0.
-             (1) As a result, 'foo' < 1.1.0 cannot be used because 'foo' < 1.1.0 depends on 'b' 1.0.0..<2.0.0.
-        """)
+              Dependencies could not be resolved because root depends on 'foo' 1.0.0..<2.0.0.
+              'foo' >= 1.0.0 cannot be used because 'foo' {1.0.0..<1.1.0, 1.1.1..<2.0.0} cannot be used (1).
+              'foo' 1.1.0 cannot be used because 'foo' 1.1.0 depends on 'x' 1.0.0..<2.0.0 and 'foo' 1.1.0 depends on 'y' 1.0.0..<2.0.0.
+              'x' >= 1.0.0 practically depends on 'y' 2.0.0..<3.0.0 because 'x' 1.0.0 depends on 'y' 2.0.0..<3.0.0 and no versions of 'x' match the requirement 1.0.1..<2.0.0.
+              'foo' 1.0.0 practically depends on 'b' 2.0.0..<3.0.0 because 'foo' 1.0.0 depends on 'a' 1.0.0..<2.0.0.
+              'a' >= 1.0.0 practically depends on 'b' 2.0.0..<3.0.0 because 'a' 1.0.0 depends on 'b' 2.0.0..<3.0.0 and no versions of 'a' match the requirement 1.0.1..<2.0.0.
+                 (1) As a result, 'foo' {1.0.0..<1.1.0, 1.1.1..<2.0.0} cannot be used because 'foo' 1.0.0 depends on 'b' 1.0.0..<2.0.0 and no versions of 'foo' match the requirement {1.0.1..<1.1.0, 1.1.1..<2.0.0}.
+            """)
     }
 
     func testConflict1() {
@@ -1489,7 +1494,8 @@ final class PubGrubDiagnosticsTests: XCTestCase {
 
         XCTAssertEqual(result.errorMsg, """
             Dependencies could not be resolved because root depends on 'foo' 1.0.0..<2.0.0 and root depends on 'bar' 1.0.0..<2.0.0.
-            'bar' is incompatible with 'foo' because 'bar' depends on 'config' 2.0.0..<3.0.0 and 'foo' depends on 'config' 1.0.0..<2.0.0.
+            'bar' is incompatible with 'foo' because 'foo' 1.0.0 depends on 'config' 1.0.0..<2.0.0 and no versions of 'foo' match the requirement 1.0.1..<2.0.0.
+            'bar' >= 1.0.0 practically depends on 'config' 2.0.0..<3.0.0 because no versions of 'bar' match the requirement 1.0.1..<2.0.0 and 'bar' 1.0.0 depends on 'config' 2.0.0..<3.0.0.
             """)
     }
 
@@ -1509,8 +1515,8 @@ final class PubGrubDiagnosticsTests: XCTestCase {
         let result1 = resolver1.solve(constraints: dependencies1)
 
         XCTAssertEqual(result1.errorMsg, """
-            Dependencies could not be resolved because root depends on 'foo' 1.0.0..<2.0.0.
-            'foo' cannot be used because 'foo' depends on 'config' 1.0.0..<2.0.0 and root depends on 'config' 2.0.0..<3.0.0.
+            Dependencies could not be resolved because root depends on 'config' 2.0.0..<3.0.0 and root depends on 'foo' 1.0.0..<2.0.0.
+            'foo' >= 1.0.0 practically depends on 'config' 1.0.0..<2.0.0 because no versions of 'foo' match the requirement 1.0.1..<2.0.0 and 'foo' 1.0.0 depends on 'config' 1.0.0..<2.0.0.
             """)
 
         let dependencies2 = builder.create(dependencies: [
@@ -1522,8 +1528,8 @@ final class PubGrubDiagnosticsTests: XCTestCase {
         let result2 = resolver2.solve(constraints: dependencies2)
 
         XCTAssertEqual(result2.errorMsg, """
-            Dependencies could not be resolved because root depends on 'config' 2.0.0..<3.0.0.
-            'config' 1.0.0..<2.0.0 is required because 'foo' depends on 'config' 1.0.0..<2.0.0 and root depends on 'foo' 1.0.0..<2.0.0.
+            Dependencies could not be resolved because root depends on 'foo' 1.0.0..<2.0.0 and root depends on 'config' 2.0.0..<3.0.0.
+            'foo' >= 1.0.0 practically depends on \'config\' 1.0.0..<2.0.0 because 'foo' 1.0.0 depends on 'config' 1.0.0..<2.0.0 and no versions of 'foo' match the requirement 1.0.1..<2.0.0.
             """)
     }
 
@@ -1643,8 +1649,8 @@ final class PubGrubDiagnosticsTests: XCTestCase {
 
         XCTAssertEqual(result.errorMsg, """
             Dependencies could not be resolved because root depends on 'a' 1.0.0..<2.0.0 and root depends on 'b' 2.0.0..<3.0.0.
-            'a' >= 1.0.0 practically depends on 'b' 1.0.0..<2.0.0 because 'a' >= 1.1.0 depends on 'b' 1.0.0..<2.0.0.
-            'a' 1.0.0..<1.1.0 cannot be used because no versions of 'a' match the requirement 1.0.1..<1.1.0 and 'a' 1.0.0 contains incompatible tools version (\(ToolsVersion.v4)).
+            'a' >= 1.0.0 practically depends on 'b' 1.0.0..<2.0.0 because 'a' 1.1.0 depends on 'b' 1.0.0..<2.0.0.
+            'a' {1.0.0..<1.1.0, 1.1.1..<2.0.0} cannot be used because no versions of 'a' match the requirement {1.0.1..<1.1.0, 1.1.1..<2.0.0} and 'a' 1.0.0 contains incompatible tools version (\(ToolsVersion.v4)).
             """)
     }
 
@@ -1698,8 +1704,8 @@ final class PubGrubDiagnosticsTests: XCTestCase {
         let result = resolver.solve(constraints: dependencies)
 
         XCTAssertEqual(result.errorMsg, """
-            Dependencies could not be resolved because 'a' >= 3.2.1 contains incompatible tools version (\(ToolsVersion.v4)) and root depends on 'a' 3.2.0..<4.0.0.
-            'a' < 3.2.1 cannot be used because 'a' < 3.2.1 depends on 'b' 1.0.0..<2.0.0.
+            Dependencies could not be resolved because \'a\' >= 3.2.1 contains incompatible tools version (\(ToolsVersion.v4)) and root depends on 'a' 3.2.0..<4.0.0.
+            'a' 3.2.0 cannot be used because 'a' 3.2.0 depends on 'b' 1.0.0..<2.0.0.
             'b' >= 1.0.0 cannot be used because 'b' 1.0.0 contains incompatible tools version (\(ToolsVersion.v3)) and no versions of 'b' match the requirement 1.0.1..<2.0.0.
             """)
     }
@@ -1724,8 +1730,8 @@ final class PubGrubDiagnosticsTests: XCTestCase {
 
         XCTAssertEqual(result.errorMsg, """
             Dependencies could not be resolved because root depends on 'bar' 1.0.0 and root depends on 'foo' 1.0.0.
-            'foo' is incompatible with 'bar' because 'foo' depends on 'shared' 2.0.0..<3.0.0.
-            'bar' practically depends on 'shared' 3.0.0..<4.0.0 because 'bar' depends on 'shared' 2.9.0..<4.0.0 and no versions of 'shared' match the requirement 2.9.0..<3.0.0.
+            'foo' is incompatible with 'bar' because 'foo' 1.0.0 depends on 'shared' 2.0.0..<3.0.0.
+            'bar' 1.0.0 practically depends on 'shared' 3.0.0..<4.0.0 because 'bar' 1.0.0 depends on 'shared' 2.9.0..<4.0.0 and no versions of 'shared' match the requirement 2.9.0..<3.0.0.
             """)
     }
 
@@ -1754,9 +1760,9 @@ final class PubGrubDiagnosticsTests: XCTestCase {
         XCTAssertEqual(result.errorMsg, """
             Dependencies could not be resolved because root depends on 'a' 0.0.0..<5.0.0.
             'a' cannot be used.
-            'a' >= 2.0.0 cannot be used because 'b' >= 2.0.0 depends on 'a' 1.0.0 and 'a' >= 2.0.0 depends on 'b' 2.0.0.
-            'a' {0.0.0..<2.0.0, 3.0.0..<5.0.0} cannot be used because 'b' < 2.0.0 depends on 'a' 2.0.0.
-            'a' {0.0.0..<2.0.0, 3.0.0..<5.0.0} practically depends on 'b' 1.0.0 because no versions of 'a' match the requirement 3.0.0..<5.0.0 and 'a' < 2.0.0 depends on 'b' 1.0.0.
+            'a' 2.0.0 cannot be used because 'b' 2.0.0 depends on 'a' 1.0.0 and 'a' 2.0.0 depends on 'b' 2.0.0.
+            'a' {0.0.0..<2.0.0, 2.0.1..<5.0.0} cannot be used because 'b' 1.0.0 depends on 'a' 2.0.0.
+            'a' {0.0.0..<2.0.0, 2.0.1..<5.0.0} practically depends on 'b' 1.0.0 because no versions of 'a' match the requirement {0.0.0..<1.0.0, 1.0.1..<2.0.0, 2.0.1..<5.0.0} and 'a' 1.0.0 depends on 'b' 1.0.0.
             """)
     }
 
@@ -1792,12 +1798,14 @@ final class PubGrubDiagnosticsTests: XCTestCase {
         ])
         let result = resolver.solve(constraints: dependencies)
 
+        // TODO: this description could use refinement
         XCTAssertEqual(
             result.errorMsg,
             """
             Dependencies could not be resolved because root depends on 'intermediate_a' 1.0.0..<2.0.0 and root depends on 'intermediate_b' 1.0.0..<2.0.0.
-            'intermediate_b' is incompatible with 'intermediate_a' because 'transitive' < 1.1.0 depends on 'transitive' 1.0.0 and 'intermediate_a' depends on 'transitive' 1.0.0.
-            'intermediate_b' practically depends on 'transitive' 1.1.0 because 'intermediate_b' depends on 'transitive' 1.1.0 and 'transitive' >= 1.1.0 depends on 'transitive' 1.1.0.
+            'intermediate_b' is incompatible with 'intermediate_a' because 'intermediate_a' 1.0.0 depends on 'transitive' 1.0.0 and no versions of 'intermediate_a' match the requirement 1.0.1..<2.0.0.
+            'intermediate_b' is incompatible with 'transitive' because 'transitive' 1.1.0 depends on 'transitive' 1.1.0 and 'transitive' 1.0.0 depends on 'transitive' 1.0.0.
+            'intermediate_b' >= 1.0.0 practically depends on 'transitive' 1.1.0 because no versions of 'intermediate_b' match the requirement 1.0.1..<2.0.0 and 'intermediate_b' 1.0.0 depends on 'transitive' 1.1.0.
             """
         )
     }

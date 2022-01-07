@@ -1243,8 +1243,11 @@ internal final class PubGrubPackageContainer {
             guard case .versionSet(let constraintRequirement) = constraint.requirement else {
                 throw InternalError("Unexpected unversioned requirement: \(constraint)")
             }
-            return try constraint.nodes().map { constraintNode in
-                var terms: OrderedSet<Term> = []
+            return try constraint.nodes().compactMap { constraintNode in
+                // cycle
+                guard node != constraintNode else {
+                    return nil
+                }
 
                 // Make a record for this dependency so we don't have to recompute the bounds when the selected version falls within the bounds.
                 if let lowerBound = lowerBounds[constraintNode], let upperBound = upperBounds[constraintNode] {
@@ -1253,6 +1256,7 @@ internal final class PubGrubPackageContainer {
                     self.emittedIncompatibilities[constraintNode] = requirement.union(emittedIncompatibilities[constraintNode] ?? .empty)
                 }
 
+                var terms: OrderedSet<Term> = []
                 // the package version requirement
                 terms.append(Term(node, .exact(version)))
                 // the dependency's version requirement
