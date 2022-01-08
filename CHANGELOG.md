@@ -26,6 +26,11 @@ Swift 5.6
 
   Adding a dependency requirement can now be done with the convenience initializer `.package(url: String, exact: Version)`.
 
+* [#3717]
+
+  Introduce a 2nd version of `Package.resolved` file format which captured more accurately package identity.
+
+
 Swift 5.5
 -----------
 * [#3410]
@@ -47,6 +52,7 @@ Swift 5.5
 * [#3316]
 
   Test targets can now link against executable targets as if they were libraries, so that they can test any data structures or algorithms in them.  All the code in the executable except for the main entry point itself is available to the unit test.  Separate executables are still linked, and can be tested as a subprocess in the same way as before.  This feature is available to tests defined in packages that have a tools version of `5.5` or newer. 
+
 
 Swift 5.4
 -----------
@@ -180,3 +186,4 @@ Swift 3.0
 [#3486]: https://github.com/apple/swift-package-manager/pull/3486
 [#3641]: https://github.com/apple/swift-package-manager/pull/3641
 [#3649]: https://github.com/apple/swift-package-manager/pull/3649
+[#3717]: https://github.com/apple/swift-package-manager/pull/3717
