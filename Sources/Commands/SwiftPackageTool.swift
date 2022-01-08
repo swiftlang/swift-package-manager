@@ -1229,37 +1229,58 @@ final class PluginDelegate: PluginInvocationDelegate {
     }
 
     private func createSymbolGraph(forTarget targetName: String, options: PluginInvocationSymbolGraphOptions) throws -> PluginInvocationSymbolGraphResult {
-        // Current implementation uses `SymbolGraphExtract()` but we can probably do better in the future.
-        let buildParameters = try swiftTool.buildParameters()
-        let buildOperation = try swiftTool.createBuildOperation(cacheBuildManifest: false)  // We only get a build plan if we don't cache
-        try buildOperation.build(subset: .target(targetName))
-        let symbolGraphExtract = try SymbolGraphExtract(tool: swiftTool.getToolchain().getSymbolGraphExtract())
-        let minimumAccessLevel: AccessLevel
+        // Current implementation uses `SymbolGraphExtract()` but in the future we should emit the symbol graph while building.
+
+        // Create a build operation for building the target., skipping the the cache because we need the build plan.
+        let buildOperation = try swiftTool.createBuildOperation(cacheBuildManifest: false)
+
+        // Find the target in the build operation's package graph; it's an error if we don't find it.
+        let packageGraph = try buildOperation.getPackageGraph()
+        guard let target = packageGraph.allTargets.first(where: { $0.name == targetName }) else {
+            throw StringError("could not find a target named “\(targetName)”")
+        }
+
+        // Build the target, if needed.
+        try buildOperation.build(subset: .target(target.name))
+
+        // Configure the symbol graph extractor.
+        var symbolGraphExtractor = try SymbolGraphExtract(tool: swiftTool.getToolchain().getSymbolGraphExtract())
+        symbolGraphExtractor.skipSynthesizedMembers = !options.includeSynthesized
         switch options.minimumAccessLevel {
         case .private:
-            minimumAccessLevel = .private
+            symbolGraphExtractor.minimumAccessLevel = .private
         case .fileprivate:
-            minimumAccessLevel = .fileprivate
+            symbolGraphExtractor.minimumAccessLevel = .fileprivate
         case .internal:
-            minimumAccessLevel = .internal
+            symbolGraphExtractor.minimumAccessLevel = .internal
         case .public:
-            minimumAccessLevel = .public
+            symbolGraphExtractor.minimumAccessLevel = .public
         case .open:
-            minimumAccessLevel = .open
+            symbolGraphExtractor.minimumAccessLevel = .open
         }
-        
-        // Extract the symbol graph.
-        try symbolGraphExtract.dumpSymbolGraph(
-            buildPlan: buildOperation.buildPlan!,
-            prettyPrint: false,
-            skipSynthesisedMembers: !options.includeSynthesized,
-            minimumAccessLevel: minimumAccessLevel,
-            skipInheritedDocs: true,
-            includeSPISymbols: options.includeSPI)
-        
+        symbolGraphExtractor.skipInheritedDocs = true
+        symbolGraphExtractor.includeSPISymbols = options.includeSPI
+
+        // Determine the output directory, and remove any old version if it already exists.
+        guard let buildPlan = buildOperation.buildPlan else {
+            throw StringError("could not get the build plan from the build operation")
+        }
+        guard let package = packageGraph.package(for: target) else {
+            throw StringError("could not determine the package for target “\(target.name)”")
+        }
+        let outputDir = buildPlan.buildParameters.dataPath.appending(components: "extracted-symbols", package.identity.description, target.name)
+        try localFileSystem.removeFileTree(outputDir)
+
+        // Run the symbol graph extractor on the target.
+        try symbolGraphExtractor.extractSymbolGraph(
+            target: target,
+            buildPlan: buildPlan,
+            outputRedirection: .collect,
+            verbose: false,
+            outputDirectory: outputDir)
+
         // Return the results to the plugin.
-        return PluginInvocationSymbolGraphResult(
-            directoryPath: buildParameters.symbolGraph.pathString)
+        return PluginInvocationSymbolGraphResult(directoryPath: outputDir.pathString)
     }
 }
 
