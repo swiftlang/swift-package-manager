@@ -93,6 +93,7 @@ class PluginInvocationTests: XCTestCase {
                 input: PluginScriptRunnerInput,
                 toolsVersion: ToolsVersion,
                 writableDirectories: [AbsolutePath],
+                readOnlyDirectories: [AbsolutePath],
                 fileSystem: FileSystem,
                 observabilityScope: ObservabilityScope,
                 callbackQueue: DispatchQueue,
