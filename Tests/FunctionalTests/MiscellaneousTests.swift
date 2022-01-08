@@ -550,6 +550,7 @@ class MiscellaneousTestCase: XCTestCase {
                     static let __allTests__SimpleTests = [
                         ("test_Example2", test_Example2),
                         ("testExample1", testExample1),
+                        ("testThrowing", testThrowing),
                     ]
                 }
 
