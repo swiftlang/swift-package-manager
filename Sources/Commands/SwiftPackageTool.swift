@@ -990,7 +990,6 @@ extension SwiftPackageTool {
 
             // Make sure that the package path is read-only unless it's covered by any of the explicitly writable directories.
             let readOnlyDirectories = writableDirectories.contains{ package.path.isDescendantOfOrEqual(to: $0) } ? [] : [package.path]
-            print("readOnlyDirectories: \(readOnlyDirectories)")
 
             // Use the directory containing the compiler as an additional search directory, and add the $PATH.
             let toolSearchDirs = [try swiftTool.getToolchain().swiftCompilerPath.parentDirectory]
