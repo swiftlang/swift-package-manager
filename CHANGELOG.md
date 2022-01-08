@@ -26,6 +26,13 @@ Swift 5.6
 
   Adding a dependency requirement can now be done with the convenience initializer `.package(url: String, exact: Version)`.
 
+* [#3641]
+
+  Dependency requirement enum calling convention is deprecated in favour of labeled argument:    
+    * `.package(url: String, .branch(String))` -> `.package(url: String, branch: String)`
+    * `.package(url: String, .revision(String))` -> `.package(url: String, revision: String)`    
+    * `.package(url: String, .exact(Version))` -> `.package(url: String, exact: Version)`    
+  
 Swift 5.5
 -----------
 * [#3410]
