@@ -23,7 +23,6 @@ public enum Sandbox {
     ///   - strictness: The basic strictness level of the standbox.
     ///   - writableDirectories: Paths under which writing should be allowed.
     ///   - readOnlyDirectories: Paths under which writing should be denied, even if they would have otherwise been allowed by either the strictness level or paths in `writableDirectories`.
-
     public static func apply(
         command: [String],
         strictness: Strictness = .default,
