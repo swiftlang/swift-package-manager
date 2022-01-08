@@ -1508,18 +1508,20 @@ final class PackageToolTests: CommandsTestCase {
             // Check that if we don't pass any target, we successfully get symbol graph information for all targets in the package, and at different paths.
             do {
                 let result = try SwiftPMProduct.SwiftPackage.executeProcess(["generate-documentation"], packagePath: packageDir)
-                XCTAssertEqual(result.exitStatus, .terminated(code: 0))
-                XCTAssertMatch(try result.utf8Output(), .and(.contains("MyLibrary:"), .contains("mypackage/MyLibrary")))
-                XCTAssertMatch(try result.utf8Output(), .and(.contains("MyCommand:"), .contains("mypackage/MyCommand")))
+                let output = try result.utf8Output() + result.utf8stderrOutput()
+                XCTAssertEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
+                XCTAssertMatch(output, .and(.contains("MyLibrary:"), .contains("mypackage/MyLibrary")))
+                XCTAssertMatch(output, .and(.contains("MyCommand:"), .contains("mypackage/MyCommand")))
 
             }
 
             // Check that if we pass a target, we successfully get symbol graph information for just the target we asked for.
             do {
                 let result = try SwiftPMProduct.SwiftPackage.executeProcess(["--target", "MyLibrary", "generate-documentation"], packagePath: packageDir)
-                XCTAssertEqual(result.exitStatus, .terminated(code: 0))
-                XCTAssertMatch(try result.utf8Output(), .and(.contains("MyLibrary:"), .contains("mypackage/MyLibrary")))
-                XCTAssertNoMatch(try result.utf8Output(), .and(.contains("MyCommand:"), .contains("mypackage/MyCommand")))
+                let output = try result.utf8Output() + result.utf8stderrOutput()
+                XCTAssertEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
+                XCTAssertMatch(output, .and(.contains("MyLibrary:"), .contains("mypackage/MyLibrary")))
+                XCTAssertNoMatch(output, .and(.contains("MyCommand:"), .contains("mypackage/MyCommand")))
             }
         }
     }

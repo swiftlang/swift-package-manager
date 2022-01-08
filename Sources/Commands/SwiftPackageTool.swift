@@ -564,8 +564,7 @@ extension SwiftPackageTool {
                 skipSynthesizedMembers: skipSynthesizedMembers,
                 minimumAccessLevel: minimumAccessLevel,
                 skipInheritedDocs: skipInheritedDocs,
-                includeSPISymbols: includeSPISymbols,
-                prettyPrintOutputJSON: prettyPrint)
+                includeSPISymbols: includeSPISymbols)
 
             // Run the tool once for every library and executable target in the root package.
             let buildPlan = buildOp.buildPlan!
@@ -576,7 +575,7 @@ extension SwiftPackageTool {
                 try symbolGraphExtractor.extractSymbolGraph(
                     target: target,
                     buildPlan: buildPlan,
-                    verbose: verbosity != .concise,
+                    logLevel: swiftTool.logLevel,
                     outputDirectory: symbolGraphDirectory)
             }
 
@@ -1276,7 +1275,7 @@ final class PluginDelegate: PluginInvocationDelegate {
             target: target,
             buildPlan: buildPlan,
             outputRedirection: .collect,
-            verbose: false,
+            logLevel: .warning,
             outputDirectory: outputDir)
 
         // Return the results to the plugin.

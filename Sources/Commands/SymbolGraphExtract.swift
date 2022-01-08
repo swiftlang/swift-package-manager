@@ -9,6 +9,7 @@
 */
 
 import ArgumentParser
+import Basics
 import Build
 import PackageGraph
 import PackageModel
@@ -19,26 +20,31 @@ import TSCUtility
 /// A wrapper for swift-symbolgraph-extract tool.
 public struct SymbolGraphExtract {
     let tool: AbsolutePath
-    var skipSynthesizedMembers: Bool = false
-    var minimumAccessLevel: AccessLevel = .public
-    var skipInheritedDocs: Bool = false
-    var includeSPISymbols: Bool = false
-    var prettyPrintOutputJSON: Bool = false
+    
+    var skipSynthesizedMembers = false
+    var minimumAccessLevel = AccessLevel.public
+    var skipInheritedDocs = false
+    var includeSPISymbols = false
+    var outputFormat = OutputFormat.json(pretty: false)
 
     /// Access control levels.
-    public enum AccessLevel: String, RawRepresentable, CustomStringConvertible, CaseIterable, ExpressibleByArgument {
+    public enum AccessLevel: String, RawRepresentable, CaseIterable, ExpressibleByArgument {
         // The cases reflect those found in `include/swift/AST/AttrKind.h` of the swift compiler (at commit 03f55d7bb4204ca54841218eb7cc175ae798e3bd)
         case `private`, `fileprivate`, `internal`, `public`, `open`
-
-        public var description: String { rawValue }
     }
 
+    /// Output format of the generated symbol graph.
+    public enum OutputFormat {
+        /// JSON format, optionally "pretty-printed" be more human-readable.
+        case json(pretty: Bool)
+    }
+    
     /// Creates a symbol graph for `target` in `outputDirectory` using the build information from `buildPlan`. The `outputDirection` determines how the output from the tool subprocess is handled, and `verbosity` specifies how much console output to ask the tool to emit.
     public func extractSymbolGraph(
         target: ResolvedTarget,
         buildPlan: BuildPlan,
         outputRedirection: Process.OutputRedirection = .none,
-        verbose: Bool,
+        logLevel: Basics.Diagnostic.Severity,
         outputDirectory: AbsolutePath
     ) throws {
         let buildParameters = buildPlan.buildParameters
@@ -50,7 +56,7 @@ public struct SymbolGraphExtract {
         commandLine += try buildParameters.targetTripleArgs(for: target)
         commandLine += buildPlan.createAPIToolCommonArgs(includeLibrarySearchPaths: true)
         commandLine += ["-module-cache-path", buildParameters.moduleCache.pathString]
-        if verbose {
+        if logLevel <= .info {
             commandLine += ["-v"]
         }
         commandLine += ["-minimum-access-level", minimumAccessLevel.rawValue]
@@ -63,8 +69,11 @@ public struct SymbolGraphExtract {
         if includeSPISymbols {
             commandLine += ["-include-spi-symbols"]
         }
-        if prettyPrintOutputJSON {
-            commandLine += ["-pretty-print"]
+        switch outputFormat {
+        case .json(let pretty):
+            if pretty {
+                commandLine += ["-pretty-print"]
+            }
         }
         commandLine += ["-output-dir", outputDirectory.pathString]
 
@@ -72,7 +81,7 @@ public struct SymbolGraphExtract {
         let process = Process(
             arguments: commandLine,
             outputRedirection: outputRedirection,
-            verbose: verbose)
+            verbose: logLevel <= .info)
         try process.launch()
         try process.waitUntilExit()
     }
