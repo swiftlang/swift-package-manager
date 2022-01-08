@@ -30,10 +30,10 @@ class TestDiscoveryTests: XCTestCase {
             let (stdout, stderr) = try executeSwiftTest(path)
             #if os(macOS)
             XCTAssertMatch(stdout, .contains("module Simple"))
-            XCTAssertMatch(stderr, .contains("Executed 2 tests"))
+            XCTAssertMatch(stderr, .contains("Executed 3 tests"))
             #else
             XCTAssertMatch(stdout, .contains("module Simple"))
-            XCTAssertMatch(stdout, .contains("Executed 2 tests"))
+            XCTAssertMatch(stdout, .contains("Executed 3 tests"))
             #endif
         }
     }
@@ -56,10 +56,10 @@ class TestDiscoveryTests: XCTestCase {
             let (stdout, stderr) = try executeSwiftTest(path)
             #if os(macOS)
             XCTAssertMatch(stdout, .contains("module Async"))
-            XCTAssertMatch(stderr, .contains("Executed 3 tests"))
+            XCTAssertMatch(stderr, .contains("Executed 4 tests"))
             #else
             XCTAssertMatch(stdout, .contains("module Async"))
-            XCTAssertMatch(stdout, .contains("Executed 3 tests"))
+            XCTAssertMatch(stdout, .contains("Executed 4 tests"))
             #endif
         }
     }
@@ -112,6 +112,18 @@ class TestDiscoveryTests: XCTestCase {
             XCTAssertMatch(stdout, .contains("SimpleTests4.testExample1"))
             XCTAssertMatch(stdout, .contains("SimpleTests4.testExample2"))
             XCTAssertMatch(stdout, .contains("Executed 7 tests"))
+        }
+        #endif
+    }
+
+    func testDeprecatedTests() throws {
+        #if os(macOS)
+        try XCTSkipIf(true)
+        #else
+        fixture(name: "Miscellaneous/TestDiscovery/Deprecation") { path in
+            let (stdout, _) = try executeSwiftTest(path, extraArgs: ["--enable-test-discovery"])
+            XCTAssertMatch(stdout, .contains("Executed 2 tests"))
+            XCTAssertNoMatch(stdout, .contains("is deprecated"))
         }
         #endif
     }

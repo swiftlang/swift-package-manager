@@ -1478,7 +1478,7 @@ public class BuildPlan {
             } else {
                 // We'll generate sources containing the test names as part of the build process.
                 let derivedTestListDir = buildParameters.buildPath.appending(components: "\(testProduct.name).derived")
-                let mainFile = derivedTestListDir.appending(component: "main.swift")
+                let mainFile = derivedTestListDir.appending(component: "runner.swift")
 
                 var paths: [AbsolutePath] = []
                 paths.append(mainFile)

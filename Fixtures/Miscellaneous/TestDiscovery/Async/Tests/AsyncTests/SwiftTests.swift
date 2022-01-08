@@ -7,6 +7,9 @@ class AsyncTests: XCTestCase {
     func testAsync() async {
     }
 
+    func testAsyncThrows() async throws {
+    }
+
     @MainActor func testMainActor() async {
         XCTAssertTrue(Thread.isMainThread)
     }
