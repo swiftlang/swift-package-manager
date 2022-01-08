@@ -26,6 +26,14 @@ Swift 5.6
 
   Adding a dependency requirement can now be done with the convenience initializer `.package(url: String, exact: Version)`.
 
+
+* [#3670], [#3901], [#3942]
+  
+  Location of configuraiton files (including mirror file) have changed to accomodate new features that require more robust configuraiton directories structure, such as SE-0292:
+  
+  * `<project>/.swiftpm/config` (mirrors files) was moved to `<project>/.swiftpm/configuration/mirrors.json`. SwiftPM 5.6 will automatically copy the file from the old location to the the new one and emit a warning to prompt the user to delete the file from the old location.
+  * `~/.swiftpm/config/collections.json` (collections files) was moved to `~/.swiftpm/configuration/collections.json`. SwiftPM 5.6 will automatically copy the file from the old location to the the new one and emit a warning to prompt the user to delete the file from the old location.
+  
 Swift 5.5
 -----------
 * [#3410]
@@ -180,3 +188,7 @@ Swift 3.0
 [#3486]: https://github.com/apple/swift-package-manager/pull/3486
 [#3641]: https://github.com/apple/swift-package-manager/pull/3641
 [#3649]: https://github.com/apple/swift-package-manager/pull/3649
+[#3670]: https://github.com/apple/swift-package-manager/pull/3670
+[#3901]: https://github.com/apple/swift-package-manager/pull/3901
+[#3942]: https://github.com/apple/swift-package-manager/pull/3942
+
