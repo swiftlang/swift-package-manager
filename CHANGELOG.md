@@ -25,7 +25,10 @@ Swift 5.6
 * [#3641]
 
   Adding a dependency requirement can now be done with the convenience initializer `.package(url: String, exact: Version)`.
+  
+* [#3890]
 
+  To increase the security of packages, SwiftPM performs trust on first use (TOFU) validation. The fingerprint of a package is now being recorded when the package is first downloaded from a Git repository or package registry. Subsequent downloads must have fingerpints matching previous recorded values, otherwise it would result in build warnings or failures depending on settings.   
 
 * [#3670], [#3901], [#3942]
   
@@ -189,6 +192,7 @@ Swift 3.0
 [#3641]: https://github.com/apple/swift-package-manager/pull/3641
 [#3649]: https://github.com/apple/swift-package-manager/pull/3649
 [#3670]: https://github.com/apple/swift-package-manager/pull/3670
+[#3890]: https://github.com/apple/swift-package-manager/pull/3890
 [#3901]: https://github.com/apple/swift-package-manager/pull/3901
 [#3942]: https://github.com/apple/swift-package-manager/pull/3942
 
