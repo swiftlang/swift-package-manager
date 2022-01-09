@@ -1232,6 +1232,17 @@ final class PackageToolTests: CommandsTestCase {
                 public func Foo() { }
                 """
             }
+            try localFileSystem.writeFileContents(packageDir.appending(components: "Sources", "MyLibrary", "test.docc")) {
+                $0 <<< """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "https://www.apple.com/DTDs/PropertyList-1.0.dtd">
+                <plist version="1.0">
+                <dict>
+                    <key>CFBundleName</key>
+                    <string>sample</string>
+                </dict>
+                """
+            }
             let hostTriple = try UserToolchain(destination: .hostDestination()).triple
             let hostTripleString = hostTriple.isDarwin() ? hostTriple.tripleString(forPlatformVersion: "") : hostTriple.tripleString
             try localFileSystem.writeFileContents(packageDir.appending(components: "Binaries", "LocalBinaryTool.artifactbundle", "info.json")) {
@@ -1293,6 +1304,13 @@ final class PackageToolTests: CommandsTestCase {
                         print("Looking for sed...")
                         let sed = try context.tool(named: "sed")
                         print("... found it at \\(sed.path)")
+                        
+                        // Print out the source files so that we can check them.
+                        if let sourceFiles = (targets.first{ $0.name == "MyLibrary" } as? SourceModuleTarget)?.sourceFiles {
+                            for file in sourceFiles {
+                                print("  \\(file.path): \\(file.type)")
+                            }
+                        }
                     }
                 }
                 """
@@ -1340,29 +1358,42 @@ final class PackageToolTests: CommandsTestCase {
             // Check that we can invoke the plugin with the "plugin" subcommand.
             do {
                 let result = try SwiftPMProduct.SwiftPackage.executeProcess(["plugin", "mycmd"], packagePath: packageDir)
-                XCTAssertEqual(result.exitStatus, .terminated(code: 0))
-                XCTAssertMatch(try result.utf8Output(), .contains("This is MyCommandPlugin."))
+                let output = try result.utf8Output() + result.utf8stderrOutput()
+                XCTAssertEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
+                XCTAssertMatch(output, .contains("This is MyCommandPlugin."))
             }
 
             // Check that we can also invoke it without the "plugin" subcommand.
             do {
                 let result = try SwiftPMProduct.SwiftPackage.executeProcess(["mycmd"], packagePath: packageDir)
-                XCTAssertEqual(result.exitStatus, .terminated(code: 0))
-                XCTAssertMatch(try result.utf8Output(), .contains("This is MyCommandPlugin."))
+                let output = try result.utf8Output() + result.utf8stderrOutput()
+                XCTAssertEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
+                XCTAssertMatch(output, .contains("This is MyCommandPlugin."))
             }
 
             // Testing listing the available command plugins.
             do {
                 let result = try SwiftPMProduct.SwiftPackage.executeProcess(["plugin", "--list"], packagePath: packageDir)
-                XCTAssertEqual(result.exitStatus, .terminated(code: 0))
-                XCTAssertMatch(try result.utf8Output(), .contains("‘mycmd’ (plugin ‘MyPlugin’ in package ‘MyPackage’)"))
+                let output = try result.utf8Output() + result.utf8stderrOutput()
+                XCTAssertEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
+                XCTAssertMatch(output, .contains("‘mycmd’ (plugin ‘MyPlugin’ in package ‘MyPackage’)"))
             }
 
             // Check that we get the expected error if trying to invoke a plugin with the wrong name.
             do {
                 let result = try SwiftPMProduct.SwiftPackage.executeProcess(["my-nonexistent-cmd"], packagePath: packageDir)
-                XCTAssertNotEqual(result.exitStatus, .terminated(code: 0))
-                XCTAssertMatch(try result.utf8stderrOutput(), .contains("No command plugins found for ‘my-nonexistent-cmd’"))
+                let output = try result.utf8Output() + result.utf8stderrOutput()
+                XCTAssertNotEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
+                XCTAssertMatch(output, .contains("No command plugins found for ‘my-nonexistent-cmd’"))
+            }
+
+            // Check that the .docc file was properly vended to the plugin.
+            do {
+                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["mycmd"], packagePath: packageDir)
+                let output = try result.utf8Output() + result.utf8stderrOutput()
+                XCTAssertEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
+                XCTAssertMatch(output, .contains("Sources/MyLibrary/library.swift: source"))
+                XCTAssertMatch(output, .contains("Sources/MyLibrary/test.docc: unknown"))
             }
         }
     }
