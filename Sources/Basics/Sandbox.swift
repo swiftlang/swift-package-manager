@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2021 Apple Inc. and the Swift project authors
+ Copyright (c) 2021-2022 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -13,13 +13,24 @@ import TSCBasic
 import TSCUtility
 
 public enum Sandbox {
+
+    /// Applies a sandbox invocation to the given command line (if the platform supports it),
+    /// and returns the modified command line. On platforms that don't support sandboxing, the
+    /// command line is returned unmodified.
+    ///
+    /// - Parameters:
+    ///   - command: The command line to sandbox (including executable as first argument)
+    ///   - strictness: The basic strictness level of the standbox.
+    ///   - writableDirectories: Paths under which writing should be allowed.
+    ///   - readOnlyDirectories: Paths under which writing should be denied, even if they would have otherwise been allowed by either the strictness level or paths in `writableDirectories`.
     public static func apply(
         command: [String],
+        strictness: Strictness = .default,
         writableDirectories: [AbsolutePath] = [],
-        strictness: Strictness = .default
+        readOnlyDirectories: [AbsolutePath] = []
     ) -> [String] {
         #if os(macOS)
-        let profile = macOSSandboxProfile(writableDirectories: writableDirectories, strictness: strictness)
+        let profile = macOSSandboxProfile(strictness: strictness, writableDirectories: writableDirectories, readOnlyDirectories: readOnlyDirectories)
         return ["/usr/bin/sandbox-exec", "-p", profile] + command
         #else
         // rdar://40235432, rdar://75636874 tracks implementing sandboxes for other platforms.
@@ -27,9 +38,13 @@ public enum Sandbox {
         #endif
     }
 
+    /// Basic strictness level of a sandbox applied to a command line.
     public enum Strictness: Equatable {
+        /// Blocks network access and all file system modifications.
         case `default`
+        /// More lenient restrictions than the default, for compatibility with SwiftPM manifests using a tools version older than 5.3.
         case manifest_pre_53 // backwards compatibility for manifests
+        /// Like `default`, but also makes temporary-files directories (such as `/tmp`) on the platform writable.
         case writableTemporaryDirectory
     }
 }
@@ -38,8 +53,9 @@ public enum Sandbox {
 
 #if os(macOS)
 fileprivate func macOSSandboxProfile(
+    strictness: Sandbox.Strictness,
     writableDirectories: [AbsolutePath],
-    strictness: Sandbox.Strictness
+    readOnlyDirectories: [AbsolutePath]
 ) -> String {
     var contents = "(version 1)\n"
 
@@ -80,10 +96,20 @@ fileprivate func macOSSandboxProfile(
         }
     }
 
+    // Emit rules for paths under which writing is allowed. Some of these expressions may be regular expressions and others literal subpaths.
     if writableDirectoriesExpression.count > 0 {
         contents += "(allow file-write*\n"
         for expression in writableDirectoriesExpression {
             contents += "    \(expression)\n"
+        }
+        contents += ")\n"
+    }
+
+    // Emit rules for paths under which writing should be disallowed, even if they would be covered by a previous rule to allow writing to them. A classic case is a package which is located under the temporary directory, which should be read-only even though the temporary directory as a whole is writable.
+    if readOnlyDirectories.count > 0 {
+        contents += "(deny file-write*\n"
+        for path in readOnlyDirectories {
+            contents += "    (subpath \(resolveSymlinks(path).quotedAsSubpathForSandboxProfile))\n"
         }
         contents += ")\n"
     }
