@@ -34,7 +34,7 @@ Swift 5.6
   
   Location of configuraiton files (including mirror file) have changed to accomodate new features that require more robust configuraiton directories structure, such as SE-0292:
   
-  * `<project>/.swiftpm/config` (mirrors files) was moved to `<project>/.swiftpm/configuration/mirrors.json`. SwiftPM 5.6 will automatically copy the file from the old location to the the new one and emit a warning to prompt the user to delete the file from the old location.
+  * `<project>/.swiftpm/config` (mirrors file) was moved to `<project>/.swiftpm/configuration/mirrors.json`. SwiftPM 5.6 will automatically copy the file from the old location to the new one and emit a warning to prompt the user to delete the file from the old location.
   * `~/.swiftpm/config/collections.json` (collections file) was moved to `~/.swiftpm/configuration/collections.json`. SwiftPM 5.6 will automatically copy the file from the old location to the new one and emit a warning to prompt the user to delete the file from the old location.
   
 Swift 5.5
