@@ -1216,41 +1216,51 @@ internal final class PubGrubPackageContainer {
 
             // Since the pinned version is most likely to succeed, we don't compute bounds for its
             // incompatibilities.
-            return try Array(constraints.map { (constraint: PackageContainerConstraint) -> [Incompatibility] in
-                guard case .versionSet(let vs) = constraint.requirement else {
+            return try constraints.flatMap { constraint -> [Incompatibility] in
+                // We only have version-based requirements at this point.
+                guard case .versionSet(let constraintRequirement) = constraint.requirement else {
                     throw InternalError("Unexpected unversioned requirement: \(constraint)")
                 }
                 return try constraint.nodes().map { dependencyNode in
                     var terms: OrderedSet<Term> = []
+                    // the package version requirement
                     terms.append(Term(node, .exact(version)))
-                    terms.append(Term(not: dependencyNode, vs))
+                    // the dependency's version requirement
+                    terms.append(Term(not: dependencyNode, constraintRequirement))
                     return try Incompatibility(terms, root: root, cause: .dependency(node: node))
                 }
-            }.joined())
+            }
         }
 
-        let (lowerBounds, upperBounds) = try self.computeBounds(for: node,
-                                                                constraints: constraints,
-                                                                startingWith: version)
+        let (lowerBounds, upperBounds) = try self.computeBounds(
+            for: node,
+            constraints: constraints,
+            startingWith: version
+        )
 
-        return try constraints.flatMap { constraint in
-            return try constraint.nodes().map { constraintNode in
-                var terms: OrderedSet<Term> = []
-                let lowerBound = lowerBounds[constraintNode] ?? "0.0.0"
-                let upperBound = upperBounds[constraintNode] ?? Version(version.major + 1, 0, 0)
-                assert(lowerBound < upperBound)
-
-                // We only have version-based requirements at this point.
-                guard case .versionSet(let vs) = constraint.requirement else {
-                    throw InternalError("Unexpected unversioned requirement: \(constraint)")
+        return try constraints.flatMap { constraint -> [Incompatibility] in
+            // We only have version-based requirements at this point.
+            guard case .versionSet(let constraintRequirement) = constraint.requirement else {
+                throw InternalError("Unexpected unversioned requirement: \(constraint)")
+            }
+            return try constraint.nodes().compactMap { constraintNode in
+                // cycle
+                guard node != constraintNode else {
+                    return nil
                 }
 
-                let requirement: VersionSetSpecifier = .range(lowerBound ..< upperBound)
-                terms.append(Term(node, requirement))
-                terms.append(Term(not: constraintNode, vs))
-
                 // Make a record for this dependency so we don't have to recompute the bounds when the selected version falls within the bounds.
-                self.emittedIncompatibilities[constraintNode] = requirement.union(emittedIncompatibilities[constraintNode] ?? .empty)
+                if let lowerBound = lowerBounds[constraintNode], let upperBound = upperBounds[constraintNode] {
+                    assert(lowerBound < upperBound)
+                    let requirement: VersionSetSpecifier = .range(lowerBound ..< upperBound)
+                    self.emittedIncompatibilities[constraintNode] = requirement.union(emittedIncompatibilities[constraintNode] ?? .empty)
+                }
+
+                var terms: OrderedSet<Term> = []
+                // the package version requirement
+                terms.append(Term(node, .exact(version)))
+                // the dependency's version requirement
+                terms.append(Term(not: constraintNode, constraintRequirement))
 
                 return try Incompatibility(terms, root: root, cause: .dependency(node: node))
             }
