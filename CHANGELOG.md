@@ -30,6 +30,13 @@ Swift 5.6
 
   To increase the security of packages, SwiftPM performs trust on first use (TOFU) validation. The fingerprint of a package is now being recorded when the package is first downloaded from a Git repository or package registry. Subsequent downloads must have fingerpints matching previous recorded values, otherwise it would result in build warnings or failures depending on settings.   
 
+* [#3641]
+
+  Dependency requirement enum calling convention is deprecated in favour of labeled argument:    
+    * `.package(url: String, .branch(String))` -> `.package(url: String, branch: String)`
+    * `.package(url: String, .revision(String))` -> `.package(url: String, revision: String)`    
+    * `.package(url: String, .exact(Version))` -> `.package(url: String, exact: Version)`    
+  
 Swift 5.5
 -----------
 * [#3410]
