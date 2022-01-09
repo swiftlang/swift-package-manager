@@ -618,7 +618,7 @@ extension LLBuildManifestBuilder {
                 let displayName = command.configuration.displayName ?? execPath.basename
                 var commandLine = [execPath.pathString] + command.configuration.arguments
                 if !self.disableSandboxForPluginCommands {
-                    commandLine = Sandbox.apply(command: commandLine, writableDirectories: [result.pluginOutputDirectory], strictness: .writableTemporaryDirectory)
+                    commandLine = Sandbox.apply(command: commandLine, strictness: .writableTemporaryDirectory, writableDirectories: [result.pluginOutputDirectory])
                 }
                 manifest.addShellCmd(
                     name: displayName + "-" + ByteString(encodingAsUTF8: uniquedName).sha256Checksum,

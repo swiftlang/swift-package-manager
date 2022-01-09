@@ -900,7 +900,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                     if self.isManifestSandboxEnabled {
                         let cacheDirectories = [self.databaseCacheDir, moduleCachePath].compactMap{ $0 }
                         let strictness: Sandbox.Strictness = toolsVersion < .v5_3 ? .manifest_pre_53 : .default
-                        cmd = Sandbox.apply(command: cmd, writableDirectories: cacheDirectories, strictness: strictness)
+                        cmd = Sandbox.apply(command: cmd, strictness: strictness, writableDirectories: cacheDirectories)
                     }
 
                     // Run the compiled manifest.
