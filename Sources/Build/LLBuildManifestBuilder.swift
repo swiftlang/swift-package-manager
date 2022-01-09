@@ -832,8 +832,8 @@ extension LLBuildManifestBuilder {
             let objectFiles = testTargets.flatMap{ $0.objects }.sorted().map(Node.file)
             let outputs = testDiscoveryTarget.target.sources.paths
 
-            guard let mainOutput = (outputs.first{ $0.basename == "main.swift" }) else {
-                throw InternalError("output main.swift not found")
+            guard let mainOutput = (outputs.first{ $0.basename == TestDiscoveryTool.mainFileName }) else {
+                throw InternalError("main output (\(TestDiscoveryTool.mainFileName)) not found")
             }
             let cmdName = mainOutput.pathString
             manifest.addTestDiscoveryCmd(
