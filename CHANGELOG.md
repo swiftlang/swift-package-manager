@@ -32,7 +32,7 @@ Swift 5.6
 
 * [#3717]
 
-  Introduce a 2nd version of `Package.resolved` file format which captured more accurately package identity.
+  Introduce a second version of `Package.resolved` file format which more accurately captures package identity.
 
 
 Swift 5.5
