@@ -1444,6 +1444,9 @@ final class PackageToolTests: CommandsTestCase {
     }
 
     func testCommandPluginSymbolGraphCallbacks() throws {
+        // Depending on how the test is running, the `swift-symbolgraph-extract` tool might be unavailable.
+        try XCTSkipIf((try? UserToolchain.default.getSymbolGraphExtract()) == nil, "skipping test because the `swift-symbolgraph-extract` tools isn't available")
+        
         try testWithTemporaryDirectory { tmpPath in
             // Create a sample package with a library, and executable, and a plugin.
             let packageDir = tmpPath.appending(components: "MyPackage")
