@@ -778,7 +778,7 @@ extension Workspace {
         observabilityScope: ObservabilityScope
     ) throws -> [(PackageReference, Workspace.PackageStateChange)]? {
         // Create cache directories.
-        createCacheDirectories(observabilityScope: observabilityScope)
+        self.createCacheDirectories(observabilityScope: observabilityScope)
 
         // FIXME: this should not block
         // Load the root manifests and currently checked out manifests.
@@ -793,7 +793,9 @@ extension Workspace {
         guard let pinsStore = observabilityScope.trap({ try self.pinsStore.load() }) else { return nil }
 
         // Ensure we don't have any error at this point.
-        guard !observabilityScope.errorsReported else { return nil }
+        guard !observabilityScope.errorsReported else {
+            return nil
+        }
 
         // Add unversioned constraints for edited packages.
         var updateConstraints = currentManifests.editedPackagesConstraints()
@@ -824,10 +826,14 @@ extension Workspace {
         // Reset the active resolver.
         self.activeResolver = nil
 
-        guard !observabilityScope.errorsReported else { return nil }
+        guard !observabilityScope.errorsReported else {
+            return nil
+        }
 
         if dryRun {
-            return observabilityScope.trap { return try computePackageStateChanges(root: graphRoot, resolvedDependencies: updateResults, updateBranches: true, observabilityScope: observabilityScope) }
+            return observabilityScope.trap {
+                return try self.computePackageStateChanges(root: graphRoot, resolvedDependencies: updateResults, updateBranches: true, observabilityScope: observabilityScope)
+            }
         }
 
         // Update the checkouts based on new dependency resolution.
@@ -835,6 +841,13 @@ extension Workspace {
 
         // Load the updated manifests.
         let updatedDependencyManifests = try self.loadDependencyManifests(root: graphRoot, observabilityScope: observabilityScope)
+        // If we have missing packages, something is fundamentally wrong with the resolution of the graph
+        let stillMissingPackages = updatedDependencyManifests.computePackages().missing
+        guard stillMissingPackages.isEmpty else {
+            let missing = stillMissingPackages.map{ $0.description }
+            observabilityScope.emit(error: "exhausted attempts to resolve the dependencies graph, with '\(missing.joined(separator: "', '"))' unresolved.")
+            return nil
+        }
 
         // Update the resolved file.
         self.saveResolvedFile(
@@ -1715,7 +1728,7 @@ extension Workspace {
             let dependenciesToLoad = dependenciesRequired.map{ $0.createPackageRef() }.filter { !loadedManifests.keys.contains($0.identity) }
             let dependenciesManifests = try temp_await { self.loadManagedManifests(for: dependenciesToLoad, observabilityScope: observabilityScope, completion: $0) }
             dependenciesManifests.forEach { loadedManifests[$0.key] = $0.value }
-            return pair.item.dependenciesRequired(for: pair.key.productFilter).compactMap { dependency in
+            return dependenciesRequired.compactMap { dependency in
                 loadedManifests[dependency.identity].flatMap {
                     // we also compare the location as this function may attempt to load
                     // dependencies that have the same identity but from a different location
@@ -2698,7 +2711,7 @@ extension Workspace {
     ) -> [(PackageReference, PackageStateChange)] {
         // Get the update package states from resolved results.
         guard let packageStateChanges = observabilityScope.trap({
-            try computePackageStateChanges(root: root, resolvedDependencies: updateResults, updateBranches: updateBranches, observabilityScope: observabilityScope)
+            try self.computePackageStateChanges(root: root, resolvedDependencies: updateResults, updateBranches: updateBranches, observabilityScope: observabilityScope)
         }) else {
             return []
         }
