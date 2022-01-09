@@ -895,10 +895,6 @@ extension SwiftPackageTool {
               help: "Allow the plugin to write to an additional directory")
         var additionalAllowedWritableDirectories: [String] = []
 
-        @Flag(name: .customLong("block-writing-to-temporary-directory"),
-              help: "Block the plugin from writing to the package directory (by default this is allowed)")
-        var blockWritingToTemporaryDirectory: Bool = false
-
         @Argument(parsing: .unconditionalRemaining,
                   help: "Name and arguments of the command plugin to invoke")
         var pluginCommand: [String] = []
@@ -979,13 +975,6 @@ extension SwiftPackageTool {
             if allowWritingToPackageDirectory {
                 writableDirectories.append(package.path)
             }
-            if !blockWritingToTemporaryDirectory {
-                writableDirectories.append(AbsolutePath("/tmp"))
-                writableDirectories.append(AbsolutePath(NSTemporaryDirectory()))
-            }
-            if allowWritingToPackageDirectory {
-                writableDirectories.append(package.path)
-            }
             else {
                 // If the plugin requires write permission but it wasn't provided, we ask the user for approval.
                 if case .command(_, let permissions) = plugin.capability {
@@ -998,6 +987,9 @@ extension SwiftPackageTool {
             for pathString in additionalAllowedWritableDirectories {
                 writableDirectories.append(AbsolutePath(pathString, relativeTo: swiftTool.originalWorkingDirectory))
             }
+
+            // Make sure that the package path is read-only unless it's covered by any of the explicitly writable directories.
+            let readOnlyDirectories = writableDirectories.contains{ package.path.isDescendantOfOrEqual(to: $0) } ? [] : [package.path]
 
             // Use the directory containing the compiler as an additional search directory, and add the $PATH.
             let toolSearchDirs = [try swiftTool.getToolchain().swiftCompilerPath.parentDirectory]
@@ -1051,6 +1043,7 @@ extension SwiftPackageTool {
                 toolSearchDirectories: toolSearchDirs,
                 toolNamesToPaths: toolNamesToPaths,
                 writableDirectories: writableDirectories,
+                readOnlyDirectories: readOnlyDirectories,
                 fileSystem: localFileSystem,
                 observabilityScope: swiftTool.observabilityScope,
                 callbackQueue: delegateQueue,

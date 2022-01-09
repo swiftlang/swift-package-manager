@@ -1337,7 +1337,7 @@ final class PackageToolTests: CommandsTestCase {
                 """
             }
 
-            // Invoke it, and check the results.
+            // Check that we can invoke the plugin with the "plugin" subcommand.
             do {
                 let result = try SwiftPMProduct.SwiftPackage.executeProcess(["plugin", "mycmd"], packagePath: packageDir)
                 XCTAssertEqual(result.exitStatus, .terminated(code: 0))
@@ -1374,8 +1374,9 @@ final class PackageToolTests: CommandsTestCase {
             let packageDir = tmpPath.appending(components: "MyPackage")
             try localFileSystem.writeFileContents(packageDir.appending(components: "Package.swift")) {
                 $0 <<< """
-                // swift-tools-version: 999.0
+                // swift-tools-version: 5.6
                 import PackageDescription
+                import Foundation
                 let package = Package(
                     name: "MyPackage",
                     targets: [
@@ -1386,7 +1387,10 @@ final class PackageToolTests: CommandsTestCase {
                             name: "MyPlugin",
                             capability: .command(
                                 intent: .custom(verb: "PackageScribbler", description: "Help description"),
-                                permissions: [.writeToPackageDirectory(reason: "For testing purposes")]
+                                // We use an environment here so we can control whether we declare the permission.
+                                permissions: ProcessInfo.processInfo.environment["DECLARE_PACKAGE_WRITING_PERMISSION"] == "1"
+                                    ? [.writeToPackageDirectory(reason: "For testing purposes")]
+                                    : []
                             )
                         ),
                     ]
@@ -1418,28 +1422,37 @@ final class PackageToolTests: CommandsTestCase {
                         print("... successfully created it")
                     }
                 }
-
                 extension String: Error {}
                 """
             }
 
-            // Invoke the plugin, and check that we can't write to the package directory by default.  Note that need to pass `--block-writing-to-temporary-directory` here since the test artifact is itself under the temporary directory.  Note that sandboxing is only currently supported on macOS.
+            // Check that we get an error if the plugin needs permission but if we don't give it to them. Note that sandboxing is only currently supported on macOS.
           #if os(macOS)
             do {
-                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["plugin", "--block-writing-to-temporary-directory", "PackageScribbler"], packagePath: packageDir, env: ["SWIFTPM_ENABLE_COMMAND_PLUGINS": "1"])
+                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["plugin", "PackageScribbler"], packagePath: packageDir, env: ["DECLARE_PACKAGE_WRITING_PERMISSION": "1"])
                 XCTAssertNotEqual(result.exitStatus, .terminated(code: 0))
                 XCTAssertNoMatch(try result.utf8Output(), .contains("successfully created it"))
                 XCTAssertMatch(try result.utf8stderrOutput(), .contains("error: Plugin ‘MyPlugin’ needs permission to write to the package directory (stated reason: “For testing purposes”)"))
             }
           #endif
 
-            // Invoke the plugin, and check that we can write to the package directory if we pass `--allow-writing-to-package-directory`.  Note that need to pass `--block-writing-to-temporary-directory` here since the test artifact is itself under the temporary directory.
+            // Check that we don't get an error (and also are allowed to write to the package directory) if we pass `--allow-writing-to-package-directory`.
             do {
-                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["plugin", "--allow-writing-to-package-directory", "PackageScribbler"], packagePath: packageDir, env: ["SWIFTPM_ENABLE_COMMAND_PLUGINS": "1"])
+                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["plugin", "--allow-writing-to-package-directory", "PackageScribbler"], packagePath: packageDir, env: ["DECLARE_PACKAGE_WRITING_PERMISSION": "1"])
                 XCTAssertEqual(result.exitStatus, .terminated(code: 0))
                 XCTAssertMatch(try result.utf8Output(), .contains("successfully created it"))
                 XCTAssertNoMatch(try result.utf8stderrOutput(), .contains("error: Couldn’t create file at path"))
             }
+
+            // Check that we get an error if the plugin doesn't declare permission but tries to write anyway. Note that sandboxing is only currently supported on macOS.
+          #if os(macOS)
+            do {
+                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["plugin", "PackageScribbler"], packagePath: packageDir, env: ["DECLARE_PACKAGE_WRITING_PERMISSION": "0"])
+                XCTAssertNotEqual(result.exitStatus, .terminated(code: 0))
+                XCTAssertNoMatch(try result.utf8Output(), .contains("successfully created it"))
+                XCTAssertMatch(try result.utf8stderrOutput(), .contains("error: Couldn’t create file at path"))
+            }
+          #endif
         }
     }
 }

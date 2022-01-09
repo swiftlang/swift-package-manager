@@ -54,6 +54,7 @@ extension PluginTarget {
         toolSearchDirectories: [AbsolutePath],
         toolNamesToPaths: [String: AbsolutePath],
         writableDirectories: [AbsolutePath],
+        readOnlyDirectories: [AbsolutePath],
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
@@ -90,6 +91,7 @@ extension PluginTarget {
             input: inputStruct,
             toolsVersion: self.apiVersion,
             writableDirectories: writableDirectories,
+            readOnlyDirectories: readOnlyDirectories,
             fileSystem: fileSystem,
             observabilityScope: observabilityScope,
             callbackQueue: callbackQueue,
@@ -178,12 +180,11 @@ extension PackageGraph {
                 // Assign a plugin working directory based on the package, target, and plugin.
                 let pluginOutputDir = outputDir.appending(components: package.identity.description, target.name, pluginTarget.name)
 
-                // Determine the set of directories under which plugins are allowed to write. We always include the output directory and temporary directories, and for now there is no possibility of opting into others.
-                let writableDirectories = [
-                    outputDir,
-                    AbsolutePath("/tmp"),
-                    AbsolutePath(NSTemporaryDirectory())
-                ]
+                // Determine the set of directories under which plugins are allowed to write. We always include just the output directory, and for now there is no possibility of opting into others.
+                let writableDirectories = [outputDir]
+
+                // Determine a set of further directories under which plugins are never allowed to write, even if they are covered by other rules (such as being able to write to the temporary directory).
+                let readOnlyDirectories = [package.path]
 
                 // Set up a delegate to handle callbacks from the build tool plugin. We'll capture free-form text output as well as defined commands and diagnostics.
                 let delegateQueue = DispatchQueue(label: "plugin-invocation")
@@ -245,6 +246,7 @@ extension PackageGraph {
                     toolSearchDirectories: toolSearchDirectories,
                     toolNamesToPaths: toolNamesToPaths,
                     writableDirectories: writableDirectories,
+                    readOnlyDirectories: readOnlyDirectories,
                     fileSystem: fileSystem,
                     observabilityScope: observabilityScope,
                     callbackQueue: delegateQueue,
@@ -389,6 +391,7 @@ public protocol PluginScriptRunner {
         input: PluginScriptRunnerInput,
         toolsVersion: ToolsVersion,
         writableDirectories: [AbsolutePath],
+        readOnlyDirectories: [AbsolutePath],
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
