@@ -531,7 +531,7 @@ extension SwiftPackageTool {
     struct DumpSymbolGraph: SwiftCommand {
         static let configuration = CommandConfiguration(
             abstract: "Dump Symbol Graph")
-        static let defaultMinimumAccessLevel = AccessLevel.public
+        static let defaultMinimumAccessLevel = SymbolGraphExtract.AccessLevel.public
 
         @OptionGroup(_hiddenFromHelp: true)
         var swiftOptions: SwiftToolOptions
@@ -542,7 +542,7 @@ extension SwiftPackageTool {
         @Flag(help: "Skip members inherited through classes or default implementations.")
         var skipSynthesizedMembers = false
 
-        @Option(help: "Include symbols with this access level or more. Possible values: \(AccessLevel.allValueStrings.joined(separator: " | "))")
+        @Option(help: "Include symbols with this access level or more. Possible values: \(SymbolGraphExtract.AccessLevel.allValueStrings.joined(separator: " | "))")
         var minimumAccessLevel = defaultMinimumAccessLevel
 
         @Flag(help: "Skip emitting doc comments for members inherited through classes or default implementations.")
@@ -552,23 +552,34 @@ extension SwiftPackageTool {
         var includeSPISymbols = false
 
         func run(_ swiftTool: SwiftTool) throws {
-            let symbolGraphExtract = try SymbolGraphExtract(
-                tool: swiftTool.getToolchain().getSymbolGraphExtract())
-
             // Build the current package.
             //
             // We turn build manifest caching off because we need the build plan.
             let buildOp = try swiftTool.createBuildOperation(cacheBuildManifest: false)
             try buildOp.build()
 
-            try symbolGraphExtract.dumpSymbolGraph(
-                buildPlan: buildOp.buildPlan!,
-                prettyPrint: prettyPrint,
-                skipSynthesisedMembers: skipSynthesizedMembers,
+            // Configure the symbol graph extractor.
+            let symbolGraphExtractor = try SymbolGraphExtract(
+                tool: swiftTool.getToolchain().getSymbolGraphExtract(),
+                skipSynthesizedMembers: skipSynthesizedMembers,
                 minimumAccessLevel: minimumAccessLevel,
                 skipInheritedDocs: skipInheritedDocs,
-                includeSPISymbols: includeSPISymbols
-            )
+                includeSPISymbols: includeSPISymbols)
+
+            // Run the tool once for every library and executable target in the root package.
+            let buildPlan = buildOp.buildPlan!
+            let symbolGraphDirectory = buildPlan.buildParameters.dataPath.appending(component: "symbolgraph")
+            let targets = buildPlan.graph.rootPackages.flatMap{ $0.targets }.filter{ $0.type == .library || $0.type == .executable }
+            for target in targets {
+                print("-- Emitting symbol graph for", target.name)
+                try symbolGraphExtractor.extractSymbolGraph(
+                    target: target,
+                    buildPlan: buildPlan,
+                    logLevel: swiftTool.logLevel,
+                    outputDirectory: symbolGraphDirectory)
+            }
+
+            print("Files written to", symbolGraphDirectory.pathString)
         }
     }
 
@@ -1217,37 +1228,58 @@ final class PluginDelegate: PluginInvocationDelegate {
     }
 
     private func createSymbolGraph(forTarget targetName: String, options: PluginInvocationSymbolGraphOptions) throws -> PluginInvocationSymbolGraphResult {
-        // Current implementation uses `SymbolGraphExtract()` but we can probably do better in the future.
-        let buildParameters = try swiftTool.buildParameters()
-        let buildOperation = try swiftTool.createBuildOperation(cacheBuildManifest: false)  // We only get a build plan if we don't cache
-        try buildOperation.build(subset: .target(targetName))
-        let symbolGraphExtract = try SymbolGraphExtract(tool: swiftTool.getToolchain().getSymbolGraphExtract())
-        let minimumAccessLevel: AccessLevel
+        // Current implementation uses `SymbolGraphExtract()` but in the future we should emit the symbol graph while building.
+
+        // Create a build operation for building the target., skipping the the cache because we need the build plan.
+        let buildOperation = try swiftTool.createBuildOperation(cacheBuildManifest: false)
+
+        // Find the target in the build operation's package graph; it's an error if we don't find it.
+        let packageGraph = try buildOperation.getPackageGraph()
+        guard let target = packageGraph.allTargets.first(where: { $0.name == targetName }) else {
+            throw StringError("could not find a target named “\(targetName)”")
+        }
+
+        // Build the target, if needed.
+        try buildOperation.build(subset: .target(target.name))
+
+        // Configure the symbol graph extractor.
+        var symbolGraphExtractor = try SymbolGraphExtract(tool: swiftTool.getToolchain().getSymbolGraphExtract())
+        symbolGraphExtractor.skipSynthesizedMembers = !options.includeSynthesized
         switch options.minimumAccessLevel {
         case .private:
-            minimumAccessLevel = .private
+            symbolGraphExtractor.minimumAccessLevel = .private
         case .fileprivate:
-            minimumAccessLevel = .fileprivate
+            symbolGraphExtractor.minimumAccessLevel = .fileprivate
         case .internal:
-            minimumAccessLevel = .internal
+            symbolGraphExtractor.minimumAccessLevel = .internal
         case .public:
-            minimumAccessLevel = .public
+            symbolGraphExtractor.minimumAccessLevel = .public
         case .open:
-            minimumAccessLevel = .open
+            symbolGraphExtractor.minimumAccessLevel = .open
         }
-        
-        // Extract the symbol graph.
-        try symbolGraphExtract.dumpSymbolGraph(
-            buildPlan: buildOperation.buildPlan!,
-            prettyPrint: false,
-            skipSynthesisedMembers: !options.includeSynthesized,
-            minimumAccessLevel: minimumAccessLevel,
-            skipInheritedDocs: true,
-            includeSPISymbols: options.includeSPI)
-        
+        symbolGraphExtractor.skipInheritedDocs = true
+        symbolGraphExtractor.includeSPISymbols = options.includeSPI
+
+        // Determine the output directory, and remove any old version if it already exists.
+        guard let buildPlan = buildOperation.buildPlan else {
+            throw StringError("could not get the build plan from the build operation")
+        }
+        guard let package = packageGraph.package(for: target) else {
+            throw StringError("could not determine the package for target “\(target.name)”")
+        }
+        let outputDir = buildPlan.buildParameters.dataPath.appending(components: "extracted-symbols", package.identity.description, target.name)
+        try localFileSystem.removeFileTree(outputDir)
+
+        // Run the symbol graph extractor on the target.
+        try symbolGraphExtractor.extractSymbolGraph(
+            target: target,
+            buildPlan: buildPlan,
+            outputRedirection: .collect,
+            logLevel: .warning,
+            outputDirectory: outputDir)
+
         // Return the results to the plugin.
-        return PluginInvocationSymbolGraphResult(
-            directoryPath: buildParameters.symbolGraph.pathString)
+        return PluginInvocationSymbolGraphResult(directoryPath: outputDir.pathString)
     }
 }
 

@@ -1442,4 +1442,90 @@ final class PackageToolTests: CommandsTestCase {
             }
         }
     }
+
+    func testCommandPluginSymbolGraphCallbacks() throws {
+        // Depending on how the test is running, the `swift-symbolgraph-extract` tool might be unavailable.
+        try XCTSkipIf((try? UserToolchain.default.getSymbolGraphExtract()) == nil, "skipping test because the `swift-symbolgraph-extract` tools isn't available")
+        
+        try testWithTemporaryDirectory { tmpPath in
+            // Create a sample package with a library, and executable, and a plugin.
+            let packageDir = tmpPath.appending(components: "MyPackage")
+            try localFileSystem.writeFileContents(packageDir.appending(components: "Package.swift")) {
+                $0 <<< """
+                // swift-tools-version: 5.6
+                import PackageDescription
+                let package = Package(
+                    name: "MyPackage",
+                    targets: [
+                        .target(
+                            name: "MyLibrary"
+                        ),
+                        .executableTarget(
+                            name: "MyCommand",
+                            dependencies: ["MyLibrary"]
+                        ),
+                        .plugin(
+                            name: "MyPlugin",
+                            capability: .command(
+                                intent: .documentationGeneration()
+                            )
+                        ),
+                    ]
+                )
+                """
+            }
+            try localFileSystem.writeFileContents(packageDir.appending(components: "Sources", "MyLibrary", "library.swift")) {
+                $0 <<< """
+                public func GetGreeting() -> String { return "Hello" }
+                """
+            }
+            try localFileSystem.writeFileContents(packageDir.appending(components: "Sources", "MyCommand", "main.swift")) {
+                $0 <<< """
+                import MyLibrary
+                print("\\(GetGreeting()), World!")
+                """
+            }
+            try localFileSystem.writeFileContents(packageDir.appending(components: "Plugins", "MyPlugin", "plugin.swift")) {
+                $0 <<< """
+                import PackagePlugin
+                import Foundation
+
+                @main
+                struct MyCommandPlugin: CommandPlugin {
+                    func performCommand(
+                        context: PluginContext,
+                        targets: [Target],
+                        arguments: [String]
+                    ) throws {
+                        // Ask for and print out the symbol graph directory for each target.
+                        for target in targets {
+                            let symbolGraph = try packageManager.getSymbolGraph(for: target,
+                                options: .init(minimumAccessLevel: .public))
+                            print("\\(target.name): \\(symbolGraph.directoryPath)")
+                        }
+                    }
+                }
+                """
+            }
+
+            // Check that if we don't pass any target, we successfully get symbol graph information for all targets in the package, and at different paths.
+            do {
+                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["generate-documentation"], packagePath: packageDir)
+                let output = try result.utf8Output() + result.utf8stderrOutput()
+                XCTAssertEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
+                XCTAssertMatch(output, .and(.contains("MyLibrary:"), .contains("mypackage/MyLibrary")))
+                XCTAssertMatch(output, .and(.contains("MyCommand:"), .contains("mypackage/MyCommand")))
+
+            }
+
+            // Check that if we pass a target, we successfully get symbol graph information for just the target we asked for.
+            do {
+                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["--target", "MyLibrary", "generate-documentation"], packagePath: packageDir)
+                let output = try result.utf8Output() + result.utf8stderrOutput()
+                XCTAssertEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
+                XCTAssertMatch(output, .and(.contains("MyLibrary:"), .contains("mypackage/MyLibrary")))
+                XCTAssertNoMatch(output, .and(.contains("MyCommand:"), .contains("mypackage/MyCommand")))
+            }
+        }
+    }
 }

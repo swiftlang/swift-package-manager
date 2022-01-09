@@ -1,97 +1,88 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2020 Apple Inc. and the Swift project authors
+ Copyright (c) 2014 - 2022 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import Foundation
-
-import TSCBasic
-import TSCUtility
-
-import SPMBuildCore
+import ArgumentParser
+import Basics
 import Build
 import PackageGraph
 import PackageModel
-import SourceControl
-import Workspace
-import ArgumentParser
+import SPMBuildCore
+import TSCBasic
+import TSCUtility
 
 /// A wrapper for swift-symbolgraph-extract tool.
 public struct SymbolGraphExtract {
     let tool: AbsolutePath
+    
+    var skipSynthesizedMembers = false
+    var minimumAccessLevel = AccessLevel.public
+    var skipInheritedDocs = false
+    var includeSPISymbols = false
+    var outputFormat = OutputFormat.json(pretty: false)
 
-    init(tool: AbsolutePath) {
-        self.tool = tool
+    /// Access control levels.
+    public enum AccessLevel: String, RawRepresentable, CaseIterable, ExpressibleByArgument {
+        // The cases reflect those found in `include/swift/AST/AttrKind.h` of the swift compiler (at commit 03f55d7bb4204ca54841218eb7cc175ae798e3bd)
+        case `private`, `fileprivate`, `internal`, `public`, `open`
     }
 
-    public func dumpSymbolGraph(
+    /// Output format of the generated symbol graph.
+    public enum OutputFormat {
+        /// JSON format, optionally "pretty-printed" be more human-readable.
+        case json(pretty: Bool)
+    }
+    
+    /// Creates a symbol graph for `target` in `outputDirectory` using the build information from `buildPlan`. The `outputDirection` determines how the output from the tool subprocess is handled, and `verbosity` specifies how much console output to ask the tool to emit.
+    public func extractSymbolGraph(
+        target: ResolvedTarget,
         buildPlan: BuildPlan,
-        prettyPrint: Bool,
-        skipSynthesisedMembers: Bool,
-        minimumAccessLevel: AccessLevel,
-        skipInheritedDocs: Bool,
-        includeSPISymbols: Bool
+        outputRedirection: Process.OutputRedirection = .none,
+        logLevel: Basics.Diagnostic.Severity,
+        outputDirectory: AbsolutePath
     ) throws {
         let buildParameters = buildPlan.buildParameters
-        let symbolGraphDirectory = buildPlan.buildParameters.symbolGraph
-        try localFileSystem.createDirectory(symbolGraphDirectory, recursive: true)
+        try localFileSystem.createDirectory(outputDirectory, recursive: true)
 
-        // Run the tool for each target in the root package.
-        let targets = buildPlan.graph.rootPackages.flatMap{ $0.targets }.filter{ $0.type == .library || $0.type == .executable }
-        for target in targets {
-            var args = [String]()
-            args += ["-module-name", target.c99name]
-            args += try buildParameters.targetTripleArgs(for: target)
-
-            args += buildPlan.createAPIToolCommonArgs(includeLibrarySearchPaths: true)
-            args += ["-module-cache-path", buildParameters.moduleCache.pathString]
-
-            args += ["-output-dir", symbolGraphDirectory.pathString]
-
-            if prettyPrint { args.append("-pretty-print") }
-            if skipSynthesisedMembers { args.append("-skip-synthesized-members") }
-            if minimumAccessLevel != SwiftPackageTool.DumpSymbolGraph.defaultMinimumAccessLevel {
-                args += ["-minimum-access-level", minimumAccessLevel.rawValue]
-            }
-            if skipInheritedDocs { args.append("-skip-inherited-docs") }
-            if includeSPISymbols { args.append("-include-spi-symbols") }
-
-            print("-- Emitting symbol graph for", target.name)
-            try runTool(args)
+        // Construct arguments for extracting symbols for a single target.
+        var commandLine = [self.tool.pathString]
+        commandLine += ["-module-name", target.c99name]
+        commandLine += try buildParameters.targetTripleArgs(for: target)
+        commandLine += buildPlan.createAPIToolCommonArgs(includeLibrarySearchPaths: true)
+        commandLine += ["-module-cache-path", buildParameters.moduleCache.pathString]
+        if logLevel <= .info {
+            commandLine += ["-v"]
         }
-        print("Files written to", symbolGraphDirectory.pathString)
-    }
+        commandLine += ["-minimum-access-level", minimumAccessLevel.rawValue]
+        if skipSynthesizedMembers {
+            commandLine += ["-skip-synthesized-members"]
+        }
+        if skipInheritedDocs {
+            commandLine += ["-skip-inherited-docs"]
+        }
+        if includeSPISymbols {
+            commandLine += ["-include-spi-symbols"]
+        }
+        switch outputFormat {
+        case .json(let pretty):
+            if pretty {
+                commandLine += ["-pretty-print"]
+            }
+        }
+        commandLine += ["-output-dir", outputDirectory.pathString]
 
-    func runTool(_ args: [String]) throws {
-        let arguments = [tool.pathString] + args
+        // Run the extraction.
         let process = Process(
-            arguments: arguments,
-            outputRedirection: .none,
-            verbose: verbosity != .concise
-        )
+            arguments: commandLine,
+            outputRedirection: outputRedirection,
+            verbose: logLevel <= .info)
         try process.launch()
         try process.waitUntilExit()
-    }
-}
-
-/// Access control levels.
-public enum AccessLevel: String, RawRepresentable, CustomStringConvertible, CaseIterable {
-    // The cases reflect those found in `include/swift/AST/AttrKind.h` of the swift compiler (at commit 03f55d7bb4204ca54841218eb7cc175ae798e3bd)
-    case `private`, `fileprivate`, `internal`, `public`, `open`
-
-    public var description: String { rawValue }
-}
-
-extension AccessLevel: ExpressibleByArgument {}
-
-extension BuildParameters {
-    /// The directory containing artifacts generated by the symbolgraph-extract tool.
-    var symbolGraph: AbsolutePath {
-        dataPath.appending(component: "symbolgraph")
     }
 }
