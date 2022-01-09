@@ -33,17 +33,21 @@ Swift 5.6
     * `.package(url: String, .revision(String))` -> `.package(url: String, revision: String)`    
     * `.package(url: String, .exact(Version))` -> `.package(url: String, exact: Version)` 
 
+* [#3717]
+
+  Introduce a second version of `Package.resolved` file format which more accurately captures package identity.
+
 * [#3890]
 
   To increase the security of packages, SwiftPM performs trust on first use (TOFU) validation. The fingerprint of a package is now being recorded when the package is first downloaded from a Git repository or package registry. Subsequent downloads must have fingerpints matching previous recorded values, otherwise it would result in build warnings or failures depending on settings.   
 
 * [#3670], [#3901], [#3942]
-  
-  Location of configuration files (including mirror file) have changed to accomodate new features that require more robust configuration directories structure, such as SE-0292:
-  
-  * `<project>/.swiftpm/config` (mirrors file) was moved to `<project>/.swiftpm/configuration/mirrors.json`. SwiftPM 5.6 will automatically copy the file from the old location to the new one and emit a warning to prompt the user to delete the file from the old location.
-  * `~/.swiftpm/config/collections.json` (collections file) was moved to `~/.swiftpm/configuration/collections.json`. SwiftPM 5.6 will automatically copy the file from the old location to the new one and emit a warning to prompt the user to delete the file from the old location.
-  
+
+  Location of configuration files (including mirror file) have changed to accomodate new features that require more robust configuration directories structure, such as SE-0292:  
+    * `<project>/.swiftpm/config` (mirrors file) was moved to `<project>/.swiftpm/configuration/mirrors.json`. SwiftPM 5.6 will automatically copy the file from the old location to the new one and emit a warning to prompt the user to delete the file from the old location.
+    * `~/.swiftpm/config/collections.json` (collections file) was moved to `~/.swiftpm/configuration/collections.json`. SwiftPM 5.6 will automatically copy the file from the old location to the new one and emit a warning to prompt the user to delete the file from the old location.
+
+
 Swift 5.5
 -----------
 * [#3410]
@@ -65,6 +69,7 @@ Swift 5.5
 * [#3316]
 
   Test targets can now link against executable targets as if they were libraries, so that they can test any data structures or algorithms in them.  All the code in the executable except for the main entry point itself is available to the unit test.  Separate executables are still linked, and can be tested as a subprocess in the same way as before.  This feature is available to tests defined in packages that have a tools version of `5.5` or newer. 
+
 
 Swift 5.4
 -----------
@@ -88,7 +93,6 @@ Swift 5.4
     
     The package manager now throws an error if a manifest file contains invalid UTF-8 byte sequences.
     
-
 
 Swift 4.2
 ---------
@@ -130,6 +134,7 @@ Swift 4.2
 * [#1489]
   A simpler progress bar is now generated for "dumb" terminals.
 
+
 Swift 4.1
 ---------
 
@@ -151,6 +156,7 @@ Swift 4.0
 
 * `--specifier` option for `swift test` is now deprecated.
   Use `--filter` instead which supports regex.
+
 
 Swift 3.0
 ---------
@@ -199,6 +205,7 @@ Swift 3.0
 [#3641]: https://github.com/apple/swift-package-manager/pull/3641
 [#3649]: https://github.com/apple/swift-package-manager/pull/3649
 [#3670]: https://github.com/apple/swift-package-manager/pull/3670
+[#3717]: https://github.com/apple/swift-package-manager/pull/3717
 [#3890]: https://github.com/apple/swift-package-manager/pull/3890
 [#3901]: https://github.com/apple/swift-package-manager/pull/3901
 [#3942]: https://github.com/apple/swift-package-manager/pull/3942
