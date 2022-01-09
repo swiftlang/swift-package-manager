@@ -9,14 +9,15 @@
 */
 
 import Basics
-import TSCBasic
-import TSCUtility
-import PackageModel
+import Foundation
+import LLBuildManifest
 import PackageGraph
 import PackageLoading
-import Foundation
+import PackageModel
 import SPMBuildCore
 @_implementationOnly import SwiftDriver
+import TSCBasic
+import TSCUtility
 
 extension String {
     fileprivate var asSwiftStringLiteralConstant: String {
@@ -1478,7 +1479,7 @@ public class BuildPlan {
             } else {
                 // We'll generate sources containing the test names as part of the build process.
                 let derivedTestListDir = buildParameters.buildPath.appending(components: "\(testProduct.name).derived")
-                let mainFile = derivedTestListDir.appending(component: "main.swift")
+                let mainFile = derivedTestListDir.appending(component: LLBuildManifest.TestDiscoveryTool.mainFileName)
 
                 var paths: [AbsolutePath] = []
                 paths.append(mainFile)

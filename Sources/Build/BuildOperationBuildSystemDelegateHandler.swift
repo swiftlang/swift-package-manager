@@ -73,7 +73,8 @@ final class TestDiscoveryCommand: CustomLLBuildCommand {
             let testMethods = iterator.value.flatMap{ $0.testMethods }
             stream <<< "\n"
             stream <<< "fileprivate extension " <<< className <<< " {" <<< "\n"
-            stream <<< indent(4) <<< "static let __allTests__\(className) = [" <<< "\n"
+            stream <<< indent(4) <<< "@available(*, deprecated, message: \"Not actually deprecated. Marked as deprecated to allow inclusion of deprecated tests (which test deprecated functionality) without warnings\")" <<< "\n"
+            stream <<< indent(4) <<< "static let __allTests = [" <<< "\n"
             for method in testMethods {
                 stream <<< indent(8) <<< method.allTestsEntry <<< ",\n"
             }
@@ -82,13 +83,14 @@ final class TestDiscoveryCommand: CustomLLBuildCommand {
         }
 
         stream <<< """
-        func __allTests_\(module)() -> [XCTestCaseEntry] {
+        @available(*, deprecated, message: "Not actually deprecated. Marked as deprecated to allow inclusion of deprecated tests (which test deprecated functionality) without warnings")
+        func __\(module)__allTests() -> [XCTestCaseEntry] {
             return [\n
         """
 
         for iterator in testsByClassNames {
             let className = iterator.key
-            stream <<< indent(8) <<< "testCase(\(className).__allTests__\(className)),\n"
+            stream <<< indent(8) <<< "testCase(\(className).__allTests),\n"
         }
 
         stream <<< """
@@ -113,7 +115,7 @@ final class TestDiscoveryCommand: CustomLLBuildCommand {
         let testsByModule = Dictionary(grouping: tests, by: { $0.module.spm_mangledToC99ExtendedIdentifier() })
 
         func isMainFile(_ path: AbsolutePath) -> Bool {
-            return path.basename == "main.swift"
+            return path.basename == LLBuildManifest.TestDiscoveryTool.mainFileName
         }
 
         var maybeMainFile: AbsolutePath?
@@ -140,19 +142,26 @@ final class TestDiscoveryCommand: CustomLLBuildCommand {
         }
 
         guard let mainFile = maybeMainFile else {
-            throw InternalError("unknown main file")
+            throw InternalError("main output (\(LLBuildManifest.TestDiscoveryTool.mainFileName)) not found")
         }
 
         // Write the main file.
         let stream = try LocalFileOutputByteStream(mainFile)
 
         stream <<< "import XCTest" <<< "\n\n"
-        stream <<< "var tests = [XCTestCaseEntry]()" <<< "\n"
+
+        stream <<< "@main" <<< "\n"
+        stream <<< "@available(*, deprecated, message: \"Not actually deprecated. Marked as deprecated to allow inclusion of deprecated tests (which test deprecated functionality) without warnings\")" <<< "\n"
+        stream <<< "struct Runner" <<< " {" <<< "\n"
+        stream <<< indent(4) <<< "static func main()" <<< " {" <<< "\n"
+        stream <<< indent(8) <<< "var tests = [XCTestCaseEntry]()" <<< "\n"
         for module in testsByModule.keys {
-            stream <<< "tests += __allTests_\(module)()" <<< "\n"
+            stream <<< indent(8) <<< "tests += __\(module)__allTests()" <<< "\n"
         }
-        stream <<< "\n"
-        stream <<< "XCTMain(tests)" <<< "\n"
+        stream <<< indent(8) <<< "\n"
+        stream <<< indent(8) <<< "XCTMain(tests)" <<< "\n"
+        stream <<< indent(4) <<< "}" <<< "\n"
+        stream <<< "}" <<< "\n"
 
         stream.flush()
     }
