@@ -824,6 +824,9 @@ struct PluginScriptRunnerInputSerializer {
         targetFiles.append(contentsOf: try target.underlyingTarget.resources.map {
             .init(basePathId: try serialize(path: $0.path.parentDirectory), name: $0.path.basename, type: .resource)
         })
+        targetFiles.append(contentsOf: try target.underlyingTarget.ignored.map {
+            .init(basePathId: try serialize(path: $0.parentDirectory), name: $0.basename, type: .unknown)
+        })
         targetFiles.append(contentsOf: try target.underlyingTarget.others.map {
             .init(basePathId: try serialize(path: $0.parentDirectory), name: $0.basename, type: .unknown)
         })
