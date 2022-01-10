@@ -154,7 +154,7 @@ public struct TargetSourcesBuilder {
     }
 
     /// Run the builder to produce the sources of the target.
-    public func run() throws -> (sources: Sources, resources: [Resource], headers: [AbsolutePath], others: [AbsolutePath]) {
+    public func run() throws -> (sources: Sources, resources: [Resource], headers: [AbsolutePath], ignored: [AbsolutePath], others: [AbsolutePath]) {
         let contents = self.computeContents()
         var pathToRule: [AbsolutePath: Rule] = [:]
 
@@ -166,6 +166,7 @@ public struct TargetSourcesBuilder {
         let compilePaths = pathToRule.lazy.filter { $0.value.rule == .compile }.map { $0.key }
         let sources = Sources(paths: Array(compilePaths), root: targetPath)
         let resources: [Resource] = pathToRule.compactMap { resource(for: $0.key, with: $0.value) }
+        let ignored = pathToRule.filter { $0.value.rule == .ignored }.map { $0.key }
         let others = pathToRule.filter { $0.value.rule == .none }.map { $0.key }
 
         diagnoseConflictingResources(in: resources)
@@ -180,7 +181,7 @@ public struct TargetSourcesBuilder {
             throw Target.Error.mixedSources(targetPath)
         }
 
-        return (sources, resources, headers, others)
+        return (sources, resources, headers, ignored, others)
     }
 
     private struct Rule {
