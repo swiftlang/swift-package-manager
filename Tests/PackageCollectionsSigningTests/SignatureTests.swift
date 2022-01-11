@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2021 Apple Inc. and the Swift project authors
+ Copyright (c) 2021-2022 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -19,7 +19,7 @@ class SignatureTests: XCTestCase {
     func test_RS256_generateAndValidate_happyCase() throws {
         try skipIfUnsupportedPlatform()
 
-        fixture(name: "Collections") { directoryPath in
+        fixture(name: "Collections", createGitRepo: false) { directoryPath in
             let jsonEncoder = JSONEncoder()
             let jsonDecoder = JSONDecoder()
 
@@ -45,7 +45,7 @@ class SignatureTests: XCTestCase {
     func test_RS256_generateAndValidate_keyMismatch() throws {
         try skipIfUnsupportedPlatform()
 
-        fixture(name: "Collections") { directoryPath in
+        fixture(name: "Collections", createGitRepo: false) { directoryPath in
             let jsonEncoder = JSONEncoder()
             let jsonDecoder = JSONDecoder()
 
@@ -74,7 +74,7 @@ class SignatureTests: XCTestCase {
     func test_ES256_generateAndValidate_happyCase() throws {
         try skipIfUnsupportedPlatform()
 
-        fixture(name: "Collections") { directoryPath in
+        fixture(name: "Collections", createGitRepo: false) { directoryPath in
             let jsonEncoder = JSONEncoder()
             let jsonDecoder = JSONDecoder()
 
@@ -100,7 +100,7 @@ class SignatureTests: XCTestCase {
     func test_ES256_generateAndValidate_keyMismatch() throws {
         try skipIfUnsupportedPlatform()
 
-        fixture(name: "Collections") { directoryPath in
+        fixture(name: "Collections", createGitRepo: false) { directoryPath in
             let jsonEncoder = JSONEncoder()
             let jsonDecoder = JSONDecoder()
 
