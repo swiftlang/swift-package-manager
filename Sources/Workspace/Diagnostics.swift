@@ -182,6 +182,10 @@ extension FileSystemError: CustomStringConvertible {
                 return "unknown system error"
             case .alreadyExistsAtDestination:
                 return "already exists in file system"
+            case .couldNotChangeDirectory:
+                return "could not change directory"
+            case .mismatchedByteCount(expected: let expected, actual: let actual):
+                return "mismatched byte count, expected \(expected), got \(actual)"
             }
         }
 
@@ -202,6 +206,10 @@ extension FileSystemError: CustomStringConvertible {
             return "unknown system error while operating on \(path)"
         case .alreadyExistsAtDestination:
             return "\(path) already exists in file system"
+        case .couldNotChangeDirectory:
+            return "could not change directory to \(path)"
+        case .mismatchedByteCount(expected: let expected, actual: let actual):
+            return "mismatched byte count, expected \(expected), got \(actual)"
         }
     }
 }
