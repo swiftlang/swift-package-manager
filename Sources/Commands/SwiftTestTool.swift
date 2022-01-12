@@ -1,7 +1,7 @@
 /*
 This source file is part of the Swift.org open source project
 
-Copyright 2015 - 2016 Apple Inc. and the Swift project authors
+Copyright 2015 - 2022 Apple Inc. and the Swift project authors
 Licensed under Apache License v2.0 with Runtime Library Exception
 
 See http://swift.org/LICENSE.txt for license information
@@ -209,7 +209,7 @@ public struct SwiftTestTool: SwiftCommand {
         switch options.mode {
         case .listTests:
             let testProducts = try buildTestsIfNeeded(swiftTool: swiftTool)
-            let testSuites = try getTestSuites(in: testProducts, swiftTool: swiftTool)
+            let testSuites = try TestingSupport.getTestSuites(in: testProducts, swiftTool: swiftTool, swiftOptions: swiftOptions)
             let tests = try testSuites
                 .filteredTests(specifier: options.testCaseSpecifier)
                 .skippedTests(specifier: options.testCaseSkip)
@@ -245,7 +245,7 @@ public struct SwiftTestTool: SwiftCommand {
             #endif
             let graph = try swiftTool.loadPackageGraph()
             let testProducts = try buildTestsIfNeeded(swiftTool: swiftTool)
-            let testSuites = try getTestSuites(in: testProducts, swiftTool: swiftTool)
+            let testSuites = try TestingSupport.getTestSuites(in: testProducts, swiftTool: swiftTool, swiftOptions: swiftOptions)
             let allTestSuites = testSuites.values.flatMap { $0 }
             let generator = LinuxMainGenerator(graph: graph, testSuites: allTestSuites)
             try generator.generate()
@@ -278,7 +278,7 @@ public struct SwiftTestTool: SwiftCommand {
                 }
 
                 // Find the tests we need to run.
-                let testSuites = try getTestSuites(in: testProducts, swiftTool: swiftTool)
+                let testSuites = try TestingSupport.getTestSuites(in: testProducts, swiftTool: swiftTool, swiftOptions: swiftOptions)
                 let tests = try testSuites
                     .filteredTests(specifier: options.testCaseSpecifier)
                     .skippedTests(specifier: options.testCaseSkip)
@@ -292,7 +292,7 @@ public struct SwiftTestTool: SwiftCommand {
                 }
             }
 
-            let testEnv = try constructTestEnvironment(toolchain: toolchain, options: swiftOptions, buildParameters: buildParameters)
+            let testEnv = try TestingSupport.constructTestEnvironment(toolchain: toolchain, options: swiftOptions, buildParameters: buildParameters)
 
             let runner = TestRunner(
                 bundlePaths: testProducts.map { $0.bundlePath },
@@ -317,7 +317,7 @@ public struct SwiftTestTool: SwiftCommand {
         case .runParallel:
             let toolchain = try swiftTool.getToolchain()
             let testProducts = try buildTestsIfNeeded(swiftTool: swiftTool)
-            let testSuites = try getTestSuites(in: testProducts, swiftTool: swiftTool)
+            let testSuites = try TestingSupport.getTestSuites(in: testProducts, swiftTool: swiftTool, swiftOptions: swiftOptions)
             let tests = try testSuites
                 .filteredTests(specifier: options.testCaseSpecifier)
                 .skippedTests(specifier: options.testCaseSkip)
@@ -459,70 +459,6 @@ public struct SwiftTestTool: SwiftCommand {
         } else {
             return testProducts
         }
-    }
-
-    /// Locates XCTestHelper tool inside the libexec directory and bin directory.
-    /// Note: It is a fatalError if we are not able to locate the tool.
-    ///
-    /// - Returns: Path to XCTestHelper tool.
-    private func xctestHelperPath(swiftTool: SwiftTool) throws -> AbsolutePath {
-        let xctestHelperBin = "swiftpm-xctest-helper"
-        let binDirectory = AbsolutePath(CommandLine.arguments.first!,
-            relativeTo: swiftTool.originalWorkingDirectory).parentDirectory
-        // XCTestHelper tool is installed in libexec.
-        let maybePath = binDirectory.parentDirectory.appending(components: "libexec", "swift", "pm", xctestHelperBin)
-        if localFileSystem.isFile(maybePath) {
-            return maybePath
-        }
-        // This will be true during swiftpm development.
-        // FIXME: Factor all of the development-time resource location stuff into a common place.
-        let path = binDirectory.appending(component: xctestHelperBin)
-        if localFileSystem.isFile(path) {
-            return path
-        }
-        throw InternalError("XCTestHelper binary not found.")
-    }
-
-    fileprivate func getTestSuites(in testProducts: [BuiltTestProduct], swiftTool: SwiftTool) throws -> [AbsolutePath: [TestSuite]] {
-        let testSuitesByProduct = try testProducts
-            .map { try ($0.bundlePath, self.getTestSuites(fromTestAt: $0.bundlePath, swiftTool: swiftTool)) }
-        return Dictionary(uniqueKeysWithValues: testSuitesByProduct)
-    }
-
-    /// Runs the corresponding tool to get tests JSON and create TestSuite array.
-    /// On macOS, we use the swiftpm-xctest-helper tool bundled with swiftpm.
-    /// On Linux, XCTest can dump the json using `--dump-tests-json` mode.
-    ///
-    /// - Parameters:
-    ///     - path: Path to the XCTest bundle(macOS) or executable(Linux).
-    ///
-    /// - Throws: TestError, SystemError, TSCUtility.Error
-    ///
-    /// - Returns: Array of TestSuite
-    fileprivate func getTestSuites(fromTestAt path: AbsolutePath, swiftTool: SwiftTool) throws -> [TestSuite] {
-        // Run the correct tool.
-        #if os(macOS)
-        let data: String = try withTemporaryFile { tempFile in
-            let args = [try xctestHelperPath(swiftTool: swiftTool).pathString, path.pathString, tempFile.path.pathString]
-            var env = try constructTestEnvironment(toolchain: try swiftTool.getToolchain(), options: swiftOptions, buildParameters: swiftTool.buildParametersForTest())
-            // Add the sdk platform path if we have it. If this is not present, we
-            // might always end up failing.
-            if let sdkPlatformFrameworksPath = Destination.sdkPlatformFrameworkPaths() {
-                // appending since we prefer the user setting (if set) to the one we inject
-                env.appendPath("DYLD_FRAMEWORK_PATH", value: sdkPlatformFrameworksPath.fwk.pathString)
-                env.appendPath("DYLD_LIBRARY_PATH", value: sdkPlatformFrameworksPath.lib.pathString)
-            }
-            try Process.checkNonZeroExit(arguments: args, environment: env)
-            // Read the temporary file's content.
-            return try localFileSystem.readFileContents(tempFile.path).validDescription ?? ""
-        }
-        #else
-        let env = try constructTestEnvironment(toolchain: try swiftTool.getToolchain(), options: swiftOptions, buildParameters: swiftTool.buildParametersForTest())
-        let args = [path.description, "--dump-tests-json"]
-        let data = try Process.checkNonZeroExit(arguments: args, environment: env)
-        #endif
-        // Parse json and return TestSuites.
-        return try TestSuite.parse(jsonString: data)
     }
 
     /// Private function that validates the commands arguments
@@ -815,7 +751,7 @@ final class ParallelTestRunner {
     func run(_ tests: [UnitTest], outputStream: OutputByteStream) throws {
         assert(!tests.isEmpty, "There should be at least one test to execute.")
 
-        let testEnv = try constructTestEnvironment(toolchain: self.toolchain, options: self.options, buildParameters: self.buildParameters)
+        let testEnv = try TestingSupport.constructTestEnvironment(toolchain: self.toolchain, options: self.options, buildParameters: self.buildParameters)
 
         // Enqueue all the tests.
         try enqueueTests(tests)
@@ -1022,54 +958,6 @@ fileprivate extension Array where Element == UnitTest {
     }
 }
 
-/// Creates the environment needed to test related tools.
-fileprivate func constructTestEnvironment(
-    toolchain: UserToolchain,
-    options: SwiftToolOptions,
-    buildParameters: BuildParameters
-) throws -> EnvironmentVariables {
-    var env = EnvironmentVariables.process()
-
-    // Add the code coverage related variables.
-    if options.shouldEnableCodeCoverage {
-        // Defines the path at which the profraw files will be written on test execution.
-        //
-        // `%m` will create a pool of profraw files and append the data from
-        // each execution in one of the files. This doesn't matter for serial
-        // execution but is required when the tests are running in parallel as
-        // SwiftPM repeatedly invokes the test binary with the test case name as
-        // the filter.
-        let codecovProfile = buildParameters.buildPath.appending(components: "codecov", "default%m.profraw")
-        env["LLVM_PROFILE_FILE"] = codecovProfile.pathString
-    }
-    #if !os(macOS)
-    #if os(Windows)
-    if let location = toolchain.configuration.xctestPath {
-        env.prependPath("Path", value: location.pathString)
-    }
-    #endif
-    return env
-    #else
-    // Fast path when no sanitizers are enabled.
-    if options.sanitizers.isEmpty {
-        return env
-    }
-
-    // Get the runtime libraries.
-    var runtimes = try options.sanitizers.map({ sanitizer in
-        return try toolchain.runtimeLibrary(for: sanitizer).pathString
-    })
-
-    // Append any existing value to the front.
-    if let existingValue = env["DYLD_INSERT_LIBRARIES"], !existingValue.isEmpty {
-        runtimes.insert(existingValue, at: 0)
-    }
-
-    env["DYLD_INSERT_LIBRARIES"] = runtimes.joined(separator: ":")
-    return env
-    #endif
-}
-
 /// xUnit XML file generator for a swift-test run.
 final class XUnitGenerator {
     typealias TestResult = ParallelTestRunner.TestResult
@@ -1128,14 +1016,5 @@ final class XUnitGenerator {
 private extension Basics.Diagnostic {
     static var noMatchingTests: Self {
         .warning("No matching test cases were run")
-    }
-}
-
-private extension SwiftTool {
-    func buildParametersForTest() throws -> BuildParameters {
-        var parameters = try self.buildParameters()
-        // for test commands, alway enable building with testability enabled
-        parameters.enableTestability = true
-        return parameters
     }
 }

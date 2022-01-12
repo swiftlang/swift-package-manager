@@ -223,12 +223,12 @@ public final class UserToolchain: Toolchain {
 
     /// Returns the path to llvm-cov tool.
     public func getLLVMCov() throws -> AbsolutePath {
-        return try UserToolchain.getTool("llvm-cov", binDir: self.destination.binDir)
+        return try UserToolchain.getTool("llvm-cov", binDir: self.swiftCompilerPath.parentDirectory)
     }
 
     /// Returns the path to llvm-prof tool.
     public func getLLVMProf() throws -> AbsolutePath {
-        return try UserToolchain.getTool("llvm-profdata", binDir: self.destination.binDir)
+        return try UserToolchain.getTool("llvm-profdata", binDir: self.swiftCompilerPath.parentDirectory)
     }
 
     public func getSwiftAPIDigester() throws -> AbsolutePath {
