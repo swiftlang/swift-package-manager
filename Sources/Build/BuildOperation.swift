@@ -554,7 +554,12 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                 // TODO: We need to also use any working directory, but that support isn't yet available on all platforms at a lower level.
                 var commandLine = [command.configuration.executable.pathString] + command.configuration.arguments
                 if !self.disableSandboxForPluginCommands {
-                    commandLine = try Sandbox.apply(command: commandLine, strictness: .writableTemporaryDirectory, writableDirectories: [pluginResult.pluginOutputDirectory])
+                    // Allow access to the plugin's output directory as well as to the local temporary directory.
+                    let sandboxProfile = SandboxProfile([
+                        .writable(pluginResult.pluginOutputDirectory),
+                        .writable(try AbsolutePath(validating: "/tmp")),
+                        .writable(try self.fileSystem.tempDirectory)])
+                    commandLine = try sandboxProfile.apply(to: commandLine)
                 }
                 let processResult = try TSCBasic.Process.popen(arguments: commandLine, environment: command.configuration.environment)
                 let output = try processResult.utf8Output() + processResult.utf8stderrOutput()
