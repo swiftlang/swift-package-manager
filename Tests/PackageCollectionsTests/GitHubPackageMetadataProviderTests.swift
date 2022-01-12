@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2020-2021 Apple Inc. and the Swift project authors
+ Copyright (c) 2020-2022 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -80,7 +80,7 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
             let apiURL = URL(string: "https://api.github.com/repos/octocat/Hello-World")!
             let releasesURL = URL(string: "https://api.github.com/repos/octocat/Hello-World/releases?per_page=20")!
 
-            fixture(name: "Collections") { directoryPath in
+            fixture(name: "Collections", createGitRepo: false) { directoryPath in
                 let handler: HTTPClient.Handler = { request, _, completion in
                     switch (request.method, request.url) {
                     case (.get, apiURL):
@@ -181,7 +181,7 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
             let repoURL = URL(string: "https://github.com/octocat/Hello-World.git")!
             let apiURL = URL(string: "https://api.github.com/repos/octocat/Hello-World")!
 
-            fixture(name: "Collections") { directoryPath in
+            fixture(name: "Collections", createGitRepo: false) { directoryPath in
                 let path = directoryPath.appending(components: "GitHub", "metadata.json")
                 let data = try Data(localFileSystem.readFileContents(path).contents)
                 let handler: HTTPClient.Handler = { request, _, completion in
@@ -275,7 +275,7 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
             let total = 5
             var remaining = total
 
-            fixture(name: "Collections") { directoryPath in
+            fixture(name: "Collections", createGitRepo: false) { directoryPath in
                 let path = directoryPath.appending(components: "GitHub", "metadata.json")
                 let data = try Data(localFileSystem.readFileContents(path).contents)
                 let handler: HTTPClient.Handler = { request, _, completion in
@@ -320,7 +320,7 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
 
     func testInvalidURL() throws {
         try testWithTemporaryDirectory { tmpPath in
-            fixture(name: "Collections") { _ in
+            fixture(name: "Collections", createGitRepo: false) { _ in
                 var configuration = GitHubPackageMetadataProvider.Configuration()
                 configuration.cacheDir = tmpPath
                 let provider = GitHubPackageMetadataProvider(configuration: configuration)
@@ -337,7 +337,7 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
 
     func testInvalidURL2() throws {
         try testWithTemporaryDirectory { tmpPath in
-            fixture(name: "Collections") { _ in
+            fixture(name: "Collections", createGitRepo: false) { _ in
                 var configuration = GitHubPackageMetadataProvider.Configuration()
                 configuration.cacheDir = tmpPath
                 let provider = GitHubPackageMetadataProvider(configuration: configuration)
