@@ -635,10 +635,29 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                         // This provides some safety against arbitrary code execution when parsing manifest files.
                         // We only allow the permissions which are absolutely necessary.
                         if self.isManifestSandboxEnabled {
-                            let cacheDirectories = [self.databaseCacheDir, moduleCachePath].compactMap{ $0 }
-                            let strictness: Sandbox.Strictness = toolsVersion < .v5_3 ? .manifest_pre_53 : .default
                             do {
-                                cmd = try Sandbox.apply(command: cmd, strictness: strictness, writableDirectories: cacheDirectories)
+                                var sandbox = SandboxProfile()
+
+                                // Allow writing inside the temporary directories.
+                                sandbox.pathAccessRules.append(.writable(try AbsolutePath(validating: "/tmp")))
+                                sandbox.pathAccessRules.append(.writable(try localFileSystem.tempDirectory))
+
+                                // Allow writing in the database cache directory, if we have one.
+                                if let databaseCacheDir = self.databaseCacheDir {
+                                    sandbox.pathAccessRules.append(.writable(databaseCacheDir))
+                                }
+
+                                // Allow writing in the module cache path, if there is one.
+                                if let moduleCachePath = moduleCachePath {
+                                    sandbox.pathAccessRules.append(.writable(moduleCachePath))
+                                }
+
+                                // But do not allow writing in the directory that contains the manifest, even if it is
+                                // inside one of the otherwise writable directories.
+                                sandbox.pathAccessRules.append(.readonly(manifestPath.parentDirectory))
+
+                                // Finally apply the sandbox.
+                                cmd = try sandbox.apply(to: cmd)
                             } catch {
                                 return completion(.failure(error))
                             }
