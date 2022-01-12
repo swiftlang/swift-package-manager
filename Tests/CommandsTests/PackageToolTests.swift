@@ -1594,6 +1594,15 @@ final class PackageToolTests: CommandsTestCase {
                         let targetNames = argExtractor.extractOption(named: "target")
                         let targets = try context.package.targets(named: targetNames)
 
+
+                        // Check that we are able to write to the package plugin directory.
+                        print("Trying to write to the plugin output directory...")
+                        let outputPath = context.pluginWorkDirectory.appending("Foo")
+                        guard FileManager.default.createFile(atPath: outputPath.string, contents: Data("Hello".utf8)) else {
+                            throw "Couldn’t create file at path \\(outputPath)"
+                        }
+                        print("... successfully created file at path \\(outputPath)")
+
                         // Print out the source files so that we can check them.
                         if let sourceFiles = (targets.first{ $0.name == "MyLibrary" } as? SourceModuleTarget)?.sourceFiles {
                             for file in sourceFiles {
@@ -1602,6 +1611,7 @@ final class PackageToolTests: CommandsTestCase {
                         }
                     }
                 }
+                extension String: Error {}
                 """
             }
 
@@ -1650,6 +1660,7 @@ final class PackageToolTests: CommandsTestCase {
                 let output = try result.utf8Output() + result.utf8stderrOutput()
                 XCTAssertEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
                 XCTAssertMatch(output, .contains("This is MyCommandPlugin."))
+                XCTAssertMatch(output, .contains("successfully created file at path \(resolveSymlinks(packageDir).appending(components: ".build", "plugins", "MyPlugin", "outputs", "Foo"))"))
             }
 
             // Check that we can also invoke it without the "plugin" subcommand.
@@ -1746,8 +1757,9 @@ final class PackageToolTests: CommandsTestCase {
                     ) throws {
                         // Check that we can write to the package directory.
                         print("Trying to write to the package directory...")
-                        guard FileManager.default.createFile(atPath: context.package.directory.appending("Foo").string, contents: Data("Hello".utf8)) else {
-                            throw "Couldn’t create file at path \\(context.package.directory.appending("Foo"))"
+                        let outputPath = context.package.directory.appending("Foo")
+                        guard FileManager.default.createFile(atPath: outputPath.string, contents: Data("Hello".utf8)) else {
+                            throw "Couldn’t create file at path \\(outputPath)"
                         }
                         print("... successfully created it")
                     }
@@ -1760,27 +1772,30 @@ final class PackageToolTests: CommandsTestCase {
           #if os(macOS)
             do {
                 let result = try SwiftPMProduct.SwiftPackage.executeProcess(["plugin", "PackageScribbler"], packagePath: packageDir, env: ["DECLARE_PACKAGE_WRITING_PERMISSION": "1"])
-                XCTAssertNotEqual(result.exitStatus, .terminated(code: 0))
-                XCTAssertNoMatch(try result.utf8Output(), .contains("successfully created it"))
-                XCTAssertMatch(try result.utf8stderrOutput(), .contains("error: Plugin ‘MyPlugin’ needs permission to write to the package directory (stated reason: “For testing purposes”)"))
+                let output = try result.utf8Output() + result.utf8stderrOutput()
+                XCTAssertNotEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
+                XCTAssertNoMatch(output, .contains("successfully created it"))
+                XCTAssertMatch(output, .contains("error: Plugin ‘MyPlugin’ needs permission to write to the package directory (stated reason: “For testing purposes”)"))
             }
           #endif
 
             // Check that we don't get an error (and also are allowed to write to the package directory) if we pass `--allow-writing-to-package-directory`.
             do {
                 let result = try SwiftPMProduct.SwiftPackage.executeProcess(["plugin", "--allow-writing-to-package-directory", "PackageScribbler"], packagePath: packageDir, env: ["DECLARE_PACKAGE_WRITING_PERMISSION": "1"])
-                XCTAssertEqual(result.exitStatus, .terminated(code: 0))
-                XCTAssertMatch(try result.utf8Output(), .contains("successfully created it"))
-                XCTAssertNoMatch(try result.utf8stderrOutput(), .contains("error: Couldn’t create file at path"))
+                let output = try result.utf8Output() + result.utf8stderrOutput()
+                XCTAssertEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
+                XCTAssertMatch(output, .contains("successfully created it"))
+                XCTAssertNoMatch(output, .contains("error: Couldn’t create file at path"))
             }
 
             // Check that we get an error if the plugin doesn't declare permission but tries to write anyway. Note that sandboxing is only currently supported on macOS.
           #if os(macOS)
             do {
                 let result = try SwiftPMProduct.SwiftPackage.executeProcess(["plugin", "PackageScribbler"], packagePath: packageDir, env: ["DECLARE_PACKAGE_WRITING_PERMISSION": "0"])
-                XCTAssertNotEqual(result.exitStatus, .terminated(code: 0))
-                XCTAssertNoMatch(try result.utf8Output(), .contains("successfully created it"))
-                XCTAssertMatch(try result.utf8stderrOutput(), .contains("error: Couldn’t create file at path"))
+                let output = try result.utf8Output() + result.utf8stderrOutput()
+                XCTAssertNotEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
+                XCTAssertNoMatch(output, .contains("successfully created it"))
+                XCTAssertMatch(output, .contains("error: Couldn’t create file at path"))
             }
           #endif
         }

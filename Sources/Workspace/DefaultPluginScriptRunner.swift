@@ -393,16 +393,33 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
 
         // Optionally wrap the command in a sandbox, which places some limits on what it can do. In particular, it blocks network access and restricts the paths to which the plugin can make file system changes. It does allow writing to temporary directories.
         if self.enableSandbox {
-            command = Sandbox.apply(command: command, strictness: .writableTemporaryDirectory, writableDirectories: writableDirectories + [self.cacheDir], readOnlyDirectories: readOnlyDirectories)
+            let sandboxProfile = SandboxProfile(
+                // Allow writing in the temporary directory (whether or not it's overridden by TMPDIR).
+                [localFileSystem.tempDirectory].map{ .writable($0) } +
+
+                // But prevent writing in any read-only directories.
+                readOnlyDirectories.map{ .readonly($0) } +
+
+                // But allow writing in any writable directories.
+                writableDirectories.map{ .writable($0) } +
+
+                // And always allow writing to the cache directory, even if it is inside one of the writable directories.
+                [self.cacheDir].map{ .writable($0) })
+            command = sandboxProfile.apply(to: command)
         }
 
         // Create and configure a Process. We set the working directory to the cache directory, so that relative paths end up there.
         let process = Process()
         process.executableURL = URL(fileURLWithPath: command[0])
         process.arguments = Array(command.dropFirst())
-        process.environment = ProcessInfo.processInfo.environment
         process.currentDirectoryURL = workingDirectory.asURL
         
+        // Pass `TMPDIR` in the environment, in addition to anything the plugin specifies. This lets us respect our own
+        // override, and also makes sure that the plugin always knows what temporary directory we opened up for it.
+        var environment = ProcessInfo.processInfo.environment
+        environment["TMPDIR"] = localFileSystem.tempDirectory.pathString
+        process.environment = environment
+
         // Set up a pipe for sending structured messages to the plugin on its stdin.
         let stdinPipe = Pipe()
         let outputHandle = stdinPipe.fileHandleForWriting

@@ -452,10 +452,23 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                 // TODO: We need to also use any working directory, but that support isn't yet available on all platforms at a lower level.
                 var commandLine = [command.configuration.executable.pathString] + command.configuration.arguments
                 if !self.disableSandboxForPluginCommands {
-                    commandLine = Sandbox.apply(command: commandLine, strictness: .writableTemporaryDirectory, writableDirectories: [pluginResult.pluginOutputDirectory])
+                    // Allow access to the plugin's output directory as well as to the local temporary directory.
+                    let sandboxProfile = SandboxProfile(
+                        .writable(pluginResult.pluginOutputDirectory),
+                        .writable(localFileSystem.tempDirectory))
+                    commandLine = sandboxProfile.apply(to: commandLine)
                 }
-                let processResult = try Process.popen(arguments: commandLine, environment: command.configuration.environment)
+
+                // Pass `TMPDIR` in the environment, in addition to anything the plugin specifies, in case we have an
+                // override in our own environment.
+                var environment = command.configuration.environment
+                environment["TMPDIR"] = localFileSystem.tempDirectory.pathString
+
+                // Run the command and wait for it to finish.
+                let processResult = try Process.popen(arguments: commandLine, environment: environment)
                 let output = try processResult.utf8Output() + processResult.utf8stderrOutput()
+
+                // Throw an error if it failed.
                 if processResult.exitStatus != .terminated(code: 0) {
                     throw StringError("failed: \(command)\n\n\(output)")
                 }

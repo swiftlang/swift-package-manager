@@ -619,16 +619,26 @@ extension LLBuildManifestBuilder {
                 let uniquedName = ([execPath.pathString] + command.configuration.arguments).joined(separator: "|")
                 let displayName = command.configuration.displayName ?? execPath.basename
                 var commandLine = [execPath.pathString] + command.configuration.arguments
+
+                // Apply the sandbox, if appropriate.
                 if !self.disableSandboxForPluginCommands {
-                    commandLine = Sandbox.apply(command: commandLine, strictness: .writableTemporaryDirectory, writableDirectories: [result.pluginOutputDirectory])
+                    let sandboxProfile = SandboxProfile(
+                        .writable(result.pluginOutputDirectory),
+                        .writable(localFileSystem.tempDirectory))
+                    commandLine = sandboxProfile.apply(to: commandLine)
                 }
+                // Pass `TMPDIR` in the environment, in addition to anything the plugin specifies, in case we have an
+                // override in our own environment.
+                var environment = command.configuration.environment
+                environment["TMPDIR"] = localFileSystem.tempDirectory.pathString
+
                 manifest.addShellCmd(
                     name: displayName + "-" + ByteString(encodingAsUTF8: uniquedName).sha256Checksum,
                     description: displayName,
                     inputs: [.file(execPath)] + command.inputFiles.map{ .file($0) },
                     outputs: command.outputFiles.map{ .file($0) },
                     arguments: commandLine,
-                    environment: command.configuration.environment,
+                    environment: environment,
                     workingDirectory: command.configuration.workingDirectory?.pathString)
             }
         }
