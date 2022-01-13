@@ -191,7 +191,7 @@ extension Package.Dependency {
     /// The version rule requires Swift packages to conform to semantic
     /// versioning. To learn more about the semantic versioning standard,
     /// visit [semver.org](https://semver.org).
-    @available(_PackageDescription, introduced: 999)
+    @available(_PackageDescription, introduced: 5.6)
     public enum RegistryRequirement {
         case exact(Version)
         case range(Range<Version>)
