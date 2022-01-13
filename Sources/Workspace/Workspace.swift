@@ -2275,10 +2275,6 @@ extension Workspace {
 
         // finally download zip files, if any
         for artifact in (zipArtifacts.map{ $0 }) {
-            semaphore.wait()
-            group.enter()
-            defer { group.leave() }
-
             let parentDirectory =  self.location.artifactsDirectory.appending(component: artifact.packageRef.identity.description)
             guard observabilityScope.trap ({ try fileSystem.createDirectory(parentDirectory, recursive: true) }) else {
                 continue
@@ -2286,6 +2282,7 @@ extension Workspace {
 
             let archivePath = parentDirectory.appending(component: artifact.url.lastPathComponent)
 
+            semaphore.wait()
             group.enter()
             var headers = HTTPClientHeaders()
             headers.add(name: "Accept", value: "application/octet-stream")
