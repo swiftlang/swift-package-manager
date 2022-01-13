@@ -2270,8 +2270,12 @@ extension Workspace {
             }
         }
 
+        // download max n files concurrently
+        let semaphore = DispatchSemaphore(value: 8)
+
         // finally download zip files, if any
         for artifact in (zipArtifacts.map{ $0 }) {
+            semaphore.wait()
             group.enter()
             defer { group.leave() }
 
@@ -2297,7 +2301,10 @@ extension Workspace {
                         totalBytesToDownload: totalBytesToDownload)
                 },
                 completion: { downloadResult in
-                    defer { group.leave() }
+                    defer {
+                        group.leave()
+                        semaphore.signal()
+                    }
 
                     switch downloadResult {
                     case .success:
