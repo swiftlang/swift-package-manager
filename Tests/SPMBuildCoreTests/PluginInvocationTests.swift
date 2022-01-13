@@ -92,6 +92,7 @@ class PluginInvocationTests: XCTestCase {
                 sources: Sources,
                 input: PluginScriptRunnerInput,
                 toolsVersion: ToolsVersion,
+                workingDirectory: AbsolutePath,
                 writableDirectories: [AbsolutePath],
                 readOnlyDirectories: [AbsolutePath],
                 fileSystem: FileSystem,

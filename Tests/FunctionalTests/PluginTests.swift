@@ -425,6 +425,7 @@ class PluginTests: XCTestCase {
                         package: package,
                         buildEnvironment: BuildEnvironment(platform: .macOS, configuration: .debug),
                         scriptRunner: scriptRunner,
+                        workingDirectory: package.path,
                         outputDirectory: pluginDir.appending(component: "output"),
                         toolSearchDirectories: [UserToolchain.default.swiftCompilerPath.parentDirectory],
                         toolNamesToPaths: [:],
