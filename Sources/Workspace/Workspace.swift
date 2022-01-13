@@ -138,7 +138,7 @@ private struct WorkspaceDependencyResolverDelegate: DependencyResolverDelegate {
     func willResolve(term: Term) {
         // this may be called multiple time by the resolver for various version ranges, but we only want to propagate once since we report at pacakge level
         resolving.memoize(term.node.package.identity) {
-            self.workspaceDelegate.willComputeVersion(package: term.node.package.identity, location: term.node.package.locationString  + " "  + term.description)
+            self.workspaceDelegate.willComputeVersion(package: term.node.package.identity, location: term.node.package.locationString)
             return true
         }
     }
