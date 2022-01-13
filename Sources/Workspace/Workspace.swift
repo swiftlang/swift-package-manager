@@ -2271,7 +2271,7 @@ extension Workspace {
         }
 
         // download max n files concurrently
-        let semaphore = DispatchSemaphore(value: 8)
+        let semaphore = DispatchSemaphore(value: Concurrency.maxOperations)
 
         // finally download zip files, if any
         for artifact in (zipArtifacts.map{ $0 }) {
