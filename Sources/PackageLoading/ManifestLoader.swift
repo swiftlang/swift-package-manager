@@ -93,7 +93,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
     private let sdkRootCache = ThreadSafeBox<AbsolutePath>()
 
-    private let operationQueue: OperationQueue
+    private let concurrencySemaphore: DispatchSemaphore
 
     public init(
         toolchain: ToolchainConfiguration,
@@ -111,9 +111,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
         self.databaseCacheDir = cacheDir.map(resolveSymlinks)
 
-        self.operationQueue = OperationQueue()
-        self.operationQueue.name = "org.swift.swiftpm.manifest-loader"
-        self.operationQueue.maxConcurrentOperationCount = Concurrency.maxOperations
+        self.concurrencySemaphore = DispatchSemaphore(value: Concurrency.maxOperations)
     }
 
     // deprecated 8/2021
@@ -231,89 +229,86 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         on queue: DispatchQueue,
         completion: @escaping (Result<Manifest, Error>) -> Void
     ) {
-        self.operationQueue.addOperation {
+        // Inform the delegate.
+        queue.async {
+            self.delegate?.willLoad(manifest: path)
+        }
+
+        // Validate that the file exists.
+        guard fileSystem.isFile(path) else {
+            return completion(.failure(PackageModel.Package.Error.noManifest(at: path, version: version?.description)))
+        }
+
+        // wrap completion handler for concurrency control
+        let completion = { (result: Result<Manifest, Error>) in
+            self.concurrencySemaphore.signal()
+            queue.async {
+                completion(result)
+            }
+        }
+        // concurrency control
+        self.concurrencySemaphore.wait()
+        self.parseAndCacheManifest(
+            at: path,
+            packageIdentity: packageIdentity,
+            packageKind: packageKind,
+            version: version,
+            toolsVersion: toolsVersion,
+            identityResolver: identityResolver,
+            delegateQueue: queue,
+            fileSystem: fileSystem,
+            observabilityScope: observabilityScope
+        ) { parseResult in
             do {
-                // Inform the delegate.
-                queue.async {
-                    self.delegate?.willLoad(manifest: path)
+                let parsedManifest = try parseResult.get()
+                // Convert legacy system packages to the current target‐based model.
+                var products = parsedManifest.products
+                var targets = parsedManifest.targets
+                if products.isEmpty, targets.isEmpty,
+                   fileSystem.isFile(path.parentDirectory.appending(component: moduleMapFilename)) {
+                    products.append(ProductDescription(
+                        name: parsedManifest.name,
+                        type: .library(.automatic),
+                        targets: [parsedManifest.name])
+                    )
+                    targets.append(try TargetDescription(
+                        name: parsedManifest.name,
+                        path: "",
+                        type: .system,
+                        pkgConfig: parsedManifest.pkgConfig,
+                        providers: parsedManifest.providers
+                    ))
                 }
 
-                // Validate that the file exists.
-                guard fileSystem.isFile(path) else {
-                    throw PackageModel.Package.Error.noManifest(at: path, version: version?.description)
-                }
-
-                self.parseAndCacheManifest(
-                    at: path,
-                    packageIdentity: packageIdentity,
+                let manifest = Manifest(
+                    displayName: parsedManifest.name,
+                    path: path,
                     packageKind: packageKind,
+                    packageLocation: packageLocation,
+                    defaultLocalization: parsedManifest.defaultLocalization,
+                    platforms: parsedManifest.platforms,
                     version: version,
+                    revision: revision,
                     toolsVersion: toolsVersion,
-                    identityResolver: identityResolver,
-                    delegateQueue: queue,
-                    fileSystem: fileSystem,
-                    observabilityScope: observabilityScope
-                ) { parseResult in
-                    do {
-                        let parsedManifest = try parseResult.get()
-                        // Convert legacy system packages to the current target‐based model.
-                        var products = parsedManifest.products
-                        var targets = parsedManifest.targets
-                        if products.isEmpty, targets.isEmpty,
-                           fileSystem.isFile(path.parentDirectory.appending(component: moduleMapFilename)) {
-                            products.append(ProductDescription(
-                                name: parsedManifest.name,
-                                type: .library(.automatic),
-                                targets: [parsedManifest.name])
-                            )
-                            targets.append(try TargetDescription(
-                                name: parsedManifest.name,
-                                path: "",
-                                type: .system,
-                                pkgConfig: parsedManifest.pkgConfig,
-                                providers: parsedManifest.providers
-                            ))
-                        }
-                        
-                        let manifest = Manifest(
-                            displayName: parsedManifest.name,
-                            path: path,
-                            packageKind: packageKind,
-                            packageLocation: packageLocation,
-                            defaultLocalization: parsedManifest.defaultLocalization,
-                            platforms: parsedManifest.platforms,
-                            version: version,
-                            revision: revision,
-                            toolsVersion: toolsVersion,
-                            pkgConfig: parsedManifest.pkgConfig,
-                            providers: parsedManifest.providers,
-                            cLanguageStandard: parsedManifest.cLanguageStandard,
-                            cxxLanguageStandard: parsedManifest.cxxLanguageStandard,
-                            swiftLanguageVersions: parsedManifest.swiftLanguageVersions,
-                            dependencies: parsedManifest.dependencies,
-                            products: products,
-                            targets: targets
-                        )
-                        
-                        try self.validate(manifest, toolsVersion: toolsVersion, observabilityScope: observabilityScope)
-                        
-                        if observabilityScope.errorsReported {
-                            throw Diagnostics.fatalError
-                        }
-                        
-                        queue.async {
-                            completion(.success(manifest))
-                        }
-                    } catch {
-                        queue.async {
-                            completion(.failure(error))
-                        }
-                    }
+                    pkgConfig: parsedManifest.pkgConfig,
+                    providers: parsedManifest.providers,
+                    cLanguageStandard: parsedManifest.cLanguageStandard,
+                    cxxLanguageStandard: parsedManifest.cxxLanguageStandard,
+                    swiftLanguageVersions: parsedManifest.swiftLanguageVersions,
+                    dependencies: parsedManifest.dependencies,
+                    products: products,
+                    targets: targets
+                )
+
+                try self.validate(manifest, toolsVersion: toolsVersion, observabilityScope: observabilityScope)
+
+                if observabilityScope.errorsReported {
+                    throw Diagnostics.fatalError
                 }
+
+                completion(.success(manifest))
             } catch {
-                queue.async {
-                    completion(.failure(error))
-                }
+                completion(.failure(error))
             }
         }
     }
