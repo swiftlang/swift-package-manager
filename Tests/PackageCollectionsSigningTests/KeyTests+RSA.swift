@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2021 Apple Inc. and the Swift project authors
+ Copyright (c) 2021-2022 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -19,7 +19,7 @@ class RSAKeyTests: XCTestCase {
     func testPublicKeyFromCertificate() throws {
         try skipIfUnsupportedPlatform()
 
-        fixture(name: "Collections") { directoryPath in
+        fixture(name: "Collections", createGitRepo: false) { directoryPath in
             let path = directoryPath.appending(components: "Signing", "Test_rsa.cer")
             let data = Data(try localFileSystem.readFileContents(path).contents)
 

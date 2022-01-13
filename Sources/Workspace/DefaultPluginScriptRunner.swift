@@ -71,6 +71,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
         input: PluginScriptRunnerInput,
         toolsVersion: ToolsVersion,
         writableDirectories: [AbsolutePath],
+        readOnlyDirectories: [AbsolutePath],
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
@@ -93,6 +94,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
                     self.invoke(
                         compiledExec: result.compiledExecutable,
                         writableDirectories: writableDirectories,
+                        readOnlyDirectories: readOnlyDirectories,
                         input: input,
                         observabilityScope: observabilityScope,
                         callbackQueue: callbackQueue,
@@ -342,6 +344,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
     fileprivate func invoke(
         compiledExec: AbsolutePath,
         writableDirectories: [AbsolutePath],
+        readOnlyDirectories: [AbsolutePath],
         input: PluginScriptRunnerInput,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
@@ -356,9 +359,9 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
         // Construct the command line. Currently we just invoke the executable built from the plugin without any parameters.
         var command = [compiledExec.pathString]
 
-        // Optionally wrap the command in a sandbox, which places some limits on what it can do. In particular, it blocks network access and restricts the paths to which the plugin can make file system changes.
+        // Optionally wrap the command in a sandbox, which places some limits on what it can do. In particular, it blocks network access and restricts the paths to which the plugin can make file system changes. It does allow writing to temporary directories.
         if self.enableSandbox {
-            command = Sandbox.apply(command: command, writableDirectories: writableDirectories + [self.cacheDir], strictness: .default)
+            command = Sandbox.apply(command: command, strictness: .writableTemporaryDirectory, writableDirectories: writableDirectories + [self.cacheDir], readOnlyDirectories: readOnlyDirectories)
         }
 
         // Create and configure a Process. We set the working directory to the cache directory, so that relative paths end up there.

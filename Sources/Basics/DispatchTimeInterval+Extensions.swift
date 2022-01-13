@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2020 Apple Inc. and the Swift project authors
+ Copyright (c) 2020-2022 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -12,7 +12,7 @@ import Dispatch
 import struct Foundation.TimeInterval
 
 extension DispatchTimeInterval {
-    func timeInterval() -> TimeInterval? {
+    public func timeInterval() -> TimeInterval? {
         switch self {
         case .seconds(let value):
             return Double(value)
@@ -27,7 +27,7 @@ extension DispatchTimeInterval {
         }
     }
 
-    func milliseconds() -> Int? {
+    public func milliseconds() -> Int? {
         switch self {
         case .seconds(let value):
             return value.multipliedReportingOverflow(by: 1000).partialValue
@@ -42,7 +42,7 @@ extension DispatchTimeInterval {
         }
     }
 
-    func seconds() -> Int? {
+    public func seconds() -> Int? {
         switch self {
         case .seconds(let value):
             return value

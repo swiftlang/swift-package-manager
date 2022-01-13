@@ -531,7 +531,7 @@ extension SwiftPackageTool {
     struct DumpSymbolGraph: SwiftCommand {
         static let configuration = CommandConfiguration(
             abstract: "Dump Symbol Graph")
-        static let defaultMinimumAccessLevel = AccessLevel.public
+        static let defaultMinimumAccessLevel = SymbolGraphExtract.AccessLevel.public
 
         @OptionGroup(_hiddenFromHelp: true)
         var swiftOptions: SwiftToolOptions
@@ -542,7 +542,7 @@ extension SwiftPackageTool {
         @Flag(help: "Skip members inherited through classes or default implementations.")
         var skipSynthesizedMembers = false
 
-        @Option(help: "Include symbols with this access level or more. Possible values: \(AccessLevel.allValueStrings.joined(separator: " | "))")
+        @Option(help: "Include symbols with this access level or more. Possible values: \(SymbolGraphExtract.AccessLevel.allValueStrings.joined(separator: " | "))")
         var minimumAccessLevel = defaultMinimumAccessLevel
 
         @Flag(help: "Skip emitting doc comments for members inherited through classes or default implementations.")
@@ -552,23 +552,34 @@ extension SwiftPackageTool {
         var includeSPISymbols = false
 
         func run(_ swiftTool: SwiftTool) throws {
-            let symbolGraphExtract = try SymbolGraphExtract(
-                tool: swiftTool.getToolchain().getSymbolGraphExtract())
-
             // Build the current package.
             //
             // We turn build manifest caching off because we need the build plan.
             let buildOp = try swiftTool.createBuildOperation(cacheBuildManifest: false)
             try buildOp.build()
 
-            try symbolGraphExtract.dumpSymbolGraph(
-                buildPlan: buildOp.buildPlan!,
-                prettyPrint: prettyPrint,
-                skipSynthesisedMembers: skipSynthesizedMembers,
+            // Configure the symbol graph extractor.
+            let symbolGraphExtractor = try SymbolGraphExtract(
+                tool: swiftTool.getToolchain().getSymbolGraphExtract(),
+                skipSynthesizedMembers: skipSynthesizedMembers,
                 minimumAccessLevel: minimumAccessLevel,
                 skipInheritedDocs: skipInheritedDocs,
-                includeSPISymbols: includeSPISymbols
-            )
+                includeSPISymbols: includeSPISymbols)
+
+            // Run the tool once for every library and executable target in the root package.
+            let buildPlan = buildOp.buildPlan!
+            let symbolGraphDirectory = buildPlan.buildParameters.dataPath.appending(component: "symbolgraph")
+            let targets = buildPlan.graph.rootPackages.flatMap{ $0.targets }.filter{ $0.type == .library || $0.type == .executable }
+            for target in targets {
+                print("-- Emitting symbol graph for", target.name)
+                try symbolGraphExtractor.extractSymbolGraph(
+                    target: target,
+                    buildPlan: buildPlan,
+                    logLevel: swiftTool.logLevel,
+                    outputDirectory: symbolGraphDirectory)
+            }
+
+            print("Files written to", symbolGraphDirectory.pathString)
         }
     }
 
@@ -895,10 +906,6 @@ extension SwiftPackageTool {
               help: "Allow the plugin to write to an additional directory")
         var additionalAllowedWritableDirectories: [String] = []
 
-        @Flag(name: .customLong("block-writing-to-temporary-directory"),
-              help: "Block the plugin from writing to the package directory (by default this is allowed)")
-        var blockWritingToTemporaryDirectory: Bool = false
-
         @Argument(parsing: .unconditionalRemaining,
                   help: "Name and arguments of the command plugin to invoke")
         var pluginCommand: [String] = []
@@ -979,13 +986,6 @@ extension SwiftPackageTool {
             if allowWritingToPackageDirectory {
                 writableDirectories.append(package.path)
             }
-            if !blockWritingToTemporaryDirectory {
-                writableDirectories.append(AbsolutePath("/tmp"))
-                writableDirectories.append(AbsolutePath(NSTemporaryDirectory()))
-            }
-            if allowWritingToPackageDirectory {
-                writableDirectories.append(package.path)
-            }
             else {
                 // If the plugin requires write permission but it wasn't provided, we ask the user for approval.
                 if case .command(_, let permissions) = plugin.capability {
@@ -998,6 +998,9 @@ extension SwiftPackageTool {
             for pathString in additionalAllowedWritableDirectories {
                 writableDirectories.append(AbsolutePath(pathString, relativeTo: swiftTool.originalWorkingDirectory))
             }
+
+            // Make sure that the package path is read-only unless it's covered by any of the explicitly writable directories.
+            let readOnlyDirectories = writableDirectories.contains{ package.path.isDescendantOfOrEqual(to: $0) } ? [] : [package.path]
 
             // Use the directory containing the compiler as an additional search directory, and add the $PATH.
             let toolSearchDirs = [try swiftTool.getToolchain().swiftCompilerPath.parentDirectory]
@@ -1051,6 +1054,7 @@ extension SwiftPackageTool {
                 toolSearchDirectories: toolSearchDirs,
                 toolNamesToPaths: toolNamesToPaths,
                 writableDirectories: writableDirectories,
+                readOnlyDirectories: readOnlyDirectories,
                 fileSystem: localFileSystem,
                 observabilityScope: swiftTool.observabilityScope,
                 callbackQueue: delegateQueue,
@@ -1122,12 +1126,12 @@ final class PluginDelegate: PluginInvocationDelegate {
         // Run the build in the background and call the completion handler when done.
         DispatchQueue.sharedConcurrent.async {
             completion(Result {
-                return try self.doBuild(subset: subset, parameters: parameters)
+                return try self.performBuildForPlugin(subset: subset, parameters: parameters)
             })
         }
     }
     
-    private func doBuild(subset: PluginInvocationBuildSubset, parameters: PluginInvocationBuildParameters) throws -> PluginInvocationBuildResult {
+    private func performBuildForPlugin(subset: PluginInvocationBuildSubset, parameters: PluginInvocationBuildParameters) throws -> PluginInvocationBuildResult {
         // Configure the build parameters.
         var buildParameters = try self.swiftTool.buildParameters()
         switch parameters.configuration {
@@ -1197,57 +1201,191 @@ final class PluginDelegate: PluginInvocationDelegate {
         // Run the test in the background and call the completion handler when done.
         DispatchQueue.sharedConcurrent.async {
             completion(Result {
-                return try self.doTest(subset: subset, parameters: parameters)
+                return try self.performTestsForPlugin(subset: subset, parameters: parameters)
             })
         }
     }
     
-    private func doTest(subset: PluginInvocationTestSubset, parameters: PluginInvocationTestParameters) throws -> PluginInvocationTestResult {
-        // FIXME: To implement this we should factor out a lot of the code in SwiftTestTool.
-        throw StringError("Running tests from a plugin is not yet implemented")
+    func performTestsForPlugin(subset: PluginInvocationTestSubset, parameters: PluginInvocationTestParameters) throws -> PluginInvocationTestResult {
+        // Build the tests. Ideally we should only build those that match the subset, but we don't have a way to know which ones they are until we've built them and can examine the binaries.
+        let toolchain = try swiftTool.getToolchain()
+        var buildParameters = try swiftTool.buildParameters()
+        buildParameters.enableTestability = true
+        buildParameters.enableCodeCoverage = parameters.enableCodeCoverage
+        let buildSystem = try swiftTool.createBuildSystem(buildParameters: buildParameters)
+        try buildSystem.build(subset: .allIncludingTests)
+
+        // Clean out the code coverage directory that may contain stale `profraw` files from a previous run of the code coverage tool.
+        if parameters.enableCodeCoverage {
+            try localFileSystem.removeFileTree(buildParameters.codeCovPath)
+        }
+
+        // Construct the environment we'll pass down to the tests.
+        var environmentOptions = swiftTool.options
+        environmentOptions.shouldEnableCodeCoverage = parameters.enableCodeCoverage
+        let testEnvironment = try TestingSupport.constructTestEnvironment(
+            toolchain: toolchain,
+            options: environmentOptions,
+            buildParameters: buildParameters)
+
+        // Iterate over the tests and run those that match the filter.
+        var testTargetResults: [PluginInvocationTestResult.TestTarget] = []
+        var numFailedTests = 0
+        for testProduct in buildSystem.builtTestProducts {
+            // Get the test suites in the bundle. Each is just a container for test cases.
+            let testSuites = try TestingSupport.getTestSuites(fromTestAt: testProduct.bundlePath, swiftTool: swiftTool, swiftOptions: swiftTool.options)
+            for testSuite in testSuites {
+                // Each test suite is just a container for test cases (confusingly called "tests", though they are test cases).
+                for testCase in testSuite.tests {
+                    // Each test case corresponds to a combination of target and a XCTestCase, and is a collection of tests that can actually be run.
+                    var testResults: [PluginInvocationTestResult.TestTarget.TestCase.Test] = []
+                    for testName in testCase.tests {
+                        // Check if we should filter out this test.
+                        let testSpecifier = testCase.name + "/" + testName
+                        if case .filtered(let regexes) = subset {
+                            guard regexes.contains(where: { testSpecifier.range(of: $0, options: .regularExpression) != nil }) else {
+                                continue
+                            }
+                        }
+
+                        // Configure a test runner.
+                        let testRunner = TestRunner(
+                            bundlePaths: [testProduct.bundlePath],
+                            xctestArg: testSpecifier,
+                            processSet: swiftTool.processSet,
+                            toolchain: toolchain,
+                            testEnv: testEnvironment,
+                            outputStream: swiftTool.outputStream,
+                            observabilityScope: swiftTool.observabilityScope)
+
+                        // Run the test — for now we run the sequentially so we can capture accurate timing results.
+                        let startTime = DispatchTime.now()
+                        let (success, _) = testRunner.test(writeToOutputStream: false)
+                        let duration = Double(startTime.distance(to: .now()).milliseconds() ?? 0) / 1000.0
+                        numFailedTests += success ? 0 : 1
+                        testResults.append(.init(name: testName, result: success ? .succeeded : .failed, duration: duration))
+                    }
+
+                    // Don't add any results if we didn't run any tests.
+                    if testResults.isEmpty { continue }
+
+                    // Otherwise we either create a new create a new target result or add to the previous one, depending on whether the target name is the same.
+                    let testTargetName = testCase.name.prefix(while: { $0 != "." })
+                    if let lastTestTargetName = testTargetResults.last?.name, testTargetName == lastTestTargetName {
+                        // Same as last one, just extend its list of cases. We know we have a last one at this point.
+                        testTargetResults[testTargetResults.count-1].testCases.append(.init(name: testCase.name, tests: testResults))
+                    }
+                    else {
+                        // Not the same, so start a new target result.
+                        testTargetResults.append(.init(name: String(testTargetName), testCases: [.init(name: testCase.name, tests: testResults)]))
+                    }
+                }
+            }
+        }
+
+        // Deal with code coverage, if enabled.
+        let codeCoverageDataFile: AbsolutePath?
+        if parameters.enableCodeCoverage {
+            // Use `llvm-prof` to merge all the `.profraw` files into a single `.profdata` file.
+            let mergedCovFile = buildParameters.codeCovDataFile
+            let codeCovFileNames = try localFileSystem.getDirectoryContents(buildParameters.codeCovPath)
+            var llvmProfCommand = [try toolchain.getLLVMProf().pathString]
+            llvmProfCommand += ["merge", "-sparse"]
+            for fileName in codeCovFileNames where fileName.hasSuffix(".profraw") {
+                let filePath = buildParameters.codeCovPath.appending(component: fileName)
+                llvmProfCommand.append(filePath.pathString)
+            }
+            llvmProfCommand += ["-o", mergedCovFile.pathString]
+            try Process.checkNonZeroExit(arguments: llvmProfCommand)
+
+            // Use `llvm-cov` to export the merged `.profdata` file contents in JSON form.
+            var llvmCovCommand = [try toolchain.getLLVMCov().pathString]
+            llvmCovCommand += ["export", "-instr-profile=\(mergedCovFile.pathString)"]
+            for product in buildSystem.builtTestProducts {
+                llvmCovCommand.append("-object")
+                llvmCovCommand.append(product.binaryPath.pathString)
+            }
+            // We get the output on stdout, and have to write it to a JSON ourselves.
+            let jsonOutput = try Process.checkNonZeroExit(arguments: llvmCovCommand)
+            let jsonCovFile = buildParameters.codeCovDataFile.parentDirectory.appending(component: buildParameters.codeCovDataFile.basenameWithoutExt + ".json")
+            try localFileSystem.writeFileContents(jsonCovFile, string: jsonOutput)
+
+            // Return the path of the exported code coverage data file.
+            codeCoverageDataFile = jsonCovFile
+        }
+        else {
+            codeCoverageDataFile = nil
+        }
+
+        // Return the results to the plugin. We only consider the test run a success if no test failed.
+        return PluginInvocationTestResult(
+            succeeded: (numFailedTests == 0),
+            testTargets: testTargetResults,
+            codeCoverageDataFile: codeCoverageDataFile?.pathString)
     }
 
     func pluginRequestedSymbolGraph(forTarget targetName: String, options: PluginInvocationSymbolGraphOptions, completion: @escaping (Result<PluginInvocationSymbolGraphResult, Error>) -> Void) {
         // Extract the symbol graph in the background and call the completion handler when done.
         DispatchQueue.sharedConcurrent.async {
             completion(Result {
-                return try self.createSymbolGraph(forTarget: targetName, options: options)
+                return try self.createSymbolGraphForPlugin(forTarget: targetName, options: options)
             })
         }
     }
 
-    private func createSymbolGraph(forTarget targetName: String, options: PluginInvocationSymbolGraphOptions) throws -> PluginInvocationSymbolGraphResult {
-        // Current implementation uses `SymbolGraphExtract()` but we can probably do better in the future.
-        let buildParameters = try swiftTool.buildParameters()
-        let buildOperation = try swiftTool.createBuildOperation(cacheBuildManifest: false)  // We only get a build plan if we don't cache
-        try buildOperation.build(subset: .target(targetName))
-        let symbolGraphExtract = try SymbolGraphExtract(tool: swiftTool.getToolchain().getSymbolGraphExtract())
-        let minimumAccessLevel: AccessLevel
+    private func createSymbolGraphForPlugin(forTarget targetName: String, options: PluginInvocationSymbolGraphOptions) throws -> PluginInvocationSymbolGraphResult {
+        // Current implementation uses `SymbolGraphExtract()` but in the future we should emit the symbol graph while building.
+
+        // Create a build operation for building the target., skipping the the cache because we need the build plan.
+        let buildOperation = try swiftTool.createBuildOperation(cacheBuildManifest: false)
+
+        // Find the target in the build operation's package graph; it's an error if we don't find it.
+        let packageGraph = try buildOperation.getPackageGraph()
+        guard let target = packageGraph.allTargets.first(where: { $0.name == targetName }) else {
+            throw StringError("could not find a target named “\(targetName)”")
+        }
+
+        // Build the target, if needed.
+        try buildOperation.build(subset: .target(target.name))
+
+        // Configure the symbol graph extractor.
+        var symbolGraphExtractor = try SymbolGraphExtract(tool: swiftTool.getToolchain().getSymbolGraphExtract())
+        symbolGraphExtractor.skipSynthesizedMembers = !options.includeSynthesized
         switch options.minimumAccessLevel {
         case .private:
-            minimumAccessLevel = .private
+            symbolGraphExtractor.minimumAccessLevel = .private
         case .fileprivate:
-            minimumAccessLevel = .fileprivate
+            symbolGraphExtractor.minimumAccessLevel = .fileprivate
         case .internal:
-            minimumAccessLevel = .internal
+            symbolGraphExtractor.minimumAccessLevel = .internal
         case .public:
-            minimumAccessLevel = .public
+            symbolGraphExtractor.minimumAccessLevel = .public
         case .open:
-            minimumAccessLevel = .open
+            symbolGraphExtractor.minimumAccessLevel = .open
         }
-        
-        // Extract the symbol graph.
-        try symbolGraphExtract.dumpSymbolGraph(
-            buildPlan: buildOperation.buildPlan!,
-            prettyPrint: false,
-            skipSynthesisedMembers: !options.includeSynthesized,
-            minimumAccessLevel: minimumAccessLevel,
-            skipInheritedDocs: true,
-            includeSPISymbols: options.includeSPI)
-        
+        symbolGraphExtractor.skipInheritedDocs = true
+        symbolGraphExtractor.includeSPISymbols = options.includeSPI
+
+        // Determine the output directory, and remove any old version if it already exists.
+        guard let buildPlan = buildOperation.buildPlan else {
+            throw StringError("could not get the build plan from the build operation")
+        }
+        guard let package = packageGraph.package(for: target) else {
+            throw StringError("could not determine the package for target “\(target.name)”")
+        }
+        let outputDir = buildPlan.buildParameters.dataPath.appending(components: "extracted-symbols", package.identity.description, target.name)
+        try localFileSystem.removeFileTree(outputDir)
+
+        // Run the symbol graph extractor on the target.
+        try symbolGraphExtractor.extractSymbolGraph(
+            target: target,
+            buildPlan: buildPlan,
+            outputRedirection: .collect,
+            logLevel: .warning,
+            outputDirectory: outputDir)
+
         // Return the results to the plugin.
-        return PluginInvocationSymbolGraphResult(
-            directoryPath: buildParameters.symbolGraph.pathString)
+        return PluginInvocationSymbolGraphResult(directoryPath: outputDir.pathString)
     }
 }
 

@@ -810,7 +810,7 @@ public final class PackageBuilder {
             fileSystem: self.fileSystem,
             observabilityScope: self.observabilityScope
         )
-        let (sources, resources, headers, others) = try sourcesBuilder.run()
+        let (sources, resources, headers, ignored, others) = try sourcesBuilder.run()
 
         // Make sure defaultLocalization is set if the target has localized resources.
         let hasLocalizedResources = resources.contains(where: { $0.localization != nil })
@@ -868,6 +868,7 @@ public final class PackageBuilder {
                 type: targetType,
                 sources: sources,
                 resources: resources,
+                ignored: ignored,
                 others: others,
                 dependencies: dependencies,
                 swiftVersion: try swiftVersion(),
@@ -902,6 +903,7 @@ public final class PackageBuilder {
                 type: targetType,
                 sources: sources,
                 resources: resources,
+                ignored: ignored,
                 dependencies: dependencies,
                 buildSettings: buildSettings
             )
