@@ -426,22 +426,11 @@ class PackageDescription5_0LoadingTests: PackageDescriptionLoadingTests {
                     observabilityScope: observability.topScope
                 )
 
-                guard let diagnostic = observability.diagnostics.first else {
-                    return XCTFail("Expected a diagnostic")
+                testDiagnostics(observability.diagnostics) { result in
+                    let diagnostic = result.check(diagnostic: .contains("initialization of immutable value"), severity: .warning)
+                    let contents = try diagnostic?.metadata?.manifestLoadingDiagnosticFile.map { try localFileSystem.readFileContents($0) }
+                    XCTAssertNotNil(contents)
                 }
-                XCTAssertMatch(diagnostic.message, .contains("warning: initialization of immutable value"))
-                XCTAssertEqual(diagnostic.severity, .warning)
-                let contents = try diagnostic.metadata?.manifestLoadingDiagnosticFile.map { try localFileSystem.readFileContents($0) }
-                XCTAssertNotNil(contents)
-
-                // FIXME: (diagnostics) bring ^^ back when implemented again
-                /*guard let diagnostic = diagnostics.diagnostics.first else {
-                    return XCTFail("Expected a diagnostic")
-                }
-                XCTAssertMatch(diagnostic.message.text, .contains("warning: initialization of immutable value"))
-                XCTAssertEqual(diagnostic.behavior, .warning)
-                let contents = try (diagnostic.data as? ManifestLoadingDiagnostic)?.diagnosticFile.map { try localFileSystem.readFileContents($0) }
-                XCTAssertNotNil(contents)*/
             }
         }
     }

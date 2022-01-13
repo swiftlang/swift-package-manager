@@ -259,7 +259,7 @@ class PluginInvocationTests: XCTestCase {
 
             // Load the package graph.
             let packageGraph = try workspace.loadPackageGraph(rootInput: rootInput, observabilityScope: observability.topScope)
-            XCTAssert(observability.diagnostics.isEmpty, "\(observability.diagnostics)")
+            XCTAssertNoDiagnostics(observability.diagnostics)
             XCTAssert(packageGraph.packages.count == 1, "\(packageGraph.packages)")
             
             // Find the build tool plugin.
