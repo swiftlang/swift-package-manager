@@ -858,6 +858,7 @@ class TargetSourcesBuilderTests: XCTestCase {
         let outputs = try builder.run()
         XCTAssertEqual(outputs.sources.paths, [AbsolutePath("/File.swift")])
         XCTAssertEqual(outputs.resources, [])
+        XCTAssertEqual(outputs.ignored, [])
         XCTAssertEqual(outputs.others, [AbsolutePath("/Foo.xcdatamodel")])
 
         XCTAssertFalse(observability.hasWarningDiagnostics)
@@ -898,6 +899,7 @@ class TargetSourcesBuilderTests: XCTestCase {
             let outputs = try builder.run()
             XCTAssertEqual(outputs.sources.paths, [AbsolutePath("/File.swift")])
             XCTAssertEqual(outputs.resources, [])
+            XCTAssertEqual(outputs.ignored, [])
             XCTAssertEqual(outputs.others, [AbsolutePath("/foo.bar")])
 
             XCTAssertFalse(observability.hasWarningDiagnostics)
@@ -957,7 +959,11 @@ class TargetSourcesBuilderTests: XCTestCase {
             fileSystem: fs,
             observabilityScope: observability.topScope
         )
-        _ = try builder.run()
+        let outputs = try builder.run()
+        XCTAssertEqual(outputs.sources.paths, [AbsolutePath("/File.swift")])
+        XCTAssertEqual(outputs.resources, [])
+        XCTAssertEqual(outputs.ignored, [AbsolutePath("/Foo.docc")])
+        XCTAssertEqual(outputs.others, [])
 
         XCTAssertNoDiagnostics(observability.diagnostics)
     }
@@ -990,7 +996,7 @@ class TargetSourcesBuilderTests: XCTestCase {
         )
 
         do {
-            let (sources, resources, headers, others) = try builder.run()
+            let (sources, resources, headers, _, others) = try builder.run()
 
             testDiagnostics(observability.diagnostics, problemsOnly: checkProblemsOnly, file: file, line: line) { diagnostics in
                 try checker(sources, resources, headers, others, builder.packageIdentity, builder.packageKind, builder.packagePath, diagnostics)
