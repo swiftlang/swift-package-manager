@@ -21,8 +21,8 @@ public enum Sandbox {
     /// - Parameters:
     ///   - command: The command line to sandbox (including executable as first argument)
     ///   - strictness: The basic strictness level of the standbox.
-    ///   - writableDirectories: Paths under which writing should be allowed.
-    ///   - readOnlyDirectories: Paths under which writing should be denied, even if they would have otherwise been allowed by either the strictness level or paths in `writableDirectories`.
+    ///   - writableDirectories: Paths under which writing should be allowed, even if they would otherwise be read-only based on the strictness or paths in `readOnlyDirectories`.
+    ///   - readOnlyDirectories: Paths under which writing should be denied, even if they would have otherwise been allowed by the rules implied by the strictness level.
     public static func apply(
         command: [String],
         strictness: Strictness = .default,
@@ -79,9 +79,8 @@ fileprivate func macOSSandboxProfile(
     }
 
     // Allow writing only to certain directories.
-    var writableDirectoriesExpression = writableDirectories.map {
-        "(subpath \(resolveSymlinks($0).quotedAsSubpathForSandboxProfile))"
-    }
+    var writableDirectoriesExpression: [String] = []
+
     // The following accesses are only needed when interpreting the manifest (versus running a compiled version).
     if strictness == .manifest_pre_53 {
         writableDirectoriesExpression += Platform.threadSafeDarwinCacheDirectories.get().map {
@@ -109,6 +108,15 @@ fileprivate func macOSSandboxProfile(
     if readOnlyDirectories.count > 0 {
         contents += "(deny file-write*\n"
         for path in readOnlyDirectories {
+            contents += "    (subpath \(resolveSymlinks(path).quotedAsSubpathForSandboxProfile))\n"
+        }
+        contents += ")\n"
+    }
+
+    // Emit rules for paths under which writing is allowed, even if they are descendants directories that are otherwise read-only.
+    if writableDirectories.count > 0 {
+        contents += "(allow file-write*\n"
+        for path in writableDirectories {
             contents += "    (subpath \(resolveSymlinks(path).quotedAsSubpathForSandboxProfile))\n"
         }
         contents += ")\n"
