@@ -2291,6 +2291,7 @@ extension Workspace {
             headers.add(name: "Accept", value: "application/octet-stream")
             var request = HTTPClient.Request.download(url: artifact.url, headers: headers, fileSystem: self.fileSystem, destination: archivePath)
             request.options.authorizationProvider = self.authorizationProvider?.httpAuthorizationHeader(for:)
+            request.options.retryStrategy = .exponentialBackoff(maxAttempts: 3, baseDelay: .milliseconds(50))
             request.options.validResponseCodes = [200]
             self.httpClient.execute(
                 request,
