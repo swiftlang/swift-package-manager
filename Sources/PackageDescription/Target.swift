@@ -37,9 +37,6 @@ public final class Target {
     /// The different types of a target's dependency on another entity.
     public enum Dependency {
         case targetItem(name: String, condition: TargetDependencyCondition?)
-        @available(_PackageDescription, obsoleted: 999.0)
-        case productItem(name: String, package: String?, condition: TargetDependencyCondition?)
-        @available(_PackageDescription, introduced: 999.0)
         case productItem(name: String, moduleAliases: [String: String]?, package: String?, condition: TargetDependencyCondition?)
         case byNameItem(name: String, condition: TargetDependencyCondition?)
     }
@@ -939,7 +936,7 @@ extension Target.Dependency {
     ///   - package: The name of the package.
     @available(_PackageDescription, obsoleted: 5.2, message: "the 'package' argument is mandatory as of tools version 5.2")
     public static func product(name: String, package: String? = nil) -> Target.Dependency {
-        return .productItem(name: name, package: package, condition: nil)
+        return .productItem(name: name, moduleAliases: nil, package: package, condition: nil)
     }
 
     @available(_PackageDescription, introduced: 999.0)
@@ -968,7 +965,7 @@ extension Target.Dependency {
         name: String,
         package: String
     ) -> Target.Dependency {
-        return .productItem(name: name, package: package, condition: nil)
+        return .productItem(name: name, moduleAliases: nil, package: package, condition: nil)
     }
     
     /// Creates a dependency on a target in the same package.
@@ -995,7 +992,7 @@ extension Target.Dependency {
         package: String,
         condition: TargetDependencyCondition? = nil
     ) -> Target.Dependency {
-        return .productItem(name: name, package: package, condition: condition)
+        return .productItem(name: name, moduleAliases: nil, package: package, condition: condition)
     }
 
     @available(_PackageDescription, introduced: 999.0)
