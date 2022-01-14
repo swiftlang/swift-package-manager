@@ -40,6 +40,7 @@ extension PluginTarget {
     ///   - action: The plugin action (i.e. entry point) to invoke, possibly containing parameters.
     ///   - package: The root of the package graph to pass down to the plugin.
     ///   - scriptRunner: Entity responsible for actually running the code of the plugin.
+    ///   - workingDirectory: The initial working directory of the invoked plugin.
     ///   - outputDirectory: A directory under which the plugin can write anything it wants to.
     ///   - toolNamesToPaths: A mapping from name of tools available to the plugin to the corresponding absolute paths.
     ///   - fileSystem: The file system to which all of the paths refers.
@@ -50,6 +51,7 @@ extension PluginTarget {
         package: ResolvedPackage,
         buildEnvironment: BuildEnvironment,
         scriptRunner: PluginScriptRunner,
+        workingDirectory: AbsolutePath,
         outputDirectory: AbsolutePath,
         toolSearchDirectories: [AbsolutePath],
         toolNamesToPaths: [String: AbsolutePath],
@@ -90,6 +92,7 @@ extension PluginTarget {
             sources: sources,
             input: inputStruct,
             toolsVersion: self.apiVersion,
+            workingDirectory: workingDirectory,
             writableDirectories: writableDirectories,
             readOnlyDirectories: readOnlyDirectories,
             fileSystem: fileSystem,
@@ -242,6 +245,7 @@ extension PackageGraph {
                     package: package,
                     buildEnvironment: buildEnvironment,
                     scriptRunner: pluginScriptRunner,
+                    workingDirectory: package.path,
                     outputDirectory: pluginOutputDir,
                     toolSearchDirectories: toolSearchDirectories,
                     toolNamesToPaths: toolNamesToPaths,
@@ -390,6 +394,7 @@ public protocol PluginScriptRunner {
         sources: Sources,
         input: PluginScriptRunnerInput,
         toolsVersion: ToolsVersion,
+        workingDirectory: AbsolutePath,
         writableDirectories: [AbsolutePath],
         readOnlyDirectories: [AbsolutePath],
         fileSystem: FileSystem,

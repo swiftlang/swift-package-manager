@@ -1050,6 +1050,7 @@ extension SwiftPackageTool {
                 package: package,
                 buildEnvironment: buildEnvironment,
                 scriptRunner: pluginScriptRunner,
+                workingDirectory: swiftTool.originalWorkingDirectory,
                 outputDirectory: outputDir,
                 toolSearchDirectories: toolSearchDirs,
                 toolNamesToPaths: toolNamesToPaths,
