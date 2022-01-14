@@ -13,6 +13,7 @@ import TSCBasic
 
 public struct PackageIndexConfiguration: Equatable {
     public var url: Foundation.URL?
+    public var searchResultMaxItemsCount: UInt = 50
     
     // TODO: rdar://87575573 remove feature flag
     public internal(set) var enabled = ProcessInfo.processInfo.environment["SWIFTPM_ENABLE_PACKAGE_INDEX"] == "1"
@@ -73,17 +74,17 @@ private enum StorageModel {
     struct Container: Codable {
         var index: Index
 
-        init() {
-            self.index = .init(url: nil)
-        }
-
         init(_ from: PackageIndexConfiguration) {
-            self.index = .init(url: from.url?.absoluteString)
+            self.index = .init(
+                url: from.url?.absoluteString,
+                searchResultMaxItemsCount: from.searchResultMaxItemsCount
+            )
         }
     }
 
     struct Index: Codable {
         let url: String?
+        let searchResultMaxItemsCount: UInt
     }
 }
 
@@ -100,6 +101,7 @@ private extension PackageIndexConfiguration {
             }
             self.url = url
         }
+        self.searchResultMaxItemsCount = from.searchResultMaxItemsCount
     }
 }
 

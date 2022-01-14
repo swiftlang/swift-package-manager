@@ -19,6 +19,8 @@ struct PackageIndex: PackageIndexProtocol {
     private let httpClient: HTTPClient
     private let callbackQueue: DispatchQueue
     private let observabilityScope: ObservabilityScope
+    
+    private let decoder: JSONDecoder
 
     // TODO: cache metadata results
     
@@ -36,6 +38,7 @@ struct PackageIndex: PackageIndexProtocol {
         self.httpClient = customHTTPClient ?? HTTPClient()
         self.callbackQueue = callbackQueue
         self.observabilityScope = observabilityScope
+        self.decoder = JSONDecoder.makeWithDefaults()
     }
 
     func getPackageMetadata(
@@ -43,9 +46,31 @@ struct PackageIndex: PackageIndexProtocol {
         location: String?,
         callback: @escaping (Result<PackageCollectionsModel.PackageMetadata, Error>) -> Void
     ) {
-        self.runIfConfigured(callback: callback) { _, _ in
-            // TODO: call package index's get metadata API
-            fatalError("Not implemented: \(#function)")
+        self.runIfConfigured(callback: callback) { url, callback in
+            // TODO: rdar://87582621 call package index's get metadata API
+            let metadataURL = url.appendingPathComponent("packages").appendingPathComponent(identity.description)
+            self.httpClient.get(metadataURL) { result in
+                callback(result.tryMap { response in
+                    switch response.statusCode {
+                    case 200:
+                        guard let package = try response.decodeBody(PackageCollectionsModel.Package.self, using: self.decoder) else {
+                            throw PackageIndexError.invalidResponse(metadataURL, "Empty body")
+                        }
+                        
+                        let name = url.host ?? "package index"
+                        let providerContext = PackageMetadataProviderContext(
+                            name: name,
+                            // Package index doesn't require auth
+                            authTokenType: nil,
+                            isAuthTokenConfigured: true
+                        )
+                        
+                        return (package: package, collections: [], provider: providerContext)
+                    default:
+                        throw PackageIndexError.invalidResponse(metadataURL, "Invalid status code: \(response.statusCode)")
+                    }
+                })
+            }
         }
     }
     
@@ -53,9 +78,28 @@ struct PackageIndex: PackageIndexProtocol {
         _ query: String,
         callback: @escaping (Result<PackageCollectionsModel.PackageSearchResult, Error>) -> Void
     ) {
-        self.runIfConfigured(callback: callback) { _, _ in
-            // TODO: call package index's search API
-            fatalError("Not implemented: \(#function)")
+        self.runIfConfigured(callback: callback) { url, callback in
+            // TODO: rdar://87582621 call package index's search API
+            guard let searchURL = URL(string: url.appendingPathComponent("search").absoluteString + "?q=\(query)") else {
+                return callback(.failure(PackageIndexError.invalidURL(url)))
+            }
+            self.httpClient.get(searchURL) { result in
+                callback(result.tryMap { response in
+                    switch response.statusCode {
+                    case 200:
+                        guard let packages = try response.decodeBody([PackageCollectionsModel.Package].self, using: self.decoder) else {
+                            throw PackageIndexError.invalidResponse(searchURL, "Empty body")
+                        }
+                        // Limit the number of items
+                        let items = packages[..<Int(self.configuration.searchResultMaxItemsCount)].map {
+                            PackageCollectionsModel.PackageSearchResult.Item(package: $0, indexes: [url])
+                        }
+                        return PackageCollectionsModel.PackageSearchResult(items: items)
+                    default:
+                        throw PackageIndexError.invalidResponse(searchURL, "Invalid status code: \(response.statusCode)")
+                    }
+                })
+            }
         }
     }
 
@@ -64,16 +108,40 @@ struct PackageIndex: PackageIndexProtocol {
         limit: Int,
         callback: @escaping (Result<PackageCollectionsModel.PaginatedPackageList, Error>) -> Void
     ) {
-        self.runIfConfigured(callback: callback) { _, _ in
-            // TODO: cap `limit`
-            // TODO: call package index's list API
-            fatalError("Not implemented: \(#function)")
+        self.runIfConfigured(callback: callback) { url, callback in
+            // TODO: rdar://87582621 call package index's list API
+            guard let listURL = URL(string: url.appendingPathComponent("packages").absoluteString + "?offset=\(offset)&limit=\(limit)") else {
+                return callback(.failure(PackageIndexError.invalidURL(url)))
+            }
+            self.httpClient.get(listURL) { result in
+                callback(result.tryMap { response in
+                    switch response.statusCode {
+                    case 200:
+                        guard let listResponse = try response.decodeBody(ListResponse.self, using: self.decoder) else {
+                            throw PackageIndexError.invalidResponse(listURL, "Empty body")
+                        }
+                        return PackageCollectionsModel.PaginatedPackageList(
+                            items: listResponse.items,
+                            offset: offset,
+                            limit: limit,
+                            total: listResponse.total
+                        )
+                    default:
+                        throw PackageIndexError.invalidResponse(listURL, "Invalid status code: \(response.statusCode)")
+                    }
+                })
+            }
+        }
+        
+        struct ListResponse: Codable {
+            let items: [PackageCollectionsModel.Package]
+            let total: Int
         }
     }
 
     private func runIfConfigured<T>(
         callback: @escaping (Result<T, Error>) -> Void,
-        closure: @escaping (Foundation.URL, (Result<T, Error>) -> Void) -> Void
+        handler: @escaping (Foundation.URL, @escaping (Result<T, Error>) -> Void) -> Void
     ) {
         let callback = self.makeAsync(callback)
         
@@ -84,7 +152,7 @@ struct PackageIndex: PackageIndexProtocol {
             return callback(.failure(PackageIndexError.notConfigured))
         }
 
-        closure(url, callback)
+        handler(url, callback)
     }
 
     private func makeAsync<T>(_ closure: @escaping (Result<T, Error>) -> Void) -> (Result<T, Error>) -> Void {
@@ -124,16 +192,7 @@ extension PackageIndex: PackageMetadataProvider {
                     authors: package.authors,
                     languages: package.languages
                 )
-
-                let name = self.configuration.url?.host ?? "package index"
-                let context = PackageMetadataProviderContext(
-                    name: name,
-                    // Package index doesn't require auth
-                    authTokenType: nil,
-                    isAuthTokenConfigured: true
-                )
-                
-                callback(.success(basicMetadata), context)
+                callback(.success(basicMetadata), metadata.provider)
             }
         }
     }

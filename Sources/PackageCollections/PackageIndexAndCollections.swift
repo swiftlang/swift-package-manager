@@ -169,23 +169,21 @@ public struct PackageIndexAndCollections {
         // Get metadata using both package index and collections
         let sync = DispatchGroup()
         let results = ThreadSafeKeyValueStore<Source, Result<PackageCollectionsModel.PackageMetadata, Error>>()
-        DispatchQueue.sharedConcurrent.async {
-            sync.enter()
-            // This uses package index only
-            self.index.getPackageMetadata(identity: identity, location: location) { result in
-                defer { sync.leave() }
-                results[.index] = result
-            }
+
+        sync.enter()
+        // This uses package index only
+        self.index.getPackageMetadata(identity: identity, location: location) { result in
+            defer { sync.leave() }
+            results[.index] = result
         }
-        DispatchQueue.sharedConcurrent.async {
-            sync.enter()
-            // This uses either package index or "alternative" (e.g., GitHub) as metadata provider,
-            // then merge the supplementary metadata with data coming from collections. The package
-            // must belong to at least one collection.
-            self.collections.getPackageMetadata(identity: identity, location: location, collections: collections) { result in
-                defer { sync.leave() }
-                results[.collections] = result
-            }
+
+        sync.enter()
+        // This uses either package index or "alternative" (e.g., GitHub) as metadata provider,
+        // then merge the supplementary metadata with data coming from collections. The package
+        // must belong to at least one collection.
+        self.collections.getPackageMetadata(identity: identity, location: location, collections: collections) { result in
+            defer { sync.leave() }
+            results[.collections] = result
         }
         
         sync.notify(queue: .sharedConcurrent) {
