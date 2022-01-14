@@ -1083,17 +1083,23 @@ final class PackageToolTests: CommandsTestCase {
             try localFileSystem.writeFileContents(packageDir.appending(components: "Plugins", "MyPlugin", "plugin.swift")) {
                 $0 <<< """
                     import PackagePlugin
-                    
+                    import Foundation
                     @main
                     struct MyBuildToolPlugin: BuildToolPlugin {
                         func createBuildCommands(
                             context: PluginContext,
                             target: Target
                         ) throws -> [Command] {
+                            // Expect the initial working directory for build tool plugins is the package directory.
+                            guard FileManager.default.currentDirectoryPath == context.package.directory.string else {
+                                throw "expected initial working directory ‘\\(FileManager.default.currentDirectoryPath)’"
+                            }
+
                             // Check that the package display name is what we expect.
                             guard context.package.displayName == "MyPackage" else {
                                 throw "expected display name to be ‘MyPackage’ but found ‘\\(context.package.displayName)’"
                             }
+
                             // Create and return a build command that uses all the `.foo` files in the target as inputs, so they get counted as having been handled.
                             let fooFiles = (target as? SourceModuleTarget)?.sourceFiles.compactMap{ $0.path.extension == "foo" ? $0.path : nil } ?? []
                             return [ .buildCommand(displayName: "A command", executable: "/bin/echo", arguments: ["Hello"], inputFiles: fooFiles) ]
@@ -1106,8 +1112,9 @@ final class PackageToolTests: CommandsTestCase {
             
             // Invoke it, and check the results.
             let result = try SwiftPMProduct.SwiftBuild.executeProcess([], packagePath: packageDir)
-            XCTAssertEqual(result.exitStatus, .terminated(code: 0))
-            XCTAssert(try result.utf8Output().contains("Build complete!"))
+            let output = try result.utf8Output() + result.utf8stderrOutput()
+            XCTAssertEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
+            XCTAssert(output.contains("Build complete!"))
             
             // We expect a warning about `library.bar` but not about `library.foo`.
             let stderrOutput = try result.utf8stderrOutput()
@@ -1270,7 +1277,7 @@ final class PackageToolTests: CommandsTestCase {
             try localFileSystem.writeFileContents(packageDir.appending(components: "Plugins", "MyPlugin", "plugin.swift")) {
                 $0 <<< """
                 import PackagePlugin
-
+                import Foundation
                 @main
                 struct MyCommandPlugin: CommandPlugin {
                     func performCommand(
@@ -1279,6 +1286,9 @@ final class PackageToolTests: CommandsTestCase {
                         arguments: [String]
                     ) throws {
                         print("This is MyCommandPlugin.")
+
+                        // Print out the initial working directory so we can check it in the test.
+                        print("Initial working directory: \\(FileManager.default.currentDirectoryPath)")
 
                         // Check that we can find a binary-provided tool in the same package.
                         print("Looking for LocalBinaryTool...")
@@ -1394,6 +1404,15 @@ final class PackageToolTests: CommandsTestCase {
                 XCTAssertEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
                 XCTAssertMatch(output, .contains("Sources/MyLibrary/library.swift: source"))
                 XCTAssertMatch(output, .contains("Sources/MyLibrary/test.docc: unknown"))
+            }
+
+            // Check that the initial working directory is what we expected.
+            do {
+                let workingDirectory = FileManager.default.currentDirectoryPath
+                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["mycmd"], packagePath: packageDir)
+                let output = try result.utf8Output() + result.utf8stderrOutput()
+                XCTAssertEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
+                XCTAssertMatch(output, .contains("Initial working directory: \(workingDirectory)"))
             }
         }
     }
