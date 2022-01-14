@@ -6627,6 +6627,122 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
+    func testArtifactDownloadConcurrency() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        // this has knowledge of the expected behavior, we can also make this configurable
+        let maxConcurrentRequests = Concurrency.maxOperations
+
+        var concurrentRequests = 0
+        let concurrentRequestsLock = Lock()
+
+        // returns a dummy zipfile for the requested artifact
+        let httpClient = HTTPClient(handler: { request, _, completion in
+            defer {
+                concurrentRequestsLock.withLock {
+                    concurrentRequests -= 1
+                }
+            }
+
+            do {
+                guard case .download(let fileSystem, let destination) = request.kind else {
+                    throw StringError("invalid request \(request.kind)")
+                }
+
+                concurrentRequestsLock.withLock {
+                    concurrentRequests += 1
+                    if concurrentRequests > maxConcurrentRequests {
+                        XCTFail("too many concurrent requests \(concurrentRequests), expected \(maxConcurrentRequests)")
+                    }
+                }
+
+                try fileSystem.writeFileContents(
+                    destination,
+                    bytes: [0x01],
+                    atomically: true
+                )
+
+                completion(.success(.okay()))
+            } catch {
+                completion(.failure(error))
+            }
+        })
+
+        // create a dummy xcframework directory from the request archive
+        let archiver = MockArchiver(handler: { archiver, archivePath, destinationPath, completion in
+            do {
+                try fs.createDirectory(destinationPath.appending(component: archivePath.basenameWithoutExt + ".xcframework"), recursive: false)
+                completion(.success(()))
+            } catch {
+                completion(.failure(error))
+            }
+        })
+
+        let packages = try (0 ... maxConcurrentRequests * 10).map { index in
+            MockPackage(
+                name: "library\(index)",
+                targets: [
+                    try MockTarget(
+                        name: "binary\(index)",
+                        type: .binary,
+                        url: "https://somwhere.com/binary\(index).zip",
+                        checksum: "01"
+                    )
+                ],
+                products: [
+                    MockProduct(name: "binary\(index)", targets: ["binary\(index)"]),
+                ],
+                versions: ["1.0.0"]
+            )
+        }
+
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "App",
+                    targets: [
+                        MockTarget(
+                            name: "App",
+                            dependencies: packages.map { package in
+                                .product(name: package.targets.first!.name, package: package.name)
+                            }
+                        ),
+                    ],
+                    products: [],
+                    dependencies: packages.map { package in
+                        .sourceControl(path: "./\(package.name)", requirement: .exact("1.0.0"))
+                    }
+                ),
+            ],
+            packages: packages,
+            customHttpClient: httpClient,
+            customBinaryArchiver: archiver
+        )
+
+        try workspace.checkPackageGraph(roots: ["App"]) { graph, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+
+        workspace.checkManagedArtifacts { result in
+            for package in packages {
+                let targetName = package.targets.first!.name
+                result.check(
+                    packageIdentity: .plain(package.name),
+                    targetName: targetName,
+                    source: .remote(
+                        url: "https://somwhere.com/\(targetName).zip",
+                        checksum: "01"
+                    ),
+                    path: workspace.artifactsDir.appending(components: package.name, "\(targetName).xcframework")
+                )
+            }
+
+        }
+    }
+
     func testDownloadArchiveIndexFilesHappyPath() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
