@@ -6742,6 +6742,148 @@ final class WorkspaceTests: XCTestCase {
 
         }
     }
+    
+    func testArtifactDownloadStripFirstComponent() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+        let downloads = ThreadSafeKeyValueStore<Foundation.URL, AbsolutePath>()
+        
+        // returns a dummy zipfile for the requested artifact
+        let httpClient = HTTPClient(handler: { request, _, completion in
+            do {
+                guard case .download(let fileSystem, let destination) = request.kind else {
+                    throw StringError("invalid request \(request.kind)")
+                }
+                
+                let contents: [UInt8]
+                switch request.url.lastPathComponent {
+                case "flat.zip":
+                    contents = [0x01]
+                case "nested.zip":
+                    contents = [0x02]
+                default:
+                    throw StringError("unexpected url \(request.url)")
+                }
+                
+                try fileSystem.writeFileContents(
+                    destination,
+                    bytes: ByteString(contents),
+                    atomically: true
+                )
+                
+                downloads[request.url] = destination
+                completion(.success(.okay()))
+            } catch {
+                completion(.failure(error))
+            }
+        })
+        
+        // create a dummy xcframework directory from the request archive
+        let archiver = MockArchiver(handler: { archiver, archivePath, destinationPath, completion in
+            do {
+                switch archivePath.basename {
+                case "flat.zip":
+                    try fs.createDirectory(destinationPath.appending(component: "flat.xcframework"), recursive: true)
+                    archiver.extractions.append(MockArchiver.Extraction(archivePath: archivePath, destinationPath: destinationPath))
+                case "nested.zip":
+                    try fs.createDirectory(destinationPath.appending(components: ["root", "nested.xcframework"]), recursive: true)
+                    archiver.extractions.append(MockArchiver.Extraction(archivePath: archivePath, destinationPath: destinationPath))
+                default:
+                    throw StringError("unexpected archivePath \(archivePath)")
+                }
+                
+                completion(.success(()))
+            } catch {
+                completion(.failure(error))
+            }
+        })
+        
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "App",
+                    targets: [
+                        MockTarget(name: "App", dependencies: [
+                            .product(name: "flat", package: "library"),
+                            .product(name: "nested", package: "library"),
+                        ]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        .sourceControl(path: "./library", requirement: .exact("1.0.0")),
+                    ]
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "library",
+                    targets: [
+                        MockTarget(
+                            name: "flat",
+                            type: .binary,
+                            url: "https://a.com/flat.zip",
+                            checksum: "01"
+                        ),
+                        MockTarget(
+                            name: "nested",
+                            type: .binary,
+                            url: "https://a.com/nested.zip",
+                            checksum: "02"
+                        )
+                    ],
+                    products: [
+                        MockProduct(name: "flat", targets: ["flat"]),
+                        MockProduct(name: "nested", targets: ["nested"])
+                    ],
+                    versions: ["1.0.0"]
+                )
+            ],
+            customHttpClient: httpClient,
+            customBinaryArchiver: archiver
+        )
+        
+        try workspace.checkPackageGraph(roots: ["App"]) { graph, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+            XCTAssert(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/library")))
+            XCTAssertEqual(downloads.map { $0.key.absoluteString }.sorted(), [
+                "https://a.com/flat.zip",
+                "https://a.com/nested.zip",
+            ])
+            XCTAssertEqual(workspace.checksumAlgorithm.hashes.map{ $0.hexadecimalRepresentation }.sorted(), [
+                ByteString([0x01]).hexadecimalRepresentation,
+                ByteString([0x02]).hexadecimalRepresentation,
+            ])
+            XCTAssertEqual(workspace.archiver.extractions.map { $0.destinationPath.parentDirectory }.sorted(), [
+                AbsolutePath("/tmp/ws/.build/artifacts/extract/library/flat"),
+                AbsolutePath("/tmp/ws/.build/artifacts/extract/library/nested"),
+            ])
+            XCTAssertEqual(
+                downloads.map { $0.value }.sorted(),
+                workspace.archiver.extractions.map { $0.archivePath }.sorted()
+            )
+        }
+        
+        workspace.checkManagedArtifacts { result in
+            result.check(packageIdentity: .plain("library"),
+                         targetName: "flat",
+                         source: .remote(
+                            url: "https://a.com/flat.zip",
+                            checksum: "01"
+                         ),
+                         path: workspace.artifactsDir.appending(components: "library", "flat.xcframework")
+            )
+            result.check(packageIdentity: .plain("library"),
+                         targetName: "nested",
+                         source: .remote(
+                            url: "https://a.com/nested.zip",
+                            checksum: "02"
+                         ),
+                         path: workspace.artifactsDir.appending(components: "library", "nested.xcframework")
+            )
+        }
+    }
 
     func testDownloadArchiveIndexFilesHappyPath() throws {
         let sandbox = AbsolutePath("/tmp/ws/")

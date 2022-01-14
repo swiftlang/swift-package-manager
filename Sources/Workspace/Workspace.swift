@@ -2295,6 +2295,7 @@ extension Workspace {
             request.options.authorizationProvider = self.authorizationProvider?.httpAuthorizationHeader(for:)
             request.options.retryStrategy = .exponentialBackoff(maxAttempts: 3, baseDelay: .milliseconds(50))
             request.options.validResponseCodes = [200]
+            observabilityScope.emit(debug: "downloading \(artifact.url) to \(archivePath)")
             self.httpClient.execute(
                 request,
                 progress: { bytesDownloaded, totalBytesToDownload in
@@ -2330,6 +2331,7 @@ extension Workspace {
 
                         // TODO: Use the same extraction logic for both remote and local archived artifacts.
                         group.enter()
+                        observabilityScope.emit(debug: "extracting \(archivePath) to \(tempExtractionDirectory)")
                         self.archiver.extract(from: archivePath, to: tempExtractionDirectory, completion: { extractResult in
                             defer { group.leave() }
 
@@ -2338,8 +2340,21 @@ extension Workspace {
                                 var artifactPath: AbsolutePath? = nil
                                 observabilityScope.trap {
                                     try self.fileSystem.withLock(on: parentDirectory, type: .exclusive) {
+                                        var content = try self.fileSystem.getDirectoryContents(tempExtractionDirectory)
+                                        // strip first level component if needed
+                                        if content.count == 1,
+                                            let rootPath = content.first.map({ tempExtractionDirectory.appending(component: $0) }),
+                                            self.fileSystem.isDirectory(rootPath),
+                                            rootPath.extension.flatMap({ try? BinaryTarget.Kind.forFileExtension($0)}) == nil
+                                        {
+                                            observabilityScope.emit(debug: "stripping first level component from  \(tempExtractionDirectory)")
+                                            try self.fileSystem.stripFirstLevel(of: tempExtractionDirectory)
+                                            // re-read the content after stripping
+                                            content = try self.fileSystem.getDirectoryContents(tempExtractionDirectory)
+                                        } else {
+                                            observabilityScope.emit(debug: "no first level component stripping needed for \(tempExtractionDirectory)")
+                                        }
                                         // copy from temp location to actual location
-                                        let content = try self.fileSystem.getDirectoryContents(tempExtractionDirectory)
                                         for file in content {
                                             let source = tempExtractionDirectory.appending(component: file)
                                             let destination = parentDirectory.appending(component: file)
