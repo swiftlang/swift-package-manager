@@ -2363,7 +2363,7 @@ class DependencyGraphBuilder {
             self.containers = [:]
             self.references = [:]
         }
-        let provider = MockProvider(containers: self.containers.values.map { $0 })
+        let provider = MockProvider(containers: Array(self.containers.values))
         return PubgrubDependencyResolver(provider :provider, pinsMap: pinsMap, observabilityScope: ObservabilitySystem.NOOP, delegate: delegate)
     }
 }

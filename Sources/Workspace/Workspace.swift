@@ -2274,7 +2274,7 @@ extension Workspace {
         let semaphore = DispatchSemaphore(value: Concurrency.maxOperations)
 
         // finally download zip files, if any
-        for artifact in (zipArtifacts.map{ $0 }) {
+        for artifact in zipArtifacts.get() {
             let parentDirectory =  self.location.artifactsDirectory.appending(component: artifact.packageRef.identity.description)
             guard observabilityScope.trap ({ try fileSystem.createDirectory(parentDirectory, recursive: true) }) else {
                 continue
@@ -2388,7 +2388,7 @@ extension Workspace {
             delegate?.didDownloadBinaryArtifacts()
         }
 
-        return result.map{ $0 }
+        return result.get()
     }
 
     private func extract(_ artifacts: [ManagedArtifact], observabilityScope: ObservabilityScope) throws -> [ManagedArtifact] {
@@ -2453,7 +2453,7 @@ extension Workspace {
 
         group.wait()
 
-        return result.map{ $0 }
+        return result.get()
     }
 
     private func isAtArtifactsDirectory(_ artifact: ManagedArtifact) -> Bool {
