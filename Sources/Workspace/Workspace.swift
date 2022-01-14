@@ -2276,11 +2276,11 @@ extension Workspace {
             }
         }
 
+        // download max n files concurrently
+        let semaphore = DispatchSemaphore(value: Concurrency.maxOperations)
+
         // finally download zip files, if any
         for artifact in (zipArtifacts.map{ $0 }) {
-            group.enter()
-            defer { group.leave() }
-
             let parentDirectory =  self.location.artifactsDirectory.appending(component: artifact.packageRef.identity.description)
             guard observabilityScope.trap ({ try fileSystem.createDirectory(parentDirectory, recursive: true) }) else {
                 continue
@@ -2288,11 +2288,13 @@ extension Workspace {
 
             let archivePath = parentDirectory.appending(component: artifact.url.lastPathComponent)
 
+            semaphore.wait()
             group.enter()
             var headers = HTTPClientHeaders()
             headers.add(name: "Accept", value: "application/octet-stream")
             var request = HTTPClient.Request.download(url: artifact.url, headers: headers, fileSystem: self.fileSystem, destination: archivePath)
             request.options.authorizationProvider = self.authorizationProvider?.httpAuthorizationHeader(for:)
+            request.options.retryStrategy = .exponentialBackoff(maxAttempts: 3, baseDelay: .milliseconds(50))
             request.options.validResponseCodes = [200]
             self.httpClient.execute(
                 request,
@@ -2303,7 +2305,10 @@ extension Workspace {
                         totalBytesToDownload: totalBytesToDownload)
                 },
                 completion: { downloadResult in
-                    defer { group.leave() }
+                    defer {
+                        group.leave()
+                        semaphore.signal()
+                    }
 
                     switch downloadResult {
                     case .success:
