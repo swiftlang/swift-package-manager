@@ -37,7 +37,7 @@ public final class Target {
     /// The different types of a target's dependency on another entity.
     public enum Dependency {
         case targetItem(name: String, condition: TargetDependencyCondition?)
-        @available(_PackageDescription, introduced: 5.3, obsoleted: 999.0)
+        @available(_PackageDescription, obsoleted: 999.0)
         case productItem(name: String, package: String?, condition: TargetDependencyCondition?)
         @available(_PackageDescription, introduced: 999.0)
         case productItem(name: String, moduleAliases: [String: String]?, package: String?, condition: TargetDependencyCondition?)
