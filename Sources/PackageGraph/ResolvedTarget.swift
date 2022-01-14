@@ -110,6 +110,11 @@ public final class ResolvedTarget {
         return underlyingTarget.c99name
     }
 
+    /// The module aliases to build this target.
+    public var moduleAliases: [String: String]? {
+      return underlyingTarget.moduleAliases
+    }
+
     /// The "type" of target.
     public var type: Target.Kind {
         return underlyingTarget.type

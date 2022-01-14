@@ -101,6 +101,62 @@ final class BuildPlanTests: XCTestCase {
         return mockBuildParameters(config: environment.configuration, destinationTriple: triple)
     }
 
+    func testModuleAliases() throws {
+      let fs = InMemoryFileSystem(emptyFiles:
+                                    "/thisPkg/Sources/exe/main.swift",
+                                    "/thisPkg/Sources/Logging/file.swift",
+                                    "/otherPkg/Sources/Utils/fileUtils.swift",
+                                    "/otherPkg/Sources/Logging/fileLogging.swift"
+                                  )
+
+      let observability = ObservabilitySystem.makeForTesting()
+      let graph = try loadPackageGraph(
+        fs: fs,
+        manifests: [
+          Manifest.createRootManifest(
+            name: "otherPkg",
+            path: .init("/otherPkg"),
+            products: [
+              ProductDescription(name: "UtilsProd", type: .library(.automatic), targets: ["Utils"]),
+                      ],
+            targets: [
+              TargetDescription(name: "Utils", dependencies: ["Logging"]),
+              TargetDescription(name: "Logging", dependencies: []),
+            ]),
+          Manifest.createRootManifest(
+            name: "thisPkg",
+            path: .init("/thisPkg"),
+            dependencies: [
+              .localSourceControl(path: .init("/otherPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+            ],
+            targets: [
+              TargetDescription(name: "exe",
+                                dependencies: ["Logging",
+                                               .product(name: "UtilsProd",
+                                                        moduleAliases: ["Logging": "OtherLogging"],
+                                                        package: "otherPkg")]),
+              TargetDescription(name: "Logging", dependencies: []),
+            ]),
+        ],
+        observabilityScope: observability.topScope
+      )
+      XCTAssertNoDiagnostics(observability.diagnostics)
+
+      let result = BuildPlanResult(plan: try BuildPlan(
+        buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
+        graph: graph,
+        fileSystem: fs,
+        observabilityScope: observability.topScope
+      ))
+
+      result.checkProductsCount(1)
+      result.checkTargetsCount(4)
+
+      XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "OtherLogging" && $0.target.moduleAliases?["Logging"] == "OtherLogging" })
+      XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "Utils" && $0.target.moduleAliases?["Logging"] == "OtherLogging" })
+      XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "Logging" && $0.target.moduleAliases == nil })
+    }
+
     func testBasicSwiftPackage() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Pkg/Sources/exe/main.swift",

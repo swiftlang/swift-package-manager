@@ -24,15 +24,15 @@ public struct TargetDescription: Equatable, Codable {
     /// Represents a target's dependency on another entity.
     public enum Dependency: Equatable {
         case target(name: String, condition: PackageConditionDescription?)
-        case product(name: String, package: String?, condition: PackageConditionDescription?)
+        case product(name: String, moduleAliases: [String: String]? = nil, package: String?, condition: PackageConditionDescription?)
         case byName(name: String, condition: PackageConditionDescription?)
 
         public static func target(name: String) -> Dependency {
             return .target(name: name, condition: nil)
         }
 
-        public static func product(name: String, package: String? = nil) -> Dependency {
-            return .product(name: name, package: package, condition: nil)
+        public static func product(name: String, moduleAliases: [String: String]? = nil, package: String? = nil) -> Dependency {
+            return .product(name: name, moduleAliases: moduleAliases, package: package, condition: nil)
         }
     }
 
@@ -224,11 +224,12 @@ extension TargetDescription.Dependency: Codable {
             var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .target)
             try unkeyedContainer.encode(a1)
             try unkeyedContainer.encode(a2)
-        case let .product(a1, a2, a3):
+        case let .product(a1, a2, a3, a4):
             var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .product)
             try unkeyedContainer.encode(a1)
             try unkeyedContainer.encode(a2)
             try unkeyedContainer.encode(a3)
+            try unkeyedContainer.encode(a4)
         case let .byName(a1, a2):
             var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .byName)
             try unkeyedContainer.encode(a1)
@@ -250,9 +251,10 @@ extension TargetDescription.Dependency: Codable {
         case .product:
             var unkeyedValues = try values.nestedUnkeyedContainer(forKey: key)
             let a1 = try unkeyedValues.decode(String.self)
-            let a2 = try unkeyedValues.decodeIfPresent(String.self)
-            let a3 = try unkeyedValues.decodeIfPresent(PackageConditionDescription.self)
-            self = .product(name: a1, package: a2, condition: a3)
+            let a2 = try unkeyedValues.decode([String: String].self)
+            let a3 = try unkeyedValues.decodeIfPresent(String.self)
+            let a4 = try unkeyedValues.decodeIfPresent(PackageConditionDescription.self)
+            self = .product(name: a1, moduleAliases: a2, package: a3, condition: a4)
         case .byName:
             var unkeyedValues = try values.nestedUnkeyedContainer(forKey: key)
             let a1 = try unkeyedValues.decode(String.self)

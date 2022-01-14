@@ -65,6 +65,10 @@ extension Package {
             }
         }
 
+        /// Module aliases to build this dependency.
+        @available(_PackageDescription, introduced: 999.0)
+        public var moduleAliases: [String: String]?
+
         /// The requirement of the dependency.
         @available(_PackageDescription, deprecated: 5.6, message: "use kind instead")
         public var requirement: Requirement {

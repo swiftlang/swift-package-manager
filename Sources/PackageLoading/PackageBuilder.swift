@@ -679,9 +679,9 @@ public final class PackageBuilder {
                         guard let target = targets[name] else { return nil }
                         return .target(target, conditions: buildConditions(from: condition))
 
-                    case .product(let name, let package, let condition):
+                    case .product(let name, let moduleAliases, let package, let condition):
                         return .product(
-                            .init(name: name, package: package),
+                            .init(name: name, moduleAliases: moduleAliases, package: package),
                             conditions: buildConditions(from: condition)
                         )
 

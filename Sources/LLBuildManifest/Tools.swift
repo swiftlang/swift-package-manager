@@ -221,6 +221,7 @@ public struct SwiftCompilerTool: ToolProtocol {
 
     public var executable: AbsolutePath
     public var moduleName: String
+    public var moduleAliases: [String: String]?
     public var moduleOutputPath: AbsolutePath
     public var importPath: AbsolutePath
     public var tempsPath: AbsolutePath
@@ -235,6 +236,7 @@ public struct SwiftCompilerTool: ToolProtocol {
         outputs: [Node],
         executable: AbsolutePath,
         moduleName: String,
+        moduleAliases: [String: String]?,
         moduleOutputPath: AbsolutePath,
         importPath: AbsolutePath,
         tempsPath: AbsolutePath,
@@ -248,6 +250,7 @@ public struct SwiftCompilerTool: ToolProtocol {
         self.outputs = outputs
         self.executable = executable
         self.moduleName = moduleName
+        self.moduleAliases = moduleAliases
         self.moduleOutputPath = moduleOutputPath
         self.importPath = importPath
         self.tempsPath = tempsPath
@@ -261,6 +264,9 @@ public struct SwiftCompilerTool: ToolProtocol {
     public func write(to stream: ManifestToolStream) {
         stream["executable"] = executable
         stream["module-name"] = moduleName
+        if let moduleAliases = moduleAliases {
+          stream["module-alias"] = moduleAliases
+        }
         stream["module-output-path"] = moduleOutputPath
         stream["import-paths"] = [importPath]
         stream["temps-path"] = tempsPath

@@ -37,11 +37,15 @@ public class Target: PolymorphicCodableProtocol {
         /// The name of the product dependency.
         public let name: String
 
+        /// Module aliases for targets of this product dependency.
+        public let moduleAliases: [String: String]?
+
         /// The name of the package containing the product.
         public let package: String?
 
         /// Creates a product reference instance.
-        public init(name: String, package: String?) {
+        public init(name: String, moduleAliases: [String: String]? = nil, package: String?) {
+            self.moduleAliases = moduleAliases
             self.name = name
             self.package = package
         }
@@ -104,8 +108,26 @@ public class Target: PolymorphicCodableProtocol {
     ///
     /// NOTE: This name is not the language-level target (i.e., the importable
     /// name) name in many cases, instead use c99name if you need uniqueness.
-    public let name: String
+    public private(set) var name: String
 
+    /// Module aliases needed to build this target.
+    public private(set) var moduleAliases: [String: String]?
+
+    /// Set module aliases needed to build this target.
+    /// shouldRename True if the target itself should be renamed
+    public func setModuleAliases(name: String, alias: String, shouldRename: Bool = false) {
+        if moduleAliases == nil {
+            moduleAliases = [name: alias]
+        } else {
+            moduleAliases?[name] = alias
+        }
+
+        if shouldRename {
+            self.name = alias
+            self.c99name = alias.spm_mangledToC99ExtendedIdentifier()
+        }
+    }
+  
     /// The default localization for resources.
     public let defaultLocalization: String?
 
@@ -113,7 +135,7 @@ public class Target: PolymorphicCodableProtocol {
     public let dependencies: [Dependency]
 
     /// The language-level target name.
-    public let c99name: String
+    public private(set) var c99name: String
 
     /// The bundle name, if one is being generated.
     public let bundleName: String?
