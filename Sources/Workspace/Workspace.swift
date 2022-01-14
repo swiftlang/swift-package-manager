@@ -2281,6 +2281,11 @@ extension Workspace {
             }
 
             let archivePath = parentDirectory.appending(component: artifact.url.lastPathComponent)
+            if self.fileSystem.exists(archivePath) {
+                guard observabilityScope.trap ({ try self.fileSystem.removeFileTree(archivePath) }) else {
+                    continue
+                }
+            }
 
             group.enter()
             var headers = HTTPClientHeaders()
