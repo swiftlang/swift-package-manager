@@ -14,16 +14,18 @@ import struct Foundation.URL
 import PackageModel
 import TSCBasic
 
-public struct PackageIndexAndCollections: PackageIndexAndCollectionsProtocol {
+public struct PackageIndexAndCollections {
     private let index: PackageIndexProtocol
     private let collections: PackageCollectionsProtocol
+    private let observabilityScope: ObservabilityScope
     
     public init(
+        indexConfiguration: PackageIndexConfiguration = .init(),
         collectionsConfiguration: PackageCollections.Configuration = .init(),
         observabilityScope: ObservabilityScope
     ) {
         let index = PackageIndex(
-            fileSystem: localFileSystem,
+            configuration: indexConfiguration,
             callbackQueue: .sharedConcurrent,
             observabilityScope: observabilityScope
         )
@@ -41,15 +43,18 @@ public struct PackageIndexAndCollections: PackageIndexAndCollectionsProtocol {
             customMetadataProvider: metadataProvider,
             observabilityScope: observabilityScope
         )
+        self.observabilityScope = observabilityScope
     }
     
-    init(index: PackageIndexProtocol, collections: PackageCollectionsProtocol) {
+    init(index: PackageIndexProtocol, collections: PackageCollectionsProtocol, observabilityScope: ObservabilityScope) {
         self.index = index
         self.collections = collections
+        self.observabilityScope = observabilityScope
     }
     
-    // MARK: - Package collection APIs
+    // MARK: - Package collection specific APIs
     
+    /// - SeeAlso: `PackageCollectionsProtocol.listCollections`
     public func listCollections(
         identifiers: Set<PackageCollectionsModel.CollectionIdentifier>?,
         callback: @escaping (Result<[PackageCollectionsModel.Collection], Error>) -> Void
@@ -57,10 +62,12 @@ public struct PackageIndexAndCollections: PackageIndexAndCollectionsProtocol {
         self.collections.listCollections(identifiers: identifiers, callback: callback)
     }
 
+    /// - SeeAlso: `PackageCollectionsProtocol.refreshCollections`
     public func refreshCollections(callback: @escaping (Result<[PackageCollectionsModel.CollectionSource], Error>) -> Void) {
         self.collections.refreshCollections(callback: callback)
     }
 
+    /// - SeeAlso: `PackageCollectionsProtocol.refreshCollection`
     public func refreshCollection(
         _ source: PackageCollectionsModel.CollectionSource,
         callback: @escaping (Result<PackageCollectionsModel.Collection, Error>) -> Void
@@ -68,6 +75,7 @@ public struct PackageIndexAndCollections: PackageIndexAndCollectionsProtocol {
         self.collections.refreshCollection(source, callback: callback)
     }
 
+    /// - SeeAlso: `PackageCollectionsProtocol.addCollection`
     public func addCollection(
         _ source: PackageCollectionsModel.CollectionSource,
         order: Int?,
@@ -77,6 +85,7 @@ public struct PackageIndexAndCollections: PackageIndexAndCollectionsProtocol {
         self.collections.addCollection(source, order: order, trustConfirmationProvider: trustConfirmationProvider, callback: callback)
     }
 
+    /// - SeeAlso: `PackageCollectionsProtocol.removeCollection`
     public func removeCollection(
         _ source: PackageCollectionsModel.CollectionSource,
         callback: @escaping (Result<Void, Error>) -> Void
@@ -84,6 +93,7 @@ public struct PackageIndexAndCollections: PackageIndexAndCollectionsProtocol {
         self.collections.removeCollection(source, callback: callback)
     }
 
+    /// - SeeAlso: `PackageCollectionsProtocol.getCollection`
     public func getCollection(
         _ source: PackageCollectionsModel.CollectionSource,
         callback: @escaping (Result<PackageCollectionsModel.Collection, Error>) -> Void
@@ -91,6 +101,7 @@ public struct PackageIndexAndCollections: PackageIndexAndCollectionsProtocol {
         self.collections.getCollection(source, callback: callback)
     }
 
+    /// - SeeAlso: `PackageCollectionsProtocol.listPackages`
     public func listPackages(
         collections: Set<PackageCollectionsModel.CollectionIdentifier>?,
         callback: @escaping (Result<PackageCollectionsModel.PackageSearchResult, Error>) -> Void
@@ -98,6 +109,7 @@ public struct PackageIndexAndCollections: PackageIndexAndCollectionsProtocol {
         self.collections.listPackages(collections: collections, callback: callback)
     }
 
+    /// - SeeAlso: `PackageCollectionsProtocol.listTargets`
     public func listTargets(
         collections: Set<PackageCollectionsModel.CollectionIdentifier>?,
         callback: @escaping (Result<PackageCollectionsModel.TargetListResult, Error>) -> Void
@@ -105,6 +117,7 @@ public struct PackageIndexAndCollections: PackageIndexAndCollectionsProtocol {
         self.collections.listTargets(collections: collections, callback: callback)
     }
     
+    /// - SeeAlso: `PackageCollectionsProtocol.findTargets`
     public func findTargets(
         _ query: String,
         searchType: PackageCollectionsModel.TargetSearchType?,
@@ -114,36 +127,14 @@ public struct PackageIndexAndCollections: PackageIndexAndCollectionsProtocol {
         self.collections.findTargets(query, searchType: searchType, collections: collections, callback: callback)
     }
     
-    // MARK: - Package index APIs
+    // MARK: - Package index specific APIs
 
-    public func isIndexEnabled(callback: @escaping (Result<Bool, Error>) -> Void) {
-        self.index.get { result in
-            switch result {
-            case .failure(PackageIndexError.featureDisabled):
-                callback(.success(false))
-            case .failure(let error):
-                callback(.failure(error))
-            case .success(let url):
-                callback(.success(url != .none))
-            }
-        }
+    /// Indicates if package index is configured.
+    public func isIndexEnabled() -> Bool {
+        self.index.isEnabled
     }
 
-    public func setIndex(
-        url: Foundation.URL,
-        callback: @escaping (Result<Void, Error>) -> Void
-    ) {
-        self.index.set(url: url, callback: callback)
-    }
-
-    public func unsetIndex(callback: @escaping (Result<Void, Error>) -> Void) {
-        self.index.unset(callback: callback)
-    }
-    
-    public func getIndex(callback: @escaping (Result<Foundation.URL?, Error>) -> Void) {
-        self.index.get(callback: callback)
-    }
-    
+    /// - SeeAlso: `PackageIndexProtocol.listPackages`
     public func listPackagesInIndex(
         offset: Int,
         limit: Int,
@@ -152,14 +143,29 @@ public struct PackageIndexAndCollections: PackageIndexAndCollectionsProtocol {
         self.index.listPackages(offset: offset, limit: limit, callback: callback)
     }
     
-    // MARK: - APIs that make use of package index and collections
+    // MARK: - APIs that make use of both package index and collections
     
+    /// Returns metadata for the package identified by the given `PackageIdentity`, using package index (if configured)
+    /// and collections data.
+    ///
+    /// A failure is returned if the package is not found.
+    ///
+    /// - Parameters:
+    ///   - identity: The package identity
+    ///   - location: The package location (optional for deduplication)
+    ///   - collections: Optional. If specified, only these collections are used to construct the result.
+    ///   - callback: The closure to invoke when result becomes available
     public func getPackageMetadata(
         identity: PackageIdentity,
         location: String?,
         collections: Set<PackageCollectionsModel.CollectionIdentifier>?,
         callback: @escaping (Result<PackageCollectionsModel.PackageMetadata, Error>) -> Void
     ) {
+        // Package index not available - fallback to collections
+        guard self.index.isEnabled else {
+            return self.collections.getPackageMetadata(identity: identity, location: location, collections: collections, callback: callback)
+        }
+                
         // Get metadata using both package index and collections
         let sync = DispatchGroup()
         let results = ThreadSafeKeyValueStore<Source, Result<PackageCollectionsModel.PackageMetadata, Error>>()
@@ -211,27 +217,32 @@ public struct PackageIndexAndCollections: PackageIndexAndCollectionsProtocol {
                     ))
                 case .failure(let collectionsError):
                     // Failed to get metadata through `PackageIndex` and `PackageCollections`.
-                    // Return index's error unless no index is configured.
-                    switch indexError {
-                    case PackageIndexError.featureDisabled, PackageIndexError.notConfigured:
-                        callback(.failure(collectionsError))
-                    default:
-                        callback(.failure(indexError))
-                    }
+                    // Return index's error.
+                    self.observabilityScope.emit(warning: "PackageCollections.getPackageMetadata failed: \(collectionsError)")
+                    callback(.failure(indexError))
                 }
             }
         }
     }
     
+    /// Finds and returns packages that match the query.
+    ///
+    /// - Parameters:
+    ///   - query: The search query
+    ///   - collections: Optional. If specified, only search within these collections.
+    ///   - callback: The closure to invoke when result becomes available
     public func findPackages(
         _ query: String,
         collections: Set<PackageCollectionsModel.CollectionIdentifier>?,
         callback: @escaping (Result<PackageCollectionsModel.PackageSearchResult, Error>) -> Void
     ) {
+        // Package index not available - fallback to collections
+        guard self.index.isEnabled else {
+            return self.collections.findPackages(query, collections: collections, callback: callback)
+        }
+        
         self.index.findPackages(query) { indexResult in
             switch indexResult {
-            case .failure(PackageIndexError.featureDisabled), .failure(PackageIndexError.notConfigured):
-                self.collections.findPackages(query, collections: collections, callback: callback)
             case .failure(let error):
                 callback(.failure(error))
             case .success(let indexSearchResult):
@@ -272,13 +283,10 @@ struct PackageIndexMetadataProvider: PackageMetadataProvider {
         location: String,
         callback: @escaping (Result<PackageCollectionsModel.PackageBasicMetadata, Error>, PackageMetadataProviderContext?) -> Void
     ) {
-        self.index.get { result in
-            switch result {
-            case .success(.some):
-                self.index.get(identity: identity, location: location, callback: callback)
-            default:
-                self.alternative.get(identity: identity, location: location, callback: callback)
-            }
+        if self.index.isEnabled {
+            self.index.get(identity: identity, location: location, callback: callback)
+        } else {
+            self.alternative.get(identity: identity, location: location, callback: callback)
         }
     }
 }

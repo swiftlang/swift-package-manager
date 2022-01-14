@@ -15,66 +15,27 @@ import PackageModel
 import TSCBasic
 
 struct PackageIndex: PackageIndexProtocol {
-    private let configurationStorage: PackageIndexConfigurationStorage
+    private let configuration: PackageIndexConfiguration
     private let httpClient: HTTPClient
     private let callbackQueue: DispatchQueue
     private let observabilityScope: ObservabilityScope
-    
-    // Feature flag: env var SWIFTPM_ENABLE_PACKAGE_INDEX
-    let enabled: Bool
 
     // TODO: cache metadata results
+    
+    var isEnabled: Bool {
+        self.configuration.enabled && self.configuration.url != .none
+    }
 
     init(
-        fileSystem: FileSystem,
+        configuration: PackageIndexConfiguration,
         customHTTPClient: HTTPClient? = nil,
         callbackQueue: DispatchQueue,
         observabilityScope: ObservabilityScope
     ) {
-        self.configurationStorage = PackageIndexConfigurationStorage(fileSystem: fileSystem)
+        self.configuration = configuration
         self.httpClient = customHTTPClient ?? HTTPClient()
         self.callbackQueue = callbackQueue
         self.observabilityScope = observabilityScope
-        self.enabled = ProcessInfo.processInfo.environment["SWIFTPM_ENABLE_PACKAGE_INDEX"] == "1"
-    }
-
-    func set(
-        url: Foundation.URL,
-        callback: @escaping (Result<Void, Error>) -> Void
-    ) {
-        let callback = self.makeAsync(callback)
-        
-        guard self.enabled else {
-            return callback(.failure(PackageIndexError.featureDisabled))
-        }
-        
-        self.configurationStorage.update(index: .init(url: url)) { result in
-            callback(result.tryMap { () })
-        }
-    }
-
-    func unset(callback: @escaping (Result<Void, Error>) -> Void) {
-        let callback = self.makeAsync(callback)
-        
-        guard self.enabled else {
-            return callback(.failure(PackageIndexError.featureDisabled))
-        }
-        
-        self.configurationStorage.update(index: .init(url: nil)) { result in
-            callback(result.tryMap { () })
-        }
-    }
-
-    func get(callback: @escaping (Result<Foundation.URL?, Error>) -> Void) {
-        let callback = self.makeAsync(callback)
-        
-        guard self.enabled else {
-            return callback(.failure(PackageIndexError.featureDisabled))
-        }
-        
-        self.configurationStorage.get { result in
-            callback(result.tryMap { $0.url })
-        }
     }
 
     func getPackageMetadata(
@@ -116,20 +77,14 @@ struct PackageIndex: PackageIndexProtocol {
     ) {
         let callback = self.makeAsync(callback)
         
-        guard self.enabled else {
+        guard self.configuration.enabled else {
             return callback(.failure(PackageIndexError.featureDisabled))
         }
-        
-        self.get { result in
-            switch result {
-            case .failure(let error):
-                callback(.failure(error))
-            case .success(.none):
-                callback(.failure(PackageIndexError.notConfigured))
-            case .success(.some(let url)):
-                closure(url, callback)
-            }
+        guard let url = self.configuration.url else {
+            return callback(.failure(PackageIndexError.notConfigured))
         }
+
+        closure(url, callback)
     }
 
     private func makeAsync<T>(_ closure: @escaping (Result<T, Error>) -> Void) -> (Result<T, Error>) -> Void {
@@ -169,9 +124,8 @@ extension PackageIndex: PackageMetadataProvider {
                     authors: package.authors,
                     languages: package.languages
                 )
-                
-                let url = try? temp_await { callback in self.get(callback: callback) }
-                let name = url?.host ?? "package index"
+
+                let name = self.configuration.url?.host ?? "package index"
                 let context = PackageMetadataProviderContext(
                     name: name,
                     // Package index doesn't require auth

@@ -11,56 +11,36 @@
 import Foundation
 import TSCBasic
 
-struct PackageIndexConfiguration {
-    var url: Foundation.URL?
+public struct PackageIndexConfiguration: Equatable {
+    public var url: Foundation.URL?
+    
+    // TODO: rdar://87575573 remove feature flag
+    public internal(set) var enabled = ProcessInfo.processInfo.environment["SWIFTPM_ENABLE_PACKAGE_INDEX"] == "1"
+    
+    public init() {
+        self.url = nil
+    }
 }
 
-struct PackageIndexConfigurationStorage {
-    let fileSystem: FileSystem
-    let path: AbsolutePath
+public struct PackageIndexConfigurationStorage {
+    private let path: AbsolutePath
+    private let fileSystem: FileSystem
 
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
 
-    init(fileSystem: FileSystem = localFileSystem, path: AbsolutePath? = nil) {
+    public init(path: AbsolutePath, fileSystem: FileSystem) {
+        self.path = path
         self.fileSystem = fileSystem
-
-        self.path = path ?? fileSystem.swiftPMConfigurationDirectory.appending(component: "index.json")
         self.encoder = JSONEncoder.makeWithDefaults()
         self.decoder = JSONDecoder.makeWithDefaults()
     }
-
-    func get(callback: @escaping (Result<PackageIndexConfiguration, Error>) -> Void) {
-        DispatchQueue.sharedConcurrent.async {
-            do {
-                let index = try self.withLock {
-                    try self.loadFromDisk()
-                }
-                callback(.success(index))
-            } catch {
-                callback(.failure(error))
-            }
-        }
-    }
-
-    func update(index: PackageIndexConfiguration, callback: @escaping (Result<Void, Error>) -> Void) {
-        DispatchQueue.sharedConcurrent.async {
-            do {
-                try self.withLock {
-                    try self.saveToDisk(index)
-                }
-                callback(.success(()))
-            } catch {
-                callback(.failure(error))
-            }
-        }
-    }
-
-    private func loadFromDisk() throws -> PackageIndexConfiguration {
+    
+    public func load() throws -> PackageIndexConfiguration {
         guard self.fileSystem.exists(self.path) else {
             return .init()
         }
-        let buffer = try fileSystem.readFileContents(self.path).contents
+        let buffer = try self.fileSystem.readFileContents(self.path).contents
         guard buffer.count > 0 else {
             return .init()
         }
@@ -68,20 +48,24 @@ struct PackageIndexConfigurationStorage {
         return try PackageIndexConfiguration(container.index)
     }
 
-    private func saveToDisk(_ index: PackageIndexConfiguration) throws {
+    public func save(_ configuration: PackageIndexConfiguration) throws {
         if !self.fileSystem.exists(self.path.parentDirectory) {
             try self.fileSystem.createDirectory(self.path.parentDirectory, recursive: true)
         }
-        let container = StorageModel.Container(index)
+        let container = StorageModel.Container(configuration)
         let buffer = try encoder.encode(container)
-        try self.fileSystem.writeFileContents(self.path, bytes: ByteString(buffer))
+        try self.fileSystem.writeFileContents(self.path, bytes: ByteString(buffer), atomically: true)
     }
-
-    private func withLock<T>(_ body: () throws -> T) throws -> T {
-        if !self.fileSystem.exists(self.path.parentDirectory) {
-            try self.fileSystem.createDirectory(self.path.parentDirectory, recursive: true)
+    
+    @discardableResult
+    public func update(with handler: (inout PackageIndexConfiguration) throws -> Void) throws -> PackageIndexConfiguration {
+        let configuration = try self.load()
+        var updatedConfiguration = configuration
+        try handler(&updatedConfiguration)
+        if updatedConfiguration != configuration {
+            try self.save(updatedConfiguration)
         }
-        return try self.fileSystem.withLock(on: self.path.parentDirectory, type: .exclusive, body)
+        return updatedConfiguration
     }
 }
 
@@ -109,12 +93,12 @@ private extension PackageIndexConfiguration {
     init(_ from: StorageModel.Index) throws {
         switch from.url {
         case .none:
-            self.init(url: nil)
+            self.url = nil
         case .some(let urlString):
             guard let url = URL(string: urlString) else {
                 throw SerializationError.invalidURL(urlString)
             }
-            self.init(url: url)
+            self.url = url
         }
     }
 }
