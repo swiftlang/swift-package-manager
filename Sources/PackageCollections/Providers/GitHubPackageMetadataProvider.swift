@@ -300,7 +300,7 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider, Closable {
         }
     }
 
-    struct CacheValue: Codable {
+    private struct CacheValue: Codable {
         let package: Model.PackageBasicMetadata
         let timestamp: UInt64
 

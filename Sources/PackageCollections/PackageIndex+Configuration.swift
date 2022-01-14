@@ -13,13 +13,26 @@ import TSCBasic
 
 public struct PackageIndexConfiguration: Equatable {
     public var url: Foundation.URL?
-    public var searchResultMaxItemsCount: UInt = 50
+    public var searchResultMaxItemsCount: Int
+    public var cacheDirectory: AbsolutePath
+    public var cacheTTLInSeconds: Int
+    public var cacheSizeInMegabytes: Int
     
     // TODO: rdar://87575573 remove feature flag
     public internal(set) var enabled = ProcessInfo.processInfo.environment["SWIFTPM_ENABLE_PACKAGE_INDEX"] == "1"
     
-    public init() {
+    public init(
+        url: Foundation.URL? = nil,
+        searchResultMaxItemsCount: Int? = nil,
+        cacheDirectory: AbsolutePath? = nil,
+        cacheTTLInSeconds: Int? = nil,
+        cacheSizeInMegabytes: Int? = nil
+    ) {
         self.url = nil
+        self.searchResultMaxItemsCount = searchResultMaxItemsCount ?? 50
+        self.cacheDirectory = cacheDirectory.map(resolveSymlinks) ?? localFileSystem.swiftPMCacheDirectory.appending(components: "package-metadata")
+        self.cacheTTLInSeconds = cacheTTLInSeconds ?? 3600
+        self.cacheSizeInMegabytes = cacheSizeInMegabytes ?? 10
     }
 }
 
@@ -77,14 +90,20 @@ private enum StorageModel {
         init(_ from: PackageIndexConfiguration) {
             self.index = .init(
                 url: from.url?.absoluteString,
-                searchResultMaxItemsCount: from.searchResultMaxItemsCount
+                searchResultMaxItemsCount: from.searchResultMaxItemsCount,
+                cacheDirectory: from.cacheDirectory.pathString,
+                cacheTTLInSeconds: from.cacheTTLInSeconds,
+                cacheSizeInMegabytes: from.cacheSizeInMegabytes
             )
         }
     }
 
     struct Index: Codable {
         let url: String?
-        let searchResultMaxItemsCount: UInt
+        let searchResultMaxItemsCount: Int
+        let cacheDirectory: String
+        let cacheTTLInSeconds: Int
+        let cacheSizeInMegabytes: Int
     }
 }
 
@@ -102,9 +121,17 @@ private extension PackageIndexConfiguration {
             self.url = url
         }
         self.searchResultMaxItemsCount = from.searchResultMaxItemsCount
+        
+        guard let cacheDirectoryPath = try? AbsolutePath(validating: from.cacheDirectory) else {
+            throw SerializationError.invalidPath(from.cacheDirectory)
+        }
+        self.cacheDirectory = cacheDirectoryPath
+        self.cacheTTLInSeconds = from.cacheTTLInSeconds
+        self.cacheSizeInMegabytes = from.cacheSizeInMegabytes
     }
 }
 
 private enum SerializationError: Error {
     case invalidURL(String)
+    case invalidPath(String)
 }

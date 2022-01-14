@@ -14,7 +14,7 @@ import Foundation
 import PackageModel
 import TSCBasic
 
-struct PackageIndex: PackageIndexProtocol {
+struct PackageIndex: PackageIndexProtocol, Closable {
     private let configuration: PackageIndexConfiguration
     private let httpClient: HTTPClient
     private let callbackQueue: DispatchQueue
@@ -22,7 +22,7 @@ struct PackageIndex: PackageIndexProtocol {
     
     private let decoder: JSONDecoder
 
-    // TODO: cache metadata results
+    private let cache: SQLiteBackedCache<CacheValue>?
     
     var isEnabled: Bool {
         self.configuration.enabled && self.configuration.url != .none
@@ -38,7 +38,24 @@ struct PackageIndex: PackageIndexProtocol {
         self.httpClient = customHTTPClient ?? HTTPClient()
         self.callbackQueue = callbackQueue
         self.observabilityScope = observabilityScope
+        
         self.decoder = JSONDecoder.makeWithDefaults()
+        
+        if configuration.cacheTTLInSeconds > 0 {
+            var cacheConfig = SQLiteBackedCacheConfiguration()
+            cacheConfig.maxSizeInMegabytes = configuration.cacheSizeInMegabytes
+            self.cache = SQLiteBackedCache<CacheValue>(
+                tableName: "package_index_cache",
+                path: configuration.cacheDirectory.appending(component: "index-package-metadata.db"),
+                configuration: cacheConfig
+            )
+        } else {
+            self.cache = nil
+        }
+    }
+    
+    func close() throws {
+        try self.cache?.close()
     }
 
     func getPackageMetadata(
@@ -47,6 +64,11 @@ struct PackageIndex: PackageIndexProtocol {
         callback: @escaping (Result<PackageCollectionsModel.PackageMetadata, Error>) -> Void
     ) {
         self.runIfConfigured(callback: callback) { url, callback in
+            if let cached = try? self.cache?.get(key: identity.description),
+               cached.dispatchTime + DispatchTimeInterval.seconds(self.configuration.cacheTTLInSeconds) > DispatchTime.now() {
+                return callback(.success((package: cached.package, collections: [], provider: self.createContext(host: url.host, error: nil))))
+            }
+            
             // TODO: rdar://87582621 call package index's get metadata API
             let metadataURL = url.appendingPathComponent("packages").appendingPathComponent(identity.description)
             self.httpClient.get(metadataURL) { result in
@@ -57,15 +79,18 @@ struct PackageIndex: PackageIndexProtocol {
                             throw PackageIndexError.invalidResponse(metadataURL, "Empty body")
                         }
                         
-                        let name = url.host ?? "package index"
-                        let providerContext = PackageMetadataProviderContext(
-                            name: name,
-                            // Package index doesn't require auth
-                            authTokenType: nil,
-                            isAuthTokenConfigured: true
-                        )
+                        do {
+                            try self.cache?.put(
+                                key: identity.description,
+                                value: CacheValue(package: package, timestamp: DispatchTime.now()),
+                                replace: true,
+                                observabilityScope: self.observabilityScope
+                            )
+                        } catch {
+                            self.observabilityScope.emit(warning: "Failed to save index metadata for package \(identity) to cache: \(error)")
+                        }
                         
-                        return (package: package, collections: [], provider: providerContext)
+                        return (package: package, collections: [], provider: self.createContext(host: url.host, error: nil))
                     default:
                         throw PackageIndexError.invalidResponse(metadataURL, "Invalid status code: \(response.statusCode)")
                     }
@@ -157,6 +182,30 @@ struct PackageIndex: PackageIndexProtocol {
 
     private func makeAsync<T>(_ closure: @escaping (Result<T, Error>) -> Void) -> (Result<T, Error>) -> Void {
         { result in self.callbackQueue.async { closure(result) } }
+    }
+    
+    private func createContext(host: String?, error: Error?) -> PackageMetadataProviderContext? {
+        let name = host ?? "package index"
+        return PackageMetadataProviderContext(
+            name: name,
+            // Package index doesn't require auth
+            authTokenType: nil,
+            isAuthTokenConfigured: true
+        )
+    }
+    
+    private struct CacheValue: Codable {
+        let package: Model.Package
+        let timestamp: UInt64
+
+        var dispatchTime: DispatchTime {
+            DispatchTime(uptimeNanoseconds: self.timestamp)
+        }
+
+        init(package: Model.Package, timestamp: DispatchTime) {
+            self.package = package
+            self.timestamp = timestamp.uptimeNanoseconds
+        }
     }
 }
 

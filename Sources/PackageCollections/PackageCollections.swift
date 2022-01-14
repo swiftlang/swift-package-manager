@@ -13,7 +13,7 @@ import PackageModel
 import TSCBasic
 
 // TODO: is there a better name? this conflicts with the module name which is okay in this case but not ideal in Swift
-public struct PackageCollections: PackageCollectionsProtocol {
+public struct PackageCollections: PackageCollectionsProtocol, Closable {
     // Check JSONPackageCollectionProvider.isSignatureCheckSupported before updating or removing this
     #if os(macOS) || os(Linux) || os(Windows) || os(Android)
     static let isSupportedPlatform = true
@@ -92,6 +92,10 @@ public struct PackageCollections: PackageCollectionsProtocol {
         if let metadataProvider = self.metadataProvider as? Closable {
             try metadataProvider.close()
         }
+    }
+    
+    public func close() throws {
+        try self.shutdown()
     }
 
     // MARK: - Collections

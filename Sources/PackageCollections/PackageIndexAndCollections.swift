@@ -14,7 +14,7 @@ import struct Foundation.URL
 import PackageModel
 import TSCBasic
 
-public struct PackageIndexAndCollections {
+public struct PackageIndexAndCollections: Closable {
     private let index: PackageIndexProtocol
     private let collections: PackageCollectionsProtocol
     private let observabilityScope: ObservabilityScope
@@ -50,6 +50,15 @@ public struct PackageIndexAndCollections {
         self.index = index
         self.collections = collections
         self.observabilityScope = observabilityScope
+    }
+    
+    public func close() throws {
+        if let index = self.index as? Closable {
+            try index.close()
+        }
+        if let collections = self.collections as? Closable {
+            try collections.close()
+        }
     }
     
     // MARK: - Package collection specific APIs
