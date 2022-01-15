@@ -182,11 +182,27 @@ private func checkAllDependenciesAreUsed(_ rootPackages: [ResolvedPackage], obse
                 continue
             }
 
+            // Skip this check if this dependency contains a command plugin product.
+            if dependency.products.contains(where: \.isCommandPlugin) {
+                continue
+            }
+
+            // Otherwise emit a warning if none of the dependency package's products are used.
             let dependencyIsUsed = dependency.products.contains(where: productDependencies.contains)
             if !dependencyIsUsed && !observabilityScope.errorsReportedInAnyScope {
                 observabilityScope.emit(.unusedDependency(dependency.identity.description))
             }
         }
+    }
+}
+
+fileprivate extension ResolvedProduct {
+    /// Returns true if and only if the product represents a command plugin target.
+    var isCommandPlugin: Bool {
+        guard type == .plugin else { return false }
+        guard let target = underlyingProduct.targets.compactMap({ $0 as? PluginTarget }).first else { return false }
+        guard case .command = target.capability else { return false }
+        return true
     }
 }
 
