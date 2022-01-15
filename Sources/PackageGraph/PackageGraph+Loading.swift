@@ -234,6 +234,33 @@ private func createResolvedPackages(
         }
     }}}
   
+    func setModuleAliasesForTargets(in pkg: Package) {
+        // Set module aliases declared for each target.
+        for target in pkg.targets {
+            for dep in target.dependencies {
+                // If module aliases are set for this target's dependency, add them
+                // to its module alias map so they can be passed to build this target.
+                if let (depNewName, _) = moduleAliasMap[dep.name] {
+                    target.setModuleAliases(name: dep.name, alias: depNewName)
+                }
+            }
+        }
+  
+        // Check if any target needs to be renamed. This step should be done
+        // after the loop above as the name of the targets may change.
+        for target in pkg.targets {
+            // If a module alias is set for this target, (1) pass it to its module alias map
+            // so it can be passed to build this target, and (2) rename this target as the alias.
+            if let (targetNewName, targetPkgName) = moduleAliasMap[target.name] {
+                if pkg.manifest.displayName == targetPkgName {
+                  target.setModuleAliases(name: target.name,
+                                          alias: targetNewName,
+                                          shouldRename: true)
+                }
+            }
+        }
+    }
+  
     // Scan and validate the dependencies
     for packageBuilder in packageBuilders {
         let package = packageBuilder.package
@@ -243,27 +270,7 @@ private func createResolvedPackages(
             metadata: package.diagnosticsMetadata
         )
 
-        // Set module aliases declared for each target if needed. This
-        // potentially changes a dependency target's name to a specified alias.
-        for target in package.targets {
-            // If module aliases are set for this target's dependency, add them
-            // to its module alias map; they are needed to build this target.
-            for dep in target.dependencies {
-                if let (depNewName, _) = moduleAliasMap[dep.name] {
-                    target.setModuleAliases(name: dep.name, alias: depNewName)
-                }
-            }
-            // A module alias is set for this target; add it to this target's
-            // module alias map so it can be used to build this target and also
-            // rename this target as the alias.
-            if let (targetNewName, targetPkgName) = moduleAliasMap[target.name] {
-                if package.manifest.displayName == targetPkgName {
-                  target.setModuleAliases(name: target.name,
-                                          alias: targetNewName,
-                                          shouldRename: true)
-                }
-            }
-        }
+        setModuleAliasesForTargets(in: package)
    
         var dependencies = OrderedDictionary<PackageIdentity, ResolvedPackageBuilder>()
         var dependenciesByNameForTargetDependencyResolution = [String: ResolvedPackageBuilder]()

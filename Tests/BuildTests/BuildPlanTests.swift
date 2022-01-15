@@ -101,7 +101,7 @@ final class BuildPlanTests: XCTestCase {
         return mockBuildParameters(config: environment.configuration, destinationTriple: triple)
     }
 
-    func testModuleAliases() throws {
+    func testModuleAliasing() throws {
       let fs = InMemoryFileSystem(emptyFiles:
                                     "/thisPkg/Sources/exe/main.swift",
                                     "/thisPkg/Sources/Logging/file.swift",
