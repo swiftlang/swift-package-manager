@@ -116,7 +116,7 @@ struct PackageIndex: PackageIndexProtocol, Closable {
                             throw PackageIndexError.invalidResponse(searchURL, "Empty body")
                         }
                         // Limit the number of items
-                        let items = packages[..<Int(self.configuration.searchResultMaxItemsCount)].map {
+                        let items = packages[..<min(packages.count, self.configuration.searchResultMaxItemsCount)].map {
                             PackageCollectionsModel.PackageSearchResult.Item(package: $0, indexes: [url])
                         }
                         return PackageCollectionsModel.PackageSearchResult(items: items)
@@ -157,11 +157,6 @@ struct PackageIndex: PackageIndexProtocol, Closable {
                 })
             }
         }
-        
-        struct ListResponse: Codable {
-            let items: [PackageCollectionsModel.Package]
-            let total: Int
-        }
     }
 
     private func runIfConfigured<T>(
@@ -193,7 +188,7 @@ struct PackageIndex: PackageIndexProtocol, Closable {
             isAuthTokenConfigured: true
         )
     }
-    
+
     private struct CacheValue: Codable {
         let package: Model.Package
         let timestamp: UInt64
@@ -206,6 +201,13 @@ struct PackageIndex: PackageIndexProtocol, Closable {
             self.package = package
             self.timestamp = timestamp.uptimeNanoseconds
         }
+    }
+}
+
+extension PackageIndex {
+    struct ListResponse: Codable {
+        let items: [PackageCollectionsModel.Package]
+        let total: Int
     }
 }
 

@@ -1614,7 +1614,7 @@ private extension PackageCollections {
     }
 }
 
-private extension XCTestCase {
+extension XCTestCase {
     func skipIfUnsupportedPlatform() throws {
         if !PackageCollections.isSupportedPlatform {
             throw XCTSkip("Skipping test on unsupported platform")

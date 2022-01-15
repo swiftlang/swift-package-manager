@@ -28,7 +28,7 @@ public struct PackageIndexConfiguration: Equatable {
         cacheTTLInSeconds: Int? = nil,
         cacheSizeInMegabytes: Int? = nil
     ) {
-        self.url = nil
+        self.url = url
         self.searchResultMaxItemsCount = searchResultMaxItemsCount ?? 50
         self.cacheDirectory = cacheDirectory.map(resolveSymlinks) ?? localFileSystem.swiftPMCacheDirectory.appending(components: "package-metadata")
         self.cacheTTLInSeconds = cacheTTLInSeconds ?? 3600
@@ -100,10 +100,10 @@ private enum StorageModel {
 
     struct Index: Codable {
         let url: String?
-        let searchResultMaxItemsCount: Int
-        let cacheDirectory: String
-        let cacheTTLInSeconds: Int
-        let cacheSizeInMegabytes: Int
+        let searchResultMaxItemsCount: Int?
+        let cacheDirectory: String?
+        let cacheTTLInSeconds: Int?
+        let cacheSizeInMegabytes: Int?
     }
 }
 
@@ -111,23 +111,35 @@ private enum StorageModel {
 
 private extension PackageIndexConfiguration {
     init(_ from: StorageModel.Index) throws {
+        let url: Foundation.URL?
         switch from.url {
         case .none:
-            self.url = nil
+            url = nil
         case .some(let urlString):
-            guard let url = URL(string: urlString) else {
+            url = URL(string: urlString)
+            guard url != nil else {
                 throw SerializationError.invalidURL(urlString)
             }
-            self.url = url
         }
-        self.searchResultMaxItemsCount = from.searchResultMaxItemsCount
         
-        guard let cacheDirectoryPath = try? AbsolutePath(validating: from.cacheDirectory) else {
-            throw SerializationError.invalidPath(from.cacheDirectory)
+        let cacheDirectory: AbsolutePath?
+        switch from.cacheDirectory {
+        case .none:
+            cacheDirectory = nil
+        case .some(let path):
+            cacheDirectory = try? AbsolutePath(validating: path)
+            guard cacheDirectory != nil else {
+                throw SerializationError.invalidPath(path)
+            }
         }
-        self.cacheDirectory = cacheDirectoryPath
-        self.cacheTTLInSeconds = from.cacheTTLInSeconds
-        self.cacheSizeInMegabytes = from.cacheSizeInMegabytes
+
+        self.init(
+            url: url,
+            searchResultMaxItemsCount: from.searchResultMaxItemsCount,
+            cacheDirectory: cacheDirectory,
+            cacheTTLInSeconds: from.cacheTTLInSeconds,
+            cacheSizeInMegabytes: from.cacheSizeInMegabytes
+        )
     }
 }
 

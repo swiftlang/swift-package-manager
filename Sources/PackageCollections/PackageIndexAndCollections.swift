@@ -65,7 +65,7 @@ public struct PackageIndexAndCollections: Closable {
     
     /// - SeeAlso: `PackageCollectionsProtocol.listCollections`
     public func listCollections(
-        identifiers: Set<PackageCollectionsModel.CollectionIdentifier>?,
+        identifiers: Set<PackageCollectionsModel.CollectionIdentifier>? = nil,
         callback: @escaping (Result<[PackageCollectionsModel.Collection], Error>) -> Void
     ) {
         self.collections.listCollections(identifiers: identifiers, callback: callback)
@@ -87,8 +87,8 @@ public struct PackageIndexAndCollections: Closable {
     /// - SeeAlso: `PackageCollectionsProtocol.addCollection`
     public func addCollection(
         _ source: PackageCollectionsModel.CollectionSource,
-        order: Int?,
-        trustConfirmationProvider: ((PackageCollectionsModel.Collection, @escaping (Bool) -> Void) -> Void)?,
+        order: Int? = nil,
+        trustConfirmationProvider: ((PackageCollectionsModel.Collection, @escaping (Bool) -> Void) -> Void)? = nil,
         callback: @escaping (Result<PackageCollectionsModel.Collection, Error>) -> Void
     ) {
         self.collections.addCollection(source, order: order, trustConfirmationProvider: trustConfirmationProvider, callback: callback)
@@ -112,7 +112,7 @@ public struct PackageIndexAndCollections: Closable {
 
     /// - SeeAlso: `PackageCollectionsProtocol.listPackages`
     public func listPackages(
-        collections: Set<PackageCollectionsModel.CollectionIdentifier>?,
+        collections: Set<PackageCollectionsModel.CollectionIdentifier>? = nil,
         callback: @escaping (Result<PackageCollectionsModel.PackageSearchResult, Error>) -> Void
     ) {
         self.collections.listPackages(collections: collections, callback: callback)
@@ -120,7 +120,7 @@ public struct PackageIndexAndCollections: Closable {
 
     /// - SeeAlso: `PackageCollectionsProtocol.listTargets`
     public func listTargets(
-        collections: Set<PackageCollectionsModel.CollectionIdentifier>?,
+        collections: Set<PackageCollectionsModel.CollectionIdentifier>? = nil,
         callback: @escaping (Result<PackageCollectionsModel.TargetListResult, Error>) -> Void
     ) {
         self.collections.listTargets(collections: collections, callback: callback)
@@ -129,8 +129,8 @@ public struct PackageIndexAndCollections: Closable {
     /// - SeeAlso: `PackageCollectionsProtocol.findTargets`
     public func findTargets(
         _ query: String,
-        searchType: PackageCollectionsModel.TargetSearchType?,
-        collections: Set<PackageCollectionsModel.CollectionIdentifier>?,
+        searchType: PackageCollectionsModel.TargetSearchType? = nil,
+        collections: Set<PackageCollectionsModel.CollectionIdentifier>? = nil,
         callback: @escaping (Result<PackageCollectionsModel.TargetSearchResult, Error>) -> Void
     ) {
         self.collections.findTargets(query, searchType: searchType, collections: collections, callback: callback)
@@ -166,8 +166,8 @@ public struct PackageIndexAndCollections: Closable {
     ///   - callback: The closure to invoke when result becomes available
     public func getPackageMetadata(
         identity: PackageIdentity,
-        location: String?,
-        collections: Set<PackageCollectionsModel.CollectionIdentifier>?,
+        location: String? = nil,
+        collections: Set<PackageCollectionsModel.CollectionIdentifier>? = nil,
         callback: @escaping (Result<PackageCollectionsModel.PackageMetadata, Error>) -> Void
     ) {
         // Package index not available - fallback to collections
@@ -240,7 +240,7 @@ public struct PackageIndexAndCollections: Closable {
     ///   - callback: The closure to invoke when result becomes available
     public func findPackages(
         _ query: String,
-        collections: Set<PackageCollectionsModel.CollectionIdentifier>?,
+        collections: Set<PackageCollectionsModel.CollectionIdentifier>? = nil,
         callback: @escaping (Result<PackageCollectionsModel.PackageSearchResult, Error>) -> Void
     ) {
         // Package index not available - fallback to collections
@@ -251,7 +251,8 @@ public struct PackageIndexAndCollections: Closable {
         self.index.findPackages(query) { indexResult in
             switch indexResult {
             case .failure(let error):
-                callback(.failure(error))
+                self.observabilityScope.emit(warning: "Package index search failed: \(error)")
+                self.collections.findPackages(query, collections: collections, callback: callback)
             case .success(let indexSearchResult):
                 // For each package in the search result, find the collections that it belongs to.
                 self.collections.listPackages(collections: collections) { collectionsResult in
