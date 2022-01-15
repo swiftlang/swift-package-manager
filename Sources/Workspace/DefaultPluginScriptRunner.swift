@@ -70,6 +70,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
         sources: Sources,
         input: PluginScriptRunnerInput,
         toolsVersion: ToolsVersion,
+        workingDirectory: AbsolutePath,
         writableDirectories: [AbsolutePath],
         readOnlyDirectories: [AbsolutePath],
         fileSystem: FileSystem,
@@ -93,6 +94,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
                     // Compilation succeeded, so run the executable. We are already running on an asynchronous queue.
                     self.invoke(
                         compiledExec: result.compiledExecutable,
+                        workingDirectory: workingDirectory,
                         writableDirectories: writableDirectories,
                         readOnlyDirectories: readOnlyDirectories,
                         input: input,
@@ -343,6 +345,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
     /// Private function that invokes a compiled plugin executable and communicates with it until it finishes.
     fileprivate func invoke(
         compiledExec: AbsolutePath,
+        workingDirectory: AbsolutePath,
         writableDirectories: [AbsolutePath],
         readOnlyDirectories: [AbsolutePath],
         input: PluginScriptRunnerInput,
@@ -369,7 +372,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
         process.executableURL = Foundation.URL(fileURLWithPath: command[0])
         process.arguments = Array(command.dropFirst())
         process.environment = ProcessInfo.processInfo.environment
-        process.currentDirectoryURL = self.cacheDir.asURL
+        process.currentDirectoryURL = workingDirectory.asURL
         
         // Set up a pipe for sending structured messages to the plugin on its stdin.
         let stdinPipe = Pipe()
