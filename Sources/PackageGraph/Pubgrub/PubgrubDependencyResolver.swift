@@ -132,10 +132,18 @@ public struct PubgrubDependencyResolver {
 
     /// Execute the resolution algorithm to find a valid assignment of versions.
     public func solve(constraints: [Constraint]) -> Result<[DependencyResolver.Binding], Error> {
-        let root = DependencyResolutionNode.root(package: .root(
-            identity: .plain("<synthesized-root>"),
-            path: .root
-        ))
+        // 👀 is this the right thing to do?
+        let root: DependencyResolutionNode
+        if constraints.count == 1, let constraint = constraints.first, constraint.package.kind.isRoot {
+            // root level package, use it as our resolution root
+            root = .root(package: constraint.package)
+        } else {
+            // more complex setup requires a synthesized root
+            root = .root(package: .root(
+                identity: .plain("<synthesized-root>"),
+                path: .root
+            ))
+        }
 
         do {
             // strips state
