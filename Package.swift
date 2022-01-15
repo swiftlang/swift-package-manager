@@ -3,7 +3,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2021 Apple Inc. and the Swift project authors
+ Copyright (c) 2014 - 2022 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -54,7 +54,7 @@ automatic linking type with `-auto` suffix appended to product's name.
 let autoProducts = [swiftPMProduct, swiftPMDataModelProduct]
 
 let useSwiftCryptoV2 = ProcessInfo.processInfo.environment["SWIFTPM_USE_SWIFT_CRYPTO_V2"] != nil
-let minimumCryptoVersion: Version = useSwiftCryptoV2 ? "2.0.3" : "1.1.4"
+let minimumCryptoVersion: Version = useSwiftCryptoV2 ? "2.0.4" : "1.1.4"
 var swiftSettings: [SwiftSetting] = []
 if useSwiftCryptoV2 {
     swiftSettings.append(.define("CRYPTO_v2"))
