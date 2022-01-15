@@ -1126,12 +1126,12 @@ final class PluginDelegate: PluginInvocationDelegate {
         // Run the build in the background and call the completion handler when done.
         DispatchQueue.sharedConcurrent.async {
             completion(Result {
-                return try self.doBuild(subset: subset, parameters: parameters)
+                return try self.performBuildForPlugin(subset: subset, parameters: parameters)
             })
         }
     }
     
-    private func doBuild(subset: PluginInvocationBuildSubset, parameters: PluginInvocationBuildParameters) throws -> PluginInvocationBuildResult {
+    private func performBuildForPlugin(subset: PluginInvocationBuildSubset, parameters: PluginInvocationBuildParameters) throws -> PluginInvocationBuildResult {
         // Configure the build parameters.
         var buildParameters = try self.swiftTool.buildParameters()
         switch parameters.configuration {
@@ -1201,26 +1201,139 @@ final class PluginDelegate: PluginInvocationDelegate {
         // Run the test in the background and call the completion handler when done.
         DispatchQueue.sharedConcurrent.async {
             completion(Result {
-                return try self.doTest(subset: subset, parameters: parameters)
+                return try self.performTestsForPlugin(subset: subset, parameters: parameters)
             })
         }
     }
     
-    private func doTest(subset: PluginInvocationTestSubset, parameters: PluginInvocationTestParameters) throws -> PluginInvocationTestResult {
-        // FIXME: To implement this we should factor out a lot of the code in SwiftTestTool.
-        throw StringError("Running tests from a plugin is not yet implemented")
+    func performTestsForPlugin(subset: PluginInvocationTestSubset, parameters: PluginInvocationTestParameters) throws -> PluginInvocationTestResult {
+        // Build the tests. Ideally we should only build those that match the subset, but we don't have a way to know which ones they are until we've built them and can examine the binaries.
+        let toolchain = try swiftTool.getToolchain()
+        var buildParameters = try swiftTool.buildParameters()
+        buildParameters.enableTestability = true
+        buildParameters.enableCodeCoverage = parameters.enableCodeCoverage
+        let buildSystem = try swiftTool.createBuildSystem(buildParameters: buildParameters)
+        try buildSystem.build(subset: .allIncludingTests)
+
+        // Clean out the code coverage directory that may contain stale `profraw` files from a previous run of the code coverage tool.
+        if parameters.enableCodeCoverage {
+            try localFileSystem.removeFileTree(buildParameters.codeCovPath)
+        }
+
+        // Construct the environment we'll pass down to the tests.
+        var environmentOptions = swiftTool.options
+        environmentOptions.shouldEnableCodeCoverage = parameters.enableCodeCoverage
+        let testEnvironment = try TestingSupport.constructTestEnvironment(
+            toolchain: toolchain,
+            options: environmentOptions,
+            buildParameters: buildParameters)
+
+        // Iterate over the tests and run those that match the filter.
+        var testTargetResults: [PluginInvocationTestResult.TestTarget] = []
+        var numFailedTests = 0
+        for testProduct in buildSystem.builtTestProducts {
+            // Get the test suites in the bundle. Each is just a container for test cases.
+            let testSuites = try TestingSupport.getTestSuites(fromTestAt: testProduct.bundlePath, swiftTool: swiftTool, swiftOptions: swiftTool.options)
+            for testSuite in testSuites {
+                // Each test suite is just a container for test cases (confusingly called "tests", though they are test cases).
+                for testCase in testSuite.tests {
+                    // Each test case corresponds to a combination of target and a XCTestCase, and is a collection of tests that can actually be run.
+                    var testResults: [PluginInvocationTestResult.TestTarget.TestCase.Test] = []
+                    for testName in testCase.tests {
+                        // Check if we should filter out this test.
+                        let testSpecifier = testCase.name + "/" + testName
+                        if case .filtered(let regexes) = subset {
+                            guard regexes.contains(where: { testSpecifier.range(of: $0, options: .regularExpression) != nil }) else {
+                                continue
+                            }
+                        }
+
+                        // Configure a test runner.
+                        let testRunner = TestRunner(
+                            bundlePaths: [testProduct.bundlePath],
+                            xctestArg: testSpecifier,
+                            processSet: swiftTool.processSet,
+                            toolchain: toolchain,
+                            testEnv: testEnvironment,
+                            outputStream: swiftTool.outputStream,
+                            observabilityScope: swiftTool.observabilityScope)
+
+                        // Run the test — for now we run the sequentially so we can capture accurate timing results.
+                        let startTime = DispatchTime.now()
+                        let (success, _) = testRunner.test(writeToOutputStream: false)
+                        let duration = Double(startTime.distance(to: .now()).milliseconds() ?? 0) / 1000.0
+                        numFailedTests += success ? 0 : 1
+                        testResults.append(.init(name: testName, result: success ? .succeeded : .failed, duration: duration))
+                    }
+
+                    // Don't add any results if we didn't run any tests.
+                    if testResults.isEmpty { continue }
+
+                    // Otherwise we either create a new create a new target result or add to the previous one, depending on whether the target name is the same.
+                    let testTargetName = testCase.name.prefix(while: { $0 != "." })
+                    if let lastTestTargetName = testTargetResults.last?.name, testTargetName == lastTestTargetName {
+                        // Same as last one, just extend its list of cases. We know we have a last one at this point.
+                        testTargetResults[testTargetResults.count-1].testCases.append(.init(name: testCase.name, tests: testResults))
+                    }
+                    else {
+                        // Not the same, so start a new target result.
+                        testTargetResults.append(.init(name: String(testTargetName), testCases: [.init(name: testCase.name, tests: testResults)]))
+                    }
+                }
+            }
+        }
+
+        // Deal with code coverage, if enabled.
+        let codeCoverageDataFile: AbsolutePath?
+        if parameters.enableCodeCoverage {
+            // Use `llvm-prof` to merge all the `.profraw` files into a single `.profdata` file.
+            let mergedCovFile = buildParameters.codeCovDataFile
+            let codeCovFileNames = try localFileSystem.getDirectoryContents(buildParameters.codeCovPath)
+            var llvmProfCommand = [try toolchain.getLLVMProf().pathString]
+            llvmProfCommand += ["merge", "-sparse"]
+            for fileName in codeCovFileNames where fileName.hasSuffix(".profraw") {
+                let filePath = buildParameters.codeCovPath.appending(component: fileName)
+                llvmProfCommand.append(filePath.pathString)
+            }
+            llvmProfCommand += ["-o", mergedCovFile.pathString]
+            try Process.checkNonZeroExit(arguments: llvmProfCommand)
+
+            // Use `llvm-cov` to export the merged `.profdata` file contents in JSON form.
+            var llvmCovCommand = [try toolchain.getLLVMCov().pathString]
+            llvmCovCommand += ["export", "-instr-profile=\(mergedCovFile.pathString)"]
+            for product in buildSystem.builtTestProducts {
+                llvmCovCommand.append("-object")
+                llvmCovCommand.append(product.binaryPath.pathString)
+            }
+            // We get the output on stdout, and have to write it to a JSON ourselves.
+            let jsonOutput = try Process.checkNonZeroExit(arguments: llvmCovCommand)
+            let jsonCovFile = buildParameters.codeCovDataFile.parentDirectory.appending(component: buildParameters.codeCovDataFile.basenameWithoutExt + ".json")
+            try localFileSystem.writeFileContents(jsonCovFile, string: jsonOutput)
+
+            // Return the path of the exported code coverage data file.
+            codeCoverageDataFile = jsonCovFile
+        }
+        else {
+            codeCoverageDataFile = nil
+        }
+
+        // Return the results to the plugin. We only consider the test run a success if no test failed.
+        return PluginInvocationTestResult(
+            succeeded: (numFailedTests == 0),
+            testTargets: testTargetResults,
+            codeCoverageDataFile: codeCoverageDataFile?.pathString)
     }
 
     func pluginRequestedSymbolGraph(forTarget targetName: String, options: PluginInvocationSymbolGraphOptions, completion: @escaping (Result<PluginInvocationSymbolGraphResult, Error>) -> Void) {
         // Extract the symbol graph in the background and call the completion handler when done.
         DispatchQueue.sharedConcurrent.async {
             completion(Result {
-                return try self.createSymbolGraph(forTarget: targetName, options: options)
+                return try self.createSymbolGraphForPlugin(forTarget: targetName, options: options)
             })
         }
     }
 
-    private func createSymbolGraph(forTarget targetName: String, options: PluginInvocationSymbolGraphOptions) throws -> PluginInvocationSymbolGraphResult {
+    private func createSymbolGraphForPlugin(forTarget targetName: String, options: PluginInvocationSymbolGraphOptions) throws -> PluginInvocationSymbolGraphResult {
         // Current implementation uses `SymbolGraphExtract()` but in the future we should emit the symbol graph while building.
 
         // Create a build operation for building the target., skipping the the cache because we need the build plan.
