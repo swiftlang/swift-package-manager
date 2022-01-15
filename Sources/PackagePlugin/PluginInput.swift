@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2021 Apple Inc. and the Swift project authors
+ Copyright (c) 2021-2022 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -15,7 +15,6 @@
 struct PluginInput {
     let package: Package
     let pluginWorkDirectory: Path
-    let builtProductsDirectory: Path
     let toolSearchDirectories: [Path]
     let toolNamesToPaths: [String: Path]
     let pluginAction: PluginAction
@@ -31,7 +30,6 @@ struct PluginInput {
         // Unpack the individual pieces from which we'll create the plugin context.
         self.package = try deserializer.package(for: input.rootPackageId)
         self.pluginWorkDirectory = try deserializer.path(for: input.pluginWorkDirId)
-        self.builtProductsDirectory = try deserializer.path(for: input.builtProductsDirId)
         self.toolSearchDirectories = try input.toolSearchDirIds.map { try deserializer.path(for: $0) }
         self.toolNamesToPaths = try input.toolNamesToPathIds.mapValues { try deserializer.path(for: $0) }
         
@@ -289,7 +287,6 @@ internal struct WireInput: Decodable {
     let packages: [Package]
     let rootPackageId: Package.Id
     let pluginWorkDirId: Path.Id
-    let builtProductsDirId: Path.Id
     let toolSearchDirIds: [Path.Id]
     let toolNamesToPathIds: [String: Path.Id]
     let pluginAction: PluginAction
