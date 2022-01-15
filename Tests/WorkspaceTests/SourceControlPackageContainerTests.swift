@@ -208,7 +208,7 @@ class SourceControlPackageContainerTests: XCTestCase {
 
         let ref = PackageReference.localSourceControl(identity: PackageIdentity(path: repoPath), path: repoPath)
         let container = try provider.getContainer(for: ref, skipUpdate: false)
-        let v = try container.toolsVersionsAppropriateVersionsDescending().map { $0 }
+        let v = try container.toolsVersionsAppropriateVersionsDescending()
         XCTAssertEqual(v, ["2.0.3", "1.0.3", "1.0.2", "1.0.1", "1.0.0"])
     }
 
@@ -265,7 +265,7 @@ class SourceControlPackageContainerTests: XCTestCase {
             let provider = try createProvider(ToolsVersion(version: "4.0.0"))
             let ref = PackageReference.localSourceControl(identity: PackageIdentity(path: repoPath), path: repoPath)
             let container = try provider.getContainer(for: ref, skipUpdate: false)
-            let v = try container.toolsVersionsAppropriateVersionsDescending().map { $0 }
+            let v = try container.toolsVersionsAppropriateVersionsDescending()
             XCTAssertEqual(v, ["1.0.1"])
         }
 
@@ -274,7 +274,7 @@ class SourceControlPackageContainerTests: XCTestCase {
             let ref = PackageReference.localSourceControl(identity: PackageIdentity(path: repoPath), path: repoPath)
             let container = try provider.getContainer(for: ref, skipUpdate: false) as! SourceControlPackageContainer
             XCTAssertTrue(container.validToolsVersionsCache.isEmpty)
-            let v = try container.toolsVersionsAppropriateVersionsDescending().map { $0 }
+            let v = try container.toolsVersionsAppropriateVersionsDescending()
             XCTAssertEqual(container.validToolsVersionsCache["1.0.0"], false)
             XCTAssertEqual(container.validToolsVersionsCache["1.0.1"], true)
             XCTAssertEqual(container.validToolsVersionsCache["1.0.2"], true)
@@ -286,7 +286,7 @@ class SourceControlPackageContainerTests: XCTestCase {
             let provider = try createProvider(ToolsVersion(version: "3.0.0"))
             let ref = PackageReference.localSourceControl(identity: PackageIdentity(path: repoPath), path: repoPath)
             let container = try provider.getContainer(for: ref, skipUpdate: false)
-            let v = try container.toolsVersionsAppropriateVersionsDescending().map { $0 }
+            let v = try container.toolsVersionsAppropriateVersionsDescending()
             XCTAssertEqual(v, [])
         }
 
@@ -345,7 +345,7 @@ class SourceControlPackageContainerTests: XCTestCase {
 
         let ref = PackageReference.localSourceControl(identity: PackageIdentity(path: repoPath), path: repoPath)
         let container = try provider.getContainer(for: ref, skipUpdate: false)
-        let v = try container.toolsVersionsAppropriateVersionsDescending().map { $0 }
+        let v = try container.toolsVersionsAppropriateVersionsDescending()
         XCTAssertEqual(v, ["1.0.4-alpha", "1.0.2-dev.2", "1.0.2-dev", "1.0.1", "1.0.0", "1.0.0-beta.1", "1.0.0-alpha.1"])
     }
 
@@ -393,7 +393,7 @@ class SourceControlPackageContainerTests: XCTestCase {
         )
         let ref = PackageReference.localSourceControl(identity: PackageIdentity(path: repoPath), path: repoPath)
         let container = try provider.getContainer(for: ref, skipUpdate: false)
-        let v = try container.toolsVersionsAppropriateVersionsDescending().map { $0 }
+        let v = try container.toolsVersionsAppropriateVersionsDescending()
         XCTAssertEqual(v, ["2.0.1", "1.3.0", "1.2.0", "1.1.0", "1.0.4", "1.0.2", "1.0.1", "1.0.0"])
     }
 

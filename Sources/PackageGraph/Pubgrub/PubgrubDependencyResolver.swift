@@ -721,7 +721,7 @@ private struct DiagnosticReportBuilder {
         }
 
         let stream = BufferedOutputByteStream()
-        let padding = lineNumbers.isEmpty ? 0 : "\(lineNumbers.values.map { $0 }.last!) ".count
+        let padding = lineNumbers.isEmpty ? 0 : "\(Array(lineNumbers.values).last!) ".count
 
         for (idx, line) in lines.enumerated() {
             stream <<< Format.asRepeating(string: " ", count: padding)
