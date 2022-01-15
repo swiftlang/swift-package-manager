@@ -857,7 +857,7 @@ private struct DiagnosticReportBuilder {
 
             let dependerDesc: String
             // when depender is the root node, the causeNode may be different as it may represent root's indirect dependencies (e.g. dependencies of root's unversioned dependencies)
-            if depender.node == rootNode, causeNode != rootNode {
+            if depender.node == self.rootNode, causeNode != self.rootNode {
                 dependerDesc = causeNode.nameForDiagnostics
             } else {
                 dependerDesc = try description(for: depender, normalizeRange: true)
@@ -875,6 +875,8 @@ private struct DiagnosticReportBuilder {
             let term = incompatibility.terms.first!
             assert(term.isPositive)
             return "\(term.node.nameForDiagnostics) is \(term.requirement)"
+        case .conflict where incompatibility.terms.count == 1 && incompatibility.terms.first?.node == self.rootNode:
+            return "dependencies could not be resolved"
         case .conflict:
             break
         case .versionBasedDependencyContainsUnversionedDependency(let versionedDependency, let unversionedDependency):
@@ -882,10 +884,6 @@ private struct DiagnosticReportBuilder {
         case .incompatibleToolsVersion(let version):
             let term = incompatibility.terms.first!
             return "\(try description(for: term, normalizeRange: true)) contains incompatible tools version (\(version))"
-        }
-
-        if isFailure(incompatibility) {
-            return "dependencies could not be resolved"
         }
 
         let terms = incompatibility.terms
@@ -959,11 +957,6 @@ private struct DiagnosticReportBuilder {
 
         let complex = cause.conflict.cause.isConflict ? cause.conflict : cause.other
         return !lineNumbers.keys.contains(complex)
-    }
-
-    // FIXME: This is duplicated and wrong.
-    private func isFailure(_ incompatibility: Incompatibility) -> Bool {
-        return incompatibility.terms.count == 1 && incompatibility.terms.first?.node.package.identity == .plain("<synthesized-root>")
     }
 
     private func description(for term: Term, normalizeRange: Bool = false) throws -> String {
@@ -1397,7 +1390,7 @@ private extension PackageRequirement {
 
 private extension DependencyResolutionNode {
     var nameForDiagnostics: String {
-        return "'\(package.identity)'"
+        return "'\(self.package.identity)'"
     }
 }
 
