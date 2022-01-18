@@ -20,3 +20,13 @@ extension Dictionary {
         return value
     }
 }
+
+extension OrderedDictionary {
+    public subscript(key: Key, `default` `default`: Value) -> Value {
+        set {
+            self[key] = newValue
+        } get {
+            self[key] ?? `default`
+        }
+    }
+}

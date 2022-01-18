@@ -398,12 +398,20 @@ public final class MockWorkspace {
             packages: rootPaths(for: roots), dependencies: dependencies
         )
         let workspace = try self.getOrCreateWorkspace()
-        let graph = try workspace.loadPackageGraph(
-            rootInput: rootInput,
-            forceResolvedVersions: forceResolvedVersions,
-            observabilityScope: observability.topScope
-        )
-        result(graph, observability.diagnostics)
+        do {
+            let graph = try workspace.loadPackageGraph(
+                rootInput: rootInput,
+                forceResolvedVersions: forceResolvedVersions,
+                observabilityScope: observability.topScope
+            )
+            result(graph, observability.diagnostics)
+        } catch {
+            // helpful when graph fails to load
+            if observability.hasErrorDiagnostics {
+                print(observability.diagnostics.map{ $0.description }.joined(separator: "\n"))
+            }
+            throw error
+        }
     }
 
     public func checkPackageGraphFailure(

@@ -133,19 +133,20 @@ final class SandboxTest: XCTestCase {
 
     func testWritingToReadOnlyInsideWritableNotAllowed() throws {
         #if !os(macOS)
-        try XCTSkipIf(true, "test is only supported on macOS")
+        try XCTSkipIf(true, "sandboxing is only supported on macOS")
         #endif
 
         try withTemporaryDirectory { tmpDir in
-            // Check that we can write into it, but not to a read-only directory underneath it.
+            // Check that we can write into the temporary directory, but not into a read-only directory underneath it.
             let writableDir = tmpDir.appending(component: "ShouldBeWritable")
-            let allowedCommand = Sandbox.apply(command: ["mkdir", writableDir.pathString], strictness: .default, writableDirectories: [tmpDir])
+            try localFileSystem.createDirectory(writableDir)
+            let allowedCommand = Sandbox.apply(command: ["touch", writableDir.pathString], strictness: .default, writableDirectories: [writableDir])
             XCTAssertNoThrow(try Process.checkNonZeroExit(arguments: allowedCommand))
 
-            // Check that we cannot write into a read-only directory inside it.
+            // Check that we cannot write into a read-only directory inside a writable temporary directory.
             let readOnlyDir = writableDir.appending(component: "ShouldBeReadOnly")
             try localFileSystem.createDirectory(readOnlyDir)
-            let deniedCommand = Sandbox.apply(command: ["touch", readOnlyDir.pathString], strictness: .default, writableDirectories: [tmpDir], readOnlyDirectories: [readOnlyDir])
+            let deniedCommand = Sandbox.apply(command: ["touch", readOnlyDir.pathString], strictness: .writableTemporaryDirectory, readOnlyDirectories: [readOnlyDir])
             XCTAssertThrowsError(try Process.checkNonZeroExit(arguments: deniedCommand)) { error in
                 guard case ProcessResult.Error.nonZeroExit(let result) = error else {
                     return XCTFail("invalid error \(error)")
@@ -154,4 +155,29 @@ final class SandboxTest: XCTestCase {
             }
         }
     }
+
+    func testWritingToWritableInsideReadOnlyAllowed() throws {
+         #if !os(macOS)
+         try XCTSkipIf(true, "sandboxing is only supported on macOS")
+         #endif
+
+         try withTemporaryDirectory { tmpDir in
+             // Check that we cannot write into a read-only directory, but into a writable directory underneath it.
+             let readOnlyDir = tmpDir.appending(component: "ShouldBeReadOnly")
+             try localFileSystem.createDirectory(readOnlyDir)
+             let deniedCommand = Sandbox.apply(command: ["touch", readOnlyDir.pathString], strictness: .writableTemporaryDirectory, readOnlyDirectories: [readOnlyDir])
+             XCTAssertThrowsError(try Process.checkNonZeroExit(arguments: deniedCommand)) { error in
+                 guard case ProcessResult.Error.nonZeroExit(let result) = error else {
+                     return XCTFail("invalid error \(error)")
+                 }
+                 XCTAssertMatch(try! result.utf8stderrOutput(), .contains("Operation not permitted"))
+             }
+
+             // Check that we can write into a writable directory underneath it.
+             let writableDir = readOnlyDir.appending(component: "ShouldBeWritable")
+             try localFileSystem.createDirectory(writableDir)
+             let allowedCommand = Sandbox.apply(command: ["touch", writableDir.pathString], strictness: .default, writableDirectories:[writableDir], readOnlyDirectories: [readOnlyDir])
+             XCTAssertNoThrow(try Process.checkNonZeroExit(arguments: allowedCommand))
+         }
+     }
 }

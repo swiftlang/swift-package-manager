@@ -138,7 +138,7 @@ private struct WorkspaceDependencyResolverDelegate: DependencyResolverDelegate {
     func willResolve(term: Term) {
         // this may be called multiple time by the resolver for various version ranges, but we only want to propagate once since we report at pacakge level
         resolving.memoize(term.node.package.identity) {
-            self.workspaceDelegate.willComputeVersion(package: term.node.package.identity, location: term.node.package.locationString  + " "  + term.description)
+            self.workspaceDelegate.willComputeVersion(package: term.node.package.identity, location: term.node.package.locationString)
             return true
         }
     }
@@ -2270,23 +2270,30 @@ extension Workspace {
             }
         }
 
-        // finally download zip files, if any
-        for artifact in (zipArtifacts.map{ $0 }) {
-            group.enter()
-            defer { group.leave() }
+        // download max n files concurrently
+        let semaphore = DispatchSemaphore(value: Concurrency.maxOperations)
 
+        // finally download zip files, if any
+        for artifact in zipArtifacts.get() {
             let parentDirectory =  self.location.artifactsDirectory.appending(component: artifact.packageRef.identity.description)
             guard observabilityScope.trap ({ try fileSystem.createDirectory(parentDirectory, recursive: true) }) else {
                 continue
             }
 
             let archivePath = parentDirectory.appending(component: artifact.url.lastPathComponent)
+            if self.fileSystem.exists(archivePath) {
+                guard observabilityScope.trap ({ try self.fileSystem.removeFileTree(archivePath) }) else {
+                    continue
+                }
+            }
 
+            semaphore.wait()
             group.enter()
             var headers = HTTPClientHeaders()
             headers.add(name: "Accept", value: "application/octet-stream")
             var request = HTTPClient.Request.download(url: artifact.url, headers: headers, fileSystem: self.fileSystem, destination: archivePath)
             request.options.authorizationProvider = self.authorizationProvider?.httpAuthorizationHeader(for:)
+            request.options.retryStrategy = .exponentialBackoff(maxAttempts: 3, baseDelay: .milliseconds(50))
             request.options.validResponseCodes = [200]
             self.httpClient.execute(
                 request,
@@ -2297,7 +2304,10 @@ extension Workspace {
                         totalBytesToDownload: totalBytesToDownload)
                 },
                 completion: { downloadResult in
-                    defer { group.leave() }
+                    defer {
+                        group.leave()
+                        semaphore.signal()
+                    }
 
                     switch downloadResult {
                     case .success:
@@ -2378,7 +2388,7 @@ extension Workspace {
             delegate?.didDownloadBinaryArtifacts()
         }
 
-        return result.map{ $0 }
+        return result.get()
     }
 
     private func extract(_ artifacts: [ManagedArtifact], observabilityScope: ObservabilityScope) throws -> [ManagedArtifact] {
@@ -2443,7 +2453,7 @@ extension Workspace {
 
         group.wait()
 
-        return result.map{ $0 }
+        return result.get()
     }
 
     private func isAtArtifactsDirectory(_ artifact: ManagedArtifact) -> Bool {

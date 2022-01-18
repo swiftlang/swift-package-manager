@@ -6502,6 +6502,247 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
+    func testArtifactDownloadArchiveExists() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+        // this relies on internal knowledge of the destination path construction
+        let expectedDownloadDestination = sandbox.appending(components: ".build", "artifacts", "library", "binary.zip")
+
+        // returns a dummy zipfile for the requested artifact
+        let httpClient = HTTPClient(handler: { request, _, completion in
+            do {
+                guard case .download(let fileSystem, let destination) = request.kind else {
+                    throw StringError("invalid request \(request.kind)")
+                }
+
+                // this is to test the test's integrity, as it relied on internal knowledge of the destination path construction
+                guard expectedDownloadDestination == destination else {
+                    throw StringError("expected destination of \(expectedDownloadDestination)")
+                }
+
+                let contents: [UInt8]
+                switch request.url.lastPathComponent {
+                    case "binary.zip":
+                        contents = [0x01]
+                    default:
+                        throw StringError("unexpected url \(request.url)")
+                }
+
+                // in-memory fs does not check for this!
+                if fileSystem.exists(destination) {
+                    throw StringError("\(destination) already exists")
+                }
+
+                try fileSystem.writeFileContents(
+                    destination,
+                    bytes: ByteString(contents),
+                    atomically: true
+                )
+
+                completion(.success(.okay()))
+            } catch {
+                completion(.failure(error))
+            }
+        })
+
+        // create a dummy xcframework directory from the request archive
+        let archiver = MockArchiver(handler: { archiver, archivePath, destinationPath, completion in
+            do {
+                let name: String
+                switch archivePath.basename {
+                case "binary.zip":
+                    name = "binary.xcframework"
+                default:
+                    throw StringError("unexpected archivePath \(archivePath)")
+                }
+                try fs.createDirectory(destinationPath.appending(component: name), recursive: false)
+                archiver.extractions.append(MockArchiver.Extraction(archivePath: archivePath, destinationPath: destinationPath))
+                completion(.success(()))
+            } catch {
+                completion(.failure(error))
+            }
+        })
+
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "App",
+                    targets: [
+                        MockTarget(name: "App", dependencies: [
+                            .product(name: "binary", package: "library"),
+                        ]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        .sourceControl(path: "./library", requirement: .exact("1.0.0")),
+                    ]
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "library",
+                    targets: [
+                        MockTarget(
+                            name: "binary",
+                            type: .binary,
+                            url: "https://a.com/binary.zip",
+                            checksum: "01"
+                        )
+                    ],
+                    products: [
+                        MockProduct(name: "binary", targets: ["binary"]),
+                    ],
+                    versions: ["1.0.0"]
+                )
+            ],
+            customHttpClient: httpClient,
+            customBinaryArchiver: archiver
+        )
+
+        // write the file to test it gets deleted
+
+        try fs.createDirectory(expectedDownloadDestination.parentDirectory, recursive: true)
+        try fs.writeFileContents(
+            expectedDownloadDestination,
+            bytes: [],
+            atomically: true
+        )
+
+        try workspace.checkPackageGraph(roots: ["App"]) { graph, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+
+        workspace.checkManagedArtifacts { result in
+            result.check(
+                packageIdentity: .plain("library"),
+                targetName: "binary",
+                source: .remote(
+                    url: "https://a.com/binary.zip",
+                    checksum: "01"
+                ),
+                path: workspace.artifactsDir.appending(components: "library", "binary.xcframework")
+            )
+        }
+    }
+
+    func testArtifactDownloadConcurrency() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        // this has knowledge of the expected behavior, we can also make this configurable
+        let maxConcurrentRequests = Concurrency.maxOperations
+
+        var concurrentRequests = 0
+        let concurrentRequestsLock = Lock()
+
+        // returns a dummy zipfile for the requested artifact
+        let httpClient = HTTPClient(handler: { request, _, completion in
+            defer {
+                concurrentRequestsLock.withLock {
+                    concurrentRequests -= 1
+                }
+            }
+
+            do {
+                guard case .download(let fileSystem, let destination) = request.kind else {
+                    throw StringError("invalid request \(request.kind)")
+                }
+
+                concurrentRequestsLock.withLock {
+                    concurrentRequests += 1
+                    if concurrentRequests > maxConcurrentRequests {
+                        XCTFail("too many concurrent requests \(concurrentRequests), expected \(maxConcurrentRequests)")
+                    }
+                }
+
+                try fileSystem.writeFileContents(
+                    destination,
+                    bytes: [0x01],
+                    atomically: true
+                )
+
+                completion(.success(.okay()))
+            } catch {
+                completion(.failure(error))
+            }
+        })
+
+        // create a dummy xcframework directory from the request archive
+        let archiver = MockArchiver(handler: { archiver, archivePath, destinationPath, completion in
+            do {
+                try fs.createDirectory(destinationPath.appending(component: archivePath.basenameWithoutExt + ".xcframework"), recursive: false)
+                completion(.success(()))
+            } catch {
+                completion(.failure(error))
+            }
+        })
+
+        let packages = try (0 ... maxConcurrentRequests * 10).map { index in
+            MockPackage(
+                name: "library\(index)",
+                targets: [
+                    try MockTarget(
+                        name: "binary\(index)",
+                        type: .binary,
+                        url: "https://somwhere.com/binary\(index).zip",
+                        checksum: "01"
+                    )
+                ],
+                products: [
+                    MockProduct(name: "binary\(index)", targets: ["binary\(index)"]),
+                ],
+                versions: ["1.0.0"]
+            )
+        }
+
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "App",
+                    targets: [
+                        MockTarget(
+                            name: "App",
+                            dependencies: packages.map { package in
+                                .product(name: package.targets.first!.name, package: package.name)
+                            }
+                        ),
+                    ],
+                    products: [],
+                    dependencies: packages.map { package in
+                        .sourceControl(path: "./\(package.name)", requirement: .exact("1.0.0"))
+                    }
+                ),
+            ],
+            packages: packages,
+            customHttpClient: httpClient,
+            customBinaryArchiver: archiver
+        )
+
+        try workspace.checkPackageGraph(roots: ["App"]) { graph, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+
+        workspace.checkManagedArtifacts { result in
+            for package in packages {
+                let targetName = package.targets.first!.name
+                result.check(
+                    packageIdentity: .plain(package.name),
+                    targetName: targetName,
+                    source: .remote(
+                        url: "https://somwhere.com/\(targetName).zip",
+                        checksum: "01"
+                    ),
+                    path: workspace.artifactsDir.appending(components: package.name, "\(targetName).xcframework")
+                )
+            }
+
+        }
+    }
+
     func testDownloadArchiveIndexFilesHappyPath() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()

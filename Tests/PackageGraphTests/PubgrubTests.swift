@@ -49,6 +49,7 @@ private let v1_5: Version = "1.5.0"
 private let v2: Version = "2.0.0"
 private let v3: Version = "3.0.0"
 private let v1Range: VersionSetSpecifier = .range(v1..<v2)
+private let v1_1Range: VersionSetSpecifier = .range(v1_1..<v2)
 private let v1_5Range: VersionSetSpecifier = .range(v1_5..<v2)
 private let v1to3Range: VersionSetSpecifier = .range(v1..<v3)
 private let v2Range: VersionSetSpecifier = .range(v2..<v3)
@@ -759,6 +760,229 @@ final class PubgrubTests: XCTestCase {
         ])
     }
 
+    // root -> version -> version
+    // root -> version -> version
+    func testHappyPath1() {
+        builder.serve("foo", at: v1_1, with: ["foo": ["config": (.versionSet(v1Range), .specific(["config"]))]])
+        builder.serve("bar", at: v1_1, with: ["bar": ["config": (.versionSet(v1_1Range), .specific(["config"]))]])
+        builder.serve("config", at: v1)
+        builder.serve("config", at: v1_1)
+
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            "foo": (.versionSet(v1Range), .specific(["foo"])),
+            "bar": (.versionSet(v1Range), .specific(["bar"]))
+        ])
+
+        let result = resolver.solve(constraints: dependencies)
+
+        AssertResult(result, [
+            ("foo", .version(v1_1)),
+            ("bar", .version(v1_1)),
+            ("config", .version(v1_1)),
+        ])
+    }
+
+    // root -> version -> version
+    // root -> non-versioned -> version
+    func testHappyPath2() {
+        builder.serve("foo", at: v1_1, with: ["foo": ["config": (.versionSet(v1Range), .specific(["config"]))]])
+        builder.serve("bar", at: .unversioned, with: ["bar": ["config": (.versionSet(v1_1Range), .specific(["config"]))]])
+        builder.serve("config", at:  v1)
+        builder.serve("config", at:  v1_1)
+
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            "foo": (.versionSet(v1Range), .specific(["foo"])),
+            "bar": (.unversioned, .specific(["bar"]))
+        ])
+
+        let result = resolver.solve(constraints: dependencies)
+
+        AssertResult(result, [
+            ("foo", .version(v1_1)),
+            ("bar", .unversioned),
+            ("config", .version(v1_1)),
+        ])
+    }
+
+    // root -> version -> version
+    // root -> non-versioned -> non-versioned -> version
+    func testHappyPath3() {
+        builder.serve("foo", at: v1_1, with: ["foo": ["config": (.versionSet(v1Range), .specific(["config"]))]])
+        builder.serve("bar", at: .unversioned, with: ["bar": ["baz": (.unversioned, .specific(["baz"]))]])
+        builder.serve("baz", at: .unversioned, with: ["baz": ["config": (.versionSet(v1_1Range), .specific(["config"]))]])
+        builder.serve("config", at: v1)
+        builder.serve("config", at: v1_1)
+
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            "foo": (.versionSet(v1Range), .specific(["foo"])),
+            "bar": (.unversioned, .specific(["bar"]))
+        ])
+
+        let result = resolver.solve(constraints: dependencies)
+
+        AssertResult(result, [
+            ("foo", .version(v1_1)),
+            ("bar", .unversioned),
+            ("baz", .unversioned),
+            ("config", .version(v1_1)),
+        ])
+    }
+
+    // root -> version
+    // root -> version -> version
+    func testHappyPath4() {
+        builder.serve("foo", at: v1_1, with: ["foo": ["config": (.versionSet(v1_1Range), .specific(["config"]))]])
+        builder.serve("config", at: v1)
+        builder.serve("config", at: v1_1)
+
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            "config": (.versionSet(v1Range), .specific(["config"])),
+            "foo": (.versionSet(v1Range), .specific(["foo"]))
+        ])
+
+        let result = resolver.solve(constraints: dependencies)
+
+        AssertResult(result, [
+            ("foo", .version(v1_1)),
+            ("config", .version(v1_1)),
+        ])
+    }
+
+    // root -> version
+    // root -> non-versioned -> version
+    func testHappyPath5() {
+        builder.serve("foo", at: .unversioned, with: ["foo": ["config": (.versionSet(v1_1Range), .specific(["config"]))]])
+        builder.serve("config", at: v1)
+        builder.serve("config", at: v1_1)
+
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            "config": (.versionSet(v1Range), .specific(["config"])),
+            "foo": (.unversioned, .specific(["foo"]))
+        ])
+
+        let result = resolver.solve(constraints: dependencies)
+
+        AssertResult(result, [
+            ("foo", .unversioned),
+            ("config", .version(v1_1)),
+        ])
+    }
+
+
+    // root -> version
+    // root -> non-versioned -> non-versioned -> version
+    func testHappyPath6() {
+        builder.serve("foo", at: .unversioned, with: ["foo": ["bar": (.unversioned, .specific(["bar"]))]])
+        builder.serve("bar", at: .unversioned, with: ["bar": ["config": (.versionSet(v1_1Range), .specific(["config"]))]])
+        builder.serve("config", at: v1)
+        builder.serve("config", at: v1_1)
+
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            "config": (.versionSet(v1Range), .specific(["config"])),
+            "foo": (.unversioned, .specific(["foo"]))
+        ])
+
+        let result = resolver.solve(constraints: dependencies)
+
+        AssertResult(result, [
+            ("foo", .unversioned),
+            ("bar", .unversioned),
+            ("config", .version(v1_1)),
+        ])
+    }
+
+    // top level package -> version
+    // top level package -> version -> version
+    func testHappyPath7() {
+        let package = PackageReference.root(identity: .plain("package"), path: .root)
+        builder.serve(package, at: .unversioned, with: [
+            "module": [
+                "config": (.versionSet(v1Range), .specific(["config"])),
+                "foo": (.versionSet(v1Range), .specific(["foo"]))
+            ]])
+        builder.serve("foo", at: v1_1, with: ["foo": ["config": (.versionSet(v1_1Range), .specific(["config"]))]])
+        builder.serve("config", at: v1)
+        builder.serve("config", at: v1_1)
+
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            package: (.unversioned, .everything)
+        ])
+
+        let result = resolver.solve(constraints: dependencies)
+
+        AssertResult(result, [
+            ("package", .unversioned),
+            ("foo", .version(v1_1)),
+            ("config", .version(v1_1)),
+        ])
+    }
+
+
+    // top level package -> version
+    // top level package -> non-versioned -> version
+    func testHappyPath8() {
+        let package = PackageReference.root(identity: .plain("package"), path: .root)
+        builder.serve(package, at: .unversioned, with: [
+            "module": [
+                "config": (.versionSet(v1Range), .specific(["config"])),
+                "foo": (.unversioned, .specific(["foo"]))
+            ]])
+        builder.serve("foo", at: .unversioned, with: ["foo": ["config": (.versionSet(v1_1Range), .specific(["config"]))]])
+        builder.serve("config", at: v1)
+        builder.serve("config", at: v1_1)
+
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            package: (.unversioned, .everything)
+        ])
+
+        let result = resolver.solve(constraints: dependencies)
+
+        AssertResult(result, [
+            ("package", .unversioned),
+            ("foo", .unversioned),
+            ("config", .version(v1_1)),
+        ])
+    }
+
+    // top level pacakge -> version
+    // top level pacakge -> non-versioned -> non-versioned -> version
+    func testHappyPath9() {
+        let package = PackageReference.root(identity: .plain("package"), path: .root)
+        builder.serve(package, at: .unversioned, with: [
+            "module": [
+                "config": (.versionSet(v1Range), .specific(["config"])),
+                "foo": (.unversioned, .specific(["foo"]))
+            ]])
+        builder.serve("foo", at: .unversioned, with: ["foo": ["bar": (.unversioned, .specific(["bar"]))]])
+        builder.serve("bar", at: .unversioned, with: ["bar": ["baz": (.unversioned, .specific(["baz"]))]])
+        builder.serve("baz", at: .unversioned, with: ["baz": ["config": (.versionSet(v1_1Range), .specific(["config"]))]])
+        builder.serve("config", at: v1)
+        builder.serve("config", at: v1_1)
+
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            package: (.unversioned, .everything)
+        ])
+
+        let result = resolver.solve(constraints: dependencies)
+
+        AssertResult(result, [
+            ("package", .unversioned),
+            ("foo", .unversioned),
+            ("bar", .unversioned),
+            ("baz", .unversioned),
+            ("config", .version(v1_1)),
+        ])
+    }
+
     func testResolutionWithSimpleBranchBasedDependency() {
         builder.serve("foo", at: .revision("master"), with: ["foo": ["bar": (.versionSet(v1Range), .specific(["bar"]))]])
         builder.serve("bar", at: v1)
@@ -1434,9 +1658,9 @@ final class PubGrubDiagnosticsTests: XCTestCase {
 
         XCTAssertEqual(result.errorMsg, """
             Dependencies could not be resolved because root depends on 'foo' 1.0.0..<2.0.0 and root depends on 'baz' 1.0.0..<2.0.0.
-            'foo\' >= 1.0.0 practically depends on 'baz' 3.0.0..<4.0.0.
-            'bar\' >= 2.0.0 practically depends on 'baz' 3.0.0..<4.0.0 because 'bar' 2.0.0 depends on 'baz' 3.0.0..<4.0.0 and no versions of 'bar' match the requirement 2.0.1..<3.0.0.
-            'foo\' >= 1.0.0 practically depends on 'bar' 2.0.0..<3.0.0 because 'foo' 1.0.0 depends on 'bar' 2.0.0..<3.0.0 and no versions of 'foo' match the requirement 1.0.1..<2.0.0.
+            'foo' >= 1.0.0 practically depends on 'baz' 3.0.0..<4.0.0.
+            'bar' >= 2.0.0 practically depends on 'baz' 3.0.0..<4.0.0 because 'bar' 2.0.0 depends on 'baz' 3.0.0..<4.0.0 and no versions of 'bar' match the requirement 2.0.1..<3.0.0.
+            'foo' >= 1.0.0 practically depends on 'bar' 2.0.0..<3.0.0 because 'foo' 1.0.0 depends on 'bar' 2.0.0..<3.0.0 and no versions of 'foo' match the requirement 1.0.1..<2.0.0.
             """)
     }
 
@@ -1529,7 +1753,7 @@ final class PubGrubDiagnosticsTests: XCTestCase {
 
         XCTAssertEqual(result2.errorMsg, """
             Dependencies could not be resolved because root depends on 'foo' 1.0.0..<2.0.0 and root depends on 'config' 2.0.0..<3.0.0.
-            'foo' >= 1.0.0 practically depends on \'config\' 1.0.0..<2.0.0 because 'foo' 1.0.0 depends on 'config' 1.0.0..<2.0.0 and no versions of 'foo' match the requirement 1.0.1..<2.0.0.
+            'foo' >= 1.0.0 practically depends on 'config' 1.0.0..<2.0.0 because 'foo' 1.0.0 depends on 'config' 1.0.0..<2.0.0 and no versions of 'foo' match the requirement 1.0.1..<2.0.0.
             """)
     }
 
@@ -1546,6 +1770,337 @@ final class PubGrubDiagnosticsTests: XCTestCase {
 
         XCTAssertEqual(result.errorMsg, """
             Dependencies could not be resolved because no versions of 'config' match the requirement 2.0.0..<3.0.0 and root depends on 'config' 2.0.0..<3.0.0.
+            """)
+    }
+
+    func testConflict4() {
+        builder.serve("foo", at: v1, with: [
+            "foo": ["shared": (.versionSet(.range("2.0.0"..<"3.0.0")), .specific(["shared"]))],
+        ])
+        builder.serve("bar", at: v1, with: [
+            "bar": ["shared": (.versionSet(.range("2.9.0"..<"4.0.0")), .specific(["shared"]))],
+        ])
+        builder.serve("shared", at: "2.5.0")
+        builder.serve("shared", at: "3.5.0")
+
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            "bar": (.versionSet(.exact(v1)), .specific(["bar"])),
+            "foo": (.versionSet(.exact(v1)), .specific(["foo"])),
+        ])
+
+        let result = resolver.solve(constraints: dependencies)
+
+        XCTAssertEqual(result.errorMsg, """
+            Dependencies could not be resolved because root depends on 'bar' 1.0.0 and root depends on 'foo' 1.0.0.
+            'foo' is incompatible with 'bar' because 'foo' 1.0.0 depends on 'shared' 2.0.0..<3.0.0.
+            'bar' 1.0.0 practically depends on 'shared' 3.0.0..<4.0.0 because 'bar' 1.0.0 depends on 'shared' 2.9.0..<4.0.0 and no versions of 'shared' match the requirement 2.9.0..<3.0.0.
+            """)
+    }
+
+    func testConflict5() {
+        builder.serve("a", at: v1, with: [
+            "a": ["b": (.versionSet(.exact("1.0.0")), .specific(["b"]))],
+        ])
+        builder.serve("a", at: "2.0.0", with: [
+            "a": ["b": (.versionSet(.exact("2.0.0")), .specific(["b"]))],
+        ])
+        builder.serve("b", at: "1.0.0", with: [
+            "b": ["a": (.versionSet(.exact("2.0.0")), .specific(["a"]))],
+        ])
+        builder.serve("b", at: "2.0.0", with: [
+            "b": ["a": (.versionSet(.exact("1.0.0")), .specific(["a"]))],
+        ])
+
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            "b": (.versionSet(.range("0.0.0"..<"5.0.0")), .specific(["b"])),
+            "a": (.versionSet(.range("0.0.0"..<"5.0.0")), .specific(["a"])),
+        ])
+
+        let result = resolver.solve(constraints: dependencies)
+
+        XCTAssertEqual(result.errorMsg, """
+            Dependencies could not be resolved because root depends on 'a' 0.0.0..<5.0.0.
+            'a' cannot be used.
+            'a' 2.0.0 cannot be used because 'b' 2.0.0 depends on 'a' 1.0.0 and 'a' 2.0.0 depends on 'b' 2.0.0.
+            'a' {0.0.0..<2.0.0, 2.0.1..<5.0.0} cannot be used because 'b' 1.0.0 depends on 'a' 2.0.0.
+            'a' {0.0.0..<2.0.0, 2.0.1..<5.0.0} practically depends on 'b' 1.0.0 because no versions of 'a' match the requirement {0.0.0..<1.0.0, 1.0.1..<2.0.0, 2.0.1..<5.0.0} and 'a' 1.0.0 depends on 'b' 1.0.0.
+            """)
+    }
+
+    // root -> version -> version
+    // root -> version -> conflicting version
+    func testConflict6() {
+        builder.serve("foo", at: v1, with: ["foo": ["config": (.versionSet(v1Range), .specific(["config"]))]])
+        builder.serve("bar", at: v1, with: ["bar": ["config": (.versionSet(v2Range), .specific(["config"]))]])
+        builder.serve("config", at: v1)
+        builder.serve("config", at: v2)
+
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            "foo": (.versionSet(v1Range), .specific(["foo"])),
+            "bar": (.versionSet(v1Range), .specific(["bar"]))
+        ])
+
+        let result = resolver.solve(constraints: dependencies)
+
+        XCTAssertEqual(result.errorMsg, """
+            Dependencies could not be resolved because root depends on 'foo' 1.0.0..<2.0.0 and root depends on 'bar' 1.0.0..<2.0.0.
+            'bar' is incompatible with 'foo' because 'foo' 1.0.0 depends on 'config' 1.0.0..<2.0.0 and no versions of 'foo' match the requirement 1.0.1..<2.0.0.
+            'bar' >= 1.0.0 practically depends on 'config' 2.0.0..<3.0.0 because no versions of 'bar' match the requirement 1.0.1..<2.0.0 and 'bar' 1.0.0 depends on 'config' 2.0.0..<3.0.0.
+            """)
+    }
+
+    // root -> version -> version
+    // root -> non-versioned -> conflicting version
+    func testConflict7() {
+        builder.serve("foo", at: v1, with: ["foo": ["config": (.versionSet(v1Range), .specific(["config"]))]])
+        builder.serve("bar", at: .unversioned, with: ["bar": ["config": (.versionSet(v2Range), .specific(["config"]))]])
+        builder.serve("config", at: v1)
+        builder.serve("config", at: v2)
+
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            "foo": (.versionSet(v1Range), .specific(["foo"])),
+            "bar": (.unversioned, .specific(["bar"]))
+        ])
+
+        let result = resolver.solve(constraints: dependencies)
+
+        XCTAssertEqual(result.errorMsg, """
+            Dependencies could not be resolved because 'bar' depends on 'config' 2.0.0..<3.0.0 and root depends on 'foo' 1.0.0..<2.0.0.
+            'foo' >= 1.0.0 practically depends on 'config' 1.0.0..<2.0.0 because no versions of 'foo' match the requirement 1.0.1..<2.0.0 and 'foo' 1.0.0 depends on 'config' 1.0.0..<2.0.0.
+            """)
+    }
+
+    // root -> version -> version
+    // root -> non-versioned -> non-versioned -> conflicting version
+    func testConflict8() {
+        builder.serve("foo", at: v1, with: ["foo": ["config": (.versionSet(v1Range), .specific(["config"]))]])
+        builder.serve("bar", at: .unversioned, with: ["bar": ["baz": (.unversioned, .specific(["baz"]))]])
+        builder.serve("baz", at: .unversioned, with: ["baz": ["config": (.versionSet(v2Range), .specific(["config"]))]])
+        builder.serve("config", at: v1)
+        builder.serve("config", at: v2)
+
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            "foo": (.versionSet(v1Range), .specific(["foo"])),
+            "bar": (.unversioned, .specific(["bar"]))
+        ])
+
+        let result = resolver.solve(constraints: dependencies)
+
+        XCTAssertEqual(result.errorMsg, """
+            Dependencies could not be resolved because 'baz' depends on 'config' 2.0.0..<3.0.0 and root depends on 'foo' 1.0.0..<2.0.0.
+            'foo' >= 1.0.0 practically depends on 'config' 1.0.0..<2.0.0 because no versions of 'foo' match the requirement 1.0.1..<2.0.0 and 'foo' 1.0.0 depends on 'config' 1.0.0..<2.0.0.
+            """)
+    }
+
+    // root -> version -> version
+    // root -> non-versioned -> non-existing version
+    func testConflict9() {
+        builder.serve("foo", at: v1, with: ["foo": ["config": (.versionSet(v1Range), .specific(["config"]))]])
+        builder.serve("bar", at: .unversioned, with: ["bar": ["config": (.versionSet(v2Range), .specific(["config"]))]])
+        builder.serve("config", at: v1)
+
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            "foo": (.versionSet(v1Range), .specific(["foo"])),
+            "bar": (.unversioned, .specific(["bar"]))
+        ])
+
+        let result = resolver.solve(constraints: dependencies)
+
+        XCTAssertEqual(result.errorMsg, """
+            Dependencies could not be resolved because no versions of 'config' match the requirement 2.0.0..<3.0.0 and 'bar' depends on 'config' 2.0.0..<3.0.0.
+            """)
+    }
+
+    // root -> version
+    // root -> non-versioned -> conflicting version
+    func testConflict10() {
+        builder.serve("foo", at: .unversioned, with: ["foo": ["config": (.versionSet(v2Range), .specific(["config"]))]])
+        builder.serve("config", at: v1)
+        builder.serve("config", at: v2)
+
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            "config": (.versionSet(v1Range), .specific(["config"])),
+            "foo": (.unversioned, .specific(["foo"]))
+        ])
+
+        let result = resolver.solve(constraints: dependencies)
+
+        XCTAssertEqual(result.errorMsg, """
+            Dependencies could not be resolved because 'foo' depends on 'config' 2.0.0..<3.0.0 and root depends on 'config' 1.0.0..<2.0.0.
+            """)
+    }
+
+    // root -> version
+    // root -> non-versioned -> non-existing version
+    func testConflict11() {
+        builder.serve("foo", at: .unversioned, with: ["foo": ["config": (.versionSet(v2Range), .specific(["config"]))]])
+        builder.serve("config", at: v1)
+
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            "config": (.versionSet(v1Range), .specific(["config"])),
+            "foo": (.unversioned, .specific(["foo"]))
+        ])
+
+        let result = resolver.solve(constraints: dependencies)
+
+        XCTAssertEqual(result.errorMsg, """
+            Dependencies could not be resolved because 'foo' depends on 'config' 2.0.0..<3.0.0 and root depends on 'config' 1.0.0..<2.0.0.
+            """)
+    }
+
+    // root -> version
+    // root -> non-versioned -> non-versioned -> conflicting version
+    func testConflict12() {
+        builder.serve("foo", at: .unversioned, with: ["foo": ["bar": (.unversioned, .specific(["bar"]))]])
+        builder.serve("bar", at: .unversioned, with: ["bar": ["baz": (.unversioned, .specific(["baz"]))]])
+        builder.serve("baz", at: .unversioned, with: ["baz": ["config": (.versionSet(v2Range), .specific(["config"]))]])
+        builder.serve("config", at: v1)
+
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            "config": (.versionSet(v1Range), .specific(["config"])),
+            "foo": (.unversioned, .specific(["foo"]))
+        ])
+
+        let result = resolver.solve(constraints: dependencies)
+
+        XCTAssertEqual(result.errorMsg, """
+            Dependencies could not be resolved because 'baz' depends on 'config' 2.0.0..<3.0.0 and root depends on 'config' 1.0.0..<2.0.0.
+            """)
+    }
+
+    // top level package -> version
+    // top level package -> version -> conflicting version
+    func testConflict13() {
+        let package = PackageReference.root(identity: .plain("package"), path: .root)
+        builder.serve(package, at: .unversioned, with: [
+            "module": [
+                "config": (.versionSet(v1Range), .specific(["config"])),
+                "foo": (.versionSet(v1Range), .specific(["foo"]))
+            ]])
+        builder.serve("foo", at: v1, with: ["foo": ["config": (.versionSet(v2Range), .specific(["config"]))]])
+        builder.serve("config", at: v1)
+        builder.serve("config", at: v2)
+
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            package: (.unversioned, .everything)
+        ])
+
+        let result = resolver.solve(constraints: dependencies)
+
+        XCTAssertEqual(result.errorMsg, """
+            Dependencies could not be resolved because root depends on 'config' 1.0.0..<2.0.0 and root depends on 'foo' 1.0.0..<2.0.0.
+            'foo' >= 1.0.0 practically depends on 'config' 2.0.0..<3.0.0 because no versions of 'foo' match the requirement 1.0.1..<2.0.0 and 'foo' 1.0.0 depends on 'config' 2.0.0..<3.0.0.
+            """)
+    }
+
+    // top level package -> version
+    // top level package -> version -> non-existing version
+    func testConflict14() {
+        let package = PackageReference.root(identity: .plain("package"), path: .root)
+        builder.serve(package, at: .unversioned, with: [
+            "module": [
+                "config": (.versionSet(v1Range), .specific(["config"])),
+                "foo": (.versionSet(v1Range), .specific(["foo"]))
+            ]])
+        builder.serve("foo", at: v1, with: ["foo": ["config": (.versionSet(v2Range), .specific(["config"]))]])
+        builder.serve("config", at: v1)
+
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            package: (.unversioned, .everything)
+        ])
+
+        let result = resolver.solve(constraints: dependencies)
+
+        XCTAssertEqual(result.errorMsg, """
+            Dependencies could not be resolved because root depends on 'config' 1.0.0..<2.0.0 and root depends on 'foo' 1.0.0..<2.0.0.
+            'foo' >= 1.0.0 practically depends on 'config' 2.0.0..<3.0.0 because no versions of 'foo' match the requirement 1.0.1..<2.0.0 and 'foo' 1.0.0 depends on 'config' 2.0.0..<3.0.0.
+            """)
+    }
+
+    // top level package -> version
+    // top level package -> non-versioned -> conflicting version
+    func testConflict15() {
+        let package = PackageReference.root(identity: .plain("package"), path: .root)
+        builder.serve(package, at: .unversioned, with: [
+            "module": [
+                "config": (.versionSet(v1Range), .specific(["config"])),
+                "foo": (.unversioned, .specific(["foo"]))
+            ]])
+        builder.serve("foo", at: .unversioned, with: ["foo": ["config": (.versionSet(v2Range), .specific(["config"]))]])
+        builder.serve("config", at: v1)
+        builder.serve("config", at: v2)
+
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            package: (.unversioned, .everything)
+        ])
+
+        let result = resolver.solve(constraints: dependencies)
+
+        XCTAssertEqual(result.errorMsg, """
+            Dependencies could not be resolved because root depends on 'config' 1.0.0..<2.0.0 and 'foo' depends on 'config' 2.0.0..<3.0.0.
+            """)
+    }
+
+    // top level package -> version
+    // top level package -> non-versioned -> non-existing version
+    func testConflict16() {
+        let package = PackageReference.root(identity: .plain("package"), path: .root)
+        builder.serve(package, at: .unversioned, with: [
+            "module": [
+                "config": (.versionSet(v1Range), .specific(["config"])),
+                "foo": (.unversioned, .specific(["foo"]))
+            ]])
+        builder.serve("foo", at: .unversioned, with: ["foo": ["config": (.versionSet(v2Range), .specific(["config"]))]])
+        builder.serve("config", at: v1)
+
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            package: (.unversioned, .everything)
+        ])
+
+        let result = resolver.solve(constraints: dependencies)
+
+        XCTAssertEqual(result.errorMsg, """
+            Dependencies could not be resolved because root depends on 'config' 1.0.0..<2.0.0 and 'foo' depends on 'config' 2.0.0..<3.0.0.
+            """)
+    }
+
+    // top level pacakge -> version
+    // top level pacakge -> non-versioned -> non-versioned -> conflicting version
+    func testConflict17() {
+        let package = PackageReference.root(identity: .plain("package"), path: .root)
+        builder.serve(package, at: .unversioned, with: [
+            "module": [
+                "config": (.versionSet(v1Range), .specific(["config"])),
+                "foo": (.unversioned, .specific(["foo"]))
+            ]])
+        builder.serve("foo", at: .unversioned, with: ["foo": ["bar": (.unversioned, .specific(["bar"]))]])
+        builder.serve("bar", at: .unversioned, with: ["bar": ["baz": (.unversioned, .specific(["baz"]))]])
+        builder.serve("baz", at: .unversioned, with: ["baz": ["config": (.versionSet(v2Range), .specific(["config"]))]])
+        builder.serve("config", at: v1)
+        builder.serve("config", at: v2)
+
+        let resolver = builder.create()
+        let dependencies = builder.create(dependencies: [
+            package: (.unversioned, .everything)
+        ])
+
+        let result = resolver.solve(constraints: dependencies)
+
+        XCTAssertEqual(result.errorMsg, """
+            Dependencies could not be resolved because root depends on 'config' 1.0.0..<2.0.0 and 'baz' depends on 'config' 2.0.0..<3.0.0.
             """)
     }
 
@@ -1704,71 +2259,15 @@ final class PubGrubDiagnosticsTests: XCTestCase {
         let result = resolver.solve(constraints: dependencies)
 
         XCTAssertEqual(result.errorMsg, """
-            Dependencies could not be resolved because \'a\' >= 3.2.1 contains incompatible tools version (\(ToolsVersion.v4)) and root depends on 'a' 3.2.0..<4.0.0.
+            Dependencies could not be resolved because 'a' >= 3.2.1 contains incompatible tools version (\(ToolsVersion.v4)) and root depends on 'a' 3.2.0..<4.0.0.
             'a' 3.2.0 cannot be used because 'a' 3.2.0 depends on 'b' 1.0.0..<2.0.0.
             'b' >= 1.0.0 cannot be used because 'b' 1.0.0 contains incompatible tools version (\(ToolsVersion.v3)) and no versions of 'b' match the requirement 1.0.1..<2.0.0.
             """)
     }
 
-    func testConflict4() {
-        builder.serve("foo", at: v1, with: [
-            "foo": ["shared": (.versionSet(.range("2.0.0"..<"3.0.0")), .specific(["shared"]))],
-        ])
-        builder.serve("bar", at: v1, with: [
-            "bar": ["shared": (.versionSet(.range("2.9.0"..<"4.0.0")), .specific(["shared"]))],
-        ])
-        builder.serve("shared", at: "2.5.0")
-        builder.serve("shared", at: "3.5.0")
-
-        let resolver = builder.create()
-        let dependencies = builder.create(dependencies: [
-            "bar": (.versionSet(.exact(v1)), .specific(["bar"])),
-            "foo": (.versionSet(.exact(v1)), .specific(["foo"])),
-        ])
-
-        let result = resolver.solve(constraints: dependencies)
-
-        XCTAssertEqual(result.errorMsg, """
-            Dependencies could not be resolved because root depends on 'bar' 1.0.0 and root depends on 'foo' 1.0.0.
-            'foo' is incompatible with 'bar' because 'foo' 1.0.0 depends on 'shared' 2.0.0..<3.0.0.
-            'bar' 1.0.0 practically depends on 'shared' 3.0.0..<4.0.0 because 'bar' 1.0.0 depends on 'shared' 2.9.0..<4.0.0 and no versions of 'shared' match the requirement 2.9.0..<3.0.0.
-            """)
-    }
-
-    func testConflict5() {
-        builder.serve("a", at: v1, with: [
-            "a": ["b": (.versionSet(.exact("1.0.0")), .specific(["b"]))],
-        ])
-        builder.serve("a", at: "2.0.0", with: [
-            "a": ["b": (.versionSet(.exact("2.0.0")), .specific(["b"]))],
-        ])
-        builder.serve("b", at: "1.0.0", with: [
-            "b": ["a": (.versionSet(.exact("2.0.0")), .specific(["a"]))],
-        ])
-        builder.serve("b", at: "2.0.0", with: [
-            "b": ["a": (.versionSet(.exact("1.0.0")), .specific(["a"]))],
-        ])
-
-        let resolver = builder.create()
-        let dependencies = builder.create(dependencies: [
-            "b": (.versionSet(.range("0.0.0"..<"5.0.0")), .specific(["b"])),
-            "a": (.versionSet(.range("0.0.0"..<"5.0.0")), .specific(["a"])),
-        ])
-
-        let result = resolver.solve(constraints: dependencies)
-
-        XCTAssertEqual(result.errorMsg, """
-            Dependencies could not be resolved because root depends on 'a' 0.0.0..<5.0.0.
-            'a' cannot be used.
-            'a' 2.0.0 cannot be used because 'b' 2.0.0 depends on 'a' 1.0.0 and 'a' 2.0.0 depends on 'b' 2.0.0.
-            'a' {0.0.0..<2.0.0, 2.0.1..<5.0.0} cannot be used because 'b' 1.0.0 depends on 'a' 2.0.0.
-            'a' {0.0.0..<2.0.0, 2.0.1..<5.0.0} practically depends on 'b' 1.0.0 because no versions of 'a' match the requirement {0.0.0..<1.0.0, 1.0.1..<2.0.0, 2.0.1..<5.0.0} and 'a' 1.0.0 depends on 'b' 1.0.0.
-            """)
-    }
-
     func testProductsCannotResolveToDifferentVersions() {
-        builder.serve("root", at: .unversioned, with: [
-            "root": [
+        builder.serve("package", at: .unversioned, with: [
+            "package": [
                 "intermediate_a": (.versionSet(v1Range), .specific(["Intermediate A"])),
                 "intermediate_b": (.versionSet(v1Range), .specific(["Intermediate B"]))
             ]
@@ -1794,7 +2293,7 @@ final class PubGrubDiagnosticsTests: XCTestCase {
 
         let resolver = builder.create()
         let dependencies = builder.create(dependencies: [
-            "root": (.unversioned, .everything)
+            "package": (.unversioned, .everything)
         ])
         let result = resolver.solve(constraints: dependencies)
 
@@ -1802,7 +2301,7 @@ final class PubGrubDiagnosticsTests: XCTestCase {
         XCTAssertEqual(
             result.errorMsg,
             """
-            Dependencies could not be resolved because root depends on 'intermediate_a' 1.0.0..<2.0.0 and root depends on 'intermediate_b' 1.0.0..<2.0.0.
+            Dependencies could not be resolved because 'package' depends on 'intermediate_a' 1.0.0..<2.0.0 and 'package' depends on 'intermediate_b' 1.0.0..<2.0.0.
             'intermediate_b' is incompatible with 'intermediate_a' because 'intermediate_a' 1.0.0 depends on 'transitive' 1.0.0 and no versions of 'intermediate_a' match the requirement 1.0.1..<2.0.0.
             'intermediate_b' is incompatible with 'transitive' because 'transitive' 1.1.0 depends on 'transitive' 1.1.0 and 'transitive' 1.0.0 depends on 'transitive' 1.0.0.
             'intermediate_b' >= 1.0.0 practically depends on 'transitive' 1.1.0 because no versions of 'intermediate_b' match the requirement 1.0.1..<2.0.0 and 'intermediate_b' 1.0.0 depends on 'transitive' 1.1.0.
@@ -2303,8 +2802,18 @@ class DependencyGraphBuilder {
     func create(
         dependencies: OrderedDictionary<String, (PackageRequirement, ProductFilter)>
     ) -> [PackageContainerConstraint] {
+        var refDependencies = OrderedDictionary<PackageReference, (PackageRequirement, ProductFilter)>()
+        for dependency in dependencies {
+            refDependencies[reference(for: dependency.key)] = dependency.value
+        }
+        return self.create(dependencies: refDependencies)
+    }
+
+    func create(
+        dependencies: OrderedDictionary<PackageReference, (PackageRequirement, ProductFilter)>
+    ) -> [PackageContainerConstraint] {
         return dependencies.map {
-            PackageContainerConstraint(package: reference(for: $0), requirement: $1.0, products: $1.1)
+            PackageContainerConstraint(package: $0, requirement: $1.0, products: $1.1)
         }
     }
 
@@ -2314,7 +2823,7 @@ class DependencyGraphBuilder {
         toolsVersion: ToolsVersion? = nil,
         with dependencies: KeyValuePairs<String, OrderedDictionary<String, (PackageRequirement, ProductFilter)>> = [:]
     ) {
-        serve(package, at: .version(version), toolsVersion: toolsVersion, with: dependencies)
+        self.serve(package, at: .version(version), toolsVersion: toolsVersion, with: dependencies)
     }
 
     func serve(
@@ -2324,7 +2833,21 @@ class DependencyGraphBuilder {
         with dependencies: KeyValuePairs<String, OrderedDictionary<String, (PackageRequirement, ProductFilter)>> = [:]
     ) {
         let packageReference = reference(for: package)
-        let container = self.containers[package] ?? MockContainer(package: packageReference)
+        self.serve(
+            packageReference,
+            at: version,
+            toolsVersion: toolsVersion,
+            with: dependencies
+        )
+    }
+
+    func serve(
+        _ packageReference: PackageReference,
+        at version: BoundVersion,
+        toolsVersion: ToolsVersion? = nil,
+        with dependencies: KeyValuePairs<String, OrderedDictionary<String, (PackageRequirement, ProductFilter)>> = [:]
+    ) {
+        let container = self.containers[packageReference.identity.description] ?? MockContainer(package: packageReference)
 
         if case .version(let v) = version {
             container.versionsToolsVersions[v] = toolsVersion ?? container.toolsVersion
@@ -2341,7 +2864,7 @@ class DependencyGraphBuilder {
             }
             container.dependencies[version.description, default: [:]][product, default: []] += packageDependencies
         }
-        self.containers[package] = container
+        self.containers[packageReference.identity.description] = container
     }
 
     /// Creates a pins store with the given pins.
@@ -2363,7 +2886,7 @@ class DependencyGraphBuilder {
             self.containers = [:]
             self.references = [:]
         }
-        let provider = MockProvider(containers: self.containers.values.map { $0 })
+        let provider = MockProvider(containers: Array(self.containers.values))
         return PubgrubDependencyResolver(provider :provider, pinsMap: pinsMap, observabilityScope: ObservabilitySystem.NOOP, delegate: delegate)
     }
 }

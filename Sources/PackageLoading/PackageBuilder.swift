@@ -733,7 +733,7 @@ public final class PackageBuilder {
             }
         }
 
-        return targets.values.map{ $0 }.sorted{ $0.name > $1.name  }
+        return targets.values.sorted{ $0.name > $1.name  }
     }
 
     /// Private function that checks whether a target name is valid.  This method doesn't return anything, but rather,
