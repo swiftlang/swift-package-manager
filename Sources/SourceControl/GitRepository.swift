@@ -105,7 +105,11 @@ public struct GitRepositoryProvider: RepositoryProvider {
         // FIXME: Ideally we should pass `--progress` here and report status regularly.  We currently don't have callbacks for that.
         //
         // NOTE: Explicitly set `core.symlinks=true` on `git clone` to ensure that symbolic links are correctly resolved.
-        try self.callGit("clone", "-c", "core.symlinks=true", "--mirror", repository.location.gitURL, path.pathString,
+        // NOTE: Explicitly set `core.useBuiltinFSMonitor` on `git clone` to ensure that we do not spawn a monitor on the repository.  This is particularly important for Windows where the process can prevent future operations.
+        try self.callGit("clone",
+                         "-c", "core.symlinks=true",
+                         "-c", "core.useBuiltinFSMonitor=false",
+                         "--mirror", repository.location.gitURL, path.pathString,
                          repository: repository,
                          failureMessage: "Failed to clone repository \(repository.location)",
                          progress: progressHandler)
