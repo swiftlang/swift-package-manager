@@ -132,7 +132,7 @@ public struct PubgrubDependencyResolver {
 
     /// Execute the resolution algorithm to find a valid assignment of versions.
     public func solve(constraints: [Constraint]) -> Result<[DependencyResolver.Binding], Error> {
-        // 👀 is this the right thing to do?
+        // the graph resolution root
         let root: DependencyResolutionNode
         if constraints.count == 1, let constraint = constraints.first, constraint.package.kind.isRoot {
             // root level package, use it as our resolution root
@@ -149,24 +149,21 @@ public struct PubgrubDependencyResolver {
             // strips state
             return .success(try self.solve(root: root, constraints: constraints).bindings)
         } catch {
-            var error = error
-
             // If version solving failing, build the user-facing diagnostic.
             if let pubGrubError = error as? PubgrubError, let rootCause = pubGrubError.rootCause, let incompatibilities = pubGrubError.incompatibilities {
-                var builder = DiagnosticReportBuilder(
-                    root: root,
-                    incompatibilities: incompatibilities,
-                    provider: self.provider
-                )
-
                 do {
+                    var builder = DiagnosticReportBuilder(
+                        root: root,
+                        incompatibilities: incompatibilities,
+                        provider: self.provider
+                    )
                     let diagnostic = try builder.makeErrorReport(for: rootCause)
-                    error = PubgrubError.unresolvable(diagnostic)
+                    return.failure(PubgrubError.unresolvable(diagnostic))
                 } catch {
                     // failed to construct the report, will report the original error
+                    return .failure(error)
                 }
             }
-
             return .failure(error)
         }
     }
