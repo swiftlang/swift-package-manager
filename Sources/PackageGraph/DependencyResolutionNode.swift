@@ -39,7 +39,7 @@ public enum DependencyResolutionNode {
     ///   They derive from the manifest.
     ///
     ///   Tools versions before 5.2 do not know which products belong to which packages, so each product is required from every dependency.
-    ///   Since a non‐existant product ends up with only its implicit dependency on its own package,
+    ///   Since a non‐existent product ends up with only its implicit dependency on its own package,
     ///   only whichever package contains the product will end up adding additional constraints.
     ///   See `ProductFilter` and `Manifest.register(...)`.
     case product(String, package: PackageReference)
@@ -52,7 +52,7 @@ public enum DependencyResolutionNode {
     ///
     /// - zero or more dependencies on each external product node required to build any of its targets (vended or not).
     /// - zero or more dependencies directly on external empty package nodes.
-    ///   This special case occurs when a dependecy is declared but not used.
+    ///   This special case occurs when a dependency is declared but not used.
     ///   It is a warning condition, and builds do not actually need these dependencies.
     ///   However, forcing the graph to resolve and fetch them anyway allows the diagnostics passes access
     ///   to the information needed in order to provide actionable suggestions to help the user stitch up the dependency declarations properly.

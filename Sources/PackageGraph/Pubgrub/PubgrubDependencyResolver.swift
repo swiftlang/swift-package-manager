@@ -132,33 +132,38 @@ public struct PubgrubDependencyResolver {
 
     /// Execute the resolution algorithm to find a valid assignment of versions.
     public func solve(constraints: [Constraint]) -> Result<[DependencyResolver.Binding], Error> {
-        let root = DependencyResolutionNode.root(package: .root(
-            identity: .plain("<synthesized-root>"),
-            path: .root
-        ))
+        // the graph resolution root
+        let root: DependencyResolutionNode
+        if constraints.count == 1, let constraint = constraints.first, constraint.package.kind.isRoot {
+            // root level package, use it as our resolution root
+            root = .root(package: constraint.package)
+        } else {
+            // more complex setup requires a synthesized root
+            root = .root(package: .root(
+                identity: .plain("<synthesized-root>"),
+                path: .root
+            ))
+        }
 
         do {
             // strips state
             return .success(try self.solve(root: root, constraints: constraints).bindings)
         } catch {
-            var error = error
-
             // If version solving failing, build the user-facing diagnostic.
             if let pubGrubError = error as? PubgrubError, let rootCause = pubGrubError.rootCause, let incompatibilities = pubGrubError.incompatibilities {
-                var builder = DiagnosticReportBuilder(
-                    root: root,
-                    incompatibilities: incompatibilities,
-                    provider: self.provider
-                )
-
                 do {
+                    var builder = DiagnosticReportBuilder(
+                        root: root,
+                        incompatibilities: incompatibilities,
+                        provider: self.provider
+                    )
                     let diagnostic = try builder.makeErrorReport(for: rootCause)
-                    error = PubgrubError.unresolvable(diagnostic)
+                    return.failure(PubgrubError.unresolvable(diagnostic))
                 } catch {
                     // failed to construct the report, will report the original error
+                    return .failure(error)
                 }
             }
-
             return .failure(error)
         }
     }
@@ -262,13 +267,13 @@ public struct PubgrubDependencyResolver {
         var overriddenPackages: [PackageReference: (version: BoundVersion, products: ProductFilter)] = [:]
 
         // The list of version-based references reachable via local and branch-based references.
-        // These are added as top-level incompatibilities since they always need to be statisfied.
+        // These are added as top-level incompatibilities since they always need to be satisfied.
         // Some of these might be overridden as we discover local and branch-based references.
-        var versionBasedDependencies: [DependencyResolutionNode: [VersionBasedConstraint]] = [:]
+        var versionBasedDependencies = OrderedDictionary<DependencyResolutionNode, [VersionBasedConstraint]>()
 
         // Process unversioned constraints in first phase. We go through all of the unversioned packages
         // and collect them and their dependencies. This gives us the complete list of unversioned
-        // packages in the graph since unversioned packages can only be refered by other
+        // packages in the graph since unversioned packages can only be referred by other
         // unversioned packages.
         while let constraint = constraints.first(where: { $0.requirement == .unversioned }) {
             constraints.remove(constraint)
@@ -370,7 +375,7 @@ public struct PubgrubDependencyResolver {
                     case .versionSet(let req):
                         for node in dependency.nodes() {
                             let versionedBasedConstraint = VersionBasedConstraint(node: node, req: req)
-                            versionBasedDependencies[node, default: []].append(versionedBasedConstraint)
+                            versionBasedDependencies[.root(package: constraint.package), default: []].append(versionedBasedConstraint)
                         }
                     case .revision:
                         constraints.append(dependency)
@@ -386,13 +391,11 @@ public struct PubgrubDependencyResolver {
 
         // At this point, we should be left with only version-based requirements in our constraints
         // list. Add them to our version-based dependency list.
-        for dependency in constraints {
-            switch dependency.requirement {
+        for constraint in constraints {
+            switch constraint.requirement {
             case .versionSet(let req):
-                for node in dependency.nodes() {
+                for node in constraint.nodes() {
                     let versionedBasedConstraint = VersionBasedConstraint(node: node, req: req)
-                    // FIXME: It would be better to record where this constraint came from, instead of just
-                    // using root.
                     versionBasedDependencies[root, default: []].append(versionedBasedConstraint)
                 }
             case .revision, .unversioned:
@@ -401,11 +404,11 @@ public struct PubgrubDependencyResolver {
         }
 
         // Finally, compute the root incompatibilities (which will be all version-based).
+        // note versionBasedDependencies may point to the root package dependencies, or the dependencies of root's non-versioned dependencies
         var rootIncompatibilities: [Incompatibility] = []
         for (node, constraints) in versionBasedDependencies {
             for constraint in constraints {
                 if overriddenPackages.keys.contains(constraint.node.package) { continue }
-
                 let incompat = try Incompatibility(
                     Term(root, .exact("1.0.0")),
                     Term(not: constraint.node, constraint.requirement),
@@ -850,14 +853,20 @@ private struct DiagnosticReportBuilder {
 
     private func description(for incompatibility: Incompatibility) throws -> String {
         switch incompatibility.cause {
-        case .dependency(node: _):
+        case .dependency(let causeNode):
             assert(incompatibility.terms.count == 2)
             let depender = incompatibility.terms.first!
             let dependee = incompatibility.terms.last!
             assert(depender.isPositive)
             assert(!dependee.isPositive)
 
-            let dependerDesc = try description(for: depender, normalizeRange: true)
+            let dependerDesc: String
+            // when depender is the root node, the causeNode may be different as it may represent root's indirect dependencies (e.g. dependencies of root's unversioned dependencies)
+            if depender.node == self.rootNode, causeNode != self.rootNode {
+                dependerDesc = causeNode.nameForDiagnostics
+            } else {
+                dependerDesc = try description(for: depender, normalizeRange: true)
+            }
             let dependeeDesc = try description(for: dependee)
             return "\(dependerDesc) depends on \(dependeeDesc)"
         case .noAvailableVersion:
@@ -871,6 +880,8 @@ private struct DiagnosticReportBuilder {
             let term = incompatibility.terms.first!
             assert(term.isPositive)
             return "\(term.node.nameForDiagnostics) is \(term.requirement)"
+        case .conflict where incompatibility.terms.count == 1 && incompatibility.terms.first?.node == self.rootNode:
+            return "dependencies could not be resolved"
         case .conflict:
             break
         case .versionBasedDependencyContainsUnversionedDependency(let versionedDependency, let unversionedDependency):
@@ -878,10 +889,6 @@ private struct DiagnosticReportBuilder {
         case .incompatibleToolsVersion(let version):
             let term = incompatibility.terms.first!
             return "\(try description(for: term, normalizeRange: true)) contains incompatible tools version (\(version))"
-        }
-
-        if isFailure(incompatibility) {
-            return "dependencies could not be resolved"
         }
 
         let terms = incompatibility.terms
@@ -955,11 +962,6 @@ private struct DiagnosticReportBuilder {
 
         let complex = cause.conflict.cause.isConflict ? cause.conflict : cause.other
         return !lineNumbers.keys.contains(complex)
-    }
-
-    // FIXME: This is duplicated and wrong.
-    private func isFailure(_ incompatibility: Incompatibility) -> Bool {
-        return incompatibility.terms.count == 1 && incompatibility.terms.first?.node.package.identity == .plain("<synthesized-root>")
     }
 
     private func description(for term: Term, normalizeRange: Bool = false) throws -> String {
@@ -1393,6 +1395,7 @@ private extension PackageRequirement {
 
 private extension DependencyResolutionNode {
     var nameForDiagnostics: String {
-        return "'\(package.identity)'"
+        return "'\(self.package.identity)'"
     }
 }
+
