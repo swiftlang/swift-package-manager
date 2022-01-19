@@ -104,8 +104,16 @@ struct PackageIndex: PackageIndexProtocol, Closable {
         callback: @escaping (Result<PackageCollectionsModel.PackageSearchResult, Error>) -> Void
     ) {
         self.runIfConfigured(callback: callback) { url, callback in
+            guard var urlComponents = URLComponents(url: url, resolvingAgainstBaseURL: true) else {
+                return callback(.failure(PackageIndexError.invalidURL(url)))
+            }
+            urlComponents.path = (urlComponents.path.last == "/" ? "" : "/") + "search"
+            urlComponents.queryItems = [
+                URLQueryItem(name: "q", value: query),
+            ]
+            
             // TODO: rdar://87582621 call package index's search API
-            guard let searchURL = URL(string: url.appendingPathComponent("search").absoluteString + "?q=\(query)") else {
+            guard let searchURL = urlComponents.url else {
                 return callback(.failure(PackageIndexError.invalidURL(url)))
             }
             self.httpClient.get(searchURL) { result in
@@ -134,8 +142,17 @@ struct PackageIndex: PackageIndexProtocol, Closable {
         callback: @escaping (Result<PackageCollectionsModel.PaginatedPackageList, Error>) -> Void
     ) {
         self.runIfConfigured(callback: callback) { url, callback in
+            guard var urlComponents = URLComponents(url: url, resolvingAgainstBaseURL: true) else {
+                return callback(.failure(PackageIndexError.invalidURL(url)))
+            }
+            urlComponents.path = (urlComponents.path.last == "/" ? "" : "/") + "packages"
+            urlComponents.queryItems = [
+                URLQueryItem(name: "offset", value: "\(offset)"),
+                URLQueryItem(name: "limit", value: "\(limit)"),
+            ]
+            
             // TODO: rdar://87582621 call package index's list API
-            guard let listURL = URL(string: url.appendingPathComponent("packages").absoluteString + "?offset=\(offset)&limit=\(limit)") else {
+            guard let listURL = urlComponents.url else {
                 return callback(.failure(PackageIndexError.invalidURL(url)))
             }
             self.httpClient.get(listURL) { result in
