@@ -270,7 +270,7 @@ public struct PubgrubDependencyResolver {
         // The list of version-based references reachable via local and branch-based references.
         // These are added as top-level incompatibilities since they always need to be satisfied.
         // Some of these might be overridden as we discover local and branch-based references.
-        var versionBasedDependencies = OrderedDictionary<DependencyResolutionNode, [VersionBasedConstraint]>()
+        var versionBasedDependencies = OrderedCollections.OrderedDictionary<DependencyResolutionNode, [VersionBasedConstraint]>()
 
         // Process unversioned constraints in first phase. We go through all of the unversioned packages
         // and collect them and their dependencies. This gives us the complete list of unversioned
