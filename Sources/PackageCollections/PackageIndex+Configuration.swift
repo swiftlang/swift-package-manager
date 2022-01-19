@@ -16,7 +16,7 @@ public struct PackageIndexConfiguration: Equatable {
     public var searchResultMaxItemsCount: Int
     public var cacheDirectory: AbsolutePath
     public var cacheTTLInSeconds: Int
-    public var cacheSizeInMegabytes: Int
+    public var cacheMaxSizeInMegabytes: Int
     
     // TODO: rdar://87575573 remove feature flag
     public internal(set) var enabled = ProcessInfo.processInfo.environment["SWIFTPM_ENABLE_PACKAGE_INDEX"] == "1"
@@ -26,13 +26,13 @@ public struct PackageIndexConfiguration: Equatable {
         searchResultMaxItemsCount: Int? = nil,
         cacheDirectory: AbsolutePath? = nil,
         cacheTTLInSeconds: Int? = nil,
-        cacheSizeInMegabytes: Int? = nil
+        cacheMaxSizeInMegabytes: Int? = nil
     ) {
         self.url = url
         self.searchResultMaxItemsCount = searchResultMaxItemsCount ?? 50
         self.cacheDirectory = cacheDirectory.map(resolveSymlinks) ?? localFileSystem.swiftPMCacheDirectory.appending(components: "package-metadata")
         self.cacheTTLInSeconds = cacheTTLInSeconds ?? 3600
-        self.cacheSizeInMegabytes = cacheSizeInMegabytes ?? 10
+        self.cacheMaxSizeInMegabytes = cacheMaxSizeInMegabytes ?? 10
     }
 }
 
@@ -93,7 +93,7 @@ private enum StorageModel {
                 searchResultMaxItemsCount: from.searchResultMaxItemsCount,
                 cacheDirectory: from.cacheDirectory.pathString,
                 cacheTTLInSeconds: from.cacheTTLInSeconds,
-                cacheSizeInMegabytes: from.cacheSizeInMegabytes
+                cacheMaxSizeInMegabytes: from.cacheMaxSizeInMegabytes
             )
         }
     }
@@ -103,7 +103,7 @@ private enum StorageModel {
         let searchResultMaxItemsCount: Int?
         let cacheDirectory: String?
         let cacheTTLInSeconds: Int?
-        let cacheSizeInMegabytes: Int?
+        let cacheMaxSizeInMegabytes: Int?
     }
 }
 
@@ -138,7 +138,7 @@ private extension PackageIndexConfiguration {
             searchResultMaxItemsCount: from.searchResultMaxItemsCount,
             cacheDirectory: cacheDirectory,
             cacheTTLInSeconds: from.cacheTTLInSeconds,
-            cacheSizeInMegabytes: from.cacheSizeInMegabytes
+            cacheMaxSizeInMegabytes: from.cacheMaxSizeInMegabytes
         )
     }
 }
