@@ -35,7 +35,7 @@ struct PackageIndex: PackageIndexProtocol, Closable {
         observabilityScope: ObservabilityScope
     ) {
         self.configuration = configuration
-        self.httpClient = customHTTPClient ?? HTTPClient()
+        self.httpClient = customHTTPClient ?? Self.makeDefaultHTTPClient()
         self.callbackQueue = callbackQueue
         self.observabilityScope = observabilityScope
         
@@ -187,6 +187,15 @@ struct PackageIndex: PackageIndexProtocol, Closable {
             authTokenType: nil,
             isAuthTokenConfigured: true
         )
+    }
+    
+    private static func makeDefaultHTTPClient() -> HTTPClient {
+        var client = HTTPClient()
+        // TODO: make these defaults configurable?
+        client.configuration.requestTimeout = .seconds(1)
+        client.configuration.retryStrategy = .exponentialBackoff(maxAttempts: 3, baseDelay: .milliseconds(50))
+        client.configuration.circuitBreakerStrategy = .hostErrors(maxErrors: 50, age: .seconds(30))
+        return client
     }
 
     private struct CacheValue: Codable {
