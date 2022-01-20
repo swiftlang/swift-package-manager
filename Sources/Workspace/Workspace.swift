@@ -2340,20 +2340,14 @@ extension Workspace {
                                 var artifactPath: AbsolutePath? = nil
                                 observabilityScope.trap {
                                     try self.fileSystem.withLock(on: parentDirectory, type: .exclusive) {
-                                        var content = try self.fileSystem.getDirectoryContents(tempExtractionDirectory)
                                         // strip first level component if needed
-                                        if content.count == 1,
-                                            let rootPath = content.first.map({ tempExtractionDirectory.appending(component: $0) }),
-                                            self.fileSystem.isDirectory(rootPath),
-                                            rootPath.extension.flatMap({ try? BinaryTarget.Kind.forFileExtension($0)}) == nil
-                                        {
+                                        if try self.fileSystem.shouldStripFirstLevel(archiveDirectory: tempExtractionDirectory, acceptableExtensions: BinaryTarget.Kind.allCases.map({ $0.fileExtension })) {
                                             observabilityScope.emit(debug: "stripping first level component from  \(tempExtractionDirectory)")
                                             try self.fileSystem.stripFirstLevel(of: tempExtractionDirectory)
-                                            // re-read the content after stripping
-                                            content = try self.fileSystem.getDirectoryContents(tempExtractionDirectory)
                                         } else {
                                             observabilityScope.emit(debug: "no first level component stripping needed for \(tempExtractionDirectory)")
                                         }
+                                        let content = try self.fileSystem.getDirectoryContents(tempExtractionDirectory)
                                         // copy from temp location to actual location
                                         for file in content {
                                             let source = tempExtractionDirectory.appending(component: file)
@@ -2425,8 +2419,15 @@ extension Workspace {
                 case .success:
                     observabilityScope.trap { () -> Void in
                         var artifactPath: AbsolutePath? = nil
-                        // copy from temp location to actual location
+                        // strip first level component if needed
+                        if try self.fileSystem.shouldStripFirstLevel(archiveDirectory: tempExtractionDirectory, acceptableExtensions: BinaryTarget.Kind.allCases.map({ $0.fileExtension })) {
+                            observabilityScope.emit(debug: "stripping first level component from  \(tempExtractionDirectory)")
+                            try self.fileSystem.stripFirstLevel(of: tempExtractionDirectory)
+                        } else {
+                            observabilityScope.emit(debug: "no first level component stripping needed for \(tempExtractionDirectory)")
+                        }
                         let content = try self.fileSystem.getDirectoryContents(tempExtractionDirectory)
+                        // copy from temp location to actual location
                         for file in content {
                             let source = tempExtractionDirectory.appending(component: file)
                             let destination = destinationDirectory.appending(component: file)
@@ -3828,5 +3829,35 @@ extension Workspace.Location {
     /// Returns the path to the dependency's edit directory.
     fileprivate func editSubdirectory(for dependency: Workspace.ManagedDependency) -> AbsolutePath {
         self.editsDirectory.appending(dependency.subpath)
+    }
+}
+
+extension FileSystem {
+    // helper to decide if an archive directory would benefit from stripping first level
+    fileprivate func shouldStripFirstLevel(archiveDirectory: AbsolutePath, acceptableExtensions: [String]? = nil) throws -> Bool {
+        let subdirectories = try self.getDirectoryContents(archiveDirectory)
+            .map{ archiveDirectory.appending(component: $0) }
+            .filter { self.isDirectory($0) }
+
+        // single top-level directory required
+        guard subdirectories.count == 1, let rootDirectory = subdirectories.first else {
+            return false
+        }
+
+        // no acceptable extensions defined, so the single top-level directory is a good candidate
+        guard let acceptableExtensions = acceptableExtensions else {
+            return true
+        }
+
+        // the single top-level directory is already one of the acceptable extensions, so no need to strip
+        if rootDirectory.extension.map({ acceptableExtensions.contains($0) }) ?? false {
+            return false
+        }
+
+        // see if there is "grand-child" directory with one of the acceptable extensions
+        return try self.getDirectoryContents(rootDirectory)
+            .map{ rootDirectory.appending(component: $0) }
+            .first{ $0.extension.map { acceptableExtensions.contains($0) } ?? false } != nil
+
     }
 }
