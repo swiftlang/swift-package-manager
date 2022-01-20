@@ -237,13 +237,16 @@ extension FileSystem {
 
 extension FileSystem {
     public func stripFirstLevel(of path: AbsolutePath) throws {
-        let topLevelContents = try self.getDirectoryContents(path)
-        guard topLevelContents.count == 1, let rootPath = topLevelContents.first.map({ path.appending(component: $0) }), self.isDirectory(rootPath) else {
+        let topLevelDirectories = try self.getDirectoryContents(path)
+            .map{ path.appending(component: $0) }
+            .filter{ self.isDirectory($0) }
+
+        guard topLevelDirectories.count == 1, let rootDirectory = topLevelDirectories.first else {
             throw StringError("stripFirstLevel requires single top level directory")
         }
 
         let tempDirectory = path.parentDirectory.appending(component: UUID().uuidString)
-        try self.move(from: rootPath, to: tempDirectory)
+        try self.move(from: rootDirectory, to: tempDirectory)
 
         let rootContents = try self.getDirectoryContents(tempDirectory)
         for entry in rootContents {
