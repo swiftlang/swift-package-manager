@@ -200,8 +200,8 @@ public struct PackageIndexAndCollections: Closable {
                 return callback(.failure(InternalError("Should contain results from package index and collections")))
             }
 
-            switch indexResult {
-            case .success(let metadataResult):
+            switch (indexResult, collectionsResult) {
+            case (.success(let metadataResult), _):
                 // Metadata from `PackageIndex`
                 callback(.success(
                     PackageCollectionsModel.PackageMetadata(
@@ -210,24 +210,22 @@ public struct PackageIndexAndCollections: Closable {
                         provider: metadataResult.provider
                     )
                 ))
-            case .failure(let indexError):
-                switch collectionsResult {
-                case .success(let metadataResult):
-                    // Metadata from `PackageCollections`, which is a combination of
-                    // package index/alternative (e.g., GitHub) and collection data.
-                    callback(.success(
-                        PackageCollectionsModel.PackageMetadata(
-                            package: metadataResult.package,
-                            collections: metadataResult.collections,
-                            provider: metadataResult.provider
-                        )
-                    ))
-                case .failure(let collectionsError):
-                    // Failed to get metadata through `PackageIndex` and `PackageCollections`.
-                    // Return index's error.
-                    self.observabilityScope.emit(warning: "PackageCollections.getPackageMetadata failed: \(collectionsError)")
-                    callback(.failure(indexError))
-                }
+            case (.failure(let indexError), .success(let metadataResult)):
+                self.observabilityScope.emit(warning: "PackageIndex.getPackageMetadata failed: \(indexError)")
+                // Metadata from `PackageCollections`, which is a combination of
+                // package index/alternative (e.g., GitHub) and collection data.
+                callback(.success(
+                    PackageCollectionsModel.PackageMetadata(
+                        package: metadataResult.package,
+                        collections: metadataResult.collections,
+                        provider: metadataResult.provider
+                    )
+                ))
+            case (.failure(let indexError), .failure(let collectionsError)):
+                // Failed to get metadata through `PackageIndex` and `PackageCollections`.
+                // Return index's error.
+                self.observabilityScope.emit(warning: "PackageCollections.getPackageMetadata failed: \(collectionsError)")
+                callback(.failure(indexError))
             }
         }
     }
