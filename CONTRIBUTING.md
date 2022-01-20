@@ -356,6 +356,8 @@ swift package dump-symbol-graph
 xcrun docc preview Sources/PackageDescription/PackageDescription.docc --additional-symbol-graph-dir .build/*/symbolgraph/
 ```
 
+Note that this may generate documentation for multiple modules — the preview link for PackageDescription will typically be: http://localhost:8000/documentation/packagedescription
+
 ## Advanced
 
 ### Using Custom Swift Compilers
