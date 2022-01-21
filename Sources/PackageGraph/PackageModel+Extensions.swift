@@ -56,12 +56,17 @@ extension PackageContainerConstraint {
             case .everything:
                 assertionFailure("Attempted to enumerate a root package’s product filter; root packages have no filter.")
                 return []
-            case .specific(let set):
+            case .specific(let set, let includeCommands):
+                var nodes: [DependencyResolutionNode]
                 if set.isEmpty { // Pointing at the package without a particular product.
-                    return [.empty(package: self.package)]
+                    nodes = [.empty(package: self.package)]
                 } else {
-                    return set.sorted().map { .product($0, package: self.package) }
+                    nodes = set.sorted().map { .product($0, package: self.package) }
                 }
+                if includeCommands {
+                    nodes.append(.implicitCommands(package: self.package))
+                }
+                return nodes
             }
         }
     }

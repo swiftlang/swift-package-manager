@@ -58,10 +58,18 @@ public enum DependencyResolutionNode {
     ///   to the information needed in order to provide actionable suggestions to help the user stitch up the dependency declarations properly.
     case root(package: PackageReference)
 
+    // FIXME: If command plugins become explicit in the manifest, or are extricated from the main graph, `implicitCommands` should be removed.
+    /// A node representing any implicit command plugins vended by a package.
+    ///
+    /// This type of node is equivalent to a product node in all respects,
+    /// except that the number and names of the products are unkown,
+    /// because the manifest contains no explicit reference to them.
+    case implicitCommands(package: PackageReference)
+
     /// The package.
     public var package: PackageReference {
         switch self {
-        case .empty(let package), .product(_, let package), .root(let package):
+        case .empty(let package), .product(_, let package), .root(let package), .implicitCommands(package: let package):
             return package
         }
     }
@@ -69,10 +77,17 @@ public enum DependencyResolutionNode {
     /// The name of the specific product if the node is a product node, otherwise `nil`.
     public var specificProduct: String? {
         switch self {
-        case .empty, .root:
+        case .empty, .root, .implicitCommands:
             return nil
         case .product(let product, _):
             return product
+        }
+    }
+    public var isImplicitCommandsNode: Bool {
+        if case .implicitCommands = self {
+            return true
+        } else {
+            return false
         }
     }
 
@@ -85,6 +100,8 @@ public enum DependencyResolutionNode {
             return .specific([product])
         case .root:
             return .everything
+        case .implicitCommands:
+            return .specific([], includeCommands: true)
         }
     }
 
@@ -93,7 +110,7 @@ public enum DependencyResolutionNode {
     /// This is the constraint that requires all products from a package resolve to the same version.
     internal func versionLock(version: Version) -> PackageContainerConstraint? {
         // Don’t create a version lock for anything but a product.
-        guard specificProduct != nil else { return nil }
+        guard specificProduct != nil || isImplicitCommandsNode else { return nil }
         return PackageContainerConstraint(
             package: self.package,
             versionRequirement: .exact(version),
@@ -106,7 +123,7 @@ public enum DependencyResolutionNode {
     /// This is the constraint that requires all products from a package resolve to the same revision.
     internal func revisionLock(revision: String) -> PackageContainerConstraint? {
         // Don’t create a revision lock for anything but a product.
-        guard specificProduct != nil else { return nil }
+        guard specificProduct != nil || isImplicitCommandsNode else { return nil }
         return PackageContainerConstraint(
             package: self.package,
             requirement: .revision(revision),
@@ -117,7 +134,9 @@ public enum DependencyResolutionNode {
 
 extension DependencyResolutionNode: Equatable {
     public static func ==(lhs: DependencyResolutionNode, rhs: DependencyResolutionNode) -> Bool {
-        return (lhs.package, lhs.specificProduct) == (rhs.package, rhs.specificProduct)
+        return lhs.package == rhs.package
+        && lhs.specificProduct == rhs.specificProduct
+        && lhs.isImplicitCommandsNode == rhs.isImplicitCommandsNode
     }
 }
 
@@ -125,6 +144,7 @@ extension DependencyResolutionNode: Hashable {
     public func hash(into hasher: inout Hasher) {
         hasher.combine(self.package)
         hasher.combine(self.specificProduct)
+        hasher.combine(self.isImplicitCommandsNode)
     }
 }
 

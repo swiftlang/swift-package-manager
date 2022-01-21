@@ -59,7 +59,7 @@ extension GraphLoadingNode: CustomStringConvertible {
         switch productFilter {
         case .everything:
             return self.identity.description
-        case .specific(let set):
+        case .specific(let set, _):
             return "\(self.identity.description)[\(set.sorted().joined(separator: ", "))]"
         }
     }

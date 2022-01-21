@@ -1220,8 +1220,11 @@ public final class PackageBuilder {
         switch productFilter {
         case .everything:
             filteredProducts = self.manifest.products
-        case .specific(let set):
-            filteredProducts = self.manifest.products.filter { set.contains($0.name) }
+        case .specific(let set, let includeCommands):
+            filteredProducts = self.manifest.products.filter { product in
+                return set.contains(product.name)
+                || (includeCommands && self.manifest.productIsCommandPlugin(product))
+            }
         }
         for product in filteredProducts {
             let targets = try modulesFrom(targetNames: product.targets, product: product.name)

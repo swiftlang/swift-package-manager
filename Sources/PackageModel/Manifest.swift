@@ -151,6 +151,24 @@ public final class Manifest {
         self.targetMap = Dictionary(targets.lazy.map({ ($0.name, $0) }), uniquingKeysWith: { $1 })
     }
 
+    public func productIsCommandPlugin(_ product: ProductDescription) -> Bool {
+        return product.type == .plugin
+        && self.targets.contains(where: { target in
+            if case .command = target.pluginCapability,
+               product.targets.contains(target.name) {
+                return true
+            } else {
+                return false
+            }
+        })
+    }
+    internal func productIsCommandPlugin(_ product: String) -> Bool {
+        return products.contains(where: { possibleMatch in
+            return possibleMatch.name == product
+            && self.productIsCommandPlugin(possibleMatch)
+        })
+    }
+
     /// Returns the targets required for a particular product filter.
     public func targetsRequired(for productFilter: ProductFilter) -> [TargetDescription] {
         #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
@@ -162,8 +180,11 @@ public final class Manifest {
             switch productFilter {
             case .everything:
                 return self.targets
-            case .specific(let productFilter):
-                let products = self.products.filter { productFilter.contains($0.name) }
+            case .specific(let productFilter, let includeCommands):
+                let products = self.products.filter { product in
+                    return productFilter.contains(product.name)
+                    || (includeCommands && productIsCommandPlugin(product))
+                }
                 targets = targetsRequired(for: products)
             }
 
@@ -183,7 +204,11 @@ public final class Manifest {
             return dependencies
         } else {
             let targets = self.targetsRequired(for: productFilter)
-            let dependencies = self.dependenciesRequired(for: targets, keepUnused: productFilter == .everything)
+            let dependencies = self.dependenciesRequired(
+                for: targets,
+                keepImplicitCommandPlugins: productFilter == .everything,
+                keepUnused: productFilter == .everything
+            )
             self._requiredDependencies[productFilter] = dependencies
             return dependencies
         }
@@ -251,6 +276,7 @@ public final class Manifest {
     /// The returned dependencies have their particular product filters registered. (To determine product filters without removing any dependencies from the list, specify `keepUnused: true`.)
     private func dependenciesRequired(
         for targets: [TargetDescription],
+        keepImplicitCommandPlugins: Bool,
         keepUnused: Bool = false
     ) -> [PackageDependency] {
 
@@ -278,13 +304,13 @@ public final class Manifest {
 
         return dependencies.compactMap { dependency in
             if let filter = associations[dependency.identity] {
-                return dependency.filtered(by: filter)
+                return dependency.filtered(by: keepImplicitCommandPlugins ? filter.includingImplicitCommands() : filter)
             } else if keepUnused {
                 // Register that while the dependency was kept, no products are needed.
-                return dependency.filtered(by: .nothing)
+                return dependency.filtered(by: keepImplicitCommandPlugins ? .nothing.includingImplicitCommands() : .nothing)
             } else {
                 // Dependencies known to not have any relevant products are discarded.
-                return nil
+                return keepImplicitCommandPlugins ? dependency.filtered(by: .nothing.includingImplicitCommands()) : nil
             }
         }
     }

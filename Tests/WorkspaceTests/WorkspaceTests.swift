@@ -1490,7 +1490,7 @@ final class WorkspaceTests: XCTestCase {
         try workspace.checkUpdateDryRun(roots: ["Root"]) { changes, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
             #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
-            let stateChange = Workspace.PackageStateChange.updated(.init(requirement: .version(Version("1.5.0")), products: .specific(["Foo"])))
+            let stateChange = Workspace.PackageStateChange.updated(.init(requirement: .version(Version("1.5.0")), products: .specific(["Foo"], includeCommands: true)))
             #else
             let stateChange = Workspace.PackageStateChange.updated(.init(requirement: .version(Version("1.5.0")), products: .everything))
             #endif
@@ -1831,8 +1831,8 @@ final class WorkspaceTests: XCTestCase {
         }
 
         try workspace.loadDependencyManifests(roots: ["Root1"]) { manifests, diagnostics in
-            // Ensure that the order of the manifests is stable.
-            XCTAssertEqual(manifests.allDependencyManifests().map { $0.value.manifest.displayName }, ["Foo", "Baz", "Bam", "Bar"])
+            // Ensure that the order of the manifests is stable from one run to the next (changes accross versions do not matter).
+            XCTAssertEqual(manifests.allDependencyManifests().map { $0.value.manifest.displayName }, ["Bam", "Baz", "Bar", "Foo"])
             XCTAssertNoDiagnostics(diagnostics)
         }
     }

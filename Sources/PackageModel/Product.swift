@@ -100,15 +100,18 @@ public enum ProductType: Equatable, Hashable {
 /// Any product which matches the filter will be used for dependency resolution, whereas unrequested products will be ingored.
 ///
 /// Requested products need not actually exist in the package. Under certain circumstances, the resolver may request names whose package of origin are unknown. The intended package will recognize and fullfill the request; packages that do not know what it is will simply ignore it.
-public enum ProductFilter: Equatable, Hashable {
+public enum ProductFilter: Codable, Equatable, Hashable {
 
     /// All products, targets, and tests are requested.
     ///
     /// This is used for root packages.
     case everything
 
+    // FIXME: If command plugins become explicit in the manifest, or are extricated from the main graph, `includeCommands` should be removed.
     /// A set of specific products requested by one or more client packages.
-    case specific(Set<String>)
+    ///
+    /// `includeCommands` is used by first‐level dependencies to also request any command plugins, regardless of whether they are referenced anywhere.
+    case specific(Set<String>, includeCommands: Bool = false)
 
     /// No products, targets, or tests are requested.
     public static var nothing: ProductFilter { .specific([]) }
@@ -117,12 +120,15 @@ public enum ProductFilter: Equatable, Hashable {
         switch self {
         case .everything:
             return .everything
-        case .specific(let set):
+        case .specific(let set, let includeCommands):
             switch other {
             case .everything:
                 return .everything
-            case .specific(let otherSet):
-                return .specific(set.union(otherSet))
+            case .specific(let otherSet, let otherIncludeCommands):
+                return .specific(
+                    set.union(otherSet),
+                    includeCommands: includeCommands || otherIncludeCommands
+                )
             }
         }
     }
@@ -131,23 +137,22 @@ public enum ProductFilter: Equatable, Hashable {
         self = self.union(other)
     }
 
-    public func contains(_ product: String) -> Bool {
+    public func contains(_ product: String, isCommandPlugin: (String) -> Bool) -> Bool {
         switch self {
         case .everything:
             return true
-        case .specific(let set):
+        case .specific(let set, let includeCommands):
             return set.contains(product)
+            || (includeCommands && isCommandPlugin(product))
         }
     }
 
-    public func merge(_ other: ProductFilter) -> ProductFilter {
-        switch (self, other) {
-        case (.everything, _):
-            return .everything
-        case (_, .everything):
-            return .everything
-        case (.specific(let mine), .specific(let other)):
-            return .specific(mine.union(other))
+    internal func includingImplicitCommands() -> ProductFilter {
+        switch self {
+        case .everything:
+            return self
+        case .specific(let set, _):
+            return .specific(set, includeCommands: true)
         }
     }
 }
@@ -190,8 +195,8 @@ extension ProductFilter: CustomStringConvertible {
         switch self {
         case .everything:
             return "[everything]"
-        case .specific(let set):
-            return "[\(set.sorted().joined(separator: ", "))]"
+        case .specific(let set, let includeCommands):
+            return "[\(set.sorted().joined(separator: ", "))\(includeCommands ? " (including commands)" : "")]"
         }
     }
 }
@@ -238,29 +243,6 @@ extension ProductType: Codable {
             self = .snippet
         case .plugin:
             self = .plugin
-        }
-    }
-}
-
-extension ProductFilter: Codable {
-    public func encode(to encoder: Encoder) throws {
-        let optionalSet: Set<String>?
-        switch self {
-        case .everything:
-            optionalSet = nil
-        case .specific(let set):
-            optionalSet = set
-        }
-        var container = encoder.singleValueContainer()
-        try container.encode(optionalSet?.sorted())
-    }
-
-    public init(from decoder: Decoder) throws {
-        let container = try decoder.singleValueContainer()
-        if container.decodeNil() {
-            self = .everything
-        } else {
-            self = .specific(Set(try container.decode([String].self)))
         }
     }
 }
