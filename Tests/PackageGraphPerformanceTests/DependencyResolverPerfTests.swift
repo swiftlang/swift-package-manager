@@ -174,14 +174,17 @@ extension ProductFilter: JSONSerializable, JSONMappable {
         switch self {
         case .everything:
             return "all".toJSON()
-        case .specific(let products, _):
+        case .specific(var products, let includeCommands):
+            if includeCommands { products.insert("_commands_") }
             return products.sorted().toJSON()
         }
     }
 
     public init(json: JSON) throws {
         if let products = try? [String](json: json) {
-            self = .specific(Set(products))
+            var set = Set(products)
+            let includeCommands = set.remove("_commands_") != nil
+            self = .specific(set, includeCommands: includeCommands)
         } else {
             self = .everything
         }
