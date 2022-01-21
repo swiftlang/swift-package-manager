@@ -1124,6 +1124,69 @@ final class PackageToolTests: CommandsTestCase {
         }
     }
 
+    func testBuildToolPluginFailure() throws {
+
+        try testWithTemporaryDirectory { tmpPath in
+            // Create a sample package with a library target and a plugin.
+            let packageDir = tmpPath.appending(components: "MyPackage")
+            try localFileSystem.createDirectory(packageDir, recursive: true)
+            try localFileSystem.writeFileContents(packageDir.appending(component: "Package.swift"), string: """
+                // swift-tools-version: 5.6
+                import PackageDescription
+                let package = Package(
+                    name: "MyPackage",
+                    targets: [
+                        .target(
+                            name: "MyLibrary",
+                            plugins: [
+                                "MyPlugin",
+                            ]
+                        ),
+                        .plugin(
+                            name: "MyPlugin",
+                            capability: .buildTool()
+                        ),
+                    ]
+                )
+                """
+            )
+            let myLibraryTargetDir = packageDir.appending(components: "Sources", "MyLibrary")
+            try localFileSystem.createDirectory(myLibraryTargetDir, recursive: true)
+            try localFileSystem.writeFileContents(myLibraryTargetDir.appending(component: "library.swift"), string: """
+                public func Foo() { }
+                """
+            )
+            let myPluginTargetDir = packageDir.appending(components: "Plugins", "MyPlugin")
+            try localFileSystem.createDirectory(myPluginTargetDir, recursive: true)
+            try localFileSystem.writeFileContents(myPluginTargetDir.appending(component: "plugin.swift"), string: """
+                import PackagePlugin
+                import Foundation
+                @main
+                struct MyBuildToolPlugin: BuildToolPlugin {
+                    func createBuildCommands(
+                        context: PluginContext,
+                        target: Target
+                    ) throws -> [Command] {
+                        print("This is text from the plugin")
+                        throw "This is an error from the plugin"
+                        return []
+                    }
+
+                }
+                extension String : Error {}
+                """
+            )
+
+            // Invoke it, and check the results.
+            let result = try SwiftPMProduct.SwiftBuild.executeProcess(["-v"], packagePath: packageDir)
+            let output = try result.utf8Output() + result.utf8stderrOutput()
+            XCTAssertNotEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
+            XCTAssertMatch(output, .contains("This is text from the plugin"))
+            XCTAssertMatch(output, .contains("error: This is an error from the plugin"))
+            XCTAssertMatch(output, .contains("Build complete!"))
+        }
+    }
+
     func testArchiveSource() throws {
         fixture(name: "DependencyResolution/External/Simple") { prefix in
             let packageRoot = prefix.appending(component: "Bar")
