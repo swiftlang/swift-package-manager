@@ -1592,6 +1592,162 @@ final class PackageToolTests: CommandsTestCase {
         }
     }
 
+    func testCommandPluginBuildingCallbacks() throws {
+
+        try testWithTemporaryDirectory { tmpPath in
+            // Create a sample package with a library, an executable, and a command plugin.
+            let packageDir = tmpPath.appending(components: "MyPackage")
+            try localFileSystem.createDirectory(packageDir, recursive: true)
+            try localFileSystem.writeFileContents(packageDir.appending(components: "Package.swift"), string: """
+                // swift-tools-version: 5.6
+                import PackageDescription
+                let package = Package(
+                    name: "MyPackage",
+                    products: [
+                        .library(
+                            name: "MyAutomaticLibrary",
+                            targets: ["MyLibrary"]
+                        ),
+                        .library(
+                            name: "MyStaticLibrary",
+                            type: .static,
+                            targets: ["MyLibrary"]
+                        ),
+                        .library(
+                            name: "MyDynamicLibrary",
+                            type: .dynamic,
+                            targets: ["MyLibrary"]
+                        ),
+                        .executable(
+                            name: "MyExecutable",
+                            targets: ["MyExecutable"]
+                        ),
+                    ],
+                    targets: [
+                        .target(
+                            name: "MyLibrary"
+                        ),
+                        .executableTarget(
+                            name: "MyExecutable",
+                            dependencies: ["MyLibrary"]
+                        ),
+                        .plugin(
+                            name: "MyPlugin",
+                            capability: .command(
+                                intent: .custom(verb: "my-build-tester", description: "Help description")
+                            )
+                        ),
+                    ]
+                )
+                """
+            )
+            let myPluginTargetDir = packageDir.appending(components: "Plugins", "MyPlugin")
+            try localFileSystem.createDirectory(myPluginTargetDir, recursive: true)
+            try localFileSystem.writeFileContents(myPluginTargetDir.appending(component: "plugin.swift"), string: """
+                import PackagePlugin
+                @main
+                struct MyCommandPlugin: CommandPlugin {
+                    func performCommand(
+                        context: PluginContext,
+                        targets: [Target],
+                        arguments: [String]
+                    ) throws {
+                        let product = arguments[0]
+                        let verbose = arguments.contains("verbose")
+                        let release = arguments.contains("release")
+                        do {
+                            var parameters = PackageManager.BuildParameters()
+                            parameters.configuration = release ? .release : .debug
+                            parameters.logging = verbose ? .verbose : .concise
+                            parameters.otherSwiftcFlags = ["-DEXTRA_SWIFT_FLAG"]
+                            let result = try packageManager.build(.product(product), parameters: parameters)
+                            print("succeeded: \\(result.succeeded)")
+                            for artifact in result.builtArtifacts {
+                                print("artifact-path: \\(artifact.path.string)")
+                                print("artifact-kind: \\(artifact.kind)")
+                            }
+                            print("log:\\n\\(result.logText)")
+                        }
+                        catch {
+                            print("error from the plugin host: \\(error)")
+                        }
+                    }
+                }
+                """
+            )
+            let myLibraryTargetDir = packageDir.appending(components: "Sources", "MyLibrary")
+            try localFileSystem.createDirectory(myLibraryTargetDir, recursive: true)
+            try localFileSystem.writeFileContents(myLibraryTargetDir.appending(component: "library.swift"), string: """
+                public func GetGreeting() -> String { return "Hello" }
+                """
+            )
+            let myExecutableTargetDir = packageDir.appending(components: "Sources", "MyExecutable")
+            try localFileSystem.createDirectory(myExecutableTargetDir, recursive: true)
+            try localFileSystem.writeFileContents(myExecutableTargetDir.appending(component: "main.swift"), string: """
+                import MyLibrary
+                print("\\(GetGreeting()), World!")
+                """
+            )
+
+            // Invoke the plugin with parameters choosing a verbose build of MyExecutable for debugging.
+            do {
+                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["my-build-tester", "MyExecutable", "verbose"], packagePath: packageDir)
+                let output = try result.utf8Output() + result.utf8stderrOutput()
+                XCTAssertEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
+                XCTAssertMatch(output, .contains("Building for debugging..."))
+                XCTAssertNoMatch(output, .contains("Building for production..."))
+                XCTAssertMatch(output, .contains("-module-name MyExecutable"))
+                XCTAssertMatch(output, .contains("-DEXTRA_SWIFT_FLAG"))
+                XCTAssertMatch(output, .contains("Build complete!"))
+                XCTAssertMatch(output, .contains("succeeded: true"))
+                XCTAssertMatch(output, .and(.contains("artifact-path:"), .contains("debug/MyExecutable")))
+                XCTAssertMatch(output, .and(.contains("artifact-kind:"), .contains("executable")))
+            }
+
+            // Invoke the plugin with parameters choosing a concise build of MyExecutable for release.
+            do {
+                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["my-build-tester", "MyExecutable", "release"], packagePath: packageDir)
+                let output = try result.utf8Output() + result.utf8stderrOutput()
+                XCTAssertEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
+                XCTAssertMatch(output, .contains("Building for production..."))
+                XCTAssertNoMatch(output, .contains("Building for debug..."))
+                XCTAssertNoMatch(output, .contains("-module-name MyExecutable"))
+                XCTAssertMatch(output, .contains("Build complete!"))
+                XCTAssertMatch(output, .contains("succeeded: true"))
+                XCTAssertMatch(output, .and(.contains("artifact-path:"), .contains("release/MyExecutable")))
+                XCTAssertMatch(output, .and(.contains("artifact-kind:"), .contains("executable")))
+            }
+
+            // Invoke the plugin with parameters choosing a verbose build of MyStaticLibrary for release.
+            do {
+                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["my-build-tester", "MyStaticLibrary", "verbose", "release"], packagePath: packageDir)
+                let output = try result.utf8Output() + result.utf8stderrOutput()
+                XCTAssertEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
+                XCTAssertMatch(output, .contains("Building for production..."))
+                XCTAssertNoMatch(output, .contains("Building for debug..."))
+                XCTAssertNoMatch(output, .contains("-module-name MyLibrary"))
+                XCTAssertMatch(output, .contains("Build complete!"))
+                XCTAssertMatch(output, .contains("succeeded: true"))
+                XCTAssertMatch(output, .and(.contains("artifact-path:"), .contains("release/libMyStaticLibrary.")))
+                XCTAssertMatch(output, .and(.contains("artifact-kind:"), .contains("staticLibrary")))
+            }
+
+            // Invoke the plugin with parameters choosing a verbose build of MyDynamicLibrary for release.
+            do {
+                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["my-build-tester", "MyDynamicLibrary", "verbose", "release"], packagePath: packageDir)
+                let output = try result.utf8Output() + result.utf8stderrOutput()
+                XCTAssertEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
+                XCTAssertMatch(output, .contains("Building for production..."))
+                XCTAssertNoMatch(output, .contains("Building for debug..."))
+                XCTAssertNoMatch(output, .contains("-module-name MyLibrary"))
+                XCTAssertMatch(output, .contains("Build complete!"))
+                XCTAssertMatch(output, .contains("succeeded: true"))
+                XCTAssertMatch(output, .and(.contains("artifact-path:"), .contains("release/libMyDynamicLibrary.")))
+                XCTAssertMatch(output, .and(.contains("artifact-kind:"), .contains("dynamicLibrary")))
+            }
+        }
+    }
+
     func testCommandPluginTestingCallbacks() throws {
         // Depending on how the test is running, the `llvm-profdata` and `llvm-cov` tool might be unavailable.
         try XCTSkipIf((try? UserToolchain.default.getLLVMProf()) == nil, "skipping test because the `llvm-profdata` tool isn't available")

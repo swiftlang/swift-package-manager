@@ -1146,43 +1146,71 @@ final class PluginDelegate: PluginInvocationDelegate {
         buildParameters.flags.swiftCompilerFlags.append(contentsOf: parameters.otherSwiftcFlags)
         buildParameters.flags.linkerFlags.append(contentsOf: parameters.otherLinkerFlags)
 
+        // Configure the verbosity of the output.
+        let logLevel: Diagnostic.Severity
+        switch parameters.logging {
+        case .concise:
+            logLevel = .warning
+        case .verbose:
+            logLevel = .info
+        case .debug:
+            logLevel = .debug
+        }
+
         // Determine the subset of products and targets to build.
+        var explicitProduct: String? = .none
         let buildSubset: BuildSubset
         switch subset {
         case .all(let includingTests):
             buildSubset = includingTests ? .allIncludingTests : .allExcludingTests
         case .product(let name):
             buildSubset = .product(name)
+            explicitProduct = name
         case .target(let name):
             buildSubset = .target(name)
         }
-        
-        final class BuildOpDelegate: BuildSystemDelegate {
-            var logText = ""
-            var logLock = Lock()
-            var result = false
-            func buildSystem(_ buildSystem: BuildSystem, didStartCommand command: BuildSystemCommand) {
-                logLock.withLock {
-                    logText.append("\(command.description)\n")
-                }
-            }
-            func buildSystem(_ buildSystem: BuildSystem, didFinishWithResult success: Bool) {
-                result = success
-            }
-        }
-        
+
         // Create a build operation. We have to disable the cache in order to get a build plan created.
-        let buildOperation = try self.swiftTool.createBuildOperation(cacheBuildManifest: false)
-        let delegate = BuildOpDelegate()
-        buildOperation.delegate = delegate
+        let outputStream = BufferedOutputByteStream()
+        let buildOperation = BuildOperation(
+            buildParameters: buildParameters,
+            cacheBuildManifest: false,
+            packageGraphLoader: { try self.swiftTool.loadPackageGraph(explicitProduct: explicitProduct) },
+            buildToolPluginInvoker: { try self.swiftTool.invokeBuildToolPlugins(graph: $0) },
+            outputStream: outputStream,
+            logLevel: logLevel,
+            fileSystem: localFileSystem,
+            observabilityScope: self.swiftTool.observabilityScope
+        )
+
+        // Save the instance so it can be canceled from the interrupt handler.
+        self.swiftTool.buildSystemRef.buildSystem = buildOperation
+
+        // Get or create the build description and plan the build.
         let _ = try buildOperation.getBuildDescription()
         let buildPlan = buildOperation.buildPlan!
         
         // Run the build. This doesn't return until the build is complete.
-        try buildOperation.build(subset: buildSubset)
-        
+        var success = true
+        do {
+            try buildOperation.build(subset: buildSubset)
+        }
+        catch {
+            success = false
+        }
+
         // Create and return the build result record based on what the delegate collected and what's in the build plan.
-        let builtArtifacts: [PluginInvocationBuildResult.BuiltArtifact] = buildPlan.buildProducts.compactMap {
+        let builtProducts = buildPlan.buildProducts.filter {
+            switch subset {
+            case .all(let includingTests):
+                return includingTests ? true : $0.product.type != .test
+            case .product(let name):
+                return $0.product.name == name
+            case .target(let name):
+                return $0.product.name == name
+            }
+        }
+        let builtArtifacts: [PluginInvocationBuildResult.BuiltArtifact] = builtProducts.compactMap {
             switch $0.product.type {
             case .library(let kind):
                 return .init(path: $0.binary.pathString, kind: (kind == .dynamic) ? .dynamicLibrary : .staticLibrary)
@@ -1193,8 +1221,8 @@ final class PluginDelegate: PluginInvocationDelegate {
             }
         }
         return PluginInvocationBuildResult(
-            succeeded: delegate.result,
-            logText: delegate.logText,
+            succeeded: success,
+            logText: outputStream.bytes.cString,
             builtArtifacts: builtArtifacts)
     }
 
