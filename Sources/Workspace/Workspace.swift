@@ -1750,7 +1750,7 @@ extension Workspace {
         var allManifests = [(identity: PackageIdentity, manifest: Manifest, productFilter: ProductFilter)]()
         for pair in allManifestsWithPossibleDuplicates {
             if let index = deduplication[pair.key.identity]  {
-                let productFilter = allManifests[index].productFilter.merge(pair.key.productFilter)
+                let productFilter = allManifests[index].productFilter.union(pair.key.productFilter)
                 allManifests[index] = (pair.key.identity, pair.item, productFilter)
             } else {
                 deduplication[pair.key.identity] = allManifests.count

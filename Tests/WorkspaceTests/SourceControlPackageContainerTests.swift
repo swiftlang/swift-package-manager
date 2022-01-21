@@ -420,9 +420,9 @@ class SourceControlPackageContainerTests: XCTestCase {
         ]
 
         let v5ProductMapping: [String: ProductFilter] = [
-            "bar1": .specific(["Bar1", "Bar3"]),
-            "bar2": .specific(["B2", "Bar1", "Bar3"]),
-            "bar3": .specific(["Bar1", "Bar3"]),
+            "bar1": .specific(["Bar1", "Bar3"], includeCommands: true),
+            "bar2": .specific(["B2", "Bar1", "Bar3"], includeCommands: true),
+            "bar3": .specific(["Bar1", "Bar3"], includeCommands: true),
         ]
         let v5Constraints = try dependencies.map {
             PackageContainerConstraint(
@@ -432,9 +432,9 @@ class SourceControlPackageContainerTests: XCTestCase {
             )
         }
         let v5_2ProductMapping: [String: ProductFilter] = [
-            "bar1": .specific(["Bar1"]),
-            "bar2": .specific(["B2"]),
-            "bar3": .specific(["Bar3"]),
+            "bar1": .specific(["Bar1"], includeCommands: true),
+            "bar2": .specific(["B2"], includeCommands: true),
+            "bar3": .specific(["Bar3"], includeCommands: true),
         ]
         let v5_2Constraints = try dependencies.map {
             PackageContainerConstraint(
@@ -510,6 +510,18 @@ class SourceControlPackageContainerTests: XCTestCase {
             )
         }
 
+        let v5_2ProductMappingWithoutCommands: [String: ProductFilter] = [
+            "bar1": .specific(["Bar1"], includeCommands: false),
+            "bar2": .specific(["B2"], includeCommands: false),
+            "bar3": .specific(["Bar3"], includeCommands: false),
+        ]
+        let v5_2ConstraintsWithoutCommands = try dependencies.map {
+            PackageContainerConstraint(
+                package: $0.createPackageRef(),
+                requirement: try $0.toConstraintRequirement(),
+                products: v5_2ProductMappingWithoutCommands[$0.identity.description]!
+            )
+        }
         do {
             let manifest = Manifest.createFileSystemManifest(
                 name: "Foo",
@@ -525,8 +537,8 @@ class SourceControlPackageContainerTests: XCTestCase {
                     .dependencyConstraints(productFilter: .specific(Set(products.map { $0.name })))
                     .sorted(by: { $0.package.identity < $1.package.identity }),
                 [
-                    v5_2Constraints[0],
-                    v5_2Constraints[1],
+                    v5_2ConstraintsWithoutCommands[0],
+                    v5_2ConstraintsWithoutCommands[1],
                 ]
             )
         }

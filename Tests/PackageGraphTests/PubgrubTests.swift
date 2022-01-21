@@ -2679,7 +2679,8 @@ public class MockContainer: PackageContainer {
             throw _MockLoadingError.unknownRevision
         }
         var filteredDependencies: [MockContainer.Dependency] = []
-        for (product, productDependencies) in revisionDependencies where productFilter.contains(product) {
+        for (product, productDependencies) in revisionDependencies
+        where productFilter.contains(product, isCommandPlugin: { _ in false /* not distinguished by MockContainer */ }) {
             filteredDependencies.append(contentsOf: productDependencies)
         }
         return filteredDependencies.map({ value in

@@ -1889,7 +1889,7 @@ class PackageGraphTests: XCTestCase {
         let requestedProducts = unrelated.productFilter
         #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
         // Unrelated should not have been asked for Product, because it should know Product comes from Identity.
-        XCTAssertFalse(requestedProducts.contains("Product"), "Product requests are leaking.")
+        XCTAssertFalse(requestedProducts.contains("Product", isCommandPlugin: { _ in false }), "Product requests are leaking.")
         #endif
     }
 }

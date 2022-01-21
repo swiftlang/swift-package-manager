@@ -174,7 +174,7 @@ extension ProductFilter: JSONSerializable, JSONMappable {
         switch self {
         case .everything:
             return "all".toJSON()
-        case .specific(let products):
+        case .specific(let products, _):
             return products.sorted().toJSON()
         }
     }
