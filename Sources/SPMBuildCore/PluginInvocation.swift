@@ -240,6 +240,7 @@ extension PackageGraph {
                 let delegate = PluginDelegate(delegateQueue: delegateQueue)
 
                 // Invoke the build tool plugin with the input parameters and the delegate that will collect outputs.
+                let startTime = DispatchTime.now()
                 let success = try tsc_await { pluginTarget.invoke(
                     action: .createBuildToolCommands(target: target),
                     package: package,
@@ -256,17 +257,20 @@ extension PackageGraph {
                     callbackQueue: delegateQueue,
                     delegate: delegate,
                     completion: $0) }
+                let duration = startTime.distance(to: .now())
 
                 // Add a BuildToolPluginInvocationResult to the mapping.
-                if success {
-                    buildToolPluginResults.append(.init(
-                        plugin: pluginTarget,
-                        pluginOutputDirectory: pluginOutputDir,
-                        diagnostics: delegate.diagnostics,
-                        textOutput: String(decoding: delegate.outputData, as: UTF8.self),
-                        buildCommands: delegate.buildCommands,
-                        prebuildCommands: delegate.prebuildCommands))
-                }
+                buildToolPluginResults.append(.init(
+                    plugin: pluginTarget,
+                    pluginOutputDirectory: pluginOutputDir,
+                    package: package,
+                    target: target,
+                    succeeded: success,
+                    duration: duration,
+                    diagnostics: delegate.diagnostics,
+                    textOutput: String(decoding: delegate.outputData, as: UTF8.self),
+                    buildCommands: delegate.buildCommands,
+                    prebuildCommands: delegate.prebuildCommands))
             }
 
             // Associate the list of results with the target. The list will have one entry for each plugin used by the target.
@@ -320,6 +324,18 @@ public struct BuildToolPluginInvocationResult {
 
     /// The directory given to the plugin as a place in which it and the commands are allowed to write.
     public var pluginOutputDirectory: AbsolutePath
+
+    /// The package to which the plugin was applied.
+    public var package: ResolvedPackage
+
+    /// The target in that package to which the plugin was applied.
+    public var target: ResolvedTarget
+
+    /// If the plugin finished successfully.
+    public var succeeded: Bool
+
+    /// Duration of the plugin invocation.
+    public var duration: DispatchTimeInterval
 
     /// Any diagnostics emitted by the plugin.
     public var diagnostics: [Diagnostic]
@@ -1086,3 +1102,20 @@ public struct FileLocation: Equatable, CustomStringConvertible {
         "\(self.file)\(self.line?.description.appending(" ") ?? "")"
     }
 }
+
+extension ObservabilityMetadata {
+    /// Provides information about the plugin from which the diagnostics originated.
+    public var pluginName: String? {
+        get {
+            self[PluginNameKey.self]
+        }
+        set {
+            self[PluginNameKey.self] = newValue
+        }
+    }
+
+    enum PluginNameKey: Key {
+        typealias Value = String
+    }
+}
+
