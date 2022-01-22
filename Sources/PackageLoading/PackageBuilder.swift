@@ -1220,10 +1220,10 @@ public final class PackageBuilder {
         switch productFilter {
         case .everything:
             filteredProducts = self.manifest.products
-        case .specific(let set, let includeCommands):
+        case .specific(let set, let includeCommandPlugins):
             filteredProducts = self.manifest.products.filter { product in
                 return set.contains(product.name)
-                || (includeCommands && self.manifest.productIsCommandPlugin(product))
+                || (includeCommandPlugins && self.manifest.productIsCommandPlugin(product))
             }
         }
         for product in filteredProducts {

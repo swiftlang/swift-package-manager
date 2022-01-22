@@ -174,8 +174,8 @@ extension ProductFilter: JSONSerializable, JSONMappable {
         switch self {
         case .everything:
             return "all".toJSON()
-        case .specific(var products, let includeCommands):
-            if includeCommands { products.insert("_commands_") }
+        case .specific(var products, let includeCommandPlugins):
+            if includeCommandPlugins { products.insert("_command_plugins_") }
             return products.sorted().toJSON()
         }
     }
@@ -183,8 +183,8 @@ extension ProductFilter: JSONSerializable, JSONMappable {
     public init(json: JSON) throws {
         if let products = try? [String](json: json) {
             var set = Set(products)
-            let includeCommands = set.remove("_commands_") != nil
-            self = .specific(set, includeCommands: includeCommands)
+            let includeCommandPlugins = set.remove("_commands_plugins_") != nil
+            self = .specific(set, includeCommandPlugins: includeCommandPlugins)
         } else {
             self = .everything
         }

@@ -1490,7 +1490,7 @@ final class WorkspaceTests: XCTestCase {
         try workspace.checkUpdateDryRun(roots: ["Root"]) { changes, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
             #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
-            let stateChange = Workspace.PackageStateChange.updated(.init(requirement: .version(Version("1.5.0")), products: .specific(["Foo"], includeCommands: true)))
+            let stateChange = Workspace.PackageStateChange.updated(.init(requirement: .version(Version("1.5.0")), products: .specific(["Foo"], includeCommandPlugins: true)))
             #else
             let stateChange = Workspace.PackageStateChange.updated(.init(requirement: .version(Version("1.5.0")), products: .everything))
             #endif

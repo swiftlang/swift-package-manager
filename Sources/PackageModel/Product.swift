@@ -107,11 +107,11 @@ public enum ProductFilter: Codable, Equatable, Hashable {
     /// This is used for root packages.
     case everything
 
-    // FIXME: If command plugins become explicit in the manifest, or are extricated from the main graph, `includeCommands` should be removed.
+    // FIXME: If command plugins become explicit in the manifest, or are extricated from the main graph, `includeCommandPlugins` should be removed.
     /// A set of specific products requested by one or more client packages.
     ///
-    /// `includeCommands` is used by first‐level dependencies to also request any command plugins, regardless of whether they are referenced anywhere.
-    case specific(Set<String>, includeCommands: Bool = false)
+    /// `includeCommandPlugins` is used by first‐level dependencies to also request any command plugins, regardless of whether they are referenced anywhere.
+    case specific(Set<String>, includeCommandPlugins: Bool = false)
 
     /// No products, targets, or tests are requested.
     public static var nothing: ProductFilter { .specific([]) }
@@ -120,14 +120,14 @@ public enum ProductFilter: Codable, Equatable, Hashable {
         switch self {
         case .everything:
             return .everything
-        case .specific(let set, let includeCommands):
+        case .specific(let set, let includeCommandPlugins):
             switch other {
             case .everything:
                 return .everything
-            case .specific(let otherSet, let otherIncludeCommands):
+            case .specific(let otherSet, let otherIncludeCommandPlugins):
                 return .specific(
                     set.union(otherSet),
-                    includeCommands: includeCommands || otherIncludeCommands
+                    includeCommandPlugins: includeCommandPlugins || otherIncludeCommandPlugins
                 )
             }
         }
@@ -141,9 +141,9 @@ public enum ProductFilter: Codable, Equatable, Hashable {
         switch self {
         case .everything:
             return true
-        case .specific(let set, let includeCommands):
+        case .specific(let set, let includeCommandPlugins):
             return set.contains(product)
-            || (includeCommands && isCommandPlugin(product))
+            || (includeCommandPlugins && isCommandPlugin(product))
         }
     }
 
@@ -152,7 +152,7 @@ public enum ProductFilter: Codable, Equatable, Hashable {
         case .everything:
             return self
         case .specific(let set, _):
-            return .specific(set, includeCommands: true)
+            return .specific(set, includeCommandPlugins: true)
         }
     }
 }
@@ -195,8 +195,8 @@ extension ProductFilter: CustomStringConvertible {
         switch self {
         case .everything:
             return "[everything]"
-        case .specific(let set, let includeCommands):
-            return "[\(set.sorted().joined(separator: ", "))\(includeCommands ? " (including commands)" : "")]"
+        case .specific(let set, let includeCommandPlugins):
+            return "[\(set.sorted().joined(separator: ", "))\(includeCommandPlugins ? " (including command plugins)" : "")]"
         }
     }
 }

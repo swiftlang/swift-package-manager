@@ -101,7 +101,7 @@ public enum DependencyResolutionNode {
         case .root:
             return .everything
         case .implicitCommands:
-            return .specific([], includeCommands: true)
+            return .specific([], includeCommandPlugins: true)
         }
     }
 

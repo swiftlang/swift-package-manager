@@ -180,10 +180,10 @@ public final class Manifest {
             switch productFilter {
             case .everything:
                 return self.targets
-            case .specific(let productFilter, let includeCommands):
+            case .specific(let productFilter, let includeCommandPlugins):
                 let products = self.products.filter { product in
                     return productFilter.contains(product.name)
-                    || (includeCommands && productIsCommandPlugin(product))
+                    || (includeCommandPlugins && productIsCommandPlugin(product))
                 }
                 targets = targetsRequired(for: products)
             }

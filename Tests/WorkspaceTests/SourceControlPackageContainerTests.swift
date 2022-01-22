@@ -420,9 +420,9 @@ class SourceControlPackageContainerTests: XCTestCase {
         ]
 
         let v5ProductMapping: [String: ProductFilter] = [
-            "bar1": .specific(["Bar1", "Bar3"], includeCommands: true),
-            "bar2": .specific(["B2", "Bar1", "Bar3"], includeCommands: true),
-            "bar3": .specific(["Bar1", "Bar3"], includeCommands: true),
+            "bar1": .specific(["Bar1", "Bar3"], includeCommandPlugins: true),
+            "bar2": .specific(["B2", "Bar1", "Bar3"], includeCommandPlugins: true),
+            "bar3": .specific(["Bar1", "Bar3"], includeCommandPlugins: true),
         ]
         let v5Constraints = try dependencies.map {
             PackageContainerConstraint(
@@ -432,9 +432,9 @@ class SourceControlPackageContainerTests: XCTestCase {
             )
         }
         let v5_2ProductMapping: [String: ProductFilter] = [
-            "bar1": .specific(["Bar1"], includeCommands: true),
-            "bar2": .specific(["B2"], includeCommands: true),
-            "bar3": .specific(["Bar3"], includeCommands: true),
+            "bar1": .specific(["Bar1"], includeCommandPlugins: true),
+            "bar2": .specific(["B2"], includeCommandPlugins: true),
+            "bar3": .specific(["Bar3"], includeCommandPlugins: true),
         ]
         let v5_2Constraints = try dependencies.map {
             PackageContainerConstraint(
@@ -511,9 +511,9 @@ class SourceControlPackageContainerTests: XCTestCase {
         }
 
         let v5_2ProductMappingWithoutCommands: [String: ProductFilter] = [
-            "bar1": .specific(["Bar1"], includeCommands: false),
-            "bar2": .specific(["B2"], includeCommands: false),
-            "bar3": .specific(["Bar3"], includeCommands: false),
+            "bar1": .specific(["Bar1"], includeCommandPlugins: false),
+            "bar2": .specific(["B2"], includeCommandPlugins: false),
+            "bar3": .specific(["Bar3"], includeCommandPlugins: false),
         ]
         let v5_2ConstraintsWithoutCommands = try dependencies.map {
             PackageContainerConstraint(
