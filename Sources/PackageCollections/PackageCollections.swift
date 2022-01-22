@@ -35,8 +35,13 @@ public struct PackageCollections: PackageCollectionsProtocol {
     // initialize with defaults
     public init(configuration: Configuration = .init(), observabilityScope: ObservabilityScope) {
         let storage = Storage(
-            sources: FilePackageCollectionsSourcesStorage(),
-            collections: SQLitePackageCollectionsStorage(observabilityScope: observabilityScope)
+            sources: FilePackageCollectionsSourcesStorage(
+                path: configuration.configurationDirectory?.appending(component: "collections.json")
+            ),
+            collections: SQLitePackageCollectionsStorage(
+                location: configuration.cacheDirectory.map { .path($0.appending(components: "package-collection.db")) },
+                observabilityScope: observabilityScope
+            )
         )
 
         let collectionProviders = [
@@ -44,7 +49,10 @@ public struct PackageCollections: PackageCollectionsProtocol {
         ]
 
         let metadataProvider = GitHubPackageMetadataProvider(
-            configuration: .init(authTokens: configuration.authTokens),
+            configuration: .init(
+                authTokens: configuration.authTokens,
+                cacheDir: configuration.cacheDirectory?.appending(components: "package-metadata")
+            ),
             observabilityScope: observabilityScope
         )
         
