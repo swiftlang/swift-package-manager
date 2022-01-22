@@ -205,6 +205,25 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         // Invoke any build tool plugins in the graph to generate prebuild commands and build commands.
         let buildToolPluginInvocationResults = try getBuildToolPluginInvocationResults(for: graph)
 
+        // Surface any diagnostics from build tool plugins.
+        for (target, results) in buildToolPluginInvocationResults {
+            // There is one result for each plugin that gets applied to a target.
+            for result in results {
+                let diagnosticsEmitter = self.observabilityScope.makeDiagnosticsEmitter {
+                    var metadata = ObservabilityMetadata()
+                    metadata.targetName = target.name
+                    metadata.pluginName = result.plugin.name
+                    return metadata
+                }
+                for line in result.textOutput.split(separator: "\n") {
+                    diagnosticsEmitter.emit(info: line)
+                }
+                for diag in result.diagnostics {
+                    diagnosticsEmitter.emit(diag)
+                }
+            }
+        }
+
         // Run any prebuild commands provided by build tool plugins. Any failure stops the build.
         let prebuildCommandResults = try graph.reachableTargets.reduce(into: [:], { partial, target in
             partial[target] = try buildToolPluginInvocationResults[target].map { try self.runPrebuildCommands(for: $0) }
