@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2021 Apple Inc. and the Swift project authors
+ Copyright (c) 2021-2022 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -20,7 +20,7 @@ class CertificatePolicyTests: XCTestCase {
     func test_RSA_validate_happyCase() throws {
         try skipIfUnsupportedPlatform()
 
-        fixture(name: "Collections") { directoryPath in
+        fixture(name: "Collections", createGitRepo: false) { directoryPath in
             let certPath = directoryPath.appending(components: "Signing", "Test_rsa.cer")
             let certificate = try Certificate(derEncoded: Data(try localFileSystem.readFileContents(certPath).contents))
 
@@ -40,7 +40,7 @@ class CertificatePolicyTests: XCTestCase {
     func test_EC_validate_happyCase() throws {
         try skipIfUnsupportedPlatform()
 
-        fixture(name: "Collections") { directoryPath in
+        fixture(name: "Collections", createGitRepo: false) { directoryPath in
             let certPath = directoryPath.appending(components: "Signing", "Test_ec.cer")
             let certificate = try Certificate(derEncoded: Data(try localFileSystem.readFileContents(certPath).contents))
 
@@ -60,7 +60,7 @@ class CertificatePolicyTests: XCTestCase {
     func test_validate_untrustedRoot() throws {
         try skipIfUnsupportedPlatform()
 
-        fixture(name: "Collections") { directoryPath in
+        fixture(name: "Collections", createGitRepo: false) { directoryPath in
             let certPath = directoryPath.appending(components: "Signing", "Test_rsa.cer")
             let certificate = try Certificate(derEncoded: Data(try localFileSystem.readFileContents(certPath).contents))
 
@@ -91,7 +91,7 @@ class CertificatePolicyTests: XCTestCase {
     func test_validate_expiredCert() throws {
         try skipIfUnsupportedPlatform()
 
-        fixture(name: "Collections") { directoryPath in
+        fixture(name: "Collections", createGitRepo: false) { directoryPath in
             let certPath = directoryPath.appending(components: "Signing", "Test_rsa.cer")
             let certificate = try Certificate(derEncoded: Data(try localFileSystem.readFileContents(certPath).contents))
 
@@ -121,7 +121,7 @@ class CertificatePolicyTests: XCTestCase {
 
         try skipIfUnsupportedPlatform()
 
-        fixture(name: "Collections") { directoryPath in
+        fixture(name: "Collections", createGitRepo: false) { directoryPath in
             let certPath = directoryPath.appending(components: "Signing", "development-revoked.cer")
             let certificate = try Certificate(derEncoded: Data(try localFileSystem.readFileContents(certPath).contents))
 
@@ -168,7 +168,7 @@ class CertificatePolicyTests: XCTestCase {
 
         try skipIfUnsupportedPlatform()
 
-        fixture(name: "Collections") { directoryPath in
+        fixture(name: "Collections", createGitRepo: false) { directoryPath in
             let certPath = directoryPath.appending(components: "Signing", "development.cer")
             let certificate = try Certificate(derEncoded: Data(try localFileSystem.readFileContents(certPath).contents))
 
@@ -236,7 +236,7 @@ class CertificatePolicyTests: XCTestCase {
 
         try skipIfUnsupportedPlatform()
 
-        fixture(name: "Collections") { directoryPath in
+        fixture(name: "Collections", createGitRepo: false) { directoryPath in
             // This must be an Apple Swift Package Collection cert
             let certPath = directoryPath.appending(components: "Signing", "swift_package_collection.cer")
             let certificate = try Certificate(derEncoded: Data(try localFileSystem.readFileContents(certPath).contents))
@@ -305,7 +305,7 @@ class CertificatePolicyTests: XCTestCase {
 
         try skipIfUnsupportedPlatform()
 
-        fixture(name: "Collections") { directoryPath in
+        fixture(name: "Collections", createGitRepo: false) { directoryPath in
             // This must be an Apple Distribution cert
             let certPath = directoryPath.appending(components: "Signing", "development.cer")
             let certificate = try Certificate(derEncoded: Data(try localFileSystem.readFileContents(certPath).contents))
@@ -374,7 +374,7 @@ class CertificatePolicyTests: XCTestCase {
 
         try skipIfUnsupportedPlatform()
 
-        fixture(name: "Collections") { directoryPath in
+        fixture(name: "Collections", createGitRepo: false) { directoryPath in
             let certPath = directoryPath.appending(components: "Signing", "development.cer")
             let certificate = try Certificate(derEncoded: Data(try localFileSystem.readFileContents(certPath).contents))
 
@@ -449,7 +449,7 @@ class CertificatePolicyTests: XCTestCase {
 
         try skipIfUnsupportedPlatform()
 
-        fixture(name: "Collections") { directoryPath in
+        fixture(name: "Collections", createGitRepo: false) { directoryPath in
             // This must be an Apple Swift Package Collection cert
             let certPath = directoryPath.appending(components: "Signing", "swift_package_collection.cer")
             let certificate = try Certificate(derEncoded: Data(try localFileSystem.readFileContents(certPath).contents))
@@ -527,7 +527,7 @@ class CertificatePolicyTests: XCTestCase {
 
         try skipIfUnsupportedPlatform()
 
-        fixture(name: "Collections") { directoryPath in
+        fixture(name: "Collections", createGitRepo: false) { directoryPath in
             // This must be an Apple Distribution cert
             let certPath = directoryPath.appending(components: "Signing", "development.cer")
             let certificate = try Certificate(derEncoded: Data(try localFileSystem.readFileContents(certPath).contents))

@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2021 Apple Inc. and the Swift project authors
+ Copyright (c) 2021-2022 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -21,7 +21,7 @@ class PackageCollectionSigningTests: XCTestCase {
     func test_RSA_signAndValidate_happyCase() throws {
         try skipIfUnsupportedPlatform()
 
-        fixture(name: "Collections") { directoryPath in
+        fixture(name: "Collections", createGitRepo: false) { directoryPath in
             let jsonDecoder = JSONDecoder.makeWithDefaults()
 
             let collectionPath = directoryPath.appending(components: "JSON", "good.json")
@@ -53,7 +53,7 @@ class PackageCollectionSigningTests: XCTestCase {
     func test_RSA_signAndValidate_collectionMismatch() throws {
         try skipIfUnsupportedPlatform()
 
-        fixture(name: "Collections") { directoryPath in
+        fixture(name: "Collections", createGitRepo: false) { directoryPath in
             let collection1 = PackageCollectionModel.V1.Collection(
                 name: "Test Package Collection 1",
                 overview: nil,
@@ -109,7 +109,7 @@ class PackageCollectionSigningTests: XCTestCase {
     func test_EC_signAndValidate_happyCase() throws {
         try skipIfUnsupportedPlatform()
 
-        fixture(name: "Collections") { directoryPath in
+        fixture(name: "Collections", createGitRepo: false) { directoryPath in
             let jsonDecoder = JSONDecoder.makeWithDefaults()
 
             let collectionPath = directoryPath.appending(components: "JSON", "good.json")
@@ -141,7 +141,7 @@ class PackageCollectionSigningTests: XCTestCase {
     func test_EC_signAndValidate_collectionMismatch() throws {
         try skipIfUnsupportedPlatform()
 
-        fixture(name: "Collections") { directoryPath in
+        fixture(name: "Collections", createGitRepo: false) { directoryPath in
             let collection1 = PackageCollectionModel.V1.Collection(
                 name: "Test Package Collection 1",
                 overview: nil,
@@ -202,7 +202,7 @@ class PackageCollectionSigningTests: XCTestCase {
 
         try skipIfUnsupportedPlatform()
 
-        fixture(name: "Collections") { directoryPath in
+        fixture(name: "Collections", createGitRepo: false) { directoryPath in
             let jsonDecoder = JSONDecoder.makeWithDefaults()
 
             let collectionPath = directoryPath.appending(components: "JSON", "good.json")
@@ -311,7 +311,7 @@ class PackageCollectionSigningTests: XCTestCase {
 
         try skipIfUnsupportedPlatform()
 
-        fixture(name: "Collections") { directoryPath in
+        fixture(name: "Collections", createGitRepo: false) { directoryPath in
             let jsonDecoder = JSONDecoder.makeWithDefaults()
 
             let collectionPath = directoryPath.appending(components: "JSON", "good.json")
@@ -405,7 +405,7 @@ class PackageCollectionSigningTests: XCTestCase {
 
         try skipIfUnsupportedPlatform()
 
-        fixture(name: "Collections") { directoryPath in
+        fixture(name: "Collections", createGitRepo: false) { directoryPath in
             let jsonDecoder = JSONDecoder.makeWithDefaults()
 
             let collectionPath = directoryPath.appending(components: "JSON", "good.json")
@@ -499,7 +499,7 @@ class PackageCollectionSigningTests: XCTestCase {
 
         try skipIfUnsupportedPlatform()
 
-        fixture(name: "Collections") { directoryPath in
+        fixture(name: "Collections", createGitRepo: false) { directoryPath in
             let jsonDecoder = JSONDecoder.makeWithDefaults()
 
             let collectionPath = directoryPath.appending(components: "JSON", "good.json")
@@ -553,7 +553,7 @@ class PackageCollectionSigningTests: XCTestCase {
 
         try skipIfUnsupportedPlatform()
 
-        fixture(name: "Collections") { directoryPath in
+        fixture(name: "Collections", createGitRepo: false) { directoryPath in
             let jsonDecoder = JSONDecoder.makeWithDefaults()
 
             let collectionPath = directoryPath.appending(components: "JSON", "good.json")
@@ -618,7 +618,7 @@ class PackageCollectionSigningTests: XCTestCase {
 
         try skipIfUnsupportedPlatform()
 
-        fixture(name: "Collections") { directoryPath in
+        fixture(name: "Collections", createGitRepo: false) { directoryPath in
             let jsonDecoder = JSONDecoder.makeWithDefaults()
 
             let collectionPath = directoryPath.appending(components: "JSON", "good.json")
