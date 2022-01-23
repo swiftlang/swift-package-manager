@@ -420,21 +420,19 @@ extension Target {
     /// depends on it (i.e. in "topological sort order").
     public var recursiveTargetDependencies: [Target] {
         // FIXME: We can rewrite this to use a stack instead of recursion.
-        var result = [Target]()
         var visited = Set<Target.ID>()
-        func visit(target: Target) {
-            guard !visited.insert(target.id).inserted else { return }
-            target.dependencies.forEach{ visit(dependency: $0) }
-            result.append(target)
+        func dependencyClosure(for target: Target) -> [Target] {
+            guard visited.insert(target.id).inserted else { return [] }
+            return target.dependencies.flatMap{ dependencyClosure(for: $0) } + [target]
         }
-        func visit(dependency: TargetDependency) {
+        func dependencyClosure(for dependency: TargetDependency) -> [Target] {
             switch dependency {
             case .target(let target):
-                visit(target: target)
+                return dependencyClosure(for: target)
             case .product(let product):
-                product.targets.forEach{ visit(target: $0) }
+                return product.targets.flatMap{ dependencyClosure(for: $0) }
             }
         }
-        return result
+        return self.dependencies.flatMap{ dependencyClosure(for: $0) }
     }
 }

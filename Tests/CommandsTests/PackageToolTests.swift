@@ -1936,4 +1936,151 @@ final class PackageToolTests: CommandsTestCase {
             // We'll add checks for various error conditions here in a future commit.
         }
     }
+    
+    func testPluginAPIs() throws {
+        
+        try testWithTemporaryDirectory { tmpPath in
+            // Create a sample package with a plugin to test various parts of the API.
+            let packageDir = tmpPath.appending(components: "MyPackage")
+            try localFileSystem.createDirectory(packageDir, recursive: true)
+            try localFileSystem.writeFileContents(packageDir.appending(component: "Package.swift"), string: """
+                // swift-tools-version: 5.6
+                import PackageDescription
+                let package = Package(
+                    name: "MyPackage",
+                    dependencies: [
+                        .package(name: "HelperPackage", path: "VendoredDependencies/HelperPackage")
+                    ],
+                    targets: [
+                        .target(
+                            name: "FirstTarget",
+                            dependencies: [
+                            ]
+                        ),
+                        .target(
+                            name: "SecondTarget",
+                            dependencies: [
+                                "FirstTarget",
+                            ]
+                        ),
+                        .target(
+                            name: "ThirdTarget",
+                            dependencies: [
+                                "FirstTarget",
+                            ]
+                        ),
+                        .target(
+                            name: "FourthTarget",
+                            dependencies: [
+                                "SecondTarget",
+                                "ThirdTarget",
+                                .product(name: "HelperLibrary", package: "HelperPackage"),
+                            ]
+                        ),
+                        .plugin(
+                            name: "PrintTargetDependencies",
+                            capability: .command(
+                                intent: .custom(verb: "print-target-dependencies", description: "Plugin that prints target dependencies; argument is name of target")
+                            )
+                        ),
+                    ]
+                )
+            """)
+            
+            let firstTargetDir = packageDir.appending(components: "Sources", "FirstTarget")
+            try localFileSystem.createDirectory(firstTargetDir, recursive: true)
+            try localFileSystem.writeFileContents(firstTargetDir.appending(component: "library.swift"), string: """
+                public func FirstFunc() { }
+                """)
+            
+            let secondTargetDir = packageDir.appending(components: "Sources", "SecondTarget")
+            try localFileSystem.createDirectory(secondTargetDir, recursive: true)
+            try localFileSystem.writeFileContents(secondTargetDir.appending(component: "library.swift"), string: """
+                public func SecondFunc() { }
+                """)
+            
+            let thirdTargetDir = packageDir.appending(components: "Sources", "ThirdTarget")
+            try localFileSystem.createDirectory(thirdTargetDir, recursive: true)
+            try localFileSystem.writeFileContents(thirdTargetDir.appending(component: "library.swift"), string: """
+                public func ThirdFunc() { }
+                """)
+            
+            let fourthTargetDir = packageDir.appending(components: "Sources", "FourthTarget")
+            try localFileSystem.createDirectory(fourthTargetDir, recursive: true)
+            try localFileSystem.writeFileContents(fourthTargetDir.appending(component: "library.swift"), string: """
+                public func FourthFunc() { }
+                """)
+
+            let pluginTargetTargetDir = packageDir.appending(components: "Plugins", "PrintTargetDependencies")
+            try localFileSystem.createDirectory(pluginTargetTargetDir, recursive: true)
+            try localFileSystem.writeFileContents(pluginTargetTargetDir.appending(component: "plugin.swift"), string: """
+                import PackagePlugin
+                @main struct PrintTargetDependencies: CommandPlugin {
+                    func performCommand(
+                        context: PluginContext,
+                        targets: [Target],
+                        arguments: [String]
+                    ) throws {
+                        // Print names of the recursive dependencies of the given target.
+                        guard let targetName = arguments.first, targetName != "" else {
+                            throw "No target argument provided"
+                        }
+                        guard let target = targets.first(where: { $0.name == targetName }) else {
+                            throw "No target found with the name '\\(targetName)'"
+                        }
+                        print("Recursive dependencies of '\\(target.name)': \\(target.recursiveTargetDependencies.map(\\.name))")
+                    }
+                }
+                extension String: Error {}
+                """)
+            
+            // Create a separate vendored package so that we can test dependencies across products in other packages.
+            let helperPackageDir = packageDir.appending(components: "VendoredDependencies", "HelperPackage")
+            try localFileSystem.createDirectory(helperPackageDir, recursive: true)
+            try localFileSystem.writeFileContents(helperPackageDir.appending(component: "Package.swift"), string: """
+                // swift-tools-version: 5.6
+                import PackageDescription
+                let package = Package(
+                    name: "HelperPackage",
+                    products: [
+                        .library(
+                            name: "HelperLibrary",
+                            targets: ["HelperLibrary"])
+                    ],
+                    targets: [
+                        .target(
+                            name: "HelperLibrary",
+                            path: ".")
+                    ]
+                )
+                """)
+            try localFileSystem.writeFileContents(helperPackageDir.appending(component: "library.swift"), string: """
+                public func Foo() { }
+                """)
+
+            // Check that a target doesn't include itself in its recursive dependencies.
+            do {
+                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["print-target-dependencies", "SecondTarget"], packagePath: packageDir)
+                let output = try result.utf8Output() + result.utf8stderrOutput()
+                XCTAssertEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
+                XCTAssertMatch(output, .contains("of 'SecondTarget': [\"FirstTarget\"]"))
+            }
+
+            // Check that targets are not included twice in recursive dependencies.
+            do {
+                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["print-target-dependencies", "ThirdTarget"], packagePath: packageDir)
+                let output = try result.utf8Output() + result.utf8stderrOutput()
+                XCTAssertEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
+                XCTAssertMatch(output, .contains("of 'ThirdTarget': [\"FirstTarget\"]"))
+            }
+
+            // Check that product dependencies work in recursive dependencies.
+            do {
+                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["print-target-dependencies", "FourthTarget"], packagePath: packageDir)
+                let output = try result.utf8Output() + result.utf8stderrOutput()
+                XCTAssertEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
+                XCTAssertMatch(output, .contains("of 'FourthTarget': [\"FirstTarget\", \"SecondTarget\", \"ThirdTarget\", \"HelperLibrary\"]"))
+            }
+        }
+    }
 }
