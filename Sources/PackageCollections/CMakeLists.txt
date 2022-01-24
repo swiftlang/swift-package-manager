@@ -1,6 +1,6 @@
 # This source file is part of the Swift.org open source project
 #
-# Copyright (c) 2020-2021 Apple Inc. and the Swift project authors
+# Copyright (c) 2020-2022 Apple Inc. and the Swift project authors
 # Licensed under Apache License v2.0 with Runtime Library Exception
 #
 # See http://swift.org/LICENSE.txt for license information
@@ -11,14 +11,13 @@ add_library(PackageCollections
   Model/CVE.swift
   Model/License.swift
   Model/Package.swift
+  Model/PackageList.swift
   Model/Search.swift
   Model/TargetListResult.swift
   Providers/GitHubPackageMetadataProvider.swift
   Providers/JSONPackageCollectionProvider.swift
   Providers/PackageCollectionProvider.swift
   Providers/PackageMetadataProvider.swift
-  Providers/PackageSearchProvider.swift
-  Providers/StorageBackedPackageSearchProvider.swift
   Storage/FilePackageCollectionsSourcesStorage.swift
   Storage/PackageCollectionsSourcesStorage.swift
   Storage/PackageCollectionsStorage.swift
@@ -30,6 +29,9 @@ add_library(PackageCollections
   PackageCollections+Configuration.swift
   PackageCollections+Storage.swift
   PackageCollections+Validation.swift
+  PackageIndex.swift
+  PackageIndex+Configuration.swift
+  PackageIndexAndCollections.swift
   Utility.swift)
 target_link_libraries(PackageCollections PUBLIC
   TSCBasic

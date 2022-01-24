@@ -1,12 +1,14 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2020 Apple Inc. and the Swift project authors
+ Copyright (c) 2020-2022 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
+
+import struct Foundation.URL
 
 extension PackageCollectionsModel {
     /// A representation of package in search result
@@ -22,6 +24,19 @@ extension PackageCollectionsModel {
 
             /// Package collections that contain the package
             public let collections: [PackageCollectionsModel.CollectionIdentifier]
+            
+            /// Package indexes that contain the package
+            public let indexes: [Foundation.URL]
+            
+            init(
+                package: PackageCollectionsModel.Package,
+                collections: [PackageCollectionsModel.CollectionIdentifier] = [],
+                indexes: [Foundation.URL] = []
+            ) {
+                self.package = package
+                self.collections = collections
+                self.indexes = indexes
+            }
         }
     }
 
