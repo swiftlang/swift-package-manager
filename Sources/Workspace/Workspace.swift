@@ -847,7 +847,7 @@ extension Workspace {
         // Load the updated manifests.
         let updatedDependencyManifests = try self.loadDependencyManifests(root: graphRoot, observabilityScope: observabilityScope)
         // If we have missing packages, something is fundamentally wrong with the resolution of the graph
-        let stillMissingPackages = updatedDependencyManifests.computePackages().missing
+        let stillMissingPackages = try updatedDependencyManifests.computePackages().missing
         guard stillMissingPackages.isEmpty else {
             let missing = stillMissingPackages.map{ $0.description }
             observabilityScope.emit(error: "exhausted attempts to resolve the dependencies graph, with '\(missing.joined(separator: "', '"))' unresolved.")
@@ -855,7 +855,7 @@ extension Workspace {
         }
 
         // Update the resolved file.
-        self.saveResolvedFile(
+        try self.saveResolvedFile(
             pinsStore: pinsStore,
             dependencyManifests: updatedDependencyManifests,
             rootManifestsMinimumToolsVersion: rootManifestsMinimumToolsVersion,
@@ -1358,9 +1358,9 @@ extension Workspace {
         dependencyManifests: DependencyManifests,
         rootManifestsMinimumToolsVersion: ToolsVersion,
         observabilityScope: ObservabilityScope
-    )  {
+    ) throws {
         var dependenciesToPin = [ManagedDependency]()
-        let requiredDependencies = dependencyManifests.computePackages().required.filter({ $0.kind.isPinnable })
+        let requiredDependencies = try dependencyManifests.computePackages().required.filter({ $0.kind.isPinnable })
         for dependency in requiredDependencies {
             if let managedDependency = self.state.dependencies[comparingLocation: dependency] {
                 dependenciesToPin.append(managedDependency)
@@ -1488,8 +1488,8 @@ extension Workspace {
         }
 
         /// Computes the identities which are declared in the manifests but aren't present in dependencies.
-        public func missingPackages() -> Set<PackageReference> {
-            return self.computePackages().missing
+        public func missingPackages() throws -> Set<PackageReference> {
+            return try self.computePackages().missing
         }
 
         /// Returns the list of packages which are allowed to vend products with unsafe flags.
@@ -1516,8 +1516,8 @@ extension Workspace {
             return result
         }
 
-        func computePackages() -> (required: Set<PackageReference>, missing: Set<PackageReference>) {
-            let manifestsMap: [PackageIdentity: Manifest] = Dictionary(uniqueKeysWithValues:
+        func computePackages() throws -> (required: Set<PackageReference>, missing: Set<PackageReference>) {
+            let manifestsMap: [PackageIdentity: Manifest] = try Dictionary(throwingUniqueKeysWithValues:
                 self.root.packages.map { ($0.key, $0.value.manifest) } +
                 self.dependencies.map { ($0.dependency.packageRef.identity, $0.manifest) }
             )
@@ -2636,7 +2636,7 @@ extension Workspace {
         }
 
         // Compute the missing package identities.
-        let missingPackages = currentManifests.missingPackages()
+        let missingPackages = try currentManifests.missingPackages()
 
         // Compute if we need to run the resolver. We always run the resolver if
         // there are extra constraints.
@@ -2657,7 +2657,7 @@ extension Workspace {
             case .notRequired:
                 // since nothing changed we can exit early,
                 // but need update resolved file and download an missing binary artifact
-                self.saveResolvedFile(
+                try self.saveResolvedFile(
                     pinsStore: pinsStore,
                     dependencyManifests: currentManifests,
                     rootManifestsMinimumToolsVersion: rootManifestsMinimumToolsVersion,
@@ -2707,7 +2707,7 @@ extension Workspace {
         // Update the pinsStore.
         let updatedDependencyManifests = try self.loadDependencyManifests(root: graphRoot, observabilityScope: observabilityScope)
         // If we still have missing packages, something is fundamentally wrong with the resolution of the graph
-        let stillMissingPackages = updatedDependencyManifests.computePackages().missing
+        let stillMissingPackages = try updatedDependencyManifests.computePackages().missing
         guard stillMissingPackages.isEmpty else {
             let missing = stillMissingPackages.map{ $0.description }
             observabilityScope.emit(error: "exhausted attempts to resolve the dependencies graph, with '\(missing.joined(separator: "', '"))' unresolved.")
@@ -2715,7 +2715,7 @@ extension Workspace {
         }
 
         // Update the resolved file.
-        self.saveResolvedFile(
+        try self.saveResolvedFile(
             pinsStore: pinsStore,
             dependencyManifests: updatedDependencyManifests,
             rootManifestsMinimumToolsVersion: rootManifestsMinimumToolsVersion,
@@ -2907,7 +2907,9 @@ extension Workspace {
             return nil
         }
 
-        let requiredDependencies = dependencyManifests.computePackages().required.filter({ $0.kind.isPinnable })
+        guard let requiredDependencies = observabilityScope.trap({ try dependencyManifests.computePackages().required.filter({ $0.kind.isPinnable }) }) else {
+            return nil
+        }
         for dependency in self.state.dependencies.filter({ $0.packageRef.kind.isPinnable }) {
             // a required dependency that is already loaded (managed) should be represented in the pins store.
             // also comparing location as it may have changed at this point
