@@ -493,7 +493,6 @@ public class SwiftTool {
             return workspace
         }
 
-        //let isXcodeBuildSystemEnabled = self.options.buildSystem == .xcode
         let delegate = ToolWorkspaceDelegate(self.outputStream, logLevel: self.logLevel, observabilityScope: self.observabilityScope)
         let repositoryProvider = GitRepositoryProvider(processSet: self.processSet)
         let isXcodeBuildSystemEnabled = self.options.buildSystem == .xcode
