@@ -9,6 +9,7 @@
  */
 
 import Dispatch
+import Foundation
 import TSCBasic
 import TSCUtility
 
@@ -278,6 +279,8 @@ public struct Diagnostic: CustomStringConvertible {
             message = "\(diagnosticData)"
         } else if let convertible = error as? DiagnosticDataConvertible {
             message = "\(convertible.diagnosticData)"
+        } else if let localizedError = error as? LocalizedError {
+            message = localizedError.errorDescription ?? localizedError.localizedDescription
         } else {
             message = "\(error)"
         }

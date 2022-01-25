@@ -24,6 +24,18 @@ public enum ManifestParseError: Swift.Error, Equatable {
     case runtimeManifestErrors([String])
 }
 
+// used to output the errors via the observability system
+extension ManifestParseError: CustomStringConvertible {
+    public var description: String {
+        switch self {
+        case .invalidManifestFormat(let error, _):
+            return "Invalid manifest\n\(error)"
+        case .runtimeManifestErrors(let errors):
+            return "Invalid manifest (evaluation failed)\n\(errors.joined(separator: "\n"))"
+        }
+    }
+}
+
 /// Protocol for the manifest loader interface.
 public protocol ManifestLoaderProtocol {
     /// Load the manifest for the package at `path`.
