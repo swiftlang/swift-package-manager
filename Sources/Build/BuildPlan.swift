@@ -25,6 +25,18 @@ extension String {
     }
 }
 
+extension AbsolutePath {
+    internal func nativePathString(escaped: Bool) -> String {
+        return URL(fileURLWithPath: self.pathString).withUnsafeFileSystemRepresentation {
+            let repr = String(cString: $0!)
+            if escaped {
+                return repr.replacingOccurrences(of: "\\", with: "\\\\")
+            }
+            return repr
+        }
+    }
+}
+
 extension BuildParameters {
     /// Returns the directory to be used for module cache.
     public var moduleCache: AbsolutePath {
@@ -961,11 +973,11 @@ public final class SwiftTargetBuildDescription {
         stream <<< "  \"\": {\n"
         if buildParameters.useWholeModuleOptimization {
             let moduleName = target.c99name
-            stream <<< "    \"dependencies\": \"" <<< tempsPath.appending(component: moduleName + ".d") <<< "\",\n"
+            stream <<< "    \"dependencies\": \"" <<< tempsPath.appending(component: moduleName + ".d").nativePathString(escaped: true) <<< "\",\n"
             // FIXME: Need to record this deps file for processing it later.
-            stream <<< "    \"object\": \"" <<< tempsPath.appending(component: moduleName + ".o") <<< "\",\n"
+            stream <<< "    \"object\": \"" <<< tempsPath.appending(component: moduleName + ".o").nativePathString(escaped: true) <<< "\",\n"
         }
-        stream <<< "    \"swift-dependencies\": \"" <<< masterDepsPath.pathString <<< "\"\n"
+        stream <<< "    \"swift-dependencies\": \"" <<< masterDepsPath.nativePathString(escaped: true) <<< "\"\n"
 
         stream <<< "  },\n"
 
@@ -979,19 +991,19 @@ public final class SwiftTargetBuildDescription {
 
             let swiftDepsPath = objectDir.appending(component: sourceFileName + ".swiftdeps")
 
-            stream <<< "  \"" <<< source.pathString <<< "\": {\n"
+            stream <<< "  \"" <<< source.nativePathString(escaped: true) <<< "\": {\n"
 
             if (!buildParameters.useWholeModuleOptimization) {
                 let depsPath = objectDir.appending(component: sourceFileName + ".d")
-                stream <<< "    \"dependencies\": \"" <<< depsPath.pathString <<< "\",\n"
+                stream <<< "    \"dependencies\": \"" <<< depsPath.nativePathString(escaped: true) <<< "\",\n"
                 // FIXME: Need to record this deps file for processing it later.
             }
 
-            stream <<< "    \"object\": \"" <<< object.pathString <<< "\",\n"
+            stream <<< "    \"object\": \"" <<< object.nativePathString(escaped: true) <<< "\",\n"
 
             let partialModulePath = objectDir.appending(component: sourceFileName + "~partial.swiftmodule")
-            stream <<< "    \"swiftmodule\": \"" <<< partialModulePath.pathString <<< "\",\n"
-            stream <<< "    \"swift-dependencies\": \"" <<< swiftDepsPath.pathString <<< "\"\n"
+            stream <<< "    \"swiftmodule\": \"" <<< partialModulePath.nativePathString(escaped: true) <<< "\",\n"
+            stream <<< "    \"swift-dependencies\": \"" <<< swiftDepsPath.nativePathString(escaped: true) <<< "\"\n"
             stream <<< "  }" <<< ((idx + 1) < sources.count ? "," : "") <<< "\n"
         }
 
