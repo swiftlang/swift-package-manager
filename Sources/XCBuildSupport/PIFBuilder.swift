@@ -239,7 +239,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
             metadata: package.underlyingPackage.diagnosticsMetadata
         )
 
-        executableTargetProductMap = Dictionary(uniqueKeysWithValues:
+        executableTargetProductMap = try Dictionary(throwingUniqueKeysWithValues:
             package.products.filter { $0.type == .executable }.map { ($0.mainTarget, $0) }
         )
 
