@@ -737,8 +737,7 @@ xcodebuild -showdestinations -scheme Foo
 C language targets are similar to Swift targets, except that the C language
 libraries should contain a directory named `include` to hold the public headers.
 
-To allow a Swift target to import a C language target, add a [target
-dependency](#targets) in the manifest file. Swift Package Manager will
+To allow a Swift target to import a C language target, add a [target](PackageDescription.md#target) in the manifest file. Swift Package Manager will
 automatically generate a modulemap for each C language library target for these
 3 cases:
 
