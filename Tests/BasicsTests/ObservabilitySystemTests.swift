@@ -170,6 +170,53 @@ final class ObservabilitySystemTest: XCTestCase {
         }
     }
 
+    func testDiagnosticsErrorDescription() throws {
+        let collector = Collector()
+        let observabilitySystem = ObservabilitySystem(collector)
+
+        observabilitySystem.topScope.emit(error: "error")
+        observabilitySystem.topScope.emit(.error("error 2"))
+        observabilitySystem.topScope.emit(MyError(description: "error 3"))
+        observabilitySystem.topScope.emit(MyDescribedError(description: "error 4"))
+        observabilitySystem.topScope.emit(MyLocalizedError(errorDescription: "error 5"))
+
+        testDiagnostics(collector.diagnostics, problemsOnly: false) { result in
+            do {
+                let diagnostic = result.check(diagnostic: "error", severity: .error)
+                XCTAssertNil(diagnostic?.metadata?.underlyingError)
+            }
+            do {
+                let diagnostic = result.check(diagnostic: "error 2", severity: .error)
+                XCTAssertNil(diagnostic?.metadata?.underlyingError)
+            }
+            do {
+                let diagnostic = result.check(diagnostic: "MyError(description: \"error 3\")", severity: .error)
+                XCTAssertEqual(diagnostic?.metadata?.underlyingError as? MyError, MyError(description: "error 3"))
+            }
+            do {
+                let diagnostic = result.check(diagnostic: "error 4", severity: .error)
+                XCTAssertEqual(diagnostic?.metadata?.underlyingError as? MyDescribedError, MyDescribedError(description: "error 4"))
+            }
+            do {
+                let diagnostic = result.check(diagnostic: "error 5", severity: .error)
+                XCTAssertEqual(diagnostic?.metadata?.underlyingError as? MyLocalizedError, MyLocalizedError(errorDescription: "error 5"))
+            }
+        }
+
+        struct MyError: Error, Equatable {
+            let description: String
+
+        }
+
+        struct MyDescribedError: Error, CustomStringConvertible, Equatable {
+            let description: String
+        }
+
+        struct MyLocalizedError: LocalizedError, Equatable {
+            let errorDescription: String?
+        }
+    }
+
     func testDiagnosticsMetadataMerge() throws {
         let collector = Collector()
         let observabilitySystem = ObservabilitySystem(collector)
