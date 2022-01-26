@@ -129,6 +129,11 @@ class PluginTests: XCTestCase {
         try XCTSkipIf(true, "skipping because host compiler doesn't support '-entry-point-function-name'")
         #endif
         
+        // rdar://88080030
+        #if os(Linux)
+        try XCTSkipIf(true, "Disabled on linux for now as it's failing on some CI")
+        #endif
+     
         fixture(name: "Miscellaneous/Plugins") { path in
             do {
                 let (stdout, _) = try executeSwiftBuild(path.appending(component: "ContrivedTestPlugin"), configuration: .Debug, extraArgs: ["--product", "MyLocalTool"])
