@@ -507,6 +507,10 @@ let package = Package(
             dependencies: ["PackageFingerprint", "SPMTestSupport"]
         ),
         .testTarget(
+            name: "PackagePluginAPITests",
+            dependencies: ["PackagePlugin", "SPMTestSupport"]
+        ),
+        .testTarget(
             name: "PackageRegistryTests",
             dependencies: ["SPMTestSupport", "PackageRegistry"]
         ),
