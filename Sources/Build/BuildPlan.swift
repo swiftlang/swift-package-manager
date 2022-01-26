@@ -728,10 +728,6 @@ public final class SwiftTargetBuildDescription {
     }
     
     public static func checkSupportedFrontendFlags(flags: Set<String>, fileSystem: FileSystem) -> Bool {
-        // The new driver is not supported on Windows, yet, so we should avoid calling into it there.
-        #if os(Windows)
-        return false
-        #else
         do {
             let executor = try SPMSwiftDriverExecutor(resolver: ArgsResolver(fileSystem: fileSystem), fileSystem: fileSystem, env: [:])
             let driver = try Driver(args: ["swiftc"], executor: executor)
@@ -739,7 +735,6 @@ public final class SwiftTargetBuildDescription {
         } catch {
             return false
         }
-        #endif
     }
     
     /// The arguments needed to compile this target.
