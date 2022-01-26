@@ -152,9 +152,20 @@ public struct SwiftToolOptions: ParsableArguments {
     @Option(help: "Specify the shared security directory")
     var securityPath: AbsolutePath?
 
-    /// Disables repository caching.
-    @Flag(name: .customLong("repository-cache"), inversion: .prefixedEnableDisable, help: "Use a shared cache when fetching repositories")
-    var useRepositoriesCache: Bool = true
+    /// Disables package caching.
+    @Flag(name: .customLong("dependencies-cache"), inversion: .prefixedEnableDisable, help: "Use a shared cache when fetching dependencies")
+    var _useDependenciesCache: Bool?
+
+    // TODO: simplify when deprecating the older flag
+    var useDependenciesCache: Bool {
+        if let value = self._useDependenciesCache {
+            return value
+        } else if let value = self._deprecated_useRepositoriesCache {
+            return value
+        } else {
+            return true
+        }
+    }
 
     /// The custom working directory that the tool should operate in (deprecated).
     @Option(name: [.long, .customShort("C")])
@@ -367,6 +378,10 @@ public struct SwiftToolOptions: ParsableArguments {
 
     @Flag(name: .customLong("netrc-optional"), help: .hidden)
     var _deprecated_netrcOptional: Bool = false
+
+    /// Disables repository caching.
+    @Flag(name: .customLong("repository-cache"), inversion: .prefixedEnableDisable, help: .hidden)
+    var _deprecated_useRepositoriesCache: Bool?
 
     public init() {}
 }

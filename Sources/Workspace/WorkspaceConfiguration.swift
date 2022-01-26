@@ -116,6 +116,10 @@ extension Workspace {
             self.sharedCacheDirectory.map { $0.appending(component: "repositories") }
         }
 
+        /// Path to the shared registry download cache.
+        public var sharedRegistryDownloadsCacheDirectory: AbsolutePath? {
+            self.sharedCacheDirectory.map { $0.appending(components: "registry", "downloads") }
+        }
 
         /// Create a new workspace location.
         ///
@@ -519,8 +523,8 @@ public struct WorkspaceConfiguration {
     /// File rules to determine resource handling behavior.
     public var additionalFileRules: [FileRuleDescription]
 
-    /// Enables the shared repository cache. Enabled by default.
-    public var sharedRepositoriesCacheEnabled: Bool
+    /// Enables the shared dependencies cache. Enabled by default.
+    public var sharedDependenciesCacheEnabled: Bool
 
     ///  Fingerprint checking mode. Defaults to warn.
     public var fingerprintCheckingMode: FingerprintCheckingMode
@@ -529,13 +533,13 @@ public struct WorkspaceConfiguration {
         skipDependenciesUpdates: Bool,
         prefetchBasedOnResolvedFile: Bool,
         additionalFileRules: [FileRuleDescription],
-        sharedRepositoriesCacheEnabled: Bool,
+        sharedDependenciesCacheEnabled: Bool,
         fingerprintCheckingMode: FingerprintCheckingMode
     ) {
         self.skipDependenciesUpdates = skipDependenciesUpdates
         self.prefetchBasedOnResolvedFile = prefetchBasedOnResolvedFile
         self.additionalFileRules = additionalFileRules
-        self.sharedRepositoriesCacheEnabled = sharedRepositoriesCacheEnabled
+        self.sharedDependenciesCacheEnabled = sharedDependenciesCacheEnabled
         self.fingerprintCheckingMode = fingerprintCheckingMode
     }
 
@@ -545,7 +549,7 @@ public struct WorkspaceConfiguration {
             skipDependenciesUpdates: false,
             prefetchBasedOnResolvedFile: true,
             additionalFileRules: [],
-            sharedRepositoriesCacheEnabled: true,
+            sharedDependenciesCacheEnabled: true,
             fingerprintCheckingMode: .warn
         )
     }

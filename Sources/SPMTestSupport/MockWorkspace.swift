@@ -67,9 +67,9 @@ public final class MockWorkspace {
         self.checksumAlgorithm = customChecksumAlgorithm ?? MockHashAlgorithm()
         self.repositoryProvider = InMemoryGitRepositoryProvider()
         self.registry = MockRegistry(
+            filesystem: self.fileSystem,
             identityResolver: self.identityResolver,
             checksumAlgorithm: self.checksumAlgorithm,
-            filesystem: self.fileSystem,
             fingerprintStorage: self.fingerprints
         )
         self.registryClient = customRegistryClient ?? self.registry.registryClient
@@ -173,7 +173,7 @@ public final class MockWorkspace {
 
                 self.repositoryProvider.add(specifier: specifier, repository: repository)
             } else if let identity = registryIdentity {
-                let source = InMemoryRegistrySource(path: packagePath, fileSystem: self.fileSystem)
+                let source = InMemoryRegistryPackageSource(fileSystem: self.fileSystem, path: packagePath, writeContent: false)
                 try writePackageContent(fileSystem: source.fileSystem, root: source.path, toolsVersion: toolsVersion)
                 self.registry.addPackage(identity: identity, versions: packageVersions.compactMap({ $0 }), source: source)
             } else {
@@ -243,7 +243,7 @@ public final class MockWorkspace {
                 skipDependenciesUpdates: self.skipDependenciesUpdates,
                 prefetchBasedOnResolvedFile: WorkspaceConfiguration.default.prefetchBasedOnResolvedFile,
                 additionalFileRules: WorkspaceConfiguration.default.additionalFileRules,
-                sharedRepositoriesCacheEnabled: WorkspaceConfiguration.default.sharedRepositoriesCacheEnabled,
+                sharedDependenciesCacheEnabled: WorkspaceConfiguration.default.sharedDependenciesCacheEnabled,
                 fingerprintCheckingMode: .strict
             ),
             customFingerprints: self.fingerprints,
@@ -767,15 +767,15 @@ public final class MockWorkspaceDelegate: WorkspaceDelegate {
         self.append("Everything is already up-to-date")
     }
 
-    public func fetchingWillBegin(repository: String, fetchDetails: RepositoryManager.FetchDetails?) {
-        self.append("fetching repo: \(repository)")
+    public func willFetchPackage(package: String, fetchDetails: PackageFetchDetails) {
+        self.append("fetching package: \(package)")
     }
 
-    public func fetchingRepository(from repository: String, objectsFetched: Int, totalObjectsToFetch: Int) {
+    public func fetchingPackage(package: String, progress: Int64, total: Int64?) {
     }
 
-    public func fetchingDidFinish(repository: String, fetchDetails: RepositoryManager.FetchDetails?, diagnostic: Basics.Diagnostic?, duration: DispatchTimeInterval) {
-        self.append("finished fetching repo: \(repository)")
+    public func didFetchPackage(package: String, result: Result<PackageFetchDetails, Error>, duration: DispatchTimeInterval) {
+        self.append("finished fetching package: \(package)")
     }
 
     public func willCreateWorkingCopy(repository url: String, at path: AbsolutePath) {

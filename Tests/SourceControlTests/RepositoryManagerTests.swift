@@ -195,7 +195,7 @@ private class DummyRepositoryProvider: RepositoryProvider {
 }
 
 private class DummyRepositoryManagerDelegate: RepositoryManagerDelegate {
-    private var _willFetch = [(repository: RepositorySpecifier, fetchDetails: RepositoryManager.FetchDetails?)]()
+    private var _willFetch = [(repository: RepositorySpecifier, fetchDetails: RepositoryManager.FetchDetails)]()
     private var _didFetch = [(repository: RepositorySpecifier, fetchDetails: RepositoryManager.FetchDetails?)]()
 
     private var _willUpdate = [RepositorySpecifier]()
@@ -208,7 +208,7 @@ private class DummyRepositoryManagerDelegate: RepositoryManagerDelegate {
     var willUpdateGroup: DispatchGroup?
     var didUpdateGroup: DispatchGroup?
 
-    var willFetch: [(repository: RepositorySpecifier, fetchDetails: RepositoryManager.FetchDetails?)] {
+    var willFetch: [(repository: RepositorySpecifier, fetchDetails: RepositoryManager.FetchDetails)] {
         self.willFetchGroup?.wait()
         return self.fetchedLock.withLock { _willFetch }
     }
@@ -228,7 +228,7 @@ private class DummyRepositoryManagerDelegate: RepositoryManagerDelegate {
         return self.fetchedLock.withLock { _didUpdate }
     }
 
-    func fetchingWillBegin(handle: RepositoryManager.RepositoryHandle, fetchDetails: RepositoryManager.FetchDetails?) {
+    func fetchingWillBegin(handle: RepositoryManager.RepositoryHandle, fetchDetails: RepositoryManager.FetchDetails) {
         self.fetchedLock.withLock {
             _willFetch += [(repository: handle.repository, fetchDetails: fetchDetails)]
         }

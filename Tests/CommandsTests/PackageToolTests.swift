@@ -112,6 +112,101 @@ final class PackageToolTests: CommandsTestCase {
         }
     }
 
+    func testEnableDisableCache() throws {
+        fixture(name: "DependencyResolution/External/Simple") { sandbox in
+            let packageRoot = sandbox.appending(component: "Bar")
+            let repositoriesPath = packageRoot.appending(components: ".build", "repositories")
+            let cachePath = sandbox.appending(component: "cache")
+            let repositoriesCachePath = cachePath.appending(component: "repositories")
+
+            do {
+                // Remove .build and cache folder
+                _ = try execute(["reset"], packagePath: packageRoot)
+                try localFileSystem.removeFileTree(cachePath)
+
+                try self.execute(["resolve", "--enable-dependencies-cache", "--cache-path", cachePath.pathString], packagePath: packageRoot)
+
+                // we have to check for the prefix here since the hash value changes because spm sees the `prefix`
+                // directory `/var/...` as `/private/var/...`.
+                XCTAssert(try localFileSystem.getDirectoryContents(repositoriesPath).contains { $0.hasPrefix("Foo-") })
+                XCTAssert(try localFileSystem.getDirectoryContents(repositoriesCachePath).contains { $0.hasPrefix("Foo-") })
+
+                // Remove .build folder
+                _ = try execute(["reset"], packagePath: packageRoot)
+
+                // Perform another cache this time from the cache
+                _ = try execute(["resolve", "--enable-dependencies-cache", "--cache-path", cachePath.pathString], packagePath: packageRoot)
+                XCTAssert(try localFileSystem.getDirectoryContents(repositoriesPath).contains { $0.hasPrefix("Foo-") })
+
+                // Remove .build and cache folder
+                _ = try execute(["reset"], packagePath: packageRoot)
+                try localFileSystem.removeFileTree(cachePath)
+
+                // Perfom another fetch
+                _ = try execute(["resolve", "--enable-dependencies-cache", "--cache-path", cachePath.pathString], packagePath: packageRoot)
+                XCTAssert(try localFileSystem.getDirectoryContents(repositoriesPath).contains { $0.hasPrefix("Foo-") })
+                XCTAssert(try localFileSystem.getDirectoryContents(repositoriesCachePath).contains { $0.hasPrefix("Foo-") })
+            }
+
+            do {
+                // Remove .build and cache folder
+                _ = try execute(["reset"], packagePath: packageRoot)
+                try localFileSystem.removeFileTree(cachePath)
+
+                try self.execute(["resolve", "--disable-dependencies-cache", "--cache-path", cachePath.pathString], packagePath: packageRoot)
+
+                // we have to check for the prefix here since the hash value changes because spm sees the `prefix`
+                // directory `/var/...` as `/private/var/...`.
+                XCTAssert(try localFileSystem.getDirectoryContents(repositoriesPath).contains { $0.hasPrefix("Foo-") })
+                XCTAssertFalse(localFileSystem.exists(repositoriesCachePath))
+            }
+
+            do {
+                // Remove .build and cache folder
+                _ = try execute(["reset"], packagePath: packageRoot)
+                try localFileSystem.removeFileTree(cachePath)
+
+                let (_, stderr) = try self.execute(["resolve", "--enable-repository-cache", "--cache-path", cachePath.pathString], packagePath: packageRoot)
+                XCTAssertMatch(stderr, .contains("'--disable-repository-cache'/'--enable-repository-cache' flags are deprecated; use '--disable-dependencies-cache'/'--enable-dependencies-cache' instead"))
+
+                // we have to check for the prefix here since the hash value changes because spm sees the `prefix`
+                // directory `/var/...` as `/private/var/...`.
+                XCTAssert(try localFileSystem.getDirectoryContents(repositoriesPath).contains { $0.hasPrefix("Foo-") })
+                XCTAssert(try localFileSystem.getDirectoryContents(repositoriesCachePath).contains { $0.hasPrefix("Foo-") })
+
+                // Remove .build folder
+                _ = try execute(["reset"], packagePath: packageRoot)
+
+                // Perform another cache this time from the cache
+                _ = try execute(["resolve", "--enable-repository-cache", "--cache-path", cachePath.pathString], packagePath: packageRoot)
+                XCTAssert(try localFileSystem.getDirectoryContents(repositoriesPath).contains { $0.hasPrefix("Foo-") })
+
+                // Remove .build and cache folder
+                _ = try execute(["reset"], packagePath: packageRoot)
+                try localFileSystem.removeFileTree(cachePath)
+
+                // Perfom another fetch
+                _ = try execute(["resolve", "--enable-repository-cache", "--cache-path", cachePath.pathString], packagePath: packageRoot)
+                XCTAssert(try localFileSystem.getDirectoryContents(repositoriesPath).contains { $0.hasPrefix("Foo-") })
+                XCTAssert(try localFileSystem.getDirectoryContents(repositoriesCachePath).contains { $0.hasPrefix("Foo-") })
+            }
+
+            do {
+                // Remove .build and cache folder
+                _ = try execute(["reset"], packagePath: packageRoot)
+                try localFileSystem.removeFileTree(cachePath)
+
+                let (_, stderr) = try self.execute(["resolve", "--disable-repository-cache", "--cache-path", cachePath.pathString], packagePath: packageRoot)
+                XCTAssertMatch(stderr, .contains("'--disable-repository-cache'/'--enable-repository-cache' flags are deprecated; use '--disable-dependencies-cache'/'--enable-dependencies-cache' instead"))
+
+                // we have to check for the prefix here since the hash value changes because spm sees the `prefix`
+                // directory `/var/...` as `/private/var/...`.
+                XCTAssert(try localFileSystem.getDirectoryContents(repositoriesPath).contains { $0.hasPrefix("Foo-") })
+                XCTAssertFalse(localFileSystem.exists(repositoriesCachePath))
+            }
+        }
+    }
+
     func testResolve() throws {
         fixture(name: "DependencyResolution/External/Simple") { prefix in
             let packageRoot = prefix.appending(component: "Bar")
@@ -176,7 +271,6 @@ final class PackageToolTests: CommandsTestCase {
     }
 
     func testDescribe() throws {
-
         fixture(name: "Miscellaneous/ExeTest") { prefix in
             // Generate the JSON description.
             let jsonResult = try SwiftPMProduct.SwiftPackage.executeProcess(["describe", "--type=json"], packagePath: prefix)

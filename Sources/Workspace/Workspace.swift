@@ -40,18 +40,32 @@ public enum WorkspaceResolveReason: Equatable {
     case other(String)
 }
 
+public struct PackageFetchDetails {
+    /// Indicates if the package was fetched from the cache or from the remote.
+    public let fromCache: Bool
+    /// Indicates wether the wether the package was already present in the cache and updated or if a clean fetch was performed.
+    public let updatedCache: Bool
+}
+
 /// The delegate interface used by the workspace to report status information.
 public protocol WorkspaceDelegate: AnyObject {
-
     /// The workspace is about to load a package manifest (which might be in the cache, or might need to be parsed). Note that this does not include speculative loading of manifests that may occr during dependency resolution; rather, it includes only the final manifest loading that happens after a particular package version has been checked out into a working directory.
     func willLoadManifest(packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind)
     /// The workspace has loaded a package manifest, either successfully or not. The manifest is nil if an error occurs, in which case there will also be at least one error in the list of diagnostics (there may be warnings even if a manifest is loaded successfully).
     func didLoadManifest(packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind, manifest: Manifest?, diagnostics: [Basics.Diagnostic])
 
     /// The workspace has started fetching this repository.
+    // deprecated 01/2022, remove once clients moved over
     func fetchingWillBegin(repository: String, fetchDetails: RepositoryManager.FetchDetails?)
+    func willFetchPackage(package: String, fetchDetails: PackageFetchDetails)
     /// The workspace has finished fetching this repository.
+    // deprecated 01/2022, remove once clients moved over
     func fetchingDidFinish(repository: String, fetchDetails: RepositoryManager.FetchDetails?, diagnostic: Basics.Diagnostic?, duration: DispatchTimeInterval)
+    func didFetchPackage(package: String, result: Result<PackageFetchDetails, Error>, duration: DispatchTimeInterval)
+    /// Called every time the progress of the git fetch operation updates.
+    // deprecated 01/2022, remove once clients moved over
+    func fetchingRepository(from repository: String, objectsFetched: Int, totalObjectsToFetch: Int)
+    func fetchingPackage(package: String, progress: Int64, total: Int64?)
 
     /// The workspace has started updating this repository.
     func repositoryWillUpdate(_ repository: String)
@@ -64,7 +78,6 @@ public protocol WorkspaceDelegate: AnyObject {
     /// The workspace is about to clone a repository from the local cache to a working directory.
     func willCreateWorkingCopy(repository url: String, at path: AbsolutePath)
     /// The workspace has cloned a repository from the local cache to a working directory. The error indicates whether the operation failed or succeeded.
-    // deprecated 04/2021, remove once clients moved over
     func didCreateWorkingCopy(repository url: String, at path: AbsolutePath, error: Basics.Diagnostic?)
 
     /// The workspace is about to check out a particular revision of a working directory.
@@ -93,9 +106,13 @@ public protocol WorkspaceDelegate: AnyObject {
 
     /// The workspace finished downloading all binary artifacts.
     func didDownloadBinaryArtifacts()
+}
 
-    /// Called every time the progress of the git fetch operation updates.
-    func fetchingRepository(from repository: String, objectsFetched: Int, totalObjectsToFetch: Int)
+// empty implementation for soft deprecation. remove when clients moved over
+extension WorkspaceDelegate {
+    public func fetchingWillBegin(repository: String, fetchDetails: RepositoryManager.FetchDetails?) {}
+    public func fetchingDidFinish(repository: String, fetchDetails: RepositoryManager.FetchDetails?, diagnostic: Basics.Diagnostic?, duration: DispatchTimeInterval) {}
+    public func fetchingRepository(from repository: String, objectsFetched: Int, totalObjectsToFetch: Int) {}
 }
 
 private class WorkspaceRepositoryManagerDelegate: RepositoryManagerDelegate {
@@ -105,13 +122,32 @@ private class WorkspaceRepositoryManagerDelegate: RepositoryManagerDelegate {
         self.workspaceDelegate = workspaceDelegate
     }
 
-    func fetchingWillBegin(handle: RepositoryManager.RepositoryHandle, fetchDetails details: RepositoryManager.FetchDetails?) {
+    func fetchingWillBegin(handle: RepositoryManager.RepositoryHandle, fetchDetails details: RepositoryManager.FetchDetails) {
+        self.workspaceDelegate.willFetchPackage(package: handle.repository.location.description, fetchDetails: PackageFetchDetails(fromCache: details.fromCache, updatedCache: details.updatedCache) )
+        // deprecated 01/2022, remove once clients moved over
         workspaceDelegate.fetchingWillBegin(repository: handle.repository.location.description, fetchDetails: details)
     }
 
     func fetchingDidFinish(handle: RepositoryManager.RepositoryHandle, fetchDetails details: RepositoryManager.FetchDetails?, error: Swift.Error?, duration: DispatchTimeInterval) {
+        let result: Result<PackageFetchDetails, Error>
+        if let error = error {
+            result = .failure(error)
+        } else if let details = details  {
+            result = .success(PackageFetchDetails(fromCache: details.fromCache, updatedCache: details.updatedCache) )
+        } else {
+            assertionFailure("invalid fetchingDidFinish callback")
+            return
+        }
+        self.workspaceDelegate.didFetchPackage(package: handle.repository.location.description, result: result, duration: duration)
+        // deprecated 01/2022, remove once clients moved over
         let diagnostic = error.map { Basics.Diagnostic.error($0) }
         workspaceDelegate.fetchingDidFinish(repository: handle.repository.location.description, fetchDetails: details, diagnostic: diagnostic, duration: duration)
+    }
+
+    func fetchingRepository(from repository: String, objectsFetched: Int, totalObjectsToFetch: Int) {
+        self.workspaceDelegate.fetchingPackage(package: repository, progress: Int64(objectsFetched), total: Int64(totalObjectsToFetch))
+        // deprecated 01/2022, remove once clients moved over
+        workspaceDelegate.fetchingRepository(from: repository, objectsFetched: objectsFetched, totalObjectsToFetch: totalObjectsToFetch)
     }
 
     func handleWillUpdate(handle: RepositoryManager.RepositoryHandle) {
@@ -121,9 +157,25 @@ private class WorkspaceRepositoryManagerDelegate: RepositoryManagerDelegate {
     func handleDidUpdate(handle: RepositoryManager.RepositoryHandle, duration: DispatchTimeInterval) {
         workspaceDelegate.repositoryDidUpdate(handle.repository.location.description, duration: duration)
     }
+}
 
-    func fetchingRepository(from repository: String, objectsFetched: Int, totalObjectsToFetch: Int) {
-        workspaceDelegate.fetchingRepository(from: repository, objectsFetched: objectsFetched, totalObjectsToFetch: totalObjectsToFetch)
+private struct WorkspaceRegistryDownloadsManagerDelegate: RegistryDownloadsManager.Delegate {
+    private let workspaceDelegate: WorkspaceDelegate
+
+    init(workspaceDelegate: WorkspaceDelegate) {
+        self.workspaceDelegate = workspaceDelegate
+    }
+
+    func willFetch(package: PackageIdentity, version: Version, fetchDetails: RegistryDownloadsManager.FetchDetails) {
+        self.workspaceDelegate.willFetchPackage(package: package.description, fetchDetails: PackageFetchDetails(fromCache: fetchDetails.fromCache, updatedCache: fetchDetails.updatedCache) )
+    }
+
+    func didFetch(package: PackageIdentity, version: Version, result: Result<RegistryDownloadsManager.FetchDetails, Error>, duration: DispatchTimeInterval) {
+        self.workspaceDelegate.didFetchPackage(package: package.description, result: result.map{ PackageFetchDetails(fromCache: $0.fromCache, updatedCache: $0.updatedCache) }, duration: duration)
+    }
+
+    func fetching(package: PackageIdentity, version: Version, downloaded: Int64, total: Int64?) {
+        self.workspaceDelegate.fetchingPackage(package: package.description, progress: downloaded, total: total)
     }
 }
 
@@ -216,6 +268,8 @@ public class Workspace {
     /// The registry manager.
     // var for backwards compatibility with deprecated initializers, remove with them
     fileprivate var registryClient: RegistryClient
+
+    fileprivate var registryDownloadsManager: RegistryDownloadsManager
 
     /// The http client used for downloading binary artifacts.
     fileprivate let httpClient: HTTPClient
@@ -416,10 +470,9 @@ public class Workspace {
             skipDependenciesUpdates: !(resolverUpdateEnabled ?? !WorkspaceConfiguration.default.skipDependenciesUpdates),
             prefetchBasedOnResolvedFile: resolverPrefetchingEnabled ?? WorkspaceConfiguration.default.prefetchBasedOnResolvedFile,
             additionalFileRules: additionalFileRules ?? WorkspaceConfiguration.default.additionalFileRules,
-            sharedRepositoriesCacheEnabled: sharedRepositoriesCacheEnabled ?? WorkspaceConfiguration.default.sharedRepositoriesCacheEnabled,
+            sharedDependenciesCacheEnabled: sharedRepositoriesCacheEnabled ?? WorkspaceConfiguration.default.sharedDependenciesCacheEnabled,
             fingerprintCheckingMode: resolverFingerprintCheckingMode
         )
-
         try self.init(
             fileSystem: fileSystem,
             location: location,
@@ -633,7 +686,7 @@ public class Workspace {
             fileSystem: fileSystem,
             path: location.repositoriesDirectory,
             provider: repositoryProvider,
-            cachePath: configuration.sharedRepositoriesCacheEnabled ? location.sharedRepositoriesCacheDirectory : .none,
+            cachePath: configuration.sharedDependenciesCacheEnabled ? location.sharedRepositoriesCacheDirectory : .none,
             initializationWarningHandler: initializationWarningHandler,
             delegate: delegate.map(WorkspaceRepositoryManagerDelegate.init(workspaceDelegate:))
         )
@@ -653,15 +706,23 @@ public class Workspace {
 
         let registryClient = customRegistryClient ?? RegistryClient(
             configuration: registriesConfiguration,
-            identityResolver: identityResolver,
             fingerprintStorage: fingerprints,
             fingerprintCheckingMode: configuration.fingerprintCheckingMode,
             authorizationProvider: authorizationProvider?.httpAuthorizationHeader(for:)
         )
 
+        let checksumAlgorithm = customChecksumAlgorithm ?? SHA256()
+        let registryDownloadsManager = RegistryDownloadsManager(
+            fileSystem: fileSystem,
+            path: location.registryDownloadDirectory,
+            cachePath: configuration.sharedDependenciesCacheEnabled ? location.sharedRegistryDownloadsCacheDirectory : .none,
+            registryClient: registryClient,
+            checksumAlgorithm: checksumAlgorithm,
+            delegate: delegate.map(WorkspaceRegistryDownloadsManagerDelegate.init(workspaceDelegate:))
+        )
+
         let httpClient = customHTTPClient ?? HTTPClient()
         let archiver = customArchiver ?? ZipArchiver()
-        let checksumAlgorithm = customChecksumAlgorithm ?? SHA256()
 
         // initialize
         self.fileSystem = fileSystem
@@ -677,6 +738,7 @@ public class Workspace {
         self.customPackageContainerProvider = customPackageContainerProvider
         self.repositoryManager = repositoryManager
         self.registryClient = registryClient
+        self.registryDownloadsManager = registryDownloadsManager
         self.identityResolver = identityResolver
         self.checksumAlgorithm = checksumAlgorithm
         self.fingerprints = fingerprints
@@ -892,8 +954,9 @@ extension Workspace {
     ///     - observabilityScope: The observability scope that reports errors, warnings, etc
     public func purgeCache(observabilityScope: ObservabilityScope) {
         observabilityScope.trap {
-            try repositoryManager.purgeCache()
-            try manifestLoader.purgeCache()
+            try self.repositoryManager.purgeCache()
+            try self.registryDownloadsManager.purgeCache()
+            try self.manifestLoader.purgeCache()
         }
     }
 
@@ -3692,27 +3755,15 @@ extension Workspace {
      func downloadRegistryArchive(
         package: PackageReference,
         at version: Version,
-        progressHandler: ((_ bytesReceived: Int64, _ totalBytes: Int64?) -> Void)? = .none,
         observabilityScope: ObservabilityScope
      ) throws -> AbsolutePath {
-         guard case (let scope, let name)? = package.identity.scopeAndName else {
-             throw StringError("invalid package identity")
-         }
-
-         let downloadPath = self.location.registryDownloadDirectory.appending(components: scope.description, name.description, version.description)
-         if self.fileSystem.exists(downloadPath) {
-             return downloadPath
-         }
-
-         try temp_await {
-             self.registryClient.downloadSourceArchive(
+         // FIXME: this should not block
+         let downloadPath = try temp_await {
+             self.registryDownloadsManager.lookup(
                 package: package.identity,
                 version: version,
-                fileSystem: self.fileSystem,
-                destinationPath: downloadPath,
-                checksumAlgorithm: self.checksumAlgorithm,
-                progressHandler: progressHandler,
                 observabilityScope: observabilityScope,
+                delegateQueue: .sharedConcurrent,
                 callbackQueue: .sharedConcurrent,
                 completion: $0
              )
@@ -3735,7 +3786,6 @@ extension Workspace {
      func downloadRegistryArchive(
         package: PackageReference,
         at pinState: PinsStore.PinState,
-        progressHandler: ((_ bytesReceived: Int64, _ totalBytes: Int64?) -> Void)? = .none,
         observabilityScope: ObservabilityScope
      ) throws -> AbsolutePath {
          switch pinState {
@@ -3743,7 +3793,6 @@ extension Workspace {
              return try self.downloadRegistryArchive(
                 package: package,
                 at: version,
-                progressHandler: progressHandler,
                 observabilityScope: observabilityScope
              )
          default:
@@ -3758,6 +3807,9 @@ extension Workspace {
 
          let downloadPath = self.location.registryDownloadSubdirectory(for: dependency)
          try self.fileSystem.removeFileTree(downloadPath)
+
+         // remove the local copy
+         try registryDownloadsManager.remove(package: dependency.packageRef.identity)
      }
  }
 

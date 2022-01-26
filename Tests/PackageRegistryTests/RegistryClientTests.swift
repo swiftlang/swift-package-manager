@@ -501,7 +501,6 @@ final class RegistryClientTests: XCTestCase {
         ])
         let registryClient = RegistryClient(
             configuration: configuration,
-            identityResolver: DefaultIdentityResolver(),
             fingerprintStorage: fingerprintStorage,
             fingerprintCheckingMode: .strict,
             customHTTPClient: httpClient,
@@ -580,7 +579,6 @@ final class RegistryClientTests: XCTestCase {
         ])
         let registryClient = RegistryClient(
             configuration: configuration,
-            identityResolver: DefaultIdentityResolver(),
             fingerprintStorage: fingerprintStorage,
             fingerprintCheckingMode: .strict,
             customHTTPClient: httpClient,
@@ -613,9 +611,8 @@ final class RegistryClientTests: XCTestCase {
             }
         }
 
-        // Unzip didn't take place so directory is empty
-        let contents = try fileSystem.getDirectoryContents(path)
-        XCTAssertEqual(contents, [])
+        // download did not succeed so directory does not exist
+        XCTAssertFalse(fileSystem.exists(path))
     }
 
     func testDownloadSourceArchive_nonMatchingChecksumInStorage_fingerprintChecking_warn() throws {
@@ -665,7 +662,6 @@ final class RegistryClientTests: XCTestCase {
         ])
         let registryClient = RegistryClient(
             configuration: configuration,
-            identityResolver: DefaultIdentityResolver(),
             fingerprintStorage: fingerprintStorage,
             fingerprintCheckingMode: .warn,
             customHTTPClient: httpClient,
@@ -781,7 +777,6 @@ final class RegistryClientTests: XCTestCase {
         let fingerprintStorage = MockPackageFingerprintStorage()
         let registryClient = RegistryClient(
             configuration: configuration,
-            identityResolver: DefaultIdentityResolver(),
             fingerprintStorage: fingerprintStorage,
             fingerprintCheckingMode: .strict,
             customHTTPClient: httpClient,
@@ -970,7 +965,6 @@ private func makeRegistryClient(
 ) -> RegistryClient {
     RegistryClient(
         configuration: configuration,
-        identityResolver: DefaultIdentityResolver(),
         fingerprintStorage: fingerprintStorage,
         fingerprintCheckingMode: fingerprintCheckingMode,
         customHTTPClient: httpClient,

@@ -145,7 +145,7 @@ private class MockRepositories: RepositoryProvider {
 private class MockResolverDelegate: RepositoryManagerDelegate {
     var fetched = [RepositorySpecifier]()
 
-    func fetchingWillBegin(handle: RepositoryManager.RepositoryHandle, fetchDetails: RepositoryManager.FetchDetails?) {
+    func fetchingWillBegin(handle: RepositoryManager.RepositoryHandle, fetchDetails: RepositoryManager.FetchDetails) {
         self.fetched += [handle.repository]
     }
 

@@ -493,7 +493,7 @@ final class WorkspaceTests: XCTestCase {
         workspace.checkManagedDependencies { result in
             result.check(notPresent: "baz")
         }
-        XCTAssertNoMatch(workspace.delegate.events, [.equal("fetching repo: /tmp/ws/pkgs/Baz")])
+        XCTAssertNoMatch(workspace.delegate.events, [.equal("fetching package: /tmp/ws/pkgs/Baz")])
         XCTAssertNoMatch(workspace.delegate.events, [.equal("will resolve dependencies")])
     }
 
@@ -554,7 +554,7 @@ final class WorkspaceTests: XCTestCase {
         workspace.checkManagedDependencies { result in
             result.check(dependency: "baz", at: .checkout(.version("1.0.0")))
         }
-        XCTAssertMatch(workspace.delegate.events, [.equal("fetching repo: /tmp/ws/pkgs/Baz")])
+        XCTAssertMatch(workspace.delegate.events, [.equal("fetching package: /tmp/ws/pkgs/Baz")])
         XCTAssertMatch(workspace.delegate.events, [.equal("will resolve dependencies")])
 
         // Now load with Baz as a root package.
@@ -571,7 +571,7 @@ final class WorkspaceTests: XCTestCase {
         workspace.checkManagedDependencies { result in
             result.check(notPresent: "baz")
         }
-        XCTAssertNoMatch(workspace.delegate.events, [.equal("fetching repo: /tmp/ws/pkgs/Baz")])
+        XCTAssertNoMatch(workspace.delegate.events, [.equal("fetching package: /tmp/ws/pkgs/Baz")])
         XCTAssertNoMatch(workspace.delegate.events, [.equal("will resolve dependencies")])
         XCTAssertMatch(workspace.delegate.events, [.equal("removing repo: /tmp/ws/pkgs/Baz")])
     }
@@ -9902,7 +9902,6 @@ final class WorkspaceTests: XCTestCase {
         let registryClient = try makeRegistryClient(
             packageIdentity: .plain("org.foo"),
             packageVersion: "1.0.0",
-            workspaceDirectory: sandbox,
             fileSystem: fs,
             configuration: .init()
         )
@@ -9989,7 +9988,6 @@ final class WorkspaceTests: XCTestCase {
             let registryClient = try makeRegistryClient(
                 packageIdentity: .plain("org.foo"),
                 packageVersion: "1.0.0",
-                workspaceDirectory: sandbox,
                 fileSystem: fs,
                 releasesRequestHandler: { _, _ , completion in
                     completion(.failure(StringError("boom")))
@@ -10010,7 +10008,6 @@ final class WorkspaceTests: XCTestCase {
             let registryClient = try makeRegistryClient(
                 packageIdentity: .plain("org.foo"),
                 packageVersion: "1.0.0",
-                workspaceDirectory: sandbox,
                 fileSystem: fs,
                 releasesRequestHandler: { _, _ , completion in
                     completion(.success(.serverError()))
@@ -10069,7 +10066,6 @@ final class WorkspaceTests: XCTestCase {
             let registryClient = try makeRegistryClient(
                 packageIdentity: .plain("org.foo"),
                 packageVersion: "1.0.0",
-                workspaceDirectory: sandbox,
                 fileSystem: fs,
                 versionMetadataRequestHandler: { _, _ , completion in
                     completion(.failure(StringError("boom")))
@@ -10090,7 +10086,6 @@ final class WorkspaceTests: XCTestCase {
             let registryClient = try makeRegistryClient(
                 packageIdentity: .plain("org.foo"),
                 packageVersion: "1.0.0",
-                workspaceDirectory: sandbox,
                 fileSystem: fs,
                 versionMetadataRequestHandler: { _, _ , completion in
                     completion(.success(.serverError()))
@@ -10149,7 +10144,6 @@ final class WorkspaceTests: XCTestCase {
             let registryClient = try makeRegistryClient(
                 packageIdentity: .plain("org.foo"),
                 packageVersion: "1.0.0",
-                workspaceDirectory: sandbox,
                 fileSystem: fs,
                 manifestRequestHandler: { _, _ , completion in
                     completion(.failure(StringError("boom")))
@@ -10170,7 +10164,6 @@ final class WorkspaceTests: XCTestCase {
             let registryClient = try makeRegistryClient(
                 packageIdentity: .plain("org.foo"),
                 packageVersion: "1.0.0",
-                workspaceDirectory: sandbox,
                 fileSystem: fs,
                 manifestRequestHandler: { _, _ , completion in
                     completion(.success(.serverError()))
@@ -10229,7 +10222,6 @@ final class WorkspaceTests: XCTestCase {
             let registryClient = try makeRegistryClient(
                 packageIdentity: .plain("org.foo"),
                 packageVersion: "1.0.0",
-                workspaceDirectory: sandbox,
                 fileSystem: fs,
                 downloadArchiveRequestHandler: { _, _ , completion in
                     completion(.failure(StringError("boom")))
@@ -10250,7 +10242,6 @@ final class WorkspaceTests: XCTestCase {
             let registryClient = try makeRegistryClient(
                 packageIdentity: .plain("org.foo"),
                 packageVersion: "1.0.0",
-                workspaceDirectory: sandbox,
                 fileSystem: fs,
                 downloadArchiveRequestHandler: { _, _ , completion in
                     completion(.success(.serverError()))
@@ -10309,7 +10300,6 @@ final class WorkspaceTests: XCTestCase {
             let registryClient = try makeRegistryClient(
                 packageIdentity: .plain("org.foo"),
                 packageVersion: "1.0.0",
-                workspaceDirectory: sandbox,
                 fileSystem: fs,
                 archiver: MockArchiver(handler: { archiver, from, to, completion in
                     completion(.failure(StringError("boom")))
@@ -10321,7 +10311,7 @@ final class WorkspaceTests: XCTestCase {
             workspace.registryClient = registryClient
             workspace.checkPackageGraphFailure(roots: ["MyPackage"]) { diagnostics in
                 testDiagnostics(diagnostics) { result in
-                    result.check(diagnostic: .equal("failed extracting '\(sandbox.pathString)/.build/registry/downloads/org/foo/1.0.0.zip' to '\(sandbox.pathString)/.build/registry/downloads/org/foo/1.0.0': boom"), severity: .error)
+                    result.check(diagnostic: .regex("failed extracting '.*/registry/downloads/org/foo/1.0.0.zip' to '.*/registry/downloads/org/foo/1.0.0': boom"), severity: .error)
                 }
             }
         }
@@ -10330,7 +10320,6 @@ final class WorkspaceTests: XCTestCase {
     func makeRegistryClient(
         packageIdentity: PackageIdentity,
         packageVersion: Version,
-        workspaceDirectory: AbsolutePath,
         fileSystem: FileSystem,
         configuration: PackageRegistry.RegistryConfiguration? = .none,
         identityResolver: IdentityResolver? = .none,
@@ -10344,8 +10333,6 @@ final class WorkspaceTests: XCTestCase {
         archiver: Archiver? = .none
     ) throws -> RegistryClient {
         let jsonEncoder = JSONEncoder.makeWithDefaults()
-
-        let identityResolver = identityResolver ?? DefaultIdentityResolver()
 
         guard let (packageScope, packageName) = packageIdentity.scopeAndName else {
             throw StringError("Invalid package identity")
@@ -10412,12 +10399,14 @@ final class WorkspaceTests: XCTestCase {
         }
 
         let downloadArchiveRequestHandler = downloadArchiveRequestHandler ?? { request, _ , completion in
-            // meh
-            let path = workspaceDirectory
-                .appending(components: ".build", "registry", "downloads", packageScope.description, packageName.description)
-                .appending(component: "\(packageVersion).zip")
-            try! fileSystem.createDirectory(path.parentDirectory, recursive: true)
-            try! fileSystem.writeFileContents(path, string: "")
+            switch request.kind {
+            case .download(let fileSystem, let destination):
+                // creates a dummy zipfile which is required by the archiver step
+                try! fileSystem.createDirectory(destination.parentDirectory, recursive: true)
+                try! fileSystem.writeFileContents(destination, string: "")
+            default:
+                preconditionFailure("invalid request")
+            }
 
             completion(.success(
                 HTTPClientResponse(
@@ -10443,7 +10432,6 @@ final class WorkspaceTests: XCTestCase {
 
         return RegistryClient(
             configuration: configuration!,
-            identityResolver: identityResolver,
             fingerprintStorage: fingerprintStorage,
             fingerprintCheckingMode: fingerprintCheckingMode,
             authorizationProvider: authorizationProvider?.httpAuthorizationHeader(for:),

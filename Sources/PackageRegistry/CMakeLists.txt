@@ -9,7 +9,8 @@
 add_library(PackageRegistry
   Registry.swift
   RegistryConfiguration.swift
-  RegistryClient.swift)
+  RegistryClient.swift
+  RegistryDownloadsManager.swift)
 target_link_libraries(PackageRegistry PUBLIC
   Basics
   PackageFingerprint
