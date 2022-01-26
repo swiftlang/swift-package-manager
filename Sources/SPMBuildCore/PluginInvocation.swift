@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2021 Apple Inc. and the Swift project authors
+ Copyright (c) 2021-2022 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -78,7 +78,6 @@ extension PluginTarget {
             inputStruct = try serializer.makePluginScriptRunnerInput(
                 rootPackage: package,
                 pluginWorkDir: outputDirectory,
-                builtProductsDir: outputDirectory,  // FIXME — what is this parameter needed for?
                 toolSearchDirs: toolSearchDirectories,
                 toolNamesToPaths: toolNamesToPaths,
                 pluginAction: action)
@@ -593,7 +592,6 @@ public struct PluginScriptRunnerInput: Codable {
     let packages: [Package]
     let rootPackageId: Package.Id
     let pluginWorkDirId: Path.Id
-    let builtProductsDirId: Path.Id
     let toolSearchDirIds: [Path.Id]
     let toolNamesToPathIds: [String: Path.Id]
     let pluginAction: PluginAction
@@ -778,14 +776,12 @@ struct PluginScriptRunnerInputSerializer {
     mutating func makePluginScriptRunnerInput(
         rootPackage: ResolvedPackage,
         pluginWorkDir: AbsolutePath,
-        builtProductsDir: AbsolutePath,
         toolSearchDirs: [AbsolutePath],
         toolNamesToPaths: [String: AbsolutePath],
         pluginAction: PluginAction
     ) throws -> PluginScriptRunnerInput {
         let rootPackageId = try serialize(package: rootPackage)
         let pluginWorkDirId = try serialize(path: pluginWorkDir)
-        let builtProductsDirId = try serialize(path: builtProductsDir)
         let toolSearchDirIds = try toolSearchDirs.map{ try serialize(path: $0) }
         let toolNamesToPathIds = try toolNamesToPaths.mapValues{ try serialize(path: $0) }
         let serializedPluginAction: PluginScriptRunnerInput.PluginAction
@@ -806,7 +802,6 @@ struct PluginScriptRunnerInputSerializer {
             packages: packages,
             rootPackageId: rootPackageId,
             pluginWorkDirId: pluginWorkDirId,
-            builtProductsDirId: builtProductsDirId,
             toolSearchDirIds: toolSearchDirIds,
             toolNamesToPathIds: toolNamesToPathIds,
             pluginAction: serializedPluginAction)

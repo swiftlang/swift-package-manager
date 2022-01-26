@@ -4,7 +4,8 @@ import Foundation
 @main
 struct MyPlugin: BuildToolPlugin {
     
-    func createBuildCommands(context: TargetBuildContext) throws -> [Command] {
+    func createBuildCommands(context: PluginContext, target: Target) throws -> [Command] {
+        guard let target = target as? SourceModuleTarget else { return [] }
  
         // Check that we can write to the output directory.
         let allowedOutputPath = context.pluginWorkDirectory.string + "/" + UUID().uuidString

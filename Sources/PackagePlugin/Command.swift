@@ -34,8 +34,8 @@ public enum Command {
 public extension Command {
     
     /// Creates a command to run during the build. The executable should be a
-    /// tool returned by `TargetBuildContext.tool(named:)`, and any paths in
-    /// the arguments list as well as in the input and output lists should be
+    /// tool returned by `PluginContext.tool(named:)`, and any paths in the
+    /// arguments list as well as in the input and output lists should be
     /// based on the paths provided in the target build context structure.
     ///
     /// The build command will run whenever its outputs are missing or if its
@@ -70,8 +70,8 @@ public extension Command {
     }
 
     /// Creates a command to run during the build. The executable should be a
-    /// tool returned by `TargetBuildContext.tool(named:)`, and any paths in
-    /// the arguments list as well as in the input and output lists should be
+    /// tool returned by `PluginContext.tool(named:)`, and any paths in the
+    /// arguments list as well as in the input and output lists should be
     /// based on the paths provided in the target build context structure.
     ///
     /// The build command will run whenever its outputs are missing or if its
@@ -109,8 +109,8 @@ public extension Command {
     }
 
     /// Creates a command to run before the build. The executable should be a
-    /// tool returned by `TargetBuildContext.tool(named:)`, and any paths in
-    /// the arguments list and the output files directory should be based on
+    /// tool returned by `PluginContext.tool(named:)`, and any paths in the
+    /// arguments list and in the output files directory should be based on
     /// the paths provided in the target build context structure.
     ///
     /// The build command will run before the build starts, and is allowed to
@@ -148,8 +148,8 @@ public extension Command {
     }
 
     /// Creates a command to run before the build. The executable should be a
-    /// tool returned by `TargetBuildContext.tool(named:)`, and any paths in
-    /// the arguments list and the output files directory should be based on
+    /// tool returned by `PluginContext.tool(named:)`, and any paths in the
+    /// arguments list and in the output files directory should be based on
     /// the paths provided in the target build context structure.
     ///
     /// The build command will run before the build starts, and is allowed to
