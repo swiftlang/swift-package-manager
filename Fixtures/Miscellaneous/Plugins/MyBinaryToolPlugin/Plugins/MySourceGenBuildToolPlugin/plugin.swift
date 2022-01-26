@@ -3,10 +3,10 @@ import PackagePlugin
 @main
 struct MyPlugin: BuildToolPlugin {
     
-    func createBuildCommands(context: TargetBuildContext) throws -> [Command] {
+    func createBuildCommands(context: PluginContext, target: Target) throws -> [Command] {
         print("Hello from the Build Tool Plugin!")
-
-        let inputFiles = context.inputFiles.filter({ $0.path.extension == "dat" })
+        guard let target = target as? SourceModuleTarget else { return [] }
+        let inputFiles = target.sourceFiles.filter({ $0.path.extension == "dat" })
         return try inputFiles.map {
             let inputFile = $0
             let inputPath = inputFile.path

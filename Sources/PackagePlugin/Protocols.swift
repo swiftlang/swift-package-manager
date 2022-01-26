@@ -36,49 +36,6 @@ public protocol BuildToolPlugin: Plugin {
         context: PluginContext,
         target: Target
     ) throws -> [Command]
-
-    /// Invoked by SwiftPM to create build commands for a particular target.
-    /// The context parameter contains information about the package and its
-    /// dependencies, as well as other environmental inputs.
-    ///
-    /// This function should create and return build commands or prebuild
-    /// commands, configured based on the information in the context.
-    ///
-    /// This is the old form of this method and is marginally deprecated.
-    func createBuildCommands(
-        context: TargetBuildContext
-    ) throws -> [Command]
-}
-
-extension BuildToolPlugin {
-    /// Default implementation that invokes the old callback with an old-style
-    /// context, for compatibility.
-    public func createBuildCommands(
-        context: PluginContext,
-        target: Target
-    ) throws -> [Command] {
-        return try self.createBuildCommands(context: TargetBuildContext(
-            targetName: target.name,
-            moduleName: (target as? SourceModuleTarget)?.moduleName ?? target.name,
-            targetDirectory: target.directory,
-            packageDirectory: context.package.directory,
-            inputFiles: (target as? SourceModuleTarget)?.sourceFiles ?? .init([]),
-            dependencies: target.recursiveTargetDependencies.map { .init(
-                targetName: $0.name,
-                moduleName: ($0 as? SourceModuleTarget)?.moduleName ?? $0.name,
-                targetDirectory: $0.directory,
-                publicHeadersDirectory: ($0 as? ClangSourceModuleTarget)?.publicHeadersDirectory) },
-            pluginWorkDirectory: context.pluginWorkDirectory,
-            builtProductsDirectory: context.builtProductsDirectory,
-            toolNamesToPaths: context.toolNamesToPaths))
-    }
-
-    /// Default implementation that does nothing.
-    public func createBuildCommands(
-        context: TargetBuildContext
-    ) throws -> [Command] {
-        return []
-    }
 }
 
 /// Defines functionality for all plugins that have a `command` capability.
