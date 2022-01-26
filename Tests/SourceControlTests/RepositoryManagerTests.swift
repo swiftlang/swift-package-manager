@@ -705,6 +705,25 @@ class RepositoryManagerTests: XCTestCase {
 }
 
 extension RepositoryManager {
+    public convenience init(
+        fileSystem: FileSystem,
+        path: AbsolutePath,
+        provider: RepositoryProvider,
+        cachePath: AbsolutePath? =  .none,
+        cacheLocalPackages: Bool = false,
+        delegate: RepositoryManagerDelegate? = .none
+    ) {
+        self.init(
+            fileSystem: fileSystem,
+            path: path,
+            provider: provider,
+            cachePath: cachePath,
+            cacheLocalPackages: cacheLocalPackages,
+            initializationWarningHandler: { _ in },
+            delegate: delegate
+        )
+    }
+
     fileprivate func lookup(repository: RepositorySpecifier, skipUpdate: Bool = false) throws -> RepositoryHandle {
         return try tsc_await { self.lookup(repository: repository, skipUpdate: skipUpdate, on: .global(), completion: $0) }
     }

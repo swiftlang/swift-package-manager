@@ -515,6 +515,7 @@ public class SwiftTool {
                 sharedRepositoriesCacheEnabled: self.options.useRepositoriesCache,
                 fingerprintCheckingMode: self.options.resolverFingerprintCheckingMode
             ),
+            initializationWarningHandler: { self.observabilityScope.emit(warning: $0) },
             customManifestLoader: self.getManifestLoader(), // FIXME: ideally we would not customize the manifest loader
             customRepositoryProvider: repositoryProvider, // FIXME: ideally we would not customize the repository provider. its currently done for shutdown handling which can be better abstracted
             delegate: delegate

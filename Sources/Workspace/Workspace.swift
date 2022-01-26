@@ -254,6 +254,7 @@ public class Workspace {
     ///   - location: Workspace location configuration.
     ///   - authorizationProvider: Provider of authentication information for outbound network requests.
     ///   - configuration: Configuration to fine tune the dependency resolution behavior.
+    ///   - initializationWarningHandler: Initialization warnings handler
     ///   - customManifestLoader: Custom manifest loader. Used to customize how manifest are loaded.
     ///   - customPackageContainerProvider: Custom package container provider. Used to provide specialized package providers.
     ///   - customRepositoryProvider: Custom repository provider. Used to customize source control access.
@@ -263,6 +264,7 @@ public class Workspace {
         location: Location,
         authorizationProvider: AuthorizationProvider? = .none,
         configuration: WorkspaceConfiguration? = .none,
+        initializationWarningHandler: ((String) -> Void)? = .none,
         // optional customization used for advanced integration situations
         customManifestLoader: ManifestLoaderProtocol? = .none,
         customPackageContainerProvider: PackageContainerProvider? = .none,
@@ -275,6 +277,7 @@ public class Workspace {
             location: location,
             authorizationProvider: authorizationProvider,
             configuration: configuration,
+            initializationWarningHandler: initializationWarningHandler,
             customRegistriesConfiguration: .none,
             customFingerprints: .none,
             customMirrors: .none,
@@ -303,6 +306,7 @@ public class Workspace {
     ///   - forRootPackage: The path for the root package.
     ///   - authorizationProvider: Provider of authentication information for outbound network requests.
     ///   - configuration: Configuration to fine tune the dependency resolution behavior.
+    ///   - initializationWarningHandler: Initialization warnings handler
     ///   - customManifestLoader: Custom manifest loader. Used to customize how manifest are loaded.
     ///   - customPackageContainerProvider: Custom package container provider. Used to provide specialized package providers.
     ///   - customRepositoryProvider: Custom repository provider. Used to customize source control access.
@@ -312,6 +316,7 @@ public class Workspace {
         forRootPackage packagePath: AbsolutePath,
         authorizationProvider: AuthorizationProvider? = .none,
         configuration: WorkspaceConfiguration? = .none,
+        initializationWarningHandler: ((String) -> Void)? = .none,
         // optional customization used for advanced integration situations
         customManifestLoader: ManifestLoaderProtocol? = .none,
         customPackageContainerProvider: PackageContainerProvider? = .none,
@@ -324,6 +329,7 @@ public class Workspace {
         try self.init(
             fileSystem: fileSystem,
             location: location,
+            initializationWarningHandler: initializationWarningHandler,
             customManifestLoader: customManifestLoader,
             customPackageContainerProvider: customPackageContainerProvider,
             customRepositoryProvider: customRepositoryProvider,
@@ -342,6 +348,7 @@ public class Workspace {
     ///   - forRootPackage: The path for the root package.
     ///   - authorizationProvider: Provider of authentication information for outbound network requests.
     ///   - configuration: Configuration to fine tune the dependency resolution behavior.
+    ///   - initializationWarningHandler: Initialization warnings handler
     ///   - customToolchain: Custom toolchain. Used to create a customized ManifestLoader, customizing how manifest are loaded.
     ///   - customPackageContainerProvider: Custom package container provider. Used to provide specialized package providers.
     ///   - customRepositoryProvider: Custom repository provider. Used to customize source control access.
@@ -351,6 +358,7 @@ public class Workspace {
         forRootPackage packagePath: AbsolutePath,
         authorizationProvider: AuthorizationProvider? = .none,
         configuration: WorkspaceConfiguration? = .none,
+        initializationWarningHandler: ((String) -> Void)? = .none,
         // optional customization used for advanced integration situations
         customToolchain: UserToolchain,
         customPackageContainerProvider: PackageContainerProvider? = .none,
@@ -369,14 +377,13 @@ public class Workspace {
             forRootPackage: packagePath,
             authorizationProvider: authorizationProvider,
             configuration: configuration,
+            initializationWarningHandler: initializationWarningHandler,
             customManifestLoader: manifestLoader,
             customPackageContainerProvider: customPackageContainerProvider,
             customRepositoryProvider: customRepositoryProvider,
             delegate: delegate
         )
     }
-
-
 
     // deprecate 12/21
     @_disfavoredOverload
@@ -418,6 +425,7 @@ public class Workspace {
             location: location,
             authorizationProvider: authorizationProvider,
             configuration: configuration,
+            initializationWarningHandler: .none,
             customRegistriesConfiguration: registries,
             customFingerprints: customFingerprintStorage,
             customMirrors: mirrors,
@@ -533,6 +541,7 @@ public class Workspace {
         location: Location,
         authorizationProvider: AuthorizationProvider? = .none,
         configuration: WorkspaceConfiguration? = .none,
+        initializationWarningHandler: ((String) -> Void)? = .none,
         // optional customization, primarily designed for testing but also used in some cases by libSwiftPM consumers
         customRegistriesConfiguration: RegistryConfiguration? = .none,
         customFingerprints: PackageFingerprintStorage? = .none,
@@ -555,6 +564,7 @@ public class Workspace {
             location: location,
             authorizationProvider: authorizationProvider,
             configuration: configuration,
+            initializationWarningHandler: initializationWarningHandler,
             customRegistriesConfiguration: customRegistriesConfiguration,
             customFingerprints: customFingerprints,
             customMirrors: customMirrors,
@@ -578,6 +588,7 @@ public class Workspace {
         location: Location,
         authorizationProvider: AuthorizationProvider?,
         configuration: WorkspaceConfiguration?,
+        initializationWarningHandler: ((String) -> Void)?,
         // optional customization, primarily designed for testing but also used in some cases by libSwiftPM consumers
         customRegistriesConfiguration: RegistryConfiguration?,
         customFingerprints: PackageFingerprintStorage?,
@@ -595,11 +606,11 @@ public class Workspace {
         // delegate
         delegate: WorkspaceDelegate?
     ) throws {
-        // we do not store the observabilityScope in the workspace initializer as the workspace is designed to be long lived.
+        // we do not store an observabilityScope in the workspace initializer as the workspace is designed to be long lived.
         // instead, observabilityScope is passed into the individual workspace methods which are short lived.
-
+        let initializationWarningHandler = initializationWarningHandler ?? warnToStderr
         // validate locations, returning a potentially modified one to deal with non-accessible or non-writable shared locations
-        let location = try location.validatingSharedLocations(fileSystem: fileSystem)
+        let location = try location.validatingSharedLocations(fileSystem: fileSystem, warningHandler: initializationWarningHandler)
 
         let currentToolsVersion = customToolsVersion ?? ToolsVersion.currentToolsVersion
         let toolsVersionLoader = ToolsVersionLoader(currentToolsVersion: currentToolsVersion)
@@ -623,6 +634,7 @@ public class Workspace {
             path: location.repositoriesDirectory,
             provider: repositoryProvider,
             cachePath: configuration.sharedRepositoriesCacheEnabled ? location.sharedRepositoriesCacheDirectory : .none,
+            initializationWarningHandler: initializationWarningHandler,
             delegate: delegate.map(WorkspaceRepositoryManagerDelegate.init(workspaceDelegate:))
         )
 
@@ -680,7 +692,11 @@ public class Workspace {
 
         self.configuration = configuration
 
-        self.state = WorkspaceState(fileSystem: fileSystem, storageDirectory: self.location.workingDirectory)
+        self.state = WorkspaceState(
+            fileSystem: fileSystem,
+            storageDirectory: self.location.workingDirectory,
+            initializationWarningHandler: initializationWarningHandler
+        )
     }
 }
 
@@ -4014,16 +4030,16 @@ extension FileSystem {
 }
 
 extension Workspace.Location {
-    func validatingSharedLocations(fileSystem: FileSystem) throws -> Self {
+    func validatingSharedLocations(
+        fileSystem: FileSystem,
+        warningHandler: (String) -> Void
+    ) throws -> Self {
         var location = self
-
-        // local configuration directory must be accessible, throw if we cannot access it
-        //try fileSystem.withLock(on: location.localConfigurationDirectory, type: .exclusive, {})
 
         // check that shared configuration directory is accessible, or warn + reset if not
         if let sharedConfigurationDirectory = self.sharedConfigurationDirectory {
             // it may not always be possible to create default location (for example de to restricted sandbox)
-            let defaultDirectory = try? fileSystem.getOrCreateSwiftPMConfigurationDirectory()
+            let defaultDirectory = try? fileSystem.getOrCreateSwiftPMConfigurationDirectory(warningHandler: warningHandler)
             if sharedConfigurationDirectory != defaultDirectory {
                 // custom location must be writable, throw if we cannot access it
                 try withTemporaryFile(dir: sharedConfigurationDirectory) { _ in }
@@ -4033,9 +4049,7 @@ extension Workspace.Location {
                     try withTemporaryFile(dir: sharedConfigurationDirectory) { _ in }
                 } catch {
                     location.sharedConfigurationDirectory = .none
-                    // FIXME: We should emit a warning here using the diagnostic engine.
-                    TSCBasic.stderrStream.write("warning: \(sharedConfigurationDirectory) is not accessible or not writable, disabling user-level configuration features. \(error)\n")
-                    TSCBasic.stderrStream.flush()
+                    warningHandler("\(sharedConfigurationDirectory) is not accessible or not writable, disabling user-level configuration features. \(error)")
                 }
             }
         }
@@ -4053,9 +4067,7 @@ extension Workspace.Location {
                     try withTemporaryFile(dir: sharedSecurityDirectory) { _ in }
                 } catch {
                     location.sharedSecurityDirectory = .none
-                    // FIXME: We should emit a warning here using the diagnostic engine.
-                    TSCBasic.stderrStream.write("warning: \(sharedSecurityDirectory) is not accessible or not writable, disabling user-level security features. \(error)\n")
-                    TSCBasic.stderrStream.flush()
+                    warningHandler("\(sharedSecurityDirectory) is not accessible or not writable, disabling user-level security features. \(error)")
                 }
             }
         }
@@ -4073,12 +4085,15 @@ extension Workspace.Location {
                     try withTemporaryFile(dir: sharedCacheDirectory) { _ in }
                 } catch {
                     location.sharedCacheDirectory = .none
-                    // FIXME: We should emit a warning here using the diagnostic engine.
-                    TSCBasic.stderrStream.write("warning: \(sharedCacheDirectory) is not accessible or not writable, disabling user-level cache features. \(error)\n")
-                    TSCBasic.stderrStream.flush()
+                    warningHandler("\(sharedCacheDirectory) is not accessible or not writable, disabling user-level cache features. \(error)")
                 }
             }
         }
         return location
     }
+}
+
+fileprivate func warnToStderr(_ message: String) {
+    TSCBasic.stderrStream.write("warning: \(message)\n")
+    TSCBasic.stderrStream.flush()
 }

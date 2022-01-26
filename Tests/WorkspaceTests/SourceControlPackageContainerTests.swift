@@ -673,3 +673,24 @@ extension PackageContainerProvider {
         try tsc_await { self.getContainer(for: package, skipUpdate: skipUpdate, observabilityScope: ObservabilitySystem.NOOP, on: .global(), completion: $0)  }
     }
 }
+
+extension RepositoryManager {
+    fileprivate convenience init(
+        fileSystem: FileSystem,
+        path: AbsolutePath,
+        provider: RepositoryProvider,
+        cachePath: AbsolutePath? =  .none,
+        cacheLocalPackages: Bool = false,
+        delegate: RepositoryManagerDelegate? = .none
+    ) {
+        self.init(
+            fileSystem: fileSystem,
+            path: path,
+            provider: provider,
+            cachePath: cachePath,
+            cacheLocalPackages: cacheLocalPackages,
+            initializationWarningHandler: { _ in },
+            delegate: delegate
+        )
+    }
+}

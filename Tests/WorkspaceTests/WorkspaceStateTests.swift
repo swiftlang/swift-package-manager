@@ -490,3 +490,9 @@ final class WorkspaceStateTests: XCTestCase {
         XCTAssertTrue(state.artifacts.isEmpty)
     }
 }
+
+extension WorkspaceState {
+    fileprivate convenience init(fileSystem: FileSystem, storageDirectory: AbsolutePath) {
+        self.init(fileSystem: fileSystem, storageDirectory: storageDirectory, initializationWarningHandler: { _ in })
+    }
+}
