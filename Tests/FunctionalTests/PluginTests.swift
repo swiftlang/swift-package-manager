@@ -229,7 +229,6 @@ class PluginTests: XCTestCase {
                 @main struct MyCommandPlugin: CommandPlugin {
                     func performCommand(
                         context: PluginContext,
-                        targets: [Target],
                         arguments: [String]
                     ) throws {
                         // Check the identity of the root packages.
@@ -249,7 +248,6 @@ class PluginTests: XCTestCase {
                     struct MyCommandPlugin: CommandPlugin {
                         func performCommand(
                             context: PluginContext,
-                            targets: [Target],
                             arguments: [String]
                         ) throws {
                             // Print some output that should appear before the error diagnostic.
@@ -271,7 +269,6 @@ class PluginTests: XCTestCase {
                     struct MyCommandPlugin: CommandPlugin {
                         func performCommand(
                             context: PluginContext,
-                            targets: [Target],
                             arguments: [String]
                         ) throws {
                             // Print some output that should appear before we exit.
@@ -406,7 +403,7 @@ class PluginTests: XCTestCase {
                 let delegate = PluginDelegate(delegateQueue: delegateQueue)
                 do {
                     let success = try tsc_await { plugin.invoke(
-                        action: .performCommand(targets: targets, arguments: arguments),
+                        action: .performCommand(arguments: arguments),
                         package: package,
                         buildEnvironment: BuildEnvironment(platform: .macOS, configuration: .debug),
                         scriptRunner: scriptRunner,

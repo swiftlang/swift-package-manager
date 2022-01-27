@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2021 Apple Inc. and the Swift project authors
+ Copyright (c) 2021-2022 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -412,6 +412,30 @@ public enum FileType {
 
     /// A file not covered by any other rule.
     case unknown
+}
+
+extension Package {
+    /// The list of targets matching the given names. Throws an error if any of
+    /// the targets cannot be found.
+    public func targets(named targetNames: [String]) throws -> [Target] {
+        return try targetNames.map { name in
+            guard let target = self.targets.first(where: { $0.name == name }) else {
+                throw PluginContextError.targetNotFound(name: name, package: self)
+            }
+            return target
+        }
+    }
+
+    /// The list of products matching the given names. Throws an error if any of
+    /// the products cannot be found.
+    public func products(named productNames: [String]) throws -> [Product] {
+        return try productNames.map { name in
+            guard let product = self.products.first(where: { $0.name == name }) else {
+                throw PluginContextError.productNotFound(name: name, package: self)
+            }
+            return product
+        }
+    }
 }
 
 extension Target {
