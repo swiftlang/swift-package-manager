@@ -53,7 +53,7 @@ extension Plugin {
     
     /// Main entry point of the plugin — sets up a communication channel with
     /// the plugin host and runs the main message loop.
-    public static func main() throws {
+    public static func main() async throws {
         // Duplicate the `stdin` file descriptor, which we will then use for
         // receiving messages from the plugin host.
         let inputFD = dup(fileno(stdin))
@@ -93,7 +93,7 @@ extension Plugin {
         // indicating that we're done.
         while let message = try pluginHostConnection.waitForNextMessage() {
             do {
-                try handleMessage(message)
+                try await handleMessage(message)
             }
             catch {
                 // Emit a diagnostic and indicate failure to the plugin host,
@@ -104,7 +104,7 @@ extension Plugin {
         }
     }
     
-    fileprivate static func handleMessage(_ message: HostToPluginMessage) throws {
+    fileprivate static func handleMessage(_ message: HostToPluginMessage) async throws {
         switch message {
 
         case .performAction(let wireInput):
@@ -147,7 +147,7 @@ extension Plugin {
                 }
                 
                 // Invoke the plugin to create build commands for the target.
-                let generatedCommands = try plugin.createBuildCommands(context: context, target: target)
+                let generatedCommands = try await plugin.createBuildCommands(context: context, target: target)
                 
                 // Send each of the generated commands to the host.
                 for command in generatedCommands {
@@ -189,7 +189,7 @@ extension Plugin {
                 }
                 
                 // Invoke the plugin to perform its custom logic.
-                try plugin.performCommand(context: context, targets: targets, arguments: arguments)
+                try await plugin.performCommand(context: context, targets: targets, arguments: arguments)
             }
             
             // Exit with a zero exit code to indicate success.
