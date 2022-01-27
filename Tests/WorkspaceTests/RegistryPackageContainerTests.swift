@@ -82,7 +82,7 @@ class RegistryPackageContainerTests: XCTestCase {
                 }
             )
 
-            return try Workspace(
+            return try Workspace._init(
                 fileSystem: fs,
                 location: .init(forRootPackage: packagePath, fileSystem: fs),
                 customToolsVersion: toolsVersion,
@@ -147,7 +147,7 @@ class RegistryPackageContainerTests: XCTestCase {
                 }
             )
 
-            return try Workspace(
+            return try Workspace._init(
                 fileSystem: fs,
                 location: .init(forRootPackage: packagePath, fileSystem: fs),
                 customToolsVersion: toolsVersion,
@@ -233,7 +233,7 @@ class RegistryPackageContainerTests: XCTestCase {
                 }
             )
 
-            return try Workspace(
+            return try Workspace._init(
                 fileSystem: fs,
                 location: .init(forRootPackage: packagePath, fileSystem: fs),
                 customToolsVersion: toolsVersion,

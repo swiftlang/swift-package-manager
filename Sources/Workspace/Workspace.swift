@@ -155,7 +155,6 @@ private struct WorkspaceDependencyResolverDelegate: DependencyResolverDelegate {
     func failedToResolve(incompatibility: Incompatibility) {}
     func solved(result: [(package: PackageReference, binding: BoundVersion, products: ProductFilter)]) {}
 }
-
 /// A workspace represents the state of a working project directory.
 ///
 /// The workspace is responsible for managing the persistent working state of a
@@ -206,7 +205,9 @@ public class Workspace {
     fileprivate let customPackageContainerProvider: PackageContainerProvider?
 
     /// The package container provider used by this workspace.
-    fileprivate var packageContainerProvider: PackageContainerProvider { return customPackageContainerProvider ?? self }
+    fileprivate var packageContainerProvider: PackageContainerProvider {
+        return self.customPackageContainerProvider ?? self
+    }
 
     /// The repository manager.
     // var for backwards compatibility with deprecated initializers, remove with them
@@ -214,7 +215,7 @@ public class Workspace {
 
     /// The registry manager.
     // var for backwards compatibility with deprecated initializers, remove with them
-    fileprivate var registryClient: RegistryClient?
+    fileprivate var registryClient: RegistryClient
 
     /// The http client used for downloading binary artifacts.
     fileprivate let httpClient: HTTPClient
@@ -227,19 +228,10 @@ public class Workspace {
     /// The algorithm used for generating file checksums.
     fileprivate let checksumAlgorithm: HashAlgorithm
     
-    /// The package fingerprint storage
-    fileprivate let fingerprintStorage: PackageFingerprintStorage?
+    /// The package fingerprints storage
+    fileprivate let fingerprints: PackageFingerprintStorage?
 
-    /// Enable prefetching containers in resolver.
-    fileprivate let resolverPrefetchingEnabled: Bool
-
-    /// Update containers while fetching them.
-    fileprivate let resolverUpdateEnabled: Bool
-    
-    /// Fingerprint checking mode.
-    fileprivate let resolverFingerprintCheckingMode: FingerprintCheckingMode
-
-    fileprivate let additionalFileRules: [FileRuleDescription]
+    fileprivate let configuration: WorkspaceConfiguration
 
     // state
 
@@ -260,24 +252,143 @@ public class Workspace {
     /// - Parameters:
     ///   - fileSystem: The file system to use.
     ///   - location: Workspace location configuration.
-    ///   - mirrors: Dependencies mirrors.
-    ///   - authorizationProvider: Provider of authentication information.
-    ///   - customToolsVersion: A custom tools version.
-    ///   - customManifestLoader: A custom manifest loader.
-    ///   - customRepositoryManager: A custom repository manager.
-    ///   - customRepositoryProvider: A custom repository provider.
-    ///   - customIdentityResolver: A custom identity resolver.
-    ///   - customHTTPClient: A custom http client.
-    ///   - customArchiver: A custom archiver.
-    ///   - customChecksumAlgorithm: A custom checksum algorithm.
-    ///   - customFingerprintStorage: A custom fingerprint storage.
-    ///   - additionalFileRules: File rules to determine resource handling behavior.
-    ///   - resolverUpdateEnabled: Enables the dependencies resolver automatic version update check.  Enabled by default. When disabled the resolver relies only on the resolved version file
-    ///   - resolverPrefetchingEnabled: Enables the dependencies resolver prefetching based on the resolved version file.  Enabled by default.
-    ///   - resolverFingerprintCheckingMode: Fingerprint checking mode. Defaults to `.warn`.
-    ///   - sharedRepositoriesCacheEnabled: Enables the shared repository cache. Enabled by default.
+    ///   - authorizationProvider: Provider of authentication information for outbound network requests.
+    ///   - configuration: Configuration to fine tune the dependency resolution behavior.
+    ///   - initializationWarningHandler: Initialization warnings handler
+    ///   - customManifestLoader: Custom manifest loader. Used to customize how manifest are loaded.
+    ///   - customPackageContainerProvider: Custom package container provider. Used to provide specialized package providers.
+    ///   - customRepositoryProvider: Custom repository provider. Used to customize source control access.
     ///   - delegate: Delegate for workspace events
-    public init(
+    public convenience init(
+        fileSystem: FileSystem,
+        location: Location,
+        authorizationProvider: AuthorizationProvider? = .none,
+        configuration: WorkspaceConfiguration? = .none,
+        initializationWarningHandler: ((String) -> Void)? = .none,
+        // optional customization used for advanced integration situations
+        customManifestLoader: ManifestLoaderProtocol? = .none,
+        customPackageContainerProvider: PackageContainerProvider? = .none,
+        customRepositoryProvider: RepositoryProvider? = .none,
+        // delegate
+        delegate: WorkspaceDelegate? = .none
+    ) throws {
+        try self.init(
+            fileSystem: fileSystem,
+            location: location,
+            authorizationProvider: authorizationProvider,
+            configuration: configuration,
+            initializationWarningHandler: initializationWarningHandler,
+            customRegistriesConfiguration: .none,
+            customFingerprints: .none,
+            customMirrors: .none,
+            customToolsVersion: .none,
+            customManifestLoader: customManifestLoader,
+            customPackageContainerProvider: customPackageContainerProvider,
+            customRepositoryManager: .none,
+            customRepositoryProvider: customRepositoryProvider,
+            customRegistryClient: .none,
+            customIdentityResolver: .none,
+            customHTTPClient: .none,
+            customArchiver: .none,
+            customChecksumAlgorithm: .none,
+            delegate: delegate
+        )
+    }
+
+    /// A convenience method for creating a workspace for the given root
+    /// package path.
+    ///
+    /// The root package path is used to compute the build directory and other
+    /// default paths.
+    ///
+    /// - Parameters:
+    ///   - fileSystem: The file system to use, defaults to local file system.
+    ///   - forRootPackage: The path for the root package.
+    ///   - authorizationProvider: Provider of authentication information for outbound network requests.
+    ///   - configuration: Configuration to fine tune the dependency resolution behavior.
+    ///   - initializationWarningHandler: Initialization warnings handler
+    ///   - customManifestLoader: Custom manifest loader. Used to customize how manifest are loaded.
+    ///   - customPackageContainerProvider: Custom package container provider. Used to provide specialized package providers.
+    ///   - customRepositoryProvider: Custom repository provider. Used to customize source control access.
+    ///   - delegate: Delegate for workspace events
+    public convenience init(
+        fileSystem: FileSystem? = .none,
+        forRootPackage packagePath: AbsolutePath,
+        authorizationProvider: AuthorizationProvider? = .none,
+        configuration: WorkspaceConfiguration? = .none,
+        initializationWarningHandler: ((String) -> Void)? = .none,
+        // optional customization used for advanced integration situations
+        customManifestLoader: ManifestLoaderProtocol? = .none,
+        customPackageContainerProvider: PackageContainerProvider? = .none,
+        customRepositoryProvider: RepositoryProvider? = .none,
+        // delegate
+        delegate: WorkspaceDelegate? = .none
+    ) throws {
+        let fileSystem = fileSystem ?? localFileSystem
+        let location = Location(forRootPackage: packagePath, fileSystem: fileSystem)
+        try self.init(
+            fileSystem: fileSystem,
+            location: location,
+            initializationWarningHandler: initializationWarningHandler,
+            customManifestLoader: customManifestLoader,
+            customPackageContainerProvider: customPackageContainerProvider,
+            customRepositoryProvider: customRepositoryProvider,
+            delegate: delegate
+        )
+    }
+    
+    /// A convenience method for creating a workspace for the given root
+    /// package path.
+    ///
+    /// The root package path is used to compute the build directory and other
+    /// default paths.
+    ///
+    /// - Parameters:
+    ///   - fileSystem: The file system to use, defaults to local file system.
+    ///   - forRootPackage: The path for the root package.
+    ///   - authorizationProvider: Provider of authentication information for outbound network requests.
+    ///   - configuration: Configuration to fine tune the dependency resolution behavior.
+    ///   - initializationWarningHandler: Initialization warnings handler
+    ///   - customToolchain: Custom toolchain. Used to create a customized ManifestLoader, customizing how manifest are loaded.
+    ///   - customPackageContainerProvider: Custom package container provider. Used to provide specialized package providers.
+    ///   - customRepositoryProvider: Custom repository provider. Used to customize source control access.
+    ///   - delegate: Delegate for workspace events
+    public convenience init(
+        fileSystem: FileSystem? = .none,
+        forRootPackage packagePath: AbsolutePath,
+        authorizationProvider: AuthorizationProvider? = .none,
+        configuration: WorkspaceConfiguration? = .none,
+        initializationWarningHandler: ((String) -> Void)? = .none,
+        // optional customization used for advanced integration situations
+        customToolchain: UserToolchain,
+        customPackageContainerProvider: PackageContainerProvider? = .none,
+        customRepositoryProvider: RepositoryProvider? = .none,
+        // delegate
+        delegate: WorkspaceDelegate? = .none
+    ) throws {
+        let fileSystem = fileSystem ?? localFileSystem
+        let location = Location(forRootPackage: packagePath, fileSystem: fileSystem)
+        let manifestLoader = ManifestLoader(
+            toolchain: customToolchain.configuration,
+            cacheDir: location.sharedManifestsCacheDirectory
+        )
+        try self.init(
+            fileSystem: fileSystem,
+            forRootPackage: packagePath,
+            authorizationProvider: authorizationProvider,
+            configuration: configuration,
+            initializationWarningHandler: initializationWarningHandler,
+            customManifestLoader: manifestLoader,
+            customPackageContainerProvider: customPackageContainerProvider,
+            customRepositoryProvider: customRepositoryProvider,
+            delegate: delegate
+        )
+    }
+
+    // deprecate 12/21
+    @_disfavoredOverload
+    @available(*, deprecated, message: "use alternative initializer")
+    public convenience init(
         fileSystem: FileSystem,
         location: Location,
         mirrors: DependencyMirrors? = .none,
@@ -301,84 +412,35 @@ public class Workspace {
         sharedRepositoriesCacheEnabled: Bool? = .none,
         delegate: WorkspaceDelegate? = .none
     ) throws {
-        // defaults
-        let currentToolsVersion = customToolsVersion ?? ToolsVersion.currentToolsVersion
-        let toolsVersionLoader = ToolsVersionLoader(currentToolsVersion: currentToolsVersion)
-        let manifestLoader = try customManifestLoader ?? ManifestLoader(
-            toolchain: UserToolchain(destination: .hostDestination()).configuration,
-            cacheDir: location.sharedManifestsCacheDirectory
+        let configuration = WorkspaceConfiguration(
+            skipDependenciesUpdates: !(resolverUpdateEnabled ?? !WorkspaceConfiguration.default.skipDependenciesUpdates),
+            prefetchBasedOnResolvedFile: resolverPrefetchingEnabled ?? WorkspaceConfiguration.default.prefetchBasedOnResolvedFile,
+            additionalFileRules: additionalFileRules ?? WorkspaceConfiguration.default.additionalFileRules,
+            sharedRepositoriesCacheEnabled: sharedRepositoriesCacheEnabled ?? WorkspaceConfiguration.default.sharedRepositoriesCacheEnabled,
+            fingerprintCheckingMode: resolverFingerprintCheckingMode
         )
-        let mirrors = mirrors ?? DependencyMirrors()
-        let identityResolver = customIdentityResolver ?? DefaultIdentityResolver(locationMapper: mirrors.effectiveURL(for:))
-        let packageContainerProvider = customPackageContainerProvider
-        let repositoryProvider = customRepositoryProvider ?? GitRepositoryProvider()
-        let sharedRepositoriesCacheEnabled = sharedRepositoriesCacheEnabled ?? true
-        let repositoryManager = customRepositoryManager ?? RepositoryManager(
+
+        try self.init(
             fileSystem: fileSystem,
-            path: location.repositoriesDirectory,
-            provider: repositoryProvider,
-            delegate: delegate.map(WorkspaceRepositoryManagerDelegate.init(workspaceDelegate:)),
-            cachePath: sharedRepositoriesCacheEnabled ? location.sharedRepositoriesCacheDirectory : .none
-        )        
-        let fingerprintStorage = customFingerprintStorage ?? location.sharedFingerprintsDirectory.map {
-            FilePackageFingerprintStorage(
-                fileSystem: fileSystem,
-                directoryPath: $0
-            )
-        }
-
-        let registryClient = customRegistryClient ?? registries.map { configuration in
-            RegistryClient(
-                configuration: configuration,
-                identityResolver: identityResolver,
-                fingerprintStorage: fingerprintStorage,
-                fingerprintCheckingMode: resolverFingerprintCheckingMode,
-                authorizationProvider: authorizationProvider?.httpAuthorizationHeader(for:)
-            )
-        }
-
-        // FIXME: use workspace scope when migrating workspace to new observability API
-        let httpClient = customHTTPClient ?? HTTPClient()
-        let archiver = customArchiver ?? ZipArchiver()
-
-        let checksumAlgorithm = customChecksumAlgorithm ?? SHA256()
-        let additionalFileRules = additionalFileRules ?? []
-        let resolverUpdateEnabled = resolverUpdateEnabled ?? true
-        let resolverPrefetchingEnabled = resolverPrefetchingEnabled ?? false
-
-        // initialize
-        self.fileSystem = fileSystem
-        self.location = location
-        self.delegate = delegate
-        self.mirrors = mirrors
-        self.authorizationProvider = authorizationProvider
-        self.manifestLoader = manifestLoader
-        self.currentToolsVersion = currentToolsVersion
-        self.toolsVersionLoader = toolsVersionLoader
-        self.httpClient = httpClient
-        self.archiver = archiver
-        self.repositoryManager = repositoryManager
-        self.registryClient = registryClient
-        self.identityResolver = identityResolver
-        self.checksumAlgorithm = checksumAlgorithm
-        self.fingerprintStorage = fingerprintStorage
-        self.customPackageContainerProvider = packageContainerProvider
-
-        self.pinsStore = LoadableResult {
-            try PinsStore(
-                pinsFile: location.resolvedVersionsFile,
-                workingDirectory: location.workingDirectory,
-                fileSystem: fileSystem,
-                mirrors: mirrors
-            )
-        }
-
-        self.additionalFileRules = additionalFileRules
-        self.resolverUpdateEnabled = resolverUpdateEnabled
-        self.resolverPrefetchingEnabled = resolverPrefetchingEnabled
-        self.resolverFingerprintCheckingMode = resolverFingerprintCheckingMode
-
-        self.state = WorkspaceState(dataPath: self.location.workingDirectory, fileSystem: fileSystem)
+            location: location,
+            authorizationProvider: authorizationProvider,
+            configuration: configuration,
+            initializationWarningHandler: .none,
+            customRegistriesConfiguration: registries,
+            customFingerprints: customFingerprintStorage,
+            customMirrors: mirrors,
+            customToolsVersion: customToolsVersion,
+            customManifestLoader: customManifestLoader,
+            customPackageContainerProvider: customPackageContainerProvider,
+            customRepositoryManager: customRepositoryManager,
+            customRepositoryProvider: customRepositoryProvider,
+            customRegistryClient: customRegistryClient,
+            customIdentityResolver: customIdentityResolver,
+            customHTTPClient: customHTTPClient,
+            customArchiver: customArchiver,
+            customChecksumAlgorithm: customChecksumAlgorithm,
+            delegate: delegate
+        )
     }
 
     // deprecated 8/2021
@@ -416,9 +478,10 @@ public class Workspace {
                 workingDirectory: dataPath,
                 editsDirectory: editablesPath,
                 resolvedVersionsFile: pinsFile,
-                sharedSecurityDirectory: fileSystem.swiftPMSecurityDirectory,
-                sharedCacheDirectory: cachePath,
-                sharedConfigurationDirectory: nil // legacy
+                localConfigurationDirectory: Workspace.DefaultLocations.configurationDirectory(forRootPackage: dataPath.parentDirectory), // legacy deprecated API
+                sharedConfigurationDirectory: .none, // legacy deprecated API
+                sharedSecurityDirectory: .none, // legacy deprecated API,
+                sharedCacheDirectory: cachePath
             ),
             mirrors: config?.mirrors,
             authorizationProvider: netrcFilePath.map {
@@ -446,69 +509,6 @@ public class Workspace {
     ///
     /// The root package path is used to compute the build directory and other
     /// default paths.
-    ///
-    /// - Parameters:
-    ///   - fileSystem: The file system to use, defaults to local file system.
-    ///   - forRootPackage: The path for the root package.
-    ///   - customToolchain: A custom toolchain.
-    ///   - delegate: Delegate for workspace events
-    public convenience init(
-        fileSystem: FileSystem? = .none,
-        forRootPackage packagePath: AbsolutePath,
-        customToolchain: UserToolchain,
-        delegate: WorkspaceDelegate? = .none
-    ) throws {
-        let fileSystem = fileSystem ?? localFileSystem
-        let location = Location(forRootPackage: packagePath, fileSystem: fileSystem)
-        let manifestLoader = ManifestLoader(
-            toolchain: customToolchain.configuration,
-            cacheDir: location.sharedManifestsCacheDirectory
-        )
-        try self.init(
-            fileSystem: fileSystem,
-            forRootPackage: packagePath,
-            customManifestLoader: manifestLoader,
-            delegate: delegate
-        )
-    }
-
-    /// A convenience method for creating a workspace for the given root
-    /// package path.
-    ///
-    /// The root package path is used to compute the build directory and other
-    /// default paths.
-    ///
-    /// - Parameters:
-    ///   - fileSystem: The file system to use, defaults to local file system.
-    ///   - forRootPackage: The path for the root package.
-    ///   - customManifestLoader: A custom manifest loader.
-    ///   - delegate: Delegate for workspace events
-    public convenience init(
-        fileSystem: FileSystem? = .none,
-        forRootPackage packagePath: AbsolutePath,
-        customManifestLoader: ManifestLoaderProtocol? = .none,
-        delegate: WorkspaceDelegate? = .none
-    ) throws {
-        let fileSystem = fileSystem ?? localFileSystem
-        let location = Location(forRootPackage: packagePath, fileSystem: fileSystem)
-        try self .init(
-            fileSystem: fileSystem,
-            location: location,
-            mirrors: try Configuration.Mirrors(
-                forRootPackage: packagePath,
-                sharedMirrorFile: location.sharedMirrorsConfigurationFile,
-                fileSystem: fileSystem
-            ).mirrors,
-            customManifestLoader: customManifestLoader,
-            delegate: delegate
-        )
-    }
-
-    /// A convenience method for creating a workspace for the given root
-    /// package path.
-    ///
-    /// The root package path is used to compute the build directory and other
-    /// default paths.
     // deprecated 8/2021
     @available(*, deprecated, message: "use initializer instead")
     public static func create(
@@ -518,9 +518,10 @@ public class Workspace {
         delegate: WorkspaceDelegate? = nil,
         identityResolver: IdentityResolver? = nil
     ) -> Workspace {
-        let workspace = try! Workspace(forRootPackage: packagePath,
-                                       customManifestLoader: manifestLoader,
-                                       delegate: delegate
+        let workspace = try! Workspace(
+            forRootPackage: packagePath,
+            customManifestLoader: manifestLoader,
+            delegate: delegate
         )
         if let repositoryManager = repositoryManager {
             workspace.repositoryManager = repositoryManager
@@ -529,6 +530,173 @@ public class Workspace {
             workspace.identityResolver = identityResolver
         }
         return workspace
+    }
+
+    /// Initializer for testing purposes only. Use non underscored initializers instead.
+    // this initializer is only public because of cross module visibility (eg MockWorkspace)
+    // as such it is by design an exact mirror of the private initializer below
+    public static func _init(
+        // core
+        fileSystem: FileSystem,
+        location: Location,
+        authorizationProvider: AuthorizationProvider? = .none,
+        configuration: WorkspaceConfiguration? = .none,
+        initializationWarningHandler: ((String) -> Void)? = .none,
+        // optional customization, primarily designed for testing but also used in some cases by libSwiftPM consumers
+        customRegistriesConfiguration: RegistryConfiguration? = .none,
+        customFingerprints: PackageFingerprintStorage? = .none,
+        customMirrors: DependencyMirrors? = .none,
+        customToolsVersion: ToolsVersion? = .none,
+        customManifestLoader: ManifestLoaderProtocol? = .none,
+        customPackageContainerProvider: PackageContainerProvider? = .none,
+        customRepositoryManager: RepositoryManager? = .none,
+        customRepositoryProvider: RepositoryProvider? = .none,
+        customRegistryClient: RegistryClient? = .none,
+        customIdentityResolver: IdentityResolver? = .none,
+        customHTTPClient: HTTPClient? = .none,
+        customArchiver: Archiver? = .none,
+        customChecksumAlgorithm: HashAlgorithm? = .none,
+        // delegate
+        delegate: WorkspaceDelegate? = .none
+    ) throws -> Workspace {
+        try .init(
+            fileSystem: fileSystem,
+            location: location,
+            authorizationProvider: authorizationProvider,
+            configuration: configuration,
+            initializationWarningHandler: initializationWarningHandler,
+            customRegistriesConfiguration: customRegistriesConfiguration,
+            customFingerprints: customFingerprints,
+            customMirrors: customMirrors,
+            customToolsVersion: customToolsVersion,
+            customManifestLoader: customManifestLoader,
+            customPackageContainerProvider: customPackageContainerProvider,
+            customRepositoryManager: customRepositoryManager,
+            customRepositoryProvider: customRepositoryProvider,
+            customRegistryClient: customRegistryClient,
+            customIdentityResolver: customIdentityResolver,
+            customHTTPClient: customHTTPClient,
+            customArchiver: customArchiver,
+            customChecksumAlgorithm: customChecksumAlgorithm,
+            delegate: delegate
+        )
+    }
+
+    private init(
+        // core
+        fileSystem: FileSystem,
+        location: Location,
+        authorizationProvider: AuthorizationProvider?,
+        configuration: WorkspaceConfiguration?,
+        initializationWarningHandler: ((String) -> Void)?,
+        // optional customization, primarily designed for testing but also used in some cases by libSwiftPM consumers
+        customRegistriesConfiguration: RegistryConfiguration?,
+        customFingerprints: PackageFingerprintStorage?,
+        customMirrors: DependencyMirrors?,
+        customToolsVersion: ToolsVersion?,
+        customManifestLoader: ManifestLoaderProtocol?,
+        customPackageContainerProvider: PackageContainerProvider?,
+        customRepositoryManager: RepositoryManager?,
+        customRepositoryProvider: RepositoryProvider?,
+        customRegistryClient: RegistryClient?,
+        customIdentityResolver: IdentityResolver?,
+        customHTTPClient: HTTPClient?,
+        customArchiver: Archiver?,
+        customChecksumAlgorithm: HashAlgorithm?,
+        // delegate
+        delegate: WorkspaceDelegate?
+    ) throws {
+        // we do not store an observabilityScope in the workspace initializer as the workspace is designed to be long lived.
+        // instead, observabilityScope is passed into the individual workspace methods which are short lived.
+        let initializationWarningHandler = initializationWarningHandler ?? warnToStderr
+        // validate locations, returning a potentially modified one to deal with non-accessible or non-writable shared locations
+        let location = try location.validatingSharedLocations(fileSystem: fileSystem, warningHandler: initializationWarningHandler)
+
+        let currentToolsVersion = customToolsVersion ?? ToolsVersion.currentToolsVersion
+        let toolsVersionLoader = ToolsVersionLoader(currentToolsVersion: currentToolsVersion)
+        let manifestLoader = try customManifestLoader ?? ManifestLoader(
+            toolchain: UserToolchain(destination: .hostDestination()).configuration,
+            cacheDir: location.sharedManifestsCacheDirectory
+        )
+
+        let configuration = configuration ?? .default
+
+        let mirrors = try customMirrors ?? Workspace.Configuration.Mirrors(
+            fileSystem: fileSystem,
+            localMirrorsFile: location.localMirrorsConfigurationFile,
+            sharedMirrorsFile: location.sharedMirrorsConfigurationFile
+        ).mirrors
+
+        let identityResolver = customIdentityResolver ?? DefaultIdentityResolver(locationMapper: mirrors.effectiveURL(for:))
+        let repositoryProvider = customRepositoryProvider ?? GitRepositoryProvider()
+        let repositoryManager = customRepositoryManager ?? RepositoryManager(
+            fileSystem: fileSystem,
+            path: location.repositoriesDirectory,
+            provider: repositoryProvider,
+            cachePath: configuration.sharedRepositoriesCacheEnabled ? location.sharedRepositoriesCacheDirectory : .none,
+            initializationWarningHandler: initializationWarningHandler,
+            delegate: delegate.map(WorkspaceRepositoryManagerDelegate.init(workspaceDelegate:))
+        )
+
+        let fingerprints = customFingerprints ?? location.sharedFingerprintsDirectory.map {
+            FilePackageFingerprintStorage(
+                fileSystem: fileSystem,
+                directoryPath: $0
+            )
+        }
+
+        let registriesConfiguration = try customRegistriesConfiguration ?? Workspace.Configuration.Registries(
+            fileSystem: fileSystem,
+            localRegistriesFile: location.localRegistriesConfigurationFile,
+            sharedRegistriesFile: location.sharedRegistriesConfigurationFile
+        ).configuration
+
+        let registryClient = customRegistryClient ?? RegistryClient(
+            configuration: registriesConfiguration,
+            identityResolver: identityResolver,
+            fingerprintStorage: fingerprints,
+            fingerprintCheckingMode: configuration.fingerprintCheckingMode,
+            authorizationProvider: authorizationProvider?.httpAuthorizationHeader(for:)
+        )
+
+        let httpClient = customHTTPClient ?? HTTPClient()
+        let archiver = customArchiver ?? ZipArchiver()
+        let checksumAlgorithm = customChecksumAlgorithm ?? SHA256()
+
+        // initialize
+        self.fileSystem = fileSystem
+        self.location = location
+        self.delegate = delegate
+        self.mirrors = mirrors
+        self.authorizationProvider = authorizationProvider
+        self.manifestLoader = manifestLoader
+        self.currentToolsVersion = currentToolsVersion
+        self.toolsVersionLoader = toolsVersionLoader
+        self.httpClient = httpClient
+        self.archiver = archiver
+        self.customPackageContainerProvider = customPackageContainerProvider
+        self.repositoryManager = repositoryManager
+        self.registryClient = registryClient
+        self.identityResolver = identityResolver
+        self.checksumAlgorithm = checksumAlgorithm
+        self.fingerprints = fingerprints
+
+        self.pinsStore = LoadableResult {
+            try PinsStore(
+                pinsFile: location.resolvedVersionsFile,
+                workingDirectory: location.workingDirectory,
+                fileSystem: fileSystem,
+                mirrors: mirrors
+            )
+        }
+
+        self.configuration = configuration
+
+        self.state = WorkspaceState(
+            fileSystem: fileSystem,
+            storageDirectory: self.location.workingDirectory,
+            initializationWarningHandler: initializationWarningHandler
+        )
     }
 }
 
@@ -948,7 +1116,7 @@ extension Workspace {
         return try PackageGraph.load(
             root: manifests.root,
             identityResolver: self.identityResolver,
-            additionalFileRules: additionalFileRules,
+            additionalFileRules: self.configuration.additionalFileRules,
             externalManifests: manifests.allDependencyManifests(),
             requiredDependencies: manifests.computePackages().required,
             unsafeAllowedPackages: manifests.unsafeAllowedPackages(),
@@ -1157,9 +1325,6 @@ extension Workspace {
 // MARK: - Editing Functions
 
 extension Workspace {
-
-
-
     /// Edit implementation.
     fileprivate func _edit(
         packageName: String,
@@ -3143,8 +3308,8 @@ extension Workspace {
         return PubgrubDependencyResolver(
             provider: packageContainerProvider,
             pinsMap: pinsMap,
-            updateEnabled: self.resolverUpdateEnabled,
-            prefetchingEnabled: self.resolverPrefetchingEnabled,
+            skipDependenciesUpdates: self.configuration.skipDependenciesUpdates,
+            prefetchBasedOnResolvedFile: self.configuration.prefetchBasedOnResolvedFile,
             observabilityScope: observabilityScope,
             delegate: delegate
         )
@@ -3274,8 +3439,8 @@ extension Workspace: PackageContainerProvider {
                                 manifestLoader: self.manifestLoader,
                                 toolsVersionLoader: self.toolsVersionLoader,
                                 currentToolsVersion: self.currentToolsVersion,
-                                fingerprintStorage: self.fingerprintStorage,
-                                fingerprintCheckingMode: self.resolverFingerprintCheckingMode,
+                                fingerprintStorage: self.fingerprints,
+                                fingerprintCheckingMode: self.configuration.fingerprintCheckingMode,
                                 observabilityScope: observabilityScope
                             )
                         }
@@ -3283,13 +3448,10 @@ extension Workspace: PackageContainerProvider {
                     }
                 // Resolve the container using the registry
                 case .registry:
-                    guard let registryClient = self.registryClient else {
-                        throw StringError("registry not configured")
-                    }
                     let container = RegistryPackageContainer(
                         package: package,
                         identityResolver: self.identityResolver,
-                        registryClient: registryClient,
+                        registryClient: self.registryClient,
                         manifestLoader: self.manifestLoader,
                         toolsVersionLoader: self.toolsVersionLoader,
                         currentToolsVersion: self.currentToolsVersion,
@@ -3533,10 +3695,6 @@ extension Workspace {
         progressHandler: ((_ bytesReceived: Int64, _ totalBytes: Int64?) -> Void)? = .none,
         observabilityScope: ObservabilityScope
      ) throws -> AbsolutePath {
-         guard let registryClient = self.registryClient else {
-             throw StringError("registry not configured")
-         }
-
          guard case (let scope, let name)? = package.identity.scopeAndName else {
              throw StringError("invalid package identity")
          }
@@ -3547,7 +3705,7 @@ extension Workspace {
          }
 
          try temp_await {
-             registryClient.downloadSourceArchive(
+             self.registryClient.downloadSourceArchive(
                 package: package.identity,
                 version: version,
                 fileSystem: self.fileSystem,
@@ -3868,6 +4026,74 @@ extension FileSystem {
         return try self.getDirectoryContents(rootDirectory)
             .map{ rootDirectory.appending(component: $0) }
             .first{ $0.extension.map { acceptableExtensions.contains($0) } ?? false } != nil
-
     }
+}
+
+extension Workspace.Location {
+    func validatingSharedLocations(
+        fileSystem: FileSystem,
+        warningHandler: (String) -> Void
+    ) throws -> Self {
+        var location = self
+
+        // check that shared configuration directory is accessible, or warn + reset if not
+        if let sharedConfigurationDirectory = self.sharedConfigurationDirectory {
+            // it may not always be possible to create default location (for example de to restricted sandbox)
+            let defaultDirectory = try? fileSystem.getOrCreateSwiftPMConfigurationDirectory(warningHandler: warningHandler)
+            if sharedConfigurationDirectory != defaultDirectory {
+                // custom location must be writable, throw if we cannot access it
+                try withTemporaryFile(dir: sharedConfigurationDirectory) { _ in }
+            } else {
+                do {
+                    // default location may not be writable, in which case we disable the relevant features that depend on it
+                    try withTemporaryFile(dir: sharedConfigurationDirectory) { _ in }
+                } catch {
+                    location.sharedConfigurationDirectory = .none
+                    warningHandler("\(sharedConfigurationDirectory) is not accessible or not writable, disabling user-level configuration features. \(error)")
+                }
+            }
+        }
+
+        // check that shared configuration directory is accessible, or warn + reset if not
+        if let sharedSecurityDirectory = self.sharedSecurityDirectory {
+            // it may not always be possible to create default location (for example de to restricted sandbox)
+            let defaultDirectory = try? fileSystem.getOrCreateSwiftPMSecurityDirectory()
+            if sharedSecurityDirectory != defaultDirectory {
+                // custom location must be writable, throw if we cannot access it
+                try withTemporaryFile(dir: sharedSecurityDirectory) { _ in }
+            } else {
+                do {
+                    // default location may not be writable, in which case we disable the relevant features that depend on it
+                    try withTemporaryFile(dir: sharedSecurityDirectory) { _ in }
+                } catch {
+                    location.sharedSecurityDirectory = .none
+                    warningHandler("\(sharedSecurityDirectory) is not accessible or not writable, disabling user-level security features. \(error)")
+                }
+            }
+        }
+
+        // check that shared configuration directory is accessible, or warn + reset if not
+        if let sharedCacheDirectory = self.sharedCacheDirectory {
+            // it may not always be possible to create default location (for example de to restricted sandbox)
+            let defaultDirectory = try? fileSystem.getOrCreateSwiftPMCacheDirectory()
+            if sharedCacheDirectory != defaultDirectory {
+                // custom location must be writable, throw if we cannot access it
+                try withTemporaryFile(dir: sharedCacheDirectory) { _ in }
+            } else {
+                do {
+                    // default location may not be writable, in which case we disable the relevant features that depend on it
+                    try withTemporaryFile(dir: sharedCacheDirectory) { _ in }
+                } catch {
+                    location.sharedCacheDirectory = .none
+                    warningHandler("\(sharedCacheDirectory) is not accessible or not writable, disabling user-level cache features. \(error)")
+                }
+            }
+        }
+        return location
+    }
+}
+
+fileprivate func warnToStderr(_ message: String) {
+    TSCBasic.stderrStream.write("warning: \(message)\n")
+    TSCBasic.stderrStream.flush()
 }

@@ -107,7 +107,7 @@ public final class RegistryClient {
     public init(
         configuration: RegistryConfiguration,
         identityResolver: IdentityResolver,
-        fingerprintStorage: PackageFingerprintStorage? = .none,
+        fingerprintStorage: PackageFingerprintStorage?,
         fingerprintCheckingMode: FingerprintCheckingMode,
         authorizationProvider: HTTPClientAuthorizationProvider? = .none,
         customHTTPClient: HTTPClient? = .none,
