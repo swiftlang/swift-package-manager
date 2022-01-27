@@ -1104,7 +1104,7 @@ final class PackageToolTests: CommandsTestCase {
 
                             // Create and return a build command that uses all the `.foo` files in the target as inputs, so they get counted as having been handled.
                             let fooFiles = (target as? SourceModuleTarget)?.sourceFiles.compactMap{ $0.path.extension == "foo" ? $0.path : nil } ?? []
-                            return [ .buildCommand(displayName: "A command", executable: "/bin/echo", arguments: ["Hello"], inputFiles: fooFiles) ]
+                            return [ .buildCommand(displayName: "A command", executable: Path("/bin/echo"), arguments: ["Hello"], inputFiles: fooFiles) ]
                         }
 
                     }
