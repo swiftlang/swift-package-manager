@@ -2178,7 +2178,11 @@ class PackageBuilderTests: XCTestCase {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Foo/Sources/Foo/foo.swift",
             "/Foo/Sources/Foo2/foo.swift",
-            "/Bar/Sources/Bar/bar.swift"
+            "/Foo/Sources/Foo3/foo.swift",
+            "/Foo/Sources/Qux/foo.swift",
+            "/Bar/Sources/Bar/bar.swift",
+            "/Bar/Sources/Bar2/bar.swift",
+            "/Bar/Sources/Qux/bar.swift"
         )
 
         let manifest = Manifest.createRootManifest(
@@ -2191,24 +2195,51 @@ class PackageBuilderTests: XCTestCase {
                 try TargetDescription(
                     name: "Foo",
                     dependencies: [
+                        // invalid - same target in package "Bar"
                         "Bar",
                         "Bar",
+                        
+                        // invalid - same target in package "Bar"
+                        "Bar2",
+                        .product(name: "Bar2", package: "Bar"),
+                        
+                        // invalid - same target in this package
                         "Foo2",
                         "Foo2",
+                        
+                        // invalid - same target in this package
+                        "Foo3",
+                        .target(name: "Foo3"),
+                        
+                        // valid - different packages
+                        "Qux",
+                        .product(name: "Qux", package: "Bar")
                     ]),
                 try TargetDescription(name: "Foo2"),
+                try TargetDescription(name: "Foo3"),
+                try TargetDescription(name: "Qux")
             ]
         )
 
         PackageBuilderTester(manifest, path: AbsolutePath("/Foo"), in: fs) { package, diagnostics in
             package.checkModule("Foo")
             package.checkModule("Foo2")
+            package.checkModule("Foo3")
+            package.checkModule("Qux")
             diagnostics.checkUnordered(
                 diagnostic: "invalid duplicate target dependency declaration 'Bar' in target 'Foo' from package '\(package.packageIdentity)'",
                 severity: .warning
             )
             diagnostics.checkUnordered(
                 diagnostic: "invalid duplicate target dependency declaration 'Foo2' in target 'Foo' from package '\(package.packageIdentity)'",
+                severity: .warning
+            )
+            diagnostics.checkUnordered(
+                diagnostic: "invalid duplicate target dependency declaration 'Bar2' in target 'Foo' from package '\(package.packageIdentity)'",
+                severity: .warning
+            )
+            diagnostics.checkUnordered(
+                diagnostic: "invalid duplicate target dependency declaration 'Foo3' in target 'Foo' from package '\(package.packageIdentity)'",
                 severity: .warning
             )
         }
