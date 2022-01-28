@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2021 Apple Inc. and the Swift project authors
+ Copyright (c) 2021-2022 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -19,32 +19,32 @@ public struct Diagnostics {
     }
     
     /// Emits an error with a specified severity and message, and optional file path and line number.
-    public static func emit(_ severity: Severity, _ description: String, file: Path? = #file, line: Int? = #line) {
+    public static func emit(_ severity: Severity, _ description: String, file: String? = #file, line: Int? = #line) {
         let message: PluginToHostMessage
         switch severity {
         case .error:
-            message = .emitDiagnostic(severity: .error, message: description, file: file?.string, line: line)
+            message = .emitDiagnostic(severity: .error, message: description, file: file, line: line)
         case .warning:
-            message = .emitDiagnostic(severity: .warning, message: description, file: file?.string, line: line)
+            message = .emitDiagnostic(severity: .warning, message: description, file: file, line: line)
         case .remark:
-            message = .emitDiagnostic(severity: .remark, message: description, file: file?.string, line: line)
+            message = .emitDiagnostic(severity: .remark, message: description, file: file, line: line)
         }
         // FIXME: Handle problems sending the message.
         try? pluginHostConnection.sendMessage(message)
     }
 
     /// Emits an error with the specified message, and optional file path and line number.
-    public static func error(_ message: String, file: Path? = #file, line: Int? = #line) {
+    public static func error(_ message: String, file: String? = #file, line: Int? = #line) {
         self.emit(.error, message, file: file, line: line)
     }
 
     /// Emits a warning with the specified message, and optional file path and line number.
-    public static func warning(_ message: String, file: Path? = #file, line: Int? = #line) {
+    public static func warning(_ message: String, file: String? = #file, line: Int? = #line) {
         self.emit(.warning, message, file: file, line: line)
     }
 
     /// Emits a remark with the specified message, and optional file path and line number.
-    public static func remark(_ message: String, file: Path? = #file, line: Int? = #line) {
+    public static func remark(_ message: String, file: String? = #file, line: Int? = #line) {
         self.emit(.remark, message, file: file, line: line)
     }
 }
