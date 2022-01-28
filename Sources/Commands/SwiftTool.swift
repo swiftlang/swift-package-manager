@@ -490,7 +490,7 @@ public class SwiftTool {
         }
 
         if options._deprecated_useRepositoriesCache != nil {
-            observabilityScope.emit(warning: "'--disable-repository-cache'/'--enable-repository-cache' flags are deprecated; use '--disable-dependencies-cache'/'--enable-dependencies-cache' instead")
+            observabilityScope.emit(warning: "'--disable-repository-cache'/'--enable-repository-cache' flags are deprecated; use '--disable-dependency-cache'/'--enable-dependency-cache' instead")
         }
 
     }

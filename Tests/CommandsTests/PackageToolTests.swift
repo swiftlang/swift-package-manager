@@ -124,7 +124,7 @@ final class PackageToolTests: CommandsTestCase {
                 _ = try execute(["reset"], packagePath: packageRoot)
                 try localFileSystem.removeFileTree(cachePath)
 
-                try self.execute(["resolve", "--enable-dependencies-cache", "--cache-path", cachePath.pathString], packagePath: packageRoot)
+                try self.execute(["resolve", "--enable-dependency-cache", "--cache-path", cachePath.pathString], packagePath: packageRoot)
 
                 // we have to check for the prefix here since the hash value changes because spm sees the `prefix`
                 // directory `/var/...` as `/private/var/...`.
@@ -135,7 +135,7 @@ final class PackageToolTests: CommandsTestCase {
                 _ = try execute(["reset"], packagePath: packageRoot)
 
                 // Perform another cache this time from the cache
-                _ = try execute(["resolve", "--enable-dependencies-cache", "--cache-path", cachePath.pathString], packagePath: packageRoot)
+                _ = try execute(["resolve", "--enable-dependency-cache", "--cache-path", cachePath.pathString], packagePath: packageRoot)
                 XCTAssert(try localFileSystem.getDirectoryContents(repositoriesPath).contains { $0.hasPrefix("Foo-") })
 
                 // Remove .build and cache folder
@@ -143,7 +143,7 @@ final class PackageToolTests: CommandsTestCase {
                 try localFileSystem.removeFileTree(cachePath)
 
                 // Perfom another fetch
-                _ = try execute(["resolve", "--enable-dependencies-cache", "--cache-path", cachePath.pathString], packagePath: packageRoot)
+                _ = try execute(["resolve", "--enable-dependency-cache", "--cache-path", cachePath.pathString], packagePath: packageRoot)
                 XCTAssert(try localFileSystem.getDirectoryContents(repositoriesPath).contains { $0.hasPrefix("Foo-") })
                 XCTAssert(try localFileSystem.getDirectoryContents(repositoriesCachePath).contains { $0.hasPrefix("Foo-") })
             }
@@ -153,7 +153,7 @@ final class PackageToolTests: CommandsTestCase {
                 _ = try execute(["reset"], packagePath: packageRoot)
                 try localFileSystem.removeFileTree(cachePath)
 
-                try self.execute(["resolve", "--disable-dependencies-cache", "--cache-path", cachePath.pathString], packagePath: packageRoot)
+                try self.execute(["resolve", "--disable-dependency-cache", "--cache-path", cachePath.pathString], packagePath: packageRoot)
 
                 // we have to check for the prefix here since the hash value changes because spm sees the `prefix`
                 // directory `/var/...` as `/private/var/...`.
@@ -167,7 +167,7 @@ final class PackageToolTests: CommandsTestCase {
                 try localFileSystem.removeFileTree(cachePath)
 
                 let (_, stderr) = try self.execute(["resolve", "--enable-repository-cache", "--cache-path", cachePath.pathString], packagePath: packageRoot)
-                XCTAssertMatch(stderr, .contains("'--disable-repository-cache'/'--enable-repository-cache' flags are deprecated; use '--disable-dependencies-cache'/'--enable-dependencies-cache' instead"))
+                XCTAssertMatch(stderr, .contains("'--disable-repository-cache'/'--enable-repository-cache' flags are deprecated; use '--disable-dependency-cache'/'--enable-dependency-cache' instead"))
 
                 // we have to check for the prefix here since the hash value changes because spm sees the `prefix`
                 // directory `/var/...` as `/private/var/...`.
@@ -197,7 +197,7 @@ final class PackageToolTests: CommandsTestCase {
                 try localFileSystem.removeFileTree(cachePath)
 
                 let (_, stderr) = try self.execute(["resolve", "--disable-repository-cache", "--cache-path", cachePath.pathString], packagePath: packageRoot)
-                XCTAssertMatch(stderr, .contains("'--disable-repository-cache'/'--enable-repository-cache' flags are deprecated; use '--disable-dependencies-cache'/'--enable-dependencies-cache' instead"))
+                XCTAssertMatch(stderr, .contains("'--disable-repository-cache'/'--enable-repository-cache' flags are deprecated; use '--disable-dependency-cache'/'--enable-dependency-cache' instead"))
 
                 // we have to check for the prefix here since the hash value changes because spm sees the `prefix`
                 // directory `/var/...` as `/private/var/...`.

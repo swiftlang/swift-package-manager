@@ -153,7 +153,7 @@ public struct SwiftToolOptions: ParsableArguments {
     var securityPath: AbsolutePath?
 
     /// Disables package caching.
-    @Flag(name: .customLong("dependencies-cache"), inversion: .prefixedEnableDisable, help: "Use a shared cache when fetching dependencies")
+    @Flag(name: .customLong("dependency-cache"), inversion: .prefixedEnableDisable, help: "Use a shared cache when fetching dependencies")
     var _useDependenciesCache: Bool?
 
     // TODO: simplify when deprecating the older flag
