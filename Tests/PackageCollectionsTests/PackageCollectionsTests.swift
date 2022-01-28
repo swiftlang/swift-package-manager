@@ -29,7 +29,7 @@ final class PackageCollectionsTests: XCTestCase {
         defer { XCTAssertNoThrow(try storage.close()) }
 
         // Disable cache for this test to avoid setup/cleanup
-        let metadataProviderConfig = GitHubPackageMetadataProvider.Configuration(authTokens: configuration.authTokens, cacheTTLInSeconds: -1)
+        let metadataProviderConfig = GitHubPackageMetadataProvider.Configuration(authTokens: configuration.authTokens, disableCache: true)
         let metadataProvider = GitHubPackageMetadataProvider(configuration: metadataProviderConfig)
         let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: [:], metadataProvider: metadataProvider)
 

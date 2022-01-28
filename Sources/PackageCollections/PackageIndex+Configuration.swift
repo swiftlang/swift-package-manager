@@ -24,6 +24,7 @@ public struct PackageIndexConfiguration: Equatable {
     public init(
         url: Foundation.URL? = nil,
         searchResultMaxItemsCount: Int? = nil,
+        disableCache: Bool = false,
         cacheDirectory: AbsolutePath? = nil,
         cacheTTLInSeconds: Int? = nil,
         cacheMaxSizeInMegabytes: Int? = nil
@@ -31,7 +32,7 @@ public struct PackageIndexConfiguration: Equatable {
         self.url = url
         self.searchResultMaxItemsCount = searchResultMaxItemsCount ?? 50
         self.cacheDirectory = cacheDirectory.map(resolveSymlinks) ?? localFileSystem.swiftPMCacheDirectory.appending(components: "package-metadata")
-        self.cacheTTLInSeconds = cacheTTLInSeconds ?? 3600
+        self.cacheTTLInSeconds = disableCache ? -1 : (cacheTTLInSeconds ?? 3600)
         self.cacheMaxSizeInMegabytes = cacheMaxSizeInMegabytes ?? 10
     }
 }
