@@ -50,8 +50,8 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
     }
 
     private struct FetchProgress {
-        let objectsFetched: Int
-        let totalObjectsToFetch: Int
+        let progress: Int64
+        let total: Int64
     }
 
     /// The progress of each individual downloads.
@@ -74,36 +74,52 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
         self.observabilityScope = observabilityScope
     }
 
-    func fetchingWillBegin(repository: String, fetchDetails: RepositoryManager.FetchDetails?) {
+    func willFetchPackage(package: String, fetchDetails: PackageFetchDetails) {
         queue.async {
-            self.outputStream <<< "Fetching \(repository)"
-            if let fetchDetails = fetchDetails {
-                if fetchDetails.fromCache {
-                    self.outputStream <<< " from cache"
-                }
+            self.outputStream <<< "Fetching \(package)"
+            if fetchDetails.fromCache {
+                self.outputStream <<< " from cache"
             }
             self.outputStream <<< "\n"
             self.outputStream.flush()
         }
     }
 
-    func fetchingDidFinish(repository: String, fetchDetails: RepositoryManager.FetchDetails?, diagnostic: Basics.Diagnostic?, duration: DispatchTimeInterval) {
+    func didFetchPackage(package: String, result: Result<PackageFetchDetails, Error>, duration: DispatchTimeInterval) {
         queue.async {
             if self.observabilityScope.errorsReported {
                 self.fetchAnimation.clear()
             }
 
-            let step = self.fetchProgress.values.reduce(0) { $0 + $1.objectsFetched }
-            let total = self.fetchProgress.values.reduce(0) { $0 + $1.totalObjectsToFetch }
+            let progress = self.fetchProgress.values.reduce(0) { $0 + $1.progress }
+            let total = self.fetchProgress.values.reduce(0) { $0 + $1.total }
 
-            if step == total && !self.fetchProgress.isEmpty {
+            if progress == total && !self.fetchProgress.isEmpty {
                 self.fetchAnimation.complete(success: true)
                 self.fetchProgress.removeAll()
             }
 
-            self.outputStream <<< "Fetched \(repository) (\(duration.descriptionInSeconds))"
+            self.outputStream <<< "Fetched \(package) (\(duration.descriptionInSeconds))"
             self.outputStream <<< "\n"
             self.outputStream.flush()
+        }
+    }
+
+    func fetchingPackage(package: String, progress: Int64, total: Int64?) {
+        queue.async {
+            self.fetchProgress[package] = FetchProgress(
+                progress: progress,
+                total: total ?? progress
+            )
+
+            let progress = self.fetchProgress.values.reduce(0) { $0 + $1.progress }
+            let total = self.fetchProgress.values.reduce(0) { $0 + $1.total }
+
+            self.fetchAnimation.update(
+                step: progress > Int.max ? Int.max : Int(progress),
+                total: total > Int.max ? Int.max : Int(total),
+                text: "Fetching \(package)"
+            )
         }
     }
 
@@ -212,18 +228,6 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
 
             self.downloadAnimation.complete(success: true)
             self.downloadProgress.removeAll()
-        }
-    }
-
-    func fetchingRepository(from repository: String, objectsFetched: Int, totalObjectsToFetch: Int) {
-        queue.async {
-            self.fetchProgress[repository] = FetchProgress(
-                objectsFetched: objectsFetched,
-                totalObjectsToFetch: totalObjectsToFetch)
-
-            let step = self.fetchProgress.values.reduce(0) { $0 + $1.objectsFetched }
-            let total = self.fetchProgress.values.reduce(0) { $0 + $1.totalObjectsToFetch }
-            self.fetchAnimation.update(step: step, total: total, text: "Fetching objects")
         }
     }
 
@@ -482,7 +486,11 @@ public class SwiftTool {
         }
 
         if options._deprecated_enableResolverTrace {
-            observabilityScope.emit(warning: "'--enableResolverTrace' option is deprecated; use --verbose flag to log resolver output")
+            observabilityScope.emit(warning: "'--enableResolverTrace' flag is deprecated; use '--verbose' option to log resolver output")
+        }
+
+        if options._deprecated_useRepositoriesCache != nil {
+            observabilityScope.emit(warning: "'--disable-repository-cache'/'--enable-repository-cache' flags are deprecated; use '--disable-dependency-cache'/'--enable-dependency-cache' instead")
         }
 
     }
@@ -512,7 +520,7 @@ public class SwiftTool {
                 skipDependenciesUpdates: options.skipDependencyUpdate,
                 prefetchBasedOnResolvedFile: options.shouldEnableResolverPrefetching,
                 additionalFileRules: isXcodeBuildSystemEnabled ? FileRuleDescription.xcbuildFileTypes : FileRuleDescription.swiftpmFileTypes,
-                sharedRepositoriesCacheEnabled: self.options.useRepositoriesCache,
+                sharedDependenciesCacheEnabled: self.options.useDependenciesCache,
                 fingerprintCheckingMode: self.options.resolverFingerprintCheckingMode
             ),
             initializationWarningHandler: { self.observabilityScope.emit(warning: $0) },
