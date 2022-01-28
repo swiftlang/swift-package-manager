@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2021 Apple Inc. and the Swift project authors
+ Copyright (c) 2021-2022 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -47,11 +47,6 @@ public protocol CommandPlugin: Plugin {
         /// directories, etc.
         context: PluginContext,
         
-        /// The targets to which the command should be applied. If the invoker of
-        /// the command has not specified particular targets, this will be a list
-        /// of all the targets in the package to which the command is applied.
-        targets: [Target],
-        
         /// Any literal arguments passed after the verb in the command invocation.
         arguments: [String]
     ) async throws
@@ -61,8 +56,7 @@ public protocol CommandPlugin: Plugin {
     var packageManager: PackageManager { get }
 }
 
-extension CommandPlugin {
-    
+extension CommandPlugin {    
     /// A proxy to the Swift Package Manager or IDE hosting the command plugin,
     /// through which the plugin can ask for specialized information or actions.
     public var packageManager: PackageManager {

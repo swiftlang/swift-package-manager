@@ -1351,7 +1351,6 @@ final class PackageToolTests: CommandsTestCase {
                 struct MyCommandPlugin: CommandPlugin {
                     func performCommand(
                         context: PluginContext,
-                        targets: [Target],
                         arguments: [String]
                     ) throws {
                         print("This is MyCommandPlugin.")
@@ -1384,6 +1383,11 @@ final class PackageToolTests: CommandsTestCase {
                         let sed = try context.tool(named: "sed")
                         print("... found it at \\(sed.path)")
                         
+                        // Extract the `--target` arguments.
+                        var argExtractor = ArgumentExtractor(arguments)
+                        let targetNames = argExtractor.extractOption(named: "target")
+                        let targets = try context.package.targets(named: targetNames)
+
                         // Print out the source files so that we can check them.
                         if let sourceFiles = (targets.first{ $0.name == "MyLibrary" } as? SourceModuleTarget)?.sourceFiles {
                             for file in sourceFiles {
@@ -1468,7 +1472,7 @@ final class PackageToolTests: CommandsTestCase {
 
             // Check that the .docc file was properly vended to the plugin.
             do {
-                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["mycmd"], packagePath: packageDir)
+                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["--target", "MyLibrary", "mycmd"], packagePath: packageDir)
                 let output = try result.utf8Output() + result.utf8stderrOutput()
                 XCTAssertEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
                 XCTAssertMatch(output, .contains("Sources/MyLibrary/library.swift: source"))
@@ -1532,7 +1536,6 @@ final class PackageToolTests: CommandsTestCase {
                 struct MyCommandPlugin: CommandPlugin {
                     func performCommand(
                         context: PluginContext,
-                        targets: [Target],
                         arguments: [String]
                     ) throws {
                         // Check that we can write to the package directory.
@@ -1631,10 +1634,14 @@ final class PackageToolTests: CommandsTestCase {
                 struct MyCommandPlugin: CommandPlugin {
                     func performCommand(
                         context: PluginContext,
-                        targets: [Target],
                         arguments: [String]
                     ) throws {
                         // Ask for and print out the symbol graph directory for each target.
+                        var argExtractor = ArgumentExtractor(arguments)
+                        let targetNames = argExtractor.extractOption(named: "target")
+                        let targets = targetNames.isEmpty
+                            ? context.package.targets
+                            : try context.package.targets(named: targetNames)
                         for target in targets {
                             let symbolGraph = try packageManager.getSymbolGraph(for: target,
                                 options: .init(minimumAccessLevel: .public))
@@ -1725,7 +1732,6 @@ final class PackageToolTests: CommandsTestCase {
                 struct MyCommandPlugin: CommandPlugin {
                     func performCommand(
                         context: PluginContext,
-                        targets: [Target],
                         arguments: [String]
                     ) throws {
                         // Extract the plugin arguments.
@@ -1734,6 +1740,7 @@ final class PackageToolTests: CommandsTestCase {
                         if productNames.count != 1 {
                             throw "Expected exactly one product name, but had: \\(productNames.joined(separator: ", "))"
                         }
+                        let products = try context.package.products(named: productNames)
                         let printCommands = (argExtractor.extractFlag(named: "print-commands") > 0)
                         let release = (argExtractor.extractFlag(named: "release") > 0)
                         if let unextractedArgs = argExtractor.unextractedOptionsOrFlags.first {
@@ -1748,7 +1755,7 @@ final class PackageToolTests: CommandsTestCase {
                             parameters.configuration = release ? .release : .debug
                             parameters.logging = printCommands ? .verbose : .concise
                             parameters.otherSwiftcFlags = ["-DEXTRA_SWIFT_FLAG"]
-                            let result = try packageManager.build(.product(productNames[0]), parameters: parameters)
+                            let result = try packageManager.build(.product(products[0].name), parameters: parameters)
                             print("succeeded: \\(result.succeeded)")
                             for artifact in result.builtArtifacts {
                                 print("artifact-path: \\(artifact.path.string)")
@@ -1882,7 +1889,6 @@ final class PackageToolTests: CommandsTestCase {
                 struct MyCommandPlugin: CommandPlugin {
                     func performCommand(
                         context: PluginContext,
-                        targets: [Target],
                         arguments: [String]
                     ) throws {
                         do {
@@ -2049,14 +2055,14 @@ final class PackageToolTests: CommandsTestCase {
                 @main struct PrintTargetDependencies: CommandPlugin {
                     func performCommand(
                         context: PluginContext,
-                        targets: [Target],
                         arguments: [String]
                     ) throws {
                         // Print names of the recursive dependencies of the given target.
-                        guard let targetName = arguments.first, targetName != "" else {
+                        var argExtractor = ArgumentExtractor(arguments)
+                        guard let targetName = argExtractor.extractOption(named: "target").first else {
                             throw "No target argument provided"
                         }
-                        guard let target = targets.first(where: { $0.name == targetName }) else {
+                        guard let target = try? context.package.targets(named: [targetName]).first else {
                             throw "No target found with the name '\\(targetName)'"
                         }
                         print("Recursive dependencies of '\\(target.name)': \\(target.recursiveTargetDependencies.map(\\.name))")
@@ -2091,7 +2097,7 @@ final class PackageToolTests: CommandsTestCase {
 
             // Check that a target doesn't include itself in its recursive dependencies.
             do {
-                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["print-target-dependencies", "SecondTarget"], packagePath: packageDir)
+                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["print-target-dependencies", "--target", "SecondTarget"], packagePath: packageDir)
                 let output = try result.utf8Output() + result.utf8stderrOutput()
                 XCTAssertEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
                 XCTAssertMatch(output, .contains("of 'SecondTarget': [\"FirstTarget\"]"))
@@ -2099,7 +2105,7 @@ final class PackageToolTests: CommandsTestCase {
 
             // Check that targets are not included twice in recursive dependencies.
             do {
-                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["print-target-dependencies", "ThirdTarget"], packagePath: packageDir)
+                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["print-target-dependencies", "--target", "ThirdTarget"], packagePath: packageDir)
                 let output = try result.utf8Output() + result.utf8stderrOutput()
                 XCTAssertEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
                 XCTAssertMatch(output, .contains("of 'ThirdTarget': [\"FirstTarget\"]"))
@@ -2107,7 +2113,7 @@ final class PackageToolTests: CommandsTestCase {
 
             // Check that product dependencies work in recursive dependencies.
             do {
-                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["print-target-dependencies", "FourthTarget"], packagePath: packageDir)
+                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["print-target-dependencies", "--target", "FourthTarget"], packagePath: packageDir)
                 let output = try result.utf8Output() + result.utf8stderrOutput()
                 XCTAssertEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
                 XCTAssertMatch(output, .contains("of 'FourthTarget': [\"FirstTarget\", \"SecondTarget\", \"ThirdTarget\", \"HelperLibrary\"]"))
