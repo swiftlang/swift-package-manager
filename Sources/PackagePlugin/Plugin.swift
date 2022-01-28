@@ -180,7 +180,7 @@ extension Plugin {
                     }
                 }
                 
-            case .performCommand(let targets, let arguments):
+            case .performCommand(let arguments):
                 // Check that the plugin implements the appropriate protocol
                 // for its declared capability.
                 guard let plugin = plugin as? CommandPlugin else {
@@ -189,7 +189,7 @@ extension Plugin {
                 }
                 
                 // Invoke the plugin to perform its custom logic.
-                try await plugin.performCommand(context: context, targets: targets, arguments: arguments)
+                try await plugin.performCommand(context: context, arguments: arguments)
             }
             
             // Exit with a zero exit code to indicate success.

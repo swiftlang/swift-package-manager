@@ -20,7 +20,7 @@ public typealias Diagnostic = Basics.Diagnostic
 
 public enum PluginAction {
     case createBuildToolCommands(target: ResolvedTarget)
-    case performCommand(targets: [ResolvedTarget], arguments: [String])
+    case performCommand(arguments: [String])
 }
 
 extension PluginTarget {
@@ -600,7 +600,7 @@ public struct PluginScriptRunnerInput: Codable {
     /// the capabilities declared for the plugin.
     enum PluginAction: Codable {
         case createBuildToolCommands(targetId: Target.Id)
-        case performCommand(targetIds: [Target.Id], arguments: [String])
+        case performCommand(arguments: [String])
     }
 
     /// A single absolute path in the wire structure, represented as a tuple
@@ -791,9 +791,8 @@ struct PluginScriptRunnerInputSerializer {
                 throw StringError("unexpectedly was unable to serialize target \(target)")
             }
             serializedPluginAction = .createBuildToolCommands(targetId: targetId)
-        case .performCommand(let targets, let arguments):
-            let targetIds = try targets.compactMap { try serialize(target: $0) }
-            serializedPluginAction = .performCommand(targetIds: targetIds, arguments: arguments)
+        case .performCommand(let arguments):
+            serializedPluginAction = .performCommand(arguments: arguments)
         }
         return PluginScriptRunnerInput(
             paths: paths,
