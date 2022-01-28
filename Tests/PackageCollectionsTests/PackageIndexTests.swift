@@ -19,7 +19,7 @@ import XCTest
 class PackageIndexTests: XCTestCase {
     func testGetPackageMetadata() throws {
         let url = URL(string: "https://package-index.test")!
-        var configuration = PackageIndexConfiguration(url: url)
+        var configuration = PackageIndexConfiguration(url: url, cacheTTLInSeconds: -1)
         configuration.enabled = true
         
         let repoURL = URL(string: "https://github.com/octocat/Hello-World.git")!
@@ -52,7 +52,7 @@ class PackageIndexTests: XCTestCase {
     
     func testGetPackageMetadata_featureDisabled() {
         let url = URL(string: "https://package-index.test")!
-        var configuration = PackageIndexConfiguration(url: url)
+        var configuration = PackageIndexConfiguration(url: url, cacheTTLInSeconds: -1)
         configuration.enabled = false
                 
         let index = PackageIndex(configuration: configuration, callbackQueue: .sharedConcurrent, observabilityScope: ObservabilitySystem.NOOP)
@@ -65,7 +65,7 @@ class PackageIndexTests: XCTestCase {
     }
     
     func testGetPackageMetadata_notConfigured() {
-        var configuration = PackageIndexConfiguration(url: nil)
+        var configuration = PackageIndexConfiguration(url: nil, cacheTTLInSeconds: -1)
         configuration.enabled = true
                 
         let index = PackageIndex(configuration: configuration, callbackQueue: .sharedConcurrent, observabilityScope: ObservabilitySystem.NOOP)
@@ -79,7 +79,7 @@ class PackageIndexTests: XCTestCase {
     
     func testFindPackages() throws {
         let url = URL(string: "https://package-index.test")!
-        var configuration = PackageIndexConfiguration(url: url, searchResultMaxItemsCount: 10)
+        var configuration = PackageIndexConfiguration(url: url, searchResultMaxItemsCount: 10, cacheTTLInSeconds: -1)
         configuration.enabled = true
         
         let packages = (0..<3).map { packageIndex -> PackageCollectionsModel.Package in
@@ -116,7 +116,7 @@ class PackageIndexTests: XCTestCase {
     
     func testFindPackages_resultsLimit() throws {
         let url = URL(string: "https://package-index.test")!
-        var configuration = PackageIndexConfiguration(url: url, searchResultMaxItemsCount: 3)
+        var configuration = PackageIndexConfiguration(url: url, searchResultMaxItemsCount: 3, cacheTTLInSeconds: -1)
         configuration.enabled = true
         
         // This is larger than searchResultMaxItemsCount
@@ -154,7 +154,7 @@ class PackageIndexTests: XCTestCase {
     
     func testFindPackages_featureDisabled() {
         let url = URL(string: "https://package-index.test")!
-        var configuration = PackageIndexConfiguration(url: url)
+        var configuration = PackageIndexConfiguration(url: url, cacheTTLInSeconds: -1)
         configuration.enabled = false
                 
         let index = PackageIndex(configuration: configuration, callbackQueue: .sharedConcurrent, observabilityScope: ObservabilitySystem.NOOP)
@@ -166,7 +166,7 @@ class PackageIndexTests: XCTestCase {
     }
     
     func testFindPackages_notConfigured() {
-        var configuration = PackageIndexConfiguration(url: nil)
+        var configuration = PackageIndexConfiguration(url: nil, cacheTTLInSeconds: -1)
         configuration.enabled = true
                 
         let index = PackageIndex(configuration: configuration, callbackQueue: .sharedConcurrent, observabilityScope: ObservabilitySystem.NOOP)
@@ -179,7 +179,7 @@ class PackageIndexTests: XCTestCase {
     
     func testListPackages() throws {
         let url = URL(string: "https://package-index.test")!
-        var configuration = PackageIndexConfiguration(url: url)
+        var configuration = PackageIndexConfiguration(url: url, cacheTTLInSeconds: -1)
         configuration.enabled = true
         
         let offset = 4
@@ -217,7 +217,7 @@ class PackageIndexTests: XCTestCase {
     
     func testListPackages_featureDisabled() {
         let url = URL(string: "https://package-index.test")!
-        var configuration = PackageIndexConfiguration(url: url)
+        var configuration = PackageIndexConfiguration(url: url, cacheTTLInSeconds: -1)
         configuration.enabled = false
                 
         let index = PackageIndex(configuration: configuration, callbackQueue: .sharedConcurrent, observabilityScope: ObservabilitySystem.NOOP)
@@ -229,7 +229,7 @@ class PackageIndexTests: XCTestCase {
     }
     
     func testListPackages_notConfigured() {
-        var configuration = PackageIndexConfiguration(url: nil)
+        var configuration = PackageIndexConfiguration(url: nil, cacheTTLInSeconds: -1)
         configuration.enabled = true
                 
         let index = PackageIndex(configuration: configuration, callbackQueue: .sharedConcurrent, observabilityScope: ObservabilitySystem.NOOP)
@@ -242,7 +242,7 @@ class PackageIndexTests: XCTestCase {
     
     func testAsPackageMetadataProvider() throws {
         let url = URL(string: "https://package-index.test")!
-        var configuration = PackageIndexConfiguration(url: url)
+        var configuration = PackageIndexConfiguration(url: url, cacheTTLInSeconds: -1)
         configuration.enabled = true
         
         let repoURL = URL(string: "https://github.com/octocat/Hello-World.git")!
@@ -273,7 +273,7 @@ class PackageIndexTests: XCTestCase {
     
     func testAsGetPackageMetadataProvider_featureDisabled() {
         let url = URL(string: "https://package-index.test")!
-        var configuration = PackageIndexConfiguration(url: url)
+        var configuration = PackageIndexConfiguration(url: url, cacheTTLInSeconds: -1)
         configuration.enabled = false
                 
         let index = PackageIndex(configuration: configuration, callbackQueue: .sharedConcurrent, observabilityScope: ObservabilitySystem.NOOP)
@@ -286,7 +286,7 @@ class PackageIndexTests: XCTestCase {
     }
     
     func testAsGetPackageMetadataProvider_notConfigured() {
-        var configuration = PackageIndexConfiguration(url: nil)
+        var configuration = PackageIndexConfiguration(url: nil, cacheTTLInSeconds: -1)
         configuration.enabled = true
                 
         let index = PackageIndex(configuration: configuration, callbackQueue: .sharedConcurrent, observabilityScope: ObservabilitySystem.NOOP)
