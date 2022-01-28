@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2021 Apple Inc. and the Swift project authors
+ Copyright (c) 2021 - 2022 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -201,5 +201,30 @@ class PackageDescription5_6LoadingTests: PackageDescriptionLoadingTests {
         let name = parsedManifest.components?.last ?? ""
         let swiftFiles = manifest.displayName.split(separator: ",").map(String.init)
         XCTAssertNotNil(swiftFiles.firstIndex(of: name))
+    }
+
+    func testCommandPluginTarget() throws {
+        let content = """
+            import PackageDescription
+            let package = Package(
+               name: "Foo",
+               targets: [
+                   .plugin(
+                       name: "Foo",
+                       capability: .command(
+                           intent: .custom(verb: "mycmd", description: "helpful description of mycmd"),
+                           permissions: [ .writeToPackageDirectory(reason: "YOLO") ]
+                       )
+                   )
+               ]
+            )
+            """
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let manifest = try loadManifest(content, observabilityScope: observability.topScope)
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        XCTAssertEqual(manifest.targets[0].type, .plugin)
+        XCTAssertEqual(manifest.targets[0].pluginCapability, .command(intent: .custom(verb: "mycmd", description: "helpful description of mycmd"), permissions: [.writeToPackageDirectory(reason: "YOLO")]))
     }
 }
