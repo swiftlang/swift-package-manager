@@ -263,7 +263,7 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
                 }
 
                 // Disable cache so we hit the API
-                let configuration = GitHubPackageMetadataProvider.Configuration(cacheDir: tmpPath, cacheTTLInSeconds: -1)
+                let configuration = GitHubPackageMetadataProvider.Configuration(disableCache: true)
 
                 var httpClient = HTTPClient(handler: handler)
                 httpClient.configuration.circuitBreakerStrategy = .none
@@ -332,12 +332,11 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
         httpClient.configuration.retryStrategy = .none
         httpClient.configuration.requestHeaders = .init()
         httpClient.configuration.requestHeaders!.add(name: "Cache-Control", value: "no-cache")
-        var configuration = GitHubPackageMetadataProvider.Configuration()
+        var configuration = GitHubPackageMetadataProvider.Configuration(disableCache: true) // Disable cache so we hit the API
         if let token = ProcessEnv.vars["GITHUB_API_TOKEN"] {
             configuration.authTokens = { [.github("github.com"): token] }
         }
         configuration.apiLimitWarningThreshold = 50
-        configuration.cacheTTLInSeconds = -1 // Disable cache so we hit the API
         let provider = GitHubPackageMetadataProvider(configuration: configuration, httpClient: httpClient)
         defer { XCTAssertNoThrow(try provider.close()) }
 
