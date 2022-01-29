@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2021 Apple Inc. and the Swift project authors
+ Copyright (c) 2014 - 2022 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -35,6 +35,11 @@ final class PackageToolTests: CommandsTestCase {
         return try SwiftPMProduct.SwiftPackage.execute(args, packagePath: packagePath, env: environment)
     }
 
+    func testNoParameters() throws {
+        let stdout = try execute([]).stdout
+        XCTAssertMatch(stdout, .contains("USAGE: swift package"))
+    }
+
     func testUsage() throws {
         let stdout = try execute(["-help"]).stdout
         XCTAssertMatch(stdout, .contains("USAGE: swift package"))
@@ -48,6 +53,35 @@ final class PackageToolTests: CommandsTestCase {
     func testVersion() throws {
         let stdout = try execute(["--version"]).stdout
         XCTAssertMatch(stdout, .contains("Swift Package Manager"))
+    }
+
+    func testPlugin() throws {
+        do {
+            try execute(["plugin"])
+            XCTFail("This should have been an error")
+        } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
+            XCTAssertMatch(stderr, .contains("error: Missing expected plugin command"))
+        }
+    }
+
+    func testUnknownOption() throws {
+        do {
+            try execute(["--foo"])
+            XCTFail("This should have been an error")
+        } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
+            XCTAssertMatch(stderr, .contains("error: Unknown option '--foo'"))
+        }
+    }
+
+    func testUnknownSubommand() throws {
+        fixture(name: "Miscellaneous/ExeTest") { pkgDir in
+            do {
+                try execute(["foo"], packagePath: pkgDir)
+                XCTFail("This should have been an error")
+            } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
+                XCTAssertMatch(stderr, .contains("error: Unknown subcommand or plugin name 'foo'"))
+            }
+        }
     }
 
     func testNetrc() throws {
@@ -1561,12 +1595,12 @@ final class PackageToolTests: CommandsTestCase {
                 let result = try SwiftPMProduct.SwiftPackage.executeProcess(["my-nonexistent-cmd"], packagePath: packageDir)
                 let output = try result.utf8Output() + result.utf8stderrOutput()
                 XCTAssertNotEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
-                XCTAssertMatch(output, .contains("No command plugins found for ‘my-nonexistent-cmd’"))
+                XCTAssertMatch(output, .contains("error: Unknown subcommand or plugin name 'my-nonexistent-cmd'"))
             }
 
             // Check that the .docc file was properly vended to the plugin.
             do {
-                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["--target", "MyLibrary", "mycmd"], packagePath: packageDir)
+                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["mycmd", "--target", "MyLibrary"], packagePath: packageDir)
                 let output = try result.utf8Output() + result.utf8stderrOutput()
                 XCTAssertEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
                 XCTAssertMatch(output, .contains("Sources/MyLibrary/library.swift: source"))
@@ -1758,7 +1792,7 @@ final class PackageToolTests: CommandsTestCase {
 
             // Check that if we pass a target, we successfully get symbol graph information for just the target we asked for.
             do {
-                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["--target", "MyLibrary", "generate-documentation"], packagePath: packageDir)
+                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["generate-documentation", "--target", "MyLibrary"], packagePath: packageDir)
                 let output = try result.utf8Output() + result.utf8stderrOutput()
                 XCTAssertEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
                 XCTAssertMatch(output, .and(.contains("MyLibrary:"), .contains("mypackage/MyLibrary")))
