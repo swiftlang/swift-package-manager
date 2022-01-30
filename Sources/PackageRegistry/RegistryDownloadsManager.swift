@@ -95,15 +95,16 @@ public class RegistryDownloadsManager {
             self.pendingLookups[package] = group
             self.pendingLookupsLock.unlock()
 
-            // make sure destination is free.
-            try? self.fileSystem.removeFileTree(packagePath)
-            let isCached = self.cachePath.map{ self.fileSystem.exists($0.appending(packageRelativePath)) } ?? false
-
             // inform delegate that we are starting to fetch
+            // calculate if cached (for delegate call) outside queue as it may change while queue is processing
+            let isCached = self.cachePath.map{ self.fileSystem.exists($0.appending(packageRelativePath)) } ?? false
             delegateQueue.async {
                 let details = FetchDetails(fromCache: isCached, updatedCache: false)
                 self.delegate?.willFetch(package: package, version: version, fetchDetails: details)
             }
+
+            // make sure destination is free.
+            try? self.fileSystem.removeFileTree(packagePath)
 
             let start = DispatchTime.now()
             self.downloadAndPopulateCache(
@@ -148,7 +149,7 @@ public class RegistryDownloadsManager {
                 try self.fileSystem.withLock(on: cachedPacakgePath, type: .exclusive) {
                     // download the package into the cache unless already exists
                     if try self.fileSystem.validPackageDirectory(cachedPacakgePath) {
-                        // extra validation to defend from racy edge cases?
+                        // extra validation to defend from racy edge cases
                         if self.fileSystem.exists(packagePath) {
                             throw StringError("\(packagePath) already exists unexpectedly")
                         }
@@ -171,7 +172,7 @@ public class RegistryDownloadsManager {
                             callbackQueue: callbackQueue
                         ) { result in
                             completion(result.tryMap {
-                                // extra validation to defend from racy edge cases?
+                                // extra validation to defend from racy edge cases
                                 if self.fileSystem.exists(packagePath) {
                                     throw StringError("\(packagePath) already exists unexpectedly")
                                 }
@@ -188,7 +189,6 @@ public class RegistryDownloadsManager {
                 observabilityScope.emit(warning: "skipping cache due to an error: \(error)")
                 // it is possible that we already created the directory from failed attempts, so clear leftover data if present.
                 try? self.fileSystem.removeFileTree(packagePath)
-                //try self.provider.fetch(repository: handle.repository, to: repositoryPath, progressHandler: updateFetchProgress(progress:))
                 self.registryClient.downloadSourceArchive(
                     package: package,
                     version: version,

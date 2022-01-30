@@ -114,6 +114,11 @@ public struct GitRepositoryProvider: RepositoryProvider {
                          failureMessage: "Failed to clone repository \(repository.location)",
                          progress: progressHandler)
     }
+
+    public func repositoryExists(at path: AbsolutePath) throws -> Bool {
+        // TODO: make this check more sophisticated?
+        return localFileSystem.isDirectory(path)
+    }
     
     public func isValidDirectory(_ directory: AbsolutePath) -> Bool {
         do {

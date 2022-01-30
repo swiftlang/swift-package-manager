@@ -115,47 +115,45 @@ extension WorkspaceDelegate {
     public func fetchingRepository(from repository: String, objectsFetched: Int, totalObjectsToFetch: Int) {}
 }
 
-private class WorkspaceRepositoryManagerDelegate: RepositoryManagerDelegate {
+private class WorkspaceRepositoryManagerDelegate: RepositoryManager.Delegate {
     unowned let workspaceDelegate: WorkspaceDelegate
 
     init(workspaceDelegate: WorkspaceDelegate) {
         self.workspaceDelegate = workspaceDelegate
     }
 
-    func fetchingWillBegin(handle: RepositoryManager.RepositoryHandle, fetchDetails details: RepositoryManager.FetchDetails) {
-        self.workspaceDelegate.willFetchPackage(package: handle.repository.location.description, fetchDetails: PackageFetchDetails(fromCache: details.fromCache, updatedCache: details.updatedCache) )
+    func willFetch(repository: RepositorySpecifier, details: RepositoryManager.FetchDetails) {
+        self.workspaceDelegate.willFetchPackage(package: repository.location.description, fetchDetails: PackageFetchDetails(fromCache: details.fromCache, updatedCache: details.updatedCache) )
         // deprecated 01/2022, remove once clients moved over
-        workspaceDelegate.fetchingWillBegin(repository: handle.repository.location.description, fetchDetails: details)
+        workspaceDelegate.fetchingWillBegin(repository: repository.location.description, fetchDetails: details)
     }
 
-    func fetchingDidFinish(handle: RepositoryManager.RepositoryHandle, fetchDetails details: RepositoryManager.FetchDetails?, error: Swift.Error?, duration: DispatchTimeInterval) {
-        let result: Result<PackageFetchDetails, Error>
-        if let error = error {
-            result = .failure(error)
-        } else if let details = details  {
-            result = .success(PackageFetchDetails(fromCache: details.fromCache, updatedCache: details.updatedCache) )
-        } else {
-            assertionFailure("invalid fetchingDidFinish callback")
-            return
+    func fetching(repository: RepositorySpecifier, objectsFetched: Int, totalObjectsToFetch: Int) {
+        self.workspaceDelegate.fetchingPackage(package: repository.location.description, progress: Int64(objectsFetched), total: Int64(totalObjectsToFetch))
+        // deprecated 01/2022, remove once clients moved over
+        workspaceDelegate.fetchingRepository(from: repository.location.description, objectsFetched: objectsFetched, totalObjectsToFetch: totalObjectsToFetch)
+    }
+
+    func didFetch(repository: RepositorySpecifier, result: Result<RepositoryManager.FetchDetails, Error>, duration: DispatchTimeInterval) {
+        self.workspaceDelegate.didFetchPackage(package: repository.location.description, result: result.map{ PackageFetchDetails(fromCache: $0.fromCache, updatedCache: $0.updatedCache) }, duration: duration)
+        // deprecated 01/2022, remove once clients moved over
+        var details: RepositoryManager.FetchDetails? = nil
+        var diagnostic: Basics.Diagnostic? = nil
+        switch result {
+        case .success(let _details):
+            details = _details
+        case .failure(let error):
+            diagnostic = Basics.Diagnostic.error(error)
         }
-        self.workspaceDelegate.didFetchPackage(package: handle.repository.location.description, result: result, duration: duration)
-        // deprecated 01/2022, remove once clients moved over
-        let diagnostic = error.map { Basics.Diagnostic.error($0) }
-        workspaceDelegate.fetchingDidFinish(repository: handle.repository.location.description, fetchDetails: details, diagnostic: diagnostic, duration: duration)
+        workspaceDelegate.fetchingDidFinish(repository: repository.location.description, fetchDetails: details, diagnostic: diagnostic, duration: duration)
     }
 
-    func fetchingRepository(from repository: String, objectsFetched: Int, totalObjectsToFetch: Int) {
-        self.workspaceDelegate.fetchingPackage(package: repository, progress: Int64(objectsFetched), total: Int64(totalObjectsToFetch))
-        // deprecated 01/2022, remove once clients moved over
-        workspaceDelegate.fetchingRepository(from: repository, objectsFetched: objectsFetched, totalObjectsToFetch: totalObjectsToFetch)
+    func willUpdate(repository: RepositorySpecifier) {
+        workspaceDelegate.repositoryWillUpdate(repository.location.description)
     }
 
-    func handleWillUpdate(handle: RepositoryManager.RepositoryHandle) {
-        workspaceDelegate.repositoryWillUpdate(handle.repository.location.description)
-    }
-
-    func handleDidUpdate(handle: RepositoryManager.RepositoryHandle, duration: DispatchTimeInterval) {
-        workspaceDelegate.repositoryDidUpdate(handle.repository.location.description, duration: duration)
+    func didUpdate(repository: RepositorySpecifier, duration: DispatchTimeInterval) {
+        workspaceDelegate.repositoryDidUpdate(repository.location.description, duration: duration)
     }
 }
 
@@ -981,6 +979,7 @@ extension Workspace {
 
         guard (removed ?? false) else { return }
         try? repositoryManager.reset()
+        try? registryDownloadsManager.reset()
         try? manifestLoader.resetCache()
         try? fileSystem.removeFileTree(self.location.workingDirectory)
     }
@@ -1459,7 +1458,14 @@ extension Workspace {
             // TODO: replace with async/await when available
             let repository = try dependency.packageRef.makeRepositorySpecifier()
             let handle = try temp_await {
-                repositoryManager.lookup(repository: repository, skipUpdate: true, on: .sharedConcurrent, completion: $0)
+                repositoryManager.lookup(
+                    repository: repository,
+                    skipUpdate: true,
+                    observabilityScope: observabilityScope,
+                    delegateQueue: .sharedConcurrent,
+                    callbackQueue: .sharedConcurrent,
+                    completion: $0
+                )
             }
             let repo = try handle.open()
 
@@ -3487,7 +3493,13 @@ extension Workspace: PackageContainerProvider {
                 // Resolve the container using the repository manager.
                 case .localSourceControl, .remoteSourceControl:
                     let repositorySpecifier = try package.makeRepositorySpecifier()
-                    self.repositoryManager.lookup(repository: repositorySpecifier, skipUpdate: skipUpdate, on: queue) { result in
+                    self.repositoryManager.lookup(
+                        repository: repositorySpecifier,
+                        skipUpdate: skipUpdate,
+                        observabilityScope: observabilityScope,
+                        delegateQueue: queue,
+                        callbackQueue: queue
+                    ) { result in
                         // Create the container wrapper.
                         let result = result.tryMap { handle -> PackageContainer in
                             // Open the repository.
@@ -3613,7 +3625,7 @@ extension Workspace {
     ) throws -> AbsolutePath {
         let repository = try package.makeRepositorySpecifier()
         // first fetch the repository.
-        let checkoutPath = try self.fetchRepository(package: package)
+        let checkoutPath = try self.fetchRepository(package: package, observabilityScope: observabilityScope)
 
         // Check out the given revision.
         let workingCopy = try self.repositoryManager.openWorkingCopy(at: checkoutPath)
@@ -3678,7 +3690,7 @@ extension Workspace {
     ///
     /// - Returns: The path of the local repository.
     /// - Throws: If the operation could not be satisfied.
-    private func fetchRepository(package: PackageReference) throws -> AbsolutePath {
+    private func fetchRepository(package: PackageReference, observabilityScope: ObservabilityScope) throws -> AbsolutePath {
         // If we already have it, fetch to update the repo from its remote.
         // also compare the location as it may have changed
         if let dependency = self.state.dependencies[comparingLocation: package] {
@@ -3711,7 +3723,14 @@ extension Workspace {
         let repository = try package.makeRepositorySpecifier()
         // FIXME: this should not block
         let handle = try temp_await {
-            self.repositoryManager.lookup(repository: repository, skipUpdate: true, on: .sharedConcurrent, completion: $0)
+            self.repositoryManager.lookup(
+                repository: repository,
+                skipUpdate: true,
+                observabilityScope: observabilityScope,
+                delegateQueue: .sharedConcurrent,
+                callbackQueue: .sharedConcurrent,
+                completion: $0
+            )
         }
 
         // Clone the repository into the checkouts.
