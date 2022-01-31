@@ -106,7 +106,7 @@ public func rewriteToolsVersionSpecification(toDefaultManifestIn manifestDirecto
     let toolsVersionSpecificationComponents = manifestComponents.toolsVersionSpecificationComponents
     
     // Replace the Swift tools version specification line if and only if it's well-formed up to the version specifier.
-    // This matches the behaviour of the old (now removed) [`ToolsVersionLoader.split(:_)`](https://github.com/WowbaggersLiquidLunch/swift-package-manager/blob/49cfc46bc5defd3ce8e0c0261e3e2cb475bcdb91/Sources/PackageLoading/ToolsVersionLoader.swift#L160).
+    // This matches the behavior of the old (now removed) [`ToolsVersionLoader.split(:_)`](https://github.com/WowbaggersLiquidLunch/swift-package-manager/blob/49cfc46bc5defd3ce8e0c0261e3e2cb475bcdb91/Sources/PackageLoading/ToolsVersionLoader.swift#L160).
     if toolsVersionSpecificationComponents.everythingUpToVersionSpecifierIsWellFormed {
         stream <<< ByteString(encodingAsUTF8: String(manifestComponents.contentsAfterToolsVersionSpecification))
     } else {

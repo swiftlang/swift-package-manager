@@ -16,7 +16,7 @@ import TSCBasic
 /// Delegate to notify clients about actions being performed by RepositoryManager.
 public protocol RepositoryManagerDelegate: AnyObject {
     /// Called when a repository is about to be fetched.
-    func fetchingWillBegin(handle: RepositoryManager.RepositoryHandle, fetchDetails: RepositoryManager.FetchDetails?)
+    func fetchingWillBegin(handle: RepositoryManager.RepositoryHandle, fetchDetails: RepositoryManager.FetchDetails)
 
     /// Called when a repository has finished fetching.
     func fetchingDidFinish(handle: RepositoryManager.RepositoryHandle, fetchDetails: RepositoryManager.FetchDetails?, error: Swift.Error?, duration: DispatchTimeInterval)
@@ -72,24 +72,28 @@ public class RepositoryManager {
     /// Create a new empty manager.
     ///
     /// - Parameters:
+    ///   - fileSystem: The filesystem to operate on.
     ///   - path: The path under which to store repositories. This should be a
     ///           directory in which the content can be completely managed by this
     ///           instance.
     ///   - provider: The repository provider.
+    ///   - cachePath: The repository cache location.
+    ///   - cacheLocalPackages: Should cache local packages as well. For testing purposes.
+    ///   - initializationWarningHandler: Initialization warnings handler.
     ///   - delegate: The repository manager delegate.
-    ///   - fileSystem: The filesystem to operate on.
     public init(
         fileSystem: FileSystem,
         path: AbsolutePath,
         provider: RepositoryProvider,
-        delegate: RepositoryManagerDelegate? = nil,
-        cachePath: AbsolutePath? = nil,
-        cacheLocalPackages: Bool? = nil
+        cachePath: AbsolutePath? =  .none,
+        cacheLocalPackages: Bool = false,
+        initializationWarningHandler: (String) -> Void,
+        delegate: RepositoryManagerDelegate? = .none
     ) {
         self.fileSystem = fileSystem
         self.path = path
         self.cachePath = cachePath
-        self.cacheLocalPackages = cacheLocalPackages ?? false
+        self.cacheLocalPackages = cacheLocalPackages
 
         self.provider = provider
         self.delegate = delegate
@@ -107,9 +111,7 @@ public class RepositoryManager {
         } catch {
             self.repositories = [:]
             try? self.storage.reset()
-            // FIXME: We should emit a warning here using the diagnostic engine.
-            TSCBasic.stderrStream.write("warning: unable to restore checkouts state: \(error)")
-            TSCBasic.stderrStream.flush()
+            initializationWarningHandler("unable to restore checkouts state: \(error)")
         }
     }
 

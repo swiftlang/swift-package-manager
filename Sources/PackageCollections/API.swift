@@ -1,15 +1,18 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2020-2021 Apple Inc. and the Swift project authors
+ Copyright (c) 2020-2022 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
+import struct Foundation.URL
 import PackageModel
 import SourceControl
+
+// MARK: - Package collection
 
 public protocol PackageCollectionsProtocol {
     // MARK: - Package collection APIs
@@ -247,4 +250,57 @@ public enum PackageCollectionError: Equatable, Error {
     case missingSignature
 
     case unsupportedPlatform
+}
+
+// MARK: - Package index
+
+public protocol PackageIndexProtocol {
+    /// Returns true if the package index is configured.
+    var isEnabled: Bool { get }
+    
+    /// Returns metadata for the package identified by the given `PackageIdentity`.
+    ///
+    /// A failure is returned if the package is not found.
+    ///
+    /// - Parameters:
+    ///   - identity: The package identity
+    ///   - location: The package location (optional for deduplication)
+    ///   - callback: The closure to invoke when result becomes available
+    func getPackageMetadata(
+        identity: PackageIdentity,
+        location: String?,
+        callback: @escaping (Result<PackageCollectionsModel.PackageMetadata, Error>) -> Void
+    )
+
+    /// Finds and returns packages that match the query.
+    ///
+    /// - Parameters:
+    ///   - query: The search query
+    ///   - callback: The closure to invoke when result becomes available
+    func findPackages(
+        _ query: String,
+        callback: @escaping (Result<PackageCollectionsModel.PackageSearchResult, Error>) -> Void
+    )
+    
+    /// A paginated list of packages in the index.
+    ///
+    /// - Parameters:
+    ///   - offset: Offset of the first item in the result
+    ///   - limit: Number of items to return in the result. Implementations might impose a threshold for this.
+    ///   - callback: The closure to invoke when result becomes available
+    func listPackages(
+        offset: Int,
+        limit: Int,
+        callback: @escaping (Result<PackageCollectionsModel.PaginatedPackageList, Error>) -> Void
+    )
+}
+
+public enum PackageIndexError: Equatable, Error {
+    /// Package index support is disabled
+    case featureDisabled
+    /// No package index configured
+    case notConfigured
+    
+    case invalidURL(Foundation.URL)
+    case invalidResponse(Foundation.URL, String)
 }

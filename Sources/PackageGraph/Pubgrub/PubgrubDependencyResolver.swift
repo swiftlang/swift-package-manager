@@ -107,10 +107,10 @@ public struct PubgrubDependencyResolver {
     private let packageContainerProvider: PackageContainerProvider
 
     /// Should resolver prefetch the containers.
-    private let prefetchingEnabled: Bool
+    private let prefetchBasedOnResolvedFile: Bool
 
     /// Update containers while fetching them.
-    private let updateEnabled: Bool
+    private let skipDependenciesUpdates: Bool
 
     /// Resolver delegate
     private let delegate: DependencyResolverDelegate?
@@ -118,16 +118,21 @@ public struct PubgrubDependencyResolver {
     public init(
         provider: PackageContainerProvider,
         pinsMap: PinsStore.PinsMap = [:],
-        updateEnabled: Bool = true,
-        prefetchingEnabled: Bool = false,
+        skipDependenciesUpdates: Bool = false,
+        prefetchBasedOnResolvedFile: Bool = false,
         observabilityScope: ObservabilityScope,
         delegate: DependencyResolverDelegate? = nil
     ) {
         self.packageContainerProvider = provider
         self.pinsMap = pinsMap
-        self.updateEnabled = updateEnabled
-        self.prefetchingEnabled = prefetchingEnabled
-        self.provider = ContainerProvider(provider: self.packageContainerProvider, updateEnabled: self.updateEnabled, pinsMap: self.pinsMap, observabilityScope: observabilityScope)
+        self.skipDependenciesUpdates = skipDependenciesUpdates
+        self.prefetchBasedOnResolvedFile = prefetchBasedOnResolvedFile
+        self.provider = ContainerProvider(
+            provider: self.packageContainerProvider,
+            skipUpdate: self.skipDependenciesUpdates,
+            pinsMap: self.pinsMap,
+            observabilityScope: observabilityScope
+        )
         self.delegate = delegate
     }
 
@@ -177,7 +182,7 @@ public struct PubgrubDependencyResolver {
         let inputs = try self.processInputs(root: root, with: constraints)
 
         // Prefetch the containers if prefetching is enabled.
-        if self.prefetchingEnabled {
+        if self.prefetchBasedOnResolvedFile {
             // We avoid prefetching packages that are overridden since
             // otherwise we'll end up creating a repository container
             // for them.
@@ -1227,7 +1232,7 @@ private final class ContainerProvider {
     private let underlying: PackageContainerProvider
 
     /// Whether to perform update (git fetch) on existing cloned repositories or not.
-    private let updateEnabled: Bool
+    private let skipUpdate: Bool
 
     /// Reference to the pins store.
     private let pinsMap: PinsStore.PinsMap
@@ -1241,9 +1246,14 @@ private final class ContainerProvider {
     //// Store prefetches synchronization
     private var prefetches = ThreadSafeKeyValueStore<PackageReference, DispatchGroup>()
 
-    init(provider underlying: PackageContainerProvider, updateEnabled: Bool, pinsMap: PinsStore.PinsMap, observabilityScope: ObservabilityScope) {
+    init(
+        provider underlying: PackageContainerProvider,
+        skipUpdate: Bool,
+        pinsMap: PinsStore.PinsMap,
+        observabilityScope: ObservabilityScope
+    ) {
         self.underlying = underlying
-        self.updateEnabled = updateEnabled
+        self.skipUpdate = skipUpdate
         self.pinsMap = pinsMap
         self.observabilityScope = observabilityScope
     }
@@ -1277,7 +1287,12 @@ private final class ContainerProvider {
             }
         } else {
             // Otherwise, fetch the container from the provider
-            self.underlying.getContainer(for: package, skipUpdate: !self.updateEnabled, observabilityScope: self.observabilityScope, on: .sharedConcurrent) { result in
+            self.underlying.getContainer(
+                for: package,
+                skipUpdate: self.skipUpdate,
+                observabilityScope: self.observabilityScope,
+                on: .sharedConcurrent
+            ) { result in
                 let result = result.tryMap { container -> PubGrubPackageContainer in
                     let pubGrubContainer = PubGrubPackageContainer(underlying: container, pinsMap: self.pinsMap)
                     // only cache positive results
@@ -1301,7 +1316,12 @@ private final class ContainerProvider {
                 return group
             }
             if needsFetching {
-                self.underlying.getContainer(for: identifier, skipUpdate: !self.updateEnabled, observabilityScope: self.observabilityScope, on: .sharedConcurrent) { result in
+                self.underlying.getContainer(
+                    for: identifier,
+                    skipUpdate: self.skipUpdate,
+                    observabilityScope: self.observabilityScope,
+                    on: .sharedConcurrent
+                ) { result in
                     defer { self.prefetches[identifier]?.leave() }
                     // only cache positive results
                     if case .success(let container) = result {

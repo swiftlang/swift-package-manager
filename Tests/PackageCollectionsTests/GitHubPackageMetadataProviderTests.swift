@@ -41,39 +41,6 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
         XCTAssertNil(GitHubPackageMetadataProvider.apiURL("bad/Hello-World.git"))
     }
 
-    func testAuthTokenType() throws {
-        let metadataProvider = GitHubPackageMetadataProvider()
-        let expectedAuthTokenType = AuthTokenType.github("github.com")
-
-        // Not remote
-        do {
-            let url = "file:///local/Hello-World.git"
-            let authTokenType = metadataProvider.getAuthTokenType(for: url)
-            XCTAssertNil(authTokenType)
-        }
-
-        // Invalid URL
-        do {
-            let authTokenType = metadataProvider.getAuthTokenType(for: "bad/Hello-World.git")
-            XCTAssertNil(authTokenType)
-        }
-
-        do {
-            let authTokenType = metadataProvider.getAuthTokenType(for: "git@github.com:octocat/Hello-World.git")
-            XCTAssertEqual(expectedAuthTokenType, authTokenType)
-        }
-
-        do {
-            let authTokenType = metadataProvider.getAuthTokenType(for: "https://github.com/octocat/Hello-World.git")
-            XCTAssertEqual(expectedAuthTokenType, authTokenType)
-        }
-
-        do {
-            let authTokenType = metadataProvider.getAuthTokenType(for: "https://github.com/octocat/Hello-World")
-            XCTAssertEqual(expectedAuthTokenType, authTokenType)
-        }
-    }
-
     func testGood() throws {
         try testWithTemporaryDirectory { tmpPath in
             let repoURL = URL(string: "https://github.com/octocat/Hello-World.git")!
@@ -132,7 +99,7 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
                 let provider = GitHubPackageMetadataProvider(configuration: configuration, httpClient: httpClient)
                 defer { XCTAssertNoThrow(try provider.close()) }
 
-                let metadata = try tsc_await { callback in provider.get(identity: .init(url: repoURL), location: repoURL.absoluteString, callback: callback) }
+                let metadata = try provider.syncGet(identity: .init(url: repoURL), location: repoURL.absoluteString)
 
                 XCTAssertEqual(metadata.summary, "This your first repo!")
                 XCTAssertEqual(metadata.versions.count, 2)
@@ -170,7 +137,7 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
             let provider = GitHubPackageMetadataProvider(configuration: configuration, httpClient: httpClient)
             defer { XCTAssertNoThrow(try provider.close()) }
 
-            XCTAssertThrowsError(try tsc_await { callback in provider.get(identity: .init(url: repoURL), location: repoURL.absoluteString, callback: callback) }, "should throw error") { error in
+            XCTAssertThrowsError(try provider.syncGet(identity: .init(url: repoURL), location: repoURL.absoluteString), "should throw error") { error in
                 XCTAssert(error is NotFoundError, "\(error)")
             }
         }
@@ -203,7 +170,7 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
                 let provider = GitHubPackageMetadataProvider(configuration: configuration, httpClient: httpClient)
                 defer { XCTAssertNoThrow(try provider.close()) }
 
-                let metadata = try tsc_await { callback in provider.get(identity: .init(url: repoURL), location: repoURL.absoluteString, callback: callback) }
+                let metadata = try provider.syncGet(identity: .init(url: repoURL), location: repoURL.absoluteString)
 
                 XCTAssertEqual(metadata.summary, "This your first repo!")
                 XCTAssertEqual(metadata.versions, [])
@@ -231,8 +198,8 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
             let provider = GitHubPackageMetadataProvider(configuration: configuration, httpClient: httpClient)
             defer { XCTAssertNoThrow(try provider.close()) }
 
-            XCTAssertThrowsError(try tsc_await { callback in provider.get(identity: .init(url: repoURL), location: repoURL.absoluteString, callback: callback) }, "should throw error") { error in
-                XCTAssertEqual(error as? GitHubPackageMetadataProvider.Errors, .permissionDenied(apiURL))
+            XCTAssertThrowsError(try provider.syncGet(identity: .init(url: repoURL), location: repoURL.absoluteString), "should throw error") { error in
+                XCTAssertEqual(error as? GitHubPackageMetadataProviderError, .permissionDenied(apiURL))
             }
         }
     }
@@ -261,8 +228,8 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
             let provider = GitHubPackageMetadataProvider(configuration: configuration, httpClient: httpClient)
             defer { XCTAssertNoThrow(try provider.close()) }
 
-            XCTAssertThrowsError(try tsc_await { callback in provider.get(identity: .init(url: repoURL), location: repoURL.absoluteString, callback: callback) }, "should throw error") { error in
-                XCTAssertEqual(error as? GitHubPackageMetadataProvider.Errors, .invalidAuthToken(apiURL))
+            XCTAssertThrowsError(try provider.syncGet(identity: .init(url: repoURL), location: repoURL.absoluteString), "should throw error") { error in
+                XCTAssertEqual(error as? GitHubPackageMetadataProviderError, .invalidAuthToken(apiURL))
             }
         }
     }
@@ -296,7 +263,7 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
                 }
 
                 // Disable cache so we hit the API
-                let configuration = GitHubPackageMetadataProvider.Configuration(cacheDir: tmpPath, cacheTTLInSeconds: -1)
+                let configuration = GitHubPackageMetadataProvider.Configuration(disableCache: true)
 
                 var httpClient = HTTPClient(handler: handler)
                 httpClient.configuration.circuitBreakerStrategy = .none
@@ -307,11 +274,11 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
 
                 for index in 0 ... total * 2 {
                     if index >= total {
-                        XCTAssertThrowsError(try tsc_await { callback in provider.get(identity: .init(url: repoURL), location: repoURL.absoluteString, callback: callback) }, "should throw error") { error in
-                            XCTAssertEqual(error as? GitHubPackageMetadataProvider.Errors, .apiLimitsExceeded(apiURL, total))
+                        XCTAssertThrowsError(try provider.syncGet(identity: .init(url: repoURL), location: repoURL.absoluteString), "should throw error") { error in
+                            XCTAssertEqual(error as? GitHubPackageMetadataProviderError, .apiLimitsExceeded(apiURL, total))
                         }
                     } else {
-                        XCTAssertNoThrow(try tsc_await { callback in provider.get(identity: .init(url: repoURL), location: repoURL.absoluteString, callback: callback) })
+                        XCTAssertNoThrow(try provider.syncGet(identity: .init(url: repoURL), location: repoURL.absoluteString))
                     }
                 }
             }
@@ -328,8 +295,8 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
 
                 let url = UUID().uuidString
                 let identity = PackageIdentity(urlString: url)
-                XCTAssertThrowsError(try tsc_await { callback in provider.get(identity: identity, location: url, callback: callback) }, "should throw error") { error in
-                    XCTAssertEqual(error as? GitHubPackageMetadataProvider.Errors, .invalidGitURL(url))
+                XCTAssertThrowsError(try provider.syncGet(identity: identity, location: url), "should throw error") { error in
+                    XCTAssertEqual(error as? GitHubPackageMetadataProviderError, .invalidGitURL(url))
                 }
             }
         }
@@ -345,8 +312,8 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
 
                 let path = AbsolutePath.root
                 let identity = PackageIdentity(path: path)
-                XCTAssertThrowsError(try tsc_await { callback in provider.get(identity: identity, location: path.pathString, callback: callback) }, "should throw error") { error in
-                    XCTAssertEqual(error as? GitHubPackageMetadataProvider.Errors, .invalidGitURL(path.pathString))
+                XCTAssertThrowsError(try provider.syncGet(identity: identity, location: path.pathString), "should throw error") { error in
+                    XCTAssertEqual(error as? GitHubPackageMetadataProviderError, .invalidGitURL(path.pathString))
                 }
             }
         }
@@ -365,17 +332,16 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
         httpClient.configuration.retryStrategy = .none
         httpClient.configuration.requestHeaders = .init()
         httpClient.configuration.requestHeaders!.add(name: "Cache-Control", value: "no-cache")
-        var configuration = GitHubPackageMetadataProvider.Configuration()
+        var configuration = GitHubPackageMetadataProvider.Configuration(disableCache: true) // Disable cache so we hit the API
         if let token = ProcessEnv.vars["GITHUB_API_TOKEN"] {
             configuration.authTokens = { [.github("github.com"): token] }
         }
         configuration.apiLimitWarningThreshold = 50
-        configuration.cacheTTLInSeconds = -1 // Disable cache so we hit the API
         let provider = GitHubPackageMetadataProvider(configuration: configuration, httpClient: httpClient)
         defer { XCTAssertNoThrow(try provider.close()) }
 
         for _ in 0 ... 60 {
-            let metadata = try tsc_await { callback in provider.get(identity: .init(url: repoURL), location: repoURL.absoluteString, callback: callback) }
+            let metadata = try provider.syncGet(identity: .init(url: repoURL), location: repoURL.absoluteString)
             XCTAssertNotNil(metadata)
             XCTAssert(metadata.versions.count > 0)
             XCTAssert(metadata.keywords!.count > 0)
@@ -392,5 +358,13 @@ internal extension GitHubPackageMetadataProvider {
             observabilityScope: ObservabilitySystem.NOOP,
             httpClient: httpClient
         )
+    }
+}
+
+private extension GitHubPackageMetadataProvider {
+    func syncGet(identity: PackageIdentity, location: String) throws -> Model.PackageBasicMetadata {
+        try tsc_await { callback in
+            self.get(identity: identity, location: location) { result, _ in callback(result) }
+        }
     }
 }

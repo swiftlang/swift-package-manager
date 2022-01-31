@@ -9,8 +9,6 @@
  */
 
 import Basics
-import class Foundation.NSDate
-import class Foundation.Thread
 import OrderedCollections
 import PackageGraph
 import PackageLoading

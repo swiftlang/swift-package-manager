@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2021 Apple Inc. and the Swift project authors
+ Copyright (c) 2021-2022 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -20,7 +20,7 @@ public typealias Diagnostic = Basics.Diagnostic
 
 public enum PluginAction {
     case createBuildToolCommands(target: ResolvedTarget)
-    case performCommand(targets: [ResolvedTarget], arguments: [String])
+    case performCommand(arguments: [String])
 }
 
 extension PluginTarget {
@@ -78,7 +78,6 @@ extension PluginTarget {
             inputStruct = try serializer.makePluginScriptRunnerInput(
                 rootPackage: package,
                 pluginWorkDir: outputDirectory,
-                builtProductsDir: outputDirectory,  // FIXME — what is this parameter needed for?
                 toolSearchDirs: toolSearchDirectories,
                 toolNamesToPaths: toolNamesToPaths,
                 pluginAction: action)
@@ -240,6 +239,7 @@ extension PackageGraph {
                 let delegate = PluginDelegate(delegateQueue: delegateQueue)
 
                 // Invoke the build tool plugin with the input parameters and the delegate that will collect outputs.
+                let startTime = DispatchTime.now()
                 let success = try tsc_await { pluginTarget.invoke(
                     action: .createBuildToolCommands(target: target),
                     package: package,
@@ -256,17 +256,20 @@ extension PackageGraph {
                     callbackQueue: delegateQueue,
                     delegate: delegate,
                     completion: $0) }
+                let duration = startTime.distance(to: .now())
 
                 // Add a BuildToolPluginInvocationResult to the mapping.
-                if success {
-                    buildToolPluginResults.append(.init(
-                        plugin: pluginTarget,
-                        pluginOutputDirectory: pluginOutputDir,
-                        diagnostics: delegate.diagnostics,
-                        textOutput: String(decoding: delegate.outputData, as: UTF8.self),
-                        buildCommands: delegate.buildCommands,
-                        prebuildCommands: delegate.prebuildCommands))
-                }
+                buildToolPluginResults.append(.init(
+                    plugin: pluginTarget,
+                    pluginOutputDirectory: pluginOutputDir,
+                    package: package,
+                    target: target,
+                    succeeded: success,
+                    duration: duration,
+                    diagnostics: delegate.diagnostics,
+                    textOutput: String(decoding: delegate.outputData, as: UTF8.self),
+                    buildCommands: delegate.buildCommands,
+                    prebuildCommands: delegate.prebuildCommands))
             }
 
             // Associate the list of results with the target. The list will have one entry for each plugin used by the target.
@@ -320,6 +323,18 @@ public struct BuildToolPluginInvocationResult {
 
     /// The directory given to the plugin as a place in which it and the commands are allowed to write.
     public var pluginOutputDirectory: AbsolutePath
+
+    /// The package to which the plugin was applied.
+    public var package: ResolvedPackage
+
+    /// The target in that package to which the plugin was applied.
+    public var target: ResolvedTarget
+
+    /// If the plugin finished successfully.
+    public var succeeded: Bool
+
+    /// Duration of the plugin invocation.
+    public var duration: DispatchTimeInterval
 
     /// Any diagnostics emitted by the plugin.
     public var diagnostics: [Diagnostic]
@@ -577,7 +592,6 @@ public struct PluginScriptRunnerInput: Codable {
     let packages: [Package]
     let rootPackageId: Package.Id
     let pluginWorkDirId: Path.Id
-    let builtProductsDirId: Path.Id
     let toolSearchDirIds: [Path.Id]
     let toolNamesToPathIds: [String: Path.Id]
     let pluginAction: PluginAction
@@ -586,7 +600,7 @@ public struct PluginScriptRunnerInput: Codable {
     /// the capabilities declared for the plugin.
     enum PluginAction: Codable {
         case createBuildToolCommands(targetId: Target.Id)
-        case performCommand(targetIds: [Target.Id], arguments: [String])
+        case performCommand(arguments: [String])
     }
 
     /// A single absolute path in the wire structure, represented as a tuple
@@ -762,14 +776,12 @@ struct PluginScriptRunnerInputSerializer {
     mutating func makePluginScriptRunnerInput(
         rootPackage: ResolvedPackage,
         pluginWorkDir: AbsolutePath,
-        builtProductsDir: AbsolutePath,
         toolSearchDirs: [AbsolutePath],
         toolNamesToPaths: [String: AbsolutePath],
         pluginAction: PluginAction
     ) throws -> PluginScriptRunnerInput {
         let rootPackageId = try serialize(package: rootPackage)
         let pluginWorkDirId = try serialize(path: pluginWorkDir)
-        let builtProductsDirId = try serialize(path: builtProductsDir)
         let toolSearchDirIds = try toolSearchDirs.map{ try serialize(path: $0) }
         let toolNamesToPathIds = try toolNamesToPaths.mapValues{ try serialize(path: $0) }
         let serializedPluginAction: PluginScriptRunnerInput.PluginAction
@@ -779,9 +791,8 @@ struct PluginScriptRunnerInputSerializer {
                 throw StringError("unexpectedly was unable to serialize target \(target)")
             }
             serializedPluginAction = .createBuildToolCommands(targetId: targetId)
-        case .performCommand(let targets, let arguments):
-            let targetIds = try targets.compactMap { try serialize(target: $0) }
-            serializedPluginAction = .performCommand(targetIds: targetIds, arguments: arguments)
+        case .performCommand(let arguments):
+            serializedPluginAction = .performCommand(arguments: arguments)
         }
         return PluginScriptRunnerInput(
             paths: paths,
@@ -790,7 +801,6 @@ struct PluginScriptRunnerInputSerializer {
             packages: packages,
             rootPackageId: rootPackageId,
             pluginWorkDirId: pluginWorkDirId,
-            builtProductsDirId: builtProductsDirId,
             toolSearchDirIds: toolSearchDirIds,
             toolNamesToPathIds: toolNamesToPathIds,
             pluginAction: serializedPluginAction)
@@ -1086,3 +1096,20 @@ public struct FileLocation: Equatable, CustomStringConvertible {
         "\(self.file)\(self.line?.description.appending(" ") ?? "")"
     }
 }
+
+extension ObservabilityMetadata {
+    /// Provides information about the plugin from which the diagnostics originated.
+    public var pluginName: String? {
+        get {
+            self[PluginNameKey.self]
+        }
+        set {
+            self[PluginNameKey.self] = newValue
+        }
+    }
+
+    enum PluginNameKey: Key {
+        typealias Value = String
+    }
+}
+

@@ -100,8 +100,8 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
                 }
             }
 
-            let configuration = try swiftTool.getRegistriesConfig()
-            if global {
+            let configuration = try getRegistriesConfig(swiftTool)
+            if self.global {
                 try configuration.updateShared(with: set)
             } else {
                 try configuration.updateLocal(with: set)
@@ -141,12 +141,21 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
                 }
             }
 
-            let configuration = try swiftTool.getRegistriesConfig()
-            if global {
+            let configuration = try getRegistriesConfig(swiftTool)
+            if self.global {
                 try configuration.updateShared(with: unset)
             } else {
                 try configuration.updateLocal(with: unset)
             }
         }
+    }
+
+    static func getRegistriesConfig(_ swiftTool: SwiftTool) throws -> Workspace.Configuration.Registries {
+        let workspace = try swiftTool.getActiveWorkspace()
+        return try .init(
+            fileSystem: localFileSystem,
+            localRegistriesFile: workspace.location.localRegistriesConfigurationFile,
+            sharedRegistriesFile: workspace.location.sharedRegistriesConfigurationFile
+        )
     }
 }

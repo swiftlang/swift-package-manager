@@ -347,6 +347,24 @@ To run package compatibility test suite (validates we do not break 3rd party pac
 @swift-ci please test package compatibility
 ```
 
+## Generating Documentation
+
+SwiftPM uses [DocC](https://github.com/apple/swift-docc) to generate some of its documentation (currently only the `PackageDescription` module). Documentation can be built using Xcode's GUI (Product → Build Documentation or `⌃⇧⌘D`) or manually:
+
+1. Build and dump the symbol graph metadata used to generate the documentation:
+
+```
+swift package dump-symbol-graph
+```
+
+2. Generate the documentation and start a local preview server to review your changes:
+
+```
+xcrun docc preview Sources/PackageDescription/PackageDescription.docc --additional-symbol-graph-dir .build/*/symbolgraph/
+```
+
+Note that this may generate documentation for multiple modules — the preview link for PackageDescription will typically be: http://localhost:8000/documentation/packagedescription
+
 ## Advanced
 
 ### Using Custom Swift Compilers

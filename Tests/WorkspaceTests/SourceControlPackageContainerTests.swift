@@ -145,7 +145,7 @@ private class MockRepositories: RepositoryProvider {
 private class MockResolverDelegate: RepositoryManagerDelegate {
     var fetched = [RepositorySpecifier]()
 
-    func fetchingWillBegin(handle: RepositoryManager.RepositoryHandle, fetchDetails: RepositoryManager.FetchDetails?) {
+    func fetchingWillBegin(handle: RepositoryManager.RepositoryHandle, fetchDetails: RepositoryManager.FetchDetails) {
         self.fetched += [handle.repository]
     }
 
@@ -199,7 +199,7 @@ class SourceControlPackageContainerTests: XCTestCase {
             delegate: MockResolverDelegate()
         )
 
-        let provider = try Workspace(
+        let provider = try Workspace._init(
             fileSystem: fs,
             location: .init(forRootPackage: repoPath, fileSystem: fs),
             customManifestLoader: MockManifestLoader(manifests: [:]),
@@ -252,7 +252,7 @@ class SourceControlPackageContainerTests: XCTestCase {
         )
 
         func createProvider(_ currentToolsVersion: ToolsVersion) throws -> PackageContainerProvider {
-            return try Workspace(
+            return try Workspace._init(
                 fileSystem: fs,
                 location: .init(forRootPackage: repoPath, fileSystem: fs),
                 customToolsVersion: currentToolsVersion,
@@ -336,7 +336,7 @@ class SourceControlPackageContainerTests: XCTestCase {
             delegate: MockResolverDelegate()
         )
 
-        let provider = try Workspace(
+        let provider = try Workspace._init(
             fileSystem: fs,
             location: .init(forRootPackage: repoPath, fileSystem: fs),
             customManifestLoader: MockManifestLoader(manifests: [:]),
@@ -385,7 +385,7 @@ class SourceControlPackageContainerTests: XCTestCase {
             delegate: MockResolverDelegate()
         )
 
-        let provider = try Workspace(
+        let provider = try Workspace._init(
             fileSystem: fs,
             location: .init(forRootPackage: repoPath, fileSystem: fs),
             customManifestLoader: MockManifestLoader(manifests: [:]),
@@ -554,7 +554,12 @@ class SourceControlPackageContainerTests: XCTestCase {
 
             // Create a repository manager for it.
             let repoProvider = GitRepositoryProvider()
-            let repositoryManager = RepositoryManager(fileSystem: localFileSystem, path: packageDir, provider: repoProvider, delegate: nil)
+            let repositoryManager = RepositoryManager(
+                fileSystem: localFileSystem,
+                path: packageDir,
+                provider: repoProvider,
+                delegate: .none
+            )
 
             // Create a container provider, configured with a mock manifest loader that will return the package manifest.
             let manifest = Manifest.createRootManifest(
@@ -564,7 +569,7 @@ class SourceControlPackageContainerTests: XCTestCase {
                     try TargetDescription(name: packageDir.basename, path: packageDir.pathString),
                 ]
             )
-            let containerProvider = try Workspace(
+            let containerProvider = try Workspace._init(
                 fileSystem: localFileSystem,
                 location: .init(forRootPackage: packageDir, fileSystem: localFileSystem),
                 customManifestLoader: MockManifestLoader(manifests: [.init(url: packageDir.pathString, version: nil): manifest]),
@@ -595,12 +600,11 @@ class SourceControlPackageContainerTests: XCTestCase {
         }
     }
 
+    // From rdar://problem/65284674
+    // RepositoryPackageContainer used to erroneously cache dependencies based only on version,
+    // storing the result of the first product filter and then continually returning it for other filters too.
+    // This lead to corrupt graph states.
     func testRepositoryPackageContainerCache() throws {
-        // From rdar://problem/65284674
-        // RepositoryPackageContainer used to erroneously cache dependencies based only on version,
-        // storing the result of the first product filter and then continually returning it for other filters too.
-        // This lead to corrupt graph states.
-
         try testWithTemporaryDirectory { temporaryDirectory in
             let packageDirectory = temporaryDirectory.appending(component: "Package")
             try localFileSystem.createDirectory(packageDirectory)
@@ -619,7 +623,7 @@ class SourceControlPackageContainerTests: XCTestCase {
                 fileSystem: localFileSystem,
                 path: packageDirectory,
                 provider: repositoryProvider,
-                delegate: nil
+                delegate: .none
             )
 
             let version = Version(1, 0, 0)
@@ -642,7 +646,7 @@ class SourceControlPackageContainerTests: XCTestCase {
                     ),
                 ]
             )
-            let containerProvider = try Workspace(
+            let containerProvider = try Workspace._init(
                 fileSystem: localFileSystem,
                 location: .init(forRootPackage: packageDirectory, fileSystem: localFileSystem),
                 customManifestLoader: MockManifestLoader(
@@ -667,5 +671,26 @@ class SourceControlPackageContainerTests: XCTestCase {
 extension PackageContainerProvider {
     fileprivate func getContainer(for package: PackageReference, skipUpdate: Bool) throws -> PackageContainer {
         try tsc_await { self.getContainer(for: package, skipUpdate: skipUpdate, observabilityScope: ObservabilitySystem.NOOP, on: .global(), completion: $0)  }
+    }
+}
+
+extension RepositoryManager {
+    fileprivate convenience init(
+        fileSystem: FileSystem,
+        path: AbsolutePath,
+        provider: RepositoryProvider,
+        cachePath: AbsolutePath? =  .none,
+        cacheLocalPackages: Bool = false,
+        delegate: RepositoryManagerDelegate? = .none
+    ) {
+        self.init(
+            fileSystem: fileSystem,
+            path: path,
+            provider: provider,
+            cachePath: cachePath,
+            cacheLocalPackages: cacheLocalPackages,
+            initializationWarningHandler: { _ in },
+            delegate: delegate
+        )
     }
 }

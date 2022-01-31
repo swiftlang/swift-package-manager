@@ -41,18 +41,32 @@ public enum WorkspaceResolveReason: Equatable {
     case other(String)
 }
 
+public struct PackageFetchDetails {
+    /// Indicates if the package was fetched from the cache or from the remote.
+    public let fromCache: Bool
+    /// Indicates wether the wether the package was already present in the cache and updated or if a clean fetch was performed.
+    public let updatedCache: Bool
+}
+
 /// The delegate interface used by the workspace to report status information.
 public protocol WorkspaceDelegate: AnyObject {
-
     /// The workspace is about to load a package manifest (which might be in the cache, or might need to be parsed). Note that this does not include speculative loading of manifests that may occr during dependency resolution; rather, it includes only the final manifest loading that happens after a particular package version has been checked out into a working directory.
     func willLoadManifest(packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind)
     /// The workspace has loaded a package manifest, either successfully or not. The manifest is nil if an error occurs, in which case there will also be at least one error in the list of diagnostics (there may be warnings even if a manifest is loaded successfully).
     func didLoadManifest(packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind, manifest: Manifest?, diagnostics: [Basics.Diagnostic])
 
     /// The workspace has started fetching this repository.
+    // deprecated 01/2022, remove once clients moved over
     func fetchingWillBegin(repository: String, fetchDetails: RepositoryManager.FetchDetails?)
+    func willFetchPackage(package: String, fetchDetails: PackageFetchDetails)
     /// The workspace has finished fetching this repository.
+    // deprecated 01/2022, remove once clients moved over
     func fetchingDidFinish(repository: String, fetchDetails: RepositoryManager.FetchDetails?, diagnostic: Basics.Diagnostic?, duration: DispatchTimeInterval)
+    func didFetchPackage(package: String, result: Result<PackageFetchDetails, Error>, duration: DispatchTimeInterval)
+    /// Called every time the progress of the git fetch operation updates.
+    // deprecated 01/2022, remove once clients moved over
+    func fetchingRepository(from repository: String, objectsFetched: Int, totalObjectsToFetch: Int)
+    func fetchingPackage(package: String, progress: Int64, total: Int64?)
 
     /// The workspace has started updating this repository.
     func repositoryWillUpdate(_ repository: String)
@@ -65,7 +79,6 @@ public protocol WorkspaceDelegate: AnyObject {
     /// The workspace is about to clone a repository from the local cache to a working directory.
     func willCreateWorkingCopy(repository url: String, at path: AbsolutePath)
     /// The workspace has cloned a repository from the local cache to a working directory. The error indicates whether the operation failed or succeeded.
-    // deprecated 04/2021, remove once clients moved over
     func didCreateWorkingCopy(repository url: String, at path: AbsolutePath, error: Basics.Diagnostic?)
 
     /// The workspace is about to check out a particular revision of a working directory.
@@ -94,9 +107,13 @@ public protocol WorkspaceDelegate: AnyObject {
 
     /// The workspace finished downloading all binary artifacts.
     func didDownloadBinaryArtifacts()
+}
 
-    /// Called every time the progress of the git fetch operation updates.
-    func fetchingRepository(from repository: String, objectsFetched: Int, totalObjectsToFetch: Int)
+// empty implementation for soft deprecation. remove when clients moved over
+extension WorkspaceDelegate {
+    public func fetchingWillBegin(repository: String, fetchDetails: RepositoryManager.FetchDetails?) {}
+    public func fetchingDidFinish(repository: String, fetchDetails: RepositoryManager.FetchDetails?, diagnostic: Basics.Diagnostic?, duration: DispatchTimeInterval) {}
+    public func fetchingRepository(from repository: String, objectsFetched: Int, totalObjectsToFetch: Int) {}
 }
 
 private class WorkspaceRepositoryManagerDelegate: RepositoryManagerDelegate {
@@ -106,13 +123,32 @@ private class WorkspaceRepositoryManagerDelegate: RepositoryManagerDelegate {
         self.workspaceDelegate = workspaceDelegate
     }
 
-    func fetchingWillBegin(handle: RepositoryManager.RepositoryHandle, fetchDetails details: RepositoryManager.FetchDetails?) {
+    func fetchingWillBegin(handle: RepositoryManager.RepositoryHandle, fetchDetails details: RepositoryManager.FetchDetails) {
+        self.workspaceDelegate.willFetchPackage(package: handle.repository.location.description, fetchDetails: PackageFetchDetails(fromCache: details.fromCache, updatedCache: details.updatedCache) )
+        // deprecated 01/2022, remove once clients moved over
         workspaceDelegate.fetchingWillBegin(repository: handle.repository.location.description, fetchDetails: details)
     }
 
     func fetchingDidFinish(handle: RepositoryManager.RepositoryHandle, fetchDetails details: RepositoryManager.FetchDetails?, error: Swift.Error?, duration: DispatchTimeInterval) {
+        let result: Result<PackageFetchDetails, Error>
+        if let error = error {
+            result = .failure(error)
+        } else if let details = details  {
+            result = .success(PackageFetchDetails(fromCache: details.fromCache, updatedCache: details.updatedCache) )
+        } else {
+            assertionFailure("invalid fetchingDidFinish callback")
+            return
+        }
+        self.workspaceDelegate.didFetchPackage(package: handle.repository.location.description, result: result, duration: duration)
+        // deprecated 01/2022, remove once clients moved over
         let diagnostic = error.map { Basics.Diagnostic.error($0) }
         workspaceDelegate.fetchingDidFinish(repository: handle.repository.location.description, fetchDetails: details, diagnostic: diagnostic, duration: duration)
+    }
+
+    func fetchingRepository(from repository: String, objectsFetched: Int, totalObjectsToFetch: Int) {
+        self.workspaceDelegate.fetchingPackage(package: repository, progress: Int64(objectsFetched), total: Int64(totalObjectsToFetch))
+        // deprecated 01/2022, remove once clients moved over
+        workspaceDelegate.fetchingRepository(from: repository, objectsFetched: objectsFetched, totalObjectsToFetch: totalObjectsToFetch)
     }
 
     func handleWillUpdate(handle: RepositoryManager.RepositoryHandle) {
@@ -122,9 +158,25 @@ private class WorkspaceRepositoryManagerDelegate: RepositoryManagerDelegate {
     func handleDidUpdate(handle: RepositoryManager.RepositoryHandle, duration: DispatchTimeInterval) {
         workspaceDelegate.repositoryDidUpdate(handle.repository.location.description, duration: duration)
     }
+}
 
-    func fetchingRepository(from repository: String, objectsFetched: Int, totalObjectsToFetch: Int) {
-        workspaceDelegate.fetchingRepository(from: repository, objectsFetched: objectsFetched, totalObjectsToFetch: totalObjectsToFetch)
+private struct WorkspaceRegistryDownloadsManagerDelegate: RegistryDownloadsManager.Delegate {
+    private let workspaceDelegate: WorkspaceDelegate
+
+    init(workspaceDelegate: WorkspaceDelegate) {
+        self.workspaceDelegate = workspaceDelegate
+    }
+
+    func willFetch(package: PackageIdentity, version: Version, fetchDetails: RegistryDownloadsManager.FetchDetails) {
+        self.workspaceDelegate.willFetchPackage(package: package.description, fetchDetails: PackageFetchDetails(fromCache: fetchDetails.fromCache, updatedCache: fetchDetails.updatedCache) )
+    }
+
+    func didFetch(package: PackageIdentity, version: Version, result: Result<RegistryDownloadsManager.FetchDetails, Error>, duration: DispatchTimeInterval) {
+        self.workspaceDelegate.didFetchPackage(package: package.description, result: result.map{ PackageFetchDetails(fromCache: $0.fromCache, updatedCache: $0.updatedCache) }, duration: duration)
+    }
+
+    func fetching(package: PackageIdentity, version: Version, downloaded: Int64, total: Int64?) {
+        self.workspaceDelegate.fetchingPackage(package: package.description, progress: downloaded, total: total)
     }
 }
 
@@ -156,7 +208,6 @@ private struct WorkspaceDependencyResolverDelegate: DependencyResolverDelegate {
     func failedToResolve(incompatibility: Incompatibility) {}
     func solved(result: [(package: PackageReference, binding: BoundVersion, products: ProductFilter)]) {}
 }
-
 /// A workspace represents the state of a working project directory.
 ///
 /// The workspace is responsible for managing the persistent working state of a
@@ -207,7 +258,9 @@ public class Workspace {
     fileprivate let customPackageContainerProvider: PackageContainerProvider?
 
     /// The package container provider used by this workspace.
-    fileprivate var packageContainerProvider: PackageContainerProvider { return customPackageContainerProvider ?? self }
+    fileprivate var packageContainerProvider: PackageContainerProvider {
+        return self.customPackageContainerProvider ?? self
+    }
 
     /// The repository manager.
     // var for backwards compatibility with deprecated initializers, remove with them
@@ -215,7 +268,9 @@ public class Workspace {
 
     /// The registry manager.
     // var for backwards compatibility with deprecated initializers, remove with them
-    fileprivate var registryClient: RegistryClient?
+    fileprivate var registryClient: RegistryClient
+
+    fileprivate var registryDownloadsManager: RegistryDownloadsManager
 
     /// The http client used for downloading binary artifacts.
     fileprivate let httpClient: HTTPClient
@@ -228,19 +283,10 @@ public class Workspace {
     /// The algorithm used for generating file checksums.
     fileprivate let checksumAlgorithm: HashAlgorithm
     
-    /// The package fingerprint storage
-    fileprivate let fingerprintStorage: PackageFingerprintStorage?
+    /// The package fingerprints storage
+    fileprivate let fingerprints: PackageFingerprintStorage?
 
-    /// Enable prefetching containers in resolver.
-    fileprivate let resolverPrefetchingEnabled: Bool
-
-    /// Update containers while fetching them.
-    fileprivate let resolverUpdateEnabled: Bool
-    
-    /// Fingerprint checking mode.
-    fileprivate let resolverFingerprintCheckingMode: FingerprintCheckingMode
-
-    fileprivate let additionalFileRules: [FileRuleDescription]
+    fileprivate let configuration: WorkspaceConfiguration
 
     // state
 
@@ -261,24 +307,143 @@ public class Workspace {
     /// - Parameters:
     ///   - fileSystem: The file system to use.
     ///   - location: Workspace location configuration.
-    ///   - mirrors: Dependencies mirrors.
-    ///   - authorizationProvider: Provider of authentication information.
-    ///   - customToolsVersion: A custom tools version.
-    ///   - customManifestLoader: A custom manifest loader.
-    ///   - customRepositoryManager: A custom repository manager.
-    ///   - customRepositoryProvider: A custom repository provider.
-    ///   - customIdentityResolver: A custom identity resolver.
-    ///   - customHTTPClient: A custom http client.
-    ///   - customArchiver: A custom archiver.
-    ///   - customChecksumAlgorithm: A custom checksum algorithm.
-    ///   - customFingerprintStorage: A custom fingerprint storage.
-    ///   - additionalFileRules: File rules to determine resource handling behavior.
-    ///   - resolverUpdateEnabled: Enables the dependencies resolver automatic version update check.  Enabled by default. When disabled the resolver relies only on the resolved version file
-    ///   - resolverPrefetchingEnabled: Enables the dependencies resolver prefetching based on the resolved version file.  Enabled by default.
-    ///   - resolverFingerprintCheckingMode: Fingerprint checking mode. Defaults to `.warn`.
-    ///   - sharedRepositoriesCacheEnabled: Enables the shared repository cache. Enabled by default.
+    ///   - authorizationProvider: Provider of authentication information for outbound network requests.
+    ///   - configuration: Configuration to fine tune the dependency resolution behavior.
+    ///   - initializationWarningHandler: Initialization warnings handler
+    ///   - customManifestLoader: Custom manifest loader. Used to customize how manifest are loaded.
+    ///   - customPackageContainerProvider: Custom package container provider. Used to provide specialized package providers.
+    ///   - customRepositoryProvider: Custom repository provider. Used to customize source control access.
     ///   - delegate: Delegate for workspace events
-    public init(
+    public convenience init(
+        fileSystem: FileSystem,
+        location: Location,
+        authorizationProvider: AuthorizationProvider? = .none,
+        configuration: WorkspaceConfiguration? = .none,
+        initializationWarningHandler: ((String) -> Void)? = .none,
+        // optional customization used for advanced integration situations
+        customManifestLoader: ManifestLoaderProtocol? = .none,
+        customPackageContainerProvider: PackageContainerProvider? = .none,
+        customRepositoryProvider: RepositoryProvider? = .none,
+        // delegate
+        delegate: WorkspaceDelegate? = .none
+    ) throws {
+        try self.init(
+            fileSystem: fileSystem,
+            location: location,
+            authorizationProvider: authorizationProvider,
+            configuration: configuration,
+            initializationWarningHandler: initializationWarningHandler,
+            customRegistriesConfiguration: .none,
+            customFingerprints: .none,
+            customMirrors: .none,
+            customToolsVersion: .none,
+            customManifestLoader: customManifestLoader,
+            customPackageContainerProvider: customPackageContainerProvider,
+            customRepositoryManager: .none,
+            customRepositoryProvider: customRepositoryProvider,
+            customRegistryClient: .none,
+            customIdentityResolver: .none,
+            customHTTPClient: .none,
+            customArchiver: .none,
+            customChecksumAlgorithm: .none,
+            delegate: delegate
+        )
+    }
+
+    /// A convenience method for creating a workspace for the given root
+    /// package path.
+    ///
+    /// The root package path is used to compute the build directory and other
+    /// default paths.
+    ///
+    /// - Parameters:
+    ///   - fileSystem: The file system to use, defaults to local file system.
+    ///   - forRootPackage: The path for the root package.
+    ///   - authorizationProvider: Provider of authentication information for outbound network requests.
+    ///   - configuration: Configuration to fine tune the dependency resolution behavior.
+    ///   - initializationWarningHandler: Initialization warnings handler
+    ///   - customManifestLoader: Custom manifest loader. Used to customize how manifest are loaded.
+    ///   - customPackageContainerProvider: Custom package container provider. Used to provide specialized package providers.
+    ///   - customRepositoryProvider: Custom repository provider. Used to customize source control access.
+    ///   - delegate: Delegate for workspace events
+    public convenience init(
+        fileSystem: FileSystem? = .none,
+        forRootPackage packagePath: AbsolutePath,
+        authorizationProvider: AuthorizationProvider? = .none,
+        configuration: WorkspaceConfiguration? = .none,
+        initializationWarningHandler: ((String) -> Void)? = .none,
+        // optional customization used for advanced integration situations
+        customManifestLoader: ManifestLoaderProtocol? = .none,
+        customPackageContainerProvider: PackageContainerProvider? = .none,
+        customRepositoryProvider: RepositoryProvider? = .none,
+        // delegate
+        delegate: WorkspaceDelegate? = .none
+    ) throws {
+        let fileSystem = fileSystem ?? localFileSystem
+        let location = Location(forRootPackage: packagePath, fileSystem: fileSystem)
+        try self.init(
+            fileSystem: fileSystem,
+            location: location,
+            initializationWarningHandler: initializationWarningHandler,
+            customManifestLoader: customManifestLoader,
+            customPackageContainerProvider: customPackageContainerProvider,
+            customRepositoryProvider: customRepositoryProvider,
+            delegate: delegate
+        )
+    }
+    
+    /// A convenience method for creating a workspace for the given root
+    /// package path.
+    ///
+    /// The root package path is used to compute the build directory and other
+    /// default paths.
+    ///
+    /// - Parameters:
+    ///   - fileSystem: The file system to use, defaults to local file system.
+    ///   - forRootPackage: The path for the root package.
+    ///   - authorizationProvider: Provider of authentication information for outbound network requests.
+    ///   - configuration: Configuration to fine tune the dependency resolution behavior.
+    ///   - initializationWarningHandler: Initialization warnings handler
+    ///   - customToolchain: Custom toolchain. Used to create a customized ManifestLoader, customizing how manifest are loaded.
+    ///   - customPackageContainerProvider: Custom package container provider. Used to provide specialized package providers.
+    ///   - customRepositoryProvider: Custom repository provider. Used to customize source control access.
+    ///   - delegate: Delegate for workspace events
+    public convenience init(
+        fileSystem: FileSystem? = .none,
+        forRootPackage packagePath: AbsolutePath,
+        authorizationProvider: AuthorizationProvider? = .none,
+        configuration: WorkspaceConfiguration? = .none,
+        initializationWarningHandler: ((String) -> Void)? = .none,
+        // optional customization used for advanced integration situations
+        customToolchain: UserToolchain,
+        customPackageContainerProvider: PackageContainerProvider? = .none,
+        customRepositoryProvider: RepositoryProvider? = .none,
+        // delegate
+        delegate: WorkspaceDelegate? = .none
+    ) throws {
+        let fileSystem = fileSystem ?? localFileSystem
+        let location = Location(forRootPackage: packagePath, fileSystem: fileSystem)
+        let manifestLoader = ManifestLoader(
+            toolchain: customToolchain.configuration,
+            cacheDir: location.sharedManifestsCacheDirectory
+        )
+        try self.init(
+            fileSystem: fileSystem,
+            forRootPackage: packagePath,
+            authorizationProvider: authorizationProvider,
+            configuration: configuration,
+            initializationWarningHandler: initializationWarningHandler,
+            customManifestLoader: manifestLoader,
+            customPackageContainerProvider: customPackageContainerProvider,
+            customRepositoryProvider: customRepositoryProvider,
+            delegate: delegate
+        )
+    }
+
+    // deprecate 12/21
+    @_disfavoredOverload
+    @available(*, deprecated, message: "use alternative initializer")
+    public convenience init(
         fileSystem: FileSystem,
         location: Location,
         mirrors: DependencyMirrors? = .none,
@@ -302,84 +467,34 @@ public class Workspace {
         sharedRepositoriesCacheEnabled: Bool? = .none,
         delegate: WorkspaceDelegate? = .none
     ) throws {
-        // defaults
-        let currentToolsVersion = customToolsVersion ?? ToolsVersion.currentToolsVersion
-        let toolsVersionLoader = ToolsVersionLoader(currentToolsVersion: currentToolsVersion)
-        let manifestLoader = try customManifestLoader ?? ManifestLoader(
-            toolchain: UserToolchain(destination: .hostDestination()).configuration,
-            cacheDir: location.sharedManifestsCacheDirectory
+        let configuration = WorkspaceConfiguration(
+            skipDependenciesUpdates: !(resolverUpdateEnabled ?? !WorkspaceConfiguration.default.skipDependenciesUpdates),
+            prefetchBasedOnResolvedFile: resolverPrefetchingEnabled ?? WorkspaceConfiguration.default.prefetchBasedOnResolvedFile,
+            additionalFileRules: additionalFileRules ?? WorkspaceConfiguration.default.additionalFileRules,
+            sharedDependenciesCacheEnabled: sharedRepositoriesCacheEnabled ?? WorkspaceConfiguration.default.sharedDependenciesCacheEnabled,
+            fingerprintCheckingMode: resolverFingerprintCheckingMode
         )
-        let mirrors = mirrors ?? DependencyMirrors()
-        let identityResolver = customIdentityResolver ?? DefaultIdentityResolver(locationMapper: mirrors.effectiveURL(for:))
-        let packageContainerProvider = customPackageContainerProvider
-        let repositoryProvider = customRepositoryProvider ?? GitRepositoryProvider()
-        let sharedRepositoriesCacheEnabled = sharedRepositoriesCacheEnabled ?? true
-        let repositoryManager = customRepositoryManager ?? RepositoryManager(
+        try self.init(
             fileSystem: fileSystem,
-            path: location.repositoriesDirectory,
-            provider: repositoryProvider,
-            delegate: delegate.map(WorkspaceRepositoryManagerDelegate.init(workspaceDelegate:)),
-            cachePath: sharedRepositoriesCacheEnabled ? location.sharedRepositoriesCacheDirectory : .none
-        )        
-        let fingerprintStorage = customFingerprintStorage ?? location.sharedFingerprintsDirectory.map {
-            FilePackageFingerprintStorage(
-                fileSystem: fileSystem,
-                directoryPath: $0
-            )
-        }
-
-        let registryClient = customRegistryClient ?? registries.map { configuration in
-            RegistryClient(
-                configuration: configuration,
-                identityResolver: identityResolver,
-                fingerprintStorage: fingerprintStorage,
-                fingerprintCheckingMode: resolverFingerprintCheckingMode,
-                authorizationProvider: authorizationProvider?.httpAuthorizationHeader(for:)
-            )
-        }
-
-        // FIXME: use workspace scope when migrating workspace to new observability API
-        let httpClient = customHTTPClient ?? HTTPClient()
-        let archiver = customArchiver ?? ZipArchiver()
-
-        let checksumAlgorithm = customChecksumAlgorithm ?? SHA256()
-        let additionalFileRules = additionalFileRules ?? []
-        let resolverUpdateEnabled = resolverUpdateEnabled ?? true
-        let resolverPrefetchingEnabled = resolverPrefetchingEnabled ?? false
-
-        // initialize
-        self.fileSystem = fileSystem
-        self.location = location
-        self.delegate = delegate
-        self.mirrors = mirrors
-        self.authorizationProvider = authorizationProvider
-        self.manifestLoader = manifestLoader
-        self.currentToolsVersion = currentToolsVersion
-        self.toolsVersionLoader = toolsVersionLoader
-        self.httpClient = httpClient
-        self.archiver = archiver
-        self.repositoryManager = repositoryManager
-        self.registryClient = registryClient
-        self.identityResolver = identityResolver
-        self.checksumAlgorithm = checksumAlgorithm
-        self.fingerprintStorage = fingerprintStorage
-        self.customPackageContainerProvider = packageContainerProvider
-
-        self.pinsStore = LoadableResult {
-            try PinsStore(
-                pinsFile: location.resolvedVersionsFile,
-                workingDirectory: location.workingDirectory,
-                fileSystem: fileSystem,
-                mirrors: mirrors
-            )
-        }
-
-        self.additionalFileRules = additionalFileRules
-        self.resolverUpdateEnabled = resolverUpdateEnabled
-        self.resolverPrefetchingEnabled = resolverPrefetchingEnabled
-        self.resolverFingerprintCheckingMode = resolverFingerprintCheckingMode
-
-        self.state = WorkspaceState(dataPath: self.location.workingDirectory, fileSystem: fileSystem)
+            location: location,
+            authorizationProvider: authorizationProvider,
+            configuration: configuration,
+            initializationWarningHandler: .none,
+            customRegistriesConfiguration: registries,
+            customFingerprints: customFingerprintStorage,
+            customMirrors: mirrors,
+            customToolsVersion: customToolsVersion,
+            customManifestLoader: customManifestLoader,
+            customPackageContainerProvider: customPackageContainerProvider,
+            customRepositoryManager: customRepositoryManager,
+            customRepositoryProvider: customRepositoryProvider,
+            customRegistryClient: customRegistryClient,
+            customIdentityResolver: customIdentityResolver,
+            customHTTPClient: customHTTPClient,
+            customArchiver: customArchiver,
+            customChecksumAlgorithm: customChecksumAlgorithm,
+            delegate: delegate
+        )
     }
 
     // deprecated 8/2021
@@ -417,9 +532,10 @@ public class Workspace {
                 workingDirectory: dataPath,
                 editsDirectory: editablesPath,
                 resolvedVersionsFile: pinsFile,
-                sharedSecurityDirectory: fileSystem.swiftPMSecurityDirectory,
-                sharedCacheDirectory: cachePath,
-                sharedConfigurationDirectory: nil // legacy
+                localConfigurationDirectory: Workspace.DefaultLocations.configurationDirectory(forRootPackage: dataPath.parentDirectory), // legacy deprecated API
+                sharedConfigurationDirectory: .none, // legacy deprecated API
+                sharedSecurityDirectory: .none, // legacy deprecated API,
+                sharedCacheDirectory: cachePath
             ),
             mirrors: config?.mirrors,
             authorizationProvider: netrcFilePath.map {
@@ -447,69 +563,6 @@ public class Workspace {
     ///
     /// The root package path is used to compute the build directory and other
     /// default paths.
-    ///
-    /// - Parameters:
-    ///   - fileSystem: The file system to use, defaults to local file system.
-    ///   - forRootPackage: The path for the root package.
-    ///   - customToolchain: A custom toolchain.
-    ///   - delegate: Delegate for workspace events
-    public convenience init(
-        fileSystem: FileSystem? = .none,
-        forRootPackage packagePath: AbsolutePath,
-        customToolchain: UserToolchain,
-        delegate: WorkspaceDelegate? = .none
-    ) throws {
-        let fileSystem = fileSystem ?? localFileSystem
-        let location = Location(forRootPackage: packagePath, fileSystem: fileSystem)
-        let manifestLoader = ManifestLoader(
-            toolchain: customToolchain.configuration,
-            cacheDir: location.sharedManifestsCacheDirectory
-        )
-        try self.init(
-            fileSystem: fileSystem,
-            forRootPackage: packagePath,
-            customManifestLoader: manifestLoader,
-            delegate: delegate
-        )
-    }
-
-    /// A convenience method for creating a workspace for the given root
-    /// package path.
-    ///
-    /// The root package path is used to compute the build directory and other
-    /// default paths.
-    ///
-    /// - Parameters:
-    ///   - fileSystem: The file system to use, defaults to local file system.
-    ///   - forRootPackage: The path for the root package.
-    ///   - customManifestLoader: A custom manifest loader.
-    ///   - delegate: Delegate for workspace events
-    public convenience init(
-        fileSystem: FileSystem? = .none,
-        forRootPackage packagePath: AbsolutePath,
-        customManifestLoader: ManifestLoaderProtocol? = .none,
-        delegate: WorkspaceDelegate? = .none
-    ) throws {
-        let fileSystem = fileSystem ?? localFileSystem
-        let location = Location(forRootPackage: packagePath, fileSystem: fileSystem)
-        try self .init(
-            fileSystem: fileSystem,
-            location: location,
-            mirrors: try Configuration.Mirrors(
-                forRootPackage: packagePath,
-                sharedMirrorFile: location.sharedMirrorsConfigurationFile,
-                fileSystem: fileSystem
-            ).mirrors,
-            customManifestLoader: customManifestLoader,
-            delegate: delegate
-        )
-    }
-
-    /// A convenience method for creating a workspace for the given root
-    /// package path.
-    ///
-    /// The root package path is used to compute the build directory and other
-    /// default paths.
     // deprecated 8/2021
     @available(*, deprecated, message: "use initializer instead")
     public static func create(
@@ -519,9 +572,10 @@ public class Workspace {
         delegate: WorkspaceDelegate? = nil,
         identityResolver: IdentityResolver? = nil
     ) -> Workspace {
-        let workspace = try! Workspace(forRootPackage: packagePath,
-                                       customManifestLoader: manifestLoader,
-                                       delegate: delegate
+        let workspace = try! Workspace(
+            forRootPackage: packagePath,
+            customManifestLoader: manifestLoader,
+            delegate: delegate
         )
         if let repositoryManager = repositoryManager {
             workspace.repositoryManager = repositoryManager
@@ -530,6 +584,182 @@ public class Workspace {
             workspace.identityResolver = identityResolver
         }
         return workspace
+    }
+
+    /// Initializer for testing purposes only. Use non underscored initializers instead.
+    // this initializer is only public because of cross module visibility (eg MockWorkspace)
+    // as such it is by design an exact mirror of the private initializer below
+    public static func _init(
+        // core
+        fileSystem: FileSystem,
+        location: Location,
+        authorizationProvider: AuthorizationProvider? = .none,
+        configuration: WorkspaceConfiguration? = .none,
+        initializationWarningHandler: ((String) -> Void)? = .none,
+        // optional customization, primarily designed for testing but also used in some cases by libSwiftPM consumers
+        customRegistriesConfiguration: RegistryConfiguration? = .none,
+        customFingerprints: PackageFingerprintStorage? = .none,
+        customMirrors: DependencyMirrors? = .none,
+        customToolsVersion: ToolsVersion? = .none,
+        customManifestLoader: ManifestLoaderProtocol? = .none,
+        customPackageContainerProvider: PackageContainerProvider? = .none,
+        customRepositoryManager: RepositoryManager? = .none,
+        customRepositoryProvider: RepositoryProvider? = .none,
+        customRegistryClient: RegistryClient? = .none,
+        customIdentityResolver: IdentityResolver? = .none,
+        customHTTPClient: HTTPClient? = .none,
+        customArchiver: Archiver? = .none,
+        customChecksumAlgorithm: HashAlgorithm? = .none,
+        // delegate
+        delegate: WorkspaceDelegate? = .none
+    ) throws -> Workspace {
+        try .init(
+            fileSystem: fileSystem,
+            location: location,
+            authorizationProvider: authorizationProvider,
+            configuration: configuration,
+            initializationWarningHandler: initializationWarningHandler,
+            customRegistriesConfiguration: customRegistriesConfiguration,
+            customFingerprints: customFingerprints,
+            customMirrors: customMirrors,
+            customToolsVersion: customToolsVersion,
+            customManifestLoader: customManifestLoader,
+            customPackageContainerProvider: customPackageContainerProvider,
+            customRepositoryManager: customRepositoryManager,
+            customRepositoryProvider: customRepositoryProvider,
+            customRegistryClient: customRegistryClient,
+            customIdentityResolver: customIdentityResolver,
+            customHTTPClient: customHTTPClient,
+            customArchiver: customArchiver,
+            customChecksumAlgorithm: customChecksumAlgorithm,
+            delegate: delegate
+        )
+    }
+
+    private init(
+        // core
+        fileSystem: FileSystem,
+        location: Location,
+        authorizationProvider: AuthorizationProvider?,
+        configuration: WorkspaceConfiguration?,
+        initializationWarningHandler: ((String) -> Void)?,
+        // optional customization, primarily designed for testing but also used in some cases by libSwiftPM consumers
+        customRegistriesConfiguration: RegistryConfiguration?,
+        customFingerprints: PackageFingerprintStorage?,
+        customMirrors: DependencyMirrors?,
+        customToolsVersion: ToolsVersion?,
+        customManifestLoader: ManifestLoaderProtocol?,
+        customPackageContainerProvider: PackageContainerProvider?,
+        customRepositoryManager: RepositoryManager?,
+        customRepositoryProvider: RepositoryProvider?,
+        customRegistryClient: RegistryClient?,
+        customIdentityResolver: IdentityResolver?,
+        customHTTPClient: HTTPClient?,
+        customArchiver: Archiver?,
+        customChecksumAlgorithm: HashAlgorithm?,
+        // delegate
+        delegate: WorkspaceDelegate?
+    ) throws {
+        // we do not store an observabilityScope in the workspace initializer as the workspace is designed to be long lived.
+        // instead, observabilityScope is passed into the individual workspace methods which are short lived.
+        let initializationWarningHandler = initializationWarningHandler ?? warnToStderr
+        // validate locations, returning a potentially modified one to deal with non-accessible or non-writable shared locations
+        let location = try location.validatingSharedLocations(fileSystem: fileSystem, warningHandler: initializationWarningHandler)
+
+        let currentToolsVersion = customToolsVersion ?? ToolsVersion.currentToolsVersion
+        let toolsVersionLoader = ToolsVersionLoader(currentToolsVersion: currentToolsVersion)
+        let manifestLoader = try customManifestLoader ?? ManifestLoader(
+            toolchain: UserToolchain(destination: .hostDestination()).configuration,
+            cacheDir: location.sharedManifestsCacheDirectory
+        )
+
+        let configuration = configuration ?? .default
+
+        let mirrors = try customMirrors ?? Workspace.Configuration.Mirrors(
+            fileSystem: fileSystem,
+            localMirrorsFile: location.localMirrorsConfigurationFile,
+            sharedMirrorsFile: location.sharedMirrorsConfigurationFile
+        ).mirrors
+
+        let identityResolver = customIdentityResolver ?? DefaultIdentityResolver(locationMapper: mirrors.effectiveURL(for:))
+        let repositoryProvider = customRepositoryProvider ?? GitRepositoryProvider()
+        let repositoryManager = customRepositoryManager ?? RepositoryManager(
+            fileSystem: fileSystem,
+            path: location.repositoriesDirectory,
+            provider: repositoryProvider,
+            cachePath: configuration.sharedDependenciesCacheEnabled ? location.sharedRepositoriesCacheDirectory : .none,
+            initializationWarningHandler: initializationWarningHandler,
+            delegate: delegate.map(WorkspaceRepositoryManagerDelegate.init(workspaceDelegate:))
+        )
+
+        let fingerprints = customFingerprints ?? location.sharedFingerprintsDirectory.map {
+            FilePackageFingerprintStorage(
+                fileSystem: fileSystem,
+                directoryPath: $0
+            )
+        }
+
+        let registriesConfiguration = try customRegistriesConfiguration ?? Workspace.Configuration.Registries(
+            fileSystem: fileSystem,
+            localRegistriesFile: location.localRegistriesConfigurationFile,
+            sharedRegistriesFile: location.sharedRegistriesConfigurationFile
+        ).configuration
+
+        let registryClient = customRegistryClient ?? RegistryClient(
+            configuration: registriesConfiguration,
+            fingerprintStorage: fingerprints,
+            fingerprintCheckingMode: configuration.fingerprintCheckingMode,
+            authorizationProvider: authorizationProvider?.httpAuthorizationHeader(for:)
+        )
+
+        let checksumAlgorithm = customChecksumAlgorithm ?? SHA256()
+        let registryDownloadsManager = RegistryDownloadsManager(
+            fileSystem: fileSystem,
+            path: location.registryDownloadDirectory,
+            cachePath: configuration.sharedDependenciesCacheEnabled ? location.sharedRegistryDownloadsCacheDirectory : .none,
+            registryClient: registryClient,
+            checksumAlgorithm: checksumAlgorithm,
+            delegate: delegate.map(WorkspaceRegistryDownloadsManagerDelegate.init(workspaceDelegate:))
+        )
+
+        let httpClient = customHTTPClient ?? HTTPClient()
+        let archiver = customArchiver ?? ZipArchiver()
+
+        // initialize
+        self.fileSystem = fileSystem
+        self.location = location
+        self.delegate = delegate
+        self.mirrors = mirrors
+        self.authorizationProvider = authorizationProvider
+        self.manifestLoader = manifestLoader
+        self.currentToolsVersion = currentToolsVersion
+        self.toolsVersionLoader = toolsVersionLoader
+        self.httpClient = httpClient
+        self.archiver = archiver
+        self.customPackageContainerProvider = customPackageContainerProvider
+        self.repositoryManager = repositoryManager
+        self.registryClient = registryClient
+        self.registryDownloadsManager = registryDownloadsManager
+        self.identityResolver = identityResolver
+        self.checksumAlgorithm = checksumAlgorithm
+        self.fingerprints = fingerprints
+
+        self.pinsStore = LoadableResult {
+            try PinsStore(
+                pinsFile: location.resolvedVersionsFile,
+                workingDirectory: location.workingDirectory,
+                fileSystem: fileSystem,
+                mirrors: mirrors
+            )
+        }
+
+        self.configuration = configuration
+
+        self.state = WorkspaceState(
+            fileSystem: fileSystem,
+            storageDirectory: self.location.workingDirectory,
+            initializationWarningHandler: initializationWarningHandler
+        )
     }
 }
 
@@ -725,8 +955,9 @@ extension Workspace {
     ///     - observabilityScope: The observability scope that reports errors, warnings, etc
     public func purgeCache(observabilityScope: ObservabilityScope) {
         observabilityScope.trap {
-            try repositoryManager.purgeCache()
-            try manifestLoader.purgeCache()
+            try self.repositoryManager.purgeCache()
+            try self.registryDownloadsManager.purgeCache()
+            try self.manifestLoader.purgeCache()
         }
     }
 
@@ -848,7 +1079,7 @@ extension Workspace {
         // Load the updated manifests.
         let updatedDependencyManifests = try self.loadDependencyManifests(root: graphRoot, observabilityScope: observabilityScope)
         // If we have missing packages, something is fundamentally wrong with the resolution of the graph
-        let stillMissingPackages = updatedDependencyManifests.computePackages().missing
+        let stillMissingPackages = try updatedDependencyManifests.computePackages().missing
         guard stillMissingPackages.isEmpty else {
             let missing = stillMissingPackages.map{ $0.description }
             observabilityScope.emit(error: "exhausted attempts to resolve the dependencies graph, with '\(missing.joined(separator: "', '"))' unresolved.")
@@ -856,7 +1087,7 @@ extension Workspace {
         }
 
         // Update the resolved file.
-        self.saveResolvedFile(
+        try self.saveResolvedFile(
             pinsStore: pinsStore,
             dependencyManifests: updatedDependencyManifests,
             rootManifestsMinimumToolsVersion: rootManifestsMinimumToolsVersion,
@@ -949,7 +1180,7 @@ extension Workspace {
         return try PackageGraph.load(
             root: manifests.root,
             identityResolver: self.identityResolver,
-            additionalFileRules: additionalFileRules,
+            additionalFileRules: self.configuration.additionalFileRules,
             externalManifests: manifests.allDependencyManifests(),
             requiredDependencies: manifests.computePackages().required,
             unsafeAllowedPackages: manifests.unsafeAllowedPackages(),
@@ -1145,14 +1376,19 @@ extension Workspace {
         let contents = try fileSystem.readFileContents(path)
         return self.checksumAlgorithm.hash(contents).hexadecimalRepresentation
     }
+
+    /// Returns `true` if the file at the given path might influence build settings for a `swiftc` or `clang` invocation generated by SwiftPM.
+    public func fileAffectsSwiftOrClangBuildSettings(filePath: AbsolutePath, packageGraph: PackageGraph) -> Bool {
+        // TODO: Implement a more sophisticated check that also verifies if the file is in the sources directories of the passed in `packageGraph`.
+        return FileRuleDescription.builtinRules.contains { fileRuleDescription in
+            fileRuleDescription.match(path: filePath, toolsVersion: self.currentToolsVersion)
+        }
+    }
 }
 
 // MARK: - Editing Functions
 
 extension Workspace {
-
-
-
     /// Edit implementation.
     fileprivate func _edit(
         packageName: String,
@@ -1351,9 +1587,9 @@ extension Workspace {
         dependencyManifests: DependencyManifests,
         rootManifestsMinimumToolsVersion: ToolsVersion,
         observabilityScope: ObservabilityScope
-    )  {
+    ) throws {
         var dependenciesToPin = [ManagedDependency]()
-        let requiredDependencies = dependencyManifests.computePackages().required.filter({ $0.kind.isPinnable })
+        let requiredDependencies = try dependencyManifests.computePackages().required.filter({ $0.kind.isPinnable })
         for dependency in requiredDependencies {
             if let managedDependency = self.state.dependencies[comparingLocation: dependency] {
                 dependenciesToPin.append(managedDependency)
@@ -1481,8 +1717,8 @@ extension Workspace {
         }
 
         /// Computes the identities which are declared in the manifests but aren't present in dependencies.
-        public func missingPackages() -> Set<PackageReference> {
-            return self.computePackages().missing
+        public func missingPackages() throws -> Set<PackageReference> {
+            return try self.computePackages().missing
         }
 
         /// Returns the list of packages which are allowed to vend products with unsafe flags.
@@ -1509,8 +1745,8 @@ extension Workspace {
             return result
         }
 
-        func computePackages() -> (required: Set<PackageReference>, missing: Set<PackageReference>) {
-            let manifestsMap: [PackageIdentity: Manifest] = Dictionary(uniqueKeysWithValues:
+        func computePackages() throws -> (required: Set<PackageReference>, missing: Set<PackageReference>) {
+            let manifestsMap: [PackageIdentity: Manifest] = try Dictionary(throwingUniqueKeysWithValues:
                 self.root.packages.map { ($0.key, $0.value.manifest) } +
                 self.dependencies.map { ($0.dependency.packageRef.identity, $0.manifest) }
             )
@@ -2296,6 +2532,7 @@ extension Workspace {
             request.options.authorizationProvider = self.authorizationProvider?.httpAuthorizationHeader(for:)
             request.options.retryStrategy = .exponentialBackoff(maxAttempts: 3, baseDelay: .milliseconds(50))
             request.options.validResponseCodes = [200]
+            observabilityScope.emit(debug: "downloading \(artifact.url) to \(archivePath)")
             self.httpClient.execute(
                 request,
                 progress: { bytesDownloaded, totalBytesToDownload in
@@ -2331,6 +2568,7 @@ extension Workspace {
 
                         // TODO: Use the same extraction logic for both remote and local archived artifacts.
                         group.enter()
+                        observabilityScope.emit(debug: "extracting \(archivePath) to \(tempExtractionDirectory)")
                         self.archiver.extract(from: archivePath, to: tempExtractionDirectory, completion: { extractResult in
                             defer { group.leave() }
 
@@ -2339,8 +2577,15 @@ extension Workspace {
                                 var artifactPath: AbsolutePath? = nil
                                 observabilityScope.trap {
                                     try self.fileSystem.withLock(on: parentDirectory, type: .exclusive) {
-                                        // copy from temp location to actual location
+                                        // strip first level component if needed
+                                        if try self.fileSystem.shouldStripFirstLevel(archiveDirectory: tempExtractionDirectory, acceptableExtensions: BinaryTarget.Kind.allCases.map({ $0.fileExtension })) {
+                                            observabilityScope.emit(debug: "stripping first level component from  \(tempExtractionDirectory)")
+                                            try self.fileSystem.stripFirstLevel(of: tempExtractionDirectory)
+                                        } else {
+                                            observabilityScope.emit(debug: "no first level component stripping needed for \(tempExtractionDirectory)")
+                                        }
                                         let content = try self.fileSystem.getDirectoryContents(tempExtractionDirectory)
+                                        // copy from temp location to actual location
                                         for file in content {
                                             let source = tempExtractionDirectory.appending(component: file)
                                             let destination = parentDirectory.appending(component: file)
@@ -2411,8 +2656,15 @@ extension Workspace {
                 case .success:
                     observabilityScope.trap { () -> Void in
                         var artifactPath: AbsolutePath? = nil
-                        // copy from temp location to actual location
+                        // strip first level component if needed
+                        if try self.fileSystem.shouldStripFirstLevel(archiveDirectory: tempExtractionDirectory, acceptableExtensions: BinaryTarget.Kind.allCases.map({ $0.fileExtension })) {
+                            observabilityScope.emit(debug: "stripping first level component from  \(tempExtractionDirectory)")
+                            try self.fileSystem.stripFirstLevel(of: tempExtractionDirectory)
+                        } else {
+                            observabilityScope.emit(debug: "no first level component stripping needed for \(tempExtractionDirectory)")
+                        }
                         let content = try self.fileSystem.getDirectoryContents(tempExtractionDirectory)
+                        // copy from temp location to actual location
                         for file in content {
                             let source = tempExtractionDirectory.appending(component: file)
                             let destination = destinationDirectory.appending(component: file)
@@ -2613,7 +2865,7 @@ extension Workspace {
         }
 
         // Compute the missing package identities.
-        let missingPackages = currentManifests.missingPackages()
+        let missingPackages = try currentManifests.missingPackages()
 
         // Compute if we need to run the resolver. We always run the resolver if
         // there are extra constraints.
@@ -2634,7 +2886,7 @@ extension Workspace {
             case .notRequired:
                 // since nothing changed we can exit early,
                 // but need update resolved file and download an missing binary artifact
-                self.saveResolvedFile(
+                try self.saveResolvedFile(
                     pinsStore: pinsStore,
                     dependencyManifests: currentManifests,
                     rootManifestsMinimumToolsVersion: rootManifestsMinimumToolsVersion,
@@ -2684,7 +2936,7 @@ extension Workspace {
         // Update the pinsStore.
         let updatedDependencyManifests = try self.loadDependencyManifests(root: graphRoot, observabilityScope: observabilityScope)
         // If we still have missing packages, something is fundamentally wrong with the resolution of the graph
-        let stillMissingPackages = updatedDependencyManifests.computePackages().missing
+        let stillMissingPackages = try updatedDependencyManifests.computePackages().missing
         guard stillMissingPackages.isEmpty else {
             let missing = stillMissingPackages.map{ $0.description }
             observabilityScope.emit(error: "exhausted attempts to resolve the dependencies graph, with '\(missing.joined(separator: "', '"))' unresolved.")
@@ -2692,7 +2944,7 @@ extension Workspace {
         }
 
         // Update the resolved file.
-        self.saveResolvedFile(
+        try self.saveResolvedFile(
             pinsStore: pinsStore,
             dependencyManifests: updatedDependencyManifests,
             rootManifestsMinimumToolsVersion: rootManifestsMinimumToolsVersion,
@@ -2884,7 +3136,9 @@ extension Workspace {
             return nil
         }
 
-        let requiredDependencies = dependencyManifests.computePackages().required.filter({ $0.kind.isPinnable })
+        guard let requiredDependencies = observabilityScope.trap({ try dependencyManifests.computePackages().required.filter({ $0.kind.isPinnable }) }) else {
+            return nil
+        }
         for dependency in self.state.dependencies.filter({ $0.packageRef.kind.isPinnable }) {
             // a required dependency that is already loaded (managed) should be represented in the pins store.
             // also comparing location as it may have changed at this point
@@ -3118,8 +3372,8 @@ extension Workspace {
         return PubgrubDependencyResolver(
             provider: packageContainerProvider,
             pinsMap: pinsMap,
-            updateEnabled: self.resolverUpdateEnabled,
-            prefetchingEnabled: self.resolverPrefetchingEnabled,
+            skipDependenciesUpdates: self.configuration.skipDependenciesUpdates,
+            prefetchBasedOnResolvedFile: self.configuration.prefetchBasedOnResolvedFile,
             observabilityScope: observabilityScope,
             delegate: delegate
         )
@@ -3249,8 +3503,8 @@ extension Workspace: PackageContainerProvider {
                                 manifestLoader: self.manifestLoader,
                                 toolsVersionLoader: self.toolsVersionLoader,
                                 currentToolsVersion: self.currentToolsVersion,
-                                fingerprintStorage: self.fingerprintStorage,
-                                fingerprintCheckingMode: self.resolverFingerprintCheckingMode,
+                                fingerprintStorage: self.fingerprints,
+                                fingerprintCheckingMode: self.configuration.fingerprintCheckingMode,
                                 observabilityScope: observabilityScope
                             )
                         }
@@ -3258,13 +3512,10 @@ extension Workspace: PackageContainerProvider {
                     }
                 // Resolve the container using the registry
                 case .registry:
-                    guard let registryClient = self.registryClient else {
-                        throw StringError("registry not configured")
-                    }
                     let container = RegistryPackageContainer(
                         package: package,
                         identityResolver: self.identityResolver,
-                        registryClient: registryClient,
+                        registryClient: self.registryClient,
                         manifestLoader: self.manifestLoader,
                         toolsVersionLoader: self.toolsVersionLoader,
                         currentToolsVersion: self.currentToolsVersion,
@@ -3505,31 +3756,15 @@ extension Workspace {
      func downloadRegistryArchive(
         package: PackageReference,
         at version: Version,
-        progressHandler: ((_ bytesReceived: Int64, _ totalBytes: Int64?) -> Void)? = .none,
         observabilityScope: ObservabilityScope
      ) throws -> AbsolutePath {
-         guard let registryClient = self.registryClient else {
-             throw StringError("registry not configured")
-         }
-
-         guard case (let scope, let name)? = package.identity.scopeAndName else {
-             throw StringError("invalid package identity")
-         }
-
-         let downloadPath = self.location.registryDownloadDirectory.appending(components: scope.description, name.description, version.description)
-         if self.fileSystem.exists(downloadPath) {
-             return downloadPath
-         }
-
-         try temp_await {
-             registryClient.downloadSourceArchive(
+         // FIXME: this should not block
+         let downloadPath = try temp_await {
+             self.registryDownloadsManager.lookup(
                 package: package.identity,
                 version: version,
-                fileSystem: self.fileSystem,
-                destinationPath: downloadPath,
-                checksumAlgorithm: self.checksumAlgorithm,
-                progressHandler: progressHandler,
                 observabilityScope: observabilityScope,
+                delegateQueue: .sharedConcurrent,
                 callbackQueue: .sharedConcurrent,
                 completion: $0
              )
@@ -3552,7 +3787,6 @@ extension Workspace {
      func downloadRegistryArchive(
         package: PackageReference,
         at pinState: PinsStore.PinState,
-        progressHandler: ((_ bytesReceived: Int64, _ totalBytes: Int64?) -> Void)? = .none,
         observabilityScope: ObservabilityScope
      ) throws -> AbsolutePath {
          switch pinState {
@@ -3560,7 +3794,6 @@ extension Workspace {
              return try self.downloadRegistryArchive(
                 package: package,
                 at: version,
-                progressHandler: progressHandler,
                 observabilityScope: observabilityScope
              )
          default:
@@ -3575,6 +3808,9 @@ extension Workspace {
 
          let downloadPath = self.location.registryDownloadSubdirectory(for: dependency)
          try self.fileSystem.removeFileTree(downloadPath)
+
+         // remove the local copy
+         try registryDownloadsManager.remove(package: dependency.packageRef.identity)
      }
  }
 
@@ -3815,4 +4051,102 @@ extension Workspace.Location {
     fileprivate func editSubdirectory(for dependency: Workspace.ManagedDependency) -> AbsolutePath {
         self.editsDirectory.appending(dependency.subpath)
     }
+}
+
+extension FileSystem {
+    // helper to decide if an archive directory would benefit from stripping first level
+    fileprivate func shouldStripFirstLevel(archiveDirectory: AbsolutePath, acceptableExtensions: [String]? = nil) throws -> Bool {
+        let subdirectories = try self.getDirectoryContents(archiveDirectory)
+            .map{ archiveDirectory.appending(component: $0) }
+            .filter { self.isDirectory($0) }
+
+        // single top-level directory required
+        guard subdirectories.count == 1, let rootDirectory = subdirectories.first else {
+            return false
+        }
+
+        // no acceptable extensions defined, so the single top-level directory is a good candidate
+        guard let acceptableExtensions = acceptableExtensions else {
+            return true
+        }
+
+        // the single top-level directory is already one of the acceptable extensions, so no need to strip
+        if rootDirectory.extension.map({ acceptableExtensions.contains($0) }) ?? false {
+            return false
+        }
+
+        // see if there is "grand-child" directory with one of the acceptable extensions
+        return try self.getDirectoryContents(rootDirectory)
+            .map{ rootDirectory.appending(component: $0) }
+            .first{ $0.extension.map { acceptableExtensions.contains($0) } ?? false } != nil
+    }
+}
+
+extension Workspace.Location {
+    func validatingSharedLocations(
+        fileSystem: FileSystem,
+        warningHandler: (String) -> Void
+    ) throws -> Self {
+        var location = self
+
+        // check that shared configuration directory is accessible, or warn + reset if not
+        if let sharedConfigurationDirectory = self.sharedConfigurationDirectory {
+            // it may not always be possible to create default location (for example de to restricted sandbox)
+            let defaultDirectory = try? fileSystem.getOrCreateSwiftPMConfigurationDirectory(warningHandler: warningHandler)
+            if sharedConfigurationDirectory != defaultDirectory {
+                // custom location must be writable, throw if we cannot access it
+                try withTemporaryFile(dir: sharedConfigurationDirectory) { _ in }
+            } else {
+                do {
+                    // default location may not be writable, in which case we disable the relevant features that depend on it
+                    try withTemporaryFile(dir: sharedConfigurationDirectory) { _ in }
+                } catch {
+                    location.sharedConfigurationDirectory = .none
+                    warningHandler("\(sharedConfigurationDirectory) is not accessible or not writable, disabling user-level configuration features. \(error)")
+                }
+            }
+        }
+
+        // check that shared configuration directory is accessible, or warn + reset if not
+        if let sharedSecurityDirectory = self.sharedSecurityDirectory {
+            // it may not always be possible to create default location (for example de to restricted sandbox)
+            let defaultDirectory = try? fileSystem.getOrCreateSwiftPMSecurityDirectory()
+            if sharedSecurityDirectory != defaultDirectory {
+                // custom location must be writable, throw if we cannot access it
+                try withTemporaryFile(dir: sharedSecurityDirectory) { _ in }
+            } else {
+                do {
+                    // default location may not be writable, in which case we disable the relevant features that depend on it
+                    try withTemporaryFile(dir: sharedSecurityDirectory) { _ in }
+                } catch {
+                    location.sharedSecurityDirectory = .none
+                    warningHandler("\(sharedSecurityDirectory) is not accessible or not writable, disabling user-level security features. \(error)")
+                }
+            }
+        }
+
+        // check that shared configuration directory is accessible, or warn + reset if not
+        if let sharedCacheDirectory = self.sharedCacheDirectory {
+            // it may not always be possible to create default location (for example de to restricted sandbox)
+            let defaultDirectory = try? fileSystem.getOrCreateSwiftPMCacheDirectory()
+            if sharedCacheDirectory != defaultDirectory {
+                // custom location must be writable, throw if we cannot access it
+                try withTemporaryFile(dir: sharedCacheDirectory) { _ in }
+            } else {
+                do {
+                    // default location may not be writable, in which case we disable the relevant features that depend on it
+                    try withTemporaryFile(dir: sharedCacheDirectory) { _ in }
+                } catch {
+                    location.sharedCacheDirectory = .none
+                    warningHandler("\(sharedCacheDirectory) is not accessible or not writable, disabling user-level cache features. \(error)")
+                }
+            }
+        }
+        return location
+    }
+}
+
+fileprivate func warnToStderr(_ message: String) {
+    TSCBasic.stderrStream.write("warning: \(message)\n")
+    TSCBasic.stderrStream.flush()
 }

@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2021 Apple Inc. and the Swift project authors
+ Copyright (c) 2021-2022 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -15,13 +15,12 @@
 struct PluginInput {
     let package: Package
     let pluginWorkDirectory: Path
-    let builtProductsDirectory: Path
     let toolSearchDirectories: [Path]
     let toolNamesToPaths: [String: Path]
     let pluginAction: PluginAction
     enum PluginAction {
         case createBuildToolCommands(target: Target)
-        case performCommand(targets: [Target], arguments: [String])
+        case performCommand(arguments: [String])
     }
     
     internal init(from input: WireInput) throws {
@@ -31,7 +30,6 @@ struct PluginInput {
         // Unpack the individual pieces from which we'll create the plugin context.
         self.package = try deserializer.package(for: input.rootPackageId)
         self.pluginWorkDirectory = try deserializer.path(for: input.pluginWorkDirId)
-        self.builtProductsDirectory = try deserializer.path(for: input.builtProductsDirId)
         self.toolSearchDirectories = try input.toolSearchDirIds.map { try deserializer.path(for: $0) }
         self.toolNamesToPaths = try input.toolNamesToPathIds.mapValues { try deserializer.path(for: $0) }
         
@@ -39,8 +37,8 @@ struct PluginInput {
         switch input.pluginAction {
         case .createBuildToolCommands(let targetId):
             self.pluginAction = .createBuildToolCommands(target: try deserializer.target(for: targetId))
-        case .performCommand(let targetIds, let arguments):
-            self.pluginAction = .performCommand(targets: try targetIds.map{ try deserializer.target(for: $0) }, arguments: arguments)
+        case .performCommand(let arguments):
+            self.pluginAction = .performCommand(arguments: arguments)
         }
     }
 }
@@ -289,7 +287,6 @@ internal struct WireInput: Decodable {
     let packages: [Package]
     let rootPackageId: Package.Id
     let pluginWorkDirId: Path.Id
-    let builtProductsDirId: Path.Id
     let toolSearchDirIds: [Path.Id]
     let toolNamesToPathIds: [String: Path.Id]
     let pluginAction: PluginAction
@@ -298,7 +295,7 @@ internal struct WireInput: Decodable {
     /// the capabilities declared for the plugin.
     enum PluginAction: Decodable {
         case createBuildToolCommands(targetId: Target.Id)
-        case performCommand(targetIds: [Target.Id], arguments: [String])
+        case performCommand(arguments: [String])
     }
 
     /// A single absolute path in the wire structure, represented as a tuple

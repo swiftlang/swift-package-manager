@@ -29,8 +29,12 @@ public final class WorkspaceState {
     /// storage
     private let storage: WorkspaceStateStorage
 
-    init(dataPath: AbsolutePath, fileSystem: FileSystem) {
-        self.storagePath = dataPath.appending(component: "workspace-state.json")
+    init(
+        fileSystem: FileSystem,
+        storageDirectory: AbsolutePath,
+        initializationWarningHandler: (String) -> Void
+    ) {
+        self.storagePath = storageDirectory.appending(component: "workspace-state.json")
         self.storage = WorkspaceStateStorage(path: self.storagePath, fileSystem: fileSystem)
 
         // Load the state from disk, if possible.
@@ -49,9 +53,7 @@ public final class WorkspaceState {
             self.dependencies = Workspace.ManagedDependencies()
             self.artifacts = Workspace.ManagedArtifacts()
             try? self.storage.reset()
-            // FIXME: We should emit a warning here using the diagnostic engine.
-            TSCBasic.stderrStream.write("warning: unable to restore workspace state: \(error)")
-            TSCBasic.stderrStream.flush()
+            initializationWarningHandler("unable to restore workspace state: \(error)")
         }
     }
 

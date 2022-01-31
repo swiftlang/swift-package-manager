@@ -15,3 +15,4 @@ Utilities/Docker/*.tar.gz
 Package.resolved
 /build
 *.pyc
+.docc-build

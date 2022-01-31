@@ -3,9 +3,10 @@ import PackagePlugin
 @main
 struct MyPlugin: BuildToolPlugin {
     
-    func createBuildCommands(context: TargetBuildContext) throws -> [Command] {
+    func createBuildCommands(context: PluginContext, target: Target) throws -> [Command] {
+        guard let target = target as? SourceModuleTarget else { return [] }
         var commands: [Command] = []
-        for inputFile in context.inputFiles.filter({ $0.path.extension == "dat" }) {
+        for inputFile in target.sourceFiles.filter({ $0.path.extension == "dat" }) {
             let inputPath = inputFile.path
             let outputName = "Ambiguous_" + inputPath.stem + ".swift"
             let outputPath = context.pluginWorkDirectory.appending(outputName)

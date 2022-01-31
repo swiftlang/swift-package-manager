@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2021 Apple Inc. and the Swift project authors
+ Copyright (c) 2021-2022 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -414,27 +414,49 @@ public enum FileType {
     case unknown
 }
 
+extension Package {
+    /// The list of targets matching the given names. Throws an error if any of
+    /// the targets cannot be found.
+    public func targets(named targetNames: [String]) throws -> [Target] {
+        return try targetNames.map { name in
+            guard let target = self.targets.first(where: { $0.name == name }) else {
+                throw PluginContextError.targetNotFound(name: name, package: self)
+            }
+            return target
+        }
+    }
+
+    /// The list of products matching the given names. Throws an error if any of
+    /// the products cannot be found.
+    public func products(named productNames: [String]) throws -> [Product] {
+        return try productNames.map { name in
+            guard let product = self.products.first(where: { $0.name == name }) else {
+                throw PluginContextError.productNotFound(name: name, package: self)
+            }
+            return product
+        }
+    }
+}
+
 extension Target {
     /// The transitive closure of all the targets on which the reciver depends,
     /// ordered such that every dependency appears before any other target that
     /// depends on it (i.e. in "topological sort order").
     public var recursiveTargetDependencies: [Target] {
         // FIXME: We can rewrite this to use a stack instead of recursion.
-        var result = [Target]()
         var visited = Set<Target.ID>()
-        func visit(target: Target) {
-            guard !visited.insert(target.id).inserted else { return }
-            target.dependencies.forEach{ visit(dependency: $0) }
-            result.append(target)
+        func dependencyClosure(for target: Target) -> [Target] {
+            guard visited.insert(target.id).inserted else { return [] }
+            return target.dependencies.flatMap{ dependencyClosure(for: $0) } + [target]
         }
-        func visit(dependency: TargetDependency) {
+        func dependencyClosure(for dependency: TargetDependency) -> [Target] {
             switch dependency {
             case .target(let target):
-                visit(target: target)
+                return dependencyClosure(for: target)
             case .product(let product):
-                product.targets.forEach{ visit(target: $0) }
+                return product.targets.flatMap{ dependencyClosure(for: $0) }
             }
         }
-        return result
+        return self.dependencies.flatMap{ dependencyClosure(for: $0) }
     }
 }
