@@ -3,10 +3,10 @@ import PackagePlugin
 @main
 struct PluginScript: BuildToolPlugin {
 
-    func createBuildCommands(context: TargetBuildContext) throws -> [Command] {
+    func createBuildCommands(context: PluginContext, target: Target) throws -> [Command] {
         print("Hello from the plugin script!")
-
-        return try context.inputFiles.map{ $0.path }.compactMap {
+        guard let target = target as? SourceModuleTarget else { return [] }
+        return try target.sourceFiles.map{ $0.path }.compactMap {
             guard $0.extension == "dat" else { return .none }
             let outputName = $0.stem + ".swift"
             let outputPath = context.pluginWorkDirectory.appending(outputName)
