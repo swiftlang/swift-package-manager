@@ -22,6 +22,9 @@ import XCTest
 class PluginTests: XCTestCase {
     
     func testUseOfBuildToolPluginTargetByExecutableInSamePackage() throws {
+        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
+        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
+
         fixture(name: "Miscellaneous/Plugins") { path in
             do {
                 let (stdout, _) = try executeSwiftBuild(path.appending(component: "MySourceGenPlugin"), configuration: .Debug, extraArgs: ["--product", "MyLocalTool"])
@@ -38,6 +41,9 @@ class PluginTests: XCTestCase {
     }
 
     func testUseOfBuildToolPluginProductByExecutableAcrossPackages() throws {
+        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
+        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
+
         fixture(name: "Miscellaneous/Plugins") { path in
             do {
                 let (stdout, _) = try executeSwiftBuild(path.appending(component: "MySourceGenClient"), configuration: .Debug, extraArgs: ["--product", "MyTool"])
@@ -54,6 +60,9 @@ class PluginTests: XCTestCase {
     }
 
     func testUseOfPrebuildPluginTargetByExecutableAcrossPackages() throws {
+        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
+        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
+
         fixture(name: "Miscellaneous/Plugins") { path in
             do {
                 let (stdout, _) = try executeSwiftBuild(path.appending(component: "MySourceGenPlugin"), configuration: .Debug, extraArgs: ["--product", "MyOtherLocalTool"])
@@ -69,7 +78,10 @@ class PluginTests: XCTestCase {
         }
     }
 
-    func testUseOfPluginWithInternalExecutable() {
+    func testUseOfPluginWithInternalExecutable() throws {
+        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
+        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
+        
         fixture(name: "Miscellaneous/Plugins") { path in
             let (stdout, _) = try executeSwiftBuild(path.appending(component: "ClientOfPluginWithInternalExecutable"))
             XCTAssert(stdout.contains("Compiling PluginExecutable main.swift"), "stdout:\n\(stdout)")
@@ -81,7 +93,10 @@ class PluginTests: XCTestCase {
         }
     }
 
-    func testInternalExecutableAvailableOnlyToPlugin() {
+    func testInternalExecutableAvailableOnlyToPlugin() throws {
+        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
+        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
+
         fixture(name: "Miscellaneous/Plugins") { path in
             do {
                 let (stdout, _) = try executeSwiftBuild(path.appending(component: "InvalidUseOfInternalPluginExecutable"))
@@ -99,6 +114,9 @@ class PluginTests: XCTestCase {
     }
 
     func testContrivedTestCases() throws {
+        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
+        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
+
         fixture(name: "Miscellaneous/Plugins") { path in
             do {
                 let (stdout, _) = try executeSwiftBuild(path.appending(component: "ContrivedTestPlugin"), configuration: .Debug, extraArgs: ["--product", "MyLocalTool"])
@@ -115,6 +133,9 @@ class PluginTests: XCTestCase {
     }
 
     func testPluginScriptSandbox() throws {
+        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
+        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
+
         #if os(macOS)
         fixture(name: "Miscellaneous/Plugins") { path in
             do {
@@ -131,6 +152,9 @@ class PluginTests: XCTestCase {
     }
 
     func testUseOfVendedBinaryTool() throws {
+        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
+        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
+
         #if os(macOS)
         fixture(name: "Miscellaneous/Plugins") { path in
             do {
@@ -147,6 +171,9 @@ class PluginTests: XCTestCase {
     }
     
     func testCommandPluginInvocation() throws {
+        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
+        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
+        
         // FIXME: This test is getting quite long — we should add some support functionality for creating synthetic plugin tests and factor this out into separate tests.
         try testWithTemporaryDirectory { tmpPath in
             // Create a sample package with a library target and a plugin. It depends on a sample package.

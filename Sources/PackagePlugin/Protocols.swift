@@ -35,7 +35,7 @@ public protocol BuildToolPlugin: Plugin {
     func createBuildCommands(
         context: PluginContext,
         target: Target
-    ) throws -> [Command]
+    ) async throws -> [Command]
 }
 
 /// Defines functionality for all plugins that have a `command` capability.
@@ -54,7 +54,7 @@ public protocol CommandPlugin: Plugin {
         
         /// Any literal arguments passed after the verb in the command invocation.
         arguments: [String]
-    ) throws
+    ) async throws
 
     /// A proxy to the Swift Package Manager or IDE hosting the command plugin,
     /// through which the plugin can ask for specialized information or actions.

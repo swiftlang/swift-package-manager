@@ -1040,6 +1040,8 @@ final class PackageToolTests: CommandsTestCase {
     }
 
     func testBuildToolPlugin() throws {
+        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
+        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
         
         try testWithTemporaryDirectory { tmpPath in
             // Create a sample package with a library target and a plugin.
@@ -1125,7 +1127,9 @@ final class PackageToolTests: CommandsTestCase {
     }
 
     func testBuildToolPluginFailure() throws {
-
+        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
+        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
+        
         try testWithTemporaryDirectory { tmpPath in
             // Create a sample package with a library target and a plugin.
             let packageDir = tmpPath.appending(components: "MyPackage")
@@ -1255,6 +1259,8 @@ final class PackageToolTests: CommandsTestCase {
     }
     
     func testCommandPlugin() throws {
+        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
+        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
         
         try testWithTemporaryDirectory { tmpPath in
             // Create a sample package with a library target, a plugin, and a local tool. It depends on a sample package which also has a tool.
@@ -1481,7 +1487,9 @@ final class PackageToolTests: CommandsTestCase {
     }
 
     func testCommandPluginPermissions() throws {
-
+        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
+        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
+        
         try testWithTemporaryDirectory { tmpPath in
             // Create a sample package with a library target and a plugin.
             let packageDir = tmpPath.appending(components: "MyPackage")
@@ -1570,6 +1578,9 @@ final class PackageToolTests: CommandsTestCase {
     }
 
     func testCommandPluginSymbolGraphCallbacks() throws {
+        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
+        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
+        
         // Depending on how the test is running, the `swift-symbolgraph-extract` tool might be unavailable.
         try XCTSkipIf((try? UserToolchain.default.getSymbolGraphExtract()) == nil, "skipping test because the `swift-symbolgraph-extract` tools isn't available")
         
@@ -1656,7 +1667,9 @@ final class PackageToolTests: CommandsTestCase {
     }
 
     func testCommandPluginBuildingCallbacks() throws {
-
+        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
+        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
+        
         try testWithTemporaryDirectory { tmpPath in
             // Create a sample package with a library, an executable, and a command plugin.
             let packageDir = tmpPath.appending(components: "MyPackage")
@@ -1825,6 +1838,9 @@ final class PackageToolTests: CommandsTestCase {
     }
 
     func testCommandPluginTestingCallbacks() throws {
+        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
+        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
+        
         // Depending on how the test is running, the `llvm-profdata` and `llvm-cov` tool might be unavailable.
         try XCTSkipIf((try? UserToolchain.default.getLLVMProf()) == nil, "skipping test because the `llvm-profdata` tool isn't available")
         try XCTSkipIf((try? UserToolchain.default.getLLVMCov()) == nil, "skipping test because the `llvm-cov` tool isn't available")
@@ -1951,6 +1967,8 @@ final class PackageToolTests: CommandsTestCase {
     }
     
     func testPluginAPIs() throws {
+        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
+        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
         
         try testWithTemporaryDirectory { tmpPath in
             // Create a sample package with a plugin to test various parts of the API.
