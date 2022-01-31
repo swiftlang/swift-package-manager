@@ -1715,15 +1715,27 @@ final class PackageToolTests: CommandsTestCase {
                         targets: [Target],
                         arguments: [String]
                     ) throws {
-                        let product = arguments[0]
-                        let verbose = arguments.contains("verbose")
-                        let release = arguments.contains("release")
+                        // Extract the plugin arguments.
+                        var argExtractor = ArgumentExtractor(arguments)
+                        let productNames = argExtractor.extractOption(named: "product")
+                        if productNames.count != 1 {
+                            throw "Expected exactly one product name, but had: \\(productNames.joined(separator: ", "))"
+                        }
+                        let printCommands = (argExtractor.extractFlag(named: "print-commands") > 0)
+                        let release = (argExtractor.extractFlag(named: "release") > 0)
+                        if let unextractedArgs = argExtractor.unextractedOptionsOrFlags.first {
+                            throw "Unknown option: \\(unextractedArgs)"
+                        }
+                        let positionalArgs = argExtractor.remainingArguments
+                        if !positionalArgs.isEmpty {
+                            throw "Unexpected extra arguments: \\(positionalArgs)"
+                        }
                         do {
                             var parameters = PackageManager.BuildParameters()
                             parameters.configuration = release ? .release : .debug
-                            parameters.logging = verbose ? .verbose : .concise
+                            parameters.logging = printCommands ? .verbose : .concise
                             parameters.otherSwiftcFlags = ["-DEXTRA_SWIFT_FLAG"]
-                            let result = try packageManager.build(.product(product), parameters: parameters)
+                            let result = try packageManager.build(.product(productNames[0]), parameters: parameters)
                             print("succeeded: \\(result.succeeded)")
                             for artifact in result.builtArtifacts {
                                 print("artifact-path: \\(artifact.path.string)")
@@ -1736,6 +1748,7 @@ final class PackageToolTests: CommandsTestCase {
                         }
                     }
                 }
+                extension String: Error {}
                 """
             )
             let myLibraryTargetDir = packageDir.appending(components: "Sources", "MyLibrary")
@@ -1754,7 +1767,7 @@ final class PackageToolTests: CommandsTestCase {
 
             // Invoke the plugin with parameters choosing a verbose build of MyExecutable for debugging.
             do {
-                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["my-build-tester", "MyExecutable", "verbose"], packagePath: packageDir)
+                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["my-build-tester", "--product", "MyExecutable", "--print-commands"], packagePath: packageDir)
                 let output = try result.utf8Output() + result.utf8stderrOutput()
                 XCTAssertEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
                 XCTAssertMatch(output, .contains("Building for debugging..."))
@@ -1769,7 +1782,7 @@ final class PackageToolTests: CommandsTestCase {
 
             // Invoke the plugin with parameters choosing a concise build of MyExecutable for release.
             do {
-                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["my-build-tester", "MyExecutable", "release"], packagePath: packageDir)
+                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["my-build-tester", "--product", "MyExecutable", "--release"], packagePath: packageDir)
                 let output = try result.utf8Output() + result.utf8stderrOutput()
                 XCTAssertEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
                 XCTAssertMatch(output, .contains("Building for production..."))
@@ -1783,7 +1796,7 @@ final class PackageToolTests: CommandsTestCase {
 
             // Invoke the plugin with parameters choosing a verbose build of MyStaticLibrary for release.
             do {
-                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["my-build-tester", "MyStaticLibrary", "verbose", "release"], packagePath: packageDir)
+                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["my-build-tester", "--product", "MyStaticLibrary", "--print-commands", "--release"], packagePath: packageDir)
                 let output = try result.utf8Output() + result.utf8stderrOutput()
                 XCTAssertEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
                 XCTAssertMatch(output, .contains("Building for production..."))
@@ -1797,7 +1810,7 @@ final class PackageToolTests: CommandsTestCase {
 
             // Invoke the plugin with parameters choosing a verbose build of MyDynamicLibrary for release.
             do {
-                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["my-build-tester", "MyDynamicLibrary", "verbose", "release"], packagePath: packageDir)
+                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["my-build-tester", "--product", "MyDynamicLibrary", "--print-commands", "--release"], packagePath: packageDir)
                 let output = try result.utf8Output() + result.utf8stderrOutput()
                 XCTAssertEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
                 XCTAssertMatch(output, .contains("Building for production..."))
