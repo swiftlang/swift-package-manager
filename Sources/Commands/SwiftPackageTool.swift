@@ -878,9 +878,6 @@ extension SwiftPackageTool {
         }
     }
     
-    // Experimental command to invoke user command plugins. This will probably change so that command that is not
-    // recognized as a built-in command will cause `swift-package` to search for plugin commands, instead of using
-    // a separate `plugin` subcommand for this.
     struct PluginCommand: SwiftCommand {
         static let configuration = CommandConfiguration(
             commandName: "plugin",
@@ -891,8 +888,12 @@ extension SwiftPackageTool {
         var swiftOptions: SwiftToolOptions
 
         @Option(name: .customLong("target"),
-                help: "Target(s) to which the plugin command should be applied")
+                help: "Target(s) to pass as `--target` arguments to the plugin")
         var targetNames: [String] = []
+
+        @Option(name: .customLong("product"),
+                help: "Product(s) to pass as `--product` arguments to the plugin")
+        var productNames: [String] = []
 
         @Flag(name: .customLong("list"),
               help: "List the available plugin commands")
@@ -950,25 +951,6 @@ extension SwiftPackageTool {
             
             // In SwiftPM CLI, we have only one root package.
             let package = packageGraph.rootPackages[0]
-
-            // If no targets were specified, default to all the applicable ones in the package.
-            let targetNames = targetNames.isEmpty ? package.targets.filter(\.isEligibleForPluginCommand).map(\.name) : targetNames
-
-            // Find the targets (if any) specified by the user. We expect them in the root package.
-            var targets: [String: ResolvedTarget] = [:]
-            for target in package.targets where targetNames.contains(target.name) {
-                if targets[target.name] != nil {
-                    throw ValidationError("Ambiguous target name: ‘\(target.name)’")
-                }
-                if target.isEligibleForPluginCommand {
-                    targets[target.name] = target
-                }
-            }
-            assert(targets.count <= targetNames.count)
-            if targets.count != targetNames.count {
-                let unknownTargetNames = Set(targetNames).subtracting(targets.keys)
-                throw ValidationError("Unknown targets: ‘\(unknownTargetNames.sorted().joined(separator: "’, ‘"))’")
-            }
 
             // The `plugins` directory is inside the workspace's main data directory, and contains all temporary files related to all plugins in the workspace.
             let pluginsDir = try swiftTool.getActiveWorkspace().location.pluginWorkingDirectory
@@ -1036,6 +1018,9 @@ extension SwiftPackageTool {
                     }
                 }
             }
+            
+            // Pass any targets and products that were specified, followed by any plugin arguments that were given on the command line.
+            let pluginArguments = targetNames.flatMap{ ["--target", $0] } + productNames.flatMap{ ["--product", $0] } + pluginCommand.dropFirst()
 
             // Set up a delegate to handle callbacks from the command plugin.
             let pluginDelegate = PluginDelegate(swiftTool: swiftTool, plugin: plugin, outputStream: swiftTool.outputStream)
@@ -1044,9 +1029,7 @@ extension SwiftPackageTool {
             // Run the command plugin.
             let buildEnvironment = try swiftTool.buildParameters().buildEnvironment
             let _ = try tsc_await { plugin.invoke(
-                action: .performCommand(
-                    targets: Array(targets.values),
-                    arguments: Array(pluginCommand.dropFirst())),
+                action: .performCommand(arguments: pluginArguments),
                 package: package,
                 buildEnvironment: buildEnvironment,
                 scriptRunner: pluginScriptRunner,
@@ -1076,18 +1059,6 @@ extension SwiftPackageTool {
                 guard case .command(let intent, _) = $0.capability else { return false }
                 return verb == intent.invocationVerb
             }
-        }
-    }
-}
-
-fileprivate extension ResolvedTarget {
-    // The proposal calls for applying plugins to regular targets.
-    var isEligibleForPluginCommand: Bool {
-        switch type {
-        case .library, .executable, .binary, .test:
-            return true
-        case .systemModule, .plugin, .snippet:
-            return false
         }
     }
 }
