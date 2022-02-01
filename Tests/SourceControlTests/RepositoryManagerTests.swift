@@ -9,6 +9,7 @@
  */
 
 import Basics
+import PackageModel
 import SPMTestSupport
 @testable import SourceControl
 import TSCBasic
@@ -347,6 +348,7 @@ class RepositoryManagerTests: XCTestCase {
                 group.enter()
                 delegate.prepare(fetchExpected: index == 0, updateExpected: index > 0)
                 manager.lookup(
+                    package: .init(url: dummyRepo.url),
                     repository: dummyRepo,
                     skipUpdate: false,
                     observabilityScope: observability.topScope,
@@ -452,6 +454,7 @@ extension RepositoryManager {
     fileprivate func lookup(repository: RepositorySpecifier, skipUpdate: Bool = false, observabilityScope: ObservabilityScope) throws -> RepositoryHandle {
         return try tsc_await {
             self.lookup(
+                package: .init(url: repository.url),
                 repository: repository,
                 skipUpdate: skipUpdate,
                 observabilityScope: observabilityScope,
@@ -705,25 +708,25 @@ private class DummyRepositoryManagerDelegate: RepositoryManager.Delegate {
         return self._didUpdate.get()
     }
 
-    func willFetch(repository: RepositorySpecifier, details: RepositoryManager.FetchDetails) {
+    func willFetch(package: PackageIdentity, repository: RepositorySpecifier, details: RepositoryManager.FetchDetails) {
         self._willFetch.append((repository: repository, details: details))
         self.group.leave()
     }
 
-    func fetching(repository: RepositorySpecifier, objectsFetched: Int, totalObjectsToFetch: Int) {
+    func fetching(package: PackageIdentity, repository: RepositorySpecifier, objectsFetched: Int, totalObjectsToFetch: Int) {
     }
 
-    func didFetch(repository: RepositorySpecifier, result: Result<RepositoryManager.FetchDetails, Error>, duration: DispatchTimeInterval) {
+    func didFetch(package: PackageIdentity, repository: RepositorySpecifier, result: Result<RepositoryManager.FetchDetails, Error>, duration: DispatchTimeInterval) {
         self._didFetch.append((repository: repository, result: result))
         self.group.leave()
     }
 
-    func willUpdate(repository: RepositorySpecifier) {
+    func willUpdate(package: PackageIdentity, repository: RepositorySpecifier) {
         self._willUpdate.append(repository)
         self.group.leave()
     }
 
-    func didUpdate(repository: RepositorySpecifier, duration: DispatchTimeInterval) {
+    func didUpdate(package: PackageIdentity, repository: RepositorySpecifier, duration: DispatchTimeInterval) {
         self._didUpdate.append(repository)
         self.group.leave()
     }

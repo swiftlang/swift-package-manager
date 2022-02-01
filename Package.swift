@@ -167,7 +167,10 @@ let package = Package(
         .target(
             /** Source control operations */
             name: "SourceControl",
-            dependencies: ["Basics"],
+            dependencies: [
+                "Basics",
+                "PackageModel"
+            ],
             exclude: ["CMakeLists.txt"]
         ),
 

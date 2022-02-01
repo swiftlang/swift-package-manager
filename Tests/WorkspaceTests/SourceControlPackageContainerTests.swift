@@ -150,17 +150,17 @@ private class MockRepositories: RepositoryProvider {
 private class MockResolverDelegate: RepositoryManager.Delegate {
     var fetched = ThreadSafeArrayStore<RepositorySpecifier>()
 
-    func willFetch(repository: RepositorySpecifier, details: RepositoryManager.FetchDetails) {
+    func willFetch(package: PackageIdentity, repository: RepositorySpecifier, details: RepositoryManager.FetchDetails) {
         self.fetched.append(repository)
     }
 
-    func fetching(repository: RepositorySpecifier, objectsFetched: Int, totalObjectsToFetch: Int) {}
+    func fetching(package: PackageIdentity, repository: RepositorySpecifier, objectsFetched: Int, totalObjectsToFetch: Int) {}
 
-    func didFetch(repository: RepositorySpecifier, result: Result<RepositoryManager.FetchDetails, Error>, duration: DispatchTimeInterval) {}
+    func didFetch(package: PackageIdentity, repository: RepositorySpecifier, result: Result<RepositoryManager.FetchDetails, Error>, duration: DispatchTimeInterval) {}
 
-    func willUpdate(repository: RepositorySpecifier) {}
+    func willUpdate(package: PackageIdentity, repository: RepositorySpecifier) {}
 
-    func didUpdate(repository: RepositorySpecifier, duration: DispatchTimeInterval) {}
+    func didUpdate(package: PackageIdentity, repository: RepositorySpecifier, duration: DispatchTimeInterval) {}
 }
 
 // Some handy versions & ranges.

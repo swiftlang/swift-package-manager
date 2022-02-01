@@ -30,7 +30,6 @@ import WinSDK
 
 typealias Diagnostic = Basics.Diagnostic
 
-
 private class ToolWorkspaceDelegate: WorkspaceDelegate {
     /// The stream to use for reporting progress.
     private let outputStream: ThreadSafeOutputByteStream
@@ -55,10 +54,10 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
     }
 
     /// The progress of each individual downloads.
-    private var downloadProgress: [String: DownloadProgress] = [:]
+    private var binaryDownloadProgress: [String: DownloadProgress] = [:]
 
     /// The progress of each individual fetch operation
-    private var fetchProgress: [String: FetchProgress] = [:]
+    private var fetchProgress: [PackageIdentity: FetchProgress] = [:]
 
     private let queue = DispatchQueue(label: "org.swift.swiftpm.commands.tool-workspace-delegate")
 
@@ -74,9 +73,9 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
         self.observabilityScope = observabilityScope
     }
 
-    func willFetchPackage(package: String, fetchDetails: PackageFetchDetails) {
+    func willFetchPackage(package: PackageIdentity, packageLocation: String?, fetchDetails: PackageFetchDetails) {
         queue.async {
-            self.outputStream <<< "Fetching \(package)"
+            self.outputStream <<< "Fetching \(packageLocation ?? package.description)"
             if fetchDetails.fromCache {
                 self.outputStream <<< " from cache"
             }
@@ -85,7 +84,7 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
         }
     }
 
-    func didFetchPackage(package: String, result: Result<PackageFetchDetails, Error>, duration: DispatchTimeInterval) {
+    func didFetchPackage(package: PackageIdentity, packageLocation: String?, result: Result<PackageFetchDetails, Error>, duration: DispatchTimeInterval) {
         queue.async {
             if self.observabilityScope.errorsReported {
                 self.fetchAnimation.clear()
@@ -99,13 +98,13 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
                 self.fetchProgress.removeAll()
             }
 
-            self.outputStream <<< "Fetched \(package) (\(duration.descriptionInSeconds))"
+            self.outputStream <<< "Fetched \(packageLocation ?? package.description) (\(duration.descriptionInSeconds))"
             self.outputStream <<< "\n"
             self.outputStream.flush()
         }
     }
 
-    func fetchingPackage(package: String, progress: Int64, total: Int64?) {
+    func fetchingPackage(package: PackageIdentity, packageLocation: String?, progress: Int64, total: Int64?) {
         queue.async {
             self.fetchProgress[package] = FetchProgress(
                 progress: progress,
@@ -123,17 +122,17 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
         }
     }
 
-    func repositoryWillUpdate(_ repository: String) {
+    func willUpdateRepository(package: PackageIdentity, repository url: String) {
         queue.async {
-            self.outputStream <<< "Updating \(repository)"
+            self.outputStream <<< "Updating \(url)"
             self.outputStream <<< "\n"
             self.outputStream.flush()
         }
     }
 
-    func repositoryDidUpdate(_ repository: String, duration: DispatchTimeInterval) {
+    func didUpdateRepository(package: PackageIdentity, repository url: String, duration: DispatchTimeInterval) {
         queue.async {
-            self.outputStream <<< "Updated \(repository) (\(duration.descriptionInSeconds))"
+            self.outputStream <<< "Updated \(url) (\(duration.descriptionInSeconds))"
             self.outputStream <<< "\n"
             self.outputStream.flush()
         }
@@ -147,32 +146,25 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
         }
     }
 
-    func willCreateWorkingCopy(repository: String, at path: AbsolutePath) {
+    func willCreateWorkingCopy(package: PackageIdentity, repository url: String, at path: AbsolutePath) {
         queue.async {
-            self.outputStream <<< "Creating working copy for \(repository)"
+            self.outputStream <<< "Creating working copy for \(url)"
             self.outputStream <<< "\n"
             self.outputStream.flush()
         }
     }
 
-    func willCheckOut(repository: String, revision: String, at path: AbsolutePath) {
-        // noop
-    }
-
-    func didCheckOut(repository: String, revision: String, at path: AbsolutePath, error: Basics.Diagnostic?) {
-        guard case .none = error else {
-            return // error will be printed before hand
-        }
+    func didCheckOut(package: PackageIdentity, repository url: String, revision: String, at path: AbsolutePath) {
         queue.async {
-            self.outputStream <<< "Working copy of \(repository) resolved at \(revision)"
+            self.outputStream <<< "Working copy of \(url) resolved at \(revision)"
             self.outputStream <<< "\n"
             self.outputStream.flush()
         }
     }
 
-    func removing(repository: String) {
+    func removing(package: PackageIdentity, packageLocation: String?) {
         queue.async {
-            self.outputStream <<< "Removing \(repository)"
+            self.outputStream <<< "Removing \(packageLocation ?? package.description)"
             self.outputStream <<< "\n"
             self.outputStream.flush()
         }
@@ -209,13 +201,13 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
     func downloadingBinaryArtifact(from url: String, bytesDownloaded: Int64, totalBytesToDownload: Int64?) {
         queue.async {
             if let totalBytesToDownload = totalBytesToDownload {
-                self.downloadProgress[url] = DownloadProgress(
+                self.binaryDownloadProgress[url] = DownloadProgress(
                     bytesDownloaded: bytesDownloaded,
                     totalBytesToDownload: totalBytesToDownload)
             }
 
-            let step = self.downloadProgress.values.reduce(0, { $0 + $1.bytesDownloaded }) / 1024
-            let total = self.downloadProgress.values.reduce(0, { $0 + $1.totalBytesToDownload }) / 1024
+            let step = self.binaryDownloadProgress.values.reduce(0, { $0 + $1.bytesDownloaded }) / 1024
+            let total = self.binaryDownloadProgress.values.reduce(0, { $0 + $1.totalBytesToDownload }) / 1024
             self.downloadAnimation.update(step: Int(step), total: Int(total), text: "Downloading binary artifacts")
         }
     }
@@ -227,7 +219,7 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
             }
 
             self.downloadAnimation.complete(success: true)
-            self.downloadProgress.removeAll()
+            self.binaryDownloadProgress.removeAll()
         }
     }
 
@@ -235,7 +227,8 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
 
     func willLoadManifest(packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind) {}
     func didLoadManifest(packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind, manifest: Manifest?, diagnostics: [Basics.Diagnostic]) {}
-    func didCreateWorkingCopy(repository url: String, at path: AbsolutePath, error: Basics.Diagnostic?) {}
+    func willCheckOut(package: PackageIdentity, repository url: String, revision: String, at path: AbsolutePath) {}
+    func didCreateWorkingCopy(package: PackageIdentity, repository url: String, at path: AbsolutePath) {}
     func resolvedFileChanged() {}
 }
 

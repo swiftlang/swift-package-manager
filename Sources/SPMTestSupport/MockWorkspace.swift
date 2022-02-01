@@ -755,47 +755,47 @@ public final class MockWorkspaceDelegate: WorkspaceDelegate {
 
     public init() {}
 
-    public func repositoryWillUpdate(_ repository: String) {
-        self.append("updating repo: \(repository)")
+    public func willUpdateRepository(package: PackageIdentity, repository url: String) {
+        self.append("updating repo: \(url)")
     }
 
-    public func repositoryDidUpdate(_ repository: String, duration: DispatchTimeInterval) {
-        self.append("finished updating repo: \(repository)")
+    public func didUpdateRepository(package: PackageIdentity, repository url: String, duration: DispatchTimeInterval) {
+        self.append("finished updating repo: \(url)")
     }
 
     public func dependenciesUpToDate() {
         self.append("Everything is already up-to-date")
     }
 
-    public func willFetchPackage(package: String, fetchDetails: PackageFetchDetails) {
-        self.append("fetching package: \(package)")
+    public func willFetchPackage(package: PackageIdentity, packageLocation: String?, fetchDetails: PackageFetchDetails) {
+        self.append("fetching package: \(packageLocation ?? package.description)")
     }
 
-    public func fetchingPackage(package: String, progress: Int64, total: Int64?) {
+    public func fetchingPackage(package: PackageIdentity, packageLocation: String?, progress: Int64, total: Int64?) {
     }
 
-    public func didFetchPackage(package: String, result: Result<PackageFetchDetails, Error>, duration: DispatchTimeInterval) {
-        self.append("finished fetching package: \(package)")
+    public func didFetchPackage(package: PackageIdentity, packageLocation: String?, result: Result<PackageFetchDetails, Error>, duration: DispatchTimeInterval) {
+        self.append("finished fetching package: \(packageLocation ?? package.description)")
     }
 
-    public func willCreateWorkingCopy(repository url: String, at path: AbsolutePath) {
+    public func willCreateWorkingCopy(package: PackageIdentity, repository url: String, at path: AbsolutePath) {
         self.append("creating working copy for: \(url)")
     }
 
-    public func didCreateWorkingCopy(repository url: String, at path: AbsolutePath, error: Basics.Diagnostic?) {
+    public func didCreateWorkingCopy(package: PackageIdentity, repository url: String, at path: AbsolutePath) {
         self.append("finished creating working copy for: \(url)")
     }
 
-    public func willCheckOut(repository url: String, revision: String, at path: AbsolutePath) {
+    public func willCheckOut(package: PackageIdentity, repository url: String, revision: String, at path: AbsolutePath) {
         self.append("checking out repo: \(url)")
     }
 
-    public func didCheckOut(repository url: String, revision: String, at path: AbsolutePath, error: Basics.Diagnostic?) {
+    public func didCheckOut(package: PackageIdentity, repository url: String, revision: String, at path: AbsolutePath) {
         self.append("finished checking out repo: \(url)")
     }
 
-    public func removing(repository: String) {
-        self.append("removing repo: \(repository)")
+    public func removing(package: PackageIdentity, packageLocation: String?) {
+        self.append("removing repo: \(packageLocation ?? package.description)")
     }
 
     public func willResolveDependencies(reason: WorkspaceResolveReason) {
