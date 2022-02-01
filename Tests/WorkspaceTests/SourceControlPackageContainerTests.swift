@@ -89,6 +89,7 @@ private class MockRepository: Repository {
 private class MockRepositories: RepositoryProvider {
     /// The known repositories, as a map of URL to repository.
     let repositories: [RepositorySpecifier.Location: MockRepository]
+    var fetchRepositories = ThreadSafeKeyValueStore<RepositorySpecifier, AbsolutePath>()
 
     /// A mock manifest loader for all repositories.
     let manifestLoader: MockManifestLoader
@@ -109,8 +110,12 @@ private class MockRepositories: RepositoryProvider {
     }
 
     func fetch(repository: RepositorySpecifier, to path: AbsolutePath, progressHandler: FetchProgress.Handler? = nil) throws {
-        // No-op.
         assert(self.repositories.index(forKey: repository.location) != nil)
+        self.fetchRepositories[repository] = path
+    }
+
+    func repositoryExists(at path: AbsolutePath) throws -> Bool {
+        self.fetchRepositories.get().contains(where: { key, value in value == path })
     }
 
     func copy(from sourcePath: AbsolutePath, to destinationPath: AbsolutePath) throws {
@@ -142,22 +147,20 @@ private class MockRepositories: RepositoryProvider {
     }
 }
 
-private class MockResolverDelegate: RepositoryManagerDelegate {
-    var fetched = [RepositorySpecifier]()
+private class MockResolverDelegate: RepositoryManager.Delegate {
+    var fetched = ThreadSafeArrayStore<RepositorySpecifier>()
 
-    func fetchingWillBegin(handle: RepositoryManager.RepositoryHandle, fetchDetails: RepositoryManager.FetchDetails) {
-        self.fetched += [handle.repository]
+    func willFetch(repository: RepositorySpecifier, details: RepositoryManager.FetchDetails) {
+        self.fetched.append(repository)
     }
 
-    func fetchingRepository(from repository: String, objectsFetched: Int, totalObjectsToFetch: Int) {
-    }
+    func fetching(repository: RepositorySpecifier, objectsFetched: Int, totalObjectsToFetch: Int) {}
 
-    func fetchingDidFinish(handle: RepositoryManager.RepositoryHandle, fetchDetails: RepositoryManager.FetchDetails?, error: Swift.Error?, duration: DispatchTimeInterval) {
-    }
+    func didFetch(repository: RepositorySpecifier, result: Result<RepositoryManager.FetchDetails, Error>, duration: DispatchTimeInterval) {}
 
-    func handleWillUpdate(handle: RepositoryManager.RepositoryHandle) {}
+    func willUpdate(repository: RepositorySpecifier) {}
 
-    func handleDidUpdate(handle: RepositoryManager.RepositoryHandle, duration: DispatchTimeInterval) {}
+    func didUpdate(repository: RepositorySpecifier, duration: DispatchTimeInterval) {}
 }
 
 // Some handy versions & ranges.

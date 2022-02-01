@@ -704,5 +704,4 @@ class GitRepositoryTests: XCTestCase {
             XCTAssertNoThrow(try checkoutRepo.getCurrentRevision())
         }
     }
-
 }
