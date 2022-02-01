@@ -9,15 +9,16 @@
 */
 
 import Basics
-import TSCBasic
-import TSCUtility
 import Foundation
+import OrderedCollections
 import PackageLoading
 import PackageModel
 import PackageFingerprint
 import PackageGraph
 import PackageRegistry
 import SourceControl
+import TSCBasic
+import TSCUtility
 
 public typealias Diagnostic = TSCBasic.Diagnostic
 
@@ -1715,8 +1716,8 @@ extension Workspace {
         }
 
         /// Returns all manifests contained in DependencyManifests.
-        public func allDependencyManifests() -> OrderedDictionary<PackageIdentity, (manifest: Manifest, fs: FileSystem)> {
-            return self.dependencies.reduce(into: OrderedDictionary<PackageIdentity, (manifest: Manifest, fs: FileSystem)>()) { partial, item in
+        public func allDependencyManifests() -> OrderedCollections.OrderedDictionary<PackageIdentity, (manifest: Manifest, fs: FileSystem)> {
+            return self.dependencies.reduce(into: OrderedCollections.OrderedDictionary<PackageIdentity, (manifest: Manifest, fs: FileSystem)>()) { partial, item in
                 partial[item.dependency.packageRef.identity] = (item.manifest, item.fileSystem)
             }
         }

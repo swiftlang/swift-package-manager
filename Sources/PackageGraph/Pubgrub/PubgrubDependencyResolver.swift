@@ -10,6 +10,7 @@
 
 import Basics
 import Dispatch
+import OrderedCollections
 import PackageModel
 import TSCBasic
 import TSCUtility
@@ -264,7 +265,7 @@ public struct PubgrubDependencyResolver {
         // The list of constraints that we'll be working with. We start with the input constraints
         // and process them in two phases. The first phase finds all unversioned constraints and
         // the second phase discovers all branch-based constraints.
-        var constraints = OrderedSet(constraints)
+        var constraints = OrderedCollections.OrderedSet(constraints)
 
         // The list of packages that are overridden in the graph. A local package reference will
         // always override any other kind of package reference and branch-based reference will override
@@ -274,7 +275,7 @@ public struct PubgrubDependencyResolver {
         // The list of version-based references reachable via local and branch-based references.
         // These are added as top-level incompatibilities since they always need to be satisfied.
         // Some of these might be overridden as we discover local and branch-based references.
-        var versionBasedDependencies = OrderedDictionary<DependencyResolutionNode, [VersionBasedConstraint]>()
+        var versionBasedDependencies = OrderedCollections.OrderedDictionary<DependencyResolutionNode, [VersionBasedConstraint]>()
 
         // Process unversioned constraints in first phase. We go through all of the unversioned packages
         // and collect them and their dependencies. This gives us the complete list of unversioned
@@ -452,7 +453,7 @@ public struct PubgrubDependencyResolver {
     /// If a conflict is found, the conflicting incompatibility is returned to
     /// resolve the conflict on.
     internal func propagate(state: State, node: DependencyResolutionNode) throws {
-        var changed: OrderedSet<DependencyResolutionNode> = [node]
+        var changed: OrderedCollections.OrderedSet<DependencyResolutionNode> = [node]
 
         while !changed.isEmpty {
             let package = changed.removeFirst()
@@ -577,7 +578,7 @@ public struct PubgrubDependencyResolver {
             }
 
             incompatibility = try Incompatibility(
-                OrderedSet(newTerms),
+                OrderedCollections.OrderedSet(newTerms),
                 root: state.root,
                 cause: .conflict(cause: .init(conflict: incompatibility, other: priorCause))
             )
@@ -1211,7 +1212,7 @@ internal final class PubGrubPackageContainer {
                     return nil
                 }
 
-                var terms: OrderedSet<Term> = []
+                var terms: OrderedCollections.OrderedSet<Term> = []
                 // the package version requirement
                 terms.append(Term(node, .exact(version)))
                 // the dependency's version requirement
