@@ -115,15 +115,17 @@ public struct GitRepositoryProvider: RepositoryProvider {
                          progress: progressHandler)
     }
 
-    public func repositoryExists(at path: AbsolutePath) throws -> Bool {
-        // TODO: make this check more sophisticated?
-        return localFileSystem.isDirectory(path)
+    public func repositoryExists(at directory: AbsolutePath) -> Bool {
+        if !localFileSystem.isDirectory(directory) {
+            return false
+        }
+        return self.isValidDirectory(directory)
     }
     
     public func isValidDirectory(_ directory: AbsolutePath) -> Bool {
         do {
-            _ = try self.git.run(["-C", directory.pathString, "rev-parse", "--git-dir"])
-            return true
+            let result = try self.git.run(["-C", directory.pathString, "rev-parse", "--git-dir"])
+            return result == ".git" || result == "." || result == directory.pathString
         } catch {
             return false
         }
