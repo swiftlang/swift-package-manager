@@ -49,44 +49,39 @@ public struct PackageFetchDetails {
 
 /// The delegate interface used by the workspace to report status information.
 public protocol WorkspaceDelegate: AnyObject {
-    /// The workspace is about to load a package manifest (which might be in the cache, or might need to be parsed). Note that this does not include speculative loading of manifests that may occr during dependency resolution; rather, it includes only the final manifest loading that happens after a particular package version has been checked out into a working directory.
+    /// The workspace is about to load a package manifest (which might be in the cache, or might need to be parsed). Note that this does not include speculative loading of manifests that may occur during
+    /// dependency resolution; rather, it includes only the final manifest loading that happens after a particular package version has been checked out into a working directory.
     func willLoadManifest(packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind)
     /// The workspace has loaded a package manifest, either successfully or not. The manifest is nil if an error occurs, in which case there will also be at least one error in the list of diagnostics (there may be warnings even if a manifest is loaded successfully).
     func didLoadManifest(packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind, manifest: Manifest?, diagnostics: [Basics.Diagnostic])
 
-    /// The workspace has started fetching this repository.
-    // deprecated 01/2022, remove once clients moved over
-    func fetchingWillBegin(repository: String, fetchDetails: RepositoryManager.FetchDetails?)
-    func willFetchPackage(package: String, fetchDetails: PackageFetchDetails)
-    /// The workspace has finished fetching this repository.
-    // deprecated 01/2022, remove once clients moved over
-    func fetchingDidFinish(repository: String, fetchDetails: RepositoryManager.FetchDetails?, diagnostic: Basics.Diagnostic?, duration: DispatchTimeInterval)
-    func didFetchPackage(package: String, result: Result<PackageFetchDetails, Error>, duration: DispatchTimeInterval)
-    /// Called every time the progress of the git fetch operation updates.
-    // deprecated 01/2022, remove once clients moved over
-    func fetchingRepository(from repository: String, objectsFetched: Int, totalObjectsToFetch: Int)
-    func fetchingPackage(package: String, progress: Int64, total: Int64?)
+    /// The workspace has started fetching this package.
+    func willFetchPackage(package: PackageIdentity, packageLocation: String?, fetchDetails: PackageFetchDetails)
+    /// The workspace has finished fetching this package.
+    func didFetchPackage(package: PackageIdentity, packageLocation: String?, result: Result<PackageFetchDetails, Error>, duration: DispatchTimeInterval)
+    /// Called every time the progress of the package fetch operation updates.
+    func fetchingPackage(package: PackageIdentity, packageLocation: String?, progress: Int64, total: Int64?)
 
     /// The workspace has started updating this repository.
-    func repositoryWillUpdate(_ repository: String)
+    func willUpdateRepository(package: PackageIdentity, repository url: String)
     /// The workspace has finished updating this repository.
-    func repositoryDidUpdate(_ repository: String, duration: DispatchTimeInterval)
+    func didUpdateRepository(package: PackageIdentity, repository url: String, duration: DispatchTimeInterval)
 
     /// The workspace has finished updating and all the dependencies are already up-to-date.
     func dependenciesUpToDate()
 
     /// The workspace is about to clone a repository from the local cache to a working directory.
-    func willCreateWorkingCopy(repository url: String, at path: AbsolutePath)
+    func willCreateWorkingCopy(package: PackageIdentity, repository url: String, at path: AbsolutePath)
     /// The workspace has cloned a repository from the local cache to a working directory. The error indicates whether the operation failed or succeeded.
-    func didCreateWorkingCopy(repository url: String, at path: AbsolutePath, error: Basics.Diagnostic?)
+    func didCreateWorkingCopy(package: PackageIdentity, repository url: String, at path: AbsolutePath)
 
     /// The workspace is about to check out a particular revision of a working directory.
-    func willCheckOut(repository url: String, revision: String, at path: AbsolutePath)
+    func willCheckOut(package: PackageIdentity, repository url: String, revision: String, at path: AbsolutePath)
     /// The workspace has checked out a particular revision of a working directory. The error indicates whether the operation failed or succeeded.
-    func didCheckOut(repository url: String, revision: String, at path: AbsolutePath, error: Basics.Diagnostic?)
+    func didCheckOut(package: PackageIdentity, repository url: String, revision: String, at path: AbsolutePath)
 
     /// The workspace is removing this repository because it is no longer needed.
-    func removing(repository: String)
+    func removing(package: PackageIdentity, packageLocation: String?)
 
     /// Called when the resolver is about to be run.
     func willResolveDependencies(reason: WorkspaceResolveReason)
@@ -108,80 +103,59 @@ public protocol WorkspaceDelegate: AnyObject {
     func didDownloadBinaryArtifacts()
 }
 
-// empty implementation for soft deprecation. remove when clients moved over
-extension WorkspaceDelegate {
-    public func fetchingWillBegin(repository: String, fetchDetails: RepositoryManager.FetchDetails?) {}
-    public func fetchingDidFinish(repository: String, fetchDetails: RepositoryManager.FetchDetails?, diagnostic: Basics.Diagnostic?, duration: DispatchTimeInterval) {}
-    public func fetchingRepository(from repository: String, objectsFetched: Int, totalObjectsToFetch: Int) {}
-}
-
 private class WorkspaceRepositoryManagerDelegate: RepositoryManager.Delegate {
-    unowned let workspaceDelegate: WorkspaceDelegate
+    private unowned let workspaceDelegate: Workspace.Delegate
 
-    init(workspaceDelegate: WorkspaceDelegate) {
+    init(workspaceDelegate: Workspace.Delegate) {
         self.workspaceDelegate = workspaceDelegate
     }
 
-    func willFetch(repository: RepositorySpecifier, details: RepositoryManager.FetchDetails) {
-        self.workspaceDelegate.willFetchPackage(package: repository.location.description, fetchDetails: PackageFetchDetails(fromCache: details.fromCache, updatedCache: details.updatedCache) )
-        // deprecated 01/2022, remove once clients moved over
-        workspaceDelegate.fetchingWillBegin(repository: repository.location.description, fetchDetails: details)
+    func willFetch(package: PackageIdentity, repository: RepositorySpecifier, details: RepositoryManager.FetchDetails) {
+        self.workspaceDelegate.willFetchPackage(package: package, packageLocation: repository.location.description, fetchDetails: PackageFetchDetails(fromCache: details.fromCache, updatedCache: details.updatedCache) )
     }
 
-    func fetching(repository: RepositorySpecifier, objectsFetched: Int, totalObjectsToFetch: Int) {
-        self.workspaceDelegate.fetchingPackage(package: repository.location.description, progress: Int64(objectsFetched), total: Int64(totalObjectsToFetch))
-        // deprecated 01/2022, remove once clients moved over
-        workspaceDelegate.fetchingRepository(from: repository.location.description, objectsFetched: objectsFetched, totalObjectsToFetch: totalObjectsToFetch)
+    func fetching(package: PackageIdentity, repository: RepositorySpecifier, objectsFetched: Int, totalObjectsToFetch: Int) {
+        self.workspaceDelegate.fetchingPackage(package: package, packageLocation: repository.location.description, progress: Int64(objectsFetched), total: Int64(totalObjectsToFetch))
     }
 
-    func didFetch(repository: RepositorySpecifier, result: Result<RepositoryManager.FetchDetails, Error>, duration: DispatchTimeInterval) {
-        self.workspaceDelegate.didFetchPackage(package: repository.location.description, result: result.map{ PackageFetchDetails(fromCache: $0.fromCache, updatedCache: $0.updatedCache) }, duration: duration)
-        // deprecated 01/2022, remove once clients moved over
-        var details: RepositoryManager.FetchDetails? = nil
-        var diagnostic: Basics.Diagnostic? = nil
-        switch result {
-        case .success(let _details):
-            details = _details
-        case .failure(let error):
-            diagnostic = Basics.Diagnostic.error(error)
-        }
-        workspaceDelegate.fetchingDidFinish(repository: repository.location.description, fetchDetails: details, diagnostic: diagnostic, duration: duration)
+    func didFetch(package: PackageIdentity, repository: RepositorySpecifier, result: Result<RepositoryManager.FetchDetails, Error>, duration: DispatchTimeInterval) {
+        self.workspaceDelegate.didFetchPackage(package: package, packageLocation: repository.location.description, result: result.map{ PackageFetchDetails(fromCache: $0.fromCache, updatedCache: $0.updatedCache) }, duration: duration)
     }
 
-    func willUpdate(repository: RepositorySpecifier) {
-        workspaceDelegate.repositoryWillUpdate(repository.location.description)
+    func willUpdate(package: PackageIdentity, repository: RepositorySpecifier) {
+        self.workspaceDelegate.willUpdateRepository(package: package, repository: repository.location.description)
     }
 
-    func didUpdate(repository: RepositorySpecifier, duration: DispatchTimeInterval) {
-        workspaceDelegate.repositoryDidUpdate(repository.location.description, duration: duration)
+    func didUpdate(package: PackageIdentity, repository: RepositorySpecifier, duration: DispatchTimeInterval) {
+        self.workspaceDelegate.didUpdateRepository(package: package, repository: repository.location.description, duration: duration)
     }
 }
 
 private struct WorkspaceRegistryDownloadsManagerDelegate: RegistryDownloadsManager.Delegate {
-    private let workspaceDelegate: WorkspaceDelegate
+    private unowned let workspaceDelegate: Workspace.Delegate
 
-    init(workspaceDelegate: WorkspaceDelegate) {
+    init(workspaceDelegate: Workspace.Delegate) {
         self.workspaceDelegate = workspaceDelegate
     }
 
     func willFetch(package: PackageIdentity, version: Version, fetchDetails: RegistryDownloadsManager.FetchDetails) {
-        self.workspaceDelegate.willFetchPackage(package: package.description, fetchDetails: PackageFetchDetails(fromCache: fetchDetails.fromCache, updatedCache: fetchDetails.updatedCache) )
+        self.workspaceDelegate.willFetchPackage(package: package, packageLocation: .none, fetchDetails: PackageFetchDetails(fromCache: fetchDetails.fromCache, updatedCache: fetchDetails.updatedCache) )
     }
 
     func didFetch(package: PackageIdentity, version: Version, result: Result<RegistryDownloadsManager.FetchDetails, Error>, duration: DispatchTimeInterval) {
-        self.workspaceDelegate.didFetchPackage(package: package.description, result: result.map{ PackageFetchDetails(fromCache: $0.fromCache, updatedCache: $0.updatedCache) }, duration: duration)
+        self.workspaceDelegate.didFetchPackage(package: package, packageLocation: .none, result: result.map{ PackageFetchDetails(fromCache: $0.fromCache, updatedCache: $0.updatedCache) }, duration: duration)
     }
 
     func fetching(package: PackageIdentity, version: Version, downloaded: Int64, total: Int64?) {
-        self.workspaceDelegate.fetchingPackage(package: package.description, progress: downloaded, total: total)
+        self.workspaceDelegate.fetchingPackage(package: package, packageLocation: .none, progress: downloaded, total: total)
     }
 }
 
 private struct WorkspaceDependencyResolverDelegate: DependencyResolverDelegate {
-    private unowned let workspaceDelegate: WorkspaceDelegate
+    private unowned let workspaceDelegate: Workspace.Delegate
     private let resolving = ThreadSafeKeyValueStore<PackageIdentity, Bool>()
 
-    init(_ delegate: WorkspaceDelegate) {
+    init(_ delegate: Workspace.Delegate) {
         self.workspaceDelegate = delegate
     }
 
@@ -218,8 +192,10 @@ private struct WorkspaceDependencyResolverDelegate: DependencyResolverDelegate {
 ///
 /// This class does *not* support concurrent operations.
 public class Workspace {
+    public typealias Delegate = WorkspaceDelegate
+
     /// The delegate interface.
-    fileprivate weak var delegate: WorkspaceDelegate?
+    fileprivate weak var delegate: Delegate?
 
     /// The workspace location.
     public let location: Location
@@ -322,7 +298,7 @@ public class Workspace {
         customPackageContainerProvider: PackageContainerProvider? = .none,
         customRepositoryProvider: RepositoryProvider? = .none,
         // delegate
-        delegate: WorkspaceDelegate? = .none
+        delegate: Delegate? = .none
     ) throws {
         try self.init(
             fileSystem: fileSystem,
@@ -374,7 +350,7 @@ public class Workspace {
         customPackageContainerProvider: PackageContainerProvider? = .none,
         customRepositoryProvider: RepositoryProvider? = .none,
         // delegate
-        delegate: WorkspaceDelegate? = .none
+        delegate: Delegate? = .none
     ) throws {
         let fileSystem = fileSystem ?? localFileSystem
         let location = Location(forRootPackage: packagePath, fileSystem: fileSystem)
@@ -416,7 +392,7 @@ public class Workspace {
         customPackageContainerProvider: PackageContainerProvider? = .none,
         customRepositoryProvider: RepositoryProvider? = .none,
         // delegate
-        delegate: WorkspaceDelegate? = .none
+        delegate: Delegate? = .none
     ) throws {
         let fileSystem = fileSystem ?? localFileSystem
         let location = Location(forRootPackage: packagePath, fileSystem: fileSystem)
@@ -462,7 +438,7 @@ public class Workspace {
         resolverPrefetchingEnabled: Bool? = .none,
         resolverFingerprintCheckingMode: FingerprintCheckingMode = .warn,
         sharedRepositoriesCacheEnabled: Bool? = .none,
-        delegate: WorkspaceDelegate? = .none
+        delegate: Delegate? = .none
     ) throws {
         let configuration = WorkspaceConfiguration(
             skipDependenciesUpdates: !(resolverUpdateEnabled ?? !WorkspaceConfiguration.default.skipDependenciesUpdates),
@@ -504,7 +480,7 @@ public class Workspace {
         repositoryManager: RepositoryManager? = nil,
         currentToolsVersion: ToolsVersion? = nil,
         toolsVersionLoader: ToolsVersionLoaderProtocol? = nil,
-        delegate: WorkspaceDelegate? = nil,
+        delegate: Delegate? = nil,
         config: Workspace.Configuration? = nil,
         fileSystem: FileSystem? = nil,
         repositoryProvider: RepositoryProvider? = nil,
@@ -566,7 +542,7 @@ public class Workspace {
         forRootPackage packagePath: AbsolutePath,
         manifestLoader: ManifestLoaderProtocol,
         repositoryManager: RepositoryManager? = nil,
-        delegate: WorkspaceDelegate? = nil,
+        delegate: Delegate? = nil,
         identityResolver: IdentityResolver? = nil
     ) -> Workspace {
         let workspace = try! Workspace(
@@ -608,7 +584,7 @@ public class Workspace {
         customArchiver: Archiver? = .none,
         customChecksumAlgorithm: HashAlgorithm? = .none,
         // delegate
-        delegate: WorkspaceDelegate? = .none
+        delegate: Delegate? = .none
     ) throws -> Workspace {
         try .init(
             fileSystem: fileSystem,
@@ -655,7 +631,7 @@ public class Workspace {
         customArchiver: Archiver?,
         customChecksumAlgorithm: HashAlgorithm?,
         // delegate
-        delegate: WorkspaceDelegate?
+        delegate: Delegate?
     ) throws {
         // we do not store an observabilityScope in the workspace initializer as the workspace is designed to be long lived.
         // instead, observabilityScope is passed into the individual workspace methods which are short lived.
@@ -1459,6 +1435,7 @@ extension Workspace {
             let repository = try dependency.packageRef.makeRepositorySpecifier()
             let handle = try temp_await {
                 repositoryManager.lookup(
+                    package: dependency.packageRef.identity,
                     repository: repository,
                     skipUpdate: true,
                     observabilityScope: observabilityScope,
@@ -3494,6 +3471,7 @@ extension Workspace: PackageContainerProvider {
                 case .localSourceControl, .remoteSourceControl:
                     let repositorySpecifier = try package.makeRepositorySpecifier()
                     self.repositoryManager.lookup(
+                        package: package.identity,
                         repository: repositorySpecifier,
                         skipUpdate: skipUpdate,
                         observabilityScope: observabilityScope,
@@ -3562,12 +3540,8 @@ extension Workspace: PackageContainerProvider {
         }
 
         // Inform the delegate.
-        // FIXME: we should change the delegate to take identity instead of location
-        if let repository = try? dependency.packageRef.makeRepositorySpecifier() {
-            delegate?.removing(repository: repository.location.description)
-        } else {
-            delegate?.removing(repository: dependency.packageRef.identity.description)
-        }
+        let repository = try? dependency.packageRef.makeRepositorySpecifier()
+        delegate?.removing(package: package.identity, packageLocation: repository?.location.description)
 
         // Compute the dependency which we need to remove.
         let dependencyToRemove: ManagedDependency
@@ -3631,7 +3605,7 @@ extension Workspace {
         let workingCopy = try self.repositoryManager.openWorkingCopy(at: checkoutPath)
 
         // Inform the delegate.
-        delegate?.willCheckOut(repository: repository.location.description, revision: checkoutState.description, at: checkoutPath)
+        delegate?.willCheckOut(package: package.identity, repository: repository.location.description, revision: checkoutState.description, at: checkoutPath)
 
         // Do mutable-immutable dance because checkout operation modifies the disk state.
         try fileSystem.chmod(.userWritable, path: checkoutPath, options: [.recursive, .onlyFiles])
@@ -3649,7 +3623,7 @@ extension Workspace {
         )
         try self.state.save()
 
-        delegate?.didCheckOut(repository: repository.location.description, revision: checkoutState.description, at: checkoutPath, error: nil)
+        delegate?.didCheckOut(package: package.identity, repository: repository.location.description, revision: checkoutState.description, at: checkoutPath)
 
         return checkoutPath
     }
@@ -3724,6 +3698,7 @@ extension Workspace {
         // FIXME: this should not block
         let handle = try temp_await {
             self.repositoryManager.lookup(
+                package: package.identity,
                 repository: repository,
                 skipUpdate: true,
                 observabilityScope: observabilityScope,
@@ -3740,9 +3715,9 @@ extension Workspace {
         try self.fileSystem.removeFileTree(path)
 
         // Inform the delegate that we're starting cloning.
-        self.delegate?.willCreateWorkingCopy(repository: handle.repository.location.description, at: path)
+        self.delegate?.willCreateWorkingCopy(package: package.identity, repository: handle.repository.location.description, at: path)
         _ = try handle.createWorkingCopy(at: path, editable: false)
-        self.delegate?.didCreateWorkingCopy(repository: handle.repository.location.description, at: path, error: nil)
+        self.delegate?.didCreateWorkingCopy(package: package.identity, repository: handle.repository.location.description, at: path)
 
         return path
     }

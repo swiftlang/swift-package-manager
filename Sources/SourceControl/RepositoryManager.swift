@@ -12,6 +12,7 @@ import Basics
 import Dispatch
 import Foundation
 import TSCBasic
+import PackageModel
 
 /// Manages a collection of bare repositories.
 public class RepositoryManager {
@@ -86,6 +87,7 @@ public class RepositoryManager {
     /// completion block of another lookup will block.
     ///
     /// - Parameters:
+    ///   - package: The package identity of the repository to fetch,
     ///   - repository: The repository to look up.
     ///   - skipUpdate: If a repository is available, skip updating it.
     ///   - observabilityScope: The observability scope
@@ -93,6 +95,7 @@ public class RepositoryManager {
     ///   - callbackQueue: Dispatch queue for callbacks
     ///   - completion: The completion block that should be called after lookup finishes.
     public func lookup(
+        package: PackageIdentity,
         repository: RepositorySpecifier,
         skipUpdate: Bool,
         observabilityScope: ObservabilityScope,
@@ -119,13 +122,13 @@ public class RepositoryManager {
                     // Update the repository when it is being looked up.
                     let start = DispatchTime.now()
                     delegateQueue.async {
-                        self.delegate?.willUpdate(repository: handle.repository)
+                        self.delegate?.willUpdate(package: package, repository: handle.repository)
                     }
                     let repository = try handle.open()
                     try repository.fetch()
                     let duration = start.distance(to: .now())
                     delegateQueue.async {
-                        self.delegate?.didUpdate(repository: handle.repository, duration: duration)
+                        self.delegate?.didUpdate(package: package, repository: handle.repository, duration: duration)
                     }
                     return handle
                 }))
@@ -139,6 +142,7 @@ public class RepositoryManager {
                 pendingLookup.notify(queue: callbackQueue) {
                     // at this point the previous lookup should be complete and we can re-lookup
                     self.lookup(
+                        package: package,
                         repository: repository,
                         skipUpdate: skipUpdate,
                         observabilityScope: observabilityScope,
@@ -160,7 +164,7 @@ public class RepositoryManager {
                 let isCached = self.cachePath.map{ self.fileSystem.exists($0.appending(handle.subpath)) } ?? false
                 delegateQueue.async {
                     let details = FetchDetails(fromCache: isCached, updatedCache: false)
-                    self.delegate?.willFetch(repository: handle.repository, details: details)
+                    self.delegate?.willFetch(package: package, repository: handle.repository, details: details)
                 }
 
                 let start = DispatchTime.now()
@@ -172,6 +176,7 @@ public class RepositoryManager {
                     try? self.fileSystem.removeFileTree(repositoryPath)
                     // Fetch the repo.
                     let details = try self.fetchAndPopulateCache(
+                        package: package,
                         handle: handle,
                         repositoryPath: repositoryPath,
                         observabilityScope: observabilityScope,
@@ -187,7 +192,7 @@ public class RepositoryManager {
                 // Inform delegate.
                 let duration = start.distance(to: .now())
                 delegateQueue.async {
-                    self.delegate?.didFetch(repository: handle.repository, result: delegateResult, duration: duration)
+                    self.delegate?.didFetch(package: package, repository: handle.repository, result: delegateResult, duration: duration)
                 }
 
                 // remove the pending lookup
@@ -203,12 +208,14 @@ public class RepositoryManager {
 
     /// Fetches the repository into the cache. If no `cachePath` is set or an error occurred fall back to fetching the repository without populating the cache.
     /// - Parameters:
+    ///   - package: The package identity of the repository to fetch.
     ///   - handle: The specifier of the repository to fetch.
     ///   - repositoryPath: The path where the repository should be fetched to.
     ///   - observabilityScope: The observability scope
     ///   - delegateQueue: Dispatch queue for delegate events
     @discardableResult
-    func fetchAndPopulateCache(
+    private func fetchAndPopulateCache(
+        package: PackageIdentity,
         handle: RepositoryHandle,
         repositoryPath: AbsolutePath,
         observabilityScope: ObservabilityScope,
@@ -223,6 +230,7 @@ public class RepositoryManager {
             if let total = progress.totalSteps {
                 delegateQueue.async {
                     self.delegate?.fetching(
+                        package: package,
                         repository: handle.repository,
                         objectsFetched: progress.step,
                         totalObjectsToFetch: total
@@ -273,8 +281,6 @@ public class RepositoryManager {
             try self.provider.fetch(repository: handle.repository, to: repositoryPath, progressHandler: updateFetchProgress(progress:))
         }
         return FetchDetails(fromCache: cacheUsed, updatedCache: cacheUpdated)
-
-
     }
 
     public func openWorkingCopy(at path: AbsolutePath) throws -> WorkingCheckout {
@@ -397,21 +403,21 @@ extension RepositoryManager {
 }
 
 /// Delegate to notify clients about actions being performed by RepositoryManager.
-public protocol RepositoryManagerDelegate: AnyObject {
+public protocol RepositoryManagerDelegate {
     /// Called when a repository is about to be fetched.
-    func willFetch(repository: RepositorySpecifier, details: RepositoryManager.FetchDetails)
+    func willFetch(package: PackageIdentity, repository: RepositorySpecifier, details: RepositoryManager.FetchDetails)
 
     /// Called every time the progress of a repository fetch operation updates.
-    func fetching(repository: RepositorySpecifier, objectsFetched: Int, totalObjectsToFetch: Int)
+    func fetching(package: PackageIdentity, repository: RepositorySpecifier, objectsFetched: Int, totalObjectsToFetch: Int)
 
     /// Called when a repository has finished fetching.
-    func didFetch(repository: RepositorySpecifier, result: Result<RepositoryManager.FetchDetails, Error>, duration: DispatchTimeInterval)
+    func didFetch(package: PackageIdentity, repository: RepositorySpecifier, result: Result<RepositoryManager.FetchDetails, Error>, duration: DispatchTimeInterval)
 
     /// Called when a repository has started updating from its remote.
-    func willUpdate(repository: RepositorySpecifier)
+    func willUpdate(package: PackageIdentity, repository: RepositorySpecifier)
 
     /// Called when a repository has finished updating from its remote.
-    func didUpdate(repository: RepositorySpecifier, duration: DispatchTimeInterval)
+    func didUpdate(package: PackageIdentity, repository: RepositorySpecifier, duration: DispatchTimeInterval)
 }
 
 
