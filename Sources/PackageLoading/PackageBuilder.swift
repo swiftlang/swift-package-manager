@@ -783,9 +783,8 @@ public final class PackageBuilder {
             )
         }
 
-        // Check for duplicate target dependencies by name
-        let combinedDependencyNames = dependencies.map { $0.target?.name ?? $0.product!.name }
-        combinedDependencyNames.spm_findDuplicates().forEach {
+        // Check for duplicate target dependencies
+        dependencies.spm_findDuplicateElements(by: \.nameAndType).map(\.[0].name).forEach {
             self.observabilityScope.emit(.duplicateTargetDependency(dependency: $0, target: potentialModule.name, package: self.identity.description))
         }
 
@@ -1469,5 +1468,17 @@ extension PackageBuilder {
                                    swiftVersion: try swiftVersion(),
                                    buildSettings: buildSettings)
             }
+    }
+}
+
+private extension Target.Dependency {
+    
+    var nameAndType: String {
+        switch self {
+            case .target:
+                return "target-\(name)"
+            case .product:
+                return "product-\(name)"
+        }
     }
 }
