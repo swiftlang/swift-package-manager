@@ -12,7 +12,7 @@ import PackageModel
 import SourceControl
 import SPMTestSupport
 import TSCBasic
-import TSCLibc
+
 import TSCUtility
 import Workspace
 import XCTest

@@ -19,13 +19,17 @@ import PackageModel
 import SourceControl
 import SPMBuildCore
 import TSCBasic
-import TSCLibc
+
 import TSCUtility
 import Workspace
 import XCBuildSupport
 
 #if os(Windows)
 import WinSDK
+#elseif os(iOS) || os(macOS) || os(tvOS) || os(watchOS)
+import Darwin
+#else
+import Glibc
 #endif
 
 typealias Diagnostic = Basics.Diagnostic
