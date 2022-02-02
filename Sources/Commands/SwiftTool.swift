@@ -609,6 +609,13 @@ public class SwiftTool {
             // User didn't tell us to use these .netrc files so be more lenient with errors
             func loadNetrcNoThrows(at path: AbsolutePath) -> NetrcAuthorizationProvider? {
                 guard localFileSystem.exists(path) else { return nil }
+                
+                do {
+                    try withTemporaryFile(dir: path.parentDirectory) { _ in }
+                } catch {
+                    self.observabilityScope.emit(warning: "\(path.parentDirectory) is not accessible or not writable, not using .netrc file in it: \(error)")
+                    return nil
+                }
 
                 do {
                     return try NetrcAuthorizationProvider(path: path, fileSystem: localFileSystem)
