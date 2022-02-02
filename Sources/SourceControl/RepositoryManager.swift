@@ -33,11 +33,8 @@ public class RepositoryManager {
     /// The delegate interface.
     private let delegate: Delegate?
 
-    /// Operation queue to do concurrent operations on manager.
-    ///
-    /// We use operation queue (and not dispatch queue) to limit the amount of
-    /// concurrent operations.
-    private let lookupQueue: OperationQueue
+    /// DispatchSemaphore to restrict concurrent operations on manager.
+    private let lookupSemaphore: DispatchSemaphore
 
     /// The filesystem to operate on.
     private let fileSystem: FileSystem
@@ -74,9 +71,7 @@ public class RepositoryManager {
         self.provider = provider
         self.delegate = delegate
 
-        self.lookupQueue = OperationQueue()
-        self.lookupQueue.name = "org.swift.swiftpm.repository-manager-lookup"
-        self.lookupQueue.maxConcurrentOperationCount = Swift.min(3, Concurrency.maxOperations)
+        self.lookupSemaphore = DispatchSemaphore(value: Swift.min(3, Concurrency.maxOperations))
     }
 
     /// Get a handle to a repository.
@@ -104,106 +99,119 @@ public class RepositoryManager {
         completion: @escaping (Result<RepositoryHandle, Error>) -> Void
     ) {
         // wrap the callback in the requested queue
-        let completion = { result in callbackQueue.async { completion(result) } }
+        let originalCompletion = completion
+        let completion: (Result<RepositoryHandle, Error>) -> Void = { result in
+            self.lookupSemaphore.signal()
+            callbackQueue.async { originalCompletion(result) }
+        }
 
-        self.lookupQueue.addOperation {
-            let relativePath = repository.storagePath()
-            let repositoryPath = self.path.appending(relativePath)
-            let handle = RepositoryManager.RepositoryHandle(manager: self, repository: repository, subpath: relativePath)
+        self.lookupSemaphore.wait()
+        let relativePath = repository.storagePath()
+        let repositoryPath = self.path.appending(relativePath)
+        let handle = RepositoryManager.RepositoryHandle(manager: self, repository: repository, subpath: relativePath)
 
-            // errors when trying to check if a repository already exists are legitimate
-            // and recoverable, and as such can be ignored
-            if (try? self.provider.repositoryExists(at: repositoryPath)) ?? false {
-                return completion(.init(catching: {
-                    // skip update if not needed
-                    if skipUpdate {
-                        return handle
-                    }
-                    // Update the repository when it is being looked up.
-                    let start = DispatchTime.now()
-                    delegateQueue.async {
-                        self.delegate?.willUpdate(package: package, repository: handle.repository)
-                    }
-                    let repository = try handle.open()
-                    try repository.fetch()
-                    let duration = start.distance(to: .now())
-                    delegateQueue.async {
-                        self.delegate?.didUpdate(package: package, repository: handle.repository, duration: duration)
-                    }
-                    return handle
-                }))
-            }
-
-            // next we check if there is a pending lookup
-            self.pendingLookupsLock.lock()
-            if let pendingLookup = self.pendingLookups[repository] {
-                self.pendingLookupsLock.unlock()
-                // chain onto the pending lookup
-                pendingLookup.notify(queue: callbackQueue) {
-                    // at this point the previous lookup should be complete and we can re-lookup
-                    self.lookup(
-                        package: package,
-                        repository: repository,
-                        skipUpdate: skipUpdate,
-                        observabilityScope: observabilityScope,
-                        delegateQueue: delegateQueue,
-                        callbackQueue: callbackQueue,
-                        completion: completion
-                    )
-                }
-            } else {
-                // record the pending lookup
-                assert(self.pendingLookups[repository] == nil)
-                let group = DispatchGroup()
-                group.enter()
-                self.pendingLookups[repository] = group
-                self.pendingLookupsLock.unlock()
-
-                // inform delegate that we are starting to fetch
-                // calculate if cached (for delegate call) outside queue as it may change while queue is processing
-                let isCached = self.cachePath.map{ self.fileSystem.exists($0.appending(handle.subpath)) } ?? false
-                delegateQueue.async {
-                    let details = FetchDetails(fromCache: isCached, updatedCache: false)
-                    self.delegate?.willFetch(package: package, repository: handle.repository, details: details)
-                }
-
-                let start = DispatchTime.now()
-                let lookupResult: Result<RepositoryHandle, Error>
-                let delegateResult: Result<FetchDetails, Error>
-
-                do {
-                    // make sure destination is free.
-                    try? self.fileSystem.removeFileTree(repositoryPath)
-                    // Fetch the repo.
-                    let details = try self.fetchAndPopulateCache(
-                        package: package,
-                        handle: handle,
-                        repositoryPath: repositoryPath,
-                        observabilityScope: observabilityScope,
-                        delegateQueue: delegateQueue
-                    )
-                    lookupResult = .success(handle)
-                    delegateResult = .success(details)
-                } catch {
-                    lookupResult = .failure(error)
-                    delegateResult = .failure(error)
-                }
-
-                // Inform delegate.
-                let duration = start.distance(to: .now())
-                delegateQueue.async {
-                    self.delegate?.didFetch(package: package, repository: handle.repository, result: delegateResult, duration: duration)
-                }
-
-                // remove the pending lookup
-                self.pendingLookupsLock.lock()
-                self.pendingLookups[repository]?.leave()
-                self.pendingLookups[repository] = nil
-                self.pendingLookupsLock.unlock()
-                // and done
-                completion(lookupResult)
+        // check if there is a pending lookup
+        self.pendingLookupsLock.lock()
+        if let pendingLookup = self.pendingLookups[repository] {
+            self.pendingLookupsLock.unlock()
+            // chain onto the pending lookup
+            return pendingLookup.notify(queue: callbackQueue) {
+                // at this point the previous lookup should be complete and we can re-lookup
+                self.lookup(
+                    package: package,
+                    repository: repository,
+                    skipUpdate: skipUpdate,
+                    observabilityScope: observabilityScope,
+                    delegateQueue: delegateQueue,
+                    callbackQueue: callbackQueue,
+                    completion: originalCompletion
+                )
             }
         }
+
+        // record the pending lookup
+        assert(self.pendingLookups[repository] == nil)
+        let group = DispatchGroup()
+        group.enter()
+        self.pendingLookups[repository] = group
+        self.pendingLookupsLock.unlock()
+
+        // check if a repository already exists
+        // errors when trying to check if a repository already exists are legitimate
+        // and recoverable, and as such can be ignored
+        if (try? self.provider.repositoryExists(at: repositoryPath)) ?? false {
+            let result = Result<RepositoryHandle, Error>(catching: {
+                // skip update if not needed
+                if skipUpdate {
+                    return handle
+                }
+                // Update the repository when it is being looked up.
+                let start = DispatchTime.now()
+                delegateQueue.async {
+                    self.delegate?.willUpdate(package: package, repository: handle.repository)
+                }
+                let repository = try handle.open()
+                try repository.fetch()
+                let duration = start.distance(to: .now())
+                delegateQueue.async {
+                    self.delegate?.didUpdate(package: package, repository: handle.repository, duration: duration)
+                }
+                return handle
+            })
+
+            // remove the pending lookup
+            self.pendingLookupsLock.lock()
+            self.pendingLookups[repository]?.leave()
+            self.pendingLookups[repository] = nil
+            self.pendingLookupsLock.unlock()
+            // and done
+            return completion(result)
+        }
+
+        // perform the fetch
+        // inform delegate that we are starting to fetch
+        // calculate if cached (for delegate call) outside queue as it may change while queue is processing
+        let isCached = self.cachePath.map{ self.fileSystem.exists($0.appending(handle.subpath)) } ?? false
+        delegateQueue.async {
+            let details = FetchDetails(fromCache: isCached, updatedCache: false)
+            self.delegate?.willFetch(package: package, repository: handle.repository, details: details)
+        }
+
+        let start = DispatchTime.now()
+        let lookupResult: Result<RepositoryHandle, Error>
+        let delegateResult: Result<FetchDetails, Error>
+
+        do {
+            // make sure destination is free.
+            try? self.fileSystem.removeFileTree(repositoryPath)
+            // Fetch the repo.
+            let details = try self.fetchAndPopulateCache(
+                package: package,
+                handle: handle,
+                repositoryPath: repositoryPath,
+                observabilityScope: observabilityScope,
+                delegateQueue: delegateQueue
+            )
+            lookupResult = .success(handle)
+            delegateResult = .success(details)
+        } catch {
+            lookupResult = .failure(error)
+            delegateResult = .failure(error)
+        }
+
+        // Inform delegate.
+        let duration = start.distance(to: .now())
+        delegateQueue.async {
+            self.delegate?.didFetch(package: package, repository: handle.repository, result: delegateResult, duration: duration)
+        }
+
+        // remove the pending lookup
+        self.pendingLookupsLock.lock()
+        self.pendingLookups[repository]?.leave()
+        self.pendingLookups[repository] = nil
+        self.pendingLookupsLock.unlock()
+        // and done
+        completion(lookupResult)
     }
 
     /// Fetches the repository into the cache. If no `cachePath` is set or an error occurred fall back to fetching the repository without populating the cache.

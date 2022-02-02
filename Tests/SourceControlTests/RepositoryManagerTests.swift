@@ -340,10 +340,9 @@ class RepositoryManagerTests: XCTestCase {
             )
             let dummyRepo = RepositorySpecifier(path: .init("/dummy"))
 
-
             let group = DispatchGroup()
             let results = ThreadSafeKeyValueStore<Int, Result<RepositoryManager.RepositoryHandle, Error>>()
-            let concurrency = 1000
+            let concurrency = 10000
             for index in 0 ..< concurrency {
                 group.enter()
                 delegate.prepare(fetchExpected: index == 0, updateExpected: index > 0)
