@@ -4085,9 +4085,10 @@ extension Workspace.Location {
 
         // check that shared configuration directory is accessible, or warn + reset if not
         if let sharedConfigurationDirectory = self.sharedConfigurationDirectory {
-            // it may not always be possible to create default location (for example de to restricted sandbox)
+            // It may not always be possible to create default location (for example de to restricted sandbox),
+            // in which case defaultDirectory would be nil.
             let defaultDirectory = try? fileSystem.getOrCreateSwiftPMConfigurationDirectory(warningHandler: warningHandler)
-            if sharedConfigurationDirectory != defaultDirectory {
+            if defaultDirectory != nil, sharedConfigurationDirectory != defaultDirectory {
                 // custom location must be writable, throw if we cannot access it
                 try withTemporaryFile(dir: sharedConfigurationDirectory) { _ in }
             } else {
@@ -4103,9 +4104,10 @@ extension Workspace.Location {
 
         // check that shared configuration directory is accessible, or warn + reset if not
         if let sharedSecurityDirectory = self.sharedSecurityDirectory {
-            // it may not always be possible to create default location (for example de to restricted sandbox)
+            // It may not always be possible to create default location (for example de to restricted sandbox),
+            // in which case defaultDirectory would be nil.
             let defaultDirectory = try? fileSystem.getOrCreateSwiftPMSecurityDirectory()
-            if sharedSecurityDirectory != defaultDirectory {
+            if defaultDirectory != nil, sharedSecurityDirectory != defaultDirectory {
                 // custom location must be writable, throw if we cannot access it
                 try withTemporaryFile(dir: sharedSecurityDirectory) { _ in }
             } else {
@@ -4121,9 +4123,10 @@ extension Workspace.Location {
 
         // check that shared configuration directory is accessible, or warn + reset if not
         if let sharedCacheDirectory = self.sharedCacheDirectory {
-            // it may not always be possible to create default location (for example de to restricted sandbox)
+            // It may not always be possible to create default location (for example de to restricted sandbox),
+            // in which case defaultDirectory would be nil.
             let defaultDirectory = try? fileSystem.getOrCreateSwiftPMCacheDirectory()
-            if sharedCacheDirectory != defaultDirectory {
+            if defaultDirectory != nil, sharedCacheDirectory != defaultDirectory {
                 // custom location must be writable, throw if we cannot access it
                 try withTemporaryFile(dir: sharedCacheDirectory) { _ in }
             } else {
