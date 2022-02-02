@@ -9,7 +9,8 @@
 */
 
 import TSCBasic
-import TSCUtility
+
+import protocol TSCUtility.PolymorphicCodableProtocol
 
 public class Target: PolymorphicCodableProtocol {
     public static var implementations: [PolymorphicCodableProtocol.Type] = [

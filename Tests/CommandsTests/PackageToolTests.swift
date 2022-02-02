@@ -17,7 +17,6 @@ import PackageModel
 import SourceControl
 import SPMTestSupport
 import TSCBasic
-import TSCUtility
 import Workspace
 import Xcodeproj
 import XCTest

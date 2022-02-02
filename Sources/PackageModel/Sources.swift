@@ -9,7 +9,6 @@
 */
 
 import TSCBasic
-import TSCUtility
 
 /// A grouping of related source files.
 public struct Sources: Codable {

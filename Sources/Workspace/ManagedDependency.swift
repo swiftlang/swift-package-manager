@@ -13,7 +13,6 @@ import PackageGraph
 import PackageModel
 import SourceControl
 import TSCBasic
-import TSCUtility
 
 extension Workspace {
     /// An individual managed dependency.

@@ -16,9 +16,12 @@ import SPMBuildCore
 import SPMTestSupport
 import SwiftDriver
 import TSCBasic
-import TSCUtility
 import Workspace
 import XCTest
+
+import struct TSCUtility.BuildFlags
+import enum TSCUtility.Diagnostics
+import struct TSCUtility.Triple
 
 let hostTriple = UserToolchain.default.triple
 #if os(macOS)

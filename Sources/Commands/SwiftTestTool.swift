@@ -16,8 +16,11 @@ import PackageGraph
 import SPMBuildCore
 import TSCBasic
 import func TSCLibc.exit
-import TSCUtility
 import Workspace
+
+import class TSCUtility.NinjaProgressAnimation
+import class TSCUtility.PercentProgressAnimation
+import protocol TSCUtility.ProgressAnimationProtocol
 
 private enum TestError: Swift.Error {
     case invalidListTestJSONData

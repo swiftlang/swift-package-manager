@@ -14,7 +14,8 @@ import PackageModel
 import PackageLoading
 import SourceControl
 import TSCBasic
-import TSCUtility
+
+import struct TSCUtility.BuildFlags
 
 public struct XcodeprojOptions {
     /// The build flags.

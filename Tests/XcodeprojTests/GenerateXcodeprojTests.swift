@@ -13,7 +13,6 @@ import PackageGraph
 import PackageModel
 import SourceControl
 import SPMTestSupport
-import TSCUtility
 import TSCBasic
 import Xcodeproj
 import XCTest

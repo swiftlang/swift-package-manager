@@ -15,9 +15,11 @@ import PackageModel
 @testable import SPMBuildCore
 import SPMTestSupport
 import TSCBasic
-import TSCUtility
 import Workspace
 import XCTest
+
+import struct TSCUtility.SerializedDiagnostics
+import struct TSCUtility.Triple
 
 class PluginInvocationTests: XCTestCase {
 

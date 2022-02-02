@@ -14,7 +14,8 @@ import PackageModel
 import PackageLoading
 import PackageGraph
 import TSCBasic
-import TSCUtility
+
+import struct TSCUtility.Triple
 
 public typealias Diagnostic = Basics.Diagnostic
 

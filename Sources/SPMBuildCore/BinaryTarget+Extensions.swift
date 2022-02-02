@@ -13,8 +13,8 @@ import Basics
 import PackageModel
 import PackageGraph
 import TSCBasic
-import TSCUtility
 
+import struct TSCUtility.Triple
 
 /// Information about a library from a binary dependency.
 public struct LibraryInfo: Equatable {

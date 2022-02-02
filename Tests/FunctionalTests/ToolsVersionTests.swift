@@ -11,7 +11,6 @@
 import XCTest
 
 import TSCBasic
-import TSCUtility
 import SPMTestSupport
 import Commands
 import PackageModel

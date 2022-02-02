@@ -13,7 +13,6 @@ import Dispatch
 import Foundation
 import SourceControl
 import TSCBasic
-import TSCUtility
 
 /// The error encountered during in memory git repository operations.
 public enum InMemoryGitRepositoryError: Swift.Error {

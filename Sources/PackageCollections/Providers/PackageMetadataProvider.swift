@@ -13,7 +13,6 @@ import struct Foundation.URL
 
 import PackageModel
 import TSCBasic
-import TSCUtility
 
 /// `PackageBasicMetadata` provider
 protocol PackageMetadataProvider {

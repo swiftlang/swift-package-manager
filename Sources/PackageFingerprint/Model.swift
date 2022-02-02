@@ -9,7 +9,8 @@
  */
 
 import struct Foundation.URL
-import TSCUtility
+
+import struct TSCUtility.Version
 
 public struct Fingerprint: Equatable {
     public let origin: Origin

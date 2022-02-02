@@ -14,7 +14,6 @@ import struct Foundation.URL
 import PackageModel
 import SourceControl
 import TSCBasic
-import TSCUtility
 
 public enum PackageCollectionsModel {}
 

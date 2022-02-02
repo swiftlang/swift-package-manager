@@ -11,7 +11,6 @@
 import Foundation
 
 import TSCBasic
-import TSCUtility
 
 import Basics
 import PackageModel

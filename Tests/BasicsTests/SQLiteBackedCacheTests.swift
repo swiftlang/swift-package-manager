@@ -11,9 +11,10 @@
 @testable import Basics
 import TSCBasic
 import TSCTestSupport
-import TSCUtility
 import tsan_utils
 import XCTest
+
+import struct TSCUtility.SQLite
 
 final class SQLiteBackedCacheTests: XCTestCase {
     func testHappyCase() throws {

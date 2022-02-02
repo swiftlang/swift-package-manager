@@ -16,9 +16,10 @@ import PackageModel
 import SourceControl
 import SPMTestSupport
 import TSCBasic
-import TSCUtility
 @testable import Workspace
 import XCTest
+
+import enum TSCUtility.Git
 
 private class MockRepository: Repository {
     /// The fake location of the repository.

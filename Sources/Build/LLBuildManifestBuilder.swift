@@ -15,7 +15,6 @@ import LLBuildManifest
 import SPMBuildCore
 @_implementationOnly import SwiftDriver
 import TSCBasic
-import TSCUtility
 
 public class LLBuildManifestBuilder {
     public enum TargetKind {

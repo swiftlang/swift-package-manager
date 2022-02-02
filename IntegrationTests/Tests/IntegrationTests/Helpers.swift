@@ -11,8 +11,9 @@ See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 import Foundation
 import XCTest
 import TSCBasic
-import TSCUtility
 import TSCTestSupport
+
+import enum TSCUtility.Git
 
 let sdkRoot: AbsolutePath? = {
     if let environmentPath = ProcessInfo.processInfo.environment["SDK_ROOT"] {

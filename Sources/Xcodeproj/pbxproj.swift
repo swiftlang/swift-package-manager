@@ -13,7 +13,6 @@ import TSCBasic
 import PackageGraph
 import PackageModel
 import PackageLoading
-import TSCUtility
 
 /// Errors encounter during Xcode project generation
 public enum ProjectGenerationError: Swift.Error {

@@ -11,7 +11,6 @@
 import TSCBasic
 
 import Foundation
-import TSCUtility
 
 /// The diagnostic triggered when the package has a newer tools version than the installed tools.
 public struct RequireNewerTools: Error, CustomStringConvertible {

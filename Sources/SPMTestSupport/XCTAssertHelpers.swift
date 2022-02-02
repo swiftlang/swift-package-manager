@@ -14,8 +14,9 @@ import class Foundation.Bundle
 #endif
 import TSCBasic
 @_exported import TSCTestSupport
-import TSCUtility
 import XCTest
+
+import struct TSCUtility.Version
 
 public func XCTAssertBuilds(
     _ path: AbsolutePath,

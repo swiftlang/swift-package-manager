@@ -16,7 +16,9 @@ import PackageLoading
 import PackageModel
 import PackageRegistry
 import TSCBasic
-import TSCUtility
+
+import class TSCUtility.SimplePersistence
+import protocol TSCUtility.SimplePersistanceProtocol
 
 // MARK: - Location
 

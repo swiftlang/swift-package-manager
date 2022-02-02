@@ -12,7 +12,8 @@ import Basics
 import Foundation
 import SPMBuildCore
 import TSCBasic
-import TSCUtility
+
+import struct TSCUtility.Triple
 
 public enum DestinationError: Swift.Error {
     /// Couldn't find the Xcode installation.

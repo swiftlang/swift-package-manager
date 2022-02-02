@@ -11,9 +11,11 @@
 import class Foundation.ProcessInfo
 
 import TSCBasic
-import TSCUtility
 import PackageModel
 import PackageGraph
+
+import struct TSCUtility.BuildFlags
+import struct TSCUtility.Triple
 
 public struct BuildParameters: Encodable {
     /// Mode for the indexing-while-building feature.

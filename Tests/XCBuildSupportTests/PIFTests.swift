@@ -11,7 +11,6 @@
 import XCTest
 import Basics
 import TSCBasic
-import TSCUtility
 import PackageModel
 import SPMBuildCore
 import XCBuildSupport

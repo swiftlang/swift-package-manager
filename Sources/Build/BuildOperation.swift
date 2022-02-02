@@ -15,8 +15,12 @@ import PackageModel
 import SPMBuildCore
 import SPMLLBuild
 import TSCBasic
-import TSCUtility
 import Foundation
+
+import enum TSCUtility.Diagnostics
+import class TSCUtility.MultiLineNinjaProgressAnimation
+import class TSCUtility.NinjaProgressAnimation
+import protocol TSCUtility.ProgressAnimationProtocol
 
 public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildSystem, BuildErrorAdviceProvider {
 

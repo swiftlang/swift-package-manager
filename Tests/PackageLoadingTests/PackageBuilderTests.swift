@@ -13,7 +13,6 @@ import PackageLoading
 import PackageModel
 import SPMTestSupport
 import TSCBasic
-import TSCUtility
 import XCTest
 
 /// Tests for the handling of source layout conventions.

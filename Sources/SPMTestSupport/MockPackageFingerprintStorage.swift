@@ -13,7 +13,6 @@ import Dispatch
 import PackageFingerprint
 import PackageModel
 import TSCBasic
-import TSCUtility
 
 public class MockPackageFingerprintStorage: PackageFingerprintStorage {
     private var packageFingerprints: [PackageIdentity: [Version: [Fingerprint.Kind: Fingerprint]]]

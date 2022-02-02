@@ -18,7 +18,10 @@ import PackageModel
 import SPMBuildCore
 @_implementationOnly import SwiftDriver
 import TSCBasic
-import TSCUtility
+
+import enum TSCUtility.Diagnostics
+import struct TSCUtility.Triple
+import var TSCUtility.verbosity
 
 extension String {
     fileprivate var asSwiftStringLiteralConstant: String {

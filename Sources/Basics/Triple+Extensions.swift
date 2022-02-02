@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import TSCUtility
+import struct TSCUtility.Triple
 
 extension Triple {
   public func platformBuildPathComponent() -> String {

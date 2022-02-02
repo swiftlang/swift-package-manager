@@ -15,7 +15,6 @@ import PackageGraph
 import PackageModel
 import SPMBuildCore
 import TSCBasic
-import TSCUtility
 
 /// A wrapper for swift-symbolgraph-extract tool.
 public struct SymbolGraphExtract {
