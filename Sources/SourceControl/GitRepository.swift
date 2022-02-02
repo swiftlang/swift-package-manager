@@ -857,6 +857,14 @@ private class GitFileSystemView: FileSystem {
         return false
     }
 
+    func isReadable(_ path: AbsolutePath) -> Bool {
+        return self.exists(path)
+    }
+
+    func isWritable(_ path: AbsolutePath) -> Bool {
+        return false
+    }
+
     public var currentWorkingDirectory: AbsolutePath? {
         return AbsolutePath("/")
     }

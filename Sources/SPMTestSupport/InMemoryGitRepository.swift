@@ -234,6 +234,14 @@ extension InMemoryGitRepository: FileSystem {
         }
     }
 
+    public func isReadable(_ path: AbsolutePath) -> Bool {
+        return self.exists(path)
+    }
+
+    public func isWritable(_ path: AbsolutePath) -> Bool {
+        return false
+    }
+
     public var currentWorkingDirectory: AbsolutePath? {
         return AbsolutePath("/")
     }
