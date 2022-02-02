@@ -18,7 +18,6 @@ import PackageModel
 import SourceControl
 import SPMTestSupport
 import TSCBasic
-import TSCUtility
 
 class JSONPackageCollectionProviderTests: XCTestCase {
     func testGood() throws {

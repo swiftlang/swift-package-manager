@@ -10,7 +10,6 @@
 
 import Basics
 import TSCBasic
-import TSCUtility
 import Foundation
 
 /// This contains the declarative specification loaded from package manifest

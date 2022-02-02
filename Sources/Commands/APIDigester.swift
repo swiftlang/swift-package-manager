@@ -11,7 +11,6 @@
 import Dispatch
 
 import TSCBasic
-import TSCUtility
 
 import SPMBuildCore
 import Basics
@@ -20,6 +19,10 @@ import PackageGraph
 import PackageModel
 import SourceControl
 import Workspace
+
+import enum TSCUtility.Diagnostics
+import struct TSCUtility.SerializedDiagnostics
+import var TSCUtility.verbosity
 
 /// Helper for emitting a JSON API baseline for a module.
 struct APIDigesterBaselineDumper {

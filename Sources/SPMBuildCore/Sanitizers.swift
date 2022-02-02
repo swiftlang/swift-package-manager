@@ -9,7 +9,6 @@
  */
 
 import TSCBasic
-import TSCUtility
 
 /// Available runtime sanitizers.
 public enum Sanitizer: String, Encodable, CaseIterable {

@@ -11,7 +11,6 @@
 import Basics
 import Foundation
 import TSCBasic
-import TSCUtility
 
 /// A package reference.
 ///

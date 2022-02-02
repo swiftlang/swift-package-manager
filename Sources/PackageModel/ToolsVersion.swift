@@ -11,7 +11,6 @@
 import Basics
 import Foundation
 import TSCBasic
-import TSCUtility
 
 /// Tools version represents version of the Swift toolchain.
 public struct ToolsVersion: Equatable, Hashable, Codable {

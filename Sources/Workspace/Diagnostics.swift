@@ -14,7 +14,6 @@ import PackageGraph
 import PackageLoading
 import PackageModel
 import TSCBasic
-import TSCUtility
 
 public struct ManifestParseDiagnostic: CustomStringConvertible {
     public let errors: [String]

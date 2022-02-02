@@ -20,7 +20,6 @@ import SourceControl
 import SPMBuildCore
 import TSCBasic
 
-import TSCUtility
 import Workspace
 import XCBuildSupport
 
@@ -31,6 +30,9 @@ import Darwin
 #else
 import Glibc
 #endif
+
+import class TSCUtility.NinjaProgressAnimation
+import var TSCUtility.verbosity
 
 typealias Diagnostic = Basics.Diagnostic
 

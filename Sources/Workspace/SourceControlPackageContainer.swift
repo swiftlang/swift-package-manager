@@ -16,7 +16,8 @@ import PackageLoading
 import PackageModel
 import SourceControl
 import TSCBasic
-import TSCUtility
+
+import enum TSCUtility.Git
 
 /// Adaptor to expose an individual repository as a package container.
 internal final class SourceControlPackageContainer: PackageContainer, CustomStringConvertible {

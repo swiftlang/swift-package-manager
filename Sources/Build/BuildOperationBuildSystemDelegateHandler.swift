@@ -16,7 +16,10 @@ import PackageModel
 import SPMBuildCore
 import SPMLLBuild
 import TSCBasic
-import TSCUtility
+
+import class TSCUtility.IndexStore
+import class TSCUtility.IndexStoreAPI
+import protocol TSCUtility.ProgressAnimationProtocol
 
 #if canImport(llbuildSwift)
 typealias LLBuildBuildSystemDelegate = llbuildSwift.BuildSystemDelegate

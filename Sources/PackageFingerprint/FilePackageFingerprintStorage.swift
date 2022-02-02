@@ -13,7 +13,6 @@ import Dispatch
 import Foundation
 import PackageModel
 import TSCBasic
-import TSCUtility
 
 public struct FilePackageFingerprintStorage: PackageFingerprintStorage {
     let fileSystem: FileSystem

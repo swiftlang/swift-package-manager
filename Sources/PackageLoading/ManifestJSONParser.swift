@@ -12,7 +12,10 @@ import Basics
 import Foundation
 import PackageModel
 import TSCBasic
-import TSCUtility
+
+import struct TSCUtility.URL
+
+fileprivate typealias URL = Foundation.URL
 
 enum ManifestJSONParser {
     private static let filePrefix = "file://"
@@ -247,7 +250,7 @@ enum ManifestJSONParser {
               )
             }
             return AbsolutePath(location).pathString
-        } else if URL.scheme(dependencyLocation) == nil {
+        } else if TSCUtility.URL.scheme(dependencyLocation) == nil {
             // If the dependency URL is not remote, try to "fix" it.
             // If the URL has no scheme, we treat it as a path (either absolute or relative to the base URL).
             return AbsolutePath(dependencyLocation, relativeTo: packagePath).pathString

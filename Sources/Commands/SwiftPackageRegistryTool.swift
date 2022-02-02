@@ -17,7 +17,6 @@ import PackageModel
 import PackageLoading
 import PackageGraph
 import SourceControl
-import TSCUtility
 import XCBuildSupport
 import Workspace
 import Foundation

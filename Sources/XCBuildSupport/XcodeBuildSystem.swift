@@ -14,8 +14,10 @@ import PackageGraph
 import PackageModel
 import SPMBuildCore
 import TSCBasic
-import TSCUtility
 
+import class TSCUtility.MultiLinePercentProgressAnimation
+import enum TSCUtility.Diagnostics
+import protocol TSCUtility.ProgressAnimationProtocol
 
 public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
     private let buildParameters: BuildParameters

@@ -11,7 +11,6 @@
 import TSCBasic
 import SPMTestSupport
 @testable import SourceControl
-import TSCUtility
 import XCTest
 
 class GitRepositoryProviderTests: XCTestCase {

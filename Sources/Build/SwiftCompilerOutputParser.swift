@@ -10,7 +10,9 @@
 
 import Foundation
 import TSCBasic
-import TSCUtility
+
+import class TSCUtility.JSONMessageStreamingParser
+import protocol TSCUtility.JSONMessageStreamingParserDelegate
 
 /// Represents a message output by the Swift compiler in JSON output mode.
 public struct SwiftCompilerMessage {

@@ -11,7 +11,8 @@
 import PackageModel
 import PackageGraph
 import TSCBasic
-import TSCUtility
+
+import class TSCUtility.FSWatch
 
 /// A file watcher utility for the Package.resolved file.
 ///

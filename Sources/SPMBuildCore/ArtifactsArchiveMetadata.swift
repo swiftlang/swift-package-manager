@@ -11,7 +11,8 @@
 import Foundation
 import PackageModel
 import TSCBasic
-import TSCUtility
+
+import struct TSCUtility.Triple
 
 public struct ArtifactsArchiveMetadata: Equatable {
     public let schemaVersion: String

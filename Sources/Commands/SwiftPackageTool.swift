@@ -17,12 +17,13 @@ import PackageModel
 import PackageLoading
 import PackageGraph
 import SourceControl
-import TSCUtility
 import Xcodeproj
 import XCBuildSupport
 import Workspace
 import Foundation
 import PackageModel
+
+import enum TSCUtility.Diagnostics
 
 /// swift-package tool namespace
 public struct SwiftPackageTool: ParsableCommand {

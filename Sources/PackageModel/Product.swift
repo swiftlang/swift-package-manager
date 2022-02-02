@@ -9,7 +9,8 @@
 */
 
 import TSCBasic
-import TSCUtility
+
+import struct TSCUtility.PolymorphicCodableArray
 
 public class Product: Codable {
     /// The name of the product.

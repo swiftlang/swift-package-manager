@@ -17,7 +17,6 @@
 import TSCBasic
 import PackageModel
 import PackageLoading
-import TSCUtility
 
 /// An error that causes the access to a manifest to fails.
 public struct ManifestAccessError: Error, CustomStringConvertible {

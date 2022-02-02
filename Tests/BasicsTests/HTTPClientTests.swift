@@ -10,7 +10,6 @@
 
 @testable import Basics
 import TSCTestSupport
-import TSCUtility
 import XCTest
 
 final class HTTPClientTest: XCTestCase {

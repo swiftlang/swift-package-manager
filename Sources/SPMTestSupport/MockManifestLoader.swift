@@ -14,7 +14,6 @@ import PackageModel
 import PackageLoading
 import PackageGraph
 import TSCBasic
-import TSCUtility
 import func XCTest.XCTFail
 
 public enum MockManifestLoaderError: Swift.Error {

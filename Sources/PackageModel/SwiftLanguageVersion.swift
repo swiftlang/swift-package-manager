@@ -11,7 +11,6 @@
 import TSCBasic
 
 import Foundation
-import TSCUtility
 
 /// Represents a Swift language version.
 public struct SwiftLanguageVersion {

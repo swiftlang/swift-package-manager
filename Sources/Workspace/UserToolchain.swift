@@ -14,7 +14,8 @@ import PackageLoading
 import PackageModel
 import SPMBuildCore
 import TSCBasic
-import TSCUtility
+
+import struct TSCUtility.Triple
 
 #if os(Windows)
 private let hostExecutableSuffix = ".exe"

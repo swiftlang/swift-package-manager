@@ -13,7 +13,6 @@ import Commands
 import Foundation
 import SPMTestSupport
 import TSCBasic
-import TSCUtility
 import XCTest
 
 let defaultRegistryBaseURL = URL(string: "https://packages.example.com")!

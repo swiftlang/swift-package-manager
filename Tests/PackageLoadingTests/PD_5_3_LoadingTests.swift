@@ -13,7 +13,6 @@ import PackageModel
 import PackageLoading
 import SPMTestSupport
 import TSCBasic
-import TSCUtility
 import XCTest
 
 class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {

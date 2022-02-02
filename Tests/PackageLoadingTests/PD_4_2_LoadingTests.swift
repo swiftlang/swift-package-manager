@@ -14,7 +14,6 @@ import PackageLoading
 import PackageModel
 import SPMTestSupport
 import TSCBasic
-import TSCUtility
 import XCTest
 
 class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {

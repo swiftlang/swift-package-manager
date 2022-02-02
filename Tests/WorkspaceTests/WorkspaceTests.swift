@@ -18,10 +18,11 @@ import SourceControl
 import SPMBuildCore
 import SPMTestSupport
 import TSCBasic
-import enum TSCUtility.Diagnostics
-import struct TSCUtility.Triple
 @testable import Workspace
 import XCTest
+
+import enum TSCUtility.Diagnostics
+import struct TSCUtility.Triple
 
 final class WorkspaceTests: XCTestCase {
     func testBasics() throws {

@@ -11,7 +11,6 @@
 @testable import Basics
 import SPMTestSupport
 import TSCBasic
-import TSCUtility
 import XCTest
 
 final class SandboxTest: XCTestCase {

@@ -12,7 +12,6 @@ import PackageGraph
 import PackageModel
 import SourceControl
 import TSCBasic
-import TSCUtility
 
 extension Workspace {
     /// A downloaded artifact managed by the workspace.

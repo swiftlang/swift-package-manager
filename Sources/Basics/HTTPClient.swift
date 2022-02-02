@@ -15,7 +15,6 @@ import class Foundation.JSONDecoder
 import class Foundation.NSError
 import struct Foundation.URL
 import TSCBasic
-import TSCUtility
 
 #if canImport(Glibc)
 import Glibc
