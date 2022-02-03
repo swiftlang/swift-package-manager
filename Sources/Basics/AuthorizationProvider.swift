@@ -53,19 +53,15 @@ private extension Foundation.URL {
 // MARK: - netrc
 
 public struct NetrcAuthorizationProvider: AuthorizationProvider {
-    let path: AbsolutePath
+    // marked internal for testing
+    internal let path: AbsolutePath
     private let fileSystem: FileSystem
-
-    private var underlying: TSCUtility.Netrc?
-
-    var machines: [TSCUtility.Netrc.Machine] {
-        self.underlying?.machines ?? []
-    }
 
     public init(path: AbsolutePath, fileSystem: FileSystem) throws {
         self.path = path
         self.fileSystem = fileSystem
-        self.underlying = try Self.load(from: path)
+        // validate file is okay at the time of initializing the provider
+        _ = try Self.load(fileSystem: fileSystem, path: path)
     }
 
     public mutating func addOrUpdate(for url: Foundation.URL, user: String, password: String, callback: @escaping (Result<Void, Error>) -> Void) {
@@ -74,8 +70,9 @@ public struct NetrcAuthorizationProvider: AuthorizationProvider {
         }
 
         // Same entry already exists, no need to add or update
-        guard self.machines.first(where: { $0.name.lowercased() == machine && $0.login == user && $0.password == password }) == nil else {
-            return
+        let netrc = try? Self.load(fileSystem: self.fileSystem, path: self.path)
+        guard netrc?.machines.first(where: { $0.name.lowercased() == machine && $0.login == user && $0.password == password }) == nil else {
+            return callback(.success(()))
         }
 
         do {
@@ -92,12 +89,6 @@ public struct NetrcAuthorizationProvider: AuthorizationProvider {
                     stream.write("\n")
                 }
             }
-
-            // At this point the netrc file should exist and non-empty
-            guard let netrc = try Self.load(from: self.path) else {
-                throw AuthorizationProviderError.other("Failed to update netrc file at \(self.path)")
-            }
-            self.underlying = netrc
 
             callback(.success(()))
         } catch {
@@ -119,17 +110,21 @@ public struct NetrcAuthorizationProvider: AuthorizationProvider {
         return .none
     }
 
-    private static func load(from path: AbsolutePath) throws -> TSCUtility.Netrc? {
+    // marked internal for testing
+    internal var machines: [TSCUtility.Netrc.Machine] {
+        // this ignores any errors reading the file
+        // initial validation is done at the time of initializing the provider
+        // and if the file becomes corrupt at runtime it will handle it gracefully
+        let netrc = try? Self.load(fileSystem: self.fileSystem, path: self.path)
+        return netrc?.machines ?? []
+    }
+
+    private static func load(fileSystem: FileSystem, path: AbsolutePath) throws -> Netrc? {
         do {
-            return try TSCUtility.Netrc.load(fromFileAtPath: path).get()
-        } catch {
-            switch error {
-            case Netrc.Error.fileNotFound, Netrc.Error.machineNotFound:
-                // These are recoverable errors. We will just create the file and append entry to it.
-                return nil
-            default:
-                throw error
-            }
+            return try Netrc.load(fromFileAtPath: path).get()
+        } catch Netrc.Error.fileNotFound, Netrc.Error.machineNotFound {
+            // These are recoverable errors.
+            return .none
         }
     }
 }
