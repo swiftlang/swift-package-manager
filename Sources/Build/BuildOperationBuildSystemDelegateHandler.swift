@@ -225,24 +225,28 @@ public struct BuildDescription: Codable {
     /// The built test products.
     public let builtTestProducts: [BuiltTestProduct]
 
+    /// Distilled information about any plugins defined in the package.
+    let pluginDescriptions: [PluginDescription]
+
     public init(
         plan: BuildPlan,
         swiftCommands: [BuildManifest.CmdName : SwiftCompilerTool],
         swiftFrontendCommands: [BuildManifest.CmdName : SwiftFrontendTool],
         testDiscoveryCommands: [BuildManifest.CmdName: LLBuildManifest.TestDiscoveryTool],
-        copyCommands: [BuildManifest.CmdName: LLBuildManifest.CopyTool]
+        copyCommands: [BuildManifest.CmdName: LLBuildManifest.CopyTool],
+        pluginDescriptions: [PluginDescription]
     ) throws {
         self.swiftCommands = swiftCommands
         self.swiftFrontendCommands = swiftFrontendCommands
         self.testDiscoveryCommands = testDiscoveryCommands
         self.copyCommands = copyCommands
-
         self.builtTestProducts = plan.buildProducts.filter{ $0.product.type == .test }.map { desc in
             return BuiltTestProduct(
                 productName: desc.product.name,
                 binaryPath: desc.binary
             )
         }
+        self.pluginDescriptions = pluginDescriptions
     }
 
     public func write(to path: AbsolutePath) throws {
@@ -593,6 +597,26 @@ final class BuildOperationBuildSystemDelegateHandler: LLBuildBuildSystemDelegate
 
     func shouldResolveCycle(rules: [BuildKey], candidate: BuildKey, action: CycleAction) -> Bool {
         return false
+    }
+    
+    /// Invoked right before running an action taken before building.
+    func preparationStepStarted(_ name: String) {
+        self.outputStream <<< name <<< "\n"
+        self.outputStream.flush()
+    }
+
+    /// Invoked when an action taken before building emits output.
+    func preparationStepHadOutput(_ name: String, output: String) {
+        queue.async {
+            self.progressAnimation.clear()
+            self.outputStream <<< output.spm_chomp() <<< "\n"
+            self.outputStream.flush()
+        }
+    }
+
+    /// Invoked right after running an action taken before building. The result
+    /// indicates whether the action succeeded, failed, or was cancelled.
+    func preparationStepFinished(_ name: String, result: CommandResult) {
     }
 
     // MARK: SwiftCompilerOutputParserDelegate

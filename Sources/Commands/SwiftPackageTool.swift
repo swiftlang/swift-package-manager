@@ -398,7 +398,8 @@ extension SwiftPackageTool {
                 at: overrideBaselineDir,
                 force: regenerateBaseline,
                 outputStream: swiftTool.outputStream,
-                logLevel: swiftTool.logLevel
+                logLevel: swiftTool.logLevel,
+                swiftTool: swiftTool
             )
 
             let results = ThreadSafeArrayStore<SwiftAPIDigester.ComparisonResult>()
@@ -1156,7 +1157,8 @@ final class PluginDelegate: PluginInvocationDelegate {
             buildParameters: buildParameters,
             cacheBuildManifest: false,
             packageGraphLoader: { try self.swiftTool.loadPackageGraph(explicitProduct: explicitProduct) },
-            buildToolPluginInvoker: { try self.swiftTool.invokeBuildToolPlugins(graph: $0) },
+            pluginScriptRunner: try self.swiftTool.getPluginScriptRunner(),
+            pluginWorkDirectory: try self.swiftTool.getActiveWorkspace().location.pluginWorkingDirectory,
             outputStream: outputStream,
             logLevel: logLevel,
             fileSystem: localFileSystem,

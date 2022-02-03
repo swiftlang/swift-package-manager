@@ -2154,4 +2154,136 @@ final class PackageToolTests: CommandsTestCase {
             }
         }
     }
+
+    func testPluginCompilationBeforeBuilding() throws {
+        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
+        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
+        
+        try testWithTemporaryDirectory { tmpPath in
+            // Create a sample package with a couple of plugins a other targets and products.
+            let packageDir = tmpPath.appending(components: "MyPackage")
+            try localFileSystem.createDirectory(packageDir, recursive: true)
+            try localFileSystem.writeFileContents(packageDir.appending(components: "Package.swift"), string: """
+                // swift-tools-version: 5.6
+                import PackageDescription
+                let package = Package(
+                    name: "MyPackage",
+                    products: [
+                        .library(
+                            name: "MyLibrary",
+                            targets: ["MyLibrary"]
+                        ),
+                        .executable(
+                            name: "MyExecutable",
+                            targets: ["MyExecutable"]
+                        ),
+                    ],
+                    targets: [
+                        .target(
+                            name: "MyLibrary"
+                        ),
+                        .executableTarget(
+                            name: "MyExecutable",
+                            dependencies: ["MyLibrary"]
+                        ),
+                        .plugin(
+                            name: "MyBuildToolPlugin",
+                            capability: .buildTool()
+                        ),
+                        .plugin(
+                            name: "MyCommandPlugin",
+                            capability: .command(
+                                intent: .custom(verb: "my-build-tester", description: "Help description")
+                            )
+                        ),
+                    ]
+                )
+                """
+            )
+            let myLibraryTargetDir = packageDir.appending(components: "Sources", "MyLibrary")
+            try localFileSystem.createDirectory(myLibraryTargetDir, recursive: true)
+            try localFileSystem.writeFileContents(myLibraryTargetDir.appending(component: "library.swift"), string: """
+                public func GetGreeting() -> String { return "Hello" }
+                """
+            )
+            let myExecutableTargetDir = packageDir.appending(components: "Sources", "MyExecutable")
+            try localFileSystem.createDirectory(myExecutableTargetDir, recursive: true)
+            try localFileSystem.writeFileContents(myExecutableTargetDir.appending(component: "main.swift"), string: """
+                import MyLibrary
+                print("\\(GetGreeting()), World!")
+                """
+            )
+            let myBuildToolPluginTargetDir = packageDir.appending(components: "Plugins", "MyBuildToolPlugin")
+            try localFileSystem.createDirectory(myBuildToolPluginTargetDir, recursive: true)
+            try localFileSystem.writeFileContents(myBuildToolPluginTargetDir.appending(component: "plugin.swift"), string: """
+                import PackagePlugin
+                @main struct MyBuildToolPlugin: BuildToolPlugin {
+                    func createBuildCommands(
+                        context: PluginContext,
+                        target: Target
+                    ) throws -> [Command] {
+                        return []
+                    }
+                }
+                """
+            )
+            let myCommandPluginTargetDir = packageDir.appending(components: "Plugins", "MyCommandPlugin")
+            try localFileSystem.createDirectory(myCommandPluginTargetDir, recursive: true)
+            try localFileSystem.writeFileContents(myCommandPluginTargetDir.appending(component: "plugin.swift"), string: """
+                import PackagePlugin
+                @main struct MyCommandPlugin: CommandPlugin {
+                    func performCommand(
+                        context: PluginContext,
+                        arguments: [String]
+                    ) throws {
+                    }
+                }
+                """
+            )
+            
+            // Check that building without options compiles both plugins and that the build proceeds.
+            do {
+                let result = try SwiftPMProduct.SwiftBuild.executeProcess([], packagePath: packageDir)
+                let output = try result.utf8Output() + result.utf8stderrOutput()
+                XCTAssertEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
+                XCTAssertMatch(output, .contains("Compiling plugin MyBuildToolPlugin..."))
+                XCTAssertMatch(output, .contains("Compiling plugin MyCommandPlugin..."))
+                XCTAssertMatch(output, .contains("Building for debugging..."))
+            }
+            
+            // Check that building just one of them just compiles that plugin and doesn't build anything else.
+            do {
+                let result = try SwiftPMProduct.SwiftBuild.executeProcess(["--target", "MyCommandPlugin"], packagePath: packageDir)
+                let output = try result.utf8Output() + result.utf8stderrOutput()
+                XCTAssertEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
+                XCTAssertNoMatch(output, .contains("Compiling plugin MyBuildToolPlugin..."))
+                XCTAssertMatch(output, .contains("Compiling plugin MyCommandPlugin..."))
+                XCTAssertNoMatch(output, .contains("Building for debugging..."))
+            }
+            
+            // Deliberately break the build plugin.
+            try localFileSystem.writeFileContents(myBuildToolPluginTargetDir.appending(component: "plugin.swift"), string: """
+                import PackagePlugin
+                @main struct MyBuildToolPlugin: BuildToolPlugin {
+                    func createBuildCommands(
+                        context: PluginContext,
+                        target: Target
+                    ) throws -> [Command] {
+                        this is an error
+                    }
+                }
+                """
+            )
+
+            // Check that building stops after compiling the plugin and doesn't proceed.
+            do {
+                let result = try SwiftPMProduct.SwiftBuild.executeProcess([], packagePath: packageDir)
+                let output = try result.utf8Output() + result.utf8stderrOutput()
+                XCTAssertNotEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
+                XCTAssertMatch(output, .contains("Compiling plugin MyCommandPlugin..."))
+                XCTAssertMatch(output, .contains("MyBuildToolPlugin/plugin.swift:7:19: error: consecutive statements on a line must be separated by ';'"))
+                XCTAssertNoMatch(output, .contains("Building for debugging..."))
+            }
+        }
+    }
 }
