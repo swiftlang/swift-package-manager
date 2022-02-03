@@ -394,6 +394,13 @@ public enum PluginEvaluationError: Swift.Error {
 
 /// Implements the mechanics of running a plugin script (implemented as a set of Swift source files) as a process.
 public protocol PluginScriptRunner {
+    
+    /// Public protocol function that starts compiling the plugin script to an exectutable. The tools version controls the availability of APIs in PackagePlugin, and should be set to the tools version of the package that defines the plugin (not of the target to which it is being applied). This function returns immediately and then calls the completion handler on the callbackq queue when compilation ends.
+    func compilePluginScript(
+        sources: Sources,
+        toolsVersion: ToolsVersion,
+        observabilityScope: ObservabilityScope
+    ) throws -> PluginCompilationResult
 
     /// Implements the mechanics of running a plugin script implemented as a set of Swift source files, for use
     /// by the package graph when it is evaluating package plugins.
@@ -422,6 +429,56 @@ public protocol PluginScriptRunner {
     /// Returns the Triple that represents the host for which plugin script tools should be built, or for which binary
     /// tools should be selected.
     var hostTriple: Triple { get }
+}
+
+
+/// The result of compiling a plugin. The executable path will only be present if the compilation succeeds, while the other properties are present in all cases.
+public struct PluginCompilationResult {
+    /// Process result of invoking the Swift compiler to produce the executable (contains command line, environment, exit status, and any output).
+    public var compilerResult: ProcessResult?
+    
+    /// Path of the libClang diagnostics file emitted by the compiler (even if compilation succeded, it might contain warnings).
+    public var diagnosticsFile: AbsolutePath
+    
+    /// Path of the compiled executable.
+    public var compiledExecutable: AbsolutePath
+
+    /// Whether the compilation result was cached.
+    public var wasCached: Bool
+
+    public init(compilerResult: ProcessResult?, diagnosticsFile: AbsolutePath, compiledExecutable: AbsolutePath, wasCached: Bool) {
+        self.compilerResult = compilerResult
+        self.diagnosticsFile = diagnosticsFile
+        self.compiledExecutable = compiledExecutable
+        self.wasCached = wasCached
+    }
+    
+    /// Returns true if and only if the compilation succeeded or was cached
+    public var succeeded: Bool {
+        return self.wasCached || self.compilerResult?.exitStatus == .terminated(code: 0)
+    }
+}
+
+extension PluginCompilationResult: CustomStringConvertible {
+    public var description: String {
+        let stdout = (try? compilerResult?.utf8Output()) ?? ""
+        let stderr = (try? compilerResult?.utf8stderrOutput()) ?? ""
+        let output = (stdout + stderr).spm_chomp()
+        return output + (output.isEmpty || output.hasSuffix("\n") ? "" : "\n")
+    }
+}
+
+extension PluginCompilationResult: CustomDebugStringConvertible {
+    public var debugDescription: String {
+        return """
+            <PluginCompilationResult(
+                exitStatus: \(compilerResult.map{ "\($0.exitStatus)" } ?? "-"),
+                stdout: \((try? compilerResult?.utf8Output()) ?? ""),
+                stderr: \((try? compilerResult?.utf8stderrOutput()) ?? ""),
+                executable: \(compiledExecutable.prettyPath())
+            )>
+            """
+    }
 }
 
 

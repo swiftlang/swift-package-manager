@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2021 Apple Inc. and the Swift project authors
+ Copyright (c) 2021-2022 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -79,8 +79,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
         delegate: PluginInvocationDelegate,
         completion: @escaping (Result<Bool, Error>) -> Void
     ) {
-        // If needed, compile the plugin script to an executable (asynchronously).
-        // TODO: Skip compiling the plugin script if it has already been compiled and hasn't changed.
+        // If needed, compile the plugin script to an executable (asynchronously). Compilation is skipped if the plugin hasn't changed since it was last compiled.
         self.compile(
             sources: sources,
             toolsVersion: toolsVersion,
@@ -91,17 +90,23 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
                 dispatchPrecondition(condition: .onQueue(DispatchQueue.sharedConcurrent))
                 switch $0 {
                 case .success(let result):
-                    // Compilation succeeded, so run the executable. We are already running on an asynchronous queue.
-                    self.invoke(
-                        compiledExec: result.compiledExecutable,
-                        workingDirectory: workingDirectory,
-                        writableDirectories: writableDirectories,
-                        readOnlyDirectories: readOnlyDirectories,
-                        input: input,
-                        observabilityScope: observabilityScope,
-                        callbackQueue: callbackQueue,
-                        delegate: delegate,
-                        completion: completion)
+                    if result.succeeded {
+                        // Compilation succeeded, so run the executable. We are already running on an asynchronous queue.
+                        self.invoke(
+                            compiledExec: result.compiledExecutable,
+                            workingDirectory: workingDirectory,
+                            writableDirectories: writableDirectories,
+                            readOnlyDirectories: readOnlyDirectories,
+                            input: input,
+                            observabilityScope: observabilityScope,
+                            callbackQueue: callbackQueue,
+                            delegate: delegate,
+                            completion: completion)
+                    }
+                    else {
+                        // Compilation failed, so throw an error.
+                        callbackQueue.async { completion(.failure(DefaultPluginScriptRunnerError.compilationFailed(result))) }
+                    }
                 case .failure(let error):
                     // Compilation failed, so just call the callback block on the appropriate queue.
                     callbackQueue.async { completion(.failure(error)) }
@@ -116,7 +121,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
         }
     }
     
-    /// Helper function that starts compiling a plugin script as an executable and when done, calls the completion handler with the path of the executable and with any emitted diagnostics, etc. This function only returns an error if it wasn't even possible to start compiling the plugin — any regular compilation errors or warnings will be reflected in the returned compilation result.
+    /// Helper function that starts compiling a plugin script asynchronously and when done, calls the completion handler with the compilation results (including the path of the compiled plugin executable and with any emitted diagnostics, etc). This function only throws an error if it wasn't even possible to start compiling the plugin — any regular compilation errors or warnings will be reflected in the returned compilation result.
     fileprivate func compile(
         sources: Sources,
         toolsVersion: ToolsVersion,
@@ -287,7 +292,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
                             // Try to clean up any old executable and hash file that might still be around from before.
                             try? localFileSystem.removeFileTree(executableFile)
                             try? localFileSystem.removeFileTree(hashFile)
-                            throw DefaultPluginScriptRunnerError.compilationFailed(result)
+                            return result
                         }
 
                         // We only get here if the compilation succeeded.
@@ -550,35 +555,6 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
 #endif
     }
 }
-
-/// The result of compiling a plugin. The executable path will only be present if the compilation succeeds, while the other properties are present in all cases.
-public struct PluginCompilationResult {
-    /// Process result of invoking the Swift compiler to produce the executable (contains command line, environment, exit status, and any output).
-    public var compilerResult: ProcessResult?
-    
-    /// Path of the libClang diagnostics file emitted by the compiler (even if compilation succeded, it might contain warnings).
-    public var diagnosticsFile: AbsolutePath
-    
-    /// Path of the compiled executable.
-    public var compiledExecutable: AbsolutePath
-
-    /// Whether the compilation result was cached.
-    public var wasCached: Bool
-}
-
-extension PluginCompilationResult: CustomStringConvertible {
-    public var description: String {
-        return """
-            <PluginCompilationResult(
-                exitStatus: \(compilerResult.map{ "\($0.exitStatus)" } ?? "-"),
-                stdout: \((try? compilerResult?.utf8Output()) ?? ""),
-                stderr: \((try? compilerResult?.utf8stderrOutput()) ?? ""),
-                executable: \(compiledExecutable.prettyPath())
-            )>
-            """
-    }
-}
-
 
 /// An error encountered by the default plugin runner.
 public enum DefaultPluginScriptRunnerError: Error, CustomStringConvertible {

@@ -692,56 +692,15 @@ public class SwiftTool {
             throw error
         }
     }
-
-    /// Invoke build tool plugins for any reachable targets in the graph, and return a mapping from targets to corresponding evaluation results.
-    func invokeBuildToolPlugins(graph: PackageGraph) throws -> [ResolvedTarget: [BuildToolPluginInvocationResult]] {
-        do {
-            // Configure the plugin invocation inputs.
-
-            // The `plugins` directory is inside the workspace's main data directory, and contains all temporary
-            // files related to all plugins in the workspace.
-            let buildEnvironment = try buildParameters().buildEnvironment
-            let pluginsDir = try self.getActiveWorkspace().location.pluginWorkingDirectory
-
-            // The `cache` directory is in the plugins directory and is where the plugin script runner caches
-            // compiled plugin binaries and any other derived information.
-            let cacheDir = pluginsDir.appending(component: "cache")
-            let pluginScriptRunner = try DefaultPluginScriptRunner(cacheDir: cacheDir, toolchain: self._hostToolchain.get().configuration, enableSandbox: !self.options.shouldDisableSandbox)
-
-            // The `outputs` directory contains subdirectories for each combination of package, target, and plugin.
-            // Each usage of a plugin has an output directory that is writable by the plugin, where it can write
-            // additional files, and to which it can configure tools to write their outputs, etc.
-            let outputDir = pluginsDir.appending(component: "outputs")
-
-            // The `tools` directory contains any command line tools (executables) that are available for any commands
-            // defined by the executable.
-            // FIXME: At the moment we just pass the built products directory for the host. We will need to extend this
-            // with a map of the names of tools available to each plugin. In particular this would not work with any
-            // binary targets.
-            let dataDir = try self.getActiveWorkspace().location.workingDirectory
-            let builtToolsDir = dataDir.appending(components: try self._hostToolchain.get().triple.platformBuildPathComponent(), buildEnvironment.configuration.dirname)
-            
-            // Use the directory containing the compiler as an additional search directory.
-            let toolSearchDirs = [try self.getToolchain().swiftCompilerPath.parentDirectory]
-
-            // Create the cache directory, if needed.
-            try localFileSystem.createDirectory(cacheDir, recursive: true)
-
-            // Ask the graph to invoke plugins, and return the result.
-            let result = try graph.invokeBuildToolPlugins(
-                outputDir: outputDir,
-                builtToolsDir: builtToolsDir,
-                buildEnvironment: buildEnvironment,
-                toolSearchDirectories: toolSearchDirs,
-                pluginScriptRunner: pluginScriptRunner,
-                observabilityScope: self.observabilityScope,
-                fileSystem: localFileSystem
-            )
-            return result
-        }
-        catch {
-            throw error
-        }
+    
+    func getPluginScriptRunner() throws -> PluginScriptRunner {
+        let pluginsDir = try self.getActiveWorkspace().location.pluginWorkingDirectory
+        let cacheDir = pluginsDir.appending(component: "cache")
+        let pluginScriptRunner = try DefaultPluginScriptRunner(
+            cacheDir: cacheDir,
+            toolchain: self._hostToolchain.get().configuration,
+            enableSandbox: !self.options.shouldDisableSandbox)
+        return pluginScriptRunner
     }
 
     /// Returns the user toolchain to compile the actual product.
@@ -788,7 +747,8 @@ public class SwiftTool {
             buildParameters: buildParameters(),
             cacheBuildManifest: cacheBuildManifest && self.canUseCachedBuildManifest(),
             packageGraphLoader: graphLoader,
-            buildToolPluginInvoker: { _ in [:] },
+            pluginScriptRunner: self.getPluginScriptRunner(),
+            pluginWorkDirectory: try self.getActiveWorkspace().location.pluginWorkingDirectory,
             outputStream: self.outputStream,
             logLevel: self.logLevel,
             fileSystem: localFileSystem,
@@ -805,12 +765,12 @@ public class SwiftTool {
         switch options.buildSystem {
         case .native:
             let graphLoader = { try self.loadPackageGraph(explicitProduct: explicitProduct) }
-            let buildToolPluginInvoker = { try self.invokeBuildToolPlugins(graph: $0) }
             buildSystem = try BuildOperation(
                 buildParameters: buildParameters ?? self.buildParameters(),
                 cacheBuildManifest: self.canUseCachedBuildManifest(),
                 packageGraphLoader: graphLoader,
-                buildToolPluginInvoker: buildToolPluginInvoker,
+                pluginScriptRunner: self.getPluginScriptRunner(),
+                pluginWorkDirectory: try self.getActiveWorkspace().location.pluginWorkingDirectory,
                 disableSandboxForPluginCommands: self.options.shouldDisableSandbox,
                 outputStream: self.outputStream,
                 logLevel: self.logLevel,
