@@ -37,17 +37,17 @@ public class Target: PolymorphicCodableProtocol {
         /// The name of the product dependency.
         public let name: String
 
-        /// Module aliases for targets of this product dependency.
-        public let moduleAliases: [String: String]?
-
         /// The name of the package containing the product.
         public let package: String?
 
+        /// Module aliases for targets of this product dependency.
+        public let moduleAliases: [String: String]?
+
         /// Creates a product reference instance.
-        public init(name: String, moduleAliases: [String: String]? = nil, package: String?) {
-            self.moduleAliases = moduleAliases
+        public init(name: String, package: String?, moduleAliases: [String: String]? = nil) {
             self.name = name
             self.package = package
+            self.moduleAliases = moduleAliases
         }
     }
 
@@ -113,16 +113,18 @@ public class Target: PolymorphicCodableProtocol {
     /// Module aliases needed to build this target.
     public private(set) var moduleAliases: [String: String]?
 
-    /// Set module aliases needed to build this target.
-    /// shouldRename True if the target itself should be renamed
-    public func setModuleAliases(name: String, alias: String, shouldRename: Bool = false) {
+    /// Set module aliases (if applicable) for this target's dependencies needed to build this target. If
+    /// the given name argument is this target's name, this target needs to be renamed as the given alias.
+    public func addModuleAlias(for name: String, as alias: String) {
         if moduleAliases == nil {
             moduleAliases = [name: alias]
         } else {
             moduleAliases?[name] = alias
         }
 
-        if shouldRename {
+        // If the argument name is same as this target's name, this
+        // target should be renamed as the given alias.
+        if name == self.name {
             self.name = alias
             self.c99name = alias.spm_mangledToC99ExtendedIdentifier()
         }
