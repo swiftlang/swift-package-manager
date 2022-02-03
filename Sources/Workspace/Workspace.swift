@@ -18,7 +18,9 @@ import PackageGraph
 import PackageRegistry
 import SourceControl
 import TSCBasic
-import TSCUtility
+import enum TSCUtility.Diagnostics
+import enum TSCUtility.SignpostName
+import struct TSCUtility.Triple
 
 public typealias Diagnostic = TSCBasic.Diagnostic
 

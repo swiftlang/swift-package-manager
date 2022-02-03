@@ -18,8 +18,6 @@ import PackageFingerprint
 import PackageLoading
 import PackageModel
 import TSCBasic
-import protocol TSCUtility.Archiver
-import struct TSCUtility.ZipArchiver
 
 public enum RegistryError: Error, CustomStringConvertible {
     case registryNotConfigured(scope: PackageIdentity.Scope?)
