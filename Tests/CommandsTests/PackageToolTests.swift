@@ -1083,17 +1083,23 @@ final class PackageToolTests: CommandsTestCase {
             try localFileSystem.writeFileContents(packageDir.appending(components: "Plugins", "MyPlugin", "plugin.swift")) {
                 $0 <<< """
                     import PackagePlugin
-                    
+                    import Foundation
                     @main
                     struct MyBuildToolPlugin: BuildToolPlugin {
                         func createBuildCommands(
                             context: PluginContext,
                             target: Target
                         ) throws -> [Command] {
+                            // Expect the initial working directory for build tool plugins is the package directory.
+                            guard FileManager.default.currentDirectoryPath == context.package.directory.string else {
+                                throw "expected initial working directory ‘\\(FileManager.default.currentDirectoryPath)’"
+                            }
+
                             // Check that the package display name is what we expect.
                             guard context.package.displayName == "MyPackage" else {
                                 throw "expected display name to be ‘MyPackage’ but found ‘\\(context.package.displayName)’"
                             }
+
                             // Create and return a build command that uses all the `.foo` files in the target as inputs, so they get counted as having been handled.
                             let fooFiles = (target as? SourceModuleTarget)?.sourceFiles.compactMap{ $0.path.extension == "foo" ? $0.path : nil } ?? []
                             return [ .buildCommand(displayName: "A command", executable: "/bin/echo", arguments: ["Hello"], inputFiles: fooFiles) ]
@@ -1106,8 +1112,9 @@ final class PackageToolTests: CommandsTestCase {
             
             // Invoke it, and check the results.
             let result = try SwiftPMProduct.SwiftBuild.executeProcess([], packagePath: packageDir)
-            XCTAssertEqual(result.exitStatus, .terminated(code: 0))
-            XCTAssert(try result.utf8Output().contains("Build complete!"))
+            let output = try result.utf8Output() + result.utf8stderrOutput()
+            XCTAssertEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
+            XCTAssert(output.contains("Build complete!"))
             
             // We expect a warning about `library.bar` but not about `library.foo`.
             let stderrOutput = try result.utf8stderrOutput()
@@ -1270,7 +1277,7 @@ final class PackageToolTests: CommandsTestCase {
             try localFileSystem.writeFileContents(packageDir.appending(components: "Plugins", "MyPlugin", "plugin.swift")) {
                 $0 <<< """
                 import PackagePlugin
-
+                import Foundation
                 @main
                 struct MyCommandPlugin: CommandPlugin {
                     func performCommand(
@@ -1279,6 +1286,9 @@ final class PackageToolTests: CommandsTestCase {
                         arguments: [String]
                     ) throws {
                         print("This is MyCommandPlugin.")
+
+                        // Print out the initial working directory so we can check it in the test.
+                        print("Initial working directory: \\(FileManager.default.currentDirectoryPath)")
 
                         // Check that we can find a binary-provided tool in the same package.
                         print("Looking for LocalBinaryTool...")
@@ -1394,6 +1404,15 @@ final class PackageToolTests: CommandsTestCase {
                 XCTAssertEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
                 XCTAssertMatch(output, .contains("Sources/MyLibrary/library.swift: source"))
                 XCTAssertMatch(output, .contains("Sources/MyLibrary/test.docc: unknown"))
+            }
+
+            // Check that the initial working directory is what we expected.
+            do {
+                let workingDirectory = FileManager.default.currentDirectoryPath
+                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["mycmd"], packagePath: packageDir)
+                let output = try result.utf8Output() + result.utf8stderrOutput()
+                XCTAssertEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
+                XCTAssertMatch(output, .contains("Initial working directory: \(workingDirectory)"))
             }
         }
     }
@@ -1570,6 +1589,132 @@ final class PackageToolTests: CommandsTestCase {
                 XCTAssertMatch(output, .and(.contains("MyLibrary:"), .contains("mypackage/MyLibrary")))
                 XCTAssertNoMatch(output, .and(.contains("MyCommand:"), .contains("mypackage/MyCommand")))
             }
+        }
+    }
+
+    func testCommandPluginTestingCallbacks() throws {
+        // Depending on how the test is running, the `llvm-profdata` and `llvm-cov` tool might be unavailable.
+        try XCTSkipIf((try? UserToolchain.default.getLLVMProf()) == nil, "skipping test because the `llvm-profdata` tool isn't available")
+        try XCTSkipIf((try? UserToolchain.default.getLLVMCov()) == nil, "skipping test because the `llvm-cov` tool isn't available")
+
+        try testWithTemporaryDirectory { tmpPath in
+            // Create a sample package with a library, a command plugin, and a couple of tests.
+            let packageDir = tmpPath.appending(components: "MyPackage")
+            try localFileSystem.createDirectory(packageDir, recursive: true)
+            try localFileSystem.writeFileContents(packageDir.appending(components: "Package.swift"), string: """
+                // swift-tools-version: 5.6
+                import PackageDescription
+                let package = Package(
+                    name: "MyPackage",
+                    targets: [
+                        .target(
+                            name: "MyLibrary"
+                        ),
+                        .plugin(
+                            name: "MyPlugin",
+                            capability: .command(
+                                intent: .custom(verb: "my-test-tester", description: "Help description")
+                            )
+                        ),
+                        .testTarget(
+                            name: "MyBasicTests"
+                        ),
+                        .testTarget(
+                            name: "MyExtendedTests"
+                        ),
+                    ]
+                )
+                """
+            )
+            let myPluginTargetDir = packageDir.appending(components: "Plugins", "MyPlugin")
+            try localFileSystem.createDirectory(myPluginTargetDir, recursive: true)
+            try localFileSystem.writeFileContents(myPluginTargetDir.appending(component: "plugin.swift"), string: """
+                import PackagePlugin
+                @main
+                struct MyCommandPlugin: CommandPlugin {
+                    func performCommand(
+                        context: PluginContext,
+                        targets: [Target],
+                        arguments: [String]
+                    ) throws {
+                        do {
+                            let result = try packageManager.test(.filtered(["MyBasicTests"]), parameters: .init(enableCodeCoverage: true))
+                            assert(result.succeeded == true)
+                            assert(result.testTargets.count == 1)
+                            assert(result.testTargets[0].name == "MyBasicTests")
+                            assert(result.testTargets[0].testCases.count == 2)
+                            assert(result.testTargets[0].testCases[0].name == "MyBasicTests.TestSuite1")
+                            assert(result.testTargets[0].testCases[0].tests.count == 2)
+                            assert(result.testTargets[0].testCases[0].tests[0].name == "testBooleanInvariants")
+                            assert(result.testTargets[0].testCases[0].tests[1].result == .succeeded)
+                            assert(result.testTargets[0].testCases[0].tests[1].name == "testNumericalInvariants")
+                            assert(result.testTargets[0].testCases[0].tests[1].result == .succeeded)
+                            assert(result.testTargets[0].testCases[1].name == "MyBasicTests.TestSuite2")
+                            assert(result.testTargets[0].testCases[1].tests.count == 1)
+                            assert(result.testTargets[0].testCases[1].tests[0].name == "testStringInvariants")
+                            assert(result.testTargets[0].testCases[1].tests[0].result == .succeeded)
+                            assert(result.codeCoverageDataFile?.extension == "json")
+                        }
+                        catch {
+                            print("error from the plugin host: \\(error)")
+                        }
+                    }
+                }
+                """
+            )
+            let myLibraryTargetDir = packageDir.appending(components: "Sources", "MyLibrary")
+            try localFileSystem.createDirectory(myLibraryTargetDir, recursive: true)
+            try localFileSystem.writeFileContents(myLibraryTargetDir.appending(component: "library.swift"), string: """
+                public func Foo() { }
+                """
+            )
+            let myBasicTestsTargetDir = packageDir.appending(components: "Tests", "MyBasicTests")
+            try localFileSystem.createDirectory(myBasicTestsTargetDir, recursive: true)
+            try localFileSystem.writeFileContents(myBasicTestsTargetDir.appending(component: "Test1.swift"), string: """
+                import XCTest
+                class TestSuite1: XCTestCase {
+                    func testBooleanInvariants() throws {
+                        XCTAssertEqual(true || true, true)
+                    }
+                    func testNumericalInvariants() throws {
+                        XCTAssertEqual(1 + 1, 2)
+                    }
+                }
+                """
+            )
+            try localFileSystem.writeFileContents(myBasicTestsTargetDir.appending(component: "Test2.swift"), string: """
+                import XCTest
+                class TestSuite2: XCTestCase {
+                    func testStringInvariants() throws {
+                        XCTAssertEqual("" + "", "")
+                    }
+                }
+                """
+            )
+            let myExtendedTestsTargetDir = packageDir.appending(components: "Tests", "MyExtendedTests")
+            try localFileSystem.createDirectory(myExtendedTestsTargetDir, recursive: true)
+            try localFileSystem.writeFileContents(myExtendedTestsTargetDir.appending(component: "Test3.swift"), string: """
+                import XCTest
+                class TestSuite3: XCTestCase {
+                    func testArrayInvariants() throws {
+                        XCTAssertEqual([] + [], [])
+                    }
+                    func testImpossibilities() throws {
+                        XCTFail("no can do")
+                    }
+                }
+                """
+            )
+
+            // Check basic usage with filtering and code coverage. The plugin itself asserts a bunch of values.
+            do {
+                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["my-test-tester"], packagePath: packageDir)
+                let output = try result.utf8Output() + result.utf8stderrOutput()
+                print(output)
+                XCTAssertEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
+            }
+
+            // We'll add checks for various error conditions here in a future commit.
         }
     }
 }

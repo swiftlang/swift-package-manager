@@ -247,6 +247,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                     at: path,
                     packageIdentity: packageIdentity,
                     packageKind: packageKind,
+                    version: version,
                     toolsVersion: toolsVersion,
                     identityResolver: identityResolver,
                     delegateQueue: queue,
@@ -528,6 +529,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         at path: AbsolutePath,
         packageIdentity: PackageIdentity,
         packageKind: PackageReference.Kind,
+        version: Version?,
         toolsVersion: ToolsVersion,
         identityResolver: IdentityResolver,
         delegateQueue: DispatchQueue,
@@ -569,6 +571,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         do {
             // try to get it from the cache
             if let result = try cache?.get(key: key.sha256Checksum), let manifestJSON = result.manifestJSON, !manifestJSON.isEmpty {
+                observabilityScope.emit(debug: "loading manifest for '\(packageIdentity)' v. \(version?.description ?? "unknown") from cache")
                 return completion(.success(try self.parseManifest(
                     result,
                     packageIdentity: packageIdentity,
@@ -587,6 +590,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         let closeAfterWrite = closeAfterRead.delay()
 
         // shells out and compiles the manifest, finally output a JSON
+        observabilityScope.emit(debug: "evaluating manifest for '\(packageIdentity)' v. \(version?.description ?? "unknown") ")
         self.evaluateManifest(
             packageIdentity: key.packageIdentity,
             manifestPath: key.manifestPath,
