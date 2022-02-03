@@ -326,6 +326,8 @@ class RepositoryManagerTests: XCTestCase {
     }
 
     func testConcurrency() throws {
+        throw XCTSkip("Skipping test due to rdar://88453312")
+
         let fs = localFileSystem
         let observability = ObservabilitySystem.makeForTesting()
 
