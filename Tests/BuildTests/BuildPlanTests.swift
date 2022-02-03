@@ -1694,7 +1694,7 @@ final class BuildPlanTests: XCTestCase {
         
         XCTAssertNoDiagnostics(observability.diagnostics)
         
-        let result = BuildPlanResult(plan: try BuildPlan(
+        let result = try BuildPlanResult(plan: try BuildPlan(
             buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
             graph: graph,
             fileSystem: fs,
@@ -1750,7 +1750,7 @@ final class BuildPlanTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
         
-        let result = BuildPlanResult(plan: try BuildPlan(
+        let result = try BuildPlanResult(plan: try BuildPlan(
             buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
             graph: graph,
             fileSystem: fs,
