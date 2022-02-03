@@ -4089,15 +4089,15 @@ extension Workspace.Location {
             // in which case defaultDirectory would be nil.
             let defaultDirectory = try? fileSystem.getOrCreateSwiftPMConfigurationDirectory(warningHandler: warningHandler)
             if defaultDirectory != nil, sharedConfigurationDirectory != defaultDirectory {
-                // custom location must be writable, throw if we cannot access it
-                try withTemporaryFile(dir: sharedConfigurationDirectory) { _ in }
+                // custom location _must_ be writable, throw if we cannot access it
+                guard fileSystem.isWritable(sharedConfigurationDirectory) else {
+                    throw StringError("\(sharedConfigurationDirectory) is not accessible or not writable")
+                }
             } else {
-                do {
-                    // default location may not be writable, in which case we disable the relevant features that depend on it
-                    try withTemporaryFile(dir: sharedConfigurationDirectory) { _ in }
-                } catch {
+                // default location _may_ not be writable, in which case we disable the relevant features that depend on it
+                if !fileSystem.isWritable(sharedConfigurationDirectory) {
                     location.sharedConfigurationDirectory = .none
-                    warningHandler("\(sharedConfigurationDirectory) is not accessible or not writable, disabling user-level configuration features. \(error)")
+                    warningHandler("\(sharedConfigurationDirectory) is not accessible or not writable, disabling user-level configuration features.")
                 }
             }
         }
@@ -4108,15 +4108,15 @@ extension Workspace.Location {
             // in which case defaultDirectory would be nil.
             let defaultDirectory = try? fileSystem.getOrCreateSwiftPMSecurityDirectory()
             if defaultDirectory != nil, sharedSecurityDirectory != defaultDirectory {
-                // custom location must be writable, throw if we cannot access it
-                try withTemporaryFile(dir: sharedSecurityDirectory) { _ in }
+                // custom location _must_ be writable, throw if we cannot access it
+                guard fileSystem.isWritable(sharedSecurityDirectory) else {
+                    throw StringError("\(sharedSecurityDirectory) is not accessible or not writable")
+                }
             } else {
-                do {
-                    // default location may not be writable, in which case we disable the relevant features that depend on it
-                    try withTemporaryFile(dir: sharedSecurityDirectory) { _ in }
-                } catch {
+                // default location _may_ not be writable, in which case we disable the relevant features that depend on it
+                if !fileSystem.isWritable(sharedSecurityDirectory) {
                     location.sharedSecurityDirectory = .none
-                    warningHandler("\(sharedSecurityDirectory) is not accessible or not writable, disabling user-level security features. \(error)")
+                    warningHandler("\(sharedSecurityDirectory) is not accessible or not writable, disabling user-level security features.")
                 }
             }
         }
@@ -4127,15 +4127,14 @@ extension Workspace.Location {
             // in which case defaultDirectory would be nil.
             let defaultDirectory = try? fileSystem.getOrCreateSwiftPMCacheDirectory()
             if defaultDirectory != nil, sharedCacheDirectory != defaultDirectory {
-                // custom location must be writable, throw if we cannot access it
-                try withTemporaryFile(dir: sharedCacheDirectory) { _ in }
+                // custom location _must_ be writable, throw if we cannot access it
+                guard fileSystem.isWritable(sharedCacheDirectory) else {
+                    throw StringError("\(sharedCacheDirectory) is not accessible or not writable")
+                }
             } else {
-                do {
-                    // default location may not be writable, in which case we disable the relevant features that depend on it
-                    try withTemporaryFile(dir: sharedCacheDirectory) { _ in }
-                } catch {
+                if !fileSystem.isWritable(sharedCacheDirectory) {
                     location.sharedCacheDirectory = .none
-                    warningHandler("\(sharedCacheDirectory) is not accessible or not writable, disabling user-level cache features. \(error)")
+                    warningHandler("\(sharedCacheDirectory) is not accessible or not writable, disabling user-level cache features.")
                 }
             }
         }
