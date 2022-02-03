@@ -2261,13 +2261,13 @@ final class PackageToolTests: CommandsTestCase {
                 XCTAssertNoMatch(output, .contains("Building for debugging..."))
             }
             
-            // Deliberately break the build plugin.
-            try localFileSystem.writeFileContents(myBuildToolPluginTargetDir.appending(component: "plugin.swift"), string: """
+            // Deliberately break the command plugin.
+            try localFileSystem.writeFileContents(myCommandPluginTargetDir.appending(component: "plugin.swift"), string: """
                 import PackagePlugin
                 @main struct MyBuildToolPlugin: BuildToolPlugin {
-                    func createBuildCommands(
+                    func performCommand(
                         context: PluginContext,
-                        target: Target
+                        arguments: [String]
                     ) throws -> [Command] {
                         this is an error
                     }
@@ -2276,12 +2276,14 @@ final class PackageToolTests: CommandsTestCase {
             )
 
             // Check that building stops after compiling the plugin and doesn't proceed.
-            do {
+            // Run this test a number of times to try to catch any race conditions.
+            for _ in 1...5 {
                 let result = try SwiftPMProduct.SwiftBuild.executeProcess([], packagePath: packageDir)
                 let output = try result.utf8Output() + result.utf8stderrOutput()
                 XCTAssertNotEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
                 XCTAssertMatch(output, .contains("Compiling plugin MyCommandPlugin..."))
-                XCTAssertMatch(output, .contains("MyBuildToolPlugin/plugin.swift:7:19: error: consecutive statements on a line must be separated by ';'"))
+                XCTAssertMatch(output, .contains("Compiling plugin MyBuildToolPlugin..."))
+                XCTAssertMatch(output, .contains("MyCommandPlugin/plugin.swift:7:19: error: consecutive statements on a line must be separated by ';'"))
                 XCTAssertNoMatch(output, .contains("Building for debugging..."))
             }
         }
