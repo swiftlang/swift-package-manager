@@ -8,6 +8,8 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
+import Foundation
+
 /// The object that defines a package product.
 ///
 /// A package product defines an externally visible build artifact that's
@@ -52,26 +54,18 @@
 ///                 ])
 ///         ]
 ///     )
-public class Product: Encodable {
-    private enum ProductCodingKeys: String, CodingKey {
-        case name
-        case type = "product_type"
-    }
-
-    /// The name of the package product.
+open class Product: Encodable {
+    /// The name of the product.
     public let name: String
 
     init(name: String) {
         self.name = name
     }
 
-    /// The executable product of a Swift package.
+    /// A product that builds an executable binary (such as a command line tool).
     public final class Executable: Product {
-        private enum ExecutableCodingKeys: CodingKey {
-            case targets
-        }
-
-        /// The names of the targets in this product.
+        /// The names of the targets that comprise the executable product.
+        /// There must be exactly one `executableTarget` among them.
         public let targets: [String]
 
         init(name: String, targets: [String]) {
@@ -81,60 +75,57 @@ public class Product: Encodable {
 
         public override func encode(to encoder: Encoder) throws {
             try super.encode(to: encoder)
-            var productContainer = encoder.container(keyedBy: ProductCodingKeys.self)
-            try productContainer.encode("executable", forKey: .type)
-            var executableContainer = encoder.container(keyedBy: ExecutableCodingKeys.self)
-            try executableContainer.encode(targets, forKey: .targets)
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encode("executable", forKey: .type)
+            try container.encode(targets, forKey: .targets)
         }
     }
 
-    /// The library product of a Swift package.
+    /// A product that builds a library that other targets and products can link against.
     public final class Library: Product {
-        private enum LibraryCodingKeys: CodingKey {
-            case type
-            case targets
-        }
+        /// The names of the targets that comprise the library product.
+        public let targets: [String]
 
         /// The different types of a library product.
         public enum LibraryType: String, Encodable {
-            /// A statically linked library.
+            /// A statically linked library (its code will be incorporated
+            /// into clients that link to it).
             case `static`
-            /// A dynamically linked library.
+            /// A dynamically linked library (its code will be referenced
+            /// by clients that link to it).
             case `dynamic`
         }
 
-        /// The names of the targets in this product.
-        public let targets: [String]
-
-        /// The type of the library.
+        /// The type of library.
         ///
         /// If the type is unspecified, the Swift Package Manager automatically
-        /// chooses a type based on the client's preference.
+        /// chooses a type based on how the library is used by the client.
         public let type: LibraryType?
 
         init(name: String, type: LibraryType? = nil, targets: [String]) {
-            self.type = type
             self.targets = targets
+            self.type = type
             super.init(name: name)
         }
 
         public override func encode(to encoder: Encoder) throws {
             try super.encode(to: encoder)
-            var productContainer = encoder.container(keyedBy: ProductCodingKeys.self)
-            try productContainer.encode("library", forKey: .type)
-            var libraryContainer = encoder.container(keyedBy: LibraryCodingKeys.self)
-            try libraryContainer.encode(type, forKey: .type)
-            try libraryContainer.encode(targets, forKey: .targets)
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encode("library", forKey: .type)
+            try container.encode(targets, forKey: .targets)
+            let encoder = JSONEncoder()
+            struct EncodedLibraryProperties: Encodable {
+                public let type: LibraryType?
+            }
+            let properties = EncodedLibraryProperties(type: self.type)
+            let encodedProperties = String(decoding: try encoder.encode(properties), as: UTF8.self)
+            try container.encode(encodedProperties, forKey: .encodedProperties)
         }
     }
 
     /// The plugin product of a Swift package.
     public final class Plugin: Product {
-        private enum PluginCodingKeys: CodingKey {
-            case targets
-        }
-
-        /// The name of the plugin target to vend as a product.
+        /// The name of the plugin targets to vend as a product.
         public let targets: [String]
 
         init(name: String, targets: [String]) {
@@ -144,13 +135,35 @@ public class Product: Encodable {
 
         public override func encode(to encoder: Encoder) throws {
             try super.encode(to: encoder)
-            var productContainer = encoder.container(keyedBy: ProductCodingKeys.self)
-            try productContainer.encode("plugin", forKey: .type)
-            var pluginContainer = encoder.container(keyedBy: PluginCodingKeys.self)
-            try pluginContainer.encode(targets, forKey: .targets)
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encode("plugin", forKey: .type)
+            try container.encode(targets, forKey: .targets)
         }
     }
 
+    /// The name of the product type to encode.
+    private class var productTypeName: String { return "unknown" }
+    
+    /// The string representation of any additional product properties. By
+    /// storing these as a separate encoded blob, the properties can be a
+    /// private contract between PackageDescription and whatever client will
+    /// interprest them, without libSwiftPM needing to know the contents.
+    private var encodedProperties: String? { return .none }
+
+    enum CodingKeys: String, CodingKey {
+        case type, name, targets, encodedProperties
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(Self.productTypeName, forKey: .type)
+        try container.encode(name, forKey: .name)
+        try container.encodeIfPresent(encodedProperties, forKey: .encodedProperties)
+    }
+}
+
+
+extension Product {
     /// Creates a library product to allow clients that declare a dependency on this package
     /// to use the package's functionality.
     ///
@@ -196,10 +209,5 @@ public class Product: Encodable {
         targets: [String]
     ) -> Product {
         return Plugin(name: name, targets: targets)
-    }
-
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: ProductCodingKeys.self)
-        try container.encode(name, forKey: .name)
     }
 }

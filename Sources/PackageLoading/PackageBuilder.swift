@@ -1246,6 +1246,11 @@ public final class PackageBuilder {
                 guard self.validatePluginProduct(product, with: targets) else {
                     continue
                 }
+            case .custom:
+                guard self.validateCustomProduct(product, with: targets) else {
+                    continue
+                }
+                break
             }
 
             append(Product(name: product.name, type: product.type, targets: targets))
@@ -1258,7 +1263,7 @@ public final class PackageBuilder {
         // for them.
         let explicitProductsTargets = Set(self.manifest.products.flatMap{ product -> [String] in
             switch product.type {
-            case .library, .plugin, .test:
+            case .library, .plugin, .test, .custom:
                 return []
             case .executable, .snippet:
                 return product.targets
@@ -1352,6 +1357,12 @@ public final class PackageBuilder {
             self.observabilityScope.emit(.pluginProductWithNoTargets(product: product.name))
             return false
         }
+        return true
+    }
+
+    private func validateCustomProduct(_ product: ProductDescription, with targets: [Target]) -> Bool {
+        // At this point there are no built-in restrictions on custom products.
+        // Here is where we would add them.
         return true
     }
 }

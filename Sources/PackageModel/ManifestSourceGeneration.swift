@@ -209,6 +209,9 @@ fileprivate extension SourceCodeFragment {
 	            self.init(enum: "plugin", subnodes: params, multiline: true)
 	        case .test:
 	            self.init(enum: "test", subnodes: params, multiline: true)
+            case .custom(let customType, let propertyData):
+                // FIXME: Should we throw here instead? That would turn this from a `rethrows` to a `throws`.
+                self.init(enum: "custom", subnodes: params, multiline: true)
             }
         }
     }
