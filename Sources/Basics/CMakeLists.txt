@@ -19,6 +19,7 @@ add_library(Basics
   HTTPClient.swift
   JSON+Extensions.swift
   JSONDecoder+Extensions.swift
+  Netrc.swift
   Observability.swift
   Sandbox.swift
   String+Extensions.swift

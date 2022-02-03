@@ -15,7 +15,6 @@ import Security
 #endif
 
 import TSCBasic
-import TSCUtility
 
 public protocol AuthorizationProvider {
     func authentication(for url: Foundation.URL) -> (user: String, password: String)?
@@ -56,16 +55,16 @@ public struct NetrcAuthorizationProvider: AuthorizationProvider {
     let path: AbsolutePath
     private let fileSystem: FileSystem
 
-    private var underlying: TSCUtility.Netrc?
+    private var underlying: Netrc?
 
-    var machines: [TSCUtility.Netrc.Machine] {
+    var machines: [Netrc.Machine] {
         self.underlying?.machines ?? []
     }
 
     public init(path: AbsolutePath, fileSystem: FileSystem) throws {
         self.path = path
         self.fileSystem = fileSystem
-        self.underlying = try Self.load(from: path)
+        self.underlying = try Self.load(fileSystem: fileSystem, path: path)
     }
 
     public mutating func addOrUpdate(for url: Foundation.URL, user: String, password: String, callback: @escaping (Result<Void, Error>) -> Void) {
@@ -94,7 +93,7 @@ public struct NetrcAuthorizationProvider: AuthorizationProvider {
             }
 
             // At this point the netrc file should exist and non-empty
-            guard let netrc = try Self.load(from: self.path) else {
+            guard let netrc = try Self.load(fileSystem: self.fileSystem, path: self.path) else {
                 throw AuthorizationProviderError.other("Failed to update netrc file at \(self.path)")
             }
             self.underlying = netrc
@@ -109,7 +108,7 @@ public struct NetrcAuthorizationProvider: AuthorizationProvider {
         self.machine(for: url).map { (user: $0.login, password: $0.password) }
     }
 
-    private func machine(for url: Foundation.URL) -> TSCUtility.Netrc.Machine? {
+    private func machine(for url: Foundation.URL) -> Basics.Netrc.Machine? {
         if let machine = url.authenticationID, let existing = self.machines.first(where: { $0.name.lowercased() == machine }) {
             return existing
         }
@@ -119,14 +118,14 @@ public struct NetrcAuthorizationProvider: AuthorizationProvider {
         return .none
     }
 
-    private static func load(from path: AbsolutePath) throws -> TSCUtility.Netrc? {
+    private static func load(fileSystem: FileSystem, path: AbsolutePath) throws -> Netrc? {
         do {
-            return try TSCUtility.Netrc.load(fromFileAtPath: path).get()
+            return try NetrcParser.parse(fileSystem: fileSystem, path: path)
         } catch {
             switch error {
-            case Netrc.Error.fileNotFound, Netrc.Error.machineNotFound:
+            case NetrcError.fileNotFound, NetrcError.machineNotFound:
                 // These are recoverable errors. We will just create the file and append entry to it.
-                return nil
+                return .none
             default:
                 throw error
             }
