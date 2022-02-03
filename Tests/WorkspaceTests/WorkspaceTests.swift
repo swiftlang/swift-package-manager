@@ -18,7 +18,8 @@ import SourceControl
 import SPMBuildCore
 import SPMTestSupport
 import TSCBasic
-import TSCUtility
+import enum TSCUtility.Diagnostics
+import struct TSCUtility.Triple
 @testable import Workspace
 import XCTest
 

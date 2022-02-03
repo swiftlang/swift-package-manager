@@ -16,7 +16,6 @@ import PackageModel
 import PackageRegistry
 import SPMTestSupport
 import TSCBasic
-import TSCUtility
 @testable import Workspace
 import XCTest
 
