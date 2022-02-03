@@ -291,8 +291,8 @@ extension Target.Dependency: Encodable {
     private enum CodingKeys: CodingKey {
         case type
         case name
-        case moduleAliases
         case package
+        case moduleAliases
         case condition
     }
 
@@ -309,11 +309,11 @@ extension Target.Dependency: Encodable {
             try container.encode(Kind.target, forKey: .type)
             try container.encode(name, forKey: .name)
             try container.encode(condition, forKey: .condition)
-        case .productItem(let name, let moduleAliases, let package, let condition):
+        case .productItem(let name, let package, let moduleAliases, let condition):
             try container.encode(Kind.product, forKey: .type)
             try container.encode(name, forKey: .name)
-            try container.encode(moduleAliases, forKey: .moduleAliases)
             try container.encode(package, forKey: .package)
+            try container.encode(moduleAliases, forKey: .moduleAliases)
             try container.encode(condition, forKey: .condition)
         case .byNameItem(let name, let condition):
             try container.encode(Kind.byName, forKey: .type)

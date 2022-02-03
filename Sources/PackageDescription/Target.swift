@@ -998,8 +998,8 @@ extension Target.Dependency {
     @available(_PackageDescription, introduced: 999.0)
     public static func product(
       name: String,
-      moduleAliases: [String: String]? = nil,
       package: String,
+      moduleAliases: [String: String]? = nil,
       condition: TargetDependencyCondition? = nil
     ) -> Target.Dependency {
         return .productItem(name: name, package: package, moduleAliases: moduleAliases, condition: condition)

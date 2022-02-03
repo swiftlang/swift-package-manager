@@ -1707,11 +1707,20 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "FooLogging" && $0.target.moduleAliases?["Logging"] == "FooLogging" })
         XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "BarLogging" && $0.target.moduleAliases?["Logging"] == "BarLogging" })
         XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "Logging" && $0.target.moduleAliases == nil })
+
+        #if os(macOS)
+            let fooLoggingArgs = try result.target(for: "FooLogging").swiftTarget().compileArguments()
+            let barLoggingArgs = try result.target(for: "BarLogging").swiftTarget().compileArguments()
+            let loggingArgs = try result.target(for: "Logging").swiftTarget().compileArguments()
+            XCTAssertMatch(fooLoggingArgs, [.anySequence, "-emit-objc-header", "-emit-objc-header-path", "/path/to/build/debug/FooLogging.build/FooLogging-Swift.h", .anySequence])
+            XCTAssertMatch(barLoggingArgs, [.anySequence, "-emit-objc-header", "-emit-objc-header-path", "/path/to/build/debug/BarLogging.build/BarLogging-Swift.h", .anySequence])
+            XCTAssertMatch(loggingArgs, [.anySequence, "-emit-objc-header", "-emit-objc-header-path", "/path/to/build/debug/Logging.build/Logging-Swift.h", .anySequence])
+        #endif
     }
     
     func testModuleAliasingDuplicateTargetNameInUpstream() throws {
         let fs = InMemoryFileSystem(emptyFiles:
-                                        "/thisPkg/Sources/exe/main.swift",
+                                    "/thisPkg/Sources/exe/main.swift",
                                     "/thisPkg/Sources/Logging/file.swift",
                                     "/otherPkg/Sources/Utils/fileUtils.swift",
                                     "/otherPkg/Sources/Logging/fileLogging.swift"
@@ -1763,6 +1772,12 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "OtherLogging" && $0.target.moduleAliases?["Logging"] == "OtherLogging" })
         XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "Utils" && $0.target.moduleAliases?["Logging"] == "OtherLogging" })
         XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "Logging" && $0.target.moduleAliases == nil })
+        #if os(macOS)
+            let otherLoggingArgs = try result.target(for: "OtherLogging").swiftTarget().compileArguments()
+            let loggingArgs = try result.target(for: "Logging").swiftTarget().compileArguments()
+            XCTAssertMatch(otherLoggingArgs, [.anySequence, "-emit-objc-header", "-emit-objc-header-path", "/path/to/build/debug/OtherLogging.build/OtherLogging-Swift.h", .anySequence])
+            XCTAssertMatch(loggingArgs, [.anySequence, "-emit-objc-header", "-emit-objc-header-path", "/path/to/build/debug/Logging.build/Logging-Swift.h", .anySequence])
+        #endif
     }
 
     func testSystemPackageBuildPlan() throws {
