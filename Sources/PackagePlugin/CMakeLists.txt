@@ -17,7 +17,8 @@ add_library(PackagePlugin
   Path.swift
   Plugin.swift
   PluginInput.swift
-  Protocols.swift)
+  Protocols.swift
+  Utilities.swift)
 
 target_compile_options(PackagePlugin PUBLIC
   $<$<COMPILE_LANGUAGE:Swift>:-package-description-version$<SEMICOLON>999.0>)
