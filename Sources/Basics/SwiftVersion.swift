@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2021 Apple Inc. and the Swift project authors
+ Copyright (c) 2021 - 2022 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -63,7 +63,7 @@ public struct SwiftVersion {
 extension SwiftVersion {
     /// The current version of the package manager.
     public static let currentVersion = SwiftVersion(
-        version: (5, 6, 0),
+        version: (5, 7, 0),
         isDevelopment: true,
         buildIdentifier: getBuildIdentifier()
     )

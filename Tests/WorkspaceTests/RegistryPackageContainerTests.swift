@@ -82,7 +82,7 @@ class RegistryPackageContainerTests: XCTestCase {
                 }
             )
 
-            return try Workspace(
+            return try Workspace._init(
                 fileSystem: fs,
                 location: .init(forRootPackage: packagePath, fileSystem: fs),
                 customToolsVersion: toolsVersion,
@@ -95,7 +95,7 @@ class RegistryPackageContainerTests: XCTestCase {
             let provider = try createProvider(.v4)
             let ref = PackageReference.registry(identity: packageIdentity)
             let container = try provider.getContainer(for: ref, skipUpdate: false)
-            let versions = try container.toolsVersionsAppropriateVersionsDescending().map { $0 }
+            let versions = try container.toolsVersionsAppropriateVersionsDescending()
             XCTAssertEqual(versions, ["1.0.1"])
         }
 
@@ -103,7 +103,7 @@ class RegistryPackageContainerTests: XCTestCase {
             let provider = try createProvider(.v4_2)
             let ref = PackageReference.registry(identity: packageIdentity)
             let container = try provider.getContainer(for: ref, skipUpdate: false)
-            let versions = try container.toolsVersionsAppropriateVersionsDescending().map { $0 }
+            let versions = try container.toolsVersionsAppropriateVersionsDescending()
             XCTAssertEqual(versions, ["1.0.2", "1.0.1"])
         }
 
@@ -111,7 +111,7 @@ class RegistryPackageContainerTests: XCTestCase {
             let provider = try createProvider(.v5_4)
             let ref = PackageReference.registry(identity: packageIdentity)
             let container = try provider.getContainer(for: ref, skipUpdate: false)
-            let versions = try container.toolsVersionsAppropriateVersionsDescending().map { $0 }
+            let versions = try container.toolsVersionsAppropriateVersionsDescending()
             XCTAssertEqual(versions, ["1.0.3", "1.0.2", "1.0.1"])
         }
     }
@@ -147,7 +147,7 @@ class RegistryPackageContainerTests: XCTestCase {
                 }
             )
 
-            return try Workspace(
+            return try Workspace._init(
                 fileSystem: fs,
                 location: .init(forRootPackage: packagePath, fileSystem: fs),
                 customToolsVersion: toolsVersion,
@@ -161,7 +161,7 @@ class RegistryPackageContainerTests: XCTestCase {
             let ref = PackageReference.registry(identity: packageIdentity)
             let container = try provider.getContainer(for: ref, skipUpdate: false)
             XCTAssertEqual(try container.toolsVersion(for: packageVersion), .v5_3)
-            let versions = try container.toolsVersionsAppropriateVersionsDescending().map { $0 }
+            let versions = try container.toolsVersionsAppropriateVersionsDescending()
             XCTAssertEqual(versions, [])
         }
 
@@ -170,7 +170,7 @@ class RegistryPackageContainerTests: XCTestCase {
             let ref = PackageReference.registry(identity: packageIdentity)
             let container = try provider.getContainer(for: ref, skipUpdate: false)
             XCTAssertEqual(try container.toolsVersion(for: packageVersion), .v5_3)
-            let versions = try container.toolsVersionsAppropriateVersionsDescending().map { $0 }
+            let versions = try container.toolsVersionsAppropriateVersionsDescending()
             XCTAssertEqual(versions, [packageVersion])
         }
 
@@ -179,7 +179,7 @@ class RegistryPackageContainerTests: XCTestCase {
             let ref = PackageReference.registry(identity: packageIdentity)
             let container = try provider.getContainer(for: ref, skipUpdate: false)
             XCTAssertEqual(try container.toolsVersion(for: packageVersion), .v5_4)
-            let versions = try container.toolsVersionsAppropriateVersionsDescending().map { $0 }
+            let versions = try container.toolsVersionsAppropriateVersionsDescending()
             XCTAssertEqual(versions, [packageVersion])
         }
 
@@ -188,7 +188,7 @@ class RegistryPackageContainerTests: XCTestCase {
             let ref = PackageReference.registry(identity: packageIdentity)
             let container = try provider.getContainer(for: ref, skipUpdate: false)
             XCTAssertEqual(try container.toolsVersion(for: packageVersion), .v5_5)
-            let versions = try container.toolsVersionsAppropriateVersionsDescending().map { $0 }
+            let versions = try container.toolsVersionsAppropriateVersionsDescending()
             XCTAssertEqual(versions, [packageVersion])
         }
 
@@ -197,7 +197,7 @@ class RegistryPackageContainerTests: XCTestCase {
             let ref = PackageReference.registry(identity: packageIdentity)
             let container = try provider.getContainer(for: ref, skipUpdate: false)
             XCTAssertEqual(try container.toolsVersion(for: packageVersion), .v5_5)
-            let versions = try container.toolsVersionsAppropriateVersionsDescending().map { $0 }
+            let versions = try container.toolsVersionsAppropriateVersionsDescending()
             XCTAssertEqual(versions, [packageVersion])
         }
     }
@@ -233,7 +233,7 @@ class RegistryPackageContainerTests: XCTestCase {
                 }
             )
 
-            return try Workspace(
+            return try Workspace._init(
                 fileSystem: fs,
                 location: .init(forRootPackage: packagePath, fileSystem: fs),
                 customToolsVersion: toolsVersion,
@@ -317,8 +317,6 @@ class RegistryPackageContainerTests: XCTestCase {
         archiver: Archiver? = .none
     ) throws -> RegistryClient {
         let jsonEncoder = JSONEncoder.makeWithDefaults()
-
-        let identityResolver = DefaultIdentityResolver()
         let fingerprintStorage = MockPackageFingerprintStorage()
 
         guard let (packageScope, packageName) = packageIdentity.scopeAndName else {
@@ -416,7 +414,6 @@ class RegistryPackageContainerTests: XCTestCase {
 
         return RegistryClient(
             configuration: configuration!,
-            identityResolver: identityResolver,
             fingerprintStorage: fingerprintStorage,
             fingerprintCheckingMode: .strict,
             authorizationProvider: .none,

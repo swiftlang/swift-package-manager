@@ -26,7 +26,7 @@ public struct BuildConfiguration: Encodable {
 /// A condition that limits the application of a build setting.
 ///
 /// By default, build settings are applicable for all platforms and build
-/// configurations. Use the `.when` modifier to define  a build
+/// configurations. Use the ``when(platforms:configuration:)`` modifier to define  a build
 /// setting for a specific condition. Invalid usage of `.when` emits an error during
 /// manifest parsing. For example, it's invalid to specify a `.when` condition with
 /// both parameters as `nil`.

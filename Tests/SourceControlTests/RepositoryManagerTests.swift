@@ -8,12 +8,462 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-import XCTest
-
+import Basics
+import PackageModel
+import SPMTestSupport
 @testable import SourceControl
 import TSCBasic
+import XCTest
 
-import SPMTestSupport
+class RepositoryManagerTests: XCTestCase {
+    func testBasics() throws {
+        let fs = localFileSystem
+        let observability = ObservabilitySystem.makeForTesting()
+
+        try testWithTemporaryDirectory { path in
+            let provider = DummyRepositoryProvider(fileSystem: fs)
+            let delegate = DummyRepositoryManagerDelegate()
+
+            let manager = RepositoryManager(
+                fileSystem: fs,
+                path: path,
+                provider: provider,
+                delegate: delegate
+            )
+
+            let dummyRepo = RepositorySpecifier(path: .init("/dummy"))
+            let badDummyRepo = RepositorySpecifier(path: .init("/badDummy"))
+            var prevHandle: RepositoryManager.RepositoryHandle?
+
+            // Check that we can "fetch" a repository.
+
+            do {
+                delegate.prepare(fetchExpected: true, updateExpected: false)
+                let handle = try manager.lookup(repository: dummyRepo, observabilityScope: observability.topScope)
+                XCTAssertNoDiagnostics(observability.diagnostics)
+
+                prevHandle = handle
+                XCTAssertEqual(provider.numFetches, 0)
+
+                // Open the repository.
+                let repository = try! handle.open()
+                XCTAssertEqual(try! repository.getTags(), ["1.0.0"])
+
+                // Create a checkout of the repository.
+                let checkoutPath = path.appending(component: "checkout")
+                _ = try! handle.createWorkingCopy(at: checkoutPath, editable: false)
+
+                XCTAssertDirectoryExists(checkoutPath)
+                XCTAssertFileExists(checkoutPath.appending(component: "README.txt"))
+
+                try delegate.wait(timeout: .now() + 2)
+                XCTAssertEqual(delegate.willFetch.map { $0.repository }, [dummyRepo])
+                XCTAssertEqual(delegate.didFetch.map { $0.repository }, [dummyRepo])
+            }
+
+            // Get a bad repository.
+
+            do {
+                delegate.prepare(fetchExpected: true, updateExpected: false)
+                XCTAssertThrowsError(try manager.lookup(repository: badDummyRepo, observabilityScope: observability.topScope)) { error in
+                    XCTAssertEqual(error as? DummyError, DummyError.invalidRepository)
+                }
+
+                XCTAssertNotNil(prevHandle)
+
+                try delegate.wait(timeout: .now() + 2)
+                XCTAssertEqual(delegate.willFetch.map { $0.repository }, [dummyRepo, badDummyRepo])
+                XCTAssertEqual(delegate.didFetch.map { $0.repository }, [dummyRepo, badDummyRepo])
+                // We shouldn't have made any update call yet.
+                XCTAssert(delegate.willUpdate.isEmpty)
+                XCTAssert(delegate.didUpdate.isEmpty)
+            }
+
+            do {
+                delegate.prepare(fetchExpected: false, updateExpected: true)
+                let handle = try manager.lookup(repository: dummyRepo, observabilityScope: observability.topScope)
+                XCTAssertNoDiagnostics(observability.diagnostics)
+                XCTAssertEqual(handle.repository, dummyRepo)
+                XCTAssertEqual(handle.repository, prevHandle?.repository)
+
+                // We should always get back the same handle once fetched.
+                // Since we looked up this repo again, we should have made a fetch call.
+                try delegate.wait(timeout: .now() + 2)
+                XCTAssertEqual(provider.numFetches, 1)
+                XCTAssertEqual(delegate.willUpdate, [dummyRepo])
+                XCTAssertEqual(delegate.didUpdate, [dummyRepo])
+            }
+
+            // Remove the repo.
+            do {
+                try manager.remove(repository: dummyRepo)
+
+                // Check removing the repo updates the persistent file.
+                /*do {
+                    let checkoutsStateFile = path.appending(component: "checkouts-state.json")
+                    let jsonData = try JSON(bytes: localFileSystem.readFileContents(checkoutsStateFile))
+                    XCTAssertEqual(jsonData.dictionary?["object"]?.dictionary?["repositories"]?.dictionary?[dummyRepo.location.description], nil)
+                }*/
+
+                // We should get a new handle now because we deleted the existing repository.
+                delegate.prepare(fetchExpected: true, updateExpected: false)
+                let handle = try manager.lookup(repository: dummyRepo, observabilityScope: observability.topScope)
+                XCTAssertNoDiagnostics(observability.diagnostics)
+                XCTAssertEqual(handle.repository, dummyRepo)
+
+                // We should have tried fetching these two.
+                try delegate.wait(timeout: .now() + 2)
+                XCTAssertEqual(delegate.willFetch.map { $0.repository }, [dummyRepo, badDummyRepo, dummyRepo])
+                XCTAssertEqual(delegate.didFetch.map { $0.repository }, [dummyRepo, badDummyRepo, dummyRepo])
+                XCTAssertEqual(delegate.willUpdate, [dummyRepo])
+                XCTAssertEqual(delegate.didUpdate, [dummyRepo])
+            }
+        }
+    }
+
+    func testCache() throws {
+        if #available(macOS 11, *) {
+            // No need to skip the test.
+        }
+        else {
+            // Avoid a crasher that seems to happen only on macOS 10.15, but leave an environment variable for testing.
+            try XCTSkipUnless(ProcessEnv.vars["SWIFTPM_ENABLE_FLAKY_REPOSITORYMANAGERTESTS"] == "1", "skipping test that sometimes crashes in CI (rdar://70540298)")
+        }
+
+        let fs = localFileSystem
+        let observability = ObservabilitySystem.makeForTesting()
+
+        fixture(name: "DependencyResolution/External/Simple") { prefix in
+            let cachePath = prefix.appending(component: "cache")
+            let repositoriesPath = prefix.appending(component: "repositories")
+            let repo = RepositorySpecifier(path: prefix.appending(component: "Foo"))
+
+            let provider = GitRepositoryProvider()
+            let delegate = DummyRepositoryManagerDelegate()
+
+            let manager = RepositoryManager(
+                fileSystem: fs,
+                path: repositoriesPath,
+                provider: provider,
+                cachePath: cachePath,
+                cacheLocalPackages: true,
+                delegate: delegate
+            )
+
+            // fetch packages and populate cache
+            delegate.prepare(fetchExpected: true, updateExpected: false)
+            _ = try manager.lookup(repository: repo, observabilityScope: observability.topScope)
+            XCTAssertNoDiagnostics(observability.diagnostics)
+            XCTAssertDirectoryExists(cachePath.appending(repo.storagePath()))
+            XCTAssertDirectoryExists(repositoriesPath.appending(repo.storagePath()))
+            try delegate.wait(timeout: .now() + 2)
+            XCTAssertEqual(delegate.willFetch[0].details,
+                           RepositoryManager.FetchDetails(fromCache: false, updatedCache: false))
+            XCTAssertEqual(try delegate.didFetch[0].result.get(),
+                           RepositoryManager.FetchDetails(fromCache: false, updatedCache: true))
+
+            // removing the repositories path to force re-fetch
+            try fs.removeFileTree(repositoriesPath)
+
+            // fetch packages from the cache
+            delegate.prepare(fetchExpected: true, updateExpected: false)
+            _ = try manager.lookup(repository: repo, observabilityScope: observability.topScope)
+            XCTAssertNoDiagnostics(observability.diagnostics)
+            XCTAssertDirectoryExists(repositoriesPath.appending(repo.storagePath()))
+            try delegate.wait(timeout: .now() + 2)
+            XCTAssertEqual(delegate.willFetch[1].details,
+                           RepositoryManager.FetchDetails(fromCache: true, updatedCache: false))
+            XCTAssertEqual(try delegate.didFetch[1].result.get(),
+                           RepositoryManager.FetchDetails(fromCache: true, updatedCache: true))
+
+            //  reset the state on disk
+            try fs.removeFileTree(cachePath)
+            try fs.removeFileTree(repositoriesPath)
+
+            // fetch packages and populate cache
+            delegate.prepare(fetchExpected: true, updateExpected: false)
+            _ = try manager.lookup(repository: repo, observabilityScope: observability.topScope)
+            XCTAssertNoDiagnostics(observability.diagnostics)
+            XCTAssertDirectoryExists(cachePath.appending(repo.storagePath()))
+            XCTAssertDirectoryExists(repositoriesPath.appending(repo.storagePath()))
+            try delegate.wait(timeout: .now() + 2)
+            XCTAssertEqual(delegate.willFetch[2].details,
+                           RepositoryManager.FetchDetails(fromCache: false, updatedCache: false))
+            XCTAssertEqual(try delegate.didFetch[2].result.get(),
+                           RepositoryManager.FetchDetails(fromCache: false, updatedCache: true))
+
+            // update packages from the cache
+            delegate.prepare(fetchExpected: false, updateExpected: true)
+            _ = try manager.lookup(repository: repo, observabilityScope: observability.topScope)
+            XCTAssertNoDiagnostics(observability.diagnostics)
+            try delegate.wait(timeout: .now() + 2)
+            XCTAssertEqual(delegate.willUpdate[0].storagePath(), repo.storagePath())
+            XCTAssertEqual(delegate.didUpdate[0].storagePath(), repo.storagePath())
+        }
+    }
+
+    func testReset() throws {
+        let fs = localFileSystem
+        let observability = ObservabilitySystem.makeForTesting()
+
+        try testWithTemporaryDirectory { path in
+            let repos = path.appending(component: "repo")
+            let provider = DummyRepositoryProvider(fileSystem: fs)
+            let delegate = DummyRepositoryManagerDelegate()
+
+            try fs.createDirectory(repos, recursive: true)
+            let manager = RepositoryManager(
+                fileSystem: fs,
+                path: repos,
+                provider: provider,
+                delegate: delegate
+            )
+            let dummyRepo = RepositorySpecifier(path: .init("/dummy"))
+
+            delegate.prepare(fetchExpected: true, updateExpected: false)
+            _ = try manager.lookup(repository: dummyRepo, observabilityScope: observability.topScope)
+            XCTAssertNoDiagnostics(observability.diagnostics)
+            delegate.prepare(fetchExpected: false, updateExpected: true)
+            _ = try manager.lookup(repository: dummyRepo, observabilityScope: observability.topScope)
+            XCTAssertNoDiagnostics(observability.diagnostics)
+            try delegate.wait(timeout: .now() + 2)
+            XCTAssertEqual(delegate.willFetch.count, 1)
+            XCTAssertEqual(delegate.didFetch.count, 1)
+
+            try manager.reset()
+            XCTAssertTrue(!fs.isDirectory(repos))
+            try fs.createDirectory(repos, recursive: true)
+
+            delegate.prepare(fetchExpected: true, updateExpected: false)
+            _ = try manager.lookup(repository: dummyRepo, observabilityScope: observability.topScope)
+            XCTAssertNoDiagnostics(observability.diagnostics)
+            try delegate.wait(timeout: .now() + 2)
+            XCTAssertEqual(delegate.willFetch.count, 2)
+            XCTAssertEqual(delegate.didFetch.count, 2)
+        }
+    }
+
+    /// Check that the manager is persistent.
+    func testPersistence() throws {
+        let fs = localFileSystem
+        let observability = ObservabilitySystem.makeForTesting()
+
+        try testWithTemporaryDirectory { path in
+            let provider = DummyRepositoryProvider(fileSystem: fs)
+            let dummyRepo = RepositorySpecifier(path: .init("/dummy"))
+
+            // Do the initial fetch.
+            do {
+                let delegate = DummyRepositoryManagerDelegate()
+                let manager = RepositoryManager(
+                    fileSystem: fs,
+                    path: path,
+                    provider: provider,
+                    delegate: delegate
+                )
+
+                delegate.prepare(fetchExpected: true, updateExpected: false)
+                _ = try manager.lookup(repository: dummyRepo, observabilityScope: observability.topScope)
+                XCTAssertNoDiagnostics(observability.diagnostics)
+                try delegate.wait(timeout: .now() + 2)
+                XCTAssertEqual(delegate.willFetch.map { $0.repository }, [dummyRepo])
+                XCTAssertEqual(delegate.didFetch.map { $0.repository }, [dummyRepo])
+            }
+            // We should have performed one fetch.
+            XCTAssertEqual(provider.numClones, 1)
+            XCTAssertEqual(provider.numFetches, 0)
+
+            // Create a new manager, and fetch.
+            do {
+                let delegate = DummyRepositoryManagerDelegate()
+                let manager = RepositoryManager(
+                    fileSystem: fs,
+                    path: path,
+                    provider: provider,
+                    delegate: delegate
+                )
+
+                delegate.prepare(fetchExpected: true, updateExpected: false)
+                _ = try manager.lookup(repository: dummyRepo, observabilityScope: observability.topScope)
+                XCTAssertNoDiagnostics(observability.diagnostics)
+                // This time fetch shouldn't be called.
+                try delegate.wait(timeout: .now() + 2)
+                XCTAssertEqual(delegate.willFetch.map { $0.repository }, [])
+            }
+            // We shouldn't have done a new fetch.
+            XCTAssertEqual(provider.numClones, 1)
+            XCTAssertEqual(provider.numFetches, 1)
+
+            // Manually destroy the manager state, and check it still works.
+            do {
+                let delegate = DummyRepositoryManagerDelegate()
+                var manager = RepositoryManager(
+                    fileSystem: fs,
+                    path: path,
+                    provider: provider,
+                    delegate: delegate
+                )
+                try! fs.removeFileTree(path.appending(dummyRepo.storagePath()))
+                manager = RepositoryManager(
+                    fileSystem: fs,
+                    path: path,
+                    provider: provider,
+                    delegate: delegate
+                )
+                let dummyRepo = RepositorySpecifier(path: .init("/dummy"))
+
+                delegate.prepare(fetchExpected: true, updateExpected: false)
+                _ = try manager.lookup(repository: dummyRepo, observabilityScope: observability.topScope)
+                XCTAssertNoDiagnostics(observability.diagnostics)
+                try delegate.wait(timeout: .now() + 2)
+                XCTAssertEqual(delegate.willFetch.map { $0.repository }, [dummyRepo])
+                XCTAssertEqual(delegate.didFetch.map { $0.repository }, [dummyRepo])
+            }
+            // We should have re-fetched.
+            XCTAssertEqual(provider.numClones, 2)
+            XCTAssertEqual(provider.numFetches, 1)
+        }
+    }
+
+    func testConcurrency() throws {
+        let fs = localFileSystem
+        let observability = ObservabilitySystem.makeForTesting()
+
+        try testWithTemporaryDirectory { path in
+            let provider = DummyRepositoryProvider(fileSystem: fs)
+            let delegate = DummyRepositoryManagerDelegate()
+            let manager = RepositoryManager(
+                fileSystem: fs,
+                path: path,
+                provider: provider,
+                delegate: delegate
+            )
+            let dummyRepo = RepositorySpecifier(path: .init("/dummy"))
+
+            let group = DispatchGroup()
+            let results = ThreadSafeKeyValueStore<Int, Result<RepositoryManager.RepositoryHandle, Error>>()
+            let concurrency = 10000
+            for index in 0 ..< concurrency {
+                group.enter()
+                delegate.prepare(fetchExpected: index == 0, updateExpected: index > 0)
+                manager.lookup(
+                    package: .init(url: dummyRepo.url),
+                    repository: dummyRepo,
+                    skipUpdate: false,
+                    observabilityScope: observability.topScope,
+                    delegateQueue: .sharedConcurrent,
+                    callbackQueue: .sharedConcurrent
+                ) { result in
+                    group.leave()
+                    results[index] = result
+                }
+            }
+
+            if case .timedOut = group.wait(timeout: .now() + 10) {
+                return XCTFail("timeout")
+            }
+
+            XCTAssertNoDiagnostics(observability.diagnostics)
+
+            try delegate.wait(timeout: .now() + 2)
+            XCTAssertEqual(delegate.willFetch.count, 1)
+            XCTAssertEqual(delegate.didFetch.count, 1)
+            XCTAssertEqual(delegate.willUpdate.count, concurrency - 1)
+            XCTAssertEqual(delegate.didUpdate.count, concurrency - 1)
+
+            XCTAssertEqual(results.count, concurrency)
+            for index in 0 ..< concurrency {
+                XCTAssertEqual(try results[index]?.get().repository, dummyRepo)
+            }
+        }
+    }
+
+    func testSkipUpdate() throws {
+        let fs = localFileSystem
+        let observability = ObservabilitySystem.makeForTesting()
+
+        try testWithTemporaryDirectory { path in
+            let repos = path.appending(component: "repo")
+            let provider = DummyRepositoryProvider(fileSystem: fs)
+            let delegate = DummyRepositoryManagerDelegate()
+
+            try fs.createDirectory(repos, recursive: true)
+
+            let manager = RepositoryManager(
+                fileSystem: fs,
+                path: repos,
+                provider: provider,
+                delegate: delegate
+            )
+            let dummyRepo = RepositorySpecifier(path: .init("/dummy"))
+
+            delegate.prepare(fetchExpected: true, updateExpected: false)
+            _ = try manager.lookup(repository: dummyRepo, observabilityScope: observability.topScope)
+            XCTAssertNoDiagnostics(observability.diagnostics)
+            try delegate.wait(timeout: .now() + 2)
+            XCTAssertEqual(delegate.willFetch.count, 1)
+            XCTAssertEqual(delegate.didFetch.count, 1)
+            XCTAssertEqual(delegate.willUpdate.count, 0)
+            XCTAssertEqual(delegate.didUpdate.count, 0)
+
+            delegate.prepare(fetchExpected: false, updateExpected: true)
+            _ = try manager.lookup(repository: dummyRepo, observabilityScope: observability.topScope)
+            XCTAssertNoDiagnostics(observability.diagnostics)
+            delegate.prepare(fetchExpected: false, updateExpected: true)
+            _ = try manager.lookup(repository: dummyRepo, observabilityScope: observability.topScope)
+            XCTAssertNoDiagnostics(observability.diagnostics)
+            try delegate.wait(timeout: .now() + 2)
+            XCTAssertEqual(delegate.willFetch.count, 1)
+            XCTAssertEqual(delegate.didFetch.count, 1)
+            XCTAssertEqual(delegate.willUpdate.count, 2)
+            XCTAssertEqual(delegate.didUpdate.count, 2)
+
+            delegate.prepare(fetchExpected: false, updateExpected: false)
+            _ = try manager.lookup(repository: dummyRepo, skipUpdate: true, observabilityScope: observability.topScope)
+            XCTAssertNoDiagnostics(observability.diagnostics)
+            try delegate.wait(timeout: .now() + 2)
+            XCTAssertEqual(delegate.willFetch.count, 1)
+            XCTAssertEqual(delegate.didFetch.count, 1)
+            XCTAssertEqual(delegate.willUpdate.count, 2)
+            XCTAssertEqual(delegate.didUpdate.count, 2)
+        }
+    }
+}
+
+extension RepositoryManager {
+    public convenience init(
+        fileSystem: FileSystem,
+        path: AbsolutePath,
+        provider: RepositoryProvider,
+        cachePath: AbsolutePath? =  .none,
+        cacheLocalPackages: Bool = false,
+        delegate: RepositoryManagerDelegate? = .none
+    ) {
+        self.init(
+            fileSystem: fileSystem,
+            path: path,
+            provider: provider,
+            cachePath: cachePath,
+            cacheLocalPackages: cacheLocalPackages,
+            initializationWarningHandler: { _ in },
+            delegate: delegate
+        )
+    }
+
+    fileprivate func lookup(repository: RepositorySpecifier, skipUpdate: Bool = false, observabilityScope: ObservabilityScope) throws -> RepositoryHandle {
+        return try tsc_await {
+            self.lookup(
+                package: .init(url: repository.url),
+                repository: repository,
+                skipUpdate: skipUpdate,
+                observabilityScope: observabilityScope,
+                delegateQueue: .sharedConcurrent,
+                callbackQueue: .sharedConcurrent,
+                completion: $0
+            )
+        }
+    }
+}
 
 private enum DummyError: Swift.Error {
     case invalidRepository
@@ -64,14 +514,20 @@ private class DummyRepository: Repository {
 }
 
 private class DummyRepositoryProvider: RepositoryProvider {
+    private let fileSystem: FileSystem
+
     private let lock = Lock()
     private var _numClones = 0
     private var _numFetches = 0
 
+    init(fileSystem: FileSystem) {
+        self.fileSystem = fileSystem
+    }
+
     func fetch(repository: RepositorySpecifier, to path: AbsolutePath, progressHandler: FetchProgress.Handler? = nil) throws {
-        assert(!localFileSystem.exists(path))
-        try localFileSystem.createDirectory(path.parentDirectory, recursive: true)
-        try localFileSystem.writeFileContents(path, bytes: ByteString(encodingAsUTF8: repository.location.description))
+        assert(!self.fileSystem.exists(path))
+        try self.fileSystem.createDirectory(path, recursive: true)
+        try self.fileSystem.writeFileContents(path.appending(component: "readme.md"), bytes: ByteString(encodingAsUTF8: repository.location.description))
 
         self.lock.withLock {
             self._numClones += 1
@@ -84,8 +540,12 @@ private class DummyRepositoryProvider: RepositoryProvider {
         }
     }
 
+    public func repositoryExists(at path: AbsolutePath) throws -> Bool {
+        return self.fileSystem.isDirectory(path)
+    }
+
     func copy(from sourcePath: AbsolutePath, to destinationPath: AbsolutePath) throws {
-        try localFileSystem.copy(from: sourcePath, to: destinationPath)
+        try self.fileSystem.copy(from: sourcePath, to: destinationPath)
 
         self.lock.withLock {
             self._numClones += 1
@@ -103,8 +563,8 @@ private class DummyRepositoryProvider: RepositoryProvider {
     }
 
     func createWorkingCopy(repository: RepositorySpecifier, sourcePath: AbsolutePath, at destinationPath: AbsolutePath, editable: Bool) throws -> WorkingCheckout  {
-        try localFileSystem.createDirectory(destinationPath)
-        try localFileSystem.writeFileContents(destinationPath.appending(component: "README.txt"), bytes: "Hi")
+        try self.fileSystem.createDirectory(destinationPath)
+        try self.fileSystem.writeFileContents(destinationPath.appending(component: "README.txt"), bytes: "Hi")
         return try self.openWorkingCopy(at: destinationPath)
     }
 
@@ -195,472 +655,78 @@ private class DummyRepositoryProvider: RepositoryProvider {
     }
 }
 
-private class DummyRepositoryManagerDelegate: RepositoryManagerDelegate {
-    private var _willFetch = [(repository: RepositorySpecifier, fetchDetails: RepositoryManager.FetchDetails?)]()
-    private var _didFetch = [(repository: RepositorySpecifier, fetchDetails: RepositoryManager.FetchDetails?)]()
+private class DummyRepositoryManagerDelegate: RepositoryManager.Delegate {
+    private var _willFetch = ThreadSafeArrayStore<(repository: RepositorySpecifier, details: RepositoryManager.FetchDetails)>()
+    private var _didFetch = ThreadSafeArrayStore<(repository: RepositorySpecifier, result: Result<RepositoryManager.FetchDetails, Error>)>()
+    private var _willUpdate = ThreadSafeArrayStore<RepositorySpecifier>()
+    private var _didUpdate = ThreadSafeArrayStore<RepositorySpecifier>()
 
-    private var _willUpdate = [RepositorySpecifier]()
-    private var _didUpdate = [RepositorySpecifier]()
+    private var group = DispatchGroup()
 
-    private var fetchedLock = Lock()
-
-    var willFetchGroup: DispatchGroup?
-    var didFetchGroup: DispatchGroup?
-    var willUpdateGroup: DispatchGroup?
-    var didUpdateGroup: DispatchGroup?
-
-    var willFetch: [(repository: RepositorySpecifier, fetchDetails: RepositoryManager.FetchDetails?)] {
-        self.willFetchGroup?.wait()
-        return self.fetchedLock.withLock { _willFetch }
+    public func prepare(fetchExpected: Bool, updateExpected: Bool) {
+        if fetchExpected {
+            self.group.enter() // will fetch
+            self.group.enter() // did fetch
+        }
+        if updateExpected {
+            self.group.enter() // will update
+            self.group.enter() // did v
+        }
     }
 
-    var didFetch: [(repository: RepositorySpecifier, fetchDetails: RepositoryManager.FetchDetails?)] {
-        self.didFetchGroup?.wait()
-        return self.fetchedLock.withLock { _didFetch }
+    public func reset() {
+        self.group = DispatchGroup()
+        self._willFetch = .init()
+        self._didFetch = .init()
+        self._willUpdate = .init()
+        self._didUpdate = .init()
+    }
+
+    public func wait(timeout: DispatchTime) throws {
+        switch self.group.wait(timeout: timeout) {
+        case .success:
+            return
+        case .timedOut:
+            throw StringError("timeout")
+        }
+    }
+
+    var willFetch: [(repository: RepositorySpecifier, details: RepositoryManager.FetchDetails)] {
+        return self._willFetch.get()
+    }
+
+    var didFetch: [(repository: RepositorySpecifier, result: Result<RepositoryManager.FetchDetails, Error>)] {
+        return self._didFetch.get()
     }
 
     var willUpdate: [RepositorySpecifier] {
-        self.willUpdateGroup?.wait()
-        return self.fetchedLock.withLock { _willUpdate }
+        return self._willUpdate.get()
     }
 
     var didUpdate: [RepositorySpecifier] {
-        self.didUpdateGroup?.wait()
-        return self.fetchedLock.withLock { _didUpdate }
+        return self._didUpdate.get()
     }
 
-    func fetchingWillBegin(handle: RepositoryManager.RepositoryHandle, fetchDetails: RepositoryManager.FetchDetails?) {
-        self.fetchedLock.withLock {
-            _willFetch += [(repository: handle.repository, fetchDetails: fetchDetails)]
-        }
-        self.willFetchGroup?.leave()
+    func willFetch(package: PackageIdentity, repository: RepositorySpecifier, details: RepositoryManager.FetchDetails) {
+        self._willFetch.append((repository: repository, details: details))
+        self.group.leave()
     }
 
-    func fetchingRepository(from repository: String, objectsFetched: Int, totalObjectsToFetch: Int) {
-    }
-    
-    func fetchingDidFinish(handle: RepositoryManager.RepositoryHandle, fetchDetails: RepositoryManager.FetchDetails?, error: Swift.Error?, duration: DispatchTimeInterval) {
-        self.fetchedLock.withLock {
-            _didFetch += [(repository: handle.repository, fetchDetails: fetchDetails)]
-        }
-        self.didFetchGroup?.leave()
+    func fetching(package: PackageIdentity, repository: RepositorySpecifier, objectsFetched: Int, totalObjectsToFetch: Int) {
     }
 
-    func handleWillUpdate(handle: RepositoryManager.RepositoryHandle) {
-        self.fetchedLock.withLock {
-            _willUpdate += [handle.repository]
-        }
-        self.willUpdateGroup?.leave()
+    func didFetch(package: PackageIdentity, repository: RepositorySpecifier, result: Result<RepositoryManager.FetchDetails, Error>, duration: DispatchTimeInterval) {
+        self._didFetch.append((repository: repository, result: result))
+        self.group.leave()
     }
 
-    func handleDidUpdate(handle: RepositoryManager.RepositoryHandle, duration: DispatchTimeInterval) {
-        self.fetchedLock.withLock {
-            _didUpdate += [handle.repository]
-        }
-        self.didUpdateGroup?.leave()
-    }
-}
-
-class RepositoryManagerTests: XCTestCase {
-    func testBasics() throws {
-        try testWithTemporaryDirectory { path in
-            let provider = DummyRepositoryProvider()
-            let delegate = DummyRepositoryManagerDelegate()
-            delegate.willFetchGroup = DispatchGroup()
-            delegate.didFetchGroup = DispatchGroup()
-            delegate.willUpdateGroup = DispatchGroup()
-            delegate.didUpdateGroup = DispatchGroup()
-            let manager = RepositoryManager(fileSystem: localFileSystem, path: path, provider: provider, delegate: delegate)
-
-            // Check that we can "fetch" a repository.
-            let dummyRepo = RepositorySpecifier(path: .init("/dummy"))
-            let lookupExpectation = expectation(description: "Repository lookup expectation")
-
-            var prevHandle: RepositoryManager.RepositoryHandle?
-
-            delegate.willFetchGroup?.enter()
-            delegate.didFetchGroup?.enter()
-            manager.lookup(repository: dummyRepo, on: .global()) { result in
-                guard case .success(let handle) = result else {
-                    XCTFail("Could not get handle")
-                    return
-                }
-
-                prevHandle = handle
-                XCTAssertEqual(provider.numFetches, 0)
-
-                // Open the repository.
-                let repository = try! handle.open()
-                XCTAssertEqual(try! repository.getTags(), ["1.0.0"])
-
-                // Create a checkout of the repository.
-                let checkoutPath = path.appending(component: "checkout")
-                _ = try! handle.createWorkingCopy(at: checkoutPath, editable: false)
-
-                XCTAssertDirectoryExists(checkoutPath)
-                XCTAssertFileExists(checkoutPath.appending(component: "README.txt"))
-                lookupExpectation.fulfill()
-            }
-
-            waitForExpectations(timeout: 1)
-
-            XCTAssertEqual(Set(delegate.willFetch.map { $0.repository }), [dummyRepo])
-            XCTAssertEqual(Set(delegate.didFetch.map { $0.repository }), [dummyRepo])
-
-            let badLookupExpectation = expectation(description: "Repository lookup expectation")
-            // Get a bad repository.
-            let badDummyRepo = RepositorySpecifier(path: .init("/badDummy"))
-
-            delegate.willFetchGroup?.enter()
-            delegate.didFetchGroup?.enter()
-            manager.lookup(repository: badDummyRepo, on: .global()) { result in
-                guard case .failure(let error) = result else {
-                    XCTFail("Unexpected success")
-                    return
-                }
-                XCTAssertEqual(error as? DummyError, DummyError.invalidRepository)
-                badLookupExpectation.fulfill()
-            }
-
-            waitForExpectations(timeout: 1)
-            XCTAssertNotNil(prevHandle)
-
-            XCTAssertEqual(Set(delegate.willFetch.map { $0.repository }), [dummyRepo, badDummyRepo])
-            XCTAssertEqual(Set(delegate.didFetch.map { $0.repository }), [dummyRepo, badDummyRepo])
-            // We shouldn't have made any update call yet.
-            XCTAssert(delegate.willUpdate.isEmpty)
-            XCTAssert(delegate.didUpdate.isEmpty)
-
-            do {
-                delegate.willFetchGroup?.enter()
-                delegate.didFetchGroup?.enter()
-                delegate.willUpdateGroup?.enter()
-                delegate.didUpdateGroup?.enter()
-                let handle = try manager.lookup(repository: dummyRepo)
-                XCTAssertEqual(handle.repository, dummyRepo)
-                XCTAssertEqual(handle.repository, prevHandle?.repository)
-
-                // We should always get back the same handle once fetched.
-                // Since we looked up this repo again, we should have made a fetch call.
-                XCTAssertEqual(provider.numFetches, 1)
-                XCTAssertEqual(delegate.willUpdate, [dummyRepo])
-                XCTAssertEqual(delegate.didUpdate, [dummyRepo])
-            }
-
-            // Remove the repo.
-            do {
-                try manager.remove(repository: dummyRepo)
-
-                // Check removing the repo updates the persistent file.
-                do {
-                    let checkoutsStateFile = path.appending(component: "checkouts-state.json")
-                    let jsonData = try JSON(bytes: localFileSystem.readFileContents(checkoutsStateFile))
-                    XCTAssertEqual(jsonData.dictionary?["object"]?.dictionary?["repositories"]?.dictionary?[dummyRepo.location.description], nil)
-                }
-
-                // We should get a new handle now because we deleted the existing repository.
-                let handle = try manager.lookup(repository: dummyRepo)
-                XCTAssertEqual(handle.repository, dummyRepo)
-
-                // We should have tried fetching these two.
-                XCTAssertEqual(Set(delegate.willFetch.map { $0.repository }), [dummyRepo, badDummyRepo])
-                XCTAssertEqual(Set(delegate.didFetch.map { $0.repository }), [dummyRepo, badDummyRepo])
-                XCTAssertEqual(delegate.willUpdate, [dummyRepo])
-                XCTAssertEqual(delegate.didUpdate, [dummyRepo])
-            }
-        }
+    func willUpdate(package: PackageIdentity, repository: RepositorySpecifier) {
+        self._willUpdate.append(repository)
+        self.group.leave()
     }
 
-    func testCache() throws {
-        if #available(macOS 11, *) {
-            // No need to skip the test.
-        }
-        else {
-            // Avoid a crasher that seems to happen only on macOS 10.15, but leave an environment variable for testing.
-            try XCTSkipUnless(ProcessEnv.vars["SWIFTPM_ENABLE_FLAKY_REPOSITORYMANAGERTESTS"] == "1", "skipping test that sometimes crashes in CI (rdar://70540298)")
-        }
-        
-        fixture(name: "DependencyResolution/External/Simple") { prefix in
-            let cachePath = prefix.appending(component: "cache")
-            let repositoriesPath = prefix.appending(component: "repositories")
-            let repo = RepositorySpecifier(path: prefix.appending(component: "Foo"))
-
-            let provider = GitRepositoryProvider()
-            let delegate = DummyRepositoryManagerDelegate()
-            delegate.willFetchGroup = DispatchGroup()
-            delegate.didFetchGroup = DispatchGroup()
-
-            let manager = RepositoryManager(
-                fileSystem: localFileSystem,
-                path: repositoriesPath,
-                provider: provider,
-                delegate: delegate,
-                cachePath: cachePath,
-                cacheLocalPackages: true
-            )
-
-            // fetch packages and populate cache
-            delegate.willFetchGroup?.enter()
-            delegate.didFetchGroup?.enter()
-            _ = try manager.lookup(repository: repo)
-            XCTAssertDirectoryExists(cachePath.appending(component: repo.fileSystemIdentifier))
-            XCTAssertDirectoryExists(repositoriesPath.appending(component: repo.fileSystemIdentifier))
-            XCTAssertEqual(delegate.willFetch[0].fetchDetails,
-                           RepositoryManager.FetchDetails(fromCache: false, updatedCache: false))
-            XCTAssertEqual(delegate.didFetch[0].fetchDetails,
-                           RepositoryManager.FetchDetails(fromCache: false, updatedCache: true))
-
-            // removing the repositories path to force re-fetch
-            try localFileSystem.removeFileTree(repositoriesPath)
-
-            // fetch packages from the cache
-            delegate.willFetchGroup?.enter()
-            delegate.didFetchGroup?.enter()
-            _ = try manager.lookup(repository: repo)
-            XCTAssertDirectoryExists(repositoriesPath.appending(component: repo.fileSystemIdentifier))
-            XCTAssertEqual(delegate.willFetch[1].fetchDetails,
-                           RepositoryManager.FetchDetails(fromCache: true, updatedCache: false))
-            XCTAssertEqual(delegate.didFetch[1].fetchDetails,
-                           RepositoryManager.FetchDetails(fromCache: true, updatedCache: true))
-
-            //  reset the state on disk
-            try localFileSystem.removeFileTree(cachePath)
-            try localFileSystem.removeFileTree(repositoriesPath)
-
-            // fetch packages and populate cache
-            delegate.willFetchGroup?.enter()
-            delegate.didFetchGroup?.enter()
-            _ = try manager.lookup(repository: repo)
-            XCTAssertDirectoryExists(cachePath.appending(component: repo.fileSystemIdentifier))
-            XCTAssertDirectoryExists(repositoriesPath.appending(component: repo.fileSystemIdentifier))
-            XCTAssertEqual(delegate.willFetch[2].fetchDetails,
-                           RepositoryManager.FetchDetails(fromCache: false, updatedCache: false))
-            XCTAssertEqual(delegate.didFetch[2].fetchDetails,
-                           RepositoryManager.FetchDetails(fromCache: false, updatedCache: true))
-
-            // update packages from the cache
-            delegate.willUpdateGroup?.enter()
-            delegate.willUpdateGroup?.enter()
-            _ = try manager.lookup(repository: repo)
-            XCTAssertEqual(delegate.willUpdate[0].fileSystemIdentifier, repo.fileSystemIdentifier)
-            XCTAssertEqual(delegate.didUpdate[0].fileSystemIdentifier, repo.fileSystemIdentifier)
-        }
-    }
-
-    func testReset() throws {
-        try testWithTemporaryDirectory { path in
-            let repos = path.appending(component: "repo")
-            let provider = DummyRepositoryProvider()
-            let delegate = DummyRepositoryManagerDelegate()
-            delegate.willFetchGroup = DispatchGroup()
-            delegate.didFetchGroup = DispatchGroup()
-
-            try localFileSystem.createDirectory(repos, recursive: true)
-            let manager = RepositoryManager(fileSystem: localFileSystem, path: repos, provider: provider, delegate: delegate)
-            let dummyRepo = RepositorySpecifier(path: .init("/dummy"))
-
-            delegate.willFetchGroup?.enter()
-            delegate.didFetchGroup?.enter()
-            _ = try manager.lookup(repository: dummyRepo)
-            _ = try manager.lookup(repository: dummyRepo)
-            XCTAssertEqual(delegate.willFetch.count, 1)
-            XCTAssertEqual(delegate.didFetch.count, 1)
-
-            try manager.reset()
-            XCTAssertTrue(!localFileSystem.isDirectory(repos))
-            try localFileSystem.createDirectory(repos, recursive: true)
-
-            delegate.willFetchGroup?.enter()
-            delegate.didFetchGroup?.enter()
-            _ = try manager.lookup(repository: dummyRepo)
-            XCTAssertEqual(delegate.willFetch.count, 2)
-            XCTAssertEqual(delegate.didFetch.count, 2)
-        }
-    }
-
-    /// Check that the manager is persistent.
-    func testPersistence() throws {
-        try testWithTemporaryDirectory { path in
-            let provider = DummyRepositoryProvider()
-
-            // Do the initial fetch.
-            do {
-                let delegate = DummyRepositoryManagerDelegate()
-                delegate.willFetchGroup = DispatchGroup()
-                delegate.didFetchGroup = DispatchGroup()
-
-                let manager = RepositoryManager(fileSystem: localFileSystem, path: path, provider: provider, delegate: delegate)
-                let dummyRepo = RepositorySpecifier(path: .init("/dummy"))
-
-                delegate.willFetchGroup?.enter()
-                delegate.didFetchGroup?.enter()
-                _ = try manager.lookup(repository: dummyRepo)
-
-                XCTAssertEqual(delegate.willFetch.map { $0.repository }, [dummyRepo])
-                XCTAssertEqual(delegate.didFetch.map { $0.repository }, [dummyRepo])
-            }
-            // We should have performed one fetch.
-            XCTAssertEqual(provider.numClones, 1)
-            XCTAssertEqual(provider.numFetches, 0)
-
-            // Create a new manager, and fetch.
-            do {
-                let delegate = DummyRepositoryManagerDelegate()
-                delegate.willFetchGroup = DispatchGroup()
-                delegate.didFetchGroup = DispatchGroup()
-
-                let manager = RepositoryManager(fileSystem: localFileSystem, path: path, provider: provider, delegate: delegate)
-                let dummyRepo = RepositorySpecifier(path: .init("/dummy"))
-
-                _ = try manager.lookup(repository: dummyRepo)
-                // This time fetch shouldn't be called.
-                XCTAssertEqual(delegate.willFetch.map { $0.repository }, [])
-            }
-            // We shouldn't have done a new fetch.
-            XCTAssertEqual(provider.numClones, 1)
-            XCTAssertEqual(provider.numFetches, 1)
-
-            // Manually destroy the manager state, and check it still works.
-            do {
-                let delegate = DummyRepositoryManagerDelegate()
-                delegate.willFetchGroup = DispatchGroup()
-                delegate.didFetchGroup = DispatchGroup()
-
-                var manager = RepositoryManager(fileSystem: localFileSystem, path: path, provider: provider, delegate: delegate)
-                try! localFileSystem.removeFileTree(path.appending(component: "checkouts-state.json"))
-                manager = RepositoryManager(fileSystem: localFileSystem, path: path, provider: provider, delegate: delegate)
-                let dummyRepo = RepositorySpecifier(path: .init("/dummy"))
-
-                delegate.willFetchGroup?.enter()
-                delegate.didFetchGroup?.enter()
-                _ = try manager.lookup(repository: dummyRepo)
-
-                XCTAssertEqual(delegate.willFetch.map { $0.repository }, [dummyRepo])
-                XCTAssertEqual(delegate.didFetch.map { $0.repository }, [dummyRepo])
-            }
-            // We should have re-fetched.
-            XCTAssertEqual(provider.numClones, 2)
-            XCTAssertEqual(provider.numFetches, 1)
-        }
-    }
-
-    func testParallelLookups() throws {
-        try testWithTemporaryDirectory { path in
-            let provider = DummyRepositoryProvider()
-            let delegate = DummyRepositoryManagerDelegate()
-            let manager = RepositoryManager(fileSystem: localFileSystem, path: path, provider: provider, delegate: delegate)
-            let dummyRepo = RepositorySpecifier(path: .init("/dummy"))
-            // Condition to check if we have finished all lookups.
-            let doneCondition = Condition()
-            var done = false
-            var set = Set<Int>()
-            let numLookups = 1000
-
-            for i in 0 ..< numLookups {
-                manager.lookup(repository: dummyRepo, on: .global()) { _ in
-                    doneCondition.whileLocked {
-                        set.insert(i)
-                        if set.count == numLookups {
-                            // If set has all the lookups, we're done.
-                            done = true
-                            doneCondition.signal()
-                        }
-                    }
-                }
-            }
-            // Block until all the lookups are done.
-            doneCondition.whileLocked {
-                while !done {
-                    doneCondition.wait()
-                }
-            }
-        }
-    }
-
-    func testSkipUpdate() throws {
-        try testWithTemporaryDirectory { path in
-            let repos = path.appending(component: "repo")
-            let provider = DummyRepositoryProvider()
-            let delegate = DummyRepositoryManagerDelegate()
-            delegate.willFetchGroup = DispatchGroup()
-            delegate.didFetchGroup = DispatchGroup()
-            delegate.willUpdateGroup = DispatchGroup()
-            delegate.didUpdateGroup = DispatchGroup()
-
-            try localFileSystem.createDirectory(repos, recursive: true)
-
-            let manager = RepositoryManager(fileSystem: localFileSystem, path: repos, provider: provider, delegate: delegate)
-            let dummyRepo = RepositorySpecifier(path: .init("/dummy"))
-
-            delegate.willFetchGroup?.enter()
-            delegate.didFetchGroup?.enter()
-            _ = try manager.lookup(repository: dummyRepo)
-            XCTAssertEqual(delegate.willFetch.count, 1)
-            XCTAssertEqual(delegate.didFetch.count, 1)
-            XCTAssertEqual(delegate.willUpdate.count, 0)
-            XCTAssertEqual(delegate.didUpdate.count, 0)
-
-            delegate.willUpdateGroup?.enter()
-            delegate.willUpdateGroup?.enter()
-            delegate.didUpdateGroup?.enter()
-            delegate.didUpdateGroup?.enter()
-            _ = try manager.lookup(repository: dummyRepo)
-            _ = try manager.lookup(repository: dummyRepo)
-            XCTAssertEqual(delegate.willFetch.count, 1)
-            XCTAssertEqual(delegate.didFetch.count, 1)
-            XCTAssertEqual(delegate.willUpdate.count, 2)
-            XCTAssertEqual(delegate.didUpdate.count, 2)
-
-            _ = try manager.lookup(repository: dummyRepo, skipUpdate: true)
-            XCTAssertEqual(delegate.willFetch.count, 1)
-            XCTAssertEqual(delegate.didFetch.count, 1)
-            XCTAssertEqual(delegate.willUpdate.count, 2)
-            XCTAssertEqual(delegate.didUpdate.count, 2)
-        }
-    }
-
-    func testStateFileResilience() throws {
-        try testWithTemporaryDirectory { path in
-            // Setup a dummy repository.
-            let repos = path.appending(component: "repo")
-            let provider = DummyRepositoryProvider()
-            let delegate = DummyRepositoryManagerDelegate()
-            delegate.willFetchGroup = DispatchGroup()
-            delegate.didFetchGroup = DispatchGroup()
-
-            try localFileSystem.createDirectory(repos, recursive: true)
-            let manager = RepositoryManager(fileSystem: localFileSystem, path: repos, provider: provider, delegate: delegate)
-            let dummyRepo = RepositorySpecifier(path: .init("/dummy"))
-
-            // Perform a lookup.
-            delegate.willFetchGroup?.enter()
-            delegate.didFetchGroup?.enter()
-            _ = try manager.lookup(repository: dummyRepo)
-            XCTAssertEqual(delegate.didFetch.count, 1)
-
-            // Delete the checkout state file.
-            let stateFile = repos.appending(component: "checkouts-state.json")
-            try localFileSystem.removeFileTree(stateFile)
-
-            // We should refetch the repository since we lost the state file.
-            delegate.willFetchGroup?.enter()
-            delegate.didFetchGroup?.enter()
-            _ = try manager.lookup(repository: dummyRepo)
-            XCTAssertEqual(delegate.didFetch.count, 2)
-
-            // This time remove the entire repository directory and expect that
-            // to work as well.
-            try localFileSystem.removeFileTree(repos)
-            delegate.willFetchGroup?.enter()
-            delegate.didFetchGroup?.enter()
-            _ = try manager.lookup(repository: dummyRepo)
-            XCTAssertEqual(delegate.didFetch.count, 3)
-        }
-    }
-}
-
-extension RepositoryManager {
-    fileprivate func lookup(repository: RepositorySpecifier, skipUpdate: Bool = false) throws -> RepositoryHandle {
-        return try tsc_await { self.lookup(repository: repository, skipUpdate: skipUpdate, on: .global(), completion: $0) }
+    func didUpdate(package: PackageIdentity, repository: RepositorySpecifier, duration: DispatchTimeInterval) {
+        self._didUpdate.append(repository)
+        self.group.leave()
     }
 }

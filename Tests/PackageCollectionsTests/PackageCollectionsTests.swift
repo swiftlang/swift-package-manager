@@ -29,7 +29,7 @@ final class PackageCollectionsTests: XCTestCase {
         defer { XCTAssertNoThrow(try storage.close()) }
 
         // Disable cache for this test to avoid setup/cleanup
-        let metadataProviderConfig = GitHubPackageMetadataProvider.Configuration(authTokens: configuration.authTokens, cacheTTLInSeconds: -1)
+        let metadataProviderConfig = GitHubPackageMetadataProvider.Configuration(authTokens: configuration.authTokens, disableCache: true)
         let metadataProvider = GitHubPackageMetadataProvider(configuration: metadataProviderConfig)
         let packageCollections = PackageCollections(configuration: configuration, storage: storage, collectionProviders: [:], metadataProvider: metadataProvider)
 
@@ -1186,8 +1186,7 @@ final class PackageCollectionsTests: XCTestCase {
         let expectedMetadata = PackageCollections.mergedPackageMetadata(package: mockPackage, basicMetadata: mockMetadata)
         XCTAssertEqual(metadata.package, expectedMetadata, "package should match")
 
-        let expectedProvider = PackageMetadataProviderContext(authTokenType: nil, isAuthTokenConfigured: false, error: nil)
-        XCTAssertEqual(metadata.provider, expectedProvider, "provider should match")
+        XCTAssertNil(metadata.provider, "provider should be nil")
     }
 
     func testFetchMetadataInOrder() throws {
@@ -1313,13 +1312,12 @@ final class PackageCollectionsTests: XCTestCase {
 
         let mockMetadata = PackageCollectionsModel.PackageBasicMetadata(summary: "\(mockPackage.summary!) 2",
                                                                         keywords: mockPackage.keywords.flatMap { $0.map { "\($0)-2" } },
-                                                                        versions: mockPackage.versions.map { PackageCollectionsModel.PackageBasicVersionMetadata(version: $0.version, title: "\($0.title!) 2", summary: "\($0.summary!) 2", createdAt: Date(), publishedAt: nil) },
+                                                                        versions: mockPackage.versions.map { PackageCollectionsModel.PackageBasicVersionMetadata(version: $0.version, title: "\($0.title!) 2", summary: "\($0.summary!) 2", createdAt: Date()) },
                                                                         watchersCount: mockPackage.watchersCount! + 1,
                                                                         readmeURL: URL(string: "\(mockPackage.readmeURL!.absoluteString)-2")!,
                                                                         license: PackageCollectionsModel.License(type: .Apache2_0, url: URL(string: "\(mockPackage.license!.url.absoluteString)-2")!),
                                                                         authors: mockPackage.authors.flatMap { $0.map { .init(username: "\($0.username + "2")", url: nil, service: nil) } },
-                                                                        languages: ["Swift"],
-                                                                        processedAt: Date())
+                                                                        languages: ["Swift"])
 
         let metadata = PackageCollections.mergedPackageMetadata(package: mockPackage, basicMetadata: mockMetadata)
 
@@ -1422,15 +1420,13 @@ final class PackageCollectionsTests: XCTestCase {
         struct BrokenMetadataProvider: PackageMetadataProvider {
             var name: String = "BrokenMetadataProvider"
 
-            func get(identity: PackageIdentity, location: String, callback: @escaping (Result<PackageCollectionsModel.PackageBasicMetadata, Error>) -> Void) {
-                callback(.failure(TerribleThing()))
+            func get(
+                identity: PackageIdentity,
+                location: String,
+                callback: @escaping (Result<PackageCollectionsModel.PackageBasicMetadata, Error>, PackageMetadataProviderContext?) -> Void
+            ) {
+                callback(.failure(TerribleThing()), nil)
             }
-
-            func getAuthTokenType(for location: String) -> AuthTokenType? {
-                nil
-            }
-
-            func close() throws {}
 
             struct TerribleThing: Error {}
         }
@@ -1618,7 +1614,7 @@ private extension PackageCollections {
     }
 }
 
-private extension XCTestCase {
+extension XCTestCase {
     func skipIfUnsupportedPlatform() throws {
         if !PackageCollections.isSupportedPlatform {
             throw XCTSkip("Skipping test on unsupported platform")

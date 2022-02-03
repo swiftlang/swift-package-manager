@@ -88,7 +88,7 @@ public final class Target {
     /// The paths to source and resource files you don’t want to include in the target.
     ///
     /// Excluded paths are relative to the target path.
-    /// This property has precedence over the `sources` and `resources` properties.
+    /// This property has precedence over the ``sources`` and ``resources`` properties.
     public var exclude: [String]
     
     /// A boolean value that indicates if this is a test target.
@@ -299,7 +299,7 @@ public final class Target {
     ///       Don't escape the package root; for example, values like `../Foo` or `/Foo` are invalid.
     ///   - exclude: A list of paths to files or directories that the Swift Package Manager shouldn't consider to be source or resource files.
     ///       A path is relative to the target's directory.
-    ///       This parameter has precedence over the `sources` parameter.
+    ///       This parameter has precedence over the ``sources`` parameter.
     ///   - sources: An explicit list of source files. If you provide a path to a directory,
     ///       the Swift Package Manager searches for valid source files recursively.
     ///   - publicHeadersPath: The directory containing public headers of a C-family library target.
@@ -337,7 +337,7 @@ public final class Target {
     ///       Don't escape the package root; for example, values like `../Foo` or `/Foo` are invalid.
     ///   - exclude: A list of paths to files or directories that the Swift Package Manager shouldn't consider to be source or resource files.
     ///       Paths are relative to the target's directory.
-    ///       This parameter has precedence over the `sources` parameter.
+    ///       This parameter has precedence over the ``sources`` parameter.
     ///   - sources: An explicit list of source files. If you provide a path to a directory,
     ///       the Swift Package Manager searches for valid source files recursively.
     ///   - publicHeadersPath: The directory containing public headers of a C-family library target.
@@ -387,7 +387,7 @@ public final class Target {
     ///       Don't escape the package root; for example, values like `../Foo` or `/Foo` are invalid.
     ///   - exclude: A list of paths to files or directories that the Swift Package Manager shouldn't consider to be source or resource files.
     ///       A path is relative to the target's directory.
-    ///       This parameter has precedence over the `sources` parameter.
+    ///       This parameter has precedence over the ``sources`` parameter.
     ///   - sources: An explicit list of source files. If you provide a path to a directory,
     ///       the Swift Package Manager searches for valid source files recursively.
     ///   - resources: An explicit list of resources files.
@@ -440,7 +440,7 @@ public final class Target {
     ///       Don't escape the package root; for example, values like `../Foo` or `/Foo` are invalid.
     ///   - exclude: A list of paths to files or directories that the Swift Package Manager shouldn't consider to be source or resource files.
     ///       A path is relative to the target's directory.
-    ///       This parameter has precedence over the `sources` parameter.
+    ///       This parameter has precedence over the ``sources`` parameter.
     ///   - sources: An explicit list of source files. If you provide a path to a directory,
     ///       the Swift Package Manager searches for valid source files recursively.
     ///   - resources: An explicit list of resources files.
@@ -497,7 +497,7 @@ public final class Target {
     ///       Don't escape the package root; for example, values like `../Foo` or `/Foo` are invalid.
     ///   - exclude: A list of paths to files or directories that the Swift Package Manager shouldn't consider to be source or resource files.
     ///       A path is relative to the target's directory.
-    ///       This parameter has precedence over the `sources` parameter.
+    ///       This parameter has precedence over the ``sources`` parameter.
     ///   - sources: An explicit list of source files. If you provide a path to a directory,
     ///       the Swift Package Manager searches for valid source files recursively.
     ///   - resources: An explicit list of resources files.
@@ -551,7 +551,7 @@ public final class Target {
     ///       Don't escape the package root; for example, values like `../Foo` or `/Foo` are invalid.
     ///   - exclude: A list of paths to files or directories that the Swift Package Manager shouldn't consider to be source or resource files.
     ///       A path is relative to the target's directory.
-    ///       This parameter has precedence over the `sources` parameter.
+    ///       This parameter has precedence over the ``sources`` parameter.
     ///   - sources: An explicit list of source files. If you provide a path to a directory,
     ///       the Swift Package Manager searches for valid source files recursively.
     ///   - resources: An explicit list of resources files.
@@ -606,7 +606,7 @@ public final class Target {
     ///       Don't escape the package root; for example, values like `../Foo` or `/Foo` are invalid.
     ///   - exclude: A list of paths to files or directories that the Swift Package Manager shouldn't consider to be source or resource files.
     ///       A path is relative to the target's directory.
-    ///       This parameter has precedence over the `sources` parameter.
+    ///       This parameter has precedence over the ``sources`` parameter.
     ///   - sources: An explicit list of source files. If you provide a path to a directory,
     ///       the Swift Package Manager searches for valid source files recursively.
     @available(_PackageDescription, introduced: 4, obsoleted: 5)
@@ -641,7 +641,7 @@ public final class Target {
     ///       Don't escape the package root; for example, values like `../Foo` or `/Foo` are invalid.
     ///   - exclude: A list of paths to files or directories that the Swift Package Manager shouldn't consider to be source or resource files.
     ///       A path is relative to the target's directory.
-    ///       This parameter has precedence over the `sources` parameter.
+    ///       This parameter has precedence over the ``sources`` parameter.
     ///   - sources: An explicit list of source files. If you provide a path to a directory,
     ///       the Swift Package Manager searches for valid source files recursively.
     ///   - cSettings: The C settings for this target.
@@ -688,7 +688,7 @@ public final class Target {
     ///       Don't escape the package root; for example, values like `../Foo` or `/Foo` are invalid.
     ///   - exclude: A list of paths to files or directories that the Swift Package Manager shouldn't consider to be source or resource files.
     ///       A path is relative to the target's directory.
-    ///       This parameter has precedence over the `sources` parameter.
+    ///       This parameter has precedence over the ``sources`` parameter.
     ///   - sources: An explicit list of source files. If you provide a path to a directory,
     ///       the Swift Package Manager searches for valid source files recursively.
     ///   - resources: An explicit list of resources files.
@@ -738,7 +738,7 @@ public final class Target {
     ///       Don't escape the package root; for example, values like `../Foo` or `/Foo` are invalid.
     ///   - exclude: A list of paths to files or directories that the Swift Package Manager shouldn't consider to be source or resource files.
     ///       A path is relative to the target's directory.
-    ///       This parameter has precedence over the `sources` parameter.
+    ///       This parameter has precedence over the ``sources`` parameter.
     ///   - sources: An explicit list of source files. If you provide a path to a directory,
     ///       the Swift Package Manager searches for valid source files recursively.
     ///   - resources: An explicit list of resources files.

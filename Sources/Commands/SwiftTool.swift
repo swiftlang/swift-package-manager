@@ -12,26 +12,27 @@ import ArgumentParser
 import Basics
 import Build
 import Dispatch
-import func Foundation.NSUserName
 import class Foundation.ProcessInfo
-import func Foundation.NSHomeDirectory
 import PackageGraph
 import PackageLoading
 import PackageModel
 import SourceControl
 import SPMBuildCore
 import TSCBasic
-import TSCLibc
+
 import TSCUtility
 import Workspace
 import XCBuildSupport
 
 #if os(Windows)
 import WinSDK
+#elseif os(iOS) || os(macOS) || os(tvOS) || os(watchOS)
+import Darwin
+#else
+import Glibc
 #endif
 
 typealias Diagnostic = Basics.Diagnostic
-
 
 private class ToolWorkspaceDelegate: WorkspaceDelegate {
     /// The stream to use for reporting progress.
@@ -52,15 +53,15 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
     }
 
     private struct FetchProgress {
-        let objectsFetched: Int
-        let totalObjectsToFetch: Int
+        let progress: Int64
+        let total: Int64
     }
 
     /// The progress of each individual downloads.
-    private var downloadProgress: [String: DownloadProgress] = [:]
+    private var binaryDownloadProgress: [String: DownloadProgress] = [:]
 
     /// The progress of each individual fetch operation
-    private var fetchProgress: [String: FetchProgress] = [:]
+    private var fetchProgress: [PackageIdentity: FetchProgress] = [:]
 
     private let queue = DispatchQueue(label: "org.swift.swiftpm.commands.tool-workspace-delegate")
 
@@ -76,50 +77,66 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
         self.observabilityScope = observabilityScope
     }
 
-    func fetchingWillBegin(repository: String, fetchDetails: RepositoryManager.FetchDetails?) {
+    func willFetchPackage(package: PackageIdentity, packageLocation: String?, fetchDetails: PackageFetchDetails) {
         queue.async {
-            self.outputStream <<< "Fetching \(repository)"
-            if let fetchDetails = fetchDetails {
-                if fetchDetails.fromCache {
-                    self.outputStream <<< " from cache"
-                }
+            self.outputStream <<< "Fetching \(packageLocation ?? package.description)"
+            if fetchDetails.fromCache {
+                self.outputStream <<< " from cache"
             }
             self.outputStream <<< "\n"
             self.outputStream.flush()
         }
     }
 
-    func fetchingDidFinish(repository: String, fetchDetails: RepositoryManager.FetchDetails?, diagnostic: Basics.Diagnostic?, duration: DispatchTimeInterval) {
+    func didFetchPackage(package: PackageIdentity, packageLocation: String?, result: Result<PackageFetchDetails, Error>, duration: DispatchTimeInterval) {
         queue.async {
             if self.observabilityScope.errorsReported {
                 self.fetchAnimation.clear()
             }
 
-            let step = self.fetchProgress.values.reduce(0) { $0 + $1.objectsFetched }
-            let total = self.fetchProgress.values.reduce(0) { $0 + $1.totalObjectsToFetch }
+            let progress = self.fetchProgress.values.reduce(0) { $0 + $1.progress }
+            let total = self.fetchProgress.values.reduce(0) { $0 + $1.total }
 
-            if step == total && !self.fetchProgress.isEmpty {
+            if progress == total && !self.fetchProgress.isEmpty {
                 self.fetchAnimation.complete(success: true)
                 self.fetchProgress.removeAll()
             }
 
-            self.outputStream <<< "Fetched \(repository) (\(duration.descriptionInSeconds))"
+            self.outputStream <<< "Fetched \(packageLocation ?? package.description) (\(duration.descriptionInSeconds))"
             self.outputStream <<< "\n"
             self.outputStream.flush()
         }
     }
 
-    func repositoryWillUpdate(_ repository: String) {
+    func fetchingPackage(package: PackageIdentity, packageLocation: String?, progress: Int64, total: Int64?) {
         queue.async {
-            self.outputStream <<< "Updating \(repository)"
+            self.fetchProgress[package] = FetchProgress(
+                progress: progress,
+                total: total ?? progress
+            )
+
+            let progress = self.fetchProgress.values.reduce(0) { $0 + $1.progress }
+            let total = self.fetchProgress.values.reduce(0) { $0 + $1.total }
+
+            self.fetchAnimation.update(
+                step: progress > Int.max ? Int.max : Int(progress),
+                total: total > Int.max ? Int.max : Int(total),
+                text: "Fetching \(package)"
+            )
+        }
+    }
+
+    func willUpdateRepository(package: PackageIdentity, repository url: String) {
+        queue.async {
+            self.outputStream <<< "Updating \(url)"
             self.outputStream <<< "\n"
             self.outputStream.flush()
         }
     }
 
-    func repositoryDidUpdate(_ repository: String, duration: DispatchTimeInterval) {
+    func didUpdateRepository(package: PackageIdentity, repository url: String, duration: DispatchTimeInterval) {
         queue.async {
-            self.outputStream <<< "Updated \(repository) (\(duration.descriptionInSeconds))"
+            self.outputStream <<< "Updated \(url) (\(duration.descriptionInSeconds))"
             self.outputStream <<< "\n"
             self.outputStream.flush()
         }
@@ -133,32 +150,25 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
         }
     }
 
-    func willCreateWorkingCopy(repository: String, at path: AbsolutePath) {
+    func willCreateWorkingCopy(package: PackageIdentity, repository url: String, at path: AbsolutePath) {
         queue.async {
-            self.outputStream <<< "Creating working copy for \(repository)"
+            self.outputStream <<< "Creating working copy for \(url)"
             self.outputStream <<< "\n"
             self.outputStream.flush()
         }
     }
 
-    func willCheckOut(repository: String, revision: String, at path: AbsolutePath) {
-        // noop
-    }
-
-    func didCheckOut(repository: String, revision: String, at path: AbsolutePath, error: Basics.Diagnostic?) {
-        guard case .none = error else {
-            return // error will be printed before hand
-        }
+    func didCheckOut(package: PackageIdentity, repository url: String, revision: String, at path: AbsolutePath) {
         queue.async {
-            self.outputStream <<< "Working copy of \(repository) resolved at \(revision)"
+            self.outputStream <<< "Working copy of \(url) resolved at \(revision)"
             self.outputStream <<< "\n"
             self.outputStream.flush()
         }
     }
 
-    func removing(repository: String) {
+    func removing(package: PackageIdentity, packageLocation: String?) {
         queue.async {
-            self.outputStream <<< "Removing \(repository)"
+            self.outputStream <<< "Removing \(packageLocation ?? package.description)"
             self.outputStream <<< "\n"
             self.outputStream.flush()
         }
@@ -195,13 +205,13 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
     func downloadingBinaryArtifact(from url: String, bytesDownloaded: Int64, totalBytesToDownload: Int64?) {
         queue.async {
             if let totalBytesToDownload = totalBytesToDownload {
-                self.downloadProgress[url] = DownloadProgress(
+                self.binaryDownloadProgress[url] = DownloadProgress(
                     bytesDownloaded: bytesDownloaded,
                     totalBytesToDownload: totalBytesToDownload)
             }
 
-            let step = self.downloadProgress.values.reduce(0, { $0 + $1.bytesDownloaded }) / 1024
-            let total = self.downloadProgress.values.reduce(0, { $0 + $1.totalBytesToDownload }) / 1024
+            let step = self.binaryDownloadProgress.values.reduce(0, { $0 + $1.bytesDownloaded }) / 1024
+            let total = self.binaryDownloadProgress.values.reduce(0, { $0 + $1.totalBytesToDownload }) / 1024
             self.downloadAnimation.update(step: Int(step), total: Int(total), text: "Downloading binary artifacts")
         }
     }
@@ -213,19 +223,7 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
             }
 
             self.downloadAnimation.complete(success: true)
-            self.downloadProgress.removeAll()
-        }
-    }
-
-    func fetchingRepository(from repository: String, objectsFetched: Int, totalObjectsToFetch: Int) {
-        queue.async {
-            self.fetchProgress[repository] = FetchProgress(
-                objectsFetched: objectsFetched,
-                totalObjectsToFetch: totalObjectsToFetch)
-
-            let step = self.fetchProgress.values.reduce(0) { $0 + $1.objectsFetched }
-            let total = self.fetchProgress.values.reduce(0) { $0 + $1.totalObjectsToFetch }
-            self.fetchAnimation.update(step: step, total: total, text: "Fetching objects")
+            self.binaryDownloadProgress.removeAll()
         }
     }
 
@@ -233,7 +231,8 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
 
     func willLoadManifest(packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind) {}
     func didLoadManifest(packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind, manifest: Manifest?, diagnostics: [Basics.Diagnostic]) {}
-    func didCreateWorkingCopy(repository url: String, at path: AbsolutePath, error: Basics.Diagnostic?) {}
+    func willCheckOut(package: PackageIdentity, repository url: String, revision: String, at path: AbsolutePath) {}
+    func didCreateWorkingCopy(package: PackageIdentity, repository url: String, at path: AbsolutePath) {}
     func resolvedFileChanged() {}
 }
 
@@ -484,12 +483,54 @@ public class SwiftTool {
         }
 
         if options._deprecated_enableResolverTrace {
-            observabilityScope.emit(warning: "'--enableResolverTrace' option is deprecated; use --verbose flag to log resolver output")
+            observabilityScope.emit(warning: "'--enableResolverTrace' flag is deprecated; use '--verbose' option to log resolver output")
+        }
+
+        if options._deprecated_useRepositoriesCache != nil {
+            observabilityScope.emit(warning: "'--disable-repository-cache'/'--enable-repository-cache' flags are deprecated; use '--disable-dependency-cache'/'--enable-dependency-cache' instead")
         }
 
     }
 
-    private func editsDirectory() throws -> AbsolutePath {
+    /// Returns the currently active workspace.
+    func getActiveWorkspace() throws -> Workspace {
+        if let workspace = _workspace {
+            return workspace
+        }
+
+        let delegate = ToolWorkspaceDelegate(self.outputStream, logLevel: self.logLevel, observabilityScope: self.observabilityScope)
+        let repositoryProvider = GitRepositoryProvider(processSet: self.processSet)
+        let isXcodeBuildSystemEnabled = self.options.buildSystem == .xcode
+        let workspace = try Workspace(
+            fileSystem: localFileSystem,
+            location: .init(
+                workingDirectory: self.buildPath,
+                editsDirectory: self.getEditsDirectory(),
+                resolvedVersionsFile: self.getResolvedVersionsFile(),
+                localConfigurationDirectory: try self.getLocalConfigurationDirectory(),
+                sharedConfigurationDirectory: self.sharedConfigurationDirectory,
+                sharedSecurityDirectory: self.sharedSecurityDirectory,
+                sharedCacheDirectory: self.sharedCacheDirectory
+            ),
+            authorizationProvider: self.getAuthorizationProvider(),
+            configuration: .init(
+                skipDependenciesUpdates: options.skipDependencyUpdate,
+                prefetchBasedOnResolvedFile: options.shouldEnableResolverPrefetching,
+                additionalFileRules: isXcodeBuildSystemEnabled ? FileRuleDescription.xcbuildFileTypes : FileRuleDescription.swiftpmFileTypes,
+                sharedDependenciesCacheEnabled: self.options.useDependenciesCache,
+                fingerprintCheckingMode: self.options.resolverFingerprintCheckingMode
+            ),
+            initializationWarningHandler: { self.observabilityScope.emit(warning: $0) },
+            customManifestLoader: self.getManifestLoader(), // FIXME: ideally we would not customize the manifest loader
+            customRepositoryProvider: repositoryProvider, // FIXME: ideally we would not customize the repository provider. its currently done for shutdown handling which can be better abstracted
+            delegate: delegate
+        )
+        _workspace = workspace
+        _workspaceDelegate = delegate
+        return workspace
+    }
+
+    private func getEditsDirectory() throws -> AbsolutePath {
         // TODO: replace multiroot-data-file with explicit overrides
         if let multiRootPackageDataFile = options.multirootPackageDataFile {
             return multiRootPackageDataFile.appending(component: "Packages")
@@ -497,7 +538,7 @@ public class SwiftTool {
         return try Workspace.DefaultLocations.editsDirectory(forRootPackage: self.getPackageRoot())
     }
 
-    private func resolvedVersionsFile() throws -> AbsolutePath {
+    private func getResolvedVersionsFile() throws -> AbsolutePath {
         // TODO: replace multiroot-data-file with explicit overrides
         if let multiRootPackageDataFile = options.multirootPackageDataFile {
             return multiRootPackageDataFile.appending(components: "xcshareddata", "swiftpm", "Package.resolved")
@@ -505,35 +546,21 @@ public class SwiftTool {
         return try Workspace.DefaultLocations.resolvedVersionsFile(forRootPackage: self.getPackageRoot())
     }
 
-    func getMirrorsConfig() throws -> Workspace.Configuration.Mirrors {
-        let sharedMirrorFile = self.sharedConfigurationDirectory.map {
-            Workspace.DefaultLocations.mirrorsConfigurationFile(at: $0)
-        }
-        return try .init(
-            localMirrorFile: self.mirrorsConfigFile(),
-            sharedMirrorFile: sharedMirrorFile,
-            fileSystem: localFileSystem
-        )
-    }
-
-    private func mirrorsConfigFile() throws -> AbsolutePath {
-        // TODO: does this make sense now that we a global configuration as well? or should we at least rename it?
-        // Look for the override in the environment.
-        if let envPath = ProcessEnv.vars["SWIFTPM_MIRROR_CONFIG"] {
-            return try AbsolutePath(validating: envPath)
-        }
-
+    internal func getLocalConfigurationDirectory() throws -> AbsolutePath {
         // Otherwise, use the default path.
         // TODO: replace multiroot-data-file with explicit overrides
         if let multiRootPackageDataFile = options.multirootPackageDataFile {
             // migrate from legacy location
             let legacyPath = multiRootPackageDataFile.appending(components: "xcshareddata", "swiftpm", "config")
-            let newPath = multiRootPackageDataFile.appending(components: "xcshareddata", "swiftpm", "configuration", "mirrors.json")
+            let newPath = Workspace.DefaultLocations.mirrorsConfigurationFile(at: multiRootPackageDataFile.appending(components: "xcshareddata", "swiftpm", "configuration"))
             if localFileSystem.exists(legacyPath) {
-                try localFileSystem.createDirectory(newPath.parentDirectory, recursive: true)
-                try localFileSystem.move(from: legacyPath, to: newPath)
+                observabilityScope.emit(warning: "Usage of \(legacyPath) has been deprecated. Please delete it and use the new \(newPath) instead.")
+                if !localFileSystem.exists(newPath) {
+                    try localFileSystem.createDirectory(newPath.parentDirectory, recursive: true)
+                    try localFileSystem.copy(from: legacyPath, to: newPath)
+                }
             }
-            return newPath
+            return newPath.parentDirectory
         }
 
         // migrate from legacy location
@@ -546,20 +573,7 @@ public class SwiftTool {
                 try localFileSystem.copy(from: legacyPath, to: newPath)
             }
         }
-        return newPath
-    }
-
-    func getRegistriesConfig() throws -> Workspace.Configuration.Registries {
-        let localRegistriesFile = try Workspace.DefaultLocations.registriesConfigurationFile(forRootPackage: self.getPackageRoot())
-        let sharedRegistriesFile = self.sharedConfigurationDirectory.map {
-            Workspace.DefaultLocations.registriesConfigurationFile(at: $0)
-        }
-
-        return try .init(
-            localRegistriesFile: localRegistriesFile,
-            sharedRegistriesFile: sharedRegistriesFile,
-            fileSystem: localFileSystem
-        )
+        return newPath.parentDirectory
     }
 
     func getAuthorizationProvider() throws -> AuthorizationProvider? {
@@ -595,6 +609,13 @@ public class SwiftTool {
             // User didn't tell us to use these .netrc files so be more lenient with errors
             func loadNetrcNoThrows(at path: AbsolutePath) -> NetrcAuthorizationProvider? {
                 guard localFileSystem.exists(path) else { return nil }
+                
+                do {
+                    try withTemporaryFile(dir: path.parentDirectory) { _ in }
+                } catch {
+                    self.observabilityScope.emit(warning: "\(path.parentDirectory) is not accessible or not writable, not using .netrc file in it: \(error)")
+                    return nil
+                }
 
                 do {
                     return try NetrcAuthorizationProvider(path: path, fileSystem: localFileSystem)
@@ -618,42 +639,6 @@ public class SwiftTool {
         }
 
         return providers
-    }
-
-    /// Returns the currently active workspace.
-    func getActiveWorkspace() throws -> Workspace {
-        if let workspace = _workspace {
-            return workspace
-        }
-
-        let delegate = ToolWorkspaceDelegate(self.outputStream, logLevel: self.logLevel, observabilityScope: self.observabilityScope)
-        let provider = GitRepositoryProvider(processSet: processSet)
-        let isXcodeBuildSystemEnabled = self.options.buildSystem == .xcode
-        let workspace = try Workspace(
-            fileSystem: localFileSystem,
-            location: .init(
-                workingDirectory: self.buildPath,
-                editsDirectory: self.editsDirectory(),
-                resolvedVersionsFile: self.resolvedVersionsFile(),
-                sharedSecurityDirectory: self.sharedSecurityDirectory,
-                sharedCacheDirectory: self.sharedCacheDirectory,
-                sharedConfigurationDirectory: self.sharedConfigurationDirectory
-            ),
-            mirrors: self.getMirrorsConfig().mirrors,
-            registries: try self.getRegistriesConfig().configuration,
-            authorizationProvider: self.getAuthorizationProvider(),
-            customManifestLoader: self.getManifestLoader(), // FIXME: doe we really need to customize it?
-            customRepositoryProvider: provider, // FIXME: doe we really need to customize it?
-            additionalFileRules: isXcodeBuildSystemEnabled ? FileRuleDescription.xcbuildFileTypes : FileRuleDescription.swiftpmFileTypes,
-            resolverUpdateEnabled: !self.options.skipDependencyUpdate,
-            resolverPrefetchingEnabled: self.options.shouldEnableResolverPrefetching,
-            resolverFingerprintCheckingMode: self.options.resolverFingerprintCheckingMode,
-            sharedRepositoriesCacheEnabled: self.options.useRepositoriesCache,
-            delegate: delegate
-        )
-        _workspace = workspace
-        _workspaceDelegate = delegate
-        return workspace
     }
 
     /// Start redirecting the standard output stream to the standard error stream.
@@ -1030,16 +1015,9 @@ private func getSharedSecurityDirectory(options: SwiftToolOptions, observability
             try localFileSystem.createDirectory(explicitSecurityPath, recursive: true)
         }
         return explicitSecurityPath
-    }
-
-    do {
-        let sharedSecurityDirectory = try localFileSystem.getOrCreateSwiftPMSecurityDirectory()
-        // make sure we can write files
-        try withTemporaryFile(dir: sharedSecurityDirectory) { _ in }
-        return sharedSecurityDirectory
-    } catch {
-        observabilityScope.emit(warning: "Failed creating default security location, \(error)")
-        return .none
+    } else {
+        // further validation is done in workspace
+        return localFileSystem.swiftPMSecurityDirectory
     }
 }
 
@@ -1050,16 +1028,9 @@ private func getSharedConfigurationDirectory(options: SwiftToolOptions, observab
             try localFileSystem.createDirectory(explicitConfigPath, recursive: true)
         }
         return explicitConfigPath
-    }
-
-    do {
-        let sharedConfigurationDirector = try localFileSystem.getOrCreateSwiftPMConfigurationDirectory(observabilityScope: observabilityScope)
-        // make sure we can write files
-        try withTemporaryFile(dir: sharedConfigurationDirector) { _ in }
-        return sharedConfigurationDirector
-    } catch {
-        observabilityScope.emit(warning: "Failed creating default configuration location, \(error)")
-        return .none
+    } else {
+        // further validation is done in workspace
+        return localFileSystem.swiftPMConfigurationDirectory
     }
 }
 
@@ -1070,16 +1041,9 @@ private func getSharedCacheDirectory(options: SwiftToolOptions, observabilitySco
             try localFileSystem.createDirectory(explicitCachePath, recursive: true)
         }
         return explicitCachePath
-    }
-
-    do {
-        let sharedCacheDirector = try localFileSystem.getOrCreateSwiftPMCacheDirectory()
-        // make sure we can write files
-        try withTemporaryFile(dir: sharedCacheDirector) { _ in }
-        return sharedCacheDirector
-    } catch {
-        observabilityScope.emit(warning: "Failed creating default cache location, \(error)")
-        return .none
+    } else {
+        // further validation is done in workspace
+        return localFileSystem.swiftPMCacheDirectory
     }
 }
 

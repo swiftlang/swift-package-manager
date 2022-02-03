@@ -37,17 +37,6 @@ public struct RepositorySpecifier: Hashable {
         }
     }
 
-    /// A unique identifier for this specifier.
-    ///
-    /// This identifier is suitable for use in a file system path, and
-    /// unique for each repository.
-    public var fileSystemIdentifier: String {
-        // Use first 8 chars of a stable hash.
-        let suffix = ByteString(encodingAsUTF8: self.location.description).sha256Checksum.prefix(8)
-
-        return "\(self.basename)-\(suffix)"
-    }
-
     /// Returns the cleaned basename for the specifier.
     public var basename: String {
         var basename = self.location.description.components(separatedBy: "/").last(where: { !$0.isEmpty }) ?? ""
@@ -88,10 +77,13 @@ public protocol RepositoryProvider {
     ///
     /// - Parameters:
     ///   - repository: The specifier of the repository to fetch.
-    ///   - path: The destiantion path for the fetch.
+    ///   - path: The destination path for the fetch.
     ///   - progress: Reports the progress of the current fetch operation.
     /// - Throws: If there is any error fetching the repository.
     func fetch(repository: RepositorySpecifier, to path: AbsolutePath, progressHandler: FetchProgress.Handler?) throws
+
+    /// Returns true if a  repository exists at `path`
+    func repositoryExists(at path: AbsolutePath) throws -> Bool
 
     /// Open the given repository.
     ///

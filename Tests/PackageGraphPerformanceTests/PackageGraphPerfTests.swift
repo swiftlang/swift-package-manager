@@ -9,6 +9,7 @@
 */
 
 import Basics
+import OrderedCollections
 import PackageGraph
 import PackageLoading
 import PackageModel
@@ -25,7 +26,7 @@ class PackageGraphPerfTests: XCTestCasePerf {
         let fs = InMemoryFileSystem(emptyFiles: files)
 
         let identityResolver = DefaultIdentityResolver()
-        var externalManifests = OrderedDictionary<PackageIdentity, (manifest: Manifest, fs: FileSystem)>()
+        var externalManifests = OrderedCollections.OrderedDictionary<PackageIdentity, (manifest: Manifest, fs: FileSystem)>()
         var rootManifest: Manifest!
         for pkg in 1...N {
             let name = "Foo\(pkg)"

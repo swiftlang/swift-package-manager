@@ -45,7 +45,7 @@ enum TestingSupport {
     static func getTestSuites(in testProducts: [BuiltTestProduct], swiftTool: SwiftTool, swiftOptions: SwiftToolOptions) throws -> [AbsolutePath: [TestSuite]] {
         let testSuitesByProduct = try testProducts
             .map { try ($0.bundlePath, TestingSupport.getTestSuites(fromTestAt: $0.bundlePath, swiftTool: swiftTool, swiftOptions: swiftOptions)) }
-        return Dictionary(uniqueKeysWithValues: testSuitesByProduct)
+        return try Dictionary(throwingUniqueKeysWithValues: testSuitesByProduct)
     }
 
     /// Runs the corresponding tool to get tests JSON and create TestSuite array.

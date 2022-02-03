@@ -108,7 +108,7 @@ public struct FilePackageFingerprintStorage: PackageFingerprintStorage {
             try self.fileSystem.createDirectory(self.directoryPath, recursive: true)
         }
 
-        let container = StorageModel.Container(fingerprints)
+        let container = try StorageModel.Container(fingerprints)
         let buffer = try encoder.encode(container)
 
         let path = self.directoryPath.appending(component: package.fingerprintFilename)
@@ -131,8 +131,8 @@ private enum StorageModel {
     struct Container: Codable {
         let versionFingerprints: [String: [String: StoredFingerprint]]
 
-        init(_ versionFingerprints: PackageFingerprints) {
-            self.versionFingerprints = Dictionary(uniqueKeysWithValues: versionFingerprints.map { version, fingerprints in
+        init(_ versionFingerprints: PackageFingerprints) throws {
+            self.versionFingerprints = try Dictionary(throwingUniqueKeysWithValues: versionFingerprints.map { version, fingerprints in
                 let fingerprintByKind: [String: StoredFingerprint] = Dictionary(uniqueKeysWithValues: fingerprints.map { kind, fingerprint in
                     let origin: String
                     switch fingerprint.origin {
@@ -148,7 +148,7 @@ private enum StorageModel {
         }
 
         func packageFingerprints() throws -> PackageFingerprints {
-            try Dictionary(uniqueKeysWithValues: self.versionFingerprints.map { version, fingerprints in
+            try Dictionary(throwingUniqueKeysWithValues: self.versionFingerprints.map { version, fingerprints in
                 let fingerprintByKind: [Fingerprint.Kind: Fingerprint] = try Dictionary(uniqueKeysWithValues: fingerprints.map { kind, fingerprint in
                     guard let kind = Fingerprint.Kind(rawValue: kind) else {
                         throw SerializationError.unknownKind(kind)

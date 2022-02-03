@@ -9,8 +9,7 @@
  */
 
 import Basics
-import class Foundation.NSDate
-import class Foundation.Thread
+import OrderedCollections
 import PackageGraph
 import PackageLoading
 import PackageModel
@@ -231,7 +230,7 @@ public func loadPackageGraph(
     observabilityScope: ObservabilityScope
 ) throws -> PackageGraph {
     let rootManifests = manifests.filter { $0.packageKind.isRoot }.spm_createDictionary{ ($0.path, $0) }
-    let externalManifests = try manifests.filter { !$0.packageKind.isRoot }.reduce(into: OrderedDictionary<PackageIdentity, (manifest: Manifest, fs: FileSystem)>()) { partial, item in
+    let externalManifests = try manifests.filter { !$0.packageKind.isRoot }.reduce(into: OrderedCollections.OrderedDictionary<PackageIdentity, (manifest: Manifest, fs: FileSystem)>()) { partial, item in
         partial[try identityResolver.resolveIdentity(for: item.packageKind)] = (item, fs)
     }
 

@@ -21,11 +21,13 @@ add_library(Basics
   JSONDecoder+Extensions.swift
   Observability.swift
   Sandbox.swift
+  String+Extensions.swift
   Triple+Extensions.swift
   SwiftVersion.swift
   SQLiteBackedCache.swift
   Version+Extensions.swift)
 target_link_libraries(Basics PUBLIC
+  SwiftCollections::OrderedCollections
   SwiftSystem::SystemPackage
   TSCBasic
   TSCUtility)

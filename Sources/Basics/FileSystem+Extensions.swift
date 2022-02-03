@@ -89,7 +89,7 @@ extension FileSystem {
 }
 
 extension FileSystem {
-    public func getOrCreateSwiftPMConfigurationDirectory(observabilityScope: ObservabilityScope?) throws -> AbsolutePath {
+    public func getOrCreateSwiftPMConfigurationDirectory(warningHandler: (String) -> Void) throws -> AbsolutePath {
         let idiomaticConfigurationDirectory = self.swiftPMConfigurationDirectory
 
         // temporary 5.6, remove on next version: transition from previous configuration location
@@ -108,10 +108,10 @@ extension FileSystem {
                     .filter{ self.isFile($0) && !self.isSymlink($0) && $0.extension != "lock"}
                 for file in configurationFiles {
                     let destination = idiomaticConfigurationDirectory.appending(component: file.basename)
-                    observabilityScope?.emit(warning: "Usage of \(file) has been deprecated. Please delete it and use the new \(destination) instead.")
                     if !self.exists(destination) {
                         try self.copy(from: file, to: destination)
                     }
+                    warningHandler("Usage of \(file) has been deprecated. Please delete it and use the new \(destination) instead.")
                 }
             }
         // in the case where ~/.swiftpm/configuration is the idiomatic location (eg on Linux)
@@ -125,10 +125,10 @@ extension FileSystem {
                     .filter{ self.isFile($0) && !self.isSymlink($0) && $0.extension != "lock"}
                 for file in configurationFiles {
                     let destination = idiomaticConfigurationDirectory.appending(component: file.basename)
-                    observabilityScope?.emit(warning: "Usage of \(file) has been deprecated. Please delete it and use the new \(destination) instead.")
                     if !self.exists(destination) {
                         try self.copy(from: file, to: destination)
                     }
+                    warningHandler("Usage of \(file) has been deprecated. Please delete it and use the new \(destination) instead.")
                 }
             }
         }
@@ -238,13 +238,16 @@ extension FileSystem {
 
 extension FileSystem {
     public func stripFirstLevel(of path: AbsolutePath) throws {
-        let topLevelContents = try self.getDirectoryContents(path)
-        guard topLevelContents.count == 1, let rootPath = topLevelContents.first.map({ path.appending(component: $0) }), self.isDirectory(rootPath) else {
+        let topLevelDirectories = try self.getDirectoryContents(path)
+            .map{ path.appending(component: $0) }
+            .filter{ self.isDirectory($0) }
+
+        guard topLevelDirectories.count == 1, let rootDirectory = topLevelDirectories.first else {
             throw StringError("stripFirstLevel requires single top level directory")
         }
 
         let tempDirectory = path.parentDirectory.appending(component: UUID().uuidString)
-        try self.move(from: rootPath, to: tempDirectory)
+        try self.move(from: rootDirectory, to: tempDirectory)
 
         let rootContents = try self.getDirectoryContents(tempDirectory)
         for entry in rootContents {

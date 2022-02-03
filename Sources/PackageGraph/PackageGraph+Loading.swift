@@ -9,6 +9,7 @@
  */
 
 import Basics
+import OrderedCollections
 import PackageLoading
 import PackageModel
 import TSCBasic
@@ -20,7 +21,7 @@ extension PackageGraph {
         root: PackageGraphRoot,
         identityResolver: IdentityResolver,
         additionalFileRules: [FileRuleDescription] = [],
-        externalManifests: OrderedDictionary<PackageIdentity, (manifest: Manifest, fs: FileSystem)>,
+        externalManifests: OrderedCollections.OrderedDictionary<PackageIdentity, (manifest: Manifest, fs: FileSystem)>,
         requiredDependencies: Set<PackageReference> = [],
         unsafeAllowedPackages: Set<PackageReference> = [],
         binaryArtifacts: [BinaryArtifact] = [],
@@ -182,6 +183,12 @@ private func checkAllDependenciesAreUsed(_ rootPackages: [ResolvedPackage], obse
                 continue
             }
 
+            // Skip this check if this dependency contains a command plugin product.
+            if dependency.products.contains(where: \.isCommandPlugin) {
+                continue
+            }
+
+            // Otherwise emit a warning if none of the dependency package's products are used.
             let dependencyIsUsed = dependency.products.contains(where: productDependencies.contains)
             if !dependencyIsUsed && !observabilityScope.errorsReportedInAnyScope {
                 observabilityScope.emit(.unusedDependency(dependency.identity.description))
@@ -213,6 +220,16 @@ extension Package {
                 }
             }
         }
+    }
+}
+
+fileprivate extension ResolvedProduct {
+    /// Returns true if and only if the product represents a command plugin target.
+    var isCommandPlugin: Bool {
+        guard type == .plugin else { return false }
+        guard let target = underlyingProduct.targets.compactMap({ $0 as? PluginTarget }).first else { return false }
+        guard case .command = target.capability else { return false }
+        return true
     }
 }
 
@@ -264,7 +281,7 @@ private func createResolvedPackages(
             package.setModuleAliasesForTargets(with: aliasMap)
         }
 
-        var dependencies = OrderedDictionary<PackageIdentity, ResolvedPackageBuilder>()
+        var dependencies = OrderedCollections.OrderedDictionary<PackageIdentity, ResolvedPackageBuilder>()
         var dependenciesByNameForTargetDependencyResolution = [String: ResolvedPackageBuilder]()
 
         // Establish the manifest-declared package dependencies.
@@ -694,7 +711,7 @@ fileprivate func findCycle(
     successors: (GraphLoadingNode) throws -> [GraphLoadingNode]
 ) rethrows -> (path: [Manifest], cycle: [Manifest])? {
     // Ordered set to hold the current traversed path.
-    var path = OrderedSet<Manifest>()
+    var path = OrderedCollections.OrderedSet<Manifest>()
 
     // Function to visit nodes recursively.
     // FIXME: Convert to stack.
@@ -703,7 +720,7 @@ fileprivate func findCycle(
       _ successors: (GraphLoadingNode) throws -> [GraphLoadingNode]
     ) rethrows -> (path: [Manifest], cycle: [Manifest])? {
         // If this node is already in the current path then we have found a cycle.
-        if !path.append(node.manifest) {
+        if !path.append(node.manifest).inserted {
             let index = path.firstIndex(of: node.manifest)! // forced unwrap safe
             return (Array(path[path.startIndex..<index]), Array(path[index..<path.endIndex]))
         }

@@ -123,7 +123,7 @@ final class BuildPlanTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let result = BuildPlanResult(plan: try BuildPlan(
+        let result = try BuildPlanResult(plan: BuildPlan(
             buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
             graph: graph,
             fileSystem: fs,
@@ -406,7 +406,7 @@ final class BuildPlanTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let result = BuildPlanResult(plan: try BuildPlan(
+        let result = try BuildPlanResult(plan: BuildPlan(
             buildParameters: mockBuildParameters(),
             graph: graph,
             fileSystem: fileSystem,
@@ -446,7 +446,7 @@ final class BuildPlanTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let result = BuildPlanResult(plan: try BuildPlan(
+        let result = try BuildPlanResult(plan: BuildPlan(
             buildParameters: mockBuildParameters(config: .release),
             graph: graph,
             fileSystem: fs,
@@ -518,7 +518,7 @@ final class BuildPlanTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let result = BuildPlanResult(plan: try BuildPlan(
+        let result = try BuildPlanResult(plan: BuildPlan(
             buildParameters: mockBuildParameters(),
             graph: graph,
             fileSystem: fs,
@@ -642,7 +642,7 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertNoDiagnostics(observability.diagnostics)
 
         do {
-            let result = BuildPlanResult(plan: try BuildPlan(
+            let result = try BuildPlanResult(plan: BuildPlan(
                 buildParameters: mockBuildParameters(environment: BuildEnvironment(
                     platform: .linux,
                     configuration: .release
@@ -661,7 +661,7 @@ final class BuildPlanTests: XCTestCase {
         }
 
         do {
-            let result = BuildPlanResult(plan: try BuildPlan(
+            let result = try BuildPlanResult(plan: BuildPlan(
                 buildParameters: mockBuildParameters(environment: BuildEnvironment(
                     platform: .macOS,
                     configuration: .debug
@@ -711,7 +711,7 @@ final class BuildPlanTests: XCTestCase {
             fileSystem: fs,
             observabilityScope: observability.topScope
         )
-        let result = BuildPlanResult(plan: plan)
+        let result = try BuildPlanResult(plan: plan)
 
         result.checkProductsCount(1)
         result.checkTargetsCount(2)
@@ -769,7 +769,7 @@ final class BuildPlanTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let result = BuildPlanResult(plan: try BuildPlan(
+        let result = try BuildPlanResult(plan: BuildPlan(
             buildParameters: mockBuildParameters(),
             graph: graph,
             fileSystem: fs,
@@ -844,7 +844,7 @@ final class BuildPlanTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let result = BuildPlanResult(plan: try BuildPlan(
+        let result = try BuildPlanResult(plan: BuildPlan(
             buildParameters: mockBuildParameters(),
             graph: graph,
             fileSystem: fs,
@@ -941,7 +941,7 @@ final class BuildPlanTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let result = BuildPlanResult(plan: try BuildPlan(
+        let result = try BuildPlanResult(plan: BuildPlan(
             buildParameters: mockBuildParameters(),
             graph: graph,
             fileSystem: fs,
@@ -1009,7 +1009,7 @@ final class BuildPlanTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let result = BuildPlanResult(plan: try BuildPlan(
+        let result = try BuildPlanResult(plan: BuildPlan(
             buildParameters: mockBuildParameters(config: .release),
             graph: graph,
             fileSystem: fs,
@@ -1063,7 +1063,7 @@ final class BuildPlanTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let result = BuildPlanResult(plan: try BuildPlan(
+        let result = try BuildPlanResult(plan: BuildPlan(
             buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
             graph: graph,
             fileSystem: fs,
@@ -1116,7 +1116,7 @@ final class BuildPlanTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let result = BuildPlanResult(plan: try BuildPlan(
+        let result = try BuildPlanResult(plan: BuildPlan(
             buildParameters: mockBuildParameters(),
             graph: graph,
             fileSystem: fs,
@@ -1172,7 +1172,7 @@ final class BuildPlanTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let result = BuildPlanResult(plan: try BuildPlan(
+        let result = try BuildPlanResult(plan: BuildPlan(
             buildParameters: mockBuildParameters(),
             graph: graph,
             fileSystem: fs,
@@ -1222,7 +1222,7 @@ final class BuildPlanTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let result = BuildPlanResult(plan: try BuildPlan(
+        let result = try BuildPlanResult(plan: BuildPlan(
             buildParameters: mockBuildParameters(),
             graph: g,
             fileSystem: fs,
@@ -1313,7 +1313,7 @@ final class BuildPlanTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let result = BuildPlanResult(plan: try BuildPlan(
+        let result = try BuildPlanResult(plan: BuildPlan(
             buildParameters: mockBuildParameters(),
             graph: graph,
             fileSystem: fs,
@@ -1381,7 +1381,7 @@ final class BuildPlanTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let result = BuildPlanResult(plan: try BuildPlan(
+        let result = try BuildPlanResult(plan: BuildPlan(
             buildParameters: mockBuildParameters(),
             graph: graph,
             fileSystem: fs,
@@ -1500,7 +1500,7 @@ final class BuildPlanTests: XCTestCase {
         graphResult.check(targets: "ATarget", "BTarget1", "BTarget2", "CTarget")
         #endif
 
-        let planResult = BuildPlanResult(plan: try BuildPlan(
+        let planResult = try BuildPlanResult(plan: BuildPlan(
             buildParameters: mockBuildParameters(),
             graph: graph,
             fileSystem: fileSystem,
@@ -1596,7 +1596,7 @@ final class BuildPlanTests: XCTestCase {
             try graphResult.check(reachableBuildProducts: "aexec", "BLibrary1", "BLibrary2", in: linuxDebug)
             try graphResult.check(reachableBuildTargets: "ATarget", "BTarget1", "BTarget2", in: linuxDebug)
 
-            let planResult = BuildPlanResult(plan: try BuildPlan(
+            let planResult = try BuildPlanResult(plan: BuildPlan(
                 buildParameters: mockBuildParameters(environment: linuxDebug),
                 graph: graph,
                 fileSystem: fileSystem,
@@ -1611,7 +1611,7 @@ final class BuildPlanTests: XCTestCase {
             try graphResult.check(reachableBuildProducts: "aexec", "BLibrary2", in: macosDebug)
             try graphResult.check(reachableBuildTargets: "ATarget", "BTarget2", "BTarget3", in: macosDebug)
 
-            let planResult = BuildPlanResult(plan: try BuildPlan(
+            let planResult = try BuildPlanResult(plan: BuildPlan(
                 buildParameters: mockBuildParameters(environment: macosDebug),
                 graph: graph,
                 fileSystem: fileSystem,
@@ -1626,7 +1626,7 @@ final class BuildPlanTests: XCTestCase {
             try graphResult.check(reachableBuildProducts: "aexec", "CLibrary", in: androidRelease)
             try graphResult.check(reachableBuildTargets: "ATarget", "CTarget", in: androidRelease)
 
-            let planResult = BuildPlanResult(plan: try BuildPlan(
+            let planResult = try BuildPlanResult(plan: BuildPlan(
                 buildParameters: mockBuildParameters(environment: androidRelease),
                 graph: graph,
                 fileSystem: fileSystem,
@@ -1899,7 +1899,7 @@ final class BuildPlanTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let result = BuildPlanResult(plan: try BuildPlan(
+        let result = try BuildPlanResult(plan: BuildPlan(
             buildParameters: mockBuildParameters(destinationTriple: .windows),
             graph: graph,
             fileSystem: fs,
@@ -1960,7 +1960,7 @@ final class BuildPlanTests: XCTestCase {
 
         var parameters = mockBuildParameters(destinationTriple: .wasi)
         parameters.shouldLinkStaticSwiftStdlib = true
-        let result = BuildPlanResult(plan: try BuildPlan(
+        let result = try BuildPlanResult(plan: BuildPlan(
             buildParameters: parameters,
             graph: graph,
             fileSystem: fs,
@@ -2043,7 +2043,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         func createResult(for triple: TSCUtility.Triple) throws -> BuildPlanResult {
-            BuildPlanResult(plan: try BuildPlan(
+            try BuildPlanResult(plan: BuildPlan(
                 buildParameters: mockBuildParameters(canRenameEntrypointFunctionName: true, destinationTriple: triple),
                 graph: graph,
                 fileSystem: fs,
@@ -2091,7 +2091,7 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertNoDiagnostics(observability.diagnostics)
 
         func check(for mode: BuildParameters.IndexStoreMode, config: BuildConfiguration) throws {
-            let result = BuildPlanResult(plan: try BuildPlan(
+            let result = try BuildPlanResult(plan: BuildPlan(
                 buildParameters: mockBuildParameters(config: config, indexStoreMode: mode),
                 graph: graph,
                 fileSystem: fs,
@@ -2157,7 +2157,7 @@ final class BuildPlanTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let result = BuildPlanResult(plan: try BuildPlan(
+        let result = try BuildPlanResult(plan: BuildPlan(
             buildParameters: mockBuildParameters(),
             graph: graph,
             fileSystem: fileSystem,
@@ -2331,7 +2331,7 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertNoDiagnostics(observability.diagnostics)
 
         func createResult(for dest: TSCUtility.Triple) throws -> BuildPlanResult {
-            return BuildPlanResult(plan: try BuildPlan(
+            return try BuildPlanResult(plan: BuildPlan(
                 buildParameters: mockBuildParameters(destinationTriple: dest),
                 graph: graph,
                 fileSystem: fs,
@@ -2401,7 +2401,7 @@ final class BuildPlanTests: XCTestCase {
 
         var flags = BuildFlags()
         flags.linkerFlags = ["-L", "/path/to/foo", "-L/path/to/foo", "-rpath=foo", "-rpath", "foo"]
-        let result = BuildPlanResult(plan: try BuildPlan(
+        let result = try BuildPlanResult(plan: BuildPlan(
             buildParameters: mockBuildParameters(flags: flags),
             graph: graph,
             fileSystem: fs,
@@ -2442,7 +2442,7 @@ final class BuildPlanTests: XCTestCase {
         let mockToolchain = try UserToolchain(destination: userDestination)
         let extraBuildParameters = mockBuildParameters(toolchain: mockToolchain,
             flags: BuildFlags(xcc: ["-clang-command-line-flag"], xswiftc: ["-swift-command-line-flag"]))
-        let result = BuildPlanResult(plan: try BuildPlan(
+        let result = try BuildPlanResult(plan: BuildPlan(
             buildParameters: extraBuildParameters,
             graph: graph,
             fileSystem: fs,
@@ -2550,7 +2550,7 @@ final class BuildPlanTests: XCTestCase {
             fileSystem: fs,
             observabilityScope: observability.topScope
         )
-        let result = BuildPlanResult(plan: plan)
+        let result = try BuildPlanResult(plan: plan)
 
         let fooTarget = try result.target(for: "Foo").swiftTarget().compileArguments()
         #if os(macOS)
@@ -2621,7 +2621,7 @@ final class BuildPlanTests: XCTestCase {
             fileSystem: fs,
             observabilityScope: observability.topScope
         )
-        let result = BuildPlanResult(plan: plan)
+        let result = try BuildPlanResult(plan: plan)
 
          let fooTarget = try result.target(for: "Foo").swiftTarget().compileArguments()
          #if os(macOS)
@@ -2693,7 +2693,7 @@ final class BuildPlanTests: XCTestCase {
             observabilityScope: observability.topScope
         )
         let dynamicLibraryExtension = plan.buildParameters.triple.dynamicLibraryExtension
-        let result = BuildPlanResult(plan: plan)
+        let result = try BuildPlanResult(plan: plan)
 
          let fooTarget = try result.target(for: "Foo").swiftTarget().compileArguments()
          #if os(macOS)
@@ -2747,7 +2747,7 @@ final class BuildPlanTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let result = BuildPlanResult(plan: try BuildPlan(
+        let result = try BuildPlanResult(plan: BuildPlan(
             buildParameters: mockBuildParameters(destinationTriple: .x86_64Linux),
             graph: graph,
             fileSystem: fs,
@@ -2825,7 +2825,7 @@ final class BuildPlanTests: XCTestCase {
             fileSystem: fs,
             observabilityScope: observability.topScope
         )
-        let result = BuildPlanResult(plan: plan)
+        let result = try BuildPlanResult(plan: plan)
 
         let fooTarget = try result.target(for: "Foo").swiftTarget()
         XCTAssertEqual(fooTarget.objects.map{ $0.pathString }, [
@@ -2889,7 +2889,7 @@ final class BuildPlanTests: XCTestCase {
             fileSystem: fs,
             observabilityScope: observability.topScope
         )
-        let result = BuildPlanResult(plan: plan)
+        let result = try BuildPlanResult(plan: plan)
 
         let fooTarget = try result.target(for: "Foo").swiftTarget()
         XCTAssertEqual(fooTarget.objects.map{ $0.pathString }, [
@@ -2934,7 +2934,7 @@ final class BuildPlanTests: XCTestCase {
 
         let supportingTriples: [TSCUtility.Triple] = [.x86_64Linux, .arm64Linux, .wasi]
         for triple in supportingTriples {
-            let result = BuildPlanResult(plan: try BuildPlan(
+            let result = try BuildPlanResult(plan: BuildPlan(
                 buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true, destinationTriple: triple),
                 graph: graph,
                 fileSystem: fs,
@@ -3052,7 +3052,7 @@ final class BuildPlanTests: XCTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let result = BuildPlanResult(plan: try BuildPlan(
+        let result = try BuildPlanResult(plan: BuildPlan(
             buildParameters: mockBuildParameters(destinationTriple: destinationTriple),
             graph: graph,
             fileSystem: fs,
@@ -3155,7 +3155,7 @@ final class BuildPlanTests: XCTestCase {
         )
 
         XCTAssertNoDiagnostics(observability.diagnostics)
-        let result = BuildPlanResult(plan: try BuildPlan(
+        let result = try BuildPlanResult(plan: BuildPlan(
             buildParameters: mockBuildParameters(destinationTriple: destinationTriple),
             graph: graph,
             fileSystem: fs,
@@ -3231,7 +3231,7 @@ final class BuildPlanTests: XCTestCase {
         var parameters = mockBuildParameters(shouldLinkStaticSwiftStdlib: true)
         parameters.sanitizers = EnabledSanitizers([sanitizer])
 
-        let result = BuildPlanResult(plan: try BuildPlan(
+        let result = try BuildPlanResult(plan: BuildPlan(
             buildParameters: parameters,
             graph: graph,
             fileSystem: fs,
@@ -3266,10 +3266,10 @@ private struct BuildPlanResult {
     let targetMap: [String: TargetBuildDescription]
     let productMap: [String: ProductBuildDescription]
 
-    init(plan: BuildPlan) {
+    init(plan: BuildPlan) throws {
         self.plan = plan
-        self.productMap = Dictionary(uniqueKeysWithValues: plan.buildProducts.map{ ($0.product.name, $0) })
-        self.targetMap = Dictionary(uniqueKeysWithValues: plan.targetMap.map{ ($0.0.name, $0.1) })
+        self.productMap = try Dictionary(throwingUniqueKeysWithValues: plan.buildProducts.map{ ($0.product.name, $0) })
+        self.targetMap = try Dictionary(throwingUniqueKeysWithValues: plan.targetMap.map{ ($0.0.name, $0.1) })
     }
 
     func checkTargetsCount(_ count: Int, file: StaticString = #file, line: UInt = #line) {

@@ -20,3 +20,25 @@ extension Dictionary {
         return value
     }
 }
+
+extension Dictionary {
+    public init<S>(throwingUniqueKeysWithValues keysAndValues: S) throws where S: Sequence, S.Element == (Key, Value) {
+        self.init()
+        for pair in keysAndValues {
+            guard !self.keys.contains(pair.0) else {
+                throw StringError("duplicate key found: '\(pair.0)'")
+            }
+            self[pair.0] = pair.1
+        }
+    }
+}
+
+extension OrderedDictionary {
+    public subscript(key: Key, `default` `default`: Value) -> Value {
+        set {
+            self[key] = newValue
+        } get {
+            self[key] ?? `default`
+        }
+    }
+}

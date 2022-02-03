@@ -96,7 +96,6 @@ public final class RegistryClient {
     private let apiVersion: APIVersion = .v1
 
     private let configuration: RegistryConfiguration
-    private let identityResolver: IdentityResolver
     private let archiverProvider: (FileSystem) -> Archiver
     private let httpClient: HTTPClient
     private let authorizationProvider: HTTPClientAuthorizationProvider?
@@ -106,15 +105,13 @@ public final class RegistryClient {
 
     public init(
         configuration: RegistryConfiguration,
-        identityResolver: IdentityResolver,
-        fingerprintStorage: PackageFingerprintStorage? = .none,
+        fingerprintStorage: PackageFingerprintStorage?,
         fingerprintCheckingMode: FingerprintCheckingMode,
         authorizationProvider: HTTPClientAuthorizationProvider? = .none,
         customHTTPClient: HTTPClient? = .none,
         customArchiverProvider: ((FileSystem) -> Archiver)? = .none
     ) {
         self.configuration = configuration
-        self.identityResolver = identityResolver
         self.authorizationProvider = authorizationProvider
         self.httpClient = customHTTPClient ?? HTTPClient()
         self.archiverProvider = customArchiverProvider ?? { fileSystem in ZipArchiver(fileSystem: fileSystem) }
@@ -500,7 +497,6 @@ public final class RegistryClient {
             guard !fileSystem.exists(destinationPath) else {
                 throw RegistryError.pathAlreadyExists(destinationPath)
             }
-            try fileSystem.createDirectory(destinationPath, recursive: true)
         } catch {
             return completion(.failure(error))
         }
@@ -539,7 +535,12 @@ public final class RegistryClient {
                                     observabilityScope.emit(warning: "The checksum \(actualChecksum) does not match previously recorded value \(expectedChecksum)")
                                 }
                             }
-
+                            // validate that the destination does not already exist (again, as this is async)
+                            guard !fileSystem.exists(destinationPath) else {
+                                throw RegistryError.pathAlreadyExists(destinationPath)
+                            }
+                            try fileSystem.createDirectory(destinationPath, recursive: true)
+                            // extract the content
                             let archiver = self.archiverProvider(fileSystem)
                             // TODO: Bail if archive contains relative paths or overlapping files
                             archiver.extract(from: downloadPath, to: destinationPath) { result in
