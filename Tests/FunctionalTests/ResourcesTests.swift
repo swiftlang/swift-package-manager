@@ -80,7 +80,7 @@ class ResourcesTests: XCTestCase {
                         .filter { $0.contains(execName) && $0.hasSuffix(".bundle") || $0.hasSuffix(".resources") }
                         .forEach { try localFileSystem.move(from: binPath.appending(component: $0), to: tmpDirPath.appending(component: $0)) }
                     // Run the binary
-                    let output = try Process.checkNonZeroExit(args: destBinPath.pathString)
+                    let output = try Process.checkNonZeroExit(args: destBinPath.pathString, environment: [:])
                     XCTAssertTrue(output.contains("foo"))
                 }
             }
