@@ -2055,6 +2055,12 @@ final class PackageToolTests: CommandsTestCase {
                                 "ThirdTarget",
                             ]
                         ),
+                        .testTarget(
+                            name: "TestTarget",
+                            dependencies: [
+                                "SecondTarget",
+                            ]
+                        ),
                         .plugin(
                             name: "PrintTargetDependencies",
                             capability: .command(
@@ -2097,6 +2103,14 @@ final class PackageToolTests: CommandsTestCase {
                 }
                 """)
 
+            let testTargetDir = packageDir.appending(components: "Tests", "TestTarget")
+            try localFileSystem.createDirectory(testTargetDir, recursive: true)
+            try localFileSystem.writeFileContents(testTargetDir.appending(component: "tests.swift"), string: """
+                import XCTest
+                class MyTestCase: XCTestCase {
+                }
+                """)
+
             let pluginTargetTargetDir = packageDir.appending(components: "Plugins", "PrintTargetDependencies")
             try localFileSystem.createDirectory(pluginTargetTargetDir, recursive: true)
             try localFileSystem.writeFileContents(pluginTargetTargetDir.appending(component: "plugin.swift"), string: """
@@ -2122,6 +2136,10 @@ final class PackageToolTests: CommandsTestCase {
                         print("swiftTargets: \\(swiftTargets.map{ $0.name })")
                         let swiftSources = swiftTargets.flatMap{ $0.sourceFiles(withSuffix: ".swift") }
                         print("swiftSources: \\(swiftSources.map{ $0.path.lastComponent })")
+                        
+                        if let target = target as? SourceModuleTarget {
+                            print("Module kind of '\\(target.name)': \\(target.kind)")
+                        }
                     }
                 }
                 extension String: Error {}
@@ -2156,7 +2174,8 @@ final class PackageToolTests: CommandsTestCase {
                 let result = try SwiftPMProduct.SwiftPackage.executeProcess(["print-target-dependencies", "--target", "SecondTarget"], packagePath: packageDir)
                 let output = try result.utf8Output() + result.utf8stderrOutput()
                 XCTAssertEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
-                XCTAssertMatch(output, .contains("of 'SecondTarget': [\"FirstTarget\"]"))
+                XCTAssertMatch(output, .contains("Recursive dependencies of 'SecondTarget': [\"FirstTarget\"]"))
+                XCTAssertMatch(output, .contains("Module kind of 'SecondTarget': generic"))
             }
 
             // Check that targets are not included twice in recursive dependencies.
@@ -2164,7 +2183,8 @@ final class PackageToolTests: CommandsTestCase {
                 let result = try SwiftPMProduct.SwiftPackage.executeProcess(["print-target-dependencies", "--target", "ThirdTarget"], packagePath: packageDir)
                 let output = try result.utf8Output() + result.utf8stderrOutput()
                 XCTAssertEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
-                XCTAssertMatch(output, .contains("of 'ThirdTarget': [\"FirstTarget\"]"))
+                XCTAssertMatch(output, .contains("Recursive dependencies of 'ThirdTarget': [\"FirstTarget\"]"))
+                XCTAssertMatch(output, .contains("Module kind of 'ThirdTarget': generic"))
             }
 
             // Check that product dependencies work in recursive dependencies.
@@ -2172,7 +2192,8 @@ final class PackageToolTests: CommandsTestCase {
                 let result = try SwiftPMProduct.SwiftPackage.executeProcess(["print-target-dependencies", "--target", "FourthTarget"], packagePath: packageDir)
                 let output = try result.utf8Output() + result.utf8stderrOutput()
                 XCTAssertEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
-                XCTAssertMatch(output, .contains("of 'FourthTarget': [\"FirstTarget\", \"SecondTarget\", \"ThirdTarget\", \"HelperLibrary\"]"))
+                XCTAssertMatch(output, .contains("Recursive dependencies of 'FourthTarget': [\"FirstTarget\", \"SecondTarget\", \"ThirdTarget\", \"HelperLibrary\"]"))
+                XCTAssertMatch(output, .contains("Module kind of 'FourthTarget': generic"))
             }
 
             // Check some of the other utility APIs.
@@ -2181,8 +2202,18 @@ final class PackageToolTests: CommandsTestCase {
                 let output = try result.utf8Output() + result.utf8stderrOutput()
                 XCTAssertEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
                 XCTAssertMatch(output, .contains("execProducts: [\"FifthTarget\"]"))
-                XCTAssertMatch(output, .contains("swiftTargets: [\"ThirdTarget\", \"SecondTarget\", \"FourthTarget\", \"FirstTarget\", \"FifthTarget\"]"))
-                XCTAssertMatch(output, .contains("swiftSources: [\"library.swift\", \"library.swift\", \"library.swift\", \"library.swift\", \"main.swift\"]"))
+                XCTAssertMatch(output, .contains("swiftTargets: [\"ThirdTarget\", \"TestTarget\", \"SecondTarget\", \"FourthTarget\", \"FirstTarget\", \"FifthTarget\"]"))
+                XCTAssertMatch(output, .contains("swiftSources: [\"library.swift\", \"tests.swift\", \"library.swift\", \"library.swift\", \"library.swift\", \"main.swift\"]"))
+                XCTAssertMatch(output, .contains("Module kind of 'FifthTarget': executable"))
+            }
+
+            // Check a test target.
+            do {
+                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["print-target-dependencies", "--target", "TestTarget"], packagePath: packageDir)
+                let output = try result.utf8Output() + result.utf8stderrOutput()
+                XCTAssertEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
+                XCTAssertMatch(output, .contains("Recursive dependencies of 'TestTarget': [\"FirstTarget\", \"SecondTarget\"]"))
+                XCTAssertMatch(output, .contains("Module kind of 'TestTarget': test"))
             }
         }
     }
