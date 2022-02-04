@@ -54,3 +54,23 @@ extension Target {
         return self.dependencies.flatMap{ dependencyClosure(for: $0) }
     }
 }
+
+extension Package {
+    /// The products in this package that conform to a specific type.
+    public func products<T: Product>(ofType: T.Type) -> [T] {
+        return self.products.compactMap { $0 as? T }
+    }
+
+    /// The targets in this package that conform to a specific type.
+    public func targets<T: Target>(ofType: T.Type) -> [T] {
+        return self.targets.compactMap { $0 as? T }
+    }
+}
+
+extension SourceModuleTarget {
+    /// A possibly empty list of source files in the target that have the given
+    /// filename suffix.
+    public func sourceFiles(withSuffix suffix: String) -> FileList {
+        return FileList(self.sourceFiles.filter{ $0.path.lastComponent.hasSuffix(suffix) })
+    }
+}
