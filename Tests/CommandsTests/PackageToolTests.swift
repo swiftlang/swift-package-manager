@@ -2142,6 +2142,13 @@ final class PackageToolTests: CommandsTestCase {
                                 .product(name: "HelperLibrary", package: "HelperPackage"),
                             ]
                         ),
+                        .executableTarget(
+                            name: "FifthTarget",
+                            dependencies: [
+                                "FirstTarget",
+                                "ThirdTarget",
+                            ]
+                        ),
                         .plugin(
                             name: "PrintTargetDependencies",
                             capability: .command(
@@ -2176,6 +2183,14 @@ final class PackageToolTests: CommandsTestCase {
                 public func FourthFunc() { }
                 """)
 
+            let fifthTargetDir = packageDir.appending(components: "Sources", "FifthTarget")
+            try localFileSystem.createDirectory(fifthTargetDir, recursive: true)
+            try localFileSystem.writeFileContents(fifthTargetDir.appending(component: "main.swift"), string: """
+                @main struct MyExec {
+                    func run() throws {}
+                }
+                """)
+
             let pluginTargetTargetDir = packageDir.appending(components: "Plugins", "PrintTargetDependencies")
             try localFileSystem.createDirectory(pluginTargetTargetDir, recursive: true)
             try localFileSystem.writeFileContents(pluginTargetTargetDir.appending(component: "plugin.swift"), string: """
@@ -2194,6 +2209,13 @@ final class PackageToolTests: CommandsTestCase {
                             throw "No target found with the name '\\(targetName)'"
                         }
                         print("Recursive dependencies of '\\(target.name)': \\(target.recursiveTargetDependencies.map(\\.name))")
+                
+                        let execProducts = context.package.products(ofType: ExecutableProduct.self)
+                        print("execProducts: \\(execProducts.map{ $0.name })")
+                        let swiftTargets = context.package.targets(ofType: SwiftSourceModuleTarget.self)
+                        print("swiftTargets: \\(swiftTargets.map{ $0.name })")
+                        let swiftSources = swiftTargets.flatMap{ $0.sourceFiles(withSuffix: ".swift") }
+                        print("swiftSources: \\(swiftSources.map{ $0.path.lastComponent })")
                     }
                 }
                 extension String: Error {}
@@ -2245,6 +2267,16 @@ final class PackageToolTests: CommandsTestCase {
                 let output = try result.utf8Output() + result.utf8stderrOutput()
                 XCTAssertEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
                 XCTAssertMatch(output, .contains("of 'FourthTarget': [\"FirstTarget\", \"SecondTarget\", \"ThirdTarget\", \"HelperLibrary\"]"))
+            }
+
+            // Check some of the other utility APIs.
+            do {
+                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["print-target-dependencies", "--target", "FifthTarget"], packagePath: packageDir)
+                let output = try result.utf8Output() + result.utf8stderrOutput()
+                XCTAssertEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
+                XCTAssertMatch(output, .contains("execProducts: [\"FifthTarget\"]"))
+                XCTAssertMatch(output, .contains("swiftTargets: [\"ThirdTarget\", \"SecondTarget\", \"FourthTarget\", \"FirstTarget\", \"FifthTarget\"]"))
+                XCTAssertMatch(output, .contains("swiftSources: [\"library.swift\", \"library.swift\", \"library.swift\", \"library.swift\", \"main.swift\"]"))
             }
         }
     }
