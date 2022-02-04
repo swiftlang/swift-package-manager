@@ -939,6 +939,12 @@ extension Target.Dependency {
         return .productItem(name: name, package: package, moduleAliases: nil, condition: nil)
     }
 
+    /// Creates a dependency on a product from a dependent package.
+    ///
+    /// - parameters:
+    ///   - name: The name of the product.
+    ///   - moduleAliases: The module aliases for targets in the product.
+    ///   - package: The name of the package.
     @available(_PackageDescription, introduced: 999.0)
     public static func product(name: String, package: String? = nil, moduleAliases: [String: String]? = nil) -> Target.Dependency {
         return .productItem(name: name, package: package, moduleAliases: moduleAliases, condition: nil)
@@ -995,6 +1001,14 @@ extension Target.Dependency {
         return .productItem(name: name, package: package, moduleAliases: nil, condition: condition)
     }
 
+    /// Creates a target dependency on a product from a package dependency.
+    ///
+    /// - parameters:
+    ///   - name: The name of the product.
+    ///   - package: The name of the package.
+    ///   - moduleAliases: The module aliases for targets in the product.
+    ///   - condition: A condition that limits the application of the target dependency. For example, only apply a
+    ///       dependency for a specific platform.
     @available(_PackageDescription, introduced: 999.0)
     public static func product(
       name: String,
@@ -1002,7 +1016,7 @@ extension Target.Dependency {
       moduleAliases: [String: String]? = nil,
       condition: TargetDependencyCondition? = nil
     ) -> Target.Dependency {
-        return .productItem(name: name, package: package, moduleAliases: moduleAliases, condition: condition)
+        return .productItem(name: name, package: package, targetAliases: targetAliases, condition: condition)
     }
 
     /// Creates a by-name dependency that resolves to either a target or a product but after the Swift Package Manager

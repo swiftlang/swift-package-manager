@@ -265,7 +265,7 @@ public struct SwiftCompilerTool: ToolProtocol {
         stream["executable"] = executable
         stream["module-name"] = moduleName
         if let moduleAliases = moduleAliases {
-          stream["module-alias"] = moduleAliases
+            stream["module-alias"] = moduleAliases
         }
         stream["module-output-path"] = moduleOutputPath
         stream["import-paths"] = [importPath]

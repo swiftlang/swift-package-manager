@@ -590,7 +590,7 @@ public final class PackageBuilder {
             let path = try findPath(for: target)
             return PotentialModule(name: target.name, path: path, type: target.type)
         })
-        
+
         let targets = try createModules(potentialTargets)
 
         let snippetTargets: [Target]
@@ -661,7 +661,7 @@ public final class PackageBuilder {
         var targets = [String: Target]()
         // If a direcotry is empty, we don't create a target object for them.
         var emptyModules = Set<String>()
-       
+
         // Start iterating the potential targets.
         for potentialModule in potentialModules.lazy.reversed() {
             // Validate the target name.  This function will throw an error if it detects a problem.
@@ -717,7 +717,7 @@ public final class PackageBuilder {
                     }
                 }
             } ?? []
- 
+
             // Create the target, adding the inferred dependencies from plugin usages to the declared dependencies.
             let target = try createTarget(
                 potentialModule: potentialModule,

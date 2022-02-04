@@ -271,7 +271,7 @@ private func createResolvedPackages(
     // Scan and validate the dependencies
     for packageBuilder in packageBuilders {
         let package = packageBuilder.package
-      
+
         let packageObservabilityScope = observabilityScope.makeChildScope(
             description: "Validating package dependencies",
             metadata: package.diagnosticsMetadata
@@ -506,7 +506,7 @@ private func createResolvedPackages(
             }
         }
     }
-    
+
     // If a target with similar name was encountered before, we emit a diagnostic.
     if foundDuplicateTarget {
         for targetName in allTargetNames.sorted() {
