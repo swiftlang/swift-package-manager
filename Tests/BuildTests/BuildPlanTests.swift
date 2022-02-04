@@ -1784,8 +1784,8 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertMatch(otherLoggingArgs, [.anySequence, "-emit-objc-header", "-emit-objc-header-path", "/path/to/build/debug/OtherLogging.build/OtherLogging-Swift.h", .anySequence])
         XCTAssertMatch(loggingArgs, [.anySequence, "-emit-objc-header", "-emit-objc-header-path", "/path/to/build/debug/Logging.build/Logging-Swift.h", .anySequence])
         #else
-        XCTAssertMatch(otherLoggingArgs, [.anySequence, "-emit-objc-header", "-emit-objc-header-path", "/path/to/build/debug/OtherLogging.build/OtherLogging-Swift.h", .anySequence])
-        XCTAssertMatch(loggingArgs, [.anySequence, "-emit-objc-header", "-emit-objc-header-path", "/path/to/build/debug/Logging.build/Logging-Swift.h", .anySequence])
+        XCTAssertNoMatch(otherLoggingArgs, [.anySequence, "-emit-objc-header", "-emit-objc-header-path", "/path/to/build/debug/OtherLogging.build/OtherLogging-Swift.h", .anySequence])
+        XCTAssertNoMatch(loggingArgs, [.anySequence, "-emit-objc-header", "-emit-objc-header-path", "/path/to/build/debug/Logging.build/Logging-Swift.h", .anySequence])
         #endif
     }
 

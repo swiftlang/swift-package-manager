@@ -106,8 +106,6 @@ public final class Manifest {
     /// The system package providers of a system package.
     public let providers: [SystemPackageProviderDescription]?
 
-    public var moduleAliases: [String: (String, String)]?
-
     /// Targets required for building particular product filters.
     private var _requiredTargets = ThreadSafeKeyValueStore<ProductFilter, [TargetDescription]>()
 
