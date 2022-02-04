@@ -377,7 +377,7 @@ class PluginTests: XCTestCase {
                     let textlines = String(decoding: data, as: UTF8.self).split(separator: "\n")
                     print(textlines.map{ "[TEXT] \($0)" }.joined(separator: "\n"))
                     diagnostics.append(contentsOf: textlines.map{
-                        Basics.Diagnostic(severity: .info, message: String($0), metadata: .none)
+                        Basics.Diagnostic(severity: .verbose, message: String($0), metadata: .none)
                     })
                 }
                 
@@ -454,19 +454,19 @@ class PluginTests: XCTestCase {
 
             // Invoke the command plugin that prints out various things it was given, and check them.
             testCommand(package: package, plugin: "PluginPrintingInfo", targets: ["MyLibrary"], arguments: ["veni", "vidi", "vici"]) { output in
-                output.check(diagnostic: .equal("Root package is MyPackage."), severity: .info)
-                output.check(diagnostic: .and(.prefix("Found the swiftc tool"), .suffix(".")), severity: .info)
+                output.check(diagnostic: .equal("Root package is MyPackage."), severity: .verbose)
+                output.check(diagnostic: .and(.prefix("Found the swiftc tool"), .suffix(".")), severity: .verbose)
             }
 
             // Invoke the command plugin that throws an unhandled error at the top level.
             testCommand(package: package, plugin: "PluginFailingWithError", targets: [], arguments: [], expectFailure: true) { output in
-                output.check(diagnostic: .equal("This text should appear before the uncaught thrown error."), severity: .info)
+                output.check(diagnostic: .equal("This text should appear before the uncaught thrown error."), severity: .verbose)
                 output.check(diagnostic: .equal("This is the uncaught thrown error."), severity: .error)
 
             }
             // Invoke the command plugin that exits with code 1 without returning an error.
             testCommand(package: package, plugin: "PluginFailingWithoutError", targets: [], arguments: [], expectFailure: true) { output in
-                output.check(diagnostic: .equal("This text should appear before we exit."), severity: .info)
+                output.check(diagnostic: .equal("This text should appear before we exit."), severity: .verbose)
                 output.check(diagnostic: .equal("Plugin ended with exit code 1"), severity: .error)
             }
         }
@@ -578,7 +578,7 @@ class PluginTests: XCTestCase {
                     dispatchPrecondition(condition: .onQueue(delegateQueue))
                     let textlines = String(decoding: data, as: UTF8.self).split(separator: "\n")
                     diagnostics.append(contentsOf: textlines.map{
-                        Basics.Diagnostic(severity: .info, message: String($0), metadata: .none)
+                        Basics.Diagnostic(severity: .verbose, message: String($0), metadata: .none)
                     })
                     
                     // If we don't already have the process identifier, we try to find it.

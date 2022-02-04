@@ -56,7 +56,7 @@ public struct SymbolGraphExtract {
         commandLine += try buildParameters.targetTripleArgs(for: target)
         commandLine += buildPlan.createAPIToolCommonArgs(includeLibrarySearchPaths: true)
         commandLine += ["-module-cache-path", buildParameters.moduleCache.pathString]
-        if logLevel <= .info {
+        if logLevel <= .verbose {
             commandLine += ["-v"]
         }
         commandLine += ["-minimum-access-level", minimumAccessLevel.rawValue]
@@ -81,7 +81,7 @@ public struct SymbolGraphExtract {
         let process = Process(
             arguments: commandLine,
             outputRedirection: outputRedirection,
-            verbose: logLevel <= .info)
+            verbose: logLevel <= .verbose)
         try process.launch()
         try process.waitUntilExit()
     }

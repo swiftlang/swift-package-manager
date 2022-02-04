@@ -63,7 +63,7 @@ public protocol WorkspaceDelegate: AnyObject {
     /// The workspace has finished fetching this package.
     func didFetchPackage(package: PackageIdentity, packageLocation: String?, result: Result<PackageFetchDetails, Error>, duration: DispatchTimeInterval)
     /// Called every time the progress of the package fetch operation updates.
-    func fetchingPackage(package: PackageIdentity, packageLocation: String?, progress: Int64, total: Int64?)
+    func fetchingPackage(package: PackageIdentity, packageLocation: String?, step: Int64, total: Int64?)
 
     /// The workspace has started updating this repository.
     func willUpdateRepository(package: PackageIdentity, repository url: String)
@@ -118,7 +118,7 @@ private class WorkspaceRepositoryManagerDelegate: RepositoryManager.Delegate {
     }
 
     func fetching(package: PackageIdentity, repository: RepositorySpecifier, objectsFetched: Int, totalObjectsToFetch: Int) {
-        self.workspaceDelegate.fetchingPackage(package: package, packageLocation: repository.location.description, progress: Int64(objectsFetched), total: Int64(totalObjectsToFetch))
+        self.workspaceDelegate.fetchingPackage(package: package, packageLocation: repository.location.description, step: Int64(objectsFetched), total: Int64(totalObjectsToFetch))
     }
 
     func didFetch(package: PackageIdentity, repository: RepositorySpecifier, result: Result<RepositoryManager.FetchDetails, Error>, duration: DispatchTimeInterval) {
@@ -149,8 +149,8 @@ private struct WorkspaceRegistryDownloadsManagerDelegate: RegistryDownloadsManag
         self.workspaceDelegate.didFetchPackage(package: package, packageLocation: .none, result: result.map{ PackageFetchDetails(fromCache: $0.fromCache, updatedCache: $0.updatedCache) }, duration: duration)
     }
 
-    func fetching(package: PackageIdentity, version: Version, downloaded: Int64, total: Int64?) {
-        self.workspaceDelegate.fetchingPackage(package: package, packageLocation: .none, progress: downloaded, total: total)
+    func fetching(package: PackageIdentity, version: Version, bytesDownloaded: Int64, totalBytesToDownload: Int64?) {
+        self.workspaceDelegate.fetchingPackage(package: package, packageLocation: .none, step: bytesDownloaded, total: totalBytesToDownload)
     }
 }
 

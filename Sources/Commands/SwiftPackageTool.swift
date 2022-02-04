@@ -148,7 +148,8 @@ extension SwiftPackageTool {
             }
 
             if let pinsStore = swiftTool.observabilityScope.trap({ try workspace.pinsStore.load() }), let changes = changes, dryRun {
-                logPackageChanges(changes: changes, pins: pinsStore, on: swiftTool.outputStream)
+                let report = makePackageChangesReport(changes: changes, pins: pinsStore)
+                swiftTool.outputToUser(report)
             }
 
             if !dryRun {
@@ -186,11 +187,12 @@ extension SwiftPackageTool {
                 )
             }
             
-            try self.describe(package, in: type, on: swiftTool.outputStream)
+            let description = try self.describe(package, in: type)
+            swiftTool.outputToUser(description)
         }
         
         /// Emits a textual description of `package` to `stream`, in the format indicated by `mode`.
-        func describe(_ package: Package, in mode: DescribeMode, on stream: OutputByteStream) throws {
+        func describe(_ package: Package, in mode: DescribeMode) throws -> String {
             let desc = DescribedPackage(from: package)
             let data: Data
             switch mode {
@@ -203,8 +205,9 @@ extension SwiftPackageTool {
                 encoder.formattingOptions = [.prettyPrinted]
                 data = try encoder.encode(desc)
             }
-            stream <<< String(decoding: data, as: UTF8.self) <<< "\n"
-            stream.flush()
+            //stream <<< String(decoding: data, as: UTF8.self) <<< "\n"
+            //stream.flush()
+            return String(decoding: data, as: UTF8.self)
         }
         
         enum DescribeMode: String, ExpressibleByArgument {
@@ -240,7 +243,7 @@ extension SwiftPackageTool {
                 packageType: initMode
             )
             initPackage.progressReporter = { message in
-                print(message)
+                swiftTool.outputToUser(message)
             }
             try initPackage.writePackageStructure()
         }
@@ -294,16 +297,16 @@ extension SwiftPackageTool {
             }.map { $0.pathString }
 
             let args = [swiftFormat.pathString] + formatOptions + [packagePath.pathString] + paths
-            print("Running:", args.map{ $0.spm_shellEscaped() }.joined(separator: " "))
+            swiftTool.outputToUser("Running: \(args.map{ $0.spm_shellEscaped() }.joined(separator: " "))")
 
             let result = try Process.popen(arguments: args)
             let output = try (result.utf8Output() + result.utf8stderrOutput())
 
             if result.exitStatus != .terminated(code: 0) {
-                print("Non-zero exit", result.exitStatus)
+                throw ExitCode.failure
             }
             if !output.isEmpty {
-                print(output)
+                swiftTool.outputToUser(output)
             }
         }
     }
@@ -316,8 +319,8 @@ extension SwiftPackageTool {
         @Argument(parsing: .unconditionalRemaining)
         var args: [String] = []
 
-        func run() throws {
-            print("`swift package experimental-api-diff` has been renamed to `swift package diagnose-api-breaking-changes`")
+        func run(_ swiftTool: SwiftTool) throws {
+            swiftTool.observabilityScope.emit(error: "`swift package experimental-api-diff` has been renamed to `swift package diagnose-api-breaking-changes`")
             throw ExitCode.failure
         }
     }
@@ -397,8 +400,8 @@ extension SwiftPackageTool {
                 for: modulesToDiff,
                 at: overrideBaselineDir,
                 force: regenerateBaseline,
-                outputStream: swiftTool.outputStream,
-                logLevel: swiftTool.logLevel,
+                //outputStream: swiftTool.outputStream,
+                //logLevel: swiftTool.logLevel,
                 swiftTool: swiftTool
             )
 
@@ -410,7 +413,7 @@ extension SwiftPackageTool {
             for module in modulesToDiff {
                 let moduleBaselinePath = baselineDir.appending(component: "\(module).json")
                 guard localFileSystem.exists(moduleBaselinePath) else {
-                    print("\nSkipping \(module) because it does not exist in the baseline")
+                    swiftTool.observabilityScope.emit(warning: "Skipping \(module) because it does not exist in the baseline")
                     skippedModules.insert(module)
                     continue
                 }
@@ -510,9 +513,9 @@ extension SwiftPackageTool {
                 case .warning:
                     observabilityScope.emit(warning: diagnostic.text, metadata: metadata)
                 case .note:
-                    observabilityScope.emit(info: diagnostic.text, metadata: metadata)
+                    observabilityScope.emit(verbose: diagnostic.text, metadata: metadata)
                 case .remark:
-                    observabilityScope.emit(info: diagnostic.text, metadata: metadata)
+                    observabilityScope.emit(verbose: diagnostic.text, metadata: metadata)
                 case .ignored:
                     break
                 }
@@ -520,12 +523,12 @@ extension SwiftPackageTool {
 
             let moduleName = comparisonResult.moduleName
             if comparisonResult.apiBreakingChanges.isEmpty {
-                print("\nNo breaking changes detected in \(moduleName)")
+                observabilityScope.emit(output: "No breaking changes detected in \(moduleName)")
             } else {
                 let count = comparisonResult.apiBreakingChanges.count
-                print("\n\(count) breaking \(count > 1 ? "changes" : "change") detected in \(moduleName):")
+                observabilityScope.emit(error: "\(count) breaking \(count > 1 ? "changes" : "change") detected in \(moduleName):")
                 for change in comparisonResult.apiBreakingChanges {
-                    print("  💔 \(change.text)")
+                    observabilityScope.emit(output: "  💔 \(change.text)")
                 }
             }
         }
@@ -574,7 +577,7 @@ extension SwiftPackageTool {
             let symbolGraphDirectory = buildPlan.buildParameters.dataPath.appending(component: "symbolgraph")
             let targets = buildPlan.graph.rootPackages.flatMap{ $0.targets }.filter{ $0.type == .library || $0.type == .executable }
             for target in targets {
-                print("-- Emitting symbol graph for", target.name)
+                swiftTool.outputToUser("-- Emitting symbol graph for \(target.name)")
                 try symbolGraphExtractor.extractSymbolGraph(
                     target: target,
                     buildPlan: buildPlan,
@@ -582,7 +585,7 @@ extension SwiftPackageTool {
                     outputDirectory: symbolGraphDirectory)
             }
 
-            print("Files written to", symbolGraphDirectory.pathString)
+            swiftTool.outputToUser("Files written to \(symbolGraphDirectory.pathString)")
         }
     }
 
@@ -612,8 +615,7 @@ extension SwiftPackageTool {
             encoder.userInfo[Manifest.dumpPackageKey] = true
 
             let jsonData = try encoder.encode(rootManifest)
-            let jsonString = String(data: jsonData, encoding: .utf8)!
-            print(jsonString)
+            swiftTool.outputToUser(jsonData)
         }
     }
 
@@ -634,7 +636,7 @@ extension SwiftPackageTool {
                 observabilityScope: swiftTool.observabilityScope
             )
             let pif = try builder.generatePIF(preservePIFModelStructure: preserveStructure)
-            print(pif)
+            swiftTool.outputToUser(pif)
         }
     }
 
@@ -715,8 +717,14 @@ extension SwiftPackageTool {
 
         func run(_ swiftTool: SwiftTool) throws {
             let graph = try swiftTool.loadPackageGraph()
-            let stream = try outputPath.map { try LocalFileOutputByteStream($0) } ?? swiftTool.outputStream
-            Self.dumpDependenciesOf(rootPackage: graph.rootPackages[0], mode: format, on: stream)
+            if let outputPath = self.outputPath {
+                let stream = try LocalFileOutputByteStream(outputPath)
+                Self.dumpDependenciesOf(rootPackage: graph.rootPackages[0], mode: format, on: stream)
+            } else {
+                let stream = BufferedOutputByteStream()
+                Self.dumpDependenciesOf(rootPackage: graph.rootPackages[0], mode: format, on: stream)
+                swiftTool.outputToUser(stream.bytes.contents)
+            }
         }
 
         static func dumpDependenciesOf(rootPackage: ResolvedPackage, mode: ShowDependenciesMode, on stream: OutputByteStream) {
@@ -802,7 +810,7 @@ extension SwiftPackageTool {
             case .display:
                 let toolsVersionLoader = ToolsVersionLoader()
                 let version = try toolsVersionLoader.load(at: pkg, fileSystem: localFileSystem)
-                print("\(version)")
+                swiftTool.outputToUser("\(version)")
 
             case .set(let value):
                 guard let toolsVersion = ToolsVersion(string: value) else {
@@ -835,8 +843,9 @@ extension SwiftPackageTool {
             let workspace = try swiftTool.getActiveWorkspace()
             let checksum = try workspace.checksum(forBinaryArtifactAt: path)
 
-            swiftTool.outputStream <<< checksum <<< "\n"
-            swiftTool.outputStream.flush()
+            //swiftTool.outputStream <<< checksum <<< "\n"
+            //swiftTool.outputStream.flush()
+            swiftTool.outputToUser(checksum)
         }
     }
 
@@ -872,12 +881,14 @@ extension SwiftPackageTool {
 
             if destination.isDescendantOfOrEqual(to: packageRoot) {
                 let relativePath = destination.relative(to: packageRoot)
-                swiftTool.outputStream <<< "Created \(relativePath.pathString)" <<< "\n"
+                //swiftTool.outputStream <<< "Created \(relativePath.pathString)" <<< "\n"
+                swiftTool.outputToUser("Created \(relativePath.pathString)")
             } else {
-                swiftTool.outputStream <<< "Created \(destination.pathString)" <<< "\n"
+                //swiftTool.outputStream <<< "Created \(destination.pathString)" <<< "\n"
+                swiftTool.outputToUser("Created \(destination.pathString)")
             }
 
-            swiftTool.outputStream.flush()
+            //swiftTool.outputStream.flush()
         }
     }
     
@@ -928,17 +939,20 @@ extension SwiftPackageTool {
                 let allPlugins = PluginCommand.availableCommandPlugins(in: packageGraph)
                 for plugin in allPlugins.sorted(by: { $0.name < $1.name }) {
                     guard case .command(let intent, _) = plugin.capability else { return }
-                    swiftTool.outputStream <<< "‘\(intent.invocationVerb)’ (plugin ‘\(plugin.name)’"
+                    //swiftTool.outputStream <<< "‘\(intent.invocationVerb)’ (plugin ‘\(plugin.name)’"
+                    var info = "‘\(intent.invocationVerb)’ (plugin ‘\(plugin.name)’"
                     if let package = packageGraph.packages.first(where: { $0.targets.contains(where: { $0.name == plugin.name }) }) {
-                        swiftTool.outputStream <<< " in package ‘\(package.manifest.displayName)’"
+                        //swiftTool.outputStream <<< " in package ‘\(package.manifest.displayName)’"
+                        info += " in package ‘\(package.manifest.displayName)’"
                     }
-                    swiftTool.outputStream <<< ")\n"
+                    //swiftTool.outputStream <<< ")\n"
+                    swiftTool.outputToUser(info)
                 }
-                swiftTool.outputStream.flush()
+                //swiftTool.outputStream.flush()
                 return
             }
             
-            swiftTool.observabilityScope.emit(info: "Finding plugin for command ‘\(command)’")
+            swiftTool.observabilityScope.emit(verbose: "Finding plugin for command ‘\(command)’")
             let matchingPlugins = PluginCommand.findPlugins(matching: command, in: packageGraph)
 
             // Complain if we didn't find exactly one.
@@ -965,7 +979,7 @@ extension SwiftPackageTool {
             arguments: [String],
             swiftTool: SwiftTool
         ) throws {
-            swiftTool.observabilityScope.emit(info: "Running command plugin \(plugin) on package \(package) with options \(options) and arguments \(arguments)")
+            swiftTool.observabilityScope.emit(verbose: "Running command plugin \(plugin) on package \(package) with options \(options) and arguments \(arguments)")
             
             // The `plugins` directory is inside the workspace's main data directory, and contains all temporary files related to this plugin in the workspace.
             let pluginsDir = try swiftTool.getActiveWorkspace().location.pluginWorkingDirectory.appending(component: plugin.name)
@@ -1033,7 +1047,7 @@ extension SwiftPackageTool {
             }
             
             // Set up a delegate to handle callbacks from the command plugin.
-            let pluginDelegate = PluginDelegate(swiftTool: swiftTool, plugin: plugin, outputStream: swiftTool.outputStream)
+            let pluginDelegate = PluginDelegate(swiftTool: swiftTool, plugin: plugin/*, outputStream: swiftTool.outputStream*/)
             let delegateQueue = DispatchQueue(label: "plugin-invocation")
 
             // Run the command plugin.
@@ -1076,32 +1090,33 @@ extension SwiftPackageTool {
 final class PluginDelegate: PluginInvocationDelegate {
     let swiftTool: SwiftTool
     let plugin: PluginTarget
-    let outputStream: OutputByteStream
+    //let outputStream: OutputByteStream
     var lineBufferedOutput: Data
     
-    init(swiftTool: SwiftTool, plugin: PluginTarget, outputStream: OutputByteStream) {
+    init(swiftTool: SwiftTool, plugin: PluginTarget/*, outputStream: OutputByteStream*/) {
         self.swiftTool = swiftTool
         self.plugin = plugin
-        self.outputStream = outputStream
+        //self.outputStream = outputStream
         self.lineBufferedOutput = Data()
     }
 
     func pluginEmittedOutput(_ data: Data) {
         lineBufferedOutput += data
-        var needsFlush = false
+        //var needsFlush = false
         while let newlineIdx = lineBufferedOutput.firstIndex(of: UInt8(ascii: "\n")) {
             let lineData = lineBufferedOutput.prefix(upTo: newlineIdx)
-            outputStream <<< String(decoding: lineData, as: UTF8.self) <<< "\n"
-            needsFlush = true
+            //outputStream <<< String(decoding: lineData, as: UTF8.self) <<< "\n"
+            self.swiftTool.outputToUser(lineData)
+            //needsFlush = true
             lineBufferedOutput = lineBufferedOutput.suffix(from: newlineIdx.advanced(by: 1))
         }
-        if needsFlush {
-            outputStream.flush()
-        }
+        //if needsFlush {
+            //outputStream.flush()
+        //}
     }
     
     func pluginEmittedDiagnostic(_ diagnostic: Basics.Diagnostic) {
-        swiftTool.observabilityScope.emit(diagnostic)
+        self.swiftTool.observabilityScope.emit(diagnostic)
     }
     
     func pluginRequestedBuildOperation(subset: PluginInvocationBuildSubset, parameters: PluginInvocationBuildParameters, completion: @escaping (Result<PluginInvocationBuildResult, Error>) -> Void) {
@@ -1128,7 +1143,7 @@ final class PluginDelegate: PluginInvocationDelegate {
         buildParameters.flags.linkerFlags.append(contentsOf: parameters.otherLinkerFlags)
 
         // Configure the verbosity of the output.
-        let logLevel: Diagnostic.Severity
+        /*let logLevel: Diagnostic.Severity
         switch parameters.logging {
         case .concise:
             logLevel = .warning
@@ -1136,7 +1151,7 @@ final class PluginDelegate: PluginInvocationDelegate {
             logLevel = .info
         case .debug:
             logLevel = .debug
-        }
+        }*/
 
         // Determine the subset of products and targets to build.
         var explicitProduct: String? = .none
@@ -1159,8 +1174,8 @@ final class PluginDelegate: PluginInvocationDelegate {
             packageGraphLoader: { try self.swiftTool.loadPackageGraph(explicitProduct: explicitProduct) },
             pluginScriptRunner: try self.swiftTool.getPluginScriptRunner(),
             pluginWorkDirectory: try self.swiftTool.getActiveWorkspace().location.pluginWorkingDirectory,
-            outputStream: outputStream,
-            logLevel: logLevel,
+            //outputStream: outputStream,
+            //logLevel: logLevel,
             fileSystem: localFileSystem,
             observabilityScope: self.swiftTool.observabilityScope
         )
@@ -1266,12 +1281,12 @@ final class PluginDelegate: PluginInvocationDelegate {
                             processSet: swiftTool.processSet,
                             toolchain: toolchain,
                             testEnv: testEnvironment,
-                            outputStream: swiftTool.outputStream,
+                            //outputStream: swiftTool.outputStream,
                             observabilityScope: swiftTool.observabilityScope)
 
                         // Run the test — for now we run the sequentially so we can capture accurate timing results.
                         let startTime = DispatchTime.now()
-                        let (success, _) = testRunner.test(writeToOutputStream: false)
+                        let (success, _) = testRunner.test(emitDiagnostics: false) // FIXME: this means the results wont be printed
                         let duration = Double(startTime.distance(to: .now()).milliseconds() ?? 0) / 1000.0
                         numFailedTests += success ? 0 : 1
                         testResults.append(.init(name: testName, result: success ? .succeeded : .failed, duration: duration))
@@ -1432,7 +1447,7 @@ extension SwiftPackageTool {
         func run(_ swiftTool: SwiftTool) throws {
             // See if have a possible plugin command.
             guard let command = remaining.first else {
-                print(SwiftPackageTool.helpMessage())
+                swiftTool.outputToUser(SwiftPackageTool.helpMessage())
                 return
             }
             
@@ -1451,7 +1466,7 @@ extension SwiftPackageTool {
             let packageGraph = try swiftTool.loadPackageGraph()
 
             // Otherwise find all plugins that match the command verb.
-            swiftTool.observabilityScope.emit(info: "Finding plugin for command '\(command)'")
+            swiftTool.observabilityScope.emit(verbose: "Finding plugin for command '\(command)'")
             let matchingPlugins = PluginCommand.findPlugins(matching: command, in: packageGraph)
 
             // Complain if we didn't find exactly one. We have to formulate the error message taking into account that this might be a misspelled subcommand.
@@ -1549,7 +1564,7 @@ extension SwiftPackageTool {
                 observabilityScope: swiftTool.observabilityScope
             )
 
-            print("generated:", xcodeprojPath.prettyPath(cwd: swiftTool.originalWorkingDirectory))
+            swiftTool.outputToUser("generated: \(xcodeprojPath.prettyPath(cwd: swiftTool.originalWorkingDirectory))")
 
             // Run the file watcher if requested.
             if options.enableAutogeneration {
@@ -1670,10 +1685,11 @@ extension SwiftPackageTool.Config {
             }
 
             if let mirror = config.mirrors.mirrorURL(for: originalURL) {
-                print(mirror)
+                swiftTool.outputToUser(mirror)
             } else {
-                stderrStream <<< "not found\n"
-                stderrStream.flush()
+                //stderrStream <<< "not found\n"
+                //stderrStream.flush()
+                swiftTool.observabilityScope.emit(error: "not found")
                 throw ExitCode.failure
             }
         }
@@ -1794,32 +1810,36 @@ extension SwiftPackageTool {
             switch mode {
             case .generateBashScript:
                 let script = SwiftCommand.completionScript(for: .bash)
-                print(script)
+                swiftTool.outputToUser(script)
             case .generateZshScript:
                 let script = SwiftCommand.completionScript(for: .zsh)
-                print(script)
+                swiftTool.outputToUser(script)
             case .generateFishScript:
                 let script = SwiftCommand.completionScript(for: .fish)
-                print(script)
+                swiftTool.outputToUser(script)
             case .listDependencies:
                 let graph = try swiftTool.loadPackageGraph()
-                ShowDependencies.dumpDependenciesOf(rootPackage: graph.rootPackages[0], mode: .flatlist, on: swiftTool.outputStream)
+                let stream = BufferedOutputByteStream()
+                ShowDependencies.dumpDependenciesOf(rootPackage: graph.rootPackages[0], mode: .flatlist, on: stream)
+                swiftTool.outputToUser(stream.bytes.contents)
             case .listExecutables:
                 let graph = try swiftTool.loadPackageGraph()
                 let package = graph.rootPackages[0].underlyingPackage
                 let executables = package.targets.filter { $0.type == .executable }
                 for executable in executables {
-                    swiftTool.outputStream <<< "\(executable.name)\n"
+                    //swiftTool.outputStream <<< "\(executable.name)\n"
+                    swiftTool.outputToUser(executable.name)
                 }
-                swiftTool.outputStream.flush()
+                //swiftTool.outputStream.flush()
             case .listSnippets:
                 let graph = try swiftTool.loadPackageGraph()
                 let package = graph.rootPackages[0].underlyingPackage
                 let executables = package.targets.filter { $0.type == .snippet }
                 for executable in executables {
-                    swiftTool.outputStream <<< "\(executable.name)\n"
+                    //swiftTool.outputStream <<< "\(executable.name)\n"
+                    swiftTool.outputToUser(executable.name)
                 }
-                swiftTool.outputStream.flush()
+                //swiftTool.outputStream.flush()
             }
         }
     }
@@ -1902,7 +1922,7 @@ extension SwiftPackageTool {
         func run(_ swiftTool: SwiftTool) throws {
             let graph = try swiftTool.loadPackageGraph()
             let package = graph.rootPackages[0]
-            print(package.products.map { $0.description })
+            swiftTool.outputToUser(package.products.map { $0.description }.joined(separator: " "))
 
             let snippetGroups = try loadSnippetsAndSnippetGroups(from: package)
 
@@ -1927,26 +1947,26 @@ private extension Basics.Diagnostic {
 /// - Parameter changes: Changes to log
 /// - Parameter pins: PinsStore with currently pinned packages to compare changed packages to.
 /// - Parameter stream: Stream used for logging
-fileprivate func logPackageChanges(changes: [(PackageReference, Workspace.PackageStateChange)], pins: PinsStore, on stream: OutputByteStream) {
+fileprivate func makePackageChangesReport(changes: [(PackageReference, Workspace.PackageStateChange)], pins: PinsStore) -> String {
     let changes = changes.filter { $0.1 != .unchanged }
 
-    stream <<< "\n"
-    stream <<< "\(changes.count) dependenc\(changes.count == 1 ? "y has" : "ies have") changed\(changes.count > 0 ? ":" : ".")"
-    stream <<< "\n"
+    var report = "\(changes.count) dependenc\(changes.count == 1 ? "y has" : "ies have") changed\(changes.count > 0 ? ":" : ".")"
 
     for (package, change) in changes {
         let currentVersion = pins.pinsMap[package.identity]?.state.description ?? ""
         switch change {
         case let .added(state):
-            stream <<< "+ \(package.identity) \(state.requirement.prettyPrinted)"
+            report += "\n"
+            report += "+ \(package.identity) \(state.requirement.prettyPrinted)"
         case let .updated(state):
-            stream <<< "~ \(package.identity) \(currentVersion) -> \(package.identity) \(state.requirement.prettyPrinted)"
+            report += "\n"
+            report += "~ \(package.identity) \(currentVersion) -> \(package.identity) \(state.requirement.prettyPrinted)"
         case .removed:
-            stream <<< "- \(package.identity) \(currentVersion)"
+            report += "\n"
+            report += "- \(package.identity) \(currentVersion)"
         case .unchanged:
             continue
         }
-        stream <<< "\n"
     }
-    stream.flush()
+    return report
 }

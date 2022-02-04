@@ -124,8 +124,12 @@ final class ObservabilitySystemTest: XCTestCase {
         emitter.emit(StringError("error 3"))
         emitter.emit(warning: "warning")
         emitter.emit(.warning("warning 2"))
-        emitter.emit(info: "info")
-        emitter.emit(.info("info 2"))
+        emitter.emit(output: "output")
+        emitter.emit(.output("output 2"))
+        emitter.emit(.output(Array("output 3".utf8)))
+        emitter.emit(.output(Data("output 4".utf8)))
+        emitter.emit(verbose: "verbose")
+        emitter.emit(.verbose("verbose 2"))
         emitter.emit(debug: "debug")
         emitter.emit(.debug("debug 2"))
 
@@ -152,11 +156,27 @@ final class ObservabilitySystemTest: XCTestCase {
                 XCTAssertEqual(diagnostic?.metadata?.testKey1, metadata.testKey1)
             }
             do {
-                let diagnostic = result.check(diagnostic: "info", severity: .info)
+                let diagnostic = result.check(diagnostic: "output", severity: .output)
                 XCTAssertEqual(diagnostic?.metadata?.testKey1, metadata.testKey1)
             }
             do {
-                let diagnostic = result.check(diagnostic: "info 2", severity: .info)
+                let diagnostic = result.check(diagnostic: "output 2", severity: .output)
+                XCTAssertEqual(diagnostic?.metadata?.testKey1, metadata.testKey1)
+            }
+            do {
+                let diagnostic = result.check(diagnostic: "output 3", severity: .output)
+                XCTAssertEqual(diagnostic?.metadata?.testKey1, metadata.testKey1)
+            }
+            do {
+                let diagnostic = result.check(diagnostic: "output 4", severity: .output)
+                XCTAssertEqual(diagnostic?.metadata?.testKey1, metadata.testKey1)
+            }
+            do {
+                let diagnostic = result.check(diagnostic: "verbose", severity: .verbose)
+                XCTAssertEqual(diagnostic?.metadata?.testKey1, metadata.testKey1)
+            }
+            do {
+                let diagnostic = result.check(diagnostic: "verbose 2", severity: .verbose)
                 XCTAssertEqual(diagnostic?.metadata?.testKey1, metadata.testKey1)
             }
             do {
@@ -304,14 +324,14 @@ final class ObservabilitySystemTest: XCTestCase {
 
         struct TestLocation: DiagnosticLocation, Equatable {
             var description: String = UUID().uuidString
-
         }
     }
 
-    struct Collector: ObservabilityHandlerProvider, DiagnosticsHandler {
+    struct Collector: ObservabilityHandlerProvider, ScopeDiagnosticsHandler, ScopeProgressHandler {
         private let _diagnostics = ThreadSafeArrayStore<Diagnostic>()
 
-        var diagnosticsHandler: DiagnosticsHandler { self }
+        var diagnosticsHandler: ScopeDiagnosticsHandler { self }
+        var progressHandler: ScopeProgressHandler { self }
 
         var diagnostics: [Diagnostic] {
             self._diagnostics.get()
@@ -323,6 +343,10 @@ final class ObservabilitySystemTest: XCTestCase {
 
         func handleDiagnostic(scope: ObservabilityScope, diagnostic: Diagnostic) {
             self._diagnostics.append(diagnostic)
+        }
+
+        #warning("FIXME: impl this for testing")
+        func handleProgress(scope: ObservabilityScope, step: Int64, total: Int64, unit: String?, description: String?) {
         }
     }
 }

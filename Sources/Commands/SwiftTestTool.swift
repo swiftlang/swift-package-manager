@@ -11,6 +11,7 @@ See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 import ArgumentParser
 import Basics
 import Build
+import Dispatch
 import class Foundation.ProcessInfo
 import PackageGraph
 import SPMBuildCore
@@ -216,7 +217,7 @@ public struct SwiftTestTool: SwiftCommand {
 
             // Print the tests.
             for test in tests {
-                print(test.specifier)
+                swiftTool.outputToUser(test.specifier)
             }
 
         case .codeCovPath:
@@ -233,7 +234,8 @@ public struct SwiftTestTool: SwiftCommand {
                 throw StringError("invalid manifests at \(root.packages)")
             }
             let buildParameters = try swiftTool.buildParametersForTest()
-            print(codeCovAsJSONPath(buildParameters: buildParameters, packageName: rootManifest.displayName))
+            let path = self.codeCovAsJSONPath(buildParameters: buildParameters, packageName: rootManifest.displayName).pathString
+            swiftTool.outputToUser(path)
 
         case .generateLinuxMain:
             // this functionality is deprecated as of 12/2020
@@ -248,7 +250,7 @@ public struct SwiftTestTool: SwiftCommand {
             let testSuites = try TestingSupport.getTestSuites(in: testProducts, swiftTool: swiftTool, swiftOptions: swiftOptions)
             let allTestSuites = testSuites.values.flatMap { $0 }
             let generator = LinuxMainGenerator(graph: graph, testSuites: allTestSuites)
-            try generator.generate()
+            try generator.generate(observabilityScope: swiftTool.observabilityScope)
 
         case .runSerial:
             let toolchain = try swiftTool.getToolchain()
@@ -300,12 +302,12 @@ public struct SwiftTestTool: SwiftCommand {
                 processSet: swiftTool.processSet,
                 toolchain: toolchain,
                 testEnv: testEnv,
-                outputStream: swiftTool.outputStream,
+                //outputStream: swiftTool.outputStream,
                 observabilityScope: swiftTool.observabilityScope
             )
 
             // Finally, run the tests.
-            let (ranSuccessfully, _) = runner.test(writeToOutputStream: true)
+            let (ranSuccessfully, _) = runner.test(emitDiagnostics: true)
             if !ranSuccessfully {
                 swiftTool.executionStatus = .failure
             }
@@ -344,10 +346,10 @@ public struct SwiftTestTool: SwiftCommand {
                 numJobs: options.numberOfWorkers ?? ProcessInfo.processInfo.activeProcessorCount,
                 options: swiftOptions,
                 buildParameters: buildParameters,
-                outputStream: swiftTool.outputStream,
+                //outputStream: swiftTool.outputStream,
                 observabilityScope: swiftTool.observabilityScope
             )
-            try runner.run(tests, outputStream: swiftTool.outputStream)
+            try runner.run(tests, outputSuccess: swiftTool.logLevel <= .verbose, userOutputHandler: swiftTool.outputToUser)
 
             if !runner.ranSuccessfully {
                 swiftTool.executionStatus = .failure
@@ -524,7 +526,7 @@ final class TestRunner {
     private let testEnv: [String: String]
 
     /// Output stream for test results
-    private let outputStream: OutputByteStream
+    //private let outputStream: OutputByteStream
 
     /// ObservabilityScope  to emit diagnostics.
     private let observabilityScope: ObservabilityScope
@@ -540,7 +542,7 @@ final class TestRunner {
         processSet: ProcessSet,
         toolchain: UserToolchain,
         testEnv: [String: String],
-        outputStream: OutputByteStream,
+        //outputStream: OutputByteStream,
         observabilityScope: ObservabilityScope
     ) {
         self.bundlePaths = bundlePaths
@@ -548,17 +550,17 @@ final class TestRunner {
         self.processSet = processSet
         self.toolchain = toolchain
         self.testEnv = testEnv
-        self.outputStream = outputStream
+        //self.outputStream = outputStream
         self.observabilityScope = observabilityScope.makeChildScope(description: "Test Runner")
     }
 
     /// Executes and returns execution status. Prints test output on standard streams if requested
     /// - Returns: Boolean indicating if test execution returned code 0, and the output stream result
-    public func test(writeToOutputStream: Bool) -> (Bool, String) {
+    public func test(emitDiagnostics: Bool) -> (Bool, String) {
         var success = true
         var output = ""
         for path in self.bundlePaths {
-            let (testSuccess, testOutput) = self.test(at: path, writeToOutputStream: writeToOutputStream)
+            let (testSuccess, testOutput) = self.test(at: path, emitDiagnostics: emitDiagnostics)
             success = success && testSuccess
             output += testOutput
         }
@@ -586,7 +588,7 @@ final class TestRunner {
         return args
     }
 
-    private func test(at path: AbsolutePath, writeToOutputStream: Bool) -> (Bool, String) {
+    private func test(at path: AbsolutePath, emitDiagnostics: Bool) -> (Bool, String) {
         var stdout: [UInt8] = []
         var stderr: [UInt8] = []
 
@@ -600,16 +602,18 @@ final class TestRunner {
             let outputRedirection = Process.OutputRedirection.stream(
                 stdout: {
                     stdout += $0
-                    if writeToOutputStream {
-                        self.outputStream.write($0)
-                        self.outputStream.flush()
+                    if emitDiagnostics {
+                        //self.outputStream.write($0)
+                        //self.outputStream.flush()
+                        testObservabilityScope.emit(output: $0)
                     }
                 },
                 stderr: {
                     stderr += $0
-                    if writeToOutputStream {
-                        TSCBasic.stderrStream.write($0)
-                        TSCBasic.stderrStream.flush()
+                    if emitDiagnostics {
+                        //TSCBasic.stderrStream.write($0)
+                        //TSCBasic.stderrStream.flush()
+                        testObservabilityScope.emit(output: $0)
                     }
                 }
             )
@@ -622,22 +626,20 @@ final class TestRunner {
                 return (true, makeOutput())
             #if !os(Windows)
             case .signalled(let signal):
-                if writeToOutputStream {
+                if emitDiagnostics {
                     testObservabilityScope.emit(error: "Exited with signal code \(signal)")
-                } else {
-                    stderr += "\nExited with signal code \(signal)".utf8
                 }
+                stderr += "\nExited with signal code \(signal)".utf8
             #endif
             default: break
             }
         } catch ProcessSetError.cancelled {
             // do nothing
         } catch {
-            if writeToOutputStream {
+            if emitDiagnostics {
                 testObservabilityScope.emit(error)
-            } else {
-                stderr += "\n\(error)".utf8
             }
+            stderr += "\n\(error)".utf8
         }
         return (false, makeOutput())
     }
@@ -659,16 +661,16 @@ final class ParallelTestRunner {
     private let pendingTests = SynchronizedQueue<UnitTest?>()
 
     /// The queue containing tests which are finished running.
-    private let finishedTests = SynchronizedQueue<TestResult?>()
+    //private let finishedTests = SynchronizedQueue<TestResult?>()
 
     /// Instance of a terminal progress animation.
-    private let progressAnimation: ProgressAnimationProtocol
+    //private let progressAnimation: ProgressAnimationProtocol
 
     /// Number of tests that will be executed.
     private var numTests = 0
 
     /// Number of the current tests that has been executed.
-    private var numCurrentTest = 0
+    //private var numCurrentTest = 0
 
     /// True if all tests executed successfully.
     private(set) var ranSuccessfully = true
@@ -685,7 +687,7 @@ final class ParallelTestRunner {
     private let numJobs: Int
 
     /// Output stream for test results
-    private let outputStream: OutputByteStream
+    //private let outputStream: OutputByteStream
 
     /// ObservabilityScope to emit diagnostics.
     private let observabilityScope: ObservabilityScope
@@ -698,7 +700,7 @@ final class ParallelTestRunner {
         numJobs: Int,
         options: SwiftToolOptions,
         buildParameters: BuildParameters,
-        outputStream: OutputByteStream,
+        //outputStream: OutputByteStream,
         observabilityScope: ObservabilityScope
     ) {
         self.bundlePaths = bundlePaths
@@ -706,14 +708,14 @@ final class ParallelTestRunner {
         self.toolchain = toolchain
         self.xUnitOutput = xUnitOutput
         self.numJobs = numJobs
-        self.outputStream = outputStream
+        //self.outputStream = outputStream
         self.observabilityScope = observabilityScope.makeChildScope(description: "Parallel Test Runner")
 
-        if ProcessEnv.vars["SWIFTPM_TEST_RUNNER_PROGRESS_BAR"] == "lit" {
+        /*if ProcessEnv.vars["SWIFTPM_TEST_RUNNER_PROGRESS_BAR"] == "lit" {
             progressAnimation = PercentProgressAnimation(stream: outputStream, header: "Testing:")
         } else {
             progressAnimation = NinjaProgressAnimation(stream: outputStream)
-        }
+        }*/
 
         self.options = options
         self.buildParameters = buildParameters
@@ -722,17 +724,18 @@ final class ParallelTestRunner {
     }
 
     /// Whether to display output from successful tests.
-    private var shouldOutputSuccess: Bool {
+    /*private var shouldOutputSuccess: Bool {
         // FIXME: It is weird to read Process's verbosity to determine this, we
         // should improve our verbosity infrastructure.
         return Process.verbose
-    }
+    }*/
 
     /// Updates the progress bar status.
-    private func updateProgress(for test: UnitTest) {
+    /*private func updateProgress(for test: UnitTest) {
         numCurrentTest += 1
-        progressAnimation.update(step: numCurrentTest, total: numTests, text: "Testing \(test.specifier)")
-    }
+        //progressAnimation.update(step: numCurrentTest, total: numTests, text: "Testing \(test.specifier)")
+        self.observabilityScope.emit(step: self.numCurrentTest, total: self.numTests, unit: .none, description: "Testing \(test.specifier)")
+    }*/
 
     private func enqueueTests(_ tests: [UnitTest]) throws {
         // Enqueue all the tests.
@@ -740,7 +743,7 @@ final class ParallelTestRunner {
             pendingTests.enqueue(test)
         }
         self.numTests = tests.count
-        self.numCurrentTest = 0
+        //self.numCurrentTest = 0
         // Enqueue the sentinels, we stop a thread when it encounters a sentinel in the queue.
         for _ in 0..<numJobs {
             pendingTests.enqueue(nil)
@@ -748,13 +751,20 @@ final class ParallelTestRunner {
     }
 
     /// Executes the tests spawning parallel workers. Blocks calling thread until all workers are finished.
-    func run(_ tests: [UnitTest], outputStream: OutputByteStream) throws {
+    func run(_ tests: [UnitTest]/*, outputStream: OutputByteStream*/, outputSuccess: Bool, userOutputHandler: @escaping (String) -> Void) throws {
         assert(!tests.isEmpty, "There should be at least one test to execute.")
 
         let testEnv = try TestingSupport.constructTestEnvironment(toolchain: self.toolchain, options: self.options, buildParameters: self.buildParameters)
 
         // Enqueue all the tests.
-        try enqueueTests(tests)
+        try self.enqueueTests(tests)
+
+        #warning("FIXME")
+        let outputQueue = DispatchQueue(label: "chachacha")
+        let outputSync = DispatchGroup()
+
+        let startTime = DispatchTime.now()
+        let processedTests = ThreadSafeArrayStore<TestResult>()
 
         // Create the worker threads.
         let workers: [Thread] = (0..<numJobs).map({ _ in
@@ -767,14 +777,26 @@ final class ParallelTestRunner {
                         processSet: self.processSet,
                         toolchain: self.toolchain,
                         testEnv: testEnv,
-                        outputStream: self.outputStream,
+                        //outputStream: self.outputStream,
                         observabilityScope: self.observabilityScope
                     )
-                    let (success, output) = testRunner.test(writeToOutputStream: false)
+                    let (success, output) = testRunner.test(emitDiagnostics: false)
                     if !success {
                         self.ranSuccessfully = false
                     }
-                    self.finishedTests.enqueue(TestResult(unitTest: test, output: output, success: success))
+                    //self.finishedTests.enqueue(TestResult(unitTest: test, output: output, success: success))
+                    //self.updateProgress(for: test)
+                    //self.numCurrentTest += 1
+                    let count = processedTests.append(TestResult(unitTest: test, output: output, success: success))
+                    //progressAnimation.update(step: numCurrentTest, total: numTests, text: "Testing \(test.specifier)")
+                    // using queue to sync step outputs together
+                    outputQueue.async(group: outputSync) {
+                        self.observabilityScope.emit(step: count, total: self.numTests, unit: .none, description: "Testing \(test.specifier)")
+                        if outputSuccess || !success {
+                            //print(test, outputStream: outputStream)
+                            userOutputHandler(output)
+                        }
+                    }
                 }
             }
             thread.start()
@@ -782,12 +804,17 @@ final class ParallelTestRunner {
         })
 
         // List of processed tests.
+        /*
         let processedTests = ThreadSafeArrayStore<TestResult>()
 
         // Report (consume) the tests which have finished running.
         while let result = finishedTests.dequeue() {
             updateProgress(for: result.unitTest)
-
+            if outputSuccess || !result.success {
+                //print(test, outputStream: outputStream)
+                userOutputHandler(result.output)
+            }
+            
             // Store the result.
             processedTests.append(result)
 
@@ -796,36 +823,51 @@ final class ParallelTestRunner {
             if numCurrentTest == numTests {
                 break
             }
-        }
+        }*/
 
         // Wait till all threads finish execution.
         workers.forEach { $0.join() }
 
         // Report the completion.
-        progressAnimation.complete(success: processedTests.get().contains(where: { !$0.success }))
+        //progressAnimation.complete(success: processedTests.get().contains(where: { !$0.success }))
+        //let success = processedTests.get().allSatisfy{ $0.success }
+        //if success {
+
+        let testResults = processedTests.get()
+
+        #warning("FIXME: timeout?")
+        outputSync.wait()
+        if self.ranSuccessfully {
+            let duration = startTime.distance(to: .now())
+            self.observabilityScope.emit(output: "\(testResults.count) tests complete! (\(duration.descriptionInSeconds))")
+        } else {
+            let failures = testResults.filter{ !$0.success }.count
+            self.observabilityScope.emit(error: "Executed \(testResults.count) tests, with \(failures) \(failures > 1 ? "failures." : "failure.")")
+        }
 
         // Print test results.
-        for test in processedTests.get() {
-            if !test.success || shouldOutputSuccess {
-                print(test, outputStream: outputStream)
+        /*for test in processedTests.get() {
+            if outputSuccess || !test.success {
+                //print(test, outputStream: outputStream)
+                userOutputHandler(test.output)
             }
-        }
+        }*/
 
         // Generate xUnit file if requested.
         if let xUnitOutput = xUnitOutput {
-            try XUnitGenerator(processedTests.get()).generate(at: xUnitOutput)
+            try XUnitGenerator(testResults).generate(at: xUnitOutput)
         }
     }
 
     // Print a test result.
-    private func print(_ test: TestResult, outputStream: OutputByteStream) {
+    /*private func print(_ test: TestResult/*, outputStream: OutputByteStream*/) {
         outputStream <<< "\n"
         outputStream <<< test.output
         if !test.output.isEmpty {
             outputStream <<< "\n"
         }
         outputStream.flush()
-    }
+    }*/
 }
 
 /// A struct to hold the XCTestSuite data.

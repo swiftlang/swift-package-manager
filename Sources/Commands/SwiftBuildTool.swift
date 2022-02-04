@@ -91,7 +91,8 @@ public struct SwiftBuildTool: SwiftCommand {
 
     public func run(_ swiftTool: SwiftTool) throws {
         if options.shouldPrintBinPath {
-            try print(swiftTool.buildParameters().buildPath.description)
+            let buildPath = try swiftTool.buildParameters().buildPath.description
+            swiftTool.outputToUser(buildPath)
             return
         }
 

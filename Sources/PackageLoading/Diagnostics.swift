@@ -93,7 +93,7 @@ extension Basics.Diagnostic {
     }
 
     static func fileReference(path: RelativePath) -> Self {
-        .info("found '\(path)'")
+        .verbose("found '\(path)'")
     }
 
     static func infoPlistResourceConflict(

@@ -771,7 +771,7 @@ public final class MockWorkspaceDelegate: WorkspaceDelegate {
         self.append("fetching package: \(packageLocation ?? package.description)")
     }
 
-    public func fetchingPackage(package: PackageIdentity, packageLocation: String?, progress: Int64, total: Int64?) {
+    public func fetchingPackage(package: PackageIdentity, packageLocation: String?, step: Int64, total: Int64?) {
     }
 
     public func didFetchPackage(package: PackageIdentity, packageLocation: String?, result: Result<PackageFetchDetails, Error>, duration: DispatchTimeInterval) {

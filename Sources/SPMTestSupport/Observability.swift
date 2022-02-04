@@ -47,8 +47,9 @@ public struct TestingObservability {
         self.collector.hasWarnings
     }
 
-    struct Collector: ObservabilityHandlerProvider, DiagnosticsHandler, CustomStringConvertible {
-        var diagnosticsHandler: DiagnosticsHandler { return self }
+    struct Collector: ObservabilityHandlerProvider, ScopeDiagnosticsHandler, ScopeProgressHandler, CustomStringConvertible {
+        var diagnosticsHandler: ScopeDiagnosticsHandler { self }
+        var progressHandler: ScopeProgressHandler { self }
 
         let diagnostics: ThreadSafeArrayStore<Basics.Diagnostic>
 
@@ -59,6 +60,11 @@ public struct TestingObservability {
         // TODO: do something useful with scope
         func handleDiagnostic(scope: ObservabilityScope, diagnostic: Basics.Diagnostic) {
             self.diagnostics.append(diagnostic)
+        }
+
+        #warning("FIXME: impl this for testing")
+        func handleProgress(scope: ObservabilityScope, step: Int64, total: Int64, unit: String?, description: String?) {
+            //NOOP
         }
 
         var hasErrors: Bool {

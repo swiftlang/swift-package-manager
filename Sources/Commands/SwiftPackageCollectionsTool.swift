@@ -87,10 +87,10 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
             }
 
             if self.jsonOptions.json {
-                try JSONEncoder.makeWithDefaults().print(collections)
+                try swiftTool.outputToUser(codable: collections)
             } else {
                 collections.forEach {
-                    print("\($0.name) - \($0.source.url)")
+                    swiftTool.outputToUser("\($0.name) - \($0.source.url)")
                 }
             }
         }
@@ -106,7 +106,7 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
             let collections = try with(swiftTool) { collections in
                 try tsc_await { collections.refreshCollections(callback: $0) }
             }
-            print("Refreshed \(collections.count) configured package collection\(collections.count == 1 ? "" : "s").")
+            swiftTool.outputToUser("Refreshed \(collections.count) configured package collection\(collections.count == 1 ? "" : "s").")
         }
     }
 
@@ -154,7 +154,7 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
                 }
             }
 
-            print("Added \"\(collection.name)\" to your package collections.")
+            swiftTool.outputToUser("Added \"\(collection.name)\" to your package collections.")
         }
     }
 
@@ -174,7 +174,7 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
             try with(swiftTool) { collections in
                 let collection = try tsc_await { collections.getCollection(source, callback: $0) }
                 _ = try tsc_await { collections.removeCollection(source, callback: $0) }
-                print("Removed \"\(collection.name)\" from your package collections.")
+                swiftTool.outputToUser("Removed \"\(collection.name)\" from your package collections.")
             }
         }
     }
@@ -208,10 +208,10 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
                     let results = try tsc_await { collections.findPackages(searchQuery, collections: nil, callback: $0) }
 
                     if jsonOptions.json {
-                        try JSONEncoder.makeWithDefaults().print(results.items)
+                        try swiftTool.outputToUser(codable: results.items)
                     } else {
                         results.items.forEach {
-                            print("\($0.package.identity): \($0.package.summary ?? "")")
+                            swiftTool.outputToUser("\($0.package.identity): \($0.package.summary ?? "")")
                         }
                     }
 
@@ -220,10 +220,10 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
 
                     let packages = Set(results.items.flatMap { $0.packages })
                     if jsonOptions.json {
-                        try JSONEncoder.makeWithDefaults().print(packages)
+                        try swiftTool.outputToUser(codable: packages)
                     } else {
                         packages.forEach {
-                            print("\($0.identity): \($0.summary ?? "")")
+                            swiftTool.outputToUser("\($0.identity): \($0.summary ?? "")")
                         }
                     }
                 }
@@ -293,9 +293,9 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
                         }
 
                         if jsonOptions.json {
-                            try JSONEncoder.makeWithDefaults().print(result)
+                            try swiftTool.outputToUser(codable: result)
                         } else {
-                            print("\(indent())Version: \(printedResult)")
+                            swiftTool.outputToUser("\(indent())Version: \(printedResult)")
                         }
                     } else {
                         let description = optionalRow("Description", result.package.summary)
@@ -308,9 +308,9 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
                         let latestVersion = optionalRow("\(String(repeating: "-", count: 60))\n\(indent())Latest Version", printVersion(result.package.latestVersion))
 
                         if jsonOptions.json {
-                            try JSONEncoder.makeWithDefaults().print(result.package)
+                            try swiftTool.outputToUser(codable: result.package)
                         } else {
-                            print("""
+                            swiftTool.outputToUser("""
                                 \(description)
                                 Available Versions: \(versions)\(readme)\(license)\(authors)\(stars)\(languages)\(latestVersion)
                             """)
@@ -334,11 +334,11 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
                         let packages = collection.packages.map { "\($0.identity)" }.joined(separator: "\n\(indent(levels: 2))")
 
                         if jsonOptions.json {
-                            try JSONEncoder.makeWithDefaults().print(collection)
+                            try swiftTool.outputToUser(codable: collection)
                         } else {
                             let signature = optionalRow("Signed By", collection.signature.map { "\($0.certificate.subject.commonName ?? "Unspecified") (\($0.isVerified ? "" : "not ")verified)" })
 
-                            print("""
+                            swiftTool.outputToUser("""
                                 Name: \(collection.name)
                                 Source: \(collection.source.url)\(description)\(keywords)\(createdAt)
                                 Packages:
@@ -346,7 +346,7 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
                             """)
                         }
                     } catch {
-                        print("Failed to get metadata. The given URL either belongs to a collection that is invalid or unavailable, or a package that is not found in any of the imported collections.")
+                        swiftTool.observabilityScope.emit(error: "Failed to get metadata. The given URL either belongs to a collection that is invalid or unavailable, or a package that is not found in any of the imported collections.")
                     }
                 }
             }
@@ -366,11 +366,10 @@ private func optionalRow(_ title: String, _ contents: String?, indentationLevel:
     }
 }
 
-private extension JSONEncoder {
-    func print<T>(_ value: T) throws where T: Encodable {
-        let jsonData = try self.encode(value)
-        let jsonString = String(data: jsonData, encoding: .utf8)!
-        Swift.print(jsonString)
+extension SwiftTool {
+    fileprivate func outputToUser<T>(codable value: T) throws where T: Encodable {
+        let data = try JSONEncoder.makeWithDefaults().encode(value)
+        self.outputToUser(data)
     }
 }
 

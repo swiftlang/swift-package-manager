@@ -942,9 +942,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                             }
 
                             // Read the JSON output that was emitted by libPackageDescription.
-                            guard let jsonOutput = try localFileSystem.readFileContents(jsonOutputFile).validDescription else {
-                                return completion(.failure(StringError("the manifest's JSON output has invalid encoding")))
-                            }
+                            let jsonOutput: String = try localFileSystem.readFileContents(jsonOutputFile)
                             evaluationResult.manifestJSON = jsonOutput
                             
                             completion(.success(evaluationResult))

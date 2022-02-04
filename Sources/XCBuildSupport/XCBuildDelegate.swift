@@ -18,13 +18,13 @@ public class XCBuildDelegate {
     private let buildSystem: SPMBuildCore.BuildSystem
     private var parser: XCBuildOutputParser!
     private let observabilityScope: ObservabilityScope
-    private let outputStream: ThreadSafeOutputByteStream
-    private let progressAnimation: ProgressAnimationProtocol
+    //private let outputStream: ThreadSafeOutputByteStream
+    //private let progressAnimation: ProgressAnimationProtocol
     private var percentComplete: Int = 0
     private let queue = DispatchQueue(label: "org.swift.swiftpm.xcbuild-delegate")
 
     /// The verbosity level to print out at
-    private let logLevel: Basics.Diagnostic.Severity
+    //private let logLevel: Basics.Diagnostic.Severity
 
     /// True if any progress output was emitted.
     fileprivate var didEmitProgressOutput: Bool = false
@@ -34,17 +34,17 @@ public class XCBuildDelegate {
 
     public init(
         buildSystem: SPMBuildCore.BuildSystem,
-        outputStream: OutputByteStream,
-        progressAnimation: ProgressAnimationProtocol,
-        logLevel: Basics.Diagnostic.Severity,
+        //outputStream: OutputByteStream,
+        //progressAnimation: ProgressAnimationProtocol,
+        //logLevel: Basics.Diagnostic.Severity,
         observabilityScope: ObservabilityScope
     ) {
         self.buildSystem = buildSystem
         // FIXME: Implement a class convenience initializer that does this once they are supported
         // https://forums.swift.org/t/allow-self-x-in-class-convenience-initializers/15924
-        self.outputStream = outputStream as? ThreadSafeOutputByteStream ?? ThreadSafeOutputByteStream(outputStream)
-        self.progressAnimation = progressAnimation
-        self.logLevel = logLevel
+        //self.outputStream = outputStream as? ThreadSafeOutputByteStream ?? ThreadSafeOutputByteStream(outputStream)
+        //self.progressAnimation = progressAnimation
+        //self.logLevel = logLevel
         self.observabilityScope = observabilityScope
         self.parser = XCBuildOutputParser(delegate: self)
     }
@@ -62,36 +62,44 @@ extension XCBuildDelegate: XCBuildOutputParserDelegate {
         case .taskStarted(let info):
             queue.async {
                 self.didEmitProgressOutput = true
-                let text = self.logLevel.isVerbose ? [info.executionDescription, info.commandLineDisplayString].compactMap { $0 }.joined(separator: "\n") : info.executionDescription
-                self.progressAnimation.update(step: self.percentComplete, total: 100, text: text)
+                //let text = self.logLevel.isVerbose ? [info.executionDescription, info.commandLineDisplayString].compactMap { $0 }.joined(separator: "\n") : info.executionDescription
+                //self.progressAnimation.update(step: self.percentComplete, total: 100, text: text)
                 self.buildSystem.delegate?.buildSystem(self.buildSystem, willStartCommand: BuildSystemCommand(name: "\(info.taskID)", description: info.executionDescription, verboseDescription: info.commandLineDisplayString))
                 self.buildSystem.delegate?.buildSystem(self.buildSystem, didStartCommand: BuildSystemCommand(name: "\(info.taskID)", description: info.executionDescription, verboseDescription: info.commandLineDisplayString))
             }
+            //let text = self.logLevel.isVerbose ? [info.executionDescription, info.commandLineDisplayString].compactMap { $0 }.joined(separator: "\n") : info.executionDescription
+            #warning("FIXME: group together?")
+            self.observabilityScope.emit(verbose: [info.executionDescription, info.commandLineDisplayString].compactMap { $0 }.joined(separator: "\n"))
+            self.observabilityScope.emit(step: self.percentComplete, total: 100, unit: .none, description: info.executionDescription)
         case .taskOutput(let info):
-            queue.async {
+            /*queue.async {
                 self.progressAnimation.clear()
                 self.outputStream <<< info.data
                 self.outputStream <<< "\n"
                 self.outputStream.flush()
-            }
+            }*/
+            self.observabilityScope.emit(output: info.data)
         case .taskComplete(let info):
             queue.async {
                 self.buildSystem.delegate?.buildSystem(self.buildSystem, didStartCommand: BuildSystemCommand(name: "\(info.taskID)", description: info.result.rawValue))
             }
         case .buildDiagnostic(let info):
-            queue.async {
+            /*queue.async {
                 self.progressAnimation.clear()
                 self.outputStream <<< info.message
                 self.outputStream <<< "\n"
                 self.outputStream.flush()
-            }
+            }*/
+            // FIXME: can we read the level from the diagnostic?
+            self.observabilityScope.emit(output: info.message)
         case .buildOutput(let info):
-            queue.async {
+            /*queue.async {
                 self.progressAnimation.clear()
                 self.outputStream <<< info.data
                 self.outputStream <<< "\n"
                 self.outputStream.flush()
-            }
+            }*/
+            self.observabilityScope.emit(output: info.data)
         case .didUpdateProgress(let info):
             queue.async {
                 let percent = Int(info.percentComplete)
@@ -99,19 +107,27 @@ extension XCBuildDelegate: XCBuildOutputParserDelegate {
                 self.buildSystem.delegate?.buildSystem(self.buildSystem, didUpdateTaskProgress: info.message)
             }
         case .buildCompleted(let info):
-            queue.async {
+            //queue.async {
+                let success: Bool
                 switch info.result {
-                case .aborted, .cancelled, .failed:
-                    self.outputStream <<< "Build \(info.result)\n"
-                    self.outputStream.flush()
-                    self.buildSystem.delegate?.buildSystem(self.buildSystem, didFinishWithResult: false)
                 case .ok:
+                    success = true
+                    self.observabilityScope.emit(output: "Build complete!")
                     if self.didEmitProgressOutput {
-                        self.progressAnimation.update(step: 100, total: 100, text: "Build succeeded")
+                        //self.progressAnimation.update(step: 100, total: 100, text: "Build succeeded")
+                        self.observabilityScope.emit(step: 100, total: 100, unit: .none, description: "Build succeeded")
                     }
-                    self.buildSystem.delegate?.buildSystem(self.buildSystem, didFinishWithResult: true)
+                case .failed:
+                    success = false
+                    self.observabilityScope.emit(error: "Build failed")
+                case .aborted, .cancelled:
+                    success = false
+                    self.observabilityScope.emit(warning: "Build \(info.result)")
                 }
-            }
+                queue.async {
+                    self.buildSystem.delegate?.buildSystem(self.buildSystem, didFinishWithResult: success)
+                }
+            //}
         default:
             break
         }

@@ -27,7 +27,8 @@ public class ObservabilitySystem {
             description: "top scope",
             parent: .none,
             metadata: .none,
-            diagnosticsHandler: handlerProvider.diagnosticsHandler
+            diagnosticsHandler: handlerProvider.diagnosticsHandler,
+            progressHandler: handlerProvider.progressHandler
         )
     }
 
@@ -36,8 +37,9 @@ public class ObservabilitySystem {
         self.init(SingleDiagnosticsHandler(handler))
     }
 
-    private struct SingleDiagnosticsHandler: ObservabilityHandlerProvider, DiagnosticsHandler {
-        var diagnosticsHandler: DiagnosticsHandler  { self }
+    private struct SingleDiagnosticsHandler: ObservabilityHandlerProvider, ScopeDiagnosticsHandler, ScopeProgressHandler {
+        var diagnosticsHandler: ScopeDiagnosticsHandler { self }
+        var progressHandler: ScopeProgressHandler { self }
 
         let underlying: (ObservabilityScope, Diagnostic) -> Void
 
@@ -48,32 +50,40 @@ public class ObservabilitySystem {
         func handleDiagnostic(scope: ObservabilityScope, diagnostic: Diagnostic) {
             self.underlying(scope, diagnostic)
         }
+
+        func handleProgress(scope: ObservabilityScope, step: Int64, total: Int64, unit: String?, description: String?) {
+            // NOOP
+        }
     }
 }
 
 public protocol ObservabilityHandlerProvider {
-    var diagnosticsHandler: DiagnosticsHandler { get }
+    var diagnosticsHandler: ScopeDiagnosticsHandler { get }
+    var progressHandler: ScopeProgressHandler { get }
 }
 
 // MARK: - ObservabilityScope
 
-public final class ObservabilityScope: DiagnosticsEmitterProtocol, CustomStringConvertible {
+public final class ObservabilityScope: DiagnosticsEmitterProtocol, ProgressEmitterProtocol, CustomStringConvertible {
     public let description: String
     private let parent: ObservabilityScope?
     private let metadata: ObservabilityMetadata?
 
     private var diagnosticsHandler: DiagnosticsHanderWrapper
+    private var progressHandler: ScopeProgressHandler
 
     fileprivate init(
         description: String,
         parent: ObservabilityScope?,
         metadata: ObservabilityMetadata?,
-        diagnosticsHandler: DiagnosticsHandler
+        diagnosticsHandler: ScopeDiagnosticsHandler,
+        progressHandler: ScopeProgressHandler
     ) {
         self.description = description
         self.parent = parent
         self.metadata = metadata
         self.diagnosticsHandler = DiagnosticsHanderWrapper(diagnosticsHandler)
+        self.progressHandler = progressHandler
     }
 
     public func makeChildScope(description: String, metadata: ObservabilityMetadata? = .none) -> Self {
@@ -82,7 +92,8 @@ public final class ObservabilityScope: DiagnosticsEmitterProtocol, CustomStringC
             description: description,
             parent: self,
             metadata: mergedMetadata,
-            diagnosticsHandler: self.diagnosticsHandler
+            diagnosticsHandler: self.diagnosticsHandler,
+            progressHandler: self.progressHandler
         )
     }
 
@@ -123,11 +134,15 @@ public final class ObservabilityScope: DiagnosticsEmitterProtocol, CustomStringC
         self.diagnosticsHandler.handleDiagnostic(scope: self, diagnostic: diagnostic)
     }
 
-    private struct DiagnosticsHanderWrapper: DiagnosticsHandler {
-        private let underlying: DiagnosticsHandler
+    public func emit(step: Int64, total: Int64, unit: String?, description: String?) {
+        self.progressHandler.handleProgress(scope: self, step: step, total: total, unit: unit, description: description)
+    }
+
+    private struct DiagnosticsHanderWrapper: ScopeDiagnosticsHandler {
+        private let underlying: ScopeDiagnosticsHandler
         private var _errorsReported = ThreadSafeBox<Bool>(false)
 
-        init(_ underlying: DiagnosticsHandler) {
+        init(_ underlying: ScopeDiagnosticsHandler) {
             self.underlying = underlying
         }
 
@@ -146,7 +161,7 @@ public final class ObservabilityScope: DiagnosticsEmitterProtocol, CustomStringC
 
 // MARK: - Diagnostics
 
-public protocol DiagnosticsHandler {
+public protocol ScopeDiagnosticsHandler {
     func handleDiagnostic(scope: ObservabilityScope, diagnostic: Diagnostic)
 }
 
@@ -180,12 +195,34 @@ extension DiagnosticsEmitterProtocol {
         self.emit(warning: message.description, metadata: metadata)
     }
 
-    public func emit(info message: String, metadata: ObservabilityMetadata? = .none) {
-        self.emit(severity: .info, message: message, metadata: metadata)
+    public func emit(output message: String, metadata: ObservabilityMetadata? = .none) {
+        self.emit(severity: .output, message: message, metadata: metadata)
     }
 
-    public func emit(info message: CustomStringConvertible, metadata: ObservabilityMetadata? = .none) {
-        self.emit(info: message.description, metadata: metadata)
+    public func emit(output message: CustomStringConvertible, metadata: ObservabilityMetadata? = .none) {
+        self.emit(output: message.description, metadata: metadata)
+    }
+
+    #warning("FIXME: should this throw in case of invalid UTF8?")
+    public func emit(output bytes: [UInt8], metadata: ObservabilityMetadata? = .none) {
+        if let output = String(bytes: bytes, encoding: .utf8) {
+            self.emit(output: output, metadata: metadata)
+        }
+    }
+
+    #warning("FIXME: should this throw in case of invalid UTF8?")
+    public func emit(output data: Data, metadata: ObservabilityMetadata? = .none) {
+        if let output = String(data: data, encoding: .utf8) {
+            self.emit(output: output, metadata: metadata)
+        }
+    }
+
+    public func emit(verbose message: String, metadata: ObservabilityMetadata? = .none) {
+        self.emit(severity: .verbose, message: message, metadata: metadata)
+    }
+
+    public func emit(verbose message: CustomStringConvertible, metadata: ObservabilityMetadata? = .none) {
+        self.emit(verbose: message.description, metadata: metadata)
     }
 
     public func emit(debug message: String, metadata: ObservabilityMetadata? = .none) {
@@ -296,12 +333,20 @@ public struct Diagnostic: CustomStringConvertible {
         Self(severity: .warning, message: message.description, metadata: metadata)
     }
 
-    public static func info(_ message: String, metadata: ObservabilityMetadata? = .none) -> Self {
-        Self(severity: .info, message: message, metadata: metadata)
+    public static func output(_ message: String, metadata: ObservabilityMetadata? = .none) -> Self {
+        Self(severity: .output, message: message, metadata: metadata)
     }
 
-    public static func info(_ message: CustomStringConvertible, metadata: ObservabilityMetadata? = .none) -> Self {
-        Self(severity: .info, message: message.description, metadata: metadata)
+    public static func output(_ message: CustomStringConvertible, metadata: ObservabilityMetadata? = .none) -> Self {
+        Self(severity: .output, message: message.description, metadata: metadata)
+    }
+
+    public static func verbose(_ message: String, metadata: ObservabilityMetadata? = .none) -> Self {
+        Self(severity: .verbose, message: message, metadata: metadata)
+    }
+
+    public static func verbose(_ message: CustomStringConvertible, metadata: ObservabilityMetadata? = .none) -> Self {
+        Self(severity: .verbose, message: message.description, metadata: metadata)
     }
 
     public static func debug(_ message: String, metadata: ObservabilityMetadata? = .none) -> Self {
@@ -315,19 +360,22 @@ public struct Diagnostic: CustomStringConvertible {
     public enum Severity: Comparable {
         case error
         case warning
-        case info
+        case output
+        case verbose
         case debug
 
         internal var naturalIntegralValue: Int {
             switch self {
             case .debug:
                 return 0
-            case .info:
+            case .verbose:
                 return 1
-            case .warning:
+            case .output:
                 return 2
-            case .error:
+            case .warning:
                 return 3
+            case .error:
+                return 4
             }
         }
 
@@ -552,9 +600,9 @@ extension Diagnostic {
         case .warning:
             self = .warning(diagnostic.message.text, metadata: metadata)
         case .note:
-            self = .info(diagnostic.message.text, metadata: metadata)
+            self = .verbose(diagnostic.message.text, metadata: metadata)
         case .remark:
-            self = .info(diagnostic.message.text, metadata: metadata)
+            self = .verbose(diagnostic.message.text, metadata: metadata)
         case .ignored:
             return nil
         }
@@ -567,13 +615,18 @@ extension ObservabilitySystem {
         self.init(DiagnosticsEngineAdapter(diagnosticEngine: diagnosticEngine))
     }
 
-    private struct DiagnosticsEngineAdapter: ObservabilityHandlerProvider, DiagnosticsHandler {
+    private struct DiagnosticsEngineAdapter: ObservabilityHandlerProvider, ScopeDiagnosticsHandler, ScopeProgressHandler {
         let diagnosticEngine: DiagnosticsEngine
 
-        var diagnosticsHandler: DiagnosticsHandler { self }
+        var diagnosticsHandler: ScopeDiagnosticsHandler { self }
+        var progressHandler: ScopeProgressHandler { self }
 
         func handleDiagnostic(scope: ObservabilityScope, diagnostic: Diagnostic) {
             diagnosticEngine.emit(.init(diagnostic))
+        }
+
+        func handleProgress(scope: ObservabilityScope, step: Int64, total: Int64, unit: String?, description: String?) {
+            // NOOP
         }
     }
 }
@@ -600,7 +653,9 @@ extension TSCBasic.Diagnostic {
             self = .init(message: .error(data), location: location)
         case .warning:
             self = .init(message: .warning(data), location: location)
-        case .info:
+        case .output:
+            self = .init(message: .note(data), location: location)
+        case .verbose:
             self = .init(message: .note(data), location: location)
         case .debug:
             self = .init(message: .note(data), location: location)
@@ -661,5 +716,21 @@ extension ObservabilityMetadata {
         public var description: String {
             self.underlying.description
         }
+    }
+}
+
+// MARK: - Progress
+
+public protocol ScopeProgressHandler {
+    func handleProgress(scope: ObservabilityScope, step: Int64, total: Int64, unit: String?, description: String?)
+}
+
+public protocol ProgressEmitterProtocol {
+    func emit(step: Int64, total: Int64, unit: String?, description: String?)
+}
+
+extension ProgressEmitterProtocol {
+    public func emit(step: Int, total: Int, unit: String?, description: String?) {
+        self.emit(step: Int64(step), total: Int64(total), unit: unit, description: description)
     }
 }

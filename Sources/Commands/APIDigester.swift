@@ -58,8 +58,8 @@ struct APIDigesterBaselineDumper {
         for modulesToDiff: Set<String>,
         at baselineDir: AbsolutePath?,
         force: Bool,
-        outputStream: OutputByteStream,
-        logLevel: Diagnostic.Severity,
+        //outputStream: OutputByteStream,
+        //logLevel: Diagnostic.Severity,
         swiftTool: SwiftTool
     ) throws -> AbsolutePath {
         var modulesToDiff = modulesToDiff
@@ -127,8 +127,8 @@ struct APIDigesterBaselineDumper {
             packageGraphLoader: { graph },
             pluginScriptRunner: try swiftTool.getPluginScriptRunner(),
             pluginWorkDirectory: try swiftTool.getActiveWorkspace().location.pluginWorkingDirectory,
-            outputStream: outputStream,
-            logLevel: logLevel,
+            //outputStream: outputStream,
+            //logLevel: logLevel,
             fileSystem: localFileSystem,
             observabilityScope: observabilityScope
         )
