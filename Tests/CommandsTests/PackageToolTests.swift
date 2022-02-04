@@ -2282,9 +2282,6 @@ final class PackageToolTests: CommandsTestCase {
     }
 
     func testPluginCompilationBeforeBuilding() throws {
-        // Temporarily disabled while fixing rdar://88453397
-        throw XCTSkip("Skipping test due to rdar://88453397")
-        
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
         
