@@ -172,16 +172,23 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
         settings["SWIFT_EXEC"] = buildParameters.toolchain.swiftCompiler.pathString
         settings["LIBRARY_SEARCH_PATHS"] = "$(inherited) \(buildParameters.toolchain.toolchainLibDir.pathString)"
         settings["OTHER_CFLAGS"] = (
-            ["$(inherited)"] + buildParameters.toolchain.extraCCFlags + buildParameters.flags.cCompilerFlags
+            ["$(inherited)"]
+            + buildParameters.toolchain.extraCCFlags
+            + buildParameters.flags.cCompilerFlags.map { $0.spm_shellEscaped() }
         ).joined(separator: " ")
         settings["OTHER_CPLUSPLUSFLAGS"] = (
-            ["$(inherited)"] + buildParameters.toolchain.extraCPPFlags + buildParameters.flags.cxxCompilerFlags
+            ["$(inherited)"]
+            + buildParameters.toolchain.extraCPPFlags
+            + buildParameters.flags.cxxCompilerFlags.map { $0.spm_shellEscaped() }
         ).joined(separator: " ")
         settings["OTHER_SWIFT_FLAGS"] = (
-            ["$(inherited)"] + buildParameters.toolchain.extraSwiftCFlags + buildParameters.flags.swiftCompilerFlags
+            ["$(inherited)"]
+            + buildParameters.toolchain.extraSwiftCFlags
+            + buildParameters.flags.swiftCompilerFlags.map { $0.spm_shellEscaped() }
         ).joined(separator: " ")
         settings["OTHER_LDFLAGS"] = (
-            ["$(inherited)"] + buildParameters.flags.linkerFlags
+            ["$(inherited)"]
+            + buildParameters.flags.linkerFlags.map { $0.spm_shellEscaped() }
         ).joined(separator: " ")
 
         // Optionally also set the list of architectures to build for.
