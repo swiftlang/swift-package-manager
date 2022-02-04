@@ -1382,6 +1382,50 @@ public final class ProductBuildDescription {
     }
 }
 
+/// Description for a plugin target. This is treated a bit differently from the
+/// regular kinds of targets, and is not included in the LLBuild description.
+/// But because the package graph and build plan are not loaded for incremental
+/// builds, this information is included in the BuildDescription, and the plugin
+/// targets are compiled directly.
+public final class PluginDescription: Codable {
+    
+    /// The identity of the package in which the plugin is defined.
+    public let package: PackageIdentity
+    
+    /// The name of the plugin target in that package (this is also the name of
+    /// the plugin).
+    public let targetName: String
+
+    /// The names of any plugin products in that package that vend the plugin
+    /// to other packages.
+    public let productNames: [String]
+
+    /// The tools version of the package that declared the target. This affects
+    /// the API that is available in the PackagePlugin module.
+    public let toolsVersion: ToolsVersion
+    
+    /// Swift source files that comprise the plugin.
+    public let sources: Sources
+
+    /// Initialize a new plugin target description. The target is expected to be
+    /// a `PluginTarget`.
+    init(
+        target: ResolvedTarget,
+        products: [ResolvedProduct],
+        package: ResolvedPackage,
+        toolsVersion: ToolsVersion,
+        testDiscoveryTarget: Bool = false,
+        fileSystem: FileSystem
+    ) throws {
+        assert(target.underlyingTarget is PluginTarget, "underlying target type mismatch \(target)")
+        self.package = package.identity
+        self.targetName = target.name
+        self.productNames = products.map{ $0.name }
+        self.toolsVersion = toolsVersion
+        self.sources = target.sources
+    }
+}
+
 /// A build plan for a package graph.
 public class BuildPlan {
 
@@ -1413,6 +1457,10 @@ public class BuildPlan {
 
     /// The product build description map.
     public let productMap: [ResolvedProduct: ProductBuildDescription]
+    
+    /// The plugin descriptions. Plugins are represented in the package graph
+    /// as targets, but they are not directly included in the build graph.
+    public let pluginDescriptions: [PluginDescription]
 
     /// The build targets.
     public var targets: AnySequence<TargetBuildDescription> {
@@ -1555,8 +1603,12 @@ public class BuildPlan {
         self.observabilityScope = observabilityScope.makeChildScope(description: "Build Plan")
 
         // Create build target description for each target which we need to plan.
+        // Plugin targets are noted, since they need to be compiled, but they do
+        // not get directly incorporated into the build description that will be
+        // given to LLBuild.
         var targetMap = [ResolvedTarget: TargetBuildDescription]()
-        for target in graph.allTargets {
+        var pluginDescriptions = [PluginDescription]()
+        for target in graph.allTargets.sorted(by: { $0.name < $1.name }) {
 
             // Validate the product dependencies of this target.
             for dependency in target.dependencies {
@@ -1593,7 +1645,17 @@ public class BuildPlan {
                     toolsVersion: toolsVersion,
                     buildParameters: buildParameters,
                     fileSystem: fileSystem))
-            case is SystemLibraryTarget, is BinaryTarget, is PluginTarget:
+            case is PluginTarget:
+                guard let package = graph.package(for: target) else {
+                    throw InternalError("package not found for \(target)")
+                }
+                try pluginDescriptions.append(PluginDescription(
+                    target: target,
+                    products: package.products.filter{ $0.targets.contains(target) },
+                    package: package,
+                    toolsVersion: toolsVersion,
+                    fileSystem: fileSystem))
+            case is SystemLibraryTarget, is BinaryTarget:
                  break
             default:
                  throw InternalError("unhandled \(target.underlyingTarget)")
@@ -1638,6 +1700,8 @@ public class BuildPlan {
 
         self.productMap = productMap
         self.targetMap = targetMap
+        self.pluginDescriptions = pluginDescriptions
+        
         // Finally plan these targets.
         try plan()
     }
