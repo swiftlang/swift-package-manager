@@ -1616,7 +1616,7 @@ public class BuildPlan {
         // given to LLBuild.
         var targetMap = [ResolvedTarget: TargetBuildDescription]()
         var pluginDescriptions = [PluginDescription]()
-        for target in graph.allTargets {
+        for target in graph.allTargets.sorted(by: { $0.name < $1.name }) {
 
             // Validate the product dependencies of this target.
             for dependency in target.dependencies {
