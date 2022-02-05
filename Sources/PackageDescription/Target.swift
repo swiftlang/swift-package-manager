@@ -1016,7 +1016,7 @@ extension Target.Dependency {
       moduleAliases: [String: String]? = nil,
       condition: TargetDependencyCondition? = nil
     ) -> Target.Dependency {
-        return .productItem(name: name, package: package, targetAliases: targetAliases, condition: condition)
+        return .productItem(name: name, package: package, moduleAliases: moduleAliases, condition: condition)
     }
 
     /// Creates a by-name dependency that resolves to either a target or a product but after the Swift Package Manager
