@@ -416,7 +416,11 @@ let package = Package(
 
         .testTarget(
             name: "BasicsTests",
-            dependencies: ["Basics", "SPMTestSupport", "tsan_utils"]
+            dependencies: ["Basics", "SPMTestSupport", "tsan_utils"],
+            exclude: [
+                "Inputs/archive.zip",
+                "Inputs/invalid_archive.zip",
+            ]
         ),
         .testTarget(
             name: "BuildTests",
