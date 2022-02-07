@@ -360,6 +360,7 @@ public class SwiftTool {
             SwiftTool.shutdownRegistry = (processSet: processSet, buildSystemRef: buildSystemRef)
             _ = SetConsoleCtrlHandler({ _ in
                 // Terminate all processes on receiving an interrupt signal.
+                DefaultPluginScriptRunner.cancelAllRunningPlugins()
                 SwiftTool.shutdownRegistry?.processSet.terminate()
                 SwiftTool.shutdownRegistry?.buildSystemRef.buildSystem?.cancel()
 
@@ -380,6 +381,7 @@ public class SwiftTool {
                 interruptSignalSource.cancel()
 
                 // Terminate all processes on receiving an interrupt signal.
+                DefaultPluginScriptRunner.cancelAllRunningPlugins()
                 processSet.terminate()
                 buildSystemRef.buildSystem?.cancel()
 
