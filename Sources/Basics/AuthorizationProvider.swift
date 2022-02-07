@@ -251,7 +251,8 @@ public struct KeychainAuthorizationProvider: AuthorizationProvider {
 // MARK: - Composite
 
 public struct CompositeAuthorizationProvider: AuthorizationProvider {
-    private let providers: [AuthorizationProvider]
+    // internal for testing
+    internal let providers: [AuthorizationProvider]
     private let observabilityScope: ObservabilityScope
 
     public init(_ providers: AuthorizationProvider..., observabilityScope: ObservabilityScope) {

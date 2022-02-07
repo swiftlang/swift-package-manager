@@ -577,63 +577,21 @@ public class SwiftTool {
     }
 
     func getAuthorizationProvider() throws -> AuthorizationProvider? {
-        var providers = [AuthorizationProvider]()
-
-        // netrc file has higher specificity than keychain so use it first
-        try providers.append(contentsOf: self.getNetrcAuthorizationProviders())
-
-#if canImport(Security)
-        if self.options.keychain {
-            providers.append(KeychainAuthorizationProvider(observabilityScope: self.observabilityScope))
-        }
-#endif
-
-        return providers.isEmpty ? .none : CompositeAuthorizationProvider(providers, observabilityScope: self.observabilityScope)
-    }
-
-    func getNetrcAuthorizationProviders() throws -> [NetrcAuthorizationProvider] {
-        guard options.netrc else {
-            return []
-        }
-
-        var providers = [NetrcAuthorizationProvider]()
-
-        // Use custom .netrc file if specified, otherwise look for it within workspace and user's home directory.
-        if let configuredPath = options.netrcFilePath {
-            guard localFileSystem.exists(configuredPath) else {
-                throw StringError("Did not find .netrc file at \(configuredPath).")
-            }
-
-            providers.append(try NetrcAuthorizationProvider(path: configuredPath, fileSystem: localFileSystem))
+        var authorization = Workspace.Configuration.Authorization.default
+        if !options.netrc {
+            authorization.netrc = .disabled
+        } else if let configuredPath = options.netrcFilePath {
+            authorization.netrc = .custom(configuredPath)
         } else {
-            // User didn't tell us to use these .netrc files so be more lenient with errors
-            func loadNetrcNoThrows(at path: AbsolutePath) -> NetrcAuthorizationProvider? {
-                guard localFileSystem.exists(path) && localFileSystem.isReadable(path) else {
-                    return nil
-                }
-
-                do {
-                    return try NetrcAuthorizationProvider(path: path, fileSystem: localFileSystem)
-                } catch {
-                    self.observabilityScope.emit(warning: "Failed to load .netrc file at \(path). Error: \(error)")
-                    return nil
-                }
-            }
-
-            // Workspace's .netrc file should be consulted before user-global file
-            // TODO: replace multiroot-data-file with explicit overrides
-            if let localPath = try? (options.multirootPackageDataFile ?? self.getPackageRoot()).appending(component: ".netrc"),
-               let localProvider = loadNetrcNoThrows(at: localPath) {
-                providers.append(localProvider)
-            }
-
-            let userHomePath = localFileSystem.homeDirectory.appending(component: ".netrc")
-            if let userHomeProvider = loadNetrcNoThrows(at: userHomePath) {
-                providers.append(userHomeProvider)
-            }
+            let rootPath = try options.multirootPackageDataFile ?? self.getPackageRoot()
+            authorization.netrc = .workspaceAndUser(rootPath: rootPath)
         }
 
-        return providers
+        #if canImport(Security)
+        authorization.keychain = self.options.keychain ? .enabled : .disabled
+        #endif
+
+        return try authorization.makeAuthorizationProvider(fileSystem: localFileSystem, observabilityScope: self.observabilityScope)
     }
 
     /// Start redirecting the standard output stream to the standard error stream.
