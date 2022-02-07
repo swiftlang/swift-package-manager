@@ -314,6 +314,32 @@ final class BuildToolTests: CommandsTestCase {
         }
     }
 
+    func testXcodeBuildSystemWithAdditionalBuildFlags() throws {
+        #if !os(macOS)
+        try XCTSkipIf(true, "test requires `xcbuild` and is therefore only supported on macOS")
+        #endif
+        fixture(name: "ValidLayouts/SingleModule/ExecutableMixed") { path in
+            // Try building using XCBuild with additional flags.  This should succeed.  We build verbosely so we get full command lines.
+            let defaultOutput = try execute(
+                [
+                    "--build-system", "xcode",
+                    "-c", "debug", "-v",
+                    "-Xlinker", "-rpath", "-Xlinker", "/fakerpath",
+                    "-Xcc", "-I/cfakepath",
+                    "-Xcxx", "-I/cxxfakepath",
+                    "-Xswiftc", "-I/swiftfakepath",
+                ],
+                packagePath: path
+            ).stdout
+
+            // Look for certain things in the output from XCBuild.
+            XCTAssertMatch(defaultOutput, .contains("/fakerpath"))
+            XCTAssertMatch(defaultOutput, .contains("-I/cfakepath"))
+            XCTAssertMatch(defaultOutput, .contains("-I/cxxfakepath"))
+            XCTAssertMatch(defaultOutput, .contains("-I/swiftfakepath"))
+        }
+    }
+
     func testXcodeBuildSystemOverrides() throws {
         #if !os(macOS)
         try XCTSkipIf(true, "test requires `xcbuild` and is therefore only supported on macOS")
