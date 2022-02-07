@@ -102,7 +102,7 @@ fileprivate struct PluginInputDeserializer {
         let target: Target
         switch wireTarget.info {
         
-        case let .swiftSourceModuleInfo(moduleName, sourceFiles, compilationConditions, linkedLibraries, linkedFrameworks):
+        case let .swiftSourceModuleInfo(moduleName, kind, sourceFiles, compilationConditions, linkedLibraries, linkedFrameworks):
             let sourceFiles = FileList(try sourceFiles.map {
                 let path = try self.path(for: $0.basePathId).appending($0.name)
                 let type: FileType
@@ -121,6 +121,7 @@ fileprivate struct PluginInputDeserializer {
             target = SwiftSourceModuleTarget(
                 id: String(id),
                 name: wireTarget.name,
+                kind: .init(kind),
                 directory: directory,
                 dependencies: dependencies,
                 moduleName: moduleName,
@@ -129,7 +130,7 @@ fileprivate struct PluginInputDeserializer {
                 linkedLibraries: linkedLibraries,
                 linkedFrameworks: linkedFrameworks)
 
-        case let .clangSourceModuleInfo(moduleName, sourceFiles, preprocessorDefinitions, headerSearchPaths, publicHeadersDirId, linkedLibraries, linkedFrameworks):
+        case let .clangSourceModuleInfo(moduleName, kind, sourceFiles, preprocessorDefinitions, headerSearchPaths, publicHeadersDirId, linkedLibraries, linkedFrameworks):
             let publicHeadersDir = try publicHeadersDirId.map { try self.path(for: $0) }
             let sourceFiles = FileList(try sourceFiles.map {
                 let path = try self.path(for: $0.basePathId).appending($0.name)
@@ -149,6 +150,7 @@ fileprivate struct PluginInputDeserializer {
             target = ClangSourceModuleTarget(
                 id: String(id),
                 name: wireTarget.name,
+                kind: .init(kind),
                 directory: directory,
                 dependencies: dependencies,
                 moduleName: moduleName,
@@ -397,6 +399,7 @@ internal struct WireInput: Decodable {
             /// Information about a Swift source module target.
             case swiftSourceModuleInfo(
                 moduleName: String,
+                kind: SourceModuleKind,
                 sourceFiles: [File],
                 compilationConditions: [String],
                 linkedLibraries: [String],
@@ -405,6 +408,7 @@ internal struct WireInput: Decodable {
             /// Information about a Clang source module target.
             case clangSourceModuleInfo(
                 moduleName: String,
+                kind: SourceModuleKind,
                 sourceFiles: [File],
                 preprocessorDefinitions: [String],
                 headerSearchPaths: [String],
@@ -439,6 +443,12 @@ internal struct WireInput: Decodable {
                 }
             }
 
+            enum SourceModuleKind: String, Decodable {
+                case generic
+                case executable
+                case test
+            }
+
             enum BinaryArtifactKind: Decodable {
                 case xcframework
                 case artifactsArchive
@@ -448,6 +458,19 @@ internal struct WireInput: Decodable {
                 case local
                 case remote(url: String)
             }
+        }
+    }
+}
+
+fileprivate extension ModuleKind {
+    init(_ kind: WireInput.Target.TargetInfo.SourceModuleKind) {
+        switch kind {
+        case .generic:
+            self = .generic
+        case .executable:
+            self = .executable
+        case .test:
+            self = .test
         }
     }
 }

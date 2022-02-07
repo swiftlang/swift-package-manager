@@ -192,6 +192,10 @@ public protocol SourceModuleTarget: Target {
     /// The name of the module produced by the target (derived from the target
     /// name, though future SwiftPM versions may allow this to be customized).
     var moduleName: String { get }
+    
+    /// The kind of module, describing whether it contains unit tests, contains
+    /// the main entry point of an executable, or neither.
+    var kind: ModuleKind { get }
 
     /// The source files that are associated with this target (any files that
     /// have been excluded in the manifest have already been filtered out).
@@ -206,6 +210,16 @@ public protocol SourceModuleTarget: Target {
     var linkedFrameworks: [String] { get }
 }
 
+/// Represents the kind of module.
+public enum ModuleKind {
+    /// A module that contains generic code (not a test nor an executable).
+    case generic
+    /// A module that contains code for an executable's main module.
+    case executable
+    /// A module that contains unit tests.
+    case test
+}
+
 /// Represents a target consisting of a source code module compiled using Swift.
 public struct SwiftSourceModuleTarget: SourceModuleTarget {
     /// Unique identifier for the target.
@@ -215,6 +229,10 @@ public struct SwiftSourceModuleTarget: SourceModuleTarget {
     /// is unique among the targets of the package in which it is defined.
     public let name: String
     
+    /// The kind of module, describing whether it contains unit tests, contains
+    /// the main entry point of an executable, or neither.
+    public let kind: ModuleKind
+
     /// The absolute path of the target directory in the local file system.
     public let directory: Path
     
@@ -253,6 +271,10 @@ public struct ClangSourceModuleTarget: SourceModuleTarget {
     /// is unique among the targets of the package in which it is defined.
     public let name: String
     
+    /// The kind of module, describing whether it contains unit tests, contains
+    /// the main entry point of an executable, or neither.
+    public let kind: ModuleKind
+
     /// The absolute path of the target directory in the local file system.
     public let directory: Path
     
