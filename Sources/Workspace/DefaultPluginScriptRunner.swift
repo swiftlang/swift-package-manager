@@ -503,8 +503,18 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
         }
         process.standardError = stderrPipe
         
+        // Add it to the list of currently running plugin processes, so it can be cancelled if the host is interrupted.
+        DefaultPluginScriptRunner.currentlyRunningPlugins.lock.withLock {
+            _ = DefaultPluginScriptRunner.currentlyRunningPlugins.processes.insert(process)
+        }
+
         // Set up a handler to deal with the exit of the plugin process.
         process.terminationHandler = { process in
+            // Remove the process from the list of currently running ones.
+            DefaultPluginScriptRunner.currentlyRunningPlugins.lock.withLock {
+                _ = DefaultPluginScriptRunner.currentlyRunningPlugins.processes.remove(process)
+            }
+
             // Close the output handle through which we talked to the plugin.
             try? outputHandle.close()
 
@@ -554,6 +564,18 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
         }
 #endif
     }
+    
+    /// Cancels all currently running plugins, resulting in an error code indicating that they were interrupted. This is intended for use when the host process is interrupted.
+    public static func cancelAllRunningPlugins() {
+        currentlyRunningPlugins.lock.withLock {
+            currentlyRunningPlugins.processes.forEach{
+                $0.terminate()
+            }
+            currentlyRunningPlugins.processes = []
+        }
+    }
+    /// Private list of currently running plugin processes and the lock that protects the list.
+    private static var currentlyRunningPlugins: (processes: Set<Foundation.Process>, lock: Lock) = (.init(), .init())
 }
 
 /// An error encountered by the default plugin runner.
