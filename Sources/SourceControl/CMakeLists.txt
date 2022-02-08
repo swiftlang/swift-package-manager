@@ -13,6 +13,7 @@ add_library(SourceControl
 
 target_link_libraries(SourceControl PUBLIC
   Basics
+  PackageModel
   TSCBasic
   TSCUtility
   Basics)

@@ -1,12 +1,13 @@
 # This source file is part of the Swift.org open source project
 #
-# Copyright (c) 2021 Apple Inc. and the Swift project authors
+# Copyright (c) 2021-2022 Apple Inc. and the Swift project authors
 # Licensed under Apache License v2.0 with Runtime Library Exception
 #
 # See http://swift.org/LICENSE.txt for license information
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
 add_library(PackagePlugin
+  ArgumentExtractor.swift
   Command.swift
   Context.swift
   Diagnostics.swift
@@ -16,7 +17,8 @@ add_library(PackagePlugin
   Path.swift
   Plugin.swift
   PluginInput.swift
-  Protocols.swift)
+  Protocols.swift
+  Utilities.swift)
 
 target_compile_options(PackagePlugin PUBLIC
   $<$<COMPILE_LANGUAGE:Swift>:-package-description-version$<SEMICOLON>999.0>)

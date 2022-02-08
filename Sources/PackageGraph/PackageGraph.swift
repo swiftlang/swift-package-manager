@@ -153,11 +153,11 @@ public struct PackageGraph {
         let rootTargets = rootPackages.map({ $0.targets }).flatMap({ $0 })
 
         // Create map of test target to set of its direct dependencies.
-        let testTargetDepMap: [ResolvedTarget: Set<ResolvedTarget>] = {
+        let testTargetDepMap: [ResolvedTarget: Set<ResolvedTarget>] = try {
             let testTargetDeps = rootTargets.filter({ $0.type == .test }).map({
                 ($0, Set($0.dependencies.compactMap({ $0.target })))
             })
-            return Dictionary(uniqueKeysWithValues: testTargetDeps)
+            return try Dictionary(throwingUniqueKeysWithValues: testTargetDeps)
         }()
 
         for target in rootTargets where target.type == .executable {

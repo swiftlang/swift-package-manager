@@ -80,7 +80,8 @@ final class SwiftToolTests: CommandsTestCase {
                 let options = try SwiftToolOptions.parse(["--package-path", packageRoot.pathString, "--netrc-file", customPath.pathString])
                 let tool = try SwiftTool(options: options)
 
-                let netrcProviders = try tool.getNetrcAuthorizationProviders()
+                let authorizationProvider = try tool.getAuthorizationProvider() as? CompositeAuthorizationProvider
+                let netrcProviders = authorizationProvider?.providers.compactMap{ $0 as? NetrcAuthorizationProvider } ?? []
                 XCTAssertEqual(netrcProviders.count, 1)
                 XCTAssertEqual(netrcProviders.first.map { resolveSymlinks($0.path) }, resolveSymlinks(customPath))
 
@@ -90,7 +91,7 @@ final class SwiftToolTests: CommandsTestCase {
 
                 // delete it
                 try localFileSystem.removeFileTree(customPath)
-                XCTAssertThrowsError(try tool.getNetrcAuthorizationProviders(), "error expected") { error in
+                XCTAssertThrowsError(try tool.getAuthorizationProvider(), "error expected") { error in
                     XCTAssertEqual(error as? StringError, StringError("Did not find .netrc file at \(customPath)."))
                 }
             }
@@ -104,7 +105,8 @@ final class SwiftToolTests: CommandsTestCase {
                 let options = try SwiftToolOptions.parse(["--package-path", packageRoot.pathString])
                 let tool = try SwiftTool(options: options)
 
-                let netrcProviders = try tool.getNetrcAuthorizationProviders()
+                let authorizationProvider = try tool.getAuthorizationProvider() as? CompositeAuthorizationProvider
+                let netrcProviders = authorizationProvider?.providers.compactMap{ $0 as? NetrcAuthorizationProvider } ?? []
                 XCTAssertTrue(netrcProviders.count >= 1) // This might include .netrc in user's home dir
                 XCTAssertNotNil(netrcProviders.first { resolveSymlinks($0.path) == resolveSymlinks(localPath) })
 

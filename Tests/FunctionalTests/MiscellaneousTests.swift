@@ -8,17 +8,14 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import XCTest
-import SPMTestSupport
-import TSCBasic
 import PackageModel
-import TSCUtility
-import TSCLibc
-import class Foundation.ProcessInfo
-import class Foundation.Thread
 import SourceControl
 import SPMTestSupport
+import TSCBasic
+
+import TSCUtility
 import Workspace
+import XCTest
 
 typealias ProcessID = TSCBasic.Process.ProcessID
 

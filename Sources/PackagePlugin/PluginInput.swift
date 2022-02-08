@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2021 Apple Inc. and the Swift project authors
+ Copyright (c) 2021-2022 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -15,13 +15,12 @@
 struct PluginInput {
     let package: Package
     let pluginWorkDirectory: Path
-    let builtProductsDirectory: Path
     let toolSearchDirectories: [Path]
     let toolNamesToPaths: [String: Path]
     let pluginAction: PluginAction
     enum PluginAction {
         case createBuildToolCommands(target: Target)
-        case performCommand(targets: [Target], arguments: [String])
+        case performCommand(arguments: [String])
     }
     
     internal init(from input: WireInput) throws {
@@ -31,7 +30,6 @@ struct PluginInput {
         // Unpack the individual pieces from which we'll create the plugin context.
         self.package = try deserializer.package(for: input.rootPackageId)
         self.pluginWorkDirectory = try deserializer.path(for: input.pluginWorkDirId)
-        self.builtProductsDirectory = try deserializer.path(for: input.builtProductsDirId)
         self.toolSearchDirectories = try input.toolSearchDirIds.map { try deserializer.path(for: $0) }
         self.toolNamesToPaths = try input.toolNamesToPathIds.mapValues { try deserializer.path(for: $0) }
         
@@ -39,8 +37,8 @@ struct PluginInput {
         switch input.pluginAction {
         case .createBuildToolCommands(let targetId):
             self.pluginAction = .createBuildToolCommands(target: try deserializer.target(for: targetId))
-        case .performCommand(let targetIds, let arguments):
-            self.pluginAction = .performCommand(targets: try targetIds.map{ try deserializer.target(for: $0) }, arguments: arguments)
+        case .performCommand(let arguments):
+            self.pluginAction = .performCommand(arguments: arguments)
         }
     }
 }
@@ -104,7 +102,7 @@ fileprivate struct PluginInputDeserializer {
         let target: Target
         switch wireTarget.info {
         
-        case let .swiftSourceModuleInfo(moduleName, sourceFiles, compilationConditions, linkedLibraries, linkedFrameworks):
+        case let .swiftSourceModuleInfo(moduleName, kind, sourceFiles, compilationConditions, linkedLibraries, linkedFrameworks):
             let sourceFiles = FileList(try sourceFiles.map {
                 let path = try self.path(for: $0.basePathId).appending($0.name)
                 let type: FileType
@@ -123,6 +121,7 @@ fileprivate struct PluginInputDeserializer {
             target = SwiftSourceModuleTarget(
                 id: String(id),
                 name: wireTarget.name,
+                kind: .init(kind),
                 directory: directory,
                 dependencies: dependencies,
                 moduleName: moduleName,
@@ -131,7 +130,7 @@ fileprivate struct PluginInputDeserializer {
                 linkedLibraries: linkedLibraries,
                 linkedFrameworks: linkedFrameworks)
 
-        case let .clangSourceModuleInfo(moduleName, sourceFiles, preprocessorDefinitions, headerSearchPaths, publicHeadersDirId, linkedLibraries, linkedFrameworks):
+        case let .clangSourceModuleInfo(moduleName, kind, sourceFiles, preprocessorDefinitions, headerSearchPaths, publicHeadersDirId, linkedLibraries, linkedFrameworks):
             let publicHeadersDir = try publicHeadersDirId.map { try self.path(for: $0) }
             let sourceFiles = FileList(try sourceFiles.map {
                 let path = try self.path(for: $0.basePathId).appending($0.name)
@@ -151,6 +150,7 @@ fileprivate struct PluginInputDeserializer {
             target = ClangSourceModuleTarget(
                 id: String(id),
                 name: wireTarget.name,
+                kind: .init(kind),
                 directory: directory,
                 dependencies: dependencies,
                 moduleName: moduleName,
@@ -289,7 +289,6 @@ internal struct WireInput: Decodable {
     let packages: [Package]
     let rootPackageId: Package.Id
     let pluginWorkDirId: Path.Id
-    let builtProductsDirId: Path.Id
     let toolSearchDirIds: [Path.Id]
     let toolNamesToPathIds: [String: Path.Id]
     let pluginAction: PluginAction
@@ -298,7 +297,7 @@ internal struct WireInput: Decodable {
     /// the capabilities declared for the plugin.
     enum PluginAction: Decodable {
         case createBuildToolCommands(targetId: Target.Id)
-        case performCommand(targetIds: [Target.Id], arguments: [String])
+        case performCommand(arguments: [String])
     }
 
     /// A single absolute path in the wire structure, represented as a tuple
@@ -400,6 +399,7 @@ internal struct WireInput: Decodable {
             /// Information about a Swift source module target.
             case swiftSourceModuleInfo(
                 moduleName: String,
+                kind: SourceModuleKind,
                 sourceFiles: [File],
                 compilationConditions: [String],
                 linkedLibraries: [String],
@@ -408,6 +408,7 @@ internal struct WireInput: Decodable {
             /// Information about a Clang source module target.
             case clangSourceModuleInfo(
                 moduleName: String,
+                kind: SourceModuleKind,
                 sourceFiles: [File],
                 preprocessorDefinitions: [String],
                 headerSearchPaths: [String],
@@ -442,6 +443,12 @@ internal struct WireInput: Decodable {
                 }
             }
 
+            enum SourceModuleKind: String, Decodable {
+                case generic
+                case executable
+                case test
+            }
+
             enum BinaryArtifactKind: Decodable {
                 case xcframework
                 case artifactsArchive
@@ -451,6 +458,19 @@ internal struct WireInput: Decodable {
                 case local
                 case remote(url: String)
             }
+        }
+    }
+}
+
+fileprivate extension ModuleKind {
+    init(_ kind: WireInput.Target.TargetInfo.SourceModuleKind) {
+        switch kind {
+        case .generic:
+            self = .generic
+        case .executable:
+            self = .executable
+        case .test:
+            self = .test
         }
     }
 }

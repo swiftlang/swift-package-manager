@@ -162,6 +162,14 @@ public class VirtualFileSystem: FileSystem {
         return findNode(path, followSymlink: true)?.isSymlink == true
     }
 
+    public func isReadable(_ path: AbsolutePath) -> Bool {
+        return self.exists(path)
+    }
+
+    public func isWritable(_ path: AbsolutePath) -> Bool {
+        return false
+    }
+
     public func getDirectoryContents(_ path: AbsolutePath) throws -> [String] {
         guard let node = findNode(path, followSymlink: true) else { throw Errors.noSuchFileOrDirectory(path: path) }
         return node.children.map { $0.name }

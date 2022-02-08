@@ -11,6 +11,7 @@
 import Basics
 import Foundation
 import LLBuildManifest
+import OrderedCollections
 import PackageGraph
 import PackageLoading
 import PackageModel
@@ -22,6 +23,18 @@ import TSCUtility
 extension String {
     fileprivate var asSwiftStringLiteralConstant: String {
         return unicodeScalars.reduce("", { $0 + $1.escaped(asASCII: false) })
+    }
+}
+
+extension AbsolutePath {
+    internal func nativePathString(escaped: Bool) -> String {
+        return URL(fileURLWithPath: self.pathString).withUnsafeFileSystemRepresentation {
+            let repr = String(cString: $0!)
+            if escaped {
+                return repr.replacingOccurrences(of: "\\", with: "\\\\")
+            }
+            return repr
+        }
     }
 }
 
@@ -716,10 +729,6 @@ public final class SwiftTargetBuildDescription {
     }
     
     public static func checkSupportedFrontendFlags(flags: Set<String>, fileSystem: FileSystem) -> Bool {
-        // The new driver is not supported on Windows, yet, so we should avoid calling into it there.
-        #if os(Windows)
-        return false
-        #else
         do {
             let executor = try SPMSwiftDriverExecutor(resolver: ArgsResolver(fileSystem: fileSystem), fileSystem: fileSystem, env: [:])
             let driver = try Driver(args: ["swiftc"], executor: executor)
@@ -727,7 +736,6 @@ public final class SwiftTargetBuildDescription {
         } catch {
             return false
         }
-        #endif
     }
     
     /// The arguments needed to compile this target.
@@ -961,11 +969,11 @@ public final class SwiftTargetBuildDescription {
         stream <<< "  \"\": {\n"
         if buildParameters.useWholeModuleOptimization {
             let moduleName = target.c99name
-            stream <<< "    \"dependencies\": \"" <<< tempsPath.appending(component: moduleName + ".d") <<< "\",\n"
+            stream <<< "    \"dependencies\": \"" <<< tempsPath.appending(component: moduleName + ".d").nativePathString(escaped: true) <<< "\",\n"
             // FIXME: Need to record this deps file for processing it later.
-            stream <<< "    \"object\": \"" <<< tempsPath.appending(component: moduleName + ".o") <<< "\",\n"
+            stream <<< "    \"object\": \"" <<< tempsPath.appending(component: moduleName + ".o").nativePathString(escaped: true) <<< "\",\n"
         }
-        stream <<< "    \"swift-dependencies\": \"" <<< masterDepsPath.pathString <<< "\"\n"
+        stream <<< "    \"swift-dependencies\": \"" <<< masterDepsPath.nativePathString(escaped: true) <<< "\"\n"
 
         stream <<< "  },\n"
 
@@ -979,19 +987,19 @@ public final class SwiftTargetBuildDescription {
 
             let swiftDepsPath = objectDir.appending(component: sourceFileName + ".swiftdeps")
 
-            stream <<< "  \"" <<< source.pathString <<< "\": {\n"
+            stream <<< "  \"" <<< source.nativePathString(escaped: true) <<< "\": {\n"
 
             if (!buildParameters.useWholeModuleOptimization) {
                 let depsPath = objectDir.appending(component: sourceFileName + ".d")
-                stream <<< "    \"dependencies\": \"" <<< depsPath.pathString <<< "\",\n"
+                stream <<< "    \"dependencies\": \"" <<< depsPath.nativePathString(escaped: true) <<< "\",\n"
                 // FIXME: Need to record this deps file for processing it later.
             }
 
-            stream <<< "    \"object\": \"" <<< object.pathString <<< "\",\n"
+            stream <<< "    \"object\": \"" <<< object.nativePathString(escaped: true) <<< "\",\n"
 
             let partialModulePath = objectDir.appending(component: sourceFileName + "~partial.swiftmodule")
-            stream <<< "    \"swiftmodule\": \"" <<< partialModulePath.pathString <<< "\",\n"
-            stream <<< "    \"swift-dependencies\": \"" <<< swiftDepsPath.pathString <<< "\"\n"
+            stream <<< "    \"swiftmodule\": \"" <<< partialModulePath.nativePathString(escaped: true) <<< "\",\n"
+            stream <<< "    \"swift-dependencies\": \"" <<< swiftDepsPath.nativePathString(escaped: true) <<< "\"\n"
             stream <<< "  }" <<< ((idx + 1) < sources.count ? "," : "") <<< "\n"
         }
 
@@ -1382,6 +1390,50 @@ public final class ProductBuildDescription {
     }
 }
 
+/// Description for a plugin target. This is treated a bit differently from the
+/// regular kinds of targets, and is not included in the LLBuild description.
+/// But because the package graph and build plan are not loaded for incremental
+/// builds, this information is included in the BuildDescription, and the plugin
+/// targets are compiled directly.
+public final class PluginDescription: Codable {
+    
+    /// The identity of the package in which the plugin is defined.
+    public let package: PackageIdentity
+    
+    /// The name of the plugin target in that package (this is also the name of
+    /// the plugin).
+    public let targetName: String
+
+    /// The names of any plugin products in that package that vend the plugin
+    /// to other packages.
+    public let productNames: [String]
+
+    /// The tools version of the package that declared the target. This affects
+    /// the API that is available in the PackagePlugin module.
+    public let toolsVersion: ToolsVersion
+    
+    /// Swift source files that comprise the plugin.
+    public let sources: Sources
+
+    /// Initialize a new plugin target description. The target is expected to be
+    /// a `PluginTarget`.
+    init(
+        target: ResolvedTarget,
+        products: [ResolvedProduct],
+        package: ResolvedPackage,
+        toolsVersion: ToolsVersion,
+        testDiscoveryTarget: Bool = false,
+        fileSystem: FileSystem
+    ) throws {
+        assert(target.underlyingTarget is PluginTarget, "underlying target type mismatch \(target)")
+        self.package = package.identity
+        self.targetName = target.name
+        self.productNames = products.map{ $0.name }
+        self.toolsVersion = toolsVersion
+        self.sources = target.sources
+    }
+}
+
 /// A build plan for a package graph.
 public class BuildPlan {
 
@@ -1413,6 +1465,10 @@ public class BuildPlan {
 
     /// The product build description map.
     public let productMap: [ResolvedProduct: ProductBuildDescription]
+    
+    /// The plugin descriptions. Plugins are represented in the package graph
+    /// as targets, but they are not directly included in the build graph.
+    public let pluginDescriptions: [PluginDescription]
 
     /// The build targets.
     public var targets: AnySequence<TargetBuildDescription> {
@@ -1555,8 +1611,12 @@ public class BuildPlan {
         self.observabilityScope = observabilityScope.makeChildScope(description: "Build Plan")
 
         // Create build target description for each target which we need to plan.
+        // Plugin targets are noted, since they need to be compiled, but they do
+        // not get directly incorporated into the build description that will be
+        // given to LLBuild.
         var targetMap = [ResolvedTarget: TargetBuildDescription]()
-        for target in graph.allTargets {
+        var pluginDescriptions = [PluginDescription]()
+        for target in graph.allTargets.sorted(by: { $0.name < $1.name }) {
 
             // Validate the product dependencies of this target.
             for dependency in target.dependencies {
@@ -1593,7 +1653,17 @@ public class BuildPlan {
                     toolsVersion: toolsVersion,
                     buildParameters: buildParameters,
                     fileSystem: fileSystem))
-            case is SystemLibraryTarget, is BinaryTarget, is PluginTarget:
+            case is PluginTarget:
+                guard let package = graph.package(for: target) else {
+                    throw InternalError("package not found for \(target)")
+                }
+                try pluginDescriptions.append(PluginDescription(
+                    target: target,
+                    products: package.products.filter{ $0.targets.contains(target) },
+                    package: package,
+                    toolsVersion: toolsVersion,
+                    fileSystem: fileSystem))
+            case is SystemLibraryTarget, is BinaryTarget:
                  break
             default:
                  throw InternalError("unhandled \(target.underlyingTarget)")
@@ -1638,6 +1708,8 @@ public class BuildPlan {
 
         self.productMap = productMap
         self.targetMap = targetMap
+        self.pluginDescriptions = pluginDescriptions
+        
         // Finally plan these targets.
         try plan()
     }
@@ -2046,7 +2118,7 @@ public class BuildPlan {
         }
 
         // Build cache
-        var cflagsCache: OrderedSet<String> = []
+        var cflagsCache: OrderedCollections.OrderedSet<String> = []
         var libsCache: [String] = []
         for tuple in ret {
             for cFlag in tuple.cFlags {

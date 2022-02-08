@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2021 Apple Inc. and the Swift project authors
+ Copyright (c) 2021-2022 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -20,7 +20,7 @@ public typealias Diagnostic = Basics.Diagnostic
 
 public enum PluginAction {
     case createBuildToolCommands(target: ResolvedTarget)
-    case performCommand(targets: [ResolvedTarget], arguments: [String])
+    case performCommand(arguments: [String])
 }
 
 extension PluginTarget {
@@ -78,7 +78,6 @@ extension PluginTarget {
             inputStruct = try serializer.makePluginScriptRunnerInput(
                 rootPackage: package,
                 pluginWorkDir: outputDirectory,
-                builtProductsDir: outputDirectory,  // FIXME — what is this parameter needed for?
                 toolSearchDirs: toolSearchDirectories,
                 toolNamesToPaths: toolNamesToPaths,
                 pluginAction: action)
@@ -240,6 +239,7 @@ extension PackageGraph {
                 let delegate = PluginDelegate(delegateQueue: delegateQueue)
 
                 // Invoke the build tool plugin with the input parameters and the delegate that will collect outputs.
+                let startTime = DispatchTime.now()
                 let success = try tsc_await { pluginTarget.invoke(
                     action: .createBuildToolCommands(target: target),
                     package: package,
@@ -256,17 +256,20 @@ extension PackageGraph {
                     callbackQueue: delegateQueue,
                     delegate: delegate,
                     completion: $0) }
+                let duration = startTime.distance(to: .now())
 
                 // Add a BuildToolPluginInvocationResult to the mapping.
-                if success {
-                    buildToolPluginResults.append(.init(
-                        plugin: pluginTarget,
-                        pluginOutputDirectory: pluginOutputDir,
-                        diagnostics: delegate.diagnostics,
-                        textOutput: String(decoding: delegate.outputData, as: UTF8.self),
-                        buildCommands: delegate.buildCommands,
-                        prebuildCommands: delegate.prebuildCommands))
-                }
+                buildToolPluginResults.append(.init(
+                    plugin: pluginTarget,
+                    pluginOutputDirectory: pluginOutputDir,
+                    package: package,
+                    target: target,
+                    succeeded: success,
+                    duration: duration,
+                    diagnostics: delegate.diagnostics,
+                    textOutput: String(decoding: delegate.outputData, as: UTF8.self),
+                    buildCommands: delegate.buildCommands,
+                    prebuildCommands: delegate.prebuildCommands))
             }
 
             // Associate the list of results with the target. The list will have one entry for each plugin used by the target.
@@ -320,6 +323,18 @@ public struct BuildToolPluginInvocationResult {
 
     /// The directory given to the plugin as a place in which it and the commands are allowed to write.
     public var pluginOutputDirectory: AbsolutePath
+
+    /// The package to which the plugin was applied.
+    public var package: ResolvedPackage
+
+    /// The target in that package to which the plugin was applied.
+    public var target: ResolvedTarget
+
+    /// If the plugin finished successfully.
+    public var succeeded: Bool
+
+    /// Duration of the plugin invocation.
+    public var duration: DispatchTimeInterval
 
     /// Any diagnostics emitted by the plugin.
     public var diagnostics: [Diagnostic]
@@ -379,6 +394,13 @@ public enum PluginEvaluationError: Swift.Error {
 
 /// Implements the mechanics of running a plugin script (implemented as a set of Swift source files) as a process.
 public protocol PluginScriptRunner {
+    
+    /// Public protocol function that starts compiling the plugin script to an exectutable. The tools version controls the availability of APIs in PackagePlugin, and should be set to the tools version of the package that defines the plugin (not of the target to which it is being applied). This function returns immediately and then calls the completion handler on the callbackq queue when compilation ends.
+    func compilePluginScript(
+        sources: Sources,
+        toolsVersion: ToolsVersion,
+        observabilityScope: ObservabilityScope
+    ) throws -> PluginCompilationResult
 
     /// Implements the mechanics of running a plugin script implemented as a set of Swift source files, for use
     /// by the package graph when it is evaluating package plugins.
@@ -407,6 +429,56 @@ public protocol PluginScriptRunner {
     /// Returns the Triple that represents the host for which plugin script tools should be built, or for which binary
     /// tools should be selected.
     var hostTriple: Triple { get }
+}
+
+
+/// The result of compiling a plugin. The executable path will only be present if the compilation succeeds, while the other properties are present in all cases.
+public struct PluginCompilationResult {
+    /// Process result of invoking the Swift compiler to produce the executable (contains command line, environment, exit status, and any output).
+    public var compilerResult: ProcessResult?
+    
+    /// Path of the libClang diagnostics file emitted by the compiler (even if compilation succeded, it might contain warnings).
+    public var diagnosticsFile: AbsolutePath
+    
+    /// Path of the compiled executable.
+    public var compiledExecutable: AbsolutePath
+
+    /// Whether the compilation result was cached.
+    public var wasCached: Bool
+
+    public init(compilerResult: ProcessResult?, diagnosticsFile: AbsolutePath, compiledExecutable: AbsolutePath, wasCached: Bool) {
+        self.compilerResult = compilerResult
+        self.diagnosticsFile = diagnosticsFile
+        self.compiledExecutable = compiledExecutable
+        self.wasCached = wasCached
+    }
+    
+    /// Returns true if and only if the compilation succeeded or was cached
+    public var succeeded: Bool {
+        return self.wasCached || self.compilerResult?.exitStatus == .terminated(code: 0)
+    }
+}
+
+extension PluginCompilationResult: CustomStringConvertible {
+    public var description: String {
+        let stdout = (try? compilerResult?.utf8Output()) ?? ""
+        let stderr = (try? compilerResult?.utf8stderrOutput()) ?? ""
+        let output = (stdout + stderr).spm_chomp()
+        return output + (output.isEmpty || output.hasSuffix("\n") ? "" : "\n")
+    }
+}
+
+extension PluginCompilationResult: CustomDebugStringConvertible {
+    public var debugDescription: String {
+        return """
+            <PluginCompilationResult(
+                exitStatus: \(compilerResult.map{ "\($0.exitStatus)" } ?? "-"),
+                stdout: \((try? compilerResult?.utf8Output()) ?? ""),
+                stderr: \((try? compilerResult?.utf8stderrOutput()) ?? ""),
+                executable: \(compiledExecutable.prettyPath())
+            )>
+            """
+    }
 }
 
 
@@ -577,7 +649,6 @@ public struct PluginScriptRunnerInput: Codable {
     let packages: [Package]
     let rootPackageId: Package.Id
     let pluginWorkDirId: Path.Id
-    let builtProductsDirId: Path.Id
     let toolSearchDirIds: [Path.Id]
     let toolNamesToPathIds: [String: Path.Id]
     let pluginAction: PluginAction
@@ -586,7 +657,7 @@ public struct PluginScriptRunnerInput: Codable {
     /// the capabilities declared for the plugin.
     enum PluginAction: Codable {
         case createBuildToolCommands(targetId: Target.Id)
-        case performCommand(targetIds: [Target.Id], arguments: [String])
+        case performCommand(arguments: [String])
     }
 
     /// A single absolute path in the wire structure, represented as a tuple
@@ -688,6 +759,7 @@ public struct PluginScriptRunnerInput: Codable {
             /// Information about a Swift source module target.
             case swiftSourceModuleInfo(
                 moduleName: String,
+                kind: SourceModuleKind,
                 sourceFiles: [File],
                 compilationConditions: [String],
                 linkedLibraries: [String],
@@ -696,6 +768,7 @@ public struct PluginScriptRunnerInput: Codable {
             /// Information about a Clang source module target.
             case clangSourceModuleInfo(
                 moduleName: String,
+                kind: SourceModuleKind,
                 sourceFiles: [File],
                 preprocessorDefinitions: [String],
                 headerSearchPaths: [String],
@@ -730,6 +803,13 @@ public struct PluginScriptRunnerInput: Codable {
                 }
             }
             
+            /// A kind of source module.
+            enum SourceModuleKind: String, Codable {
+                case generic
+                case executable
+                case test
+            }
+
             /// A kind of binary artifact.
             enum BinaryArtifactKind: Codable {
                 case xcframework
@@ -762,14 +842,12 @@ struct PluginScriptRunnerInputSerializer {
     mutating func makePluginScriptRunnerInput(
         rootPackage: ResolvedPackage,
         pluginWorkDir: AbsolutePath,
-        builtProductsDir: AbsolutePath,
         toolSearchDirs: [AbsolutePath],
         toolNamesToPaths: [String: AbsolutePath],
         pluginAction: PluginAction
     ) throws -> PluginScriptRunnerInput {
         let rootPackageId = try serialize(package: rootPackage)
         let pluginWorkDirId = try serialize(path: pluginWorkDir)
-        let builtProductsDirId = try serialize(path: builtProductsDir)
         let toolSearchDirIds = try toolSearchDirs.map{ try serialize(path: $0) }
         let toolNamesToPathIds = try toolNamesToPaths.mapValues{ try serialize(path: $0) }
         let serializedPluginAction: PluginScriptRunnerInput.PluginAction
@@ -779,9 +857,8 @@ struct PluginScriptRunnerInputSerializer {
                 throw StringError("unexpectedly was unable to serialize target \(target)")
             }
             serializedPluginAction = .createBuildToolCommands(targetId: targetId)
-        case .performCommand(let targets, let arguments):
-            let targetIds = try targets.compactMap { try serialize(target: $0) }
-            serializedPluginAction = .performCommand(targetIds: targetIds, arguments: arguments)
+        case .performCommand(let arguments):
+            serializedPluginAction = .performCommand(arguments: arguments)
         }
         return PluginScriptRunnerInput(
             paths: paths,
@@ -790,7 +867,6 @@ struct PluginScriptRunnerInputSerializer {
             packages: packages,
             rootPackageId: rootPackageId,
             pluginWorkDirId: pluginWorkDirId,
-            builtProductsDirId: builtProductsDirId,
             toolSearchDirIds: toolSearchDirIds,
             toolNamesToPathIds: toolNamesToPathIds,
             pluginAction: serializedPluginAction)
@@ -846,6 +922,7 @@ struct PluginScriptRunnerInputSerializer {
         case let target as SwiftTarget:
             targetInfo = .swiftSourceModuleInfo(
                 moduleName: target.c99name,
+                kind: try .init(target.type),
                 sourceFiles: targetFiles,
                 compilationConditions: scope.evaluate(.SWIFT_ACTIVE_COMPILATION_CONDITIONS),
                 linkedLibraries: scope.evaluate(.LINK_LIBRARIES),
@@ -854,6 +931,7 @@ struct PluginScriptRunnerInputSerializer {
         case let target as ClangTarget:
             targetInfo = .clangSourceModuleInfo(
                 moduleName: target.c99name,
+                kind: try .init(target.type),
                 sourceFiles: targetFiles,
                 preprocessorDefinitions: scope.evaluate(.GCC_PREPROCESSOR_DEFINITIONS),
                 headerSearchPaths: scope.evaluate(.HEADER_SEARCH_PATHS),
@@ -1023,6 +1101,22 @@ struct PluginScriptRunnerInputSerializer {
     }
 }
 
+fileprivate extension PluginScriptRunnerInput.Target.TargetInfo.SourceModuleKind {
+    init(_ kind: Target.Kind) throws {
+        switch kind {
+        case .library:
+            self = .generic
+        case .executable:
+            self = .executable
+        case .test:
+            self = .test
+        case .binary, .plugin, .snippet, .systemModule:
+            throw StringError("unexpected target kind \(kind) for source module")
+        }
+    }
+}
+
+
 
 /// Deserializable result that's received as output from the invocation of the plugin. This is the transport data from
 /// the invocation of the plugin for a particular target; everything the plugin can commuicate to us is here.
@@ -1086,3 +1180,20 @@ public struct FileLocation: Equatable, CustomStringConvertible {
         "\(self.file)\(self.line?.description.appending(" ") ?? "")"
     }
 }
+
+extension ObservabilityMetadata {
+    /// Provides information about the plugin from which the diagnostics originated.
+    public var pluginName: String? {
+        get {
+            self[PluginNameKey.self]
+        }
+        set {
+            self[PluginNameKey.self] = newValue
+        }
+    }
+
+    enum PluginNameKey: Key {
+        typealias Value = String
+    }
+}
+

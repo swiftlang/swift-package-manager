@@ -10,6 +10,7 @@
 
 import Basics
 import Dispatch
+import OrderedCollections
 import PackageModel
 import TSCBasic
 import TSCUtility
@@ -106,10 +107,10 @@ public struct PubgrubDependencyResolver {
     private let packageContainerProvider: PackageContainerProvider
 
     /// Should resolver prefetch the containers.
-    private let prefetchingEnabled: Bool
+    private let prefetchBasedOnResolvedFile: Bool
 
     /// Update containers while fetching them.
-    private let updateEnabled: Bool
+    private let skipDependenciesUpdates: Bool
 
     /// Resolver delegate
     private let delegate: DependencyResolverDelegate?
@@ -117,16 +118,21 @@ public struct PubgrubDependencyResolver {
     public init(
         provider: PackageContainerProvider,
         pinsMap: PinsStore.PinsMap = [:],
-        updateEnabled: Bool = true,
-        prefetchingEnabled: Bool = false,
+        skipDependenciesUpdates: Bool = false,
+        prefetchBasedOnResolvedFile: Bool = false,
         observabilityScope: ObservabilityScope,
         delegate: DependencyResolverDelegate? = nil
     ) {
         self.packageContainerProvider = provider
         self.pinsMap = pinsMap
-        self.updateEnabled = updateEnabled
-        self.prefetchingEnabled = prefetchingEnabled
-        self.provider = ContainerProvider(provider: self.packageContainerProvider, updateEnabled: self.updateEnabled, pinsMap: self.pinsMap, observabilityScope: observabilityScope)
+        self.skipDependenciesUpdates = skipDependenciesUpdates
+        self.prefetchBasedOnResolvedFile = prefetchBasedOnResolvedFile
+        self.provider = ContainerProvider(
+            provider: self.packageContainerProvider,
+            skipUpdate: self.skipDependenciesUpdates,
+            pinsMap: self.pinsMap,
+            observabilityScope: observabilityScope
+        )
         self.delegate = delegate
     }
 
@@ -176,7 +182,7 @@ public struct PubgrubDependencyResolver {
         let inputs = try self.processInputs(root: root, with: constraints)
 
         // Prefetch the containers if prefetching is enabled.
-        if self.prefetchingEnabled {
+        if self.prefetchBasedOnResolvedFile {
             // We avoid prefetching packages that are overridden since
             // otherwise we'll end up creating a repository container
             // for them.
@@ -259,7 +265,7 @@ public struct PubgrubDependencyResolver {
         // The list of constraints that we'll be working with. We start with the input constraints
         // and process them in two phases. The first phase finds all unversioned constraints and
         // the second phase discovers all branch-based constraints.
-        var constraints = OrderedSet(constraints)
+        var constraints = OrderedCollections.OrderedSet(constraints)
 
         // The list of packages that are overridden in the graph. A local package reference will
         // always override any other kind of package reference and branch-based reference will override
@@ -269,7 +275,7 @@ public struct PubgrubDependencyResolver {
         // The list of version-based references reachable via local and branch-based references.
         // These are added as top-level incompatibilities since they always need to be satisfied.
         // Some of these might be overridden as we discover local and branch-based references.
-        var versionBasedDependencies = OrderedDictionary<DependencyResolutionNode, [VersionBasedConstraint]>()
+        var versionBasedDependencies = OrderedCollections.OrderedDictionary<DependencyResolutionNode, [VersionBasedConstraint]>()
 
         // Process unversioned constraints in first phase. We go through all of the unversioned packages
         // and collect them and their dependencies. This gives us the complete list of unversioned
@@ -447,7 +453,7 @@ public struct PubgrubDependencyResolver {
     /// If a conflict is found, the conflicting incompatibility is returned to
     /// resolve the conflict on.
     internal func propagate(state: State, node: DependencyResolutionNode) throws {
-        var changed: OrderedSet<DependencyResolutionNode> = [node]
+        var changed: OrderedCollections.OrderedSet<DependencyResolutionNode> = [node]
 
         while !changed.isEmpty {
             let package = changed.removeFirst()
@@ -572,7 +578,7 @@ public struct PubgrubDependencyResolver {
             }
 
             incompatibility = try Incompatibility(
-                OrderedSet(newTerms),
+                OrderedCollections.OrderedSet(newTerms),
                 root: state.root,
                 cause: .conflict(cause: .init(conflict: incompatibility, other: priorCause))
             )
@@ -1206,7 +1212,7 @@ internal final class PubGrubPackageContainer {
                     return nil
                 }
 
-                var terms: OrderedSet<Term> = []
+                var terms: OrderedCollections.OrderedSet<Term> = []
                 // the package version requirement
                 terms.append(Term(node, .exact(version)))
                 // the dependency's version requirement
@@ -1226,7 +1232,7 @@ private final class ContainerProvider {
     private let underlying: PackageContainerProvider
 
     /// Whether to perform update (git fetch) on existing cloned repositories or not.
-    private let updateEnabled: Bool
+    private let skipUpdate: Bool
 
     /// Reference to the pins store.
     private let pinsMap: PinsStore.PinsMap
@@ -1240,9 +1246,14 @@ private final class ContainerProvider {
     //// Store prefetches synchronization
     private var prefetches = ThreadSafeKeyValueStore<PackageReference, DispatchGroup>()
 
-    init(provider underlying: PackageContainerProvider, updateEnabled: Bool, pinsMap: PinsStore.PinsMap, observabilityScope: ObservabilityScope) {
+    init(
+        provider underlying: PackageContainerProvider,
+        skipUpdate: Bool,
+        pinsMap: PinsStore.PinsMap,
+        observabilityScope: ObservabilityScope
+    ) {
         self.underlying = underlying
-        self.updateEnabled = updateEnabled
+        self.skipUpdate = skipUpdate
         self.pinsMap = pinsMap
         self.observabilityScope = observabilityScope
     }
@@ -1276,7 +1287,12 @@ private final class ContainerProvider {
             }
         } else {
             // Otherwise, fetch the container from the provider
-            self.underlying.getContainer(for: package, skipUpdate: !self.updateEnabled, observabilityScope: self.observabilityScope, on: .sharedConcurrent) { result in
+            self.underlying.getContainer(
+                for: package,
+                skipUpdate: self.skipUpdate,
+                observabilityScope: self.observabilityScope,
+                on: .sharedConcurrent
+            ) { result in
                 let result = result.tryMap { container -> PubGrubPackageContainer in
                     let pubGrubContainer = PubGrubPackageContainer(underlying: container, pinsMap: self.pinsMap)
                     // only cache positive results
@@ -1300,7 +1316,12 @@ private final class ContainerProvider {
                 return group
             }
             if needsFetching {
-                self.underlying.getContainer(for: identifier, skipUpdate: !self.updateEnabled, observabilityScope: self.observabilityScope, on: .sharedConcurrent) { result in
+                self.underlying.getContainer(
+                    for: identifier,
+                    skipUpdate: self.skipUpdate,
+                    observabilityScope: self.observabilityScope,
+                    on: .sharedConcurrent
+                ) { result in
                     defer { self.prefetches[identifier]?.leave() }
                     // only cache positive results
                     if case .success(let container) = result {

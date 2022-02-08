@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright 2015 - 2021 Apple Inc. and the Swift project authors
+ Copyright 2015 - 2022 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -29,9 +29,12 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     /// The closure for loading the package graph.
     let packageGraphLoader: () throws -> PackageGraph
     
-    /// The closure for invoking build tool plugins in the package graph.
-    let buildToolPluginInvoker: (PackageGraph) throws -> [ResolvedTarget: [BuildToolPluginInvocationResult]]
-
+    /// Entity responsible for compiling and running plugin scripts.
+    let pluginScriptRunner: PluginScriptRunner
+    
+    /// Directory where plugin intermediate files are stored.
+    let pluginWorkDirectory: AbsolutePath
+    
     /// Whether to sandbox commands from build tool plugins.
     public let disableSandboxForPluginCommands: Bool
 
@@ -73,7 +76,8 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         buildParameters: BuildParameters,
         cacheBuildManifest: Bool,
         packageGraphLoader: @escaping () throws -> PackageGraph,
-        buildToolPluginInvoker: @escaping (PackageGraph) throws -> [ResolvedTarget: [BuildToolPluginInvocationResult]],
+        pluginScriptRunner: PluginScriptRunner,
+        pluginWorkDirectory: AbsolutePath,
         disableSandboxForPluginCommands: Bool = false,
         outputStream: OutputByteStream,
         logLevel: Basics.Diagnostic.Severity,
@@ -83,7 +87,8 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         self.buildParameters = buildParameters
         self.cacheBuildManifest = cacheBuildManifest
         self.packageGraphLoader = packageGraphLoader
-        self.buildToolPluginInvoker = buildToolPluginInvoker
+        self.pluginScriptRunner = pluginScriptRunner
+        self.pluginWorkDirectory = pluginWorkDirectory
         self.disableSandboxForPluginCommands = disableSandboxForPluginCommands
         self.outputStream = outputStream
         self.logLevel = logLevel
@@ -97,10 +102,6 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         }
     }
     
-    public func getBuildToolPluginInvocationResults(for graph: PackageGraph) throws -> [ResolvedTarget: [BuildToolPluginInvocationResult]] {
-        return try self.buildToolPluginInvoker(graph)
-    }
-
     /// Compute and return the latest build description.
     ///
     /// This will try skip build planning if build manifest caching is enabled
@@ -138,11 +139,20 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     /// Perform a build using the given build description and subset.
     public func build(subset: BuildSubset) throws {
         let buildStartTime = DispatchTime.now()
+        
+        // Get the build description (either a cached one or newly created).
+        let buildDescription = try self.getBuildDescription()
 
         // Create the build system.
-        let buildDescription = try self.getBuildDescription()
         let buildSystem = try self.createBuildSystem(buildDescription: buildDescription)
         self.buildSystem = buildSystem
+
+        // If any plugins are part of the build set, compile them now to surface
+        // any errors up-front. Returns true if we should proceed with the build
+        // or false if not. It will already have thrown any appropriate error.
+        guard try self.compilePlugins(in: subset) else {
+            return
+        }
 
         // delegate is only available after createBuildSystem is called
         self.buildSystemDelegate?.buildStart(configuration: self.buildParameters.configuration)
@@ -175,6 +185,60 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             self.observabilityScope.emit(warning: "unable to create symbolic link at \(oldBuildPath): \(error)")
         }
     }
+    
+    /// Compiles any plugins specified or implied by the build subset, returning
+    /// true if the build should proceed. Throws an error in case of failure. A
+    /// reason why the build might not proceed even on success is if only plugins
+    /// should be compiled.
+    func compilePlugins(in subset: BuildSubset) throws -> Bool {
+        // Figure out what, if any, plugin descriptions to compile, and whether
+        // to continue building after that based on the subset.
+        let allPlugins = try getBuildDescription().pluginDescriptions
+        let pluginsToCompile: [PluginDescription]
+        let continueBuilding: Bool
+        switch subset {
+        case .allExcludingTests, .allIncludingTests:
+            pluginsToCompile = allPlugins
+            continueBuilding = true
+        case .product(let productName):
+            pluginsToCompile = allPlugins.filter{ $0.productNames.contains(productName) }
+            continueBuilding = pluginsToCompile.isEmpty
+        case .target(let targetName):
+            pluginsToCompile = allPlugins.filter{ $0.targetName == targetName }
+            continueBuilding = pluginsToCompile.isEmpty
+        }
+
+        // Compile any plugins we ended up with. If any of them fails, it will
+        // throw.
+        for plugin in pluginsToCompile {
+            try compilePlugin(plugin)
+        }
+
+        // If we get this far they all succeeded. Return whether to continue the
+        // build, based on the subset.
+        return continueBuilding
+    }
+    
+    // Compiles a single plugin, emitting its output and throwing an error if it
+    // fails.
+    func compilePlugin(_ plugin: PluginDescription) throws {
+        // Compile the plugin, getting back a PluginCompilationResult.
+        let preparationStepName = "Compiling plugin \(plugin.targetName)..."
+        self.buildSystemDelegate?.preparationStepStarted(preparationStepName)
+        let result = try self.pluginScriptRunner.compilePluginScript(
+            sources: plugin.sources,
+            toolsVersion: plugin.toolsVersion,
+            observabilityScope: self.observabilityScope)
+        if !result.description.isEmpty {
+            self.buildSystemDelegate?.preparationStepHadOutput(preparationStepName, output: result.description)
+        }
+        self.buildSystemDelegate?.preparationStepFinished(preparationStepName, result: result.wasCached ? .skipped : (result.succeeded ? .succeeded : .failed))
+
+        // Throw an error on failure; we will already have emitted the compiler's output in this case.
+        if !result.succeeded {
+            throw Diagnostics.fatalError
+        }
+    }
 
     /// Compute the llbuild target name using the given subset.
     func computeLLBuildTargetName(for subset: BuildSubset) throws -> String {
@@ -203,7 +267,34 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         let graph = try getPackageGraph()
         
         // Invoke any build tool plugins in the graph to generate prebuild commands and build commands.
-        let buildToolPluginInvocationResults = try getBuildToolPluginInvocationResults(for: graph)
+        let buildToolPluginInvocationResults = try graph.invokeBuildToolPlugins(
+            outputDir: self.pluginWorkDirectory.appending(component: "outputs"),
+            builtToolsDir: self.buildParameters.buildPath,
+            buildEnvironment: self.buildParameters.buildEnvironment,
+            toolSearchDirectories: [self.buildParameters.toolchain.swiftCompiler.parentDirectory],
+            pluginScriptRunner: self.pluginScriptRunner,
+            observabilityScope: self.observabilityScope,
+            fileSystem: localFileSystem)
+
+
+        // Surface any diagnostics from build tool plugins.
+        for (target, results) in buildToolPluginInvocationResults {
+            // There is one result for each plugin that gets applied to a target.
+            for result in results {
+                let diagnosticsEmitter = self.observabilityScope.makeDiagnosticsEmitter {
+                    var metadata = ObservabilityMetadata()
+                    metadata.targetName = target.name
+                    metadata.pluginName = result.plugin.name
+                    return metadata
+                }
+                for line in result.textOutput.split(separator: "\n") {
+                    diagnosticsEmitter.emit(info: line)
+                }
+                for diag in result.diagnostics {
+                    diagnosticsEmitter.emit(diag)
+                }
+            }
+        }
 
         // Run any prebuild commands provided by build tool plugins. Any failure stops the build.
         let prebuildCommandResults = try graph.reachableTargets.reduce(into: [:], { partial, target in
@@ -420,7 +511,8 @@ extension BuildDescription {
             swiftCommands: swiftCommands,
             swiftFrontendCommands: swiftFrontendCommands,
             testDiscoveryCommands: testDiscoveryCommands,
-            copyCommands: copyCommands
+            copyCommands: copyCommands,
+            pluginDescriptions: plan.pluginDescriptions
         )
         try fileSystem.createDirectory(
             plan.buildParameters.buildDescriptionPath.parentDirectory,

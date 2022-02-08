@@ -15,10 +15,9 @@ import Security
 #endif
 
 import TSCBasic
-import TSCUtility
 
 public protocol AuthorizationProvider {
-    func authentication(for url: Foundation.URL) -> (user: String, password: String)?
+    func authentication(for url: URL) -> (user: String, password: String)?
 }
 
 public enum AuthorizationProviderError: Error {
@@ -29,7 +28,7 @@ public enum AuthorizationProviderError: Error {
 }
 
 public extension AuthorizationProvider {
-    func httpAuthorizationHeader(for url: Foundation.URL) -> String? {
+    func httpAuthorizationHeader(for url: URL) -> String? {
         guard let (user, password) = self.authentication(for: url) else {
             return nil
         }
@@ -41,7 +40,7 @@ public extension AuthorizationProvider {
     }
 }
 
-private extension Foundation.URL {
+private extension URL {
     var authenticationID: String? {
         guard let host = host?.lowercased() else {
             return nil
@@ -53,29 +52,26 @@ private extension Foundation.URL {
 // MARK: - netrc
 
 public struct NetrcAuthorizationProvider: AuthorizationProvider {
-    let path: AbsolutePath
+    // marked internal for testing
+    internal let path: AbsolutePath
     private let fileSystem: FileSystem
-
-    private var underlying: TSCUtility.Netrc?
-
-    var machines: [TSCUtility.Netrc.Machine] {
-        self.underlying?.machines ?? []
-    }
 
     public init(path: AbsolutePath, fileSystem: FileSystem) throws {
         self.path = path
         self.fileSystem = fileSystem
-        self.underlying = try Self.load(from: path)
+        // validate file is okay at the time of initializing the provider
+        _ = try Self.load(fileSystem: fileSystem, path: path)
     }
 
-    public mutating func addOrUpdate(for url: Foundation.URL, user: String, password: String, callback: @escaping (Result<Void, Error>) -> Void) {
+    public mutating func addOrUpdate(for url: URL, user: String, password: String, callback: @escaping (Result<Void, Error>) -> Void) {
         guard let machine = url.authenticationID else {
             return callback(.failure(AuthorizationProviderError.invalidURLHost))
         }
 
         // Same entry already exists, no need to add or update
-        guard self.machines.first(where: { $0.name.lowercased() == machine && $0.login == user && $0.password == password }) == nil else {
-            return
+        let netrc = try? Self.load(fileSystem: self.fileSystem, path: self.path)
+        guard netrc?.machines.first(where: { $0.name.lowercased() == machine && $0.login == user && $0.password == password }) == nil else {
+            return callback(.success(()))
         }
 
         do {
@@ -93,23 +89,17 @@ public struct NetrcAuthorizationProvider: AuthorizationProvider {
                 }
             }
 
-            // At this point the netrc file should exist and non-empty
-            guard let netrc = try Self.load(from: self.path) else {
-                throw AuthorizationProviderError.other("Failed to update netrc file at \(self.path)")
-            }
-            self.underlying = netrc
-
             callback(.success(()))
         } catch {
             callback(.failure(AuthorizationProviderError.other("Failed to update netrc file at \(self.path): \(error)")))
         }
     }
 
-    public func authentication(for url: Foundation.URL) -> (user: String, password: String)? {
+    public func authentication(for url: URL) -> (user: String, password: String)? {
         self.machine(for: url).map { (user: $0.login, password: $0.password) }
     }
 
-    private func machine(for url: Foundation.URL) -> TSCUtility.Netrc.Machine? {
+    private func machine(for url: Foundation.URL) -> Basics.Netrc.Machine? {
         if let machine = url.authenticationID, let existing = self.machines.first(where: { $0.name.lowercased() == machine }) {
             return existing
         }
@@ -119,17 +109,21 @@ public struct NetrcAuthorizationProvider: AuthorizationProvider {
         return .none
     }
 
-    private static func load(from path: AbsolutePath) throws -> TSCUtility.Netrc? {
+    // marked internal for testing
+    internal var machines: [Basics.Netrc.Machine] {
+        // this ignores any errors reading the file
+        // initial validation is done at the time of initializing the provider
+        // and if the file becomes corrupt at runtime it will handle it gracefully
+        let netrc = try? Self.load(fileSystem: self.fileSystem, path: self.path)
+        return netrc?.machines ?? []
+    }
+
+    private static func load(fileSystem: FileSystem, path: AbsolutePath) throws -> Netrc? {
         do {
-            return try TSCUtility.Netrc.load(fromFileAtPath: path).get()
-        } catch {
-            switch error {
-            case Netrc.Error.fileNotFound, Netrc.Error.machineNotFound:
-                // These are recoverable errors. We will just create the file and append entry to it.
-                return nil
-            default:
-                throw error
-            }
+            return try NetrcParser.parse(fileSystem: fileSystem, path: path)
+        } catch NetrcError.fileNotFound, NetrcError.machineNotFound {
+            // These are recoverable errors.
+            return .none
         }
     }
 }
@@ -144,7 +138,7 @@ public struct KeychainAuthorizationProvider: AuthorizationProvider {
         self.observabilityScope = observabilityScope
     }
 
-    public func addOrUpdate(for url: Foundation.URL, user: String, password: String, callback: @escaping (Result<Void, Error>) -> Void) {
+    public func addOrUpdate(for url: URL, user: String, password: String, callback: @escaping (Result<Void, Error>) -> Void) {
         guard let server = url.authenticationID else {
             return callback(.failure(AuthorizationProviderError.invalidURLHost))
         }
@@ -163,7 +157,7 @@ public struct KeychainAuthorizationProvider: AuthorizationProvider {
         }
     }
 
-    public func authentication(for url: Foundation.URL) -> (user: String, password: String)? {
+    public func authentication(for url: URL) -> (user: String, password: String)? {
         guard let server = url.authenticationID else {
             return nil
         }
@@ -241,7 +235,7 @@ public struct KeychainAuthorizationProvider: AuthorizationProvider {
         return item
     }
 
-    private func `protocol`(for url: Foundation.URL) -> CFString {
+    private func `protocol`(for url: URL) -> CFString {
         // See https://developer.apple.com/documentation/security/keychain_services/keychain_items/item_attribute_keys_and_values?language=swift
         // for a list of possible values for the `kSecAttrProtocol` attribute.
         switch url.scheme?.lowercased() {
@@ -257,7 +251,8 @@ public struct KeychainAuthorizationProvider: AuthorizationProvider {
 // MARK: - Composite
 
 public struct CompositeAuthorizationProvider: AuthorizationProvider {
-    private let providers: [AuthorizationProvider]
+    // internal for testing
+    internal let providers: [AuthorizationProvider]
     private let observabilityScope: ObservabilityScope
 
     public init(_ providers: AuthorizationProvider..., observabilityScope: ObservabilityScope) {
@@ -269,7 +264,7 @@ public struct CompositeAuthorizationProvider: AuthorizationProvider {
         self.observabilityScope = observabilityScope
     }
 
-    public func authentication(for url: Foundation.URL) -> (user: String, password: String)? {
+    public func authentication(for url: URL) -> (user: String, password: String)? {
         for provider in self.providers {
             if let authentication = provider.authentication(for: url) {
                 switch provider {

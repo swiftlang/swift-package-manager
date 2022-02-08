@@ -12,26 +12,27 @@ import ArgumentParser
 import Basics
 import Build
 import Dispatch
-import func Foundation.NSUserName
 import class Foundation.ProcessInfo
-import func Foundation.NSHomeDirectory
 import PackageGraph
 import PackageLoading
 import PackageModel
 import SourceControl
 import SPMBuildCore
 import TSCBasic
-import TSCLibc
+
 import TSCUtility
 import Workspace
 import XCBuildSupport
 
 #if os(Windows)
 import WinSDK
+#elseif os(iOS) || os(macOS) || os(tvOS) || os(watchOS)
+import Darwin
+#else
+import Glibc
 #endif
 
 typealias Diagnostic = Basics.Diagnostic
-
 
 private class ToolWorkspaceDelegate: WorkspaceDelegate {
     /// The stream to use for reporting progress.
@@ -52,15 +53,15 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
     }
 
     private struct FetchProgress {
-        let objectsFetched: Int
-        let totalObjectsToFetch: Int
+        let progress: Int64
+        let total: Int64
     }
 
     /// The progress of each individual downloads.
-    private var downloadProgress: [String: DownloadProgress] = [:]
+    private var binaryDownloadProgress: [String: DownloadProgress] = [:]
 
     /// The progress of each individual fetch operation
-    private var fetchProgress: [String: FetchProgress] = [:]
+    private var fetchProgress: [PackageIdentity: FetchProgress] = [:]
 
     private let queue = DispatchQueue(label: "org.swift.swiftpm.commands.tool-workspace-delegate")
 
@@ -76,50 +77,66 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
         self.observabilityScope = observabilityScope
     }
 
-    func fetchingWillBegin(repository: String, fetchDetails: RepositoryManager.FetchDetails?) {
+    func willFetchPackage(package: PackageIdentity, packageLocation: String?, fetchDetails: PackageFetchDetails) {
         queue.async {
-            self.outputStream <<< "Fetching \(repository)"
-            if let fetchDetails = fetchDetails {
-                if fetchDetails.fromCache {
-                    self.outputStream <<< " from cache"
-                }
+            self.outputStream <<< "Fetching \(packageLocation ?? package.description)"
+            if fetchDetails.fromCache {
+                self.outputStream <<< " from cache"
             }
             self.outputStream <<< "\n"
             self.outputStream.flush()
         }
     }
 
-    func fetchingDidFinish(repository: String, fetchDetails: RepositoryManager.FetchDetails?, diagnostic: Basics.Diagnostic?, duration: DispatchTimeInterval) {
+    func didFetchPackage(package: PackageIdentity, packageLocation: String?, result: Result<PackageFetchDetails, Error>, duration: DispatchTimeInterval) {
         queue.async {
             if self.observabilityScope.errorsReported {
                 self.fetchAnimation.clear()
             }
 
-            let step = self.fetchProgress.values.reduce(0) { $0 + $1.objectsFetched }
-            let total = self.fetchProgress.values.reduce(0) { $0 + $1.totalObjectsToFetch }
+            let progress = self.fetchProgress.values.reduce(0) { $0 + $1.progress }
+            let total = self.fetchProgress.values.reduce(0) { $0 + $1.total }
 
-            if step == total && !self.fetchProgress.isEmpty {
+            if progress == total && !self.fetchProgress.isEmpty {
                 self.fetchAnimation.complete(success: true)
                 self.fetchProgress.removeAll()
             }
 
-            self.outputStream <<< "Fetched \(repository) (\(duration.descriptionInSeconds))"
+            self.outputStream <<< "Fetched \(packageLocation ?? package.description) (\(duration.descriptionInSeconds))"
             self.outputStream <<< "\n"
             self.outputStream.flush()
         }
     }
 
-    func repositoryWillUpdate(_ repository: String) {
+    func fetchingPackage(package: PackageIdentity, packageLocation: String?, progress: Int64, total: Int64?) {
         queue.async {
-            self.outputStream <<< "Updating \(repository)"
+            self.fetchProgress[package] = FetchProgress(
+                progress: progress,
+                total: total ?? progress
+            )
+
+            let progress = self.fetchProgress.values.reduce(0) { $0 + $1.progress }
+            let total = self.fetchProgress.values.reduce(0) { $0 + $1.total }
+
+            self.fetchAnimation.update(
+                step: progress > Int.max ? Int.max : Int(progress),
+                total: total > Int.max ? Int.max : Int(total),
+                text: "Fetching \(package)"
+            )
+        }
+    }
+
+    func willUpdateRepository(package: PackageIdentity, repository url: String) {
+        queue.async {
+            self.outputStream <<< "Updating \(url)"
             self.outputStream <<< "\n"
             self.outputStream.flush()
         }
     }
 
-    func repositoryDidUpdate(_ repository: String, duration: DispatchTimeInterval) {
+    func didUpdateRepository(package: PackageIdentity, repository url: String, duration: DispatchTimeInterval) {
         queue.async {
-            self.outputStream <<< "Updated \(repository) (\(duration.descriptionInSeconds))"
+            self.outputStream <<< "Updated \(url) (\(duration.descriptionInSeconds))"
             self.outputStream <<< "\n"
             self.outputStream.flush()
         }
@@ -133,32 +150,25 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
         }
     }
 
-    func willCreateWorkingCopy(repository: String, at path: AbsolutePath) {
+    func willCreateWorkingCopy(package: PackageIdentity, repository url: String, at path: AbsolutePath) {
         queue.async {
-            self.outputStream <<< "Creating working copy for \(repository)"
+            self.outputStream <<< "Creating working copy for \(url)"
             self.outputStream <<< "\n"
             self.outputStream.flush()
         }
     }
 
-    func willCheckOut(repository: String, revision: String, at path: AbsolutePath) {
-        // noop
-    }
-
-    func didCheckOut(repository: String, revision: String, at path: AbsolutePath, error: Basics.Diagnostic?) {
-        guard case .none = error else {
-            return // error will be printed before hand
-        }
+    func didCheckOut(package: PackageIdentity, repository url: String, revision: String, at path: AbsolutePath) {
         queue.async {
-            self.outputStream <<< "Working copy of \(repository) resolved at \(revision)"
+            self.outputStream <<< "Working copy of \(url) resolved at \(revision)"
             self.outputStream <<< "\n"
             self.outputStream.flush()
         }
     }
 
-    func removing(repository: String) {
+    func removing(package: PackageIdentity, packageLocation: String?) {
         queue.async {
-            self.outputStream <<< "Removing \(repository)"
+            self.outputStream <<< "Removing \(packageLocation ?? package.description)"
             self.outputStream <<< "\n"
             self.outputStream.flush()
         }
@@ -195,13 +205,13 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
     func downloadingBinaryArtifact(from url: String, bytesDownloaded: Int64, totalBytesToDownload: Int64?) {
         queue.async {
             if let totalBytesToDownload = totalBytesToDownload {
-                self.downloadProgress[url] = DownloadProgress(
+                self.binaryDownloadProgress[url] = DownloadProgress(
                     bytesDownloaded: bytesDownloaded,
                     totalBytesToDownload: totalBytesToDownload)
             }
 
-            let step = self.downloadProgress.values.reduce(0, { $0 + $1.bytesDownloaded }) / 1024
-            let total = self.downloadProgress.values.reduce(0, { $0 + $1.totalBytesToDownload }) / 1024
+            let step = self.binaryDownloadProgress.values.reduce(0, { $0 + $1.bytesDownloaded }) / 1024
+            let total = self.binaryDownloadProgress.values.reduce(0, { $0 + $1.totalBytesToDownload }) / 1024
             self.downloadAnimation.update(step: Int(step), total: Int(total), text: "Downloading binary artifacts")
         }
     }
@@ -213,19 +223,7 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
             }
 
             self.downloadAnimation.complete(success: true)
-            self.downloadProgress.removeAll()
-        }
-    }
-
-    func fetchingRepository(from repository: String, objectsFetched: Int, totalObjectsToFetch: Int) {
-        queue.async {
-            self.fetchProgress[repository] = FetchProgress(
-                objectsFetched: objectsFetched,
-                totalObjectsToFetch: totalObjectsToFetch)
-
-            let step = self.fetchProgress.values.reduce(0) { $0 + $1.objectsFetched }
-            let total = self.fetchProgress.values.reduce(0) { $0 + $1.totalObjectsToFetch }
-            self.fetchAnimation.update(step: step, total: total, text: "Fetching objects")
+            self.binaryDownloadProgress.removeAll()
         }
     }
 
@@ -233,7 +231,8 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
 
     func willLoadManifest(packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind) {}
     func didLoadManifest(packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind, manifest: Manifest?, diagnostics: [Basics.Diagnostic]) {}
-    func didCreateWorkingCopy(repository url: String, at path: AbsolutePath, error: Basics.Diagnostic?) {}
+    func willCheckOut(package: PackageIdentity, repository url: String, revision: String, at path: AbsolutePath) {}
+    func didCreateWorkingCopy(package: PackageIdentity, repository url: String, at path: AbsolutePath) {}
     func resolvedFileChanged() {}
 }
 
@@ -361,6 +360,7 @@ public class SwiftTool {
             SwiftTool.shutdownRegistry = (processSet: processSet, buildSystemRef: buildSystemRef)
             _ = SetConsoleCtrlHandler({ _ in
                 // Terminate all processes on receiving an interrupt signal.
+                DefaultPluginScriptRunner.cancelAllRunningPlugins()
                 SwiftTool.shutdownRegistry?.processSet.terminate()
                 SwiftTool.shutdownRegistry?.buildSystemRef.buildSystem?.cancel()
 
@@ -381,6 +381,7 @@ public class SwiftTool {
                 interruptSignalSource.cancel()
 
                 // Terminate all processes on receiving an interrupt signal.
+                DefaultPluginScriptRunner.cancelAllRunningPlugins()
                 processSet.terminate()
                 buildSystemRef.buildSystem?.cancel()
 
@@ -484,12 +485,54 @@ public class SwiftTool {
         }
 
         if options._deprecated_enableResolverTrace {
-            observabilityScope.emit(warning: "'--enableResolverTrace' option is deprecated; use --verbose flag to log resolver output")
+            observabilityScope.emit(warning: "'--enableResolverTrace' flag is deprecated; use '--verbose' option to log resolver output")
+        }
+
+        if options._deprecated_useRepositoriesCache != nil {
+            observabilityScope.emit(warning: "'--disable-repository-cache'/'--enable-repository-cache' flags are deprecated; use '--disable-dependency-cache'/'--enable-dependency-cache' instead")
         }
 
     }
 
-    private func editsDirectory() throws -> AbsolutePath {
+    /// Returns the currently active workspace.
+    func getActiveWorkspace() throws -> Workspace {
+        if let workspace = _workspace {
+            return workspace
+        }
+
+        let delegate = ToolWorkspaceDelegate(self.outputStream, logLevel: self.logLevel, observabilityScope: self.observabilityScope)
+        let repositoryProvider = GitRepositoryProvider(processSet: self.processSet)
+        let isXcodeBuildSystemEnabled = self.options.buildSystem == .xcode
+        let workspace = try Workspace(
+            fileSystem: localFileSystem,
+            location: .init(
+                workingDirectory: self.buildPath,
+                editsDirectory: self.getEditsDirectory(),
+                resolvedVersionsFile: self.getResolvedVersionsFile(),
+                localConfigurationDirectory: try self.getLocalConfigurationDirectory(),
+                sharedConfigurationDirectory: self.sharedConfigurationDirectory,
+                sharedSecurityDirectory: self.sharedSecurityDirectory,
+                sharedCacheDirectory: self.sharedCacheDirectory
+            ),
+            authorizationProvider: self.getAuthorizationProvider(),
+            configuration: .init(
+                skipDependenciesUpdates: options.skipDependencyUpdate,
+                prefetchBasedOnResolvedFile: options.shouldEnableResolverPrefetching,
+                additionalFileRules: isXcodeBuildSystemEnabled ? FileRuleDescription.xcbuildFileTypes : FileRuleDescription.swiftpmFileTypes,
+                sharedDependenciesCacheEnabled: self.options.useDependenciesCache,
+                fingerprintCheckingMode: self.options.resolverFingerprintCheckingMode
+            ),
+            initializationWarningHandler: { self.observabilityScope.emit(warning: $0) },
+            customManifestLoader: self.getManifestLoader(), // FIXME: ideally we would not customize the manifest loader
+            customRepositoryProvider: repositoryProvider, // FIXME: ideally we would not customize the repository provider. its currently done for shutdown handling which can be better abstracted
+            delegate: delegate
+        )
+        _workspace = workspace
+        _workspaceDelegate = delegate
+        return workspace
+    }
+
+    private func getEditsDirectory() throws -> AbsolutePath {
         // TODO: replace multiroot-data-file with explicit overrides
         if let multiRootPackageDataFile = options.multirootPackageDataFile {
             return multiRootPackageDataFile.appending(component: "Packages")
@@ -497,7 +540,7 @@ public class SwiftTool {
         return try Workspace.DefaultLocations.editsDirectory(forRootPackage: self.getPackageRoot())
     }
 
-    private func resolvedVersionsFile() throws -> AbsolutePath {
+    private func getResolvedVersionsFile() throws -> AbsolutePath {
         // TODO: replace multiroot-data-file with explicit overrides
         if let multiRootPackageDataFile = options.multirootPackageDataFile {
             return multiRootPackageDataFile.appending(components: "xcshareddata", "swiftpm", "Package.resolved")
@@ -505,35 +548,21 @@ public class SwiftTool {
         return try Workspace.DefaultLocations.resolvedVersionsFile(forRootPackage: self.getPackageRoot())
     }
 
-    func getMirrorsConfig() throws -> Workspace.Configuration.Mirrors {
-        let sharedMirrorFile = self.sharedConfigurationDirectory.map {
-            Workspace.DefaultLocations.mirrorsConfigurationFile(at: $0)
-        }
-        return try .init(
-            localMirrorFile: self.mirrorsConfigFile(),
-            sharedMirrorFile: sharedMirrorFile,
-            fileSystem: localFileSystem
-        )
-    }
-
-    private func mirrorsConfigFile() throws -> AbsolutePath {
-        // TODO: does this make sense now that we a global configuration as well? or should we at least rename it?
-        // Look for the override in the environment.
-        if let envPath = ProcessEnv.vars["SWIFTPM_MIRROR_CONFIG"] {
-            return try AbsolutePath(validating: envPath)
-        }
-
+    internal func getLocalConfigurationDirectory() throws -> AbsolutePath {
         // Otherwise, use the default path.
         // TODO: replace multiroot-data-file with explicit overrides
         if let multiRootPackageDataFile = options.multirootPackageDataFile {
             // migrate from legacy location
             let legacyPath = multiRootPackageDataFile.appending(components: "xcshareddata", "swiftpm", "config")
-            let newPath = multiRootPackageDataFile.appending(components: "xcshareddata", "swiftpm", "configuration", "mirrors.json")
+            let newPath = Workspace.DefaultLocations.mirrorsConfigurationFile(at: multiRootPackageDataFile.appending(components: "xcshareddata", "swiftpm", "configuration"))
             if localFileSystem.exists(legacyPath) {
-                try localFileSystem.createDirectory(newPath.parentDirectory, recursive: true)
-                try localFileSystem.move(from: legacyPath, to: newPath)
+                observabilityScope.emit(warning: "Usage of \(legacyPath) has been deprecated. Please delete it and use the new \(newPath) instead.")
+                if !localFileSystem.exists(newPath) {
+                    try localFileSystem.createDirectory(newPath.parentDirectory, recursive: true)
+                    try localFileSystem.copy(from: legacyPath, to: newPath)
+                }
             }
-            return newPath
+            return newPath.parentDirectory
         }
 
         // migrate from legacy location
@@ -546,114 +575,25 @@ public class SwiftTool {
                 try localFileSystem.copy(from: legacyPath, to: newPath)
             }
         }
-        return newPath
-    }
-
-    func getRegistriesConfig() throws -> Workspace.Configuration.Registries {
-        let localRegistriesFile = try Workspace.DefaultLocations.registriesConfigurationFile(forRootPackage: self.getPackageRoot())
-        let sharedRegistriesFile = self.sharedConfigurationDirectory.map {
-            Workspace.DefaultLocations.registriesConfigurationFile(at: $0)
-        }
-
-        return try .init(
-            localRegistriesFile: localRegistriesFile,
-            sharedRegistriesFile: sharedRegistriesFile,
-            fileSystem: localFileSystem
-        )
+        return newPath.parentDirectory
     }
 
     func getAuthorizationProvider() throws -> AuthorizationProvider? {
-        var providers = [AuthorizationProvider]()
-
-        // netrc file has higher specificity than keychain so use it first
-        try providers.append(contentsOf: self.getNetrcAuthorizationProviders())
-
-#if canImport(Security)
-        if self.options.keychain {
-            providers.append(KeychainAuthorizationProvider(observabilityScope: self.observabilityScope))
-        }
-#endif
-
-        return providers.isEmpty ? .none : CompositeAuthorizationProvider(providers, observabilityScope: self.observabilityScope)
-    }
-
-    func getNetrcAuthorizationProviders() throws -> [NetrcAuthorizationProvider] {
-        guard options.netrc else {
-            return []
-        }
-
-        var providers = [NetrcAuthorizationProvider]()
-
-        // Use custom .netrc file if specified, otherwise look for it within workspace and user's home directory.
-        if let configuredPath = options.netrcFilePath {
-            guard localFileSystem.exists(configuredPath) else {
-                throw StringError("Did not find .netrc file at \(configuredPath).")
-            }
-
-            providers.append(try NetrcAuthorizationProvider(path: configuredPath, fileSystem: localFileSystem))
+        var authorization = Workspace.Configuration.Authorization.default
+        if !options.netrc {
+            authorization.netrc = .disabled
+        } else if let configuredPath = options.netrcFilePath {
+            authorization.netrc = .custom(configuredPath)
         } else {
-            // User didn't tell us to use these .netrc files so be more lenient with errors
-            func loadNetrcNoThrows(at path: AbsolutePath) -> NetrcAuthorizationProvider? {
-                guard localFileSystem.exists(path) else { return nil }
-
-                do {
-                    return try NetrcAuthorizationProvider(path: path, fileSystem: localFileSystem)
-                } catch {
-                    self.observabilityScope.emit(warning: "Failed to load .netrc file at \(path). Error: \(error)")
-                    return nil
-                }
-            }
-
-            // Workspace's .netrc file should be consulted before user-global file
-            // TODO: replace multiroot-data-file with explicit overrides
-            if let localPath = try? (options.multirootPackageDataFile ?? self.getPackageRoot()).appending(component: ".netrc"),
-               let localProvider = loadNetrcNoThrows(at: localPath) {
-                providers.append(localProvider)
-            }
-
-            let userHomePath = localFileSystem.homeDirectory.appending(component: ".netrc")
-            if let userHomeProvider = loadNetrcNoThrows(at: userHomePath) {
-                providers.append(userHomeProvider)
-            }
+            let rootPath = try options.multirootPackageDataFile ?? self.getPackageRoot()
+            authorization.netrc = .workspaceAndUser(rootPath: rootPath)
         }
 
-        return providers
-    }
+        #if canImport(Security)
+        authorization.keychain = self.options.keychain ? .enabled : .disabled
+        #endif
 
-    /// Returns the currently active workspace.
-    func getActiveWorkspace() throws -> Workspace {
-        if let workspace = _workspace {
-            return workspace
-        }
-
-        let delegate = ToolWorkspaceDelegate(self.outputStream, logLevel: self.logLevel, observabilityScope: self.observabilityScope)
-        let provider = GitRepositoryProvider(processSet: processSet)
-        let isXcodeBuildSystemEnabled = self.options.buildSystem == .xcode
-        let workspace = try Workspace(
-            fileSystem: localFileSystem,
-            location: .init(
-                workingDirectory: self.buildPath,
-                editsDirectory: self.editsDirectory(),
-                resolvedVersionsFile: self.resolvedVersionsFile(),
-                sharedSecurityDirectory: self.sharedSecurityDirectory,
-                sharedCacheDirectory: self.sharedCacheDirectory,
-                sharedConfigurationDirectory: self.sharedConfigurationDirectory
-            ),
-            mirrors: self.getMirrorsConfig().mirrors,
-            registries: try self.getRegistriesConfig().configuration,
-            authorizationProvider: self.getAuthorizationProvider(),
-            customManifestLoader: self.getManifestLoader(), // FIXME: doe we really need to customize it?
-            customRepositoryProvider: provider, // FIXME: doe we really need to customize it?
-            additionalFileRules: isXcodeBuildSystemEnabled ? FileRuleDescription.xcbuildFileTypes : FileRuleDescription.swiftpmFileTypes,
-            resolverUpdateEnabled: !self.options.skipDependencyUpdate,
-            resolverPrefetchingEnabled: self.options.shouldEnableResolverPrefetching,
-            resolverFingerprintCheckingMode: self.options.resolverFingerprintCheckingMode,
-            sharedRepositoriesCacheEnabled: self.options.useRepositoriesCache,
-            delegate: delegate
-        )
-        _workspace = workspace
-        _workspaceDelegate = delegate
-        return workspace
+        return try authorization.makeAuthorizationProvider(fileSystem: localFileSystem, observabilityScope: self.observabilityScope)
     }
 
     /// Start redirecting the standard output stream to the standard error stream.
@@ -712,56 +652,15 @@ public class SwiftTool {
             throw error
         }
     }
-
-    /// Invoke build tool plugins for any reachable targets in the graph, and return a mapping from targets to corresponding evaluation results.
-    func invokeBuildToolPlugins(graph: PackageGraph) throws -> [ResolvedTarget: [BuildToolPluginInvocationResult]] {
-        do {
-            // Configure the plugin invocation inputs.
-
-            // The `plugins` directory is inside the workspace's main data directory, and contains all temporary
-            // files related to all plugins in the workspace.
-            let buildEnvironment = try buildParameters().buildEnvironment
-            let pluginsDir = try self.getActiveWorkspace().location.pluginWorkingDirectory
-
-            // The `cache` directory is in the plugins directory and is where the plugin script runner caches
-            // compiled plugin binaries and any other derived information.
-            let cacheDir = pluginsDir.appending(component: "cache")
-            let pluginScriptRunner = try DefaultPluginScriptRunner(cacheDir: cacheDir, toolchain: self._hostToolchain.get().configuration, enableSandbox: !self.options.shouldDisableSandbox)
-
-            // The `outputs` directory contains subdirectories for each combination of package, target, and plugin.
-            // Each usage of a plugin has an output directory that is writable by the plugin, where it can write
-            // additional files, and to which it can configure tools to write their outputs, etc.
-            let outputDir = pluginsDir.appending(component: "outputs")
-
-            // The `tools` directory contains any command line tools (executables) that are available for any commands
-            // defined by the executable.
-            // FIXME: At the moment we just pass the built products directory for the host. We will need to extend this
-            // with a map of the names of tools available to each plugin. In particular this would not work with any
-            // binary targets.
-            let dataDir = try self.getActiveWorkspace().location.workingDirectory
-            let builtToolsDir = dataDir.appending(components: try self._hostToolchain.get().triple.platformBuildPathComponent(), buildEnvironment.configuration.dirname)
-            
-            // Use the directory containing the compiler as an additional search directory.
-            let toolSearchDirs = [try self.getToolchain().swiftCompilerPath.parentDirectory]
-
-            // Create the cache directory, if needed.
-            try localFileSystem.createDirectory(cacheDir, recursive: true)
-
-            // Ask the graph to invoke plugins, and return the result.
-            let result = try graph.invokeBuildToolPlugins(
-                outputDir: outputDir,
-                builtToolsDir: builtToolsDir,
-                buildEnvironment: buildEnvironment,
-                toolSearchDirectories: toolSearchDirs,
-                pluginScriptRunner: pluginScriptRunner,
-                observabilityScope: self.observabilityScope,
-                fileSystem: localFileSystem
-            )
-            return result
-        }
-        catch {
-            throw error
-        }
+    
+    func getPluginScriptRunner() throws -> PluginScriptRunner {
+        let pluginsDir = try self.getActiveWorkspace().location.pluginWorkingDirectory
+        let cacheDir = pluginsDir.appending(component: "cache")
+        let pluginScriptRunner = try DefaultPluginScriptRunner(
+            cacheDir: cacheDir,
+            toolchain: self._hostToolchain.get().configuration,
+            enableSandbox: !self.options.shouldDisableSandbox)
+        return pluginScriptRunner
     }
 
     /// Returns the user toolchain to compile the actual product.
@@ -808,7 +707,8 @@ public class SwiftTool {
             buildParameters: buildParameters(),
             cacheBuildManifest: cacheBuildManifest && self.canUseCachedBuildManifest(),
             packageGraphLoader: graphLoader,
-            buildToolPluginInvoker: { _ in [:] },
+            pluginScriptRunner: self.getPluginScriptRunner(),
+            pluginWorkDirectory: try self.getActiveWorkspace().location.pluginWorkingDirectory,
             outputStream: self.outputStream,
             logLevel: self.logLevel,
             fileSystem: localFileSystem,
@@ -825,12 +725,12 @@ public class SwiftTool {
         switch options.buildSystem {
         case .native:
             let graphLoader = { try self.loadPackageGraph(explicitProduct: explicitProduct) }
-            let buildToolPluginInvoker = { try self.invokeBuildToolPlugins(graph: $0) }
             buildSystem = try BuildOperation(
                 buildParameters: buildParameters ?? self.buildParameters(),
                 cacheBuildManifest: self.canUseCachedBuildManifest(),
                 packageGraphLoader: graphLoader,
-                buildToolPluginInvoker: buildToolPluginInvoker,
+                pluginScriptRunner: self.getPluginScriptRunner(),
+                pluginWorkDirectory: try self.getActiveWorkspace().location.pluginWorkingDirectory,
                 disableSandboxForPluginCommands: self.options.shouldDisableSandbox,
                 outputStream: self.outputStream,
                 logLevel: self.logLevel,
@@ -1030,16 +930,9 @@ private func getSharedSecurityDirectory(options: SwiftToolOptions, observability
             try localFileSystem.createDirectory(explicitSecurityPath, recursive: true)
         }
         return explicitSecurityPath
-    }
-
-    do {
-        let sharedSecurityDirectory = try localFileSystem.getOrCreateSwiftPMSecurityDirectory()
-        // make sure we can write files
-        try withTemporaryFile(dir: sharedSecurityDirectory) { _ in }
-        return sharedSecurityDirectory
-    } catch {
-        observabilityScope.emit(warning: "Failed creating default security location, \(error)")
-        return .none
+    } else {
+        // further validation is done in workspace
+        return localFileSystem.swiftPMSecurityDirectory
     }
 }
 
@@ -1050,16 +943,9 @@ private func getSharedConfigurationDirectory(options: SwiftToolOptions, observab
             try localFileSystem.createDirectory(explicitConfigPath, recursive: true)
         }
         return explicitConfigPath
-    }
-
-    do {
-        let sharedConfigurationDirector = try localFileSystem.getOrCreateSwiftPMConfigurationDirectory(observabilityScope: observabilityScope)
-        // make sure we can write files
-        try withTemporaryFile(dir: sharedConfigurationDirector) { _ in }
-        return sharedConfigurationDirector
-    } catch {
-        observabilityScope.emit(warning: "Failed creating default configuration location, \(error)")
-        return .none
+    } else {
+        // further validation is done in workspace
+        return localFileSystem.swiftPMConfigurationDirectory
     }
 }
 
@@ -1070,16 +956,9 @@ private func getSharedCacheDirectory(options: SwiftToolOptions, observabilitySco
             try localFileSystem.createDirectory(explicitCachePath, recursive: true)
         }
         return explicitCachePath
-    }
-
-    do {
-        let sharedCacheDirector = try localFileSystem.getOrCreateSwiftPMCacheDirectory()
-        // make sure we can write files
-        try withTemporaryFile(dir: sharedCacheDirector) { _ in }
-        return sharedCacheDirector
-    } catch {
-        observabilityScope.emit(warning: "Failed creating default cache location, \(error)")
-        return .none
+    } else {
+        // further validation is done in workspace
+        return localFileSystem.swiftPMCacheDirectory
     }
 }
 

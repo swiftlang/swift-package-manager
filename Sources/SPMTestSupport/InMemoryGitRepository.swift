@@ -234,6 +234,14 @@ extension InMemoryGitRepository: FileSystem {
         }
     }
 
+    public func isReadable(_ path: AbsolutePath) -> Bool {
+        return self.exists(path)
+    }
+
+    public func isWritable(_ path: AbsolutePath) -> Bool {
+        return false
+    }
+
     public var currentWorkingDirectory: AbsolutePath? {
         return AbsolutePath("/")
     }
@@ -370,7 +378,7 @@ extension InMemoryGitRepository: WorkingCheckout {
     }
 }
 
-/// This class implement provider for in memeory git repository.
+/// This class implement provider for in memory git repository.
 public final class InMemoryGitRepositoryProvider: RepositoryProvider {
     /// Contains the repository added to this provider.
     public var specifierMap = ThreadSafeKeyValueStore<RepositorySpecifier, InMemoryGitRepository>()
@@ -404,6 +412,10 @@ public final class InMemoryGitRepositoryProvider: RepositoryProvider {
         let repo = specifierMap[RepositorySpecifier(location: repository.location)]!
         fetchedMap[path] = try repo.copy()
         add(specifier: RepositorySpecifier(path: path), repository: repo)
+    }
+
+    public func repositoryExists(at path: AbsolutePath) throws -> Bool {
+        return fetchedMap[path] != nil
     }
 
     public func copy(from sourcePath: AbsolutePath, to destinationPath: AbsolutePath) throws {

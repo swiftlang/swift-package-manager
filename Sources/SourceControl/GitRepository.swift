@@ -114,11 +114,18 @@ public struct GitRepositoryProvider: RepositoryProvider {
                          failureMessage: "Failed to clone repository \(repository.location)",
                          progress: progressHandler)
     }
+
+    public func repositoryExists(at directory: AbsolutePath) -> Bool {
+        if !localFileSystem.isDirectory(directory) {
+            return false
+        }
+        return self.isValidDirectory(directory)
+    }
     
     public func isValidDirectory(_ directory: AbsolutePath) -> Bool {
         do {
-            _ = try self.git.run(["-C", directory.pathString, "rev-parse", "--git-dir"])
-            return true
+            let result = try self.git.run(["-C", directory.pathString, "rev-parse", "--git-dir"])
+            return result == ".git" || result == "." || result == directory.pathString
         } catch {
             return false
         }
@@ -847,6 +854,14 @@ private class GitFileSystemView: FileSystem {
         if let entry = try? getEntry(path), entry.type == .executableBlob {
             return true
         }
+        return false
+    }
+
+    func isReadable(_ path: AbsolutePath) -> Bool {
+        return self.exists(path)
+    }
+
+    func isWritable(_ path: AbsolutePath) -> Bool {
         return false
     }
 

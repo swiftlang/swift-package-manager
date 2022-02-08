@@ -89,6 +89,7 @@ private class MockRepository: Repository {
 private class MockRepositories: RepositoryProvider {
     /// The known repositories, as a map of URL to repository.
     let repositories: [RepositorySpecifier.Location: MockRepository]
+    var fetchRepositories = ThreadSafeKeyValueStore<RepositorySpecifier, AbsolutePath>()
 
     /// A mock manifest loader for all repositories.
     let manifestLoader: MockManifestLoader
@@ -109,8 +110,12 @@ private class MockRepositories: RepositoryProvider {
     }
 
     func fetch(repository: RepositorySpecifier, to path: AbsolutePath, progressHandler: FetchProgress.Handler? = nil) throws {
-        // No-op.
         assert(self.repositories.index(forKey: repository.location) != nil)
+        self.fetchRepositories[repository] = path
+    }
+
+    func repositoryExists(at path: AbsolutePath) throws -> Bool {
+        self.fetchRepositories.get().contains(where: { key, value in value == path })
     }
 
     func copy(from sourcePath: AbsolutePath, to destinationPath: AbsolutePath) throws {
@@ -142,22 +147,20 @@ private class MockRepositories: RepositoryProvider {
     }
 }
 
-private class MockResolverDelegate: RepositoryManagerDelegate {
-    var fetched = [RepositorySpecifier]()
+private class MockResolverDelegate: RepositoryManager.Delegate {
+    var fetched = ThreadSafeArrayStore<RepositorySpecifier>()
 
-    func fetchingWillBegin(handle: RepositoryManager.RepositoryHandle, fetchDetails: RepositoryManager.FetchDetails?) {
-        self.fetched += [handle.repository]
+    func willFetch(package: PackageIdentity, repository: RepositorySpecifier, details: RepositoryManager.FetchDetails) {
+        self.fetched.append(repository)
     }
 
-    func fetchingRepository(from repository: String, objectsFetched: Int, totalObjectsToFetch: Int) {
-    }
+    func fetching(package: PackageIdentity, repository: RepositorySpecifier, objectsFetched: Int, totalObjectsToFetch: Int) {}
 
-    func fetchingDidFinish(handle: RepositoryManager.RepositoryHandle, fetchDetails: RepositoryManager.FetchDetails?, error: Swift.Error?, duration: DispatchTimeInterval) {
-    }
+    func didFetch(package: PackageIdentity, repository: RepositorySpecifier, result: Result<RepositoryManager.FetchDetails, Error>, duration: DispatchTimeInterval) {}
 
-    func handleWillUpdate(handle: RepositoryManager.RepositoryHandle) {}
+    func willUpdate(package: PackageIdentity, repository: RepositorySpecifier) {}
 
-    func handleDidUpdate(handle: RepositoryManager.RepositoryHandle, duration: DispatchTimeInterval) {}
+    func didUpdate(package: PackageIdentity, repository: RepositorySpecifier, duration: DispatchTimeInterval) {}
 }
 
 // Some handy versions & ranges.
@@ -199,7 +202,7 @@ class SourceControlPackageContainerTests: XCTestCase {
             delegate: MockResolverDelegate()
         )
 
-        let provider = try Workspace(
+        let provider = try Workspace._init(
             fileSystem: fs,
             location: .init(forRootPackage: repoPath, fileSystem: fs),
             customManifestLoader: MockManifestLoader(manifests: [:]),
@@ -252,7 +255,7 @@ class SourceControlPackageContainerTests: XCTestCase {
         )
 
         func createProvider(_ currentToolsVersion: ToolsVersion) throws -> PackageContainerProvider {
-            return try Workspace(
+            return try Workspace._init(
                 fileSystem: fs,
                 location: .init(forRootPackage: repoPath, fileSystem: fs),
                 customToolsVersion: currentToolsVersion,
@@ -336,7 +339,7 @@ class SourceControlPackageContainerTests: XCTestCase {
             delegate: MockResolverDelegate()
         )
 
-        let provider = try Workspace(
+        let provider = try Workspace._init(
             fileSystem: fs,
             location: .init(forRootPackage: repoPath, fileSystem: fs),
             customManifestLoader: MockManifestLoader(manifests: [:]),
@@ -385,7 +388,7 @@ class SourceControlPackageContainerTests: XCTestCase {
             delegate: MockResolverDelegate()
         )
 
-        let provider = try Workspace(
+        let provider = try Workspace._init(
             fileSystem: fs,
             location: .init(forRootPackage: repoPath, fileSystem: fs),
             customManifestLoader: MockManifestLoader(manifests: [:]),
@@ -566,7 +569,12 @@ class SourceControlPackageContainerTests: XCTestCase {
 
             // Create a repository manager for it.
             let repoProvider = GitRepositoryProvider()
-            let repositoryManager = RepositoryManager(fileSystem: localFileSystem, path: packageDir, provider: repoProvider, delegate: nil)
+            let repositoryManager = RepositoryManager(
+                fileSystem: localFileSystem,
+                path: packageDir,
+                provider: repoProvider,
+                delegate: .none
+            )
 
             // Create a container provider, configured with a mock manifest loader that will return the package manifest.
             let manifest = Manifest.createRootManifest(
@@ -576,7 +584,7 @@ class SourceControlPackageContainerTests: XCTestCase {
                     try TargetDescription(name: packageDir.basename, path: packageDir.pathString),
                 ]
             )
-            let containerProvider = try Workspace(
+            let containerProvider = try Workspace._init(
                 fileSystem: localFileSystem,
                 location: .init(forRootPackage: packageDir, fileSystem: localFileSystem),
                 customManifestLoader: MockManifestLoader(manifests: [.init(url: packageDir.pathString, version: nil): manifest]),
@@ -607,12 +615,11 @@ class SourceControlPackageContainerTests: XCTestCase {
         }
     }
 
+    // From rdar://problem/65284674
+    // RepositoryPackageContainer used to erroneously cache dependencies based only on version,
+    // storing the result of the first product filter and then continually returning it for other filters too.
+    // This lead to corrupt graph states.
     func testRepositoryPackageContainerCache() throws {
-        // From rdar://problem/65284674
-        // RepositoryPackageContainer used to erroneously cache dependencies based only on version,
-        // storing the result of the first product filter and then continually returning it for other filters too.
-        // This lead to corrupt graph states.
-
         try testWithTemporaryDirectory { temporaryDirectory in
             let packageDirectory = temporaryDirectory.appending(component: "Package")
             try localFileSystem.createDirectory(packageDirectory)
@@ -631,7 +638,7 @@ class SourceControlPackageContainerTests: XCTestCase {
                 fileSystem: localFileSystem,
                 path: packageDirectory,
                 provider: repositoryProvider,
-                delegate: nil
+                delegate: .none
             )
 
             let version = Version(1, 0, 0)
@@ -654,7 +661,7 @@ class SourceControlPackageContainerTests: XCTestCase {
                     ),
                 ]
             )
-            let containerProvider = try Workspace(
+            let containerProvider = try Workspace._init(
                 fileSystem: localFileSystem,
                 location: .init(forRootPackage: packageDirectory, fileSystem: localFileSystem),
                 customManifestLoader: MockManifestLoader(
@@ -679,5 +686,26 @@ class SourceControlPackageContainerTests: XCTestCase {
 extension PackageContainerProvider {
     fileprivate func getContainer(for package: PackageReference, skipUpdate: Bool) throws -> PackageContainer {
         try tsc_await { self.getContainer(for: package, skipUpdate: skipUpdate, observabilityScope: ObservabilitySystem.NOOP, on: .global(), completion: $0)  }
+    }
+}
+
+extension RepositoryManager {
+    fileprivate convenience init(
+        fileSystem: FileSystem,
+        path: AbsolutePath,
+        provider: RepositoryProvider,
+        cachePath: AbsolutePath? =  .none,
+        cacheLocalPackages: Bool = false,
+        delegate: RepositoryManagerDelegate? = .none
+    ) {
+        self.init(
+            fileSystem: fileSystem,
+            path: path,
+            provider: provider,
+            cachePath: cachePath,
+            cacheLocalPackages: cacheLocalPackages,
+            initializationWarningHandler: { _ in },
+            delegate: delegate
+        )
     }
 }

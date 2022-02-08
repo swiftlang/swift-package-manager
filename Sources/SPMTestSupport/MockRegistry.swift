@@ -16,27 +16,28 @@ import PackageLoading
 import PackageModel
 import PackageRegistry
 import TSCBasic
-import protocol TSCUtility.Archiver
 
-class MockRegistry {
+public class MockRegistry {
     private static let mockRegistryURL = URL(string: "http://localhost/registry/mock")!
 
-    private let checksumAlgorithm: HashAlgorithm
     private let fileSystem: FileSystem
-    var registryClient: RegistryClient!
+    private let identityResolver: IdentityResolver
+    private let checksumAlgorithm: HashAlgorithm
+    public var registryClient: RegistryClient!
     private let jsonEncoder: JSONEncoder
 
-    private var packages = [PackageIdentity: [String: InMemoryRegistrySource]]()
+    private var packages = [PackageIdentity: [String: InMemoryRegistryPackageSource]]()
     private let packagesLock = Lock()
 
-    init(
+    public init(
+        filesystem: FileSystem,
         identityResolver: IdentityResolver,
         checksumAlgorithm: HashAlgorithm,
-        filesystem: FileSystem,
         fingerprintStorage: PackageFingerprintStorage
     ) {
-        self.checksumAlgorithm = checksumAlgorithm
         self.fileSystem = filesystem
+        self.identityResolver = identityResolver
+        self.checksumAlgorithm = checksumAlgorithm
         self.jsonEncoder = JSONEncoder.makeWithDefaults()
 
         var configuration = RegistryConfiguration()
@@ -44,7 +45,6 @@ class MockRegistry {
 
         self.registryClient = RegistryClient(
             configuration: configuration,
-            identityResolver: identityResolver,
             fingerprintStorage: fingerprintStorage,
             fingerprintCheckingMode: .strict,
             authorizationProvider: .none,
@@ -53,7 +53,11 @@ class MockRegistry {
         )
     }
 
-    func addPackage(identity: PackageIdentity, versions: [String], source: InMemoryRegistrySource) {
+    public func addPackage(identity: PackageIdentity, versions: [Version], source: InMemoryRegistryPackageSource) {
+        self.addPackage(identity: identity, versions: versions.map{ $0.description }, source: source)
+    }
+
+    public func addPackage(identity: PackageIdentity, versions: [String], source: InMemoryRegistryPackageSource) {
         self.packagesLock.withLock {
             var value = self.packages[identity] ?? [:]
             for version in versions {
@@ -225,7 +229,7 @@ class MockRegistry {
         )
     }
 
-    private func zipFileContent(packageIdentity: PackageIdentity, version: String, source: InMemoryRegistrySource) throws -> String {
+    private func zipFileContent(packageIdentity: PackageIdentity, version: String, source: InMemoryRegistryPackageSource) throws -> String {
         var content = "\(packageIdentity)_\(version)\n"
         content += source.path.pathString + "\n"
         for file in try source.listFiles() {
@@ -235,16 +239,28 @@ class MockRegistry {
     }
 }
 
-struct InMemoryRegistrySource {
-    let path: AbsolutePath
+public struct InMemoryRegistryPackageSource {
     let fileSystem: FileSystem
+    public let path: AbsolutePath
 
-    init(path: AbsolutePath, fileSystem: FileSystem) {
-        self.path = path
+    public init(fileSystem: FileSystem, path: AbsolutePath, writeContent: Bool = true) {
         self.fileSystem = fileSystem
+        self.path = path
     }
 
-    func listFiles(root: AbsolutePath? = .none) throws -> [AbsolutePath] {
+    public func writePackageContent(targets: [String] = [], toolsVersion: ToolsVersion = .currentToolsVersion) throws {
+        try self.fileSystem.createDirectory(self.path, recursive: true)
+        let sourcesDir = self.path.appending(component: "Sources")
+        for target in targets {
+            let targetDir = sourcesDir.appending(component: target)
+            try self.fileSystem.createDirectory(targetDir, recursive: true)
+            try self.fileSystem.writeFileContents(targetDir.appending(component: "file.swift"), bytes: "")
+        }
+        let manifestPath = self.path.appending(component: Manifest.filename)
+        try self.fileSystem.writeFileContents(manifestPath, string: "// swift-tools-version:\(toolsVersion)")
+    }
+
+    public func listFiles(root: AbsolutePath? = .none) throws -> [AbsolutePath] {
         var files = [AbsolutePath]()
         let root = root ?? self.path
         let entries = try self.fileSystem.getDirectoryContents(root)

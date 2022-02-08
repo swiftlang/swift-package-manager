@@ -10,6 +10,7 @@
 
 import Basics
 import Foundation
+import PackageFingerprint
 import PackageGraph
 import PackageLoading
 import PackageModel
@@ -30,15 +31,20 @@ extension Workspace {
 
         /// Path to the Package.resolved file.
         public var resolvedVersionsFile: AbsolutePath
-        
+
+        /// Path to the local configuration directory
+        public var localConfigurationDirectory: AbsolutePath
+
+        /// Path to the shared configuration directory
+        public var sharedConfigurationDirectory: AbsolutePath?
+
         /// Path to the shared security directory
         public var sharedSecurityDirectory: AbsolutePath?
 
         /// Path to the shared cache directory
         public var sharedCacheDirectory: AbsolutePath?
 
-        /// Path to the shared configuration directory
-        public var sharedConfigurationDirectory: AbsolutePath?
+        // working directories
 
         /// Path to the repositories clones.
         public var repositoriesDirectory: AbsolutePath {
@@ -59,20 +65,21 @@ extension Workspace {
         public var artifactsDirectory: AbsolutePath {
             self.workingDirectory.appending(component: "artifacts")
         }
-        
-        /// Path to the shared fingerprints directory.
-        public var sharedFingerprintsDirectory: AbsolutePath? {
-            self.sharedSecurityDirectory.map { $0.appending(component: "fingerprints") }
+
+        // Path to temporary files related to running plugins in the workspace
+        public var pluginWorkingDirectory: AbsolutePath {
+            self.workingDirectory.appending(component: "plugins")
         }
 
-        /// Path to the shared repositories cache.
-        public var sharedRepositoriesCacheDirectory: AbsolutePath? {
-            self.sharedCacheDirectory.map { $0.appending(component: "repositories") }
-        }
+        // config locations
 
-        /// Path to the shared manifests cache.
-        public var sharedManifestsCacheDirectory: AbsolutePath? {
-            self.sharedCacheDirectory.map { DefaultLocations.manifestsDirectory(at: $0) }
+        /// Path to the local mirrors configuration.
+        public var localMirrorsConfigurationFile: AbsolutePath {
+            // backwards compatibility
+            if let customPath = ProcessEnv.vars["SWIFTPM_MIRROR_CONFIG"] {
+                return AbsolutePath(customPath)
+            }
+            return DefaultLocations.mirrorsConfigurationFile(at: self.localConfigurationDirectory)
         }
 
         /// Path to the shared mirrors configuration.
@@ -80,14 +87,38 @@ extension Workspace {
             self.sharedConfigurationDirectory.map { DefaultLocations.mirrorsConfigurationFile(at: $0) }
         }
 
+        /// Path to the local registries configuration.
+        public var localRegistriesConfigurationFile: AbsolutePath {
+            DefaultLocations.registriesConfigurationFile(at: self.localConfigurationDirectory)
+        }
+
         /// Path to the shared registries configuration.
         public var sharedRegistriesConfigurationFile: AbsolutePath? {
             self.sharedConfigurationDirectory.map { DefaultLocations.registriesConfigurationFile(at: $0) }
         }
-        
-        // Path to temporary files related to running plugins in the workspace
-        public var pluginWorkingDirectory: AbsolutePath {
-            self.workingDirectory.appending(component: "plugins")
+
+        // security locations
+
+        /// Path to the shared fingerprints directory.
+        public var sharedFingerprintsDirectory: AbsolutePath? {
+            self.sharedSecurityDirectory.map { $0.appending(component: "fingerprints") }
+        }
+
+        // cache locations
+
+        /// Path to the shared manifests cache.
+        public var sharedManifestsCacheDirectory: AbsolutePath? {
+            self.sharedCacheDirectory.map { DefaultLocations.manifestsDirectory(at: $0) }
+        }
+
+        /// Path to the shared repositories cache.
+        public var sharedRepositoriesCacheDirectory: AbsolutePath? {
+            self.sharedCacheDirectory.map { $0.appending(component: "repositories") }
+        }
+
+        /// Path to the shared registry download cache.
+        public var sharedRegistryDownloadsCacheDirectory: AbsolutePath? {
+            self.sharedCacheDirectory.map { $0.appending(components: "registry", "downloads") }
         }
 
         /// Create a new workspace location.
@@ -103,16 +134,18 @@ extension Workspace {
             workingDirectory: AbsolutePath,
             editsDirectory: AbsolutePath,
             resolvedVersionsFile: AbsolutePath,
+            localConfigurationDirectory: AbsolutePath,
+            sharedConfigurationDirectory: AbsolutePath?,
             sharedSecurityDirectory: AbsolutePath?,
-            sharedCacheDirectory: AbsolutePath?,
-            sharedConfigurationDirectory: AbsolutePath?
+            sharedCacheDirectory: AbsolutePath?
         ) {
             self.workingDirectory = workingDirectory
             self.editsDirectory = editsDirectory
             self.resolvedVersionsFile = resolvedVersionsFile
+            self.localConfigurationDirectory = localConfigurationDirectory
+            self.sharedConfigurationDirectory = sharedConfigurationDirectory
             self.sharedSecurityDirectory = sharedSecurityDirectory
             self.sharedCacheDirectory = sharedCacheDirectory
-            self.sharedConfigurationDirectory = sharedConfigurationDirectory
         }
 
         /// Create a new workspace location.
@@ -124,9 +157,10 @@ extension Workspace {
                 workingDirectory: DefaultLocations.workingDirectory(forRootPackage: rootPath),
                 editsDirectory: DefaultLocations.editsDirectory(forRootPackage: rootPath),
                 resolvedVersionsFile: DefaultLocations.resolvedVersionsFile(forRootPackage: rootPath),
+                localConfigurationDirectory: DefaultLocations.configurationDirectory(forRootPackage: rootPath),
+                sharedConfigurationDirectory: fileSystem.swiftPMConfigurationDirectory,
                 sharedSecurityDirectory: fileSystem.swiftPMSecurityDirectory,
-                sharedCacheDirectory: fileSystem.swiftPMCacheDirectory,
-                sharedConfigurationDirectory: fileSystem.swiftPMConfigurationDirectory
+                sharedCacheDirectory: fileSystem.swiftPMCacheDirectory
             )
         }
     }
@@ -154,7 +188,7 @@ extension Workspace {
         }
 
         public static func mirrorsConfigurationFile(forRootPackage rootPath: AbsolutePath) -> AbsolutePath {
-            mirrorsConfigurationFile(at: configurationDirectory(forRootPackage: rootPath))
+            mirrorsConfigurationFile(at: self.configurationDirectory(forRootPackage: rootPath))
         }
 
         public static func mirrorsConfigurationFile(at path: AbsolutePath) -> AbsolutePath {
@@ -162,7 +196,7 @@ extension Workspace {
         }
 
         public static func registriesConfigurationFile(forRootPackage rootPath: AbsolutePath) -> AbsolutePath {
-            registriesConfigurationFile(at: configurationDirectory(forRootPackage: rootPath))
+            registriesConfigurationFile(at: self.configurationDirectory(forRootPackage: rootPath))
         }
 
         public static func registriesConfigurationFile(at path: AbsolutePath) -> AbsolutePath {
@@ -171,6 +205,108 @@ extension Workspace {
 
         public static func manifestsDirectory(at path: AbsolutePath) -> AbsolutePath {
             path.appending(component: "manifests")
+        }
+    }
+}
+
+// MARK: - Authorization
+
+extension Workspace.Configuration {
+    public struct Authorization {
+        public var netrc: Netrc
+        public var keychain: Keychain
+
+        public static var `default`: Self {
+            #if canImport(Security)
+            Self(netrc: .user, keychain: .enabled)
+            #else
+            Self(netrc: .user, keychain: .disabled)
+            #endif
+        }
+
+        public init(netrc: Netrc, keychain: Keychain) {
+            self.netrc = netrc
+            self.keychain = keychain
+        }
+
+        public func makeAuthorizationProvider(fileSystem: FileSystem, observabilityScope: ObservabilityScope) throws -> AuthorizationProvider? {
+            var providers = [AuthorizationProvider]()
+
+            switch self.netrc {
+            case .custom(let path):
+                guard fileSystem.exists(path) else {
+                    throw StringError("Did not find .netrc file at \(path).")
+                }
+                providers.append(try NetrcAuthorizationProvider(path: path, fileSystem: fileSystem))
+            case .workspaceAndUser(let rootPath):
+                // package/project "local" .netrc file, takes priority over user-level file
+                let localPath = rootPath.appending(component: ".netrc")
+                // user didn't tell us to explicitly use these .netrc files so be more lenient with errors
+                if let localProvider = self.loadOptionalNetrc(fileSystem: fileSystem, path: localPath, observabilityScope: observabilityScope) {
+                    providers.append(localProvider)
+                }
+
+                // user .netrc file (most typical)
+                let userHomePath = fileSystem.homeDirectory.appending(component: ".netrc")
+                // user didn't tell us to explicitly use these .netrc files so be more lenient with errors
+                if let userHomeProvider = self.loadOptionalNetrc(fileSystem: fileSystem, path: userHomePath, observabilityScope: observabilityScope) {
+                    providers.append(userHomeProvider)
+                }
+            case .user:
+                // user .netrc file (most typical)
+                let userHomePath = fileSystem.homeDirectory.appending(component: ".netrc")
+                
+                // user didn't tell us to explicitly use these .netrc files so be more lenient with errors
+                if let userHomeProvider = self.loadOptionalNetrc(fileSystem: fileSystem, path: userHomePath, observabilityScope: observabilityScope) {
+                    providers.append(userHomeProvider)
+                }
+            case .disabled:
+                // noop
+                break
+            }
+
+            switch self.keychain {
+            case .enabled:
+                #if canImport(Security)
+                providers.append(KeychainAuthorizationProvider(observabilityScope: observabilityScope))
+                #else
+                throw InternalError("Keychain not supported on this platform")
+                #endif
+            case .disabled:
+                // noop
+                break
+            }
+
+            return providers.isEmpty ? .none : CompositeAuthorizationProvider(providers, observabilityScope: observabilityScope)
+        }
+
+        private func loadOptionalNetrc(
+            fileSystem: FileSystem,
+            path: AbsolutePath,
+            observabilityScope: ObservabilityScope
+        ) -> NetrcAuthorizationProvider? {
+            guard fileSystem.exists(path) && fileSystem.isReadable(path) else {
+                return .none
+            }
+
+            do {
+                return try NetrcAuthorizationProvider(path: path, fileSystem: fileSystem)
+            } catch {
+                observabilityScope.emit(warning: "Failed to load .netrc file at \(path). Error: \(error)")
+                return .none
+            }
+        }
+
+        public enum Netrc {
+            case disabled
+            case custom(AbsolutePath)
+            case workspaceAndUser(rootPath: AbsolutePath)
+            case user
+        }
+
+        public enum Keychain {
+            case disabled
+            case enabled
         }
     }
 }
@@ -207,25 +343,31 @@ extension Workspace.Configuration {
         ) throws {
             let localMirrorConfigFile = Workspace.DefaultLocations.mirrorsConfigurationFile(forRootPackage: rootPath)
             try self.init(
-                localMirrorFile: localMirrorConfigFile,
-                sharedMirrorFile: sharedMirrorFile,
-                fileSystem: fileSystem
+                fileSystem: fileSystem,
+                localMirrorsFile: localMirrorConfigFile,
+                sharedMirrorsFile: sharedMirrorFile
             )
+        }
+
+        // deprecated 12/21
+        @available(*, deprecated, message: "using init(fileSystem:localMirrorsFile:sharedMirrorsFile) instead")
+        public init(localMirrorFile: AbsolutePath, sharedMirrorFile: AbsolutePath?, fileSystem: FileSystem) throws {
+            try self.init(fileSystem: fileSystem, localMirrorsFile: localMirrorFile, sharedMirrorsFile: sharedMirrorFile)
         }
 
         /// Initialize the workspace mirrors configuration
         ///
         /// - Parameters:
-        ///   - localMirrorFile: Path to the workspace mirrors configuration file
-        ///   - sharedMirrorFile: Path to the shared mirrors configuration file, defaults to the standard location.
         ///   - fileSystem: The file system to use.
+        ///   - localMirrorsFile: Path to the workspace mirrors configuration file
+        ///   - sharedMirrorsFile: Path to the shared mirrors configuration file, defaults to the standard location.
         public init(
-            localMirrorFile: AbsolutePath,
-            sharedMirrorFile: AbsolutePath?,
-            fileSystem: FileSystem
+            fileSystem: FileSystem,
+            localMirrorsFile: AbsolutePath,
+            sharedMirrorsFile: AbsolutePath?
         ) throws {
-            self.localMirrors = .init(path: localMirrorFile, fileSystem: fileSystem, deleteWhenEmpty: true)
-            self.sharedMirrors = sharedMirrorFile.map { .init(path: $0, fileSystem: fileSystem, deleteWhenEmpty: false) }
+            self.localMirrors = .init(path: localMirrorsFile, fileSystem: fileSystem, deleteWhenEmpty: true)
+            self.sharedMirrors = sharedMirrorsFile.map { .init(path: $0, fileSystem: fileSystem, deleteWhenEmpty: false) }
             self.fileSystem = fileSystem
             // computes the initial mirrors
             self._mirrors = DependencyMirrors()
@@ -376,17 +518,17 @@ extension Workspace.Configuration {
         /// Initialize the workspace registries configuration
         ///
         /// - Parameters:
+        ///   - fileSystem: The file system to use.
         ///   - localRegistriesFile: Path to the workspace registries configuration file
         ///   - sharedRegistriesFile: Path to the shared registries configuration file, defaults to the standard location.
-        ///   - fileSystem: The file system to use.
         public init(
+            fileSystem: FileSystem,
             localRegistriesFile: AbsolutePath,
-            sharedRegistriesFile: AbsolutePath?,
-            fileSystem: FileSystem
+            sharedRegistriesFile: AbsolutePath?
         ) throws {
+            self.fileSystem = fileSystem
             self.localRegistries = .init(path: localRegistriesFile, fileSystem: fileSystem)
             self.sharedRegistries = sharedRegistriesFile.map { .init(path: $0, fileSystem: fileSystem) }
-            self.fileSystem = fileSystem
             try self.computeRegistries()
         }
 
@@ -467,6 +609,51 @@ extension Workspace.Configuration {
 
             return updatedConfiguration
         }
+    }
+}
+
+// FIXME: better name
+public struct WorkspaceConfiguration {
+    /// Enables the dependencies resolver automatic version updates.  Disabled by default.
+    /// When disabled the resolver does not attempt to update the dependencies as part of resolution.
+    public var skipDependenciesUpdates: Bool
+
+    /// Enables the dependencies resolver prefetching based on the resolved versions file.  Enabled by default.
+    /// When disabled the resolver does not attempt to pre-fetch the dependencies based on the  resolved versions file.
+    public var prefetchBasedOnResolvedFile: Bool
+
+    /// File rules to determine resource handling behavior.
+    public var additionalFileRules: [FileRuleDescription]
+
+    /// Enables the shared dependencies cache. Enabled by default.
+    public var sharedDependenciesCacheEnabled: Bool
+
+    ///  Fingerprint checking mode. Defaults to warn.
+    public var fingerprintCheckingMode: FingerprintCheckingMode
+
+    public init(
+        skipDependenciesUpdates: Bool,
+        prefetchBasedOnResolvedFile: Bool,
+        additionalFileRules: [FileRuleDescription],
+        sharedDependenciesCacheEnabled: Bool,
+        fingerprintCheckingMode: FingerprintCheckingMode
+    ) {
+        self.skipDependenciesUpdates = skipDependenciesUpdates
+        self.prefetchBasedOnResolvedFile = prefetchBasedOnResolvedFile
+        self.additionalFileRules = additionalFileRules
+        self.sharedDependenciesCacheEnabled = sharedDependenciesCacheEnabled
+        self.fingerprintCheckingMode = fingerprintCheckingMode
+    }
+
+    /// Default instance of WorkspaceConfiguration
+    public static var `default`: Self {
+        .init(
+            skipDependenciesUpdates: false,
+            prefetchBasedOnResolvedFile: true,
+            additionalFileRules: [],
+            sharedDependenciesCacheEnabled: true,
+            fingerprintCheckingMode: .warn
+        )
     }
 }
 

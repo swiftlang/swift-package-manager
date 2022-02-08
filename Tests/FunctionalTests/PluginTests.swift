@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2021 Apple Inc. and the Swift project authors
+ Copyright (c) 2021-2022 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -22,11 +22,9 @@ import XCTest
 class PluginTests: XCTestCase {
     
     func testUseOfBuildToolPluginTargetByExecutableInSamePackage() throws {
-        // Check if the host compiler supports the '-entry-point-function-name' flag.  It's not needed for this test but is needed to build any executable from a package that uses tools version 5.5.
-        #if swift(<5.5)
-        try XCTSkipIf(true, "skipping because host compiler doesn't support '-entry-point-function-name'")
-        #endif
-        
+        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
+        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
+
         fixture(name: "Miscellaneous/Plugins") { path in
             do {
                 let (stdout, _) = try executeSwiftBuild(path.appending(component: "MySourceGenPlugin"), configuration: .Debug, extraArgs: ["--product", "MyLocalTool"])
@@ -43,10 +41,8 @@ class PluginTests: XCTestCase {
     }
 
     func testUseOfBuildToolPluginProductByExecutableAcrossPackages() throws {
-        // Check if the host compiler supports the '-entry-point-function-name' flag.  It's not needed for this test but is needed to build any executable from a package that uses tools version 5.5.
-        #if swift(<5.5)
-        try XCTSkipIf(true, "skipping because host compiler doesn't support '-entry-point-function-name'")
-        #endif
+        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
+        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
 
         fixture(name: "Miscellaneous/Plugins") { path in
             do {
@@ -64,10 +60,8 @@ class PluginTests: XCTestCase {
     }
 
     func testUseOfPrebuildPluginTargetByExecutableAcrossPackages() throws {
-        // Check if the host compiler supports the '-entry-point-function-name' flag.  It's not needed for this test but is needed to build any executable from a package that uses tools version 5.5.
-        #if swift(<5.5)
-        try XCTSkipIf(true, "skipping because host compiler doesn't support '-entry-point-function-name'")
-        #endif
+        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
+        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
 
         fixture(name: "Miscellaneous/Plugins") { path in
             do {
@@ -84,12 +78,10 @@ class PluginTests: XCTestCase {
         }
     }
 
-    func testUseOfPluginWithInternalExecutable() {
-        // Check if the host compiler supports the '-entry-point-function-name' flag.  It's not needed for this test but is needed to build any executable from a package that uses tools version 5.5.
-        #if swift(<5.5)
-        try XCTSkipIf(true, "skipping because host compiler doesn't support '-entry-point-function-name'")
-        #endif
-
+    func testUseOfPluginWithInternalExecutable() throws {
+        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
+        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
+        
         fixture(name: "Miscellaneous/Plugins") { path in
             let (stdout, _) = try executeSwiftBuild(path.appending(component: "ClientOfPluginWithInternalExecutable"))
             XCTAssert(stdout.contains("Compiling PluginExecutable main.swift"), "stdout:\n\(stdout)")
@@ -101,11 +93,9 @@ class PluginTests: XCTestCase {
         }
     }
 
-    func testInternalExecutableAvailableOnlyToPlugin() {
-        // Check if the host compiler supports the '-entry-point-function-name' flag.  It's not needed for this test but is needed to build any executable from a package that uses tools version 5.5.
-        #if swift(<5.5)
-        try XCTSkipIf(true, "skipping because host compiler doesn't support '-entry-point-function-name'")
-        #endif
+    func testInternalExecutableAvailableOnlyToPlugin() throws {
+        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
+        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
 
         fixture(name: "Miscellaneous/Plugins") { path in
             do {
@@ -124,11 +114,9 @@ class PluginTests: XCTestCase {
     }
 
     func testContrivedTestCases() throws {
-        // Check if the host compiler supports the '-entry-point-function-name' flag.  It's not needed for this test but is needed to build any executable from a package that uses tools version 5.5.
-        #if swift(<5.5)
-        try XCTSkipIf(true, "skipping because host compiler doesn't support '-entry-point-function-name'")
-        #endif
-        
+        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
+        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
+
         fixture(name: "Miscellaneous/Plugins") { path in
             do {
                 let (stdout, _) = try executeSwiftBuild(path.appending(component: "ContrivedTestPlugin"), configuration: .Debug, extraArgs: ["--product", "MyLocalTool"])
@@ -145,10 +133,8 @@ class PluginTests: XCTestCase {
     }
 
     func testPluginScriptSandbox() throws {
-        // Check if the host compiler supports the '-entry-point-function-name' flag.  It's not needed for this test but is needed to build any executable from a package that uses tools version 5.5.
-        #if swift(<5.5)
-        try XCTSkipIf(true, "skipping because host compiler doesn't support '-entry-point-function-name'")
-        #endif
+        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
+        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
 
         #if os(macOS)
         fixture(name: "Miscellaneous/Plugins") { path in
@@ -166,10 +152,8 @@ class PluginTests: XCTestCase {
     }
 
     func testUseOfVendedBinaryTool() throws {
-        // Check if the host compiler supports the '-entry-point-function-name' flag.  It's not needed for this test but is needed to build any executable from a package that uses tools version 5.5.
-        #if swift(<5.5)
-        try XCTSkipIf(true, "skipping because host compiler doesn't support '-entry-point-function-name'")
-        #endif
+        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
+        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
 
         #if os(macOS)
         fixture(name: "Miscellaneous/Plugins") { path in
@@ -187,12 +171,16 @@ class PluginTests: XCTestCase {
     }
     
     func testCommandPluginInvocation() throws {
+        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
+        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
+        
         // FIXME: This test is getting quite long — we should add some support functionality for creating synthetic plugin tests and factor this out into separate tests.
         try testWithTemporaryDirectory { tmpPath in
             // Create a sample package with a library target and a plugin. It depends on a sample package.
             let packageDir = tmpPath.appending(components: "MyPackage")
-            try localFileSystem.writeFileContents(packageDir.appending(component: "Package.swift")) {
-                $0 <<< """
+            let manifestFile = packageDir.appending(component: "Package.swift")
+            try localFileSystem.createDirectory(manifestFile.parentDirectory, recursive: true)
+            try localFileSystem.writeFileContents(manifestFile, string: """
                 // swift-tools-version: 5.6
                 import PackageDescription
                 let package = Package(
@@ -226,79 +214,94 @@ class PluginTests: XCTestCase {
                                 intent: .custom(verb: "fail-without-error", description: "Sample plugin that exits without error")
                             )
                         ),
+                        .plugin(
+                            name: "NeverendingPlugin",
+                            capability: .command(
+                                intent: .custom(verb: "neverending-plugin", description: "A plugin that doesn't end running")
+                            )
+                        ),
                     ]
                 )
-                """
-            }
-            try localFileSystem.writeFileContents(packageDir.appending(components: "Sources", "MyLibrary", "library.swift")) {
-                $0 <<< """
-                    public func Foo() { }
-                """
-            }
-            try localFileSystem.writeFileContents(packageDir.appending(components: "Plugins", "PluginPrintingInfo", "plugin.swift")) {
-                $0 <<< """
-                    import PackagePlugin
-                    
-                    @main
-                    struct MyCommandPlugin: CommandPlugin {
-                        func performCommand(
-                            context: PluginContext,
-                            targets: [Target],
-                            arguments: [String]
-                        ) throws {
-                            // Check the identity of the root packages.
-                            print("Root package is \\(context.package.displayName).")
-                    
-                            // Check that we can find a tool in the toolchain.
-                            let swiftc = try context.tool(named: "swiftc")
-                            print("Found the swiftc tool at \\(swiftc.path).")
-                        }
+                """)
+            let librarySourceFile = packageDir.appending(components: "Sources", "MyLibrary", "library.swift")
+            try localFileSystem.createDirectory(librarySourceFile.parentDirectory, recursive: true)
+            try localFileSystem.writeFileContents(librarySourceFile, string: """
+                public func Foo() { }
+                """)
+            let printingPluginSourceFile = packageDir.appending(components: "Plugins", "PluginPrintingInfo", "plugin.swift")
+            try localFileSystem.createDirectory(printingPluginSourceFile.parentDirectory, recursive: true)
+            try localFileSystem.writeFileContents(printingPluginSourceFile, string: """
+                import PackagePlugin
+                @main struct MyCommandPlugin: CommandPlugin {
+                    func performCommand(
+                        context: PluginContext,
+                        arguments: [String]
+                    ) throws {
+                        // Check the identity of the root packages.
+                        print("Root package is \\(context.package.displayName).")
+
+                        // Check that we can find a tool in the toolchain.
+                        let swiftc = try context.tool(named: "swiftc")
+                        print("Found the swiftc tool at \\(swiftc.path).")
                     }
-                """
-            }
-            try localFileSystem.writeFileContents(packageDir.appending(components: "Plugins", "PluginFailingWithError", "plugin.swift")) {
-                $0 <<< """
-                    import PackagePlugin
+                }
+                """)
+            let pluginFailingWithErrorSourceFile = packageDir.appending(components: "Plugins", "PluginFailingWithError", "plugin.swift")
+            try localFileSystem.createDirectory(pluginFailingWithErrorSourceFile.parentDirectory, recursive: true)
+            try localFileSystem.writeFileContents(pluginFailingWithErrorSourceFile, string: """
+                import PackagePlugin
+                @main struct MyCommandPlugin: CommandPlugin {
+                    func performCommand(
+                        context: PluginContext,
+                        arguments: [String]
+                    ) throws {
+                        // Print some output that should appear before the error diagnostic.
+                        print("This text should appear before the uncaught thrown error.")
 
-                    @main
-                    struct MyCommandPlugin: CommandPlugin {
-                        func performCommand(
-                            context: PluginContext,
-                            targets: [Target],
-                            arguments: [String]
-                        ) throws {
-                            // Print some output that should appear before the error diagnostic.
-                            print("This text should appear before the uncaught thrown error.")
-
-                            // Throw an uncaught error that should be reported as a diagnostics.
-                            throw "This is the uncaught thrown error."
-                        }
+                        // Throw an uncaught error that should be reported as a diagnostics.
+                        throw "This is the uncaught thrown error."
                     }
-                    extension String: Error { }
-                """
-            }
-            try localFileSystem.writeFileContents(packageDir.appending(components: "Plugins", "PluginFailingWithoutError", "plugin.swift")) {
-                $0 <<< """
-                    import PackagePlugin
-                    import Foundation
+                }
+                extension String: Error { }
+                """)
+            let pluginFailingWithoutErrorSourceFile = packageDir.appending(components: "Plugins", "PluginFailingWithoutError", "plugin.swift")
+            try localFileSystem.createDirectory(pluginFailingWithoutErrorSourceFile.parentDirectory, recursive: true)
+            try localFileSystem.writeFileContents(pluginFailingWithoutErrorSourceFile, string: """
+                import PackagePlugin
+                import Foundation
+                @main struct MyCommandPlugin: CommandPlugin {
+                    func performCommand(
+                        context: PluginContext,
+                        arguments: [String]
+                    ) throws {
+                        // Print some output that should appear before we exit.
+                        print("This text should appear before we exit.")
 
-                    @main
-                    struct MyCommandPlugin: CommandPlugin {
-                        func performCommand(
-                            context: PluginContext,
-                            targets: [Target],
-                            arguments: [String]
-                        ) throws {
-                            // Print some output that should appear before we exit.
-                            print("This text should appear before we exit.")
-
-                            // Just exit with an error code without an emitting error.
-                            exit(1)
-                        }
+                        // Just exit with an error code without an emitting error.
+                        exit(1)
                     }
-                    extension String: Error { }
-                """
-            }
+                }
+                extension String: Error { }
+                """)
+            let neverendingPluginSourceFile = packageDir.appending(components: "Plugins", "NeverendingPlugin", "plugin.swift")
+            try localFileSystem.createDirectory(neverendingPluginSourceFile.parentDirectory, recursive: true)
+            try localFileSystem.writeFileContents(neverendingPluginSourceFile, string: """
+                import PackagePlugin
+                import Foundation
+                @main struct MyCommandPlugin: CommandPlugin {
+                    func performCommand(
+                        context: PluginContext,
+                        arguments: [String]
+                    ) throws {
+                        // Print some output that should appear before we exit.
+                        print("This text should appear before we exit.")
+
+                        // Just exit with an error code without an emitting error.
+                        exit(1)
+                    }
+                }
+                extension String: Error { }
+                """)
 
             // Create the sample vendored dependency package.
             try localFileSystem.writeFileContents(packageDir.appending(components: "VendoredDependencies", "HelperPackage", "Package.swift")) {
@@ -331,7 +334,7 @@ class PluginTests: XCTestCase {
             let observability = ObservabilitySystem.makeForTesting()
             let workspace = try Workspace(
                 fileSystem: localFileSystem,
-                location: .init(forRootPackage: packageDir, fileSystem: localFileSystem),
+                forRootPackage: packageDir,
                 customManifestLoader: ManifestLoader(toolchain: ToolchainConfiguration.default),
                 delegate: MockWorkspaceDelegate()
             )
@@ -421,7 +424,7 @@ class PluginTests: XCTestCase {
                 let delegate = PluginDelegate(delegateQueue: delegateQueue)
                 do {
                     let success = try tsc_await { plugin.invoke(
-                        action: .performCommand(targets: targets, arguments: arguments),
+                        action: .performCommand(arguments: arguments),
                         package: package,
                         buildEnvironment: BuildEnvironment(platform: .macOS, configuration: .debug),
                         scriptRunner: scriptRunner,
@@ -466,6 +469,193 @@ class PluginTests: XCTestCase {
                 output.check(diagnostic: .equal("This text should appear before we exit."), severity: .info)
                 output.check(diagnostic: .equal("Plugin ended with exit code 1"), severity: .error)
             }
+        }
+    }
+
+    func testCommandPluginCancellation() throws {
+        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
+        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
+        
+        try testWithTemporaryDirectory { tmpPath in
+            // Create a sample package with a couple of plugins a other targets and products.
+            let packageDir = tmpPath.appending(components: "MyPackage")
+            try localFileSystem.createDirectory(packageDir, recursive: true)
+            try localFileSystem.writeFileContents(packageDir.appending(components: "Package.swift"), string: """
+                // swift-tools-version: 5.6
+                import PackageDescription
+                let package = Package(
+                    name: "MyPackage",
+                    products: [
+                        .library(
+                            name: "MyLibrary",
+                            targets: ["MyLibrary"]
+                        ),
+                    ],
+                    targets: [
+                        .target(
+                            name: "MyLibrary"
+                        ),
+                        .plugin(
+                            name: "NeverendingPlugin",
+                            capability: .command(
+                                intent: .custom(verb: "neverending-plugin", description: "Help description")
+                            )
+                        ),
+                    ]
+                )
+                """
+            )
+            let myLibraryTargetDir = packageDir.appending(components: "Sources", "MyLibrary")
+            try localFileSystem.createDirectory(myLibraryTargetDir, recursive: true)
+            try localFileSystem.writeFileContents(myLibraryTargetDir.appending(component: "library.swift"), string: """
+                public func GetGreeting() -> String { return "Hello" }
+                """
+            )
+            let neverendingPluginTargetDir = packageDir.appending(components: "Plugins", "NeverendingPlugin")
+            try localFileSystem.createDirectory(neverendingPluginTargetDir, recursive: true)
+            try localFileSystem.writeFileContents(neverendingPluginTargetDir.appending(component: "plugin.swift"), string: """
+                import PackagePlugin
+                import Foundation
+                @main struct NeverendingPlugin: CommandPlugin {
+                    func performCommand(
+                        context: PluginContext,
+                        arguments: [String]
+                    ) throws {
+                        print("pid: \\(ProcessInfo.processInfo.processIdentifier)")
+                        while true {
+                            Thread.sleep(forTimeInterval: 1.0)
+                            print("still here")
+                        }
+                    }
+                }
+                """
+            )
+
+            // Load a workspace from the package.
+            let observability = ObservabilitySystem.makeForTesting()
+            let workspace = try Workspace(
+                fileSystem: localFileSystem,
+                forRootPackage: packageDir,
+                customManifestLoader: ManifestLoader(toolchain: ToolchainConfiguration.default),
+                delegate: MockWorkspaceDelegate()
+            )
+            
+            // Load the root manifest.
+            let rootInput = PackageGraphRootInput(packages: [packageDir], dependencies: [])
+            let rootManifests = try tsc_await {
+                workspace.loadRootManifests(
+                    packages: rootInput.packages,
+                    observabilityScope: observability.topScope,
+                    completion: $0
+                )
+            }
+            XCTAssert(rootManifests.count == 1, "\(rootManifests)")
+
+            // Load the package graph.
+            let packageGraph = try workspace.loadPackageGraph(rootInput: rootInput, observabilityScope: observability.topScope)
+            XCTAssertNoDiagnostics(observability.diagnostics)
+            XCTAssert(packageGraph.packages.count == 1, "\(packageGraph.packages)")
+            XCTAssert(packageGraph.rootPackages.count == 1, "\(packageGraph.rootPackages)")
+            let package = try XCTUnwrap(packageGraph.rootPackages.first)
+            
+            // Find the regular target in our test package.
+            let libraryTarget = try XCTUnwrap(package.targets.map(\.underlyingTarget).first{ $0.name == "MyLibrary" } as? SwiftTarget)
+            XCTAssertEqual(libraryTarget.type, .library)
+            
+            // Set up a delegate to handle callbacks from the command plugin.  In particular we want to know the process identifier.
+            let delegateQueue = DispatchQueue(label: "plugin-invocation")
+            class PluginDelegate: PluginInvocationDelegate {
+                let delegateQueue: DispatchQueue
+                var diagnostics: [Basics.Diagnostic] = []
+                var parsedProcessIdentifier: Int? = .none
+
+                init(delegateQueue: DispatchQueue) {
+                    self.delegateQueue = delegateQueue
+                }
+                
+                func pluginEmittedOutput(_ data: Data) {
+                    // Add each line of emitted output as a `.info` diagnostic.
+                    dispatchPrecondition(condition: .onQueue(delegateQueue))
+                    let textlines = String(decoding: data, as: UTF8.self).split(separator: "\n")
+                    diagnostics.append(contentsOf: textlines.map{
+                        Basics.Diagnostic(severity: .info, message: String($0), metadata: .none)
+                    })
+                    
+                    // If we don't already have the process identifier, we try to find it.
+                    if parsedProcessIdentifier == .none {
+                        func parseProcessIdentifier(_ string: String) -> Int? {
+                            guard let match = try? NSRegularExpression(pattern: "pid: (\\d+)", options: []).firstMatch(in: string, options: [], range: NSRange(location: 0, length: string.count)) else { return .none }
+                            // We have a match, so extract the process identifier.
+                            assert(match.numberOfRanges == 2)
+                            return Int((string as NSString).substring(with: match.range(at: 1)))
+                        }
+                        parsedProcessIdentifier = textlines.compactMap{ parseProcessIdentifier(String($0)) }.first
+                    }
+                }
+                
+                func pluginEmittedDiagnostic(_ diagnostic: Basics.Diagnostic) {
+                    // Add the diagnostic as-is.
+                    dispatchPrecondition(condition: .onQueue(delegateQueue))
+                    diagnostics.append(diagnostic)
+                }
+            }
+
+            // Find the relevant plugin.
+            let plugins = package.targets.compactMap{ $0.underlyingTarget as? PluginTarget }
+            guard let plugin = plugins.first(where: { $0.name == "NeverendingPlugin" }) else {
+                return XCTFail("There is no plugin target named ‘NeverendingPlugin’")
+            }
+            XCTAssertTrue(plugin.type == .plugin, "Target \(plugin) isn’t a plugin")
+
+            // Run the plugin.
+            let pluginDir = tmpPath.appending(components: package.identity.description, plugin.name)
+            let scriptRunner = DefaultPluginScriptRunner(cacheDir: pluginDir.appending(component: "cache"), toolchain: ToolchainConfiguration.default)
+            let delegate = PluginDelegate(delegateQueue: delegateQueue)
+            let sync = DispatchSemaphore(value: 0)
+            plugin.invoke(
+                action: .performCommand(arguments: []),
+                package: package,
+                buildEnvironment: BuildEnvironment(platform: .macOS, configuration: .debug),
+                scriptRunner: scriptRunner,
+                workingDirectory: package.path,
+                outputDirectory: pluginDir.appending(component: "output"),
+                toolSearchDirectories: [UserToolchain.default.swiftCompilerPath.parentDirectory],
+                toolNamesToPaths: [:],
+                writableDirectories: [pluginDir.appending(component: "output")],
+                readOnlyDirectories: [package.path],
+                fileSystem: localFileSystem,
+                observabilityScope: observability.topScope,
+                callbackQueue: delegateQueue,
+                delegate: delegate,
+                completion: { _ in
+                    sync.signal()
+                }
+            )
+            
+            // Wait for three seconds.
+            let result = sync.wait(timeout: .now() + 3)
+            XCTAssertEqual(result, .timedOut, "expected the plugin to time out")
+            
+            // At this point we should have parsed out the process identifier.
+            let pid = try XCTUnwrap(delegate.parsedProcessIdentifier, "expected to get a pid from the plugin")
+            
+            // Check that it's running (we do this by asking for its priority — this only works on some platforms).
+            #if os(macOS)
+            errno = 0
+            getpriority(Int32(PRIO_PROCESS), UInt32(pid))
+            XCTAssertEqual(errno, 0, "unexpectedly got errno \(errno) when trying to check process \(pid)")
+            #endif
+            
+            // Ask the plugin running to cancel all plugins.
+            DefaultPluginScriptRunner.cancelAllRunningPlugins()
+            
+            // Check that it's no longer running (we do this by asking for its priority — this only works on some platforms).
+            #if os(macOS)
+            usleep(500)
+            errno = 0
+            getpriority(Int32(PRIO_PROCESS), UInt32(pid))
+            XCTAssertEqual(errno, ESRCH, "unexpectedly got errno \(errno) when trying to check process \(pid)")
+            #endif
         }
     }
 

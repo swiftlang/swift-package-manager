@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2021 Apple Inc. and the Swift project authors
+ Copyright (c) 2021-2022 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -9,10 +9,12 @@
  */
 
 /// A simple representation of a path in the file system.
-public struct Path {
+public struct Path: Hashable {
     private let _string: String
 
-    init(_ string: String) {
+    /// Initializes the path from the contents a string, which should be an
+    /// absolute path in platform representation.
+    public init(_ string: String) {
         self._string = string
     }
 
@@ -88,7 +90,8 @@ public struct Path {
         return Path(String(_string.prefix(upTo: idx)))
     }
     
-    /// The result of appending a subpath.
+    /// The result of appending a subpath, which should be a relative path in
+    /// platform representation.
     public func appending(subpath: String) -> Path {
         return Path(_string + (_string.hasSuffix("/") ? "" : "/") + subpath)
     }
@@ -101,21 +104,6 @@ public struct Path {
     /// The result of appending one or more path components.
     public func appending(_ components: String...) -> Path {
         return self.appending(components)
-    }
-}
-
-extension Path: ExpressibleByStringLiteral {
-
-    public init(stringLiteral value: String) {
-        self.init(value)
-    }
-
-    public init(extendedGraphemeClusterLiteral value: String) {
-        self.init(stringLiteral: value)
-    }
-
-    public init(unicodeScalarLiteral value: String) {
-        self.init(stringLiteral: value)
     }
 }
 

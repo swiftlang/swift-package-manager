@@ -16,7 +16,6 @@ import PackageModel
 import PackageRegistry
 import SPMTestSupport
 import TSCBasic
-import TSCUtility
 @testable import Workspace
 import XCTest
 
@@ -82,7 +81,7 @@ class RegistryPackageContainerTests: XCTestCase {
                 }
             )
 
-            return try Workspace(
+            return try Workspace._init(
                 fileSystem: fs,
                 location: .init(forRootPackage: packagePath, fileSystem: fs),
                 customToolsVersion: toolsVersion,
@@ -147,7 +146,7 @@ class RegistryPackageContainerTests: XCTestCase {
                 }
             )
 
-            return try Workspace(
+            return try Workspace._init(
                 fileSystem: fs,
                 location: .init(forRootPackage: packagePath, fileSystem: fs),
                 customToolsVersion: toolsVersion,
@@ -233,7 +232,7 @@ class RegistryPackageContainerTests: XCTestCase {
                 }
             )
 
-            return try Workspace(
+            return try Workspace._init(
                 fileSystem: fs,
                 location: .init(forRootPackage: packagePath, fileSystem: fs),
                 customToolsVersion: toolsVersion,
@@ -317,8 +316,6 @@ class RegistryPackageContainerTests: XCTestCase {
         archiver: Archiver? = .none
     ) throws -> RegistryClient {
         let jsonEncoder = JSONEncoder.makeWithDefaults()
-
-        let identityResolver = DefaultIdentityResolver()
         let fingerprintStorage = MockPackageFingerprintStorage()
 
         guard let (packageScope, packageName) = packageIdentity.scopeAndName else {
@@ -416,7 +413,6 @@ class RegistryPackageContainerTests: XCTestCase {
 
         return RegistryClient(
             configuration: configuration!,
-            identityResolver: identityResolver,
             fingerprintStorage: fingerprintStorage,
             fingerprintCheckingMode: .strict,
             authorizationProvider: .none,

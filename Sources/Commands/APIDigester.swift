@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2014 - 2021 Apple Inc. and the Swift project authors
+ Copyright (c) 2014 - 2022 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -59,7 +59,8 @@ struct APIDigesterBaselineDumper {
         at baselineDir: AbsolutePath?,
         force: Bool,
         outputStream: OutputByteStream,
-        logLevel: Diagnostic.Severity
+        logLevel: Diagnostic.Severity,
+        swiftTool: SwiftTool
     ) throws -> AbsolutePath {
         var modulesToDiff = modulesToDiff
         let apiDiffDir = inputBuildParameters.apiDiff
@@ -99,13 +100,11 @@ struct APIDigesterBaselineDumper {
         try workingCopy.checkout(revision: baselineRevision)
 
         // Create the workspace for this package.
-        let workspace = try Workspace(
-            forRootPackage: baselinePackageRoot
-        )
+        let workspace = try Workspace(forRootPackage: baselinePackageRoot)
 
         let graph = try workspace.loadPackageGraph(
             rootPath: baselinePackageRoot,
-            observabilityScope: observabilityScope
+            observabilityScope: self.observabilityScope
         )
 
         // Don't emit a baseline for a module that didn't exist yet in this revision.
@@ -126,7 +125,8 @@ struct APIDigesterBaselineDumper {
             buildParameters: buildParameters,
             cacheBuildManifest: false,
             packageGraphLoader: { graph },
-            buildToolPluginInvoker: { _ in [:] },
+            pluginScriptRunner: try swiftTool.getPluginScriptRunner(),
+            pluginWorkDirectory: try swiftTool.getActiveWorkspace().location.pluginWorkingDirectory,
             outputStream: outputStream,
             logLevel: logLevel,
             fileSystem: localFileSystem,

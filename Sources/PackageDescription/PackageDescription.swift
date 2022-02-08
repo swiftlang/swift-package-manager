@@ -49,14 +49,14 @@ import Foundation
 ///         ]
 ///     )
 ///
-/// The package manifest must begin with the string `// swift-tools-version:``,
-/// followed by a version number such as `// swift-tools-version:5.3.
+/// The package manifest must begin with the string `// swift-tools-version:`,
+/// followed by a version number such as `// swift-tools-version:5.3`.
 ///
 /// The Swift tools version declares:
 ///
-///     - The version of the PackageDescription framework
-///     - The Swift language compatibility version to process the manifest
-///     - The required minimum version of the Swift tools to use the package
+///   - The version of the PackageDescription framework
+///   - The Swift language compatibility version to process the manifest
+///   - The required minimum version of the Swift tools to use the package
 ///
 /// Each version of Swift can introduce updates to the PackageDescription
 /// library, but the previous API version is available to packages that declare

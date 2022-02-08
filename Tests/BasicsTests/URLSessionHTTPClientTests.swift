@@ -732,6 +732,14 @@ class FailingFileSystem: FileSystem {
         fatalError("unexpected call")
     }
 
+    func isReadable(_ path: AbsolutePath) -> Bool {
+        fatalError("unexpected call")
+    }
+
+    func isWritable(_ path: AbsolutePath) -> Bool {
+        fatalError("unexpected call")
+    }
+
     func getDirectoryContents(_: AbsolutePath) throws -> [String] {
         fatalError("unexpected call")
     }

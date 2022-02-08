@@ -7,6 +7,8 @@
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
 add_library(Basics
+  Archiver.swift
+  Archiver+Zip.swift
   AuthorizationProvider.swift
   ByteString+Extensions.swift
   ConcurrencyHelpers.swift
@@ -19,13 +21,16 @@ add_library(Basics
   HTTPClient.swift
   JSON+Extensions.swift
   JSONDecoder+Extensions.swift
+  Netrc.swift
   Observability.swift
   Sandbox.swift
+  String+Extensions.swift
   Triple+Extensions.swift
   SwiftVersion.swift
   SQLiteBackedCache.swift
   Version+Extensions.swift)
 target_link_libraries(Basics PUBLIC
+  SwiftCollections::OrderedCollections
   SwiftSystem::SystemPackage
   TSCBasic
   TSCUtility)
