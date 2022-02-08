@@ -225,6 +225,20 @@ extension DiagnosticsEmitterProtocol {
         self.emit(verbose: message.description, metadata: metadata)
     }
 
+    #warning("FIXME: should this throw in case of invalid UTF8?")
+    public func emit(verbose bytes: [UInt8], metadata: ObservabilityMetadata? = .none) {
+        if let output = String(bytes: bytes, encoding: .utf8) {
+            self.emit(verbose: output, metadata: metadata)
+        }
+    }
+
+    #warning("FIXME: should this throw in case of invalid UTF8?")
+    public func emit(verbose data: Data, metadata: ObservabilityMetadata? = .none) {
+        if let output = String(data: data, encoding: .utf8) {
+            self.emit(verbose: output, metadata: metadata)
+        }
+    }
+
     public func emit(debug message: String, metadata: ObservabilityMetadata? = .none) {
         self.emit(severity: .debug, message: message, metadata: metadata)
     }

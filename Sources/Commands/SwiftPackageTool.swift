@@ -581,8 +581,9 @@ extension SwiftPackageTool {
                 try symbolGraphExtractor.extractSymbolGraph(
                     target: target,
                     buildPlan: buildPlan,
-                    logLevel: swiftTool.logLevel,
-                    outputDirectory: symbolGraphDirectory)
+                    outputDirectory: symbolGraphDirectory,
+                    verboseOutput: swiftTool.logLevel <= .verbose
+                )
             }
 
             swiftTool.outputToUser("Files written to \(symbolGraphDirectory.pathString)")
@@ -1407,8 +1408,9 @@ final class PluginDelegate: PluginInvocationDelegate {
             target: target,
             buildPlan: buildPlan,
             outputRedirection: .collect,
-            logLevel: .warning,
-            outputDirectory: outputDir)
+            outputDirectory: outputDir,
+            verboseOutput: self.swiftTool.logLevel <= .verbose
+        )
 
         // Return the results to the plugin.
         return PluginInvocationSymbolGraphResult(directoryPath: outputDir.pathString)

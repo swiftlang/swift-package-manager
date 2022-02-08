@@ -511,7 +511,7 @@ public class SwiftTool {
 
         // set verbosity globals.
         // TODO: get rid of this global settings in TSC
-        switch self.logLevel {
+        /*switch self.logLevel {
         case .debug:
             TSCUtility.verbosity = .debug
         case .verbose:
@@ -520,6 +520,8 @@ public class SwiftTool {
             TSCUtility.verbosity = .concise
         }
         Process.verbose = TSCUtility.verbosity == .debug // will print process invocation arguments which is noisy
+        */
+        Process.loggingHandler = { self.observabilityScope.emit(debug: $0) }
     }
 
     static func postprocessArgParserResult(options: SwiftToolOptions, observabilityScope: ObservabilityScope) throws {
@@ -869,9 +871,6 @@ public class SwiftTool {
             let toolchain = try self.getToolchain()
             let triple = toolchain.triple
 
-            /// Checks if stdout stream is tty.
-            let isTTY = self.observabilityHandler.isTTY
-
             // Use "apple" as the subdirectory because in theory Xcode build system
             // can be used to build for any Apple platform and it has it's own
             // conventions for build subpaths based on platforms.
@@ -900,7 +899,8 @@ public class SwiftTool {
                 isXcodeBuildSystemEnabled: options.buildSystem == .xcode,
                 printManifestGraphviz: options.printManifestGraphviz,
                 forceTestDiscovery: options.enableTestDiscovery, // backwards compatibility, remove with --enable-test-discovery
-                isTTY: isTTY
+                colorizeOutput: self.observabilityHandler.isTTY,
+                verboseOutput: self.logLevel <= .verbose
             )
         })
     }()
@@ -1115,6 +1115,7 @@ private struct SwiftToolObservabilityHandler: ObservabilityHandlerProvider, Scop
         }
     }
 
+    /// Checks if output stream is tty.
     var isTTY: Bool {
         let stream: OutputByteStream
         if let threadSafeStream = self.stdoutWriter.stream as? ThreadSafeOutputByteStream {

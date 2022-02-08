@@ -53,7 +53,9 @@ extension BuildParameters {
     public var swiftCompilerFlags: [String] {
         var flags = self.flags.cCompilerFlags.flatMap({ ["-Xcc", $0] })
         flags += self.flags.swiftCompilerFlags
-        flags += verbosity.ccArgs
+        if self.verboseOutput {
+            flags.append("-v")
+        }
         return flags
     }
 
@@ -809,7 +811,7 @@ public final class SwiftTargetBuildDescription {
         }
 
         // Add arguments to colorize output if stdout is tty
-        if buildParameters.isTTY {
+        if buildParameters.colorizeOutput {
             args += ["-color-diagnostics"]
         }
 

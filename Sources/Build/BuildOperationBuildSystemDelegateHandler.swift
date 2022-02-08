@@ -564,7 +564,8 @@ final class BuildOperationBuildSystemDelegateHandler: LLBuildBuildSystemDelegate
                 self.outputStream <<< data
                 self.outputStream.flush()
             }*/
-            self.observabilityScope.emit(output: data)
+            #warning("FIXME: level correct?")
+            self.observabilityScope.emit(verbose: data)
         }
     }
 
@@ -607,7 +608,8 @@ final class BuildOperationBuildSystemDelegateHandler: LLBuildBuildSystemDelegate
     func preparationStepStarted(_ name: String) {
         //self.outputStream <<< name <<< "\n"
         //self.outputStream.flush()
-        self.observabilityScope.emit(output: name)
+        #warning("FIXME: level correct?")
+        self.observabilityScope.emit(verbose: name)
     }
 
     /// Invoked when an action taken before building emits output.
@@ -617,7 +619,8 @@ final class BuildOperationBuildSystemDelegateHandler: LLBuildBuildSystemDelegate
             self.outputStream <<< output.spm_chomp() <<< "\n"
             self.outputStream.flush()
         }*/
-        self.observabilityScope.emit(output: output.spm_chomp())
+        #warning("FIXME: level correct?")
+        self.observabilityScope.emit(verbose: output.spm_chomp())
     }
 
     /// Invoked right after running an action taken before building. The result

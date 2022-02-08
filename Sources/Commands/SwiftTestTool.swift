@@ -617,7 +617,7 @@ final class TestRunner {
                     }
                 }
             )
-            let process = Process(arguments: try args(forTestAt: path), environment: self.testEnv, outputRedirection: outputRedirection, verbose: false)
+            let process = Process(arguments: try args(forTestAt: path), environment: self.testEnv, outputRedirection: outputRedirection)
             try self.processSet.add(process)
             try process.launch()
             let result = try process.waitUntilExit()

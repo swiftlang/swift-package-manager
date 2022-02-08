@@ -233,8 +233,8 @@ public struct SwiftAPIDigester {
         let arguments = [tool.pathString] + args
         let process = Process(
             arguments: arguments,
-            outputRedirection: .collect,
-            verbose: verbosity != .concise
+            outputRedirection: .collect//,
+            //verbose: verbosity != .concise
         )
         try process.launch()
         try process.waitUntilExit()
