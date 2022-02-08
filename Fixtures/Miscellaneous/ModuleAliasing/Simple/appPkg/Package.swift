@@ -2,7 +2,7 @@
 import PackageDescription
 
 let package = Package(
-    name: "appPkg",
+    name: "AppPkg",
     platforms: [
         .macOS(.v10_12),
         .iOS(.v10),
@@ -10,7 +10,7 @@ let package = Package(
         .watchOS(.v5)
     ],
     dependencies: [
-        .package(url: "../gamePkg", from: "1.0.0"),
+        .package(url: "../GamePkg", from: "1.0.0"),
     ],
     targets: [
         .executableTarget(
@@ -18,7 +18,7 @@ let package = Package(
             dependencies: [
                 "Utils",
                 .product(name: "Utils",
-                         package: "gamePkg",
+                         package: "GamePkg",
                          moduleAliases: ["Utils": "GameUtils"])
             ],
             path: "./Sources/App"),

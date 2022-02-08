@@ -20,11 +20,14 @@ class ModuleAliasingTests: XCTestCase {
 
     func testExternalSimple() {
         fixture(name: "Miscellaneous/ModuleAliasing/Simple") { prefix in
-            let app = prefix.appending(components: "appPkg")
+            let app = prefix.appending(components: "AppPkg")
             XCTAssertBuilds(app)
-            XCTAssertFileExists(prefix.appending(components: "appPkg", ".build", UserToolchain.default.triple.platformBuildPathComponent(), "debug", "App"))
-            XCTAssertFileExists(prefix.appending(components: "appPkg", ".build", UserToolchain.default.triple.platformBuildPathComponent(), "debug", "GameUtils.swiftmodule"))
-            XCTAssertFileExists(prefix.appending(components: "appPkg", ".build", UserToolchain.default.triple.platformBuildPathComponent(), "debug", "Utils.swiftmodule"))
+            XCTAssertFileExists(prefix.appending(components: "AppPkg", ".build", UserToolchain.default.triple.platformBuildPathComponent(), "debug", "App"))
+            XCTAssertFileExists(prefix.appending(components: "AppPkg", ".build", UserToolchain.default.triple.platformBuildPathComponent(), "release", "App"))
+            XCTAssertFileExists(prefix.appending(components: "AppPkg", ".build", UserToolchain.default.triple.platformBuildPathComponent(), "debug", "GameUtils.swiftmodule"))
+            XCTAssertFileExists(prefix.appending(components: "AppPkg", ".build", UserToolchain.default.triple.platformBuildPathComponent(), "release", "GameUtils.swiftmodule"))
+            XCTAssertFileExists(prefix.appending(components: "AppPkg", ".build", UserToolchain.default.triple.platformBuildPathComponent(), "debug", "Utils.swiftmodule"))
+            XCTAssertFileExists(prefix.appending(components: "AppPkg", ".build", UserToolchain.default.triple.platformBuildPathComponent(), "release", "Utils.swiftmodule"))
             let result = try SwiftPMProduct.SwiftBuild.executeProcess([], packagePath: app)
             XCTAssertEqual(result.exitStatus, .terminated(code: 0))
         }
