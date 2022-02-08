@@ -19,7 +19,7 @@ import XCTest
 class ModuleAliasingTests: XCTestCase {
 
     func testExternalSimple() {
-        fixture(name: "Miscellaneous/ModuleAliasing/Simple") { prefix in
+        fixture(name: "Miscellaneous/ModuleAliasing/DirectDeps") { prefix in
             let app = prefix.appending(components: "AppPkg")
             XCTAssertBuilds(app)
             XCTAssertFileExists(prefix.appending(components: "AppPkg", ".build", UserToolchain.default.triple.platformBuildPathComponent(), "debug", "App"))
