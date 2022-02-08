@@ -15,7 +15,7 @@ import SPMTestSupport
 import TSCBasic
 import Workspace
 import XCTest
-
+ 
 class DependencyResolutionTests: XCTestCase {
     func testInternalSimple() {
         fixture(name: "DependencyResolution/Internal/Simple") { prefix in
