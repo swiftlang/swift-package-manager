@@ -5753,6 +5753,13 @@ final class WorkspaceTests: XCTestCase {
                          path: workspace.artifactsDir.appending(components: "b", "B.xcframework")
             )
         }
+
+        XCTAssertMatch(workspace.delegate.events, ["downloading binary artifact package: https://a.com/a1.zip"])
+        XCTAssertMatch(workspace.delegate.events, ["downloading binary artifact package: https://a.com/a2.zip"])
+        XCTAssertMatch(workspace.delegate.events, ["downloading binary artifact package: https://b.com/b.zip"])
+        XCTAssertMatch(workspace.delegate.events, ["finished downloading binary artifact package: https://a.com/a1.zip"])
+        XCTAssertMatch(workspace.delegate.events, ["finished downloading binary artifact package: https://a.com/a2.zip"])
+        XCTAssertMatch(workspace.delegate.events, ["finished downloading binary artifact package: https://b.com/b.zip"])
     }
 
     func testArtifactDownloadWithPreviousState() throws {
@@ -7261,6 +7268,13 @@ final class WorkspaceTests: XCTestCase {
                          path: workspace.artifactsDir.appending(components: "b", "B.artifactbundle")
             )
         }
+
+        XCTAssertMatch(workspace.delegate.events, ["downloading binary artifact package: https://a.com/a1.zip"])
+        XCTAssertMatch(workspace.delegate.events, ["downloading binary artifact package: https://a.com/a2/a2.zip"])
+        XCTAssertMatch(workspace.delegate.events, ["downloading binary artifact package: https://b.com/b.zip"])
+        XCTAssertMatch(workspace.delegate.events, ["finished downloading binary artifact package: https://a.com/a1.zip"])
+        XCTAssertMatch(workspace.delegate.events, ["finished downloading binary artifact package: https://a.com/a2/a2.zip"])
+        XCTAssertMatch(workspace.delegate.events, ["finished downloading binary artifact package: https://b.com/b.zip"])
     }
 
     func testDownloadArchiveIndexServerError() throws {

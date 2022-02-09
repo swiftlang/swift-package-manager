@@ -100,11 +100,14 @@ public protocol WorkspaceDelegate: AnyObject {
     /// This is only fired when activated using Workspace's watchResolvedFile() method.
     func resolvedFileChanged()
 
+    /// The workspace has started downloading a binary artifact.
+    func willDownloadBinaryArtifact(from url: String)
+    /// The workspace has finished downloading a binary artifact.
+    func didDownloadBinaryArtifact(from url: String, result: Result<AbsolutePath, Error>, duration: DispatchTimeInterval)
     /// The workspace is downloading a binary artifact.
     func downloadingBinaryArtifact(from url: String, bytesDownloaded: Int64, totalBytesToDownload: Int64?)
-
     /// The workspace finished downloading all binary artifacts.
-    func didDownloadBinaryArtifacts()
+    func didDownloadAllBinaryArtifacts()
 }
 
 private class WorkspaceRepositoryManagerDelegate: RepositoryManager.Delegate {
@@ -150,8 +153,8 @@ private struct WorkspaceRegistryDownloadsManagerDelegate: RegistryDownloadsManag
         self.workspaceDelegate.didFetchPackage(package: package, packageLocation: .none, result: result.map{ PackageFetchDetails(fromCache: $0.fromCache, updatedCache: $0.updatedCache) }, duration: duration)
     }
 
-    func fetching(package: PackageIdentity, version: Version, downloaded: Int64, total: Int64?) {
-        self.workspaceDelegate.fetchingPackage(package: package, packageLocation: .none, progress: downloaded, total: total)
+    func fetching(package: PackageIdentity, version: Version, bytesDownloaded: Int64, totalBytesToDownload: Int64?) {
+        self.workspaceDelegate.fetchingPackage(package: package, packageLocation: .none, progress: bytesDownloaded, total: totalBytesToDownload)
     }
 }
 
@@ -2518,6 +2521,9 @@ extension Workspace {
             request.options.authorizationProvider = self.authorizationProvider?.httpAuthorizationHeader(for:)
             request.options.retryStrategy = .exponentialBackoff(maxAttempts: 3, baseDelay: .milliseconds(50))
             request.options.validResponseCodes = [200]
+
+            let downloadStart: DispatchTime = .now()
+            self.delegate?.willDownloadBinaryArtifact(from: artifact.url.absoluteString)
             observabilityScope.emit(debug: "downloading \(artifact.url) to \(archivePath)")
             self.httpClient.execute(
                 request,
@@ -2601,15 +2607,18 @@ extension Workspace {
                                         path: mainArtifactPath
                                     )
                                 )
+                                self.delegate?.didDownloadBinaryArtifact(from: artifact.url.absoluteString, result: .success(mainArtifactPath), duration: downloadStart.distance(to: .now()))
                             case .failure(let error):
                                 let reason = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
                                 observabilityScope.emit(.artifactFailedExtraction(artifactURL: artifact.url, targetName: artifact.targetName, reason: reason))
+                                self.delegate?.didDownloadBinaryArtifact(from: artifact.url.absoluteString, result: .failure(error), duration: downloadStart.distance(to: .now()))
                             }
 
                             observabilityScope.trap { try self.fileSystem.removeFileTree(archivePath) }
                         })
                     case .failure(let error):
                         observabilityScope.emit(.artifactFailedDownload(artifactURL: artifact.url, targetName: artifact.targetName, reason: "\(error)"))
+                        self.delegate?.didDownloadBinaryArtifact(from: artifact.url.absoluteString, result: .failure(error), duration: downloadStart.distance(to: .now()))
                     }
                 })
         }
@@ -2617,7 +2626,7 @@ extension Workspace {
         group.wait()
 
         if zipArtifacts.count > 0 {
-            delegate?.didDownloadBinaryArtifacts()
+            delegate?.didDownloadAllBinaryArtifacts()
         }
 
         return result.get()

@@ -13,13 +13,13 @@ import Basics
 import Build
 import Dispatch
 import class Foundation.ProcessInfo
+import OrderedCollections
 import PackageGraph
 import PackageLoading
 import PackageModel
 import SourceControl
 import SPMBuildCore
 import TSCBasic
-
 import Workspace
 import XCBuildSupport
 
@@ -41,7 +41,7 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
     private let outputStream: ThreadSafeOutputByteStream
 
     /// The progress animation for downloads.
-    private let downloadAnimation: NinjaProgressAnimation
+    private let binaryDownloadAnimation: NinjaProgressAnimation
 
     /// The progress animation for repository fetches.
     private let fetchAnimation: NinjaProgressAnimation
@@ -59,11 +59,11 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
         let total: Int64
     }
 
-    /// The progress of each individual downloads.
-    private var binaryDownloadProgress: [String: DownloadProgress] = [:]
+    /// The progress of binary downloads.
+    private var binaryDownloadProgress = OrderedCollections.OrderedDictionary<String, DownloadProgress>()
 
-    /// The progress of each individual fetch operation
-    private var fetchProgress: [PackageIdentity: FetchProgress] = [:]
+    /// The progress of package  fetch operations.
+    private var fetchProgress = OrderedCollections.OrderedDictionary<PackageIdentity, FetchProgress>()
 
     private let queue = DispatchQueue(label: "org.swift.swiftpm.commands.tool-workspace-delegate")
 
@@ -73,7 +73,7 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
         // FIXME: Implement a class convenience initializer that does this once they are supported
         // https://forums.swift.org/t/allow-self-x-in-class-convenience-initializers/15924
         self.outputStream = outputStream as? ThreadSafeOutputByteStream ?? ThreadSafeOutputByteStream(outputStream)
-        self.downloadAnimation = NinjaProgressAnimation(stream: self.outputStream)
+        self.binaryDownloadAnimation = NinjaProgressAnimation(stream: self.outputStream)
         self.fetchAnimation = NinjaProgressAnimation(stream: self.outputStream)
         self.logLevel = logLevel
         self.observabilityScope = observabilityScope
@@ -92,16 +92,19 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
 
     func didFetchPackage(package: PackageIdentity, packageLocation: String?, result: Result<PackageFetchDetails, Error>, duration: DispatchTimeInterval) {
         queue.async {
-            if self.observabilityScope.errorsReported {
+            guard case .success = result, !self.observabilityScope.errorsReported else {
                 self.fetchAnimation.clear()
+                return
             }
 
             let progress = self.fetchProgress.values.reduce(0) { $0 + $1.progress }
             let total = self.fetchProgress.values.reduce(0) { $0 + $1.total }
 
             if progress == total && !self.fetchProgress.isEmpty {
-                self.fetchAnimation.complete(success: true)
+                self.fetchAnimation.clear()
                 self.fetchProgress.removeAll()
+            } else {
+                self.fetchProgress[package] = nil
             }
 
             self.outputStream <<< "Fetched \(packageLocation ?? package.description) (\(duration.descriptionInSeconds))"
@@ -119,11 +122,11 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
 
             let progress = self.fetchProgress.values.reduce(0) { $0 + $1.progress }
             let total = self.fetchProgress.values.reduce(0) { $0 + $1.total }
-
+            let packages = self.fetchProgress.keys.map { $0.description }.joined(separator: ", ")
             self.fetchAnimation.update(
                 step: progress > Int.max ? Int.max : Int(progress),
                 total: total > Int.max ? Int.max : Int(total),
-                text: "Fetching \(package)"
+                text: "Fetching \(packages)"
             )
         }
     }
@@ -204,28 +207,52 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
         }
     }
 
-    func downloadingBinaryArtifact(from url: String, bytesDownloaded: Int64, totalBytesToDownload: Int64?) {
+    func willDownloadBinaryArtifact(from url: String) {
         queue.async {
-            if let totalBytesToDownload = totalBytesToDownload {
-                self.binaryDownloadProgress[url] = DownloadProgress(
-                    bytesDownloaded: bytesDownloaded,
-                    totalBytesToDownload: totalBytesToDownload)
-            }
-
-            let step = self.binaryDownloadProgress.values.reduce(0, { $0 + $1.bytesDownloaded }) / 1024
-            let total = self.binaryDownloadProgress.values.reduce(0, { $0 + $1.totalBytesToDownload }) / 1024
-            self.downloadAnimation.update(step: Int(step), total: Int(total), text: "Downloading binary artifacts")
+            self.outputStream <<< "Downloading binary artifact \(url)"
+            self.outputStream <<< "\n"
+            self.outputStream.flush()
         }
     }
 
-    func didDownloadBinaryArtifacts() {
+    func didDownloadBinaryArtifact(from url: String, result: Result<AbsolutePath, Error>, duration: DispatchTimeInterval) {
         queue.async {
-            if self.observabilityScope.errorsReported {
-                self.downloadAnimation.clear()
+            guard case .success = result, !self.observabilityScope.errorsReported else {
+                self.binaryDownloadAnimation.clear()
+                return
             }
 
-            self.downloadAnimation.complete(success: true)
-            self.binaryDownloadProgress.removeAll()
+            let progress = self.binaryDownloadProgress.values.reduce(0) { $0 + $1.bytesDownloaded }
+            let total = self.binaryDownloadProgress.values.reduce(0) { $0 + $1.totalBytesToDownload }
+
+            if progress == total && !self.binaryDownloadProgress.isEmpty {
+                self.binaryDownloadAnimation.clear()
+                self.binaryDownloadProgress.removeAll()
+            } else {
+                self.binaryDownloadProgress[url] = nil
+            }
+
+            self.outputStream <<< "Downloaded \(url) (\(duration.descriptionInSeconds))"
+            self.outputStream <<< "\n"
+            self.outputStream.flush()
+        }
+    }
+
+    func downloadingBinaryArtifact(from url: String, bytesDownloaded: Int64, totalBytesToDownload: Int64?) {
+        queue.async {
+            self.binaryDownloadProgress[url] = DownloadProgress(
+                bytesDownloaded: bytesDownloaded,
+                totalBytesToDownload: totalBytesToDownload ?? bytesDownloaded
+            )
+
+            let step = self.binaryDownloadProgress.values.reduce(0, { $0 + $1.bytesDownloaded })
+            let total = self.binaryDownloadProgress.values.reduce(0, { $0 + $1.totalBytesToDownload })
+            let artifacts = self.binaryDownloadProgress.keys.joined(separator: ", ")
+            self.binaryDownloadAnimation.update(
+                step: step > Int.max ? Int.max : Int(step > 1024 ? step / 1024 : step),
+                total: total > Int.max ? Int.max : Int(total > 1024 ? total / 1024 : total),
+                text: "Downloading \(artifacts)"
+            )
         }
     }
 
@@ -236,6 +263,7 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
     func willCheckOut(package: PackageIdentity, repository url: String, revision: String, at path: AbsolutePath) {}
     func didCreateWorkingCopy(package: PackageIdentity, repository url: String, at path: AbsolutePath) {}
     func resolvedFileChanged() {}
+    func didDownloadAllBinaryArtifacts() {}
 }
 
 protocol SwiftCommand: ParsableCommand {

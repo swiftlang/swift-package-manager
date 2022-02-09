@@ -227,8 +227,8 @@ public class RegistryDownloadsManager {
                 self.delegate?.fetching(
                     package: package,
                     version: version,
-                    downloaded: downloaded,
-                    total: total
+                    bytesDownloaded: downloaded,
+                    totalBytesToDownload: total
                 )
             }
         }
@@ -272,7 +272,7 @@ public protocol RegistryDownloadsManagerDelegate {
     func didFetch(package: PackageIdentity, version: Version, result: Result<RegistryDownloadsManager.FetchDetails, Error>, duration: DispatchTimeInterval)
 
     /// Called every time the progress of a repository fetch operation updates.
-    func fetching(package: PackageIdentity, version: Version, downloaded: Int64, total: Int64?)
+    func fetching(package: PackageIdentity, version: Version, bytesDownloaded: Int64, totalBytesToDownload: Int64?)
 }
 
 extension RegistryDownloadsManager {
