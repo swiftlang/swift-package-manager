@@ -240,7 +240,7 @@ public class Workspace {
 
     /// The repository manager.
     // var for backwards compatibility with deprecated initializers, remove with them
-    fileprivate var repositoryManager: RepositoryManager
+    public var repositoryManager: RepositoryManager
 
     /// The registry manager.
     // var for backwards compatibility with deprecated initializers, remove with them

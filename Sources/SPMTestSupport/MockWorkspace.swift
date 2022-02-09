@@ -265,7 +265,7 @@ public final class MockWorkspace {
         return workspace
     }
 
-    private var _workspace: Workspace?
+    public var _workspace: Workspace?
 
     public func closeWorkspace() {
         self._workspace = nil
