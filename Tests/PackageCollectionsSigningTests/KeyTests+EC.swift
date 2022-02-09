@@ -21,7 +21,7 @@ class ECKeyTests: XCTestCase {
 
         fixture(name: "Collections", createGitRepo: false) { directoryPath in
             let path = directoryPath.appending(components: "Signing", "Test_ec.cer")
-            let data = Data(try localFileSystem.readFileContents(path).contents)
+            let data: Data = try localFileSystem.readFileContents(path)
 
             let certificate = try Certificate(derEncoded: data)
             XCTAssertNoThrow(try certificate.publicKey())

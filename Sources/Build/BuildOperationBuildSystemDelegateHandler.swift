@@ -259,9 +259,9 @@ public struct BuildDescription: Codable {
     }
 
     public static func load(from path: AbsolutePath) throws -> BuildDescription {
-        let contents = try localFileSystem.readFileContents(path).contents
+        let contents: Data = try localFileSystem.readFileContents(path)
         let decoder = JSONDecoder.makeWithDefaults()
-        return try decoder.decode(BuildDescription.self, from: Data(contents))
+        return try decoder.decode(BuildDescription.self, from: contents)
     }
 }
 

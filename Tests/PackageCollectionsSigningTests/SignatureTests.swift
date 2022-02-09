@@ -26,7 +26,7 @@ class SignatureTests: XCTestCase {
             let payload = ["foo": "bar"]
 
             let certPath = directoryPath.appending(components: "Signing", "Test_rsa.cer")
-            let certData = Data(try localFileSystem.readFileContents(certPath).contents)
+            let certData: Data = try localFileSystem.readFileContents(certPath)
             let base64EncodedCert = certData.base64EncodedString()
             let certificate = try Certificate(derEncoded: certData)
 
@@ -52,7 +52,7 @@ class SignatureTests: XCTestCase {
             let payload = ["foo": "bar"]
 
             let certPath = directoryPath.appending(components: "Signing", "Test_rsa.cer")
-            let certData = Data(try localFileSystem.readFileContents(certPath).contents)
+            let certData: Data = try localFileSystem.readFileContents(certPath)
             let base64EncodedCert = certData.base64EncodedString()
             let certificate = try Certificate(derEncoded: certData)
 
@@ -81,7 +81,7 @@ class SignatureTests: XCTestCase {
             let payload = ["foo": "bar"]
 
             let certPath = directoryPath.appending(components: "Signing", "Test_ec.cer")
-            let certData = Data(try localFileSystem.readFileContents(certPath).contents)
+            let certData: Data = try localFileSystem.readFileContents(certPath)
             let base64EncodedCert = certData.base64EncodedString()
             let certificate = try Certificate(derEncoded: certData)
 
@@ -107,7 +107,7 @@ class SignatureTests: XCTestCase {
             let payload = ["foo": "bar"]
 
             let certPath = directoryPath.appending(components: "Signing", "Test_ec.cer")
-            let certData = Data(try localFileSystem.readFileContents(certPath).contents)
+            let certData: Data = try localFileSystem.readFileContents(certPath)
             let base64EncodedCert = certData.base64EncodedString()
             let certificate = try Certificate(derEncoded: certData)
 

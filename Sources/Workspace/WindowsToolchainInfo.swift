@@ -58,10 +58,8 @@ extension WindowsSDKSettings {
         }
 
         do {
-            let contents = try filesystem.readFileContents(path)
-            self = try contents.withData {
-                try PropertyListDecoder().decode(WindowsSDKSettings.self, from: $0)
-            }
+            let data: Data = try filesystem.readFileContents(path)
+            self = try PropertyListDecoder().decode(WindowsSDKSettings.self, from: data)
         } catch {
             diagnostics?.emit(error: "failed to load SDKSettings.plist at '\(path)': \(error)")
             return nil
@@ -104,10 +102,8 @@ extension WindowsPlatformInfo {
         }
 
         do {
-            let contents = try filesystem.readFileContents(path)
-            self = try contents.withData {
-                try PropertyListDecoder().decode(WindowsPlatformInfo.self, from: $0)
-            }
+            let data: Data = try filesystem.readFileContents(path)
+            self = try PropertyListDecoder().decode(WindowsPlatformInfo.self, from: data)
         } catch {
             diagnostics?.emit(error: "failed to load Info.plist at '\(path)': \(error)")
             return nil

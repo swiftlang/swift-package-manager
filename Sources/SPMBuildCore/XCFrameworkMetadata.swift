@@ -52,11 +52,9 @@ extension XCFrameworkMetadata {
         }
 
         do {
-            let bytes = try fileSystem.readFileContents(path)
-            return try bytes.withData { data in
-                let decoder = PropertyListDecoder()
-                return try decoder.decode(XCFrameworkMetadata.self, from: data)
-            }
+            let data: Data = try fileSystem.readFileContents(path)
+            let decoder = PropertyListDecoder()
+            return try decoder.decode(XCFrameworkMetadata.self, from: data)
         } catch {
             throw StringError("failed parsing XCFramework Info.plist at '\(path)': \(error)")
         }

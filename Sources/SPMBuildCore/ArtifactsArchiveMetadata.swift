@@ -61,11 +61,9 @@ extension ArtifactsArchiveMetadata {
         }
 
         do {
-            let bytes = try fileSystem.readFileContents(path)
-            return try bytes.withData { data in
-                let decoder = JSONDecoder.makeWithDefaults()
-                return try decoder.decode(ArtifactsArchiveMetadata.self, from: data)
-            }
+            let data: Data = try fileSystem.readFileContents(path)
+            let decoder = JSONDecoder.makeWithDefaults()
+            return try decoder.decode(ArtifactsArchiveMetadata.self, from: data)
         } catch {
             throw StringError("failed parsing ArtifactsArchive info.json at '\(path)': \(error)")
         }

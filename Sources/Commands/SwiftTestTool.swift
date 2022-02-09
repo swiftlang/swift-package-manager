@@ -148,7 +148,7 @@ struct TestToolOptions: ParsableArguments {
             let skipTests: [String.SubSequence]
             // Read from the file if it exists.
             if let path = try? AbsolutePath(validating: override), localFileSystem.exists(path) {
-                let contents = try localFileSystem.readFileContents(path).cString
+                let contents: String = try localFileSystem.readFileContents(path)
                 skipTests = contents.split(separator: "\n", omittingEmptySubsequences: true)
             } else {
                 // Otherwise, read the env variable.

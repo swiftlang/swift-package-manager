@@ -638,8 +638,8 @@ final class PackageToolTests: CommandsTestCase {
             _ = try execute(["show-dependencies", "--format", "json", "--output-path", resultPath.pathString ], packagePath: root)
 
             XCTAssertFileExists(resultPath)
-            let jsonOutput = try fs.readFileContents(resultPath)
-            let json = try JSON(bytes: jsonOutput)
+            let jsonOutput: Data = try fs.readFileContents(resultPath)
+            let json = try JSON(data: jsonOutput)
 
             XCTAssertEqual(json["name"]?.string, "root")
             XCTAssertEqual(json["dependencies"]?[0]?["name"]?.string, "dep")
@@ -667,7 +667,7 @@ final class PackageToolTests: CommandsTestCase {
             _ = try execute(["init", "--type", "executable"], packagePath: path)
 
             let manifest = path.appending(component: "Package.swift")
-            let contents = try localFileSystem.readFileContents(manifest).description
+            let contents: String = try localFileSystem.readFileContents(manifest)
             let version = InitPackage.newPackageToolsVersion
             let versionSpecifier = "\(version.major).\(version.minor)"
             XCTAssertMatch(contents, .prefix("// swift-tools-version:\(version < .v5_4 ? "" : " ")\(versionSpecifier)\n"))
@@ -699,7 +699,7 @@ final class PackageToolTests: CommandsTestCase {
             _ = try execute(["init", "--name", "CustomName", "--type", "executable"], packagePath: path)
 
             let manifest = path.appending(component: "Package.swift")
-            let contents = try localFileSystem.readFileContents(manifest).description
+            let contents: String = try localFileSystem.readFileContents(manifest)
             let version = InitPackage.newPackageToolsVersion
             let versionSpecifier = "\(version.major).\(version.minor)"
             XCTAssertMatch(contents, .prefix("// swift-tools-version:\(version < .v5_4 ? "" : " ")\(versionSpecifier)\n"))
@@ -896,8 +896,8 @@ final class PackageToolTests: CommandsTestCase {
 
             // Checks the content of checked out bar.swift.
             func checkBar(_ value: Int, file: StaticString = #file, line: UInt = #line) throws {
-                let contents = try localFileSystem.readFileContents(barPath.appending(components:"Sources", "bar.swift")).validDescription?.spm_chomp()
-                XCTAssert(contents?.hasSuffix("\(value)") ?? false, file: file, line: line)
+                let contents: String = try localFileSystem.readFileContents(barPath.appending(components:"Sources", "bar.swift"))
+                XCTAssertTrue(contents.spm_chomp().hasSuffix("\(value)"), file: file, line: line)
             }
 
             // We should see a pin file now.
@@ -1092,7 +1092,8 @@ final class PackageToolTests: CommandsTestCase {
             // Test env override.
             try execute(["config", "set-mirror", "--original-url", "https://github.com/foo/bar", "--mirror-url", "https://mygithub.com/foo/bar"], packagePath: packageRoot, env: ["SWIFTPM_MIRROR_CONFIG": configOverride.pathString])
             XCTAssertTrue(fs.isFile(configOverride))
-            XCTAssertTrue(try fs.readFileContents(configOverride).description.contains("mygithub"))
+            let content: String = try fs.readFileContents(configOverride)
+            XCTAssertMatch(content, .contains("mygithub"))
 
             // Test reading.
             (stdout, stderr) = try execute(["config", "get-mirror", "--package-url", "https://github.com/foo/bar"], packagePath: packageRoot)

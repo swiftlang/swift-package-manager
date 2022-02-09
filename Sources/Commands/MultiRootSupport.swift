@@ -44,7 +44,7 @@ public struct XcodeWorkspaceLoader {
     /// Load the given workspace and return the file ref paths from it.
     public func load(workspace: AbsolutePath) throws -> [AbsolutePath] {
         let path = workspace.appending(component: "contents.xcworkspacedata")
-        let contents = try Data(self.fileSystem.readFileContents(path).contents)
+        let contents: Data = try self.fileSystem.readFileContents(path)
 
         let delegate = ParserDelegate(observabilityScope: self.observabilityScope)
         let parser = XMLParser(data: contents)

@@ -34,7 +34,7 @@ final class LLBuildManifestTests: XCTestCase {
         let fs = InMemoryFileSystem()
         try ManifestWriter(fs).write(manifest, at: AbsolutePath("/manifest.yaml"))
 
-        let contents = try fs.readFileContents(AbsolutePath("/manifest.yaml"))
+        let contents: String = try fs.readFileContents(AbsolutePath("/manifest.yaml"))
 
         XCTAssertEqual(contents, """
             client:
@@ -85,7 +85,7 @@ final class LLBuildManifestTests: XCTestCase {
         let fs = InMemoryFileSystem()
         try ManifestWriter(fs).write(manifest, at: AbsolutePath("/manifest.yaml"))
 
-        let contents = try fs.readFileContents(AbsolutePath("/manifest.yaml"))
+        let contents: String = try fs.readFileContents(AbsolutePath("/manifest.yaml"))
 
         XCTAssertEqual(contents, """
             client:

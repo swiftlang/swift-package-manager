@@ -73,7 +73,7 @@ enum TestingSupport {
             }
             try Process.checkNonZeroExit(arguments: args, environment: env)
             // Read the temporary file's content.
-            return try localFileSystem.readFileContents(tempFile.path).validDescription ?? ""
+            return try localFileSystem.readFileContents(tempFile.path)
         }
         #else
         let env = try constructTestEnvironment(toolchain: try swiftTool.getToolchain(), options: swiftOptions, buildParameters: swiftTool.buildParametersForTest())

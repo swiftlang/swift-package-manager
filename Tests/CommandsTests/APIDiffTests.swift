@@ -448,7 +448,8 @@ final class APIDiffTests: CommandsTestCase {
                 XCTAssertMatch(output, .contains("1 breaking change detected in Foo"))
                 XCTAssertMatch(output, .contains("💔 API breakage: func foo() has been removed"))
                 XCTAssertFileExists(fooBaselinePath)
-                XCTAssertNotEqual((try! localFileSystem.readFileContents(fooBaselinePath)).description, "Old Baseline")
+                let content: String = try! localFileSystem.readFileContents(fooBaselinePath)
+                XCTAssertNotEqual(content, "Old Baseline")
             }
         }
     }
