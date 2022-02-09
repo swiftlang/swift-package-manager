@@ -172,9 +172,9 @@ internal struct PkgConfigParser {
         // Add pc_sysrootdir variable. This is the path of the sysroot directory for pc files.
         variables["pc_sysrootdir"] = ProcessEnv.vars["PKG_CONFIG_SYSROOT_DIR"] ?? "/"
 
-        let fileContents = try fileSystem.readFileContents(pcFile)
+        let fileContents: String = try fileSystem.readFileContents(pcFile)
         // FIXME: Should we error out instead if content is not UTF8 representable?
-        for line in fileContents.validDescription?.components(separatedBy: "\n") ?? [] {
+        for line in fileContents.components(separatedBy: "\n") {
             // Remove commented or any trailing comment from the line.
             let uncommentedLine = removeComment(line: line)
             // Ignore any empty or whitespace line.

@@ -181,7 +181,7 @@ public class MockRegistry {
             filename = Manifest.basename + ".swift"
         }
 
-        let content = try package.fileSystem.readFileContents(package.path.appending(component: filename))
+        let content: Data = try package.fileSystem.readFileContents(package.path.appending(component: filename))
 
         var headers = HTTPClientHeaders()
         headers.add(name: "Content-Version", value: "1")
@@ -190,7 +190,7 @@ public class MockRegistry {
         return HTTPClientResponse(
             statusCode: 200,
             headers: headers,
-            body: Data(content.contents)
+            body: content
         )
     }
 
@@ -288,9 +288,7 @@ private struct MockRegistryArchiver: Archiver {
 
     func extract(from archivePath: AbsolutePath, to destinationPath: AbsolutePath, completion: @escaping (Result<Void, Error>) -> Void) {
         do {
-            guard let content = try String(bytes: self.fileSystem.readFileContents(archivePath).contents, encoding: .utf8) else {
-                throw StringError("invalid mock zip format")
-            }
+            let content: String = try self.fileSystem.readFileContents(archivePath)
             let lines = content.split(separator: "\n").map(String.init)
             guard lines.count >= 2 else {
                 throw StringError("invalid mock zip format, not enough lines")

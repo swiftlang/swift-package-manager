@@ -293,7 +293,7 @@ final class WorkspaceStateTests: XCTestCase {
         let state = WorkspaceState(fileSystem: fs, storageDirectory: buildDir)
         try state.save()
 
-        let serialized = try fs.readFileContents(statePath).description
+        let serialized: String = try fs.readFileContents(statePath)
 
         let argpRange = try XCTUnwrap(serialized.range(of: "swift-argument-parser"))
         let yamsRange = try XCTUnwrap(serialized.range(of: "yams"))

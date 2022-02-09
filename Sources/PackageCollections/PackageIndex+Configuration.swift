@@ -55,11 +55,11 @@ public struct PackageIndexConfigurationStorage {
         guard self.fileSystem.exists(self.path) else {
             return .init()
         }
-        let buffer = try self.fileSystem.readFileContents(self.path).contents
-        guard buffer.count > 0 else {
+        let data: Data = try self.fileSystem.readFileContents(self.path)
+        guard data.count > 0 else {
             return .init()
         }
-        let container = try decoder.decode(StorageModel.Container.self, from: Data(buffer))
+        let container = try decoder.decode(StorageModel.Container.self, from: data)
         return try PackageIndexConfiguration(container.index)
     }
 

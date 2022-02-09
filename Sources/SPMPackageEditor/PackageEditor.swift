@@ -90,7 +90,7 @@ public final class PackageEditor {
         }
 
         // Add the package dependency.
-        let manifestContents = try fs.readFileContents(options.manifestPath).cString
+        let manifestContents: String = try fs.readFileContents(options.manifestPath)
         let editor = try ManifestRewriter(manifestContents)
         try editor.addPackageDependency(url: options.url, requirement: requirement)
 
@@ -120,7 +120,7 @@ public final class PackageEditor {
             throw StringError("Already has a target named \(targetName)")
         }
 
-        let manifestContents = try fs.readFileContents(options.manifestPath).cString
+        let manifestContents: String = try fs.readFileContents(options.manifestPath)
         let editor = try ManifestRewriter(manifestContents)
         try editor.addTarget(targetName: targetName)
         try editor.addTarget(targetName: testTargetName, type: .test)

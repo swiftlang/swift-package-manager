@@ -9,6 +9,7 @@
  */
 
 import class Foundation.DateFormatter
+import struct Foundation.Data
 import class Foundation.JSONDecoder
 import class Foundation.JSONEncoder
 import TSCBasic
@@ -116,8 +117,7 @@ extension JSONEncoder {
 
 extension JSONDecoder {
     public func decode<T: Decodable>(path: AbsolutePath, fileSystem: FileSystem, `as` kind: T.Type) throws -> T {
-        try fileSystem.readFileContents(path).withData { data in
-            try self.decode(kind, from: data)
-        }
+        let data: Data = try fileSystem.readFileContents(path)
+        return try self.decode(kind, from: data)
     }
 }

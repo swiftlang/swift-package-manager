@@ -212,46 +212,46 @@ class MiscellaneousTestCase: XCTestCase {
 
     func testSwiftTestParallel() throws {
         fixture(name: "Miscellaneous/ParallelTestsPkg") { prefix in
-          // First try normal serial testing.
-          do {
-            _ = try SwiftPMProduct.SwiftTest.execute([], packagePath: prefix)
-          } catch SwiftPMProductError.executionFailure(_, let output, let stderr) {
-            #if os(macOS)
-              XCTAssertMatch(stderr, .contains("Executed 2 tests"))
-            #else
-              XCTAssertMatch(output, .contains("Executed 2 tests"))
-            #endif
-          }
+            // First try normal serial testing.
+            do {
+                _ = try SwiftPMProduct.SwiftTest.execute([], packagePath: prefix)
+            } catch SwiftPMProductError.executionFailure(_, let output, let stderr) {
+                #if os(macOS)
+                XCTAssertMatch(stderr, .contains("Executed 2 tests"))
+                #else
+                XCTAssertMatch(output, .contains("Executed 2 tests"))
+                #endif
+            }
 
-          do {
-            // Run tests in parallel.
-            _ = try SwiftPMProduct.SwiftTest.execute(["--parallel"], packagePath: prefix)
-          } catch SwiftPMProductError.executionFailure(_, let output, _) {
-            XCTAssertMatch(output, .contains("testExample1"))
-            XCTAssertMatch(output, .contains("testExample2"))
-            XCTAssertNoMatch(output, .contains("'ParallelTestsTests' passed"))
-            XCTAssertMatch(output, .contains("'ParallelTestsFailureTests' failed"))
-            XCTAssertMatch(output, .contains("[3/3]"))
-          }
+            do {
+                // Run tests in parallel.
+                _ = try SwiftPMProduct.SwiftTest.execute(["--parallel"], packagePath: prefix)
+            } catch SwiftPMProductError.executionFailure(_, let output, _) {
+                XCTAssertMatch(output, .contains("testExample1"))
+                XCTAssertMatch(output, .contains("testExample2"))
+                XCTAssertNoMatch(output, .contains("'ParallelTestsTests' passed"))
+                XCTAssertMatch(output, .contains("'ParallelTestsFailureTests' failed"))
+                XCTAssertMatch(output, .contains("[3/3]"))
+            }
 
-          let xUnitOutput = prefix.appending(component: "result.xml")
-          do {
-            // Run tests in parallel with verbose output.
-            _ = try SwiftPMProduct.SwiftTest.execute(
-                ["--parallel", "--verbose", "--xunit-output", xUnitOutput.pathString],
-                packagePath: prefix)
-          } catch SwiftPMProductError.executionFailure(_, let output, _) {
-            XCTAssertMatch(output, .contains("testExample1"))
-            XCTAssertMatch(output, .contains("testExample2"))
-            XCTAssertMatch(output, .contains("'ParallelTestsTests' passed"))
-            XCTAssertMatch(output, .contains("'ParallelTestsFailureTests' failed"))
-            XCTAssertMatch(output, .contains("[3/3]"))
-          }
+            let xUnitOutput = prefix.appending(component: "result.xml")
+            do {
+                // Run tests in parallel with verbose output.
+                _ = try SwiftPMProduct.SwiftTest.execute(
+                    ["--parallel", "--verbose", "--xunit-output", xUnitOutput.pathString],
+                    packagePath: prefix)
+            } catch SwiftPMProductError.executionFailure(_, let output, _) {
+                XCTAssertMatch(output, .contains("testExample1"))
+                XCTAssertMatch(output, .contains("testExample2"))
+                XCTAssertMatch(output, .contains("'ParallelTestsTests' passed"))
+                XCTAssertMatch(output, .contains("'ParallelTestsFailureTests' failed"))
+                XCTAssertMatch(output, .contains("[3/3]"))
+            }
 
-          // Check the xUnit output.
-          XCTAssertFileExists(xUnitOutput)
-          let contents = try localFileSystem.readFileContents(xUnitOutput).description
-          XCTAssertMatch(contents, .contains("tests=\"3\" failures=\"1\""))
+            // Check the xUnit output.
+            XCTAssertFileExists(xUnitOutput)
+            let contents: String = try localFileSystem.readFileContents(xUnitOutput)
+            XCTAssertMatch(contents, .contains("tests=\"3\" failures=\"1\""))
         }
     }
 
@@ -387,7 +387,7 @@ class MiscellaneousTestCase: XCTestCase {
             XCTAssert(result.exitStatus != .terminated(code: 0))
 
             // Process and subprocesses should be dead.
-            let contents = try localFileSystem.readFileContents(waitFile).description
+            let contents: String = try localFileSystem.readFileContents(waitFile)
             XCTAssertFalse(try Process.running(process.processID))
             XCTAssertFalse(try Process.running(ProcessID(contents)!))
         }

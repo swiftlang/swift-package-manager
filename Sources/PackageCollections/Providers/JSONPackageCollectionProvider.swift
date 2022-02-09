@@ -75,10 +75,8 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
         // Source is a local file
         if let absolutePath = source.absolutePath {
             do {
-                let fileContents = try localFileSystem.readFileContents(absolutePath)
-                return fileContents.withData { data in
-                    self.decodeAndRunSignatureCheck(source: source, data: data, certPolicyKeys: Self.defaultCertPolicyKeys, callback: callback)
-                }
+                let data: Data = try localFileSystem.readFileContents(absolutePath)
+                return self.decodeAndRunSignatureCheck(source: source, data: data, certPolicyKeys: Self.defaultCertPolicyKeys, callback: callback)
             } catch {
                 return callback(.failure(error))
             }

@@ -252,7 +252,7 @@ final class BuildPlanTests: XCTestCase {
                 let yaml = buildDirPath.appending(component: "release.yaml")
                 let llbuild = LLBuildManifestBuilder(plan, fileSystem: localFileSystem, observabilityScope: observability.topScope)
                 try llbuild.generateManifest(at: yaml)
-                let contents = try localFileSystem.readFileContents(yaml).description
+                let contents: String = try localFileSystem.readFileContents(yaml)
 
                 // A few basic checks
                 XCTAssertMatch(contents, .contains("-disable-implicit-swift-modules"))
@@ -330,15 +330,15 @@ final class BuildPlanTests: XCTestCase {
                 observabilityScope: observability.topScope
             )
 
-            let linkedFileList = try fs.readFileContents(AbsolutePath("/path/to/build/release/exe.product/Objects.LinkFileList"))
-            XCTAssertMatch(linkedFileList.description, .contains("PkgLib"))
-            XCTAssertNoMatch(linkedFileList.description, .contains("ExtLib"))
+            let linkedFileList: String = try fs.readFileContents(AbsolutePath("/path/to/build/release/exe.product/Objects.LinkFileList"))
+            XCTAssertMatch(linkedFileList, .contains("PkgLib"))
+            XCTAssertNoMatch(linkedFileList, .contains("ExtLib"))
 
             try testWithTemporaryDirectory { path in
                 let yaml = path.appending(component: "release.yaml")
                 let llbuild = LLBuildManifestBuilder(plan, fileSystem: fs, observabilityScope: observability.topScope)
                 try llbuild.generateManifest(at: yaml)
-                let contents = try localFileSystem.readFileContents(yaml).description
+                let contents: String = try localFileSystem.readFileContents(yaml)
                 XCTAssertMatch(contents, .contains("""
                         inputs: ["/Pkg/Sources/exe/main.swift","/path/to/build/release/PkgLib.swiftmodule"]
                     """))
@@ -356,15 +356,15 @@ final class BuildPlanTests: XCTestCase {
                 observabilityScope: observability.topScope
             )
 
-            let linkedFileList = try fs.readFileContents(AbsolutePath("/path/to/build/debug/exe.product/Objects.LinkFileList"))
-            XCTAssertNoMatch(linkedFileList.description, .contains("PkgLib"))
-            XCTAssertNoMatch(linkedFileList.description, .contains("ExtLib"))
+            let linkedFileList: String = try fs.readFileContents(AbsolutePath("/path/to/build/debug/exe.product/Objects.LinkFileList"))
+            XCTAssertNoMatch(linkedFileList, .contains("PkgLib"))
+            XCTAssertNoMatch(linkedFileList, .contains("ExtLib"))
 
             try testWithTemporaryDirectory { path in
                 let yaml = path.appending(component: "debug.yaml")
                 let llbuild = LLBuildManifestBuilder(plan, fileSystem: fs, observabilityScope: observability.topScope)
                 try llbuild.generateManifest(at: yaml)
-                let contents = try localFileSystem.readFileContents(yaml).description
+                let contents: String = try localFileSystem.readFileContents(yaml)
                 XCTAssertMatch(contents, .contains("""
                         inputs: ["/Pkg/Sources/exe/main.swift"]
                     """))
@@ -586,7 +586,7 @@ final class BuildPlanTests: XCTestCase {
         ])
       #endif
 
-      let linkedFileList = try fs.readFileContents(AbsolutePath("/path/to/build/debug/exe.product/Objects.LinkFileList"))
+      let linkedFileList: String = try fs.readFileContents(AbsolutePath("/path/to/build/debug/exe.product/Objects.LinkFileList"))
       XCTAssertEqual(linkedFileList, """
           /path/to/build/debug/exe.build/main.c.o
           /path/to/build/debug/extlib.build/extlib.c.o
@@ -743,7 +743,7 @@ final class BuildPlanTests: XCTestCase {
             let yaml = path.appending(component: "debug.yaml")
             let llbuild = LLBuildManifestBuilder(plan, fileSystem: fs, observabilityScope: observability.topScope)
             try llbuild.generateManifest(at: yaml)
-            let contents = try localFileSystem.readFileContents(yaml).description
+            let contents: String = try localFileSystem.readFileContents(yaml)
             XCTAssertMatch(contents, .contains(#"-std=gnu99","-c","/Pkg/Sources/lib/lib.c"#))
             XCTAssertMatch(contents, .contains(#"-std=c++1z","-c","/Pkg/Sources/lib/libx.cpp"#))
         }
@@ -2540,7 +2540,7 @@ final class BuildPlanTests: XCTestCase {
             let yaml = path.appending(component: "debug.yaml")
             let llbuild = LLBuildManifestBuilder(plan, fileSystem: fs, observabilityScope: observability.topScope)
             try llbuild.generateManifest(at: yaml)
-            let contents = try localFileSystem.readFileContents(yaml).description
+            let contents: String = try localFileSystem.readFileContents(yaml)
             XCTAssertMatch(contents, .contains("""
                     inputs: ["/PkgA/Sources/swiftlib/lib.swift","/path/to/build/debug/exe"]
                     outputs: ["/path/to/build/debug/swiftlib.build/lib.swift.o","/path/to/build/debug/
@@ -2597,7 +2597,7 @@ final class BuildPlanTests: XCTestCase {
             let yaml = path.appending(component: "debug.yaml")
             let llbuild = LLBuildManifestBuilder(plan, fileSystem: fs, observabilityScope: observability.topScope)
             try llbuild.generateManifest(at: yaml)
-            let contents = try localFileSystem.readFileContents(yaml).description
+            let contents: String = try localFileSystem.readFileContents(yaml)
             XCTAssertMatch(contents, .contains("""
                   "/path/to/build/debug/Bar.build/main.m.o":
                     tool: clang
@@ -2668,7 +2668,7 @@ final class BuildPlanTests: XCTestCase {
              let yaml = path.appending(component: "debug.yaml")
              let llbuild = LLBuildManifestBuilder(plan, fileSystem: fs, observabilityScope: observability.topScope)
              try llbuild.generateManifest(at: yaml)
-             let contents = try localFileSystem.readFileContents(yaml).description
+             let contents: String = try localFileSystem.readFileContents(yaml)
              XCTAssertMatch(contents, .contains("""
                    "/path/to/build/debug/Bar.build/main.m.o":
                      tool: clang
@@ -2740,7 +2740,7 @@ final class BuildPlanTests: XCTestCase {
              let yaml = path.appending(component: "debug.yaml")
              let llbuild = LLBuildManifestBuilder(plan, fileSystem: fs, observabilityScope: observability.topScope)
              try llbuild.generateManifest(at: yaml)
-             let contents = try localFileSystem.readFileContents(yaml).description
+             let contents: String = try localFileSystem.readFileContents(yaml)
              XCTAssertMatch(contents, .contains("""
                    "/path/to/build/debug/Bar.build/main.m.o":
                      tool: clang
@@ -2789,7 +2789,7 @@ final class BuildPlanTests: XCTestCase {
             let yaml = path.appending(component: "debug.yaml")
             let llbuild = LLBuildManifestBuilder(result.plan, fileSystem: fs, observabilityScope: observability.topScope)
             try llbuild.generateManifest(at: yaml)
-            let contents = try localFileSystem.readFileContents(yaml).description
+            let contents: String = try localFileSystem.readFileContents(yaml)
             XCTAssertMatch(contents, .contains("""
                   "/path/to/build/debug/exe.build/exe.swiftmodule.o":
                     tool: shell
@@ -2861,7 +2861,7 @@ final class BuildPlanTests: XCTestCase {
         ])
 
         let resourceAccessor = fooTarget.sources.first{ $0.basename == "resource_bundle_accessor.swift" }!
-        let contents = try fs.readFileContents(resourceAccessor).cString
+        let contents: String = try fs.readFileContents(resourceAccessor)
         XCTAssertMatch(contents, .contains("extension Foundation.Bundle"))
         // Assert that `Bundle.main` is executed in the compiled binary (and not during compilation)
         // See https://bugs.swift.org/browse/SR-14555 and https://github.com/apple/swift-package-manager/pull/2972/files#r623861646
@@ -2925,7 +2925,7 @@ final class BuildPlanTests: XCTestCase {
         ])
 
         let resourceAccessor = fooTarget.sources.first{ $0.basename == "resource_bundle_accessor.swift" }!
-        let contents = try fs.readFileContents(resourceAccessor).cString
+        let contents: String = try fs.readFileContents(resourceAccessor)
         XCTAssertMatch(contents, .contains("extension Foundation.Bundle"))
         // Assert that `Bundle.main` is executed in the compiled binary (and not during compilation)
         // See https://bugs.swift.org/browse/SR-14555 and https://github.com/apple/swift-package-manager/pull/2972/files#r623861646

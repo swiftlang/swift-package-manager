@@ -68,8 +68,8 @@ final class PackageIndex {
             return
         }
 
-        let bytes = try localFileSystem.readFileContents(indexFile).contents
-        let entries = try JSONDecoder.makeWithDefaults().decode(Array<Entry>.self, from: Data(bytes: bytes, count: bytes.count))
+        let data: Data = try localFileSystem.readFileContents(indexFile)
+        let entries = try JSONDecoder.makeWithDefaults().decode(Array<Entry>.self, from: data)
 
         self.index = try Dictionary(throwingUniqueKeysWithValues: entries.map{($0.name, $0.url)})
     }
