@@ -822,7 +822,6 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
         var cmd: [String] = []
         cmd += [self.toolchain.swiftCompilerPath.pathString]
-        cmd += verbosity.ccArgs
 
         let macOSPackageDescriptionPath: AbsolutePath
         // if runtimePath is set to "PackageFrameworks" that means we could be developing SwiftPM in Xcode

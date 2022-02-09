@@ -175,7 +175,9 @@ public struct BuildParameters: Encodable {
     /// Whether to disable dead code stripping by the linker
     public var linkerDeadStrip: Bool
 
-    public var isTTY: Bool
+    public var colorizedOutput: Bool
+
+    public var verboseOutput: Bool
 
     public init(
         dataPath: AbsolutePath,
@@ -204,7 +206,8 @@ public struct BuildParameters: Encodable {
         enableTestability: Bool? = nil,
         forceTestDiscovery: Bool = false,
         linkerDeadStrip: Bool = true,
-        isTTY: Bool = false
+        colorizedOutput: Bool = false,
+        verboseOutput: Bool = false
     ) {
         let triple = destinationTriple ?? .getHostTriple(usingSwiftCompiler: toolchain.swiftCompiler)
 
@@ -242,7 +245,8 @@ public struct BuildParameters: Encodable {
         // decide if to enable the use of test manifests based on platform. this is likely to change in the future
         self.testDiscoveryStrategy = triple.isDarwin() ? .objectiveC : .manifest(generate: forceTestDiscovery)
         self.linkerDeadStrip = linkerDeadStrip
-        self.isTTY = isTTY
+        self.colorizedOutput = colorizedOutput
+        self.verboseOutput = verboseOutput
     }
 
     /// The path to the build directory (inside the data directory).
