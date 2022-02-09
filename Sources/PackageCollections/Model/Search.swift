@@ -23,10 +23,10 @@ extension PackageCollectionsModel {
             public let package: PackageCollectionsModel.Package
 
             /// Package collections that contain the package
-            public let collections: [PackageCollectionsModel.CollectionIdentifier]
+            public internal(set) var collections: [PackageCollectionsModel.CollectionIdentifier]
             
             /// Package indexes that contain the package
-            public let indexes: [Foundation.URL]
+            public internal(set) var indexes: [Foundation.URL]
             
             init(
                 package: PackageCollectionsModel.Package,
