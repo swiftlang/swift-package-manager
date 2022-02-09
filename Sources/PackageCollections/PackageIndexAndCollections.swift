@@ -278,7 +278,7 @@ public struct PackageIndexAndCollections: Closable {
                     
                     // An array of combined results, with index items listed first.
                     var items = [PackageCollectionsModel.PackageSearchResult.Item]()
-                    // Iterating through indexItems would simplify the code, but we want to keep the ordering of the search result.
+                    // Iterating through the dictionary would simplify the code, but we want to keep the ordering of the search result.
                     indexSearchResult.items.forEach {
                         var item = $0
                         let key = SearchResultItemKey(identity: $0.package.identity, location: $0.package.location)
@@ -288,12 +288,13 @@ public struct PackageIndexAndCollections: Closable {
                         }
                         items.append(item)
                     }
-                    collectionItems.forEach { key, value in
+                    collectionsSearchResult.items.forEach {
+                        let key = SearchResultItemKey(identity: $0.package.identity, location: $0.package.location)
                         // This item is found in index as well, but skipping since it has already been handled in the loop above.
                         guard indexItems[key] == nil else {
                             return
                         }
-                        items.append(value)
+                        items.append($0)
                     }
                     
                     callback(.success(PackageCollectionsModel.PackageSearchResult(items: items)))
