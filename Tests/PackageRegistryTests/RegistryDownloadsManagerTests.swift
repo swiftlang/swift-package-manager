@@ -410,7 +410,7 @@ private class MockRegistryDownloadsManagerDelegate: RegistryDownloadsManagerDele
         self.group.leave()
     }
 
-    func fetching(package: PackageIdentity, version: Version, downloaded: Int64, total: Int64?) {
+    func fetching(package: PackageIdentity, version: Version, bytesDownloaded downloaded: Int64, totalBytesToDownload total: Int64?) {
     }
 }
 
