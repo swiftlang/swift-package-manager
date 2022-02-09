@@ -18,6 +18,7 @@ import XCTest
  
 class ModuleAliasingTests: XCTestCase {
 
+#if swift(>=5.6)
     func testExternalSimple() {
         fixture(name: "Miscellaneous/ModuleAliasing/DirectDeps") { prefix in
             let app = prefix.appending(components: "AppPkg")
@@ -32,4 +33,5 @@ class ModuleAliasingTests: XCTestCase {
             XCTAssertEqual(result.exitStatus, .terminated(code: 0))
         }
     }
+#endif
 }
