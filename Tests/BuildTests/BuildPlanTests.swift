@@ -1640,6 +1640,158 @@ final class BuildPlanTests: XCTestCase {
         }
     }
 
+    func testModuleAliasingDirectDeps() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+                                        "/thisPkg/Sources/exe/main.swift",
+                                        "/thisPkg/Sources/Logging/file.swift",
+                                        "/fooPkg/Sources/Logging/fileLogging.swift",
+                                        "/barPkg/Sources/Logging/fileLogging.swift"
+        )
+        
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadPackageGraph(
+            fs: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    name: "fooPkg",
+                    path: .init("/fooPkg"),
+                    products: [
+                        ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Logging"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Logging", dependencies: []),
+                    ]),
+                Manifest.createRootManifest(
+                    name: "barPkg",
+                    path: .init("/barPkg"),
+                    products: [
+                        ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Logging"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Logging", dependencies: []),
+                    ]),
+                Manifest.createRootManifest(
+                    name: "thisPkg",
+                    path: .init("/thisPkg"),
+                    dependencies: [
+                        .localSourceControl(path: .init("/fooPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init("/barPkg"), requirement: .upToNextMajor(from: "2.0.0")),
+                    ],
+                    targets: [
+                        TargetDescription(name: "exe",
+                                          dependencies: ["Logging",
+                                                         .product(name: "Foo",
+                                                                  package: "fooPkg",
+                                                                  moduleAliases: ["Logging": "FooLogging"]
+                                                                 ),
+                                                         .product(name: "Bar",
+                                                                  package: "barPkg",
+                                                                  moduleAliases: ["Logging": "BarLogging"]
+                                                                 )
+                                                        ]),
+                        TargetDescription(name: "Logging", dependencies: []),
+                    ]),
+            ],
+            observabilityScope: observability.topScope
+        )
+        
+        XCTAssertNoDiagnostics(observability.diagnostics)
+        
+        let result = try BuildPlanResult(plan: try BuildPlan(
+            buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
+            graph: graph,
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        ))
+        
+        result.checkProductsCount(1)
+        result.checkTargetsCount(4)
+        
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "FooLogging" && $0.target.moduleAliases?["Logging"] == "FooLogging" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "BarLogging" && $0.target.moduleAliases?["Logging"] == "BarLogging" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "Logging" && $0.target.moduleAliases == nil })
+        
+        let fooLoggingArgs = try result.target(for: "FooLogging").swiftTarget().compileArguments()
+        let barLoggingArgs = try result.target(for: "BarLogging").swiftTarget().compileArguments()
+        let loggingArgs = try result.target(for: "Logging").swiftTarget().compileArguments()
+        #if os(macOS)
+        XCTAssertMatch(fooLoggingArgs, [.anySequence, "-emit-objc-header", "-emit-objc-header-path", "/path/to/build/debug/FooLogging.build/FooLogging-Swift.h", .anySequence])
+        XCTAssertMatch(barLoggingArgs, [.anySequence, "-emit-objc-header", "-emit-objc-header-path", "/path/to/build/debug/BarLogging.build/BarLogging-Swift.h", .anySequence])
+        XCTAssertMatch(loggingArgs, [.anySequence, "-emit-objc-header", "-emit-objc-header-path", "/path/to/build/debug/Logging.build/Logging-Swift.h", .anySequence])
+        #else
+        XCTAssertNoMatch(fooLoggingArgs, [.anySequence, "-emit-objc-header", "-emit-objc-header-path", "/path/to/build/debug/FooLogging.build/FooLogging-Swift.h", .anySequence])
+        XCTAssertNoMatch(barLoggingArgs, [.anySequence, "-emit-objc-header", "-emit-objc-header-path", "/path/to/build/debug/BarLogging.build/BarLogging-Swift.h", .anySequence])
+        XCTAssertNoMatch(loggingArgs, [.anySequence, "-emit-objc-header", "-emit-objc-header-path", "/path/to/build/debug/Logging.build/Logging-Swift.h", .anySequence])
+        #endif
+    }
+
+    func testModuleAliasingDuplicateTargetNameInUpstream() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+                                        "/thisPkg/Sources/exe/main.swift",
+                                        "/thisPkg/Sources/Logging/file.swift",
+                                        "/otherPkg/Sources/Utils/fileUtils.swift",
+                                        "/otherPkg/Sources/Logging/fileLogging.swift"
+        )
+        
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadPackageGraph(
+            fs: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    name: "otherPkg",
+                    path: .init("/otherPkg"),
+                    products: [
+                        ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Utils", dependencies: ["Logging"]),
+                        TargetDescription(name: "Logging", dependencies: []),
+                    ]),
+                Manifest.createRootManifest(
+                    name: "thisPkg",
+                    path: .init("/thisPkg"),
+                    dependencies: [
+                        .localSourceControl(path: .init("/otherPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    targets: [
+                        TargetDescription(name: "exe",
+                                          dependencies: ["Logging",
+                                                         .product(name: "Utils",
+                                                                  package: "otherPkg",
+                                                                  moduleAliases: ["Logging": "OtherLogging"])]),
+                        TargetDescription(name: "Logging", dependencies: []),
+                    ]),
+            ],
+            observabilityScope: observability.topScope
+        )
+        XCTAssertNoDiagnostics(observability.diagnostics)
+        
+        let result = try BuildPlanResult(plan: try BuildPlan(
+            buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
+            graph: graph,
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        ))
+        
+        result.checkProductsCount(1)
+        result.checkTargetsCount(4)
+        
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "OtherLogging" && $0.target.moduleAliases?["Logging"] == "OtherLogging" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "Utils" && $0.target.moduleAliases?["Logging"] == "OtherLogging" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "Logging" && $0.target.moduleAliases == nil })
+
+        let otherLoggingArgs = try result.target(for: "OtherLogging").swiftTarget().compileArguments()
+        let loggingArgs = try result.target(for: "Logging").swiftTarget().compileArguments()
+        
+        #if os(macOS)
+        XCTAssertMatch(otherLoggingArgs, [.anySequence, "-emit-objc-header", "-emit-objc-header-path", "/path/to/build/debug/OtherLogging.build/OtherLogging-Swift.h", .anySequence])
+        XCTAssertMatch(loggingArgs, [.anySequence, "-emit-objc-header", "-emit-objc-header-path", "/path/to/build/debug/Logging.build/Logging-Swift.h", .anySequence])
+        #else
+        XCTAssertNoMatch(otherLoggingArgs, [.anySequence, "-emit-objc-header", "-emit-objc-header-path", "/path/to/build/debug/OtherLogging.build/OtherLogging-Swift.h", .anySequence])
+        XCTAssertNoMatch(loggingArgs, [.anySequence, "-emit-objc-header", "-emit-objc-header-path", "/path/to/build/debug/Logging.build/Logging-Swift.h", .anySequence])
+        #endif
+    }
+
     func testSystemPackageBuildPlan() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Pkg/module.modulemap"

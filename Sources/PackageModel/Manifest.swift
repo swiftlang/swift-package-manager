@@ -297,7 +297,7 @@ public final class Manifest {
         let packageName: String
 
         switch targetDependency {
-        case .product(_, package: let name?, _),
+        case .product(_, package: let name?, _, _),
              .byName(name: let name, _):
             packageName = name
         default:
@@ -339,7 +339,7 @@ public final class Manifest {
         switch targetDependency {
         case .target:
             break
-        case .product(let product, let package, _):
+        case .product(let product, let package, _, _):
             if let package = package { // ≥ 5.2
                 if !register(
                     product: product,

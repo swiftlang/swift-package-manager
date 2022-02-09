@@ -443,7 +443,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                 case .target:
                     // If this is a target dependency, we don't need to check anything.
                     break
-                case .product(_, let packageName, _):
+                case .product(_, let packageName, _, _):
                     if manifest.packageDependency(referencedBy: targetDependency) == nil {
                         observabilityScope.emit(.unknownTargetPackageDependency(
                             packageName: packageName ?? "unknown package name",

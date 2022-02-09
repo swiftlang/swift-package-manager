@@ -680,12 +680,11 @@ public final class PackageBuilder {
                         guard let target = targets[name] else { return nil }
                         return .target(target, conditions: buildConditions(from: condition))
 
-                    case .product(let name, let package, let condition):
+                    case .product(let name, let package, let moduleAliases, let condition):
                         return .product(
-                            .init(name: name, package: package),
+                            .init(name: name, package: package, moduleAliases: moduleAliases),
                             conditions: buildConditions(from: condition)
                         )
-
                     case .byName(let name, let condition):
                         // We don't create an object for targets which have no sources.
                         if emptyModules.contains(name) { return nil }

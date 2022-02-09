@@ -110,6 +110,13 @@ public final class ResolvedTarget {
         return underlyingTarget.c99name
     }
 
+    /// Module aliases for dependencies of this target. The key is an
+    /// original target name and the value is a new unique name mapped
+    /// to the name of its .swiftmodule binary.
+    public var moduleAliases: [String: String]? {
+      return underlyingTarget.moduleAliases
+    }
+
     /// The "type" of target.
     public var type: Target.Kind {
         return underlyingTarget.type
