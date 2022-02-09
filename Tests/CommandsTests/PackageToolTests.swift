@@ -896,8 +896,8 @@ final class PackageToolTests: CommandsTestCase {
 
             // Checks the content of checked out bar.swift.
             func checkBar(_ value: Int, file: StaticString = #file, line: UInt = #line) throws {
-                let contents = try localFileSystem.readFileContents(barPath.appending(components:"Sources", "bar.swift")).validDescription?.spm_chomp()
-                XCTAssert(contents?.hasSuffix("\(value)") ?? false, file: file, line: line)
+                let contents: String = try localFileSystem.readFileContents(barPath.appending(components:"Sources", "bar.swift")).spm_chomp()
+                XCTAssert(contents.hasSuffix("\(value)"), file: file, line: line)
             }
 
             // We should see a pin file now.

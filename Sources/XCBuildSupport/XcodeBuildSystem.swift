@@ -22,7 +22,7 @@ import protocol TSCUtility.ProgressAnimationProtocol
 public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
     private let buildParameters: BuildParameters
     private let packageGraphLoader: () throws -> PackageGraph
-    private let logLevel: Basics.Diagnostic.Severity
+    //private let logLevel: Basics.Diagnostic.Severity
     private let xcbuildPath: AbsolutePath
     private var packageGraph: PackageGraph?
     private var pifBuilder: PIFBuilder?
@@ -30,7 +30,7 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
     private let observabilityScope: ObservabilityScope
 
     /// The output stream for the build delegate.
-    private let outputStream: OutputByteStream
+    //private let outputStream: OutputByteStream
 
     /// The delegate used by the build system.
     public weak var delegate: SPMBuildCore.BuildSystemDelegate?
@@ -60,15 +60,15 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
     public init(
         buildParameters: BuildParameters,
         packageGraphLoader: @escaping () throws -> PackageGraph,
-        outputStream: OutputByteStream,
-        logLevel: Basics.Diagnostic.Severity,
+        //outputStream: OutputByteStream,
+        //logLevel: Basics.Diagnostic.Severity,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
     ) throws {
         self.buildParameters = buildParameters
         self.packageGraphLoader = packageGraphLoader
-        self.outputStream = outputStream
-        self.logLevel = logLevel
+        //self.outputStream = outputStream
+        //self.logLevel = logLevel
         self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope.makeChildScope(description: "Xcode Build System")
 
@@ -218,14 +218,14 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
 
     /// Returns a new instance of `XCBuildDelegate` for a build operation.
     private func createBuildDelegate() -> XCBuildDelegate {
-        let progressAnimation: ProgressAnimationProtocol = self.logLevel.isVerbose
-            ? VerboseProgressAnimation(stream: self.outputStream)
-            : MultiLinePercentProgressAnimation(stream: self.outputStream, header: "")
+        //let progressAnimation: ProgressAnimationProtocol = self.logLevel.isVerbose
+        //    ? VerboseProgressAnimation(stream: self.outputStream)
+        //    : MultiLinePercentProgressAnimation(stream: self.outputStream, header: "")
         let delegate = XCBuildDelegate(
             buildSystem: self,
-            outputStream: self.outputStream,
-            progressAnimation: progressAnimation,
-            logLevel: self.logLevel,
+            //outputStream: self.outputStream,
+            //progressAnimation: progressAnimation,
+            //logLevel: self.logLevel,
             observabilityScope: self.observabilityScope
         )
         return delegate
@@ -311,8 +311,9 @@ extension BuildSubset {
     }
 }
 
+/*
 extension Basics.Diagnostic.Severity {
     var isVerbose: Bool {
         return self <= .info
     }
-}
+}*/

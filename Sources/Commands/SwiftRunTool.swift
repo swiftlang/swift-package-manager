@@ -126,8 +126,8 @@ public struct SwiftRunTool: SwiftCommand {
                 packageGraphLoader: graphLoader,
                 pluginScriptRunner: try swiftTool.getPluginScriptRunner(),
                 pluginWorkDirectory: try swiftTool.getActiveWorkspace().location.pluginWorkingDirectory,
-                outputStream: swiftTool.outputStream,
-                logLevel: swiftTool.logLevel,
+                //outputStream: swiftTool.outputStream,
+                //logLevel: swiftTool.logLevel,
                 fileSystem: localFileSystem,
                 observabilityScope: swiftTool.observabilityScope
             )
@@ -140,7 +140,7 @@ public struct SwiftRunTool: SwiftCommand {
 
             // Execute the REPL.
             let arguments = buildOp.buildPlan!.createREPLArguments()
-            print("Launching Swift REPL with arguments: \(arguments.joined(separator: " "))")
+            swiftTool.outputToUser("Launching Swift REPL with arguments: \(arguments.joined(separator: " "))")
             try run(
                 swiftTool.getToolchain().swiftInterpreterPath,
                 originalWorkingDirectory: swiftTool.originalWorkingDirectory,

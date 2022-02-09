@@ -282,8 +282,8 @@ class TargetSourcesBuilderTests: XCTestCase {
             build(target: target, toolsVersion: .v5_3, checkProblemsOnly: false, fs: fs) { _, _, _, _, identity, kind, path, diagnostics in
                 var diagnosticsFound = [Basics.Diagnostic?]()
                 diagnosticsFound.append(diagnostics.check(diagnostic: "multiple resources named 'foo.txt' in target 'Foo'", severity: .error))
-                diagnosticsFound.append(diagnostics.checkUnordered(diagnostic: "found 'Resources/foo.txt'", severity: .info))
-                diagnosticsFound.append(diagnostics.checkUnordered(diagnostic: "found 'Resources/Sub/foo.txt'", severity: .info))
+                diagnosticsFound.append(diagnostics.checkUnordered(diagnostic: "found 'Resources/foo.txt'", severity: .verbose))
+                diagnosticsFound.append(diagnostics.checkUnordered(diagnostic: "found 'Resources/Sub/foo.txt'", severity: .verbose))
 
                 for diagnostic in diagnosticsFound {
                     XCTAssertEqual(diagnostic?.metadata?.packageIdentity, identity)
@@ -309,8 +309,8 @@ class TargetSourcesBuilderTests: XCTestCase {
             build(target: target, toolsVersion: .v5_3, checkProblemsOnly: false, fs: fs) { _, _, _, _, identity, kind, path, diagnostics in
                 var diagnosticsFound = [Basics.Diagnostic?]()
                 diagnosticsFound.append(diagnostics.check(diagnostic: "multiple resources named 'foo.txt' in target 'Foo'", severity: .error))
-                diagnosticsFound.append(diagnostics.checkUnordered(diagnostic: "found 'Processed/foo.txt'", severity: .info))
-                diagnosticsFound.append(diagnostics.checkUnordered(diagnostic: "found 'Copied/foo.txt'", severity: .info))
+                diagnosticsFound.append(diagnostics.checkUnordered(diagnostic: "found 'Processed/foo.txt'", severity: .verbose))
+                diagnosticsFound.append(diagnostics.checkUnordered(diagnostic: "found 'Copied/foo.txt'", severity: .verbose))
 
                 for diagnostic in diagnosticsFound {
                     XCTAssertEqual(diagnostic?.metadata?.packageIdentity, identity)
@@ -354,8 +354,8 @@ class TargetSourcesBuilderTests: XCTestCase {
             build(target: target, toolsVersion: .v5_3, checkProblemsOnly: false, fs: fs) { _, _, _, _, identity, kind, path, diagnostics in
                 var diagnosticsFound = [Basics.Diagnostic?]()
                 diagnosticsFound.append(diagnostics.check(diagnostic: "multiple resources named 'Copy' in target 'Foo'", severity: .error))
-                diagnosticsFound.append(diagnostics.checkUnordered(diagnostic: "found 'A/Copy'", severity: .info))
-                diagnosticsFound.append(diagnostics.checkUnordered(diagnostic: "found 'B/Copy'", severity: .info))
+                diagnosticsFound.append(diagnostics.checkUnordered(diagnostic: "found 'A/Copy'", severity: .verbose))
+                diagnosticsFound.append(diagnostics.checkUnordered(diagnostic: "found 'B/Copy'", severity: .verbose))
 
                 for diagnostic in diagnosticsFound {
                     XCTAssertEqual(diagnostic?.metadata?.packageIdentity, identity)
@@ -381,8 +381,8 @@ class TargetSourcesBuilderTests: XCTestCase {
             build(target: target, toolsVersion: .v5_3, checkProblemsOnly: false, fs: fs) { _, _, _, _, identity, kind, path, diagnostics in
                 var diagnosticsFound = [Basics.Diagnostic?]()
                 diagnosticsFound.append(diagnostics.check(diagnostic: "multiple resources named 'en.lproj/foo.txt' in target 'Foo'", severity: .error))
-                diagnosticsFound.append(diagnostics.checkUnordered(diagnostic: "found 'A/en.lproj/foo.txt'", severity: .info))
-                diagnosticsFound.append(diagnostics.checkUnordered(diagnostic: "found 'B/EN.lproj/foo.txt'", severity: .info))
+                diagnosticsFound.append(diagnostics.checkUnordered(diagnostic: "found 'A/en.lproj/foo.txt'", severity: .verbose))
+                diagnosticsFound.append(diagnostics.checkUnordered(diagnostic: "found 'B/EN.lproj/foo.txt'", severity: .verbose))
 
                 for diagnostic in diagnosticsFound {
                     XCTAssertEqual(diagnostic?.metadata?.packageIdentity, identity)

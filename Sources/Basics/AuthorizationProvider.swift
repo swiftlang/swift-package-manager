@@ -174,7 +174,7 @@ public struct KeychainAuthorizationProvider: AuthorizationProvider {
         } catch {
             switch error {
             case AuthorizationProviderError.notFound:
-                self.observabilityScope.emit(info: "No credentials found for server \(server) in keychain")
+                self.observabilityScope.emit(verbose: "No credentials found for server \(server) in keychain")
             case AuthorizationProviderError.other(let detail):
                 self.observabilityScope.emit(error: detail)
             default:
@@ -269,13 +269,13 @@ public struct CompositeAuthorizationProvider: AuthorizationProvider {
             if let authentication = provider.authentication(for: url) {
                 switch provider {
                 case let provider as NetrcAuthorizationProvider:
-                    self.observabilityScope.emit(info: "Credentials for \(url) found in netrc file at \(provider.path)")
+                    self.observabilityScope.emit(verbose: "Credentials for \(url) found in netrc file at \(provider.path)")
                 #if canImport(Security)
                 case is KeychainAuthorizationProvider:
-                    self.observabilityScope.emit(info: "Credentials for \(url) found in keychain")
+                    self.observabilityScope.emit(verbose: "Credentials for \(url) found in keychain")
                 #endif
                 default:
-                    self.observabilityScope.emit(info: "Credentials for \(url) found in \(provider)")
+                    self.observabilityScope.emit(verbose: "Credentials for \(url) found in \(provider)")
                 }
                 return authentication
             }

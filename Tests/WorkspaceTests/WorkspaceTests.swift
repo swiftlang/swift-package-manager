@@ -4363,10 +4363,10 @@ final class WorkspaceTests: XCTestCase {
                 result.checkTarget("Foo") { result in result.check(dependencies: "Bar", "Baz") }
                 result.checkTarget("Bar") { result in result.check(dependencies: "Baz") }
             }
-            testDiagnostics(diagnostics, minSeverity: .info) { result in
+            testDiagnostics(diagnostics, minSeverity: .verbose) { result in
                 result.checkUnordered(
                     diagnostic: "dependency on 'baz' is represented by similar locations ('https://localhost/org/baz' and 'https://localhost/org/Baz') which are treated as the same canonical location 'localhost/org/baz'.",
-                    severity: .info
+                    severity: .verbose
                 )
             }
         }
@@ -8946,14 +8946,14 @@ final class WorkspaceTests: XCTestCase {
         // 9/2021 this is currently emitting a warning only to support backwards compatibility
         // we will escalate this to an error in a few versions to tighten up the validation
         try workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
-            testDiagnostics(diagnostics, minSeverity: .info) { result in
+            testDiagnostics(diagnostics, minSeverity: .verbose) { result in
                 result.checkUnordered(
                     diagnostic: "dependency on 'foo' is represented by similar locations ('https://github.com/org/foo.git' and 'https://github.com/ORG/Foo.git') which are treated as the same canonical location 'github.com/org/foo'.",
-                    severity: .info
+                    severity: .verbose
                 )
                 result.checkUnordered(
                     diagnostic: "dependency on 'baz' is represented by similar locations ('https://github.com/org/baz.git' and 'https://github.com/org/baz') which are treated as the same canonical location 'github.com/org/baz'.",
-                    severity: .info
+                    severity: .verbose
                 )
             }
         }

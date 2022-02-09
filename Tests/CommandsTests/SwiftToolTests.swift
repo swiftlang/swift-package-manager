@@ -15,52 +15,116 @@ import TSCBasic
 import XCTest
 
 final class SwiftToolTests: CommandsTestCase {
-    
     func testVerbosityLogLevel() throws {
         fixture(name: "Miscellaneous/Simple") { packageRoot in
             do {
+                let stdoutStream = BufferedOutputByteStream()
+                let stderrStream = BufferedOutputByteStream()
                 let options = try SwiftToolOptions.parse(["--package-path", packageRoot.pathString])
-                let tool = try SwiftTool(options: options)
-                XCTAssertEqual(tool.logLevel, .warning)
+                let tool = try SwiftTool(options: options, stdoutStream: stdoutStream, stderrStream: stderrStream)
+                XCTAssertEqual(tool.logLevel, .output)
 
                 tool.observabilityScope.emit(error: "error")
                 tool.observabilityScope.emit(warning: "warning")
-                tool.observabilityScope.emit(info: "info")
+                tool.observabilityScope.emit(output: "output")
+                tool.observabilityScope.emit(verbose: "verbose")
                 tool.observabilityScope.emit(debug: "debug")
+
+                tool.waitForObservabilityEvents(timeout: .now() + .seconds(1))
+                XCTAssertEqual(stdoutStream.bytes.count, 0)
+                XCTAssertMatch(stderrStream.bytes.validDescription, .contains("error: error"))
+                XCTAssertMatch(stderrStream.bytes.validDescription, .contains("warning: warning"))
+                XCTAssertMatch(stderrStream.bytes.validDescription, .contains("output"))
+                XCTAssertNoMatch(stderrStream.bytes.validDescription, .contains("info: verbose"))
+                XCTAssertNoMatch(stderrStream.bytes.validDescription, .contains("debug: debug"))
             }
 
             do {
+                let stdoutStream = BufferedOutputByteStream()
+                let stderrStream = BufferedOutputByteStream()
                 let options = try SwiftToolOptions.parse(["--package-path", packageRoot.pathString, "--verbose"])
-                let tool = try SwiftTool(options: options)
-                XCTAssertEqual(tool.logLevel, .info)
+                let tool = try SwiftTool(options: options, stdoutStream: stdoutStream, stderrStream: stderrStream)
+                XCTAssertEqual(tool.logLevel, .verbose)
 
                 tool.observabilityScope.emit(error: "error")
                 tool.observabilityScope.emit(warning: "warning")
-                tool.observabilityScope.emit(info: "info")
+                tool.observabilityScope.emit(output: "output")
+                tool.observabilityScope.emit(verbose: "verbose")
                 tool.observabilityScope.emit(debug: "debug")
+
+                tool.waitForObservabilityEvents(timeout: .now() + .seconds(1))
+                XCTAssertEqual(stdoutStream.bytes.count, 0)
+                XCTAssertMatch(stderrStream.bytes.validDescription, .contains("error: error"))
+                XCTAssertMatch(stderrStream.bytes.validDescription, .contains("warning: warning"))
+                XCTAssertMatch(stderrStream.bytes.validDescription, .contains("output"))
+                XCTAssertMatch(stderrStream.bytes.validDescription, .contains("info: verbose"))
+                XCTAssertNoMatch(stderrStream.bytes.validDescription, .contains("debug: debug"))
             }
 
             do {
+                let stdoutStream = BufferedOutputByteStream()
+                let stderrStream = BufferedOutputByteStream()
                 let options = try SwiftToolOptions.parse(["--package-path", packageRoot.pathString, "-v"])
-                let tool = try SwiftTool(options: options)
-                XCTAssertEqual(tool.logLevel, .info)
+                let tool = try SwiftTool(options: options, stdoutStream: stdoutStream, stderrStream: stderrStream)
+                XCTAssertEqual(tool.logLevel, .verbose)
+
+                tool.observabilityScope.emit(error: "error")
+                tool.observabilityScope.emit(warning: "warning")
+                tool.observabilityScope.emit(output: "output")
+                tool.observabilityScope.emit(verbose: "verbose")
+                tool.observabilityScope.emit(debug: "debug")
+
+                tool.waitForObservabilityEvents(timeout: .now() + .seconds(1))
+                XCTAssertEqual(stdoutStream.bytes.count, 0)
+                XCTAssertMatch(stderrStream.bytes.validDescription, .contains("error: error"))
+                XCTAssertMatch(stderrStream.bytes.validDescription, .contains("warning: warning"))
+                XCTAssertMatch(stderrStream.bytes.validDescription, .contains("output"))
+                XCTAssertMatch(stderrStream.bytes.validDescription, .contains("info: verbose"))
+                XCTAssertNoMatch(stderrStream.bytes.validDescription, .contains("debug: debug"))
             }
 
             do {
+                let stdoutStream = BufferedOutputByteStream()
+                let stderrStream = BufferedOutputByteStream()
                 let options = try SwiftToolOptions.parse(["--package-path", packageRoot.pathString, "--very-verbose"])
-                let tool = try SwiftTool(options: options)
+                let tool = try SwiftTool(options: options, stdoutStream: stdoutStream, stderrStream: stderrStream)
                 XCTAssertEqual(tool.logLevel, .debug)
 
                 tool.observabilityScope.emit(error: "error")
                 tool.observabilityScope.emit(warning: "warning")
-                tool.observabilityScope.emit(info: "info")
+                tool.observabilityScope.emit(output: "output")
+                tool.observabilityScope.emit(verbose: "verbose")
                 tool.observabilityScope.emit(debug: "debug")
+
+                tool.waitForObservabilityEvents(timeout: .now() + .seconds(1))
+                XCTAssertEqual(stdoutStream.bytes.count, 0)
+                XCTAssertMatch(stderrStream.bytes.validDescription, .contains("error: error"))
+                XCTAssertMatch(stderrStream.bytes.validDescription, .contains("warning: warning"))
+                XCTAssertMatch(stderrStream.bytes.validDescription, .contains("output"))
+                XCTAssertMatch(stderrStream.bytes.validDescription, .contains("info: verbose"))
+                XCTAssertMatch(stderrStream.bytes.validDescription, .contains("debug: debug"))
             }
 
             do {
+                let stdoutStream = BufferedOutputByteStream()
+                let stderrStream = BufferedOutputByteStream()
                 let options = try SwiftToolOptions.parse(["--package-path", packageRoot.pathString, "--vv"])
-                let tool = try SwiftTool(options: options)
+                let tool = try SwiftTool(options: options, stdoutStream: stdoutStream, stderrStream: stderrStream)
                 XCTAssertEqual(tool.logLevel, .debug)
+
+                tool.observabilityScope.emit(error: "error")
+                tool.observabilityScope.emit(warning: "warning")
+                tool.observabilityScope.emit(output: "output")
+                tool.observabilityScope.emit(verbose: "verbose")
+                tool.observabilityScope.emit(debug: "debug")
+
+                tool.waitForObservabilityEvents(timeout: .now() + .seconds(1))
+                XCTAssertEqual(stdoutStream.bytes.count, 0)
+                XCTAssertMatch(stderrStream.bytes.validDescription, .contains("error: error"))
+                XCTAssertMatch(stderrStream.bytes.validDescription, .contains("warning: warning"))
+                XCTAssertMatch(stderrStream.bytes.validDescription, .contains("output"))
+                XCTAssertMatch(stderrStream.bytes.validDescription, .contains("info: verbose"))
+                XCTAssertMatch(stderrStream.bytes.validDescription, .contains("debug: debug"))
             }
         }
     }

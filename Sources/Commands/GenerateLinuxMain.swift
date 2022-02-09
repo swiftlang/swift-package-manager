@@ -39,7 +39,7 @@ final class LinuxMainGenerator {
     }
 
     /// Generate the XCTestManifests.swift and LinuxMain.swift for the package.
-    func generate() throws {
+    func generate(observabilityScope: ObservabilityScope) throws {
         // Create the module struct from input.
         //
         // This converts the input test suite into a structure that
@@ -53,7 +53,7 @@ final class LinuxMainGenerator {
         // Generate manifest file for each test module we got from XCTest discovery.
         for module in modules {
             guard let target = graph.reachableTargets.first(where: { $0.c99name == module.name }) else {
-                print("warning: did not find target '\(module.name)'")
+                observabilityScope.emit(warning: "did not find target '\(module.name)'")
                 continue
             }
             assert(target.type == .test, "Unexpected target type \(target.type) for \(target)")

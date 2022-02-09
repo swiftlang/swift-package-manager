@@ -12,6 +12,7 @@ import ArgumentParser
 import Basics
 import Build
 import Dispatch
+import struct Foundation.Data
 import class Foundation.ProcessInfo
 import PackageGraph
 import PackageLoading
@@ -38,16 +39,16 @@ typealias Diagnostic = Basics.Diagnostic
 
 private class ToolWorkspaceDelegate: WorkspaceDelegate {
     /// The stream to use for reporting progress.
-    private let outputStream: ThreadSafeOutputByteStream
+    //private let outputStream: ThreadSafeOutputByteStream
 
     /// The progress animation for downloads.
-    private let downloadAnimation: NinjaProgressAnimation
+    //private let downloadAnimation: NinjaProgressAnimation
 
     /// The progress animation for repository fetches.
-    private let fetchAnimation: NinjaProgressAnimation
+    //private let fetchAnimation: NinjaProgressAnimation
 
     /// Logging level
-    private let logLevel: Diagnostic.Severity
+    //private let logLevel: Diagnostic.Severity
 
     private struct DownloadProgress {
         let bytesDownloaded: Int64
@@ -55,31 +56,32 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
     }
 
     private struct FetchProgress {
-        let progress: Int64
+        let step: Int64
         let total: Int64
     }
 
     /// The progress of each individual downloads.
-    private var binaryDownloadProgress: [String: DownloadProgress] = [:]
+    private var binaryDownloadProgress = ThreadSafeKeyValueStore<String, DownloadProgress>()
 
     /// The progress of each individual fetch operation
-    private var fetchProgress: [PackageIdentity: FetchProgress] = [:]
+    private var fetchProgress = ThreadSafeKeyValueStore<PackageIdentity, FetchProgress>()
 
-    private let queue = DispatchQueue(label: "org.swift.swiftpm.commands.tool-workspace-delegate")
+    //private let queue = DispatchQueue(label: "org.swift.swiftpm.commands.tool-workspace-delegate")
 
     private let observabilityScope: ObservabilityScope
 
-    init(_ outputStream: OutputByteStream, logLevel: Diagnostic.Severity, observabilityScope: ObservabilityScope) {
+    init(/*_ outputStream: OutputByteStream, logLevel: Diagnostic.Severity,*/ observabilityScope: ObservabilityScope) {
         // FIXME: Implement a class convenience initializer that does this once they are supported
         // https://forums.swift.org/t/allow-self-x-in-class-convenience-initializers/15924
-        self.outputStream = outputStream as? ThreadSafeOutputByteStream ?? ThreadSafeOutputByteStream(outputStream)
-        self.downloadAnimation = NinjaProgressAnimation(stream: self.outputStream)
-        self.fetchAnimation = NinjaProgressAnimation(stream: self.outputStream)
-        self.logLevel = logLevel
+        //self.outputStream = outputStream as? ThreadSafeOutputByteStream ?? ThreadSafeOutputByteStream(outputStream)
+        //self.downloadAnimation = NinjaProgressAnimation(stream: self.outputStream)
+        //self.fetchAnimation = NinjaProgressAnimation(stream: self.outputStream)
+        //self.logLevel = logLevel
         self.observabilityScope = observabilityScope
     }
 
     func willFetchPackage(package: PackageIdentity, packageLocation: String?, fetchDetails: PackageFetchDetails) {
+        /*
         queue.async {
             self.outputStream <<< "Fetching \(packageLocation ?? package.description)"
             if fetchDetails.fromCache {
@@ -87,10 +89,16 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
             }
             self.outputStream <<< "\n"
             self.outputStream.flush()
+        }*/
+        var message = "Fetching \(packageLocation ?? package.description)"
+        if fetchDetails.fromCache {
+            message += " from cache"
         }
+        self.observabilityScope.emit(output: message)
     }
 
     func didFetchPackage(package: PackageIdentity, packageLocation: String?, result: Result<PackageFetchDetails, Error>, duration: DispatchTimeInterval) {
+        /*
         queue.async {
             if self.observabilityScope.errorsReported {
                 self.fetchAnimation.clear()
@@ -107,11 +115,13 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
             self.outputStream <<< "Fetched \(packageLocation ?? package.description) (\(duration.descriptionInSeconds))"
             self.outputStream <<< "\n"
             self.outputStream.flush()
-        }
+        }*/
+        self.fetchProgress[package] = nil
+        self.observabilityScope.emit(output: "Fetched \(packageLocation ?? package.description) (\(duration.descriptionInSeconds))")
     }
 
-    func fetchingPackage(package: PackageIdentity, packageLocation: String?, progress: Int64, total: Int64?) {
-        queue.async {
+    func fetchingPackage(package: PackageIdentity, packageLocation: String?, step: Int64, total: Int64?) {
+        /*queue.async {
             self.fetchProgress[package] = FetchProgress(
                 progress: progress,
                 total: total ?? progress
@@ -125,59 +135,78 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
                 total: total > Int.max ? Int.max : Int(total),
                 text: "Fetching \(package)"
             )
-        }
+        }*/
+        self.fetchProgress[package] = FetchProgress(
+            step: step,
+            total: total ?? step
+        )
+
+        let fetchProgress = self.fetchProgress.get()
+        let names = fetchProgress.keys.map { $0.description }.joined(separator: ", ")
+        let step = fetchProgress.values.reduce(0) { $0 + $1.step }
+        let total = fetchProgress.values.reduce(0) { $0 + $1.total }
+
+        #warning("FIXME: unit?")
+        self.observabilityScope.emit(step: step, total: total, unit: .none, description: "Fetching \(names)")
     }
 
     func willUpdateRepository(package: PackageIdentity, repository url: String) {
-        queue.async {
+        /*queue.async {
             self.outputStream <<< "Updating \(url)"
             self.outputStream <<< "\n"
             self.outputStream.flush()
-        }
+        }*/
+        self.observabilityScope.emit(output: "Updating \(url)")
     }
 
     func didUpdateRepository(package: PackageIdentity, repository url: String, duration: DispatchTimeInterval) {
-        queue.async {
+        /*queue.async {
             self.outputStream <<< "Updated \(url) (\(duration.descriptionInSeconds))"
             self.outputStream <<< "\n"
             self.outputStream.flush()
-        }
+        }*/
+        self.observabilityScope.emit(output: "Updated \(url) (\(duration.descriptionInSeconds))")
     }
 
     func dependenciesUpToDate() {
-        queue.async {
+        /*queue.async {
             self.outputStream <<< "Everything is already up-to-date"
             self.outputStream <<< "\n"
             self.outputStream.flush()
-        }
+        }*/
+        self.observabilityScope.emit(output: "Everything is already up-to-date")
     }
 
     func willCreateWorkingCopy(package: PackageIdentity, repository url: String, at path: AbsolutePath) {
-        queue.async {
+        /*queue.async {
             self.outputStream <<< "Creating working copy for \(url)"
             self.outputStream <<< "\n"
             self.outputStream.flush()
-        }
+        }*/
+        self.observabilityScope.emit(output: "Creating working copy for \(url)")
     }
 
+    #warning("FIXME: this seems wrong?")
     func didCheckOut(package: PackageIdentity, repository url: String, revision: String, at path: AbsolutePath) {
-        queue.async {
+        /*queue.async {
             self.outputStream <<< "Working copy of \(url) resolved at \(revision)"
             self.outputStream <<< "\n"
             self.outputStream.flush()
-        }
+        }*/
+        self.observabilityScope.emit(output: "Working copy of \(url) resolved at \(revision)")
     }
 
     func removing(package: PackageIdentity, packageLocation: String?) {
-        queue.async {
+        /*queue.async {
             self.outputStream <<< "Removing \(packageLocation ?? package.description)"
             self.outputStream <<< "\n"
             self.outputStream.flush()
-        }
+        }*/
+        self.observabilityScope.emit(output: "Removing \(packageLocation ?? package.description)")
     }
 
     func willResolveDependencies(reason: WorkspaceResolveReason) {
-        guard self.logLevel <= .info else {
+        /*guard self.logLevel <= .info else {
             return
         }
 
@@ -185,27 +214,30 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
             self.outputStream <<< Workspace.format(workspaceResolveReason: reason)
             self.outputStream <<< "\n"
             self.outputStream.flush()
-        }
+        }*/
+        self.observabilityScope.emit(debug: Workspace.format(workspaceResolveReason: reason))
     }
 
     func willComputeVersion(package: PackageIdentity, location: String) {
-        queue.async {
+        /*queue.async {
             self.outputStream <<< "Computing version for \(location)"
             self.outputStream <<< "\n"
             self.outputStream.flush()
-        }
+        }*/
+        self.observabilityScope.emit(output: "Computing version for \(location)")
     }
 
     func didComputeVersion(package: PackageIdentity, location: String, version: String, duration: DispatchTimeInterval) {
-        queue.async {
+        /*queue.async {
             self.outputStream <<< "Computed \(location) at \(version) (\(duration.descriptionInSeconds))"
             self.outputStream <<< "\n"
             self.outputStream.flush()
-        }
+        }*/
+        self.observabilityScope.emit(output: "Computed \(location) at \(version) (\(duration.descriptionInSeconds))")
     }
 
     func downloadingBinaryArtifact(from url: String, bytesDownloaded: Int64, totalBytesToDownload: Int64?) {
-        queue.async {
+        /*queue.async {
             if let totalBytesToDownload = totalBytesToDownload {
                 self.binaryDownloadProgress[url] = DownloadProgress(
                     bytesDownloaded: bytesDownloaded,
@@ -215,18 +247,40 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
             let step = self.binaryDownloadProgress.values.reduce(0, { $0 + $1.bytesDownloaded }) / 1024
             let total = self.binaryDownloadProgress.values.reduce(0, { $0 + $1.totalBytesToDownload }) / 1024
             self.downloadAnimation.update(step: Int(step), total: Int(total), text: "Downloading binary artifacts")
+        }*/
+
+        #warning("FIXME: need discrete artifact finished downloading event")
+        if let totalBytesToDownload = totalBytesToDownload {
+            if bytesDownloaded < totalBytesToDownload {
+                self.binaryDownloadProgress[url] = DownloadProgress(
+                    bytesDownloaded: bytesDownloaded,
+                    totalBytesToDownload: totalBytesToDownload
+                )
+            } else {
+                self.binaryDownloadProgress[url] = nil
+            }
         }
+
+        let downloadProgress = self.binaryDownloadProgress.get()
+        let names = downloadProgress.keys.map { $0 }.joined(separator: ", ")
+        let step = downloadProgress.values.reduce(0, { $0 + $1.bytesDownloaded }) / 1024
+        let total = downloadProgress.values.reduce(0, { $0 + $1.totalBytesToDownload }) / 1024
+        //self.downloadAnimation.update(step: Int(step), total: Int(total), text: "Downloading binary artifacts")
+
+        #warning("FIXME: unit?")
+        self.observabilityScope.emit(step: step, total: total, unit: .none, description: "Downloading binary artifacts \(names)")
     }
 
     func didDownloadBinaryArtifacts() {
-        queue.async {
+        /*queue.async {
             if self.observabilityScope.errorsReported {
                 self.downloadAnimation.clear()
             }
 
             self.downloadAnimation.complete(success: true)
             self.binaryDownloadProgress.removeAll()
-        }
+        }*/
+
     }
 
     // noop
@@ -248,6 +302,7 @@ extension SwiftCommand {
     public func run() throws {
         let swiftTool = try SwiftTool(options: swiftOptions)
         try self.run(swiftTool)
+        swiftTool.waitForObservabilityEvents(timeout: .now() + .seconds(5)) // wait for all observability items to process
         if swiftTool.observabilityScope.errorsReported || swiftTool.executionStatus == .failure {
             throw ExitCode.failure
         }
@@ -315,7 +370,16 @@ public class SwiftTool {
     var executionStatus: ExecutionStatus = .success
 
     /// The stream to print standard output on.
-    fileprivate(set) var outputStream: OutputByteStream = TSCBasic.stdoutStream
+    //fileprivate(set) var outputStream: OutputByteStream = TSCBasic.stdoutStream
+
+    #warning("FIXME")
+    @available(*, deprecated)
+    var outputStream: OutputByteStream {
+        self.observabilityHandler.outputStream
+    }
+
+    // The observability handler to handle observability events
+    fileprivate let observabilityHandler: SwiftToolObservabilityHandler
 
     /// Holds the currently active workspace.
     ///
@@ -332,10 +396,24 @@ public class SwiftTool {
     /// Create an instance of this tool.
     ///
     /// - parameter args: The command line arguments to be passed to this tool.
-    public init(options: SwiftToolOptions) throws {
+    public convenience init(options: SwiftToolOptions) throws {
+        try self.init(options: options, stdoutStream: TSCBasic.stdoutStream, stderrStream: TSCBasic.stderrStream)
+    }
+
+    // marked internal for testing
+    internal init(
+        options: SwiftToolOptions,
+        stdoutStream: OutputByteStream,
+        stderrStream: OutputByteStream
+    ) throws {
         // first, bootstrap the observability syste
         self.logLevel = options.logLevel
-        let observabilitySystem = ObservabilitySystem.init(SwiftToolObservability(logLevel: self.logLevel))
+        self.observabilityHandler = SwiftToolObservabilityHandler(
+            logLevel: self.logLevel,
+            stdoutStream: stdoutStream,
+            stderrStream: stderrStream
+        )
+        let observabilitySystem = ObservabilitySystem(self.observabilityHandler)
         self.observabilityScope = observabilitySystem.topScope
 
         // Capture the original working directory ASAP.
@@ -435,15 +513,17 @@ public class SwiftTool {
 
         // set verbosity globals.
         // TODO: get rid of this global settings in TSC
-        switch self.logLevel {
+        /*switch self.logLevel {
         case .debug:
             TSCUtility.verbosity = .debug
-        case .info:
+        case .verbose:
             TSCUtility.verbosity = .verbose
-        case .warning, .error:
+        default:
             TSCUtility.verbosity = .concise
         }
-        Process.verbose = TSCUtility.verbosity != .concise
+        Process.verbose = TSCUtility.verbosity == .debug // will print process invocation arguments which is noisy
+        */
+        Process.loggingHandler = { self.observabilityScope.emit(debug: $0) }
     }
 
     static func postprocessArgParserResult(options: SwiftToolOptions, observabilityScope: ObservabilityScope) throws {
@@ -502,7 +582,7 @@ public class SwiftTool {
             return workspace
         }
 
-        let delegate = ToolWorkspaceDelegate(self.outputStream, logLevel: self.logLevel, observabilityScope: self.observabilityScope)
+        let delegate = ToolWorkspaceDelegate(/*self.outputStream, logLevel: self.logLevel,*/ observabilityScope: self.observabilityScope)
         let repositoryProvider = GitRepositoryProvider(processSet: self.processSet)
         let isXcodeBuildSystemEnabled = self.options.buildSystem == .xcode
         let workspace = try Workspace(
@@ -598,9 +678,35 @@ public class SwiftTool {
         return try authorization.makeAuthorizationProvider(fileSystem: localFileSystem, observabilityScope: self.observabilityScope)
     }
 
+    #warning("is this the right API, or should tools use print directly?")
+    func outputToUser(_ message: String) {
+        self.observabilityHandler.outputToUser(message)
+    }
+
+    #warning("FIXME: should this throw in case of invalid UTF8?")
+    public func outputToUser(_ bytes: [UInt8], metadata: ObservabilityMetadata? = .none) {
+        if let output = String(bytes: bytes, encoding: .utf8) {
+            self.outputToUser(output)
+        }
+    }
+
+    #warning("FIXME: should this throw in case of invalid UTF8?")
+    public func outputToUser(_ data: Foundation.Data, metadata: ObservabilityMetadata? = .none) {
+        if let output = String(data: data, encoding: .utf8) {
+            self.outputToUser(output)
+        }
+    }
+
+    #warning("FIXME")
     /// Start redirecting the standard output stream to the standard error stream.
     func redirectStdoutToStderr() {
-        self.outputStream = TSCBasic.stderrStream
+        //self.outputStream = TSCBasic.stderrStream
+        self.observabilityHandler.redirectStdoutToStderr()
+    }
+
+    // internal for testing
+    internal func waitForObservabilityEvents(timeout: DispatchTime) {
+        self.observabilityHandler.wait(timeout: timeout)
     }
 
     /// Resolve the dependencies.
@@ -711,8 +817,8 @@ public class SwiftTool {
             packageGraphLoader: graphLoader,
             pluginScriptRunner: self.getPluginScriptRunner(),
             pluginWorkDirectory: try self.getActiveWorkspace().location.pluginWorkingDirectory,
-            outputStream: self.outputStream,
-            logLevel: self.logLevel,
+            //outputStream: self.observabilityHandler.outputStream,
+            //logLevel: self.logLevel,
             fileSystem: localFileSystem,
             observabilityScope: self.observabilityScope
         )
@@ -734,8 +840,8 @@ public class SwiftTool {
                 pluginScriptRunner: self.getPluginScriptRunner(),
                 pluginWorkDirectory: try self.getActiveWorkspace().location.pluginWorkingDirectory,
                 disableSandboxForPluginCommands: self.options.shouldDisableSandbox,
-                outputStream: self.outputStream,
-                logLevel: self.logLevel,
+                //outputStream: self.observabilityHandler.outputStream,
+                //logLevel: self.logLevel,
                 fileSystem: localFileSystem,
                 observabilityScope: self.observabilityScope
             )
@@ -745,8 +851,8 @@ public class SwiftTool {
             buildSystem = try XcodeBuildSystem(
                 buildParameters: buildParameters ?? self.buildParameters(),
                 packageGraphLoader: graphLoader,
-                outputStream: self.outputStream,
-                logLevel: self.logLevel,
+                //outputStream: self.observabilityHandler.outputStream,
+                //logLevel: self.logLevel,
                 fileSystem: localFileSystem,
                 observabilityScope: self.observabilityScope
             )
@@ -766,20 +872,6 @@ public class SwiftTool {
         return Result(catching: {
             let toolchain = try self.getToolchain()
             let triple = toolchain.triple
-
-            /// Checks if stdout stream is tty.
-            let isTTY: Bool = {
-                let stream: OutputByteStream
-                if let threadSafeStream = self.outputStream as? ThreadSafeOutputByteStream {
-                    stream = threadSafeStream.stream
-                } else {
-                    stream = self.outputStream
-                }
-                guard let fileStream = stream as? LocalFileOutputByteStream else {
-                    return false
-                }
-                return TerminalController.isTTY(fileStream)
-            }()
 
             // Use "apple" as the subdirectory because in theory Xcode build system
             // can be used to build for any Apple platform and it has it's own
@@ -809,7 +901,8 @@ public class SwiftTool {
                 isXcodeBuildSystemEnabled: options.buildSystem == .xcode,
                 printManifestGraphviz: options.printManifestGraphviz,
                 forceTestDiscovery: options.enableTestDiscovery, // backwards compatibility, remove with --enable-test-discovery
-                isTTY: isTTY
+                colorizeOutput: self.observabilityHandler.isTTY,
+                verboseOutput: self.logLevel <= .verbose
             )
         })
     }()
@@ -978,45 +1071,121 @@ extension Basics.Diagnostic {
 
 // MARK: - Diagnostics
 
-private struct SwiftToolObservability: ObservabilityHandlerProvider, DiagnosticsHandler {
+private struct SwiftToolObservabilityHandler: ObservabilityHandlerProvider, ScopeDiagnosticsHandler, ScopeProgressHandler {
     private let logLevel: Diagnostic.Severity
+    private let stdoutWriter: InteractiveWriter
+    private let stderrWriter: InteractiveWriter
+    private let progressAnimation: ProgressAnimationProtocol
 
-    var diagnosticsHandler: DiagnosticsHandler { self }
+    var diagnosticsHandler: ScopeDiagnosticsHandler { self }
+    var progressHandler: ScopeProgressHandler { self }
 
-    init(logLevel: Diagnostic.Severity) {
+    #warning("FIXME")
+    private let queue = DispatchQueue(label: "chachacha")
+    private let sync = DispatchGroup()
+
+    init(
+        logLevel: Diagnostic.Severity,
+        stdoutStream: OutputByteStream,
+        stderrStream: OutputByteStream
+    ) {
         self.logLevel = logLevel
+        self.stdoutWriter = InteractiveWriter(stream: stdoutStream)
+        self.stderrWriter = InteractiveWriter(stream: stderrStream)
+        self.progressAnimation = logLevel <= .verbose ?
+            MultiLineNinjaProgressAnimation(stream: stdoutStream) :
+            NinjaProgressAnimation(stream: stdoutStream)
     }
 
     func handleDiagnostic(scope: ObservabilityScope, diagnostic: Basics.Diagnostic) {
         // TODO: do something useful with scope
         if diagnostic.severity >= self.logLevel {
-            diagnostic.print()
+            self.queue.async(group: self.sync) {
+                self.progressAnimation.clear()
+                diagnostic.print(writer: self.stderrWriter)
+            }
         }
+    }
+
+    func handleProgress(scope: ObservabilityScope, step: Int64, total: Int64, unit: String?, description: String?) {
+        self.queue.async(group: self.sync) {
+            self.progressAnimation.update(
+                step: step > Int.max ? Int.max : Int(step),
+                total: total > Int.max ? Int.max : Int(total),
+                text: description ?? scope.description
+            )
+        }
+    }
+
+    /// Checks if output stream is tty.
+    var isTTY: Bool {
+        let stream: OutputByteStream
+        if let threadSafeStream = self.stdoutWriter.stream as? ThreadSafeOutputByteStream {
+            stream = threadSafeStream.stream
+        } else {
+            stream = self.stdoutWriter.stream
+        }
+        guard let fileStream = stream as? LocalFileOutputByteStream else {
+            return false
+        }
+        return TerminalController.isTTY(fileStream)
+    }
+
+    func wait(timeout: DispatchTime) {
+        switch self.sync.wait(timeout: timeout) {
+        case .success:
+            break
+        case .timedOut:
+            self.stderrWriter.write("warning: failed to process all diagnostics")
+        }
+    }
+
+    func outputToUser(_ message: String) {
+        if message.hasSuffix("\n") {
+            self.stdoutWriter.write(message)
+        } else {
+            self.stdoutWriter.write("\(message)\n")
+        }
+    }
+
+    #warning("FIXME")
+    @available(*, deprecated)
+    func redirectStdoutToStderr() {
+    }
+
+    #warning("FIXME")
+    @available(*, deprecated)
+    var outputStream: OutputByteStream {
+        self.stdoutWriter.stream
     }
 }
 
 extension Basics.Diagnostic {
-    func print() {
-        let writer = InteractiveWriter.stderr
+    fileprivate func print(writer: InteractiveWriter) {
+        switch self.severity {
+        case .error:
+            writer.write("error: ", inColor: .red, bold: true)
+        case .warning:
+            writer.write("warning: ", inColor: .yellow, bold: true)
+        case .output:
+            // outputs "raw" information to user
+            break
+        case .verbose:
+            writer.write("info: ", inColor: .white, bold: true)
+        case .debug:
+            writer.write("debug: ", inColor: .white, bold: true)
+        }
 
         if let diagnosticPrefix = self.metadata?.diagnosticPrefix {
             writer.write(diagnosticPrefix)
             writer.write(": ")
         }
 
-        switch self.severity {
-        case .error:
-            writer.write("error: ", inColor: .red, bold: true)
-        case .warning:
-            writer.write("warning: ", inColor: .yellow, bold: true)
-        case .info:
-            writer.write("info: ", inColor: .white, bold: true)
-        case .debug:
-            writer.write("debug: ", inColor: .white, bold: true)
+        if self.message.hasSuffix("\n") {
+            writer.write(self.message)
+        } else {
+            writer.write("\(self.message)\n")
         }
-
-        writer.write(self.message)
-        writer.write("\n")
     }
 }
 
@@ -1025,13 +1194,6 @@ extension Basics.Diagnostic {
 /// If underlying stream is a not tty, the string will be written in without any
 /// formatting.
 private final class InteractiveWriter {
-
-    /// The standard error writer.
-    static let stderr = InteractiveWriter(stream: TSCBasic.stderrStream)
-
-    /// The standard output writer.
-    static let stdout = InteractiveWriter(stream: TSCBasic.stdoutStream)
-
     /// The terminal controller, if present.
     let term: TerminalController?
 
@@ -1046,11 +1208,11 @@ private final class InteractiveWriter {
 
     /// Write the string to the contained terminal or stream.
     func write(_ string: String, inColor color: TerminalController.Color = .noColor, bold: Bool = false) {
-        if let term = term {
+        if let term = self.term {
             term.write(string, inColor: color, bold: bold)
         } else {
-            stream <<< string
-            stream.flush()
+            self.stream <<< string
+            self.stream.flush()
         }
     }
 }
@@ -1070,11 +1232,11 @@ extension ObservabilityMetadata {
 extension SwiftToolOptions {
     var logLevel: Diagnostic.Severity {
         if self.verbose {
-            return .info
+            return .verbose
         } else if self.veryVerbose {
             return .debug
         } else {
-            return .warning
+            return .output
         }
     }
 }

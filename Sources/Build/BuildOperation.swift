@@ -61,10 +61,10 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     private let packageGraph = ThreadSafeBox<PackageGraph>()
 
     /// The output stream for the build delegate.
-    private let outputStream: OutputByteStream
+    //private let outputStream: OutputByteStream
 
     /// The verbosity level to print out at
-    private let logLevel: Basics.Diagnostic.Severity
+    //private let logLevel: Basics.Diagnostic.Severity
 
     /// File system to operate on
     private let fileSystem: TSCBasic.FileSystem
@@ -83,8 +83,8 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         pluginScriptRunner: PluginScriptRunner,
         pluginWorkDirectory: AbsolutePath,
         disableSandboxForPluginCommands: Bool = false,
-        outputStream: OutputByteStream,
-        logLevel: Basics.Diagnostic.Severity,
+        //outputStream: OutputByteStream,
+        //logLevel: Basics.Diagnostic.Severity,
         fileSystem: TSCBasic.FileSystem,
         observabilityScope: ObservabilityScope
     ) {
@@ -94,8 +94,8 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         self.pluginScriptRunner = pluginScriptRunner
         self.pluginWorkDirectory = pluginWorkDirectory
         self.disableSandboxForPluginCommands = disableSandboxForPluginCommands
-        self.outputStream = outputStream
-        self.logLevel = logLevel
+        //self.outputStream = outputStream
+        //self.logLevel = logLevel
         self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope.makeChildScope(description: "Build Operation")
     }
@@ -292,7 +292,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                     return metadata
                 }
                 for line in result.textOutput.split(separator: "\n") {
-                    diagnosticsEmitter.emit(info: line)
+                    diagnosticsEmitter.emit(verbose: line)
                 }
                 for diag in result.diagnostics {
                     diagnosticsEmitter.emit(diag)
@@ -357,10 +357,11 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         // but it would require deeper changes in how we serialize BuildDescription
         // Output a dot graph
         if buildParameters.printManifestGraphviz {
+            #warning("FIXME: restore this (somewhere else)")
             // FIXME: this seems like the wrong place to print
-            var serializer = DOTManifestSerializer(manifest: buildManifest)
-            serializer.writeDOT(to: self.outputStream)
-            self.outputStream.flush()
+            //var serializer = DOTManifestSerializer(manifest: buildManifest)
+            //serializer.writeDOT(to: self.outputStream)
+            //self.outputStream.flush()
         }
         
         // Finally create the llbuild manifest from the plan.
@@ -382,9 +383,9 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     /// building the package structure target.
     private func createBuildSystem(buildDescription: BuildDescription?) throws -> SPMLLBuild.BuildSystem {
         // Figure out which progress bar we have to use during the build.
-        let progressAnimation: ProgressAnimationProtocol = self.logLevel.isVerbose
-            ? MultiLineNinjaProgressAnimation(stream: self.outputStream)
-            : NinjaProgressAnimation(stream: self.outputStream)
+        //let progressAnimation: ProgressAnimationProtocol = self.logLevel.isVerbose
+          //  ? MultiLineNinjaProgressAnimation(stream: self.outputStream)
+            //: NinjaProgressAnimation(stream: self.outputStream)
 
         let buildExecutionContext = BuildExecutionContext(
             buildParameters,
@@ -398,9 +399,9 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         let buildSystemDelegate = BuildOperationBuildSystemDelegateHandler(
             buildSystem: self,
             buildExecutionContext: buildExecutionContext,
-            outputStream: self.outputStream,
-            progressAnimation: progressAnimation,
-            logLevel: self.logLevel,
+            //outputStream: self.outputStream,
+            //progressAnimation: progressAnimation,
+            //logLevel: self.logLevel,
             observabilityScope: self.observabilityScope,
             delegate: self.delegate
         )
@@ -433,7 +434,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             var derivedSourceFiles: [AbsolutePath] = []
             var prebuildOutputDirs: [AbsolutePath] = []
             for command in pluginResult.prebuildCommands {
-                self.observabilityScope.emit(info: "Running" + (command.configuration.displayName ?? command.configuration.executable.basename))
+                self.observabilityScope.emit(verbose: "Running" + (command.configuration.displayName ?? command.configuration.executable.basename))
 
                 // Run the command configuration as a subshell. This doesn't return until it is done.
                 // TODO: We need to also use any working directory, but that support isn't yet available on all platforms at a lower level.
@@ -564,8 +565,9 @@ extension BuildSubset {
     }
 }
 
+/*
 extension Basics.Diagnostic.Severity {
     var isVerbose: Bool {
         return self <= .info
     }
-}
+}*/

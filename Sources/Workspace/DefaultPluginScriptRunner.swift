@@ -281,7 +281,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
                     completion($0.tryMap {
                         // Emit the compiler output as observable info.
                         let compilerOutput = ((try? $0.utf8Output()) ?? "") + ((try? $0.utf8stderrOutput()) ?? "")
-                        observabilityScope.emit(info: compilerOutput)
+                        observabilityScope.emit(verbose: compilerOutput)
 
                         // We return a PluginCompilationResult for both the successful and unsuccessful cases (to convey diagnostics, etc).
                         let result = PluginCompilationResult(
@@ -419,7 +419,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
                 case .warning:
                     diagnostic = .warning(message, metadata: metadata)
                 case .remark:
-                    diagnostic = .info(message, metadata: metadata)
+                    diagnostic = .verbose(message, metadata: metadata)
                 }
                 delegate.pluginEmittedDiagnostic(diagnostic)
                 

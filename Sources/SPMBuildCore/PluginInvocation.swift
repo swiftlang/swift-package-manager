@@ -533,7 +533,9 @@ public struct PluginInvocationBuildParameters: Decodable {
     public enum Configuration: String, Decodable {
         case debug, release
     }
+    @available(*, deprecated)
     public var logging: LogVerbosity
+    @available(*, deprecated)
     public enum LogVerbosity: String, Decodable {
         case concise, verbose, debug
     }

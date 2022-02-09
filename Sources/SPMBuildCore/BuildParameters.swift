@@ -172,7 +172,9 @@ public struct BuildParameters: Encodable {
     // What strategy to use to discover tests
     public var testDiscoveryStrategy: TestDiscoveryStrategy
 
-    public var isTTY: Bool
+    public var colorizeOutput: Bool
+
+    public var verboseOutput: Bool
 
     public init(
         dataPath: AbsolutePath,
@@ -200,7 +202,8 @@ public struct BuildParameters: Encodable {
         printManifestGraphviz: Bool = false,
         enableTestability: Bool? = nil,
         forceTestDiscovery: Bool = false,
-        isTTY: Bool = false
+        colorizeOutput: Bool = false,
+        verboseOutput: Bool = false
     ) {
         let triple = destinationTriple ?? .getHostTriple(usingSwiftCompiler: toolchain.swiftCompiler)
 
@@ -231,7 +234,8 @@ public struct BuildParameters: Encodable {
         self.enableTestability = enableTestability ?? (.debug == configuration)
         // decide if to enable the use of test manifests based on platform. this is likely to change in the future
         self.testDiscoveryStrategy = triple.isDarwin() ? .objectiveC : .manifest(generate: forceTestDiscovery)
-        self.isTTY = isTTY
+        self.colorizeOutput = colorizeOutput
+        self.verboseOutput = verboseOutput
     }
 
     /// The path to the build directory (inside the data directory).
