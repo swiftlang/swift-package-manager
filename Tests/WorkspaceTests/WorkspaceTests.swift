@@ -6218,8 +6218,7 @@ final class WorkspaceTests: XCTestCase {
                     try fileSystem.writeFileContents(destination, bytes: "different contents = different checksum")
                     completion(.success(.okay()))
                 default:
-                    XCTFail("unexpected url")
-                    completion(.success(.okay()))
+                    throw StringError("unexpected url")
                 }
             } catch {
                 completion(.failure(error))
@@ -6285,11 +6284,109 @@ final class WorkspaceTests: XCTestCase {
         )
 
         workspace.checkPackageGraphFailure(roots: ["Foo"]) { diagnostics in
-            print(diagnostics)
             testDiagnostics(diagnostics) { result in
                 result.checkUnordered(diagnostic: .contains("failed downloading 'https://a.com/a1.zip' which is required by binary target 'A1': badResponseStatusCode(500)"), severity: .error)
                 result.checkUnordered(diagnostic: .contains("failed extracting 'https://a.com/a2.zip' which is required by binary target 'A2': dummy error"), severity: .error)
                 result.checkUnordered(diagnostic: .contains("checksum of downloaded artifact of binary target 'A3' (6d75736b6365686320746e65726566666964203d2073746e65746e6f6320746e65726566666964) does not match checksum specified by the manifest (a3)"), severity: .error)
+            }
+        }
+    }
+
+    func testArtifactDownloaderNotAnArchiveError() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        // returns a dummy zipfile for the requested artifact
+        let httpClient = HTTPClient(handler: { request, _, completion in
+            do {
+                guard case .download(let fileSystem, let destination) = request.kind else {
+                    throw StringError("invalid request \(request.kind)")
+                }
+
+                switch request.url {
+                case URL(string: "https://a.com/a1.zip")!:
+                    try fileSystem.writeFileContents(destination, bytes: ByteString([0xA1]))
+                    completion(.success(.okay()))
+                case URL(string: "https://a.com/a2.zip")!:
+                    try fileSystem.writeFileContents(destination, bytes: ByteString([0xA2]))
+                    completion(.success(.okay()))
+                case URL(string: "https://a.com/a3.zip")!:
+                    try fileSystem.writeFileContents(destination, bytes: ByteString([0xA3]))
+                    completion(.success(.okay()))
+                default:
+                    throw StringError("unexpected url")
+                }
+            } catch {
+                completion(.failure(error))
+            }
+        })
+
+        let archiver = MockArchiver(
+            extractionHandler: { archiver, archivePath, destinationPath, completion in
+                do {
+                    if archivePath.basenameWithoutExt == "a1" {
+                        try fs.createDirectory(destinationPath.appending(component: "A1.Framework"), recursive: false)
+                        archiver.extractions.append(MockArchiver.Extraction(archivePath: archivePath, destinationPath: destinationPath))
+                        completion(.success(()))
+                    } else {
+                        throw StringError("unexpected path")
+                    }
+                } catch {
+                    completion(.failure(error))
+                }
+            },
+            validationHandler: { _, path, completion in
+                if path.basenameWithoutExt == "a1" {
+                    completion(.success(true))
+                } else if path.basenameWithoutExt == "a2" {
+                    completion(.success(false))
+                } else if path.basenameWithoutExt == "a3" {
+                    completion(.failure(DummyError()))
+                } else {
+                    XCTFail("unexpected path")
+                    completion(.success(false))
+                }
+            })
+
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Foo",
+                    targets: [
+                        MockTarget(
+                            name: "A1",
+                            type: .binary,
+                            url: "https://a.com/a1.zip",
+                            checksum: "a1"
+                        ),
+                        MockTarget(
+                            name: "A2",
+                            type: .binary,
+                            url: "https://a.com/a2.zip",
+                            checksum: "a2"
+                        ),
+                        MockTarget(
+                            name: "A3",
+                            type: .binary,
+                            url: "https://a.com/a3.zip",
+                            checksum: "a3"
+                        ),
+                    ],
+                    products: [],
+                    dependencies: []
+                ),
+            ],
+            packages: [],
+            httpClient: httpClient,
+            binaryArchiver: archiver
+        )
+
+        workspace.checkPackageGraphFailure(roots: ["Foo"]) { diagnostics in
+            testDiagnostics(diagnostics) { result in
+                result.checkUnordered(diagnostic: .contains("invalid archive returned from 'https://a.com/a2.zip' which is required by binary target 'A2'"), severity: .error)
+                result.checkUnordered(diagnostic: .contains("failed validating archive from 'https://a.com/a3.zip' which is required by binary target 'A3': dummy error"), severity: .error)
             }
         }
     }

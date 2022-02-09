@@ -26,4 +26,14 @@ public protocol Archiver {
         to destinationPath: AbsolutePath,
         completion: @escaping (Result<Void, Error>) -> Void
     )
+
+    /// Asynchronously validates if a file is an archive.
+    ///
+    /// - Parameters:
+    ///   - path: The `AbsolutePath` to the archive to validate.
+    ///   - completion: The completion handler that will be called when the operation finishes to notify of its success.
+    func validate(
+        path: AbsolutePath,
+        completion: @escaping (Result<Bool, Error>) -> Void
+    )
 }
