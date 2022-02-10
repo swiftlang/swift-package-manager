@@ -134,10 +134,12 @@ enum TestingSupport {
 }
 
 extension SwiftTool {
-    func buildParametersForTest() throws -> BuildParameters {
+    func buildParametersForTest(
+        enableTestability: Bool? = nil
+    ) throws -> BuildParameters {
         var parameters = try self.buildParameters()
-        // for test commands, alway enable building with testability enabled
-        parameters.enableTestability = true
+        // for test commands, we normally enable building with testability
+        parameters.enableTestability = enableTestability ?? true
         return parameters
     }
 }
