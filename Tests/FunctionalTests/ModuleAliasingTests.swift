@@ -40,7 +40,7 @@ class ModuleAliasingTests: XCTestCase {
                 // FIXME: rdar://88722540
                 // The process from above crashes in a certain env, so print
                 // the output for further investigation
-                try XCTSkipIf(true, output)
+                try XCTSkipIf(true, "Skipping due to an expected failure being investigated in rdar://88722540\nResult: \(result.exitStatus)\nOutput: \(output)")
             }
         }
     }
