@@ -18,7 +18,7 @@ import XCTest
  
 class ModuleAliasingTests: XCTestCase {
 
-    func testExternalSimple() throws {
+    func testModuleRenaming() throws {
         #if swift(<5.6)
         try XCTSkipIf(true, "Module aliasing is only supported on swift 5.6+")
         #endif
@@ -34,4 +34,19 @@ class ModuleAliasingTests: XCTestCase {
             XCTAssertFileExists(prefix.appending(components: "AppPkg", ".build", UserToolchain.default.triple.platformBuildPathComponent(), "release", "Utils.swiftmodule"))
         }
     }
+    
+    func testBuildLaunch() throws {
+        #if swift(<5.6)
+        try XCTSkipIf(true, "Module aliasing is only supported on swift 5.6+")
+        #endif
+        
+        let result = try SwiftPMProduct.SwiftBuild.executeProcess([], packagePath: app)
+        let output = try result.utf8Output() + result.utf8stderrOutput()
+       
+        // FIXME: rdar://88722540
+        // The process from above crashes in a certain env, so print
+        // the output for further investigation
+        print(output)
+    }
+    
 }
