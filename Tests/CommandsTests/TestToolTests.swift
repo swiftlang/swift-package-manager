@@ -61,20 +61,22 @@ final class TestToolTests: CommandsTestCase {
 
     func testEnableDisableTestability() {
         fixture(name: "Miscellaneous/TestableExe") { path in
+            // default should run with testability
             do {
                 let result = try execute(["--vv"], packagePath: path)
-                // default should run with testability
                 XCTAssertMatch(result.stdout, .contains("-enable-testing"))
             }
 
+            // disabled
             do {
-                // disable
                 let result = try execute(["--disable-testable-imports", "--vv"], packagePath: path)
-                XCTAssertNoMatch(result.stdout, .contains("-enable-testing"))
+            } catch SwiftPMProductError.executionFailure(_, let stdout, _) {
+                XCTAssertNoMatch(stdout, .contains("-enable-testing"))
+                XCTAssertMatch(stdout, .contains("was not compiled for testing"))
             }
 
+            // enabled
             do {
-                // enable
                 let result = try execute(["--enable-testable-imports", "--vv"], packagePath: path)
                 XCTAssertMatch(result.stdout, .contains("-enable-testing"))
             }
