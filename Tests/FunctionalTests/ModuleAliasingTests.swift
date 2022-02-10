@@ -37,7 +37,8 @@ class ModuleAliasingTests: XCTestCase {
             let output = try result.utf8Output() + result.utf8stderrOutput()
             
             #if os(Linux)
-            // FIXME: the process crashes on CentOS 7, so print the output for further investigation
+            // FIXME: rdar://88722540
+            // The process from above crashes on CentOS 7, so print the output for further investigation
             print(output)
             #else
             XCTAssertEqual(result.exitStatus, .terminated(code: 0), "output: \(output)")
