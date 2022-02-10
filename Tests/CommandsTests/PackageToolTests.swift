@@ -986,6 +986,97 @@ final class PackageToolTests: CommandsTestCase {
         }
     }
 
+    func testOnlyUseVersionsFromResolvedFileFetchesWithExistingState() throws {
+        func writeResolvedFile(packageDir: AbsolutePath, repositoryURL: String, revision: String, version: String) throws {
+            try localFileSystem.writeFileContents(packageDir.appending(component: "Package.resolved")) {
+                $0 <<< """
+                    {
+                      "object": {
+                        "pins": [
+                          {
+                            "package": "library",
+                            "repositoryURL": "\(repositoryURL)",
+                            "state": {
+                              "branch": null,
+                              "revision": "\(revision)",
+                              "version": "\(version)"
+                            }
+                          }
+                        ]
+                      },
+                      "version": 1
+                    }
+                """
+            }
+        }
+
+        try testWithTemporaryDirectory { tmpPath in
+            let packageDir = tmpPath.appending(components: "library")
+            try localFileSystem.writeFileContents(packageDir.appending(component: "Package.swift")) {
+                $0 <<< """
+                // swift-tools-version:5.0
+                import PackageDescription
+                let package = Package(
+                    name: "library",
+                    products: [ .library(name: "library", targets: ["library"]) ],
+                    targets: [ .target(name: "library") ]
+                )
+                """
+            }
+            try localFileSystem.writeFileContents(packageDir.appending(components: "Sources", "library", "library.swift")) {
+                $0 <<< """
+                    public func Foo() { }
+                """
+            }
+
+            let depGit = GitRepository(path: packageDir)
+            try depGit.create()
+            try depGit.stageEverything()
+            try depGit.commit()
+            try depGit.tag(name: "1.0.0")
+
+            let initialRevision = try depGit.revision(forTag: "1.0.0")
+            let repositoryURL = "file://\(packageDir.pathString)"
+
+            let clientDir = tmpPath.appending(components: "client")
+            try localFileSystem.writeFileContents(clientDir.appending(component: "Package.swift")) {
+                $0 <<< """
+                // swift-tools-version:5.0
+                import PackageDescription
+                let package = Package(
+                    name: "client",
+                    dependencies: [ .package(url: "\(repositoryURL)", from: "1.0.0") ],
+                    targets: [ .target(name: "client", dependencies: [ "library" ]) ]
+                )
+                """
+            }
+            try localFileSystem.writeFileContents(clientDir.appending(components: "Sources", "client", "main.swift")) {
+                $0 <<< """
+                    print("hello")
+                """
+            }
+
+            // Initial resolution with clean state.
+            try writeResolvedFile(packageDir: clientDir, repositoryURL: repositoryURL, revision: initialRevision, version: "1.0.0")
+            _ = try execute(["resolve", "--only-use-versions-from-resolved-file"], packagePath: clientDir)
+
+            // Make a change to the dependency and tag a new version.
+            try localFileSystem.writeFileContents(packageDir.appending(components: "Sources", "library", "library.swift")) {
+                $0 <<< """
+                    public func Best() { }
+                """
+            }
+            try depGit.stageEverything()
+            try depGit.commit()
+            try depGit.tag(name: "1.0.1")
+            let updatedRevision = try depGit.revision(forTag: "1.0.1")
+
+            // Require new version but re-use existing state that hasn't fetched the latest revision, yet.
+            try writeResolvedFile(packageDir: clientDir, repositoryURL: repositoryURL, revision: updatedRevision, version: "1.0.1")
+            _ = try execute(["resolve", "--only-use-versions-from-resolved-file"], packagePath: clientDir)
+        }
+    }
+
     func testSymlinkedDependency() throws {
         try testWithTemporaryDirectory { path in
             let fs = localFileSystem

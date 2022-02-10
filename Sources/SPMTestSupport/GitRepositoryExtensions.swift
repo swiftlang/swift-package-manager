@@ -28,6 +28,12 @@ public extension GitRepository {
             args: Git.tool, "-C", path.pathString, "rev-parse", "--abbrev-ref", "HEAD").spm_chomp()
     }
 
+    /// Returns the revision for a given tag.
+    func revision(forTag tag: String) throws -> String {
+        return try Process.checkNonZeroExit(
+            args: Git.tool, "-C", path.pathString, "rev-parse", tag).spm_chomp()
+    }
+
     /// Stage a file.
     func stage(file: String) throws {
         try systemQuietly([Git.tool, "-C", self.path.pathString, "add", file])
