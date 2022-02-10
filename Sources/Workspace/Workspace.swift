@@ -2536,9 +2536,14 @@ extension Workspace {
         //
         // We just request the packages here, repository manager will
         // automatically manage the parallelism.
+        let group = DispatchGroup()
         for pin in pinsStore.pins {
-            packageContainerProvider.getContainer(for: pin.packageRef, skipUpdate: true, observabilityScope: observabilityScope, on: .sharedConcurrent, completion: { _ in })
+            group.enter()
+            packageContainerProvider.getContainer(for: pin.packageRef, skipUpdate: !self.resolverUpdateEnabled, observabilityScope: observabilityScope, on: .sharedConcurrent, completion: { _ in
+                group.leave()
+            })
         }
+        group.wait()
 
         // Compute the pins that we need to actually clone.
         //
