@@ -62,12 +62,42 @@ class ZipArchiverTests: XCTestCase {
             }
         }
     }
+
+    func testValidation() throws {
+        // valid
+        try testWithTemporaryDirectory { tmpdir in
+            let archiver = ZipArchiver()
+            let path = AbsolutePath(#file).parentDirectory
+                .appending(components: "Inputs", "archive.zip")
+            XCTAssertTrue(try archiver.validate(path: path))
+        }
+        // invalid
+        try testWithTemporaryDirectory { tmpdir in
+            let archiver = ZipArchiver()
+            let path = AbsolutePath(#file).parentDirectory
+                .appending(components: "Inputs", "invalid_archive.zip")
+            XCTAssertFalse(try archiver.validate(path: path))
+        }
+        // error
+        try testWithTemporaryDirectory { tmpdir in
+            let archiver = ZipArchiver()
+            let path = AbsolutePath.root.appending(component: "does_not_exist.zip")
+            XCTAssertThrowsError(try archiver.validate(path: path)) { error in
+                XCTAssertEqual(error as? FileSystemError, FileSystemError(.noEntry, path))
+            }
+        }
+    }
 }
 
 extension Archiver {
     fileprivate func extract(from: AbsolutePath, to: AbsolutePath) throws {
         try tsc_await {
             self.extract(from: from, to: to, completion: $0)
+        }
+    }
+    fileprivate func validate(path: AbsolutePath) throws -> Bool {
+        try tsc_await {
+            self.validate(path: path, completion: $0)
         }
     }
 }

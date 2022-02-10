@@ -2539,85 +2539,105 @@ extension Workspace {
                         semaphore.signal()
                     }
 
+                    // TODO: Use the same extraction logic for both remote and local archived artifacts.
                     switch downloadResult {
                     case .success:
-                        guard let archiveChecksum = observabilityScope.trap ({ try self.checksum(forBinaryArtifactAt: archivePath) }) else {
-                            return
-                        }
-                        guard archiveChecksum == artifact.checksum else {
-                            observabilityScope.emit(.artifactInvalidChecksum(targetName: artifact.targetName, expectedChecksum: artifact.checksum, actualChecksum: archiveChecksum))
-                            observabilityScope.trap { try self.fileSystem.removeFileTree(archivePath) }
-                            return
-                        }
 
-                        guard let tempExtractionDirectory = observabilityScope.trap({ () -> AbsolutePath in
-                            let path = self.location.artifactsDirectory.appending(components: "extract", artifact.packageRef.identity.description, artifact.targetName, UUID().uuidString)
-                            try self.fileSystem.forceCreateDirectory(at: path)
-                            return path
-                        }) else {
-                            return
-                        }
-
-                        // TODO: Use the same extraction logic for both remote and local archived artifacts.
                         group.enter()
-                        observabilityScope.emit(debug: "extracting \(archivePath) to \(tempExtractionDirectory)")
-                        self.archiver.extract(from: archivePath, to: tempExtractionDirectory, completion: { extractResult in
+                        observabilityScope.emit(debug: "validating \(archivePath)")
+                        self.archiver.validate(path: archivePath, completion: { validationResult in
                             defer { group.leave() }
 
-                            switch extractResult {
-                            case .success:
-                                var artifactPath: AbsolutePath? = nil
-                                observabilityScope.trap {
-                                    try self.fileSystem.withLock(on: parentDirectory, type: .exclusive) {
-                                        // strip first level component if needed
-                                        if try self.fileSystem.shouldStripFirstLevel(archiveDirectory: tempExtractionDirectory, acceptableExtensions: BinaryTarget.Kind.allCases.map({ $0.fileExtension })) {
-                                            observabilityScope.emit(debug: "stripping first level component from  \(tempExtractionDirectory)")
-                                            try self.fileSystem.stripFirstLevel(of: tempExtractionDirectory)
-                                        } else {
-                                            observabilityScope.emit(debug: "no first level component stripping needed for \(tempExtractionDirectory)")
-                                        }
-                                        let content = try self.fileSystem.getDirectoryContents(tempExtractionDirectory)
-                                        // copy from temp location to actual location
-                                        for file in content {
-                                            let source = tempExtractionDirectory.appending(component: file)
-                                            let destination = parentDirectory.appending(component: file)
-                                            if self.fileSystem.exists(destination) {
-                                                try self.fileSystem.removeFileTree(destination)
+                            switch validationResult {
+                            case .success(let valid):
+                                guard valid else {
+                                    observabilityScope.emit(.artifactInvalidArchive(artifactURL: artifact.url, targetName: artifact.targetName))
+                                    return
+                                }
+
+                                guard let archiveChecksum = observabilityScope.trap ({ try self.checksum(forBinaryArtifactAt: archivePath) }) else {
+                                    return
+                                }
+                                guard archiveChecksum == artifact.checksum else {
+                                    observabilityScope.emit(.artifactInvalidChecksum(targetName: artifact.targetName, expectedChecksum: artifact.checksum, actualChecksum: archiveChecksum))
+                                    observabilityScope.trap { try self.fileSystem.removeFileTree(archivePath) }
+                                    return
+                                }
+
+                                guard let tempExtractionDirectory = observabilityScope.trap({ () -> AbsolutePath in
+                                    let path = self.location.artifactsDirectory.appending(components: "extract", artifact.packageRef.identity.description, artifact.targetName, UUID().uuidString)
+                                    try self.fileSystem.forceCreateDirectory(at: path)
+                                    return path
+                                }) else {
+                                    return
+                                }
+
+                                group.enter()
+                                observabilityScope.emit(debug: "extracting \(archivePath) to \(tempExtractionDirectory)")
+                                self.archiver.extract(from: archivePath, to: tempExtractionDirectory, completion: { extractResult in
+                                    defer { group.leave() }
+
+                                    switch extractResult {
+                                    case .success:
+                                        var artifactPath: AbsolutePath? = nil
+                                        observabilityScope.trap {
+                                            try self.fileSystem.withLock(on: parentDirectory, type: .exclusive) {
+                                                // strip first level component if needed
+                                                if try self.fileSystem.shouldStripFirstLevel(archiveDirectory: tempExtractionDirectory, acceptableExtensions: BinaryTarget.Kind.allCases.map({ $0.fileExtension })) {
+                                                    observabilityScope.emit(debug: "stripping first level component from  \(tempExtractionDirectory)")
+                                                    try self.fileSystem.stripFirstLevel(of: tempExtractionDirectory)
+                                                } else {
+                                                    observabilityScope.emit(debug: "no first level component stripping needed for \(tempExtractionDirectory)")
+                                                }
+                                                let content = try self.fileSystem.getDirectoryContents(tempExtractionDirectory)
+                                                // copy from temp location to actual location
+                                                for file in content {
+                                                    let source = tempExtractionDirectory.appending(component: file)
+                                                    let destination = parentDirectory.appending(component: file)
+                                                    if self.fileSystem.exists(destination) {
+                                                        try self.fileSystem.removeFileTree(destination)
+                                                    }
+                                                    try self.fileSystem.copy(from: source, to: destination)
+                                                    if destination.basenameWithoutExt == artifact.targetName {
+                                                        artifactPath = destination
+                                                    }
+                                                }
                                             }
-                                            try self.fileSystem.copy(from: source, to: destination)
-                                            if destination.basenameWithoutExt == artifact.targetName {
-                                                artifactPath = destination
-                                            }
+                                            // remove temp location
+                                            try self.fileSystem.removeFileTree(tempExtractionDirectory)
                                         }
+
+                                        guard let mainArtifactPath = artifactPath else {
+                                            return observabilityScope.emit(.artifactNotFound(targetName: artifact.targetName, artifactName: artifact.targetName))
+                                        }
+
+                                        result.append(
+                                            .remote(
+                                                packageRef: artifact.packageRef,
+                                                targetName: artifact.targetName,
+                                                url: artifact.url.absoluteString,
+                                                checksum: artifact.checksum,
+                                                path: mainArtifactPath
+                                            )
+                                        )
+                                        self.delegate?.didDownloadBinaryArtifact(from: artifact.url.absoluteString, result: .success(mainArtifactPath), duration: downloadStart.distance(to: .now()))
+                                    case .failure(let error):
+                                        let reason = (error as? LocalizedError)?.errorDescription ?? "\(error)"
+                                        observabilityScope.emit(.artifactFailedExtraction(artifactURL: artifact.url, targetName: artifact.targetName, reason: reason))
+                                        self.delegate?.didDownloadBinaryArtifact(from: artifact.url.absoluteString, result: .failure(error), duration: downloadStart.distance(to: .now()))
                                     }
-                                    // remove temp location
-                                    try self.fileSystem.removeFileTree(tempExtractionDirectory)
-                                }
 
-                                guard let mainArtifactPath = artifactPath else {
-                                    return observabilityScope.emit(.artifactNotFound(targetName: artifact.targetName, artifactName: artifact.targetName))
-                                }
-
-                                result.append(
-                                    .remote(
-                                        packageRef: artifact.packageRef,
-                                        targetName: artifact.targetName,
-                                        url: artifact.url.absoluteString,
-                                        checksum: artifact.checksum,
-                                        path: mainArtifactPath
-                                    )
-                                )
-                                self.delegate?.didDownloadBinaryArtifact(from: artifact.url.absoluteString, result: .success(mainArtifactPath), duration: downloadStart.distance(to: .now()))
+                                    observabilityScope.trap { try self.fileSystem.removeFileTree(archivePath) }
+                                })
                             case .failure(let error):
-                                let reason = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
-                                observabilityScope.emit(.artifactFailedExtraction(artifactURL: artifact.url, targetName: artifact.targetName, reason: reason))
+                                let reason = (error as? LocalizedError)?.errorDescription ?? "\(error)"
+                                observabilityScope.emit(.artifactFailedValidation(artifactURL: artifact.url, targetName: artifact.targetName, reason: "\(reason)"))
                                 self.delegate?.didDownloadBinaryArtifact(from: artifact.url.absoluteString, result: .failure(error), duration: downloadStart.distance(to: .now()))
                             }
-
-                            observabilityScope.trap { try self.fileSystem.removeFileTree(archivePath) }
                         })
                     case .failure(let error):
-                        observabilityScope.emit(.artifactFailedDownload(artifactURL: artifact.url, targetName: artifact.targetName, reason: "\(error)"))
+                        let reason = (error as? LocalizedError)?.errorDescription ?? "\(error)"
+                        observabilityScope.emit(.artifactFailedDownload(artifactURL: artifact.url, targetName: artifact.targetName, reason: "\(reason)"))
                         self.delegate?.didDownloadBinaryArtifact(from: artifact.url.absoluteString, result: .failure(error), duration: downloadStart.distance(to: .now()))
                     }
                 })

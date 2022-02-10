@@ -288,12 +288,10 @@ private struct MockRegistryArchiver: Archiver {
 
     func extract(from archivePath: AbsolutePath, to destinationPath: AbsolutePath, completion: @escaping (Result<Void, Error>) -> Void) {
         do {
-            let content: String = try self.fileSystem.readFileContents(archivePath)
-            let lines = content.split(separator: "\n").map(String.init)
+            let lines = try self.readFileContents(archivePath)
             guard lines.count >= 2 else {
                 throw StringError("invalid mock zip format, not enough lines")
             }
-
             let rootPath = lines[1]
             for path in lines[2..<lines.count] {
                 let relativePath = String(path.dropFirst(rootPath.count + 1))
@@ -307,5 +305,19 @@ private struct MockRegistryArchiver: Archiver {
         } catch {
             completion(.failure(error))
         }
+    }
+
+    func validate(path: AbsolutePath, completion: @escaping (Result<Bool, Error>) -> Void) {
+        do {
+            let lines = try self.readFileContents(path)
+            completion(.success(lines.count >= 2))
+        } catch {
+            completion(.failure(error))
+        }
+    }
+
+    private func readFileContents(_ path: AbsolutePath) throws -> [String] {
+        let content: String = try self.fileSystem.readFileContents(path)
+        return content.split(separator: "\n").map(String.init)
     }
 }
