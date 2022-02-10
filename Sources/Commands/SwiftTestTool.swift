@@ -211,6 +211,9 @@ public struct SwiftTestTool: SwiftCommand {
 
         switch options.mode {
         case .listTests:
+            // redirect all other output to stderr so that the list is the only thing that is printed on stdout
+            swiftTool.redirectStdoutToStderr()
+
             let testProducts = try buildTestsIfNeeded(swiftTool: swiftTool)
             let testSuites = try TestingSupport.getTestSuites(in: testProducts, swiftTool: swiftTool, swiftOptions: swiftOptions)
             let tests = try testSuites
