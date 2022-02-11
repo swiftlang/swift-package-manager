@@ -91,12 +91,14 @@ class DependencyResolutionTests: XCTestCase {
             // run with no mirror
             do {
                 let output = try executeSwiftPackage(appPath, extraArgs: ["show-dependencies"])
-                XCTAssertMatch(output.stdout, .contains("Fetching \(prefix.pathString)/Foo\n"))
-                XCTAssertMatch(output.stdout, .contains("Fetching \(prefix.pathString)/Bar\n"))
+                // logs are in stderr
+                XCTAssertMatch(output.stderr, .contains("Fetching \(prefix.pathString)/Foo\n"))
+                XCTAssertMatch(output.stderr, .contains("Fetching \(prefix.pathString)/Bar\n"))
+                // results are in stdout
                 XCTAssertMatch(output.stdout, .contains("foo<\(prefix.pathString)/Foo@unspecified"))
                 XCTAssertMatch(output.stdout, .contains("bar<\(prefix.pathString)/Bar@unspecified"))
 
-                let pins = try String(bytes: localFileSystem.readFileContents(appPinsPath).contents, encoding: .utf8)!
+                let pins: String = try localFileSystem.readFileContents(appPinsPath)
                 XCTAssertMatch(pins, .contains("\"\(prefix.pathString)/Foo\""))
                 XCTAssertMatch(pins, .contains("\"\(prefix.pathString)/Bar\""))
 
@@ -115,16 +117,17 @@ class DependencyResolutionTests: XCTestCase {
             // run with mirror
             do {
                 let output = try executeSwiftPackage(appPath, extraArgs: ["show-dependencies"])
-                XCTAssertMatch(output.stdout, .contains("Fetching \(prefix.pathString)/Foo\n"))
-                XCTAssertMatch(output.stdout, .contains("Fetching \(prefix.pathString)/BarMirror\n"))
-                XCTAssertNoMatch(output.stdout, .contains("Fetching \(prefix.pathString)/Bar\n"))
-
+                // logs are in stderr
+                XCTAssertMatch(output.stderr, .contains("Fetching \(prefix.pathString)/Foo\n"))
+                XCTAssertMatch(output.stderr, .contains("Fetching \(prefix.pathString)/BarMirror\n"))
+                XCTAssertNoMatch(output.stderr, .contains("Fetching \(prefix.pathString)/Bar\n"))
+                // result are in stdout
                 XCTAssertMatch(output.stdout, .contains("foo<\(prefix.pathString)/Foo@unspecified"))
                 XCTAssertMatch(output.stdout, .contains("barmirror<\(prefix.pathString)/BarMirror@unspecified"))
                 XCTAssertNoMatch(output.stdout, .contains("bar<\(prefix.pathString)/Bar@unspecified"))
 
                 // rdar://52529014 mirrors should not be reflected in pins file
-                let pins = try String(bytes: localFileSystem.readFileContents(appPinsPath).contents, encoding: .utf8)!
+                let pins: String = try localFileSystem.readFileContents(appPinsPath)
                 XCTAssertMatch(pins, .contains("\"\(prefix.pathString)/Foo\""))
                 XCTAssertMatch(pins, .contains("\"\(prefix.pathString)/Bar\""))
                 XCTAssertNoMatch(pins, .contains("\"\(prefix.pathString)/BarMirror\""))

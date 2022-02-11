@@ -73,7 +73,7 @@ enum TestingSupport {
             }
             try Process.checkNonZeroExit(arguments: args, environment: env)
             // Read the temporary file's content.
-            return try localFileSystem.readFileContents(tempFile.path).validDescription ?? ""
+            return try localFileSystem.readFileContents(tempFile.path)
         }
         #else
         let env = try constructTestEnvironment(toolchain: try swiftTool.getToolchain(), options: swiftOptions, buildParameters: swiftTool.buildParametersForTest())
@@ -134,10 +134,13 @@ enum TestingSupport {
 }
 
 extension SwiftTool {
-    func buildParametersForTest() throws -> BuildParameters {
+    func buildParametersForTest(
+        enableTestability: Bool? = nil
+    ) throws -> BuildParameters {
         var parameters = try self.buildParameters()
-        // for test commands, alway enable building with testability enabled
-        parameters.enableTestability = true
+        // for test commands, we normally enable building with testability
+        // but we let users override this with a flag
+        parameters.enableTestability = enableTestability ?? true
         return parameters
     }
 }

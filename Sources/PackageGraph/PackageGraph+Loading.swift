@@ -197,6 +197,32 @@ private func checkAllDependenciesAreUsed(_ rootPackages: [ResolvedPackage], obse
     }
 }
 
+extension Package {
+    // Add module aliases specified for applicable targets
+    fileprivate func setModuleAliasesForTargets(with moduleAliasMap: [String: String]) {
+        // Set module aliases for each target's dependencies
+        for (entryName, entryAlias) in moduleAliasMap {
+            for target in self.targets {
+                // First add dependency module aliases for this target
+                if entryName != target.name {
+                    target.addModuleAlias(for: entryName, as: entryAlias)
+                }
+            }
+        }
+        
+        // This loop should run after the loop above as it may rename the target
+        // as an alias if specified
+        for (entryName, entryAlias) in moduleAliasMap {
+            for target in self.targets {
+                // Then set this target to be aliased if specified
+                if entryName == target.name  {
+                    target.addModuleAlias(for: target.name, as: entryAlias)
+                }
+            }
+        }
+    }
+}
+
 fileprivate extension ResolvedProduct {
     /// Returns true if and only if the product represents a command plugin target.
     var isCommandPlugin: Bool {
@@ -239,6 +265,9 @@ private func createResolvedPackages(
         return ($0.package.identity, $0)
     }
 
+    // Gather all module aliases specified for dependencies from each package
+    let pkgToAliasesMap = gatherModuleAliases(from: packageBuilders)
+
     // Scan and validate the dependencies
     for packageBuilder in packageBuilders {
         let package = packageBuilder.package
@@ -247,6 +276,10 @@ private func createResolvedPackages(
             description: "Validating package dependencies",
             metadata: package.diagnosticsMetadata
         )
+        
+        if let aliasMap = pkgToAliasesMap[package.manifest.displayName] {
+            package.setModuleAliasesForTargets(with: aliasMap)
+        }
 
         var dependencies = OrderedCollections.OrderedDictionary<PackageIdentity, ResolvedPackageBuilder>()
         var dependenciesByNameForTargetDependencyResolution = [String: ResolvedPackageBuilder]()
@@ -488,6 +521,36 @@ private func createResolvedPackages(
         }
     }
     return try packageBuilders.map{ try $0.construct() }
+}
+
+// Create a map between a package and module aliases specified for its targets
+private func gatherModuleAliases(from packageBuilders: [ResolvedPackageBuilder]) -> [String: [String: String]] {
+    // Use a list to track all the module aliases specified for a given target to handle an override later
+    var nameToAliasAndPkgMap = [String: [(String, String)]]()
+    packageBuilders.forEach { $0.package.targets.forEach { $0.dependencies.forEach { dep in
+        if case let .product(prodRef, _) = dep {
+            if let prodPkg = prodRef.package {
+                if let prodModuleAliases = prodRef.moduleAliases {
+                    for (depName, depAlias) in prodModuleAliases {
+                        // Add a module alias to a map if specified
+                        nameToAliasAndPkgMap[depName, default: []].append((depAlias, prodPkg))
+                    }
+                }
+            }
+        }
+    }}}
+    
+    var pkgToAliasesMap = [String: [String: String]]()
+    nameToAliasAndPkgMap.forEach { (keyName, aliasAndPkgList) in
+        aliasAndPkgList.forEach { (elemAlias, elemPkg) in
+            // FIXME: handle an override for multiple aliases
+            // Use one of the module aliases specified for now
+            if pkgToAliasesMap[elemPkg]?[keyName] == nil, !elemAlias.isEmpty {
+                pkgToAliasesMap[elemPkg] = [keyName: elemAlias]
+            }
+        }
+    }
+    return pkgToAliasesMap
 }
 
 /// A generic builder for `Resolved` models.

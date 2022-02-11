@@ -527,10 +527,29 @@ class PackageIndexAndCollectionsTests: XCTestCase {
             _ = try tsc_await { callback in indexAndCollections.addCollection(collection.source, trustConfirmationProvider: { _, cb in cb(true) }, callback: callback) }
         }
         
-        let searchResult = try tsc_await { callback in indexAndCollections.findPackages(mockPackage.identity.description, callback: callback) }
-        XCTAssertEqual(searchResult.items.count, 1, "list count should match")
-        XCTAssertEqual(searchResult.items.first?.collections.sorted(), expectedCollectionsIdentifiers, "collections should match")
-        XCTAssertEqual(searchResult.items.first?.indexes, [packageIndex.url], "indexes should match")
+        // both index and collections
+        do {
+            let searchResult = try tsc_await { callback in indexAndCollections.findPackages(mockPackage.identity.description, in: .both(collections: nil), callback: callback) }
+            XCTAssertEqual(searchResult.items.count, 1, "list count should match")
+            XCTAssertEqual(searchResult.items.first?.collections.sorted(), expectedCollectionsIdentifiers, "collections should match")
+            XCTAssertEqual(searchResult.items.first?.indexes, [packageIndex.url], "indexes should match")
+        }
+        
+        // index only
+        do {
+            let searchResult = try tsc_await { callback in indexAndCollections.findPackages(mockPackage.identity.description, in: .index, callback: callback) }
+            XCTAssertEqual(searchResult.items.count, 1, "list count should match")
+            XCTAssertTrue(searchResult.items.first?.collections.isEmpty ?? true, "collections should match")
+            XCTAssertEqual(searchResult.items.first?.indexes, [packageIndex.url], "indexes should match")
+        }
+        
+        // collections only
+        do {
+            let searchResult = try tsc_await { callback in indexAndCollections.findPackages(mockPackage.identity.description, in: .collections(nil), callback: callback) }
+            XCTAssertEqual(searchResult.items.count, 1, "list count should match")
+            XCTAssertEqual(searchResult.items.first?.collections.sorted(), expectedCollectionsIdentifiers, "collections should match")
+            XCTAssertTrue(searchResult.items.first?.indexes.isEmpty ?? true, "indexes should match")
+        }
     }
     
     func testFindPackages_brokenIndex() throws {
@@ -609,11 +628,32 @@ class PackageIndexAndCollectionsTests: XCTestCase {
             _ = try tsc_await { callback in indexAndCollections.addCollection(collection.source, trustConfirmationProvider: { _, cb in cb(true) }, callback: callback) }
         }
         
-        let searchResult = try tsc_await { callback in indexAndCollections.findPackages(mockPackage.identity.description, callback: callback) }
-        XCTAssertEqual(searchResult.items.count, 1, "list count should match")
-        XCTAssertEqual(searchResult.items.first?.collections.sorted(), expectedCollectionsIdentifiers, "collections should match")
-        // Results come from collections since index is broken
-        XCTAssertEqual(searchResult.items.first?.indexes, [], "indexes should match")
+        // both index and collections
+        do {
+            let searchResult = try tsc_await { callback in indexAndCollections.findPackages(mockPackage.identity.description, in: .both(collections: nil), callback: callback) }
+            XCTAssertEqual(searchResult.items.count, 1, "list count should match")
+            XCTAssertEqual(searchResult.items.first?.collections.sorted(), expectedCollectionsIdentifiers, "collections should match")
+            // Results come from collections since index is broken
+            XCTAssertEqual(searchResult.items.first?.indexes, [], "indexes should match")
+        }
+        
+        // index only
+        do {
+            XCTAssertThrowsError(try tsc_await { callback in indexAndCollections.findPackages(mockPackage.identity.description, in: .index, callback: callback) }) { error in
+                guard error is BrokenPackageIndex.TerribleThing else {
+                    return XCTFail("invalid error \(error)")
+                }
+            }
+        }
+        
+        // collections only
+        do {
+            let searchResult = try tsc_await { callback in indexAndCollections.findPackages(mockPackage.identity.description, in: .collections(nil), callback: callback) }
+            XCTAssertEqual(searchResult.items.count, 1, "list count should match")
+            XCTAssertEqual(searchResult.items.first?.collections.sorted(), expectedCollectionsIdentifiers, "collections should match")
+            // Not searching in index so should not be impacted by its error
+            XCTAssertTrue(searchResult.items.first?.indexes.isEmpty ?? true, "indexes should match")
+        }
     }
 }
 

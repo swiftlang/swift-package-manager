@@ -15,7 +15,6 @@ import LLBuildManifest
 import SPMBuildCore
 @_implementationOnly import SwiftDriver
 import TSCBasic
-import TSCUtility
 
 public class LLBuildManifestBuilder {
     public enum TargetKind {
@@ -514,6 +513,7 @@ extension LLBuildManifestBuilder {
             outputs: cmdOutputs,
             executable: buildParameters.toolchain.swiftCompiler,
             moduleName: target.target.c99name,
+            moduleAliases: target.target.moduleAliases,
             moduleOutputPath: target.moduleOutputPath,
             importPath: buildParameters.buildPath,
             tempsPath: target.tempsPath,
@@ -823,7 +823,7 @@ extension LLBuildManifestBuilder {
         for target in plan.targets {
             guard case .swift(let target) = target,
                 target.isTestTarget,
-                target.testDiscoveryTarget else { continue }
+                target.isTestDiscoveryTarget else { continue }
 
             let testDiscoveryTarget = target
 

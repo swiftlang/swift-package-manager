@@ -37,7 +37,7 @@ public final class Target {
     /// The different types of a target's dependency on another entity.
     public enum Dependency {
         case targetItem(name: String, condition: TargetDependencyCondition?)
-        case productItem(name: String, package: String?, condition: TargetDependencyCondition?)
+        case productItem(name: String, package: String?, moduleAliases: [String: String]?, condition: TargetDependencyCondition?)
         case byNameItem(name: String, condition: TargetDependencyCondition?)
     }
     
@@ -936,9 +936,20 @@ extension Target.Dependency {
     ///   - package: The name of the package.
     @available(_PackageDescription, obsoleted: 5.2, message: "the 'package' argument is mandatory as of tools version 5.2")
     public static func product(name: String, package: String? = nil) -> Target.Dependency {
-        return .productItem(name: name, package: package, condition: nil)
+        return .productItem(name: name, package: package, moduleAliases: nil, condition: nil)
     }
-    
+
+    /// Creates a dependency on a product from a dependent package.
+    ///
+    /// - parameters:
+    ///   - name: The name of the product.
+    ///   - moduleAliases: The module aliases for targets in the product.
+    ///   - package: The name of the package.
+    @available(_PackageDescription, introduced: 999.0)
+    public static func product(name: String, package: String? = nil, moduleAliases: [String: String]? = nil) -> Target.Dependency {
+        return .productItem(name: name, package: package, moduleAliases: moduleAliases, condition: nil)
+    }
+
     /// Creates a dependency that resolves to either a target or a product with the specified name.
     ///
     /// - parameters:
@@ -960,7 +971,7 @@ extension Target.Dependency {
         name: String,
         package: String
     ) -> Target.Dependency {
-        return .productItem(name: name, package: package, condition: nil)
+        return .productItem(name: name, package: package, moduleAliases: nil, condition: nil)
     }
     
     /// Creates a dependency on a target in the same package.
@@ -981,15 +992,33 @@ extension Target.Dependency {
     ///   - package: The name of the package.
     ///   - condition: A condition that limits the application of the target dependency. For example, only apply a
     ///       dependency for a specific platform.
-    @available(_PackageDescription, introduced: 5.3)
+    @available(_PackageDescription, introduced: 5.3, obsoleted: 999.0)
     public static func product(
         name: String,
         package: String,
         condition: TargetDependencyCondition? = nil
     ) -> Target.Dependency {
-        return .productItem(name: name, package: package, condition: condition)
+        return .productItem(name: name, package: package, moduleAliases: nil, condition: condition)
     }
-    
+
+    /// Creates a target dependency on a product from a package dependency.
+    ///
+    /// - parameters:
+    ///   - name: The name of the product.
+    ///   - package: The name of the package.
+    ///   - moduleAliases: The module aliases for targets in the product.
+    ///   - condition: A condition that limits the application of the target dependency. For example, only apply a
+    ///       dependency for a specific platform.
+    @available(_PackageDescription, introduced: 999.0)
+    public static func product(
+      name: String,
+      package: String,
+      moduleAliases: [String: String]? = nil,
+      condition: TargetDependencyCondition? = nil
+    ) -> Target.Dependency {
+        return .productItem(name: name, package: package, moduleAliases: moduleAliases, condition: condition)
+    }
+
     /// Creates a by-name dependency that resolves to either a target or a product but after the Swift Package Manager
     /// has loaded the package graph.
     ///

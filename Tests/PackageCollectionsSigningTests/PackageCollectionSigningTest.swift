@@ -25,7 +25,7 @@ class PackageCollectionSigningTests: XCTestCase {
             let jsonDecoder = JSONDecoder.makeWithDefaults()
 
             let collectionPath = directoryPath.appending(components: "JSON", "good.json")
-            let collectionData = Data(try localFileSystem.readFileContents(collectionPath).contents)
+            let collectionData: Data = try localFileSystem.readFileContents(collectionPath)
             let collection = try jsonDecoder.decode(PackageCollectionModel.V1.Collection.self, from: collectionData)
 
             let certPath = directoryPath.appending(components: "Signing", "Test_rsa.cer")
@@ -35,7 +35,7 @@ class PackageCollectionSigningTests: XCTestCase {
 
             let privateKeyPath = directoryPath.appending(components: "Signing", "Test_rsa_key.pem")
 
-            let rootCA = try Certificate(derEncoded: Data(try localFileSystem.readFileContents(rootCAPath).contents))
+            let rootCA = try Certificate(derEncoded: try localFileSystem.readFileContents(rootCAPath))
             // Trust the self-signed root cert
             let certPolicy = TestCertificatePolicy(anchorCerts: [rootCA])
             let signing = PackageCollectionSigning(certPolicy: certPolicy, callbackQueue: callbackQueue)
@@ -82,7 +82,7 @@ class PackageCollectionSigningTests: XCTestCase {
 
             let privateKeyPath = directoryPath.appending(components: "Signing", "Test_rsa_key.pem")
 
-            let rootCA = try Certificate(derEncoded: Data(try localFileSystem.readFileContents(rootCAPath).contents))
+            let rootCA = try Certificate(derEncoded: try localFileSystem.readFileContents(rootCAPath))
             // Trust the self-signed root cert
             let certPolicy = TestCertificatePolicy(anchorCerts: [rootCA])
             let signing = PackageCollectionSigning(certPolicy: certPolicy, callbackQueue: callbackQueue)
@@ -113,7 +113,7 @@ class PackageCollectionSigningTests: XCTestCase {
             let jsonDecoder = JSONDecoder.makeWithDefaults()
 
             let collectionPath = directoryPath.appending(components: "JSON", "good.json")
-            let collectionData = Data(try localFileSystem.readFileContents(collectionPath).contents)
+            let collectionData: Data = try localFileSystem.readFileContents(collectionPath)
             let collection = try jsonDecoder.decode(PackageCollectionModel.V1.Collection.self, from: collectionData)
 
             let certPath = directoryPath.appending(components: "Signing", "Test_ec.cer")
@@ -123,7 +123,7 @@ class PackageCollectionSigningTests: XCTestCase {
 
             let privateKeyPath = directoryPath.appending(components: "Signing", "Test_ec_key.pem")
 
-            let rootCA = try Certificate(derEncoded: Data(try localFileSystem.readFileContents(rootCAPath).contents))
+            let rootCA = try Certificate(derEncoded: try localFileSystem.readFileContents(rootCAPath))
             // Trust the self-signed root cert
             let certPolicy = TestCertificatePolicy(anchorCerts: [rootCA])
             let signing = PackageCollectionSigning(certPolicy: certPolicy, callbackQueue: callbackQueue)
@@ -170,7 +170,7 @@ class PackageCollectionSigningTests: XCTestCase {
 
             let privateKeyPath = directoryPath.appending(components: "Signing", "Test_ec_key.pem")
 
-            let rootCA = try Certificate(derEncoded: Data(try localFileSystem.readFileContents(rootCAPath).contents))
+            let rootCA = try Certificate(derEncoded: try localFileSystem.readFileContents(rootCAPath))
             // Trust the self-signed root cert
             let certPolicy = TestCertificatePolicy(anchorCerts: [rootCA])
             let signing = PackageCollectionSigning(certPolicy: certPolicy, callbackQueue: callbackQueue)
@@ -206,13 +206,13 @@ class PackageCollectionSigningTests: XCTestCase {
             let jsonDecoder = JSONDecoder.makeWithDefaults()
 
             let collectionPath = directoryPath.appending(components: "JSON", "good.json")
-            let collectionData = Data(try localFileSystem.readFileContents(collectionPath).contents)
+            let collectionData: Data = try localFileSystem.readFileContents(collectionPath)
             let collection = try jsonDecoder.decode(PackageCollectionModel.V1.Collection.self, from: collectionData)
 
             let certPath = directoryPath.appending(components: "Signing", "development.cer")
             let intermediateCAPath = directoryPath.appending(components: "Signing", "AppleWWDRCAG3.cer")
             let rootCAPath = directoryPath.appending(components: "Signing", "AppleIncRoot.cer")
-            let rootCAData = Data(try localFileSystem.readFileContents(rootCAPath).contents)
+            let rootCAData: Data = try localFileSystem.readFileContents(rootCAPath)
             let certChainPaths = [certPath, intermediateCAPath, rootCAPath].map { $0.asURL }
 
             let privateKeyPath = directoryPath.appending(components: "Signing", "development-key.pem")
@@ -315,14 +315,14 @@ class PackageCollectionSigningTests: XCTestCase {
             let jsonDecoder = JSONDecoder.makeWithDefaults()
 
             let collectionPath = directoryPath.appending(components: "JSON", "good.json")
-            let collectionData = Data(try localFileSystem.readFileContents(collectionPath).contents)
+            let collectionData: Data = try localFileSystem.readFileContents(collectionPath)
             let collection = try jsonDecoder.decode(PackageCollectionModel.V1.Collection.self, from: collectionData)
 
             // This must be an Apple Distribution cert
             let certPath = directoryPath.appending(components: "Signing", "development.cer")
             let intermediateCAPath = directoryPath.appending(components: "Signing", "AppleWWDRCAG3.cer")
             let rootCAPath = directoryPath.appending(components: "Signing", "AppleIncRoot.cer")
-            let rootCAData = Data(try localFileSystem.readFileContents(rootCAPath).contents)
+            let rootCAData: Data = try localFileSystem.readFileContents(rootCAPath)
             let certChainPaths = [certPath, intermediateCAPath, rootCAPath].map { $0.asURL }
 
             let privateKeyPath = directoryPath.appending(components: "Signing", "development-key.pem")
@@ -409,14 +409,14 @@ class PackageCollectionSigningTests: XCTestCase {
             let jsonDecoder = JSONDecoder.makeWithDefaults()
 
             let collectionPath = directoryPath.appending(components: "JSON", "good.json")
-            let collectionData = Data(try localFileSystem.readFileContents(collectionPath).contents)
+            let collectionData: Data = try localFileSystem.readFileContents(collectionPath)
             let collection = try jsonDecoder.decode(PackageCollectionModel.V1.Collection.self, from: collectionData)
 
             // This must be an Apple Swift Package Collection cert
             let certPath = directoryPath.appending(components: "Signing", "swift_package_collection.cer")
             let intermediateCAPath = directoryPath.appending(components: "Signing", "AppleWWDRCA.cer")
             let rootCAPath = directoryPath.appending(components: "Signing", "AppleIncRoot.cer")
-            let rootCAData = Data(try localFileSystem.readFileContents(rootCAPath).contents)
+            let rootCAData: Data = try localFileSystem.readFileContents(rootCAPath)
             let certChainPaths = [certPath, intermediateCAPath, rootCAPath].map { $0.asURL }
 
             let privateKeyPath = directoryPath.appending(components: "Signing", "development-key.pem")
@@ -503,7 +503,7 @@ class PackageCollectionSigningTests: XCTestCase {
             let jsonDecoder = JSONDecoder.makeWithDefaults()
 
             let collectionPath = directoryPath.appending(components: "JSON", "good.json")
-            let collectionData = Data(try localFileSystem.readFileContents(collectionPath).contents)
+            let collectionData: Data = try localFileSystem.readFileContents(collectionPath)
             let collection = try jsonDecoder.decode(PackageCollectionModel.V1.Collection.self, from: collectionData)
 
             let certPath = directoryPath.appending(components: "Signing", "development.cer")
@@ -557,7 +557,7 @@ class PackageCollectionSigningTests: XCTestCase {
             let jsonDecoder = JSONDecoder.makeWithDefaults()
 
             let collectionPath = directoryPath.appending(components: "JSON", "good.json")
-            let collectionData = Data(try localFileSystem.readFileContents(collectionPath).contents)
+            let collectionData: Data = try localFileSystem.readFileContents(collectionPath)
             let collection = try jsonDecoder.decode(PackageCollectionModel.V1.Collection.self, from: collectionData)
 
             // This must be an Apple Distribution cert
@@ -622,7 +622,7 @@ class PackageCollectionSigningTests: XCTestCase {
             let jsonDecoder = JSONDecoder.makeWithDefaults()
 
             let collectionPath = directoryPath.appending(components: "JSON", "good.json")
-            let collectionData = Data(try localFileSystem.readFileContents(collectionPath).contents)
+            let collectionData: Data = try localFileSystem.readFileContents(collectionPath)
             let collection = try jsonDecoder.decode(PackageCollectionModel.V1.Collection.self, from: collectionData)
 
             // This must be an Apple Distribution cert

@@ -826,11 +826,19 @@ public final class MockWorkspaceDelegate: WorkspaceDelegate {
         // noop
     }
 
+    public func willDownloadBinaryArtifact(from url: String) {
+        self.append("downloading binary artifact package: \(url)")
+    }
+
+    public func didDownloadBinaryArtifact(from url: String, result: Result<AbsolutePath, Error>, duration: DispatchTimeInterval) {
+        self.append("finished downloading binary artifact package: \(url)")
+    }
+
     public func downloadingBinaryArtifact(from url: String, bytesDownloaded: Int64, totalBytesToDownload: Int64?) {
         // noop
     }
 
-    public func didDownloadBinaryArtifacts() {
+    public func didDownloadAllBinaryArtifacts() {
         // noop
     }
 

@@ -15,7 +15,6 @@ import PackageModel
 @testable import SPMBuildCore
 import SPMTestSupport
 import TSCBasic
-import TSCUtility
 import Workspace
 import XCTest
 
@@ -636,8 +635,10 @@ class PluginTests: XCTestCase {
             let result = sync.wait(timeout: .now() + 3)
             XCTAssertEqual(result, .timedOut, "expected the plugin to time out")
             
-            // At this point we should have parsed out the process identifier.
-            let pid = try XCTUnwrap(delegate.parsedProcessIdentifier, "expected to get a pid from the plugin")
+            // At this point we should have parsed out the process identifier. But it's possible we don't always — this is being investigated in rdar://88792829.
+            guard let pid = delegate.parsedProcessIdentifier else {
+                throw XCTSkip("skipping test because no pid was received from the plugin; being investigated as rdar://88792829\n\(delegate.diagnostics.description)")
+            }
             
             // Check that it's running (we do this by asking for its priority — this only works on some platforms).
             #if os(macOS)

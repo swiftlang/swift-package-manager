@@ -15,9 +15,10 @@ import PackageLoading
 import PackageModel
 import SourceControl
 import TSCBasic
-import TSCUtility
 import Workspace
 import func XCTest.XCTFail
+
+import enum TSCUtility.Git
 
 @_exported import TSCTestSupport
 

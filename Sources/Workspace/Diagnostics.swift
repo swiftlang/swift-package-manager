@@ -14,7 +14,6 @@ import PackageGraph
 import PackageLoading
 import PackageModel
 import TSCBasic
-import TSCUtility
 
 public struct ManifestParseDiagnostic: CustomStringConvertible {
     public let errors: [String]
@@ -131,6 +130,10 @@ extension Basics.Diagnostic {
         .warning("dependency '\(packageName)' is missing; retrieving again")
     }
 
+    static func artifactInvalidArchive(artifactURL: Foundation.URL, targetName: String) -> Self {
+        .error("invalid archive returned from '\(artifactURL.absoluteString)' which is required by binary target '\(targetName)'")
+    }
+
     static func artifactChecksumChanged(targetName: String) -> Self {
         .error("artifact of binary target '\(targetName)' has changed checksum; this is a potential security risk so the new artifact won't be downloaded")
     }
@@ -141,6 +144,10 @@ extension Basics.Diagnostic {
 
     static func artifactFailedDownload(artifactURL: Foundation.URL, targetName: String, reason: String) -> Self {
         .error("failed downloading '\(artifactURL.absoluteString)' which is required by binary target '\(targetName)': \(reason)")
+    }
+
+    static func artifactFailedValidation(artifactURL: Foundation.URL, targetName: String, reason: String) -> Self {
+        .error("failed validating archive from '\(artifactURL.absoluteString)' which is required by binary target '\(targetName)': \(reason)")
     }
 
     static func artifactFailedExtraction(artifactURL: Foundation.URL, targetName: String, reason: String) -> Self {

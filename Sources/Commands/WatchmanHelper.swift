@@ -10,8 +10,9 @@
 
 import Basics
 import TSCBasic
-import TSCUtility
 import Xcodeproj
+
+import enum TSCUtility.Diagnostics
 
 public final class WatchmanHelper {
     /// Name of the watchman-make tool.

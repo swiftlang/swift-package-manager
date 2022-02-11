@@ -11,7 +11,6 @@
 import Foundation
 import PackageModel
 import TSCBasic
-import TSCUtility
 
 public extension Manifest {
 

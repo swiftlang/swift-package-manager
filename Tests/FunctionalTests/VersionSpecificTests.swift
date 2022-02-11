@@ -12,7 +12,6 @@ import Basics
 import SourceControl
 import SPMTestSupport
 import TSCBasic
-import TSCUtility
 import XCTest
 
 class VersionSpecificTests: XCTestCase {

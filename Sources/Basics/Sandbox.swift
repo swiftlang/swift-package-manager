@@ -10,7 +10,8 @@
 
 import Foundation
 import TSCBasic
-import TSCUtility
+
+import enum TSCUtility.Platform
 
 public enum Sandbox {
 

@@ -13,7 +13,6 @@ import Basics
 import PackageModel
 import TSCBasic
 import TSCTestSupport
-import TSCUtility
 import XCTest
 
 class ManifestLoaderSQLiteCacheTests: XCTestCase {

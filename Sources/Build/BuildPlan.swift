@@ -18,7 +18,10 @@ import PackageModel
 import SPMBuildCore
 @_implementationOnly import SwiftDriver
 import TSCBasic
-import TSCUtility
+
+import enum TSCUtility.Diagnostics
+import struct TSCUtility.Triple
+import var TSCUtility.verbosity
 
 extension String {
     fileprivate var asSwiftStringLiteralConstant: String {
@@ -586,7 +589,7 @@ public final class SwiftTargetBuildDescription {
     public let isTestTarget: Bool
 
     /// True if this is the test discovery target.
-    public let testDiscoveryTarget: Bool
+    public let isTestDiscoveryTarget: Bool
     
     /// True if this module needs to be parsed as a library based on the target type and the configuration
     /// of the source code (for example because it has a single source file whose name isn't "main.swift").
@@ -629,7 +632,7 @@ public final class SwiftTargetBuildDescription {
         buildToolPluginInvocationResults: [BuildToolPluginInvocationResult] = [],
         prebuildCommandResults: [PrebuildCommandResult] = [],
         isTestTarget: Bool? = nil,
-        testDiscoveryTarget: Bool = false,
+        isTestDiscoveryTarget: Bool = false,
         fileSystem: FileSystem
     ) throws {
         assert(target.underlyingTarget is SwiftTarget, "underlying target type mismatch \(target)")
@@ -638,7 +641,7 @@ public final class SwiftTargetBuildDescription {
         self.buildParameters = buildParameters
         // Unless mentioned explicitly, use the target type to determine if this is a test target.
         self.isTestTarget = isTestTarget ?? (target.type == .test)
-        self.testDiscoveryTarget = testDiscoveryTarget
+        self.isTestDiscoveryTarget = isTestDiscoveryTarget
         self.fileSystem = fileSystem
         self.tempsPath = buildParameters.buildPath.appending(component: target.c99name + ".build")
         self.derivedSources = Sources(paths: [], root: tempsPath.appending(component: "DerivedSources"))
@@ -1092,7 +1095,11 @@ public final class SwiftTargetBuildDescription {
 
     /// Testing arguments according to the build configuration.
     private var testingArguments: [String] {
-        if buildParameters.enableTestability {
+        if self.isTestTarget {
+            // test targets must be built with -enable-testing
+            // since its required for test discovery (the non objective-c reflection kind)
+            return ["-enable-testing"]
+        } else if buildParameters.enableTestability {
             return ["-enable-testing"]
         } else {
             return []
@@ -1561,7 +1568,7 @@ public class BuildPlan {
                     toolsVersion: toolsVersion,
                     buildParameters: buildParameters,
                     isTestTarget: true,
-                    testDiscoveryTarget: true,
+                    isTestDiscoveryTarget: true,
                     fileSystem: fileSystem
                 )
 

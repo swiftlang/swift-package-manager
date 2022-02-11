@@ -17,7 +17,6 @@ import PackageModel
 import SourceControl
 import SPMTestSupport
 import TSCBasic
-import TSCUtility
 
 class GitHubPackageMetadataProviderTests: XCTestCase {
     func testBaseURL() throws {
@@ -52,37 +51,37 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
                     switch (request.method, request.url) {
                     case (.get, apiURL):
                         let path = directoryPath.appending(components: "GitHub", "metadata.json")
-                        let data = Data(try! localFileSystem.readFileContents(path).contents)
+                        let data: Data = try! localFileSystem.readFileContents(path)
                         completion(.success(.init(statusCode: 200,
                                                   headers: .init([.init(name: "Content-Length", value: "\(data.count)")]),
                                                   body: data)))
                     case (.get, releasesURL):
                         let path = directoryPath.appending(components: "GitHub", "releases.json")
-                        let data = Data(try! localFileSystem.readFileContents(path).contents)
+                        let data: Data = try! localFileSystem.readFileContents(path)
                         completion(.success(.init(statusCode: 200,
                                                   headers: .init([.init(name: "Content-Length", value: "\(data.count)")]),
                                                   body: data)))
                     case (.get, apiURL.appendingPathComponent("contributors")):
                         let path = directoryPath.appending(components: "GitHub", "contributors.json")
-                        let data = Data(try! localFileSystem.readFileContents(path).contents)
+                        let data: Data = try! localFileSystem.readFileContents(path)
                         completion(.success(.init(statusCode: 200,
                                                   headers: .init([.init(name: "Content-Length", value: "\(data.count)")]),
                                                   body: data)))
                     case (.get, apiURL.appendingPathComponent("readme")):
                         let path = directoryPath.appending(components: "GitHub", "readme.json")
-                        let data = Data(try! localFileSystem.readFileContents(path).contents)
+                        let data: Data = try! localFileSystem.readFileContents(path)
                         completion(.success(.init(statusCode: 200,
                                                   headers: .init([.init(name: "Content-Length", value: "\(data.count)")]),
                                                   body: data)))
                     case (.get, apiURL.appendingPathComponent("license")):
                         let path = directoryPath.appending(components: "GitHub", "license.json")
-                        let data = Data(try! localFileSystem.readFileContents(path).contents)
+                        let data: Data = try! localFileSystem.readFileContents(path)
                         completion(.success(.init(statusCode: 200,
                                                   headers: .init([.init(name: "Content-Length", value: "\(data.count)")]),
                                                   body: data)))
                     case (.get, apiURL.appendingPathComponent("languages")):
                         let path = directoryPath.appending(components: "GitHub", "languages.json")
-                        let data = Data(try! localFileSystem.readFileContents(path).contents)
+                        let data: Data = try! localFileSystem.readFileContents(path)
                         completion(.success(.init(statusCode: 200,
                                                   headers: .init([.init(name: "Content-Length", value: "\(data.count)")]),
                                                   body: data)))

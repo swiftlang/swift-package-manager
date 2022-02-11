@@ -11,7 +11,9 @@
 import Basics
 import Dispatch
 import TSCBasic
-import TSCUtility
+
+import enum TSCUtility.Git
+import protocol TSCUtility.DiagnosticLocationProviding
 
 // MARK: - GitShellHelper
 

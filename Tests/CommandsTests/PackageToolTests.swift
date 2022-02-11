@@ -17,7 +17,6 @@ import PackageModel
 import SourceControl
 import SPMTestSupport
 import TSCBasic
-import TSCUtility
 import Workspace
 import Xcodeproj
 import XCTest
@@ -639,8 +638,8 @@ final class PackageToolTests: CommandsTestCase {
             _ = try execute(["show-dependencies", "--format", "json", "--output-path", resultPath.pathString ], packagePath: root)
 
             XCTAssertFileExists(resultPath)
-            let jsonOutput = try fs.readFileContents(resultPath)
-            let json = try JSON(bytes: jsonOutput)
+            let jsonOutput: Data = try fs.readFileContents(resultPath)
+            let json = try JSON(data: jsonOutput)
 
             XCTAssertEqual(json["name"]?.string, "root")
             XCTAssertEqual(json["dependencies"]?[0]?["name"]?.string, "dep")
@@ -668,7 +667,7 @@ final class PackageToolTests: CommandsTestCase {
             _ = try execute(["init", "--type", "executable"], packagePath: path)
 
             let manifest = path.appending(component: "Package.swift")
-            let contents = try localFileSystem.readFileContents(manifest).description
+            let contents: String = try localFileSystem.readFileContents(manifest)
             let version = InitPackage.newPackageToolsVersion
             let versionSpecifier = "\(version.major).\(version.minor)"
             XCTAssertMatch(contents, .prefix("// swift-tools-version:\(version < .v5_4 ? "" : " ")\(versionSpecifier)\n"))
@@ -700,7 +699,7 @@ final class PackageToolTests: CommandsTestCase {
             _ = try execute(["init", "--name", "CustomName", "--type", "executable"], packagePath: path)
 
             let manifest = path.appending(component: "Package.swift")
-            let contents = try localFileSystem.readFileContents(manifest).description
+            let contents: String = try localFileSystem.readFileContents(manifest)
             let version = InitPackage.newPackageToolsVersion
             let versionSpecifier = "\(version.major).\(version.minor)"
             XCTAssertMatch(contents, .prefix("// swift-tools-version:\(version < .v5_4 ? "" : " ")\(versionSpecifier)\n"))
@@ -897,8 +896,8 @@ final class PackageToolTests: CommandsTestCase {
 
             // Checks the content of checked out bar.swift.
             func checkBar(_ value: Int, file: StaticString = #file, line: UInt = #line) throws {
-                let contents = try localFileSystem.readFileContents(barPath.appending(components:"Sources", "bar.swift")).validDescription?.spm_chomp()
-                XCTAssert(contents?.hasSuffix("\(value)") ?? false, file: file, line: line)
+                let contents: String = try localFileSystem.readFileContents(barPath.appending(components:"Sources", "bar.swift"))
+                XCTAssertTrue(contents.spm_chomp().hasSuffix("\(value)"), file: file, line: line)
             }
 
             // We should see a pin file now.
@@ -984,6 +983,97 @@ final class PackageToolTests: CommandsTestCase {
                 }
                 try execute("unedit", "bar")
             }
+        }
+    }
+
+    func testOnlyUseVersionsFromResolvedFileFetchesWithExistingState() throws {
+        func writeResolvedFile(packageDir: AbsolutePath, repositoryURL: String, revision: String, version: String) throws {
+            try localFileSystem.writeFileContents(packageDir.appending(component: "Package.resolved")) {
+                $0 <<< """
+                    {
+                      "object": {
+                        "pins": [
+                          {
+                            "package": "library",
+                            "repositoryURL": "\(repositoryURL)",
+                            "state": {
+                              "branch": null,
+                              "revision": "\(revision)",
+                              "version": "\(version)"
+                            }
+                          }
+                        ]
+                      },
+                      "version": 1
+                    }
+                """
+            }
+        }
+
+        try testWithTemporaryDirectory { tmpPath in
+            let packageDir = tmpPath.appending(components: "library")
+            try localFileSystem.writeFileContents(packageDir.appending(component: "Package.swift")) {
+                $0 <<< """
+                // swift-tools-version:5.0
+                import PackageDescription
+                let package = Package(
+                    name: "library",
+                    products: [ .library(name: "library", targets: ["library"]) ],
+                    targets: [ .target(name: "library") ]
+                )
+                """
+            }
+            try localFileSystem.writeFileContents(packageDir.appending(components: "Sources", "library", "library.swift")) {
+                $0 <<< """
+                    public func Foo() { }
+                """
+            }
+
+            let depGit = GitRepository(path: packageDir)
+            try depGit.create()
+            try depGit.stageEverything()
+            try depGit.commit()
+            try depGit.tag(name: "1.0.0")
+
+            let initialRevision = try depGit.revision(forTag: "1.0.0")
+            let repositoryURL = "file://\(packageDir.pathString)"
+
+            let clientDir = tmpPath.appending(components: "client")
+            try localFileSystem.writeFileContents(clientDir.appending(component: "Package.swift")) {
+                $0 <<< """
+                // swift-tools-version:5.0
+                import PackageDescription
+                let package = Package(
+                    name: "client",
+                    dependencies: [ .package(url: "\(repositoryURL)", from: "1.0.0") ],
+                    targets: [ .target(name: "client", dependencies: [ "library" ]) ]
+                )
+                """
+            }
+            try localFileSystem.writeFileContents(clientDir.appending(components: "Sources", "client", "main.swift")) {
+                $0 <<< """
+                    print("hello")
+                """
+            }
+
+            // Initial resolution with clean state.
+            try writeResolvedFile(packageDir: clientDir, repositoryURL: repositoryURL, revision: initialRevision, version: "1.0.0")
+            _ = try execute(["resolve", "--only-use-versions-from-resolved-file"], packagePath: clientDir)
+
+            // Make a change to the dependency and tag a new version.
+            try localFileSystem.writeFileContents(packageDir.appending(components: "Sources", "library", "library.swift")) {
+                $0 <<< """
+                    public func Best() { }
+                """
+            }
+            try depGit.stageEverything()
+            try depGit.commit()
+            try depGit.tag(name: "1.0.1")
+            let updatedRevision = try depGit.revision(forTag: "1.0.1")
+
+            // Require new version but re-use existing state that hasn't fetched the latest revision, yet.
+            try writeResolvedFile(packageDir: clientDir, repositoryURL: repositoryURL, revision: updatedRevision, version: "1.0.1")
+            _ = try execute(["resolve", "--only-use-versions-from-resolved-file"], packagePath: clientDir)
         }
     }
 
@@ -1093,7 +1183,8 @@ final class PackageToolTests: CommandsTestCase {
             // Test env override.
             try execute(["config", "set-mirror", "--original-url", "https://github.com/foo/bar", "--mirror-url", "https://mygithub.com/foo/bar"], packagePath: packageRoot, env: ["SWIFTPM_MIRROR_CONFIG": configOverride.pathString])
             XCTAssertTrue(fs.isFile(configOverride))
-            XCTAssertTrue(try fs.readFileContents(configOverride).description.contains("mygithub"))
+            let content: String = try fs.readFileContents(configOverride)
+            XCTAssertMatch(content, .contains("mygithub"))
 
             // Test reading.
             (stdout, stderr) = try execute(["config", "get-mirror", "--package-url", "https://github.com/foo/bar"], packagePath: packageRoot)

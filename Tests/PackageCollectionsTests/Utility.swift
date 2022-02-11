@@ -18,7 +18,6 @@ import PackageCollectionsSigning
 import PackageModel
 import SourceControl
 import TSCBasic
-import TSCUtility
 
 func makeMockSources(count: Int = Int.random(in: 5 ... 10)) -> [PackageCollectionsModel.CollectionSource] {
     let isTrusted: [Bool?] = [true, false, nil]

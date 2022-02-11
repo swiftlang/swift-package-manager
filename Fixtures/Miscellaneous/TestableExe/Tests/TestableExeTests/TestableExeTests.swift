@@ -1,6 +1,6 @@
 import XCTest
-import TestableExe1
-import TestableExe2
+@testable import TestableExe1
+@testable import TestableExe2
 // import TestableExe3
 import class Foundation.Bundle
 
@@ -9,7 +9,7 @@ final class TestableExeTests: XCTestCase {
         // This is an example of a functional test case.
         // Use XCTAssert and related functions to verify your tests produce the correct
         // results.
-        
+
         print(GetGreeting1())
         XCTAssertEqual(GetGreeting1(), "Hello, world")
         print(GetGreeting2())

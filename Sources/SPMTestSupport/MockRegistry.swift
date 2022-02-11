@@ -181,7 +181,7 @@ public class MockRegistry {
             filename = Manifest.basename + ".swift"
         }
 
-        let content = try package.fileSystem.readFileContents(package.path.appending(component: filename))
+        let content: Data = try package.fileSystem.readFileContents(package.path.appending(component: filename))
 
         var headers = HTTPClientHeaders()
         headers.add(name: "Content-Version", value: "1")
@@ -190,7 +190,7 @@ public class MockRegistry {
         return HTTPClientResponse(
             statusCode: 200,
             headers: headers,
-            body: Data(content.contents)
+            body: content
         )
     }
 
@@ -288,14 +288,10 @@ private struct MockRegistryArchiver: Archiver {
 
     func extract(from archivePath: AbsolutePath, to destinationPath: AbsolutePath, completion: @escaping (Result<Void, Error>) -> Void) {
         do {
-            guard let content = try String(bytes: self.fileSystem.readFileContents(archivePath).contents, encoding: .utf8) else {
-                throw StringError("invalid mock zip format")
-            }
-            let lines = content.split(separator: "\n").map(String.init)
+            let lines = try self.readFileContents(archivePath)
             guard lines.count >= 2 else {
                 throw StringError("invalid mock zip format, not enough lines")
             }
-
             let rootPath = lines[1]
             for path in lines[2..<lines.count] {
                 let relativePath = String(path.dropFirst(rootPath.count + 1))
@@ -309,5 +305,19 @@ private struct MockRegistryArchiver: Archiver {
         } catch {
             completion(.failure(error))
         }
+    }
+
+    func validate(path: AbsolutePath, completion: @escaping (Result<Bool, Error>) -> Void) {
+        do {
+            let lines = try self.readFileContents(path)
+            completion(.success(lines.count >= 2))
+        } catch {
+            completion(.failure(error))
+        }
+    }
+
+    private func readFileContents(_ path: AbsolutePath) throws -> [String] {
+        let content: String = try self.fileSystem.readFileContents(path)
+        return content.split(separator: "\n").map(String.init)
     }
 }

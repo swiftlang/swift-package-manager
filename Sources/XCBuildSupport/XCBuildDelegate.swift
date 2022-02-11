@@ -12,7 +12,9 @@ import Basics
 import Foundation
 import SPMBuildCore
 import TSCBasic
-import TSCUtility
+
+import enum TSCUtility.Diagnostics
+import protocol TSCUtility.ProgressAnimationProtocol
 
 public class XCBuildDelegate {
     private let buildSystem: SPMBuildCore.BuildSystem

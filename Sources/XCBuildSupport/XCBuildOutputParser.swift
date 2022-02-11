@@ -10,7 +10,9 @@
 
 import Foundation
 import TSCBasic
-import TSCUtility
+
+import class TSCUtility.JSONMessageStreamingParser
+import protocol TSCUtility.JSONMessageStreamingParserDelegate
 
 /// Protocol for the parser delegate to get notified of parsing events.
 public protocol XCBuildOutputParserDelegate: AnyObject {

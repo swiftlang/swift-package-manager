@@ -18,14 +18,13 @@ import PackageModel
 import SourceControl
 import SPMTestSupport
 import TSCBasic
-import TSCUtility
 
 class JSONPackageCollectionProviderTests: XCTestCase {
     func testGood() throws {
         fixture(name: "Collections", createGitRepo: false) { directoryPath in
             let path = directoryPath.appending(components: "JSON", "good.json")
             let url = URL(string: "https://www.test.com/collection.json")!
-            let data = Data(try localFileSystem.readFileContents(path).contents)
+            let data: Data = try localFileSystem.readFileContents(path)
 
             let handler: HTTPClient.Handler = { request, _, completion in
                 XCTAssertEqual(request.url, url, "url should match")
@@ -364,7 +363,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
         fixture(name: "Collections", createGitRepo: false) { directoryPath in
             let path = directoryPath.appending(components: "JSON", "good_signed.json")
             let url = URL(string: "https://www.test.com/collection.json")!
-            let data = Data(try localFileSystem.readFileContents(path).contents)
+            let data: Data = try localFileSystem.readFileContents(path)
 
             let handler: HTTPClient.Handler = { request, _, completion in
                 XCTAssertEqual(request.url, url, "url should match")
@@ -433,7 +432,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
         fixture(name: "Collections", createGitRepo: false) { directoryPath in
             let path = directoryPath.appending(components: "JSON", "good_signed.json")
             let url = URL(string: "https://www.test.com/collection.json")!
-            let data = Data(try localFileSystem.readFileContents(path).contents)
+            let data: Data = try localFileSystem.readFileContents(path)
 
             let handler: HTTPClient.Handler = { request, _, completion in
                 XCTAssertEqual(request.url, url, "url should match")
@@ -500,7 +499,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
         fixture(name: "Collections", createGitRepo: false) { directoryPath in
             let path = directoryPath.appending(components: "JSON", "good_signed.json")
             let url = URL(string: "https://www.test.com/collection.json")!
-            let data = Data(try localFileSystem.readFileContents(path).contents)
+            let data: Data = try localFileSystem.readFileContents(path)
 
             let handler: HTTPClient.Handler = { request, _, completion in
                 XCTAssertEqual(request.url, url, "url should match")
@@ -542,7 +541,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
         fixture(name: "Collections", createGitRepo: false) { directoryPath in
             let path = directoryPath.appending(components: "JSON", "good_signed.json")
             let url = URL(string: "https://www.test.com/collection.json")!
-            let data = Data(try localFileSystem.readFileContents(path).contents)
+            let data: Data = try localFileSystem.readFileContents(path)
 
             let handler: HTTPClient.Handler = { request, _, completion in
                 XCTAssertEqual(request.url, url, "url should match")
@@ -632,7 +631,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
         fixture(name: "Collections", createGitRepo: false) { directoryPath in
             let path = directoryPath.appending(components: "JSON", "good_signed.json")
             let url = URL(string: "https://www.test.com/collection.json")!
-            let data = Data(try localFileSystem.readFileContents(path).contents)
+            let data: Data = try localFileSystem.readFileContents(path)
 
             let handler: HTTPClient.Handler = { request, _, completion in
                 XCTAssertEqual(request.url, url, "url should match")
@@ -702,7 +701,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
         fixture(name: "Collections", createGitRepo: false) { directoryPath in
             let path = directoryPath.appending(components: "JSON", "good_signed.json")
             let url = URL(string: "https://www.test.com/collection.json")!
-            let data = Data(try localFileSystem.readFileContents(path).contents)
+            let data: Data = try localFileSystem.readFileContents(path)
 
             let handler: HTTPClient.Handler = { request, _, completion in
                 XCTAssertEqual(request.url, url, "url should match")
@@ -777,7 +776,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
         fixture(name: "Collections", createGitRepo: false) { directoryPath in
             let path = directoryPath.appending(components: "JSON", "good.json")
             let url = URL(string: "https://www.test.com/collection.json")!
-            let data = Data(try localFileSystem.readFileContents(path).contents)
+            let data: Data = try localFileSystem.readFileContents(path)
 
             let handler: HTTPClient.Handler = { request, _, completion in
                 XCTAssertEqual(request.url, url, "url should match")

@@ -12,7 +12,6 @@ import Basics
 import Foundation
 import PackageModel
 import TSCBasic
-import TSCUtility
 
 enum ManifestJSONParser {
     private static let filePrefix = "file://"
@@ -247,7 +246,7 @@ enum ManifestJSONParser {
               )
             }
             return AbsolutePath(location).pathString
-        } else if URL.scheme(dependencyLocation) == nil {
+        } else if parseScheme(dependencyLocation) == nil {
             // If the dependency URL is not remote, try to "fix" it.
             // If the URL has no scheme, we treat it as a path (either absolute or relative to the base URL).
             return AbsolutePath(dependencyLocation, relativeTo: packagePath).pathString
@@ -412,6 +411,33 @@ enum ManifestJSONParser {
         )
     }
 
+    /// Parses the URL type of a git repository
+    /// e.g. https://github.com/apple/swift returns "https"
+    /// e.g. git@github.com:apple/swift returns "git"
+    ///
+    /// This is *not* a generic URI scheme parser!
+    private static func parseScheme(_ location: String) -> String? {
+        func prefixOfSplitBy(_ delimiter: String) -> String? {
+            let (head, tail) = location.spm_split(around: delimiter)
+            if tail == nil {
+                //not found
+                return nil
+            } else {
+                //found, return head
+                //lowercase the "scheme", as specified by the URI RFC (just in case)
+                return head.lowercased()
+            }
+        }
+
+        for delim in ["://", "@"] {
+            if let found = prefixOfSplitBy(delim), !found.contains("/") {
+                return found
+            }
+        }
+
+        return nil
+    }
+
     /// Looks for Xcode-style build setting macros "$()".
     private static let invalidValueRegex = try! RegEx(pattern: #"(\$\(.*?\))"#)
 }
@@ -569,7 +595,8 @@ extension TargetDescription.Dependency {
 
         case "product":
             let name = try json.get(String.self, forKey: "name")
-            self = .product(name: name, package: json.get("package"), condition: condition)
+            let moduleAliases: [String: String]? = try? json.get("moduleAliases")
+            self = .product(name: name, package: json.get("package"), moduleAliases: moduleAliases, condition: condition)
 
         case "byname":
             self = try .byName(name: json.get("name"), condition: condition)

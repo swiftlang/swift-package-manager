@@ -17,12 +17,13 @@ import PackageModel
 import PackageLoading
 import PackageGraph
 import SourceControl
-import TSCUtility
 import Xcodeproj
 import XCBuildSupport
 import Workspace
 import Foundation
 import PackageModel
+
+import enum TSCUtility.Diagnostics
 
 /// swift-package tool namespace
 public struct SwiftPackageTool: ParsableCommand {
@@ -172,6 +173,9 @@ extension SwiftPackageTool {
         var type: DescribeMode = .text
         
         func run(_ swiftTool: SwiftTool) throws {
+            // redirect all other output to stderr so that the output is the only thing that is printed on stdout
+            swiftTool.redirectStdoutToStderr()
+
             let workspace = try swiftTool.getActiveWorkspace()
             
             guard let packagePath = try swiftTool.getWorkspaceRoot().packages.first else {
@@ -186,11 +190,11 @@ extension SwiftPackageTool {
                 )
             }
             
-            try self.describe(package, in: type, on: swiftTool.outputStream)
+            try self.describe(package, in: type)
         }
         
         /// Emits a textual description of `package` to `stream`, in the format indicated by `mode`.
-        func describe(_ package: Package, in mode: DescribeMode, on stream: OutputByteStream) throws {
+        func describe(_ package: Package, in mode: DescribeMode) throws {
             let desc = DescribedPackage(from: package)
             let data: Data
             switch mode {
@@ -203,8 +207,7 @@ extension SwiftPackageTool {
                 encoder.formattingOptions = [.prettyPrinted]
                 data = try encoder.encode(desc)
             }
-            stream <<< String(decoding: data, as: UTF8.self) <<< "\n"
-            stream.flush()
+            print(String(decoding: data, as: UTF8.self))
         }
         
         enum DescribeMode: String, ExpressibleByArgument {
@@ -365,6 +368,9 @@ extension SwiftPackageTool {
         var regenerateBaseline: Bool = false
 
         func run(_ swiftTool: SwiftTool) throws {
+            // redirect all other output to stderr so that the output is the only thing that is printed on stdout
+            swiftTool.redirectStdoutToStderr()
+
             let apiDigesterPath = try swiftTool.getToolchain().getSwiftAPIDigester()
             let apiDigesterTool = SwiftAPIDigester(tool: apiDigesterPath)
 
@@ -594,6 +600,9 @@ extension SwiftPackageTool {
         var swiftOptions: SwiftToolOptions
 
         func run(_ swiftTool: SwiftTool) throws {
+            // redirect all other output to stderr so that the output is the only thing that is printed on stdout
+            swiftTool.redirectStdoutToStderr()
+
             let workspace = try swiftTool.getActiveWorkspace()
             let root = try swiftTool.getWorkspaceRoot()
 
@@ -625,6 +634,9 @@ extension SwiftPackageTool {
         var preserveStructure: Bool = false
 
         func run(_ swiftTool: SwiftTool) throws {
+            // redirect all other output to stderr so that the output is the only thing that is printed on stdout
+            swiftTool.redirectStdoutToStderr()
+
             let graph = try swiftTool.loadPackageGraph(createMultipleTestProducts: true)
             let parameters = try PIFBuilderParameters(swiftTool.buildParameters())
             let builder = PIFBuilder(
@@ -714,8 +726,13 @@ extension SwiftPackageTool {
         var outputPath: AbsolutePath?
 
         func run(_ swiftTool: SwiftTool) throws {
+            if outputPath == nil {
+                // redirect all other output to stderr so that the output is the only thing that is printed on stdout
+                swiftTool.redirectStdoutToStderr()
+            }
+
             let graph = try swiftTool.loadPackageGraph()
-            let stream = try outputPath.map { try LocalFileOutputByteStream($0) } ?? swiftTool.outputStream
+            let stream: OutputByteStream = try outputPath.map { try LocalFileOutputByteStream($0) } ?? TSCBasic.stdoutStream
             Self.dumpDependenciesOf(rootPackage: graph.rootPackages[0], mode: format, on: stream)
         }
 

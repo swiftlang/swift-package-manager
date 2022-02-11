@@ -12,9 +12,10 @@ import XCTest
 
 import TSCBasic
 @testable import SourceControl
-import TSCUtility
 
 import SPMTestSupport
+
+import enum TSCUtility.Git
 
 class GitRepositoryTests: XCTestCase {
     /// Test the basic provider functions.

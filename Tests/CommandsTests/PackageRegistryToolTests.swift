@@ -13,7 +13,6 @@ import Commands
 import Foundation
 import SPMTestSupport
 import TSCBasic
-import TSCUtility
 import XCTest
 
 let defaultRegistryBaseURL = URL(string: "https://packages.example.com")!
@@ -60,7 +59,7 @@ final class PackageRegistryToolTests: CommandsTestCase {
                 let result = try execute(["set", "\(defaultRegistryBaseURL)"], packagePath: packageRoot)
                 XCTAssertEqual(result.exitStatus, .terminated(code: 0))
 
-                let json = try JSON(bytes: localFileSystem.readFileContents(configurationFilePath))
+                let json = try JSON(data: localFileSystem.readFileContents(configurationFilePath))
                 XCTAssertEqual(json["registries"]?.dictionary?.count, 1)
                 XCTAssertEqual(json["registries"]?.dictionary?["[default]"]?.dictionary?["url"]?.string, "\(defaultRegistryBaseURL)")
                 XCTAssertEqual(json["version"], .int(1))
@@ -71,7 +70,7 @@ final class PackageRegistryToolTests: CommandsTestCase {
                 let result = try execute(["set", "\(customRegistryBaseURL)"], packagePath: packageRoot)
                 XCTAssertEqual(result.exitStatus, .terminated(code: 0))
 
-                let json = try JSON(bytes: localFileSystem.readFileContents(configurationFilePath))
+                let json = try JSON(data: localFileSystem.readFileContents(configurationFilePath))
                 XCTAssertEqual(json["registries"]?.dictionary?.count, 1)
                 XCTAssertEqual(json["registries"]?.dictionary?["[default]"]?.dictionary?["url"]?.string, "\(customRegistryBaseURL)")
                 XCTAssertEqual(json["version"], .int(1))
@@ -82,7 +81,7 @@ final class PackageRegistryToolTests: CommandsTestCase {
                 let result = try execute(["unset"], packagePath: packageRoot)
                 XCTAssertEqual(result.exitStatus, .terminated(code: 0))
 
-                let json = try JSON(bytes: localFileSystem.readFileContents(configurationFilePath))
+                let json = try JSON(data: localFileSystem.readFileContents(configurationFilePath))
                 XCTAssertEqual(json["registries"]?.dictionary?.count, 0)
                 XCTAssertEqual(json["version"], .int(1))
             }
@@ -92,7 +91,7 @@ final class PackageRegistryToolTests: CommandsTestCase {
                 let result = try execute(["set", "\(customRegistryBaseURL)", "--scope", "foo"], packagePath: packageRoot)
                 XCTAssertEqual(result.exitStatus, .terminated(code: 0))
 
-                let json = try JSON(bytes: localFileSystem.readFileContents(configurationFilePath))
+                let json = try JSON(data: localFileSystem.readFileContents(configurationFilePath))
                 XCTAssertEqual(json["registries"]?.dictionary?.count, 1)
                 XCTAssertEqual(json["registries"]?.dictionary?["foo"]?.dictionary?["url"]?.string, "\(customRegistryBaseURL)")
                 XCTAssertEqual(json["version"], .int(1))
@@ -103,7 +102,7 @@ final class PackageRegistryToolTests: CommandsTestCase {
                 let result = try execute(["set", "\(customRegistryBaseURL)", "--scope", "bar"], packagePath: packageRoot)
                 XCTAssertEqual(result.exitStatus, .terminated(code: 0))
 
-                let json = try JSON(bytes: localFileSystem.readFileContents(configurationFilePath))
+                let json = try JSON(data: localFileSystem.readFileContents(configurationFilePath))
                 XCTAssertEqual(json["registries"]?.dictionary?.count, 2)
                 XCTAssertEqual(json["registries"]?.dictionary?["foo"]?.dictionary?["url"]?.string, "\(customRegistryBaseURL)")
                 XCTAssertEqual(json["registries"]?.dictionary?["bar"]?.dictionary?["url"]?.string, "\(customRegistryBaseURL)")
@@ -115,7 +114,7 @@ final class PackageRegistryToolTests: CommandsTestCase {
                 let result = try execute(["unset", "--scope", "foo"], packagePath: packageRoot)
                 XCTAssertEqual(result.exitStatus, .terminated(code: 0))
 
-                let json = try JSON(bytes: localFileSystem.readFileContents(configurationFilePath))
+                let json = try JSON(data: localFileSystem.readFileContents(configurationFilePath))
                 XCTAssertEqual(json["registries"]?.dictionary?.count, 1)
                 XCTAssertEqual(json["registries"]?.dictionary?["bar"]?.dictionary?["url"]?.string, "\(customRegistryBaseURL)")
                 XCTAssertEqual(json["version"], .int(1))
@@ -190,7 +189,7 @@ final class PackageRegistryToolTests: CommandsTestCase {
                 let result = try execute(["set", "\(defaultRegistryBaseURL)"], packagePath: packageRoot)
                 XCTAssertEqual(result.exitStatus, .terminated(code: 0))
 
-                let json = try JSON(bytes: localFileSystem.readFileContents(configurationFilePath))
+                let json = try JSON(data: localFileSystem.readFileContents(configurationFilePath))
                 XCTAssertEqual(json["registries"]?.dictionary?.count, 1)
                 XCTAssertEqual(json["registries"]?.dictionary?["[default]"]?.dictionary?["url"]?.string, "\(defaultRegistryBaseURL)")
                 XCTAssertEqual(json["version"], .int(1))
@@ -201,7 +200,7 @@ final class PackageRegistryToolTests: CommandsTestCase {
                 let result = try execute(["unset", "--scope", "baz"], packagePath: packageRoot)
                 XCTAssertNotEqual(result.exitStatus, .terminated(code: 0))
 
-                let json = try JSON(bytes: localFileSystem.readFileContents(configurationFilePath))
+                let json = try JSON(data: localFileSystem.readFileContents(configurationFilePath))
                 XCTAssertEqual(json["registries"]?.dictionary?.count, 1)
                 XCTAssertEqual(json["registries"]?.dictionary?["[default]"]?.dictionary?["url"]?.string, "\(defaultRegistryBaseURL)")
                 XCTAssertEqual(json["version"], .int(1))

@@ -10,7 +10,6 @@
 
 import XCTest
 import TSCBasic
-import TSCUtility
 import TSCTestSupport
 
 final class XCBuildTests: XCTestCase {

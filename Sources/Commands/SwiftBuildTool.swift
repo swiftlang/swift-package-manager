@@ -14,7 +14,10 @@ import Build
 import PackageGraph
 import SPMBuildCore
 import TSCBasic
-import TSCUtility
+
+import enum TSCUtility.Diagnostics
+import func TSCUtility.getClangVersion
+import struct TSCUtility.Version
 
 extension BuildSubset {
     var argumentName: String {

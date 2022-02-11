@@ -16,7 +16,6 @@ import Basics
 import PackageModel
 import SourceControl
 import TSCBasic
-import TSCUtility
 
 final class PackageCollectionsTests: XCTestCase {
     func testUpdateAuthTokens() throws {

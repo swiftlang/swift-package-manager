@@ -14,7 +14,8 @@ import PackageGraph
 import PackageModel
 import SPMBuildCore
 import TSCBasic
-import TSCUtility
+
+import struct TSCUtility.Triple
 
 /// A plugin script runner that compiles the plugin source files as an executable binary for the host platform, and invokes it as a subprocess.
 public struct DefaultPluginScriptRunner: PluginScriptRunner {
@@ -567,15 +568,19 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
     
     /// Cancels all currently running plugins, resulting in an error code indicating that they were interrupted. This is intended for use when the host process is interrupted.
     public static func cancelAllRunningPlugins() {
+#if !os(iOS) && !os(watchOS) && !os(tvOS)
         currentlyRunningPlugins.lock.withLock {
             currentlyRunningPlugins.processes.forEach{
                 $0.terminate()
             }
             currentlyRunningPlugins.processes = []
         }
+#endif
     }
     /// Private list of currently running plugin processes and the lock that protects the list.
+#if !os(iOS) && !os(watchOS) && !os(tvOS)
     private static var currentlyRunningPlugins: (processes: Set<Foundation.Process>, lock: Lock) = (.init(), .init())
+#endif
 }
 
 /// An error encountered by the default plugin runner.

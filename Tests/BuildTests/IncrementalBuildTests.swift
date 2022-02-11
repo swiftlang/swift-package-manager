@@ -12,7 +12,6 @@ import XCTest
 
 import SPMTestSupport
 import TSCBasic
-import TSCUtility
 
 
 /// Functional tests of incremental builds.  These are fairly ad hoc at this
@@ -57,14 +56,14 @@ final class IncrementalBuildTests: XCTestCase {
             try localFileSystem.writeFileContents(sourceFile, bytes: sourceStream.bytes)
 
             // Read the first llbuild manifest.
-            let llbuildContents1 = try localFileSystem.readFileContents(llbuildManifest)
+            let llbuildContents1: String = try localFileSystem.readFileContents(llbuildManifest)
 
             // Now build again.  This should be an incremental build.
             let (log2, _) = try executeSwiftBuild(prefix)
             XCTAssertMatch(log2, .contains("Compiling CLibrarySources Foo.c"))
 
             // Read the second llbuild manifest.
-            let llbuildContents2 = try localFileSystem.readFileContents(llbuildManifest)
+            let llbuildContents2: String = try localFileSystem.readFileContents(llbuildManifest)
 
             // Now build again without changing anything.  This should be a null
             // build.
@@ -72,7 +71,7 @@ final class IncrementalBuildTests: XCTestCase {
             XCTAssertNoMatch(log3, .contains("Compiling CLibrarySources Foo.c"))
 
             // Read the third llbuild manifest.
-            let llbuildContents3 = try localFileSystem.readFileContents(llbuildManifest)
+            let llbuildContents3: String = try localFileSystem.readFileContents(llbuildManifest)
 
             XCTAssertEqual(llbuildContents1, llbuildContents2)
             XCTAssertEqual(llbuildContents2, llbuildContents3)

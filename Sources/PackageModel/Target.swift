@@ -9,7 +9,8 @@
 */
 
 import TSCBasic
-import TSCUtility
+
+import protocol TSCUtility.PolymorphicCodableProtocol
 
 public class Target: PolymorphicCodableProtocol {
     public static var implementations: [PolymorphicCodableProtocol.Type] = [
@@ -40,10 +41,16 @@ public class Target: PolymorphicCodableProtocol {
         /// The name of the package containing the product.
         public let package: String?
 
+        /// Module aliases for targets of this product dependency. The key is an
+        /// original target name and the value is a new unique name that also
+        /// becomes the name of its .swiftmodule binary.
+        public let moduleAliases: [String: String]?
+
         /// Creates a product reference instance.
-        public init(name: String, package: String?) {
+        public init(name: String, package: String?, moduleAliases: [String: String]? = nil) {
             self.name = name
             self.package = package
+            self.moduleAliases = moduleAliases
         }
     }
 
@@ -104,8 +111,38 @@ public class Target: PolymorphicCodableProtocol {
     ///
     /// NOTE: This name is not the language-level target (i.e., the importable
     /// name) name in many cases, instead use c99name if you need uniqueness.
-    public let name: String
+    public private(set) var name: String
 
+    /// Module aliases needed to build this target. The key is an original name of a
+    /// dependent target and the value is a new unique name mapped to the name
+    /// of its .swiftmodule binary.
+    public private(set) var moduleAliases: [String: String]?
+
+    /// Add module aliases (if applicable) for dependencies of this target.
+    ///
+    /// For example, adding an alias `Bar` for a target name `Foo` will result in
+    /// compiling references to `Foo` in source code of this target as `Bar.swiftmodule`.
+    /// If the name argument `Foo` is the same as this target's name, this target will be
+    /// renamed as `Bar` and the resulting binary will be `Bar.swiftmodule`.
+    ///
+    /// - Parameters:
+    ///   - name: The original name of a dependent target or this target
+    ///   - alias: A new unique name mapped to the resulting binary name
+    public func addModuleAlias(for name: String, as alias: String) {
+        if moduleAliases == nil {
+            moduleAliases = [name: alias]
+        } else {
+            moduleAliases?[name] = alias
+        }
+
+        // If the argument name is same as this target's name, this
+        // target should be renamed as the argument alias.
+        if name == self.name {
+            self.name = alias
+            self.c99name = alias.spm_mangledToC99ExtendedIdentifier()
+        }
+    }
+  
     /// The default localization for resources.
     public let defaultLocalization: String?
 
@@ -113,7 +150,7 @@ public class Target: PolymorphicCodableProtocol {
     public let dependencies: [Dependency]
 
     /// The language-level target name.
-    public let c99name: String
+    public private(set) var c99name: String
 
     /// The bundle name, if one is being generated.
     public let bundleName: String?

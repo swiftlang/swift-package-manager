@@ -14,7 +14,6 @@ import Foundation
 import PackageCollections
 import PackageModel
 import TSCBasic
-import TSCUtility
 
 private enum CollectionsError: Swift.Error {
     case invalidArgument(String)

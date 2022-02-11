@@ -16,9 +16,12 @@ import SPMBuildCore
 import SPMTestSupport
 import SwiftDriver
 import TSCBasic
-import TSCUtility
 import Workspace
 import XCTest
+
+import struct TSCUtility.BuildFlags
+import enum TSCUtility.Diagnostics
+import struct TSCUtility.Triple
 
 let hostTriple = UserToolchain.default.triple
 #if os(macOS)
@@ -249,7 +252,7 @@ final class BuildPlanTests: XCTestCase {
                 let yaml = buildDirPath.appending(component: "release.yaml")
                 let llbuild = LLBuildManifestBuilder(plan, fileSystem: localFileSystem, observabilityScope: observability.topScope)
                 try llbuild.generateManifest(at: yaml)
-                let contents = try localFileSystem.readFileContents(yaml).description
+                let contents: String = try localFileSystem.readFileContents(yaml)
 
                 // A few basic checks
                 XCTAssertMatch(contents, .contains("-disable-implicit-swift-modules"))
@@ -327,15 +330,15 @@ final class BuildPlanTests: XCTestCase {
                 observabilityScope: observability.topScope
             )
 
-            let linkedFileList = try fs.readFileContents(AbsolutePath("/path/to/build/release/exe.product/Objects.LinkFileList"))
-            XCTAssertMatch(linkedFileList.description, .contains("PkgLib"))
-            XCTAssertNoMatch(linkedFileList.description, .contains("ExtLib"))
+            let linkedFileList: String = try fs.readFileContents(AbsolutePath("/path/to/build/release/exe.product/Objects.LinkFileList"))
+            XCTAssertMatch(linkedFileList, .contains("PkgLib"))
+            XCTAssertNoMatch(linkedFileList, .contains("ExtLib"))
 
             try testWithTemporaryDirectory { path in
                 let yaml = path.appending(component: "release.yaml")
                 let llbuild = LLBuildManifestBuilder(plan, fileSystem: fs, observabilityScope: observability.topScope)
                 try llbuild.generateManifest(at: yaml)
-                let contents = try localFileSystem.readFileContents(yaml).description
+                let contents: String = try localFileSystem.readFileContents(yaml)
                 XCTAssertMatch(contents, .contains("""
                         inputs: ["/Pkg/Sources/exe/main.swift","/path/to/build/release/PkgLib.swiftmodule"]
                     """))
@@ -353,15 +356,15 @@ final class BuildPlanTests: XCTestCase {
                 observabilityScope: observability.topScope
             )
 
-            let linkedFileList = try fs.readFileContents(AbsolutePath("/path/to/build/debug/exe.product/Objects.LinkFileList"))
-            XCTAssertNoMatch(linkedFileList.description, .contains("PkgLib"))
-            XCTAssertNoMatch(linkedFileList.description, .contains("ExtLib"))
+            let linkedFileList: String = try fs.readFileContents(AbsolutePath("/path/to/build/debug/exe.product/Objects.LinkFileList"))
+            XCTAssertNoMatch(linkedFileList, .contains("PkgLib"))
+            XCTAssertNoMatch(linkedFileList, .contains("ExtLib"))
 
             try testWithTemporaryDirectory { path in
                 let yaml = path.appending(component: "debug.yaml")
                 let llbuild = LLBuildManifestBuilder(plan, fileSystem: fs, observabilityScope: observability.topScope)
                 try llbuild.generateManifest(at: yaml)
-                let contents = try localFileSystem.readFileContents(yaml).description
+                let contents: String = try localFileSystem.readFileContents(yaml)
                 XCTAssertMatch(contents, .contains("""
                         inputs: ["/Pkg/Sources/exe/main.swift"]
                     """))
@@ -583,7 +586,7 @@ final class BuildPlanTests: XCTestCase {
         ])
       #endif
 
-      let linkedFileList = try fs.readFileContents(AbsolutePath("/path/to/build/debug/exe.product/Objects.LinkFileList"))
+      let linkedFileList: String = try fs.readFileContents(AbsolutePath("/path/to/build/debug/exe.product/Objects.LinkFileList"))
       XCTAssertEqual(linkedFileList, """
           /path/to/build/debug/exe.build/main.c.o
           /path/to/build/debug/extlib.build/extlib.c.o
@@ -740,7 +743,7 @@ final class BuildPlanTests: XCTestCase {
             let yaml = path.appending(component: "debug.yaml")
             let llbuild = LLBuildManifestBuilder(plan, fileSystem: fs, observabilityScope: observability.topScope)
             try llbuild.generateManifest(at: yaml)
-            let contents = try localFileSystem.readFileContents(yaml).description
+            let contents: String = try localFileSystem.readFileContents(yaml)
             XCTAssertMatch(contents, .contains(#"-std=gnu99","-c","/Pkg/Sources/lib/lib.c"#))
             XCTAssertMatch(contents, .contains(#"-std=c++1z","-c","/Pkg/Sources/lib/libx.cpp"#))
         }
@@ -1637,6 +1640,158 @@ final class BuildPlanTests: XCTestCase {
         }
     }
 
+    func testModuleAliasingDirectDeps() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+                                        "/thisPkg/Sources/exe/main.swift",
+                                        "/thisPkg/Sources/Logging/file.swift",
+                                        "/fooPkg/Sources/Logging/fileLogging.swift",
+                                        "/barPkg/Sources/Logging/fileLogging.swift"
+        )
+        
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadPackageGraph(
+            fs: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    name: "fooPkg",
+                    path: .init("/fooPkg"),
+                    products: [
+                        ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Logging"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Logging", dependencies: []),
+                    ]),
+                Manifest.createRootManifest(
+                    name: "barPkg",
+                    path: .init("/barPkg"),
+                    products: [
+                        ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Logging"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Logging", dependencies: []),
+                    ]),
+                Manifest.createRootManifest(
+                    name: "thisPkg",
+                    path: .init("/thisPkg"),
+                    dependencies: [
+                        .localSourceControl(path: .init("/fooPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: .init("/barPkg"), requirement: .upToNextMajor(from: "2.0.0")),
+                    ],
+                    targets: [
+                        TargetDescription(name: "exe",
+                                          dependencies: ["Logging",
+                                                         .product(name: "Foo",
+                                                                  package: "fooPkg",
+                                                                  moduleAliases: ["Logging": "FooLogging"]
+                                                                 ),
+                                                         .product(name: "Bar",
+                                                                  package: "barPkg",
+                                                                  moduleAliases: ["Logging": "BarLogging"]
+                                                                 )
+                                                        ]),
+                        TargetDescription(name: "Logging", dependencies: []),
+                    ]),
+            ],
+            observabilityScope: observability.topScope
+        )
+        
+        XCTAssertNoDiagnostics(observability.diagnostics)
+        
+        let result = try BuildPlanResult(plan: try BuildPlan(
+            buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
+            graph: graph,
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        ))
+        
+        result.checkProductsCount(1)
+        result.checkTargetsCount(4)
+        
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "FooLogging" && $0.target.moduleAliases?["Logging"] == "FooLogging" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "BarLogging" && $0.target.moduleAliases?["Logging"] == "BarLogging" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "Logging" && $0.target.moduleAliases == nil })
+        
+        let fooLoggingArgs = try result.target(for: "FooLogging").swiftTarget().compileArguments()
+        let barLoggingArgs = try result.target(for: "BarLogging").swiftTarget().compileArguments()
+        let loggingArgs = try result.target(for: "Logging").swiftTarget().compileArguments()
+        #if os(macOS)
+        XCTAssertMatch(fooLoggingArgs, [.anySequence, "-emit-objc-header", "-emit-objc-header-path", "/path/to/build/debug/FooLogging.build/FooLogging-Swift.h", .anySequence])
+        XCTAssertMatch(barLoggingArgs, [.anySequence, "-emit-objc-header", "-emit-objc-header-path", "/path/to/build/debug/BarLogging.build/BarLogging-Swift.h", .anySequence])
+        XCTAssertMatch(loggingArgs, [.anySequence, "-emit-objc-header", "-emit-objc-header-path", "/path/to/build/debug/Logging.build/Logging-Swift.h", .anySequence])
+        #else
+        XCTAssertNoMatch(fooLoggingArgs, [.anySequence, "-emit-objc-header", "-emit-objc-header-path", "/path/to/build/debug/FooLogging.build/FooLogging-Swift.h", .anySequence])
+        XCTAssertNoMatch(barLoggingArgs, [.anySequence, "-emit-objc-header", "-emit-objc-header-path", "/path/to/build/debug/BarLogging.build/BarLogging-Swift.h", .anySequence])
+        XCTAssertNoMatch(loggingArgs, [.anySequence, "-emit-objc-header", "-emit-objc-header-path", "/path/to/build/debug/Logging.build/Logging-Swift.h", .anySequence])
+        #endif
+    }
+
+    func testModuleAliasingDuplicateTargetNameInUpstream() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+                                        "/thisPkg/Sources/exe/main.swift",
+                                        "/thisPkg/Sources/Logging/file.swift",
+                                        "/otherPkg/Sources/Utils/fileUtils.swift",
+                                        "/otherPkg/Sources/Logging/fileLogging.swift"
+        )
+        
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadPackageGraph(
+            fs: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    name: "otherPkg",
+                    path: .init("/otherPkg"),
+                    products: [
+                        ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Utils", dependencies: ["Logging"]),
+                        TargetDescription(name: "Logging", dependencies: []),
+                    ]),
+                Manifest.createRootManifest(
+                    name: "thisPkg",
+                    path: .init("/thisPkg"),
+                    dependencies: [
+                        .localSourceControl(path: .init("/otherPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    targets: [
+                        TargetDescription(name: "exe",
+                                          dependencies: ["Logging",
+                                                         .product(name: "Utils",
+                                                                  package: "otherPkg",
+                                                                  moduleAliases: ["Logging": "OtherLogging"])]),
+                        TargetDescription(name: "Logging", dependencies: []),
+                    ]),
+            ],
+            observabilityScope: observability.topScope
+        )
+        XCTAssertNoDiagnostics(observability.diagnostics)
+        
+        let result = try BuildPlanResult(plan: try BuildPlan(
+            buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
+            graph: graph,
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        ))
+        
+        result.checkProductsCount(1)
+        result.checkTargetsCount(4)
+        
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "OtherLogging" && $0.target.moduleAliases?["Logging"] == "OtherLogging" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "Utils" && $0.target.moduleAliases?["Logging"] == "OtherLogging" })
+        XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "Logging" && $0.target.moduleAliases == nil })
+
+        let otherLoggingArgs = try result.target(for: "OtherLogging").swiftTarget().compileArguments()
+        let loggingArgs = try result.target(for: "Logging").swiftTarget().compileArguments()
+        
+        #if os(macOS)
+        XCTAssertMatch(otherLoggingArgs, [.anySequence, "-emit-objc-header", "-emit-objc-header-path", "/path/to/build/debug/OtherLogging.build/OtherLogging-Swift.h", .anySequence])
+        XCTAssertMatch(loggingArgs, [.anySequence, "-emit-objc-header", "-emit-objc-header-path", "/path/to/build/debug/Logging.build/Logging-Swift.h", .anySequence])
+        #else
+        XCTAssertNoMatch(otherLoggingArgs, [.anySequence, "-emit-objc-header", "-emit-objc-header-path", "/path/to/build/debug/OtherLogging.build/OtherLogging-Swift.h", .anySequence])
+        XCTAssertNoMatch(loggingArgs, [.anySequence, "-emit-objc-header", "-emit-objc-header-path", "/path/to/build/debug/Logging.build/Logging-Swift.h", .anySequence])
+        #endif
+    }
+
     func testSystemPackageBuildPlan() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Pkg/module.modulemap"
@@ -2385,7 +2540,7 @@ final class BuildPlanTests: XCTestCase {
             let yaml = path.appending(component: "debug.yaml")
             let llbuild = LLBuildManifestBuilder(plan, fileSystem: fs, observabilityScope: observability.topScope)
             try llbuild.generateManifest(at: yaml)
-            let contents = try localFileSystem.readFileContents(yaml).description
+            let contents: String = try localFileSystem.readFileContents(yaml)
             XCTAssertMatch(contents, .contains("""
                     inputs: ["/PkgA/Sources/swiftlib/lib.swift","/path/to/build/debug/exe"]
                     outputs: ["/path/to/build/debug/swiftlib.build/lib.swift.o","/path/to/build/debug/
@@ -2442,7 +2597,7 @@ final class BuildPlanTests: XCTestCase {
             let yaml = path.appending(component: "debug.yaml")
             let llbuild = LLBuildManifestBuilder(plan, fileSystem: fs, observabilityScope: observability.topScope)
             try llbuild.generateManifest(at: yaml)
-            let contents = try localFileSystem.readFileContents(yaml).description
+            let contents: String = try localFileSystem.readFileContents(yaml)
             XCTAssertMatch(contents, .contains("""
                   "/path/to/build/debug/Bar.build/main.m.o":
                     tool: clang
@@ -2513,7 +2668,7 @@ final class BuildPlanTests: XCTestCase {
              let yaml = path.appending(component: "debug.yaml")
              let llbuild = LLBuildManifestBuilder(plan, fileSystem: fs, observabilityScope: observability.topScope)
              try llbuild.generateManifest(at: yaml)
-             let contents = try localFileSystem.readFileContents(yaml).description
+             let contents: String = try localFileSystem.readFileContents(yaml)
              XCTAssertMatch(contents, .contains("""
                    "/path/to/build/debug/Bar.build/main.m.o":
                      tool: clang
@@ -2585,7 +2740,7 @@ final class BuildPlanTests: XCTestCase {
              let yaml = path.appending(component: "debug.yaml")
              let llbuild = LLBuildManifestBuilder(plan, fileSystem: fs, observabilityScope: observability.topScope)
              try llbuild.generateManifest(at: yaml)
-             let contents = try localFileSystem.readFileContents(yaml).description
+             let contents: String = try localFileSystem.readFileContents(yaml)
              XCTAssertMatch(contents, .contains("""
                    "/path/to/build/debug/Bar.build/main.m.o":
                      tool: clang
@@ -2634,7 +2789,7 @@ final class BuildPlanTests: XCTestCase {
             let yaml = path.appending(component: "debug.yaml")
             let llbuild = LLBuildManifestBuilder(result.plan, fileSystem: fs, observabilityScope: observability.topScope)
             try llbuild.generateManifest(at: yaml)
-            let contents = try localFileSystem.readFileContents(yaml).description
+            let contents: String = try localFileSystem.readFileContents(yaml)
             XCTAssertMatch(contents, .contains("""
                   "/path/to/build/debug/exe.build/exe.swiftmodule.o":
                     tool: shell
@@ -2706,7 +2861,7 @@ final class BuildPlanTests: XCTestCase {
         ])
 
         let resourceAccessor = fooTarget.sources.first{ $0.basename == "resource_bundle_accessor.swift" }!
-        let contents = try fs.readFileContents(resourceAccessor).cString
+        let contents: String = try fs.readFileContents(resourceAccessor)
         XCTAssertMatch(contents, .contains("extension Foundation.Bundle"))
         // Assert that `Bundle.main` is executed in the compiled binary (and not during compilation)
         // See https://bugs.swift.org/browse/SR-14555 and https://github.com/apple/swift-package-manager/pull/2972/files#r623861646
@@ -2770,7 +2925,7 @@ final class BuildPlanTests: XCTestCase {
         ])
 
         let resourceAccessor = fooTarget.sources.first{ $0.basename == "resource_bundle_accessor.swift" }!
-        let contents = try fs.readFileContents(resourceAccessor).cString
+        let contents: String = try fs.readFileContents(resourceAccessor)
         XCTAssertMatch(contents, .contains("extension Foundation.Bundle"))
         // Assert that `Bundle.main` is executed in the compiled binary (and not during compilation)
         // See https://bugs.swift.org/browse/SR-14555 and https://github.com/apple/swift-package-manager/pull/2972/files#r623861646

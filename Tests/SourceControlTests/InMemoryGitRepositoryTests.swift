@@ -12,7 +12,6 @@ import XCTest
 
 import TSCBasic
 import SourceControl
-import TSCUtility
 
 import SPMTestSupport
 

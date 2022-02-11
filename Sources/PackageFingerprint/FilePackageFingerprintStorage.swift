@@ -13,7 +13,6 @@ import Dispatch
 import Foundation
 import PackageModel
 import TSCBasic
-import TSCUtility
 
 public struct FilePackageFingerprintStorage: PackageFingerprintStorage {
     let fileSystem: FileSystem
@@ -94,12 +93,12 @@ public struct FilePackageFingerprintStorage: PackageFingerprintStorage {
             return .init()
         }
 
-        let buffer = try fileSystem.readFileContents(path).contents
-        guard buffer.count > 0 else {
+        let data: Data = try fileSystem.readFileContents(path)
+        guard data.count > 0 else {
             return .init()
         }
 
-        let container = try self.decoder.decode(StorageModel.Container.self, from: Data(buffer))
+        let container = try self.decoder.decode(StorageModel.Container.self, from: data)
         return try container.packageFingerprints()
     }
 

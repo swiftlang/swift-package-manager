@@ -11,7 +11,9 @@
 import Dispatch
 import Foundation
 import TSCBasic
-import TSCUtility
+
+import enum TSCUtility.Diagnostics
+import protocol TSCUtility.DiagnosticDataConvertible
 
 // this could become a struct when we remove the "errorsReported" pattern
 

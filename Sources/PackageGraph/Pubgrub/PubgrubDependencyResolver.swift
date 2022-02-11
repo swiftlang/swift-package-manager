@@ -13,7 +13,6 @@ import Dispatch
 import OrderedCollections
 import PackageModel
 import TSCBasic
-import TSCUtility
 
 /// The solver that is able to transitively resolve a set of package constraints
 /// specified by a root package.

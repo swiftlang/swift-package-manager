@@ -16,8 +16,11 @@ import PackageGraph
 import SPMBuildCore
 import TSCBasic
 import func TSCLibc.exit
-import TSCUtility
 import Workspace
+
+import class TSCUtility.NinjaProgressAnimation
+import class TSCUtility.PercentProgressAnimation
+import protocol TSCUtility.ProgressAnimationProtocol
 
 private enum TestError: Swift.Error {
     case invalidListTestJSONData
@@ -135,6 +138,10 @@ struct TestToolOptions: ParsableArguments {
     @Option(help: "Test the specified product.")
     var testProduct: String?
 
+    /// Generate LinuxMain entries and exit.
+    @Flag(name: .customLong("testable-imports"), inversion: .prefixedEnableDisable, help: "Enable or disable testable imports. Enabled by default.")
+    var enableTestableImports: Bool = true
+
     /// Returns the test case specifier if overridden in the env.
     private func testCaseSkipOverride() -> TestCaseSpecifier? {
         guard let override = ProcessEnv.vars["_SWIFTPM_SKIP_TESTS_LIST"] else {
@@ -145,7 +152,7 @@ struct TestToolOptions: ParsableArguments {
             let skipTests: [String.SubSequence]
             // Read from the file if it exists.
             if let path = try? AbsolutePath(validating: override), localFileSystem.exists(path) {
-                let contents = try localFileSystem.readFileContents(path).cString
+                let contents: String = try localFileSystem.readFileContents(path)
                 skipTests = contents.split(separator: "\n", omittingEmptySubsequences: true)
             } else {
                 // Otherwise, read the env variable.
@@ -208,6 +215,9 @@ public struct SwiftTestTool: SwiftCommand {
 
         switch options.mode {
         case .listTests:
+            // redirect all other output to stderr so that the list is the only thing that is printed on stdout
+            swiftTool.redirectStdoutToStderr()
+
             let testProducts = try buildTestsIfNeeded(swiftTool: swiftTool)
             let testSuites = try TestingSupport.getTestSuites(in: testProducts, swiftTool: swiftTool, swiftOptions: swiftOptions)
             let tests = try testSuites
@@ -232,7 +242,7 @@ public struct SwiftTestTool: SwiftCommand {
             guard let rootManifest = rootManifests.values.first else {
                 throw StringError("invalid manifests at \(root.packages)")
             }
-            let buildParameters = try swiftTool.buildParametersForTest()
+            let buildParameters = try swiftTool.buildParametersForTest(options: self.options)
             print(codeCovAsJSONPath(buildParameters: buildParameters, packageName: rootManifest.displayName))
 
         case .generateLinuxMain:
@@ -253,7 +263,7 @@ public struct SwiftTestTool: SwiftCommand {
         case .runSerial:
             let toolchain = try swiftTool.getToolchain()
             let testProducts = try buildTestsIfNeeded(swiftTool: swiftTool)
-            let buildParameters = try swiftTool.buildParametersForTest()
+            let buildParameters = try swiftTool.buildParametersForTest(options: self.options)
 
             // Clean out the code coverage directory that may contain stale
             // profraw files from a previous run of the code coverage tool.
@@ -321,7 +331,7 @@ public struct SwiftTestTool: SwiftCommand {
             let tests = try testSuites
                 .filteredTests(specifier: options.testCaseSpecifier)
                 .skippedTests(specifier: options.testCaseSkip)
-            let buildParameters = try swiftTool.buildParametersForTest()
+            let buildParameters = try swiftTool.buildParametersForTest(options: self.options)
 
             // If there were no matches, emit a warning and exit.
             if tests.isEmpty {
@@ -377,7 +387,7 @@ public struct SwiftTestTool: SwiftCommand {
         // Merge all the profraw files to produce a single profdata file.
         try mergeCodeCovRawDataFiles(swiftTool: swiftTool)
 
-        let buildParameters = try swiftTool.buildParametersForTest()
+        let buildParameters = try swiftTool.buildParametersForTest(options: self.options)
         for product in testProducts {
             // Export the codecov data as JSON.
             let jsonPath = codeCovAsJSONPath(
@@ -393,7 +403,7 @@ public struct SwiftTestTool: SwiftCommand {
         let llvmProf = try swiftTool.getToolchain().getLLVMProf()
 
         // Get the profraw files.
-        let buildParameters = try swiftTool.buildParametersForTest()
+        let buildParameters = try swiftTool.buildParametersForTest(options: self.options)
         let codeCovFiles = try localFileSystem.getDirectoryContents(buildParameters.codeCovPath)
 
         // Construct arguments for invoking the llvm-prof tool.
@@ -417,7 +427,7 @@ public struct SwiftTestTool: SwiftCommand {
     private func exportCodeCovAsJSON(to path: AbsolutePath, testBinary: AbsolutePath, swiftTool: SwiftTool) throws {
         // Export using the llvm-cov tool.
         let llvmCov = try swiftTool.getToolchain().getLLVMCov()
-        let buildParameters = try swiftTool.buildParametersForTest()
+        let buildParameters = try swiftTool.buildParametersForTest(options: self.options)
         let args = [
             llvmCov.pathString,
             "export",
@@ -437,7 +447,8 @@ public struct SwiftTestTool: SwiftCommand {
     ///
     /// - Returns: The paths to the build test products.
     private func buildTestsIfNeeded(swiftTool: SwiftTool) throws -> [BuiltTestProduct] {
-        let buildSystem = try swiftTool.createBuildSystem(buildParameters: swiftTool.buildParametersForTest())
+        let buildParameters = try swiftTool.buildParametersForTest(options: self.options)
+        let buildSystem = try swiftTool.createBuildSystem(buildParameters: buildParameters)
 
         if options.shouldBuildTests {
             let subset = options.testProduct.map(BuildSubset.product) ?? .allIncludingTests
@@ -1013,8 +1024,17 @@ final class XUnitGenerator {
     }
 }
 
+extension SwiftTool {
+    func buildParametersForTest(options: TestToolOptions) throws -> BuildParameters {
+        try self.buildParametersForTest(
+            enableTestability: options.enableTestableImports
+        )
+    }
+}
+
 private extension Basics.Diagnostic {
     static var noMatchingTests: Self {
         .warning("No matching test cases were run")
     }
 }
+

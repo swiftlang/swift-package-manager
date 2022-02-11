@@ -11,7 +11,6 @@
 import Basics
 import Dispatch
 import PackageModel
-import TSCUtility
 
 public protocol PackageFingerprintStorage {
     func get(package: PackageIdentity,

@@ -11,7 +11,7 @@
 import Foundation
 
 import TSCBasic
-import TSCUtility
+import struct TSCUtility.SQLite
 
 /// SQLite backed persistent cache.
 public final class SQLiteBackedCache<Value: Codable>: Closable {
