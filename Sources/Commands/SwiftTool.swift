@@ -1027,24 +1027,29 @@ extension Basics.Diagnostic {
     func print() {
         let writer = InteractiveWriter.stderr
 
-        if let diagnosticPrefix = self.metadata?.diagnosticPrefix {
-            writer.write(diagnosticPrefix)
-            writer.write(": ")
-        }
-
+        var message: String
         switch self.severity {
         case .error:
-            writer.write("error: ", inColor: .red, bold: true)
+            message = writer.format("error: ", inColor: .red, bold: true)
         case .warning:
-            writer.write("warning: ", inColor: .yellow, bold: true)
+            message = writer.format("warning: ", inColor: .yellow, bold: true)
         case .info:
-            writer.write("info: ", inColor: .white, bold: true)
+            message = writer.format("info: ", inColor: .white, bold: true)
         case .debug:
-            writer.write("debug: ", inColor: .white, bold: true)
+            message = writer.format("debug: ", inColor: .white, bold: true)
         }
 
-        writer.write(self.message)
-        writer.write("\n")
+        if let diagnosticPrefix = self.metadata?.diagnosticPrefix {
+            message += diagnosticPrefix
+            message += ": "
+        }
+
+        message += self.message
+        if !self.message.hasPrefix("\n") {
+            message += "\n"
+        }
+
+        writer.write(message)
     }
 }
 
@@ -1074,11 +1079,19 @@ private final class InteractiveWriter {
 
     /// Write the string to the contained terminal or stream.
     func write(_ string: String, inColor color: TerminalController.Color = .noColor, bold: Bool = false) {
-        if let term = term {
+        if let term = self.term {
             term.write(string, inColor: color, bold: bold)
         } else {
             stream <<< string
             stream.flush()
+        }
+    }
+
+    func format(_ string: String, inColor color: TerminalController.Color = .noColor, bold: Bool = false) -> String {
+        if let term = self.term {
+            return term.wrap(string, inColor: color, bold: bold)
+        } else {
+            return string
         }
     }
 }
