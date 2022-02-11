@@ -553,6 +553,7 @@ public class SwiftTool {
                 fingerprintCheckingMode: self.options.resolverFingerprintCheckingMode
             ),
             initializationWarningHandler: { self.observabilityScope.emit(warning: $0) },
+            customHostToolchain: self.getHostToolchain(), // FIXME: ideally we would not customize the host toolchain
             customManifestLoader: self.getManifestLoader(), // FIXME: ideally we would not customize the manifest loader
             customRepositoryProvider: repositoryProvider, // FIXME: ideally we would not customize the repository provider. its currently done for shutdown handling which can be better abstracted
             delegate: delegate
@@ -688,7 +689,7 @@ public class SwiftTool {
         let cacheDir = pluginsDir.appending(component: "cache")
         let pluginScriptRunner = try DefaultPluginScriptRunner(
             cacheDir: cacheDir,
-            toolchain: self._hostToolchain.get().configuration,
+            toolchain: self.getHostToolchain().configuration,
             enableSandbox: !self.options.shouldDisableSandbox)
         return pluginScriptRunner
     }
@@ -696,6 +697,10 @@ public class SwiftTool {
     /// Returns the user toolchain to compile the actual product.
     func getToolchain() throws -> UserToolchain {
         return try _destinationToolchain.get()
+    }
+
+    func getHostToolchain() throws -> UserToolchain {
+        return try _hostToolchain.get()
     }
 
     func getManifestLoader() throws -> ManifestLoader {
@@ -912,7 +917,7 @@ public class SwiftTool {
 
             return try ManifestLoader(
                 // Always use the host toolchain's resources for parsing manifest.
-                toolchain: self._hostToolchain.get().configuration,
+                toolchain: self.getHostToolchain().configuration,
                 isManifestSandboxEnabled: !self.options.shouldDisableSandbox,
                 cacheDir: cachePath,
                 extraManifestFlags: extraManifestFlags
