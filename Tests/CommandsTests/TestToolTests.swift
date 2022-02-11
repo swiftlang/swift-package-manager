@@ -69,9 +69,8 @@ final class TestToolTests: CommandsTestCase {
 
             // disabled
             do {
-                let result = try execute(["--disable-testable-imports", "--vv"], packagePath: path)
+                _ = try execute(["--disable-testable-imports", "--vv"], packagePath: path)
             } catch SwiftPMProductError.executionFailure(_, let stdout, _) {
-                XCTAssertNoMatch(stdout, .contains("-enable-testing"))
                 XCTAssertMatch(stdout, .contains("was not compiled for testing"))
             }
 

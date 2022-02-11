@@ -139,6 +139,7 @@ extension SwiftTool {
     ) throws -> BuildParameters {
         var parameters = try self.buildParameters()
         // for test commands, we normally enable building with testability
+        // but we let users override this with a flag
         parameters.enableTestability = enableTestability ?? true
         return parameters
     }
