@@ -22,7 +22,9 @@ class ModuleAliasingTests: XCTestCase {
         #if swift(<5.6)
         try XCTSkipIf(true, "Module aliasing is only supported on swift 5.6+")
         #endif
-        
+
+        try XCTSkipIf(true, "rdar://88722540")
+
         fixture(name: "Miscellaneous/ModuleAliasing/DirectDeps") { prefix in
             let app = prefix.appending(components: "AppPkg")
             XCTAssertBuilds(app)
