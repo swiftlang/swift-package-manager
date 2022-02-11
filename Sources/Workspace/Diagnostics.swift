@@ -167,8 +167,8 @@ extension FileSystemError: CustomStringConvertible {
             switch self.kind {
             case .invalidAccess:
                 return "invalid access"
-            case .ioError:
-                return "encountered I/O error"
+            case .ioError(let code):
+                return "encountered I/O error (code: \(code))"
             case .isDirectory:
                 return "is a directory"
             case .noEntry:
@@ -191,8 +191,8 @@ extension FileSystemError: CustomStringConvertible {
         switch self.kind {
         case .invalidAccess:
             return "invalid access to \(path)"
-        case .ioError:
-            return "encountered an I/O error while reading \(path)"
+        case .ioError(let code):
+            return "encountered an I/O error (code: \(code)) while reading \(path)"
         case .isDirectory:
             return "\(path) is a directory"
         case .noEntry:
