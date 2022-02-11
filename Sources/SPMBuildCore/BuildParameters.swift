@@ -228,6 +228,12 @@ public struct BuildParameters: Encodable {
         self.isXcodeBuildSystemEnabled = isXcodeBuildSystemEnabled
         self.printManifestGraphviz = printManifestGraphviz
         // decide on testability based on debug/release config
+        // the goals of this being based on the build configuration is
+        // that `swift build` followed by a `swift test` will need to do minimal rebuilding
+        // given that the default configuration for `swift build` is debug
+        // and that `swift test` normally requires building with testable enabled.
+        // when building and testing in release mode, one can use the '--disable-testable-imports' flag
+        // to disable testability in `swift test`, but that requires that the tests do not use the testable imports feature
         self.enableTestability = enableTestability ?? (.debug == configuration)
         // decide if to enable the use of test manifests based on platform. this is likely to change in the future
         self.testDiscoveryStrategy = triple.isDarwin() ? .objectiveC : .manifest(generate: forceTestDiscovery)

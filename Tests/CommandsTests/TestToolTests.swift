@@ -8,15 +8,15 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import XCTest
-
-import SPMTestSupport
 import Commands
+import SPMTestSupport
+import TSCBasic
+import XCTest
 
 final class TestToolTests: CommandsTestCase {
     
-    private func execute(_ args: [String]) throws -> (stdout: String, stderr: String) {
-        return try SwiftPMProduct.SwiftTest.execute(args)
+    private func execute(_ args: [String], packagePath: AbsolutePath? = nil) throws -> (stdout: String, stderr: String) {
+        return try SwiftPMProduct.SwiftTest.execute(args, packagePath: packagePath)
     }
     
     func testUsage() throws {
@@ -57,5 +57,28 @@ final class TestToolTests: CommandsTestCase {
             }
         }
         #endif
+    }
+
+    func testEnableDisableTestability() {
+        fixture(name: "Miscellaneous/TestableExe") { path in
+            // default should run with testability
+            do {
+                let result = try execute(["--vv"], packagePath: path)
+                XCTAssertMatch(result.stdout, .contains("-enable-testing"))
+            }
+
+            // disabled
+            do {
+                _ = try execute(["--disable-testable-imports", "--vv"], packagePath: path)
+            } catch SwiftPMProductError.executionFailure(_, let stdout, _) {
+                XCTAssertMatch(stdout, .contains("was not compiled for testing"))
+            }
+
+            // enabled
+            do {
+                let result = try execute(["--enable-testable-imports", "--vv"], packagePath: path)
+                XCTAssertMatch(result.stdout, .contains("-enable-testing"))
+            }
+        }
     }
 }

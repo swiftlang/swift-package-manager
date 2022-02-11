@@ -823,7 +823,7 @@ extension LLBuildManifestBuilder {
         for target in plan.targets {
             guard case .swift(let target) = target,
                 target.isTestTarget,
-                target.testDiscoveryTarget else { continue }
+                target.isTestDiscoveryTarget else { continue }
 
             let testDiscoveryTarget = target
 
