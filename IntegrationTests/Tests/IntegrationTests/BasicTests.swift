@@ -93,7 +93,9 @@ final class BasicTests: XCTestCase {
     }
 
     func testSwiftPackageInitExec() throws {
-        try XCTSkipUnless(swiftcSupportsRenamingMainSymbol(), "skipping because host compiler doesn't support `-entry-point-function-name`")
+        #if swift(<5.5)
+        try XCTSkipIf(true, "skipping because host compiler doesn't support '-entry-point-function-name'")
+        #endif
         
         try withTemporaryDirectory { dir in
             // Create a new package with an executable target.
@@ -106,11 +108,12 @@ final class BasicTests: XCTestCase {
             XCTAssertContents(buildOutput) { checker in
                 checker.check(.regex("Compiling .*Project.*"))
                 checker.check(.regex("Linking .*Project"))
+                checker.check(.contains("Build complete"))
             }
 
             // Verify that the tool was built and works.
             let toolOutput = try sh(projectDir.appending(components: ".build", "debug", "Project")).stdout
-            XCTAssertEqual(toolOutput, "Hello, world!\n")
+            XCTAssertMatch(toolOutput.lowercased(), .contains("hello, world!"))
 
             // Check there were no compile errors or warnings.
             XCTAssertNoMatch(buildOutput, .contains("error"))
@@ -118,19 +121,19 @@ final class BasicTests: XCTestCase {
         }
     }
 
-    func testSwiftPackageInitLib() throws {
+    func testSwiftPackageInitExecTests() throws {
+        #if swift(<5.5)
+        try XCTSkipIf(true, "skipping because host compiler doesn't support '-entry-point-function-name'")
+        #endif
+
         try XCTSkip("FIXME: swift-test invocations are timing out in Xcode and self-hosted CI")
 
         try withTemporaryDirectory { dir in
             // Create a new package with an executable target.
             let projectDir = dir.appending(component: "Project")
             try localFileSystem.createDirectory(projectDir)
-            try sh(swiftPackage, "--package-path", projectDir, "init", "--type", "library")
-            let buildOutput = try sh(swiftBuild, "--package-path", projectDir).stdout
+            try sh(swiftPackage, "--package-path", projectDir, "init", "--type", "executable")
             let testOutput = try sh(swiftTest, "--package-path", projectDir).stdout
-
-            // Check the build log.
-            XCTAssertMatch(buildOutput, .regex("Compiling .*Project.*"))
 
             // Check the test log.
             XCTAssertContents(testOutput) { checker in
@@ -140,8 +143,49 @@ final class BasicTests: XCTestCase {
             }
 
             // Check there were no compile errors or warnings.
+            XCTAssertNoMatch(testOutput, .contains("error"))
+            XCTAssertNoMatch(testOutput, .contains("warning"))
+        }
+    }
+
+    func testSwiftPackageInitLib() throws {
+        try withTemporaryDirectory { dir in
+            // Create a new package with an executable target.
+            let projectDir = dir.appending(component: "Project")
+            try localFileSystem.createDirectory(projectDir)
+            try sh(swiftPackage, "--package-path", projectDir, "init", "--type", "library")
+            let buildOutput = try sh(swiftBuild, "--package-path", projectDir).stdout
+
+            // Check the build log.
+            XCTAssertMatch(buildOutput, .regex("Compiling .*Project.*"))
+            XCTAssertMatch(buildOutput, .contains("Build complete"))
+
+            // Check there were no compile errors or warnings.
             XCTAssertNoMatch(buildOutput, .contains("error"))
             XCTAssertNoMatch(buildOutput, .contains("warning"))
+        }
+    }
+
+    func testSwiftPackageLibsTests() throws {
+        try XCTSkip("FIXME: swift-test invocations are timing out in Xcode and self-hosted CI")
+
+        try withTemporaryDirectory { dir in
+            // Create a new package with an executable target.
+            let projectDir = dir.appending(component: "Project")
+            try localFileSystem.createDirectory(projectDir)
+            try sh(swiftPackage, "--package-path", projectDir, "init", "--type", "library")
+            let testOutput = try sh(swiftTest, "--package-path", projectDir).stdout
+
+            // Check the test log.
+            XCTAssertContents(testOutput) { checker in
+                checker.check(.regex("Compiling .*ProjectTests.*"))
+                checker.check("Test Suite 'All tests' passed")
+                checker.checkNext("Executed 1 test")
+            }
+
+            // Check there were no compile errors or warnings.
+            XCTAssertNoMatch(testOutput, .contains("error"))
+            XCTAssertNoMatch(testOutput, .contains("warning"))
         }
     }
 
@@ -172,6 +216,7 @@ final class BasicTests: XCTestCase {
             // Check the build.
             let buildOutput = try sh(swiftBuild, "--package-path", toolDir, "-v").stdout
             XCTAssertMatch(buildOutput, .regex(#"swiftc.* -module-name special_tool .* ".*/more spaces/special tool/some file.swift""#))
+            XCTAssertMatch(buildOutput, .contains("Build complete"))
 
             // Verify that the tool exists and works.
             let toolOutput = try sh(toolDir.appending(components: ".build", "debug", "special tool")).stdout
@@ -180,12 +225,18 @@ final class BasicTests: XCTestCase {
     }
 
     func testSwiftRun() throws {
-        try XCTSkipUnless(swiftcSupportsRenamingMainSymbol(), "skipping because host compiler doesn't support `-entry-point-function-name`")
+        #if swift(<5.5)
+        try XCTSkipIf(true, "skipping because host compiler doesn't support '-entry-point-function-name'")
+        #endif
 
         try withTemporaryDirectory { dir in
             let toolDir = dir.appending(component: "secho")
             try localFileSystem.createDirectory(toolDir)
             try sh(swiftPackage, "--package-path", toolDir, "init", "--type", "executable")
+            // delete any files generated
+            for entry in try localFileSystem.getDirectoryContents(toolDir.appending(components: "Sources", "secho")) {
+                try localFileSystem.removeFileTree(toolDir.appending(components: "Sources", "secho", entry))
+            }
             try localFileSystem.writeFileContents(
                 toolDir.appending(components: "Sources", "secho", "main.swift"),
                 bytes: ByteString(encodingAsUTF8: """
@@ -198,6 +249,7 @@ final class BasicTests: XCTestCase {
             XCTAssertContents(runError) { checker in
                 checker.check(.regex("Compiling .*secho.*"))
                 checker.check(.regex("Linking .*secho"))
+                checker.check(.contains("Build complete"))
             }
             XCTAssertEqual(runOutput, "1 \"two\"\n")
         }
@@ -305,12 +357,12 @@ final class BasicTests: XCTestCase {
           
             let testOutput = try sh(swiftTest, "--package-path", toolDir, "--filter", "MyTests.*").stderr
 
-//             Check the test log.
-              XCTAssertContents(testOutput) { checker in
-                  checker.check(.contains("Test Suite 'MyTests' started"))
-                  checker.check(.contains("Test Suite 'MyTests' passed"))
-                  checker.check(.contains("Executed 2 tests, with 0 failures"))
-              }
+            // Check the test log.
+            XCTAssertContents(testOutput) { checker in
+                checker.check(.contains("Test Suite 'MyTests' started"))
+                checker.check(.contains("Test Suite 'MyTests' passed"))
+                checker.check(.contains("Executed 2 tests, with 0 failures"))
+            }
         }
     }
 }
