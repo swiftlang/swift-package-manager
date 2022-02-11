@@ -24,16 +24,12 @@ final class BasicTests: XCTestCase {
             let dealerDir = dir.appending(component: "dealer")
             try sh("git", "clone", "https://github.com/apple/example-package-dealer", dealerDir)
             let build1Output = try sh(swiftBuild, "--package-path", dealerDir).stdout
-
             // Check the build log.
-            XCTAssertContents(build1Output) { checker in
-                checker.check(.contains("Merging module FisherYates"))
-                checker.check(.contains("Merging module Dealer"))
-            }
+            XCTAssertMatch(build1Output, .contains("Build complete"))
 
-            // Verify that the build worked.
-            let dealerOutput = try sh(dealerDir.appending(RelativePath(".build/debug/Dealer"))).stdout
-            XCTAssertMatch(dealerOutput, .regex("(?:(♡|♠|♢|♣)\\s([0-9JQKA]|10)\\n)+"))
+            // Verify that the app works.
+            let dealerOutput = try sh(dealerDir.appending(RelativePath(".build/debug/dealer")), "10").stdout
+            XCTAssertEqual(dealerOutput.filter(\.isPlayingCardSuit).count, 10)
 
             // Verify that the 'git status' is clean after a build.
             try localFileSystem.changeCurrentWorkingDirectory(to: dealerDir)
@@ -42,6 +38,7 @@ final class BasicTests: XCTestCase {
 
             // Verify that another 'swift build' does nothing.
             let build2Output = try sh(swiftBuild, "--package-path", dealerDir).stdout
+            XCTAssertMatch(build2Output, .contains("Build complete"))
             XCTAssertNoMatch(build2Output, .contains("Compiling"))
         }
     }
@@ -314,6 +311,17 @@ final class BasicTests: XCTestCase {
                   checker.check(.contains("Test Suite 'MyTests' passed"))
                   checker.check(.contains("Executed 2 tests, with 0 failures"))
               }
+        }
+    }
+}
+
+private extension Character {
+    var isPlayingCardSuit: Bool {
+        switch self {
+        case "♠︎", "♡", "♢", "♣︎":
+            return true
+        default:
+            return false
         }
     }
 }
