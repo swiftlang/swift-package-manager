@@ -35,48 +35,51 @@ final class TestToolTests: CommandsTestCase {
     }
 
     func testNumWorkersParallelRequirement() throws {
+        #if !os(macOS)
         // Running swift-test fixtures on linux is not yet possible.
-        #if os(macOS)
-        fixture(name: "Miscellaneous/EchoExecutable") { path in
+        try XCTSkipIf(true, "test is only supported on macOS")
+        #endif
+        try fixture(name: "Miscellaneous/EchoExecutable") { fixturePath in
             do {
                 _ = try execute(["--num-workers", "1"])
             } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
                 XCTAssertMatch(stderr, .contains("error: --num-workers must be used with --parallel"))
             }
         }
-        #endif
     }
     
     func testNumWorkersValue() throws {
-        #if os(macOS)
-        fixture(name: "Miscellaneous/EchoExecutable") { path in
+        #if !os(macOS)
+        // Running swift-test fixtures on linux is not yet possible.
+        try XCTSkipIf(true, "test is only supported on macOS")
+        #endif
+        try fixture(name: "Miscellaneous/EchoExecutable") { fixturePath in
             do {
                 _ = try execute(["--parallel", "--num-workers", "0"])
             } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
                 XCTAssertMatch(stderr, .contains("error: '--num-workers' must be greater than zero"))
             }
         }
-        #endif
     }
 
-    func testEnableDisableTestability() {
-        fixture(name: "Miscellaneous/TestableExe") { path in
+    func testEnableDisableTestability() throws {
+        try fixture(name: "Miscellaneous/TestableExe") { fixturePath in
             // default should run with testability
             do {
-                let result = try execute(["--vv"], packagePath: path)
+                let result = try execute(["--vv"], packagePath: fixturePath)
                 XCTAssertMatch(result.stdout, .contains("-enable-testing"))
             }
 
             // disabled
             do {
-                _ = try execute(["--disable-testable-imports", "--vv"], packagePath: path)
+                _ = try execute(["--disable-testable-imports", "--vv"], packagePath: fixturePath)
             } catch SwiftPMProductError.executionFailure(_, let stdout, _) {
                 XCTAssertMatch(stdout, .contains("was not compiled for testing"))
             }
 
             // enabled
             do {
-                let result = try execute(["--enable-testable-imports", "--vv"], packagePath: path)
+                let result = try execute(["--enable-testable-imports", "--vv"], packagePath: fixturePath)
                 XCTAssertMatch(result.stdout, .contains("-enable-testing"))
             }
         }

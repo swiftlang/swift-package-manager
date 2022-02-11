@@ -17,9 +17,9 @@ import XCTest
 final class SwiftToolTests: CommandsTestCase {
     
     func testVerbosityLogLevel() throws {
-        fixture(name: "Miscellaneous/Simple") { packageRoot in
+        try fixture(name: "Miscellaneous/Simple") { fixturePath in
             do {
-                let options = try SwiftToolOptions.parse(["--package-path", packageRoot.pathString])
+                let options = try SwiftToolOptions.parse(["--package-path", fixturePath.pathString])
                 let tool = try SwiftTool(options: options)
                 XCTAssertEqual(tool.logLevel, .warning)
 
@@ -30,7 +30,7 @@ final class SwiftToolTests: CommandsTestCase {
             }
 
             do {
-                let options = try SwiftToolOptions.parse(["--package-path", packageRoot.pathString, "--verbose"])
+                let options = try SwiftToolOptions.parse(["--package-path", fixturePath.pathString, "--verbose"])
                 let tool = try SwiftTool(options: options)
                 XCTAssertEqual(tool.logLevel, .info)
 
@@ -41,13 +41,13 @@ final class SwiftToolTests: CommandsTestCase {
             }
 
             do {
-                let options = try SwiftToolOptions.parse(["--package-path", packageRoot.pathString, "-v"])
+                let options = try SwiftToolOptions.parse(["--package-path", fixturePath.pathString, "-v"])
                 let tool = try SwiftTool(options: options)
                 XCTAssertEqual(tool.logLevel, .info)
             }
 
             do {
-                let options = try SwiftToolOptions.parse(["--package-path", packageRoot.pathString, "--very-verbose"])
+                let options = try SwiftToolOptions.parse(["--package-path", fixturePath.pathString, "--very-verbose"])
                 let tool = try SwiftTool(options: options)
                 XCTAssertEqual(tool.logLevel, .debug)
 
@@ -58,7 +58,7 @@ final class SwiftToolTests: CommandsTestCase {
             }
 
             do {
-                let options = try SwiftToolOptions.parse(["--package-path", packageRoot.pathString, "--vv"])
+                let options = try SwiftToolOptions.parse(["--package-path", fixturePath.pathString, "--vv"])
                 let tool = try SwiftTool(options: options)
                 XCTAssertEqual(tool.logLevel, .debug)
             }
@@ -66,9 +66,9 @@ final class SwiftToolTests: CommandsTestCase {
     }
 
     func testNetrcAuthorizationProviders() throws {
-        fixture(name: "DependencyResolution/External/XCFramework") { packageRoot in
+        try fixture(name: "DependencyResolution/External/XCFramework") { fixturePath in
             let fs = localFileSystem
-            let localPath = packageRoot.appending(component: ".netrc")
+            let localPath = fixturePath.appending(component: ".netrc")
 
             // custom .netrc file
             do {
@@ -77,7 +77,7 @@ final class SwiftToolTests: CommandsTestCase {
                     "machine mymachine.labkey.org login custom@labkey.org password custom"
                 }
 
-                let options = try SwiftToolOptions.parse(["--package-path", packageRoot.pathString, "--netrc-file", customPath.pathString])
+                let options = try SwiftToolOptions.parse(["--package-path", fixturePath.pathString, "--netrc-file", customPath.pathString])
                 let tool = try SwiftTool(options: options)
 
                 let authorizationProvider = try tool.getAuthorizationProvider() as? CompositeAuthorizationProvider
@@ -102,7 +102,7 @@ final class SwiftToolTests: CommandsTestCase {
                     return "machine mymachine.labkey.org login local@labkey.org password local"
                 }
 
-                let options = try SwiftToolOptions.parse(["--package-path", packageRoot.pathString])
+                let options = try SwiftToolOptions.parse(["--package-path", fixturePath.pathString])
                 let tool = try SwiftTool(options: options)
 
                 let authorizationProvider = try tool.getAuthorizationProvider() as? CompositeAuthorizationProvider

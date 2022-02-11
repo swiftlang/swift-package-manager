@@ -418,7 +418,10 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
     }
 
     func testManifestLoadingIsSandboxed() throws {
-        #if os(macOS) // Sandboxing is only done on macOS today.
+        #if !os(macOS)
+        // Sandboxing is only done on macOS today.
+        try XCTSkipIf(true, "test is only supported on macOS")
+        #endif
         let content = """
             import Foundation
 
@@ -441,6 +444,5 @@ class PackageDescription5_2LoadingTests: PackageDescriptionLoadingTests {
                 XCTFail("unexpected error: \(error)")
             }
         }
-        #endif
     }
 }

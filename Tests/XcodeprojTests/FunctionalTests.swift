@@ -16,51 +16,55 @@ import Xcodeproj
 import XCTest
 
 class FunctionalTests: XCTestCase {
-    func testSingleModuleLibrary() {
-#if os(macOS)
-        fixture(name: "ValidLayouts/SingleModule/Library") { prefix in
-            XCTAssertXcodeprojGen(prefix)
-            let pbx = prefix.appending(component: "Library.xcodeproj")
+    func testSingleModuleLibrary() throws {
+        #if !os(macOS)
+        try XCTSkipIf(true, "test is only supported on macOS")
+        #endif
+        try fixture(name: "ValidLayouts/SingleModule/Library") { fixturePath in
+            XCTAssertXcodeprojGen(fixturePath)
+            let pbx = fixturePath.appending(component: "Library.xcodeproj")
             XCTAssertDirectoryExists(pbx)
             XCTAssertXcodeBuild(project: pbx)
-            let build = prefix.appending(RelativePath("build/Build/Products/Debug"))
+            let build = fixturePath.appending(RelativePath("build/Build/Products/Debug"))
             XCTAssertDirectoryExists(build.appending(component: "Library.framework"))
         }
-#endif
     }
 
-    func testSwiftExecWithCDep() {
-#if os(macOS)
-        fixture(name: "CFamilyTargets/SwiftCMixed") { prefix in
+    func testSwiftExecWithCDep() throws {
+        #if !os(macOS)
+        try XCTSkipIf(true, "test is only supported on macOS")
+        #endif
+        try fixture(name: "CFamilyTargets/SwiftCMixed") { fixturePath in
             // This will also test Modulemap generation for xcodeproj.
-            XCTAssertXcodeprojGen(prefix)
-            let pbx = prefix.appending(component: "SwiftCMixed.xcodeproj")
+            XCTAssertXcodeprojGen(fixturePath)
+            let pbx = fixturePath.appending(component: "SwiftCMixed.xcodeproj")
             XCTAssertDirectoryExists(pbx)
             // Ensure we have plist for the library target.
             XCTAssertFileExists(pbx.appending(component: "SeaLib_Info.plist"))
 
             XCTAssertXcodeBuild(project: pbx)
-            let build = prefix.appending(RelativePath("build/Build/Products/Debug"))
+            let build = fixturePath.appending(RelativePath("build/Build/Products/Debug"))
             XCTAssertDirectoryExists(build.appending(component: "SeaLib.framework"))
             XCTAssertFileExists(build.appending(component: "SeaExec"))
             XCTAssertFileExists(build.appending(component: "CExec"))
         }
-#endif
     }
 
-    func testXcodeProjWithPkgConfig() {
-#if os(macOS)
-        fixture(name: "Miscellaneous/PkgConfig") { prefix in
-            let systemModule = prefix.appending(component: "SystemModule")
+    func testXcodeProjWithPkgConfig() throws {
+        #if !os(macOS)
+        try XCTSkipIf(true, "test is only supported on macOS")
+        #endif
+        try fixture(name: "Miscellaneous/PkgConfig") { fixturePath in
+            let systemModule = fixturePath.appending(component: "SystemModule")
             // Create a shared library.
             let input = systemModule.appending(components: "Sources", "SystemModule.c")
             let output =  systemModule.appending(component: "libSystemModule.dylib")
             try systemQuietly(["clang", "-shared", input.pathString, "-o", output.pathString])
 
-            let pcFile = prefix.appending(component: "libSystemModule.pc")
+            let pcFile = fixturePath.appending(component: "libSystemModule.pc")
             try! write(path: pcFile) { stream in
                 stream <<< """
-                    prefix=\(prefix.appending(component: "SystemModule").pathString)
+                    prefix=\(fixturePath.appending(component: "SystemModule").pathString)
                     exec_prefix=${prefix}
                     libdir=${exec_prefix}
                     includedir=${prefix}/Sources/include
@@ -72,8 +76,8 @@ class FunctionalTests: XCTestCase {
                     Libs: -L${libdir} -lSystemModule
                     """
             }
-            let moduleUser = prefix.appending(component: "SystemModuleUser")
-            let env = ["PKG_CONFIG_PATH": prefix.pathString]
+            let moduleUser = fixturePath.appending(component: "SystemModuleUser")
+            let env = ["PKG_CONFIG_PATH": fixturePath.pathString]
             XCTAssertXcodeprojGen(moduleUser, env: env)
             let pbx = moduleUser.appending(component: "SystemModuleUser.xcodeproj")
             XCTAssertDirectoryExists(pbx)
@@ -81,46 +85,47 @@ class FunctionalTests: XCTestCase {
             let build = moduleUser.appending(RelativePath("build/Build/Products/Debug"))
             XCTAssertFileExists(build.appending(components: "SystemModuleUser"))
         }
-#endif
     }
 
-    func testModuleNamesWithNonC99Names() {
-      #if os(macOS)
-        fixture(name: "Miscellaneous/PackageWithNonc99NameModules") { prefix in
-            XCTAssertXcodeprojGen(prefix)
-            let pbx = prefix.appending(component: "PackageWithNonc99NameModules.xcodeproj")
+    func testModuleNamesWithNonC99Names() throws {
+        #if !os(macOS)
+        try XCTSkipIf(true, "test is only supported on macOS")
+        #endif
+        try fixture(name: "Miscellaneous/PackageWithNonc99NameModules") { fixturePath in
+            XCTAssertXcodeprojGen(fixturePath)
+            let pbx = fixturePath.appending(component: "PackageWithNonc99NameModules.xcodeproj")
             XCTAssertDirectoryExists(pbx)
             XCTAssertXcodeBuild(project: pbx)
-            let build = prefix.appending(RelativePath("build/Build/Products/Debug"))
+            let build = fixturePath.appending(RelativePath("build/Build/Products/Debug"))
             XCTAssertDirectoryExists(build.appending(component: "A_B.framework"))
             XCTAssertDirectoryExists(build.appending(component: "B_C.framework"))
             XCTAssertDirectoryExists(build.appending(component: "C_D.framework"))
         }
-      #endif
     }
 
-    func testSystemModule() {
-#if os(macOS)
+    func testSystemModule() throws {
+        #if !os(macOS)
+        try XCTSkipIf(true, "test is only supported on macOS")
+        #endif
         // Because there isn't any one system target that we can depend on for testing purposes, we build our own.
-        try! write(path: AbsolutePath("/tmp/fake.h")) { stream in
+        try write(path: AbsolutePath("/tmp/fake.h")) { stream in
             stream <<< "extern const char GetFakeString(void);\n"
         }
-        try! write(path: AbsolutePath("/tmp/fake.c")) { stream in
+        try write(path: AbsolutePath("/tmp/fake.c")) { stream in
             stream <<< "const char * GetFakeString(void) { return \"abc\"; }\n"
         }
-        try! Process.checkNonZeroExit(
+        try Process.checkNonZeroExit(
             args: "env", "-u", "TOOLCHAINS", "xcrun", "clang", "-dynamiclib", "/tmp/fake.c", "-o", "/tmp/libfake.dylib")
         // Now we use a fixture for both the system library wrapper and the text executable.
-        fixture(name: "Miscellaneous/SystemModules") { prefix in
-            let fakeDir = prefix.appending(component: "CFake")
+        try fixture(name: "Miscellaneous/SystemModules") { fixturePath in
+            let fakeDir = fixturePath.appending(component: "CFake")
             XCTAssertDirectoryExists(fakeDir)
-            let execDir = prefix.appending(component: "TestExec")
+            let execDir = fixturePath.appending(component: "TestExec")
             XCTAssertDirectoryExists(execDir)
             XCTAssertXcodeprojGen(execDir, flags: ["-Xlinker", "-L/tmp/"])
             let proj = execDir.appending(component: "TestExec.xcodeproj")
             XCTAssertXcodeBuild(project: proj)
         }
-#endif
     }
 }
 

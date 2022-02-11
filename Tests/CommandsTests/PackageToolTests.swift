@@ -73,9 +73,9 @@ final class PackageToolTests: CommandsTestCase {
     }
 
     func testUnknownSubommand() throws {
-        fixture(name: "Miscellaneous/ExeTest") { pkgDir in
+        try fixture(name: "Miscellaneous/ExeTest") { fixturePath in
             do {
-                try execute(["foo"], packagePath: pkgDir)
+                try execute(["foo"], packagePath: fixturePath)
                 XCTFail("This should have been an error")
             } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
                 XCTAssertMatch(stderr, .contains("error: Unknown subcommand or plugin name 'foo'"))
@@ -84,61 +84,61 @@ final class PackageToolTests: CommandsTestCase {
     }
 
     func testNetrc() throws {
-        fixture(name: "DependencyResolution/External/XCFramework") { packageRoot in
+        try fixture(name: "DependencyResolution/External/XCFramework") { fixturePath in
             // --enable-netrc flag
-            try self.execute(["resolve", "--enable-netrc"], packagePath: packageRoot)
+            try self.execute(["resolve", "--enable-netrc"], packagePath: fixturePath)
 
             // --disable-netrc flag
-            try self.execute(["resolve", "--disable-netrc"], packagePath: packageRoot)
+            try self.execute(["resolve", "--disable-netrc"], packagePath: fixturePath)
 
             // --enable-netrc and --disable-netrc flags
             XCTAssertThrowsError(
-                try self.execute(["resolve", "--enable-netrc", "--disable-netrc"], packagePath: packageRoot)
+                try self.execute(["resolve", "--enable-netrc", "--disable-netrc"], packagePath: fixturePath)
             ) { error in
                 XCTAssertMatch(String(describing: error), .contains("Value to be set with flag '--disable-netrc' had already been set with flag '--enable-netrc'"))
             }
 
             // deprecated --netrc flag
-            let stderr = try self.execute(["resolve", "--netrc"], packagePath: packageRoot).stderr
+            let stderr = try self.execute(["resolve", "--netrc"], packagePath: fixturePath).stderr
             XCTAssertMatch(stderr, .contains("'--netrc' option is deprecated"))
         }
     }
 
     func testNetrcOptional() throws {
-        fixture(name: "DependencyResolution/External/XCFramework") { packageRoot in
-            let stderr = try self.execute(["resolve", "--netrc-optional"], packagePath: packageRoot).stderr
+        try fixture(name: "DependencyResolution/External/XCFramework") { fixturePath in
+            let stderr = try self.execute(["resolve", "--netrc-optional"], packagePath: fixturePath).stderr
             XCTAssertMatch(stderr, .contains("'--netrc-optional' option is deprecated"))
         }
     }
 
     func testNetrcFile() throws {
-        fixture(name: "DependencyResolution/External/XCFramework") { packageRoot in
+        try fixture(name: "DependencyResolution/External/XCFramework") { fixturePath in
             let fs = localFileSystem
-            let netrcPath = packageRoot.appending(component: ".netrc")
+            let netrcPath = fixturePath.appending(component: ".netrc")
             try fs.writeFileContents(netrcPath) { stream in
                 stream <<< "machine mymachine.labkey.org login user@labkey.org password mypassword"
             }
 
             // valid .netrc file path
-            try execute(["resolve", "--netrc-file", netrcPath.pathString], packagePath: packageRoot)
+            try execute(["resolve", "--netrc-file", netrcPath.pathString], packagePath: fixturePath)
 
             // valid .netrc file path with --disable-netrc option
             XCTAssertThrowsError(
-                try execute(["resolve", "--netrc-file", netrcPath.pathString, "--disable-netrc"], packagePath: packageRoot)
+                try execute(["resolve", "--netrc-file", netrcPath.pathString, "--disable-netrc"], packagePath: fixturePath)
             ) { error in
                 XCTAssertMatch(String(describing: error), .contains("'--disable-netrc' and '--netrc-file' are mutually exclusive"))
             }
 
             // invalid .netrc file path
             XCTAssertThrowsError(
-                try execute(["resolve", "--netrc-file", "/foo"], packagePath: packageRoot)
+                try execute(["resolve", "--netrc-file", "/foo"], packagePath: fixturePath)
             ) { error in
                 XCTAssertMatch(String(describing: error), .contains("Did not find .netrc file at /foo."))
             }
 
             // invalid .netrc file path with --disable-netrc option
             XCTAssertThrowsError(
-                try execute(["resolve", "--netrc-file", "/foo", "--disable-netrc"], packagePath: packageRoot)
+                try execute(["resolve", "--netrc-file", "/foo", "--disable-netrc"], packagePath: fixturePath)
             ) { error in
                 XCTAssertMatch(String(describing: error), .contains("'--disable-netrc' and '--netrc-file' are mutually exclusive"))
             }
@@ -146,10 +146,10 @@ final class PackageToolTests: CommandsTestCase {
     }
 
     func testEnableDisableCache() throws {
-        fixture(name: "DependencyResolution/External/Simple") { sandbox in
-            let packageRoot = sandbox.appending(component: "Bar")
+        try fixture(name: "DependencyResolution/External/Simple") { fixturePath in
+            let packageRoot = fixturePath.appending(component: "Bar")
             let repositoriesPath = packageRoot.appending(components: ".build", "repositories")
-            let cachePath = sandbox.appending(component: "cache")
+            let cachePath = fixturePath.appending(component: "cache")
             let repositoriesCachePath = cachePath.appending(component: "repositories")
 
             do {
@@ -241,8 +241,8 @@ final class PackageToolTests: CommandsTestCase {
     }
 
     func testResolve() throws {
-        fixture(name: "DependencyResolution/External/Simple") { prefix in
-            let packageRoot = prefix.appending(component: "Bar")
+        try fixture(name: "DependencyResolution/External/Simple") { fixturePath in
+            let packageRoot = fixturePath.appending(component: "Bar")
 
             // Check that `resolve` works.
             _ = try execute(["resolve"], packagePath: packageRoot)
@@ -252,8 +252,8 @@ final class PackageToolTests: CommandsTestCase {
     }
 
     func testUpdate() throws {
-        fixture(name: "DependencyResolution/External/Simple") { prefix in
-            let packageRoot = prefix.appending(component: "Bar")
+        try fixture(name: "DependencyResolution/External/Simple") { fixturePath in
+            let packageRoot = fixturePath.appending(component: "Bar")
 
             // Perform an initial fetch.
             _ = try execute(["resolve"], packagePath: packageRoot)
@@ -261,7 +261,7 @@ final class PackageToolTests: CommandsTestCase {
             XCTAssertEqual(try GitRepository(path: path).getTags(), ["1.2.3"])
 
             // Retag the dependency, and update.
-            let repo = GitRepository(path: prefix.appending(component: "Foo"))
+            let repo = GitRepository(path: fixturePath.appending(component: "Foo"))
             try repo.tag(name: "1.2.4")
             _ = try execute(["update"], packagePath: packageRoot)
 
@@ -272,10 +272,10 @@ final class PackageToolTests: CommandsTestCase {
     }
 
     func testCache() throws {
-        fixture(name: "DependencyResolution/External/Simple") { prefix in
-            let packageRoot = prefix.appending(component: "Bar")
+        try fixture(name: "DependencyResolution/External/Simple") { fixturePath in
+            let packageRoot = fixturePath.appending(component: "Bar")
             let repositoriesPath = packageRoot.appending(components: ".build", "repositories")
-            let cachePath = prefix.appending(component: "cache")
+            let cachePath = fixturePath.appending(component: "cache")
             let repositoriesCachePath = cachePath.appending(component: "repositories")
 
             // Perform an initial fetch and populate the cache
@@ -304,9 +304,9 @@ final class PackageToolTests: CommandsTestCase {
     }
 
     func testDescribe() throws {
-        fixture(name: "Miscellaneous/ExeTest") { prefix in
+        try fixture(name: "Miscellaneous/ExeTest") { fixturePath in
             // Generate the JSON description.
-            let jsonResult = try SwiftPMProduct.SwiftPackage.executeProcess(["describe", "--type=json"], packagePath: prefix)
+            let jsonResult = try SwiftPMProduct.SwiftPackage.executeProcess(["describe", "--type=json"], packagePath: fixturePath)
             let jsonOutput = try jsonResult.utf8Output()
             let json = try JSON(bytes: ByteString(encodingAsUTF8: jsonOutput))
 
@@ -318,16 +318,16 @@ final class PackageToolTests: CommandsTestCase {
             XCTAssertEqual(jsonTarget1["product_memberships"]?.array?[0].stringValue, "Exe")
         }
 
-        fixture(name: "CFamilyTargets/SwiftCMixed") { prefix in
+        try fixture(name: "CFamilyTargets/SwiftCMixed") { fixturePath in
             // Generate the JSON description.
-            let jsonResult = try SwiftPMProduct.SwiftPackage.executeProcess(["describe", "--type=json"], packagePath: prefix)
+            let jsonResult = try SwiftPMProduct.SwiftPackage.executeProcess(["describe", "--type=json"], packagePath: fixturePath)
             let jsonOutput = try jsonResult.utf8Output()
             let json = try JSON(bytes: ByteString(encodingAsUTF8: jsonOutput))
 
             // Check that the JSON description contains what we expect it to.
             XCTAssertEqual(json["name"]?.string, "SwiftCMixed")
             XCTAssertMatch(json["path"]?.string, .prefix("/"))
-            XCTAssertMatch(json["path"]?.string, .suffix("/" + prefix.basename))
+            XCTAssertMatch(json["path"]?.string, .suffix("/" + fixturePath.basename))
             XCTAssertEqual(json["targets"]?.array?.count, 3)
             let jsonTarget0 = try XCTUnwrap(json["targets"]?.array?[0])
             XCTAssertEqual(jsonTarget0["name"]?.stringValue, "SeaLib")
@@ -348,7 +348,7 @@ final class PackageToolTests: CommandsTestCase {
             XCTAssertEqual(jsonTarget2["product_memberships"]?.array?[0].stringValue, "CExec")
 
             // Generate the text description.
-            let textResult = try SwiftPMProduct.SwiftPackage.executeProcess(["describe", "--type=text"], packagePath: prefix)
+            let textResult = try SwiftPMProduct.SwiftPackage.executeProcess(["describe", "--type=text"], packagePath: fixturePath)
             let textOutput = try textResult.utf8Output()
             let textChunks = textOutput.components(separatedBy: "\n").reduce(into: [""]) { chunks, line in
                 // Split the text into chunks based on presence or absence of leading whitespace.
@@ -365,7 +365,7 @@ final class PackageToolTests: CommandsTestCase {
             let textChunk0 = try XCTUnwrap(textChunks[0])
             XCTAssertMatch(textChunk0, .contains("Name: SwiftCMixed"))
             XCTAssertMatch(textChunk0, .contains("Path: /"))
-            XCTAssertMatch(textChunk0, .contains("/" + prefix.basename + "\n"))
+            XCTAssertMatch(textChunk0, .contains("/" + fixturePath.basename + "\n"))
             XCTAssertMatch(textChunk0, .contains("Tools version: 4.2"))
             XCTAssertMatch(textChunk0, .contains("Products:"))
             let textChunk1 = try XCTUnwrap(textChunks[1])
@@ -401,9 +401,9 @@ final class PackageToolTests: CommandsTestCase {
             XCTAssertMatch(textChunk6, .contains("Sources:\n        main.c"))
         }
 
-        fixture(name: "DependencyResolution/External/Simple/Bar") { prefix in
+        try fixture(name: "DependencyResolution/External/Simple/Bar") { fixturePath in
             // Generate the JSON description.
-            let jsonResult = try SwiftPMProduct.SwiftPackage.executeProcess(["describe", "--type=json"], packagePath: prefix)
+            let jsonResult = try SwiftPMProduct.SwiftPackage.executeProcess(["describe", "--type=json"], packagePath: fixturePath)
             let jsonOutput = try jsonResult.utf8Output()
             let json = try JSON(bytes: ByteString(encodingAsUTF8: jsonOutput))
 
@@ -418,9 +418,9 @@ final class PackageToolTests: CommandsTestCase {
     }
 
     func testDescribePackageUsingPlugins() throws {
-        fixture(name: "Miscellaneous/Plugins/MySourceGenPlugin") { prefix in
+        try fixture(name: "Miscellaneous/Plugins/MySourceGenPlugin") { fixturePath in
             // Generate the JSON description.
-            let result = try SwiftPMProduct.SwiftPackage.executeProcess(["describe", "--type=json"], packagePath: prefix)
+            let result = try SwiftPMProduct.SwiftPackage.executeProcess(["describe", "--type=json"], packagePath: fixturePath)
             XCTAssert(result.exitStatus == .terminated(code: 0), "`swift-package describe` failed: \(String(describing: try? result.utf8stderrOutput()))")
             let json = try JSON(bytes: ByteString(encodingAsUTF8: result.utf8Output()))
 
@@ -437,8 +437,8 @@ final class PackageToolTests: CommandsTestCase {
     }
 
     func testDumpPackage() throws {
-        fixture(name: "DependencyResolution/External/Complex") { prefix in
-            let packageRoot = prefix.appending(component: "app")
+        try fixture(name: "DependencyResolution/External/Complex") { fixturePath in
+            let packageRoot = fixturePath.appending(component: "app")
             let (dumpOutput, _) = try execute(["dump-package"], packagePath: packageRoot)
             let json = try JSON(bytes: ByteString(encodingAsUTF8: dumpOutput))
             guard case let .dictionary(contents) = json else { XCTFail("unexpected result"); return }
@@ -471,8 +471,8 @@ final class PackageToolTests: CommandsTestCase {
     }
 
     func testShowDependencies() throws {
-        fixture(name: "DependencyResolution/External/Complex") { prefix in
-            let packageRoot = prefix.appending(component: "app")
+        try fixture(name: "DependencyResolution/External/Complex") { fixturePath in
+            let packageRoot = fixturePath.appending(component: "app")
             let textOutput = try SwiftPMProduct.SwiftPackage.executeProcess(["show-dependencies", "--format=text"], packagePath: packageRoot).utf8Output()
             XCTAssert(textOutput.contains("FisherYates@1.2.3"))
 
@@ -710,9 +710,9 @@ final class PackageToolTests: CommandsTestCase {
         }
     }
 
-    func testPackageEditAndUnedit() {
-        fixture(name: "Miscellaneous/PackageEdit") { prefix in
-            let fooPath = prefix.appending(component: "foo")
+    func testPackageEditAndUnedit() throws {
+        try fixture(name: "Miscellaneous/PackageEdit") { fixturePath in
+            let fooPath = fixturePath.appending(component: "foo")
             func build() throws -> (stdout: String, stderr: String) {
                 return try SwiftPMProduct.SwiftBuild.execute([], packagePath: fooPath)
             }
@@ -766,7 +766,7 @@ final class PackageToolTests: CommandsTestCase {
             _ = try SwiftPMProduct.SwiftPackage.execute(["unedit", "bar"], packagePath: fooPath)
 
             // Test editing with a path i.e. ToT development.
-            let bazTot = prefix.appending(component: "tot")
+            let bazTot = fixturePath.appending(component: "tot")
             try SwiftPMProduct.SwiftPackage.execute(["edit", "baz", "--path", bazTot.pathString], packagePath: fooPath)
             XCTAssertTrue(localFileSystem.exists(bazTot))
             XCTAssertTrue(localFileSystem.isSymlink(bazEditsPath))
@@ -790,8 +790,8 @@ final class PackageToolTests: CommandsTestCase {
     }
 
     func testPackageClean() throws {
-        fixture(name: "DependencyResolution/External/Simple") { prefix in
-            let packageRoot = prefix.appending(component: "Bar")
+        try fixture(name: "DependencyResolution/External/Simple") { fixturePath in
+            let packageRoot = fixturePath.appending(component: "Bar")
 
             // Build it.
             XCTAssertBuilds(packageRoot)
@@ -809,8 +809,8 @@ final class PackageToolTests: CommandsTestCase {
     }
 
     func testPackageReset() throws {
-        fixture(name: "DependencyResolution/External/Simple") { prefix in
-            let packageRoot = prefix.appending(component: "Bar")
+        try fixture(name: "DependencyResolution/External/Simple") { fixturePath in
+            let packageRoot = fixturePath.appending(component: "Bar")
 
             // Build it.
             XCTAssertBuilds(packageRoot)
@@ -834,8 +834,8 @@ final class PackageToolTests: CommandsTestCase {
     }
 
     func testPinningBranchAndRevision() throws {
-        fixture(name: "Miscellaneous/PackageEdit") { prefix in
-            let fooPath = prefix.appending(component: "foo")
+        try fixture(name: "Miscellaneous/PackageEdit") { fixturePath in
+            let fooPath = fixturePath.appending(component: "foo")
 
             @discardableResult
             func execute(_ args: String..., printError: Bool = true) throws -> String {
@@ -848,7 +848,7 @@ final class PackageToolTests: CommandsTestCase {
             XCTAssertFileExists(pinsFile)
 
             // Update bar repo.
-            let barPath = prefix.appending(component: "bar")
+            let barPath = fixturePath.appending(component: "bar")
             let barRepo = GitRepository(path: barPath)
             try barRepo.checkout(newBranch: "YOLO")
             let yoloRevision = try barRepo.getCurrentRevision()
@@ -856,7 +856,7 @@ final class PackageToolTests: CommandsTestCase {
             // Try to pin bar at a branch.
             do {
                 try execute("resolve", "bar", "--branch", "YOLO")
-                let pinsStore = try PinsStore(pinsFile: pinsFile, workingDirectory: prefix, fileSystem: localFileSystem, mirrors: .init())
+                let pinsStore = try PinsStore(pinsFile: pinsFile, workingDirectory: fixturePath, fileSystem: localFileSystem, mirrors: .init())
                 let state = PinsStore.PinState.branch(name: "YOLO", revision: yoloRevision.identifier)
                 let identity = PackageIdentity(path: barPath)
                 XCTAssertEqual(pinsStore.pinsMap[identity]?.state, state)
@@ -865,7 +865,7 @@ final class PackageToolTests: CommandsTestCase {
             // Try to pin bar at a revision.
             do {
                 try execute("resolve", "bar", "--revision", yoloRevision.identifier)
-                let pinsStore = try PinsStore(pinsFile: pinsFile, workingDirectory: prefix, fileSystem: localFileSystem, mirrors: .init())
+                let pinsStore = try PinsStore(pinsFile: pinsFile, workingDirectory: fixturePath, fileSystem: localFileSystem, mirrors: .init())
                 let state = PinsStore.PinState.revision(yoloRevision.identifier)
                 let identity = PackageIdentity(path: barPath)
                 XCTAssertEqual(pinsStore.pinsMap[identity]?.state, state)
@@ -880,8 +880,8 @@ final class PackageToolTests: CommandsTestCase {
     }
 
     func testPinning() throws {
-        fixture(name: "Miscellaneous/PackageEdit") { prefix in
-            let fooPath = prefix.appending(component: "foo")
+        try fixture(name: "Miscellaneous/PackageEdit") { fixturePath in
+            let fooPath = fixturePath.appending(component: "foo")
             func build() throws -> String {
                 return try SwiftPMProduct.SwiftBuild.execute([], packagePath: fooPath).stdout
             }
@@ -906,7 +906,7 @@ final class PackageToolTests: CommandsTestCase {
 
             // Test pins file.
             do {
-                let pinsStore = try PinsStore(pinsFile: pinsFile, workingDirectory: prefix, fileSystem: localFileSystem, mirrors: .init())
+                let pinsStore = try PinsStore(pinsFile: pinsFile, workingDirectory: fixturePath, fileSystem: localFileSystem, mirrors: .init())
                 XCTAssertEqual(pinsStore.pins.map{$0}.count, 2)
                 for pkg in ["bar", "baz"] {
                     let path = try SwiftPMProduct.packagePath(for: pkg, packageRoot: fooPath)
@@ -932,7 +932,7 @@ final class PackageToolTests: CommandsTestCase {
             // Try to pin bar.
             do {
                 try execute("resolve", "bar")
-                let pinsStore = try PinsStore(pinsFile: pinsFile, workingDirectory: prefix, fileSystem: localFileSystem, mirrors: .init())
+                let pinsStore = try PinsStore(pinsFile: pinsFile, workingDirectory: fixturePath, fileSystem: localFileSystem, mirrors: .init())
                 let identity = PackageIdentity(path: barPath)
                 switch pinsStore.pinsMap[identity]?.state {
                 case .version(let version, revision: _):
@@ -944,7 +944,7 @@ final class PackageToolTests: CommandsTestCase {
 
             // Update bar repo.
             do {
-                let barPath = prefix.appending(component: "bar")
+                let barPath = fixturePath.appending(component: "bar")
                 let barRepo = GitRepository(path: barPath)
                 try localFileSystem.writeFileContents(barPath.appending(components: "Sources", "bar.swift"), bytes: "public let theValue = 6\n")
                 try barRepo.stageEverything()
@@ -961,7 +961,7 @@ final class PackageToolTests: CommandsTestCase {
             // We should be able to revert to a older version.
             do {
                 try execute("resolve", "bar", "--version", "1.2.3")
-                let pinsStore = try PinsStore(pinsFile: pinsFile, workingDirectory: prefix, fileSystem: localFileSystem, mirrors: .init())
+                let pinsStore = try PinsStore(pinsFile: pinsFile, workingDirectory: fixturePath, fileSystem: localFileSystem, mirrors: .init())
                 let identity = PackageIdentity(path: barPath)
                 switch pinsStore.pinsMap[identity]?.state {
                 case .version(let version, revision: _):
@@ -1161,10 +1161,10 @@ final class PackageToolTests: CommandsTestCase {
     }
 
     func testMirrorConfig() throws {
-        try testWithTemporaryDirectory { prefix in
+        try testWithTemporaryDirectory { fixturePath in
             let fs = localFileSystem
-            let packageRoot = prefix.appending(component: "Foo")
-            let configOverride = prefix.appending(component: "configoverride")
+            let packageRoot = fixturePath.appending(component: "Foo")
+            let configOverride = fixturePath.appending(component: "configoverride")
             let configFile = Workspace.DefaultLocations.mirrorsConfigurationFile(forRootPackage: packageRoot)
 
             fs.createEmptyFiles(at: packageRoot, files:
@@ -1227,8 +1227,11 @@ final class PackageToolTests: CommandsTestCase {
     }
 
     func testPackageLoadingCommandPathResilience() throws {
-      #if os(macOS)
-        fixture(name: "ValidLayouts/SingleModule") { prefix in
+        #if !os(macOS)
+        try XCTSkipIf(true, "skipping on non-macOS")
+        #endif
+
+        try fixture(name: "ValidLayouts/SingleModule") { fixturePath in
             try testWithTemporaryDirectory { tmpdir in
                 // Create fake `xcrun` and `sandbox-exec` commands.
                 let fakeBinDir = tmpdir
@@ -1245,7 +1248,7 @@ final class PackageToolTests: CommandsTestCase {
                 }
 
                 // Invoke `swift-package`, passing in the overriding `PATH` environment variable.
-                let packageRoot = prefix.appending(component: "Library")
+                let packageRoot = fixturePath.appending(component: "Library")
                 let patchedPATH = fakeBinDir.pathString + ":" + ProcessInfo.processInfo.environment["PATH"]!
                 let result = try SwiftPMProduct.SwiftPackage.executeProcess(["dump-package"], packagePath: packageRoot, env: ["PATH": patchedPATH])
                 let textOutput = try result.utf8Output() + result.utf8stderrOutput()
@@ -1255,7 +1258,6 @@ final class PackageToolTests: CommandsTestCase {
                 XCTAssertNoMatch(textOutput, .contains("wrong sandbox-exec invoked"))
             }
         }
-      #endif
     }
 
     func testBuildToolPlugin() throws {
@@ -1411,8 +1413,8 @@ final class PackageToolTests: CommandsTestCase {
     }
 
     func testArchiveSource() throws {
-        fixture(name: "DependencyResolution/External/Simple") { prefix in
-            let packageRoot = prefix.appending(component: "Bar")
+        try fixture(name: "DependencyResolution/External/Simple") { fixturePath in
+            let packageRoot = fixturePath.appending(component: "Bar")
 
             // Running without arguments or options
             do {
@@ -1455,7 +1457,7 @@ final class PackageToolTests: CommandsTestCase {
 
             // Running without arguments or options in non-package directory
             do {
-                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["archive-source"], packagePath: prefix)
+                let result = try SwiftPMProduct.SwiftPackage.executeProcess(["archive-source"], packagePath: fixturePath)
                 XCTAssertEqual(result.exitStatus, .terminated(code: 1))
 
                 let stderrOutput = try result.utf8stderrOutput()

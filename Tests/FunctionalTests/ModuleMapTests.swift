@@ -17,11 +17,11 @@ import XCTest
 
 class ModuleMapsTestCase: XCTestCase {
 
-    private func fixture(name: String, cModuleName: String, rootpkg: String, body: @escaping (AbsolutePath, [String]) throws -> Void) {
-        SPMTestSupport.fixture(name: name) { prefix in
-            let input = prefix.appending(components: cModuleName, "C", "foo.c")
+    private func fixture(name: String, cModuleName: String, rootpkg: String, body: @escaping (AbsolutePath, [String]) throws -> Void) throws {
+        try SPMTestSupport.fixture(name: name) { fixturePath in
+            let input = fixturePath.appending(components: cModuleName, "C", "foo.c")
             let triple = UserToolchain.default.triple
-            let outdir = prefix.appending(components: rootpkg, ".build", triple.platformBuildPathComponent(), "debug")
+            let outdir = fixturePath.appending(components: rootpkg, ".build", triple.platformBuildPathComponent(), "debug")
             try makeDirectories(outdir)
             let output = outdir.appending(component: "libfoo\(triple.dynamicLibraryExtension)")
             try systemQuietly(["clang", "-shared", input.pathString, "-o", output.pathString])
@@ -31,17 +31,17 @@ class ModuleMapsTestCase: XCTestCase {
             Xld += ["-rpath", outdir.pathString]
         #endif
 
-            try body(prefix, Xld)
+            try body(fixturePath, Xld)
         }
     }
 
-    func testDirectDependency() {
-        fixture(name: "ModuleMaps/Direct", cModuleName: "CFoo", rootpkg: "App") { prefix, Xld in
+    func testDirectDependency() throws {
+        try fixture(name: "ModuleMaps/Direct", cModuleName: "CFoo", rootpkg: "App") { fixturePath, Xld in
 
-            XCTAssertBuilds(prefix.appending(component: "App"), Xld: Xld)
+            XCTAssertBuilds(fixturePath.appending(component: "App"), Xld: Xld)
 
             let triple = UserToolchain.default.triple
-            let targetPath = prefix.appending(components: "App", ".build", triple.platformBuildPathComponent())
+            let targetPath = fixturePath.appending(components: "App", ".build", triple.platformBuildPathComponent())
             let debugout = try Process.checkNonZeroExit(args: targetPath.appending(components: "debug", "App").pathString)
             XCTAssertEqual(debugout, "123\n")
             let releaseout = try Process.checkNonZeroExit(args: targetPath.appending(components: "release", "App").pathString)
@@ -49,14 +49,14 @@ class ModuleMapsTestCase: XCTestCase {
         }
     }
 
-    func testTransitiveDependency() {
-        fixture(name: "ModuleMaps/Transitive", cModuleName: "packageD", rootpkg: "packageA") { prefix, Xld in
+    func testTransitiveDependency() throws {
+        try fixture(name: "ModuleMaps/Transitive", cModuleName: "packageD", rootpkg: "packageA") { fixturePath, Xld in
 
-            XCTAssertBuilds(prefix.appending(component: "packageA"), Xld: Xld)
+            XCTAssertBuilds(fixturePath.appending(component: "packageA"), Xld: Xld)
 
-            func verify(_ conf: String, file: StaticString = #file, line: UInt = #line) throws {
+            func verify(_ conf: String) throws {
                 let triple = UserToolchain.default.triple
-                let out = try Process.checkNonZeroExit(args: prefix.appending(components: "packageA", ".build", triple.platformBuildPathComponent(), conf, "packageA").pathString)
+                let out = try Process.checkNonZeroExit(args: fixturePath.appending(components: "packageA", ".build", triple.platformBuildPathComponent(), conf, "packageA").pathString)
                 XCTAssertEqual(out, """
                     calling Y.bar()
                     Y.bar() called

@@ -88,28 +88,24 @@ final class PackageCollectionsModelTests: XCTestCase {
     }
 
     func testSourceValidation_localFile() throws {
-        do {
-            fixture(name: "Collections", createGitRepo: false) { directoryPath in
-                // File must exist in local FS
-                let path = directoryPath.appending(components: "JSON", "good.json")
+        try fixture(name: "Collections", createGitRepo: false) { fixturePath in
+            // File must exist in local FS
+            let path = fixturePath.appending(components: "JSON", "good.json")
 
-                let source = PackageCollectionsModel.CollectionSource(type: .json, url: path.asURL)
-                XCTAssertNil(source.validate())
-            }
+            let source = PackageCollectionsModel.CollectionSource(type: .json, url: path.asURL)
+            XCTAssertNil(source.validate())
         }
     }
 
     func testSourceValidation_localFileDoesNotExist() throws {
-        do {
-            let source = PackageCollectionsModel.CollectionSource(type: .json, url: URL(fileURLWithPath: "/foo/bar"))
+        let source = PackageCollectionsModel.CollectionSource(type: .json, url: URL(fileURLWithPath: "/foo/bar"))
 
-            let messages = source.validate()!
-            XCTAssertEqual(1, messages.count)
+        let messages = source.validate()!
+        XCTAssertEqual(1, messages.count)
 
-            guard case .error = messages[0].level else {
-                return XCTFail("Expected .error")
-            }
-            XCTAssertNotNil(messages[0].message.range(of: "either a non-local path or the file does not exist", options: .caseInsensitive))
+        guard case .error = messages[0].level else {
+            return XCTFail("Expected .error")
         }
+        XCTAssertNotNil(messages[0].message.range(of: "either a non-local path or the file does not exist", options: .caseInsensitive))
     }
 }

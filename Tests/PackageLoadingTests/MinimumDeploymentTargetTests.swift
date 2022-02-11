@@ -14,8 +14,11 @@ import XCTest
 @testable import PackageLoading
 
 class MinimumDeploymentTargetTests: XCTestCase {
-#if os(macOS) // these tests eventually call `xcrun`.
     func testDoesNotAssertWithNoOutput() throws {
+        #if !os(macOS)
+        // these tests eventually call `xcrun`.
+        try XCTSkipIf(true, "test is only supported on macOS")
+        #endif
         let result = ProcessResult(arguments: [],
                                    environment: [:],
                                    exitStatus: .terminated(code: 0),
@@ -26,6 +29,10 @@ class MinimumDeploymentTargetTests: XCTestCase {
     }
 
     func testThrowsWithNonPathOutput() throws {
+        #if !os(macOS)
+        // these tests eventually call `xcrun`.
+        try XCTSkipIf(true, "test is only supported on macOS")
+        #endif
         let result = ProcessResult(arguments: [],
                                    environment: [:],
                                    exitStatus: .terminated(code: 0),
@@ -36,6 +43,10 @@ class MinimumDeploymentTargetTests: XCTestCase {
     }
 
     func testThrowsWithErrorForOutput() throws {
+        #if !os(macOS)
+        // these tests eventually call `xcrun`.
+        try XCTSkipIf(true, "test is only supported on macOS")
+        #endif
         let result = ProcessResult(arguments: [],
                                    environment: [:],
                                    exitStatus: .terminated(code: 0),
@@ -44,7 +55,6 @@ class MinimumDeploymentTargetTests: XCTestCase {
 
         XCTAssertThrowsError(try MinimumDeploymentTarget.computeXCTestMinimumDeploymentTarget(with: result, platform: .macOS))
     }
-#endif
 }
 
 private struct DummyError: Error {
