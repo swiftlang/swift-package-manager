@@ -9333,13 +9333,13 @@ final class WorkspaceTests: XCTestCase {
                 delegate: MockWorkspaceDelegate()
             )
 
-            do {
-                try workspace.resolve(root: .init(packages: [foo]), observabilityScope: observability.topScope)
-            } catch {
-                XCTAssertEqual(error.localizedDescription, "invalid relative path '/best.xcframework'; relative path should not begin with '/' or '~'")
-                return
+            try workspace.resolve(root: .init(packages: [foo]), observabilityScope: observability.topScope)
+            testDiagnostics(observability.diagnostics) { result in
+                result.check(
+                    diagnostic: "invalid local path '/best.xcframework' for binary target 'best', path expected to be relative to package root.",
+                    severity: .error
+                )
             }
-            XCTFail("unexpected success")
         }
     }
 
