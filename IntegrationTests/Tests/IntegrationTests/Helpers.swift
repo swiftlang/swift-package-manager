@@ -286,9 +286,9 @@ func initGitRepo(
 }
 
 func binaryTargetsFixture(_ closure: (AbsolutePath) throws -> Void) throws {
-    fixture(name: "BinaryTargets") { prefix in
-        let inputsPath = prefix.appending(component: "Inputs")
-        let packagePath = prefix.appending(component: "TestBinary")
+    fixture(name: "BinaryTargets") { fixturePath in
+        let inputsPath = fixturePath.appending(component: "Inputs")
+        let packagePath = fixturePath.appending(component: "TestBinary")
 
         // Generating StaticLibrary.xcframework.
         try withTemporaryDirectory { tmpDir in
