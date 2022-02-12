@@ -3350,22 +3350,16 @@ extension Workspace {
                 }
 
             case .version(let version):
-                if let currentDependency = currentDependency {
-                    // FIXME: This should probably be refactored into a switch statement to avoid missing new cases.
-                    if case .sourceControlCheckout(let checkoutState) = currentDependency.state, case .version(version, _) = checkoutState {
-                        packageStateChanges[packageRef.identity] = (packageRef, .unchanged)
-                    } else if case .registryDownload(version) = currentDependency.state {
-                        packageStateChanges[packageRef.identity] = (packageRef, .unchanged)
-                    } else if case .custom(version, _) = currentDependency.state {
-                        packageStateChanges[packageRef.identity] = (packageRef, .unchanged)
-                    } else {
-                        let newState = PackageStateChange.State(requirement: .version(version), products: products)
-                        packageStateChanges[packageRef.identity] = (packageRef, .updated(newState))
-                    }
-                } else {
-                    let newState = PackageStateChange.State(requirement: .version(version), products: products)
-                    packageStateChanges[packageRef.identity] = (packageRef, .added(newState))
+                let stateChange: PackageStateChange
+                switch currentDependency?.state {
+                case .sourceControlCheckout(.version(version, _)), .registryDownload(version), .custom(version, _):
+                    stateChange = .unchanged
+                case .edited, .fileSystem, .sourceControlCheckout, .registryDownload, .custom:
+                    stateChange = .updated(.init(requirement: .version(version), products: products))
+                case nil:
+                    stateChange = .added(.init(requirement: .version(version), products: products))
                 }
+                packageStateChanges[packageRef.identity] = (packageRef, stateChange)
             }
         }
         // Set the state of any old package that might have been removed.
