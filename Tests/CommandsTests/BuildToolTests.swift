@@ -314,6 +314,8 @@ final class BuildToolTests: CommandsTestCase {
     }
 
     func testXcodeBuildSystemWithAdditionalBuildFlags() throws {
+        try XCTSkipIf(true, "Disabled for now because it is hitting 'IR generation failure: Cannot read legacy layout file' in CI (rdar://88828632)")
+
         #if !os(macOS)
         try XCTSkipIf(true, "test requires `xcbuild` and is therefore only supported on macOS")
         #endif
