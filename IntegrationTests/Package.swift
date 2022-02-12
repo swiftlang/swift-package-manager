@@ -1,4 +1,4 @@
-// swift-tools-version:5.4
+// swift-tools-version:5.1
 
 import PackageDescription
 
@@ -6,8 +6,8 @@ let package = Package(
     name: "IntegrationTests",
     targets: [
         .testTarget(name: "IntegrationTests", dependencies: [
-            .product(name: "SwiftToolsSupport-auto", package: "swift-tools-support-core"),
-            .product(name: "TSCTestSupport", package: "swift-tools-support-core")
+            "SwiftToolsSupport-auto",
+            "TSCTestSupport"
         ]),
     ]
 )
@@ -20,6 +20,6 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
     ]
 } else {
     package.dependencies += [
-        .package(name: "swift-tools-support-core", path: "../TSC"),
+        .package(path: "../TSC"),
     ]
 }
