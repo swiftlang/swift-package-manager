@@ -581,7 +581,7 @@ class MiscellaneousTestCase: XCTestCase {
             } catch {
                 #if os(macOS) && arch(arm64)
                 // Add some logging but ignore the failure for an environment being investigated.
-                let (stdout, stderr) = try executeSwiftTest(prefix, extraArgs: ["-v"])
+                let (stdout, stderr) = try executeSwiftTest(fixturePath, extraArgs: ["-v"])
                 print("testTestsCanLinkAgainstExecutable failed")
                 print("ENV:\n")
                 for (k, v) in ProcessEnv.vars.sorted(by: { $0.key < $1.key }) {
