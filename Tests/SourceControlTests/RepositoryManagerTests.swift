@@ -133,10 +133,10 @@ class RepositoryManagerTests: XCTestCase {
         let fs = localFileSystem
         let observability = ObservabilitySystem.makeForTesting()
 
-        fixture(name: "DependencyResolution/External/Simple") { prefix in
-            let cachePath = prefix.appending(component: "cache")
-            let repositoriesPath = prefix.appending(component: "repositories")
-            let repo = RepositorySpecifier(path: prefix.appending(component: "Foo"))
+        try fixture(name: "DependencyResolution/External/Simple") { fixturePath in
+            let cachePath = fixturePath.appending(component: "cache")
+            let repositoriesPath = fixturePath.appending(component: "repositories")
+            let repo = RepositorySpecifier(path: fixturePath.appending(component: "Foo"))
 
             let provider = GitRepositoryProvider()
             let delegate = DummyRepositoryManagerDelegate()

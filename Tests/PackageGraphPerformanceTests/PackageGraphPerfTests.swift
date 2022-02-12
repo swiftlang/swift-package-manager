@@ -20,7 +20,10 @@ import XCTest
 class PackageGraphPerfTests: XCTestCasePerf {
 
     func testLoading100Packages() throws {
-      #if os(macOS)
+        #if !os(macOS)
+        try XCTSkipIf(true, "test is only supported on macOS")
+        #endif
+
         let N = 100
         let files = (1...N).map { "/Foo\($0)/source.swift" }
         let fs = InMemoryFileSystem(emptyFiles: files)
@@ -80,6 +83,5 @@ class PackageGraphPerfTests: XCTestCasePerf {
             XCTAssertEqual(g.packages.count, N)
             XCTAssertNoDiagnostics(observability.diagnostics)
         }
-      #endif
     }
 }

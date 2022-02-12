@@ -48,8 +48,8 @@ final class PackageRegistryToolTests: CommandsTestCase {
     }
 
     func testLocalConfiguration() throws {
-        fixture(name: "DependencyResolution/External/Simple") { prefix in
-            let packageRoot = prefix.appending(component: "Bar")
+        try fixture(name: "DependencyResolution/External/Simple") { fixturePath in
+            let packageRoot = fixturePath.appending(component: "Bar")
             let configurationFilePath = packageRoot.appending(RelativePath(".swiftpm/configuration/registries.json"))
 
             XCTAssertFalse(localFileSystem.exists(configurationFilePath))
@@ -127,8 +127,8 @@ final class PackageRegistryToolTests: CommandsTestCase {
     // TODO: Test global configuration
 
     func testSetMissingURL() throws {
-        fixture(name: "DependencyResolution/External/Simple") { prefix in
-            let packageRoot = prefix.appending(component: "Bar")
+        try fixture(name: "DependencyResolution/External/Simple") { fixturePath in
+            let packageRoot = fixturePath.appending(component: "Bar")
             let configurationFilePath = packageRoot.appending(RelativePath(".swiftpm/configuration/registries.json"))
 
             XCTAssertFalse(localFileSystem.exists(configurationFilePath))
@@ -144,8 +144,8 @@ final class PackageRegistryToolTests: CommandsTestCase {
     }
 
     func testSetInvalidURL() throws {
-        fixture(name: "DependencyResolution/External/Simple") { prefix in
-            let packageRoot = prefix.appending(component: "Bar")
+        try fixture(name: "DependencyResolution/External/Simple") { fixturePath in
+            let packageRoot = fixturePath.appending(component: "Bar")
             let configurationFilePath = packageRoot.appending(RelativePath(".swiftpm/configuration/registries.json"))
 
             XCTAssertFalse(localFileSystem.exists(configurationFilePath))
@@ -161,8 +161,8 @@ final class PackageRegistryToolTests: CommandsTestCase {
     }
 
     func testSetInvalidScope() throws {
-        fixture(name: "DependencyResolution/External/Simple") { prefix in
-            let packageRoot = prefix.appending(component: "Bar")
+        try fixture(name: "DependencyResolution/External/Simple") { fixturePath in
+            let packageRoot = fixturePath.appending(component: "Bar")
             let configurationFilePath = packageRoot.appending(RelativePath(".swiftpm/configuration/registries.json"))
 
             XCTAssertFalse(localFileSystem.exists(configurationFilePath))
@@ -178,8 +178,8 @@ final class PackageRegistryToolTests: CommandsTestCase {
     }
 
     func testUnsetMissingEntry() throws {
-        fixture(name: "DependencyResolution/External/Simple") { prefix in
-            let packageRoot = prefix.appending(component: "Bar")
+        try fixture(name: "DependencyResolution/External/Simple") { fixturePath in
+            let packageRoot = fixturePath.appending(component: "Bar")
             let configurationFilePath = packageRoot.appending(RelativePath(".swiftpm/configuration/registries.json"))
 
             XCTAssertFalse(localFileSystem.exists(configurationFilePath))

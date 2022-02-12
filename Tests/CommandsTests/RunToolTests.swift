@@ -39,10 +39,10 @@ final class RunToolTests: CommandsTestCase {
     }
 
     func testUnknownProductAndArgumentPassing() throws {
-        fixture(name: "Miscellaneous/EchoExecutable") { path in
+        try fixture(name: "Miscellaneous/EchoExecutable") { fixturePath in
 
             let result = try SwiftPMProduct.SwiftRun.executeProcess(
-                ["secho", "1", "--hello", "world"], packagePath: path)
+                ["secho", "1", "--hello", "world"], packagePath: fixturePath)
 
             // We only expect tool's output on the stdout stream.
             XCTAssertMatch(try result.utf8Output(), .contains("""
@@ -54,7 +54,7 @@ final class RunToolTests: CommandsTestCase {
             XCTAssertMatch(try result.utf8stderrOutput(), .contains("Linking"))
 
             do {
-                _ = try execute(["unknown"], packagePath: path)
+                _ = try execute(["unknown"], packagePath: fixturePath)
                 XCTFail("Unexpected success")
             } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
                 XCTAssertMatch(stderr, .contains("error: no executable product named 'unknown'"))
@@ -63,44 +63,44 @@ final class RunToolTests: CommandsTestCase {
     }
 
     func testMultipleExecutableAndExplicitExecutable() throws {
-        fixture(name: "Miscellaneous/MultipleExecutables") { path in
+        try fixture(name: "Miscellaneous/MultipleExecutables") { fixturePath in
             do {
-                _ = try execute([], packagePath: path)
+                _ = try execute([], packagePath: fixturePath)
                 XCTFail("Unexpected success")
             } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
                 XCTAssertMatch(stderr, .contains("error: multiple executable products available: exec1, exec2"))
             }
             
-            var (runOutput, _) = try execute(["exec1"], packagePath: path)
+            var (runOutput, _) = try execute(["exec1"], packagePath: fixturePath)
             XCTAssertMatch(runOutput, .contains("1"))
 
-            (runOutput, _) = try execute(["exec2"], packagePath: path)
+            (runOutput, _) = try execute(["exec2"], packagePath: fixturePath)
             XCTAssertMatch(runOutput, .contains("2"))
         }
     }
 
     func testUnreachableExecutable() throws {
-        fixture(name: "Miscellaneous/UnreachableTargets") { path in
-            let (output, _) = try execute(["bexec"], packagePath: path.appending(component: "A"))
+        try fixture(name: "Miscellaneous/UnreachableTargets") { fixturePath in
+            let (output, _) = try execute(["bexec"], packagePath: fixturePath.appending(component: "A"))
             let outputLines = output.split(separator: "\n")
             XCTAssertMatch(String(outputLines[0]), .contains("BTarget2"))
         }
     }
 
     func testFileDeprecation() throws {
-        fixture(name: "Miscellaneous/EchoExecutable") { path in
-            let filePath = AbsolutePath(path, "Sources/secho/main.swift").pathString
+        try fixture(name: "Miscellaneous/EchoExecutable") { fixturePath in
+            let filePath = AbsolutePath(fixturePath, "Sources/secho/main.swift").pathString
             let cwd = localFileSystem.currentWorkingDirectory!
-            let (stdout, stderr) = try execute([filePath, "1", "2"], packagePath: path)
+            let (stdout, stderr) = try execute([filePath, "1", "2"], packagePath: fixturePath)
             XCTAssertMatch(stdout, .contains(#""\#(cwd)" "1" "2""#))
             XCTAssertMatch(stderr, .contains("warning: 'swift run file.swift' command to interpret swift files is deprecated; use 'swift file.swift' instead"))
         }
     }
 
     func testMutualExclusiveFlags() throws {
-        fixture(name: "Miscellaneous/EchoExecutable") { path in
+        try fixture(name: "Miscellaneous/EchoExecutable") { fixturePath in
             do {
-                _ = try execute(["--build-tests", "--skip-build"], packagePath: path)
+                _ = try execute(["--build-tests", "--skip-build"], packagePath: fixturePath)
                 XCTFail("Expected to fail")
             } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
                 XCTAssertMatch(stderr, .contains("error: '--build-tests' and '--skip-build' are mutually exclusive"))
