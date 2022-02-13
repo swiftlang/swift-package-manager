@@ -466,7 +466,7 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), [
             "/fake/path/to/swiftc", "-g", "-L", "/path/to/build/release",
             "-o", "/path/to/build/release/exe", "-module-name", "exe", "-emit-executable",
-            "-Xlinker", "-rpath", "-Xlinker", "@loader_path",
+            "-Xlinker", "-dead_strip", "-Xlinker", "-rpath", "-Xlinker", "@loader_path",
             "@/path/to/build/release/exe.product/Objects.LinkFileList",
             "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift/macosx",
             "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-5.5/macosx",
@@ -1029,7 +1029,7 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), [
             "/fake/path/to/swiftc", "-g", "-L", "/path/to/build/release",
             "-o", "/path/to/build/release/exe", "-module-name", "exe", "-emit-executable",
-            "-Xlinker", "-rpath", "-Xlinker", "@loader_path",
+            "-Xlinker", "-dead_strip", "-Xlinker", "-rpath", "-Xlinker", "@loader_path",
             "@/path/to/build/release/exe.product/Objects.LinkFileList",
             "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift/macosx",
             "-target", hostTriple.tripleString(forPlatformVersion: "12.0"),
