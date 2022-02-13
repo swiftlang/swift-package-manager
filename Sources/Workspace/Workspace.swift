@@ -221,6 +221,9 @@ public class Workspace {
     /// The file system on which the workspace will operate.
     fileprivate let fileSystem: FileSystem
 
+    /// The host toolchain to use.
+    fileprivate let hostToolchain: UserToolchain
+
     /// The manifest loader to use.
     fileprivate let manifestLoader: ManifestLoaderProtocol
 
@@ -290,6 +293,7 @@ public class Workspace {
     ///   - authorizationProvider: Provider of authentication information for outbound network requests.
     ///   - configuration: Configuration to fine tune the dependency resolution behavior.
     ///   - initializationWarningHandler: Initialization warnings handler
+    ///   - customHostToolchain: Custom host toolchain. Used to create a customized ManifestLoader, customizing how manifest are loaded.
     ///   - customManifestLoader: Custom manifest loader. Used to customize how manifest are loaded.
     ///   - customPackageContainerProvider: Custom package container provider. Used to provide specialized package providers.
     ///   - customRepositoryProvider: Custom repository provider. Used to customize source control access.
@@ -301,6 +305,7 @@ public class Workspace {
         configuration: WorkspaceConfiguration? = .none,
         initializationWarningHandler: ((String) -> Void)? = .none,
         // optional customization used for advanced integration situations
+        customHostToolchain: UserToolchain? = .none,
         customManifestLoader: ManifestLoaderProtocol? = .none,
         customPackageContainerProvider: PackageContainerProvider? = .none,
         customRepositoryProvider: RepositoryProvider? = .none,
@@ -317,6 +322,7 @@ public class Workspace {
             customFingerprints: .none,
             customMirrors: .none,
             customToolsVersion: .none,
+            customHostToolchain: customHostToolchain,
             customManifestLoader: customManifestLoader,
             customPackageContainerProvider: customPackageContainerProvider,
             customRepositoryManager: .none,
@@ -384,7 +390,7 @@ public class Workspace {
     ///   - authorizationProvider: Provider of authentication information for outbound network requests.
     ///   - configuration: Configuration to fine tune the dependency resolution behavior.
     ///   - initializationWarningHandler: Initialization warnings handler
-    ///   - customToolchain: Custom toolchain. Used to create a customized ManifestLoader, customizing how manifest are loaded.
+    ///   - customHostToolchain: Custom host toolchain. Used to create a customized ManifestLoader, customizing how manifest are loaded.
     ///   - customPackageContainerProvider: Custom package container provider. Used to provide specialized package providers.
     ///   - customRepositoryProvider: Custom repository provider. Used to customize source control access.
     ///   - delegate: Delegate for workspace events
@@ -395,7 +401,7 @@ public class Workspace {
         configuration: WorkspaceConfiguration? = .none,
         initializationWarningHandler: ((String) -> Void)? = .none,
         // optional customization used for advanced integration situations
-        customToolchain: UserToolchain,
+        customHostToolchain: UserToolchain,
         customPackageContainerProvider: PackageContainerProvider? = .none,
         customRepositoryProvider: RepositoryProvider? = .none,
         // delegate
@@ -404,15 +410,16 @@ public class Workspace {
         let fileSystem = fileSystem ?? localFileSystem
         let location = Location(forRootPackage: packagePath, fileSystem: fileSystem)
         let manifestLoader = ManifestLoader(
-            toolchain: customToolchain.configuration,
+            toolchain: customHostToolchain.configuration,
             cacheDir: location.sharedManifestsCacheDirectory
         )
         try self.init(
             fileSystem: fileSystem,
-            forRootPackage: packagePath,
+            location: location,
             authorizationProvider: authorizationProvider,
             configuration: configuration,
             initializationWarningHandler: initializationWarningHandler,
+            customHostToolchain: customHostToolchain,
             customManifestLoader: manifestLoader,
             customPackageContainerProvider: customPackageContainerProvider,
             customRepositoryProvider: customRepositoryProvider,
@@ -464,6 +471,7 @@ public class Workspace {
             customFingerprints: customFingerprintStorage,
             customMirrors: mirrors,
             customToolsVersion: customToolsVersion,
+            customHostToolchain: .none,
             customManifestLoader: customManifestLoader,
             customPackageContainerProvider: customPackageContainerProvider,
             customRepositoryManager: customRepositoryManager,
@@ -581,6 +589,7 @@ public class Workspace {
         customFingerprints: PackageFingerprintStorage? = .none,
         customMirrors: DependencyMirrors? = .none,
         customToolsVersion: ToolsVersion? = .none,
+        customHostToolchain: UserToolchain? = .none,
         customManifestLoader: ManifestLoaderProtocol? = .none,
         customPackageContainerProvider: PackageContainerProvider? = .none,
         customRepositoryManager: RepositoryManager? = .none,
@@ -603,6 +612,7 @@ public class Workspace {
             customFingerprints: customFingerprints,
             customMirrors: customMirrors,
             customToolsVersion: customToolsVersion,
+            customHostToolchain: customHostToolchain,
             customManifestLoader: customManifestLoader,
             customPackageContainerProvider: customPackageContainerProvider,
             customRepositoryManager: customRepositoryManager,
@@ -628,6 +638,7 @@ public class Workspace {
         customFingerprints: PackageFingerprintStorage?,
         customMirrors: DependencyMirrors?,
         customToolsVersion: ToolsVersion?,
+        customHostToolchain: UserToolchain?,
         customManifestLoader: ManifestLoaderProtocol?,
         customPackageContainerProvider: PackageContainerProvider?,
         customRepositoryManager: RepositoryManager?,
@@ -648,8 +659,9 @@ public class Workspace {
 
         let currentToolsVersion = customToolsVersion ?? ToolsVersion.currentToolsVersion
         let toolsVersionLoader = ToolsVersionLoader(currentToolsVersion: currentToolsVersion)
-        let manifestLoader = try customManifestLoader ?? ManifestLoader(
-            toolchain: UserToolchain(destination: .hostDestination()).configuration,
+        let hostToolchain = try customHostToolchain ?? UserToolchain(destination: .hostDestination())
+        let manifestLoader = customManifestLoader ?? ManifestLoader(
+            toolchain: hostToolchain.configuration,
             cacheDir: location.sharedManifestsCacheDirectory
         )
 
@@ -711,6 +723,7 @@ public class Workspace {
         self.delegate = delegate
         self.mirrors = mirrors
         self.authorizationProvider = authorizationProvider
+        self.hostToolchain = hostToolchain
         self.manifestLoader = manifestLoader
         self.currentToolsVersion = currentToolsVersion
         self.toolsVersionLoader = toolsVersionLoader
@@ -2443,7 +2456,6 @@ extension Workspace {
         let indexFiles = artifacts.filter { $0.url.pathExtension.lowercased() == "artifactbundleindex" }
         if !indexFiles.isEmpty {
             let errors = ThreadSafeArrayStore<Error>()
-            let hostToolchain = try UserToolchain(destination: .hostDestination())
             let jsonDecoder = JSONDecoder.makeWithDefaults()
             for indexFile in indexFiles {
                 group.enter()
@@ -2468,8 +2480,8 @@ extension Workspace {
                             }
                             let metadata = try jsonDecoder.decode(ArchiveIndexFile.self, from: body)
                             // FIXME: this filter needs to become more sophisticated
-                            guard let supportedArchive = metadata.archives.first(where: { $0.fileName.lowercased().hasSuffix(".zip") && $0.supportedTriples.contains(hostToolchain.triple) }) else {
-                                throw StringError("No supported archive was found for '\(hostToolchain.triple.tripleString)'")
+                            guard let supportedArchive = metadata.archives.first(where: { $0.fileName.lowercased().hasSuffix(".zip") && $0.supportedTriples.contains(self.hostToolchain.triple) }) else {
+                                throw StringError("No supported archive was found for '\(self.hostToolchain.triple.tripleString)'")
                             }
                             // add relevant archive
                             zipArtifacts.append(

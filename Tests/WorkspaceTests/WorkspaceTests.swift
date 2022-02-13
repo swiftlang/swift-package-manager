@@ -4154,10 +4154,7 @@ final class WorkspaceTests: XCTestCase {
 
             // Load the workspace.
             let observability = ObservabilitySystem.makeForTesting()
-            let workspace = try Workspace(
-                forRootPackage: packagePath,
-                customToolchain: UserToolchain.default
-            )
+            let workspace = try Workspace(forRootPackage: packagePath)
 
             // From here the API should be simple and straightforward:
             let manifest = try tsc_await {
