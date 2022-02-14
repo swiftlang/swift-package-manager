@@ -173,7 +173,7 @@ public struct BuildParameters: Encodable {
     public var testDiscoveryStrategy: TestDiscoveryStrategy
 
     /// Whether to disable dead code stripping by the linker
-    public var disableDeadStrip: Bool
+    public var linkerDeadStrip: Bool
 
     public var isTTY: Bool
 
@@ -203,7 +203,7 @@ public struct BuildParameters: Encodable {
         printManifestGraphviz: Bool = false,
         enableTestability: Bool? = nil,
         forceTestDiscovery: Bool = false,
-        disableDeadStrip: Bool = false,
+        linkerDeadStrip: Bool = false,
         isTTY: Bool = false
     ) {
         let triple = destinationTriple ?? .getHostTriple(usingSwiftCompiler: toolchain.swiftCompiler)
@@ -241,7 +241,7 @@ public struct BuildParameters: Encodable {
         self.enableTestability = enableTestability ?? (.debug == configuration)
         // decide if to enable the use of test manifests based on platform. this is likely to change in the future
         self.testDiscoveryStrategy = triple.isDarwin() ? .objectiveC : .manifest(generate: forceTestDiscovery)
-        self.disableDeadStrip = disableDeadStrip
+        self.linkerDeadStrip = linkerDeadStrip
         self.isTTY = isTTY
     }
 

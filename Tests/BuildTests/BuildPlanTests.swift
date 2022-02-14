@@ -70,7 +70,7 @@ final class BuildPlanTests: XCTestCase {
         destinationTriple: TSCUtility.Triple = hostTriple,
         indexStoreMode: BuildParameters.IndexStoreMode = .off,
         useExplicitModuleBuild: Bool = false,
-        disableDeadStrip: Bool = false
+        linkerDeadStrip: Bool = false
     ) -> BuildParameters {
         return BuildParameters(
             dataPath: buildPath,
@@ -84,7 +84,7 @@ final class BuildPlanTests: XCTestCase {
             canRenameEntrypointFunctionName: canRenameEntrypointFunctionName,
             indexStoreMode: indexStoreMode,
             useExplicitModuleBuild: useExplicitModuleBuild,
-            disableDeadStrip: disableDeadStrip
+            linkerDeadStrip: linkerDeadStrip
         )
     }
 
@@ -506,7 +506,7 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertNoDiagnostics(observability.diagnostics)
 
         let result = try BuildPlanResult(plan: BuildPlan(
-            buildParameters: mockBuildParameters(config: .release, disableDeadStrip: true),
+            buildParameters: mockBuildParameters(config: .release, linkerDeadStrip: true),
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope
