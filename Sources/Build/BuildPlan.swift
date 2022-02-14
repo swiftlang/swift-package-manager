@@ -1201,6 +1201,10 @@ public final class ProductBuildDescription {
     }
 
     private var deadStripArguments: [String] {
+        if buildParameters.disableDeadStrip {
+            return []
+        }
+
         switch buildParameters.configuration {
         case .debug:
             return []
