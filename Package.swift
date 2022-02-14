@@ -568,10 +568,10 @@ if ProcessInfo.processInfo.environment["SWIFTPM_LLBUILD_FWK"] == nil {
         // In Swift CI, use a local path to llbuild to interoperate with tools
         // like `update-checkout`, which control the sources externally.
         package.dependencies += [
-            .package(name: "swift-llbuild", path: "../llbuild"),
+            .package(name: "llbuild", path: "../llbuild"),
         ]
     }
-    package.targets.first(where: { $0.name == "SPMLLBuild" })!.dependencies += [.product(name: "llbuildSwift", package: "swift-llbuild")]
+    package.targets.first(where: { $0.name == "SPMLLBuild" })!.dependencies += [.product(name: "llbuildSwift", package: "llbuild")]
 }
 
 if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
