@@ -1,5 +1,12 @@
 Note: This is in reverse chronological order, so newer entries are added to the top.
 
+Swift 5.7
+-----------
+
+* [#4119] 
+ 
+  Add a `--disable-testable-imports` flag to `swift test` with which tests are built without the testability feature (`import @tstable` disabled).
+
 Swift 5.6
 -----------
 * [SE-0332]
