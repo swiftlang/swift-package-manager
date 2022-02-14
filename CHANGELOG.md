@@ -3,6 +3,10 @@ Note: This is in reverse chronological order, so newer entries are added to the 
 Swift 5.7
 -----------
 
+* [SE-0339]
+
+  Module aliases can now be defined in the package manifest to disambiguate between modules with the same name originating from different packages. 
+
 * [#4119] 
  
   Add a `--disable-testable-imports` flag to `swift test` with which tests are built without the testability feature (`import @tstable` disabled).
@@ -194,6 +198,7 @@ Swift 3.0
 [SE-0208]: https://github.com/apple/swift-evolution/blob/main/proposals/0208-package-manager-system-library-targets.md
 [SE-0209]: https://github.com/apple/swift-evolution/blob/main/proposals/0209-package-manager-swift-lang-version-update.md
 [SE-0332]: https://github.com/apple/swift-evolution/blob/main/proposals/0332-swiftpm-command-plugins.md
+[SE-0339]: https://github.com/apple/swift-evolution/blob/main/proposals/0339-module-aliasing-for-disambiguation.md
 
 [SR-5918]: https://bugs.swift.org/browse/SR-5918
 [SR-6978]: https://bugs.swift.org/browse/SR-6978
