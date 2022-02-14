@@ -5,7 +5,7 @@ Swift 5.7
 
 * [#4119] 
  
-  Add a `--disable-testable-imports` flag to `swift test` with which tests are built without the testability feature (`import @tstable` disabled).
+  Add a `--disable-testable-imports` flag to `swift test` with which tests are built without the testability feature (`import @testable` disabled).
 
 Swift 5.6
 -----------
