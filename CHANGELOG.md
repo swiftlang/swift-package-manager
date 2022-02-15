@@ -7,6 +7,10 @@ Swift 5.7
  
   Add a `--disable-testable-imports` flag to `swift test` with which tests are built without the testability feature (`import @testable` disabled).
 
+* [#4131]
+
+  Update to manifest API to make it impossible to create an invalid build setttings condition.
+
 Swift 5.6
 -----------
 * [SE-0332]
@@ -217,3 +221,5 @@ Swift 3.0
 [#3901]: https://github.com/apple/swift-package-manager/pull/3901
 [#3942]: https://github.com/apple/swift-package-manager/pull/3942
 [#4119]: https://github.com/apple/swift-package-manager/pull/4119
+[#4131]: https://github.com/apple/swift-package-manager/pull/4131
+
