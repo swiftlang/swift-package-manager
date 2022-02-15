@@ -203,7 +203,7 @@ public struct BuildParameters: Encodable {
         printManifestGraphviz: Bool = false,
         enableTestability: Bool? = nil,
         forceTestDiscovery: Bool = false,
-        linkerDeadStrip: Bool = false,
+        linkerDeadStrip: Bool = true,
         isTTY: Bool = false
     ) {
         let triple = destinationTriple ?? .getHostTriple(usingSwiftCompiler: toolchain.swiftCompiler)

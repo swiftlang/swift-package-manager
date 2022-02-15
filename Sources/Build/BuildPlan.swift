@@ -1201,7 +1201,7 @@ public final class ProductBuildDescription {
     }
 
     private var deadStripArguments: [String] {
-        if buildParameters.linkerDeadStrip {
+        if !buildParameters.linkerDeadStrip {
             return []
         }
 
