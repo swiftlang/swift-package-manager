@@ -2295,7 +2295,7 @@ extension Workspace {
         addedOrUpdatedPackages: [PackageReference],
         observabilityScope: ObservabilityScope
     ) throws {
-        let manifestArtifacts = try self.parseArtifacts(from: manifests)
+        let manifestArtifacts = try self.parseArtifacts(from: manifests, observabilityScope: observabilityScope)
 
         var artifactsToRemove: [ManagedArtifact] = []
         var artifactsToAdd: [ManagedArtifact] = []
@@ -2315,7 +2315,7 @@ extension Workspace {
                 targetName: artifact.targetName
             ]
 
-            if artifact.path.extension == self.manifestLoader.supportedArchiveExtension {
+            if let fileExtension = artifact.path.extension, self.manifestLoader.supportedArchiveExtensions.contains(fileExtension) {
                 // If we already have an artifact that was extracted from an archive with the same checksum,
                 // we don't need to extract the artifact again.
                 if case .local(let existingChecksum) = existingArtifact?.source, existingChecksum == (try self.checksum(forBinaryArtifactAt: artifact.path)) {
@@ -2406,7 +2406,7 @@ extension Workspace {
         }
     }
 
-    private func parseArtifacts(from manifests: DependencyManifests) throws -> (local: [ManagedArtifact], remote: [RemoteArtifact]) {
+    private func parseArtifacts(from manifests: DependencyManifests, observabilityScope: ObservabilityScope) throws -> (local: [ManagedArtifact], remote: [RemoteArtifact]) {
         let packageAndManifests: [(reference: PackageReference, manifest: Manifest)] =
             manifests.root.packages.values + // Root package and manifests.
             manifests.dependencies.map({ manifest, managed, _, _ in (managed.packageRef, manifest) }) // Dependency package and manifests.
@@ -2449,7 +2449,7 @@ extension Workspace {
         // zip files to download
         // stored in a thread-safe way as we may fetch more from "artifactbundleindex" files
         let zipArtifacts = ThreadSafeArrayStore<RemoteArtifact>(artifacts.filter {
-            $0.url.pathExtension.lowercased() == self.manifestLoader.supportedArchiveExtension
+            self.manifestLoader.supportedArchiveExtensions.contains($0.url.pathExtension.lowercased())
         })
 
         // fetch and parse "artifactbundleindex" files, if any
