@@ -162,7 +162,7 @@ final class BuildPlanTests: XCTestCase {
         let linkArguments = [
             "/fake/path/to/swiftc", "-L", "/path/to/build/debug",
             "-o", "/path/to/build/debug/exe", "-module-name", "exe",
-            "-static-stdlib", "-emit-executable",
+            "-emit-executable",
             "-Xlinker", "-rpath=$ORIGIN",
             "@/path/to/build/debug/exe.product/Objects.LinkFileList",
             "-target", defaultTargetTriple,
@@ -522,7 +522,7 @@ final class BuildPlanTests: XCTestCase {
       #else
         XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), [
             "/fake/path/to/swiftc", "-g", "-L", "/path/to/build/release",
-            "-o", "/path/to/build/release/exe", "-module-name", "exe", "-emit-executable",
+            "-o", "/path/to/build/release/exe", "-module-name", "exe", "-static-stdlib", "-emit-executable",
             "-Xlinker", "-rpath=$ORIGIN",
             "@/path/to/build/release/exe.product/Objects.LinkFileList",
             "-target", defaultTargetTriple,
@@ -2033,7 +2033,7 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertNoDiagnostics(observability.diagnostics)
         
         let result = try BuildPlanResult(plan: try BuildPlan(
-            buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
+            buildParameters: mockBuildParameters(),
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope
@@ -2115,7 +2115,7 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertNoDiagnostics(observability.diagnostics)
 
         let result = try BuildPlanResult(plan: try BuildPlan(
-            buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
+            buildParameters: mockBuildParameters(),
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope
@@ -2627,7 +2627,7 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertNoDiagnostics(observability.diagnostics)
         
         let result = try BuildPlanResult(plan: try BuildPlan(
-            buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
+            buildParameters: mockBuildParameters(),
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope
@@ -2713,7 +2713,7 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertNoDiagnostics(observability.diagnostics)
         
         let result = try BuildPlanResult(plan: try BuildPlan(
-            buildParameters: mockBuildParameters(shouldLinkStaticSwiftStdlib: true),
+            buildParameters: mockBuildParameters(),
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope
@@ -3052,6 +3052,7 @@ final class BuildPlanTests: XCTestCase {
                 "/fake/path/to/swiftc", "-g", "-L", "/path/to/build/release",
                 "-o", "/path/to/build/release/app.wasm",
                  "-module-name", "app", "-static-stdlib", "-emit-executable",
+                "-Xlinker", "--gc-sections",
                  "@/path/to/build/release/app.product/Objects.LinkFileList",
                  "-target", "wasm32-unknown-wasi"
             ]
@@ -3067,6 +3068,7 @@ final class BuildPlanTests: XCTestCase {
                 "/fake/path/to/swiftc", "-g", "-L", "/path/to/build/release",
                 "-o", "/path/to/build/release/PkgPackageTests.wasm",
                 "-module-name", "PkgPackageTests", "-emit-executable",
+                "-Xlinker", "--gc-sections",
                 "@/path/to/build/release/PkgPackageTests.product/Objects.LinkFileList",
                 "-target", "wasm32-unknown-wasi"
             ]
@@ -3971,7 +3973,7 @@ final class BuildPlanTests: XCTestCase {
                     path: .init("/Pkg"),
                     targets: [
                         TargetDescription(name: "exe", dependencies: ["lib"], type: .executable),
-                        TargetDescription(name: "lib",  dependencies: [], type: .regular),
+                        TargetDescription(name: "lib", dependencies: [], type: .regular),
                     ]),
             ],
             observabilityScope: observability.topScope
