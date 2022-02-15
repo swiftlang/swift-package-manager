@@ -7,6 +7,10 @@ Swift 5.7
  
   Add a `--disable-testable-imports` flag to `swift test` with which tests are built without the testability feature (`import @tstable` disabled).
 
+* [#4135]
+
+  Enable linker dead stripping for all platforms. This can be disabled with `--disable-dead-strip`
+
 Swift 5.6
 -----------
 * [SE-0332]
@@ -217,3 +221,4 @@ Swift 3.0
 [#3901]: https://github.com/apple/swift-package-manager/pull/3901
 [#3942]: https://github.com/apple/swift-package-manager/pull/3942
 [#4119]: https://github.com/apple/swift-package-manager/pull/4119
+[#4135]: https://github.com/apple/swift-package-manager/pull/4135
