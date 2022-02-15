@@ -234,7 +234,7 @@ class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
             let observability = ObservabilitySystem.makeForTesting()
             XCTAssertThrowsError(try loadManifest(content, observabilityScope: observability.topScope), "expected error")
             testDiagnostics(observability.diagnostics) { result in
-                result.check(diagnostic: "invalid location for binary target 'Foo'", severity: .error)
+                result.check(diagnostic: "invalid local path ' ' for binary target 'Foo', path expected to be relative to package root.", severity: .error)
             }
         }
 
@@ -346,6 +346,77 @@ class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
             XCTAssertThrowsError(try loadManifest(content, observabilityScope: observability.topScope), "expected error")
             testDiagnostics(observability.diagnostics) { result in
                 result.check(diagnostic: "unsupported extension for binary target 'Foo'; valid extensions are: 'zip'", severity: .error)
+            }
+        }
+
+        do {
+            let content = """
+                import PackageDescription
+                let package = Package(
+                    name: "Foo",
+                    products: [
+                        .library(name: "Foo", targets: ["Foo"]),
+                    ],
+                    targets: [
+                        .binaryTarget(
+                            name: "Foo",
+                            url: "ssh://foo/bar",
+                            checksum: "839F9F30DC13C30795666DD8F6FB77DD0E097B83D06954073E34FE5154481F7A"),
+                    ]
+                )
+                """
+
+            let observability = ObservabilitySystem.makeForTesting()
+            XCTAssertThrowsError(try loadManifest(content, observabilityScope: observability.topScope), "expected error")
+            testDiagnostics(observability.diagnostics) { result in
+                result.check(diagnostic: "invalid URL scheme for binary target 'Foo'; valid schemes are: 'https'", severity: .error)
+            }
+        }
+
+        do {
+            let content = """
+                import PackageDescription
+                let package = Package(
+                    name: "Foo",
+                    products: [
+                        .library(name: "Foo", targets: ["Foo"]),
+                    ],
+                    targets: [
+                        .binaryTarget(
+                            name: "Foo",
+                            url: " ",
+                            checksum: "839F9F30DC13C30795666DD8F6FB77DD0E097B83D06954073E34FE5154481F7A"),
+                    ]
+                )
+                """
+
+            let observability = ObservabilitySystem.makeForTesting()
+            XCTAssertThrowsError(try loadManifest(content, observabilityScope: observability.topScope), "expected error")
+            testDiagnostics(observability.diagnostics) { result in
+                result.check(diagnostic: "invalid URL ' ' for binary target 'Foo'", severity: .error)
+            }
+        }
+
+        do {
+            let content = """
+                import PackageDescription
+                let package = Package(
+                    name: "Foo",
+                    products: [
+                        .library(name: "Foo", targets: ["Foo"]),
+                    ],
+                    targets: [
+                        .binaryTarget(
+                            name: "Foo",
+                            path: "/tmp/foo/bar")
+                    ]
+                )
+                """
+
+            let observability = ObservabilitySystem.makeForTesting()
+            XCTAssertThrowsError(try loadManifest(content, observabilityScope: observability.topScope), "expected error")
+            testDiagnostics(observability.diagnostics) { result in
+                result.check(diagnostic: "invalid local path '/tmp/foo/bar' for binary target 'Foo', path expected to be relative to package root.", severity: .error)
             }
         }
     }
