@@ -144,7 +144,7 @@ private class DownloadTaskManager: NSObject, URLSessionDownloadDelegate {
         task.progressHandler?(totalBytesWritten, totalBytesToDownload)
     }
 
-    public func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: Foundation.URL) {
+    public func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
         guard let task = self.tasks[downloadTask.taskIdentifier] else {
             return
         }
@@ -180,7 +180,7 @@ private class DownloadTaskManager: NSObject, URLSessionDownloadDelegate {
         let completionHandler: HTTPClient.CompletionHandler
         let progressHandler: HTTPClient.ProgressHandler?
 
-        var location: Foundation.URL?
+        var location: URL?
 
         init(task: URLSessionDownloadTask, fileSystem: FileSystem, destination: AbsolutePath, progressHandler: HTTPClient.ProgressHandler?, completionHandler: @escaping HTTPClient.CompletionHandler) {
             self.task = task

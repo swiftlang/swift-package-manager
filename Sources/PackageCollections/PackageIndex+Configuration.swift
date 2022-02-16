@@ -12,7 +12,7 @@ import Foundation
 import TSCBasic
 
 public struct PackageIndexConfiguration: Equatable {
-    public var url: Foundation.URL?
+    public var url: URL?
     public var searchResultMaxItemsCount: Int
     public var cacheDirectory: AbsolutePath
     public var cacheTTLInSeconds: Int
@@ -22,7 +22,7 @@ public struct PackageIndexConfiguration: Equatable {
     public internal(set) var enabled = ProcessInfo.processInfo.environment["SWIFTPM_ENABLE_PACKAGE_INDEX"] == "1"
     
     public init(
-        url: Foundation.URL? = nil,
+        url: URL? = nil,
         searchResultMaxItemsCount: Int? = nil,
         disableCache: Bool = false,
         cacheDirectory: AbsolutePath? = nil,
@@ -112,7 +112,7 @@ private enum StorageModel {
 
 private extension PackageIndexConfiguration {
     init(_ from: StorageModel.Index) throws {
-        let url: Foundation.URL?
+        let url: URL?
         switch from.url {
         case .none:
             url = nil

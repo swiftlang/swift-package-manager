@@ -474,7 +474,7 @@ public final class ClangTargetBuildDescription {
 
         let implFileSubpath = RelativePath("resource_bundle_accessor.m")
 
-        // Add the file to the dervied sources.
+        // Add the file to the derived sources.
         derivedSources.relativePaths.append(implFileSubpath)
 
         // Write this file out.
@@ -722,7 +722,7 @@ public final class SwiftTargetBuildDescription {
 
         let subpath = RelativePath("resource_bundle_accessor.swift")
 
-        // Add the file to the dervied sources.
+        // Add the file to the derived sources.
         derivedSources.relativePaths.append(subpath)
 
         // Write this file out.

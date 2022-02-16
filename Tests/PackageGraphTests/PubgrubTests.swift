@@ -953,8 +953,8 @@ final class PubgrubTests: XCTestCase {
         ])
     }
 
-    // top level pacakge -> version
-    // top level pacakge -> non-versioned -> non-versioned -> version
+    // top level package -> version
+    // top level package -> non-versioned -> non-versioned -> version
     func testHappyPath9() {
         let package = PackageReference.root(identity: .plain("package"), path: .root)
         builder.serve(package, at: .unversioned, with: [
@@ -2078,8 +2078,8 @@ final class PubGrubDiagnosticsTests: XCTestCase {
             """)
     }
 
-    // top level pacakge -> version
-    // top level pacakge -> non-versioned -> non-versioned -> conflicting version
+    // top level package -> version
+    // top level package -> non-versioned -> non-versioned -> conflicting version
     func testConflict17() {
         let package = PackageReference.root(identity: .plain("package"), path: .root)
         builder.serve(package, at: .unversioned, with: [

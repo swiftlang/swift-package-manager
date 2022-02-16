@@ -11,9 +11,9 @@
 import struct Foundation.URL
 
 public struct Registry: Hashable, Codable {
-    public var url: Foundation.URL
+    public var url: URL
 
-    public init(url: Foundation.URL) {
+    public init(url: URL) {
         self.url = url
     }
 }

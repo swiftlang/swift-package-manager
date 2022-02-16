@@ -77,7 +77,6 @@ public struct PubgrubDependencyResolver {
         func decide(_ node: DependencyResolutionNode, at version: Version) {
             let term = Term(node, .exact(version))
             self.lock.withLock {
-                // FIXME: Shouldn't we check this _before_ making a decision?
                 assert(term.isValidDecision(for: self.solution))
                 self.solution.decide(node, at: version)
             }

@@ -106,7 +106,7 @@ public struct MockPackage {
 
     public enum Location {
         case fileSystem(path: RelativePath)
-        case sourceControl(url: Foundation.URL)
+        case sourceControl(url: URL)
         case registry(identity: PackageIdentity)
     }
 }

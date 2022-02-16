@@ -130,7 +130,7 @@ extension Basics.Diagnostic {
         .warning("dependency '\(packageName)' is missing; retrieving again")
     }
 
-    static func artifactInvalidArchive(artifactURL: Foundation.URL, targetName: String) -> Self {
+    static func artifactInvalidArchive(artifactURL: URL, targetName: String) -> Self {
         .error("invalid archive returned from '\(artifactURL.absoluteString)' which is required by binary target '\(targetName)'")
     }
 
@@ -142,15 +142,15 @@ extension Basics.Diagnostic {
         .error("checksum of downloaded artifact of binary target '\(targetName)' (\(actualChecksum ?? "none")) does not match checksum specified by the manifest (\(expectedChecksum))")
     }
 
-    static func artifactFailedDownload(artifactURL: Foundation.URL, targetName: String, reason: String) -> Self {
+    static func artifactFailedDownload(artifactURL: URL, targetName: String, reason: String) -> Self {
         .error("failed downloading '\(artifactURL.absoluteString)' which is required by binary target '\(targetName)': \(reason)")
     }
 
-    static func artifactFailedValidation(artifactURL: Foundation.URL, targetName: String, reason: String) -> Self {
+    static func artifactFailedValidation(artifactURL: URL, targetName: String, reason: String) -> Self {
         .error("failed validating archive from '\(artifactURL.absoluteString)' which is required by binary target '\(targetName)': \(reason)")
     }
 
-    static func artifactFailedExtraction(artifactURL: Foundation.URL, targetName: String, reason: String) -> Self {
+    static func artifactFailedExtraction(artifactURL: URL, targetName: String, reason: String) -> Self {
         .error("failed extracting '\(artifactURL.absoluteString)' which is required by binary target '\(targetName)': \(reason)")
     }
 

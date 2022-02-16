@@ -99,7 +99,7 @@ public struct NetrcAuthorizationProvider: AuthorizationProvider {
         self.machine(for: url).map { (user: $0.login, password: $0.password) }
     }
 
-    private func machine(for url: Foundation.URL) -> Basics.Netrc.Machine? {
+    private func machine(for url: URL) -> Basics.Netrc.Machine? {
         if let machine = url.authenticationID, let existing = self.machines.first(where: { $0.name.lowercased() == machine }) {
             return existing
         }
@@ -251,7 +251,7 @@ public struct KeychainAuthorizationProvider: AuthorizationProvider {
 // MARK: - Composite
 
 public struct CompositeAuthorizationProvider: AuthorizationProvider {
-    // internal for testing
+    // marked internal for testing
     internal let providers: [AuthorizationProvider]
     private let observabilityScope: ObservabilityScope
 

@@ -13,7 +13,6 @@ import PackageModel
 extension PackageDependency {
     /// Create the package reference object for the dependency.
     public func createPackageRef() -> PackageReference {
-        // TODO (next steps): move the location into PackageKind to preserve path vs. location
         let packageKind: PackageReference.Kind
         switch self {
         case .fileSystem(let settings):
