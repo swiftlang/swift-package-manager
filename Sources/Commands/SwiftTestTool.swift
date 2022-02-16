@@ -580,10 +580,10 @@ final class TestRunner {
     private func args(forTestAt testPath: AbsolutePath) throws -> [String] {
         var args: [String] = []
       #if os(macOS)
-        guard let xctest = self.toolchain.xctest else {
+        guard let xctestPath = self.toolchain.configuration.xctestPath else {
             throw TestError.testsExecutableNotFound
         }
-        args = [xctest.pathString]
+        args = [xctestPath.pathString]
         if let xctestArg = xctestArg {
             args += ["-XCTest", xctestArg]
         }
