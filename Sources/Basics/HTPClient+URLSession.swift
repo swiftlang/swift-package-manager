@@ -17,7 +17,7 @@ import struct TSCUtility.Versioning
 import FoundationNetworking
 #endif
 
-public struct URLSessionHTTPClient: HTTPClientProtocol {
+public struct URLSessionHTTPClient {
     private let dataTasksManager: DataTaskManager
     private let downloadsTasksManager: DownloadTaskManager
 
@@ -26,11 +26,11 @@ public struct URLSessionHTTPClient: HTTPClientProtocol {
         self.downloadsTasksManager = DownloadTaskManager(configuration: configuration)
     }
 
-    public func execute(_ request: HTTPClient.Request, progress: ProgressHandler?, completion: @escaping CompletionHandler) {
+    public func execute(_ request: HTTPClient.Request, progress: HTTPClient.ProgressHandler?, completion: @escaping HTTPClient.CompletionHandler) {
         self.execute(request, observabilityScope: nil, progress: progress, completion: completion)
     }
 
-    public func execute(_ request: HTTPClient.Request, observabilityScope: ObservabilityScope? = nil, progress: ProgressHandler?, completion: @escaping CompletionHandler) {
+    public func execute(_ request: HTTPClient.Request, observabilityScope: ObservabilityScope? = nil, progress: HTTPClient.ProgressHandler?, completion: @escaping HTTPClient.CompletionHandler) {
         switch request.kind {
         case .generic:
             let task = self.dataTasksManager.makeTask(request: request, progress: progress, completion: completion)
