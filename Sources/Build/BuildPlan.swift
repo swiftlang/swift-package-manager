@@ -1200,6 +1200,25 @@ public final class ProductBuildDescription {
         return args.filter({ !invalidArguments.contains($0) })
     }
 
+    private var deadStripArguments: [String] {
+        if !buildParameters.linkerDeadStrip {
+            return []
+        }
+
+        switch buildParameters.configuration {
+        case .debug:
+            return []
+        case .release:
+            if buildParameters.triple.isDarwin() {
+                return ["-Xlinker", "-dead_strip"]
+            } else if buildParameters.triple.isWindows() {
+                return ["-Xlinker", "/OPT:REF"]
+            } else {
+                return ["-Xlinker", "--gc-sections"]
+            }
+        }
+    }
+
     /// The arguments to link and create this product.
     public func linkArguments() throws -> [String] {
         var args = [buildParameters.toolchain.swiftCompiler.pathString]
@@ -1246,12 +1265,14 @@ public final class ProductBuildDescription {
             case .manifest:
                 args += ["-emit-executable"]
             }
+            args += deadStripArguments
         case .library(.dynamic):
             args += ["-emit-library"]
             if buildParameters.triple.isDarwin() {
                 let relativePath = "@rpath/\(buildParameters.binaryRelativePath(for: product).pathString)"
                 args += ["-Xlinker", "-install_name", "-Xlinker", relativePath]
             }
+            args += deadStripArguments
         case .executable, .snippet:
             // Link the Swift stdlib statically, if requested.
             if buildParameters.shouldLinkStaticSwiftStdlib {
@@ -1262,6 +1283,7 @@ public final class ProductBuildDescription {
                 }
             }
             args += ["-emit-executable"]
+            args += deadStripArguments
             
             // If we're linking an executable whose main module is implemented in Swift,
             // we rename the `_<modulename>_main` entry point symbol to `_main` again.

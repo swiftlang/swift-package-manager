@@ -842,6 +842,7 @@ public class SwiftTool {
                 isXcodeBuildSystemEnabled: options.buildSystem == .xcode,
                 printManifestGraphviz: options.printManifestGraphviz,
                 forceTestDiscovery: options.enableTestDiscovery, // backwards compatibility, remove with --enable-test-discovery
+                linkerDeadStrip: options.linkerDeadStrip,
                 isTTY: isTTY
             )
         })

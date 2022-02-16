@@ -69,7 +69,8 @@ final class BuildPlanTests: XCTestCase {
         canRenameEntrypointFunctionName: Bool = false,
         destinationTriple: TSCUtility.Triple = hostTriple,
         indexStoreMode: BuildParameters.IndexStoreMode = .off,
-        useExplicitModuleBuild: Bool = false
+        useExplicitModuleBuild: Bool = false,
+        linkerDeadStrip: Bool = true
     ) -> BuildParameters {
         return BuildParameters(
             dataPath: buildPath,
@@ -82,7 +83,8 @@ final class BuildPlanTests: XCTestCase {
             shouldLinkStaticSwiftStdlib: shouldLinkStaticSwiftStdlib,
             canRenameEntrypointFunctionName: canRenameEntrypointFunctionName,
             indexStoreMode: indexStoreMode,
-            useExplicitModuleBuild: useExplicitModuleBuild
+            useExplicitModuleBuild: useExplicitModuleBuild,
+            linkerDeadStrip: linkerDeadStrip
         )
     }
 
@@ -451,6 +453,60 @@ final class BuildPlanTests: XCTestCase {
 
         let result = try BuildPlanResult(plan: BuildPlan(
             buildParameters: mockBuildParameters(config: .release),
+            graph: graph,
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        ))
+
+        result.checkProductsCount(1)
+        result.checkTargetsCount(1)
+
+        let exe = try result.target(for: "exe").swiftTarget().compileArguments()
+        XCTAssertMatch(exe, ["-swift-version", "4", "-O", "-g", .equal(j), "-DSWIFT_PACKAGE", "-module-cache-path", "/path/to/build/release/ModuleCache", .anySequence])
+
+      #if os(macOS)
+        XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), [
+            "/fake/path/to/swiftc", "-g", "-L", "/path/to/build/release",
+            "-o", "/path/to/build/release/exe", "-module-name", "exe", "-emit-executable",
+            "-Xlinker", "-dead_strip", "-Xlinker", "-rpath", "-Xlinker", "@loader_path",
+            "@/path/to/build/release/exe.product/Objects.LinkFileList",
+            "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift/macosx",
+            "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-5.5/macosx",
+            "-target", defaultTargetTriple,
+        ])
+      #else
+        XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), [
+            "/fake/path/to/swiftc", "-g", "-L", "/path/to/build/release",
+            "-o", "/path/to/build/release/exe", "-module-name", "exe", "-emit-executable",
+            "-Xlinker", "--gc-sections", "-Xlinker", "-rpath=$ORIGIN",
+            "@/path/to/build/release/exe.product/Objects.LinkFileList",
+            "-target", defaultTargetTriple,
+        ])
+      #endif
+    }
+
+    func testBasicReleasePackageNoDeadStrip() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Pkg/Sources/exe/main.swift"
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadPackageGraph(
+            fs: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    name: "Pkg",
+                    path: .init("/Pkg"),
+                    targets: [
+                        TargetDescription(name: "exe", dependencies: []),
+                    ]),
+            ],
+            observabilityScope: observability.topScope
+        )
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        let result = try BuildPlanResult(plan: BuildPlan(
+            buildParameters: mockBuildParameters(config: .release, linkerDeadStrip: false),
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope
@@ -1029,7 +1085,7 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), [
             "/fake/path/to/swiftc", "-g", "-L", "/path/to/build/release",
             "-o", "/path/to/build/release/exe", "-module-name", "exe", "-emit-executable",
-            "-Xlinker", "-rpath", "-Xlinker", "@loader_path",
+            "-Xlinker", "-dead_strip", "-Xlinker", "-rpath", "-Xlinker", "@loader_path",
             "@/path/to/build/release/exe.product/Objects.LinkFileList",
             "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift/macosx",
             "-target", hostTriple.tripleString(forPlatformVersion: "12.0"),
