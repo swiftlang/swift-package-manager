@@ -158,7 +158,7 @@ enum ManifestJSONParser {
         identityResolver: IdentityResolver,
         fileSystem: TSCBasic.FileSystem
     ) throws -> PackageDependency {
-        let location = try fixDependencyLocation(fileSystem: fileSystem, packageKind: packageKind, dependencyLocation: location)
+        let location = try sanitizeDependencyLocation(fileSystem: fileSystem, packageKind: packageKind, dependencyLocation: location)
         let path: AbsolutePath
         do {
             path = try AbsolutePath(validating: location)
@@ -181,7 +181,7 @@ enum ManifestJSONParser {
         fileSystem: TSCBasic.FileSystem
     ) throws -> PackageDependency {
         // cleans up variants of path based location
-        var location = try fixDependencyLocation(fileSystem: fileSystem, packageKind: packageKind, dependencyLocation: location)
+        var location = try sanitizeDependencyLocation(fileSystem: fileSystem, packageKind: packageKind, dependencyLocation: location)
         // location mapping (aka mirrors) if any
         location = identityResolver.mappedLocation(for: location)
         // a package in a git location, may be a remote URL or on disk
@@ -210,23 +210,7 @@ enum ManifestJSONParser {
         }
     }
 
-    private static func fixDependencyLocation(fileSystem: TSCBasic.FileSystem, packageKind: PackageReference.Kind, dependencyLocation: String) throws -> String {
-        let packagePath: AbsolutePath
-        switch packageKind {
-        case .root(let path):
-            packagePath = path
-        case .fileSystem(let path):
-            packagePath = path
-        case .localSourceControl(let path):
-            packagePath = path
-        case .remoteSourceControl:
-            // nothing to fix
-            return dependencyLocation
-        case .registry:
-            // nothing to fix
-            return dependencyLocation
-        }
-
+    private static func sanitizeDependencyLocation(fileSystem: TSCBasic.FileSystem, packageKind: PackageReference.Kind, dependencyLocation: String) throws -> String {
         if dependencyLocation.hasPrefix("~/") {
             // If the dependency URL starts with '~/', try to expand it.
             return fileSystem.homeDirectory.appending(RelativePath(String(dependencyLocation.dropFirst(2)))).pathString
@@ -247,12 +231,18 @@ enum ManifestJSONParser {
             }
             return AbsolutePath(location).pathString
         } else if parseScheme(dependencyLocation) == nil {
-            // If the dependency URL is not remote, try to "fix" it.
             // If the URL has no scheme, we treat it as a path (either absolute or relative to the base URL).
-            return AbsolutePath(dependencyLocation, relativeTo: packagePath).pathString
+            switch packageKind {
+            case .root(let packagePath), .fileSystem(let packagePath), .localSourceControl(let packagePath):
+                return AbsolutePath(dependencyLocation, relativeTo: packagePath).pathString
+            case .remoteSourceControl, .registry:
+                // nothing to "fix"
+                return dependencyLocation
+            }
+        } else {
+            // nothing to "fix"
+            return dependencyLocation
         }
-
-        return dependencyLocation
     }
 
     private static func parsePlatforms(_ package: JSON) throws -> [PlatformDescription] {
