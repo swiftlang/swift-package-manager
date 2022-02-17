@@ -5,7 +5,7 @@ let package = Package(
     name: "GamePkg",
     products: [
         .library(name: "Game", targets: ["Game"]),
-        .library(name: "Utils", targets: ["Utils"]),
+        .library(name: "UtilsProd", targets: ["Utils"]),
     ],
     targets: [
         .target(name: "Game", dependencies: ["Utils"]),
