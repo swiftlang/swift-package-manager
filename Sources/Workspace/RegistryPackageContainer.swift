@@ -112,7 +112,7 @@ public class RegistryPackageContainer: PackageContainer {
         return self.package
     }
 
-    // internal for testing
+    // marked internal for testing
     internal func loadManifest(version: Version) throws -> Manifest {
         return try self.manifestsCache.memoize(version) {
             try temp_await {

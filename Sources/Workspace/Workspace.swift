@@ -167,7 +167,7 @@ private struct WorkspaceDependencyResolverDelegate: DependencyResolverDelegate {
     }
 
     func willResolve(term: Term) {
-        // this may be called multiple time by the resolver for various version ranges, but we only want to propagate once since we report at pacakge level
+        // this may be called multiple time by the resolver for various version ranges, but we only want to propagate once since we report at package level
         resolving.memoize(term.node.package.identity) {
             self.workspaceDelegate.willComputeVersion(package: term.node.package.identity, location: term.node.package.locationString)
             return true
@@ -1961,7 +1961,7 @@ extension Workspace {
         let allManifestsWithPossibleDuplicates = try topologicalSort(input) { pair in
             // optimization: preload manifest we know about in parallel
             let dependenciesRequired = pair.item.dependenciesRequired(for: pair.key.productFilter)
-            // prepopulate managed dependencies if we are asked to do so
+            // pre-populate managed dependencies if we are asked to do so
             // FIXME: this seems like hack, needs further investigation why this is needed
             if automaticallyAddManagedDependencies {
                 try dependenciesRequired.filter { $0.isLocal }.forEach { dependency in
@@ -3458,7 +3458,7 @@ public final class LoadableResult<Value> {
 private struct RemoteArtifact {
     let packageRef: PackageReference
     let targetName: String
-    let url: Foundation.URL
+    let url: URL
     let checksum: String
 }
 

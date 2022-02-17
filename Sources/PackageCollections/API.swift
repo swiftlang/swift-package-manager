@@ -301,6 +301,6 @@ public enum PackageIndexError: Equatable, Error {
     /// No package index configured
     case notConfigured
     
-    case invalidURL(Foundation.URL)
-    case invalidResponse(Foundation.URL, String)
+    case invalidURL(URL)
+    case invalidResponse(URL, String)
 }

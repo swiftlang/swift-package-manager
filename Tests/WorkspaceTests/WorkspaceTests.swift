@@ -150,13 +150,13 @@ final class WorkspaceTests: XCTestCase {
             do {
                 let ws = try createWorkspace {
                     $0 <<<
-                        """
-                        // swift-tools-version:4.0
-                        import PackageDescription
-                        let package = Package(
-                            name: "foo"
-                        )
-                        """
+                          """
+                          // swift-tools-version:4.0
+                          import PackageDescription
+                          let package = Package(
+                              name: "foo"
+                          )
+                          """
                 }
 
                 XCTAssertMatch(ws.interpreterFlags(for: foo), [.equal("-swift-version"), .equal("4")])
@@ -165,13 +165,13 @@ final class WorkspaceTests: XCTestCase {
             do {
                 let ws = try createWorkspace {
                     $0 <<<
-                        """
-                        // swift-tools-version:3.1
-                        import PackageDescription
-                        let package = Package(
-                            name: "foo"
-                        )
-                        """
+                          """
+                          // swift-tools-version:3.1
+                          import PackageDescription
+                          let package = Package(
+                              name: "foo"
+                          )
+                          """
                 }
 
                 XCTAssertEqual(ws.interpreterFlags(for: foo), [])
@@ -5419,7 +5419,7 @@ final class WorkspaceTests: XCTestCase {
     func testArtifactDownloadHappyPath() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
-        let downloads = ThreadSafeKeyValueStore<Foundation.URL, AbsolutePath>()
+        let downloads = ThreadSafeKeyValueStore<URL, AbsolutePath>()
 
         // returns a dummy zipfile for the requested artifact
         let httpClient = HTTPClient(handler: { request, _, completion in
@@ -5601,7 +5601,7 @@ final class WorkspaceTests: XCTestCase {
     func testArtifactDownloadWithPreviousState() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
-        let downloads = ThreadSafeKeyValueStore<Foundation.URL, AbsolutePath>()
+        let downloads = ThreadSafeKeyValueStore<URL, AbsolutePath>()
 
         // returns a dummy zipfile for the requested artifact
         let httpClient = HTTPClient(handler: { request, _, completion in
@@ -5896,7 +5896,7 @@ final class WorkspaceTests: XCTestCase {
     func testArtifactDownloadTwice() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
-        let downloads = ThreadSafeArrayStore<(Foundation.URL, AbsolutePath)>()
+        let downloads = ThreadSafeArrayStore<(URL, AbsolutePath)>()
 
         // returns a dummy zipfile for the requested artifact
         let httpClient = HTTPClient(handler: { request, _, completion in
@@ -6294,7 +6294,7 @@ final class WorkspaceTests: XCTestCase {
     func testArtifactDownloadAddsAcceptHeader() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
-        let downloads = ThreadSafeKeyValueStore<Foundation.URL, AbsolutePath>()
+        let downloads = ThreadSafeKeyValueStore<URL, AbsolutePath>()
         var acceptHeaders: [String] = []
 
         // returns a dummy zipfile for the requested artifact
@@ -6375,7 +6375,7 @@ final class WorkspaceTests: XCTestCase {
     func testArtifactDownloadTransitive() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
-        let downloads = ThreadSafeKeyValueStore<Foundation.URL, AbsolutePath>()
+        let downloads = ThreadSafeKeyValueStore<URL, AbsolutePath>()
 
         // returns a dummy zipfile for the requested artifact
         let httpClient = HTTPClient(handler: { request, _, completion in
@@ -6770,7 +6770,7 @@ final class WorkspaceTests: XCTestCase {
     func testArtifactDownloadStripFirstComponent() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
-        let downloads = ThreadSafeKeyValueStore<Foundation.URL, AbsolutePath>()
+        let downloads = ThreadSafeKeyValueStore<URL, AbsolutePath>()
         
         // returns a dummy zipfile for the requested artifact
         let httpClient = HTTPClient(handler: { request, _, completion in
@@ -6916,7 +6916,7 @@ final class WorkspaceTests: XCTestCase {
     func testDownloadArchiveIndexFilesHappyPath() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
-        let downloads = ThreadSafeKeyValueStore<Foundation.URL, AbsolutePath>()
+        let downloads = ThreadSafeKeyValueStore<URL, AbsolutePath>()
         let hostToolchain = try UserToolchain(destination: .hostDestination())
 
         let ariFiles = [

@@ -152,7 +152,7 @@ private enum StorageModel {
                     guard let kind = Fingerprint.Kind(rawValue: kind) else {
                         throw SerializationError.unknownKind(kind)
                     }
-                    guard let originURL = Foundation.URL(string: fingerprint.origin) else {
+                    guard let originURL = URL(string: fingerprint.origin) else {
                         throw SerializationError.invalidURL(fingerprint.origin)
                     }
 

@@ -235,8 +235,8 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider, Closable {
         return .github(host)
     }
 
-    // FIXME: use Foundation.URL instead of string
-    internal static func apiURL(_ url: String) -> Foundation.URL? {
+    // FIXME: use URL instead of string
+    internal static func apiURL(_ url: String) -> URL? {
         do {
             let regex = try NSRegularExpression(pattern: #"([^/@]+)[:/]([^:/]+)/([^/.]+)(\.git)?$"#, options: .caseInsensitive)
             if let match = regex.firstMatch(in: url, options: [], range: NSRange(location: 0, length: url.count)) {
@@ -352,10 +352,10 @@ extension GitHubPackageMetadataProvider {
         let isFork: Bool
         let defaultBranch: String
         let updatedAt: Date
-        let sshURL: Foundation.URL
-        let cloneURL: Foundation.URL
-        let tagsURL: Foundation.URL
-        let contributorsURL: Foundation.URL
+        let sshURL: URL
+        let cloneURL: URL
+        let tagsURL: URL
+        let contributorsURL: URL
         let language: String?
         let watchersCount: Int
         let forksCount: Int
@@ -400,7 +400,7 @@ extension GitHubPackageMetadataProvider {
 
     fileprivate struct Tag: Codable {
         let name: String
-        let tarballURL: Foundation.URL
+        let tarballURL: URL
         let commit: Commit
 
         private enum CodingKeys: String, CodingKey {
@@ -412,19 +412,19 @@ extension GitHubPackageMetadataProvider {
 
     fileprivate struct Commit: Codable {
         let sha: String
-        let url: Foundation.URL
+        let url: URL
     }
 
     fileprivate struct Contributor: Codable {
         let login: String
-        let url: Foundation.URL
+        let url: URL
         let contributions: Int
     }
 
     fileprivate struct Readme: Codable {
-        let url: Foundation.URL
-        let htmlURL: Foundation.URL
-        let downloadURL: Foundation.URL
+        let url: URL
+        let htmlURL: URL
+        let downloadURL: URL
 
         private enum CodingKeys: String, CodingKey {
             case url
@@ -434,9 +434,9 @@ extension GitHubPackageMetadataProvider {
     }
 
     fileprivate struct License: Codable {
-        let url: Foundation.URL
-        let htmlURL: Foundation.URL
-        let downloadURL: Foundation.URL
+        let url: URL
+        let htmlURL: URL
+        let downloadURL: URL
         let license: License
 
         private enum CodingKeys: String, CodingKey {

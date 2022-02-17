@@ -553,8 +553,8 @@ public class SwiftTool {
                 fingerprintCheckingMode: self.options.resolverFingerprintCheckingMode
             ),
             initializationWarningHandler: { self.observabilityScope.emit(warning: $0) },
-            customHostToolchain: self.getHostToolchain(), // FIXME: ideally we would not customize the host toolchain
-            customManifestLoader: self.getManifestLoader(), // FIXME: ideally we would not customize the manifest loader
+            customHostToolchain: self.getHostToolchain(),
+            customManifestLoader: self.getManifestLoader(),
             customRepositoryProvider: repositoryProvider, // FIXME: ideally we would not customize the repository provider. its currently done for shutdown handling which can be better abstracted
             delegate: delegate
         )

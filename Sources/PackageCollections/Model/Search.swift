@@ -26,12 +26,12 @@ extension PackageCollectionsModel {
             public internal(set) var collections: [PackageCollectionsModel.CollectionIdentifier]
             
             /// Package indexes that contain the package
-            public internal(set) var indexes: [Foundation.URL]
+            public internal(set) var indexes: [URL]
             
             init(
                 package: PackageCollectionsModel.Package,
                 collections: [PackageCollectionsModel.CollectionIdentifier] = [],
-                indexes: [Foundation.URL] = []
+                indexes: [URL] = []
             ) {
                 self.package = package
                 self.collections = collections

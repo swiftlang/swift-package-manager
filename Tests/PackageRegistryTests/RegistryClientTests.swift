@@ -960,7 +960,7 @@ private extension RegistryClient {
         }
     }
 
-    func lookupIdentities(url: Foundation.URL) throws -> Set<PackageIdentity> {
+    func lookupIdentities(url: URL) throws -> Set<PackageIdentity> {
         return try tsc_await {
             self.lookupIdentities(
                 url: url,

@@ -678,11 +678,11 @@ private func makePackageCollections(
 private struct MockPackageIndex: PackageIndexProtocol {
     let isEnabled = true
     
-    let url: Foundation.URL
+    let url: URL
     private let packages: [PackageCollectionsModel.Package]
     
     init(
-        url: Foundation.URL = URL(string: "https://mock-package-index")!,
+        url: URL = URL(string: "https://mock-package-index")!,
         packages: [PackageCollectionsModel.Package] = []
     ) {
         self.url = url

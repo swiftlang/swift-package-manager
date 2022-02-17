@@ -3309,7 +3309,7 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertNoDiagnostics(observability.diagnostics)
 
         // Unrealistic: we can't enable all of these at once on all platforms.
-        // This test codifies current behaviour, not ideal behaviour, and
+        // This test codifies current behavior, not ideal behavior, and
         // may need to be amended if we change it.
         var parameters = mockBuildParameters(shouldLinkStaticSwiftStdlib: true)
         parameters.sanitizers = EnabledSanitizers([sanitizer])

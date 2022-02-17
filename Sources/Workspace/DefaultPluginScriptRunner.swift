@@ -387,7 +387,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
 
         // Create and configure a Process. We set the working directory to the cache directory, so that relative paths end up there.
         let process = Process()
-        process.executableURL = Foundation.URL(fileURLWithPath: command[0])
+        process.executableURL = URL(fileURLWithPath: command[0])
         process.arguments = Array(command.dropFirst())
         process.environment = ProcessInfo.processInfo.environment
         process.currentDirectoryURL = workingDirectory.asURL

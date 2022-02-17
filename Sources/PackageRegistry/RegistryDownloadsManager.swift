@@ -143,29 +143,29 @@ public class RegistryDownloadsManager {
         if let cachePath = self.cachePath {
             do {
                 let relativePath = try package.downloadPath(version: version)
-                let cachedPacakgePath = cachePath.appending(relativePath)
+                let cachedPackagePath = cachePath.appending(relativePath)
 
                 try self.initializeCacheIfNeeded(cachePath: cachePath)
-                try self.fileSystem.withLock(on: cachedPacakgePath, type: .exclusive) {
+                try self.fileSystem.withLock(on: cachedPackagePath, type: .exclusive) {
                     // download the package into the cache unless already exists
-                    if try self.fileSystem.validPackageDirectory(cachedPacakgePath) {
+                    if try self.fileSystem.validPackageDirectory(cachedPackagePath) {
                         // extra validation to defend from racy edge cases
                         if self.fileSystem.exists(packagePath) {
                             throw StringError("\(packagePath) already exists unexpectedly")
                         }
                         // copy the package from the cache into the package path.
                         try self.fileSystem.createDirectory(packagePath.parentDirectory, recursive: true)
-                        try self.fileSystem.copy(from: cachedPacakgePath, to: packagePath)
+                        try self.fileSystem.copy(from: cachedPackagePath, to: packagePath)
                         completion(.success(.init(fromCache: true, updatedCache: false)))
                     } else {
                         // it is possible that we already created the directory before from failed attempts, so clear leftover data if present.
-                        try? self.fileSystem.removeFileTree(cachedPacakgePath)
+                        try? self.fileSystem.removeFileTree(cachedPackagePath)
                         // download the package from the registry
                         self.registryClient.downloadSourceArchive(
                             package: package,
                             version: version,
                             fileSystem: self.fileSystem,
-                            destinationPath: cachedPacakgePath,
+                            destinationPath: cachedPackagePath,
                             checksumAlgorithm: self.checksumAlgorithm,
                             progressHandler: updateDownloadProgress,
                             observabilityScope: observabilityScope,
@@ -178,7 +178,7 @@ public class RegistryDownloadsManager {
                                 }
                                 // copy the package from the cache into the package path.
                                 try self.fileSystem.createDirectory(packagePath.parentDirectory, recursive: true)
-                                try self.fileSystem.copy(from: cachedPacakgePath, to: packagePath)
+                                try self.fileSystem.copy(from: cachedPackagePath, to: packagePath)
                                 return FetchDetails(fromCache: true, updatedCache: true)
                             })
                         }

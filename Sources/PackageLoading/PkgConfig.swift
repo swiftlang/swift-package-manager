@@ -173,7 +173,6 @@ internal struct PkgConfigParser {
         variables["pc_sysrootdir"] = ProcessEnv.vars["PKG_CONFIG_SYSROOT_DIR"] ?? "/"
 
         let fileContents: String = try fileSystem.readFileContents(pcFile)
-        // FIXME: Should we error out instead if content is not UTF8 representable?
         for line in fileContents.components(separatedBy: "\n") {
             // Remove commented or any trailing comment from the line.
             let uncommentedLine = removeComment(line: line)
