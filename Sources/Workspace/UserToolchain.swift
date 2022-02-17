@@ -448,7 +448,7 @@ public final class UserToolchain: Toolchain {
     // TODO: We should have some general utility to find tools.
     private static func deriveXCTestPath(triple: Triple, environment: EnvironmentVariables) throws -> AbsolutePath? {
         if triple.isDarwin() {
-            // XCTest is optional on macOS, for example with Xcode is not installed
+            // XCTest is optional on macOS, for example when Xcode is not installed
             let xctestFindArgs = ["/usr/bin/xcrun", "--sdk", "macosx", "--find", "xctest"]
             if let path = try? Process.checkNonZeroExit(arguments: xctestFindArgs, environment: environment).spm_chomp() {
                 return try AbsolutePath(validating: path)
