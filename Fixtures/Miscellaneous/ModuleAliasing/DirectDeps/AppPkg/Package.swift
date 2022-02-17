@@ -10,14 +10,14 @@ let package = Package(
         .watchOS(.v5)
     ],
     dependencies: [
-        .package(url: "../GamePkg", from: "1.0.0"),
+        .package(path: "../GamePkg"),
     ],
     targets: [
         .executableTarget(
             name: "App",
             dependencies: [
                 "Utils",
-                .product(name: "Utils",
+                .product(name: "UtilsProd",
                          package: "GamePkg",
                          moduleAliases: ["Utils": "GameUtils"])
             ],
