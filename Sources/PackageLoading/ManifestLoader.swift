@@ -596,8 +596,13 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             )
         }
 
-        // TODO: we could wrap the failure here with diagnostics if it wasn't optional throughout
-        var closeAfterRead = DelayableAction(target: cache) { try? $0.close() }
+        var closeAfterRead = DelayableAction(target: cache) { cache in
+            do {
+                try cache.close()
+            } catch {
+                observabilityScope.emit(warning: "failed closing cache: \(error)")
+            }
+        }
         defer { closeAfterRead.perform() }
 
         let key : CacheKey

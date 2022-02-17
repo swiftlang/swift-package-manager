@@ -75,7 +75,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
 
     deinit {
         guard case .disconnected = (try? self.withStateLock { self.state }) else {
-            return self.observabilityScope.emit(error: "db should be closed")
+            return self.observabilityScope.emit(warning: "SQLitePackageCollectionsStorage de-initialized but db is not closed")
         }
     }
 

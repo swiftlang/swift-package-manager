@@ -125,60 +125,6 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testInterpreterFlags() throws {
-        let fs = localFileSystem
-
-        try testWithTemporaryDirectory { path in
-            let foo = path.appending(component: "foo")
-
-            func createWorkspace(withManifest manifest: (OutputByteStream) -> Void) throws -> Workspace {
-                try fs.writeFileContents(foo.appending(component: "Package.swift")) {
-                    manifest($0)
-                }
-
-                let manifestLoader = ManifestLoader(toolchain: ToolchainConfiguration.default)
-
-                let sandbox = path.appending(component: "ws")
-                return try Workspace(
-                    fileSystem: fs,
-                    forRootPackage: sandbox,
-                    customManifestLoader: manifestLoader,
-                    delegate: MockWorkspaceDelegate()
-                )
-            }
-
-            do {
-                let ws = try createWorkspace {
-                    $0 <<<
-                        """
-                        // swift-tools-version:4.0
-                        import PackageDescription
-                        let package = Package(
-                            name: "foo"
-                        )
-                        """
-                }
-
-                XCTAssertMatch(ws.interpreterFlags(for: foo), [.equal("-swift-version"), .equal("4")])
-            }
-
-            do {
-                let ws = try createWorkspace {
-                    $0 <<<
-                        """
-                        // swift-tools-version:3.1
-                        import PackageDescription
-                        let package = Package(
-                            name: "foo"
-                        )
-                        """
-                }
-
-                XCTAssertEqual(ws.interpreterFlags(for: foo), [])
-            }
-        }
-    }
-
     func testManifestParseError() throws {
         let observability = ObservabilitySystem.makeForTesting()
 
