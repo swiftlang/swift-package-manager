@@ -36,6 +36,12 @@ enum PackageGraphError: Swift.Error {
 
     /// A product was found in multiple packages.
     case duplicateProduct(product: String, packages: [String])
+
+    /// Duplicate aliases for a target found in a product.
+    case multipleModuleAliases(target: String,
+                               product: String,
+                               package: String,
+                               aliases: [String])
 }
 
 /// A collection of packages.
@@ -217,6 +223,8 @@ extension PackageGraphError: CustomStringConvertible {
 
         case .duplicateProduct(let product, let packages):
             return "multiple products named '\(product)' in: '\(packages.joined(separator: "', '"))'"
+        case .multipleModuleAliases(let target, let product, let package, let aliases):
+            return "multiple aliases: ['\(aliases.joined(separator: "', '"))'] found for target '\(target)' in product '\(product)' from package '\(package)'"
         }
     }
 }

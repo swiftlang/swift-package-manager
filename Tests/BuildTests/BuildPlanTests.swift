@@ -1848,6 +1848,55 @@ final class BuildPlanTests: XCTestCase {
         #endif
     }
 
+    func testModuleAliasingMultipleAliasesInProduct() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+                                        "/thisPkg/Sources/exe/main.swift",
+                                        "/thisPkg/Sources/Logging/file.swift",
+                                        "/otherPkg/Sources/Utils/fileUtils.swift",
+                                        "/otherPkg/Sources/Logging/fileLogging.swift"
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let _ = try loadPackageGraph(
+            fs: fs,
+            manifests: [
+                Manifest.createFileSystemManifest(
+                    name: "otherPkg",
+                    path: .init("/otherPkg"),
+                    products: [
+                        ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"]),
+                        ProductDescription(name: "LoggingProd", type: .library(.automatic), targets: ["Logging"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Utils", dependencies: ["Logging"]),
+                        TargetDescription(name: "Logging", dependencies: []),
+                    ]),
+                Manifest.createRootManifest(
+                    name: "thisPkg",
+                    path: .init("/thisPkg"),
+                    dependencies: [
+                        .localSourceControl(path: .init("/otherPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    targets: [
+                        TargetDescription(name: "exe",
+                                          dependencies: ["Logging",
+                                                         .product(name: "Utils",
+                                                                  package: "otherPkg",
+                                                                  moduleAliases: ["Logging": "UtilsLogging"]),
+                                                         .product(name: "LoggingProd",
+                                                                  package: "otherPkg",
+                                                                  moduleAliases: ["Logging": "OtherLogging"])]),
+                        TargetDescription(name: "Logging", dependencies: []),
+                    ]),
+            ],
+            observabilityScope: observability.topScope
+        )
+
+        XCTAssertTrue(observability.diagnostics.contains(where: {
+            $0.message.contains("multiple aliases: ['UtilsLogging', 'OtherLogging'] found for target 'Logging' in product 'LoggingProd' from package 'otherPkg'")
+        }), "expected multiple aliases diagnostics")
+    }
+
     func testModuleAliasingDuplicateTargetNameInNestedUpstream() throws {
         let fs = InMemoryFileSystem(emptyFiles:
                                         "/thisPkg/Sources/exe/main.swift",

@@ -265,7 +265,7 @@ private func createResolvedPackages(
     }
 
     // Gather all module aliases specified for targets in all dependent packages
-    let pkgToAliasesMap = gatherModuleAliases(for: rootManifests.first?.key, with: packagesByIdentity)
+    let pkgToAliasesMap = gatherModuleAliases(for: rootManifests.first?.key, with: packagesByIdentity, onError: observabilityScope)
 
     // Scan and validate the dependencies
     for packageBuilder in packageBuilders {
@@ -524,14 +524,15 @@ private func createResolvedPackages(
 
 // Create a map between a package and module aliases specified for the targets in the package.
 private func gatherModuleAliases(for rootPkgID: PackageIdentity?,
-                                 with packagesByIdentity: [PackageIdentity: ResolvedPackageBuilder]) -> [PackageIdentity: [String: String]] {
+                                 with packagesByIdentity: [PackageIdentity: ResolvedPackageBuilder],
+                                 onError observabilityScope: ObservabilityScope) -> [PackageIdentity: [String: String]] {
     var result = [PackageIdentity: [String: String]]()
     
     // There could be multiple root packages but the common cases involve
     // just one root package; handling multiple roots is tracked rdar://88518683
     if let rootPkg = rootPkgID {
         var pkgStack = [PackageIdentity]()
-        walkPkgTreeAndGetModuleAliases(for: rootPkg, with: packagesByIdentity, using: &pkgStack, output: &result)
+        walkPkgTreeAndGetModuleAliases(for: rootPkg, with: packagesByIdentity, onError: observabilityScope, using: &pkgStack, output: &result)
     }
     return result
 }
@@ -540,14 +541,12 @@ private func gatherModuleAliases(for rootPkgID: PackageIdentity?,
 // If multiple aliases are specified in upstream packages, aliases specified most downstream
 // will be used.
 private func walkPkgTreeAndGetModuleAliases(for pkgID: PackageIdentity,
-                                             with packagesByIdentity: [PackageIdentity: ResolvedPackageBuilder],
-                                             using pkgStack: inout [PackageIdentity],
-                                             output result: inout [PackageIdentity: [String: String]]) {
+                                            with packagesByIdentity: [PackageIdentity: ResolvedPackageBuilder],
+                                            onError observabilityScope: ObservabilityScope,
+                                            using pkgStack: inout [PackageIdentity],
+                                            output result: inout [PackageIdentity: [String: String]]) {
     // Get the builder first
     if let builder = packagesByIdentity[pkgID] {
-        // Add the pkgID to a stack used to keep track of
-        // multiple aliases specified in the package chain
-        pkgStack.append(pkgID)
         builder.package.targets.forEach { target in
             target.dependencies.forEach { dep in
                 // Check if a dependency for this target has module aliases specified
@@ -556,6 +555,13 @@ private func walkPkgTreeAndGetModuleAliases(for pkgID: PackageIdentity,
                         if let prodModuleAliases = prodRef.moduleAliases {
                             for (depName, depAlias) in prodModuleAliases {
                                 let prodPkgID = PackageIdentity.plain(prodPkg)
+                                if let existingAlias = result[prodPkgID, default: [:]][depName] {
+                                    // error if there are multiple aliases for
+                                    // a dependency target for a product
+                                    observabilityScope.emit(PackageGraphError.multipleModuleAliases(target: depName, product: prodRef.name, package: prodPkg, aliases: [existingAlias, depAlias]))
+                                    return
+                                }
+
                                 // Add the specified alias and the dependency package to a map
                                 result[prodPkgID, default: [:]][depName] = depAlias
                             }
@@ -564,26 +570,26 @@ private func walkPkgTreeAndGetModuleAliases(for pkgID: PackageIdentity,
                 }
             }
             
+            // Add the pkgID to a stack used to keep track of
+            // multiple aliases specified in the package chain
+            pkgStack.append(pkgID)
+
             // If multiple aliases are specified in the package chain,
             // use the ones specified most downstream to override
             // upstream targets
-            for trackedPkg in pkgStack {
-                if let entry = result[trackedPkg],
-                    let aliasToOverride = entry[target.name],
-                    pkgID != trackedPkg {
+            for pkgInChain in pkgStack {
+                if pkgID != pkgInChain,
+                   let entry = result[pkgInChain],
+                   let aliasToOverride = entry[target.name] {
                     result[pkgID, default: [:]][target.name] = aliasToOverride
                     break
                 }
             }
         }
         
-        if result.isEmpty {
-            return
-        }
-
         // Recursively (depth-first) walk the package dependency tree
         for pkgDep in builder.package.manifest.dependencies {
-            walkPkgTreeAndGetModuleAliases(for: pkgDep.identity, with: packagesByIdentity, using: &pkgStack, output: &result)
+            walkPkgTreeAndGetModuleAliases(for: pkgDep.identity, with: packagesByIdentity, onError: observabilityScope, using: &pkgStack, output: &result)
             // Last added package has been looked up, so pop here
             if !pkgStack.isEmpty {
                 pkgStack.removeLast()
