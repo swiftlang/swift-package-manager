@@ -26,6 +26,7 @@ private enum TestError: Swift.Error {
     case invalidListTestJSONData
     case testsExecutableNotFound
     case multipleTestProducts([String])
+    case xctestNotAvailable
 }
 
 extension TestError: CustomStringConvertible {
@@ -37,6 +38,8 @@ extension TestError: CustomStringConvertible {
             return "invalid list test JSON structure"
         case .multipleTestProducts(let products):
             return "found multiple test products: \(products.joined(separator: ", ")); use --test-product to select one"
+        case .xctestNotAvailable:
+            return "XCTest not available"
         }
     }
 }
@@ -210,8 +213,19 @@ public struct SwiftTestTool: SwiftCommand {
     }
 
     public func run(_ swiftTool: SwiftTool) throws {
-        // Validate commands arguments
-        try self.validateArguments(observabilityScope: swiftTool.observabilityScope)
+        do {
+            // Validate commands arguments
+            try self.validateArguments(observabilityScope: swiftTool.observabilityScope)
+
+            // validate XCTest available on darwin based systems
+            let toolchain = try swiftTool.getToolchain()
+            if toolchain.triple.isDarwin() && toolchain.configuration.xctestPath == nil {
+                throw TestError.xctestNotAvailable
+            }
+        } catch {
+            swiftTool.observabilityScope.emit(error)
+            throw ExitCode.failure
+        }
 
         switch options.mode {
         case .listTests:
@@ -481,13 +495,11 @@ public struct SwiftTestTool: SwiftCommand {
 
             // The --num-worker option should be called with --parallel.
             guard options.mode == .runParallel else {
-                observabilityScope.emit(error: "--num-workers must be used with --parallel")
-                throw ExitCode.failure
+                throw StringError("--num-workers must be used with --parallel")
             }
 
             guard workers > 0 else {
-                observabilityScope.emit(error: "'--num-workers' must be greater than zero")
-                throw ExitCode.failure
+                throw StringError("'--num-workers' must be greater than zero")
             }
         }
 
@@ -579,21 +591,21 @@ final class TestRunner {
     /// Constructs arguments to execute XCTest.
     private func args(forTestAt testPath: AbsolutePath) throws -> [String] {
         var args: [String] = []
-      #if os(macOS)
-        guard let xctest = self.toolchain.xctest else {
-            throw TestError.testsExecutableNotFound
+        #if os(macOS)
+        guard let xctestPath = self.toolchain.configuration.xctestPath else {
+            throw TestError.xctestNotAvailable
         }
-        args = [xctest.pathString]
+        args = [xctestPath.pathString]
         if let xctestArg = xctestArg {
             args += ["-XCTest", xctestArg]
         }
         args += [testPath.pathString]
-      #else
+        #else
         args += [testPath.description]
         if let xctestArg = xctestArg {
             args += [xctestArg]
         }
-      #endif
+        #endif
         return args
     }
 
