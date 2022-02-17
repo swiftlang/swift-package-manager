@@ -191,17 +191,16 @@ public final class Manifest {
             return self.dependencies
         }
 
-        var requiredDependencyURLs: Set<PackageIdentity> = []
-
+        var requiredDependencies: Set<PackageIdentity> = []
         for target in self.targetsRequired(for: products) {
             for targetDependency in target.dependencies {
                 if let dependency = self.packageDependency(referencedBy: targetDependency) {
-                    requiredDependencyURLs.insert(dependency.identity)
+                    requiredDependencies.insert(dependency.identity)
                 }
             }
         }
 
-        return self.dependencies.filter { requiredDependencyURLs.contains($0.identity) }
+        return self.dependencies.filter { requiredDependencies.contains($0.identity) }
         #endif
     }
 

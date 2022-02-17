@@ -267,6 +267,9 @@ public struct SwiftToolOptions: ParsableArguments {
     @Flag(name: [.long, .customLong("disable-automatic-resolution"), .customLong("only-use-versions-from-resolved-file")], help: "Only use versions from the Package.resolved file and fail resolution if it is out-of-date")
     var forceResolvedVersions: Bool = false
 
+    @Flag(help: "Enable or disable indexing-while-building feature")
+    var indexStoreMode: StoreMode = .autoIndexStore
+
     // @Flag works best when there is a default value present
     // if true, false aren't enough and a third state is needed
     // nil should not be the goto. Instead create an enum
@@ -274,30 +277,11 @@ public struct SwiftToolOptions: ParsableArguments {
         case autoIndexStore
         case enableIndexStore
         case disableIndexStore
-
-        /// The mode to use for indexing-while-building feature.
-        var indexStoreMode: BuildParameters.IndexStoreMode {
-            switch self {
-            case .autoIndexStore:
-                return .auto
-            case .enableIndexStore:
-                return .on
-            case .disableIndexStore:
-                return .off
-            }
-        }
     }
-
-    @Flag(help: "Enable or disable indexing-while-building feature")
-    var indexStoreMode: StoreMode = .autoIndexStore
 
     /// Whether to enable generation of `.swiftinterface`s alongside `.swiftmodule`s.
     @Flag(name: .customLong("enable-parseable-module-interfaces"))
     var shouldEnableParseableModuleInterfaces: Bool = false
-
-    /// Write dependency resolver trace to a file.
-    @Flag(name: .customLong("trace-resolver"), help: .hidden)
-    var _deprecated_enableResolverTrace: Bool = false
 
     /// The number of jobs for llbuild to start (aka the number of schedulerLanes)
     @Option(name: .shortAndLong, help: "The number of jobs to spawn in parallel during the build process")
@@ -360,17 +344,17 @@ public struct SwiftToolOptions: ParsableArguments {
 
     /// Whether to use keychain for authenticating with remote servers
     /// when downloading binary artifacts or communicating with a registry.
-#if canImport(Security)
+    #if canImport(Security)
     @Flag(inversion: .prefixedEnableDisable,
           exclusivity: .exclusive,
           help: "Search credentials in macOS keychain")
     var keychain: Bool = true
-#else
+    #else
     @Flag(inversion: .prefixedEnableDisable,
           exclusivity: .exclusive,
           help: .hidden)
     var keychain: Bool = false
-#endif
+    #endif
     
     @Option(name: .customLong("resolver-fingerprint-checking"))
     var resolverFingerprintCheckingMode: FingerprintCheckingMode = .warn
@@ -381,6 +365,26 @@ public struct SwiftToolOptions: ParsableArguments {
         help: "Disable/enable dead code stripping by the linker")
     var linkerDeadStrip: Bool = true
 
+    @Flag(help: "Define automatic transformation of source control based dependencies to registry based ones")
+    var sourceControlToRegistryDependencyTransformation: SourceControlToRegistryDependencyTransformation = .disabled
+
+    enum SourceControlToRegistryDependencyTransformation: EnumerableFlag {
+        case disabled
+        case identity
+        case swizzle
+
+        static func name(for value: Self) -> NameSpecification {
+            switch value {
+            case .disabled:
+                return .customLong("disable-scm-to-regsitry-lookup")
+            case .identity:
+                return .customLong("use-registry-identity-for-scm")
+            case .swizzle:
+                return .customLong("raplace-scm-with-registry")
+            }
+        }
+    }
+
     @Flag(name: .customLong("netrc"), help: .hidden)
     var _deprecated_netrc: Bool = false
 
@@ -390,6 +394,10 @@ public struct SwiftToolOptions: ParsableArguments {
     /// Disables repository caching.
     @Flag(name: .customLong("repository-cache"), inversion: .prefixedEnableDisable, help: .hidden)
     var _deprecated_useRepositoriesCache: Bool?
+
+    /// Write dependency resolver trace to a file.
+    @Flag(name: .customLong("trace-resolver"), help: .hidden)
+    var _deprecated_enableResolverTrace: Bool = false
 
     public init() {}
 }
