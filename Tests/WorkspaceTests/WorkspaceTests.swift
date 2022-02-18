@@ -5214,8 +5214,8 @@ final class WorkspaceTests: XCTestCase {
 
         workspace.checkPackageGraphFailure(roots: ["Root"]) { diagnostics in
             testDiagnostics(diagnostics) { result in
-                result.checkUnordered(diagnostic: .contains("local archive of binary target 'A1' does not contain expected binary artifact 'A1'") , severity: .error)
-                result.checkUnordered(diagnostic: .contains("local archive of binary target 'A2' does not contain expected binary artifact 'A2'") , severity: .error)
+                result.checkUnordered(diagnostic: .contains("local archive of binary target 'A1' does not contain expected binary artifact named 'A1'") , severity: .error)
+                result.checkUnordered(diagnostic: .contains("local archive of binary target 'A2' does not contain expected binary artifact named 'A2'") , severity: .error)
             }
         }
     }
@@ -5413,6 +5413,85 @@ final class WorkspaceTests: XCTestCase {
                          source: .local(checksum: "03"),
                          path: workspace.artifactsDir.appending(components: "root", "nested2.xcframework")
             )
+        }
+    }
+
+    func testLocalArtifactHappyPath() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    targets: [
+                        MockTarget(
+                            name: "A1",
+                            type: .binary,
+                            path: "XCFrameworks/A1.xcframework"
+                        ),
+                        MockTarget(
+                            name: "A2",
+                            type: .binary,
+                            path: "ArtifactBundles/A2.artifactbundle"
+                        )
+                    ]
+                )
+            ]
+        )
+
+        try workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+
+        let rootPath = workspace.pathToRoot(withName: "Root")
+        workspace.checkManagedArtifacts { result in
+            result.check(packageIdentity: .plain("root"),
+                         targetName: "A1",
+                         source: .local(checksum: .none),
+                         path: rootPath.appending(components: "XCFrameworks", "A1.xcframework")
+            )
+            result.check(packageIdentity: .plain("root"),
+                         targetName: "A2",
+                         source: .local(checksum: .none),
+                         path: rootPath.appending(components: "ArtifactBundles", "A2.artifactbundle")
+            )
+        }
+    }
+
+    func testLocalArtifactWithIncorrectName() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    targets: [
+                        MockTarget(
+                            name: "A1",
+                            type: .binary,
+                            path: "XCFrameworks/incorrect-name.xcframework"
+                        ),
+                        MockTarget(
+                            name: "A2",
+                            type: .binary,
+                            path: "ArtifactBundles/incorrect-name.artifactbundle"
+                        )
+                    ]
+                )
+            ]
+        )
+
+        workspace.checkPackageGraphFailure(roots: ["Root"]) { diagnostics in
+            testDiagnostics(diagnostics) { result in
+                result.checkUnordered(diagnostic: .contains("local binary target 'A1' does not contain expected binary artifact named 'A1'") , severity: .error)
+                result.checkUnordered(diagnostic: .contains("local binary target 'A2' does not contain expected binary artifact named 'A2'") , severity: .error)
+            }
         }
     }
 
@@ -5818,7 +5897,7 @@ final class WorkspaceTests: XCTestCase {
 
         workspace.checkPackageGraphFailure(roots: ["Root"]) { diagnostics in
             testDiagnostics(diagnostics) { result in
-                result.check(diagnostic: "downloaded archive of binary target 'A3' does not contain expected binary artifact 'A3'", severity: .error)
+                result.check(diagnostic: "downloaded archive of binary target 'A3' does not contain expected binary artifact named 'A3'", severity: .error)
             }
             XCTAssert(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/b")))
             XCTAssert(!fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/a/A3.xcframework")))

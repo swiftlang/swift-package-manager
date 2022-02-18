@@ -2324,6 +2324,10 @@ extension Workspace {
 
                 artifactsToExtract.append(artifact)
             } else {
+                guard artifact.targetName == artifact.path.basenameWithoutExt else {
+                    observabilityScope.emit(.localArtifactNotFound(targetName: artifact.targetName, artifactName: artifact.targetName))
+                    continue
+                }
                 artifactsToAdd.append(artifact)
             }
 
@@ -2708,7 +2712,7 @@ extension Workspace {
                         try self.fileSystem.removeFileTree(tempExtractionDirectory)
 
                         guard let mainArtifactPath = artifactPath else {
-                            return observabilityScope.emit(.localArtifactNotFound(targetName: artifact.targetName, artifactName: artifact.targetName))
+                            return observabilityScope.emit(.localArchivedArtifactNotFound(targetName: artifact.targetName, artifactName: artifact.targetName))
                         }
 
                         // compute the checksum
