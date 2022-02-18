@@ -40,7 +40,6 @@ extension PackageGraph {
         root.manifests.forEach {
             manifestMap[$0.key] = ($0.value, fileSystem)
         }
-
         let successors: (GraphLoadingNode) -> [GraphLoadingNode] = { node in
             node.requiredDependencies().compactMap{ dependency in
                 return manifestMap[dependency.identity].map { (manifest, fileSystem) in
@@ -49,8 +48,7 @@ extension PackageGraph {
             }
         }
 
-        // Construct the root manifest and root dependencies set.
-        let rootManifestSet = Set(root.manifests.values)
+        // Construct the root root dependencies set.
         let rootDependencies = Set(root.dependencies.compactMap{
             manifestMap[$0.identity]?.manifest
         })
@@ -139,12 +137,12 @@ extension PackageGraph {
             nodes: allNodes,
             identityResolver: identityResolver,
             manifestToPackage: manifestToPackage,
-            rootManifestSet: rootManifestSet,
+            rootManifests: root.manifests,
             unsafeAllowedPackages: unsafeAllowedPackages,
             observabilityScope: observabilityScope
         )
 
-        let rootPackages = resolvedPackages.filter{ rootManifestSet.contains($0.manifest) }
+        let rootPackages = resolvedPackages.filter{ root.manifests.values.contains($0.manifest) }
         checkAllDependenciesAreUsed(rootPackages, observabilityScope: observabilityScope)
 
         return try PackageGraph(
@@ -239,7 +237,7 @@ private func createResolvedPackages(
     identityResolver: IdentityResolver,
     manifestToPackage: [Manifest: Package],
     // FIXME: This shouldn't be needed once <rdar://problem/33693433> is fixed.
-    rootManifestSet: Set<Manifest>,
+    rootManifests: [PackageIdentity: Manifest],
     unsafeAllowedPackages: Set<PackageReference>,
     observabilityScope: ObservabilityScope
 ) throws -> [ResolvedPackage] {
@@ -250,7 +248,8 @@ private func createResolvedPackages(
             return nil
         }
         let isAllowedToVendUnsafeProducts = unsafeAllowedPackages.contains{ $0.identity == package.identity }
-        let allowedToOverride = rootManifestSet.contains(node.manifest)
+        
+        let allowedToOverride = rootManifests.values.contains(node.manifest)
         return ResolvedPackageBuilder(
             package,
             productFilter: node.productFilter,
@@ -265,8 +264,8 @@ private func createResolvedPackages(
         return ($0.package.identity, $0)
     }
 
-    // Gather all module aliases specified for dependencies from each package
-    let pkgToAliasesMap = gatherModuleAliases(from: packageBuilders)
+    // Gather all module aliases specified for targets in all dependent packages
+    let pkgToAliasesMap = gatherModuleAliases(for: rootManifests.first?.key, with: packagesByIdentity, onError: observabilityScope)
 
     // Scan and validate the dependencies
     for packageBuilder in packageBuilders {
@@ -277,7 +276,7 @@ private func createResolvedPackages(
             metadata: package.diagnosticsMetadata
         )
         
-        if let aliasMap = pkgToAliasesMap[package.manifest.displayName] {
+        if let aliasMap = pkgToAliasesMap[package.identity] {
             package.setModuleAliasesForTargets(with: aliasMap)
         }
 
@@ -523,34 +522,81 @@ private func createResolvedPackages(
     return try packageBuilders.map{ try $0.construct() }
 }
 
-// Create a map between a package and module aliases specified for its targets
-private func gatherModuleAliases(from packageBuilders: [ResolvedPackageBuilder]) -> [String: [String: String]] {
-    // Use a list to track all the module aliases specified for a given target to handle an override later
-    var nameToAliasAndPkgMap = [String: [(String, String)]]()
-    packageBuilders.forEach { $0.package.targets.forEach { $0.dependencies.forEach { dep in
-        if case let .product(prodRef, _) = dep {
-            if let prodPkg = prodRef.package {
-                if let prodModuleAliases = prodRef.moduleAliases {
-                    for (depName, depAlias) in prodModuleAliases {
-                        // Add a module alias to a map if specified
-                        nameToAliasAndPkgMap[depName, default: []].append((depAlias, prodPkg))
+// Create a map between a package and module aliases specified for the targets in the package.
+private func gatherModuleAliases(for rootPkgID: PackageIdentity?,
+                                 with packagesByIdentity: [PackageIdentity: ResolvedPackageBuilder],
+                                 onError observabilityScope: ObservabilityScope) -> [PackageIdentity: [String: String]] {
+    var result = [PackageIdentity: [String: String]]()
+    
+    // There could be multiple root packages but the common cases involve
+    // just one root package; handling multiple roots is tracked rdar://88518683
+    if let rootPkg = rootPkgID {
+        var pkgStack = [PackageIdentity]()
+        walkPkgTreeAndGetModuleAliases(for: rootPkg, with: packagesByIdentity, onError: observabilityScope, using: &pkgStack, output: &result)
+    }
+    return result
+}
+
+// Walk a package dependency tree and set the module aliases for targets in each package.
+// If multiple aliases are specified in upstream packages, aliases specified most downstream
+// will be used.
+private func walkPkgTreeAndGetModuleAliases(for pkgID: PackageIdentity,
+                                            with packagesByIdentity: [PackageIdentity: ResolvedPackageBuilder],
+                                            onError observabilityScope: ObservabilityScope,
+                                            using pkgStack: inout [PackageIdentity],
+                                            output result: inout [PackageIdentity: [String: String]]) {
+    // Get the builder first
+    if let builder = packagesByIdentity[pkgID] {
+        builder.package.targets.forEach { target in
+            target.dependencies.forEach { dep in
+                // Check if a dependency for this target has module aliases specified
+                if case let .product(prodRef, _) = dep {
+                    if let prodPkg = prodRef.package {
+                        if let prodModuleAliases = prodRef.moduleAliases {
+                            for (depName, depAlias) in prodModuleAliases {
+                                let prodPkgID = PackageIdentity.plain(prodPkg)
+                                if let existingAlias = result[prodPkgID, default: [:]][depName] {
+                                    // error if there are multiple aliases for
+                                    // a dependency target for a product
+                                    observabilityScope.emit(PackageGraphError.multipleModuleAliases(target: depName, product: prodRef.name, package: prodPkg, aliases: [existingAlias, depAlias]))
+                                    return
+                                }
+
+                                // Add the specified alias and the dependency package to a map
+                                result[prodPkgID, default: [:]][depName] = depAlias
+                            }
+                        }
                     }
                 }
             }
+            
+            // If multiple aliases are specified in the package chain,
+            // use the ones specified most downstream to override
+            // upstream targets
+            for pkgInChain in pkgStack {
+                if let entry = result[pkgInChain],
+                   let aliasToOverride = entry[target.name] {
+                    result[pkgID, default: [:]][target.name] = aliasToOverride
+                    break
+                }
+            }
+            
+            // Add pkgID to a stack used to keep track of multiple
+            // aliases specified in the package chain. Need to add
+            // pkgID here, otherwise need pkgID != pkgInChain check
+            // in the for loop above
+            pkgStack.append(pkgID)
         }
-    }}}
-    
-    var pkgToAliasesMap = [String: [String: String]]()
-    nameToAliasAndPkgMap.forEach { (keyName, aliasAndPkgList) in
-        aliasAndPkgList.forEach { (elemAlias, elemPkg) in
-            // FIXME: handle an override for multiple aliases
-            // Use one of the module aliases specified for now
-            if pkgToAliasesMap[elemPkg]?[keyName] == nil, !elemAlias.isEmpty {
-                pkgToAliasesMap[elemPkg] = [keyName: elemAlias]
+        
+        // Recursively (depth-first) walk the package dependency tree
+        for pkgDep in builder.package.manifest.dependencies {
+            walkPkgTreeAndGetModuleAliases(for: pkgDep.identity, with: packagesByIdentity, onError: observabilityScope, using: &pkgStack, output: &result)
+            // Last added package has been looked up, so pop here
+            if !pkgStack.isEmpty {
+                pkgStack.removeLast()
             }
         }
     }
-    return pkgToAliasesMap
 }
 
 /// A generic builder for `Resolved` models.
