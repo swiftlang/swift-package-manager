@@ -319,10 +319,14 @@ fileprivate extension SourceCodeFragment {
             }
             self.init(enum: "target", subnodes: params)
             
-        case .product(name: let name, package: let packageName, moduleAliases: _, condition: let condition):
+        case .product(name: let name, package: let packageName, moduleAliases: let aliases, condition: let condition):
             params.append(SourceCodeFragment(key: "name", string: name))
             if let packageName = packageName {
                 params.append(SourceCodeFragment(key: "package", string: packageName))
+            }
+            if let aliases = aliases {
+                let vals = aliases.map { SourceCodeFragment(key: $0.key.quotedForPackageManifest, string: $0.value) }
+                params.append(SourceCodeFragment(key: "moduleAliases", subnodes: vals))
             }
             if let condition = condition {
                 params.append(SourceCodeFragment(key: "condition", subnode: SourceCodeFragment(from: condition)))
