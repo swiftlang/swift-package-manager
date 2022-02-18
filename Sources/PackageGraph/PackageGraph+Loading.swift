@@ -570,21 +570,22 @@ private func walkPkgTreeAndGetModuleAliases(for pkgID: PackageIdentity,
                 }
             }
             
-            // Add the pkgID to a stack used to keep track of
-            // multiple aliases specified in the package chain
-            pkgStack.append(pkgID)
-
             // If multiple aliases are specified in the package chain,
             // use the ones specified most downstream to override
             // upstream targets
             for pkgInChain in pkgStack {
-                if pkgID != pkgInChain,
-                   let entry = result[pkgInChain],
+                if let entry = result[pkgInChain],
                    let aliasToOverride = entry[target.name] {
                     result[pkgID, default: [:]][target.name] = aliasToOverride
                     break
                 }
             }
+            
+            // Add pkgID to a stack used to keep track of multiple
+            // aliases specified in the package chain. Need to add
+            // pkgID here, otherwise need pkgID != pkgInChain check
+            // in the for loop above
+            pkgStack.append(pkgID)
         }
         
         // Recursively (depth-first) walk the package dependency tree
