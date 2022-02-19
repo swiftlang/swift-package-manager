@@ -31,9 +31,12 @@ public struct PackageIndexAndCollections: Closable {
         )
         let metadataProvider = PackageIndexMetadataProvider(
             index: index,
-            alternative: GitHubPackageMetadataProvider(
-                configuration: .init(authTokens: collectionsConfiguration.authTokens),
-                observabilityScope: observabilityScope
+            alternativeContainer: (
+                provider: GitHubPackageMetadataProvider(
+                    configuration: .init(authTokens: collectionsConfiguration.authTokens),
+                    observabilityScope: observabilityScope
+                ),
+                managed: true
             )
         )
         
@@ -342,9 +345,15 @@ public struct PackageIndexAndCollections: Closable {
     }
 }
 
-struct PackageIndexMetadataProvider: PackageMetadataProvider {
+struct PackageIndexMetadataProvider: PackageMetadataProvider, Closable {
+    typealias ProviderContainer = (provider: PackageMetadataProvider, managed: Bool)
+    
     let index: PackageIndex
-    let alternative: PackageMetadataProvider
+    let alternativeContainer: ProviderContainer
+    
+    var alternative: PackageMetadataProvider {
+        self.alternativeContainer.provider
+    }
 
     func get(
         identity: PackageIdentity,
@@ -355,6 +364,15 @@ struct PackageIndexMetadataProvider: PackageMetadataProvider {
             self.index.get(identity: identity, location: location, callback: callback)
         } else {
             self.alternative.get(identity: identity, location: location, callback: callback)
+        }
+    }
+    
+    func close() throws {
+        guard self.alternativeContainer.managed else {
+            return
+        }
+        if let alternative = self.alternative as? Closable {
+            try alternative.close()
         }
     }
 }
