@@ -24,23 +24,6 @@ import Glibc
 import CRT
 #endif
 
-public protocol HTTPClientProtocol {
-    typealias ProgressHandler = (_ bytesReceived: Int64, _ totalBytes: Int64?) -> Void
-    typealias CompletionHandler = (Result<HTTPClientResponse, Error>) -> Void
-
-    /// Execute an HTTP request asynchronously
-    ///
-    /// - Parameters:
-    ///   - request: The `HTTPClientRequest` to perform.
-    ///   - observabilityScope: the observability scope to emit diagnostics on
-    ///   - progress: A closure to handle progress for example for downloads
-    ///   - callback: A closure to be notified of the completion of the request.
-    func execute(_ request: HTTPClientRequest,
-                 observabilityScope: ObservabilityScope?,
-                 progress: ProgressHandler?,
-                 completion: @escaping CompletionHandler)
-}
-
 public enum HTTPClientError: Error, Equatable {
     case invalidResponse
     case badResponseStatusCode(Int)
@@ -51,11 +34,13 @@ public enum HTTPClientError: Error, Equatable {
 
 // MARK: - HTTPClient
 
-public struct HTTPClient: HTTPClientProtocol {
+public struct HTTPClient {
     public typealias Configuration = HTTPClientConfiguration
     public typealias Request = HTTPClientRequest
     public typealias Response = HTTPClientResponse
     public typealias Handler = (Request, ProgressHandler?, @escaping (Result<Response, Error>) -> Void) -> Void
+    public typealias ProgressHandler = (_ bytesReceived: Int64, _ totalBytes: Int64?) -> Void
+    public typealias CompletionHandler = (Result<HTTPClientResponse, Error>) -> Void
 
     public var configuration: HTTPClientConfiguration
     private let underlying: Handler
@@ -70,6 +55,13 @@ public struct HTTPClient: HTTPClientProtocol {
         self.underlying = handler ?? URLSessionHTTPClient().execute
     }
 
+    /// Execute an HTTP request asynchronously
+    ///
+    /// - Parameters:
+    ///   - request: The `HTTPClientRequest` to perform.
+    ///   - observabilityScope: the observability scope to emit diagnostics on
+    ///   - progress: A progress handler to handle progress for example for downloads
+    ///   - completion: A completion handler to be notified of the completion of the request.
     public func execute(_ request: Request, observabilityScope: ObservabilityScope? = nil, progress: ProgressHandler? = nil, completion: @escaping CompletionHandler) {
         // merge configuration
         var request = request

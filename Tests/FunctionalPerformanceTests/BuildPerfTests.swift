@@ -27,33 +27,37 @@ class BuildPerfTests: XCTestCasePerf {
         _ = try SwiftPMProduct.SwiftPackage.execute(["clean"], packagePath: packagePath)
     }
 
-    func testTrivialPackageFullBuild() {
-      #if os(macOS)
-        runFullBuildTest(for: "DependencyResolution/Internal/Simple", product: "foo")
-      #endif
+    func testTrivialPackageFullBuild() throws {
+        #if !os(macOS)
+        try XCTSkipIf(true, "test is only supported on macOS")
+        #endif
+        try runFullBuildTest(for: "DependencyResolution/Internal/Simple", product: "foo")
     }
 
-    func testTrivialPackageNullBuild() {
-      #if os(macOS)
-        runNullBuildTest(for: "DependencyResolution/Internal/Simple", product: "foo")
-      #endif
+    func testTrivialPackageNullBuild() throws {
+        #if !os(macOS)
+        try XCTSkipIf(true, "test is only supported on macOS")
+        #endif
+        try runNullBuildTest(for: "DependencyResolution/Internal/Simple", product: "foo")
     }
 
-    func testComplexPackageFullBuild() {
-      #if os(macOS)
-        runFullBuildTest(for: "DependencyResolution/External/Complex", app: "app", product: "Dealer")
-      #endif
+    func testComplexPackageFullBuild() throws {
+        #if !os(macOS)
+        try XCTSkipIf(true, "test is only supported on macOS")
+        #endif
+        try runFullBuildTest(for: "DependencyResolution/External/Complex", app: "app", product: "Dealer")
     }
 
-    func testComplexPackageNullBuild() {
-      #if os(macOS)
-        runNullBuildTest(for: "DependencyResolution/External/Complex", app: "app", product: "Dealer")
-      #endif
+    func testComplexPackageNullBuild() throws {
+        #if !os(macOS)
+        try XCTSkipIf(true, "test is only supported on macOS")
+        #endif
+        try runNullBuildTest(for: "DependencyResolution/External/Complex", app: "app", product: "Dealer")
     }
 
-    func runFullBuildTest(for name: String, app appString: String? = nil, product productString: String) {
-        fixture(name: name) { prefix in
-            let app = prefix.appending(components: (appString ?? ""))
+    func runFullBuildTest(for name: String, app appString: String? = nil, product productString: String) throws {
+        try fixture(name: name) { fixturePath in
+            let app = fixturePath.appending(components: (appString ?? ""))
             let triple = UserToolchain.default.triple
             let product = app.appending(components: ".build", triple.platformBuildPathComponent(), "debug", productString)
             try self.execute(packagePath: app)
@@ -65,9 +69,9 @@ class BuildPerfTests: XCTestCasePerf {
         }
     }
 
-    func runNullBuildTest(for name: String, app appString: String? = nil, product productString: String) {
-        fixture(name: name) { prefix in
-            let app = prefix.appending(components: (appString ?? ""))
+    func runNullBuildTest(for name: String, app appString: String? = nil, product productString: String) throws {
+        try fixture(name: name) { fixturePath in
+            let app = fixturePath.appending(components: (appString ?? ""))
             let triple = UserToolchain.default.triple
             let product = app.appending(components: ".build", triple.platformBuildPathComponent(), "debug", productString)
             try self.execute(packagePath: app)

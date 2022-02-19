@@ -46,41 +46,41 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
             let apiURL = URL(string: "https://api.github.com/repos/octocat/Hello-World")!
             let releasesURL = URL(string: "https://api.github.com/repos/octocat/Hello-World/releases?per_page=20")!
 
-            fixture(name: "Collections", createGitRepo: false) { directoryPath in
+            try fixture(name: "Collections", createGitRepo: false) { fixturePath in
                 let handler: HTTPClient.Handler = { request, _, completion in
                     switch (request.method, request.url) {
                     case (.get, apiURL):
-                        let path = directoryPath.appending(components: "GitHub", "metadata.json")
+                        let path = fixturePath.appending(components: "GitHub", "metadata.json")
                         let data: Data = try! localFileSystem.readFileContents(path)
                         completion(.success(.init(statusCode: 200,
                                                   headers: .init([.init(name: "Content-Length", value: "\(data.count)")]),
                                                   body: data)))
                     case (.get, releasesURL):
-                        let path = directoryPath.appending(components: "GitHub", "releases.json")
+                        let path = fixturePath.appending(components: "GitHub", "releases.json")
                         let data: Data = try! localFileSystem.readFileContents(path)
                         completion(.success(.init(statusCode: 200,
                                                   headers: .init([.init(name: "Content-Length", value: "\(data.count)")]),
                                                   body: data)))
                     case (.get, apiURL.appendingPathComponent("contributors")):
-                        let path = directoryPath.appending(components: "GitHub", "contributors.json")
+                        let path = fixturePath.appending(components: "GitHub", "contributors.json")
                         let data: Data = try! localFileSystem.readFileContents(path)
                         completion(.success(.init(statusCode: 200,
                                                   headers: .init([.init(name: "Content-Length", value: "\(data.count)")]),
                                                   body: data)))
                     case (.get, apiURL.appendingPathComponent("readme")):
-                        let path = directoryPath.appending(components: "GitHub", "readme.json")
+                        let path = fixturePath.appending(components: "GitHub", "readme.json")
                         let data: Data = try! localFileSystem.readFileContents(path)
                         completion(.success(.init(statusCode: 200,
                                                   headers: .init([.init(name: "Content-Length", value: "\(data.count)")]),
                                                   body: data)))
                     case (.get, apiURL.appendingPathComponent("license")):
-                        let path = directoryPath.appending(components: "GitHub", "license.json")
+                        let path = fixturePath.appending(components: "GitHub", "license.json")
                         let data: Data = try! localFileSystem.readFileContents(path)
                         completion(.success(.init(statusCode: 200,
                                                   headers: .init([.init(name: "Content-Length", value: "\(data.count)")]),
                                                   body: data)))
                     case (.get, apiURL.appendingPathComponent("languages")):
-                        let path = directoryPath.appending(components: "GitHub", "languages.json")
+                        let path = fixturePath.appending(components: "GitHub", "languages.json")
                         let data: Data = try! localFileSystem.readFileContents(path)
                         completion(.success(.init(statusCode: 200,
                                                   headers: .init([.init(name: "Content-Length", value: "\(data.count)")]),
@@ -147,8 +147,8 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
             let repoURL = URL(string: "https://github.com/octocat/Hello-World.git")!
             let apiURL = URL(string: "https://api.github.com/repos/octocat/Hello-World")!
 
-            fixture(name: "Collections", createGitRepo: false) { directoryPath in
-                let path = directoryPath.appending(components: "GitHub", "metadata.json")
+            try fixture(name: "Collections", createGitRepo: false) { fixturePath in
+                let path = fixturePath.appending(components: "GitHub", "metadata.json")
                 let data = try Data(localFileSystem.readFileContents(path).contents)
                 let handler: HTTPClient.Handler = { request, _, completion in
                     switch (request.method, request.url) {
@@ -241,8 +241,8 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
             let total = 5
             var remaining = total
 
-            fixture(name: "Collections", createGitRepo: false) { directoryPath in
-                let path = directoryPath.appending(components: "GitHub", "metadata.json")
+            try fixture(name: "Collections", createGitRepo: false) { fixturePath in
+                let path = fixturePath.appending(components: "GitHub", "metadata.json")
                 let data = try Data(localFileSystem.readFileContents(path).contents)
                 let handler: HTTPClient.Handler = { request, _, completion in
                     var headers = HTTPClientHeaders()
@@ -286,7 +286,7 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
 
     func testInvalidURL() throws {
         try testWithTemporaryDirectory { tmpPath in
-            fixture(name: "Collections", createGitRepo: false) { _ in
+            try fixture(name: "Collections", createGitRepo: false) { _ in
                 var configuration = GitHubPackageMetadataProvider.Configuration()
                 configuration.cacheDir = tmpPath
                 let provider = GitHubPackageMetadataProvider(configuration: configuration)
@@ -303,7 +303,7 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
 
     func testInvalidURL2() throws {
         try testWithTemporaryDirectory { tmpPath in
-            fixture(name: "Collections", createGitRepo: false) { _ in
+            try fixture(name: "Collections", createGitRepo: false) { _ in
                 var configuration = GitHubPackageMetadataProvider.Configuration()
                 configuration.cacheDir = tmpPath
                 let provider = GitHubPackageMetadataProvider(configuration: configuration)

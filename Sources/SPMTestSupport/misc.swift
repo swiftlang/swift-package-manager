@@ -38,7 +38,7 @@ public func fixture(
     file: StaticString = #file,
     line: UInt = #line,
     body: (AbsolutePath) throws -> Void
-) {
+) throws {
     do {
         // Make a suitable test directory name from the fixture subpath.
         let fixtureSubpath = RelativePath(name)
@@ -91,9 +91,7 @@ public func fixture(
         print("**** FAILURE EXECUTING SUBPROCESS ****")
         print("output:", output)
         print("stderr:", stderr)
-        XCTFail("\(error)", file: file, line: line)
-    } catch {
-        XCTFail("\(error)", file: file, line: line)
+        throw error
     }
 }
 

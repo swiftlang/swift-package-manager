@@ -21,8 +21,8 @@ import TSCBasic
 
 class JSONPackageCollectionProviderTests: XCTestCase {
     func testGood() throws {
-        fixture(name: "Collections", createGitRepo: false) { directoryPath in
-            let path = directoryPath.appending(components: "JSON", "good.json")
+        try fixture(name: "Collections", createGitRepo: false) { fixturePath in
+            let path = fixturePath.appending(components: "JSON", "good.json")
             let url = URL(string: "https://www.test.com/collection.json")!
             let data: Data = try localFileSystem.readFileContents(path)
 
@@ -83,8 +83,8 @@ class JSONPackageCollectionProviderTests: XCTestCase {
     }
 
     func testLocalFile() throws {
-        fixture(name: "Collections", createGitRepo: false) { directoryPath in
-            let path = directoryPath.appending(components: "JSON", "good.json")
+        try fixture(name: "Collections", createGitRepo: false) { fixturePath in
+            let path = fixturePath.appending(components: "JSON", "good.json")
 
             var httpClient = HTTPClient(handler: { (_, _, _) -> Void in fatalError("should not be called") })
             httpClient.configuration.circuitBreakerStrategy = .none
@@ -360,8 +360,8 @@ class JSONPackageCollectionProviderTests: XCTestCase {
     func testSignedGood() throws {
         try skipIfSignatureCheckNotSupported()
 
-        fixture(name: "Collections", createGitRepo: false) { directoryPath in
-            let path = directoryPath.appending(components: "JSON", "good_signed.json")
+        try fixture(name: "Collections", createGitRepo: false) { fixturePath in
+            let path = fixturePath.appending(components: "JSON", "good_signed.json")
             let url = URL(string: "https://www.test.com/collection.json")!
             let data: Data = try localFileSystem.readFileContents(path)
 
@@ -429,8 +429,8 @@ class JSONPackageCollectionProviderTests: XCTestCase {
     }
 
     func testSigned_skipSignatureCheck() throws {
-        fixture(name: "Collections", createGitRepo: false) { directoryPath in
-            let path = directoryPath.appending(components: "JSON", "good_signed.json")
+        try fixture(name: "Collections", createGitRepo: false) { fixturePath in
+            let path = fixturePath.appending(components: "JSON", "good_signed.json")
             let url = URL(string: "https://www.test.com/collection.json")!
             let data: Data = try localFileSystem.readFileContents(path)
 
@@ -496,8 +496,8 @@ class JSONPackageCollectionProviderTests: XCTestCase {
     func testSigned_noTrustedRootCertsConfigured() throws {
         try skipIfSignatureCheckNotSupported()
 
-        fixture(name: "Collections", createGitRepo: false) { directoryPath in
-            let path = directoryPath.appending(components: "JSON", "good_signed.json")
+        try fixture(name: "Collections", createGitRepo: false) { fixturePath in
+            let path = fixturePath.appending(components: "JSON", "good_signed.json")
             let url = URL(string: "https://www.test.com/collection.json")!
             let data: Data = try localFileSystem.readFileContents(path)
 
@@ -538,8 +538,8 @@ class JSONPackageCollectionProviderTests: XCTestCase {
     func testSignedBad() throws {
         try skipIfSignatureCheckNotSupported()
 
-        fixture(name: "Collections", createGitRepo: false) { directoryPath in
-            let path = directoryPath.appending(components: "JSON", "good_signed.json")
+        try fixture(name: "Collections", createGitRepo: false) { fixturePath in
+            let path = fixturePath.appending(components: "JSON", "good_signed.json")
             let url = URL(string: "https://www.test.com/collection.json")!
             let data: Data = try localFileSystem.readFileContents(path)
 
@@ -581,8 +581,8 @@ class JSONPackageCollectionProviderTests: XCTestCase {
     func testSignedLocalFile() throws {
         try skipIfSignatureCheckNotSupported()
 
-        fixture(name: "Collections", createGitRepo: false) { directoryPath in
-            let path = directoryPath.appending(components: "JSON", "good_signed.json")
+        try fixture(name: "Collections", createGitRepo: false) { fixturePath in
+            let path = fixturePath.appending(components: "JSON", "good_signed.json")
 
             var httpClient = HTTPClient(handler: { (_, _, _) -> Void in fatalError("should not be called") })
             httpClient.configuration.circuitBreakerStrategy = .none
@@ -628,8 +628,8 @@ class JSONPackageCollectionProviderTests: XCTestCase {
     }
 
     func testRequiredSigningGood() throws {
-        fixture(name: "Collections", createGitRepo: false) { directoryPath in
-            let path = directoryPath.appending(components: "JSON", "good_signed.json")
+        try fixture(name: "Collections", createGitRepo: false) { fixturePath in
+            let path = fixturePath.appending(components: "JSON", "good_signed.json")
             let url = URL(string: "https://www.test.com/collection.json")!
             let data: Data = try localFileSystem.readFileContents(path)
 
@@ -698,8 +698,8 @@ class JSONPackageCollectionProviderTests: XCTestCase {
     }
 
     func testRequiredSigningMultiplePoliciesGood() throws {
-        fixture(name: "Collections", createGitRepo: false) { directoryPath in
-            let path = directoryPath.appending(components: "JSON", "good_signed.json")
+        try fixture(name: "Collections", createGitRepo: false) { fixturePath in
+            let path = fixturePath.appending(components: "JSON", "good_signed.json")
             let url = URL(string: "https://www.test.com/collection.json")!
             let data: Data = try localFileSystem.readFileContents(path)
 
@@ -773,8 +773,8 @@ class JSONPackageCollectionProviderTests: XCTestCase {
     }
 
     func testMissingRequiredSignature() throws {
-        fixture(name: "Collections", createGitRepo: false) { directoryPath in
-            let path = directoryPath.appending(components: "JSON", "good.json")
+        try fixture(name: "Collections", createGitRepo: false) { fixturePath in
+            let path = fixturePath.appending(components: "JSON", "good.json")
             let url = URL(string: "https://www.test.com/collection.json")!
             let data: Data = try localFileSystem.readFileContents(path)
 

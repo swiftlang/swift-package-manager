@@ -119,7 +119,7 @@ final class AuthorizationProviderTests: XCTestCase {
         }
     }
 
-    private func assertAuthentication(_ provider: AuthorizationProvider, for url: Foundation.URL, expected: (user: String, password: String)) {
+    private func assertAuthentication(_ provider: AuthorizationProvider, for url: URL, expected: (user: String, password: String)) {
         let authentication = provider.authentication(for: url)
         XCTAssertEqual(authentication?.user, expected.user)
         XCTAssertEqual(authentication?.password, expected.password)

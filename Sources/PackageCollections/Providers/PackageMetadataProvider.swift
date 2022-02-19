@@ -35,7 +35,7 @@ extension Model {
         let keywords: [String]?
         let versions: [PackageBasicVersionMetadata]
         let watchersCount: Int?
-        let readmeURL: Foundation.URL?
+        let readmeURL: URL?
         let license: PackageCollectionsModel.License?
         let authors: [PackageCollectionsModel.Package.Author]?
         let languages: Set<String>?

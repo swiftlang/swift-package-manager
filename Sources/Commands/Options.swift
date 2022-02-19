@@ -375,6 +375,12 @@ public struct SwiftToolOptions: ParsableArguments {
     @Option(name: .customLong("resolver-fingerprint-checking"))
     var resolverFingerprintCheckingMode: FingerprintCheckingMode = .warn
 
+    @Flag(
+        name: .customLong("dead-strip"),
+        inversion: .prefixedEnableDisable,
+        help: "Disable/enable dead code stripping by the linker")
+    var linkerDeadStrip: Bool = true
+
     @Flag(name: .customLong("netrc"), help: .hidden)
     var _deprecated_netrc: Bool = false
 

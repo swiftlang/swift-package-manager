@@ -378,7 +378,7 @@ extension PropertyListDictionaryConvertible {
     public static func asPropertyList(_ object: PropertyListDictionaryConvertible) throws -> PropertyList {
         // Borderline hacky, but the main thing is that adding or changing a
         // build setting does not require any changes to the property list
-        // representation code.  Using a handcoded serializer might be more
+        // representation code.  Using a hand coded serializer might be more
         // efficient but not even remotely as robust, and robustness is the
         // key factor for this use case, as there aren't going to be millions
         // of BuildSettings structs.

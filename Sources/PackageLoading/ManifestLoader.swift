@@ -76,7 +76,7 @@ public protocol ManifestLoaderProtocol {
 }
 
 public extension ManifestLoaderProtocol {
-    var supportedArchiveExtension: String { "zip" }
+    var supportedArchiveExtensions: [String] { ["zip"] }
 }
 
 public protocol ManifestLoaderDelegate {
@@ -408,30 +408,69 @@ public final class ManifestLoader: ManifestLoaderProtocol {
     private func validateBinaryTargets(_ manifest: Manifest, observabilityScope: ObservabilityScope) throws {
         // Check that binary targets point to the right file type.
         for target in manifest.targets where target.type == .binary {
-            guard let location = URL(string: target.url ?? target.path ?? "") else {
+            if target.isLocal {
+                guard let path = target.path else {
+                    observabilityScope.emit(.invalidBinaryLocation(targetName: target.name))
+                    continue
+                }
+
+                guard let path = path.spm_chuzzle(), !path.isEmpty else {
+                    observabilityScope.emit(.invalidLocalBinaryPath(path: path, targetName: target.name))
+                    continue
+                }
+
+                guard let relativePath = try? RelativePath(validating: path) else {
+                    observabilityScope.emit(.invalidLocalBinaryPath(path: path, targetName: target.name))
+                    continue
+                }
+
+                let validExtensions = self.supportedArchiveExtensions + BinaryTarget.Kind.allCases.filter{ $0 != .unknown }.map { $0.fileExtension }
+                guard let fileExtension = relativePath.extension, validExtensions.contains(fileExtension) else {
+                    observabilityScope.emit(.unsupportedBinaryLocationExtension(
+                        targetName: target.name,
+                        validExtensions: validExtensions
+                    ))
+                    continue
+                }
+            } else if target.isRemote {
+                guard let url = target.url else {
+                    observabilityScope.emit(.invalidBinaryLocation(targetName: target.name))
+                    continue
+                }
+
+                guard let url = url.spm_chuzzle(), !url.isEmpty else {
+                    observabilityScope.emit(.invalidBinaryURL(url: url, targetName: target.name))
+                    continue
+                }
+
+                guard let url = URL(string: url) else {
+                    observabilityScope.emit(.invalidBinaryURL(url: url, targetName: target.name))
+                    continue
+                }
+
+                let validSchemes = ["https"]
+                guard url.scheme.map({ validSchemes.contains($0) }) ?? false else {
+                    observabilityScope.emit(.invalidBinaryURLScheme(
+                        targetName: target.name,
+                        validSchemes: validSchemes
+                    ))
+                    continue
+                }
+
+                guard self.supportedArchiveExtensions.contains(url.pathExtension) else {
+                    observabilityScope.emit(.unsupportedBinaryLocationExtension(
+                        targetName: target.name,
+                        validExtensions: self.supportedArchiveExtensions
+                    ))
+                    continue
+                }
+
+            } else {
                 observabilityScope.emit(.invalidBinaryLocation(targetName: target.name))
                 continue
             }
 
-            let validSchemes = ["https"]
-            if target.isRemote && (location.scheme.map({ !validSchemes.contains($0) }) ?? true) {
-                observabilityScope.emit(.invalidBinaryURLScheme(
-                    targetName: target.name,
-                    validSchemes: validSchemes
-                ))
-            }
 
-            var validExtensions = [self.supportedArchiveExtension]
-            if target.isLocal {
-                validExtensions += BinaryTarget.Kind.allCases.filter{ $0 != .unknown }.map { $0.fileExtension }
-            }
-
-            if !validExtensions.contains(location.pathExtension) {
-                observabilityScope.emit(.unsupportedBinaryLocationExtension(
-                    targetName: target.name,
-                    validExtensions: validExtensions
-                ))
-            }
         }
     }
 
@@ -557,8 +596,13 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             )
         }
 
-        // TODO: we could wrap the failure here with diagnostics if it wasn't optional throughout
-        var closeAfterRead = DelayableAction(target: cache) { try? $0.close() }
+        var closeAfterRead = DelayableAction(target: cache) { cache in
+            do {
+                try cache.close()
+            } catch {
+                observabilityScope.emit(warning: "failed closing cache: \(error)")
+            }
+        }
         defer { closeAfterRead.perform() }
 
         let key : CacheKey
@@ -1068,6 +1112,14 @@ extension Basics.Diagnostic {
 
     static func invalidBinaryLocation(targetName: String) -> Self {
         .error("invalid location for binary target '\(targetName)'")
+    }
+
+    static func invalidBinaryURL(url: String, targetName: String) -> Self {
+        .error("invalid URL '\(url)' for binary target '\(targetName)'")
+    }
+
+    static func invalidLocalBinaryPath(path: String, targetName: String) -> Self {
+        .error("invalid local path '\(path)' for binary target '\(targetName)', path expected to be relative to package root.")
     }
 
     static func invalidBinaryURLScheme(targetName: String, validSchemes: [String]) -> Self {

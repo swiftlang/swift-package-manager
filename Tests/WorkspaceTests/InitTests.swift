@@ -81,7 +81,7 @@ class InitTests: XCTestCase {
             let readmeContents: String = try localFileSystem.readFileContents(readme)
             XCTAssertMatch(readmeContents, .prefix("# Foo\n"))
 
-            XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Sources").appending(component: "Foo")), ["main.swift"])
+            XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Sources").appending(component: "Foo")), ["Foo.swift"])
             XCTAssertEqual(try fs.getDirectoryContents(path.appending(component: "Tests")).sorted(), ["FooTests"])
             
             // If we have a compiler that supports `-entry-point-function-name`, we try building it (we need that flag now).

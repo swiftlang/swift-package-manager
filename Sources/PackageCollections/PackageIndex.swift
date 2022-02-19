@@ -178,7 +178,7 @@ struct PackageIndex: PackageIndexProtocol, Closable {
 
     private func runIfConfigured<T>(
         callback: @escaping (Result<T, Error>) -> Void,
-        handler: @escaping (Foundation.URL, @escaping (Result<T, Error>) -> Void) -> Void
+        handler: @escaping (URL, @escaping (Result<T, Error>) -> Void) -> Void
     ) {
         let callback = self.makeAsync(callback)
         

@@ -17,4 +17,12 @@ extension String {
     public var sha256Checksum: String {
         return SHA256().hash(self).hexadecimalRepresentation
     }
+
+    /// Drops the given suffix from the string, if present.
+    public func spm_dropPrefix(_ prefix: String) -> String {
+        if self.hasPrefix(prefix) {
+            return String(self.dropFirst(prefix.count))
+        }
+        return self
+    }
 }

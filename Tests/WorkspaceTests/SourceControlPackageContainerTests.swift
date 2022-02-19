@@ -39,7 +39,7 @@ private class MockRepository: Repository {
         self.versions = versions
     }
 
-    init(fs: FileSystem, url: Foundation.URL, versions: [Version: Manifest]) {
+    init(fs: FileSystem, url: URL, versions: [Version: Manifest]) {
         self.fs = fs
         self.location = .url(url)
         self.packageRef = .remoteSourceControl(identity: PackageIdentity(url: url), url: url)

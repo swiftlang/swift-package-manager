@@ -43,7 +43,8 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
     // TODO: we could potentially optimize this with db connection pool
     private let ftsLock = Lock()
     // FTS not supported on some platforms; the code falls back to "slow path" in that case
-    internal let useSearchIndices = ThreadSafeBox<Bool>() // internal for testing
+    // marked internal for testing
+    internal let useSearchIndices = ThreadSafeBox<Bool>()
 
     // Targets have in-memory trie in addition to SQLite FTS as optimization
     private let targetTrie = Trie<CollectionPackage>()
@@ -73,9 +74,8 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
     }
 
     deinit {
-        // TODO: we could wrap the failure here with diagnostics if it wasn't optional throughout
         guard case .disconnected = (try? self.withStateLock { self.state }) else {
-            return assertionFailure("db should be closed")
+            return self.observabilityScope.emit(warning: "SQLitePackageCollectionsStorage de-initialized but db is not closed")
         }
     }
 

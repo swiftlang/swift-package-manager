@@ -75,15 +75,15 @@ public class RegistryPackageContainer: PackageContainer {
 
     public func versionsDescending() throws -> [Version] {
         try self.knownVersionsCache.memoize {
-            let versions = try temp_await {
-                self.registryClient.fetchVersions(
+            let metadata = try temp_await {
+                self.registryClient.getPackageMetadata(
                     package: self.package.identity,
                     observabilityScope: self.observabilityScope,
                     callbackQueue: .sharedConcurrent,
                     completion: $0
                 )
             }
-            return versions.sorted(by: >)
+            return metadata.versions.sorted(by: >)
         }
     }
 
@@ -112,7 +112,7 @@ public class RegistryPackageContainer: PackageContainer {
         return self.package
     }
 
-    // internal for testing
+    // marked internal for testing
     internal func loadManifest(version: Version) throws -> Manifest {
         return try self.manifestsCache.memoize(version) {
             try temp_await {

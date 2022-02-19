@@ -266,7 +266,7 @@ final class HTTPClientTest: XCTestCase {
     }
 
     func testAuthorization() {
-        let url = Foundation.URL(string: "http://test")!
+        let url = URL(string: "http://test")!
         let authorization = UUID().uuidString
 
         let handler: HTTPClient.Handler = { request, _, completion in

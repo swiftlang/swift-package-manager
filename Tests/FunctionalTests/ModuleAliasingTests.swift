@@ -25,15 +25,15 @@ class ModuleAliasingTests: XCTestCase {
 
         try XCTSkipIf(true, "rdar://88722540")
 
-        fixture(name: "Miscellaneous/ModuleAliasing/DirectDeps") { prefix in
-            let app = prefix.appending(components: "AppPkg")
+        try fixture(name: "Miscellaneous/ModuleAliasing/DirectDeps") { fixturePath in
+            let app = fixturePath.appending(components: "AppPkg")
             XCTAssertBuilds(app)
-            XCTAssertFileExists(prefix.appending(components: "AppPkg", ".build", UserToolchain.default.triple.platformBuildPathComponent(), "debug", "App"))
-            XCTAssertFileExists(prefix.appending(components: "AppPkg", ".build", UserToolchain.default.triple.platformBuildPathComponent(), "release", "App"))
-            XCTAssertFileExists(prefix.appending(components: "AppPkg", ".build", UserToolchain.default.triple.platformBuildPathComponent(), "debug", "GameUtils.swiftmodule"))
-            XCTAssertFileExists(prefix.appending(components: "AppPkg", ".build", UserToolchain.default.triple.platformBuildPathComponent(), "release", "GameUtils.swiftmodule"))
-            XCTAssertFileExists(prefix.appending(components: "AppPkg", ".build", UserToolchain.default.triple.platformBuildPathComponent(), "debug", "Utils.swiftmodule"))
-            XCTAssertFileExists(prefix.appending(components: "AppPkg", ".build", UserToolchain.default.triple.platformBuildPathComponent(), "release", "Utils.swiftmodule"))
+            XCTAssertFileExists(fixturePath.appending(components: "AppPkg", ".build", UserToolchain.default.triple.platformBuildPathComponent(), "debug", "App"))
+            XCTAssertFileExists(fixturePath.appending(components: "AppPkg", ".build", UserToolchain.default.triple.platformBuildPathComponent(), "release", "App"))
+            XCTAssertFileExists(fixturePath.appending(components: "AppPkg", ".build", UserToolchain.default.triple.platformBuildPathComponent(), "debug", "GameUtils.swiftmodule"))
+            XCTAssertFileExists(fixturePath.appending(components: "AppPkg", ".build", UserToolchain.default.triple.platformBuildPathComponent(), "release", "GameUtils.swiftmodule"))
+            XCTAssertFileExists(fixturePath.appending(components: "AppPkg", ".build", UserToolchain.default.triple.platformBuildPathComponent(), "debug", "Utils.swiftmodule"))
+            XCTAssertFileExists(fixturePath.appending(components: "AppPkg", ".build", UserToolchain.default.triple.platformBuildPathComponent(), "release", "Utils.swiftmodule"))
             
             let result = try SwiftPMProduct.SwiftBuild.executeProcess([], packagePath: app)
             let output = try result.utf8Output() + result.utf8stderrOutput()

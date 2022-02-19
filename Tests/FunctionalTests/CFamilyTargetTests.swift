@@ -6,7 +6,7 @@
 
  See http://swift.org/LICENSE.txt for license information
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
-*/
+ */
 
 import Commands
 import PackageGraph
@@ -34,20 +34,20 @@ private func XCTAssertDirectoryContainsFile(dir: AbsolutePath, filename: String,
 
 class CFamilyTargetTestCase: XCTestCase {
 
-    func testCLibraryWithSpaces() {
-        fixture(name: "CFamilyTargets/CLibraryWithSpaces") { prefix in
-            XCTAssertBuilds(prefix)
-            let debugPath = prefix.appending(components: ".build", UserToolchain.default.triple.platformBuildPathComponent(), "debug")
+    func testCLibraryWithSpaces() throws {
+        try fixture(name: "CFamilyTargets/CLibraryWithSpaces") { fixturePath in
+            XCTAssertBuilds(fixturePath)
+            let debugPath = fixturePath.appending(components: ".build", UserToolchain.default.triple.platformBuildPathComponent(), "debug")
             XCTAssertDirectoryContainsFile(dir: debugPath, filename: "Bar.c.o")
             XCTAssertDirectoryContainsFile(dir: debugPath, filename: "Foo.c.o")
         }
     }
 
-    func testCUsingCAndSwiftDep() {
-        fixture(name: "DependencyResolution/External/CUsingCDep") { prefix in
-            let packageRoot = prefix.appending(component: "Bar")
+    func testCUsingCAndSwiftDep() throws {
+        try fixture(name: "DependencyResolution/External/CUsingCDep") { fixturePath in
+            let packageRoot = fixturePath.appending(component: "Bar")
             XCTAssertBuilds(packageRoot)
-            let debugPath = prefix.appending(components: "Bar", ".build", UserToolchain.default.triple.platformBuildPathComponent(), "debug")
+            let debugPath = fixturePath.appending(components: "Bar", ".build", UserToolchain.default.triple.platformBuildPathComponent(), "debug")
             XCTAssertDirectoryContainsFile(dir: debugPath, filename: "Sea.c.o")
             XCTAssertDirectoryContainsFile(dir: debugPath, filename: "Foo.c.o")
             let path = try SwiftPMProduct.packagePath(for: "Foo", packageRoot: packageRoot)
@@ -55,10 +55,10 @@ class CFamilyTargetTestCase: XCTestCase {
         }
     }
 
-    func testModuleMapGenerationCases() {
-        fixture(name: "CFamilyTargets/ModuleMapGenerationCases") { prefix in
-            XCTAssertBuilds(prefix)
-            let debugPath = prefix.appending(components: ".build", UserToolchain.default.triple.platformBuildPathComponent(), "debug")
+    func testModuleMapGenerationCases() throws {
+        try fixture(name: "CFamilyTargets/ModuleMapGenerationCases") { fixturePath in
+            XCTAssertBuilds(fixturePath)
+            let debugPath = fixturePath.appending(components: ".build", UserToolchain.default.triple.platformBuildPathComponent(), "debug")
             XCTAssertDirectoryContainsFile(dir: debugPath, filename: "Jaz.c.o")
             XCTAssertDirectoryContainsFile(dir: debugPath, filename: "main.swift.o")
             XCTAssertDirectoryContainsFile(dir: debugPath, filename: "FlatInclude.c.o")
@@ -66,9 +66,9 @@ class CFamilyTargetTestCase: XCTestCase {
         }
     }
     
-    func testNoIncludeDirCheck() {
-        fixture(name: "CFamilyTargets/CLibraryNoIncludeDir") { prefix in
-            XCTAssertThrowsError(try executeSwiftBuild(prefix), "This build should throw an error") { err in
+    func testNoIncludeDirCheck() throws {
+        try fixture(name: "CFamilyTargets/CLibraryNoIncludeDir") { fixturePath in
+            XCTAssertThrowsError(try executeSwiftBuild(fixturePath), "This build should throw an error") { err in
                 // The err.localizedDescription doesn't capture the detailed error string so interpolate
                 let errStr = "\(err)"
                 let missingIncludeDirStr = "\(ModuleError.invalidPublicHeadersDirectory("Cfactorial"))"
@@ -77,24 +77,25 @@ class CFamilyTargetTestCase: XCTestCase {
         }
     }
 
-    func testCanForwardExtraFlagsToClang() {
+    func testCanForwardExtraFlagsToClang() throws {
         // Try building a fixture which needs extra flags to be able to build.
-        fixture(name: "CFamilyTargets/CDynamicLookup") { prefix in
-            XCTAssertBuilds(prefix, Xld: ["-undefined", "dynamic_lookup"])
-            let debugPath = prefix.appending(components: ".build", UserToolchain.default.triple.platformBuildPathComponent(), "debug")
+        try fixture(name: "CFamilyTargets/CDynamicLookup") { fixturePath in
+            XCTAssertBuilds(fixturePath, Xld: ["-undefined", "dynamic_lookup"])
+            let debugPath = fixturePath.appending(components: ".build", UserToolchain.default.triple.platformBuildPathComponent(), "debug")
             XCTAssertDirectoryContainsFile(dir: debugPath, filename: "Foo.c.o")
         }
     }
 
     func testObjectiveCPackageWithTestTarget() throws {
-      #if os(macOS)
-        fixture(name: "CFamilyTargets/ObjCmacOSPackage") { prefix in
+        #if !os(macOS)
+        try XCTSkipIf(true, "test is only supported on macOS")
+        #endif
+        try fixture(name: "CFamilyTargets/ObjCmacOSPackage") { fixturePath in
             // Build the package.
-            XCTAssertBuilds(prefix)
-            XCTAssertDirectoryContainsFile(dir: prefix.appending(components: ".build", UserToolchain.default.triple.platformBuildPathComponent(), "debug"), filename: "HelloWorldExample.m.o")
+            XCTAssertBuilds(fixturePath)
+            XCTAssertDirectoryContainsFile(dir: fixturePath.appending(components: ".build", UserToolchain.default.triple.platformBuildPathComponent(), "debug"), filename: "HelloWorldExample.m.o")
             // Run swift-test on package.
-            XCTAssertSwiftTest(prefix)
+            XCTAssertSwiftTest(fixturePath)
         }
-      #endif
     }
 }

@@ -6,7 +6,7 @@
 
  See http://swift.org/LICENSE.txt for license information
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
-*/
+ */
 
 import Basics
 import Foundation
@@ -22,16 +22,18 @@ import XCTest
 class PIFBuilderTests: XCTestCase {
     let inputsDir = AbsolutePath(#file).parentDirectory.appending(components: "Inputs")
 
-  #if os(macOS)
     func testOrdering() throws {
+        #if !os(macOS)
+        try XCTSkipIf(true, "test is only supported on macOS")
+        #endif
         // Repeat multiple times to detect non-deterministic shuffling due to sets.
         for _ in 0..<10 {
             let fs = InMemoryFileSystem(emptyFiles:
-                "/A/Sources/A1/main.swift",
-                "/A/Sources/A2/lib.swift",
-                "/A/Sources/A3/lib.swift",
-                "/B/Sources/B1/main.swift",
-                "/B/Sources/B2/lib.swift"
+                                            "/A/Sources/A1/main.swift",
+                                        "/A/Sources/A2/lib.swift",
+                                        "/A/Sources/A3/lib.swift",
+                                        "/B/Sources/B1/main.swift",
+                                        "/B/Sources/B2/lib.swift"
             )
 
             let observability = ObservabilitySystem.makeForTesting()
@@ -87,19 +89,22 @@ class PIFBuilderTests: XCTestCase {
             let targetAExeDependencies = pif.workspace.projects[0].targets[0].dependencies
             XCTAssertEqual(targetAExeDependencies.map{ $0.targetGUID }, ["PACKAGE-PRODUCT:blib", "PACKAGE-TARGET:A2", "PACKAGE-TARGET:A3"])
             let projectBTargetNames = pif.workspace.projects[1].targets.map({ $0.name })
-            #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
+#if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
             XCTAssertEqual(projectBTargetNames, ["blib_7AE74026D_PackageProduct", "B2"])
-            #else
+#else
             XCTAssertEqual(projectBTargetNames, ["bexe_7ADFD1428_PackageProduct", "blib_7AE74026D_PackageProduct", "B2"])
-            #endif
+#endif
         }
     }
 
     func testProject() throws {
+        #if !os(macOS)
+        try XCTSkipIf(true, "test is only supported on macOS")
+        #endif
         let fs = InMemoryFileSystem(emptyFiles:
-            "/Foo/Sources/foo/main.swift",
-            "/Foo/Tests/FooTests/tests.swift",
-            "/Bar/Sources/BarLib/lib.swift"
+                                        "/Foo/Sources/foo/main.swift",
+                                    "/Foo/Tests/FooTests/tests.swift",
+                                    "/Bar/Sources/BarLib/lib.swift"
         )
 
         let observability = ObservabilitySystem.makeForTesting()
@@ -372,14 +377,17 @@ class PIFBuilderTests: XCTestCase {
     }
 
     func testExecutableProducts() throws {
+        #if !os(macOS)
+        try XCTSkipIf(true, "test is only supported on macOS")
+        #endif
         let fs = InMemoryFileSystem(emptyFiles:
-            "/Foo/Sources/foo/main.swift",
-            "/Foo/Sources/cfoo/main.c",
-            "/Foo/Sources/FooLib/lib.swift",
-            "/Foo/Sources/SystemLib/module.modulemap",
-            "/Bar/Sources/bar/main.swift",
-            "/Bar/Sources/cbar/main.c",
-            "/Bar/Sources/BarLib/lib.swift"
+                                        "/Foo/Sources/foo/main.swift",
+                                    "/Foo/Sources/cfoo/main.c",
+                                    "/Foo/Sources/FooLib/lib.swift",
+                                    "/Foo/Sources/SystemLib/module.modulemap",
+                                    "/Bar/Sources/bar/main.swift",
+                                    "/Bar/Sources/cbar/main.c",
+                                    "/Bar/Sources/BarLib/lib.swift"
         )
 
         let observability = ObservabilitySystem.makeForTesting()
@@ -700,17 +708,20 @@ class PIFBuilderTests: XCTestCase {
     }
 
     func testTestProducts() throws {
+        #if !os(macOS)
+                try XCTSkipIf(true, "test is only supported on macOS")
+        #endif
         let fs = InMemoryFileSystem(emptyFiles:
-            "/Foo/Sources/FooTests/FooTests.swift",
-            "/Foo/Sources/CFooTests/CFooTests.m",
-            "/Foo/Sources/foo/main.swift",
-            "/Foo/Sources/FooLib/lib.swift",
-            "/Foo/Sources/SystemLib/module.modulemap",
-            "/Bar/Sources/bar/main.swift",
-            "/Bar/Sources/BarTests/BarTests.swift",
-            "/Bar/Sources/CBarTests/CBarTests.m",
-            "/Bar/Sources/BarLib/lib.swift",
-            inputsDir.appending(component: "Foo.pc").pathString
+                                        "/Foo/Sources/FooTests/FooTests.swift",
+                                    "/Foo/Sources/CFooTests/CFooTests.m",
+                                    "/Foo/Sources/foo/main.swift",
+                                    "/Foo/Sources/FooLib/lib.swift",
+                                    "/Foo/Sources/SystemLib/module.modulemap",
+                                    "/Bar/Sources/bar/main.swift",
+                                    "/Bar/Sources/BarTests/BarTests.swift",
+                                    "/Bar/Sources/CBarTests/CBarTests.m",
+                                    "/Bar/Sources/BarLib/lib.swift",
+                                    inputsDir.appending(component: "Foo.pc").pathString
         )
 
         let observability = ObservabilitySystem.makeForTesting()
@@ -951,11 +962,14 @@ class PIFBuilderTests: XCTestCase {
     }
 
     func testLibraryProducts() throws {
+        #if !os(macOS)
+        try XCTSkipIf(true, "test is only supported on macOS")
+        #endif
         let fs = InMemoryFileSystem(emptyFiles:
-            "/Foo/Sources/FooLib1/lib.swift",
-            "/Foo/Sources/FooLib2/lib.swift",
-            "/Foo/Sources/SystemLib/module.modulemap",
-            "/Bar/Sources/BarLib/lib.swift"
+                                        "/Foo/Sources/FooLib1/lib.swift",
+                                    "/Foo/Sources/FooLib2/lib.swift",
+                                    "/Foo/Sources/SystemLib/module.modulemap",
+                                    "/Bar/Sources/BarLib/lib.swift"
         )
 
         let observability = ObservabilitySystem.makeForTesting()
@@ -1099,8 +1113,8 @@ class PIFBuilderTests: XCTestCase {
                         XCTAssertEqual(configuration.guid, "PACKAGE-PRODUCT:BarLib::BUILDCONFIG_Debug")
                         XCTAssertEqual(configuration.name, "Debug")
                         configuration.checkAllBuildSettings { settings in
-                        XCTAssertEqual(settings[.USES_SWIFTPM_UNSAFE_FLAGS], "NO")
-                        XCTAssertEqual(settings[.APPLICATION_EXTENSION_API_ONLY], "YES")
+                            XCTAssertEqual(settings[.USES_SWIFTPM_UNSAFE_FLAGS], "NO")
+                            XCTAssertEqual(settings[.APPLICATION_EXTENSION_API_ONLY], "YES")
                             XCTAssertEqual(settings[.BUILT_PRODUCTS_DIR], "$(BUILT_PRODUCTS_DIR)/PackageFrameworks")
                             XCTAssertEqual(settings[.CLANG_ENABLE_MODULES], "YES")
                             XCTAssertEqual(settings[.CURRENT_PROJECT_VERSION], "1")
@@ -1150,11 +1164,14 @@ class PIFBuilderTests: XCTestCase {
     }
 
     func testLibraryTargets() throws {
+        #if !os(macOS)
+        try XCTSkipIf(true, "test is only supported on macOS")
+        #endif
         let fs = InMemoryFileSystem(emptyFiles:
-            "/Foo/Sources/FooLib1/lib.swift",
-            "/Foo/Sources/FooLib2/lib.cpp",
-            "/Foo/Sources/SystemLib/module.modulemap",
-            "/Bar/Sources/BarLib/lib.c"
+                                        "/Foo/Sources/FooLib1/lib.swift",
+                                    "/Foo/Sources/FooLib2/lib.cpp",
+                                    "/Foo/Sources/SystemLib/module.modulemap",
+                                    "/Bar/Sources/BarLib/lib.c"
         )
 
         let observability = ObservabilitySystem.makeForTesting()
@@ -1444,8 +1461,11 @@ class PIFBuilderTests: XCTestCase {
     }
 
     func testLibraryTargetsAsDylib() throws {
+        #if !os(macOS)
+        try XCTSkipIf(true, "test is only supported on macOS")
+        #endif
         let fs = InMemoryFileSystem(emptyFiles:
-            "/Bar/Sources/BarLib/lib.c"
+                                        "/Bar/Sources/BarLib/lib.c"
         )
 
         let observability = ObservabilitySystem.makeForTesting()
@@ -1493,9 +1513,12 @@ class PIFBuilderTests: XCTestCase {
     }
 
     func testLibraryTargetWithModuleMap() throws {
+        #if !os(macOS)
+        try XCTSkipIf(true, "test is only supported on macOS")
+        #endif
         let fs = InMemoryFileSystem(emptyFiles:
-            "/Bar/Sources/BarLib/lib.c",
-            "/Bar/Sources/BarLib/module.modulemap"
+                                        "/Bar/Sources/BarLib/lib.c",
+                                    "/Bar/Sources/BarLib/module.modulemap"
         )
 
         let observability = ObservabilitySystem.makeForTesting()
@@ -1548,9 +1571,12 @@ class PIFBuilderTests: XCTestCase {
     }
 
     func testSystemLibraryTargets() throws {
+        #if !os(macOS)
+        try XCTSkipIf(true, "test is only supported on macOS")
+        #endif
         let fs = InMemoryFileSystem(emptyFiles:
-            "/Foo/Sources/SystemLib1/module.modulemap",
-            "/Foo/Sources/SystemLib2/module.modulemap"
+                                        "/Foo/Sources/SystemLib1/module.modulemap",
+                                    "/Foo/Sources/SystemLib2/module.modulemap"
         )
 
         let observability = ObservabilitySystem.makeForTesting()
@@ -1662,11 +1688,14 @@ class PIFBuilderTests: XCTestCase {
     }
 
     func testBinaryTargets() throws {
+        #if !os(macOS)
+        try XCTSkipIf(true, "test is only supported on macOS")
+        #endif
         let fs = InMemoryFileSystem(emptyFiles:
-            "/Foo/Sources/foo/main.swift",
-            "/Foo/Sources/FooLib/lib.swift",
-            "/Foo/Sources/FooTests/FooTests.swift",
-            "/Foo/BinaryLibrary.xcframework/Info.plist"
+                                        "/Foo/Sources/foo/main.swift",
+                                    "/Foo/Sources/FooLib/lib.swift",
+                                    "/Foo/Sources/FooTests/FooTests.swift",
+                                    "/Foo/BinaryLibrary.xcframework/Info.plist"
         )
 
         let observability = ObservabilitySystem.makeForTesting()
@@ -1726,16 +1755,19 @@ class PIFBuilderTests: XCTestCase {
     }
 
     func testResources() throws {
+        #if !os(macOS)
+        try XCTSkipIf(true, "test is only supported on macOS")
+        #endif
         let fs = InMemoryFileSystem(emptyFiles:
-            "/Foo/Sources/foo/main.swift",
-            "/Foo/Sources/foo/Resources/Data.plist",
-            "/Foo/Sources/foo/Resources/Database.xcdatamodel",
-            "/Foo/Sources/FooLib/lib.swift",
-            "/Foo/Sources/FooLib/Resources/Data.plist",
-            "/Foo/Sources/FooLib/Resources/Database.xcdatamodel",
-            "/Foo/Sources/FooTests/FooTests.swift",
-            "/Foo/Sources/FooTests/Resources/Data.plist",
-            "/Foo/Sources/FooTests/Resources/Database.xcdatamodel"
+                                        "/Foo/Sources/foo/main.swift",
+                                    "/Foo/Sources/foo/Resources/Data.plist",
+                                    "/Foo/Sources/foo/Resources/Database.xcdatamodel",
+                                    "/Foo/Sources/FooLib/lib.swift",
+                                    "/Foo/Sources/FooLib/Resources/Data.plist",
+                                    "/Foo/Sources/FooLib/Resources/Database.xcdatamodel",
+                                    "/Foo/Sources/FooTests/FooTests.swift",
+                                    "/Foo/Sources/FooTests/Resources/Data.plist",
+                                    "/Foo/Sources/FooTests/Resources/Database.xcdatamodel"
         )
 
         let observability = ObservabilitySystem.makeForTesting()
@@ -1945,10 +1977,13 @@ class PIFBuilderTests: XCTestCase {
     }
 
     func testBuildSettings() throws {
+        #if !os(macOS)
+        try XCTSkipIf(true, "test is only supported on macOS")
+        #endif
         let fs = InMemoryFileSystem(emptyFiles:
-            "/Foo/Sources/foo/main.swift",
-            "/Foo/Sources/FooLib/lib.swift",
-            "/Foo/Sources/FooTests/FooTests.swift"
+                                        "/Foo/Sources/foo/main.swift",
+                                    "/Foo/Sources/FooLib/lib.swift",
+                                    "/Foo/Sources/FooTests/FooTests.swift"
         )
 
         let observability = ObservabilitySystem.makeForTesting()
@@ -2167,11 +2202,14 @@ class PIFBuilderTests: XCTestCase {
     }
 
     func testConditionalDependencies() throws {
+        #if !os(macOS)
+        try XCTSkipIf(true, "test is only supported on macOS")
+        #endif
         let fs = InMemoryFileSystem(emptyFiles:
-            "/Foo/Sources/foo/main.swift",
-            "/Foo/Sources/FooLib1/lib.swift",
-            "/Foo/Sources/FooLib2/lib.swift",
-            "/Foo/Sources/FooTests/FooTests.swift"
+                                        "/Foo/Sources/foo/main.swift",
+                                    "/Foo/Sources/FooLib1/lib.swift",
+                                    "/Foo/Sources/FooLib2/lib.swift",
+                                    "/Foo/Sources/FooTests/FooTests.swift"
         )
 
         let observability = ObservabilitySystem.makeForTesting()
@@ -2236,8 +2274,11 @@ class PIFBuilderTests: XCTestCase {
     }
 
     func testSDKOptions() throws {
+        #if !os(macOS)
+        try XCTSkipIf(true, "test is only supported on macOS")
+        #endif
         let fs = InMemoryFileSystem(emptyFiles:
-            "/Foo/Sources/foo/main.swift"
+                                        "/Foo/Sources/foo/main.swift"
         )
 
         let observability = ObservabilitySystem.makeForTesting()
@@ -2283,8 +2324,11 @@ class PIFBuilderTests: XCTestCase {
     /// Tests that the inference of XCBuild build settings based on the package manifest's declared unsafe settings
     /// works as expected.
     func testUnsafeFlagsBuildSettingInference() throws {
+        #if !os(macOS)
+        try XCTSkipIf(true, "test is only supported on macOS")
+        #endif
         let fs = InMemoryFileSystem(emptyFiles:
-            "/MyLib/Sources/MyLib/Foo.swift"
+                                        "/MyLib/Sources/MyLib/Foo.swift"
         )
 
         let observability = ObservabilitySystem.makeForTesting()
@@ -2343,8 +2387,6 @@ class PIFBuilderTests: XCTestCase {
             }
         }
     }
-
-  #endif
 }
 
 extension PIFBuilderParameters {

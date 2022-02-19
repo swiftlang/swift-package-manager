@@ -393,7 +393,7 @@ private extension ParsableCommand {
         return try handler(collections)
     }
 
-    func url(_ urlString: String) throws -> Foundation.URL {
+    func url(_ urlString: String) throws -> URL {
         guard let url = URL(string: urlString) else {
             let filePrefix = "file://"
             guard urlString.hasPrefix(filePrefix) else {

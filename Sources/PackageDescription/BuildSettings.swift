@@ -58,20 +58,41 @@ public struct BuildSettingCondition: Encodable {
         self.config = config
     }
     
-    /// Creates a build setting condition.
-    ///
-    /// At least one parameter is mandatory.
-    ///
-    /// - Parameters:
-    ///   - platforms: The applicable platforms for this build setting condition.
-    ///   - configuration: The applicable build configuration for this build setting condition.
+    @available(_PackageDescription, deprecated: 999.0)
     public static func when(
         platforms: [Platform]? = nil,
         configuration: BuildConfiguration? = nil
     ) -> BuildSettingCondition {
-        // FIXME: This should be an error, not a precondition.
         precondition(!(platforms == nil && configuration == nil))
         return BuildSettingCondition(platforms: platforms, config: configuration)
+    }
+    
+    /// Creates a build setting condition.
+    ///
+    /// - Parameters:
+    ///   - platforms: The applicable platforms for this build setting condition.
+    ///   - configuration: The applicable build configuration for this build setting condition.
+    @available(_PackageDescription, introduced: 999.0)
+    public static func when(platforms: [Platform], configuration: BuildConfiguration) -> BuildSettingCondition {
+        BuildSettingCondition(platforms: platforms, config: configuration)
+    }
+    
+    /// Creates a build setting condition.
+    ///
+    /// - Parameters:
+    ///   - platforms: The applicable platforms for this build setting condition.
+    @available(_PackageDescription, introduced: 999.0)
+    public static func when(platforms: [Platform]) -> BuildSettingCondition {
+        BuildSettingCondition(platforms: platforms, config: .none)
+    }
+    
+    /// Creates a build setting condition.
+    ///
+    /// - Parameters:
+    ///   - configuration: The applicable build configuration for this build setting condition.
+    @available(_PackageDescription, introduced: 999.0)
+    public static func when(configuration: BuildConfiguration) -> BuildSettingCondition {
+        BuildSettingCondition(platforms: .none, config: configuration)
     }
 }
 

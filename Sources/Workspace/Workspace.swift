@@ -167,7 +167,7 @@ private struct WorkspaceDependencyResolverDelegate: DependencyResolverDelegate {
     }
 
     func willResolve(term: Term) {
-        // this may be called multiple time by the resolver for various version ranges, but we only want to propagate once since we report at pacakge level
+        // this may be called multiple time by the resolver for various version ranges, but we only want to propagate once since we report at package level
         resolving.memoize(term.node.package.identity) {
             self.workspaceDelegate.willComputeVersion(package: term.node.package.identity, location: term.node.package.locationString)
             return true
@@ -220,6 +220,9 @@ public class Workspace {
 
     /// The file system on which the workspace will operate.
     fileprivate let fileSystem: FileSystem
+
+    /// The host toolchain to use.
+    fileprivate let hostToolchain: UserToolchain
 
     /// The manifest loader to use.
     fileprivate let manifestLoader: ManifestLoaderProtocol
@@ -290,6 +293,7 @@ public class Workspace {
     ///   - authorizationProvider: Provider of authentication information for outbound network requests.
     ///   - configuration: Configuration to fine tune the dependency resolution behavior.
     ///   - initializationWarningHandler: Initialization warnings handler
+    ///   - customHostToolchain: Custom host toolchain. Used to create a customized ManifestLoader, customizing how manifest are loaded.
     ///   - customManifestLoader: Custom manifest loader. Used to customize how manifest are loaded.
     ///   - customPackageContainerProvider: Custom package container provider. Used to provide specialized package providers.
     ///   - customRepositoryProvider: Custom repository provider. Used to customize source control access.
@@ -301,6 +305,7 @@ public class Workspace {
         configuration: WorkspaceConfiguration? = .none,
         initializationWarningHandler: ((String) -> Void)? = .none,
         // optional customization used for advanced integration situations
+        customHostToolchain: UserToolchain? = .none,
         customManifestLoader: ManifestLoaderProtocol? = .none,
         customPackageContainerProvider: PackageContainerProvider? = .none,
         customRepositoryProvider: RepositoryProvider? = .none,
@@ -317,6 +322,7 @@ public class Workspace {
             customFingerprints: .none,
             customMirrors: .none,
             customToolsVersion: .none,
+            customHostToolchain: customHostToolchain,
             customManifestLoader: customManifestLoader,
             customPackageContainerProvider: customPackageContainerProvider,
             customRepositoryManager: .none,
@@ -384,7 +390,7 @@ public class Workspace {
     ///   - authorizationProvider: Provider of authentication information for outbound network requests.
     ///   - configuration: Configuration to fine tune the dependency resolution behavior.
     ///   - initializationWarningHandler: Initialization warnings handler
-    ///   - customToolchain: Custom toolchain. Used to create a customized ManifestLoader, customizing how manifest are loaded.
+    ///   - customHostToolchain: Custom host toolchain. Used to create a customized ManifestLoader, customizing how manifest are loaded.
     ///   - customPackageContainerProvider: Custom package container provider. Used to provide specialized package providers.
     ///   - customRepositoryProvider: Custom repository provider. Used to customize source control access.
     ///   - delegate: Delegate for workspace events
@@ -395,7 +401,7 @@ public class Workspace {
         configuration: WorkspaceConfiguration? = .none,
         initializationWarningHandler: ((String) -> Void)? = .none,
         // optional customization used for advanced integration situations
-        customToolchain: UserToolchain,
+        customHostToolchain: UserToolchain,
         customPackageContainerProvider: PackageContainerProvider? = .none,
         customRepositoryProvider: RepositoryProvider? = .none,
         // delegate
@@ -404,15 +410,16 @@ public class Workspace {
         let fileSystem = fileSystem ?? localFileSystem
         let location = Location(forRootPackage: packagePath, fileSystem: fileSystem)
         let manifestLoader = ManifestLoader(
-            toolchain: customToolchain.configuration,
+            toolchain: customHostToolchain.configuration,
             cacheDir: location.sharedManifestsCacheDirectory
         )
         try self.init(
             fileSystem: fileSystem,
-            forRootPackage: packagePath,
+            location: location,
             authorizationProvider: authorizationProvider,
             configuration: configuration,
             initializationWarningHandler: initializationWarningHandler,
+            customHostToolchain: customHostToolchain,
             customManifestLoader: manifestLoader,
             customPackageContainerProvider: customPackageContainerProvider,
             customRepositoryProvider: customRepositoryProvider,
@@ -464,6 +471,7 @@ public class Workspace {
             customFingerprints: customFingerprintStorage,
             customMirrors: mirrors,
             customToolsVersion: customToolsVersion,
+            customHostToolchain: .none,
             customManifestLoader: customManifestLoader,
             customPackageContainerProvider: customPackageContainerProvider,
             customRepositoryManager: customRepositoryManager,
@@ -581,6 +589,7 @@ public class Workspace {
         customFingerprints: PackageFingerprintStorage? = .none,
         customMirrors: DependencyMirrors? = .none,
         customToolsVersion: ToolsVersion? = .none,
+        customHostToolchain: UserToolchain? = .none,
         customManifestLoader: ManifestLoaderProtocol? = .none,
         customPackageContainerProvider: PackageContainerProvider? = .none,
         customRepositoryManager: RepositoryManager? = .none,
@@ -603,6 +612,7 @@ public class Workspace {
             customFingerprints: customFingerprints,
             customMirrors: customMirrors,
             customToolsVersion: customToolsVersion,
+            customHostToolchain: customHostToolchain,
             customManifestLoader: customManifestLoader,
             customPackageContainerProvider: customPackageContainerProvider,
             customRepositoryManager: customRepositoryManager,
@@ -628,6 +638,7 @@ public class Workspace {
         customFingerprints: PackageFingerprintStorage?,
         customMirrors: DependencyMirrors?,
         customToolsVersion: ToolsVersion?,
+        customHostToolchain: UserToolchain?,
         customManifestLoader: ManifestLoaderProtocol?,
         customPackageContainerProvider: PackageContainerProvider?,
         customRepositoryManager: RepositoryManager?,
@@ -648,8 +659,9 @@ public class Workspace {
 
         let currentToolsVersion = customToolsVersion ?? ToolsVersion.currentToolsVersion
         let toolsVersionLoader = ToolsVersionLoader(currentToolsVersion: currentToolsVersion)
-        let manifestLoader = try customManifestLoader ?? ManifestLoader(
-            toolchain: UserToolchain(destination: .hostDestination()).configuration,
+        let hostToolchain = try customHostToolchain ?? UserToolchain(destination: .hostDestination())
+        let manifestLoader = customManifestLoader ?? ManifestLoader(
+            toolchain: hostToolchain.configuration,
             cacheDir: location.sharedManifestsCacheDirectory
         )
 
@@ -711,6 +723,7 @@ public class Workspace {
         self.delegate = delegate
         self.mirrors = mirrors
         self.authorizationProvider = authorizationProvider
+        self.hostToolchain = hostToolchain
         self.manifestLoader = manifestLoader
         self.currentToolsVersion = currentToolsVersion
         self.toolsVersionLoader = toolsVersionLoader
@@ -1948,7 +1961,7 @@ extension Workspace {
         let allManifestsWithPossibleDuplicates = try topologicalSort(input) { pair in
             // optimization: preload manifest we know about in parallel
             let dependenciesRequired = pair.item.dependenciesRequired(for: pair.key.productFilter)
-            // prepopulate managed dependencies if we are asked to do so
+            // pre-populate managed dependencies if we are asked to do so
             // FIXME: this seems like hack, needs further investigation why this is needed
             if automaticallyAddManagedDependencies {
                 try dependenciesRequired.filter { $0.isLocal }.forEach { dependency in
@@ -2282,7 +2295,7 @@ extension Workspace {
         addedOrUpdatedPackages: [PackageReference],
         observabilityScope: ObservabilityScope
     ) throws {
-        let manifestArtifacts = try self.parseArtifacts(from: manifests)
+        let manifestArtifacts = try self.parseArtifacts(from: manifests, observabilityScope: observabilityScope)
 
         var artifactsToRemove: [ManagedArtifact] = []
         var artifactsToAdd: [ManagedArtifact] = []
@@ -2302,7 +2315,7 @@ extension Workspace {
                 targetName: artifact.targetName
             ]
 
-            if artifact.path.extension == self.manifestLoader.supportedArchiveExtension {
+            if let fileExtension = artifact.path.extension, self.manifestLoader.supportedArchiveExtensions.contains(fileExtension) {
                 // If we already have an artifact that was extracted from an archive with the same checksum,
                 // we don't need to extract the artifact again.
                 if case .local(let existingChecksum) = existingArtifact?.source, existingChecksum == (try self.checksum(forBinaryArtifactAt: artifact.path)) {
@@ -2393,7 +2406,7 @@ extension Workspace {
         }
     }
 
-    private func parseArtifacts(from manifests: DependencyManifests) throws -> (local: [ManagedArtifact], remote: [RemoteArtifact]) {
+    private func parseArtifacts(from manifests: DependencyManifests, observabilityScope: ObservabilityScope) throws -> (local: [ManagedArtifact], remote: [RemoteArtifact]) {
         let packageAndManifests: [(reference: PackageReference, manifest: Manifest)] =
             manifests.root.packages.values + // Root package and manifests.
             manifests.dependencies.map({ manifest, managed, _, _ in (managed.packageRef, manifest) }) // Dependency package and manifests.
@@ -2436,14 +2449,13 @@ extension Workspace {
         // zip files to download
         // stored in a thread-safe way as we may fetch more from "artifactbundleindex" files
         let zipArtifacts = ThreadSafeArrayStore<RemoteArtifact>(artifacts.filter {
-            $0.url.pathExtension.lowercased() == self.manifestLoader.supportedArchiveExtension
+            self.manifestLoader.supportedArchiveExtensions.contains($0.url.pathExtension.lowercased())
         })
 
         // fetch and parse "artifactbundleindex" files, if any
         let indexFiles = artifacts.filter { $0.url.pathExtension.lowercased() == "artifactbundleindex" }
         if !indexFiles.isEmpty {
             let errors = ThreadSafeArrayStore<Error>()
-            let hostToolchain = try UserToolchain(destination: .hostDestination())
             let jsonDecoder = JSONDecoder.makeWithDefaults()
             for indexFile in indexFiles {
                 group.enter()
@@ -2468,8 +2480,8 @@ extension Workspace {
                             }
                             let metadata = try jsonDecoder.decode(ArchiveIndexFile.self, from: body)
                             // FIXME: this filter needs to become more sophisticated
-                            guard let supportedArchive = metadata.archives.first(where: { $0.fileName.lowercased().hasSuffix(".zip") && $0.supportedTriples.contains(hostToolchain.triple) }) else {
-                                throw StringError("No supported archive was found for '\(hostToolchain.triple.tripleString)'")
+                            guard let supportedArchive = metadata.archives.first(where: { $0.fileName.lowercased().hasSuffix(".zip") && $0.supportedTriples.contains(self.hostToolchain.triple) }) else {
+                                throw StringError("No supported archive was found for '\(self.hostToolchain.triple.tripleString)'")
                             }
                             // add relevant archive
                             zipArtifacts.append(
@@ -3350,22 +3362,16 @@ extension Workspace {
                 }
 
             case .version(let version):
-                if let currentDependency = currentDependency {
-                    // FIXME: This should probably be refactored into a switch statement to avoid missing new cases.
-                    if case .sourceControlCheckout(let checkoutState) = currentDependency.state, case .version(version, _) = checkoutState {
-                        packageStateChanges[packageRef.identity] = (packageRef, .unchanged)
-                    } else if case .registryDownload(version) = currentDependency.state {
-                        packageStateChanges[packageRef.identity] = (packageRef, .unchanged)
-                    } else if case .custom(version, _) = currentDependency.state {
-                        packageStateChanges[packageRef.identity] = (packageRef, .unchanged)
-                    } else {
-                        let newState = PackageStateChange.State(requirement: .version(version), products: products)
-                        packageStateChanges[packageRef.identity] = (packageRef, .updated(newState))
-                    }
-                } else {
-                    let newState = PackageStateChange.State(requirement: .version(version), products: products)
-                    packageStateChanges[packageRef.identity] = (packageRef, .added(newState))
+                let stateChange: PackageStateChange
+                switch currentDependency?.state {
+                case .sourceControlCheckout(.version(version, _)), .registryDownload(version), .custom(version, _):
+                    stateChange = .unchanged
+                case .edited, .fileSystem, .sourceControlCheckout, .registryDownload, .custom:
+                    stateChange = .updated(.init(requirement: .version(version), products: products))
+                case nil:
+                    stateChange = .added(.init(requirement: .version(version), products: products))
                 }
+                packageStateChanges[packageRef.identity] = (packageRef, stateChange)
             }
         }
         // Set the state of any old package that might have been removed.
@@ -3452,7 +3458,7 @@ public final class LoadableResult<Value> {
 private struct RemoteArtifact {
     let packageRef: PackageReference
     let targetName: String
-    let url: Foundation.URL
+    let url: URL
     let checksum: String
 }
 

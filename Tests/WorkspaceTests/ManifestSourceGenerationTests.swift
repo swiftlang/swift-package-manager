@@ -425,4 +425,48 @@ class ManifestSourceGenerationTests: XCTestCase {
         // Check that we generated what we expected.
         XCTAssertTrue(contents.contains(".library(name: \"Foo\", targets: [\"Bar\"], type: .static)"), "contents: \(contents)")
     }
+
+    func testModuleAliasGeneration() throws {
+        let manifest = Manifest.createRootManifest(
+            name: "thisPkg",
+            path: .init("/thisPkg"),
+            toolsVersion: .vNext,
+            dependencies: [
+                .localSourceControl(path: .init("/fooPkg"), requirement: .upToNextMajor(from: "1.0.0")),
+                .localSourceControl(path: .init("/barPkg"), requirement: .upToNextMajor(from: "2.0.0")),
+            ],
+            targets: [
+                try TargetDescription(name: "exe",
+                                  dependencies: ["Logging",
+                                                 .product(name: "Foo",
+                                                          package: "fooPkg",
+                                                          moduleAliases: ["Logging": "FooLogging"]
+                                                         ),
+                                                 .product(name: "Bar",
+                                                          package: "barPkg",
+                                                          moduleAliases: ["Logging": "BarLogging"]
+                                                         )
+                                                ]),
+                try TargetDescription(name: "Logging", dependencies: []),
+            ])
+        let contents = manifest.generatedManifestFileContents
+        let parts =
+        """
+            dependencies: [
+                "Logging",
+                .product(name: "Foo", package: "fooPkg", moduleAliases: [
+                    "Logging": "FooLogging"
+                ]),
+                .product(name: "Bar", package: "barPkg", moduleAliases: [
+                    "Logging": "BarLogging"
+                ])
+            ]
+        """
+        let trimmedContents = contents.components(separatedBy: CharacterSet.whitespacesAndNewlines)
+        let trimmedParts = parts.components(separatedBy: CharacterSet.whitespacesAndNewlines)
+        let isContained = trimmedParts.allSatisfy(trimmedContents.contains(_:))
+        XCTAssertTrue(isContained)
+
+        try testManifestWritingRoundTrip(manifestContents: contents, toolsVersion: .vNext)
+    }
 }

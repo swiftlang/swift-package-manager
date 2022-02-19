@@ -1,5 +1,24 @@
 Note: This is in reverse chronological order, so newer entries are added to the top.
 
+Swift 5.7
+-----------
+
+* [SE-0339]
+
+  Module aliases can now be defined in the package manifest to disambiguate between modules with the same name originating from different packages. 
+
+* [#4119] 
+ 
+  Add a `--disable-testable-imports` flag to `swift test` with which tests are built without the testability feature (`import @testable` disabled).
+
+* [#4131]
+
+  Update to manifest API to make it impossible to create an invalid build setttings condition.
+
+* [#4135]
+
+  Enable linker dead stripping for all platforms. This can be disabled with `--disable-dead-strip`
+
 Swift 5.6
 -----------
 * [SE-0332]
@@ -187,6 +206,7 @@ Swift 3.0
 [SE-0208]: https://github.com/apple/swift-evolution/blob/main/proposals/0208-package-manager-system-library-targets.md
 [SE-0209]: https://github.com/apple/swift-evolution/blob/main/proposals/0209-package-manager-swift-lang-version-update.md
 [SE-0332]: https://github.com/apple/swift-evolution/blob/main/proposals/0332-swiftpm-command-plugins.md
+[SE-0339]: https://github.com/apple/swift-evolution/blob/main/proposals/0339-module-aliasing-for-disambiguation.md
 
 [SR-5918]: https://bugs.swift.org/browse/SR-5918
 [SR-6978]: https://bugs.swift.org/browse/SR-6978
@@ -209,3 +229,7 @@ Swift 3.0
 [#3890]: https://github.com/apple/swift-package-manager/pull/3890
 [#3901]: https://github.com/apple/swift-package-manager/pull/3901
 [#3942]: https://github.com/apple/swift-package-manager/pull/3942
+[#4119]: https://github.com/apple/swift-package-manager/pull/4119
+[#4131]: https://github.com/apple/swift-package-manager/pull/4131
+[#4135]: https://github.com/apple/swift-package-manager/pull/4135
+

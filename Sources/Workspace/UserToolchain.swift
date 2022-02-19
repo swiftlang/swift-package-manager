@@ -64,11 +64,6 @@ public final class UserToolchain: Toolchain {
         return self.swiftInterpreterPath
     }
 
-    /// Path to the xctest utility.
-    ///
-    /// This is only present on macOS.
-    public let xctest: AbsolutePath?
-
     /// The compilation destination object.
     public let destination: Destination
 
@@ -333,17 +328,6 @@ public final class UserToolchain: Toolchain {
 
         self.triple = triple
 
-        // We require xctest to exist on macOS.
-        if triple.isDarwin() {
-            // FIXME: We should have some general utility to find tools.
-            let xctestFindArgs = ["/usr/bin/xcrun", "--sdk", "macosx", "--find", "xctest"]
-            self.xctest = try AbsolutePath(
-                validating: Process.checkNonZeroExit(arguments: xctestFindArgs, environment: environment
-                                                    ).spm_chomp())
-        } else {
-            self.xctest = nil
-        }
-
         self.extraSwiftCFlags = Self.deriveSwiftCFlags(triple: triple, destination: destination)
 
         if let sdk = destination.sdk {
@@ -388,7 +372,7 @@ public final class UserToolchain: Toolchain {
 
         let swiftPMLibrariesLocation = try Self.deriveSwiftPMLibrariesLocation(swiftCompilerPath: swiftCompilerPath, destination: destination)
 
-        let xctestPath = Self.deriveXCTestPath()
+        let xctestPath = try Self.deriveXCTestPath(triple: triple, environment: environment)
 
         self.configuration = .init(
             swiftCompilerPath: swiftCompilers.manifest,
@@ -461,24 +445,30 @@ public final class UserToolchain: Toolchain {
         return .init(swiftCompilerPath: swiftCompilerPath)
     }
 
-    // TODO: why is this only required on Windows? is there something better we can do?
-    private static func deriveXCTestPath() -> AbsolutePath? {
-#if os(Windows)
-        if let DEVELOPER_DIR = ProcessEnv.vars["DEVELOPER_DIR"],
-           let root = try? AbsolutePath(validating: DEVELOPER_DIR)
-            .appending(component: "Platforms")
-            .appending(component: "Windows.platform") {
-            if let info = WindowsPlatformInfo(reading: root.appending(component: "Info.plist"),
-                                              diagnostics: nil,
-                                              filesystem: localFileSystem) {
-                return root.appending(component: "Developer")
-                    .appending(component: "Library")
-                    .appending(component: "XCTest-\(info.defaults.xctestVersion)")
-                    .appending(component: "usr")
-                    .appending(component: "bin")
+    // TODO: We should have some general utility to find tools.
+    private static func deriveXCTestPath(triple: Triple, environment: EnvironmentVariables) throws -> AbsolutePath? {
+        if triple.isDarwin() {
+            // XCTest is optional on macOS, for example when Xcode is not installed
+            let xctestFindArgs = ["/usr/bin/xcrun", "--sdk", "macosx", "--find", "xctest"]
+            if let path = try? Process.checkNonZeroExit(arguments: xctestFindArgs, environment: environment).spm_chomp() {
+                return try AbsolutePath(validating: path)
+            }
+        } else if triple.isWindows() {
+            if let DEVELOPER_DIR = ProcessEnv.vars["DEVELOPER_DIR"],
+               let root = try? AbsolutePath(validating: DEVELOPER_DIR)
+                .appending(component: "Platforms")
+                .appending(component: "Windows.platform") {
+                if let info = WindowsPlatformInfo(reading: root.appending(component: "Info.plist"),
+                                                  diagnostics: nil,
+                                                  filesystem: localFileSystem) {
+                    return root.appending(component: "Developer")
+                        .appending(component: "Library")
+                        .appending(component: "XCTest-\(info.defaults.xctestVersion)")
+                        .appending(component: "usr")
+                        .appending(component: "bin")
+                }
             }
         }
-#endif
-        return nil
+        return .none
     }
 }

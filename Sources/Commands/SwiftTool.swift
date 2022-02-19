@@ -553,7 +553,8 @@ public class SwiftTool {
                 fingerprintCheckingMode: self.options.resolverFingerprintCheckingMode
             ),
             initializationWarningHandler: { self.observabilityScope.emit(warning: $0) },
-            customManifestLoader: self.getManifestLoader(), // FIXME: ideally we would not customize the manifest loader
+            customHostToolchain: self.getHostToolchain(),
+            customManifestLoader: self.getManifestLoader(),
             customRepositoryProvider: repositoryProvider, // FIXME: ideally we would not customize the repository provider. its currently done for shutdown handling which can be better abstracted
             delegate: delegate
         )
@@ -688,7 +689,7 @@ public class SwiftTool {
         let cacheDir = pluginsDir.appending(component: "cache")
         let pluginScriptRunner = try DefaultPluginScriptRunner(
             cacheDir: cacheDir,
-            toolchain: self._hostToolchain.get().configuration,
+            toolchain: self.getHostToolchain().configuration,
             enableSandbox: !self.options.shouldDisableSandbox)
         return pluginScriptRunner
     }
@@ -696,6 +697,10 @@ public class SwiftTool {
     /// Returns the user toolchain to compile the actual product.
     func getToolchain() throws -> UserToolchain {
         return try _destinationToolchain.get()
+    }
+
+    func getHostToolchain() throws -> UserToolchain {
+        return try _hostToolchain.get()
     }
 
     func getManifestLoader() throws -> ManifestLoader {
@@ -837,6 +842,7 @@ public class SwiftTool {
                 isXcodeBuildSystemEnabled: options.buildSystem == .xcode,
                 printManifestGraphviz: options.printManifestGraphviz,
                 forceTestDiscovery: options.enableTestDiscovery, // backwards compatibility, remove with --enable-test-discovery
+                linkerDeadStrip: options.linkerDeadStrip,
                 isTTY: isTTY
             )
         })
@@ -912,7 +918,7 @@ public class SwiftTool {
 
             return try ManifestLoader(
                 // Always use the host toolchain's resources for parsing manifest.
-                toolchain: self._hostToolchain.get().configuration,
+                toolchain: self.getHostToolchain().configuration,
                 isManifestSandboxEnabled: !self.options.shouldDisableSandbox,
                 cacheDir: cachePath,
                 extraManifestFlags: extraManifestFlags
@@ -1027,24 +1033,29 @@ extension Basics.Diagnostic {
     func print() {
         let writer = InteractiveWriter.stderr
 
-        if let diagnosticPrefix = self.metadata?.diagnosticPrefix {
-            writer.write(diagnosticPrefix)
-            writer.write(": ")
-        }
-
+        var message: String
         switch self.severity {
         case .error:
-            writer.write("error: ", inColor: .red, bold: true)
+            message = writer.format("error: ", inColor: .red, bold: true)
         case .warning:
-            writer.write("warning: ", inColor: .yellow, bold: true)
+            message = writer.format("warning: ", inColor: .yellow, bold: true)
         case .info:
-            writer.write("info: ", inColor: .white, bold: true)
+            message = writer.format("info: ", inColor: .white, bold: true)
         case .debug:
-            writer.write("debug: ", inColor: .white, bold: true)
+            message = writer.format("debug: ", inColor: .white, bold: true)
         }
 
-        writer.write(self.message)
-        writer.write("\n")
+        if let diagnosticPrefix = self.metadata?.diagnosticPrefix {
+            message += diagnosticPrefix
+            message += ": "
+        }
+
+        message += self.message
+        if !self.message.hasPrefix("\n") {
+            message += "\n"
+        }
+
+        writer.write(message)
     }
 }
 
@@ -1074,11 +1085,19 @@ private final class InteractiveWriter {
 
     /// Write the string to the contained terminal or stream.
     func write(_ string: String, inColor color: TerminalController.Color = .noColor, bold: Bool = false) {
-        if let term = term {
+        if let term = self.term {
             term.write(string, inColor: color, bold: bold)
         } else {
             stream <<< string
             stream.flush()
+        }
+    }
+
+    func format(_ string: String, inColor color: TerminalController.Color = .noColor, bold: Bool = false) -> String {
+        if let term = self.term {
+            return term.wrap(string, inColor: color, bold: bold)
+        } else {
+            return string
         }
     }
 }

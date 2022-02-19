@@ -33,7 +33,9 @@ public struct ToolchainConfiguration {
     /// If provided, it will be passed to the swift interpreter.
     public var sdkRootPath: AbsolutePath?
 
-    /// XCTest Location
+    /// Path to the XCTest utility.
+    ///
+    /// This is optional for example on macOS w/o Xcode.
     public var xctestPath: AbsolutePath?
 
     /// Creates the set of manifest resources associated with a `swiftc` executable.

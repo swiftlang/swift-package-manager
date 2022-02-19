@@ -44,7 +44,7 @@ public final class MockWorkspace {
         sandbox: AbsolutePath,
         fileSystem: InMemoryFileSystem,
         roots: [MockPackage],
-        packages: [MockPackage],
+        packages: [MockPackage] = [],
         toolsVersion: ToolsVersion = ToolsVersion.currentToolsVersion,
         fingerprints customFingerprints: MockPackageFingerprintStorage? = .none,
         mirrors customMirrors: DependencyMirrors? = nil,
@@ -80,7 +80,7 @@ public final class MockWorkspace {
         try self.create()
     }
 
-    private var rootsDir: AbsolutePath {
+    public var rootsDir: AbsolutePath {
         return self.sandbox.appending(component: "roots")
     }
 
@@ -90,6 +90,10 @@ public final class MockWorkspace {
 
     public var artifactsDir: AbsolutePath {
         return self.sandbox.appending(components: ".build", "artifacts")
+    }
+
+    public func pathToRoot(withName name: String) -> AbsolutePath {
+        return self.rootsDir.appending(RelativePath(name))
     }
 
     public func pathToPackage(withName name: String) -> AbsolutePath {
@@ -491,7 +495,7 @@ public final class MockWorkspace {
     }
 
     public func set(
-        pins: [PackageReference: PinsStore.PinState] = [:],
+        pins: [PackageReference: PinsStore.PinState],
         managedDependencies: [Workspace.ManagedDependency] = [],
         managedArtifacts: [Workspace.ManagedArtifact] = []
     ) throws {
