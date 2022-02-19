@@ -34,7 +34,7 @@ public class RepositoryManager {
     private let delegate: Delegate?
 
     /// DispatchSemaphore to restrict concurrent operations on manager.
-    public let lookupSemaphore: DispatchSemaphore
+    private let lookupSemaphore: DispatchSemaphore
 
     /// The filesystem to operate on.
     private let fileSystem: FileSystem

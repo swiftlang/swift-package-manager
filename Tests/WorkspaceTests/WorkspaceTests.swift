@@ -3934,10 +3934,7 @@ final class WorkspaceTests: XCTestCase {
             result.check(dependency: "bar", at: .checkout(.version("1.1.0")))
             XCTAssertEqual(result.store.pinsMap[.plain("foo")]?.packageRef.locationString, "https://scm.com/other/foo")
         }
-
-        imortal = workspace._workspace?.repositoryManager.lookupSemaphore
     }
-    var imortal: Any?
 
     func testForceResolveToResolvedVersions() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
