@@ -159,11 +159,15 @@ extension Basics.Diagnostic {
     }
 
     static func artifactNotFound(targetName: String, artifactName: String) -> Self {
-        .error("downloaded archive of binary target '\(targetName)' does not contain expected binary artifact '\(artifactName)'")
+        .error("downloaded archive of binary target '\(targetName)' does not contain expected binary artifact named '\(artifactName)'")
+    }
+
+    static func localArchivedArtifactNotFound(targetName: String, artifactName: String) -> Self {
+        .error("local archive of binary target '\(targetName)' does not contain expected binary artifact named '\(artifactName)'")
     }
 
     static func localArtifactNotFound(targetName: String, artifactName: String) -> Self {
-        .error("local archive of binary target '\(targetName)' does not contain expected binary artifact '\(artifactName)'")
+        .error("local binary target '\(targetName)' does not contain expected binary artifact named '\(artifactName)'")
     }
 }
 
