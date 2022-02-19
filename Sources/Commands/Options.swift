@@ -376,11 +376,22 @@ public struct SwiftToolOptions: ParsableArguments {
         static func name(for value: Self) -> NameSpecification {
             switch value {
             case .disabled:
-                return .customLong("disable-scm-to-regsitry-lookup")
+                return .customLong("disable-scm-to-registry-transformation")
             case .identity:
                 return .customLong("use-registry-identity-for-scm")
             case .swizzle:
-                return .customLong("raplace-scm-with-registry")
+                return .customLong("replace-scm-with-registry")
+            }
+        }
+
+        static func help(for value: SwiftToolOptions.SourceControlToRegistryDependencyTransformation) -> ArgumentHelp? {
+            switch value {
+            case .disabled:
+                return "disable source control to registry transformation"
+            case .identity:
+                return "look up source control dependencies in the registry and use their registry identity when possible to help deduplicate across the two origins"
+            case .swizzle:
+                return "look up source control dependencies in the registry and use the registry to retrieve them instead of source control when possible"
             }
         }
     }

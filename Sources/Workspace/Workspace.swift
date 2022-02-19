@@ -4212,9 +4212,13 @@ extension Workspace {
     // 1. handle mixed situation when some versions on the registry but some on source control. we need a second lookup to make sure the version exists
     // 2. handle registry returning multiple identifiers, how do we choose the right one?
     fileprivate struct RegistryAwareManifestLoader: ManifestLoaderProtocol {
+        
         private let underlying: ManifestLoaderProtocol
         private let registryClient: RegistryClient
         private let transformationMode: TransformationMode
+
+        private let cacheTTL = DispatchTimeInterval.seconds(300) // 5m
+        private let identitiesCache = ThreadSafeKeyValueStore<URL, (identity: PackageIdentity, expirationTime: DispatchTime)>()
 
         init(underlying: ManifestLoaderProtocol, registryClient: RegistryClient, transformationMode: TransformationMode) {
             self.underlying = underlying
@@ -4301,7 +4305,7 @@ extension Workspace {
             }
 
             // update the manifest with the transformed dependencies
-            sync.notify(queue: .sharedConcurrent) {
+            sync.notify(queue: callbackQueue) {
                 do {
                     let updatedManifest = try self.transformManifest(
                         manifest: manifest,
@@ -4331,7 +4335,7 @@ extension Workspace {
                 if let registryIdentity = transformations[dependency] {
                     guard case .sourceControl(let settings) = dependency, case .remote = settings.location else {
                         // an implementation mistake
-                        throw InternalError("unexpected non-source-control dependency")
+                        throw InternalError("unexpected non-source-control dependency: \(dependency)")
                     }
                     switch transformationMode {
                     case .identity:
@@ -4445,9 +4449,20 @@ extension Workspace {
             callbackQueue: DispatchQueue,
             completion: @escaping (Result<PackageIdentity?, Error>) -> Void
         ) {
+            if let cached = self.identitiesCache[url], cached.expirationTime > .now() {
+                return completion(.success(cached.identity))
+            }
+
             self.registryClient.lookupIdentities(url: url, observabilityScope: observabilityScope, callbackQueue: callbackQueue) { result in
-                // FIXME: returns first result... need to consider how to address multuiple ones
-                completion(result.map{ $0.first })
+                switch result {
+                case .failure(let error):
+                    completion(.failure(error))
+                case .success(let identities):
+                    // FIXME: returns first result... need to consider how to address multiple ones
+                    let identity = identities.first
+                    self.identitiesCache[url] = identity.map { (identity: $0, expirationTime: .now().advanced(by: self.cacheTTL)) }
+                    completion(.success(identity))
+                }
             }
         }
 
