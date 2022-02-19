@@ -565,7 +565,6 @@ def build_swiftpm_with_cmake(args):
     cmake_flags = [
         get_llbuild_cmake_arg(args),
         "-DTSC_DIR="              + os.path.join(args.build_dirs["tsc"],                   "cmake/modules"),
-        "-DYams_DIR="             + os.path.join(args.build_dirs["yams"],                  "cmake/modules"),
         "-DArgumentParser_DIR="   + os.path.join(args.build_dirs["swift-argument-parser"], "cmake/modules"),
         "-DSwiftDriver_DIR="      + os.path.join(args.build_dirs["swift-driver"],          "cmake/modules"),
         "-DSwiftCrypto_DIR="      + os.path.join(args.build_dirs["swift-crypto"],          "cmake/modules"),
