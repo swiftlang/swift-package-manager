@@ -46,6 +46,10 @@ public final class RegistryClient {
         self.jsonDecoder = JSONDecoder.makeWithDefaults()
     }
 
+    public var configured: Bool {
+        return !self.configuration.isEmpty
+    }
+
     public func getPackageMetadata(
         package: PackageIdentity,
         timeout: DispatchTimeInterval? = .none,

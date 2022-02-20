@@ -12,19 +12,19 @@ import Foundation
 import TSCBasic
 
 /// Represents a package dependency.
-public enum PackageDependency: Equatable {
+public enum PackageDependency: Equatable, Hashable {
     case fileSystem(FileSystem)
     case sourceControl(SourceControl)
     case registry(Registry)
     
-    public struct FileSystem: Equatable, Encodable {
+    public struct FileSystem: Equatable, Hashable, Encodable {
         public let identity: PackageIdentity
         public let nameForTargetDependencyResolutionOnly: String?
         public let path: AbsolutePath
         public let productFilter: ProductFilter
     }
 
-    public struct SourceControl: Equatable, Encodable {
+    public struct SourceControl: Equatable, Hashable, Encodable {
         public let identity: PackageIdentity
         public let nameForTargetDependencyResolutionOnly: String?
         public let location: Location
@@ -38,13 +38,13 @@ public enum PackageDependency: Equatable {
             case branch(String)
         }
 
-        public enum Location: Equatable {
+        public enum Location: Equatable, Hashable {
             case local(AbsolutePath)
             case remote(URL)
         }
     }
 
-    public struct Registry: Equatable, Encodable {
+    public struct Registry: Equatable, Hashable, Encodable {
         public let identity: PackageIdentity
         public let requirement: Requirement
         public let productFilter: ProductFilter

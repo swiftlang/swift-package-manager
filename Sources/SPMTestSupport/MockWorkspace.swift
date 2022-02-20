@@ -39,6 +39,7 @@ public final class MockWorkspace {
     let customPackageContainerProvider: MockPackageContainerProvider?
     public let delegate = MockWorkspaceDelegate()
     let skipDependenciesUpdates: Bool
+    public var sourceControlToRegistryDependencyTransformation: WorkspaceConfiguration.SourceControlToRegistryDependencyTransformation
 
     public init(
         sandbox: AbsolutePath,
@@ -53,7 +54,8 @@ public final class MockWorkspace {
         binaryArchiver customBinaryArchiver: MockArchiver? = .none,
         checksumAlgorithm customChecksumAlgorithm: MockHashAlgorithm? = .none,
         customPackageContainerProvider: MockPackageContainerProvider? = .none,
-        skipDependenciesUpdates: Bool = false
+        skipDependenciesUpdates: Bool = false,
+        sourceControlToRegistryDependencyTransformation: WorkspaceConfiguration.SourceControlToRegistryDependencyTransformation = .disabled
     ) throws {
         self.sandbox = sandbox
         self.fileSystem = fileSystem
@@ -75,6 +77,7 @@ public final class MockWorkspace {
         self.registryClient = customRegistryClient ?? self.registry.registryClient
         self.toolsVersion = toolsVersion
         self.skipDependenciesUpdates = skipDependenciesUpdates
+        self.sourceControlToRegistryDependencyTransformation = sourceControlToRegistryDependencyTransformation
         self.httpClient = customHttpClient ?? HTTPClient.mock(fileSystem: fileSystem)
         self.archiver = customBinaryArchiver ?? MockArchiver()
         try self.create()
@@ -128,7 +131,7 @@ public final class MockWorkspace {
                 } else {
                     packagePath = basePath.appending(components: "sourceControl", url.absoluteString.spm_mangledToC99ExtendedIdentifier())
                 }
-            case .registry(let identity):
+            case .registry(let identity, _):
                 packagePath = basePath.appending(components: "registry", identity.description.spm_mangledToC99ExtendedIdentifier())
             }
 
@@ -138,6 +141,7 @@ public final class MockWorkspace {
 
             var sourceControlSpecifier: RepositorySpecifier? = nil
             var registryIdentity: PackageIdentity? = nil
+            var registryAlternativeURLs: [URL]? = nil
 
             switch (isRoot, package.location) {
             case (true, _):
@@ -152,10 +156,11 @@ public final class MockWorkspace {
                 packageLocation = url.absoluteString
                 packageKind = .remoteSourceControl(url)
                 sourceControlSpecifier = RepositorySpecifier(url: url)
-            case (_, .registry(let identity)):
+            case (_, .registry(let identity, let alternativeURLs)):
                 packageLocation = identity.description
                 packageKind = .registry(identity)
                 registryIdentity = identity
+                registryAlternativeURLs = alternativeURLs
             }
 
             let toolsVersion = package.toolsVersion ?? .currentToolsVersion
@@ -165,7 +170,7 @@ public final class MockWorkspace {
                 let repository = self.repositoryProvider.specifierMap[specifier] ?? .init(path: packagePath, fs: self.fileSystem)
                 try writePackageContent(fileSystem: repository, root: .root, toolsVersion: toolsVersion)
                 
-                let versions = packageVersions.compactMap({ $0 })
+                let versions = packageVersions.compactMap{ $0 }
                 if versions.isEmpty {
                     try repository.commit()
                 } else {
@@ -179,7 +184,12 @@ public final class MockWorkspace {
             } else if let identity = registryIdentity {
                 let source = InMemoryRegistryPackageSource(fileSystem: self.fileSystem, path: packagePath, writeContent: false)
                 try writePackageContent(fileSystem: source.fileSystem, root: source.path, toolsVersion: toolsVersion)
-                self.registry.addPackage(identity: identity, versions: packageVersions.compactMap({ $0 }), source: source)
+                self.registry.addPackage(
+                    identity: identity,
+                    versions: packageVersions.compactMap{ $0 },
+                    sourceControlURLs: registryAlternativeURLs ?? [],
+                    source: source
+                )
             } else {
                 throw InternalError("unknown package type")
             }
@@ -248,7 +258,8 @@ public final class MockWorkspace {
                 prefetchBasedOnResolvedFile: WorkspaceConfiguration.default.prefetchBasedOnResolvedFile,
                 additionalFileRules: WorkspaceConfiguration.default.additionalFileRules,
                 sharedDependenciesCacheEnabled: WorkspaceConfiguration.default.sharedDependenciesCacheEnabled,
-                fingerprintCheckingMode: .strict
+                fingerprintCheckingMode: .strict,
+                sourceControlToRegistryDependencyTransformation: self.sourceControlToRegistryDependencyTransformation
             ),
             customFingerprints: self.fingerprints,
             customMirrors: self.mirrors,
@@ -271,7 +282,10 @@ public final class MockWorkspace {
 
     private var _workspace: Workspace?
 
-    public func closeWorkspace() {
+    public func closeWorkspace(resetState: Bool = true) throws {
+        if resetState {
+            try self._workspace?.resetState()
+        }
         self._workspace = nil
     }
 

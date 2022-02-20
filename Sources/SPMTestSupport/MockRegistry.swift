@@ -26,7 +26,9 @@ public class MockRegistry {
     public var registryClient: RegistryClient!
     private let jsonEncoder: JSONEncoder
 
-    private var packages = [PackageIdentity: [String: InMemoryRegistryPackageSource]]()
+    private var packageVersions = [PackageIdentity: [String: InMemoryRegistryPackageSource]]()
+    private var packagesSourceControlURLs = [PackageIdentity: [URL]]()
+    private var sourceControlURLs = [URL: PackageIdentity]()
     private let packagesLock = Lock()
 
     public init(
@@ -53,17 +55,28 @@ public class MockRegistry {
         )
     }
 
-    public func addPackage(identity: PackageIdentity, versions: [Version], source: InMemoryRegistryPackageSource) {
-        self.addPackage(identity: identity, versions: versions.map{ $0.description }, source: source)
+    public func addPackage(identity: PackageIdentity, versions: [Version], sourceControlURLs: [URL]? = .none, source: InMemoryRegistryPackageSource) {
+        self.addPackage(identity: identity, versions: versions.map{ $0.description }, sourceControlURLs: sourceControlURLs, source: source)
     }
 
-    public func addPackage(identity: PackageIdentity, versions: [String], source: InMemoryRegistryPackageSource) {
+    public func addPackage(identity: PackageIdentity, versions: [String], sourceControlURLs: [URL]? = .none, source: InMemoryRegistryPackageSource) {
         self.packagesLock.withLock {
-            var value = self.packages[identity] ?? [:]
+            // versions
+            var updatedVersions = self.packageVersions[identity] ?? [:]
             for version in versions {
-                value[version] = source
+                updatedVersions[version.description] = source
             }
-            self.packages[identity] = value
+            self.packageVersions[identity] = updatedVersions
+            // source control URLs
+            if let sourceControlURLs = sourceControlURLs {
+                var packageSourceControlURLs = self.packagesSourceControlURLs[identity] ?? []
+                packageSourceControlURLs.append(contentsOf: sourceControlURLs)
+                self.packagesSourceControlURLs[identity] = packageSourceControlURLs
+                // reverse index
+                for sourceControlURL in sourceControlURLs {
+                    self.sourceControlURLs[sourceControlURL] = identity
+                }
+            }
         }
     }
 
@@ -94,13 +107,21 @@ public class MockRegistry {
     private func handleRequest(request: HTTPClient.Request) throws -> HTTPClient.Response {
         let routeComponents = request.url.absoluteString.dropFirst(Self.mockRegistryURL.absoluteString.count + 1).split(separator: "/")
         switch routeComponents.count {
+        case _ where routeComponents[0].hasPrefix("identifiers?url="):
+            guard let query = request.url.query else {
+                throw StringError("invalid url: \(request.url)")
+            }
+            guard let sourceControlURL = URL(string: String(query.dropFirst(4))) else {
+                throw StringError("invalid url query: \(query)")
+            }
+            return try self.getIdentifiers(url: sourceControlURL)
         case 2:
             let package = PackageIdentity.plain(routeComponents.joined(separator: "."))
-            return try self.listReleases(packageIdentity: package)
+            return try self.getPackageMetadata(packageIdentity: package)
         case 3:
             let package = PackageIdentity.plain(routeComponents[0...1].joined(separator: "."))
             let version = String(routeComponents[2])
-            return try self.getMetadata(packageIdentity: package, version: version)
+            return try self.getVersionMetadata(packageIdentity: package, version: version)
         case 4 where routeComponents[3] == "Package.swift":
             let package = PackageIdentity.plain(routeComponents[0...1].joined(separator: "."))
             let version = String(routeComponents[2])
@@ -114,21 +135,33 @@ public class MockRegistry {
         }
     }
 
-    private func listReleases(packageIdentity: PackageIdentity) throws -> HTTPClientResponse {
+    private func getPackageMetadata(packageIdentity: PackageIdentity) throws -> HTTPClientResponse {
         guard let (scope, name) = packageIdentity.scopeAndName else {
             throw StringError("invalid package identity \(packageIdentity)")
         }
 
-        let package = self.packages[packageIdentity] ?? [:]
+        let versions = self.packageVersions[packageIdentity] ?? [:]
         let metadata = RegistryClient.Serialization.PackageMetadata(
-            releases: package.keys.reduce(into: [String: RegistryClient.Serialization.PackageMetadata.Release]()) { partial, item in
+            releases: versions.keys.reduce(into: [String: RegistryClient.Serialization.PackageMetadata.Release]()) { partial, item in
                 partial[item] = .init(url: "\(Self.mockRegistryURL.absoluteString)/\(scope)/\(name)/\(item)")
             }
         )
 
+        /*
+         <https://github.com/mona/LinkedList>; rel="canonical",
+         <ssh://git@github.com:mona/LinkedList.git>; rel="alternate"
+         */
+        let sourceControlURLs = self.packagesSourceControlURLs[packageIdentity]
+        let links = sourceControlURLs?.map { url in
+            "<\(url.absoluteString)>; rel=alternate"
+        }.joined(separator: ", ")
+
         var headers = HTTPClientHeaders()
         headers.add(name: "Content-Version", value: "1")
         headers.add(name: "Content-Type", value: "application/json")
+        if let links = links {
+            headers.add(name: "Link", value: links)
+        }
 
         return try HTTPClientResponse(
             statusCode: 200,
@@ -137,8 +170,8 @@ public class MockRegistry {
         )
     }
 
-    private func getMetadata(packageIdentity: PackageIdentity, version: String) throws -> HTTPClientResponse {
-        guard let package = self.packages[packageIdentity]?[version] else {
+    private func getVersionMetadata(packageIdentity: PackageIdentity, version: String) throws -> HTTPClientResponse {
+        guard let package = self.packageVersions[packageIdentity]?[version] else {
             return .notFound()
         }
 
@@ -170,7 +203,7 @@ public class MockRegistry {
     }
 
     private func getManifest(packageIdentity: PackageIdentity, version: String, toolsVersion: ToolsVersion? = .none) throws -> HTTPClientResponse {
-        guard let package = self.packages[packageIdentity]?[version] else {
+        guard let package = self.packageVersions[packageIdentity]?[version] else {
             return .notFound()
         }
 
@@ -194,6 +227,24 @@ public class MockRegistry {
         )
     }
 
+    private func getIdentifiers(url: URL) throws -> HTTPClientResponse {
+        let identifiers = self.sourceControlURLs[url].map { [$0.description] } ?? []
+
+        let packageIdentifiers = RegistryClient.Serialization.PackageIdentifiers(
+            identifiers: identifiers
+        )
+
+        var headers = HTTPClientHeaders()
+        headers.add(name: "Content-Version", value: "1")
+        headers.add(name: "Content-Type", value: "application/json")
+
+        return HTTPClientResponse(
+            statusCode: 200,
+            headers: headers,
+            body: try self.jsonEncoder.encode(packageIdentifiers)
+        )
+    }
+
     private func handleDownloadRequest(
         request: HTTPClient.Request,
         progress: HTTPClient.ProgressHandler?,
@@ -208,7 +259,7 @@ public class MockRegistry {
         let packageIdentity = PackageIdentity.plain(routeComponents[0...1].joined(separator: "."))
         let version = String(routeComponents[2].dropLast(4))
 
-        guard let package = self.packages[packageIdentity]?[version] else {
+        guard let package = self.packageVersions[packageIdentity]?[version] else {
             return .notFound()
         }
 

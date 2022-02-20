@@ -550,7 +550,8 @@ public class SwiftTool {
                 prefetchBasedOnResolvedFile: options.shouldEnableResolverPrefetching,
                 additionalFileRules: isXcodeBuildSystemEnabled ? FileRuleDescription.xcbuildFileTypes : FileRuleDescription.swiftpmFileTypes,
                 sharedDependenciesCacheEnabled: self.options.useDependenciesCache,
-                fingerprintCheckingMode: self.options.resolverFingerprintCheckingMode
+                fingerprintCheckingMode: self.options.resolverFingerprintCheckingMode,
+                sourceControlToRegistryDependencyTransformation: self.options.sourceControlToRegistryDependencyTransformation.workspaceConfiguration
             ),
             initializationWarningHandler: { self.observabilityScope.emit(warning: $0) },
             customHostToolchain: self.getHostToolchain(),
@@ -834,7 +835,7 @@ public class SwiftTool {
                 ),
                 sanitizers: options.enabledSanitizers,
                 enableCodeCoverage: options.shouldEnableCodeCoverage,
-                indexStoreMode: options.indexStoreMode.indexStoreMode,
+                indexStoreMode: options.indexStoreMode.buildParameter,
                 enableParseableModuleInterfaces: options.shouldEnableParseableModuleInterfaces,
                 emitSwiftModuleSeparately: options.emitSwiftModuleSeparately,
                 useIntegratedSwiftDriver: options.useIntegratedSwiftDriver,
@@ -1114,6 +1115,13 @@ extension ObservabilityMetadata {
     }
 }
 
+extension Workspace.ManagedDependency {
+    fileprivate var isEdited: Bool {
+        if case .edited = self.state { return true }
+        return false
+    }
+}
+
 extension SwiftToolOptions {
     var logLevel: Diagnostic.Severity {
         if self.verbose {
@@ -1126,9 +1134,28 @@ extension SwiftToolOptions {
     }
 }
 
-extension Workspace.ManagedDependency {
-    fileprivate var isEdited: Bool {
-        if case .edited = self.state { return true }
-        return false
+extension SwiftToolOptions.SourceControlToRegistryDependencyTransformation {
+    var workspaceConfiguration: WorkspaceConfiguration.SourceControlToRegistryDependencyTransformation {
+        switch self {
+        case .disabled:
+            return .disabled
+        case .identity:
+            return .identity
+        case .swizzle:
+            return .swizzle
+        }
+    }
+}
+
+extension SwiftToolOptions.StoreMode {
+    var buildParameter: BuildParameters.IndexStoreMode {
+        switch self {
+        case .autoIndexStore:
+            return .auto
+        case .enableIndexStore:
+            return .on
+        case .disableIndexStore:
+            return .off
+        }
     }
 }

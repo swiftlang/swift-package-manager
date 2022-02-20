@@ -633,18 +633,23 @@ public struct WorkspaceConfiguration {
     ///  Fingerprint checking mode. Defaults to warn.
     public var fingerprintCheckingMode: FingerprintCheckingMode
 
+    ///  Attempt to transform source control based dependencies to registry ones
+    public var sourceControlToRegistryDependencyTransformation: SourceControlToRegistryDependencyTransformation
+
     public init(
         skipDependenciesUpdates: Bool,
         prefetchBasedOnResolvedFile: Bool,
         additionalFileRules: [FileRuleDescription],
         sharedDependenciesCacheEnabled: Bool,
-        fingerprintCheckingMode: FingerprintCheckingMode
+        fingerprintCheckingMode: FingerprintCheckingMode,
+        sourceControlToRegistryDependencyTransformation: SourceControlToRegistryDependencyTransformation
     ) {
         self.skipDependenciesUpdates = skipDependenciesUpdates
         self.prefetchBasedOnResolvedFile = prefetchBasedOnResolvedFile
         self.additionalFileRules = additionalFileRules
         self.sharedDependenciesCacheEnabled = sharedDependenciesCacheEnabled
         self.fingerprintCheckingMode = fingerprintCheckingMode
+        self.sourceControlToRegistryDependencyTransformation = sourceControlToRegistryDependencyTransformation
     }
 
     /// Default instance of WorkspaceConfiguration
@@ -654,8 +659,15 @@ public struct WorkspaceConfiguration {
             prefetchBasedOnResolvedFile: true,
             additionalFileRules: [],
             sharedDependenciesCacheEnabled: true,
-            fingerprintCheckingMode: .warn
+            fingerprintCheckingMode: .warn,
+            sourceControlToRegistryDependencyTransformation: .disabled
         )
+    }
+
+    public enum SourceControlToRegistryDependencyTransformation {
+        case disabled
+        case identity
+        case swizzle
     }
 }
 

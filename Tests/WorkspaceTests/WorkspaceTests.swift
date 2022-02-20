@@ -103,7 +103,7 @@ final class WorkspaceTests: XCTestCase {
         XCTAssertMatch(workspace.delegate.events, ["did load manifest for localSourceControl package: /tmp/ws/pkgs/Baz"])
 
         // Close and reopen workspace.
-        workspace.closeWorkspace()
+        try workspace.closeWorkspace(resetState: false)
         workspace.checkManagedDependencies { result in
             result.check(dependency: "baz", at: .checkout(.version("1.0.0")))
             result.check(dependency: "quix", at: .checkout(.version("1.2.0")))
@@ -119,7 +119,7 @@ final class WorkspaceTests: XCTestCase {
 
         // Remove state file and check we get back to a clean state.
         try fs.removeFileTree(workspace.getOrCreateWorkspace().state.storagePath)
-        workspace.closeWorkspace()
+        try workspace.closeWorkspace()
         workspace.checkManagedDependencies { result in
             result.checkEmpty()
         }
@@ -3616,8 +3616,7 @@ final class WorkspaceTests: XCTestCase {
         ]
 
         // reset state, excluding the resolved file
-        workspace.checkReset { XCTAssertNoDiagnostics($0) }
-        workspace.closeWorkspace()
+        try workspace.closeWorkspace()
         XCTAssertTrue(fs.exists(sandbox.appending(component: "Package.resolved")))
         // run update
         try workspace.checkUpdate(roots: ["Root"], deps: deps) { diagnostics in
@@ -3646,8 +3645,7 @@ final class WorkspaceTests: XCTestCase {
             .sourceControl(url: "https://localhost/org/bar.git", requirement: .exact("1.1.0")),
         ]
         // reset state, excluding the resolved file
-        workspace.checkReset { XCTAssertNoDiagnostics($0) }
-        workspace.closeWorkspace()
+        try workspace.closeWorkspace()
         XCTAssertTrue(fs.exists(sandbox.appending(component: "Package.resolved")))
         // run update
         try workspace.checkUpdate(roots: ["Root"], deps: deps) { diagnostics in
@@ -9051,6 +9049,77 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
+    func testResolutionBranchAndVersion() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    targets: [
+                        MockTarget(name: "RootTarget", dependencies: [
+                            .product(name: "FooProduct", package: "foo"),
+                            .product(name: "BarProduct", package: "bar")
+                        ]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        .sourceControl(url: "http://localhost/org/foo", requirement: .branch("experiment")),
+                        .sourceControl(url: "http://localhost/org/bar", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    toolsVersion: .v5_6
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "FooPackage",
+                    url: "http://localhost/org/foo",
+                    targets: [
+                        MockTarget(name: "FooTarget"),
+                    ],
+                    products: [
+                        MockProduct(name: "FooProduct", targets: ["FooTarget"]),
+                    ],
+                    versions: ["1.0.0", "experiment"]
+                ),
+                MockPackage(
+                    name: "BarPackage",
+                    url: "http://localhost/org/bar",
+                    targets: [
+                        MockTarget(name: "BarTarget", dependencies: [
+                            .product(name: "FooProduct", package: "foo"),
+                        ]),
+                    ],
+                    products: [
+                        MockProduct(name: "BarProduct", targets: ["BarTarget"]),
+                    ],
+                    dependencies: [
+                        .sourceControl(url: "http://localhost/org/foo", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    versions: ["1.0.0"]
+                )
+            ]
+        )
+
+        try workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+            PackageGraphTester(graph) { result in
+                result.check(roots: "Root")
+                result.check(packages: "BarPackage", "FooPackage", "Root")
+                result.check(targets: "FooTarget", "BarTarget", "RootTarget")
+                result.checkTarget("RootTarget") { result in result.check(dependencies: "BarProduct", "FooProduct") }
+            }
+        }
+
+        workspace.checkManagedDependencies { result in
+            result.check(dependency: "foo", at: .checkout(.branch("experiment")))
+            result.check(dependency: "bar", at: .checkout(.version("1.0.0")))
+        }
+    }
+
     func testBinaryArtifactsInvalidPath() throws {
         try testWithTemporaryDirectory { path in
             let fs = localFileSystem
@@ -9571,7 +9640,8 @@ final class WorkspaceTests: XCTestCase {
         XCTAssertMatch(workspace.delegate.events, ["did load manifest for registry package: org.baz"])
     }
 
-    func testBasicMixedTransitiveResolution() throws {
+    // no dups
+    func testResolutionMixedRegistryAndSourceControl1() throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -9580,107 +9650,1410 @@ final class WorkspaceTests: XCTestCase {
             fileSystem: fs,
             roots: [
                 MockPackage(
-                    name: "MyPackage",
+                    name: "Root",
+                    path: "root",
                     targets: [
-                        MockTarget(
-                            name: "MyTarget1",
-                            dependencies: [
-                                .product(name: "Foo", package: "org.foo")
-                            ]),
-                        MockTarget(
-                            name: "MyTarget2",
-                            dependencies: [
-                                .product(name: "Bar", package: "org.bar")
-                            ]),
+                        MockTarget(name: "RootTarget", dependencies: [
+                            .product(name: "FooProduct", package: "foo"),
+                            .product(name: "BarProduct", package: "bar")
+                        ]),
                     ],
-                    products: [
-                        MockProduct(name: "MyProduct", targets: ["MyTarget1", "MyTarget2"]),
-                    ],
+                    products: [],
                     dependencies: [
-                        .registry(identity: "org.foo", requirement: .upToNextMajor(from: "1.0.0")),
-                        .sourceControl(url: "http://localhost/org/bar", requirement: .upToNextMajor(from: "2.0.0")),
-                    ]
+                        .sourceControl(url: "https://git/org/foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .registry(identity: "org.bar", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    toolsVersion: .v5_6
                 ),
             ],
             packages: [
                 MockPackage(
-                    name: "Foo",
-                    identity: "org.foo",
+                    name: "FooPackage",
+                    url: "https://git/org/foo",
                     targets: [
-                        MockTarget(
-                            name: "Foo",
-                            dependencies: [
-                                .product(name: "Baz", package: "org.baz")
-                            ]),
+                        MockTarget(name: "FooTarget"),
                     ],
                     products: [
-                        MockProduct(name: "Foo", targets: ["Foo"]),
+                        MockProduct(name: "FooProduct", targets: ["FooTarget"]),
                     ],
-                    dependencies: [
-                        .registry(identity: "org.baz", requirement: .range("2.0.0" ..< "4.0.0")),
+                    versions: ["1.0.0", "1.1.0", "1.2.0"]
+                ),
+                MockPackage(
+                    name: "BarPackage",
+                    identity: "org.bar",
+                    targets: [
+                        MockTarget(name: "BarTarget"),
+                    ],
+                    products: [
+                        MockProduct(name: "BarProduct", targets: ["BarTarget"]),
                     ],
                     versions: ["1.0.0", "1.1.0"]
                 ),
                 MockPackage(
-                    name: "Bar",
-                    url: "http://localhost/org/bar",
+                    name: "FooPackage",
+                    identity: "org.foo",
+                    alternativeURLs: ["https://git/org/foo"],
                     targets: [
-                        MockTarget(
-                            name: "Bar",
-                            dependencies: [
-                                .product(name: "Baz", package: "org.baz")
-                            ]),
+                        MockTarget(name: "FooTarget"),
                     ],
                     products: [
-                        MockProduct(name: "Bar", targets: ["Bar"]),
+                        MockProduct(name: "FooProduct", targets: ["FooTarget"]),
                     ],
+                    versions: ["1.0.0", "1.1.0", "1.2.0"]
+                )
+            ]
+        )
+
+        do {
+            workspace.sourceControlToRegistryDependencyTransformation = .disabled
+
+            try workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
+                XCTAssertNoDiagnostics(diagnostics)
+                PackageGraphTester(graph) { result in
+                    result.check(roots: "Root")
+                    result.check(packages: "BarPackage", "FooPackage", "Root")
+                    result.check(targets: "FooTarget", "BarTarget", "RootTarget")
+                    result.checkTarget("RootTarget") { result in result.check(dependencies: "BarProduct", "FooProduct") }
+                }
+            }
+
+            workspace.checkManagedDependencies { result in
+                result.check(dependency: "foo", at: .checkout(.version("1.2.0")))
+                result.check(dependency: "org.bar", at: .registryDownload("1.1.0"))
+            }
+        }
+
+        // reset
+        try workspace.closeWorkspace()
+
+        do {
+            workspace.sourceControlToRegistryDependencyTransformation = .identity
+
+            try workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
+                XCTAssertNoDiagnostics(diagnostics)
+                PackageGraphTester(graph) { result in
+                    result.check(roots: "Root")
+                    result.check(packages: "BarPackage", "FooPackage", "Root")
+                    result.check(targets: "FooTarget", "BarTarget", "RootTarget")
+                    result.checkTarget("RootTarget") { result in result.check(dependencies: "BarProduct", "FooProduct") }
+                }
+            }
+
+            workspace.checkManagedDependencies { result in
+                result.check(dependency: "org.foo", at: .checkout(.version("1.2.0")))
+                result.check(dependency: "org.bar", at: .registryDownload("1.1.0"))
+            }
+        }
+
+        // reset
+        try workspace.closeWorkspace()
+
+        do {
+            workspace.sourceControlToRegistryDependencyTransformation = .swizzle
+
+            try workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
+                XCTAssertNoDiagnostics(diagnostics)
+                PackageGraphTester(graph) { result in
+                    result.check(roots: "Root")
+                    result.check(packages: "BarPackage", "FooPackage", "Root")
+                    result.check(targets: "FooTarget", "BarTarget", "RootTarget")
+                    result.checkTarget("RootTarget") { result in result.check(dependencies: "BarProduct", "FooProduct") }
+                }
+            }
+
+            workspace.checkManagedDependencies { result in
+                result.check(dependency: "org.foo", at: .registryDownload("1.2.0"))
+                result.check(dependency: "org.bar", at: .registryDownload("1.1.0"))
+            }
+        }
+    }
+
+    // duplicate package at root level
+    func testResolutionMixedRegistryAndSourceControl2() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    path: "root",
+                    targets: [
+                        MockTarget(name: "RootTarget", dependencies: [
+                            .product(name: "FooProduct", package: "foo")
+                        ]),
+                    ],
+                    products: [],
                     dependencies: [
-                        .registry(identity: "org.baz", requirement: .upToNextMajor(from: "3.0.0")),
+                        .sourceControl(url: "https://git/org/foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .registry(identity: "org.foo", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
-                    versions: ["1.0.0", "1.1.0", "2.0.0", "2.1.0"]
+                    toolsVersion: .v5_6
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "FooPackage",
+                    url: "https://git/org/foo",
+                    targets: [
+                        MockTarget(name: "FooTarget"),
+                    ],
+                    products: [
+                        MockProduct(name: "FooProduct", targets: ["FooTarget"]),
+                    ],
+                    versions: ["1.0.0"]
                 ),
                 MockPackage(
-                    name: "Baz",
-                    identity: "org.baz",
+                    name: "FooPackage",
+                    identity: "org.foo",
+                    alternativeURLs: ["https://git/org/foo"],
                     targets: [
-                        MockTarget(name: "Baz"),
+                        MockTarget(name: "FooTarget"),
                     ],
                     products: [
-                        MockProduct(name: "Baz", targets: ["Baz"]),
+                        MockProduct(name: "FooProduct", targets: ["FooTarget"]),
                     ],
-                    versions: ["1.0.0", "1.1.0", "2.0.0", "2.1.0", "3.0.0", "3.1.0"]
+                    versions: ["1.0.0"]
                 ),
             ]
         )
 
-        try workspace.checkPackageGraph(roots: ["MyPackage"]) { graph, diagnostics in
-            XCTAssertNoDiagnostics(diagnostics)
-            PackageGraphTester(graph) { result in
-                result.check(roots: "MyPackage")
-                result.check(packages: "Bar", "Baz", "Foo", "MyPackage")
-                result.check(targets: "Foo", "Bar", "Baz", "MyTarget1", "MyTarget2")
-                result.checkTarget("MyTarget1") { result in result.check(dependencies: "Foo") }
-                result.checkTarget("MyTarget2") { result in result.check(dependencies: "Bar") }
-                result.checkTarget("Foo") { result in result.check(dependencies: "Baz") }
-                result.checkTarget("Bar") { result in result.check(dependencies: "Baz") }
+        do {
+            workspace.sourceControlToRegistryDependencyTransformation = .disabled
+
+            try workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
+                testDiagnostics(diagnostics) { result in
+                    result.check(
+                        diagnostic: .contains("""
+                        multiple products named 'FooProduct' in: 'foo', 'org.foo'
+                        """),
+                        severity: .error
+                    )
+                    result.check(
+                        diagnostic: .contains("""
+                        multiple targets named 'FooTarget' in: 'foo', 'org.foo'
+                        """),
+                        severity: .error
+                    )
+                }
             }
         }
 
-        workspace.checkManagedDependencies { result in
-            result.check(dependency: "org.foo", at: .registryDownload("1.1.0"))
-            result.check(dependency: "bar", at: .checkout(.version("2.1.0")))
-            result.check(dependency: "org.baz", at: .registryDownload("3.1.0"))
+        // reset
+        try workspace.closeWorkspace()
+
+        do {
+            workspace.sourceControlToRegistryDependencyTransformation = .identity
+
+            try workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
+                testDiagnostics(diagnostics) { result in
+                    result.check(
+                        diagnostic: "'root' dependency on 'org.foo' conflicts with dependency on 'https://git/org/foo' which has the same identity 'org.foo'",
+                        severity: .error
+                    )
+                }
+            }
         }
 
-        // Check the load-package callbacks.
-        XCTAssertMatch(workspace.delegate.events, ["will load manifest for root package: /tmp/ws/roots/MyPackage"])
-        XCTAssertMatch(workspace.delegate.events, ["did load manifest for root package: /tmp/ws/roots/MyPackage"])
-        XCTAssertMatch(workspace.delegate.events, ["will load manifest for registry package: org.foo"])
-        XCTAssertMatch(workspace.delegate.events, ["did load manifest for registry package: org.foo"])
-        XCTAssertMatch(workspace.delegate.events, ["will load manifest for remoteSourceControl package: http://localhost/org/bar"])
-        XCTAssertMatch(workspace.delegate.events, ["did load manifest for remoteSourceControl package: http://localhost/org/bar"])
-        XCTAssertMatch(workspace.delegate.events, ["will load manifest for registry package: org.baz"])
-        XCTAssertMatch(workspace.delegate.events, ["did load manifest for registry package: org.baz"])
+        // reset
+        try workspace.closeWorkspace()
+
+        do {
+            workspace.sourceControlToRegistryDependencyTransformation = .swizzle
+
+            // TODO: this error message should be improved
+            try workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
+                testDiagnostics(diagnostics) { result in
+                    result.check(
+                        diagnostic: "'root' dependency on 'org.foo' conflicts with dependency on 'org.foo' which has the same identity 'org.foo'",
+                        severity: .error
+                    )
+                }
+            }
+        }
+    }
+
+
+    // mixed graph root --> dep1 scm
+    //                  --> dep2 scm --> dep1 registry
+    func testResolutionMixedRegistryAndSourceControl3() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    path: "root",
+                    targets: [
+                        MockTarget(name: "RootTarget", dependencies: [
+                            .product(name: "FooProduct", package: "foo"),
+                            .product(name: "BarProduct", package: "bar")
+                        ]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        .sourceControl(url: "https://git/org/foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(url: "https://git/org/bar", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    toolsVersion: .v5_6
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "FooPackage",
+                    url: "https://git/org/foo",
+                    targets: [
+                        MockTarget(name: "FooTarget"),
+                    ],
+                    products: [
+                        MockProduct(name: "FooProduct", targets: ["FooTarget"]),
+                    ],
+                    versions: ["1.0.0", "1.1.0", "2.0.0", "2.1.0"]
+                ),
+                MockPackage(
+                    name: "BarPackage",
+                    url: "https://git/org/bar",
+                    targets: [
+                        MockTarget(name: "BarTarget", dependencies: [
+                            .product(name: "FooProduct", package: "org.foo")
+                        ]),
+                    ],
+                    products: [
+                        MockProduct(name: "BarProduct", targets: ["BarTarget"]),
+                    ],
+                    dependencies: [
+                        .registry(identity: "org.foo", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    versions: ["1.0.0", "1.1.0", "2.0.0", "2.1.0"]
+                ),
+                MockPackage(
+                    name: "FooPackage",
+                    identity: "org.foo",
+                    alternativeURLs: ["https://git/org/foo"],
+                    targets: [
+                        MockTarget(name: "FooTarget"),
+                    ],
+                    products: [
+                        MockProduct(name: "FooProduct", targets: ["FooTarget"]),
+                    ],
+                    versions: ["1.0.0", "1.1.0", "2.0.0", "2.1.0"]
+                ),
+            ]
+        )
+
+        do {
+            workspace.sourceControlToRegistryDependencyTransformation = .disabled
+
+            try workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
+                testDiagnostics(diagnostics) { result in
+                    result.check(
+                        diagnostic: .contains("""
+                        multiple products named 'FooProduct' in: 'foo', 'org.foo'
+                        """),
+                        severity: .error
+                    )
+                    result.check(
+                        diagnostic: .contains("""
+                        multiple targets named 'FooTarget' in: 'foo', 'org.foo'
+                        """),
+                        severity: .error
+                    )
+                }
+            }
+        }
+
+        // reset
+        try workspace.closeWorkspace()
+
+        do {
+            workspace.sourceControlToRegistryDependencyTransformation = .identity
+
+            try workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
+                testDiagnostics(diagnostics) { result in
+                    result.check(
+                        diagnostic: .contains("""
+                        'bar' dependency on 'org.foo' conflicts with dependency on 'https://git/org/foo' which has the same identity 'org.foo'.
+                        """),
+                        severity: .warning
+                    )
+                }
+
+                PackageGraphTester(graph) { result in
+                    result.check(roots: "Root")
+                    result.check(packages: "BarPackage", "FooPackage", "Root")
+                    result.check(targets: "FooTarget", "BarTarget", "RootTarget")
+                    result.checkTarget("RootTarget") { result in result.check(dependencies: "BarProduct", "FooProduct") }
+                }
+            }
+
+            workspace.checkManagedDependencies { result in
+                result.check(dependency: "org.foo", at: .checkout(.version("1.1.0")))
+                result.check(dependency: "bar", at: .checkout(.version("1.1.0")))
+            }
+        }
+
+        // reset
+        try workspace.closeWorkspace()
+
+        do {
+            workspace.sourceControlToRegistryDependencyTransformation = .swizzle
+
+            try workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
+                XCTAssertNoDiagnostics(diagnostics)
+
+                PackageGraphTester(graph) { result in
+                    result.check(roots: "Root")
+                    result.check(packages: "BarPackage", "FooPackage", "Root")
+                    result.check(targets: "FooTarget", "BarTarget", "RootTarget")
+                    result.checkTarget("RootTarget") { result in result.check(dependencies: "BarProduct", "FooProduct") }
+                }
+            }
+
+            workspace.checkManagedDependencies { result in
+                result.check(dependency: "org.foo", at: .registryDownload("1.1.0"))
+                result.check(dependency: "bar", at: .checkout(.version("1.1.0")))
+            }
+        }
+
+        // reset
+        try workspace.closeWorkspace()
+
+        do {
+            workspace.sourceControlToRegistryDependencyTransformation = .swizzle
+
+            try workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
+                XCTAssertNoDiagnostics(diagnostics)
+                PackageGraphTester(graph) { result in
+                    result.check(roots: "Root")
+                    result.check(packages: "BarPackage", "FooPackage", "Root")
+                    result.check(targets: "FooTarget", "BarTarget", "RootTarget")
+                    result.checkTarget("RootTarget") { result in result.check(dependencies: "BarProduct", "FooProduct") }
+                }
+            }
+
+            workspace.checkManagedDependencies { result in
+                result.check(dependency: "org.foo", at: .registryDownload("1.1.0"))
+                result.check(dependency: "bar", at: .checkout(.version("1.1.0")))
+            }
+        }
+    }
+
+    // mixed graph root --> dep1 scm
+    //                  --> dep2 registry --> dep1 registry
+    func testResolutionMixedRegistryAndSourceControl4() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    path: "root",
+                    targets: [
+                        MockTarget(name: "RootTarget", dependencies: [
+                            .product(name: "FooProduct", package: "foo"),
+                            .product(name: "BarProduct", package: "bar")
+                        ]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        .sourceControl(url: "https://git/org/foo", requirement: .upToNextMajor(from: "1.1.0")),
+                        .registry(identity: "org.bar", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    toolsVersion: .v5_6
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "FooPackage",
+                    url: "https://git/org/foo",
+                    targets: [
+                        MockTarget(name: "FooTarget"),
+                    ],
+                    products: [
+                        MockProduct(name: "FooProduct", targets: ["FooTarget"]),
+                    ],
+                    versions: ["1.0.0", "1.1.0", "1.2.0"]
+                ),
+                MockPackage(
+                    name: "BarPackage",
+                    identity: "org.bar",
+                    targets: [
+                        MockTarget(name: "BarTarget", dependencies: [
+                            .product(name: "FooProduct", package: "org.foo")
+                        ]),
+                    ],
+                    products: [
+                        MockProduct(name: "BarProduct", targets: ["BarTarget"]),
+                    ],
+                    dependencies: [
+                        .registry(identity: "org.foo", requirement: .upToNextMajor(from: "1.2.0")),
+                    ],
+                    versions: ["1.0.0", "1.1.0"]
+                ),
+                MockPackage(
+                    name: "FooPackage",
+                    identity: "org.foo",
+                    alternativeURLs: ["https://git/org/foo"],
+                    targets: [
+                        MockTarget(name: "FooTarget"),
+                    ],
+                    products: [
+                        MockProduct(name: "FooProduct", targets: ["FooTarget"]),
+                    ],
+                    versions: ["1.0.0", "1.1.0", "1.2.0"]
+                ),
+            ]
+        )
+
+        do {
+            workspace.sourceControlToRegistryDependencyTransformation = .disabled
+
+            try workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
+                testDiagnostics(diagnostics) { result in
+                    result.check(
+                        diagnostic: .contains("""
+                        multiple products named 'FooProduct' in: 'foo', 'org.foo'
+                        """),
+                        severity: .error
+                    )
+                    result.check(
+                        diagnostic: .contains("""
+                        multiple targets named 'FooTarget' in: 'foo', 'org.foo'
+                        """),
+                        severity: .error
+                    )
+                }
+            }
+        }
+
+        // reset
+        try workspace.closeWorkspace()
+
+        do {
+            workspace.sourceControlToRegistryDependencyTransformation = .identity
+
+            try workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
+                testDiagnostics(diagnostics) { result in
+                    result.check(
+                        diagnostic: .contains("""
+                        'org.bar' dependency on 'org.foo' conflicts with dependency on 'https://git/org/foo' which has the same identity 'org.foo'.
+                        """),
+                        severity: .warning
+                    )
+                }
+                PackageGraphTester(graph) { result in
+                    result.check(roots: "Root")
+                    result.check(packages: "BarPackage", "FooPackage", "Root")
+                    result.check(targets: "FooTarget", "BarTarget", "RootTarget")
+                    result.checkTarget("RootTarget") { result in result.check(dependencies: "BarProduct", "FooProduct") }
+                }
+            }
+
+            workspace.checkManagedDependencies { result in
+                result.check(dependency: "org.foo", at: .checkout(.version("1.2.0")))
+                result.check(dependency: "org.bar", at: .registryDownload("1.1.0"))
+            }
+        }
+
+        // reset
+        try workspace.closeWorkspace()
+
+        do {
+            workspace.sourceControlToRegistryDependencyTransformation = .swizzle
+
+            try workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
+                XCTAssertNoDiagnostics(diagnostics)
+                PackageGraphTester(graph) { result in
+                    result.check(roots: "Root")
+                    result.check(packages: "BarPackage", "FooPackage", "Root")
+                    result.check(targets: "FooTarget", "BarTarget", "RootTarget")
+                    result.checkTarget("RootTarget") { result in result.check(dependencies: "BarProduct", "FooProduct") }
+                }
+            }
+
+            workspace.checkManagedDependencies { result in
+                result.check(dependency: "org.foo", at: .registryDownload("1.2.0"))
+                result.check(dependency: "org.bar", at: .registryDownload("1.1.0"))
+            }
+        }
+    }
+
+    // mixed graph root --> dep1 scm
+    //                  --> dep2 scm --> dep1 registry incompatible version
+    func testResolutionMixedRegistryAndSourceControl5() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    path: "root",
+                    targets: [
+                        MockTarget(name: "RootTarget", dependencies: [
+                            .product(name: "FooProduct", package: "foo"),
+                            .product(name: "BarProduct", package: "bar")
+                        ]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        .sourceControl(url: "https://git/org/foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(url: "https://git/org/bar", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    toolsVersion: .v5_6
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "FooPackage",
+                    url: "https://git/org/foo",
+                    targets: [
+                        MockTarget(name: "FooTarget"),
+                    ],
+                    products: [
+                        MockProduct(name: "FooProduct", targets: ["FooTarget"]),
+                    ],
+                    versions: ["1.0.0", "2.0.0"]
+                ),
+                MockPackage(
+                    name: "BarPackage",
+                    url: "https://git/org/bar",
+                    targets: [
+                        MockTarget(name: "BarTarget", dependencies: [
+                            .product(name: "FooProduct", package: "org.foo")
+                        ]),
+                    ],
+                    products: [
+                        MockProduct(name: "BarProduct", targets: ["BarTarget"]),
+                    ],
+                    dependencies: [
+                        .registry(identity: "org.foo", requirement: .upToNextMajor(from: "2.0.0")),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                MockPackage(
+                    name: "FooPackage",
+                    identity: "org.foo",
+                    alternativeURLs: ["https://git/org/foo"],
+                    targets: [
+                        MockTarget(name: "FooTarget"),
+                    ],
+                    products: [
+                        MockProduct(name: "FooProduct", targets: ["FooTarget"]),
+                    ],
+                    versions: ["1.0.0", "2.0.0"]
+                ),
+            ]
+        )
+
+        do {
+            workspace.sourceControlToRegistryDependencyTransformation = .disabled
+
+            try workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
+                testDiagnostics(diagnostics) { result in
+                    result.check(
+                        diagnostic: .contains("""
+                        multiple products named 'FooProduct' in: 'foo', 'org.foo'
+                        """),
+                        severity: .error
+                    )
+                    result.check(
+                        diagnostic: .contains("""
+                        multiple targets named 'FooTarget' in: 'foo', 'org.foo'
+                        """),
+                        severity: .error
+                    )
+                }
+            }
+        }
+
+        // reset
+        try workspace.closeWorkspace()
+
+        do {
+            workspace.sourceControlToRegistryDependencyTransformation = .identity
+
+            try workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
+                testDiagnostics(diagnostics) { result in
+                    result.check(
+                        diagnostic:
+                        """
+                        Dependencies could not be resolved because root depends on 'org.foo' 1.0.0..<2.0.0 and root depends on 'bar' 1.0.0..<2.0.0.
+                        'bar' >= 1.0.0 practically depends on 'org.foo' 2.0.0..<3.0.0 because no versions of 'bar' match the requirement 1.0.1..<2.0.0 and 'bar' 1.0.0 depends on 'org.foo' 2.0.0..<3.0.0.
+                        """,
+                        severity: .error
+                    )
+                }
+            }
+        }
+
+        // reset
+        try workspace.closeWorkspace()
+
+        do {
+            workspace.sourceControlToRegistryDependencyTransformation = .swizzle
+
+            try workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
+                testDiagnostics(diagnostics) { result in
+                    result.check(
+                        diagnostic:
+                        """
+                        Dependencies could not be resolved because root depends on 'org.foo' 1.0.0..<2.0.0 and root depends on 'bar' 1.0.0..<2.0.0.
+                        'bar' >= 1.0.0 practically depends on 'org.foo' 2.0.0..<3.0.0 because no versions of 'bar' match the requirement 1.0.1..<2.0.0 and 'bar' 1.0.0 depends on 'org.foo' 2.0.0..<3.0.0.
+                        """,
+                        severity: .error
+                    )
+                }
+            }
+        }
+    }
+
+    // mixed graph root --> dep1 registry
+    //                  --> dep2 registry --> dep1 scm
+    func testResolutionMixedRegistryAndSourceControl6() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    path: "root",
+                    targets: [
+                        MockTarget(name: "RootTarget", dependencies: [
+                            .product(name: "FooProduct", package: "foo"),
+                            .product(name: "BarProduct", package: "bar")
+                        ]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        .registry(identity: "org.foo", requirement: .upToNextMajor(from: "1.1.0")),
+                        .registry(identity: "org.bar", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    toolsVersion: .v5_6
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "FooPackage",
+                    identity: "org.foo",
+                    alternativeURLs: ["https://git/org/foo"],
+                    targets: [
+                        MockTarget(name: "FooTarget"),
+                    ],
+                    products: [
+                        MockProduct(name: "FooProduct", targets: ["FooTarget"]),
+                    ],
+                    versions: ["1.0.0", "1.1.0", "1.2.0"]
+                ),
+                MockPackage(
+                    name: "BarPackage",
+                    identity: "org.bar",
+                    targets: [
+                        MockTarget(name: "BarTarget", dependencies: [
+                            .product(name: "FooProduct", package: "foo")
+                        ]),
+                    ],
+                    products: [
+                        MockProduct(name: "BarProduct", targets: ["BarTarget"]),
+                    ],
+                    dependencies: [
+                        .sourceControl(url: "https://git/org/foo", requirement: .upToNextMajor(from: "1.2.0")),
+                    ],
+                    versions: ["1.0.0", "1.1.0"]
+                ),
+                MockPackage(
+                    name: "FooPackage",
+                    url: "https://git/org/foo",
+                    targets: [
+                        MockTarget(name: "FooTarget"),
+                    ],
+                    products: [
+                        MockProduct(name: "FooProduct", targets: ["FooTarget"]),
+                    ],
+                    versions: ["1.0.0", "1.1.0", "1.2.0"]
+                ),
+            ]
+        )
+
+        do {
+            workspace.sourceControlToRegistryDependencyTransformation = .disabled
+
+            try workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
+                testDiagnostics(diagnostics) { result in
+                    result.check(
+                        diagnostic: .contains("""
+                        multiple products named 'FooProduct' in: 'foo', 'org.foo'
+                        """),
+                        severity: .error
+                    )
+                    result.check(
+                        diagnostic: .contains("""
+                        multiple targets named 'FooTarget' in: 'foo', 'org.foo'
+                        """),
+                        severity: .error
+                    )
+                }
+            }
+        }
+
+        // reset
+        try workspace.closeWorkspace()
+
+        do {
+            workspace.sourceControlToRegistryDependencyTransformation = .identity
+
+            try workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
+                testDiagnostics(diagnostics) { result in
+                    result.check(
+                        diagnostic: .contains("""
+                        'org.bar' dependency on 'https://git/org/foo' conflicts with dependency on 'org.foo' which has the same identity 'org.foo'.
+                        """),
+                        severity: .warning
+                    )
+                }
+                PackageGraphTester(graph) { result in
+                    result.check(roots: "Root")
+                    result.check(packages: "BarPackage", "FooPackage", "Root")
+                    result.check(targets: "FooTarget", "BarTarget", "RootTarget")
+                    result.checkTarget("RootTarget") { result in result.check(dependencies: "BarProduct", "FooProduct") }
+                }
+            }
+
+            workspace.checkManagedDependencies { result in
+                result.check(dependency: "org.foo", at: .registryDownload("1.2.0"))
+                result.check(dependency: "org.bar", at: .registryDownload("1.1.0"))
+            }
+        }
+
+        // reset
+        try workspace.closeWorkspace()
+
+        do {
+            workspace.sourceControlToRegistryDependencyTransformation = .swizzle
+
+            try workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
+                XCTAssertNoDiagnostics(diagnostics)
+                PackageGraphTester(graph) { result in
+                    result.check(roots: "Root")
+                    result.check(packages: "BarPackage", "FooPackage", "Root")
+                    result.check(targets: "FooTarget", "BarTarget", "RootTarget")
+                    result.checkTarget("RootTarget") { result in result.check(dependencies: "BarProduct", "FooProduct") }
+                }
+            }
+
+            workspace.checkManagedDependencies { result in
+                result.check(dependency: "org.foo", at: .registryDownload("1.2.0"))
+                result.check(dependency: "org.bar", at: .registryDownload("1.1.0"))
+            }
+        }
+    }
+
+    // mixed graph root --> dep1 registry
+    //                  --> dep2 registry --> dep1 scm incompatible version
+    func testResolutionMixedRegistryAndSourceControl7() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    path: "root",
+                    targets: [
+                        MockTarget(name: "RootTarget", dependencies: [
+                            .product(name: "FooProduct", package: "foo"),
+                            .product(name: "BarProduct", package: "bar")
+                        ]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        .registry(identity: "org.foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .registry(identity: "org.bar", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    toolsVersion: .v5_6
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "FooPackage",
+                    identity: "org.foo",
+                    alternativeURLs: ["https://git/org/foo"],
+                    targets: [
+                        MockTarget(name: "FooTarget"),
+                    ],
+                    products: [
+                        MockProduct(name: "FooProduct", targets: ["FooTarget"]),
+                    ],
+                    versions: ["1.0.0", "2.0.0"]
+                ),
+                MockPackage(
+                    name: "BarPackage",
+                    identity: "org.bar",
+                    targets: [
+                        MockTarget(name: "BarTarget", dependencies: [
+                            .product(name: "FooProduct", package: "foo")
+                        ]),
+                    ],
+                    products: [
+                        MockProduct(name: "BarProduct", targets: ["BarTarget"]),
+                    ],
+                    dependencies: [
+                        .sourceControl(url: "https://git/org/foo", requirement: .upToNextMajor(from: "2.0.0")),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                MockPackage(
+                    name: "FooPackage",
+                    url: "https://git/org/foo",
+                    targets: [
+                        MockTarget(name: "FooTarget"),
+                    ],
+                    products: [
+                        MockProduct(name: "FooProduct", targets: ["FooTarget"]),
+                    ],
+                    versions: ["1.0.0", "2.0.0"]
+                ),
+            ]
+        )
+
+        do {
+            workspace.sourceControlToRegistryDependencyTransformation = .disabled
+
+            try workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
+                testDiagnostics(diagnostics) { result in
+                    result.check(
+                        diagnostic: .contains("""
+                        multiple products named 'FooProduct' in: 'foo', 'org.foo'
+                        """),
+                        severity: .error
+                    )
+                    result.check(
+                        diagnostic: .contains("""
+                        multiple targets named 'FooTarget' in: 'foo', 'org.foo'
+                        """),
+                        severity: .error
+                    )
+                }
+            }
+        }
+
+        // reset
+        try workspace.closeWorkspace()
+
+        do {
+            workspace.sourceControlToRegistryDependencyTransformation = .identity
+
+            try workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
+                testDiagnostics(diagnostics) { result in
+                    result.check(
+                        diagnostic:
+                        """
+                        Dependencies could not be resolved because root depends on 'org.foo' 1.0.0..<2.0.0 and root depends on 'org.bar' 1.0.0..<2.0.0.
+                        'org.bar' >= 1.0.0 practically depends on 'org.foo' 2.0.0..<3.0.0 because no versions of 'org.bar' match the requirement 1.0.1..<2.0.0 and 'org.bar' 1.0.0 depends on 'org.foo' 2.0.0..<3.0.0.
+                        """,
+                        severity: .error
+                    )
+                }
+            }
+        }
+
+        // reset
+        try workspace.closeWorkspace()
+
+        do {
+            workspace.sourceControlToRegistryDependencyTransformation = .swizzle
+
+            try workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
+                testDiagnostics(diagnostics) { result in
+                    result.check(
+                        diagnostic:
+                        """
+                        Dependencies could not be resolved because root depends on 'org.foo' 1.0.0..<2.0.0 and root depends on 'org.bar' 1.0.0..<2.0.0.
+                        'org.bar' >= 1.0.0 practically depends on 'org.foo' 2.0.0..<3.0.0 because no versions of 'org.bar' match the requirement 1.0.1..<2.0.0 and 'org.bar' 1.0.0 depends on 'org.foo' 2.0.0..<3.0.0.
+                        """,
+                        severity: .error
+                    )
+                }
+            }
+        }
+    }
+
+    // mixed graph root --> dep1 registry --> dep3 scm
+    //                  --> dep2 registry --> dep3 registry
+    func testResolutionMixedRegistryAndSourceControl8() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    path: "root",
+                    targets: [
+                        MockTarget(name: "RootTarget", dependencies: [
+                            .product(name: "FooProduct", package: "foo"),
+                            .product(name: "BarProduct", package: "bar")
+                        ]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        .registry(identity: "org.foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .registry(identity: "org.bar", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    toolsVersion: .v5_6
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "FooPackage",
+                    identity: "org.foo",
+                    targets: [
+                        MockTarget(name: "FooTarget", dependencies: [
+                            .product(name: "BazProduct", package: "baz")
+                        ]),
+                    ],
+                    products: [
+                        MockProduct(name: "FooProduct", targets: ["FooTarget"]),
+                    ],
+                    dependencies: [
+                        .sourceControl(url: "https://git/org/baz", requirement: .upToNextMajor(from: "1.1.0")),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                MockPackage(
+                    name: "BarPackage",
+                    identity: "org.bar",
+                    targets: [
+                        MockTarget(name: "BarTarget", dependencies: [
+                            .product(name: "BazProduct", package: "org.baz")
+                        ]),
+                    ],
+                    products: [
+                        MockProduct(name: "BarProduct", targets: ["BarTarget"]),
+                    ],
+                    dependencies: [
+                        .registry(identity: "org.baz", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                MockPackage(
+                    name: "BazPackage",
+                    url: "https://git/org/baz",
+                    targets: [
+                        MockTarget(name: "BazTarget"),
+                    ],
+                    products: [
+                        MockProduct(name: "BazProduct", targets: ["BazTarget"]),
+                    ],
+                    versions: ["1.0.0", "1.1.0"]
+                ),
+                MockPackage(
+                    name: "BazPackage",
+                    identity: "org.baz",
+                    alternativeURLs: ["https://git/org/baz"],
+                    targets: [
+                        MockTarget(name: "BazTarget"),
+                    ],
+                    products: [
+                        MockProduct(name: "BazProduct", targets: ["BazTarget"]),
+                    ],
+                    versions: ["1.0.0", "1.1.0"]
+                ),
+            ]
+        )
+
+        do {
+            workspace.sourceControlToRegistryDependencyTransformation = .disabled
+
+            try workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
+                testDiagnostics(diagnostics) { result in
+                    result.check(
+                        diagnostic: .contains("""
+                        multiple products named 'BazProduct' in: 'baz', 'org.baz'
+                        """),
+                        severity: .error
+                    )
+                    result.check(
+                        diagnostic: .contains("""
+                        multiple targets named 'BazTarget' in: 'baz', 'org.baz'
+                        """),
+                        severity: .error
+                    )
+                }
+            }
+        }
+
+        // reset
+        try workspace.closeWorkspace()
+
+        do {
+            workspace.sourceControlToRegistryDependencyTransformation = .identity
+
+            try workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
+                testDiagnostics(diagnostics) { result in
+                    result.check(
+                        diagnostic: .contains("""
+                        'org.foo' dependency on 'https://git/org/baz' conflicts with dependency on 'org.baz' which has the same identity 'org.baz'.
+                        """),
+                        severity: .warning
+                    )
+                }
+                PackageGraphTester(graph) { result in
+                    result.check(roots: "Root")
+                    result.check(packages: "BarPackage", "BazPackage", "FooPackage", "Root")
+                    result.check(targets: "FooTarget", "BarTarget", "BazTarget", "RootTarget")
+                    result.checkTarget("RootTarget") { result in result.check(dependencies: "BarProduct", "FooProduct") }
+                    result.checkTarget("FooTarget") { result in result.check(dependencies: "BazProduct") }
+                    result.checkTarget("BarTarget") { result in result.check(dependencies: "BazProduct") }
+                }
+            }
+
+            workspace.checkManagedDependencies { result in
+                result.check(dependency: "org.foo", at: .registryDownload("1.0.0"))
+                result.check(dependency: "org.bar", at: .registryDownload("1.0.0"))
+                result.check(dependency: "org.baz", at: .registryDownload("1.1.0"))
+            }
+        }
+
+        // reset
+        try workspace.closeWorkspace()
+
+        do {
+            workspace.sourceControlToRegistryDependencyTransformation = .swizzle
+
+            try workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
+                XCTAssertNoDiagnostics(diagnostics)
+                PackageGraphTester(graph) { result in
+                    result.check(roots: "Root")
+                    result.check(packages: "BarPackage", "BazPackage", "FooPackage", "Root")
+                    result.check(targets: "FooTarget", "BarTarget", "BazTarget", "RootTarget")
+                    result.checkTarget("RootTarget") { result in result.check(dependencies: "BarProduct", "FooProduct") }
+                    result.checkTarget("FooTarget") { result in result.check(dependencies: "BazProduct") }
+                    result.checkTarget("BarTarget") { result in result.check(dependencies: "BazProduct") }
+                }
+            }
+
+            workspace.checkManagedDependencies { result in
+                result.check(dependency: "org.foo", at: .registryDownload("1.0.0"))
+                result.check(dependency: "org.bar", at: .registryDownload("1.0.0"))
+                result.check(dependency: "org.baz", at: .registryDownload("1.1.0"))
+            }
+        }
+    }
+
+    // mixed graph root --> dep1 registry --> dep3 scm
+    //                  --> dep2 registry --> dep3 registry incompatible version
+    func testResolutionMixedRegistryAndSourceControl9() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    path: "root",
+                    targets: [
+                        MockTarget(name: "RootTarget", dependencies: [
+                            .product(name: "FooProduct", package: "foo"),
+                            .product(name: "BarProduct", package: "bar")
+                        ]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        .registry(identity: "org.foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .registry(identity: "org.bar", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    toolsVersion: .v5_6
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "FooPackage",
+                    identity: "org.foo",
+                    targets: [
+                        MockTarget(name: "FooTarget", dependencies: [
+                            .product(name: "BazProduct", package: "baz")
+                        ]),
+                    ],
+                    products: [
+                        MockProduct(name: "FooProduct", targets: ["FooTarget"]),
+                    ],
+                    dependencies: [
+                        .sourceControl(url: "https://git/org/baz", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                MockPackage(
+                    name: "BarPackage",
+                    identity: "org.bar",
+                    targets: [
+                        MockTarget(name: "BarTarget", dependencies: [
+                            .product(name: "BazProduct", package: "org.baz")
+                        ]),
+                    ],
+                    products: [
+                        MockProduct(name: "BarProduct", targets: ["BarTarget"]),
+                    ],
+                    dependencies: [
+                        .registry(identity: "org.baz", requirement: .upToNextMajor(from: "2.0.0")),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                MockPackage(
+                    name: "BazPackage",
+                    url: "https://git/org/baz",
+                    targets: [
+                        MockTarget(name: "BazTarget"),
+                    ],
+                    products: [
+                        MockProduct(name: "BazProduct", targets: ["BazTarget"]),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                MockPackage(
+                    name: "BazPackage",
+                    identity: "org.baz",
+                    alternativeURLs: ["https://git/org/baz"],
+                    targets: [
+                        MockTarget(name: "BazTarget"),
+                    ],
+                    products: [
+                        MockProduct(name: "BazProduct", targets: ["BazTarget"]),
+                    ],
+                    versions: ["1.0.0", "2.0.0"]
+                ),
+            ]
+        )
+
+        do {
+            workspace.sourceControlToRegistryDependencyTransformation = .disabled
+
+            try workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
+                testDiagnostics(diagnostics) { result in
+                    result.check(
+                        diagnostic: .contains("""
+                        multiple products named 'BazProduct' in: 'baz', 'org.baz'
+                        """),
+                        severity: .error
+                    )
+                    result.check(
+                        diagnostic: .contains("""
+                        multiple targets named 'BazTarget' in: 'baz', 'org.baz'
+                        """),
+                        severity: .error
+                    )
+                }
+            }
+        }
+
+        // reset
+        try workspace.closeWorkspace()
+
+        do {
+            workspace.sourceControlToRegistryDependencyTransformation = .identity
+
+            try workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
+                testDiagnostics(diagnostics) { result in
+                    result.check(
+                        diagnostic: """
+                        Dependencies could not be resolved because root depends on 'org.foo' 1.0.0..<2.0.0 and root depends on 'org.bar' 1.0.0..<2.0.0.
+                        'org.bar' is incompatible with 'org.foo' because 'org.foo' 1.0.0 depends on 'org.baz' 1.0.0..<2.0.0 and no versions of 'org.foo' match the requirement 1.0.1..<2.0.0.
+                        'org.bar' >= 1.0.0 practically depends on 'org.baz' 2.0.0..<3.0.0 because no versions of 'org.bar' match the requirement 1.0.1..<2.0.0 and 'org.bar' 1.0.0 depends on 'org.baz' 2.0.0..<3.0.0.
+                        """,
+                        severity: .error
+                    )
+                }
+            }
+        }
+
+        // reset
+        try workspace.closeWorkspace()
+
+        do {
+            workspace.sourceControlToRegistryDependencyTransformation = .swizzle
+
+            try workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
+                testDiagnostics(diagnostics) { result in
+                    result.check(
+                        diagnostic: """
+                        Dependencies could not be resolved because root depends on 'org.foo' 1.0.0..<2.0.0 and root depends on 'org.bar' 1.0.0..<2.0.0.
+                        'org.bar' is incompatible with 'org.foo' because 'org.foo' 1.0.0 depends on 'org.baz' 1.0.0..<2.0.0 and no versions of 'org.foo' match the requirement 1.0.1..<2.0.0.
+                        'org.bar' >= 1.0.0 practically depends on 'org.baz' 2.0.0..<3.0.0 because no versions of 'org.bar' match the requirement 1.0.1..<2.0.0 and 'org.bar' 1.0.0 depends on 'org.baz' 2.0.0..<3.0.0.
+                        """,
+                        severity: .error
+                    )
+                }
+            }
+        }
+    }
+
+    // mixed graph root --> dep1 scm branch
+    //                  --> dep2 registry --> dep1 registry
+    func testResolutionMixedRegistryAndSourceControl10() throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    path: "root",
+                    targets: [
+                        MockTarget(name: "RootTarget", dependencies: [
+                            .product(name: "FooProduct", package: "foo"),
+                            .product(name: "BarProduct", package: "bar")
+                        ]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        .sourceControl(url: "https://git/org/foo", requirement: .branch("experiment")),
+                        .registry(identity: "org.bar", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    toolsVersion: .v5_6
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "FooPackage",
+                    url: "https://git/org/foo",
+                    targets: [
+                        MockTarget(name: "FooTarget"),
+                    ],
+                    products: [
+                        MockProduct(name: "FooProduct", targets: ["FooTarget"]),
+                    ],
+                    versions: ["experiment"]
+                ),
+                MockPackage(
+                    name: "BarPackage",
+                    identity: "org.bar",
+                    targets: [
+                        MockTarget(name: "BarTarget", dependencies: [
+                            .product(name: "FooProduct", package: "org.foo")
+                        ]),
+                    ],
+                    products: [
+                        MockProduct(name: "BarProduct", targets: ["BarTarget"]),
+                    ],
+                    dependencies: [
+                        .registry(identity: "org.foo", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                MockPackage(
+                    name: "FooPackage",
+                    identity: "org.foo",
+                    alternativeURLs: ["https://git/org/foo"],
+                    targets: [
+                        MockTarget(name: "FooTarget"),
+                    ],
+                    products: [
+                        MockProduct(name: "FooProduct", targets: ["FooTarget"]),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+            ]
+        )
+
+        do {
+            workspace.sourceControlToRegistryDependencyTransformation = .disabled
+
+            try workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
+                testDiagnostics(diagnostics) { result in
+                    result.check(
+                        diagnostic: .contains("""
+                        multiple products named 'FooProduct' in: 'foo', 'org.foo'
+                        """),
+                        severity: .error
+                    )
+                    result.check(
+                        diagnostic: .contains("""
+                        multiple targets named 'FooTarget' in: 'foo', 'org.foo'
+                        """),
+                        severity: .error
+                    )
+                }
+            }
+        }
+
+        // reset
+        try workspace.closeWorkspace()
+
+        do {
+            workspace.sourceControlToRegistryDependencyTransformation = .identity
+
+            try workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
+                testDiagnostics(diagnostics) { result in
+                    result.check(
+                        diagnostic: .contains("""
+                        'org.bar' dependency on 'org.foo' conflicts with dependency on 'https://git/org/foo' which has the same identity 'org.foo'.
+                        """),
+                        severity: .warning
+                    )
+                }
+                PackageGraphTester(graph) { result in
+                    result.check(roots: "Root")
+                    result.check(packages: "BarPackage", "FooPackage", "Root")
+                    result.check(targets: "FooTarget", "BarTarget", "RootTarget")
+                    result.checkTarget("RootTarget") { result in result.check(dependencies: "BarProduct", "FooProduct") }
+                }
+            }
+
+            workspace.checkManagedDependencies { result in
+                result.check(dependency: "org.foo", at: .checkout(.branch("experiment")))
+                result.check(dependency: "org.bar", at: .registryDownload("1.0.0"))
+            }
+        }
+
+        // reset
+        try workspace.closeWorkspace()
+
+        do {
+            workspace.sourceControlToRegistryDependencyTransformation = .swizzle
+
+            try workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
+                testDiagnostics(diagnostics) { result in
+                    result.check(
+                        diagnostic: .contains("""
+                        'org.bar' dependency on 'org.foo' conflicts with dependency on 'https://git/org/foo' which has the same identity 'org.foo'.
+                        """),
+                        severity: .warning
+                    )
+                }
+                PackageGraphTester(graph) { result in
+                    result.check(roots: "Root")
+                    result.check(packages: "BarPackage", "FooPackage", "Root")
+                    result.check(targets: "FooTarget", "BarTarget", "RootTarget")
+                    result.checkTarget("RootTarget") { result in result.check(dependencies: "BarProduct", "FooProduct") }
+                }
+            }
+
+            workspace.checkManagedDependencies { result in
+                result.check(dependency: "org.foo", at: .checkout(.branch("experiment"))) // we cannot swizzle branch based deps
+                result.check(dependency: "org.bar", at: .registryDownload("1.0.0"))
+            }
+        }
     }
 
     func testCustomPackageContainerProvider() throws {
@@ -9855,8 +11228,7 @@ final class WorkspaceTests: XCTestCase {
                 }
             )
 
-            workspace.checkReset{ XCTAssertNoDiagnostics($0) }
-            workspace.closeWorkspace()
+            try workspace.closeWorkspace()
             workspace.registryClient = registryClient
             workspace.checkPackageGraphFailure(roots: ["MyPackage"]) { diagnostics in
                 testDiagnostics(diagnostics) { result in
@@ -9875,8 +11247,7 @@ final class WorkspaceTests: XCTestCase {
                 }
             )
 
-            workspace.checkReset{ XCTAssertNoDiagnostics($0) }
-            workspace.closeWorkspace()
+            try workspace.closeWorkspace()
             workspace.registryClient = registryClient
             workspace.checkPackageGraphFailure(roots: ["MyPackage"]) { diagnostics in
                 testDiagnostics(diagnostics) { result in
@@ -9933,8 +11304,7 @@ final class WorkspaceTests: XCTestCase {
                 }
             )
 
-            workspace.checkReset{ XCTAssertNoDiagnostics($0) }
-            workspace.closeWorkspace()
+            try workspace.closeWorkspace()
             workspace.registryClient = registryClient
             workspace.checkPackageGraphFailure(roots: ["MyPackage"]) { diagnostics in
                 testDiagnostics(diagnostics) { result in
@@ -9953,8 +11323,7 @@ final class WorkspaceTests: XCTestCase {
                 }
             )
 
-            workspace.checkReset{ XCTAssertNoDiagnostics($0) }
-            workspace.closeWorkspace()
+            try workspace.closeWorkspace()
             workspace.registryClient = registryClient
             workspace.checkPackageGraphFailure(roots: ["MyPackage"]) { diagnostics in
                 testDiagnostics(diagnostics) { result in
@@ -10011,8 +11380,7 @@ final class WorkspaceTests: XCTestCase {
                 }
             )
 
-            workspace.checkReset{ XCTAssertNoDiagnostics($0) }
-            workspace.closeWorkspace()
+            try workspace.closeWorkspace()
             workspace.registryClient = registryClient
             workspace.checkPackageGraphFailure(roots: ["MyPackage"]) { diagnostics in
                 testDiagnostics(diagnostics) { result in
@@ -10031,8 +11399,7 @@ final class WorkspaceTests: XCTestCase {
                 }
             )
 
-            workspace.checkReset{ XCTAssertNoDiagnostics($0) }
-            workspace.closeWorkspace()
+            try workspace.closeWorkspace()
             workspace.registryClient = registryClient
             workspace.checkPackageGraphFailure(roots: ["MyPackage"]) { diagnostics in
                 testDiagnostics(diagnostics) { result in
@@ -10089,8 +11456,7 @@ final class WorkspaceTests: XCTestCase {
                 }
             )
 
-            workspace.checkReset{ XCTAssertNoDiagnostics($0) }
-            workspace.closeWorkspace()
+            try workspace.closeWorkspace()
             workspace.registryClient = registryClient
             workspace.checkPackageGraphFailure(roots: ["MyPackage"]) { diagnostics in
                 testDiagnostics(diagnostics) { result in
@@ -10109,8 +11475,7 @@ final class WorkspaceTests: XCTestCase {
                 }
             )
 
-            workspace.checkReset{ XCTAssertNoDiagnostics($0) }
-            workspace.closeWorkspace()
+            try workspace.closeWorkspace()
             workspace.registryClient = registryClient
             workspace.checkPackageGraphFailure(roots: ["MyPackage"]) { diagnostics in
                 testDiagnostics(diagnostics) { result in
@@ -10167,8 +11532,7 @@ final class WorkspaceTests: XCTestCase {
                 })
             )
 
-            workspace.checkReset{ XCTAssertNoDiagnostics($0) }
-            workspace.closeWorkspace()
+            try workspace.closeWorkspace()
             workspace.registryClient = registryClient
             workspace.checkPackageGraphFailure(roots: ["MyPackage"]) { diagnostics in
                 testDiagnostics(diagnostics) { result in
