@@ -4460,7 +4460,7 @@ extension Workspace {
                 case .success(let identities):
                     // FIXME: returns first result... need to consider how to address multiple ones
                     let identity = identities.first
-                    self.identitiesCache[url] = identity.map { (identity: $0, expirationTime: .now().advanced(by: self.cacheTTL)) }
+                    self.identitiesCache[url] = identity.map { (identity: $0, expirationTime: .now() + self.cacheTTL) }
                     completion(.success(identity))
                 }
             }
