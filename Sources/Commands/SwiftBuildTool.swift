@@ -107,7 +107,12 @@ public struct SwiftBuildTool: SwiftCommand {
         guard let subset = options.buildSubset(observabilityScope: swiftTool.observabilityScope) else {
             throw ExitCode.failure
         }
-        let buildSystem = try swiftTool.createBuildSystem(explicitProduct: options.product)
+        let buildSystem = try swiftTool.createBuildSystem(
+            explicitProduct: options.product,
+            // command result output goes on stdout
+            // ie "swift build" should output to stdout
+            customOutputStream: TSCBasic.stdoutStream
+        )
         do {
             try buildSystem.build(subset: subset)
         } catch _ as Diagnostics {

@@ -19,48 +19,88 @@ final class SwiftToolTests: CommandsTestCase {
     func testVerbosityLogLevel() throws {
         try fixture(name: "Miscellaneous/Simple") { fixturePath in
             do {
+                let outputStream = BufferedOutputByteStream()
                 let options = try SwiftToolOptions.parse(["--package-path", fixturePath.pathString])
-                let tool = try SwiftTool(options: options)
+                let tool = try SwiftTool(outputStream: outputStream, options: options)
                 XCTAssertEqual(tool.logLevel, .warning)
 
                 tool.observabilityScope.emit(error: "error")
                 tool.observabilityScope.emit(warning: "warning")
                 tool.observabilityScope.emit(info: "info")
                 tool.observabilityScope.emit(debug: "debug")
+
+                XCTAssertMatch(outputStream.bytes.validDescription, .contains("error: error"))
+                XCTAssertMatch(outputStream.bytes.validDescription, .contains("warning: warning"))
+                XCTAssertNoMatch(outputStream.bytes.validDescription, .contains("info: info"))
+                XCTAssertNoMatch(outputStream.bytes.validDescription, .contains("debug: debug"))
             }
 
             do {
+                let outputStream = BufferedOutputByteStream()
                 let options = try SwiftToolOptions.parse(["--package-path", fixturePath.pathString, "--verbose"])
-                let tool = try SwiftTool(options: options)
+                let tool = try SwiftTool(outputStream: outputStream, options: options)
                 XCTAssertEqual(tool.logLevel, .info)
 
                 tool.observabilityScope.emit(error: "error")
                 tool.observabilityScope.emit(warning: "warning")
                 tool.observabilityScope.emit(info: "info")
                 tool.observabilityScope.emit(debug: "debug")
+
+                XCTAssertMatch(outputStream.bytes.validDescription, .contains("error: error"))
+                XCTAssertMatch(outputStream.bytes.validDescription, .contains("warning: warning"))
+                XCTAssertMatch(outputStream.bytes.validDescription, .contains("info: info"))
+                XCTAssertNoMatch(outputStream.bytes.validDescription, .contains("debug: debug"))
             }
 
             do {
+                let outputStream = BufferedOutputByteStream()
                 let options = try SwiftToolOptions.parse(["--package-path", fixturePath.pathString, "-v"])
-                let tool = try SwiftTool(options: options)
+                let tool = try SwiftTool(outputStream: outputStream, options: options)
                 XCTAssertEqual(tool.logLevel, .info)
+
+                tool.observabilityScope.emit(error: "error")
+                tool.observabilityScope.emit(warning: "warning")
+                tool.observabilityScope.emit(info: "info")
+                tool.observabilityScope.emit(debug: "debug")
+
+                XCTAssertMatch(outputStream.bytes.validDescription, .contains("error: error"))
+                XCTAssertMatch(outputStream.bytes.validDescription, .contains("warning: warning"))
+                XCTAssertMatch(outputStream.bytes.validDescription, .contains("info: info"))
+                XCTAssertNoMatch(outputStream.bytes.validDescription, .contains("debug: debug"))
             }
 
             do {
+                let outputStream = BufferedOutputByteStream()
                 let options = try SwiftToolOptions.parse(["--package-path", fixturePath.pathString, "--very-verbose"])
-                let tool = try SwiftTool(options: options)
+                let tool = try SwiftTool(outputStream: outputStream, options: options)
                 XCTAssertEqual(tool.logLevel, .debug)
 
                 tool.observabilityScope.emit(error: "error")
                 tool.observabilityScope.emit(warning: "warning")
                 tool.observabilityScope.emit(info: "info")
                 tool.observabilityScope.emit(debug: "debug")
+
+                XCTAssertMatch(outputStream.bytes.validDescription, .contains("error: error"))
+                XCTAssertMatch(outputStream.bytes.validDescription, .contains("warning: warning"))
+                XCTAssertMatch(outputStream.bytes.validDescription, .contains("info: info"))
+                XCTAssertMatch(outputStream.bytes.validDescription, .contains("debug: debug"))
             }
 
             do {
+                let outputStream = BufferedOutputByteStream()
                 let options = try SwiftToolOptions.parse(["--package-path", fixturePath.pathString, "--vv"])
-                let tool = try SwiftTool(options: options)
+                let tool = try SwiftTool(outputStream: outputStream, options: options)
                 XCTAssertEqual(tool.logLevel, .debug)
+
+                tool.observabilityScope.emit(error: "error")
+                tool.observabilityScope.emit(warning: "warning")
+                tool.observabilityScope.emit(info: "info")
+                tool.observabilityScope.emit(debug: "debug")
+
+                XCTAssertMatch(outputStream.bytes.validDescription, .contains("error: error"))
+                XCTAssertMatch(outputStream.bytes.validDescription, .contains("warning: warning"))
+                XCTAssertMatch(outputStream.bytes.validDescription, .contains("info: info"))
+                XCTAssertMatch(outputStream.bytes.validDescription, .contains("debug: debug"))
             }
         }
     }
