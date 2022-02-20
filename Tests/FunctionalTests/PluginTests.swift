@@ -401,8 +401,7 @@ class PluginTests: XCTestCase {
                 let delegate = PluginDelegate(delegateQueue: delegateQueue)
                 do {
                     let success = try tsc_await { plugin.invoke(
-                        action: .performCommand(arguments: arguments),
-                        package: package,
+                        action: .performCommand(package: package, arguments: arguments),
                         buildEnvironment: BuildEnvironment(platform: .macOS, configuration: .debug),
                         scriptRunner: scriptRunner,
                         workingDirectory: package.path,
@@ -613,8 +612,7 @@ class PluginTests: XCTestCase {
             let delegate = PluginDelegate(delegateQueue: delegateQueue)
             let sync = DispatchSemaphore(value: 0)
             plugin.invoke(
-                action: .performCommand(arguments: []),
-                package: package,
+                action: .performCommand(package: package, arguments: []),
                 buildEnvironment: BuildEnvironment(platform: .macOS, configuration: .debug),
                 scriptRunner: scriptRunner,
                 workingDirectory: package.path,

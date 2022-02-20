@@ -104,27 +104,36 @@ extension Plugin {
         }
     }
     
+    /// Handles a single message received from the plugin host.
     fileprivate static func handleMessage(_ message: HostToPluginMessage) async throws {
         switch message {
-
-        case .performAction(let wireInput):
-            // Invokes an action defined in the input JSON. This is an interim
-            // bridge to the old logic; the intent is to separate each action
-            // into its own message type with customized input payload.
-            let inputStruct: PluginInput
+            
+        case .createBuildToolCommands(let wireInput, let rootPackageId, let targetId):
+            // Deserialize the context from the wire input structures. The root
+            // package is the one we'll set the context's `package` property to.
+            let context: PluginContext
+            let target: Target
             do {
-                inputStruct = try PluginInput(from: wireInput)
-            } catch {
-                internalError("Couldn’t decode input JSON: \(error).")
+                var deserializer = PluginContextDeserializer(wireInput)
+                let package = try deserializer.package(for: rootPackageId)
+                let pluginWorkDirectory = try deserializer.path(for: wireInput.pluginWorkDirId)
+                let toolSearchDirectories = try wireInput.toolSearchDirIds.map {
+                    try deserializer.path(for: $0)
+                }
+                let toolNamesToPaths = try wireInput.toolNamesToPathIds.mapValues {
+                    try deserializer.path(for: $0)
+                }
+                context = PluginContext(
+                    package: package,
+                    pluginWorkDirectory: pluginWorkDirectory,
+                    toolNamesToPaths: toolNamesToPaths,
+                    toolSearchDirectories: toolSearchDirectories)
+                target = try deserializer.target(for: targetId)
             }
-            
-            // Construct a PluginContext from the deserialized input.
-            let context = PluginContext(
-                package: inputStruct.package,
-                pluginWorkDirectory: inputStruct.pluginWorkDirectory,
-                toolNamesToPaths: inputStruct.toolNamesToPaths,
-                toolSearchDirectories: inputStruct.toolSearchDirectories)
-            
+            catch {
+                internalError("Couldn’t deserialize input from host: \(error).")
+            }
+
             // Instantiate the plugin. For now there are no parameters, but
             // this is where we would set them up, most likely as properties
             // of the plugin instance (similar to how SwiftArgumentParser
@@ -133,64 +142,88 @@ extension Plugin {
             // message could be used to query the plugin for its parameter
             // definitions.
             let plugin = self.init()
-            
-            // Invoke the appropriate protocol method, based on the plugin
-            // action that SwiftPM specified.
-            switch inputStruct.pluginAction {
-                
-            case .createBuildToolCommands(let target):
-                // Check that the plugin implements the appropriate protocol
-                // for its declared capability.
-                guard let plugin = plugin as? BuildToolPlugin else {
-                    throw PluginDeserializationError.malformedInputJSON(
-                        "Plugin declared with `buildTool` capability but doesn't conform to `BuildToolPlugin` protocol")
-                }
-                
-                // Invoke the plugin to create build commands for the target.
-                let generatedCommands = try await plugin.createBuildCommands(context: context, target: target)
-                
-                // Send each of the generated commands to the host.
-                for command in generatedCommands {
-                    switch command {
-                        
-                    case let ._buildCommand(name, exec, args, env, workdir, inputs, outputs):
-                        let command = PluginToHostMessage.CommandConfiguration(
-                            displayName: name,
-                            executable: exec.string,
-                            arguments: args,
-                            environment: env,
-                            workingDirectory: workdir?.string)
-                        let message = PluginToHostMessage.defineBuildCommand(
-                            configuration: command,
-                            inputFiles: inputs.map{ $0.string },
-                            outputFiles: outputs.map{ $0.string })
-                        try pluginHostConnection.sendMessage(message)
-                        
-                    case let ._prebuildCommand(name, exec, args, env, workdir, outdir):
-                        let command = PluginToHostMessage.CommandConfiguration(
-                            displayName: name,
-                            executable: exec.string,
-                            arguments: args,
-                            environment: env,
-                            workingDirectory: workdir?.string)
-                        let message = PluginToHostMessage.definePrebuildCommand(
-                            configuration: command,
-                            outputFilesDirectory: outdir.string)
-                        try pluginHostConnection.sendMessage(message)
-                    }
-                }
-                
-            case .performCommand(let arguments):
-                // Check that the plugin implements the appropriate protocol
-                // for its declared capability.
-                guard let plugin = plugin as? CommandPlugin else {
-                    throw PluginDeserializationError.malformedInputJSON(
-                        "Plugin declared with `command` capability but doesn't conform to `CommandPlugin` protocol")
-                }
-                
-                // Invoke the plugin to perform its custom logic.
-                try await plugin.performCommand(context: context, arguments: arguments)
+
+            // Check that the plugin implements the appropriate protocol
+            // for its declared `.buildTool` capability.
+            guard let plugin = plugin as? BuildToolPlugin else {
+                throw PluginDeserializationError.malformedInputJSON(
+                    "Plugin declared with `buildTool` capability but doesn't conform to `BuildToolPlugin` protocol")
             }
+            
+            // Invoke the plugin to create build commands for the target.
+            let generatedCommands = try await plugin.createBuildCommands(context: context, target: target)
+            
+            // Send each of the generated commands to the host.
+            for command in generatedCommands {
+                switch command {
+                    
+                case let ._buildCommand(name, exec, args, env, workdir, inputs, outputs):
+                    let command = PluginToHostMessage.CommandConfiguration(
+                        displayName: name,
+                        executable: exec.string,
+                        arguments: args,
+                        environment: env,
+                        workingDirectory: workdir?.string)
+                    let message = PluginToHostMessage.defineBuildCommand(
+                        configuration: command,
+                        inputFiles: inputs.map{ $0.string },
+                        outputFiles: outputs.map{ $0.string })
+                    try pluginHostConnection.sendMessage(message)
+                    
+                case let ._prebuildCommand(name, exec, args, env, workdir, outdir):
+                    let command = PluginToHostMessage.CommandConfiguration(
+                        displayName: name,
+                        executable: exec.string,
+                        arguments: args,
+                        environment: env,
+                        workingDirectory: workdir?.string)
+                    let message = PluginToHostMessage.definePrebuildCommand(
+                        configuration: command,
+                        outputFilesDirectory: outdir.string)
+                    try pluginHostConnection.sendMessage(message)
+                }
+            }
+            
+            // Exit with a zero exit code to indicate success.
+            exit(0)
+
+        case .performCommand(let wireInput, let rootPackageId, let arguments):
+            // Deserialize the context from the wire input structures. The root
+            // package is the one we'll set the context's `package` property to.
+            let context: PluginContext
+            do {
+                var deserializer = PluginContextDeserializer(wireInput)
+                let package = try deserializer.package(for: rootPackageId)
+                let pluginWorkDirectory = try deserializer.path(for: wireInput.pluginWorkDirId)
+                let toolSearchDirectories = try wireInput.toolSearchDirIds.map {
+                    try deserializer.path(for: $0)
+                }
+                let toolNamesToPaths = try wireInput.toolNamesToPathIds.mapValues {
+                    try deserializer.path(for: $0)
+                }
+                context = PluginContext(
+                    package: package,
+                    pluginWorkDirectory: pluginWorkDirectory,
+                    toolNamesToPaths: toolNamesToPaths,
+                    toolSearchDirectories: toolSearchDirectories)
+            }
+            catch {
+                internalError("Couldn’t deserialize input from host: \(error).")
+            }
+
+            // Instantiate the plugin (for now without parameters, as described
+            // above).
+            let plugin = self.init()
+
+            // Check that the plugin implements the appropriate protocol
+            // for its declared `.command` capability.
+            guard let plugin = plugin as? CommandPlugin else {
+                throw PluginDeserializationError.malformedInputJSON(
+                    "Plugin declared with `command` capability but doesn't conform to `CommandPlugin` protocol")
+            }
+            
+            // Invoke the plugin to perform its custom logic.
+            try await plugin.performCommand(context: context, arguments: arguments)
             
             // Exit with a zero exit code to indicate success.
             exit(0)
@@ -213,59 +246,8 @@ extension Plugin {
     }
 }
 
-/// Message channel for communicating with the plugin host.
+/// Message channel for bidirectional communication with the plugin host.
 internal fileprivate(set) var pluginHostConnection: PluginHostConnection!
-
-/// A message that the host can send to the plugin.
-enum HostToPluginMessage: Decodable {
-    /// The host is requesting that the plugin perform one of its declared plugin actions.
-    case performAction(input: WireInput)
-    
-    /// A response to a request to run a build operation.
-    case buildOperationResponse(result: PackageManager.BuildResult)
-
-    /// A response to a request to run a test operation.
-    case testOperationResponse(result: PackageManager.TestResult)
-
-    /// A response to a request for symbol graph information for a target.
-    case symbolGraphResponse(result: PackageManager.SymbolGraphResult)
-    
-    /// A response of an error while trying to complete a request.
-    case errorResponse(error: String)
-}
-
-/// A message that the plugin can send to the host.
-enum PluginToHostMessage: Encodable {
-    /// The plugin emits a diagnostic.
-    case emitDiagnostic(severity: DiagnosticSeverity, message: String, file: String?, line: Int?)
-
-    enum DiagnosticSeverity: String, Encodable {
-        case error, warning, remark
-    }
-    
-    /// The plugin defines a build command.
-    case defineBuildCommand(configuration: CommandConfiguration, inputFiles: [String], outputFiles: [String])
-
-    /// The plugin defines a prebuild command.
-    case definePrebuildCommand(configuration: CommandConfiguration, outputFilesDirectory: String)
-    
-    struct CommandConfiguration: Encodable {
-        var displayName: String?
-        var executable: String
-        var arguments: [String]
-        var environment: [String: String]
-        var workingDirectory: String?
-    }
-    
-    /// The plugin is requesting that a build operation be run.
-    case buildOperationRequest(subset: PackageManager.BuildSubset, parameters: PackageManager.BuildParameters)
-    
-    /// The plugin is requesting that a test operation be run.
-    case testOperationRequest(subset: PackageManager.TestSubset, parameters: PackageManager.TestParameters)
-
-    /// The plugin is requesting symbol graph information for a given target and set of options.
-    case symbolGraphRequest(targetName: String, options: PackageManager.SymbolGraphOptions)
-}
 
 typealias PluginHostConnection = MessageConnection<PluginToHostMessage, HostToPluginMessage>
 
