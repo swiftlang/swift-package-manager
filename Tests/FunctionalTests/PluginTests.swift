@@ -97,16 +97,9 @@ class PluginTests: XCTestCase {
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
 
         try fixture(name: "Miscellaneous/Plugins") { fixturePath in
-            do {
-                let (stdout, _) = try executeSwiftBuild(fixturePath.appending(component: "InvalidUseOfInternalPluginExecutable"))
-                XCTFail("Illegally used internal executable.\nstdout:\n\(stdout)")
-            }
-            catch SwiftPMProductError.executionFailure(_, _, let stderr) {
+            XCTAssertThrowsCommandExecutionError(try executeSwiftBuild(fixturePath.appending(component: "InvalidUseOfInternalPluginExecutable")), "Illegally used internal executable") { error in
                 XCTAssert(
-                    stderr.contains(
-                        "product 'PluginExecutable' required by package 'invaliduseofinternalpluginexecutable' target 'RootTarget' not found in package 'PluginWithInternalExecutable'."
-                    ),
-                    "stderr:\n\(stderr)"
+                    error.stderr.contains("product 'PluginExecutable' required by package 'invaliduseofinternalpluginexecutable' target 'RootTarget' not found in package 'PluginWithInternalExecutable'."), "stderr:\n\(error.stderr)"
                 )
             }
         }

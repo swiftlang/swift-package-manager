@@ -112,8 +112,6 @@ final class BuildToolTests: CommandsTestCase {
                 let result = try build(["--product", "exec1"], packagePath: fullPath)
                 XCTAssertMatch(result.binContents, ["exec1"])
                 XCTAssertNoMatch(result.binContents, ["exec2.build"])
-            } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
-                XCTFail(stderr)
             }
 
             do {
@@ -126,50 +124,30 @@ final class BuildToolTests: CommandsTestCase {
                 let result = try build(["--target", "exec2"], packagePath: fullPath)
                 XCTAssertMatch(result.binContents, ["exec2.build"])
                 XCTAssertNoMatch(result.binContents, ["exec1"])
-            } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
-                XCTFail(stderr)
             }
 
-            do {
-                _ = try execute(["--product", "exec1", "--target", "exec2"], packagePath: fixturePath)
-                XCTFail("Expected to fail")
-            } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
-                XCTAssertMatch(stderr, .contains("error: '--product' and '--target' are mutually exclusive"))
+            XCTAssertThrowsCommandExecutionError(try execute(["--product", "exec1", "--target", "exec2"], packagePath: fixturePath)) { error in
+                XCTAssertMatch(error.stderr, .contains("error: '--product' and '--target' are mutually exclusive"))
             }
 
-            do {
-                _ = try execute(["--product", "exec1", "--build-tests"], packagePath: fixturePath)
-                XCTFail("Expected to fail")
-            } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
-                XCTAssertMatch(stderr, .contains("error: '--product' and '--build-tests' are mutually exclusive"))
+            XCTAssertThrowsCommandExecutionError(try execute(["--product", "exec1", "--build-tests"], packagePath: fixturePath)) { error in
+                XCTAssertMatch(error.stderr, .contains("error: '--product' and '--build-tests' are mutually exclusive"))
             }
 
-            do {
-                _ = try execute(["--build-tests", "--target", "exec2"], packagePath: fixturePath)
-                XCTFail("Expected to fail")
-            } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
-                XCTAssertMatch(stderr, .contains("error: '--target' and '--build-tests' are mutually exclusive"))
+            XCTAssertThrowsCommandExecutionError(try execute(["--build-tests", "--target", "exec2"], packagePath: fixturePath)) { error in
+                XCTAssertMatch(error.stderr, .contains("error: '--target' and '--build-tests' are mutually exclusive"))
             }
 
-            do {
-                _ = try execute(["--build-tests", "--target", "exec2", "--product", "exec1"], packagePath: fixturePath)
-                XCTFail("Expected to fail")
-            } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
-                XCTAssertMatch(stderr, .contains("error: '--product', '--target', and '--build-tests' are mutually exclusive"))
+            XCTAssertThrowsCommandExecutionError(try execute(["--build-tests", "--target", "exec2", "--product", "exec1"], packagePath: fixturePath)) { error in
+                XCTAssertMatch(error.stderr, .contains("error: '--product', '--target', and '--build-tests' are mutually exclusive"))
             }
 
-            do {
-                _ = try execute(["--product", "UnkownProduct"], packagePath: fixturePath)
-                XCTFail("Expected to fail")
-            } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
-                XCTAssertMatch(stderr, .contains("error: no product named 'UnkownProduct'"))
+            XCTAssertThrowsCommandExecutionError(try execute(["--product", "UnkownProduct"], packagePath: fixturePath)){ error in
+                XCTAssertMatch(error.stderr, .contains("error: no product named 'UnkownProduct'"))
             }
 
-            do {
-                _ = try execute(["--target", "UnkownTarget"], packagePath: fixturePath)
-                XCTFail("Expected to fail")
-            } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
-                XCTAssertMatch(stderr, .contains("error: no target named 'UnkownTarget'"))
+            XCTAssertThrowsCommandExecutionError(try execute(["--target", "UnkownTarget"], packagePath: fixturePath)) { error in
+                XCTAssertMatch(error.stderr, .contains("error: no target named 'UnkownTarget'"))
             }
         }
     }
@@ -177,25 +155,20 @@ final class BuildToolTests: CommandsTestCase {
     func testAtMainSupport() throws {
         try fixture(name: "Miscellaneous/AtMainSupport") { fixturePath in
             let fullPath = resolveSymlinks(fixturePath)
+
             do {
                 let result = try build(["--product", "ClangExecSingleFile"], packagePath: fullPath)
                 XCTAssertMatch(result.binContents, ["ClangExecSingleFile"])
-            } catch SwiftPMProductError.executionFailure(_, let stdout, let stderr) {
-                XCTFail(stdout + "\n" + stderr)
             }
 
             do {
                 let result = try build(["--product", "SwiftExecSingleFile"], packagePath: fullPath)
                 XCTAssertMatch(result.binContents, ["SwiftExecSingleFile"])
-            } catch SwiftPMProductError.executionFailure(_, let stdout, let stderr) {
-                XCTFail(stdout + "\n" + stderr)
             }
 
             do {
                 let result = try build(["--product", "SwiftExecMultiFile"], packagePath: fullPath)
                 XCTAssertMatch(result.binContents, ["SwiftExecMultiFile"])
-            } catch SwiftPMProductError.executionFailure(_, let stdout, let stderr) {
-                XCTFail(stdout + "\n" + stderr)
             }
         }
     }
@@ -210,8 +183,6 @@ final class BuildToolTests: CommandsTestCase {
                 XCTAssertNoMatch(result.binContents, ["BTarget2.build"])
                 XCTAssertNoMatch(result.binContents, ["cexec"])
                 XCTAssertNoMatch(result.binContents, ["CTarget.build"])
-            } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
-                XCTFail(stderr)
             }
 
             // Dependency contains a dependent product
@@ -237,8 +208,6 @@ final class BuildToolTests: CommandsTestCase {
                 XCTAssertNoMatch(result.binContents, ["ATarget.swiftinterface"])
                 XCTAssertNoMatch(result.binContents, ["BTarget.swiftinterface"])
                 XCTAssertNoMatch(result.binContents, ["CTarget.swiftinterface"])
-            } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
-                XCTFail(stderr)
             }
         }
     }
@@ -261,8 +230,6 @@ final class BuildToolTests: CommandsTestCase {
                 let result = try build([], packagePath: fixturePath)
                 XCTAssertMatch(result.binContents, ["A.swiftinterface"])
                 XCTAssertMatch(result.binContents, ["B.swiftinterface"])
-            } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
-                XCTFail(stderr)
             }
         }
     }
@@ -352,21 +319,14 @@ final class BuildToolTests: CommandsTestCase {
 
             // Now try building using XCBuild while specifying a faulty compiler override.  This should fail.  Note that we need to set the executable to use for the manifest itself to the default one, since it defaults to SWIFT_EXEC if not provided.
             var overriddenOutput = ""
-            do {
-                overriddenOutput = try execute(["-c", "debug", "--vv"], environment: ["SWIFT_EXEC": "/usr/bin/false", "SWIFT_EXEC_MANIFEST": ToolchainConfiguration.default.swiftCompilerPath.pathString], packagePath: fixturePath).stdout
-                XCTFail("unexpected success (was SWIFT_EXEC not overridden properly?)")
-            }
-            catch SwiftPMProductError.executionFailure(let error, _, let stderr) {
-                switch error {
-                case ProcessResult.Error.nonZeroExit(let result) where result.exitStatus != .terminated(code: 0):
-                    overriddenOutput = stderr
-                    break
-                default:
-                    XCTFail("`swift build' failed in an unexpected manner")
-                }
-            }
-            catch {
-                XCTFail("`swift build' failed in an unexpected manner")
+            XCTAssertThrowsCommandExecutionError(
+                try execute(
+                    ["-c", "debug", "--vv"],
+                    environment: ["SWIFT_EXEC": "/usr/bin/false", "SWIFT_EXEC_MANIFEST": ToolchainConfiguration.default.swiftCompilerPath.pathString],
+                    packagePath: fixturePath
+                )
+            ) { error in
+                overriddenOutput = error.stderr
             }
             XCTAssertMatch(overriddenOutput, .contains("/usr/bin/false"))
         }

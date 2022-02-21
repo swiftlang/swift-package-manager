@@ -62,12 +62,8 @@ final class APIDiffTests: CommandsTestCase {
             try localFileSystem.writeFileContents(packageRoot.appending(component: "Foo.swift")) {
                 $0 <<< "public let foo = 42"
             }
-            XCTAssertThrowsError(try execute(["diagnose-api-breaking-changes", "1.2.3"], packagePath: packageRoot)) { error in
-                guard case SwiftPMProductError.executionFailure(error: _, output: let output, stderr: _) = error else {
-                    XCTFail("Unexpected error")
-                    return
-                }
-                XCTAssertFalse(output.isEmpty)
+            XCTAssertThrowsCommandExecutionError(try execute(["diagnose-api-breaking-changes", "1.2.3"], packagePath: packageRoot)) { error in
+                XCTAssertFalse(error.stdout.isEmpty)
             }
         }
     }
@@ -80,13 +76,9 @@ final class APIDiffTests: CommandsTestCase {
             try localFileSystem.writeFileContents(packageRoot.appending(component: "Foo.swift")) {
                 $0 <<< "public let foo = 42"
             }
-            XCTAssertThrowsError(try execute(["diagnose-api-breaking-changes", "1.2.3"], packagePath: packageRoot)) { error in
-                guard case SwiftPMProductError.executionFailure(error: _, output: let output, stderr: _) = error else {
-                    XCTFail("Unexpected error")
-                    return
-                }
-                XCTAssertMatch(output, .contains("1 breaking change detected in Foo"))
-                XCTAssertMatch(output, .contains("💔 API breakage: func foo() has been removed"))
+            XCTAssertThrowsCommandExecutionError(try execute(["diagnose-api-breaking-changes", "1.2.3"], packagePath: packageRoot)) { error in
+                XCTAssertMatch(error.stdout, .contains("1 breaking change detected in Foo"))
+                XCTAssertMatch(error.stdout, .contains("💔 API breakage: func foo() has been removed"))
             }
         }
     }
@@ -101,16 +93,12 @@ final class APIDiffTests: CommandsTestCase {
             try localFileSystem.writeFileContents(packageRoot.appending(components: "Sources", "Qux", "Qux.swift")) {
                 $0 <<< "public class Qux<T, U> { private let x = 1 }"
             }
-            XCTAssertThrowsError(try execute(["diagnose-api-breaking-changes", "1.2.3", "-j", "2"], packagePath: packageRoot)) { error in
-                guard case SwiftPMProductError.executionFailure(error: _, output: let output, stderr: _) = error else {
-                    XCTFail("Unexpected error")
-                    return
-                }
-                XCTAssertMatch(output, .contains("2 breaking changes detected in Qux"))
-                XCTAssertMatch(output, .contains("💔 API breakage: class Qux has generic signature change from <T> to <T, U>"))
-                XCTAssertMatch(output, .contains("💔 API breakage: var Qux.x has been removed"))
-                XCTAssertMatch(output, .contains("1 breaking change detected in Baz"))
-                XCTAssertMatch(output, .contains("💔 API breakage: func bar() has been removed"))
+            XCTAssertThrowsCommandExecutionError(try execute(["diagnose-api-breaking-changes", "1.2.3", "-j", "2"], packagePath: packageRoot)) { error in
+                XCTAssertMatch(error.stdout, .contains("2 breaking changes detected in Qux"))
+                XCTAssertMatch(error.stdout, .contains("💔 API breakage: class Qux has generic signature change from <T> to <T, U>"))
+                XCTAssertMatch(error.stdout, .contains("💔 API breakage: var Qux.x has been removed"))
+                XCTAssertMatch(error.stdout, .contains("1 breaking change detected in Baz"))
+                XCTAssertMatch(error.stdout, .contains("💔 API breakage: func bar() has been removed"))
             }
         }
     }
@@ -129,18 +117,15 @@ final class APIDiffTests: CommandsTestCase {
             try localFileSystem.writeFileContents(customAllowlistPath) {
                 $0 <<< "API breakage: class Qux has generic signature change from <T> to <T, U>\n"
             }
-            XCTAssertThrowsError(try execute(["diagnose-api-breaking-changes", "1.2.3", "-j", "2",
-                                              "--breakage-allowlist-path", customAllowlistPath.pathString],
-                                             packagePath: packageRoot)) { error in
-                guard case SwiftPMProductError.executionFailure(error: _, output: let output, stderr: _) = error else {
-                    XCTFail("Unexpected error")
-                    return
-                }
-                XCTAssertMatch(output, .contains("1 breaking change detected in Qux"))
-                XCTAssertNoMatch(output, .contains("💔 API breakage: class Qux has generic signature change from <T> to <T, U>"))
-                XCTAssertMatch(output, .contains("💔 API breakage: var Qux.x has been removed"))
-                XCTAssertMatch(output, .contains("1 breaking change detected in Baz"))
-                XCTAssertMatch(output, .contains("💔 API breakage: func bar() has been removed"))
+            XCTAssertThrowsCommandExecutionError(
+                try execute(["diagnose-api-breaking-changes", "1.2.3", "-j", "2", "--breakage-allowlist-path", customAllowlistPath.pathString],
+                            packagePath: packageRoot)
+            ) { error in
+                XCTAssertMatch(error.stdout, .contains("1 breaking change detected in Qux"))
+                XCTAssertNoMatch(error.stdout, .contains("💔 API breakage: class Qux has generic signature change from <T> to <T, U>"))
+                XCTAssertMatch(error.stdout, .contains("💔 API breakage: var Qux.x has been removed"))
+                XCTAssertMatch(error.stdout, .contains("1 breaking change detected in Baz"))
+                XCTAssertMatch(error.stdout, .contains("💔 API breakage: func bar() has been removed"))
             }
 
         }
@@ -162,22 +147,18 @@ final class APIDiffTests: CommandsTestCase {
             try localFileSystem.writeFileContents(packageRoot.appending(components: "Sources", "Qux", "Qux.swift")) {
                 $0 <<< "public class Qux<T, U> { private let x = 1 }"
             }
-            XCTAssertThrowsError(try execute(["diagnose-api-breaking-changes", "1.2.3"], packagePath: packageRoot)) { error in
-                guard case SwiftPMProductError.executionFailure(error: _, output: let output, stderr: _) = error else {
-                    XCTFail("Unexpected error")
-                    return
-                }
-                XCTAssertMatch(output, .contains("1 breaking change detected in Foo"))
-                XCTAssertMatch(output, .contains("💔 API breakage: struct Foo has been removed"))
-                XCTAssertMatch(output, .contains("1 breaking change detected in Bar"))
-                XCTAssertMatch(output, .contains("💔 API breakage: func bar() has been removed"))
-                XCTAssertMatch(output, .contains("1 breaking change detected in Baz"))
-                XCTAssertMatch(output, .contains("💔 API breakage: enumelement Baz.b has been added as a new enum case"))
+            XCTAssertThrowsCommandExecutionError(try execute(["diagnose-api-breaking-changes", "1.2.3"], packagePath: packageRoot)) { error in
+                XCTAssertMatch(error.stdout, .contains("1 breaking change detected in Foo"))
+                XCTAssertMatch(error.stdout, .contains("💔 API breakage: struct Foo has been removed"))
+                XCTAssertMatch(error.stdout, .contains("1 breaking change detected in Bar"))
+                XCTAssertMatch(error.stdout, .contains("💔 API breakage: func bar() has been removed"))
+                XCTAssertMatch(error.stdout, .contains("1 breaking change detected in Baz"))
+                XCTAssertMatch(error.stdout, .contains("💔 API breakage: enumelement Baz.b has been added as a new enum case"))
 
                 // Qux is not part of a library product, so any API changes should be ignored
-                XCTAssertNoMatch(output, .contains("2 breaking changes detected in Qux"))
-                XCTAssertNoMatch(output, .contains("💔 API breakage: class Qux has generic signature change from <T> to <T, U>"))
-                XCTAssertNoMatch(output, .contains("💔 API breakage: var Qux.x has been removed"))
+                XCTAssertNoMatch(error.stdout, .contains("2 breaking changes detected in Qux"))
+                XCTAssertNoMatch(error.stdout, .contains("💔 API breakage: class Qux has generic signature change from <T> to <T, U>"))
+                XCTAssertNoMatch(error.stdout, .contains("💔 API breakage: var Qux.x has been removed"))
             }
         }
     }
@@ -198,58 +179,46 @@ final class APIDiffTests: CommandsTestCase {
             try localFileSystem.writeFileContents(packageRoot.appending(components: "Sources", "Qux", "Qux.swift")) {
                 $0 <<< "public class Qux<T, U> { private let x = 1 }"
             }
-            XCTAssertThrowsError(try execute(["diagnose-api-breaking-changes", "1.2.3", "--products", "One", "--targets", "Bar"],
-                                             packagePath: packageRoot)) { error in
-                guard case SwiftPMProductError.executionFailure(error: _, output: let output, stderr: _) = error else {
-                    XCTFail("Unexpected error")
-                    return
-                }
+            XCTAssertThrowsCommandExecutionError(
+                try execute(["diagnose-api-breaking-changes", "1.2.3", "--products", "One", "--targets", "Bar"], packagePath: packageRoot)
+            ) { error in
+                XCTAssertMatch(error.stdout, .contains("1 breaking change detected in Foo"))
+                XCTAssertMatch(error.stdout, .contains("💔 API breakage: struct Foo has been removed"))
+                XCTAssertMatch(error.stdout, .contains("1 breaking change detected in Bar"))
+                XCTAssertMatch(error.stdout, .contains("💔 API breakage: func bar() has been removed"))
 
-                XCTAssertMatch(output, .contains("1 breaking change detected in Foo"))
-                XCTAssertMatch(output, .contains("💔 API breakage: struct Foo has been removed"))
-                XCTAssertMatch(output, .contains("1 breaking change detected in Bar"))
-                XCTAssertMatch(output, .contains("💔 API breakage: func bar() has been removed"))
-
-                XCTAssertNoMatch(output, .contains("1 breaking change detected in Baz"))
-                XCTAssertNoMatch(output, .contains("💔 API breakage: enumelement Baz.b has been added as a new enum case"))
-                XCTAssertNoMatch(output, .contains("2 breaking changes detected in Qux"))
-                XCTAssertNoMatch(output, .contains("💔 API breakage: class Qux has generic signature change from <T> to <T, U>"))
-                XCTAssertNoMatch(output, .contains("💔 API breakage: var Qux.x has been removed"))
+                XCTAssertNoMatch(error.stdout, .contains("1 breaking change detected in Baz"))
+                XCTAssertNoMatch(error.stdout, .contains("💔 API breakage: enumelement Baz.b has been added as a new enum case"))
+                XCTAssertNoMatch(error.stdout, .contains("2 breaking changes detected in Qux"))
+                XCTAssertNoMatch(error.stdout, .contains("💔 API breakage: class Qux has generic signature change from <T> to <T, U>"))
+                XCTAssertNoMatch(error.stdout, .contains("💔 API breakage: var Qux.x has been removed"))
             }
 
             // Diff a target which didn't have a baseline generated as part of the first invocation
-            XCTAssertThrowsError(try execute(["diagnose-api-breaking-changes", "1.2.3", "--targets", "Baz"],
-                                             packagePath: packageRoot)) { error in
-                guard case SwiftPMProductError.executionFailure(error: _, output: let output, stderr: _) = error else {
-                    XCTFail("Unexpected error")
-                    return
-                }
+            XCTAssertThrowsCommandExecutionError(
+                try execute(["diagnose-api-breaking-changes", "1.2.3", "--targets", "Baz"], packagePath: packageRoot)
+            ) { error in
+                XCTAssertMatch(error.stdout, .contains("1 breaking change detected in Baz"))
+                XCTAssertMatch(error.stdout, .contains("💔 API breakage: enumelement Baz.b has been added as a new enum case"))
 
-                XCTAssertMatch(output, .contains("1 breaking change detected in Baz"))
-                XCTAssertMatch(output, .contains("💔 API breakage: enumelement Baz.b has been added as a new enum case"))
-
-                XCTAssertNoMatch(output, .contains("1 breaking change detected in Foo"))
-                XCTAssertNoMatch(output, .contains("💔 API breakage: struct Foo has been removed"))
-                XCTAssertNoMatch(output, .contains("1 breaking change detected in Bar"))
-                XCTAssertNoMatch(output, .contains("💔 API breakage: func bar() has been removed"))
-                XCTAssertNoMatch(output, .contains("2 breaking changes detected in Qux"))
-                XCTAssertNoMatch(output, .contains("💔 API breakage: class Qux has generic signature change from <T> to <T, U>"))
-                XCTAssertNoMatch(output, .contains("💔 API breakage: var Qux.x has been removed"))
+                XCTAssertNoMatch(error.stdout, .contains("1 breaking change detected in Foo"))
+                XCTAssertNoMatch(error.stdout, .contains("💔 API breakage: struct Foo has been removed"))
+                XCTAssertNoMatch(error.stdout, .contains("1 breaking change detected in Bar"))
+                XCTAssertNoMatch(error.stdout, .contains("💔 API breakage: func bar() has been removed"))
+                XCTAssertNoMatch(error.stdout, .contains("2 breaking changes detected in Qux"))
+                XCTAssertNoMatch(error.stdout, .contains("💔 API breakage: class Qux has generic signature change from <T> to <T, U>"))
+                XCTAssertNoMatch(error.stdout, .contains("💔 API breakage: var Qux.x has been removed"))
             }
 
             // Test diagnostics
-            XCTAssertThrowsError(try execute(["diagnose-api-breaking-changes", "1.2.3", "--targets", "NotATarget", "Exec",
-                                              "--products", "NotAProduct", "Exec"],
-                                             packagePath: packageRoot)) { error in
-                guard case SwiftPMProductError.executionFailure(error: _, output: _, stderr: let stderr) = error else {
-                    XCTFail("Unexpected error")
-                    return
-                }
-
-                XCTAssertMatch(stderr, .contains("error: no such product 'NotAProduct'"))
-                XCTAssertMatch(stderr, .contains("error: no such target 'NotATarget'"))
-                XCTAssertMatch(stderr, .contains("'Exec' is not a library product"))
-                XCTAssertMatch(stderr, .contains("'Exec' is not a library target"))
+            XCTAssertThrowsCommandExecutionError(
+                try execute(["diagnose-api-breaking-changes", "1.2.3", "--targets", "NotATarget", "Exec", "--products", "NotAProduct", "Exec"],
+                            packagePath: packageRoot)
+            ) { error in
+                XCTAssertMatch(error.stderr, .contains("error: no such product 'NotAProduct'"))
+                XCTAssertMatch(error.stderr, .contains("error: no such target 'NotATarget'"))
+                XCTAssertMatch(error.stderr, .contains("'Exec' is not a library product"))
+                XCTAssertMatch(error.stderr, .contains("'Exec' is not a library target"))
             }
         }
     }
@@ -269,23 +238,14 @@ final class APIDiffTests: CommandsTestCase {
                 }
                 """
             }
-            XCTAssertThrowsError(try execute(["diagnose-api-breaking-changes", "1.2.3"], packagePath: packageRoot)) { error in
-                guard case SwiftPMProductError.executionFailure(error: _, output: let output, stderr: _) = error else {
-                    XCTFail("Unexpected error")
-                    return
-                }
-                XCTAssertMatch(output, .contains("1 breaking change detected in Bar"))
-                XCTAssertMatch(output, .contains("💔 API breakage: func bar() has return type change from Swift.Int to Swift.String"))
+            XCTAssertThrowsCommandExecutionError(try execute(["diagnose-api-breaking-changes", "1.2.3"], packagePath: packageRoot)) { error in
+                XCTAssertMatch(error.stdout, .contains("1 breaking change detected in Bar"))
+                XCTAssertMatch(error.stdout, .contains("💔 API breakage: func bar() has return type change from Swift.Int to Swift.String"))
             }
 
             // Report an error if we explicitly ask to diff a C-family target
-            XCTAssertThrowsError(try execute(["diagnose-api-breaking-changes", "1.2.3", "--targets", "Foo"], packagePath: packageRoot)) { error in
-                guard case SwiftPMProductError.executionFailure(error: _, output: _, stderr: let stderr) = error else {
-                    XCTFail("Unexpected error")
-                    return
-                }
-
-                XCTAssertMatch(stderr, .contains("error: 'Foo' is not a Swift language target"))
+            XCTAssertThrowsCommandExecutionError(try execute(["diagnose-api-breaking-changes", "1.2.3", "--targets", "Foo"], packagePath: packageRoot)) { error in
+                XCTAssertMatch(error.stderr, .contains("error: 'Foo' is not a Swift language target"))
             }
         }
     }
@@ -342,12 +302,8 @@ final class APIDiffTests: CommandsTestCase {
         try skipIfApiDigesterUnsupportedOrUnset()
         try fixture(name: "Miscellaneous/APIDiff/") { fixturePath in
             let packageRoot = fixturePath.appending(component: "Foo")
-            XCTAssertThrowsError(try execute(["diagnose-api-breaking-changes", "7.8.9"], packagePath: packageRoot)) { error in
-                guard case SwiftPMProductError.executionFailure(error: _, output: _, stderr: let stderr) = error else {
-                    XCTFail("Unexpected error")
-                    return
-                }
-                XCTAssertMatch(stderr, .contains("error: Couldn’t get revision"))
+            XCTAssertThrowsCommandExecutionError(try execute(["diagnose-api-breaking-changes", "7.8.9"], packagePath: packageRoot)) { error in
+                XCTAssertMatch(error.stderr, .contains("error: Couldn’t get revision"))
             }
         }
     }
@@ -365,14 +321,13 @@ final class APIDiffTests: CommandsTestCase {
                 }
                 try repo.stage(file: "Foo.swift")
                 try repo.commit(message: "Add foo")
-                XCTAssertThrowsError(try execute(["diagnose-api-breaking-changes", "main", "--baseline-dir", baselineDir.pathString],
-                                                 packagePath: packageRoot)) { error in
-                    guard case SwiftPMProductError.executionFailure(error: _, output: let output, stderr: _) = error else {
-                        XCTFail("Unexpected error")
-                        return
-                    }
-                    XCTAssertMatch(output, .contains("1 breaking change detected in Foo"))
-                    XCTAssertMatch(output, .contains("💔 API breakage: func foo() has been removed"))
+                XCTAssertThrowsCommandExecutionError(
+                    try execute(["diagnose-api-breaking-changes", "main", "--baseline-dir",
+                                 baselineDir.pathString],
+                                packagePath: packageRoot)
+                ) { error in
+                    XCTAssertMatch(error.stdout, .contains("1 breaking change detected in Foo"))
+                    XCTAssertMatch(error.stdout, .contains("💔 API breakage: func foo() has been removed"))
                 }
 
                 // Update `main` and ensure the baseline is regenerated.
@@ -403,15 +358,11 @@ final class APIDiffTests: CommandsTestCase {
             let repo = GitRepository(path: packageRoot)
             let revision = try repo.resolveRevision(identifier: "1.2.3")
 
-            XCTAssertThrowsError(try execute(["diagnose-api-breaking-changes", "1.2.3",
-                                              "--baseline-dir", baselineDir.pathString],
-                                             packagePath: packageRoot)) { error in
-                guard case SwiftPMProductError.executionFailure(error: _, output: let output, stderr: _) = error else {
-                    XCTFail("Unexpected error")
-                    return
-                }
-                XCTAssertMatch(output, .contains("1 breaking change detected in Foo"))
-                XCTAssertMatch(output, .contains("💔 API breakage: func foo() has been removed"))
+            XCTAssertThrowsCommandExecutionError(
+                try execute(["diagnose-api-breaking-changes", "1.2.3", "--baseline-dir", baselineDir.pathString], packagePath: packageRoot)
+            ) { error in
+                XCTAssertMatch(error.stdout, .contains("1 breaking change detected in Foo"))
+                XCTAssertMatch(error.stdout, .contains("💔 API breakage: func foo() has been removed"))
                 XCTAssertFileExists(baselineDir.appending(components: revision.identifier, "Foo.json"))
             }
         }
@@ -437,16 +388,14 @@ final class APIDiffTests: CommandsTestCase {
                 $0 <<< "Old Baseline"
             }
 
-            XCTAssertThrowsError(try execute(["diagnose-api-breaking-changes", "1.2.3",
-                                              "--baseline-dir", baselineDir.pathString,
-                                              "--regenerate-baseline"],
-                                             packagePath: packageRoot)) { error in
-                guard case SwiftPMProductError.executionFailure(error: _, output: let output, stderr: _) = error else {
-                    XCTFail("Unexpected error")
-                    return
-                }
-                XCTAssertMatch(output, .contains("1 breaking change detected in Foo"))
-                XCTAssertMatch(output, .contains("💔 API breakage: func foo() has been removed"))
+            XCTAssertThrowsCommandExecutionError(
+                try execute(["diagnose-api-breaking-changes", "1.2.3",
+                             "--baseline-dir", baselineDir.pathString,
+                             "--regenerate-baseline"],
+                            packagePath: packageRoot)
+            ) { error in
+                XCTAssertMatch(error.stdout, .contains("1 breaking change detected in Foo"))
+                XCTAssertMatch(error.stdout, .contains("💔 API breakage: func foo() has been removed"))
                 XCTAssertFileExists(fooBaselinePath)
                 let content: String = try! localFileSystem.readFileContents(fooBaselinePath)
                 XCTAssertNotEqual(content, "Old Baseline")
@@ -455,13 +404,8 @@ final class APIDiffTests: CommandsTestCase {
     }
 
     func testOldName() throws {
-        XCTAssertThrowsError(try execute(["experimental-api-diff", "1.2.3", "--regenerate-baseline"],
-                                         packagePath: nil)) { error in
-            guard case SwiftPMProductError.executionFailure(error: _, output: let output, stderr: _) = error else {
-                XCTFail("Unexpected error")
-                return
-            }
-            XCTAssertMatch(output, .contains("`swift package experimental-api-diff` has been renamed to `swift package diagnose-api-breaking-changes`"))
+        XCTAssertThrowsCommandExecutionError(try execute(["experimental-api-diff", "1.2.3", "--regenerate-baseline"], packagePath: nil)) { error in
+            XCTAssertMatch(error.stdout, .contains("`swift package experimental-api-diff` has been renamed to `swift package diagnose-api-breaking-changes`"))
         }
     }
 }
