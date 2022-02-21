@@ -369,6 +369,7 @@ public struct SwiftTestTool: SwiftCommand {
                 options: swiftOptions,
                 buildParameters: buildParameters,
                 outputStream: swiftTool.outputStream,
+                shouldOutputSuccess: swiftTool.logLevel <= .info,
                 observabilityScope: swiftTool.observabilityScope
             )
             try runner.run(tests, outputStream: swiftTool.outputStream)
@@ -636,7 +637,7 @@ final class TestRunner {
                     }
                 }
             )
-            let process = Process(arguments: try args(forTestAt: path), environment: self.testEnv, outputRedirection: outputRedirection, verbose: false)
+            let process = Process(arguments: try args(forTestAt: path), environment: self.testEnv, outputRedirection: outputRedirection)
             try self.processSet.add(process)
             try process.launch()
             let result = try process.waitUntilExit()
@@ -710,6 +711,9 @@ final class ParallelTestRunner {
     /// Output stream for test results
     private let outputStream: OutputByteStream
 
+    /// Whether to display output from successful tests.
+    private let shouldOutputSuccess: Bool
+
     /// ObservabilityScope to emit diagnostics.
     private let observabilityScope: ObservabilityScope
 
@@ -722,6 +726,7 @@ final class ParallelTestRunner {
         options: SwiftToolOptions,
         buildParameters: BuildParameters,
         outputStream: OutputByteStream,
+        shouldOutputSuccess: Bool,
         observabilityScope: ObservabilityScope
     ) {
         self.bundlePaths = bundlePaths
@@ -730,6 +735,7 @@ final class ParallelTestRunner {
         self.xUnitOutput = xUnitOutput
         self.numJobs = numJobs
         self.outputStream = outputStream
+        self.shouldOutputSuccess = shouldOutputSuccess
         self.observabilityScope = observabilityScope.makeChildScope(description: "Parallel Test Runner")
 
         if ProcessEnv.vars["SWIFTPM_TEST_RUNNER_PROGRESS_BAR"] == "lit" {
@@ -742,13 +748,6 @@ final class ParallelTestRunner {
         self.buildParameters = buildParameters
 
         assert(numJobs > 0, "num jobs should be > 0")
-    }
-
-    /// Whether to display output from successful tests.
-    private var shouldOutputSuccess: Bool {
-        // FIXME: It is weird to read Process's verbosity to determine this, we
-        // should improve our verbosity infrastructure.
-        return Process.verbose
     }
 
     /// Updates the progress bar status.

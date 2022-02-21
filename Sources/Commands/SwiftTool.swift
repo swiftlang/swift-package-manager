@@ -461,17 +461,8 @@ public class SwiftTool {
         self.sharedConfigurationDirectory = try getSharedConfigurationDirectory(options: self.options, observabilityScope: self.observabilityScope)
         self.sharedCacheDirectory = try getSharedCacheDirectory(options: self.options, observabilityScope: self.observabilityScope)
 
-        // set verbosity globals.
-        // TODO: get rid of this global settings in TSC
-        switch self.logLevel {
-        case .debug:
-            TSCUtility.verbosity = .debug
-        case .info:
-            TSCUtility.verbosity = .verbose
-        case .warning, .error:
-            TSCUtility.verbosity = .concise
-        }
-        Process.verbose = TSCUtility.verbosity != .concise
+        // set global process logging handler
+        Process.loggingHandler = { self.observabilityScope.emit(debug: $0) }
     }
 
     static func postprocessArgParserResult(options: SwiftToolOptions, observabilityScope: ObservabilityScope) throws {
@@ -844,7 +835,8 @@ public class SwiftTool {
                 printManifestGraphviz: options.printManifestGraphviz,
                 forceTestDiscovery: options.enableTestDiscovery, // backwards compatibility, remove with --enable-test-discovery
                 linkerDeadStrip: options.linkerDeadStrip,
-                isTTY: isTTY
+                colorizedOutput: isTTY,
+                verboseOutput: self.logLevel <= .info
             )
         })
     }()
@@ -915,6 +907,10 @@ public class SwiftTool {
             // Disable the implicit concurrency import if the compiler in use supports it to avoid warnings if we are building against an older SDK that does not contain a Concurrency module.
             if SwiftTargetBuildDescription.checkSupportedFrontendFlags(flags: ["disable-implicit-concurrency-module-import"], fileSystem: localFileSystem) {
                 extraManifestFlags += ["-Xfrontend", "-disable-implicit-concurrency-module-import"]
+            }
+
+            if self.logLevel <= .info {
+                extraManifestFlags.append("-v")
             }
 
             return try ManifestLoader(

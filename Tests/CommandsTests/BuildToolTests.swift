@@ -347,19 +347,19 @@ final class BuildToolTests: CommandsTestCase {
         #endif
         try fixture(name: "ValidLayouts/SingleModule/ExecutableNew") { fixturePath in
             // Try building using XCBuild without specifying overrides.  This should succeed, and should use the default compiler path.
-            let defaultOutput = try execute(["-c", "debug", "-v"], packagePath: fixturePath).stdout
+            let defaultOutput = try execute(["-c", "debug", "--vv"], packagePath: fixturePath).stdout
             XCTAssertMatch(defaultOutput, .contains(ToolchainConfiguration.default.swiftCompilerPath.pathString))
 
             // Now try building using XCBuild while specifying a faulty compiler override.  This should fail.  Note that we need to set the executable to use for the manifest itself to the default one, since it defaults to SWIFT_EXEC if not provided.
             var overriddenOutput = ""
             do {
-                overriddenOutput = try execute(["-c", "debug", "-v"], environment: ["SWIFT_EXEC": "/usr/bin/false", "SWIFT_EXEC_MANIFEST": ToolchainConfiguration.default.swiftCompilerPath.pathString], packagePath: fixturePath).stdout
+                overriddenOutput = try execute(["-c", "debug", "--vv"], environment: ["SWIFT_EXEC": "/usr/bin/false", "SWIFT_EXEC_MANIFEST": ToolchainConfiguration.default.swiftCompilerPath.pathString], packagePath: fixturePath).stdout
                 XCTFail("unexpected success (was SWIFT_EXEC not overridden properly?)")
             }
-            catch SwiftPMProductError.executionFailure(let error, let stdout, _) {
+            catch SwiftPMProductError.executionFailure(let error, _, let stderr) {
                 switch error {
                 case ProcessResult.Error.nonZeroExit(let result) where result.exitStatus != .terminated(code: 0):
-                    overriddenOutput = stdout
+                    overriddenOutput = stderr
                     break
                 default:
                     XCTFail("`swift build' failed in an unexpected manner")
