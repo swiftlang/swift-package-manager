@@ -114,26 +114,18 @@ public struct SwiftRunTool: SwiftCommand {
             let graphLoader = {
                 try swiftTool.loadPackageGraph(
                     explicitProduct: self.options.executable,
-                    createREPLProduct: true)
+                    createREPLProduct: true
+                )
             }
             let buildParameters = try swiftTool.buildParameters()
 
             // Construct the build operation.
             // FIXME: We need to implement the build tool invocation closure here so that build tool plugins work with the REPL. rdar://86112934
-            let buildOp = BuildOperation(
-                buildParameters: buildParameters,
+            let buildOp = try swiftTool.createBuildOperation(
                 cacheBuildManifest: false,
-                packageGraphLoader: graphLoader,
-                pluginScriptRunner: try swiftTool.getPluginScriptRunner(),
-                pluginWorkDirectory: try swiftTool.getActiveWorkspace().location.pluginWorkingDirectory,
-                outputStream: swiftTool.outputStream,
-                logLevel: swiftTool.logLevel,
-                fileSystem: localFileSystem,
-                observabilityScope: swiftTool.observabilityScope
+                customBuildParameters: buildParameters,
+                customPackageGraphLoader: graphLoader
             )
-
-            // Save the instance so it can be cancelled from the int handler.
-            swiftTool.buildSystemRef.buildSystem = buildOp
 
             // Perform build.
             try buildOp.build()
@@ -186,10 +178,6 @@ public struct SwiftRunTool: SwiftCommand {
                     arguments: arguments)
                 return
             }
-
-            // Redirect stdout to stderr because swift-run clients usually want
-            // to ignore swiftpm's output and only care about the tool's output.
-            swiftTool.redirectStdoutToStderr()
 
             do {
                 let buildSystem = try swiftTool.createBuildSystem(explicitProduct: options.executable)

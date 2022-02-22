@@ -31,7 +31,9 @@ import Darwin
 import Glibc
 #endif
 
+import protocol TSCUtility.ProgressAnimationProtocol
 import class TSCUtility.NinjaProgressAnimation
+import class TSCUtility.PercentProgressAnimation
 import var TSCUtility.verbosity
 
 typealias Diagnostic = Basics.Diagnostic
@@ -342,28 +344,39 @@ public class SwiftTool {
     /// The execution status of the tool.
     var executionStatus: ExecutionStatus = .success
 
-    /// The stream to print standard output on.
-    fileprivate(set) var outputStream: OutputByteStream = TSCBasic.stdoutStream
-
     /// Holds the currently active workspace.
     ///
     /// It is not initialized in init() because for some of the commands like package init , usage etc,
-    /// workspace is not needed, infact it would be an error to ask for the workspace object
+    /// workspace is not needed, in-fact it would be an error to ask for the workspace object
     /// for package init because the Manifest file should *not* present.
     private var _workspace: Workspace?
     private var _workspaceDelegate: ToolWorkspaceDelegate?
+
+    private let observabilityHandler: SwiftToolObservabilityHandler
 
     let observabilityScope: ObservabilityScope
 
     let logLevel: Diagnostic.Severity
 
+
     /// Create an instance of this tool.
     ///
-    /// - parameter args: The command line arguments to be passed to this tool.
-    public init(options: SwiftToolOptions) throws {
-        // first, bootstrap the observability syste
+    /// - parameter options: The command line options to be passed to this tool.
+    public convenience init(options: SwiftToolOptions) throws {
+        // output from background activities goes to stderr, this includes diagnostics and output from build operations,
+        // package resolution that take place as part of another action
+        // CLI commands that have user facing output, use stdout directly to emit the final result
+        // this means that the build output from "swift build" goes to stdout
+        // but the build output from "swift test" goes to stderr, while the tests output go to stdout
+        try self.init(outputStream: TSCBasic.stderrStream, options: options)
+    }
+
+    // marked internal for testing
+    internal init(outputStream: OutputByteStream, options: SwiftToolOptions) throws {
+        // first, bootstrap the observability system
         self.logLevel = options.logLevel
-        let observabilitySystem = ObservabilitySystem.init(SwiftToolObservability(logLevel: self.logLevel))
+        self.observabilityHandler = SwiftToolObservabilityHandler(outputStream: outputStream, logLevel: self.logLevel)
+        let observabilitySystem = ObservabilitySystem(self.observabilityHandler)
         self.observabilityScope = observabilitySystem.topScope
 
         // Capture the original working directory ASAP.
@@ -605,11 +618,6 @@ public class SwiftTool {
         return try authorization.makeAuthorizationProvider(fileSystem: localFileSystem, observabilityScope: self.observabilityScope)
     }
 
-    /// Start redirecting the standard output stream to the standard error stream.
-    func redirectStdoutToStderr() {
-        self.outputStream = TSCBasic.stderrStream
-    }
-
     /// Resolve the dependencies.
     func resolve() throws {
         let workspace = try getActiveWorkspace()
@@ -710,22 +718,32 @@ public class SwiftTool {
         return true
     }
 
-    func createBuildOperation(explicitProduct: String? = nil, cacheBuildManifest: Bool = true) throws -> BuildOperation {
-        // Load a custom package graph which has a special product for REPL.
+    // note: do not customize the OutputStream unless absolutely necessary
+    // "customOutputStream" is designed to support build output redirection
+    // but it is only expected to be used when invoking builds from "swift build" command.
+    // in all other cases, the build output should go to the default which is stderr
+    func createBuildOperation(
+        explicitProduct: String? = .none,
+        cacheBuildManifest: Bool = true,
+        customBuildParameters: BuildParameters? = .none,
+        customPackageGraphLoader: (() throws -> PackageGraph)? = .none,
+        customOutputStream: OutputByteStream? = .none,
+        customObservabilityScope: ObservabilityScope? = .none
+    ) throws -> BuildOperation {
         let graphLoader = { try self.loadPackageGraph(explicitProduct: explicitProduct) }
 
         // Construct the build operation.
         // FIXME: We need to implement the build tool invocation closure here so that build tool plugins work with dumping the symbol graph (the only case that currently goes through this path, as far as I can tell). rdar://86112934
         let buildOp = try BuildOperation(
-            buildParameters: buildParameters(),
+            buildParameters: customBuildParameters ?? self.buildParameters(),
             cacheBuildManifest: cacheBuildManifest && self.canUseCachedBuildManifest(),
-            packageGraphLoader: graphLoader,
+            packageGraphLoader: customPackageGraphLoader ?? graphLoader,
             pluginScriptRunner: self.getPluginScriptRunner(),
             pluginWorkDirectory: try self.getActiveWorkspace().location.pluginWorkingDirectory,
-            outputStream: self.outputStream,
+            outputStream: customOutputStream ?? self.outputStream,
             logLevel: self.logLevel,
             fileSystem: localFileSystem,
-            observabilityScope: self.observabilityScope
+            observabilityScope: customObservabilityScope ?? self.observabilityScope
         )
 
         // Save the instance so it can be cancelled from the int handler.
@@ -733,33 +751,44 @@ public class SwiftTool {
         return buildOp
     }
 
-    func createBuildSystem(explicitProduct: String? = nil, buildParameters: BuildParameters? = nil) throws -> BuildSystem {
+    // note: do not customize the OutputStream unless absolutely necessary
+    // "customOutputStream" is designed to support build output redirection
+    // but it is only expected to be used when invoking builds from "swift build" command.
+    // in all other cases, the build output should go to the default which is stderr
+    func createBuildSystem(
+        explicitProduct: String? = .none,
+        customBuildParameters: BuildParameters? = .none,
+        customPackageGraphLoader: (() throws -> PackageGraph)? = .none,
+        customOutputStream: OutputByteStream? = .none,
+        customObservabilityScope: ObservabilityScope? = .none
+    ) throws -> BuildSystem {
         let buildSystem: BuildSystem
         switch options.buildSystem {
         case .native:
             let graphLoader = { try self.loadPackageGraph(explicitProduct: explicitProduct) }
+
             buildSystem = try BuildOperation(
-                buildParameters: buildParameters ?? self.buildParameters(),
+                buildParameters: customBuildParameters ?? self.buildParameters(),
                 cacheBuildManifest: self.canUseCachedBuildManifest(),
-                packageGraphLoader: graphLoader,
+                packageGraphLoader: customPackageGraphLoader ?? graphLoader,
                 pluginScriptRunner: self.getPluginScriptRunner(),
                 pluginWorkDirectory: try self.getActiveWorkspace().location.pluginWorkingDirectory,
                 disableSandboxForPluginCommands: self.options.shouldDisableSandbox,
-                outputStream: self.outputStream,
+                outputStream: customOutputStream ?? self.outputStream,
                 logLevel: self.logLevel,
                 fileSystem: localFileSystem,
-                observabilityScope: self.observabilityScope
+                observabilityScope: customObservabilityScope ?? self.observabilityScope
             )
         case .xcode:
             let graphLoader = { try self.loadPackageGraph(explicitProduct: explicitProduct, createMultipleTestProducts: true) }
             // FIXME: Implement the custom build command provider also.
             buildSystem = try XcodeBuildSystem(
-                buildParameters: buildParameters ?? self.buildParameters(),
-                packageGraphLoader: graphLoader,
-                outputStream: self.outputStream,
+                buildParameters: customBuildParameters ?? self.buildParameters(),
+                packageGraphLoader: customPackageGraphLoader ??  graphLoader,
+                outputStream: customOutputStream ?? self.outputStream,
                 logLevel: self.logLevel,
                 fileSystem: localFileSystem,
-                observabilityScope: self.observabilityScope
+                observabilityScope: customObservabilityScope ?? self.observabilityScope
             )
         }
 
@@ -777,20 +806,6 @@ public class SwiftTool {
         return Result(catching: {
             let toolchain = try self.getToolchain()
             let triple = toolchain.triple
-
-            /// Checks if stdout stream is tty.
-            let isTTY: Bool = {
-                let stream: OutputByteStream
-                if let threadSafeStream = self.outputStream as? ThreadSafeOutputByteStream {
-                    stream = threadSafeStream.stream
-                } else {
-                    stream = self.outputStream
-                }
-                guard let fileStream = stream as? LocalFileOutputByteStream else {
-                    return false
-                }
-                return TerminalController.isTTY(fileStream)
-            }()
 
             // Use "apple" as the subdirectory because in theory Xcode build system
             // can be used to build for any Apple platform and it has it's own
@@ -821,7 +836,6 @@ public class SwiftTool {
                 printManifestGraphviz: options.printManifestGraphviz,
                 forceTestDiscovery: options.enableTestDiscovery, // backwards compatibility, remove with --enable-test-discovery
                 linkerDeadStrip: options.linkerDeadStrip,
-                colorizedOutput: isTTY,
                 verboseOutput: self.logLevel <= .info
             )
         })
@@ -995,27 +1009,53 @@ extension Basics.Diagnostic {
 
 // MARK: - Diagnostics
 
-private struct SwiftToolObservability: ObservabilityHandlerProvider, DiagnosticsHandler {
-    private let logLevel: Diagnostic.Severity
+private struct SwiftToolObservabilityHandler: ObservabilityHandlerProvider {
+    private let outputHandler: OutputHandler
 
-    var diagnosticsHandler: DiagnosticsHandler { self }
-
-    init(logLevel: Diagnostic.Severity) {
-        self.logLevel = logLevel
+    var diagnosticsHandler: DiagnosticsHandler {
+        self.outputHandler
     }
 
-    func handleDiagnostic(scope: ObservabilityScope, diagnostic: Basics.Diagnostic) {
-        // TODO: do something useful with scope
-        if diagnostic.severity >= self.logLevel {
-            diagnostic.print()
+    init(outputStream: OutputByteStream, logLevel: Diagnostic.Severity) {
+        let threadSafeOutputByteStream = outputStream as? ThreadSafeOutputByteStream ?? ThreadSafeOutputByteStream(outputStream)
+        self.outputHandler = OutputHandler(logLevel: logLevel, outputStream: threadSafeOutputByteStream)
+    }
+
+    // FIXME: deprecate this one we are further along refactoring the call sites that use it
+    var outputStream: OutputByteStream {
+        self.outputHandler.outputStream
+    }
+
+    struct OutputHandler: DiagnosticsHandler {
+        let logLevel: Diagnostic.Severity
+        let outputStream: ThreadSafeOutputByteStream
+        let writer: InteractiveWriter
+
+        init(logLevel: Diagnostic.Severity, outputStream: ThreadSafeOutputByteStream) {
+            self.logLevel = logLevel
+            self.outputStream = outputStream
+            self.writer = InteractiveWriter(stream: outputStream)
+        }
+
+        func handleDiagnostic(scope: ObservabilityScope, diagnostic: Basics.Diagnostic) {
+            // TODO: do something useful with scope
+            if diagnostic.severity >= self.logLevel {
+                diagnostic.print(with: self.writer)
+            }
         }
     }
 }
 
-extension Basics.Diagnostic {
-    func print() {
-        let writer = InteractiveWriter.stderr
+extension SwiftTool {
+    // FIXME: deprecate these one we are further along refactoring the call sites that use it
+    /// The stream to print standard output on.
+    var outputStream: OutputByteStream {
+        self.observabilityHandler.outputStream
+    }
+}
 
+extension Basics.Diagnostic {
+    fileprivate func print(with writer: InteractiveWriter) {
         var message: String
         switch self.severity {
         case .error:
@@ -1046,14 +1086,7 @@ extension Basics.Diagnostic {
 ///
 /// If underlying stream is a not tty, the string will be written in without any
 /// formatting.
-private final class InteractiveWriter {
-
-    /// The standard error writer.
-    static let stderr = InteractiveWriter(stream: TSCBasic.stderrStream)
-
-    /// The standard output writer.
-    static let stdout = InteractiveWriter(stream: TSCBasic.stdoutStream)
-
+private struct InteractiveWriter {
     /// The terminal controller, if present.
     let term: TerminalController?
 

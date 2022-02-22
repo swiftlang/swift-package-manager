@@ -229,9 +229,6 @@ public struct SwiftTestTool: SwiftCommand {
 
         switch options.mode {
         case .listTests:
-            // redirect all other output to stderr so that the list is the only thing that is printed on stdout
-            swiftTool.redirectStdoutToStderr()
-
             let testProducts = try buildTestsIfNeeded(swiftTool: swiftTool)
             let testSuites = try TestingSupport.getTestSuites(in: testProducts, swiftTool: swiftTool, swiftOptions: swiftOptions)
             let tests = try testSuites
@@ -324,12 +321,15 @@ public struct SwiftTestTool: SwiftCommand {
                 processSet: swiftTool.processSet,
                 toolchain: toolchain,
                 testEnv: testEnv,
-                outputStream: swiftTool.outputStream,
                 observabilityScope: swiftTool.observabilityScope
             )
 
             // Finally, run the tests.
-            let (ranSuccessfully, _) = runner.test(writeToOutputStream: true)
+            let ranSuccessfully = runner.test(outputHandler: {
+                // command's result output goes on stdout
+                // ie "swift test" should output to stdout
+                print($0)
+            })
             if !ranSuccessfully {
                 swiftTool.executionStatus = .failure
             }
@@ -368,11 +368,10 @@ public struct SwiftTestTool: SwiftCommand {
                 numJobs: options.numberOfWorkers ?? ProcessInfo.processInfo.activeProcessorCount,
                 options: swiftOptions,
                 buildParameters: buildParameters,
-                outputStream: swiftTool.outputStream,
                 shouldOutputSuccess: swiftTool.logLevel <= .info,
                 observabilityScope: swiftTool.observabilityScope
             )
-            try runner.run(tests, outputStream: swiftTool.outputStream)
+            try runner.run(tests)
 
             if !runner.ranSuccessfully {
                 swiftTool.executionStatus = .failure
@@ -463,7 +462,7 @@ public struct SwiftTestTool: SwiftCommand {
     /// - Returns: The paths to the build test products.
     private func buildTestsIfNeeded(swiftTool: SwiftTool) throws -> [BuiltTestProduct] {
         let buildParameters = try swiftTool.buildParametersForTest(options: self.options)
-        let buildSystem = try swiftTool.createBuildSystem(buildParameters: buildParameters)
+        let buildSystem = try swiftTool.createBuildSystem(customBuildParameters: buildParameters)
 
         if options.shouldBuildTests {
             let subset = options.testProduct.map(BuildSubset.product) ?? .allIncludingTests
@@ -547,9 +546,6 @@ final class TestRunner {
 
     private let testEnv: [String: String]
 
-    /// Output stream for test results
-    private let outputStream: OutputByteStream
-
     /// ObservabilityScope  to emit diagnostics.
     private let observabilityScope: ObservabilityScope
 
@@ -564,7 +560,6 @@ final class TestRunner {
         processSet: ProcessSet,
         toolchain: UserToolchain,
         testEnv: [String: String],
-        outputStream: OutputByteStream,
         observabilityScope: ObservabilityScope
     ) {
         self.bundlePaths = bundlePaths
@@ -572,21 +567,18 @@ final class TestRunner {
         self.processSet = processSet
         self.toolchain = toolchain
         self.testEnv = testEnv
-        self.outputStream = outputStream
         self.observabilityScope = observabilityScope.makeChildScope(description: "Test Runner")
     }
 
     /// Executes and returns execution status. Prints test output on standard streams if requested
     /// - Returns: Boolean indicating if test execution returned code 0, and the output stream result
-    public func test(writeToOutputStream: Bool) -> (Bool, String) {
+    public func test(outputHandler: @escaping (String) -> Void) -> Bool {
         var success = true
-        var output = ""
         for path in self.bundlePaths {
-            let (testSuccess, testOutput) = self.test(at: path, writeToOutputStream: writeToOutputStream)
+            let testSuccess = self.test(at: path, outputHandler: outputHandler)
             success = success && testSuccess
-            output += testOutput
         }
-        return (success, output)
+        return success
     }
 
     /// Constructs arguments to execute XCTest.
@@ -610,32 +602,18 @@ final class TestRunner {
         return args
     }
 
-    private func test(at path: AbsolutePath, writeToOutputStream: Bool) -> (Bool, String) {
-        var stdout: [UInt8] = []
-        var stderr: [UInt8] = []
-
-        func makeOutput() -> String {
-            return String(bytes: stdout + stderr, encoding: .utf8)?.spm_chuzzle() ?? ""
-        }
-
+    private func test(at path: AbsolutePath, outputHandler: @escaping (String) -> Void) -> Bool {
         let testObservabilityScope = self.observabilityScope.makeChildScope(description: "running test at \(path)")
 
         do {
-            let outputRedirection = Process.OutputRedirection.stream(
-                stdout: {
-                    stdout += $0
-                    if writeToOutputStream {
-                        self.outputStream.write($0)
-                        self.outputStream.flush()
-                    }
-                },
-                stderr: {
-                    stderr += $0
-                    if writeToOutputStream {
-                        TSCBasic.stderrStream.write($0)
-                        TSCBasic.stderrStream.flush()
-                    }
+            let outputHandler = { (bytes: [UInt8]) in
+                if let output = String(bytes: bytes, encoding: .utf8)?.spm_chuzzle() {
+                    outputHandler(output)
                 }
+            }
+            let outputRedirection = Process.OutputRedirection.stream(
+                stdout: outputHandler,
+                stderr: outputHandler
             )
             let process = Process(arguments: try args(forTestAt: path), environment: self.testEnv, outputRedirection: outputRedirection)
             try self.processSet.add(process)
@@ -643,27 +621,21 @@ final class TestRunner {
             let result = try process.waitUntilExit()
             switch result.exitStatus {
             case .terminated(code: 0):
-                return (true, makeOutput())
+                return true
             #if !os(Windows)
             case .signalled(let signal):
-                if writeToOutputStream {
-                    testObservabilityScope.emit(error: "Exited with signal code \(signal)")
-                } else {
-                    stderr += "\nExited with signal code \(signal)".utf8
-                }
+                testObservabilityScope.emit(error: "Exited with signal code \(signal)")
+                return false
             #endif
-            default: break
+            default:
+                return false
             }
         } catch ProcessSetError.cancelled {
-            // do nothing
+            return false
         } catch {
-            if writeToOutputStream {
-                testObservabilityScope.emit(error)
-            } else {
-                stderr += "\n\(error)".utf8
-            }
+            testObservabilityScope.emit(error)
+            return false
         }
-        return (false, makeOutput())
     }
 }
 
@@ -708,9 +680,6 @@ final class ParallelTestRunner {
     /// Number of tests to execute in parallel.
     private let numJobs: Int
 
-    /// Output stream for test results
-    private let outputStream: OutputByteStream
-
     /// Whether to display output from successful tests.
     private let shouldOutputSuccess: Bool
 
@@ -725,7 +694,6 @@ final class ParallelTestRunner {
         numJobs: Int,
         options: SwiftToolOptions,
         buildParameters: BuildParameters,
-        outputStream: OutputByteStream,
         shouldOutputSuccess: Bool,
         observabilityScope: ObservabilityScope
     ) {
@@ -734,14 +702,15 @@ final class ParallelTestRunner {
         self.toolchain = toolchain
         self.xUnitOutput = xUnitOutput
         self.numJobs = numJobs
-        self.outputStream = outputStream
         self.shouldOutputSuccess = shouldOutputSuccess
         self.observabilityScope = observabilityScope.makeChildScope(description: "Parallel Test Runner")
 
+        // command's result output goes on stdout
+        // ie "swift test" should output to stdout
         if ProcessEnv.vars["SWIFTPM_TEST_RUNNER_PROGRESS_BAR"] == "lit" {
-            progressAnimation = PercentProgressAnimation(stream: outputStream, header: "Testing:")
+            progressAnimation = PercentProgressAnimation(stream: TSCBasic.stdoutStream, header: "Testing:")
         } else {
-            progressAnimation = NinjaProgressAnimation(stream: outputStream)
+            progressAnimation = NinjaProgressAnimation(stream: TSCBasic.stdoutStream)
         }
 
         self.options = options
@@ -770,7 +739,7 @@ final class ParallelTestRunner {
     }
 
     /// Executes the tests spawning parallel workers. Blocks calling thread until all workers are finished.
-    func run(_ tests: [UnitTest], outputStream: OutputByteStream) throws {
+    func run(_ tests: [UnitTest]) throws {
         assert(!tests.isEmpty, "There should be at least one test to execute.")
 
         let testEnv = try TestingSupport.constructTestEnvironment(toolchain: self.toolchain, options: self.options, buildParameters: self.buildParameters)
@@ -789,10 +758,10 @@ final class ParallelTestRunner {
                         processSet: self.processSet,
                         toolchain: self.toolchain,
                         testEnv: testEnv,
-                        outputStream: self.outputStream,
                         observabilityScope: self.observabilityScope
                     )
-                    let (success, output) = testRunner.test(writeToOutputStream: false)
+                    var output = ""
+                    let success = testRunner.test(outputHandler: { output += $0 })
                     if !success {
                         self.ranSuccessfully = false
                     }
@@ -829,7 +798,9 @@ final class ParallelTestRunner {
         // Print test results.
         for test in processedTests.get() {
             if !test.success || shouldOutputSuccess {
-                print(test, outputStream: outputStream)
+                // command's result output goes on stdout
+                // ie "swift test" should output to stdout
+                print(test.output)
             }
         }
 
@@ -839,15 +810,6 @@ final class ParallelTestRunner {
         }
     }
 
-    // Print a test result.
-    private func print(_ test: TestResult, outputStream: OutputByteStream) {
-        outputStream <<< "\n"
-        outputStream <<< test.output
-        if !test.output.isEmpty {
-            outputStream <<< "\n"
-        }
-        outputStream.flush()
-    }
 }
 
 /// A struct to hold the XCTestSuite data.

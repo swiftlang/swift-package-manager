@@ -88,6 +88,10 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         fileSystem: TSCBasic.FileSystem,
         observabilityScope: ObservabilityScope
     ) {
+        /// Checks if stdout stream is tty.
+        var buildParameters = buildParameters
+        buildParameters.colorizedOutput = outputStream.isTTY
+
         self.buildParameters = buildParameters
         self.cacheBuildManifest = cacheBuildManifest
         self.packageGraphLoader = packageGraphLoader
@@ -561,6 +565,21 @@ extension BuildSubset {
             }
             return target.getLLBuildTargetName(config: config)
         }
+    }
+}
+
+extension OutputByteStream {
+    fileprivate var isTTY: Bool {
+        let stream: OutputByteStream
+        if let threadSafeStream = self as? ThreadSafeOutputByteStream {
+            stream = threadSafeStream.stream
+        } else {
+            stream = self
+        }
+        guard let fileStream = stream as? LocalFileOutputByteStream else {
+            return false
+        }
+        return TerminalController.isTTY(fileStream)
     }
 }
 

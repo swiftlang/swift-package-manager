@@ -61,7 +61,6 @@ struct APIDigesterBaselineDumper {
         for modulesToDiff: Set<String>,
         at baselineDir: AbsolutePath?,
         force: Bool,
-        outputStream: OutputByteStream,
         logLevel: Diagnostic.Severity,
         swiftTool: SwiftTool
     ) throws -> AbsolutePath {
@@ -124,18 +123,11 @@ struct APIDigesterBaselineDumper {
 
         // Build the baseline module.
         // FIXME: We need to implement the build tool invocation closure here so that build tool plugins work with the APIDigester. rdar://86112934
-        let buildOp = BuildOperation(
-            buildParameters: buildParameters,
+        let buildOp = try swiftTool.createBuildOperation(
             cacheBuildManifest: false,
-            packageGraphLoader: { graph },
-            pluginScriptRunner: try swiftTool.getPluginScriptRunner(),
-            pluginWorkDirectory: try swiftTool.getActiveWorkspace().location.pluginWorkingDirectory,
-            outputStream: outputStream,
-            logLevel: logLevel,
-            fileSystem: localFileSystem,
-            observabilityScope: observabilityScope
+            customBuildParameters: buildParameters,
+            customPackageGraphLoader: { graph }
         )
-
         try buildOp.build()
 
         // Dump the SDK JSON.
