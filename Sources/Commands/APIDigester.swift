@@ -74,7 +74,7 @@ struct APIDigesterBaselineDumper {
         if !force {
             // Baselines which already exist don't need to be regenerated.
             modulesToDiff = modulesToDiff.filter {
-                !localFileSystem.exists(baselinePath($0))
+                !swiftTool.fileSystem.exists(baselinePath($0))
             }
         }
 
@@ -85,8 +85,8 @@ struct APIDigesterBaselineDumper {
 
         // Setup a temporary directory where we can checkout and build the baseline treeish.
         let baselinePackageRoot = apiDiffDir.appending(component: "\(baselineRevision.identifier)-checkout")
-        if localFileSystem.exists(baselinePackageRoot) {
-            try localFileSystem.removeFileTree(baselinePackageRoot)
+        if swiftTool.fileSystem.exists(baselinePackageRoot) {
+            try swiftTool.fileSystem.removeFileTree(baselinePackageRoot)
         }
 
         // Clone the current package in a sandbox and checkout the baseline revision.
@@ -131,7 +131,7 @@ struct APIDigesterBaselineDumper {
         try buildOp.build()
 
         // Dump the SDK JSON.
-        try localFileSystem.createDirectory(baselineDir, recursive: true)
+        try swiftTool.fileSystem.createDirectory(baselineDir, recursive: true)
         let group = DispatchGroup()
         let semaphore = DispatchSemaphore(value: Int(buildParameters.jobs))
         let errors = ThreadSafeArrayStore<Swift.Error>()
@@ -165,11 +165,14 @@ struct APIDigesterBaselineDumper {
 
 /// A wrapper for the swift-api-digester tool.
 public struct SwiftAPIDigester {
+    /// The file system to use
+    let fileSystem: FileSystem
 
     /// The absolute path to `swift-api-digester` in the toolchain.
     let tool: AbsolutePath
 
-    init(tool: AbsolutePath) {
+    init(fileSystem: FileSystem, tool: AbsolutePath) {
+        self.fileSystem = fileSystem
         self.tool = tool
     }
 
@@ -185,7 +188,7 @@ public struct SwiftAPIDigester {
 
         try runTool(args)
 
-        if !localFileSystem.exists(outputPath) {
+        if !self.fileSystem.exists(outputPath) {
             throw Error.failedToGenerateBaseline(module)
         }
     }
@@ -210,7 +213,7 @@ public struct SwiftAPIDigester {
         return try? withTemporaryFile(deleteOnClose: false) { file in
             args.append(contentsOf: ["-serialize-diagnostics-path", file.path.pathString])
             try runTool(args)
-            let contents = try localFileSystem.readFileContents(file.path)
+            let contents = try self.fileSystem.readFileContents(file.path)
             guard contents.count > 0 else {
                 return nil
             }

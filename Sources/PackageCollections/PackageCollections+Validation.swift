@@ -17,7 +17,7 @@ import PackageModel
 // MARK: - Model validations
 
 extension Model.CollectionSource {
-    func validate() -> [ValidationMessage]? {
+    func validate(fileSystem: FileSystem) -> [ValidationMessage]? {
         var messages: [ValidationMessage]?
         let appendMessage = { (message: ValidationMessage) in
             if messages == nil {
@@ -38,7 +38,7 @@ extension Model.CollectionSource {
 
                 if absolutePath == nil {
                     appendMessage(.error("Invalid file path: \(self.url.path). It must be an absolute file system path."))
-                } else if let absolutePath = absolutePath, !localFileSystem.exists(absolutePath) {
+                } else if let absolutePath = absolutePath, !fileSystem.exists(absolutePath) {
                     appendMessage(.error("\(self.url.path) is either a non-local path or the file does not exist."))
                 }
             }

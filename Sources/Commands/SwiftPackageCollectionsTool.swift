@@ -380,6 +380,7 @@ private extension ParsableCommand {
                 configurationDirectory: swiftTool.sharedConfigurationDirectory,
                 cacheDirectory: swiftTool.sharedCacheDirectory
             ),
+            fileSystem: swiftTool.fileSystem,
             observabilityScope: swiftTool.observabilityScope
         )
         defer {

@@ -307,7 +307,7 @@ public final class ClangTargetBuildDescription {
             try self.generateResourceAccessor()
 
             let infoPlistPath = tempsPath.appending(component: "Info.plist")
-            if try generateResourceInfoPlist(for: target, to: infoPlistPath) {
+            if try generateResourceInfoPlist(fileSystem: fileSystem, target: target, path: infoPlistPath) {
                 resourceBundleInfoPlistPath = infoPlistPath
             }
         }
@@ -678,7 +678,7 @@ public final class SwiftTargetBuildDescription {
             try self.generateResourceAccessor()
 
             let infoPlistPath = tempsPath.appending(component: "Info.plist")
-            if try generateResourceInfoPlist(for: target, to: infoPlistPath) {
+            if try generateResourceInfoPlist(fileSystem: self.fileSystem, target: target, path: infoPlistPath) {
                 resourceBundleInfoPlistPath = infoPlistPath
             }
         }
@@ -2232,9 +2232,9 @@ extension FileSystem {
 
 /// Generate the resource bundle Info.plist.
 private func generateResourceInfoPlist(
-    for target: ResolvedTarget,
-    to path: AbsolutePath,
-    fileSystem: FileSystem = localFileSystem
+    fileSystem: FileSystem,
+    target: ResolvedTarget,
+    path: AbsolutePath
 ) throws -> Bool {
     guard let defaultLocalization = target.underlyingTarget.defaultLocalization else {
         return false

@@ -18,6 +18,7 @@ import TSCBasic
 
 /// A wrapper for swift-symbolgraph-extract tool.
 public struct SymbolGraphExtract {
+    let fileSystem: FileSystem
     let tool: AbsolutePath
     
     var skipSynthesizedMembers = false
@@ -47,7 +48,7 @@ public struct SymbolGraphExtract {
         verboseOutput: Bool
     ) throws {
         let buildParameters = buildPlan.buildParameters
-        try localFileSystem.createDirectory(outputDirectory, recursive: true)
+        try self.fileSystem.createDirectory(outputDirectory, recursive: true)
 
         // Construct arguments for extracting symbols for a single target.
         var commandLine = [self.tool.pathString]

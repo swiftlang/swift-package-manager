@@ -837,11 +837,11 @@ internal extension JSONPackageCollectionProvider {
     ) {
         self.init(
             configuration: configuration,
+            fileSystem: fileSystem,
             observabilityScope: ObservabilitySystem.NOOP,
-            httpClient: httpClient,
-            signatureValidator: signatureValidator,
             sourceCertPolicy: sourceCertPolicy,
-            fileSystem: fileSystem
+            customHTTPClient: httpClient ,
+            customSignatureValidator: signatureValidator
         )
     }
 }

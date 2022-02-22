@@ -668,6 +668,7 @@ private func makePackageCollections(
     
     return PackageCollections(
         configuration: configuration,
+        fileSystem: localFileSystem,
         observabilityScope: ObservabilitySystem.NOOP,
         storage: storage,
         collectionProviders: collectionProviders,

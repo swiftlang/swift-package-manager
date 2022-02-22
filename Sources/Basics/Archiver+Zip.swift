@@ -22,7 +22,7 @@ public struct ZipArchiver: Archiver {
     ///
     /// - Parameters:
     ///   - fileSystem: The file-system to used by the `ZipArchiver`.
-    public init(fileSystem: FileSystem = localFileSystem) {
+    public init(fileSystem: FileSystem) {
         self.fileSystem = fileSystem
     }
 

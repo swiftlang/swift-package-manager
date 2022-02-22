@@ -91,7 +91,7 @@ public class LLBuildManifestBuilder {
             try self.createProductCommand(description)
         }
 
-        try ManifestWriter().write(manifest, at: path)
+        try ManifestWriter(fileSystem: self.fileSystem).write(manifest, at: path)
         return manifest
     }
 
@@ -264,8 +264,8 @@ extension LLBuildManifestBuilder {
                 }
             }
 
-            let jobInputs = try job.inputs.map { try $0.resolveToNode() }
-            let jobOutputs = try job.outputs.map { try $0.resolveToNode() }
+            let jobInputs = try job.inputs.map { try $0.resolveToNode(fileSystem: self.fileSystem) }
+            let jobOutputs = try job.outputs.map { try $0.resolveToNode(fileSystem: self.fileSystem) }
 
             // Add target dependencies as inputs to the main module build command.
             //
@@ -601,7 +601,7 @@ extension LLBuildManifestBuilder {
 
         for binaryPath in target.libraryBinaryPaths {
             let path = destinationPath(forBinaryAt: binaryPath)
-            if localFileSystem.isDirectory(binaryPath) {
+            if self.fileSystem.isDirectory(binaryPath) {
                 inputs.append(directory: path)
             } else {
                 inputs.append(file: path)
@@ -754,7 +754,7 @@ extension LLBuildManifestBuilder {
 
         for binaryPath in target.libraryBinaryPaths {
             let path = destinationPath(forBinaryAt: binaryPath)
-            if localFileSystem.isDirectory(binaryPath) {
+            if self.fileSystem.isDirectory(binaryPath) {
                 inputs.append(directory: path)
             } else {
                 inputs.append(file: path)
@@ -935,7 +935,7 @@ extension LLBuildManifestBuilder {
         from source: AbsolutePath,
         to destination: AbsolutePath
     ) -> (inputNode: Node, outputNode: Node) {
-        let isDirectory = localFileSystem.isDirectory(source)
+        let isDirectory = self.fileSystem.isDirectory(source)
         let nodeType = isDirectory ? Node.directory : Node.file
         let inputNode = nodeType(source)
         let outputNode = nodeType(destination)
@@ -951,11 +951,11 @@ extension LLBuildManifestBuilder {
 extension TypedVirtualPath {
     /// Resolve a typed virtual path provided by the Swift driver to
     /// a node in the build graph.
-    func resolveToNode() throws -> Node {
+    func resolveToNode(fileSystem: FileSystem) throws -> Node {
         if let absolutePath = file.absolutePath {
             return Node.file(absolutePath)
         } else if let relativePath = file.relativePath {
-            guard let workingDirectory = localFileSystem.currentWorkingDirectory else {
+            guard let workingDirectory = fileSystem.currentWorkingDirectory else {
                 throw InternalError("unknown working directory")
             }
             return Node.file(workingDirectory.appending(relativePath))

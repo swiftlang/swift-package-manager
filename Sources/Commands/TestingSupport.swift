@@ -30,13 +30,13 @@ enum TestingSupport {
             relativeTo: swiftTool.originalWorkingDirectory).parentDirectory
         // XCTestHelper tool is installed in libexec.
         let maybePath = binDirectory.parentDirectory.appending(components: "libexec", "swift", "pm", xctestHelperBin)
-        if localFileSystem.isFile(maybePath) {
+        if swiftTool.fileSystem.isFile(maybePath) {
             return maybePath
         }
         // This will be true during swiftpm development.
         // FIXME: Factor all of the development-time resource location stuff into a common place.
         let path = binDirectory.appending(component: xctestHelperBin)
-        if localFileSystem.isFile(path) {
+        if swiftTool.fileSystem.isFile(path) {
             return path
         }
         throw InternalError("XCTestHelper binary not found.")
@@ -73,7 +73,7 @@ enum TestingSupport {
             }
             try Process.checkNonZeroExit(arguments: args, environment: env)
             // Read the temporary file's content.
-            return try localFileSystem.readFileContents(tempFile.path)
+            return try swiftTool.fileSystem.readFileContents(tempFile.path)
         }
         #else
         let env = try constructTestEnvironment(toolchain: try swiftTool.getToolchain(), options: swiftOptions, buildParameters: swiftTool.buildParametersForTest())

@@ -19,6 +19,7 @@ import struct TSCUtility.Triple
 
 /// A plugin script runner that compiles the plugin source files as an executable binary for the host platform, and invokes it as a subprocess.
 public struct DefaultPluginScriptRunner: PluginScriptRunner {
+    let fileSystem: FileSystem
     let cacheDir: AbsolutePath
     let toolchain: ToolchainConfiguration
     let enableSandbox: Bool
@@ -27,7 +28,8 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
     private static var _packageDescriptionMinimumDeploymentTarget = ThreadSafeBox<String>()
     private let sdkRootCache = ThreadSafeBox<AbsolutePath>()
 
-    public init(cacheDir: AbsolutePath, toolchain: ToolchainConfiguration, enableSandbox: Bool = true) {
+    public init(fileSystem: FileSystem, cacheDir: AbsolutePath, toolchain: ToolchainConfiguration, enableSandbox: Bool = true) {
+        self.fileSystem = fileSystem
         self.cacheDir = cacheDir
         self.toolchain = toolchain
         self.enableSandbox = enableSandbox
@@ -45,6 +47,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
             sources: sources,
             toolsVersion: toolsVersion,
             cacheDir: self.cacheDir,
+            fileSystem: self.fileSystem,
             observabilityScope: observabilityScope,
             callbackQueue: callbackQueue,
             completion: completion)
@@ -85,6 +88,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
             sources: sources,
             toolsVersion: toolsVersion,
             cacheDir: self.cacheDir,
+            fileSystem: self.fileSystem,
             observabilityScope: observabilityScope,
             callbackQueue: DispatchQueue.sharedConcurrent,
             completion: {
@@ -127,6 +131,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
         sources: Sources,
         toolsVersion: ToolsVersion,
         cacheDir: AbsolutePath,
+        fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
         completion: @escaping (Result<PluginCompilationResult, Error>) -> Void
@@ -248,7 +253,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
                     stream <<< "\(key)=\(value)\n"
                 }
                 for sourceFile in sources.paths {
-                    try stream <<< localFileSystem.readFileContents(sourceFile).contents
+                    try stream <<< fileSystem.readFileContents(sourceFile).contents
                 }
                 compilerInputsHash = stream.bytes.sha256Checksum
                 observabilityScope.emit(debug: "Computed hash of plugin compilation inputs: \(compilerInputsHash!)")
@@ -262,9 +267,9 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
             // If we already have a compiled executable, then compare its hash with the new one.
             var compilationNeeded = true
             let hashFile = executableFile.parentDirectory.appending(component: execName + ".inputhash")
-            if localFileSystem.exists(executableFile) && localFileSystem.exists(hashFile) {
+            if fileSystem.exists(executableFile) && fileSystem.exists(hashFile) {
                 do {
-                    if (try localFileSystem.readFileContents(hashFile)) == compilerInputsHash {
+                    if (try fileSystem.readFileContents(hashFile)) == compilerInputsHash {
                         compilationNeeded = false
                     }
                 }
@@ -291,8 +296,8 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
                             wasCached: false)
                         guard $0.exitStatus == .terminated(code: 0) else {
                             // Try to clean up any old executable and hash file that might still be around from before.
-                            try? localFileSystem.removeFileTree(executableFile)
-                            try? localFileSystem.removeFileTree(hashFile)
+                            try? fileSystem.removeFileTree(executableFile)
+                            try? fileSystem.removeFileTree(hashFile)
                             return result
                         }
 
@@ -300,7 +305,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
                         do {
                             // Write out the hash of the inputs so we can compare the next time we try to compile.
                             if let newHash = compilerInputsHash {
-                                try localFileSystem.writeFileContents(hashFile, string: newHash)
+                                try fileSystem.writeFileContents(hashFile, string: newHash)
                             }
                         }
                         catch {

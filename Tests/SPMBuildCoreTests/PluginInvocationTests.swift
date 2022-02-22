@@ -276,7 +276,11 @@ class PluginInvocationTests: XCTestCase {
 
             // Create a plugin script runner for the duration of the test.
             let pluginCacheDir = tmpPath.appending(component: "plugin-cache")
-            let pluginScriptRunner = DefaultPluginScriptRunner(cacheDir: pluginCacheDir, toolchain: ToolchainConfiguration.default)
+            let pluginScriptRunner = DefaultPluginScriptRunner(
+                fileSystem: localFileSystem,
+                cacheDir: pluginCacheDir,
+                toolchain: ToolchainConfiguration.default
+            )
 
             // Try to compile the broken plugin script.
             do {

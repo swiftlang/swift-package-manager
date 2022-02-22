@@ -9,6 +9,7 @@
  */
 
 import SPMTestSupport
+import TSCBasic
 import XCTest
 
 @testable import PackageCollections
@@ -69,22 +70,22 @@ final class PackageCollectionsModelTests: XCTestCase {
 
     func testSourceValidation() throws {
         let httpsSource = PackageCollectionsModel.CollectionSource(type: .json, url: URL(string: "https://feed.mock.io")!)
-        XCTAssertNil(httpsSource.validate(), "not expecting errors")
+        XCTAssertNil(httpsSource.validate(fileSystem: localFileSystem), "not expecting errors")
 
         let httpsSource2 = PackageCollectionsModel.CollectionSource(type: .json, url: URL(string: "HTTPS://feed.mock.io")!)
-        XCTAssertNil(httpsSource2.validate(), "not expecting errors")
+        XCTAssertNil(httpsSource2.validate(fileSystem: localFileSystem), "not expecting errors")
 
         let httpsSource3 = PackageCollectionsModel.CollectionSource(type: .json, url: URL(string: "HttpS://feed.mock.io")!)
-        XCTAssertNil(httpsSource3.validate(), "not expecting errors")
+        XCTAssertNil(httpsSource3.validate(fileSystem: localFileSystem), "not expecting errors")
 
         let httpSource = PackageCollectionsModel.CollectionSource(type: .json, url: URL(string: "http://feed.mock.io")!)
-        XCTAssertEqual(httpSource.validate()?.count, 1, "expecting errors")
+        XCTAssertEqual(httpSource.validate(fileSystem: localFileSystem)?.count, 1, "expecting errors")
 
         let otherProtocolSource = PackageCollectionsModel.CollectionSource(type: .json, url: URL(string: "ftp://feed.mock.io")!)
-        XCTAssertEqual(otherProtocolSource.validate()?.count, 1, "expecting errors")
+        XCTAssertEqual(otherProtocolSource.validate(fileSystem: localFileSystem)?.count, 1, "expecting errors")
 
         let brokenUrlSource = PackageCollectionsModel.CollectionSource(type: .json, url: URL(string: "blah")!)
-        XCTAssertEqual(brokenUrlSource.validate()?.count, 1, "expecting errors")
+        XCTAssertEqual(brokenUrlSource.validate(fileSystem: localFileSystem)?.count, 1, "expecting errors")
     }
 
     func testSourceValidation_localFile() throws {
@@ -93,14 +94,14 @@ final class PackageCollectionsModelTests: XCTestCase {
             let path = fixturePath.appending(components: "JSON", "good.json")
 
             let source = PackageCollectionsModel.CollectionSource(type: .json, url: path.asURL)
-            XCTAssertNil(source.validate())
+            XCTAssertNil(source.validate(fileSystem: localFileSystem))
         }
     }
 
     func testSourceValidation_localFileDoesNotExist() throws {
         let source = PackageCollectionsModel.CollectionSource(type: .json, url: URL(fileURLWithPath: "/foo/bar"))
 
-        let messages = source.validate()!
+        let messages = source.validate(fileSystem: localFileSystem)!
         XCTAssertEqual(1, messages.count)
 
         guard case .error = messages[0].level else {
