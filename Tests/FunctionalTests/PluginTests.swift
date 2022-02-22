@@ -364,7 +364,7 @@ class PluginTests: XCTestCase {
             let delegateQueue = DispatchQueue(label: "plugin-invocation")
             class PluginDelegate: PluginInvocationDelegate {
                 let delegateQueue: DispatchQueue
-                var diagnostics: [Basics.Diagnostic] = []
+                var diagnostics = ThreadSafeArrayStore<Basics.Diagnostic>()
 
                 init(delegateQueue: DispatchQueue) {
                     self.delegateQueue = delegateQueue
@@ -448,7 +448,7 @@ class PluginTests: XCTestCase {
                 catch {
                     XCTFail("error \(String(describing: error))", file: file, line: line)
                 }
-                testDiagnostics(delegate.diagnostics, problemsOnly: false, file: file, line: line, handler: diagnosticsChecker)
+                testDiagnostics(delegate.diagnostics.get(), problemsOnly: false, file: file, line: line, handler: diagnosticsChecker)
             }
 
             // Invoke the command plugin that prints out various things it was given, and check them.
@@ -565,8 +565,8 @@ class PluginTests: XCTestCase {
             let delegateQueue = DispatchQueue(label: "plugin-invocation")
             class PluginDelegate: PluginInvocationDelegate {
                 let delegateQueue: DispatchQueue
-                var diagnostics: [Basics.Diagnostic] = []
-                var parsedProcessIdentifier: Int? = .none
+                var diagnostics = ThreadSafeArrayStore<Basics.Diagnostic>()
+                var parsedProcessIdentifier = ThreadSafeBox<Int>()
 
                 init(delegateQueue: DispatchQueue) {
                     self.delegateQueue = delegateQueue
@@ -581,14 +581,14 @@ class PluginTests: XCTestCase {
                     })
                     
                     // If we don't already have the process identifier, we try to find it.
-                    if parsedProcessIdentifier == .none {
+                    parsedProcessIdentifier.memoize { () -> Int? in
                         func parseProcessIdentifier(_ string: String) -> Int? {
                             guard let match = try? NSRegularExpression(pattern: "pid: (\\d+)", options: []).firstMatch(in: string, options: [], range: NSRange(location: 0, length: string.count)) else { return .none }
                             // We have a match, so extract the process identifier.
                             assert(match.numberOfRanges == 2)
                             return Int((string as NSString).substring(with: match.range(at: 1)))
                         }
-                        parsedProcessIdentifier = textlines.compactMap{ parseProcessIdentifier(String($0)) }.first
+                        return textlines.compactMap({ parseProcessIdentifier(String($0)) }).first
                     }
                 }
                 
@@ -636,8 +636,8 @@ class PluginTests: XCTestCase {
             XCTAssertEqual(result, .timedOut, "expected the plugin to time out")
             
             // At this point we should have parsed out the process identifier. But it's possible we don't always — this is being investigated in rdar://88792829.
-            guard let pid = delegate.parsedProcessIdentifier else {
-                throw XCTSkip("skipping test because no pid was received from the plugin; being investigated as rdar://88792829\n\(delegate.diagnostics.description)")
+            guard let pid = delegate.parsedProcessIdentifier.get() else {
+                throw XCTSkip("skipping test because no pid was received from the plugin; being investigated as rdar://88792829\n\(delegate.diagnostics.get().description)")
             }
             
             // Check that it's running (we do this by asking for its priority — this only works on some platforms).
