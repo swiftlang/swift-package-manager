@@ -578,27 +578,13 @@ public class SwiftTool {
             // migrate from legacy location
             let legacyPath = multiRootPackageDataFile.appending(components: "xcshareddata", "swiftpm", "config")
             let newPath = Workspace.DefaultLocations.mirrorsConfigurationFile(at: multiRootPackageDataFile.appending(components: "xcshareddata", "swiftpm", "configuration"))
-            if localFileSystem.exists(legacyPath) {
-                observabilityScope.emit(warning: "Usage of \(legacyPath) has been deprecated. Please delete it and use the new \(newPath) instead.")
-                if !localFileSystem.exists(newPath) {
-                    try localFileSystem.createDirectory(newPath.parentDirectory, recursive: true)
-                    try localFileSystem.copy(from: legacyPath, to: newPath)
-                }
-            }
-            return newPath.parentDirectory
+            return try Workspace.migrateMirrorsConfiguration(from: legacyPath, to: newPath, observabilityScope: observabilityScope)
+        } else {
+            // migrate from legacy location
+            let legacyPath = try self.getPackageRoot().appending(components: ".swiftpm", "config")
+            let newPath = try Workspace.DefaultLocations.mirrorsConfigurationFile(forRootPackage: self.getPackageRoot())
+            return try Workspace.migrateMirrorsConfiguration(from: legacyPath, to: newPath, observabilityScope: observabilityScope)
         }
-
-        // migrate from legacy location
-        let legacyPath = try self.getPackageRoot().appending(components: ".swiftpm", "config")
-        let newPath = try Workspace.DefaultLocations.mirrorsConfigurationFile(forRootPackage: self.getPackageRoot())
-        if localFileSystem.exists(legacyPath) {
-            observabilityScope.emit(warning: "Usage of \(legacyPath) has been deprecated. Please delete it and use the new \(newPath) instead.")
-            if !localFileSystem.exists(newPath) {
-                try localFileSystem.createDirectory(newPath.parentDirectory, recursive: true)
-                try localFileSystem.copy(from: legacyPath, to: newPath)
-            }
-        }
-        return newPath.parentDirectory
     }
 
     func getAuthorizationProvider() throws -> AuthorizationProvider? {

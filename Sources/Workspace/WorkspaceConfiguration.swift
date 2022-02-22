@@ -209,6 +209,24 @@ extension Workspace {
             path.appending(component: "manifests")
         }
     }
+
+    public static func migrateMirrorsConfiguration(from legacyPath: AbsolutePath, to newPath: AbsolutePath, observabilityScope: ObservabilityScope) throws -> AbsolutePath {
+        if localFileSystem.isFile(legacyPath) {
+            if localFileSystem.isSymlink(legacyPath) {
+                let resolvedLegacyPath = resolveSymlinks(legacyPath)
+                return try migrateMirrorsConfiguration(from: resolvedLegacyPath, to: newPath, observabilityScope: observabilityScope)
+            } else if localFileSystem.isFile(newPath.parentDirectory) {
+                observabilityScope.emit(warning: "Unable to migrate legacy mirrors configuration, because \(newPath.parentDirectory) already exists.")
+            } else {
+                observabilityScope.emit(warning: "Usage of \(legacyPath) has been deprecated. Please delete it and use the new \(newPath) instead.")
+                if !localFileSystem.exists(newPath, followSymlink: false) {
+                    try localFileSystem.createDirectory(newPath.parentDirectory, recursive: true)
+                    try localFileSystem.copy(from: legacyPath, to: newPath)
+                }
+            }
+        }
+        return newPath.parentDirectory
+    }
 }
 
 // MARK: - Authorization
