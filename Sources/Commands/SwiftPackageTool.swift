@@ -1044,9 +1044,9 @@ extension SwiftPackageTool {
                             toolNamesToPaths[exec.name] = exec.executablePath
                         }
                     }
-                    else {
-                        // Build the target referenced by the tool, and add the executable to the tool map.
-                        try buildOperation.build(subset: .target(target.name))
+                    else {                        
+                        // Build the product referenced by the tool, and add the executable to the tool map. Product dependencies are not supported within a package, so we instead find the executable that corresponds to the product. There is always one, because of autogeneration of implicit executables with the same name as the target if there isn't an explicit one.
+                        try buildOperation.build(subset: .product(target.name))
                         if let builtTool = buildOperation.buildPlan?.buildProducts.first(where: { $0.product.name == target.name}) {
                             toolNamesToPaths[target.name] = builtTool.binary
                         }
