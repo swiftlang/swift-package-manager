@@ -554,10 +554,9 @@ public struct PackageCollections: PackageCollectionsProtocol, Closable {
             let notFoundError = NotFoundError("identity: \(identity), location: \(location ?? "none")")
             
             switch result {
+            case .failure(is NotFoundError):
+                callback(.failure(notFoundError))
             case .failure(let error):
-                if error is NotFoundError {
-                    return callback(.failure(notFoundError))
-                }
                 callback(.failure(error))
             case .success(let sources):
                 var collectionIdentifiers = sources.map { Model.CollectionIdentifier(from: $0) }
@@ -569,10 +568,9 @@ public struct PackageCollections: PackageCollectionsProtocol, Closable {
                 }
                 self.storage.collections.findPackage(identifier: identity, collectionIdentifiers: collectionIdentifiers) { findPackageResult in
                     switch findPackageResult {
+                    case .failure(is NotFoundError):
+                        callback(.failure(notFoundError))
                     case .failure(let error):
-                        if error is NotFoundError {
-                            return callback(.failure(notFoundError))
-                        }
                         callback(.failure(error))
                     case .success(let packagesCollections):
                         let matches: [PackageCollectionsModel.Package]
