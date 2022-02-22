@@ -636,7 +636,11 @@ class PluginTests: XCTestCase {
             XCTAssertEqual(result, .timedOut, "expected the plugin to time out")
             
             // At this point we should have parsed out the process identifier. But it's possible we don't always — this is being investigated in rdar://88792829.
-            guard let pid = delegate.parsedProcessIdentifier else {
+            var pid: Int? = .none
+            delegateQueue.sync {
+                pid = delegate.parsedProcessIdentifier
+            }
+            guard let pid = pid else {
                 throw XCTSkip("skipping test because no pid was received from the plugin; being investigated as rdar://88792829\n\(delegate.diagnostics.description)")
             }
             
