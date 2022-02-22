@@ -551,7 +551,11 @@ public struct PackageCollections: PackageCollectionsProtocol, Closable {
                      collections: Set<PackageCollectionsModel.CollectionIdentifier>?,
                      callback: @escaping (Result<PackageCollectionsModel.PackageSearchResult.Item, Error>) -> Void) {
         self.storage.sources.list { result in
+            let notFoundError = NotFoundError("identity: \(identity), location: \(location ?? "none")")
+            
             switch result {
+            case .failure(is NotFoundError):
+                callback(.failure(notFoundError))
             case .failure(let error):
                 callback(.failure(error))
             case .success(let sources):
@@ -560,10 +564,12 @@ public struct PackageCollections: PackageCollectionsProtocol, Closable {
                     collectionIdentifiers = collectionIdentifiers.filter { collections.contains($0) }
                 }
                 if collectionIdentifiers.isEmpty {
-                    return callback(.failure(NotFoundError("\(identity)")))
+                    return callback(.failure(notFoundError))
                 }
                 self.storage.collections.findPackage(identifier: identity, collectionIdentifiers: collectionIdentifiers) { findPackageResult in
                     switch findPackageResult {
+                    case .failure(is NotFoundError):
+                        callback(.failure(notFoundError))
                     case .failure(let error):
                         callback(.failure(error))
                     case .success(let packagesCollections):
@@ -576,7 +582,7 @@ public struct PackageCollections: PackageCollectionsProtocol, Closable {
                             matches = packagesCollections.packages
                         }
                         guard let package = matches.first else {
-                            return callback(.failure(NotFoundError("\(identity), \(location ?? "none")")))
+                            return callback(.failure(notFoundError))
                         }
                         callback(.success(.init(package: package, collections: packagesCollections.collections)))
                     }
