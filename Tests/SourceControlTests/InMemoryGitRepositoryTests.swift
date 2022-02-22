@@ -106,7 +106,7 @@ class InMemoryGitRepositoryTests: XCTestCase {
 
         XCTAssertEqual(try fooCheckout.getTags().sorted(), [v1, v2])
         XCTAssert(fooCheckout.exists(revision: try fooCheckout.getCurrentRevision()))
-        let checkoutRepo = provider.openRepo(at: fooCheckoutPath)
+        let checkoutRepo = try provider.openRepo(at: fooCheckoutPath)
 
         try fooCheckout.checkout(tag: v1)
         XCTAssertEqual(try checkoutRepo.readFileContents(filePath), "one")
