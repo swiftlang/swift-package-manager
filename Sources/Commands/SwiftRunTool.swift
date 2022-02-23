@@ -133,10 +133,12 @@ public struct SwiftRunTool: SwiftCommand {
             // Execute the REPL.
             let arguments = buildOp.buildPlan!.createREPLArguments()
             print("Launching Swift REPL with arguments: \(arguments.joined(separator: " "))")
-            try run(
-                swiftTool.getToolchain().swiftInterpreterPath,
+            try self.run(
+                fileSystem: swiftTool.fileSystem,
+                executablePath: swiftTool.getToolchain().swiftInterpreterPath,
                 originalWorkingDirectory: swiftTool.originalWorkingDirectory,
-                arguments: arguments)
+                arguments: arguments
+            )
 
         case .debugger:
             do {
@@ -151,7 +153,7 @@ public struct SwiftRunTool: SwiftCommand {
                 let executablePath = try swiftTool.buildParameters().buildPath.appending(component: productName)
 
                 // Make sure we are running from the original working directory.
-                let cwd: AbsolutePath? = localFileSystem.currentWorkingDirectory
+                let cwd: AbsolutePath? = swiftTool.fileSystem.currentWorkingDirectory
                 if cwd == nil || swiftTool.originalWorkingDirectory != cwd {
                     try ProcessEnv.chdir(swiftTool.originalWorkingDirectory)
                 }
@@ -166,16 +168,18 @@ public struct SwiftRunTool: SwiftCommand {
 
         case .run:
             // Detect deprecated uses of swift run to interpret scripts.
-            if let executable = options.executable, isValidSwiftFilePath(executable) {
+            if let executable = options.executable, isValidSwiftFilePath(fileSystem: swiftTool.fileSystem, path: executable) {
                 swiftTool.observabilityScope.emit(.runFileDeprecation)
                 // Redirect execution to the toolchain's swift executable.
                 let swiftInterpreterPath = try swiftTool.getToolchain().swiftInterpreterPath
                 // Prepend the script to interpret to the arguments.
                 let arguments = [executable] + options.arguments
-                try run(
-                    swiftInterpreterPath,
+                try self.run(
+                    fileSystem: swiftTool.fileSystem,
+                    executablePath: swiftInterpreterPath,
                     originalWorkingDirectory: swiftTool.originalWorkingDirectory,
-                    arguments: arguments)
+                    arguments: arguments
+                )
                 return
             }
 
@@ -189,9 +193,12 @@ public struct SwiftRunTool: SwiftCommand {
                 }
 
                 let executablePath = try swiftTool.buildParameters().buildPath.appending(component: productName)
-                try run(executablePath,
-                        originalWorkingDirectory: swiftTool.originalWorkingDirectory,
-                        arguments: options.arguments)
+                try self.run(
+                    fileSystem: swiftTool.fileSystem,
+                    executablePath: executablePath,
+                    originalWorkingDirectory: swiftTool.originalWorkingDirectory,
+                    arguments: options.arguments
+                )
             } catch Diagnostics.fatalError {
                 throw ExitCode.failure
             } catch let error as RunError {
@@ -232,34 +239,35 @@ public struct SwiftRunTool: SwiftCommand {
 
     /// Executes the executable at the specified path.
     private func run(
-        _ excutablePath: AbsolutePath,
+        fileSystem: FileSystem,
+        executablePath: AbsolutePath,
         originalWorkingDirectory: AbsolutePath,
         arguments: [String]) throws
     {
         // Make sure we are running from the original working directory.
-        let cwd: AbsolutePath? = localFileSystem.currentWorkingDirectory
+        let cwd: AbsolutePath? = fileSystem.currentWorkingDirectory
         if cwd == nil || originalWorkingDirectory != cwd {
             try ProcessEnv.chdir(originalWorkingDirectory)
         }
 
-        let pathRelativeToWorkingDirectory = excutablePath.relative(to: originalWorkingDirectory)
-        try exec(path: excutablePath.pathString, args: [pathRelativeToWorkingDirectory.pathString] + arguments)
+        let pathRelativeToWorkingDirectory = executablePath.relative(to: originalWorkingDirectory)
+        try exec(path: executablePath.pathString, args: [pathRelativeToWorkingDirectory.pathString] + arguments)
     }
 
     /// Determines if a path points to a valid swift file.
-    private func isValidSwiftFilePath(_ path: String) -> Bool {
+    private func isValidSwiftFilePath(fileSystem: FileSystem, path: String) -> Bool {
         guard path.hasSuffix(".swift") else { return false }
         //FIXME: Return false when the path is not a valid path string.
         let absolutePath: AbsolutePath
         if path.first == "/" {
             absolutePath = AbsolutePath(path)
         } else {
-            guard let cwd = localFileSystem.currentWorkingDirectory else {
+            guard let cwd = fileSystem.currentWorkingDirectory else {
                 return false
             }
             absolutePath = AbsolutePath(cwd, path)
         }
-        return localFileSystem.isFile(absolutePath)
+        return fileSystem.isFile(absolutePath)
     }
 
     public init() {}

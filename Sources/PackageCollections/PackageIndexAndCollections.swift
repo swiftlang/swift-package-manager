@@ -22,6 +22,7 @@ public struct PackageIndexAndCollections: Closable {
     public init(
         indexConfiguration: PackageIndexConfiguration = .init(),
         collectionsConfiguration: PackageCollections.Configuration = .init(),
+        fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
     ) {
         let index = PackageIndex(
@@ -44,6 +45,7 @@ public struct PackageIndexAndCollections: Closable {
         self.collections = PackageCollections(
             configuration: collectionsConfiguration,
             customMetadataProvider: metadataProvider,
+            fileSystem: fileSystem,
             observabilityScope: observabilityScope
         )
         self.observabilityScope = observabilityScope

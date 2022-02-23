@@ -4147,7 +4147,12 @@ final class WorkspaceTests: XCTestCase {
         try testWithTemporaryDirectory { path in
             // Create a temporary package as a test case.
             let packagePath = path.appending(component: "MyPkg")
-            let initPackage = try InitPackage(name: packagePath.basename, destinationPath: packagePath, packageType: .executable)
+            let initPackage = try InitPackage(
+                name: packagePath.basename,
+                packageType: .executable,
+                destinationPath: packagePath,
+                fileSystem: localFileSystem
+            )
             try initPackage.writePackageStructure()
 
             // Load the workspace.

@@ -104,7 +104,7 @@ final class TestDiscoveryCommand: CustomLLBuildCommand {
         stream.flush()
     }
 
-    private func execute(with tool: LLBuildManifest.TestDiscoveryTool) throws {
+    private func execute(fileSystem: TSCBasic.FileSystem, tool: LLBuildManifest.TestDiscoveryTool) throws {
         let index = self.context.buildParameters.indexStore
         let api = try self.context.indexStoreAPI.get()
         let store = try IndexStore.open(store: index, api: api)
@@ -138,7 +138,7 @@ final class TestDiscoveryCommand: CustomLLBuildCommand {
 
             guard let tests = testsByModule[module] else {
                 // This module has no tests so just write an empty file for it.
-                try localFileSystem.writeFileContents(file, bytes: "")
+                try fileSystem.writeFileContents(file, bytes: "")
                 continue
             }
             try write(tests: tests, forModule: module, to: file)
@@ -185,7 +185,7 @@ final class TestDiscoveryCommand: CustomLLBuildCommand {
             guard let tool = buildDescription.testDiscoveryCommands[command.name] else {
                 throw StringError("command \(command.name) not registered")
             }
-            try execute(with: tool)
+            try execute(fileSystem: self.context.fileSystem, tool: tool)
             return true
         } catch {
             self.context.observabilityScope.emit(error)
@@ -252,14 +252,14 @@ public struct BuildDescription: Codable {
         self.pluginDescriptions = pluginDescriptions
     }
 
-    public func write(to path: AbsolutePath) throws {
+    public func write(fileSystem: TSCBasic.FileSystem, path: AbsolutePath) throws {
         let encoder = JSONEncoder.makeWithDefaults()
         let data = try encoder.encode(self)
-        try localFileSystem.writeFileContents(path, bytes: ByteString(data))
+        try fileSystem.writeFileContents(path, bytes: ByteString(data))
     }
 
-    public static func load(from path: AbsolutePath) throws -> BuildDescription {
-        let contents: Data = try localFileSystem.readFileContents(path)
+    public static func load(fileSystem: TSCBasic.FileSystem, path: AbsolutePath) throws -> BuildDescription {
+        let contents: Data = try fileSystem.readFileContents(path)
         let decoder = JSONDecoder.makeWithDefaults()
         return try decoder.decode(BuildDescription.self, from: contents)
     }
@@ -294,17 +294,21 @@ public final class BuildExecutionContext {
     /// Optional provider of build error resolution advice.
     let buildErrorAdviceProvider: BuildErrorAdviceProvider?
 
+    let fileSystem: TSCBasic.FileSystem
+
     let observabilityScope: ObservabilityScope
 
     public init(
         _ buildParameters: BuildParameters,
         buildDescription: BuildDescription? = nil,
+        fileSystem: TSCBasic.FileSystem,
         observabilityScope: ObservabilityScope,
         packageStructureDelegate: PackageStructureDelegate,
         buildErrorAdviceProvider: BuildErrorAdviceProvider? = nil
     ) {
         self.buildParameters = buildParameters
         self.buildDescription = buildDescription
+        self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope
         self.packageStructureDelegate = packageStructureDelegate
         self.buildErrorAdviceProvider = buildErrorAdviceProvider
@@ -379,9 +383,9 @@ final class CopyCommand: CustomLLBuildCommand {
 
             let input = AbsolutePath(tool.inputs[0].name)
             let output = AbsolutePath(tool.outputs[0].name)
-            try localFileSystem.createDirectory(output.parentDirectory, recursive: true)
-            try localFileSystem.removeFileTree(output)
-            try localFileSystem.copy(from: input, to: output)
+            try self.context.fileSystem.createDirectory(output.parentDirectory, recursive: true)
+            try self.context.fileSystem.removeFileTree(output)
+            try self.context.fileSystem.copy(from: input, to: output)
         } catch {
             self.context.observabilityScope.emit(error)
             return false

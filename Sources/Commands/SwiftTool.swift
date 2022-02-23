@@ -314,7 +314,7 @@ public class SwiftTool {
         let packages: [AbsolutePath]
 
         if let workspace = options.multirootPackageDataFile {
-            packages = try XcodeWorkspaceLoader(fileSystem: localFileSystem, observabilityScope: self.observabilityScope).load(workspace: workspace)
+            packages = try XcodeWorkspaceLoader(fileSystem: self.fileSystem, observabilityScope: self.observabilityScope).load(workspace: workspace)
         } else {
             packages = [try getPackageRoot()]
         }
@@ -354,10 +354,14 @@ public class SwiftTool {
 
     private let observabilityHandler: SwiftToolObservabilityHandler
 
+    /// The observability scope to emit diagnostics event on
     let observabilityScope: ObservabilityScope
 
+    /// The min severity at which to log diagnostics
     let logLevel: Diagnostic.Severity
 
+    /// The file system in use
+    let fileSystem: FileSystem
 
     /// Create an instance of this tool.
     ///
@@ -373,6 +377,7 @@ public class SwiftTool {
 
     // marked internal for testing
     internal init(outputStream: OutputByteStream, options: SwiftToolOptions) throws {
+        self.fileSystem = localFileSystem
         // first, bootstrap the observability system
         self.logLevel = options.logLevel
         self.observabilityHandler = SwiftToolObservabilityHandler(outputStream: outputStream, logLevel: self.logLevel)
@@ -380,7 +385,7 @@ public class SwiftTool {
         self.observabilityScope = observabilitySystem.topScope
 
         // Capture the original working directory ASAP.
-        guard let cwd = localFileSystem.currentWorkingDirectory else {
+        guard let cwd = self.fileSystem.currentWorkingDirectory else {
             self.observabilityScope.emit(error: "couldn't determine the current working directory")
             throw ExitCode.failure
         }
@@ -462,7 +467,7 @@ public class SwiftTool {
 
         // Create local variables to use while finding build path to avoid capture self before init error.
         let customBuildPath = options.buildPath
-        let packageRoot = findPackageRoot()
+        let packageRoot = findPackageRoot(fileSystem: fileSystem)
 
         self.packageRoot = packageRoot
         self.buildPath = getEnvBuildPath(workingDir: cwd) ??
@@ -470,9 +475,9 @@ public class SwiftTool {
         (packageRoot ?? cwd).appending(component: ".build")
 
         // make sure common directories are created
-        self.sharedSecurityDirectory = try getSharedSecurityDirectory(options: self.options, observabilityScope: self.observabilityScope)
-        self.sharedConfigurationDirectory = try getSharedConfigurationDirectory(options: self.options, observabilityScope: self.observabilityScope)
-        self.sharedCacheDirectory = try getSharedCacheDirectory(options: self.options, observabilityScope: self.observabilityScope)
+        self.sharedSecurityDirectory = try getSharedSecurityDirectory(options: self.options, fileSystem: fileSystem, observabilityScope: self.observabilityScope)
+        self.sharedConfigurationDirectory = try getSharedConfigurationDirectory(options: self.options, fileSystem: fileSystem, observabilityScope: self.observabilityScope)
+        self.sharedCacheDirectory = try getSharedCacheDirectory(options: self.options, fileSystem: fileSystem, observabilityScope: self.observabilityScope)
 
         // set global process logging handler
         Process.loggingHandler = { self.observabilityScope.emit(debug: $0) }
@@ -538,7 +543,7 @@ public class SwiftTool {
         let repositoryProvider = GitRepositoryProvider(processSet: self.processSet)
         let isXcodeBuildSystemEnabled = self.options.buildSystem == .xcode
         let workspace = try Workspace(
-            fileSystem: localFileSystem,
+            fileSystem: self.fileSystem,
             location: .init(
                 workingDirectory: self.buildPath,
                 editsDirectory: self.getEditsDirectory(),
@@ -615,7 +620,7 @@ public class SwiftTool {
         authorization.keychain = self.options.keychain ? .enabled : .disabled
         #endif
 
-        return try authorization.makeAuthorizationProvider(fileSystem: localFileSystem, observabilityScope: self.observabilityScope)
+        return try authorization.makeAuthorizationProvider(fileSystem: self.fileSystem, observabilityScope: self.observabilityScope)
     }
 
     /// Resolve the dependencies.
@@ -674,9 +679,11 @@ public class SwiftTool {
         let pluginsDir = try self.getActiveWorkspace().location.pluginWorkingDirectory
         let cacheDir = pluginsDir.appending(component: "cache")
         let pluginScriptRunner = try DefaultPluginScriptRunner(
+            fileSystem: self.fileSystem,
             cacheDir: cacheDir,
             toolchain: self.getHostToolchain().configuration,
-            enableSandbox: !self.options.shouldDisableSandbox)
+            enableSandbox: !self.options.shouldDisableSandbox
+        )
         return pluginScriptRunner
     }
 
@@ -700,8 +707,8 @@ public class SwiftTool {
 
         let buildParameters = try self.buildParameters()
         let haveBuildManifestAndDescription =
-        localFileSystem.exists(buildParameters.llbuildManifest) &&
-        localFileSystem.exists(buildParameters.buildDescriptionPath)
+        self.fileSystem.exists(buildParameters.llbuildManifest) &&
+        self.fileSystem.exists(buildParameters.buildDescriptionPath)
 
         if !haveBuildManifestAndDescription {
             return false
@@ -742,7 +749,7 @@ public class SwiftTool {
             pluginWorkDirectory: try self.getActiveWorkspace().location.pluginWorkingDirectory,
             outputStream: customOutputStream ?? self.outputStream,
             logLevel: self.logLevel,
-            fileSystem: localFileSystem,
+            fileSystem: self.fileSystem,
             observabilityScope: customObservabilityScope ?? self.observabilityScope
         )
 
@@ -776,7 +783,7 @@ public class SwiftTool {
                 disableSandboxForPluginCommands: self.options.shouldDisableSandbox,
                 outputStream: customOutputStream ?? self.outputStream,
                 logLevel: self.logLevel,
-                fileSystem: localFileSystem,
+                fileSystem: self.fileSystem,
                 observabilityScope: customObservabilityScope ?? self.observabilityScope
             )
         case .xcode:
@@ -787,7 +794,7 @@ public class SwiftTool {
                 packageGraphLoader: customPackageGraphLoader ??  graphLoader,
                 outputStream: customOutputStream ?? self.outputStream,
                 logLevel: self.logLevel,
-                fileSystem: localFileSystem,
+                fileSystem: self.fileSystem,
                 observabilityScope: customObservabilityScope ?? self.observabilityScope
             )
         }
@@ -823,7 +830,7 @@ public class SwiftTool {
                 jobs: options.jobs ?? UInt32(ProcessInfo.processInfo.activeProcessorCount),
                 shouldLinkStaticSwiftStdlib: options.shouldLinkStaticSwiftStdlib,
                 canRenameEntrypointFunctionName: SwiftTargetBuildDescription.checkSupportedFrontendFlags(
-                    flags: ["entry-point-function-name"], fileSystem: localFileSystem
+                    flags: ["entry-point-function-name"], fileSystem: self.fileSystem
                 ),
                 sanitizers: options.enabledSanitizers,
                 enableCodeCoverage: options.shouldEnableCodeCoverage,
@@ -849,7 +856,7 @@ public class SwiftTool {
             hostDestination = try self._hostToolchain.get().destination
             // Create custom toolchain if present.
             if let customDestination = self.options.customCompileDestination {
-                destination = try Destination(fromFile: customDestination)
+                destination = try Destination(fromFile: customDestination, fileSystem: self.fileSystem)
             } else if let target = self.options.customCompileTriple,
                       let targetDestination = Destination.defaultDestination(for: target, host: hostDestination) {
                 destination = targetDestination
@@ -905,7 +912,7 @@ public class SwiftTool {
 
             var extraManifestFlags = self.options.manifestFlags
             // Disable the implicit concurrency import if the compiler in use supports it to avoid warnings if we are building against an older SDK that does not contain a Concurrency module.
-            if SwiftTargetBuildDescription.checkSupportedFrontendFlags(flags: ["disable-implicit-concurrency-module-import"], fileSystem: localFileSystem) {
+            if SwiftTargetBuildDescription.checkSupportedFrontendFlags(flags: ["disable-implicit-concurrency-module-import"], fileSystem: self.fileSystem) {
                 extraManifestFlags += ["-Xfrontend", "-disable-implicit-concurrency-module-import"]
             }
 
@@ -927,18 +934,18 @@ public class SwiftTool {
     enum ExecutionStatus {
         case success
         case failure
-    }
+        }
 }
 
 /// Returns path of the nearest directory containing the manifest file w.r.t
 /// current working directory.
-private func findPackageRoot() -> AbsolutePath? {
-    guard var root = localFileSystem.currentWorkingDirectory else {
+private func findPackageRoot(fileSystem: FileSystem) -> AbsolutePath? {
+    guard var root = fileSystem.currentWorkingDirectory else {
         return nil
     }
     // FIXME: It would be nice to move this to a generalized method which takes path and predicate and
     // finds the lowest path for which the predicate is true.
-    while !localFileSystem.isFile(root.appending(component: Manifest.filename)) {
+    while !fileSystem.isFile(root.appending(component: Manifest.filename)) {
         root = root.parentDirectory
         guard !root.isRoot else {
             return nil
@@ -956,42 +963,42 @@ private func getEnvBuildPath(workingDir: AbsolutePath) -> AbsolutePath? {
 }
 
 
-private func getSharedSecurityDirectory(options: SwiftToolOptions, observabilityScope: ObservabilityScope) throws -> AbsolutePath? {
+private func getSharedSecurityDirectory(options: SwiftToolOptions, fileSystem: FileSystem, observabilityScope: ObservabilityScope) throws -> AbsolutePath? {
     if let explicitSecurityPath = options.securityPath {
         // Create the explicit security path if necessary
-        if !localFileSystem.exists(explicitSecurityPath) {
-            try localFileSystem.createDirectory(explicitSecurityPath, recursive: true)
+        if !fileSystem.exists(explicitSecurityPath) {
+            try fileSystem.createDirectory(explicitSecurityPath, recursive: true)
         }
         return explicitSecurityPath
     } else {
         // further validation is done in workspace
-        return localFileSystem.swiftPMSecurityDirectory
+        return fileSystem.swiftPMSecurityDirectory
     }
 }
 
-private func getSharedConfigurationDirectory(options: SwiftToolOptions, observabilityScope: ObservabilityScope) throws -> AbsolutePath? {
+private func getSharedConfigurationDirectory(options: SwiftToolOptions, fileSystem: FileSystem, observabilityScope: ObservabilityScope) throws -> AbsolutePath? {
     if let explicitConfigPath = options.configPath {
         // Create the explicit config path if necessary
-        if !localFileSystem.exists(explicitConfigPath) {
-            try localFileSystem.createDirectory(explicitConfigPath, recursive: true)
+        if !fileSystem.exists(explicitConfigPath) {
+            try fileSystem.createDirectory(explicitConfigPath, recursive: true)
         }
         return explicitConfigPath
     } else {
         // further validation is done in workspace
-        return localFileSystem.swiftPMConfigurationDirectory
+        return fileSystem.swiftPMConfigurationDirectory
     }
 }
 
-private func getSharedCacheDirectory(options: SwiftToolOptions, observabilityScope: ObservabilityScope) throws -> AbsolutePath? {
+private func getSharedCacheDirectory(options: SwiftToolOptions, fileSystem: FileSystem, observabilityScope: ObservabilityScope) throws -> AbsolutePath? {
     if let explicitCachePath = options.cachePath {
         // Create the explicit cache path if necessary
-        if !localFileSystem.exists(explicitCachePath) {
-            try localFileSystem.createDirectory(explicitCachePath, recursive: true)
+        if !fileSystem.exists(explicitCachePath) {
+            try fileSystem.createDirectory(explicitCachePath, recursive: true)
         }
         return explicitCachePath
     } else {
         // further validation is done in workspace
-        return localFileSystem.swiftPMCacheDirectory
+        return fileSystem.swiftPMCacheDirectory
     }
 }
 

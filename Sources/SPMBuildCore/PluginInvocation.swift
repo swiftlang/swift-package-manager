@@ -73,7 +73,7 @@ extension PluginTarget {
         }
 
         // Create the input context to send to the plugin.
-        var serializer = PluginScriptRunnerInputSerializer(buildEnvironment: buildEnvironment)
+        var serializer = PluginScriptRunnerInputSerializer(fileSystem: fileSystem, buildEnvironment: buildEnvironment)
         let inputStruct: PluginScriptRunnerInput
         do {
             inputStruct = try serializer.makePluginScriptRunnerInput(
@@ -170,7 +170,7 @@ extension PackageGraph {
             for pluginTarget in pluginTargets {
                 // Determine the tools to which this plugin has access, and create a name-to-path mapping from tool
                 // names to the corresponding paths. Built tools are assumed to be in the build tools directory.
-                let accessibleTools = pluginTarget.accessibleTools(for: pluginScriptRunner.hostTriple)
+                let accessibleTools = pluginTarget.accessibleTools(fileSystem: fileSystem, for: pluginScriptRunner.hostTriple)
                 let toolNamesToPaths = accessibleTools.reduce(into: [String: AbsolutePath](), { dict, tool in
                     switch tool {
                     case .builtTool(let name, let path):
@@ -293,13 +293,13 @@ public enum PluginAccessibleTool: Hashable {
 public extension PluginTarget {
 
     /// The set of tools that are accessible to this plugin.
-    func accessibleTools(for hostTriple: Triple) -> Set<PluginAccessibleTool> {
+    func accessibleTools(fileSystem: FileSystem, for hostTriple: Triple) -> Set<PluginAccessibleTool> {
         return Set(self.dependencies.flatMap { dependency -> [PluginAccessibleTool] in
             if case .target(let target, _) = dependency {
                 // For a binary target we create a `vendedTool`.
                 if let target = target as? BinaryTarget {
                     // TODO: Memoize this result for the host triple
-                    guard let execInfos = try? target.parseArtifactArchives(for: hostTriple, fileSystem: localFileSystem) else {
+                    guard let execInfos = try? target.parseArtifactArchives(for: hostTriple, fileSystem: fileSystem) else {
                         // TODO: Deal better with errors in parsing the artifacts
                         return []
                     }
@@ -830,6 +830,7 @@ public struct PluginScriptRunnerInput: Codable {
 /// Creates the serialized input structure for the plugin script based on all
 /// the input information to a plugin.
 struct PluginScriptRunnerInputSerializer {
+    let fileSystem: FileSystem
     let buildEnvironment: BuildEnvironment
     var paths: [PluginScriptRunnerInput.Path] = []
     var pathsToIds: [AbsolutePath: PluginScriptRunnerInput.Path.Id] = [:]
@@ -945,7 +946,7 @@ struct PluginScriptRunnerInputSerializer {
             var ldFlags: [String] = []
             // FIXME: What do we do with any diagnostics here?
             let observabilityScope = ObservabilitySystem({ _, _ in }).topScope
-            for result in pkgConfigArgs(for: target, fileSystem: localFileSystem, observabilityScope: observabilityScope) {
+            for result in pkgConfigArgs(for: target, fileSystem: self.fileSystem, observabilityScope: observabilityScope) {
                 if let error = result.error {
                     observabilityScope.emit(
                         warning: "\(error)",

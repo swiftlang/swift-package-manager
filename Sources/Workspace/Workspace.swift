@@ -725,7 +725,7 @@ public class Workspace {
         }
 
         let httpClient = customHTTPClient ?? HTTPClient()
-        let archiver = customArchiver ?? ZipArchiver()
+        let archiver = customArchiver ?? ZipArchiver(fileSystem: fileSystem)
 
         // initialize
         self.fileSystem = fileSystem

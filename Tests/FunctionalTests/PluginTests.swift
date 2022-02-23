@@ -419,7 +419,11 @@ class PluginTests: XCTestCase {
                 }
 
                 let pluginDir = tmpPath.appending(components: package.identity.description, plugin.name)
-                let scriptRunner = DefaultPluginScriptRunner(cacheDir: pluginDir.appending(component: "cache"), toolchain: ToolchainConfiguration.default)
+                let scriptRunner = DefaultPluginScriptRunner(
+                    fileSystem: localFileSystem,
+                    cacheDir: pluginDir.appending(component: "cache"),
+                    toolchain: ToolchainConfiguration.default
+                )
                 let delegate = PluginDelegate(delegateQueue: delegateQueue)
                 do {
                     let success = try tsc_await { plugin.invoke(
@@ -608,7 +612,11 @@ class PluginTests: XCTestCase {
 
             // Run the plugin.
             let pluginDir = tmpPath.appending(components: package.identity.description, plugin.name)
-            let scriptRunner = DefaultPluginScriptRunner(cacheDir: pluginDir.appending(component: "cache"), toolchain: ToolchainConfiguration.default)
+            let scriptRunner = DefaultPluginScriptRunner(
+                fileSystem: localFileSystem,
+                cacheDir: pluginDir.appending(component: "cache"),
+                toolchain: ToolchainConfiguration.default
+            )
             let delegate = PluginDelegate(delegateQueue: delegateQueue)
             let sync = DispatchSemaphore(value: 0)
             plugin.invoke(

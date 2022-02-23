@@ -336,15 +336,15 @@ final class BuildPlanTests: XCTestCase {
             XCTAssertMatch(linkedFileList, .contains("PkgLib"))
             XCTAssertNoMatch(linkedFileList, .contains("ExtLib"))
 
-            try testWithTemporaryDirectory { path in
-                let yaml = path.appending(component: "release.yaml")
-                let llbuild = LLBuildManifestBuilder(plan, fileSystem: fs, observabilityScope: observability.topScope)
-                try llbuild.generateManifest(at: yaml)
-                let contents: String = try localFileSystem.readFileContents(yaml)
-                XCTAssertMatch(contents, .contains("""
-                        inputs: ["/Pkg/Sources/exe/main.swift","/path/to/build/release/PkgLib.swiftmodule"]
-                    """))
-            }
+            let yaml = fs.tempDirectory.appending(components: UUID().uuidString, "release.yaml")
+            try fs.createDirectory(yaml.parentDirectory, recursive: true)
+            let llbuild = LLBuildManifestBuilder(plan, fileSystem: fs, observabilityScope: observability.topScope)
+            try llbuild.generateManifest(at: yaml)
+            let contents: String = try fs.readFileContents(yaml)
+            XCTAssertMatch(contents, .contains("""
+                    inputs: ["/Pkg/Sources/exe/main.swift","/path/to/build/release/PkgLib.swiftmodule"]
+                """))
+
         }
 
         do {
@@ -362,15 +362,14 @@ final class BuildPlanTests: XCTestCase {
             XCTAssertNoMatch(linkedFileList, .contains("PkgLib"))
             XCTAssertNoMatch(linkedFileList, .contains("ExtLib"))
 
-            try testWithTemporaryDirectory { path in
-                let yaml = path.appending(component: "debug.yaml")
-                let llbuild = LLBuildManifestBuilder(plan, fileSystem: fs, observabilityScope: observability.topScope)
-                try llbuild.generateManifest(at: yaml)
-                let contents: String = try localFileSystem.readFileContents(yaml)
-                XCTAssertMatch(contents, .contains("""
-                        inputs: ["/Pkg/Sources/exe/main.swift"]
-                    """))
-            }
+            let yaml = fs.tempDirectory.appending(components: UUID().uuidString, "debug.yaml")
+            try fs.createDirectory(yaml.parentDirectory, recursive: true)
+            let llbuild = LLBuildManifestBuilder(plan, fileSystem: fs, observabilityScope: observability.topScope)
+            try llbuild.generateManifest(at: yaml)
+            let contents: String = try fs.readFileContents(yaml)
+            XCTAssertMatch(contents, .contains("""
+                    inputs: ["/Pkg/Sources/exe/main.swift"]
+                """))
         }
     }
 
@@ -795,14 +794,14 @@ final class BuildPlanTests: XCTestCase {
         ])
       #endif
 
-        try testWithTemporaryDirectory { path in
-            let yaml = path.appending(component: "debug.yaml")
-            let llbuild = LLBuildManifestBuilder(plan, fileSystem: fs, observabilityScope: observability.topScope)
-            try llbuild.generateManifest(at: yaml)
-            let contents: String = try localFileSystem.readFileContents(yaml)
-            XCTAssertMatch(contents, .contains(#"-std=gnu99","-c","/Pkg/Sources/lib/lib.c"#))
-            XCTAssertMatch(contents, .contains(#"-std=c++1z","-c","/Pkg/Sources/lib/libx.cpp"#))
-        }
+
+        let yaml = fs.tempDirectory.appending(components: UUID().uuidString, "debug.yaml")
+        try fs.createDirectory(yaml.parentDirectory, recursive: true)
+        let llbuild = LLBuildManifestBuilder(plan, fileSystem: fs, observabilityScope: observability.topScope)
+        try llbuild.generateManifest(at: yaml)
+        let contents: String = try fs.readFileContents(yaml)
+        XCTAssertMatch(contents, .contains(#"-std=gnu99","-c","/Pkg/Sources/lib/lib.c"#))
+        XCTAssertMatch(contents, .contains(#"-std=c++1z","-c","/Pkg/Sources/lib/libx.cpp"#))
     }
 
     func testSwiftCMixed() throws {
@@ -2961,16 +2960,15 @@ final class BuildPlanTests: XCTestCase {
             observabilityScope: observability.topScope
         )
 
-        try testWithTemporaryDirectory { path in
-            let yaml = path.appending(component: "debug.yaml")
-            let llbuild = LLBuildManifestBuilder(plan, fileSystem: fs, observabilityScope: observability.topScope)
-            try llbuild.generateManifest(at: yaml)
-            let contents: String = try localFileSystem.readFileContents(yaml)
-            XCTAssertMatch(contents, .contains("""
-                    inputs: ["/PkgA/Sources/swiftlib/lib.swift","/path/to/build/debug/exe"]
-                    outputs: ["/path/to/build/debug/swiftlib.build/lib.swift.o","/path/to/build/debug/
-                """))
-        }
+        let yaml = fs.tempDirectory.appending(components: UUID().uuidString, "debug.yaml")
+        try fs.createDirectory(yaml.parentDirectory, recursive: true)
+        let llbuild = LLBuildManifestBuilder(plan, fileSystem: fs, observabilityScope: observability.topScope)
+        try llbuild.generateManifest(at: yaml)
+        let contents: String = try fs.readFileContents(yaml)
+        XCTAssertMatch(contents, .contains("""
+                inputs: ["/PkgA/Sources/swiftlib/lib.swift","/path/to/build/debug/exe"]
+                outputs: ["/path/to/build/debug/swiftlib.build/lib.swift.o","/path/to/build/debug/
+            """))
     }
 
     func testObjCHeader1() throws {
@@ -3018,19 +3016,18 @@ final class BuildPlanTests: XCTestCase {
           XCTAssertNoMatch(barTarget, [.anySequence, "-fmodule-map-file=/path/to/build/debug/Foo.build/module.modulemap", .anySequence])
         #endif
 
-        try testWithTemporaryDirectory { path in
-            let yaml = path.appending(component: "debug.yaml")
-            let llbuild = LLBuildManifestBuilder(plan, fileSystem: fs, observabilityScope: observability.topScope)
-            try llbuild.generateManifest(at: yaml)
-            let contents: String = try localFileSystem.readFileContents(yaml)
-            XCTAssertMatch(contents, .contains("""
-                  "/path/to/build/debug/Bar.build/main.m.o":
-                    tool: clang
-                    inputs: ["/path/to/build/debug/Foo.swiftmodule","/PkgA/Sources/Bar/main.m"]
-                    outputs: ["/path/to/build/debug/Bar.build/main.m.o"]
-                    description: "Compiling Bar main.m"
-                """))
-        }
+        let yaml = fs.tempDirectory.appending(components: UUID().uuidString, "debug.yaml")
+        try fs.createDirectory(yaml.parentDirectory, recursive: true)
+        let llbuild = LLBuildManifestBuilder(plan, fileSystem: fs, observabilityScope: observability.topScope)
+        try llbuild.generateManifest(at: yaml)
+        let contents: String = try fs.readFileContents(yaml)
+        XCTAssertMatch(contents, .contains("""
+              "/path/to/build/debug/Bar.build/main.m.o":
+                tool: clang
+                inputs: ["/path/to/build/debug/Foo.swiftmodule","/PkgA/Sources/Bar/main.m"]
+                outputs: ["/path/to/build/debug/Bar.build/main.m.o"]
+                description: "Compiling Bar main.m"
+            """))
     }
 
     func testObjCHeader2() throws {
@@ -3089,19 +3086,18 @@ final class BuildPlanTests: XCTestCase {
            XCTAssertNoMatch(barTarget, [.anySequence, "-fmodule-map-file=/path/to/build/debug/Foo.build/module.modulemap", .anySequence])
          #endif
 
-        try testWithTemporaryDirectory { path in
-             let yaml = path.appending(component: "debug.yaml")
-             let llbuild = LLBuildManifestBuilder(plan, fileSystem: fs, observabilityScope: observability.topScope)
-             try llbuild.generateManifest(at: yaml)
-             let contents: String = try localFileSystem.readFileContents(yaml)
-             XCTAssertMatch(contents, .contains("""
-                   "/path/to/build/debug/Bar.build/main.m.o":
-                     tool: clang
-                     inputs: ["/path/to/build/debug/Foo.swiftmodule","/PkgA/Sources/Bar/main.m"]
-                     outputs: ["/path/to/build/debug/Bar.build/main.m.o"]
-                     description: "Compiling Bar main.m"
-                 """))
-         }
+        let yaml = fs.tempDirectory.appending(components: UUID().uuidString, "debug.yaml")
+        try fs.createDirectory(yaml.parentDirectory, recursive: true)
+        let llbuild = LLBuildManifestBuilder(plan, fileSystem: fs, observabilityScope: observability.topScope)
+        try llbuild.generateManifest(at: yaml)
+        let contents: String = try fs.readFileContents(yaml)
+        XCTAssertMatch(contents, .contains("""
+               "/path/to/build/debug/Bar.build/main.m.o":
+                 tool: clang
+                 inputs: ["/path/to/build/debug/Foo.swiftmodule","/PkgA/Sources/Bar/main.m"]
+                 outputs: ["/path/to/build/debug/Bar.build/main.m.o"]
+                 description: "Compiling Bar main.m"
+             """))
     }
 
     func testObjCHeader3() throws {
@@ -3161,19 +3157,18 @@ final class BuildPlanTests: XCTestCase {
            XCTAssertNoMatch(barTarget, [.anySequence, "-fmodule-map-file=/path/to/build/debug/Foo.build/module.modulemap", .anySequence])
          #endif
 
-        try testWithTemporaryDirectory { path in
-             let yaml = path.appending(component: "debug.yaml")
-             let llbuild = LLBuildManifestBuilder(plan, fileSystem: fs, observabilityScope: observability.topScope)
-             try llbuild.generateManifest(at: yaml)
-             let contents: String = try localFileSystem.readFileContents(yaml)
-             XCTAssertMatch(contents, .contains("""
-                   "/path/to/build/debug/Bar.build/main.m.o":
-                     tool: clang
-                     inputs: ["/path/to/build/debug/libFoo\(dynamicLibraryExtension)","/PkgA/Sources/Bar/main.m"]
-                     outputs: ["/path/to/build/debug/Bar.build/main.m.o"]
-                     description: "Compiling Bar main.m"
-                 """))
-         }
+        let yaml = fs.tempDirectory.appending(components: UUID().uuidString, "debug.yaml")
+        try fs.createDirectory(yaml.parentDirectory, recursive: true)
+        let llbuild = LLBuildManifestBuilder(plan, fileSystem: fs, observabilityScope: observability.topScope)
+        try llbuild.generateManifest(at: yaml)
+        let contents: String = try fs.readFileContents(yaml)
+        XCTAssertMatch(contents, .contains("""
+               "/path/to/build/debug/Bar.build/main.m.o":
+                 tool: clang
+                 inputs: ["/path/to/build/debug/libFoo\(dynamicLibraryExtension)","/PkgA/Sources/Bar/main.m"]
+                 outputs: ["/path/to/build/debug/Bar.build/main.m.o"]
+                 description: "Compiling Bar main.m"
+             """))
     }
 
     func testModulewrap() throws {
@@ -3210,28 +3205,27 @@ final class BuildPlanTests: XCTestCase {
         XCTAssertTrue(objects.contains(AbsolutePath("/path/to/build/debug/exe.build/exe.swiftmodule.o")), objects.description)
         XCTAssertTrue(objects.contains(AbsolutePath("/path/to/build/debug/lib.build/lib.swiftmodule.o")), objects.description)
 
-        try testWithTemporaryDirectory { path in
-            let yaml = path.appending(component: "debug.yaml")
-            let llbuild = LLBuildManifestBuilder(result.plan, fileSystem: fs, observabilityScope: observability.topScope)
-            try llbuild.generateManifest(at: yaml)
-            let contents: String = try localFileSystem.readFileContents(yaml)
-            XCTAssertMatch(contents, .contains("""
-                  "/path/to/build/debug/exe.build/exe.swiftmodule.o":
-                    tool: shell
-                    inputs: ["/path/to/build/debug/exe.build/exe.swiftmodule"]
-                    outputs: ["/path/to/build/debug/exe.build/exe.swiftmodule.o"]
-                    description: "Wrapping AST for exe for debugging"
-                    args: ["/fake/path/to/swiftc","-modulewrap","/path/to/build/debug/exe.build/exe.swiftmodule","-o","/path/to/build/debug/exe.build/exe.swiftmodule.o","-target","x86_64-unknown-linux-gnu"]
-                """))
-            XCTAssertMatch(contents, .contains("""
-                  "/path/to/build/debug/lib.build/lib.swiftmodule.o":
-                    tool: shell
-                    inputs: ["/path/to/build/debug/lib.swiftmodule"]
-                    outputs: ["/path/to/build/debug/lib.build/lib.swiftmodule.o"]
-                    description: "Wrapping AST for lib for debugging"
-                    args: ["/fake/path/to/swiftc","-modulewrap","/path/to/build/debug/lib.swiftmodule","-o","/path/to/build/debug/lib.build/lib.swiftmodule.o","-target","x86_64-unknown-linux-gnu"]
-                """))
-        }
+        let yaml = fs.tempDirectory.appending(components: UUID().uuidString, "debug.yaml")
+        try fs.createDirectory(yaml.parentDirectory, recursive: true)
+        let llbuild = LLBuildManifestBuilder(result.plan, fileSystem: fs, observabilityScope: observability.topScope)
+        try llbuild.generateManifest(at: yaml)
+        let contents: String = try fs.readFileContents(yaml)
+        XCTAssertMatch(contents, .contains("""
+              "/path/to/build/debug/exe.build/exe.swiftmodule.o":
+                tool: shell
+                inputs: ["/path/to/build/debug/exe.build/exe.swiftmodule"]
+                outputs: ["/path/to/build/debug/exe.build/exe.swiftmodule.o"]
+                description: "Wrapping AST for exe for debugging"
+                args: ["/fake/path/to/swiftc","-modulewrap","/path/to/build/debug/exe.build/exe.swiftmodule","-o","/path/to/build/debug/exe.build/exe.swiftmodule.o","-target","x86_64-unknown-linux-gnu"]
+            """))
+        XCTAssertMatch(contents, .contains("""
+              "/path/to/build/debug/lib.build/lib.swiftmodule.o":
+                tool: shell
+                inputs: ["/path/to/build/debug/lib.swiftmodule"]
+                outputs: ["/path/to/build/debug/lib.build/lib.swiftmodule.o"]
+                description: "Wrapping AST for lib for debugging"
+                args: ["/fake/path/to/swiftc","-modulewrap","/path/to/build/debug/lib.swiftmodule","-o","/path/to/build/debug/lib.build/lib.swiftmodule.o","-target","x86_64-unknown-linux-gnu"]
+            """))
     }
 
     func testSwiftBundleAccessor() throws {

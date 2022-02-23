@@ -36,6 +36,7 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
     static let defaultCertPolicyKeys: [CertificatePolicyKey] = [.default]
 
     private let configuration: Configuration
+    private let fileSystem: FileSystem
     private let observabilityScope: ObservabilityScope
     private let httpClient: HTTPClient
     private let decoder: JSONDecoder
@@ -43,24 +44,27 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
     private let signatureValidator: PackageCollectionSignatureValidator
     private let sourceCertPolicy: PackageCollectionSourceCertificatePolicy
 
-    init(configuration: Configuration = .init(),
-         observabilityScope: ObservabilityScope,
-         httpClient: HTTPClient? = nil,
-         signatureValidator: PackageCollectionSignatureValidator? = nil,
-         sourceCertPolicy: PackageCollectionSourceCertificatePolicy = PackageCollectionSourceCertificatePolicy(),
-         fileSystem: FileSystem = localFileSystem) {
+    init(
+        configuration: Configuration = .init(),
+        fileSystem: FileSystem,
+        observabilityScope: ObservabilityScope,
+        sourceCertPolicy: PackageCollectionSourceCertificatePolicy = PackageCollectionSourceCertificatePolicy(),
+        customHTTPClient: HTTPClient? = nil,
+        customSignatureValidator: PackageCollectionSignatureValidator? = nil
+    ) {
         self.configuration = configuration
-        self.observabilityScope = observabilityScope
-        self.httpClient = httpClient ?? Self.makeDefaultHTTPClient()
-        self.decoder = JSONDecoder.makeWithDefaults()
         self.validator = JSONModel.Validator(configuration: configuration.validator)
-        self.signatureValidator = signatureValidator ?? PackageCollectionSigning(
+        self.fileSystem = fileSystem
+        self.observabilityScope = observabilityScope
+        self.httpClient = customHTTPClient ?? Self.makeDefaultHTTPClient()
+        self.signatureValidator = customSignatureValidator ?? PackageCollectionSigning(
             trustedRootCertsDir: configuration.trustedRootCertsDir ?? fileSystem.swiftPMConfigurationDirectory.appending(component: "trust-root-certs").asURL,
             additionalTrustedRootCerts: sourceCertPolicy.allRootCerts.map { Array($0) },
             observabilityScope: observabilityScope,
             callbackQueue: .sharedConcurrent
         )
         self.sourceCertPolicy = sourceCertPolicy
+        self.decoder = JSONDecoder.makeWithDefaults()
     }
 
     func get(_ source: Model.CollectionSource, callback: @escaping (Result<Model.Collection, Error>) -> Void) {
@@ -68,14 +72,14 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
             return callback(.failure(InternalError("JSONPackageCollectionProvider can only be used for fetching 'json' package collections")))
         }
 
-        if let errors = source.validate()?.errors() {
+        if let errors = source.validate(fileSystem: fileSystem)?.errors() {
             return callback(.failure(JSONPackageCollectionProviderError.invalidSource("\(errors)")))
         }
 
         // Source is a local file
         if let absolutePath = source.absolutePath {
             do {
-                let data: Data = try localFileSystem.readFileContents(absolutePath)
+                let data: Data = try self.fileSystem.readFileContents(absolutePath)
                 return self.decodeAndRunSignatureCheck(source: source, data: data, certPolicyKeys: Self.defaultCertPolicyKeys, callback: callback)
             } catch {
                 return callback(.failure(error))

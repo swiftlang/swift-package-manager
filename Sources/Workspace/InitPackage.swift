@@ -53,6 +53,9 @@ public final class InitPackage {
     /// A block that will be called to report progress during package creation
     public var progressReporter: ((String) -> Void)?
 
+    /// The file system to use
+    let fileSystem: FileSystem
+
     /// Where to create the new package
     let destinationPath: AbsolutePath
 
@@ -76,26 +79,30 @@ public final class InitPackage {
     /// Create an instance that can create a package with given arguments.
     public convenience init(
         name: String,
+        packageType: PackageType,
         destinationPath: AbsolutePath,
-        packageType: PackageType
+        fileSystem: FileSystem
     ) throws {
         try self.init(
             name: name,
+            options: InitPackageOptions(packageType: packageType),
             destinationPath: destinationPath,
-            options: InitPackageOptions(packageType: packageType)
+            fileSystem: fileSystem
         )
     }
 
     /// Create an instance that can create a package with given arguments.
     public init(
         name: String,
+        options: InitPackageOptions,
         destinationPath: AbsolutePath,
-        options: InitPackageOptions
+        fileSystem: FileSystem
     ) throws {
         self.options = options
-        self.destinationPath = destinationPath
         self.pkgname = name
         self.moduleName = name.spm_mangledToC99ExtendedIdentifier()
+        self.destinationPath = destinationPath
+        self.fileSystem = fileSystem
     }
 
     /// Actually creates the new package at the destinationPath
@@ -119,12 +126,12 @@ public final class InitPackage {
 
     private func writePackageFile(_ path: AbsolutePath, body: (OutputByteStream) -> Void) throws {
         progressReporter?("Creating \(path.relative(to: destinationPath))")
-        try localFileSystem.writeFileContents(path, body: body)
+        try self.fileSystem.writeFileContents(path, body: body)
     }
 
     private func writeManifestFile() throws {
         let manifest = destinationPath.appending(component: Manifest.filename)
-        guard localFileSystem.exists(manifest) == false else {
+        guard self.fileSystem.exists(manifest) == false else {
             throw InitError.manifestAlreadyExists
         }
 
@@ -227,12 +234,15 @@ public final class InitPackage {
 
         // Write the current tools version.
         try rewriteToolsVersionSpecification(
-            toDefaultManifestIn: manifest.parentDirectory, specifying: version, fileSystem: localFileSystem)
+            toDefaultManifestIn: manifest.parentDirectory,
+            specifying: version,
+            fileSystem: self.fileSystem
+        )
     }
 
     private func writeREADMEFile() throws {
         let readme = destinationPath.appending(component: "README.md")
-        guard localFileSystem.exists(readme) == false else {
+        guard self.fileSystem.exists(readme) == false else {
             return
         }
 
@@ -248,7 +258,7 @@ public final class InitPackage {
 
     private func writeGitIgnore() throws {
         let gitignore = destinationPath.appending(component: ".gitignore")
-        guard localFileSystem.exists(gitignore) == false else {
+        guard self.fileSystem.exists(gitignore) == false else {
             return
         }
 
@@ -273,7 +283,7 @@ public final class InitPackage {
             return
         }
         let sources = destinationPath.appending(component: "Sources")
-        guard localFileSystem.exists(sources) == false else {
+        guard self.fileSystem.exists(sources) == false else {
             return
         }
         progressReporter?("Creating \(sources.relative(to: destinationPath))/")
@@ -327,7 +337,7 @@ public final class InitPackage {
             return
         }
         let modulemap = destinationPath.appending(component: "module.modulemap")
-        guard localFileSystem.exists(modulemap) == false else {
+        guard self.fileSystem.exists(modulemap) == false else {
             return
         }
 
@@ -348,7 +358,7 @@ public final class InitPackage {
             return
         }
         let tests = destinationPath.appending(component: "Tests")
-        guard localFileSystem.exists(tests) == false else {
+        guard self.fileSystem.exists(tests) == false else {
             return
         }
         progressReporter?("Creating \(tests.relative(to: destinationPath))/")

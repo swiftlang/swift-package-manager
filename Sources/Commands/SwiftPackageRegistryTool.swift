@@ -152,7 +152,7 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
     static func getRegistriesConfig(_ swiftTool: SwiftTool) throws -> Workspace.Configuration.Registries {
         let workspace = try swiftTool.getActiveWorkspace()
         return try .init(
-            fileSystem: localFileSystem,
+            fileSystem: swiftTool.fileSystem,
             localRegistriesFile: workspace.location.localRegistriesConfigurationFile,
             sharedRegistriesFile: workspace.location.sharedRegistriesConfigurationFile
         )

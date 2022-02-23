@@ -131,7 +131,7 @@ public final class PackageEditor {
 
         // Write template files.
         let targetPath = manifest.parentDirectory.appending(components: "Sources", targetName)
-        if !localFileSystem.exists(targetPath) {
+        if !fs.exists(targetPath) {
             let file = targetPath.appending(components: targetName + ".swift")
             try fs.createDirectory(targetPath)
             try fs.writeFileContents(file, bytes: "")
@@ -259,11 +259,11 @@ public final class PackageEditorContext {
     let repositoryManager: RepositoryManager
 
     /// The file system in use.
-    let fs: FileSystem
+    let fileSystem: FileSystem
 
-    public init(buildDir: AbsolutePath, fs: FileSystem = localFileSystem) throws {
+    public init(buildDir: AbsolutePath, fileSystem: FileSystem) throws {
         self.buildDir = buildDir
-        self.fs = fs
+        self.fileSystem = fileSystem
 
         // Create toolchain.
         let hostToolchain = try UserToolchain(destination: .hostDestination())
