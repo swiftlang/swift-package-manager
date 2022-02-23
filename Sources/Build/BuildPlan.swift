@@ -923,7 +923,7 @@ public final class SwiftTargetBuildDescription {
     /// Note: This doesn't emit the module.
     public func emitObjectsCommandLine() throws -> [String] {
         guard buildParameters.emitSwiftModuleSeparately else {
-            throw InternalError("expecting emitSwiftModuleSeparately build")
+            throw InternalError("expecting emitSwiftModuleSeparately in build parameters")
         }
 
         var result: [String] = []
