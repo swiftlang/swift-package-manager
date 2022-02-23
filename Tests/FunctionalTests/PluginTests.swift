@@ -472,6 +472,22 @@ class PluginTests: XCTestCase {
         }
     }
 
+    func testLocalAndRemoteToolDependencies() throws {
+        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
+        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
+
+        fixture(name: "Miscellaneous/Plugins/PluginUsingLocalAndRemoteTool") { path in
+            let (stdout, stderr) = try executeSwiftPackage(path.appending(component: "MyLibrary"), configuration: .Debug, extraArgs: ["plugin", "my-plugin"])
+            XCTAssert(stdout.contains("Linking RemoteTool"), "stdout:\n\(stderr)\n\(stdout)")
+            XCTAssert(stdout.contains("Linking LocalTool"), "stdout:\n\(stderr)\n\(stdout)")
+            XCTAssert(stdout.contains("Linking ImpliedLocalTool"), "stdout:\n\(stderr)\n\(stdout)")
+            XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stderr)\n\(stdout)")
+            XCTAssert(stdout.contains("A message from the remote tool."), "stdout:\n\(stderr)\n\(stdout)")
+            XCTAssert(stdout.contains("A message from the local tool."), "stdout:\n\(stderr)\n\(stdout)")
+            XCTAssert(stdout.contains("A message from the implied local tool."), "stdout:\n\(stderr)\n\(stdout)")
+        }
+    }
+
     func testCommandPluginCancellation() throws {
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
