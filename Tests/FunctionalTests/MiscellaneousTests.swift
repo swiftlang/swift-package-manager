@@ -69,41 +69,23 @@ class MiscellaneousTestCase: XCTestCase {
     }
 
     func testNoArgumentsExitsWithOne() throws {
-        var foo = false
-        do {
-            try executeSwiftBuild(AbsolutePath("/"))
-        } catch SwiftPMProductError.executionFailure(let error, _, _) {
-            switch error {
-            case ProcessResult.Error.nonZeroExit(let result):
-                // if our code crashes we'll get an exit code of 256
-                XCTAssertEqual(result.exitStatus, .terminated(code: 1))
-                foo = true
-            default:
-                XCTFail()
+        XCTAssertThrowsCommandExecutionError(try executeSwiftBuild(AbsolutePath("/"))) { error in
+            // if our code crashes we'll get an exit code of 256
+            guard error.result.exitStatus == .terminated(code: 1) else {
+                return XCTFail("failed in an unexpected manner: \(error)")
             }
-        } catch {
-            XCTFail("\(error)")
         }
-        XCTAssertTrue(foo)
     }
 
     func testCompileFailureExitsGracefully() throws {
         try fixture(name: "Miscellaneous/CompileFails") { fixturePath in
-            do {
-                try executeSwiftBuild(fixturePath)
-                XCTFail()
-            } catch SwiftPMProductError.executionFailure(let error, let output, let stderr) {
-                XCTAssertMatch(stderr + output, .contains("Compiling CompileFails Foo.swift"))
-                XCTAssertMatch(stderr + output, .regex("error: .*\n.*compile_failure"))
-
-                if case ProcessResult.Error.nonZeroExit(let result) = error {
-                    // if our code crashes we'll get an exit code of 256
-                    XCTAssertEqual(result.exitStatus, .terminated(code: 1))
-                } else {
-                    XCTFail("\(stderr + output)")
+            XCTAssertThrowsCommandExecutionError(try executeSwiftBuild(fixturePath)) { error in
+                // if our code crashes we'll get an exit code of 256
+                guard error.result.exitStatus == .terminated(code: 1) else {
+                    return XCTFail("failed in an unexpected manner: \(error)")
                 }
-            } catch {
-                XCTFail()
+                XCTAssertMatch(error.stdout + error.stderr, .contains("Compiling CompileFails Foo.swift"))
+                XCTAssertMatch(error.stdout + error.stderr, .regex("error: .*\n.*compile_failure"))
             }
         }
     }
@@ -216,44 +198,40 @@ class MiscellaneousTestCase: XCTestCase {
     func testSwiftTestParallel() throws {
         try fixture(name: "Miscellaneous/ParallelTestsPkg") { fixturePath in
             // First try normal serial testing.
-            do {
-                _ = try SwiftPMProduct.SwiftTest.execute([], packagePath: fixturePath)
-            } catch SwiftPMProductError.executionFailure(_, let stdout, _) {
+            XCTAssertThrowsCommandExecutionError(try SwiftPMProduct.SwiftTest.execute([], packagePath: fixturePath)) { error in
                 // in "swift test" test output goes to stdout
-                XCTAssertMatch(stdout, .contains("Executed 2 tests"))
+                XCTAssertMatch(error.stdout, .contains("Executed 2 tests"))
+            }
+
+            // Run tests in parallel.
+            XCTAssertThrowsCommandExecutionError(try SwiftPMProduct.SwiftTest.execute(["--parallel"], packagePath: fixturePath)) { error in
+                // in "swift test" test output goes to stdout
+                XCTAssertMatch(error.stdout, .contains("testExample1"))
+                XCTAssertMatch(error.stdout, .contains("testExample2"))
+                XCTAssertNoMatch(error.stdout, .contains("'ParallelTestsTests' passed"))
+                XCTAssertMatch(error.stdout, .contains("'ParallelTestsFailureTests' failed"))
+                XCTAssertMatch(error.stdout, .contains("[3/3]"))
             }
 
             do {
-                // Run tests in parallel.
-                _ = try SwiftPMProduct.SwiftTest.execute(["--parallel"], packagePath: fixturePath)
-            } catch SwiftPMProductError.executionFailure(_, let stdout, _) {
-                // in "swift test" test output goes to stdout
-                XCTAssertMatch(stdout, .contains("testExample1"))
-                XCTAssertMatch(stdout, .contains("testExample2"))
-                XCTAssertNoMatch(stdout, .contains("'ParallelTestsTests' passed"))
-                XCTAssertMatch(stdout, .contains("'ParallelTestsFailureTests' failed"))
-                XCTAssertMatch(stdout, .contains("[3/3]"))
-            }
-
-            let xUnitOutput = fixturePath.appending(component: "result.xml")
-            do {
+                let xUnitOutput = fixturePath.appending(component: "result.xml")
                 // Run tests in parallel with verbose output.
-                _ = try SwiftPMProduct.SwiftTest.execute(
-                    ["--parallel", "--verbose", "--xunit-output", xUnitOutput.pathString],
-                    packagePath: fixturePath)
-            } catch SwiftPMProductError.executionFailure(_, let stdout, _) {
-                // in "swift test" test output goes to stdout
-                XCTAssertMatch(stdout, .contains("testExample1"))
-                XCTAssertMatch(stdout, .contains("testExample2"))
-                XCTAssertMatch(stdout, .contains("'ParallelTestsTests' passed"))
-                XCTAssertMatch(stdout, .contains("'ParallelTestsFailureTests' failed"))
-                XCTAssertMatch(stdout, .contains("[3/3]"))
-            }
+                XCTAssertThrowsCommandExecutionError(
+                    try SwiftPMProduct.SwiftTest.execute(["--parallel", "--verbose", "--xunit-output", xUnitOutput.pathString], packagePath: fixturePath)
+                ) { error in
+                    // in "swift test" test output goes to stdout
+                    XCTAssertMatch(error.stdout, .contains("testExample1"))
+                    XCTAssertMatch(error.stdout, .contains("testExample2"))
+                    XCTAssertMatch(error.stdout, .contains("'ParallelTestsTests' passed"))
+                    XCTAssertMatch(error.stdout, .contains("'ParallelTestsFailureTests' failed"))
+                    XCTAssertMatch(error.stdout, .contains("[3/3]"))
+                }
 
-            // Check the xUnit output.
-            XCTAssertFileExists(xUnitOutput)
-            let contents: String = try localFileSystem.readFileContents(xUnitOutput)
-            XCTAssertMatch(contents, .contains("tests=\"3\" failures=\"1\""))
+                // Check the xUnit output.
+                XCTAssertFileExists(xUnitOutput)
+                let contents: String = try localFileSystem.readFileContents(xUnitOutput)
+                XCTAssertMatch(contents, .contains("tests=\"3\" failures=\"1\""))
+            }
         }
     }
 

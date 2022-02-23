@@ -98,11 +98,8 @@ class ToolsVersionTests: XCTestCase {
             _ = try SwiftPMProduct.SwiftPackage.execute(
                 ["tools-version", "--set", "10000.1"], packagePath: primaryPath)
 
-            do {
-                _ = try SwiftPMProduct.SwiftBuild.execute([], packagePath: primaryPath)
-                XCTFail()
-            } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
-                XCTAssert(stderr.contains("is using Swift tools version 10000.1.0 but the installed version is \(ToolsVersion.currentToolsVersion)"), stderr)
+            XCTAssertThrowsCommandExecutionError(try SwiftPMProduct.SwiftBuild.execute([], packagePath: primaryPath)) { error in
+                XCTAssert(error.stderr.contains("is using Swift tools version 10000.1.0 but the installed version is \(ToolsVersion.currentToolsVersion)"), error.stderr)
             }
 
             // Write the manifest with incompatible sources.
@@ -119,11 +116,8 @@ class ToolsVersionTests: XCTestCase {
             _ = try SwiftPMProduct.SwiftPackage.execute(
                 ["tools-version", "--set", "4.2"], packagePath: primaryPath).stdout.spm_chomp()
 
-            do {
-                _ = try SwiftPMProduct.SwiftBuild.execute([], packagePath: primaryPath)
-                XCTFail()
-            } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
-                XCTAssertTrue(stderr.contains("package 'primary' requires minimum Swift language version 1000 which is not supported by the current tools version (\(ToolsVersion.currentToolsVersion))"), stderr)
+            XCTAssertThrowsCommandExecutionError(try SwiftPMProduct.SwiftBuild.execute([], packagePath: primaryPath)) { error in
+                XCTAssertTrue(error.stderr.contains("package 'primary' requires minimum Swift language version 1000 which is not supported by the current tools version (\(ToolsVersion.currentToolsVersion))"), error.stderr)
             }
 
              try fs.writeFileContents(primaryPath.appending(component: "Package.swift")) {

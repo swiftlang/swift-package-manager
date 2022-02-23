@@ -53,22 +53,16 @@ final class RunToolTests: CommandsTestCase {
             XCTAssertMatch(try result.utf8stderrOutput(), .regex("Compiling"))
             XCTAssertMatch(try result.utf8stderrOutput(), .contains("Linking"))
 
-            do {
-                _ = try execute(["unknown"], packagePath: fixturePath)
-                XCTFail("Unexpected success")
-            } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
-                XCTAssertMatch(stderr, .contains("error: no executable product named 'unknown'"))
+            XCTAssertThrowsCommandExecutionError(try execute(["unknown"], packagePath: fixturePath)) { error in
+                XCTAssertMatch(error.stderr, .contains("error: no executable product named 'unknown'"))
             }
         }
     }
 
     func testMultipleExecutableAndExplicitExecutable() throws {
         try fixture(name: "Miscellaneous/MultipleExecutables") { fixturePath in
-            do {
-                _ = try execute([], packagePath: fixturePath)
-                XCTFail("Unexpected success")
-            } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
-                XCTAssertMatch(stderr, .contains("error: multiple executable products available: exec1, exec2"))
+            XCTAssertThrowsCommandExecutionError(try execute([], packagePath: fixturePath)) { error in
+                XCTAssertMatch(error.stderr, .contains("error: multiple executable products available: exec1, exec2"))
             }
             
             var (runOutput, _) = try execute(["exec1"], packagePath: fixturePath)
@@ -99,11 +93,8 @@ final class RunToolTests: CommandsTestCase {
 
     func testMutualExclusiveFlags() throws {
         try fixture(name: "Miscellaneous/EchoExecutable") { fixturePath in
-            do {
-                _ = try execute(["--build-tests", "--skip-build"], packagePath: fixturePath)
-                XCTFail("Expected to fail")
-            } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
-                XCTAssertMatch(stderr, .contains("error: '--build-tests' and '--skip-build' are mutually exclusive"))
+            XCTAssertThrowsCommandExecutionError(try execute(["--build-tests", "--skip-build"], packagePath: fixturePath)) { error in
+                XCTAssertMatch(error.stderr, .contains("error: '--build-tests' and '--skip-build' are mutually exclusive"))
             }
         }
     }

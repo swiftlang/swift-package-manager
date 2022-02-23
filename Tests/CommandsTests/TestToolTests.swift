@@ -40,12 +40,8 @@ final class TestToolTests: CommandsTestCase {
         try XCTSkipIf(true, "test is only supported on macOS")
         #endif
         try fixture(name: "Miscellaneous/EchoExecutable") { fixturePath in
-            XCTAssertThrowsError(try execute(["--num-workers", "1"])) { error in
-                if case SwiftPMProductError.executionFailure(_, _, let stderr) = error {
-                    XCTAssertMatch(stderr, .contains("error: --num-workers must be used with --parallel"))
-                } else {
-                    XCTFail("invalid error")
-                }
+            XCTAssertThrowsCommandExecutionError(try execute(["--num-workers", "1"])) { error in
+                XCTAssertMatch(error.stderr, .contains("error: --num-workers must be used with --parallel"))
             }
         }
     }
@@ -56,12 +52,8 @@ final class TestToolTests: CommandsTestCase {
         try XCTSkipIf(true, "test is only supported on macOS")
         #endif
         try fixture(name: "Miscellaneous/EchoExecutable") { fixturePath in
-            XCTAssertThrowsError(try execute(["--parallel", "--num-workers", "0"])) { error in
-                if case SwiftPMProductError.executionFailure(_, _, let stderr) = error {
-                    XCTAssertMatch(stderr, .contains("error: '--num-workers' must be greater than zero"))
-                } else {
-                    XCTFail("invalid error")
-                }
+            XCTAssertThrowsCommandExecutionError(try execute(["--parallel", "--num-workers", "0"])) { error in
+                XCTAssertMatch(error.stderr, .contains("error: '--num-workers' must be greater than zero"))
             }
         }
     }
@@ -77,12 +69,8 @@ final class TestToolTests: CommandsTestCase {
 
         // disabled
         try fixture(name: "Miscellaneous/TestableExe") { fixturePath in
-            XCTAssertThrowsError(try execute(["--disable-testable-imports", "--vv"], packagePath: fixturePath)) { error in
-                if case SwiftPMProductError.executionFailure(_, _, let stderr) = error {
-                    XCTAssertMatch(stderr, .contains("was not compiled for testing"))
-                } else {
-                    XCTFail("invalid error")
-                }
+            XCTAssertThrowsCommandExecutionError( try execute(["--disable-testable-imports", "--vv"], packagePath: fixturePath)) { error in
+                XCTAssertMatch(error.stderr, .contains("was not compiled for testing"))
             }
         }
 
