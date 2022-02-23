@@ -322,7 +322,7 @@ extension LLBuildManifestBuilder {
     // Consider an example SwiftPM package with two targets: target B, and target A, where A
     // depends on B:
     // SwiftPM will process targets in a topological order and “bubble-up” each target’s
-    // inter-module dependency graph to its dependees. First, SwiftPM will process B, and be
+    // inter-module dependency graph to its dependencies. First, SwiftPM will process B, and be
     // able to plan its full build because it does not have any target dependencies. Then the
     // driver is tasked with planning a build for A. SwiftPM will pass as input to the driver
     // the module dependency graph of its target’s dependencies, in this case, just the
@@ -655,7 +655,7 @@ extension LLBuildManifestBuilder {
     }
 
     private func addModuleWrapCmd(_ target: SwiftTargetBuildDescription) throws {
-        // Add commands to perform the module wrapping Swift modules when debugging statergy is `modulewrap`.
+        // Add commands to perform the module wrapping Swift modules when debugging strategy is `modulewrap`.
         guard buildParameters.debuggingStrategy == .modulewrap else { return }
         var moduleWrapArgs = [
             target.buildParameters.toolchain.swiftCompiler.pathString,

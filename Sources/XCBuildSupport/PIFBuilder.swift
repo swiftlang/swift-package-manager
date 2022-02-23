@@ -1588,7 +1588,7 @@ extension PIF.PlatformFilter {
         .init(platform: "windows", environment: "gnu"),
     ]
 
-    /// Andriod platform filters.
+    /// Android platform filters.
     public static let androidFilters: [PIF.PlatformFilter] = [
         .init(platform: "linux", environment: "android"),
         .init(platform: "linux", environment: "androideabi"),

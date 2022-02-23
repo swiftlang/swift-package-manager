@@ -388,7 +388,7 @@ public final class ClangTargetBuildDescription {
         }
         args += buildParameters.sanitizers.compileCFlags()
 
-        // Add agruments from declared build settings.
+        // Add arguments from declared build settings.
         args += self.buildSettingsFlags()
 
         if let resourceAccessorHeaderFile = self.resourceAccessorHeaderFile {
@@ -1855,7 +1855,7 @@ public class BuildPlan {
 
                 // Based on the debugging strategy, we either need to pass swiftmodule paths to the
                 // product or link in the wrapped module object. This is required for properly debugging
-                // Swift products. Debugging statergy is computed based on the current platform we're
+                // Swift products. Debugging strategy is computed based on the current platform we're
                 // building for and is nil for the release configuration.
                 switch buildParameters.debuggingStrategy {
                 case .swiftAST:
@@ -1908,7 +1908,7 @@ public class BuildPlan {
         let nodes: [ResolvedTarget.Dependency] = product.targets.map { .target($0, conditions: []) }
         let allTargets = try topologicalSort(nodes, successors: { dependency in
             switch dependency {
-            // Include all the depenencies of a target.
+            // Include all the dependencies of a target.
             case .target(let target, _):
                 return target.dependencies.filter { $0.satisfies(self.buildEnvironment) }
 

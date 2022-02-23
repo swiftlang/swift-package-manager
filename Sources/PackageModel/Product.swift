@@ -104,9 +104,9 @@ public enum ProductType: Equatable, Hashable {
 
 /// The products requested of a package.
 ///
-/// Any product which matches the filter will be used for dependency resolution, whereas unrequested products will be ingored.
+/// Any product which matches the filter will be used for dependency resolution, whereas unrequested products will be ignored.
 ///
-/// Requested products need not actually exist in the package. Under certain circumstances, the resolver may request names whose package of origin are unknown. The intended package will recognize and fullfill the request; packages that do not know what it is will simply ignore it.
+/// Requested products need not actually exist in the package. Under certain circumstances, the resolver may request names whose package of origin are unknown. The intended package will recognize and fulfill the request; packages that do not know what it is will simply ignore it.
 public enum ProductFilter: Equatable, Hashable {
 
     /// All products, targets, and tests are requested.

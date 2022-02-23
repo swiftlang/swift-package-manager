@@ -606,7 +606,7 @@ private class ResolvedBuilder<T> {
 
     /// Construct the object with the accumulated data.
     ///
-    /// Note that once the object is constucted, future calls to
+    /// Note that once the object is constructed, future calls to
     /// this method will return the same object.
     final func construct() throws -> T {
         if let constructedObject = _constructedObject {

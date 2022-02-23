@@ -75,7 +75,7 @@ public struct PackageManager {
     }
     
     /// Represents an overall purpose of the build, which affects such things
-    /// asoptimization and generation of debug symbols.
+    /// as optimization and generation of debug symbols.
     public enum BuildConfiguration: String {
         case debug, release
     }

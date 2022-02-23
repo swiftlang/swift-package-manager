@@ -42,7 +42,7 @@ public final class ResolvedTarget {
             }
         }
 
-        /// Returns the direct dependencies of the underlying dependency, accross the package graph.
+        /// Returns the direct dependencies of the underlying dependency, across the package graph.
         public var dependencies: [ResolvedTarget.Dependency] {
             switch self {
             case .target(let target, _):
@@ -85,17 +85,17 @@ public final class ResolvedTarget {
         return dependencies.filter { $0.satisfies(environment) }
     }
 
-    /// Returns the recursive dependencies, accross the whole package-graph.
+    /// Returns the recursive dependencies, across the whole package-graph.
     public func recursiveDependencies() throws -> [Dependency] {
         return try topologicalSort(self.dependencies) { $0.dependencies }
     }
 
-    /// Returns the recursive target dependencies, accross the whole package-graph.
+    /// Returns the recursive target dependencies, across the whole package-graph.
     public func recursiveTargetDependencies() throws -> [ResolvedTarget] {
         return try topologicalSort(self.dependencies) { $0.dependencies }.compactMap { $0.target }
     }
 
-    /// Returns the recursive dependencies, accross the whole package-graph, which satisfy the input build environment,
+    /// Returns the recursive dependencies, across the whole package-graph, which satisfy the input build environment,
     /// based on their conditions.
     /// - Parameters:
     ///     - environment: The build environment to use to filter dependencies on.

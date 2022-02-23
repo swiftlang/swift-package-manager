@@ -242,7 +242,7 @@ public enum PIF {
         }
     }
 
-    /// Abstract base class for all items in the group hierarhcy.
+    /// Abstract base class for all items in the group hierarchy.
     public class Reference: TypedObject {
         /// Determines the base path for a reference's relative path.
         public enum SourceTree: String, Codable {
@@ -1103,7 +1103,7 @@ public enum PIF {
     }
 }
 
-/// Repesents a filetype recognized by the Xcode build system.
+/// Represents a filetype recognized by the Xcode build system.
 public struct XCBuildFileType: CaseIterable {
     public static let xcdatamodeld: XCBuildFileType = XCBuildFileType(
         fileType: "xcdatamodeld",

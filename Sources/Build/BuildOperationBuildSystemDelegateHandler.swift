@@ -764,10 +764,10 @@ fileprivate struct CommandTaskTracker {
     private func progressText(of command: SPMLLBuild.Command, targetName: String?) -> String {
         // Transforms descriptions like "Linking ./.build/x86_64-apple-macosx/debug/foo" into "Linking foo".
         if let firstSpaceIndex = command.description.firstIndex(of: " "),
-           let lastDirectorySeperatorIndex = command.description.lastIndex(of: "/")
+           let lastDirectorySeparatorIndex = command.description.lastIndex(of: "/")
         {
             let action = command.description[..<firstSpaceIndex]
-            let fileNameStartIndex = command.description.index(after: lastDirectorySeperatorIndex)
+            let fileNameStartIndex = command.description.index(after: lastDirectorySeparatorIndex)
             let fileName = command.description[fileNameStartIndex...]
 
             if let targetName = targetName {

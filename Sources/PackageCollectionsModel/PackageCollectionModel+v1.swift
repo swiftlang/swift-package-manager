@@ -383,7 +383,7 @@ extension PackageCollectionModel.V1.ProductType: Codable {
 // MARK: - Signed package collection
 
 extension PackageCollectionModel.V1 {
-    /// A  signed packge collection. The only difference between this and `Collection`
+    /// A  signed package collection. The only difference between this and `Collection`
     /// is the presence of `signature`.
     public struct SignedCollection: Equatable {
         /// The package collection

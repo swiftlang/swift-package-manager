@@ -128,7 +128,7 @@ public struct PkgConfig {
 }
 
 extension PkgConfig {
-    /// Informations to track circular dependencies and other PkgConfig issues
+    /// Information to track circular dependencies and other PkgConfig issues
     public class LoadingContext {
         public init() {
             pkgConfigStack = [String]()
@@ -218,8 +218,8 @@ internal struct PkgConfigParser {
 
     /// Parses `Requires: ` string into array of dependencies.
     ///
-    /// The dependency string has seperator which can be (multiple) space or a
-    /// comma.  Additionally each there can be an optional version constaint to
+    /// The dependency string has separator which can be (multiple) space or a
+    /// comma. Additionally each there can be an optional version constraint to
     /// a dependency.
     private func parseDependencies(_ depString: String) throws -> [String] {
         let operators = ["=", "<", ">", "<=", ">="]
@@ -237,7 +237,7 @@ internal struct PkgConfigParser {
             var tokens = [String]()
             var token = ""
             for (idx, char) in depString.enumerated() {
-                // Encountered a seperator, use the token.
+                // Encountered a separator, use the token.
                 if separators.contains(String(char)) {
                     // If next character is a space skip.
                     if let peeked = peek(idx: idx+1), peeked == " " { continue }
