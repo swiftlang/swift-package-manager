@@ -1064,8 +1064,7 @@ extension SwiftPackageTool {
             // Run the command plugin.
             let buildEnvironment = try swiftTool.buildParameters().buildEnvironment
             let _ = try tsc_await { plugin.invoke(
-                action: .performCommand(arguments: arguments),
-                package: package,
+                action: .performCommand(package: package, arguments: arguments),
                 buildEnvironment: buildEnvironment,
                 scriptRunner: pluginScriptRunner,
                 workingDirectory: swiftTool.originalWorkingDirectory,
