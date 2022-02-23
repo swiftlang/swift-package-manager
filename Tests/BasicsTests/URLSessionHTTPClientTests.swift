@@ -280,7 +280,7 @@ final class URLSessionHTTPClientTest: XCTestCase {
         try XCTSkipIf(true, "test is only supported on macOS")
         #endif
         let netrcContent = "machine protected.downloader-tests.com login anonymous password qwerty"
-        let netrc = try NetrcWrapper(underlying: NetrcParser.parse(netrcContent))
+        let netrc = try NetrcAuthorizationWrapper(underlying: NetrcParser.parse(netrcContent))
         let authData = "anonymous:qwerty".data(using: .utf8)!
         let testAuthHeader = "Basic \(authData.base64EncodedString())"
 
@@ -349,7 +349,7 @@ final class URLSessionHTTPClientTest: XCTestCase {
         try XCTSkipIf(true, "test is only supported on macOS")
         #endif
         let netrcContent = "default login default password default"
-        let netrc = try NetrcWrapper(underlying: NetrcParser.parse(netrcContent))
+        let netrc = try NetrcAuthorizationWrapper(underlying: NetrcParser.parse(netrcContent))
         let authData = "default:default".data(using: .utf8)!
         let testAuthHeader = "Basic \(authData.base64EncodedString())"
 
@@ -809,11 +809,10 @@ class FailingFileSystem: FileSystem {
     }
 }
 
-
-struct NetrcWrapper: AuthorizationProvider {
-    let underlying : Netrc
+fileprivate struct NetrcAuthorizationWrapper: AuthorizationProvider {
+    let underlying: Netrc
 
     func authentication(for url: URL) -> (user: String, password: String)? {
-        self.underlying.authorization(for: url).map { (user: $0.login, password: $0.password) }
+        self.underlying.authorization(for: url).map{ (user: $0.login, password: $0.password) }
     }
 }
