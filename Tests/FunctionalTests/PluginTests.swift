@@ -25,17 +25,11 @@ class PluginTests: XCTestCase {
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
 
         try fixture(name: "Miscellaneous/Plugins") { fixturePath in
-            do {
-                let (stdout, _) = try executeSwiftBuild(fixturePath.appending(component: "MySourceGenPlugin"), configuration: .Debug, extraArgs: ["--product", "MyLocalTool"])
-                XCTAssert(stdout.contains("Linking MySourceGenBuildTool"), "stdout:\n\(stdout)")
-                XCTAssert(stdout.contains("Generating foo.swift from foo.dat"), "stdout:\n\(stdout)")
-                XCTAssert(stdout.contains("Linking MyLocalTool"), "stdout:\n\(stdout)")
-                XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
-            }
-            catch {
-                print(error)
-                throw error
-            }
+            let (stdout, _) = try executeSwiftBuild(fixturePath.appending(component: "MySourceGenPlugin"), configuration: .Debug, extraArgs: ["--product", "MyLocalTool"])
+            XCTAssert(stdout.contains("Linking MySourceGenBuildTool"), "stdout:\n\(stdout)")
+            XCTAssert(stdout.contains("Generating foo.swift from foo.dat"), "stdout:\n\(stdout)")
+            XCTAssert(stdout.contains("Linking MyLocalTool"), "stdout:\n\(stdout)")
+            XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
         }
     }
 
@@ -44,17 +38,11 @@ class PluginTests: XCTestCase {
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
 
         try fixture(name: "Miscellaneous/Plugins") { fixturePath in
-            do {
-                let (stdout, _) = try executeSwiftBuild(fixturePath.appending(component: "MySourceGenClient"), configuration: .Debug, extraArgs: ["--product", "MyTool"])
-                XCTAssert(stdout.contains("Linking MySourceGenBuildTool"), "stdout:\n\(stdout)")
-                XCTAssert(stdout.contains("Generating foo.swift from foo.dat"), "stdout:\n\(stdout)")
-                XCTAssert(stdout.contains("Linking MyTool"), "stdout:\n\(stdout)")
-                XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
-            }
-            catch {
-                print(error)
-                throw error
-            }
+            let (stdout, _) = try executeSwiftBuild(fixturePath.appending(component: "MySourceGenClient"), configuration: .Debug, extraArgs: ["--product", "MyTool"])
+            XCTAssert(stdout.contains("Linking MySourceGenBuildTool"), "stdout:\n\(stdout)")
+            XCTAssert(stdout.contains("Generating foo.swift from foo.dat"), "stdout:\n\(stdout)")
+            XCTAssert(stdout.contains("Linking MyTool"), "stdout:\n\(stdout)")
+            XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
         }
     }
 
@@ -63,17 +51,11 @@ class PluginTests: XCTestCase {
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
 
         try fixture(name: "Miscellaneous/Plugins") { fixturePath in
-            do {
-                let (stdout, _) = try executeSwiftBuild(fixturePath.appending(component: "MySourceGenPlugin"), configuration: .Debug, extraArgs: ["--product", "MyOtherLocalTool"])
-                XCTAssert(stdout.contains("Compiling MyOtherLocalTool bar.swift"), "stdout:\n\(stdout)")
-                XCTAssert(stdout.contains("Compiling MyOtherLocalTool baz.swift"), "stdout:\n\(stdout)")
-                XCTAssert(stdout.contains("Linking MyOtherLocalTool"), "stdout:\n\(stdout)")
-                XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
-            }
-            catch {
-                print(error)
-                throw error
-            }
+            let (stdout, _) = try executeSwiftBuild(fixturePath.appending(component: "MySourceGenPlugin"), configuration: .Debug, extraArgs: ["--product", "MyOtherLocalTool"])
+            XCTAssert(stdout.contains("Compiling MyOtherLocalTool bar.swift"), "stdout:\n\(stdout)")
+            XCTAssert(stdout.contains("Compiling MyOtherLocalTool baz.swift"), "stdout:\n\(stdout)")
+            XCTAssert(stdout.contains("Linking MyOtherLocalTool"), "stdout:\n\(stdout)")
+            XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
         }
     }
 
@@ -110,17 +92,11 @@ class PluginTests: XCTestCase {
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
 
         try fixture(name: "Miscellaneous/Plugins") { fixturePath in
-            do {
-                let (stdout, _) = try executeSwiftBuild(fixturePath.appending(component: "ContrivedTestPlugin"), configuration: .Debug, extraArgs: ["--product", "MyLocalTool"])
-                XCTAssert(stdout.contains("Linking MySourceGenBuildTool"), "stdout:\n\(stdout)")
-                XCTAssert(stdout.contains("Generating foo.swift from foo.dat"), "stdout:\n\(stdout)")
-                XCTAssert(stdout.contains("Linking MyLocalTool"), "stdout:\n\(stdout)")
-                XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
-            }
-            catch {
-                print(error)
-                throw error
-            }
+            let (stdout, _) = try executeSwiftBuild(fixturePath.appending(component: "ContrivedTestPlugin"), configuration: .Debug, extraArgs: ["--product", "MyLocalTool"])
+            XCTAssert(stdout.contains("Linking MySourceGenBuildTool"), "stdout:\n\(stdout)")
+            XCTAssert(stdout.contains("Generating foo.swift from foo.dat"), "stdout:\n\(stdout)")
+            XCTAssert(stdout.contains("Linking MyLocalTool"), "stdout:\n\(stdout)")
+            XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
         }
     }
 
@@ -131,15 +107,9 @@ class PluginTests: XCTestCase {
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
         try fixture(name: "Miscellaneous/Plugins") { fixturePath in
-            do {
-                let (stdout, _) = try executeSwiftBuild(fixturePath.appending(component: "SandboxTesterPlugin"), configuration: .Debug, extraArgs: ["--product", "MyLocalTool"])
-                XCTAssert(stdout.contains("Linking MyLocalTool"), "stdout:\n\(stdout)")
-                XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
-            }
-            catch {
-                print(error)
-                throw error
-            }
+            let (stdout, _) = try executeSwiftBuild(fixturePath.appending(component: "SandboxTesterPlugin"), configuration: .Debug, extraArgs: ["--product", "MyLocalTool"])
+            XCTAssert(stdout.contains("Linking MyLocalTool"), "stdout:\n\(stdout)")
+            XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
         }
     }
 
@@ -150,15 +120,9 @@ class PluginTests: XCTestCase {
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
         try fixture(name: "Miscellaneous/Plugins") { fixturePath in
-            do {
-                let (stdout, _) = try executeSwiftBuild(fixturePath.appending(component: "MyBinaryToolPlugin"), configuration: .Debug, extraArgs: ["--product", "MyLocalTool"])
-                XCTAssert(stdout.contains("Linking MyLocalTool"), "stdout:\n\(stdout)")
-                XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
-            }
-            catch {
-                print(error)
-                throw error
-            }
+            let (stdout, _) = try executeSwiftBuild(fixturePath.appending(component: "MyBinaryToolPlugin"), configuration: .Debug, extraArgs: ["--product", "MyLocalTool"])
+            XCTAssert(stdout.contains("Linking MyLocalTool"), "stdout:\n\(stdout)")
+            XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
         }
     }
     
@@ -172,7 +136,8 @@ class PluginTests: XCTestCase {
             let packageDir = tmpPath.appending(components: "MyPackage")
             let manifestFile = packageDir.appending(component: "Package.swift")
             try localFileSystem.createDirectory(manifestFile.parentDirectory, recursive: true)
-            try localFileSystem.writeFileContents(manifestFile, string: """
+            try localFileSystem.writeFileContents(manifestFile) {
+                """
                 // swift-tools-version: 5.6
                 import PackageDescription
                 let package = Package(
@@ -214,15 +179,19 @@ class PluginTests: XCTestCase {
                         ),
                     ]
                 )
-                """)
+                """
+            }
             let librarySourceFile = packageDir.appending(components: "Sources", "MyLibrary", "library.swift")
             try localFileSystem.createDirectory(librarySourceFile.parentDirectory, recursive: true)
-            try localFileSystem.writeFileContents(librarySourceFile, string: """
+            try localFileSystem.writeFileContents(librarySourceFile) {
+                """
                 public func Foo() { }
-                """)
+                """
+            }
             let printingPluginSourceFile = packageDir.appending(components: "Plugins", "PluginPrintingInfo", "plugin.swift")
             try localFileSystem.createDirectory(printingPluginSourceFile.parentDirectory, recursive: true)
-            try localFileSystem.writeFileContents(printingPluginSourceFile, string: """
+            try localFileSystem.writeFileContents(printingPluginSourceFile) {
+                """
                 import PackagePlugin
                 @main struct MyCommandPlugin: CommandPlugin {
                     func performCommand(
@@ -237,10 +206,12 @@ class PluginTests: XCTestCase {
                         print("Found the swiftc tool at \\(swiftc.path).")
                     }
                 }
-                """)
+                """
+            }
             let pluginFailingWithErrorSourceFile = packageDir.appending(components: "Plugins", "PluginFailingWithError", "plugin.swift")
             try localFileSystem.createDirectory(pluginFailingWithErrorSourceFile.parentDirectory, recursive: true)
-            try localFileSystem.writeFileContents(pluginFailingWithErrorSourceFile, string: """
+            try localFileSystem.writeFileContents(pluginFailingWithErrorSourceFile) {
+                """
                 import PackagePlugin
                 @main struct MyCommandPlugin: CommandPlugin {
                     func performCommand(
@@ -255,10 +226,12 @@ class PluginTests: XCTestCase {
                     }
                 }
                 extension String: Error { }
-                """)
+                """
+            }
             let pluginFailingWithoutErrorSourceFile = packageDir.appending(components: "Plugins", "PluginFailingWithoutError", "plugin.swift")
             try localFileSystem.createDirectory(pluginFailingWithoutErrorSourceFile.parentDirectory, recursive: true)
-            try localFileSystem.writeFileContents(pluginFailingWithoutErrorSourceFile, string: """
+            try localFileSystem.writeFileContents(pluginFailingWithoutErrorSourceFile) {
+                """
                 import PackagePlugin
                 import Foundation
                 @main struct MyCommandPlugin: CommandPlugin {
@@ -274,10 +247,12 @@ class PluginTests: XCTestCase {
                     }
                 }
                 extension String: Error { }
-                """)
+                """
+            }
             let neverendingPluginSourceFile = packageDir.appending(components: "Plugins", "NeverendingPlugin", "plugin.swift")
             try localFileSystem.createDirectory(neverendingPluginSourceFile.parentDirectory, recursive: true)
-            try localFileSystem.writeFileContents(neverendingPluginSourceFile, string: """
+            try localFileSystem.writeFileContents(neverendingPluginSourceFile) {
+                """
                 import PackagePlugin
                 import Foundation
                 @main struct MyCommandPlugin: CommandPlugin {
@@ -293,11 +268,14 @@ class PluginTests: XCTestCase {
                     }
                 }
                 extension String: Error { }
-                """)
+                """
+            }
 
             // Create the sample vendored dependency package.
-            try localFileSystem.writeFileContents(packageDir.appending(components: "VendoredDependencies", "HelperPackage", "Package.swift")) {
-                $0 <<< """
+            let library1Path = packageDir.appending(components: "VendoredDependencies", "HelperPackage", "Package.swift")
+            try localFileSystem.createDirectory(library1Path.parentDirectory, recursive: true)
+            try localFileSystem.writeFileContents(library1Path) {
+                """
                 // swift-tools-version: 5.5
                 import PackageDescription
                 let package = Package(
@@ -316,9 +294,12 @@ class PluginTests: XCTestCase {
                 )
                 """
             }
-            try localFileSystem.writeFileContents(packageDir.appending(components: "VendoredDependencies", "HelperPackage", "Sources", "HelperLibrary", "library.swift")) {
-                $0 <<< """
-                    public func Bar() { }
+
+            let library2Path = packageDir.appending(components: "VendoredDependencies", "HelperPackage", "Sources", "HelperLibrary", "library.swift")
+            try localFileSystem.createDirectory(library2Path.parentDirectory, recursive: true)
+            try localFileSystem.writeFileContents(library2Path) {
+                """
+                public func Bar() { }
                 """
             }
 
@@ -492,7 +473,8 @@ class PluginTests: XCTestCase {
             // Create a sample package with a couple of plugins a other targets and products.
             let packageDir = tmpPath.appending(components: "MyPackage")
             try localFileSystem.createDirectory(packageDir, recursive: true)
-            try localFileSystem.writeFileContents(packageDir.appending(components: "Package.swift"), string: """
+            try localFileSystem.writeFileContents(packageDir.appending(components: "Package.swift")) {
+                """
                 // swift-tools-version: 5.6
                 import PackageDescription
                 let package = Package(
@@ -516,16 +498,18 @@ class PluginTests: XCTestCase {
                     ]
                 )
                 """
-            )
+            }
             let myLibraryTargetDir = packageDir.appending(components: "Sources", "MyLibrary")
             try localFileSystem.createDirectory(myLibraryTargetDir, recursive: true)
-            try localFileSystem.writeFileContents(myLibraryTargetDir.appending(component: "library.swift"), string: """
+            try localFileSystem.writeFileContents(myLibraryTargetDir.appending(component: "library.swift")) {
+                """
                 public func GetGreeting() -> String { return "Hello" }
                 """
-            )
+            }
             let neverendingPluginTargetDir = packageDir.appending(components: "Plugins", "NeverendingPlugin")
             try localFileSystem.createDirectory(neverendingPluginTargetDir, recursive: true)
-            try localFileSystem.writeFileContents(neverendingPluginTargetDir.appending(component: "plugin.swift"), string: """
+            try localFileSystem.writeFileContents(neverendingPluginTargetDir.appending(component: "plugin.swift")) {
+                """
                 import PackagePlugin
                 import Foundation
                 @main struct NeverendingPlugin: CommandPlugin {
@@ -541,7 +525,7 @@ class PluginTests: XCTestCase {
                     }
                 }
                 """
-            )
+            }
 
             // Load a workspace from the package.
             let observability = ObservabilitySystem.makeForTesting()
@@ -687,7 +671,8 @@ class PluginTests: XCTestCase {
             // Create a sample package that uses three packages that vend plugins.
             let packageDir = tmpPath.appending(components: "MyPackage")
             try localFileSystem.createDirectory(packageDir, recursive: true)
-            try localFileSystem.writeFileContents(packageDir.appending(component: "Package.swift"), string: """
+            try localFileSystem.writeFileContents(packageDir.appending(component: "Package.swift")) {
+                """
                 // swift-tools-version: 5.6
                 import PackageDescription
                 let package = Package(
@@ -707,15 +692,19 @@ class PluginTests: XCTestCase {
                         ),
                     ]
                 )
-                """)
-            try localFileSystem.writeFileContents(packageDir.appending(component: "Library.swift"), string: """
+                """
+            }
+            try localFileSystem.writeFileContents(packageDir.appending(component: "Library.swift")) {
+                """
                 public var Foo: String
-                """)
+                """
+            }
 
             // Create the depended-upon package that vends a build tool plugin that is used by the main package.
             let buildToolPluginPackageDir = packageDir.appending(components: "VendoredDependencies", "BuildToolPluginPackage")
             try localFileSystem.createDirectory(buildToolPluginPackageDir, recursive: true)
-            try localFileSystem.writeFileContents(buildToolPluginPackageDir.appending(component: "Package.swift"), string: """
+            try localFileSystem.writeFileContents(buildToolPluginPackageDir.appending(component: "Package.swift")) {
+                """
                 // swift-tools-version: 5.6
                 import PackageDescription
                 let package = Package(
@@ -732,20 +721,24 @@ class PluginTests: XCTestCase {
                             path: ".")
                     ]
                 )
-                """)
-            try localFileSystem.writeFileContents(buildToolPluginPackageDir.appending(component: "Plugin.swift"), string: """
+                """
+            }
+            try localFileSystem.writeFileContents(buildToolPluginPackageDir.appending(component: "Plugin.swift")) {
+                """
                 import PackagePlugin
                 @main struct MyPlugin: BuildToolPlugin {
                     func createBuildCommands(context: PluginContext, target: Target) throws -> [Command] {
                         return []
                     }
                 }
-                """)
+                """
+            }
 
             // Create the depended-upon package that vends a build tool plugin that is not used by the main package.
             let unusedBuildToolPluginPackageDir = packageDir.appending(components: "VendoredDependencies", "UnusedBuildToolPluginPackage")
             try localFileSystem.createDirectory(unusedBuildToolPluginPackageDir, recursive: true)
-            try localFileSystem.writeFileContents(unusedBuildToolPluginPackageDir.appending(component: "Package.swift"), string: """
+            try localFileSystem.writeFileContents(unusedBuildToolPluginPackageDir.appending(component: "Package.swift")) {
+                """
                 // swift-tools-version: 5.6
                 import PackageDescription
                 let package = Package(
@@ -762,20 +755,24 @@ class PluginTests: XCTestCase {
                             path: ".")
                     ]
                 )
-                """)
-            try localFileSystem.writeFileContents(unusedBuildToolPluginPackageDir.appending(component: "Plugin.swift"), string: """
+                """
+            }
+            try localFileSystem.writeFileContents(unusedBuildToolPluginPackageDir.appending(component: "Plugin.swift")) {
+                """
                 import PackagePlugin
                 @main struct MyPlugin: BuildToolPlugin {
                     func createBuildCommands(context: PluginContext, target: Target) throws -> [Command] {
                         return []
                     }
                 }
-                """)
+                """
+            }
 
             // Create the depended-upon package that vends a command plugin.
             let commandPluginPackageDir = packageDir.appending(components: "VendoredDependencies", "CommandPluginPackage")
             try localFileSystem.createDirectory(commandPluginPackageDir, recursive: true)
-            try localFileSystem.writeFileContents(commandPluginPackageDir.appending(component: "Package.swift"), string: """
+            try localFileSystem.writeFileContents(commandPluginPackageDir.appending(component: "Package.swift")) {
+                """
                 // swift-tools-version: 5.6
                 import PackageDescription
                 let package = Package(
@@ -792,14 +789,17 @@ class PluginTests: XCTestCase {
                             path: ".")
                     ]
                 )
-                """)
-            try localFileSystem.writeFileContents(commandPluginPackageDir.appending(component: "Plugin.swift"), string: """
+                """
+            }
+            try localFileSystem.writeFileContents(commandPluginPackageDir.appending(component: "Plugin.swift")) {
+                """
                 import PackagePlugin
                 @main struct MyPlugin: CommandPlugin {
                     func performCommand(context: PluginContext, targets: [Target], arguments: [String]) throws {
                     }
                 }
-                """)
+                """
+            }
 
             // Load a workspace from the package.
             let observability = ObservabilitySystem.makeForTesting()
