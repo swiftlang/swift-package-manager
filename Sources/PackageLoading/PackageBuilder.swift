@@ -1434,6 +1434,18 @@ extension Sources {
     }
 }
 
+extension Target.Dependency {
+    fileprivate var nameAndType: String {
+        switch self {
+            case .target:
+                return "target-\(name)"
+            case .product:
+                return "product-\(name)"
+        }
+    }
+}
+
+
 // MARK: - Snippets
 
 extension PackageBuilder {
@@ -1467,17 +1479,5 @@ extension PackageBuilder {
                                    swiftVersion: try swiftVersion(),
                                    buildSettings: buildSettings)
             }
-    }
-}
-
-private extension Target.Dependency {
-    
-    var nameAndType: String {
-        switch self {
-            case .target:
-                return "target-\(name)"
-            case .product:
-                return "product-\(name)"
-        }
     }
 }

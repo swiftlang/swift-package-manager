@@ -1784,13 +1784,13 @@ class PIFBuilderTests: XCTestCase {
                     targets: [
                         .init(name: "foo", resources: [
                             // This is intentionally specific to test that we pick up `.xcdatamodel` implicitly.
-                            .init(rule: .process, path: "Resources/Data.plist")
+                            .init(rule: .process(localization: .none), path: "Resources/Data.plist")
                         ]),
                         .init(name: "FooLib", resources: [
-                            .init(rule: .process, path: "Resources")
+                            .init(rule: .process(localization: .none), path: "Resources")
                         ]),
                         .init(name: "FooTests", resources: [
-                            .init(rule: .process, path: "Resources")
+                            .init(rule: .process(localization: .none), path: "Resources")
                         ], type: .test),
                     ]),
             ],

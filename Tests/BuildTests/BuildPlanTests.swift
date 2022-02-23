@@ -3251,7 +3251,7 @@ final class BuildPlanTests: XCTestCase {
                             name: "Foo",
                             resources: [
                                 .init(rule: .copy, path: "foo.txt"),
-                                .init(rule: .process, path: "bar.txt"),
+                                .init(rule: .process(localization: .none), path: "bar.txt"),
                             ]
                         ),
                         TargetDescription(
@@ -3315,7 +3315,7 @@ final class BuildPlanTests: XCTestCase {
                             name: "Foo",
                             resources: [
                                 .init(rule: .copy, path: "foo.txt"),
-                                .init(rule: .process, path: "bar.txt"),
+                                .init(rule: .process(localization: .none), path: "bar.txt"),
                             ]
                         ),
                         TargetDescription(
