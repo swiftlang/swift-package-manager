@@ -2716,38 +2716,34 @@ final class BuildPlanTests: XCTestCase {
                 try TargetDescription(
                     name: "cbar",
                     settings: [
-                    .init(tool: .c, name: .headerSearchPath, value: ["Sources/headers"]),
-                    .init(tool: .cxx, name: .headerSearchPath, value: ["Sources/cppheaders"]),
-
-                    .init(tool: .c, name: .define, value: ["CCC=2"]),
-                    .init(tool: .cxx, name: .define, value: ["RCXX"], condition: .init(config: "release")),
-
-                    .init(tool: .linker, name: .linkedFramework, value: ["best"]),
-
-                    .init(tool: .c, name: .unsafeFlags, value: ["-Icfoo", "-L", "cbar"]),
-                    .init(tool: .cxx, name: .unsafeFlags, value: ["-Icxxfoo", "-L", "cxxbar"]),
+                        .init(tool: .c, kind: .headerSearchPath("Sources/headers")),
+                        .init(tool: .cxx, kind: .headerSearchPath("Sources/cppheaders")),
+                        .init(tool: .c, kind: .define("CCC=2")),
+                        .init(tool: .cxx, kind: .define("RCXX"), condition: .init(config: "release")),
+                        .init(tool: .linker, kind: .linkedFramework("best")),
+                        .init(tool: .c, kind: .unsafeFlags(["-Icfoo", "-L", "cbar"])),
+                        .init(tool: .cxx, kind: .unsafeFlags(["-Icxxfoo", "-L", "cxxbar"])),
                     ]
                 ),
                 try TargetDescription(
                     name: "bar", dependencies: ["cbar", "Dep"],
                     settings: [
-                    .init(tool: .swift, name: .define, value: ["LINUX"], condition: .init(platformNames: ["linux"])),
-                    .init(tool: .swift, name: .define, value: ["RLINUX"], condition: .init(platformNames: ["linux"], config: "release")),
-                    .init(tool: .swift, name: .define, value: ["DMACOS"], condition: .init(platformNames: ["macos"], config: "debug")),
-                    .init(tool: .swift, name: .unsafeFlags, value: ["-Isfoo", "-L", "sbar"]),
+                        .init(tool: .swift, kind: .define("LINUX"), condition: .init(platformNames: ["linux"])),
+                        .init(tool: .swift, kind: .define("RLINUX"), condition: .init(platformNames: ["linux"], config: "release")),
+                        .init(tool: .swift, kind: .define("DMACOS"), condition: .init(platformNames: ["macos"], config: "debug")),
+                        .init(tool: .swift, kind: .unsafeFlags(["-Isfoo", "-L", "sbar"])),
                     ]
                 ),
                 try TargetDescription(
                     name: "exe", dependencies: ["bar"],
                     settings: [
-                    .init(tool: .swift, name: .define, value: ["FOO"]),
-                    .init(tool: .linker, name: .linkedLibrary, value: ["sqlite3"]),
-                    .init(tool: .linker, name: .linkedFramework, value: ["CoreData"], condition: .init(platformNames: ["macos"])),
-                    .init(tool: .linker, name: .unsafeFlags, value: ["-Ilfoo", "-L", "lbar"]),
+                        .init(tool: .swift, kind: .define("FOO")),
+                        .init(tool: .linker, kind: .linkedLibrary("sqlite3")),
+                        .init(tool: .linker, kind: .linkedFramework("CoreData"), condition: .init(platformNames: ["macos"])),
+                        .init(tool: .linker, kind: .unsafeFlags(["-Ilfoo", "-L", "lbar"])),
                     ]
                 ),
             ]
-
         )
 
         let bManifest = Manifest.createFileSystemManifest(
@@ -2761,14 +2757,14 @@ final class BuildPlanTests: XCTestCase {
                 try TargetDescription(
                     name: "t1",
                     settings: [
-                        .init(tool: .swift, name: .define, value: ["DEP"]),
-                        .init(tool: .linker, name: .linkedLibrary, value: ["libz"]),
+                        .init(tool: .swift, kind: .define("DEP")),
+                        .init(tool: .linker, kind: .linkedLibrary("libz")),
                     ]
                 ),
                 try TargetDescription(
                     name: "t2",
                     settings: [
-                        .init(tool: .linker, name: .linkedLibrary, value: ["libz"]),
+                        .init(tool: .linker, kind: .linkedLibrary("libz")),
                     ]
                 ),
             ])

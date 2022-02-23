@@ -1440,16 +1440,16 @@ private extension BuildSettings.AssignmentTable {
                 switch declaration {
                 case .LINK_LIBRARIES:
                     setting = .OTHER_LDFLAGS
-                    value = assignment.value.map { "-l\($0)" }
+                    value = assignment.values.map { "-l\($0)" }
                 case .LINK_FRAMEWORKS:
                     setting = .OTHER_LDFLAGS
-                    value = assignment.value.flatMap { ["-framework", $0] }
+                    value = assignment.values.flatMap { ["-framework", $0] }
                 default:
                     guard let parsedSetting = PIF.BuildSettings.MultipleValueSetting(rawValue: declaration.name) else {
                         continue
                     }
                     setting = parsedSetting
-                    value = assignment.value
+                    value = assignment.values
                 }
 
                 let pifAssignment = PIFBuildSettingAssignment(

@@ -632,7 +632,7 @@ public func xcodeProject(
                     }
                 }
                 let config = assignment.conditions.compactMap { $0 as? ConfigurationCondition }.first?.configuration
-                try appendSetting(assignment.value, forDecl: decl, to: xcodeTarget.buildSettings, config: config)
+                try appendSetting(assignment.values, forDecl: decl, to: xcodeTarget.buildSettings, config: config)
             }
         }
     }

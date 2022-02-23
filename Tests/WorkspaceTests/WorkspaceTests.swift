@@ -4390,7 +4390,7 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Bar",
                     targets: [
-                        MockTarget(name: "Bar", settings: [.init(tool: .swift, name: .unsafeFlags, value: ["-F", "/tmp"])]),
+                        MockTarget(name: "Bar", settings: [.init(tool: .swift, kind: .unsafeFlags(["-F", "/tmp"]))]),
                     ],
                     products: [
                         MockProduct(name: "Bar", targets: ["Bar"]),
@@ -4413,7 +4413,7 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Bar",
                     targets: [
-                        MockTarget(name: "Bar", settings: [.init(tool: .swift, name: .unsafeFlags, value: ["-F", "/tmp"])]),
+                        MockTarget(name: "Bar", settings: [.init(tool: .swift, kind: .unsafeFlags(["-F", "/tmp"]))]),
                     ],
                     products: [
                         MockProduct(name: "Bar", targets: ["Bar"]),
@@ -4423,7 +4423,7 @@ final class WorkspaceTests: XCTestCase {
                 MockPackage(
                     name: "Baz",
                     targets: [
-                        MockTarget(name: "Baz", dependencies: ["Bar"], settings: [.init(tool: .swift, name: .unsafeFlags, value: ["-F", "/tmp"])]),
+                        MockTarget(name: "Baz", dependencies: ["Bar"], settings: [.init(tool: .swift, kind: .unsafeFlags(["-F", "/tmp"]))]),
                     ],
                     products: [
                         MockProduct(name: "Baz", targets: ["Baz"]),

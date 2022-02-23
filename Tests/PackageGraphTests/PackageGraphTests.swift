@@ -1036,15 +1036,15 @@ class PackageGraphTests: XCTestCase {
                         TargetDescription(
                             name: "Bar",
                             settings: [
-                                .init(tool: .swift, name: .unsafeFlags, value: ["-Icfoo", "-L", "cbar"]),
-                                .init(tool: .c, name: .unsafeFlags, value: ["-Icfoo", "-L", "cbar"]),
+                                .init(tool: .swift, kind: .unsafeFlags(["-Icfoo", "-L", "cbar"])),
+                                .init(tool: .c, kind: .unsafeFlags(["-Icfoo", "-L", "cbar"])),
                             ]
                         ),
                         TargetDescription(
                             name: "Bar2",
                             settings: [
-                                .init(tool: .swift, name: .unsafeFlags, value: ["-Icfoo", "-L", "cbar"]),
-                                .init(tool: .c, name: .unsafeFlags, value: ["-Icfoo", "-L", "cbar"]),
+                                .init(tool: .swift, kind: .unsafeFlags(["-Icfoo", "-L", "cbar"])),
+                                .init(tool: .c, kind: .unsafeFlags(["-Icfoo", "-L", "cbar"])),
                             ]
                         ),
                         TargetDescription(

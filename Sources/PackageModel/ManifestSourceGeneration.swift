@@ -458,17 +458,15 @@ fileprivate extension SourceCodeFragment {
     init(from setting: TargetBuildSettingDescription.Setting) {
         var params: [SourceCodeFragment] = []
 
-        switch setting.name {
-        case .headerSearchPath, .linkedLibrary, .linkedFramework:
-            assert(setting.value.count == 1)
-            params.append(SourceCodeFragment(string: setting.value[0]))
+        switch setting.kind {
+        case .headerSearchPath(let value), .linkedLibrary(let value), .linkedFramework(let value):
+            params.append(SourceCodeFragment(string: value))
             if let condition = setting.condition {
                 params.append(SourceCodeFragment(from: condition))
             }
-            self.init(enum: setting.name.rawValue, subnodes: params)
-        case .define:
-            assert(setting.value.count == 1)
-            let parts = setting.value[0].split(separator: "=", maxSplits: 1)
+            self.init(enum: setting.kind.name, subnodes: params)
+        case .define(let value):
+            let parts = value.split(separator: "=", maxSplits: 1)
             assert(parts.count == 1 || parts.count == 2)
             params.append(SourceCodeFragment(string: String(parts[0])))
             if parts.count == 2 {
@@ -477,13 +475,13 @@ fileprivate extension SourceCodeFragment {
             if let condition = setting.condition {
                 params.append(SourceCodeFragment(from: condition))
             }
-            self.init(enum: setting.name.rawValue, subnodes: params)
-        case .unsafeFlags:
-            params.append(SourceCodeFragment(strings: setting.value))
+            self.init(enum: setting.kind.name, subnodes: params)
+        case .unsafeFlags(let values):
+            params.append(SourceCodeFragment(strings: values))
             if let condition = setting.condition {
                 params.append(SourceCodeFragment(from: condition))
             }
-            self.init(enum: setting.name.rawValue, subnodes: params)
+            self.init(enum: setting.kind.name, subnodes: params)
         }
     }
 }
@@ -617,10 +615,25 @@ public struct SourceCodeFragment {
     }
 }
 
+extension TargetBuildSettingDescription.Kind {
+    fileprivate var name: String {
+        switch self {
+        case .headerSearchPath:
+            return "headerSearchPath"
+        case .define:
+            return "define"
+        case .linkedLibrary:
+            return "linkedLibrary"
+        case .linkedFramework:
+            return "linkedFramework"
+        case .unsafeFlags:
+            return "unsafeFlags"
+        }
+    }
+}
 
-fileprivate extension String {
-    
-    var quotedForPackageManifest: String {
+extension String {
+    fileprivate var quotedForPackageManifest: String {
         return "\"" + self
             .replacingOccurrences(of: "\\", with: "\\\\")
             .replacingOccurrences(of: "\"", with: "\\\"")

@@ -1961,33 +1961,33 @@ class PackageBuilderTests: XCTestCase {
                 try TargetDescription(
                     name: "cbar",
                     settings: [
-                        .init(tool: .c, name: .headerSearchPath, value: ["Sources/headers"]),
-                        .init(tool: .cxx, name: .headerSearchPath, value: ["Sources/cppheaders"]),
+                        .init(tool: .c, kind: .headerSearchPath("Sources/headers")),
+                        .init(tool: .cxx, kind: .headerSearchPath("Sources/cppheaders")),
 
-                        .init(tool: .c, name: .define, value: ["CCC=2"]),
-                        .init(tool: .cxx, name: .define, value: ["CXX"]),
-                        .init(tool: .cxx, name: .define, value: ["RCXX"], condition: .init(config: "release")),
+                        .init(tool: .c, kind: .define("CCC=2")),
+                        .init(tool: .cxx, kind: .define("CXX")),
+                        .init(tool: .cxx, kind: .define("RCXX"), condition: .init(config: "release")),
 
-                        .init(tool: .c, name: .unsafeFlags, value: ["-Icfoo", "-L", "cbar"]),
-                        .init(tool: .cxx, name: .unsafeFlags, value: ["-Icxxfoo", "-L", "cxxbar"]),
+                        .init(tool: .c, kind: .unsafeFlags(["-Icfoo", "-L", "cbar"])),
+                        .init(tool: .cxx, kind: .unsafeFlags(["-Icxxfoo", "-L", "cxxbar"])),
                     ]
                 ),
                 try TargetDescription(
                     name: "bar", dependencies: ["foo"],
                     settings: [
-                        .init(tool: .swift, name: .define, value: ["SOMETHING"]),
-                        .init(tool: .swift, name: .define, value: ["LINUX"], condition: .init(platformNames: ["linux"])),
-                        .init(tool: .swift, name: .define, value: ["RLINUX"], condition: .init(platformNames: ["linux"], config: "release")),
-                        .init(tool: .swift, name: .define, value: ["DMACOS"], condition: .init(platformNames: ["macos"], config: "debug")),
-                        .init(tool: .swift, name: .unsafeFlags, value: ["-Isfoo", "-L", "sbar"]),
+                        .init(tool: .swift, kind: .define("SOMETHING")),
+                        .init(tool: .swift, kind: .define("LINUX"), condition: .init(platformNames: ["linux"])),
+                        .init(tool: .swift, kind: .define("RLINUX"), condition: .init(platformNames: ["linux"], config: "release")),
+                        .init(tool: .swift, kind: .define("DMACOS"), condition: .init(platformNames: ["macos"], config: "debug")),
+                        .init(tool: .swift, kind: .unsafeFlags(["-Isfoo", "-L", "sbar"])),
                     ]
                 ),
                 try TargetDescription(
                     name: "exe", dependencies: ["bar"],
                     settings: [
-                        .init(tool: .linker, name: .linkedLibrary, value: ["sqlite3"]),
-                        .init(tool: .linker, name: .linkedFramework, value: ["CoreData"], condition: .init(platformNames: ["ios"])),
-                        .init(tool: .linker, name: .unsafeFlags, value: ["-Ilfoo", "-L", "lbar"]),
+                        .init(tool: .linker, kind: .linkedLibrary("sqlite3")),
+                        .init(tool: .linker, kind: .linkedFramework("CoreData"), condition: .init(platformNames: ["ios"])),
+                        .init(tool: .linker, kind: .unsafeFlags(["-Ilfoo", "-L", "lbar"])),
                     ]
                 ),
             ]
@@ -2072,18 +2072,18 @@ class PackageBuilderTests: XCTestCase {
                 try TargetDescription(
                     name: "foo",
                     settings: [
-                        .init(tool: .c, name: .unsafeFlags, value: []),
-                        .init(tool: .cxx, name: .unsafeFlags, value: []),
-                        .init(tool: .cxx, name: .unsafeFlags, value: [], condition: .init(config: "release")),
-                        .init(tool: .linker, name: .unsafeFlags, value: []),
+                        .init(tool: .c, kind: .unsafeFlags([])),
+                        .init(tool: .cxx, kind: .unsafeFlags([])),
+                        .init(tool: .cxx, kind: .unsafeFlags([]), condition: .init(config: "release")),
+                        .init(tool: .linker, kind: .unsafeFlags([])),
                     ]
                 ),
                 try TargetDescription(
                     name: "bar",
                     settings: [
-                        .init(tool: .swift, name: .unsafeFlags, value: [], condition: .init(platformNames: ["macos"], config: "debug")),
-                        .init(tool: .linker, name: .unsafeFlags, value: []),
-                        .init(tool: .linker, name: .unsafeFlags, value: [], condition: .init(platformNames: ["linux"])),
+                        .init(tool: .swift, kind: .unsafeFlags([]), condition: .init(platformNames: ["macos"], config: "debug")),
+                        .init(tool: .linker, kind: .unsafeFlags([])),
+                        .init(tool: .linker, kind: .unsafeFlags([]), condition: .init(platformNames: ["linux"])),
                     ]
                 ),
             ]
@@ -2145,7 +2145,7 @@ class PackageBuilderTests: XCTestCase {
                 try TargetDescription(
                     name: "exe",
                     settings: [
-                        .init(tool: .c, name: .headerSearchPath, value: ["/Sources/headers"]),
+                        .init(tool: .c, kind: .headerSearchPath("/Sources/headers")),
                     ]
                 ),
             ]
@@ -2162,7 +2162,7 @@ class PackageBuilderTests: XCTestCase {
                 try TargetDescription(
                     name: "exe",
                     settings: [
-                        .init(tool: .c, name: .headerSearchPath, value: ["../../.."]),
+                        .init(tool: .c, kind: .headerSearchPath("../../..")),
                     ]
                 ),
             ]
