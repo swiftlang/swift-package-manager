@@ -339,7 +339,7 @@ class PackageBuilderTests: XCTestCase {
         var manifest = Manifest.createRootManifest(
             name: "pkg",
             products: [
-                ProductDescription(name: "exec", type: .executable, targets: ["exec", "foo"]),
+                try ProductDescription(name: "exec", type: .executable, targets: ["exec", "foo"]),
             ],
             targets: [
                 try TargetDescription(name: "foo"),
@@ -375,7 +375,7 @@ class PackageBuilderTests: XCTestCase {
         manifest = Manifest.createRootManifest(
             name: "pkg",
             products: [
-                ProductDescription(name: "exec1", type: .executable, targets: ["exec"]),
+                try ProductDescription(name: "exec1", type: .executable, targets: ["exec"]),
             ],
             targets: [
                 try TargetDescription(name: "foo"),
@@ -403,7 +403,7 @@ class PackageBuilderTests: XCTestCase {
             name: "pkg",
             toolsVersion: .v5_5,
             products: [
-                ProductDescription(name: "exec1", type: .executable, targets: ["exec1", "lib"]),
+                try ProductDescription(name: "exec1", type: .executable, targets: ["exec1", "lib"]),
             ],
             targets: [
                 try TargetDescription(name: "exec1", type: .executable),
@@ -441,7 +441,7 @@ class PackageBuilderTests: XCTestCase {
             name: "pkg",
             toolsVersion: .v5_5,
             products: [
-                ProductDescription(name: "exec1", type: .executable, targets: ["exec1"]),
+                try ProductDescription(name: "exec1", type: .executable, targets: ["exec1"]),
             ],
             targets: [
                 try TargetDescription(name: "lib"),
@@ -461,7 +461,7 @@ class PackageBuilderTests: XCTestCase {
             name: "pkg",
             toolsVersion: .v5_5,
             products: [
-                ProductDescription(name: "exec1", type: .executable, targets: ["exec1"]),
+                try ProductDescription(name: "exec1", type: .executable, targets: ["exec1"]),
             ],
             targets: [
                 try TargetDescription(name: "lib"),
@@ -481,7 +481,7 @@ class PackageBuilderTests: XCTestCase {
             name: "pkg",
             toolsVersion: .v5_5,
             products: [
-                ProductDescription(name: "exec2", type: .executable, targets: ["exec2"]),
+                try ProductDescription(name: "exec2", type: .executable, targets: ["exec2"]),
             ],
             targets: [
                 try TargetDescription(name: "lib"),
@@ -1456,10 +1456,10 @@ class PackageBuilderTests: XCTestCase {
         let manifest = Manifest.createRootManifest(
             name: "pkg",
             products: [
-                ProductDescription(name: "foo", type: .library(.automatic), targets: ["foo"]),
-                ProductDescription(name: "foo", type: .library(.static), targets: ["foo"]),
-                ProductDescription(name: "foo", type: .library(.dynamic), targets: ["foo"]),
-                ProductDescription(name: "foo-dy", type: .library(.dynamic), targets: ["foo"]),
+                try ProductDescription(name: "foo", type: .library(.automatic), targets: ["foo"]),
+                try ProductDescription(name: "foo", type: .library(.static), targets: ["foo"]),
+                try ProductDescription(name: "foo", type: .library(.dynamic), targets: ["foo"]),
+                try ProductDescription(name: "foo-dy", type: .library(.dynamic), targets: ["foo"]),
             ],
             targets: [
                 try TargetDescription(name: "foo"),
@@ -1519,7 +1519,7 @@ class PackageBuilderTests: XCTestCase {
         let manifest = Manifest.createRootManifest(
             name: "pkg",
             products: [
-                ProductDescription(name: "foo", type: .library(.automatic), targets: ["foo"]),
+                try ProductDescription(name: "foo", type: .library(.automatic), targets: ["foo"]),
             ],
             targets: [
                 try TargetDescription(name: "foo", type: .system),
@@ -1551,7 +1551,7 @@ class PackageBuilderTests: XCTestCase {
         var manifest = Manifest.createRootManifest(
             name: "SystemModulePackage",
             products: [
-                ProductDescription(name: "foo", type: .library(.automatic), targets: ["foo", "bar"]),
+                try ProductDescription(name: "foo", type: .library(.automatic), targets: ["foo", "bar"]),
             ],
             targets: [
                 try TargetDescription(name: "foo", type: .system),
@@ -1570,7 +1570,7 @@ class PackageBuilderTests: XCTestCase {
         manifest = Manifest.createRootManifest(
             name: "SystemModulePackage",
             products: [
-                ProductDescription(name: "foo", type: .library(.static), targets: ["foo"]),
+                try ProductDescription(name: "foo", type: .library(.static), targets: ["foo"]),
             ],
             targets: [
                 try TargetDescription(name: "foo", type: .system),
@@ -1589,7 +1589,7 @@ class PackageBuilderTests: XCTestCase {
         manifest = Manifest.createRootManifest(
             name: "bar",
             products: [
-                ProductDescription(name: "bar", type: .library(.automatic), targets: ["bar"])
+                try ProductDescription(name: "bar", type: .library(.automatic), targets: ["bar"])
             ],
             targets: [
                 try TargetDescription(name: "bar", type: .system)
@@ -1614,9 +1614,9 @@ class PackageBuilderTests: XCTestCase {
         let manifest = Manifest.createRootManifest(
             name: "MyPackage",
             products: [
-                ProductDescription(name: "foo1", type: .executable, targets: ["FooLib1"]),
-                ProductDescription(name: "foo2", type: .executable, targets: ["FooLib1", "FooLib2"]),
-                ProductDescription(name: "foo3", type: .executable, targets: ["foo1", "foo2"]),
+                try ProductDescription(name: "foo1", type: .executable, targets: ["FooLib1"]),
+                try ProductDescription(name: "foo2", type: .executable, targets: ["FooLib1", "FooLib2"]),
+                try ProductDescription(name: "foo3", type: .executable, targets: ["foo1", "foo2"]),
             ],
             targets: [
                 try TargetDescription(name: "foo1"),

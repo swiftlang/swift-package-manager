@@ -11,6 +11,7 @@
 import TSCBasic
 
 import protocol TSCUtility.PolymorphicCodableProtocol
+import Basics
 
 public class Target: PolymorphicCodableProtocol {
     public static var implementations: [PolymorphicCodableProtocol.Type] = [
@@ -484,8 +485,10 @@ public final class ClangTarget: Target {
         others: [AbsolutePath] = [],
         dependencies: [Target.Dependency] = [],
         buildSettings: BuildSettings.AssignmentTable = .init()
-    ) {
-        assert(includeDir.isDescendantOfOrEqual(to: sources.root), "\(includeDir) should be contained in the source root \(sources.root)")
+    ) throws {
+        guard includeDir.isDescendantOfOrEqual(to: sources.root) else {
+            throw StringError("\(includeDir) should be contained in the source root \(sources.root)")
+        }
         self.isCXX = sources.containsCXXFiles
         self.cLanguageStandard = cLanguageStandard
         self.cxxLanguageStandard = cxxLanguageStandard

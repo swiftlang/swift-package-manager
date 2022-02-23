@@ -497,7 +497,7 @@ final class PackageToolTests: CommandsTestCase {
                 .fileSystem(path: .init("/PackageC")),
             ],
             products: [
-                .init(name: "exe", type: .executable, targets: ["TargetA"])
+                try .init(name: "exe", type: .executable, targets: ["TargetA"])
             ],
             targets: [
                 try .init(name: "TargetA", dependencies: ["PackageB", "PackageC"])
@@ -513,7 +513,7 @@ final class PackageToolTests: CommandsTestCase {
                 .fileSystem(path: .init("/PackageD")),
             ],
             products: [
-                .init(name: "PackageB", type: .library(.dynamic), targets: ["TargetB"])
+                try .init(name: "PackageB", type: .library(.dynamic), targets: ["TargetB"])
             ],
             targets: [
                 try .init(name: "TargetB", dependencies: ["PackageC", "PackageD"])
@@ -528,7 +528,7 @@ final class PackageToolTests: CommandsTestCase {
                 .fileSystem(path: .init("/PackageD")),
             ],
             products: [
-                .init(name: "PackageC", type: .library(.dynamic), targets: ["TargetC"])
+                try .init(name: "PackageC", type: .library(.dynamic), targets: ["TargetC"])
             ],
             targets: [
                 try .init(name: "TargetC", dependencies: ["PackageD"])
@@ -540,7 +540,7 @@ final class PackageToolTests: CommandsTestCase {
             path: .init("/PackageD"),
             toolsVersion: .v5_3,
             products: [
-                .init(name: "PackageD", type: .library(.dynamic), targets: ["TargetD"])
+                try .init(name: "PackageD", type: .library(.dynamic), targets: ["TargetD"])
             ],
             targets: [
                 try .init(name: "TargetD")

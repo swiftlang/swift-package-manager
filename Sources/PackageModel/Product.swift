@@ -8,6 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import Basics
 import TSCBasic
 
 import struct TSCUtility.PolymorphicCodableArray
@@ -32,14 +33,19 @@ public class Product: Codable {
     /// The suffix for REPL product name.
     public static let replProductSuffix: String = "__REPL"
 
-    public init(name: String, type: ProductType, targets: [Target], testManifest: AbsolutePath? = nil) {
-        precondition(!targets.isEmpty)
+    public init(name: String, type: ProductType, targets: [Target], testManifest: AbsolutePath? = nil) throws {
+        guard !targets.isEmpty else {
+            throw InternalError("Targets cannot be empty")
+        }
         if type == .executable {
-            assert(targets.filter({ $0.type == .executable }).count == 1,
-                   "Executable products should have exactly one executable target.")
+            guard targets.filter({ $0.type == .executable }).count == 1 else {
+                throw InternalError("Executable products should have exactly one executable target.")
+            }
         }
         if testManifest != nil {
-            assert(type == .test, "Test manifest should only be set on test products")
+            guard type == .test else {
+                throw InternalError("Test manifest should only be set on test products")
+            }
         }
         self.name = name
         self.type = type

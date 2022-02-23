@@ -45,8 +45,9 @@ public struct Incompatibility: Equatable, Hashable {
         }
 
         let normalizedTerms = try normalize(terms: terms.elements)
-        assert(normalizedTerms.count > 0,
-               "An incompatibility must contain at least one term after normalization.")
+        guard normalizedTerms.count > 0 else {
+            throw InternalError("An incompatibility must contain at least one term after normalization.")
+        }
         self.init(terms: OrderedSet(normalizedTerms), cause: cause)
     }
 }

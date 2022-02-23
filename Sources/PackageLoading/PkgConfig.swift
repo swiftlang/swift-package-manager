@@ -80,7 +80,7 @@ public struct PkgConfig {
             )
         }
 
-        var parser = PkgConfigParser(pcFile: pcFile, fileSystem: fileSystem)
+        var parser = try PkgConfigParser(pcFile: pcFile, fileSystem: fileSystem)
         try parser.parse()
 
         func getFlags(from dependencies: [String]) throws -> (cFlags: [String], libs: [String]) {
@@ -152,8 +152,10 @@ internal struct PkgConfigParser {
     public private(set) var cFlags = [String]()
     public private(set) var libs = [String]()
 
-    public init(pcFile: AbsolutePath, fileSystem: FileSystem) {
-        precondition(fileSystem.isFile(pcFile))
+    public init(pcFile: AbsolutePath, fileSystem: FileSystem) throws {
+        guard fileSystem.isFile(pcFile) else {
+            throw StringError("invalid pcfile \(pcFile)")
+        }
         self.pcFile = pcFile
         self.fileSystem = fileSystem
     }
@@ -195,7 +197,9 @@ internal struct PkgConfigParser {
     }
 
     private mutating func parseKeyValue(line: String) throws {
-        precondition(line.contains(":"))
+        guard line.contains(":") else {
+            throw InternalError("invalid pcfile, expecting line to contain :")
+        }
         let (key, maybeValue) = line.spm_split(around: ":")
         let value = try resolveVariables(maybeValue?.spm_chuzzle() ?? "")
         switch key {

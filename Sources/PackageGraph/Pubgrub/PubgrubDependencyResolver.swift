@@ -227,7 +227,9 @@ public struct PubgrubDependencyResolver {
             let updatePackage = try container.underlying.loadPackageReference(at: boundVersion)
 
             if var existing = flattenedAssignments[updatePackage] {
-                assert(existing.binding == boundVersion, "Two products in one package resolved to different versions: \(existing.products)@\(existing.binding) vs \(products)@\(boundVersion)")
+                guard existing.binding == boundVersion else {
+                    throw InternalError("Two products in one package resolved to different versions: \(existing.products)@\(existing.binding) vs \(products)@\(boundVersion)")
+                }
                 existing.products.formUnion(products)
                 flattenedAssignments[updatePackage] = existing
             } else {
@@ -284,7 +286,9 @@ public struct PubgrubDependencyResolver {
 
             // Mark the package as overridden.
             if var existing = overriddenPackages[constraint.package] {
-                assert(existing.version == .unversioned, "Overridden package is not unversioned: \(constraint.package)@\(existing.version)")
+                guard existing.version == .unversioned else {
+                    throw InternalError("Overridden package is not unversioned: \(constraint.package)@\(existing.version)")
+                }
                 existing.products.formUnion(constraint.products)
                 overriddenPackages[constraint.package] = existing
             } else {

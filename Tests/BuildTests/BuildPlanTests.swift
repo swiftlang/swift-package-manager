@@ -2755,7 +2755,7 @@ final class BuildPlanTests: XCTestCase {
             path: .init("/B"),
             toolsVersion: .v5,
             products: [
-                ProductDescription(name: "Dep", type: .library(.automatic), targets: ["t1", "t2"]),
+                try ProductDescription(name: "Dep", type: .library(.automatic), targets: ["t1", "t2"]),
             ],
             targets: [
                 try TargetDescription(
