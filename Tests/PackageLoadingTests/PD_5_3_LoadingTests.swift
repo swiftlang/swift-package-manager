@@ -451,7 +451,6 @@ class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
         XCTAssertEqual(dependencies[1], .target(name: "Bar", condition: .init(platformNames: ["linux"], config: nil)))
         XCTAssertEqual(dependencies[2], .product(name: "Baz", package: "Baz", condition: .init(platformNames: ["macos"])))
         XCTAssertEqual(dependencies[3], .byName(name: "Bar", condition: .init(platformNames: ["watchos", "ios"])))
-
     }
 
     func testDefaultLocalization() throws {

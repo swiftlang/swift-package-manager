@@ -992,7 +992,8 @@ extension Target.Dependency {
     ///   - package: The name of the package.
     ///   - condition: A condition that limits the application of the target dependency. For example, only apply a
     ///       dependency for a specific platform.
-    @available(_PackageDescription, introduced: 5.3, obsoleted: 999.0)
+    @_disfavoredOverload
+    @available(_PackageDescription, introduced: 5.3, obsoleted: 5.7)
     public static func product(
         name: String,
         package: String,
@@ -1009,7 +1010,7 @@ extension Target.Dependency {
     ///   - moduleAliases: The module aliases for targets in the product.
     ///   - condition: A condition that limits the application of the target dependency. For example, only apply a
     ///       dependency for a specific platform.
-    @available(_PackageDescription, introduced: 999.0)
+    @available(_PackageDescription, introduced: 5.7)
     public static func product(
       name: String,
       package: String,
@@ -1029,6 +1030,40 @@ extension Target.Dependency {
     @available(_PackageDescription, introduced: 5.3)
     public static func byName(name: String, condition: TargetDependencyCondition? = nil) -> Target.Dependency {
         return .byNameItem(name: name, condition: condition)
+    }
+}
+
+/// A condition that limits the application of a target's dependency.
+public struct TargetDependencyCondition: Encodable {
+    private let platforms: [Platform]?
+
+    private init(platforms: [Platform]?) {
+        self.platforms = platforms
+    }
+
+    /// Creates a target dependency condition.
+    ///
+    /// - Parameters:
+    ///   - platforms: The applicable platforms for this target dependency condition.
+    @_disfavoredOverload
+    @available(_PackageDescription, obsoleted: 5.7, message: "using .when with nil platforms is obsolete")
+    public static func when(
+        platforms: [Platform]? = nil
+    ) -> TargetDependencyCondition {
+        // FIXME: This should be an error, not a precondition.
+        precondition(!(platforms == nil))
+        return TargetDependencyCondition(platforms: platforms)
+    }
+
+    /// Creates a target dependency condition.
+    ///
+    /// - Parameters:
+    ///   - platforms: The applicable platforms for this target dependency condition.
+    @available(_PackageDescription, introduced: 5.7)
+    public static func when(
+        platforms: [Platform]
+    ) -> TargetDependencyCondition? {
+        return !platforms.isEmpty ? TargetDependencyCondition(platforms: platforms) : .none
     }
 }
 
@@ -1132,7 +1167,7 @@ extension Target.PluginUsage {
 // MARK: ExpressibleByStringLiteral
 
 extension Target.Dependency: ExpressibleByStringLiteral {
-    
+
     /// Creates a target dependency instance with the given value.
     ///
     /// - parameters:
@@ -1143,7 +1178,7 @@ extension Target.Dependency: ExpressibleByStringLiteral {
 }
 
 extension Target.PluginUsage: ExpressibleByStringLiteral {
-    
+
     /// Specifies use of a plugin target in the same package.
     ///
     /// - parameters:
