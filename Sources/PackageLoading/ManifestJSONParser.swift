@@ -377,26 +377,53 @@ enum ManifestJSONParser {
             try Self.parseBuildSetting($0, tool: tool)
         })
     }
-
+    
     private static func parseBuildSetting(_ json: JSON, tool: TargetBuildSettingDescription.Tool) throws -> TargetBuildSettingDescription.Setting {
         let json = try json.getJSON("data")
-        let name = try TargetBuildSettingDescription.SettingName(rawValue: json.get("name"))!
+        let name = try json.get(String.self, forKey: "name")
+        let values = try json.get([String].self, forKey: "value")
         let condition = try (try? json.getJSON("condition")).flatMap(PackageConditionDescription.init(v4:))
-
-        let value = try json.get([String].self, forKey: "value")
-
+        
         // Diagnose invalid values.
-        for item in value {
+        for item in values {
             let groups = Self.invalidValueRegex.matchGroups(in: item).flatMap{ $0 }
             if !groups.isEmpty {
                 let error = "the build setting '\(name)' contains invalid component(s): \(groups.joined(separator: " "))"
                 throw ManifestParseError.runtimeManifestErrors([error])
             }
         }
-
+        
+        let kind: TargetBuildSettingDescription.Kind
+        switch name {
+        case "headerSearchPath":
+            guard let value = values.first else {
+                throw InternalError("invalid (empty) build settings value")
+            }
+            kind = .headerSearchPath(value)
+        case "define":
+            guard let value = values.first else {
+                throw InternalError("invalid (empty) build settings value")
+            }
+            kind = .define(value)
+        case "linkedLibrary":
+            guard let value = values.first else {
+                throw InternalError("invalid (empty) build settings value")
+            }
+            kind = .linkedLibrary(value)
+        case "linkedFramework":
+            guard let value = values.first else {
+                throw InternalError("invalid (empty) build settings value")
+            }
+            kind = .linkedFramework(value)
+        case "unsafeFlags":
+            kind = .unsafeFlags(values)
+        default:
+            throw InternalError("invalid build setting \(name)")
+        }
+        
         return .init(
-            tool: tool, name: name,
-            value: value,
+            tool: tool,
+            kind: kind,
             condition: condition
         )
     }

@@ -917,10 +917,12 @@ public final class PackageBuilder {
         // Process each setting.
         for setting in target.settings {
             let decl: BuildSettings.Declaration
+            let values: [String]
 
             // Compute appropriate declaration for the setting.
-            switch setting.name {
-            case .headerSearchPath:
+            switch setting.kind {
+            case .headerSearchPath(let value):
+                values = [value]
 
                 switch setting.tool {
                 case .c, .cxx:
@@ -930,12 +932,14 @@ public final class PackageBuilder {
                 }
 
                 // Ensure that the search path is contained within the package.
-                let subpath = try RelativePath(validating: setting.value[0])
+                let subpath = try RelativePath(validating: value)
                 guard targetRoot.appending(subpath).isDescendantOfOrEqual(to: packagePath) else {
                     throw ModuleError.invalidHeaderSearchPath(subpath.pathString)
                 }
 
-            case .define:
+            case .define(let value):
+                values = [value]
+
                 switch setting.tool {
                 case .c, .cxx:
                     decl = .GCC_PREPROCESSOR_DEFINITIONS
@@ -945,7 +949,9 @@ public final class PackageBuilder {
                     throw InternalError("unexpected tool for setting type \(setting)")
                 }
 
-            case .linkedLibrary:
+            case .linkedLibrary(let value):
+                values = [value]
+
                 switch setting.tool {
                 case .c, .cxx, .swift:
                     throw InternalError("unexpected tool for setting type \(setting)")
@@ -953,7 +959,9 @@ public final class PackageBuilder {
                     decl = .LINK_LIBRARIES
                 }
 
-            case .linkedFramework:
+            case .linkedFramework(let value):
+                values = [value]
+
                 switch setting.tool {
                 case .c, .cxx, .swift:
                     throw InternalError("unexpected tool for setting type \(setting)")
@@ -961,7 +969,9 @@ public final class PackageBuilder {
                     decl = .LINK_FRAMEWORKS
                 }
 
-            case .unsafeFlags:
+            case .unsafeFlags(let _values):
+                values = _values
+
                 switch setting.tool {
                 case .c:
                     decl = .OTHER_CFLAGS
@@ -976,7 +986,7 @@ public final class PackageBuilder {
 
             // Create an assignment for this setting.
             var assignment = BuildSettings.Assignment()
-            assignment.value = setting.value
+            assignment.values = values
             assignment.conditions = buildConditions(from: setting.condition)
 
             // Finally, add the assignment to the assignment table.

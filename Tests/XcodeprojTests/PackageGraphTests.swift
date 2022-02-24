@@ -47,9 +47,9 @@ class PackageGraphTests: XCTestCase {
                         TargetDescription(
                             name: "Foo",
                             settings: [
-                                .init(tool: .swift, name: .define, value: ["CUSTOM"]),
-                                .init(tool: .swift, name: .define, value: ["LINUX"], condition: .init(platformNames: ["linux"])),
-                                .init(tool: .swift, name: .define, value: ["DMACOS"], condition: .init(platformNames: ["linux", "macos"], config: "debug")),
+                                .init(tool: .swift, kind: .define("CUSTOM")),
+                                .init(tool: .swift, kind: .define("LINUX"), condition: .init(platformNames: ["linux"])),
+                                .init(tool: .swift, kind: .define("DMACOS"), condition: .init(platformNames: ["linux", "macos"], config: "debug")),
                             ]
                         ),
                         TargetDescription(name: "FooTests", dependencies: ["Foo"], type: .test),
