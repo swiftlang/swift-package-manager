@@ -328,6 +328,12 @@ public struct TargetSourcesBuilder {
             return
         }
 
+        // rdar://86297221
+        // There is no need to validate for english, because the string key is already in english
+        if self.defaultLocalization == "en" {
+            return
+        }
+
         let localizedResources = resources.lazy.filter({ $0.localization != nil && $0.localization != "Base" })
         let resourcesByBasename = Dictionary(grouping: localizedResources, by: { $0.path.basename })
         for (basename, resources) in resourcesByBasename {
