@@ -13,11 +13,15 @@ Swift 5.7
 
 * [#4131]
 
-  Update to manifest API to make it impossible to create an invalid build setttings condition.
+  Update to manifest API to make it impossible to create an invalid build settings condition.
 
 * [#4135]
 
   Enable linker dead stripping for all platforms. This can be disabled with `--disable-dead-strip`
+
+* [#4168]
+
+  Update to manifest API to make it impossible to create an invalid target dependency condition.
 
 Swift 5.6
 -----------
@@ -232,4 +236,4 @@ Swift 3.0
 [#4119]: https://github.com/apple/swift-package-manager/pull/4119
 [#4131]: https://github.com/apple/swift-package-manager/pull/4131
 [#4135]: https://github.com/apple/swift-package-manager/pull/4135
-
+[#4168]: https://github.com/apple/swift-package-manager/pull/4168

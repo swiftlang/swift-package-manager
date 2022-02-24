@@ -384,28 +384,6 @@ extension Target: Encodable {
     }
 }
 
-/// A condition that limits the application of a target's dependency.
-public struct TargetDependencyCondition: Encodable {
-
-    private let platforms: [Platform]?
-
-    private init(platforms: [Platform]?) {
-        self.platforms = platforms
-    }
-
-    /// Creates a target dependency condition.
-    ///
-    /// - Parameters:
-    ///   - platforms: The applicable platforms for this target dependency condition.
-    public static func when(
-        platforms: [Platform]? = nil
-    ) -> TargetDependencyCondition {
-        // FIXME: This should be an error, not a precondition.
-        precondition(!(platforms == nil))
-        return TargetDependencyCondition(platforms: platforms)
-    }
-}
-
 extension Target.PluginUsage: Encodable {
     private enum CodingKeys: CodingKey {
         case type, name, package
