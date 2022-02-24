@@ -27,6 +27,21 @@ extension DispatchTimeInterval {
         }
     }
 
+    public func nanoseconds() -> Int? {
+        switch self {
+        case .seconds(let value):
+            return value.multipliedReportingOverflow(by: 1_000_000_000).partialValue
+        case .milliseconds(let value):
+            return value.multipliedReportingOverflow(by: 1_000_000).partialValue
+        case .microseconds(let value):
+            return value.multipliedReportingOverflow(by: 1000).partialValue
+        case .nanoseconds(let value):
+            return value
+        default:
+            return nil
+        }
+    }
+
     public func milliseconds() -> Int? {
         switch self {
         case .seconds(let value):
