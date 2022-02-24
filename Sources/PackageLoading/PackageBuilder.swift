@@ -889,7 +889,7 @@ public final class PackageBuilder {
                 moduleMapType = .none
             }
 
-            return ClangTarget(
+            return try ClangTarget(
                 name: potentialModule.name,
                 bundleName: bundleName,
                 defaultLocalization: manifest.defaultLocalization,
@@ -1127,7 +1127,9 @@ public final class PackageBuilder {
             }
 
             while true {
-                assert(searchPath.isDescendantOfOrEqual(to: packagePath), "search path \(searchPath) is outside the package \(packagePath)")
+                guard searchPath.isDescendantOfOrEqual(to: packagePath) else {
+                    throw InternalError("search path \(searchPath) is outside the package \(packagePath)")
+                }
                 // If we have already searched this path, skip.
                 if !pathsSearched.contains(searchPath) {
                     SwiftTarget.testManifestNames.forEach { name in
@@ -1181,7 +1183,7 @@ public final class PackageBuilder {
         // If enabled, create one test product for each test target.
         if self.shouldCreateMultipleTestProducts {
             for testTarget in testModules {
-                let product = Product(name: testTarget.name, type: .test, targets: [testTarget])
+                let product = try Product(name: testTarget.name, type: .test, targets: [testTarget])
                 append(product)
             }
         } else if !testModules.isEmpty {
@@ -1194,7 +1196,7 @@ public final class PackageBuilder {
             let productName = self.manifest.displayName + "PackageTests"
             let testManifest = try self.findTestManifest(in: testModules)
 
-            let product = Product(name: productName, type: .test, targets: testModules, testManifest: testManifest)
+            let product = try Product(name: productName, type: .test, targets: testModules, testManifest: testManifest)
             append(product)
         }
 
@@ -1247,7 +1249,7 @@ public final class PackageBuilder {
                 }
             }
 
-            append(Product(name: product.name, type: product.type, targets: targets))
+            try append(Product(name: product.name, type: product.type, targets: targets))
         }
 
         // Add implicit executables - for root packages and for dependency plugins.
@@ -1291,7 +1293,7 @@ public final class PackageBuilder {
             } else {
                 if self.manifest.packageKind.isRoot || implicitPlugInExecutables.contains(target.name) {
                     // Generate an implicit product for the executable target
-                    let product = Product(name: target.name, type: .executable, targets: [target])
+                    let product = try Product(name: target.name, type: .executable, targets: [target])
                     append(product)
                 }
             }
@@ -1304,7 +1306,7 @@ public final class PackageBuilder {
             if libraryTargets.isEmpty {
                 self.observabilityScope.emit(.noLibraryTargetsForREPL)
             } else {
-                let replProduct = Product(
+                let replProduct = try Product(
                     name: self.identity.description + Product.replProductSuffix,
                     type: .library(.dynamic),
                     targets: libraryTargets
@@ -1314,9 +1316,9 @@ public final class PackageBuilder {
         }
 
         // Create implicit snippet products
-        targets
+        try targets
             .filter { $0.type == .snippet }
-            .map { Product(name: $0.name, type: .snippet, targets: [$0]) }
+            .map { try Product(name: $0.name, type: .snippet, targets: [$0]) }
             .forEach(append)
 
         return products.map{ $0.item }
@@ -1357,7 +1359,6 @@ public final class PackageBuilder {
 
 /// We create this structure after scanning the filesystem for potential targets.
 private struct PotentialModule: Hashable {
-
     /// Name of the target.
     let name: String
 
@@ -1371,16 +1372,6 @@ private struct PotentialModule: Hashable {
 
     /// The target type.
     let type: TargetDescription.TargetType
-
-    /// The base prefix for the test target, used to associate with the target it tests.
-    public var basename: String {
-        guard isTest else {
-            fatalError("\(Swift.type(of: self)) should be a test target to access basename.")
-        }
-        precondition(name.hasSuffix(Target.testModuleNameSuffix))
-        let endIndex = name.index(name.endIndex, offsetBy: -Target.testModuleNameSuffix.count)
-        return String(name[name.startIndex..<endIndex])
-    }
 }
 
 private extension Manifest {

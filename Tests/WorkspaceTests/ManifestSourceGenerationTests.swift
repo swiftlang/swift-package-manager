@@ -398,7 +398,7 @@ class ManifestSourceGenerationTests: XCTestCase {
             platforms: [],
             toolsVersion: .v5_5,
             products: [
-                .init(name: "Foo", type: .library(.static), targets: ["Bar"])
+                try .init(name: "Foo", type: .library(.static), targets: ["Bar"])
             ]
         )
 

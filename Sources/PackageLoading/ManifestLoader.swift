@@ -278,7 +278,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                 var targets = parsedManifest.targets
                 if products.isEmpty, targets.isEmpty,
                    fileSystem.isFile(path.parentDirectory.appending(component: moduleMapFilename)) {
-                    products.append(ProductDescription(
+                    try products.append(ProductDescription(
                         name: parsedManifest.name,
                         type: .library(.automatic),
                         targets: [parsedManifest.name])
@@ -524,7 +524,9 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         }
 
         // We should not have any fatal error at this point.
-        assert(result.errorOutput == nil)
+        guard result.errorOutput == nil else {
+            throw InternalError("unexpected error output: \(result.errorOutput!)")
+        }
 
         // We might have some non-fatal output (warnings/notes) from the compiler even when
         // we were able to parse the manifest successfully.
@@ -802,16 +804,17 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         delegateQueue: DispatchQueue,
         completion: @escaping (Result<EvaluationResult, Error>) -> Void
     ) {
+        // The compiler has special meaning for files with extensions like .ll, .bc etc.
+        // Assert that we only try to load files with extension .swift to avoid unexpected loading behavior.
+        guard manifestPath.extension == "swift" else {
+            return completion(.failure(InternalError("Manifest files must contain .swift suffix in their name, given: \(manifestPath).")))
+        }
+
         var evaluationResult = EvaluationResult()
 
         delegateQueue.async {
             self.delegate?.willParse(manifest: manifestPath)
         }
-
-        // The compiler has special meaning for files with extensions like .ll, .bc etc.
-        // Assert that we only try to load files with extension .swift to avoid unexpected loading behavior.
-        assert(manifestPath.extension == "swift",
-               "Manifest files must contain .swift suffix in their name, given: \(manifestPath).")
 
         // For now, we load the manifest by having Swift interpret it directly.
         // Eventually, we should have two loading processes, one that loads only

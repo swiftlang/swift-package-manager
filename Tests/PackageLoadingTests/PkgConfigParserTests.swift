@@ -205,7 +205,7 @@ final class PkgConfigParserTests: XCTestCase {
     }
 
     private func loadPCFile(_ inputName: String, body: ((PkgConfigParser) -> Void)? = nil) throws {
-        var parser = PkgConfigParser(pcFile: pcFilePath(inputName), fileSystem: localFileSystem)
+        var parser = try PkgConfigParser(pcFile: pcFilePath(inputName), fileSystem: localFileSystem)
         try parser.parse()
         body?(parser)
     }

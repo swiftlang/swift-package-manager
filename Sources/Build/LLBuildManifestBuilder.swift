@@ -549,8 +549,8 @@ extension LLBuildManifestBuilder {
             // Depend on the binary for executable targets.
             if target.type == .executable {
                 // FIXME: Optimize.
-                let _product = plan.graph.allProducts.first {
-                    $0.type == .executable && $0.executableModule == target
+                let _product = try plan.graph.allProducts.first {
+                    try $0.type == .executable && $0.executableTarget() == target
                 }
                 if let product = _product {
                     guard let planProduct = plan.productMap[product] else {

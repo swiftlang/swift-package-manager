@@ -8,6 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
+import Basics
 import TSCBasic
 import PackageModel
 
@@ -34,8 +35,10 @@ public final class ResolvedProduct {
     /// The main executable target of product.
     ///
     /// Note: This property is only valid for executable products.
-    public var executableModule: ResolvedTarget {
-        precondition(type == .executable || type == .snippet, "This property should only be called for executable targets")
+    public func executableTarget() throws -> ResolvedTarget {
+        guard type == .executable || type == .snippet else {
+            throw InternalError("firstExecutableModule should only be called for executable targets")
+        }
         return targets.first(where: { $0.type == .executable || $0.type == .snippet })!
     }
 

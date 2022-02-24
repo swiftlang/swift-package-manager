@@ -414,7 +414,7 @@ class SourceControlPackageContainerTests: XCTestCase {
         ]
 
         let products = [
-            ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo1"]),
+            try ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo1"]),
         ]
 
         let targets = [
@@ -642,7 +642,9 @@ class SourceControlPackageContainerTests: XCTestCase {
                         productFilter: .specific([])
                     )
                 ],
-                products: [ProductDescription(name: "Product", type: .library(.automatic), targets: ["Target"])],
+                products: [
+                    try ProductDescription(name: "Product", type: .library(.automatic), targets: ["Target"])
+                ],
                 targets: [
                     try TargetDescription(
                         name: "Target",
