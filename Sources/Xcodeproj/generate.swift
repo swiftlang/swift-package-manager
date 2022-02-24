@@ -58,276 +58,278 @@ public struct XcodeprojOptions {
     }
 }
 
-// Determine the path of the .xcodeproj wrapper directory.
-public func buildXcodeprojPath(outputDir: AbsolutePath, projectName: String) -> AbsolutePath {
-    let xcodeprojName = "\(projectName).xcodeproj"
-    return outputDir.appending(RelativePath(xcodeprojName))
-}
-
-/// Generates an Xcode project and all needed support files.  The .xcodeproj
-/// wrapper directory is created to the path specified by `xcodeprojPath`
-/// Returns the generated project.  All ancillary files will
-/// be generated inside of the .xcodeproj wrapper directory.
-@discardableResult
-public func generate(
-    projectName: String,
-    xcodeprojPath: AbsolutePath,
-    graph: PackageGraph,
-    repositoryProvider: RepositoryProvider = GitRepositoryProvider(),
-    options: XcodeprojOptions,
-    fileSystem: FileSystem,
-    observabilityScope: ObservabilityScope
-) throws -> Xcode.Project {
-    diagnoseConditionalTargetDependencies(graph: graph, observabilityScope: observabilityScope)
-
-    // Note that the output directory might be completely separate from the
-    // path of the root package (which is where the sources live).
-
-    let srcroot = graph.rootPackages[0].path
-
-    // Determine the path of the scheme directory (it's inside the .xcodeproj).
-    let schemesDir = xcodeprojPath.appending(components: "xcshareddata", "xcschemes")
-
-    // Create the .xcodeproj wrapper directory.
-    try makeDirectories(xcodeprojPath)
-    try makeDirectories(schemesDir)
-
-    let extraDirs: [AbsolutePath]
-    var extraFiles = [AbsolutePath]()
-
-    if options.addExtraFiles {
-        // Find the paths of any extra directories that should be added as folder
-        // references in the project.
-        extraDirs = try findDirectoryReferences(path: srcroot)
-
-        if try repositoryProvider.workingCopyExists(at: srcroot) {
-            let workingCheckout = try repositoryProvider.openWorkingCopy(at: srcroot)
-            extraFiles = try getExtraFilesFor(package: graph.rootPackages[0], in: workingCheckout)
-        }
-    } else {
-        extraDirs = []
+public enum XcodeProject {
+    // Determine the path of the .xcodeproj wrapper directory.
+    public static func makePath(outputDir: AbsolutePath, projectName: String) -> AbsolutePath {
+        let xcodeprojName = "\(projectName).xcodeproj"
+        return outputDir.appending(RelativePath(xcodeprojName))
     }
 
-    // FIXME: This could be more efficient by directly writing to a stream
-    // instead of first creating a string.
-    //
-    /// Generate the contents of project.xcodeproj (inside the .xcodeproj).
-    let project = try pbxproj(
-        xcodeprojPath: xcodeprojPath,
-        graph: graph,
-        extraDirs: extraDirs,
-        extraFiles: extraFiles,
-        options: options,
-        fileSystem: fileSystem,
-        observabilityScope: observabilityScope
-    )
+    /// Generates an Xcode project and all needed support files.  The .xcodeproj
+    /// wrapper directory is created to the path specified by `xcodeprojPath`
+    /// Returns the generated project.  All ancillary files will
+    /// be generated inside of the .xcodeproj wrapper directory.
+    @discardableResult
+    public static func generate(
+        projectName: String,
+        xcodeprojPath: AbsolutePath,
+        graph: PackageGraph,
+        repositoryProvider: RepositoryProvider = GitRepositoryProvider(),
+        options: XcodeprojOptions,
+        fileSystem: FileSystem,
+        observabilityScope: ObservabilityScope
+    ) throws -> Xcode.Project {
+        diagnoseConditionalTargetDependencies(graph: graph, observabilityScope: observabilityScope)
 
-    try open(xcodeprojPath.appending(component: "project.pbxproj")) { stream in
-        // Serialize the project model we created to a plist, and return
-        // its string description.
-        let str = try "// !$*UTF8*$!\n" + project.generatePlist().description
-        stream(str)
-    }
+        // Note that the output directory might be completely separate from the
+        // path of the root package (which is where the sources live).
 
-    try generateSchemes(
-        graph: graph,
-        container: xcodeprojPath.relative(to: srcroot).pathString,
-        schemesDir: schemesDir,
-        options: options,
-        schemeContainer: xcodeprojPath.relative(to: srcroot).pathString
-    )
+        let srcroot = graph.rootPackages[0].path
 
-    for target in graph.reachableTargets where target.type == .library || target.type == .test {
-        ///// For framework targets, generate target.c99Name_Info.plist files in the
-        ///// directory that Xcode project is generated
-        let name = target.infoPlistFileName
-        try open(xcodeprojPath.appending(RelativePath(name))) { print in
-            print("""
-                <?xml version="1.0" encoding="UTF-8"?>
-                <plist version="1.0">
-                <dict>
-                  <key>CFBundleDevelopmentRegion</key>
-                  <string>en</string>
-                  <key>CFBundleExecutable</key>
-                  <string>$(EXECUTABLE_NAME)</string>
-                  <key>CFBundleIdentifier</key>
-                  <string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
-                  <key>CFBundleInfoDictionaryVersion</key>
-                  <string>6.0</string>
-                  <key>CFBundleName</key>
-                  <string>$(PRODUCT_NAME)</string>
-                  <key>CFBundlePackageType</key>
-                  <string>\(target.type == .test ? "BNDL" : "FMWK")</string>
-                  <key>CFBundleShortVersionString</key>
-                  <string>1.0</string>
-                  <key>CFBundleSignature</key>
-                  <string>????</string>
-                  <key>CFBundleVersion</key>
-                  <string>$(CURRENT_PROJECT_VERSION)</string>
-                  <key>NSPrincipalClass</key>
-                  <string></string>
-                </dict>
-                </plist>
-                """)
-        }
-    }
+        // Determine the path of the scheme directory (it's inside the .xcodeproj).
+        let schemesDir = xcodeprojPath.appending(components: "xcshareddata", "xcschemes")
 
-    return project
-}
+        // Create the .xcodeproj wrapper directory.
+        try makeDirectories(xcodeprojPath)
+        try makeDirectories(schemesDir)
 
-private func diagnoseConditionalTargetDependencies(graph: PackageGraph, observabilityScope: ObservabilityScope) {
-    let targetsWithConditionalDependencies = graph.allTargets.lazy.filter { target in
-        target.dependencies.contains { dependency in
-            !dependency.conditions.isEmpty
-        }
-    }
+        let extraDirs: [AbsolutePath]
+        var extraFiles = [AbsolutePath]()
 
-    if !targetsWithConditionalDependencies.isEmpty {
-        let targetNames = targetsWithConditionalDependencies.map { $0.name }.joined(separator: ", ")
-        observabilityScope.emit(warning:
-            """
-            Xcode project generation does not support conditional target dependencies, so the generated project might \
-            not build successfully. The offending targets are: \(targetNames).
-            """
-        )
-    }
-}
+        if options.addExtraFiles {
+            // Find the paths of any extra directories that should be added as folder
+            // references in the project.
+            extraDirs = try findDirectoryReferences(path: srcroot)
 
-/// Writes the contents to the file specified.
-///
-/// This method doesn't rewrite the file in case the new and old contents of
-/// file are same.
-func open(_ path: AbsolutePath, body: ((String) -> Void) throws -> Void) throws {
-    let stream = BufferedOutputByteStream()
-    try body { line in
-        stream <<< line
-        stream <<< "\n"
-    }
-    // If the file exists with the identical contents, we don't need to rewrite it.
-    //
-    // This avoids unnecessarily triggering Xcode reloads of the project file.
-    if let contents = try? localFileSystem.readFileContents(path), contents == stream.bytes {
-        return
-    }
-
-    // Write the real file.
-    try localFileSystem.writeFileContents(path, bytes: stream.bytes)
-}
-
-/// Finds directories that will be added as blue folder
-/// Excludes hidden directories, Xcode projects and reserved directories
-func findDirectoryReferences(path: AbsolutePath) throws -> [AbsolutePath] {
-    let rootDirectories = try walk(path, recursively: false)
-
-    return rootDirectories.filter({
-        if $0.suffix == ".xcodeproj" { return false }
-        if $0.suffix == ".playground" { return false }
-        if $0.basename.hasPrefix(".") { return false }
-        if PackageBuilder.predefinedTestDirectories.contains($0.basename) { return false }
-        return localFileSystem.isDirectory($0)
-    })
-}
-
-func generateSchemes(
-    graph: PackageGraph,
-    container: String,
-    schemesDir: AbsolutePath,
-    options: XcodeprojOptions,
-    schemeContainer: String
-) throws {
-    if options.useLegacySchemeGenerator {
-        // The scheme acts like an aggregate target for all our targets it has all
-        // tests associated so testing works. We suffix the name of this scheme with
-        // -Package so its name doesn't collide with any products or target with
-        // same name.
-        let schemeName = "\(graph.rootPackages[0].manifest.displayName)-Package.xcscheme" // TODO: use identity instead?
-        try open(schemesDir.appending(RelativePath(schemeName))) { stream in
-            legacySchemeGenerator(
-                container: schemeContainer,
-                graph: graph,
-                codeCoverageEnabled: options.isCodeCoverageEnabled,
-                printer: stream)
+            if try repositoryProvider.workingCopyExists(at: srcroot) {
+                let workingCheckout = try repositoryProvider.openWorkingCopy(at: srcroot)
+                extraFiles = try getExtraFilesFor(package: graph.rootPackages[0], in: workingCheckout)
+            }
+        } else {
+            extraDirs = []
         }
 
-        // We generate this file to ensure our main scheme is listed before any
-        // inferred schemes Xcode may autocreate.
-        try open(schemesDir.appending(component: "xcschememanagement.plist")) { print in
-            print("""
-                  <?xml version="1.0" encoding="UTF-8"?>
-                  <plist version="1.0">
-                  <dict>
-                  <key>SchemeUserState</key>
-                  <dict>
-                  <key>\(schemeName)</key>
-                  <dict></dict>
-                  </dict>
-                  <key>SuppressBuildableAutocreation</key>
-                  <dict></dict>
-                  </dict>
-                  </plist>
-                  """)
-        }
-    } else {
-        try SchemesGenerator(
+        // FIXME: This could be more efficient by directly writing to a stream
+        // instead of first creating a string.
+        //
+        /// Generate the contents of project.xcodeproj (inside the .xcodeproj).
+        let project = try pbxproj(
+            xcodeprojPath: xcodeprojPath,
             graph: graph,
-            container: schemeContainer,
+            extraDirs: extraDirs,
+            extraFiles: extraFiles,
+            options: options,
+            fileSystem: fileSystem,
+            observabilityScope: observabilityScope
+        )
+
+        try open(xcodeprojPath.appending(component: "project.pbxproj")) { stream in
+            // Serialize the project model we created to a plist, and return
+            // its string description.
+            let str = try "// !$*UTF8*$!\n" + project.generatePlist().description
+            stream(str)
+        }
+
+        try generateSchemes(
+            graph: graph,
+            container: xcodeprojPath.relative(to: srcroot).pathString,
             schemesDir: schemesDir,
-            isCodeCoverageEnabled: options.isCodeCoverageEnabled,
-            fs: localFileSystem
-        ).generate()
+            options: options,
+            schemeContainer: xcodeprojPath.relative(to: srcroot).pathString
+        )
+
+        for target in graph.reachableTargets where target.type == .library || target.type == .test {
+            ///// For framework targets, generate target.c99Name_Info.plist files in the
+            ///// directory that Xcode project is generated
+            let name = target.infoPlistFileName
+            try open(xcodeprojPath.appending(RelativePath(name))) { print in
+                print("""
+                    <?xml version="1.0" encoding="UTF-8"?>
+                    <plist version="1.0">
+                    <dict>
+                      <key>CFBundleDevelopmentRegion</key>
+                      <string>en</string>
+                      <key>CFBundleExecutable</key>
+                      <string>$(EXECUTABLE_NAME)</string>
+                      <key>CFBundleIdentifier</key>
+                      <string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+                      <key>CFBundleInfoDictionaryVersion</key>
+                      <string>6.0</string>
+                      <key>CFBundleName</key>
+                      <string>$(PRODUCT_NAME)</string>
+                      <key>CFBundlePackageType</key>
+                      <string>\(target.type == .test ? "BNDL" : "FMWK")</string>
+                      <key>CFBundleShortVersionString</key>
+                      <string>1.0</string>
+                      <key>CFBundleSignature</key>
+                      <string>????</string>
+                      <key>CFBundleVersion</key>
+                      <string>$(CURRENT_PROJECT_VERSION)</string>
+                      <key>NSPrincipalClass</key>
+                      <string></string>
+                    </dict>
+                    </plist>
+                    """)
+            }
+        }
+
+        return project
     }
-}
 
-// Find and return non-source files in the source directories and root that should be added
-// as a reference to the project.
-func getExtraFilesFor(package: ResolvedPackage, in workingCheckout: WorkingCheckout) throws -> [AbsolutePath] {
-    let srcroot = package.path
-    var extraFiles = findNonSourceFiles(path: srcroot, toolsVersion: package.manifest.toolsVersion, recursively: false)
+    private static func diagnoseConditionalTargetDependencies(graph: PackageGraph, observabilityScope: ObservabilityScope) {
+        let targetsWithConditionalDependencies = graph.allTargets.lazy.filter { target in
+            target.dependencies.contains { dependency in
+                !dependency.conditions.isEmpty
+            }
+        }
 
-    for target in package.targets {
-        let sourcesDirectory = target.sources.root
-        if localFileSystem.isDirectory(sourcesDirectory) {
-            let sourcesExtraFiles = findNonSourceFiles(path: sourcesDirectory, toolsVersion: package.manifest.toolsVersion, recursively: true)
-            extraFiles.append(contentsOf: sourcesExtraFiles)
+        if !targetsWithConditionalDependencies.isEmpty {
+            let targetNames = targetsWithConditionalDependencies.map { $0.name }.joined(separator: ", ")
+            observabilityScope.emit(warning:
+                """
+                Xcode project generation does not support conditional target dependencies, so the generated project might \
+                not build successfully. The offending targets are: \(targetNames).
+                """
+            )
         }
     }
 
-    // Return if we can't determine if the files are git ignored.
-    guard let isIgnored = try? workingCheckout.areIgnored(extraFiles) else {
-        return []
+    /// Writes the contents to the file specified.
+    ///
+    /// This method doesn't rewrite the file in case the new and old contents of
+    /// file are same.
+    static func open(_ path: AbsolutePath, body: ((String) -> Void) throws -> Void) throws {
+        let stream = BufferedOutputByteStream()
+        try body { line in
+            stream <<< line
+            stream <<< "\n"
+        }
+        // If the file exists with the identical contents, we don't need to rewrite it.
+        //
+        // This avoids unnecessarily triggering Xcode reloads of the project file.
+        if let contents = try? localFileSystem.readFileContents(path), contents == stream.bytes {
+            return
+        }
+
+        // Write the real file.
+        try localFileSystem.writeFileContents(path, bytes: stream.bytes)
     }
-    extraFiles = extraFiles.enumerated().filter({ !isIgnored[$0.offset] }).map({ $0.element })
 
-    return extraFiles
-}
+    /// Finds directories that will be added as blue folder
+    /// Excludes hidden directories, Xcode projects and reserved directories
+    static func findDirectoryReferences(path: AbsolutePath) throws -> [AbsolutePath] {
+        let rootDirectories = try walk(path, recursively: false)
 
-/// Finds the non-source files from `path`
-/// - parameters:
-///   - path: The path of the directory to get the files from
-///   - recursively: Specifies if the directory at `path` should be searched recursively
-func findNonSourceFiles(path: AbsolutePath, toolsVersion: ToolsVersion, recursively: Bool) -> [AbsolutePath] {
-    let filesFromPath: RecursibleDirectoryContentsGenerator?
+        return rootDirectories.filter({
+            if $0.suffix == ".xcodeproj" { return false }
+            if $0.suffix == ".playground" { return false }
+            if $0.basename.hasPrefix(".") { return false }
+            if PackageBuilder.predefinedTestDirectories.contains($0.basename) { return false }
+            return localFileSystem.isDirectory($0)
+        })
+    }
 
-    if recursively {
-        filesFromPath = try? walk(path, recursing: { path in
-            // Ignore any git submodule that we might encounter.
-            let gitPath = path.appending(component: ".git")
-            if localFileSystem.exists(gitPath) {
+    static func generateSchemes(
+        graph: PackageGraph,
+        container: String,
+        schemesDir: AbsolutePath,
+        options: XcodeprojOptions,
+        schemeContainer: String
+    ) throws {
+        if options.useLegacySchemeGenerator {
+            // The scheme acts like an aggregate target for all our targets it has all
+            // tests associated so testing works. We suffix the name of this scheme with
+            // -Package so its name doesn't collide with any products or target with
+            // same name.
+            let schemeName = "\(graph.rootPackages[0].manifest.displayName)-Package.xcscheme" // TODO: use identity instead?
+            try open(schemesDir.appending(RelativePath(schemeName))) { stream in
+                legacySchemeGenerator(
+                    container: schemeContainer,
+                    graph: graph,
+                    codeCoverageEnabled: options.isCodeCoverageEnabled,
+                    printer: stream)
+            }
+
+            // We generate this file to ensure our main scheme is listed before any
+            // inferred schemes Xcode may autocreate.
+            try open(schemesDir.appending(component: "xcschememanagement.plist")) { print in
+                print("""
+                      <?xml version="1.0" encoding="UTF-8"?>
+                      <plist version="1.0">
+                      <dict>
+                      <key>SchemeUserState</key>
+                      <dict>
+                      <key>\(schemeName)</key>
+                      <dict></dict>
+                      </dict>
+                      <key>SuppressBuildableAutocreation</key>
+                      <dict></dict>
+                      </dict>
+                      </plist>
+                      """)
+            }
+        } else {
+            try SchemesGenerator(
+                graph: graph,
+                container: schemeContainer,
+                schemesDir: schemesDir,
+                isCodeCoverageEnabled: options.isCodeCoverageEnabled,
+                fs: localFileSystem
+            ).generate()
+        }
+    }
+
+    // Find and return non-source files in the source directories and root that should be added
+    // as a reference to the project.
+    static func getExtraFilesFor(package: ResolvedPackage, in workingCheckout: WorkingCheckout) throws -> [AbsolutePath] {
+        let srcroot = package.path
+        var extraFiles = findNonSourceFiles(path: srcroot, toolsVersion: package.manifest.toolsVersion, recursively: false)
+
+        for target in package.targets {
+            let sourcesDirectory = target.sources.root
+            if localFileSystem.isDirectory(sourcesDirectory) {
+                let sourcesExtraFiles = findNonSourceFiles(path: sourcesDirectory, toolsVersion: package.manifest.toolsVersion, recursively: true)
+                extraFiles.append(contentsOf: sourcesExtraFiles)
+            }
+        }
+
+        // Return if we can't determine if the files are git ignored.
+        guard let isIgnored = try? workingCheckout.areIgnored(extraFiles) else {
+            return []
+        }
+        extraFiles = extraFiles.enumerated().filter({ !isIgnored[$0.offset] }).map({ $0.element })
+
+        return extraFiles
+    }
+
+    /// Finds the non-source files from `path`
+    /// - parameters:
+    ///   - path: The path of the directory to get the files from
+    ///   - recursively: Specifies if the directory at `path` should be searched recursively
+    static func findNonSourceFiles(path: AbsolutePath, toolsVersion: ToolsVersion, recursively: Bool) -> [AbsolutePath] {
+        let filesFromPath: RecursibleDirectoryContentsGenerator?
+
+        if recursively {
+            filesFromPath = try? walk(path, recursing: { path in
+                // Ignore any git submodule that we might encounter.
+                let gitPath = path.appending(component: ".git")
+                if localFileSystem.exists(gitPath) {
+                    return false
+                }
+                return recursively
+            })
+        } else {
+            filesFromPath = try? walk(path, recursively: recursively)
+        }
+
+        return filesFromPath?.filter({
+            if !localFileSystem.isFile($0) { return false }
+            if $0.basename.hasPrefix(".") { return false }
+            if $0.basename == "Package.resolved" { return false }
+            if let `extension` = $0.extension, SupportedLanguageExtension.validExtensions(toolsVersion: toolsVersion).contains(`extension`) {
                 return false
             }
-            return recursively
-        })
-    } else {
-        filesFromPath = try? walk(path, recursively: recursively)
+            return true
+        }) ?? []
     }
-
-    return filesFromPath?.filter({
-        if !localFileSystem.isFile($0) { return false }
-        if $0.basename.hasPrefix(".") { return false }
-        if $0.basename == "Package.resolved" { return false }
-        if let `extension` = $0.extension, SupportedLanguageExtension.validExtensions(toolsVersion: toolsVersion).contains(`extension`) {
-            return false
-        }
-        return true
-    }) ?? []
 }
