@@ -1555,12 +1555,12 @@ extension SwiftPackageTool {
                 dstdir = try swiftTool.getPackageRoot()
                 projectName = graph.rootPackages[0].manifest.displayName // TODO: use identity instead?
             }
-            let xcodeprojPath = Xcodeproj.buildXcodeprojPath(outputDir: dstdir, projectName: projectName)
+            let xcodeprojPath = XcodeProject.makePath(outputDir: dstdir, projectName: projectName)
 
             var genOptions = xcodeprojOptions()
             genOptions.manifestLoader = try swiftTool.getManifestLoader()
 
-            try Xcodeproj.generate(
+            try XcodeProject.generate(
                 projectName: projectName,
                 xcodeprojPath: xcodeprojPath,
                 graph: graph,
