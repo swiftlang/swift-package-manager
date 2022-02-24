@@ -2320,7 +2320,7 @@ class PackageBuilderTests: XCTestCase {
             toolsVersion: .v5_3,
             targets: [
                 try TargetDescription(name: "Foo", resources: [
-                    .init(rule: .process, path: "Resources")
+                    .init(rule: .process(localization: .none), path: "Resources")
                 ]),
             ]
         )

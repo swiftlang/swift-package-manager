@@ -809,7 +809,6 @@ class FailingFileSystem: FileSystem {
     }
 }
 
-
 fileprivate struct NetrcAuthorizationWrapper: AuthorizationProvider {
     let underlying: Netrc
 

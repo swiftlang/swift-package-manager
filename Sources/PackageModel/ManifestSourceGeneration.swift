@@ -403,11 +403,11 @@ fileprivate extension SourceCodeFragment {
     init(from resource: TargetDescription.Resource) {
         var params: [SourceCodeFragment] = []
         params.append(SourceCodeFragment(string: resource.path))
-        if let localization = resource.localization {
-            params.append(SourceCodeFragment(key: "localization", enum: localization.rawValue))
-        }
         switch resource.rule {
-        case .process:
+        case .process(let localization):
+            if let localization = localization {
+                params.append(SourceCodeFragment(key: "localization", enum: localization.rawValue))
+            }
             self.init(enum: "process", subnodes: params)
         case .copy:
             self.init(enum: "copy", subnodes: params)

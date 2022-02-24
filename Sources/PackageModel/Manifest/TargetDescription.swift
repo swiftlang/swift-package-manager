@@ -9,10 +9,10 @@
 */
 
 /// The description of an individual target.
-public struct TargetDescription: Equatable, Codable {
+public struct TargetDescription: Equatable, Encodable {
 
     /// The target type.
-    public enum TargetType: String, Equatable, Codable {
+    public enum TargetType: String, Equatable, Encodable {
         case regular
         case executable
         case test
@@ -36,13 +36,13 @@ public struct TargetDescription: Equatable, Codable {
         }
     }
 
-    public struct Resource: Codable, Equatable {
-        public enum Rule: String, Codable, Equatable {
-            case process
+    public struct Resource: Encodable, Equatable {
+        public enum Rule: Encodable, Equatable {
+            case process(localization: Localization?)
             case copy
         }
 
-        public enum Localization: String, Codable, Equatable {
+        public enum Localization: String, Encodable {
             case `default`
             case base
         }
@@ -53,14 +53,9 @@ public struct TargetDescription: Equatable, Codable {
         /// The path of the resource.
         public let path: String
 
-        /// The explicit localization of the resource.
-        public let localization: Localization?
-
-        public init(rule: Rule, path: String, localization: Localization? = nil) {
-            precondition(rule == .process || localization == nil)
+        public init(rule: Rule, path: String) {
             self.rule = rule
             self.path = path
-            self.localization = localization
         }
     }
 

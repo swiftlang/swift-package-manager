@@ -156,18 +156,18 @@ public struct TargetSourcesBuilder {
     /// Run the builder to produce the sources of the target.
     public func run() throws -> (sources: Sources, resources: [Resource], headers: [AbsolutePath], ignored: [AbsolutePath], others: [AbsolutePath]) {
         let contents = self.computeContents()
-        var pathToRule: [AbsolutePath: Rule] = [:]
+        var pathToRule: [AbsolutePath: FileRuleDescription.Rule] = [:]
 
         for path in contents {
             pathToRule[path] = self.computeRule(for: path)
         }
 
-        let headers = pathToRule.lazy.filter { $0.value.rule == .header }.map { $0.key }.sorted()
-        let compilePaths = pathToRule.lazy.filter { $0.value.rule == .compile }.map { $0.key }
+        let headers = pathToRule.lazy.filter { $0.value == .header }.map { $0.key }.sorted()
+        let compilePaths = pathToRule.lazy.filter { $0.value == .compile }.map { $0.key }
         let sources = Sources(paths: Array(compilePaths), root: targetPath)
         let resources: [Resource] = pathToRule.compactMap { resource(for: $0.key, with: $0.value) }
-        let ignored = pathToRule.filter { $0.value.rule == .ignored }.map { $0.key }
-        let others = pathToRule.filter { $0.value.rule == .none }.map { $0.key }
+        let ignored = pathToRule.filter { $0.value == .ignored }.map { $0.key }
+        let others = pathToRule.filter { $0.value == .none }.map { $0.key }
 
         diagnoseConflictingResources(in: resources)
         diagnoseCopyConflictsWithLocalizationDirectories(in: resources)
@@ -184,23 +184,18 @@ public struct TargetSourcesBuilder {
         return (sources, resources, headers, ignored, others)
     }
 
-    private struct Rule {
-        let rule: FileRuleDescription.Rule
-        let localization: TargetDescription.Resource.Localization?
-    }
-
     /// Compute the rule for the given path.
-    private func computeRule(for path: AbsolutePath) -> Rule {
-        var matchedRule: Rule = Rule(rule: .none, localization: nil)
+    private func computeRule(for path: AbsolutePath) -> FileRuleDescription.Rule {
+        var matchedRule: FileRuleDescription.Rule = .none
 
         // First match any resources explicitly declared in the manifest file.
         for declaredResource in target.resources {
             let resourcePath = self.targetPath.appending(RelativePath(declaredResource.path))
             if path.isDescendantOfOrEqual(to: resourcePath) {
-                if matchedRule.rule != .none {
+                if matchedRule != .none {
                     self.observabilityScope.emit(error: "duplicate resource rule '\(declaredResource.rule)' found for file at '\(path)'")
                 }
-                matchedRule = Rule(rule: declaredResource.rule.fileRule, localization: declaredResource.localization)
+                matchedRule = .init(declaredResource.rule)
             }
         }
 
@@ -208,19 +203,19 @@ public struct TargetSourcesBuilder {
         if let declaredSources = self.declaredSources {
             for sourcePath in declaredSources {
                 if path.isDescendantOfOrEqual(to: sourcePath) {
-                    if matchedRule.rule != .none {
+                    if matchedRule != .none {
                         self.observabilityScope.emit(error: "duplicate rule found for file at '\(path)'")
                     }
 
                     // Check for header files as they're allowed to be mixed with sources.
                     if let ext = path.extension,
                       FileRuleDescription.header.fileTypes.contains(ext) {
-                        matchedRule = Rule(rule: .header, localization: nil)
+                        matchedRule = .header
                     } else if toolsVersion >= .v5_3 {
-                        matchedRule = Rule(rule: .compile, localization: nil)
+                        matchedRule = .compile
                     } else if let ext = path.extension,
                       SupportedLanguageExtension.validExtensions(toolsVersion: toolsVersion).contains(ext) {
-                        matchedRule = Rule(rule: .compile, localization: nil)
+                        matchedRule = .compile
                     }
                     // The source file might have been declared twice so
                     // exit on first match.
@@ -232,7 +227,7 @@ public struct TargetSourcesBuilder {
 
         // We haven't found a rule using that's explicitly declared in the manifest
         // so try doing an automatic match.
-        if matchedRule.rule == .none {
+        if matchedRule == .none {
             let effectiveRules: [FileRuleDescription] = {
                 // Don't automatically match compile rules if target's sources are
                 // explicitly declared in the package manifest.
@@ -243,9 +238,9 @@ public struct TargetSourcesBuilder {
             }()
 
             if let needle = effectiveRules.first(where: { $0.match(path: path, toolsVersion: toolsVersion) }) {
-                matchedRule = Rule(rule: needle.rule, localization: nil)
+                matchedRule = needle.rule
             } else if path.parentDirectory.extension == Resource.localizationDirectoryExtension {
-                matchedRule = Rule(rule: .processResource, localization: nil)
+                matchedRule = .processResource(localization: .none)
             }
         }
 
@@ -253,8 +248,8 @@ public struct TargetSourcesBuilder {
     }
 
     /// Returns the `Resource` file associated with a file and a particular rule, if there is one.
-    private func resource(for path: AbsolutePath, with rule: Rule) -> Resource? {
-        switch rule.rule {
+    private func resource(for path: AbsolutePath, with rule: FileRuleDescription.Rule) -> Resource? {
+        switch rule {
         case .compile, .header, .none, .modulemap, .ignored:
             return nil
         case .processResource:
@@ -267,10 +262,13 @@ public struct TargetSourcesBuilder {
             }()
 
             let explicitLocalization: String? = {
-                switch rule.localization  {
-                case .default?: return defaultLocalization ?? "en"
-                case .base?: return "Base"
-                case nil: return nil
+                switch rule  {
+                case .processResource(localization: .default):
+                    return defaultLocalization ?? "en"
+                case .processResource(localization: .base):
+                    return "Base"
+                default:
+                    return .none
                 }
             }()
 
@@ -281,9 +279,9 @@ public struct TargetSourcesBuilder {
                 return nil
             }
 
-            return Resource(rule: .process, path: path, localization: implicitLocalization ?? explicitLocalization)
+            return Resource(rule: .process(localization: implicitLocalization ?? explicitLocalization), path: path)
         case .copy:
-            return Resource(rule: .copy, path: path, localization: nil)
+            return Resource(rule: .copy, path: path)
         }
     }
 
@@ -481,14 +479,14 @@ public struct FileRuleDescription {
     /// A rule semantically describes a file/directory in a target.
     ///
     /// It is up to the build system to translate a rule into a build command.
-    public enum Rule {
+    public enum Rule: Equatable {
         /// The compile rule for `sources` in a package.
         case compile
 
         /// Process resource file rule for any type of platform-specific processing.
         ///
         /// This defaults to copy if there's no specialized behavior.
-        case processResource
+        case processResource(localization: TargetDescription.Resource.Localization?)
 
         /// The copy rule.
         case copy
@@ -583,7 +581,7 @@ public struct FileRuleDescription {
     /// File types related to the interface builder and storyboards.
     public static let xib: FileRuleDescription = {
         .init(
-            rule: .processResource,
+            rule: .processResource(localization: .none),
             toolsVersion: .v5_3,
             fileTypes: ["nib", "xib", "storyboard"]
         )
@@ -592,7 +590,7 @@ public struct FileRuleDescription {
     /// File types related to the asset catalog.
     public static let assetCatalog: FileRuleDescription = {
         .init(
-            rule: .processResource,
+            rule: .processResource(localization: .none),
             toolsVersion: .v5_3,
             fileTypes: ["xcassets"]
         )
@@ -601,7 +599,7 @@ public struct FileRuleDescription {
     /// File types related to the CoreData.
     public static let coredata: FileRuleDescription = {
         .init(
-            rule: .processResource,
+            rule: .processResource(localization: .none),
             toolsVersion: .v5_3,
             fileTypes: ["xcdatamodeld", "xcdatamodel", "xcmappingmodel"]
         )
@@ -610,7 +608,7 @@ public struct FileRuleDescription {
     /// File types related to Metal.
     public static let metal: FileRuleDescription = {
         .init(
-            rule: .processResource,
+            rule: .processResource(localization: .none),
             toolsVersion: .v5_3,
             fileTypes: ["metal"]
         )
@@ -656,13 +654,24 @@ public struct FileRuleDescription {
     }
 }
 
-extension TargetDescription.Resource.Rule {
-    fileprivate var fileRule: FileRuleDescription.Rule {
-        switch self {
-        case .process:
-            return .processResource
+extension FileRuleDescription.Rule {
+    init(_ seed: TargetDescription.Resource.Rule)  {
+        switch seed {
+        case .process(let localization):
+            self = .processResource(localization: localization)
         case .copy:
-            return .copy
+            self = .copy
+        }
+    }
+}
+
+extension Resource {
+    var localization: String? {
+        switch self.rule {
+        case .process(let localization):
+            return localization
+        default:
+            return .none
         }
     }
 }
@@ -695,8 +704,8 @@ extension ObservabilityMetadata {
     }
 }
 
-fileprivate extension PackageReference.Kind {
-    var emitAuthorWarnings: Bool {
+extension PackageReference.Kind {
+    fileprivate var emitAuthorWarnings: Bool {
         switch self {
         case .remoteSourceControl, .registry:
             return false

@@ -351,12 +351,18 @@ enum ManifestJSONParser {
     private static func parseResources(_ json: JSON) throws -> [TargetDescription.Resource] {
         guard let resourcesJSON = try? json.getArray("resources") else { return [] }
         return try resourcesJSON.map { json in
-            let rawRule = try json.get(String.self, forKey: "rule")
-            let rule = TargetDescription.Resource.Rule(rawValue: rawRule)!
+            let rule = try json.get(String.self, forKey: "rule")
             let path = try RelativePath(validating: json.get(String.self, forKey: "path"))
-            let localizationString = try? json.get(String.self, forKey: "localization")
-            let localization = localizationString.map({ TargetDescription.Resource.Localization(rawValue: $0)! })
-            return .init(rule: rule, path: path.pathString, localization: localization)
+            switch rule {
+            case "process":
+                let localizationString = try? json.get(String.self, forKey: "localization")
+                let localization = localizationString.map({ TargetDescription.Resource.Localization(rawValue: $0)! })
+                return .init(rule: .process(localization: localization), path: path.pathString)
+            case "copy":
+                return .init(rule: .copy, path: path.pathString)
+            default:
+                throw InternalError("invalid resource rule \(rule)")
+            }
         }
     }
 
