@@ -298,7 +298,7 @@ class RegistryDownloadsManagerTests: XCTestCase {
                 }
             }
 
-            if case .timedOut = group.wait(timeout: .now() + 10) {
+            if case .timedOut = group.wait(timeout: .now() + 60) {
                 return XCTFail("timeout")
             }
 
@@ -342,7 +342,7 @@ class RegistryDownloadsManagerTests: XCTestCase {
                 }
             }
 
-            if case .timedOut = group.wait(timeout: .now() + 10) {
+            if case .timedOut = group.wait(timeout: .now() + 60) {
                 return XCTFail("timeout")
             }
 

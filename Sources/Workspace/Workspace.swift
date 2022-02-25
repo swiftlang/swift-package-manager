@@ -3509,70 +3509,73 @@ extension Workspace: PackageContainerProvider {
         on queue: DispatchQueue,
         completion: @escaping (Result<PackageContainer, Swift.Error>) -> Void
     ) {
-        queue.async {
-            do {
-                switch package.kind {
-                // If the container is local, just create and return a local package container.
-                case .root, .fileSystem:
-                    let container = try FileSystemPackageContainer(
-                        package: package,
-                        identityResolver: self.identityResolver,
-                        manifestLoader: self.manifestLoader,
-                        toolsVersionLoader: self.toolsVersionLoader,
-                        currentToolsVersion: self.currentToolsVersion,
-                        fileSystem: self.fileSystem,
-                        observabilityScope: observabilityScope
-                    )
-                    completion(.success(container))
-                // Resolve the container using the repository manager.
-                case .localSourceControl, .remoteSourceControl:
-                    let repositorySpecifier = try package.makeRepositorySpecifier()
-                    self.repositoryManager.lookup(
-                        package: package.identity,
-                        repository: repositorySpecifier,
-                        skipUpdate: skipUpdate,
-                        observabilityScope: observabilityScope,
-                        delegateQueue: queue,
-                        callbackQueue: queue
-                    ) { result in
-                        // Create the container wrapper.
-                        let result = result.tryMap { handle -> PackageContainer in
-                            // Open the repository.
-                            //
-                            // FIXME: Do we care about holding this open for the lifetime of the container.
-                            let repository = try handle.open()
-                            return try SourceControlPackageContainer(
-                                package: package,
-                                identityResolver: self.identityResolver,
-                                repositorySpecifier: repositorySpecifier,
-                                repository: repository,
-                                manifestLoader: self.manifestLoader,
-                                toolsVersionLoader: self.toolsVersionLoader,
-                                currentToolsVersion: self.currentToolsVersion,
-                                fingerprintStorage: self.fingerprints,
-                                fingerprintCheckingMode: self.configuration.fingerprintCheckingMode,
-                                observabilityScope: observabilityScope
-                            )
-                        }
-                        completion(result)
-                    }
-                // Resolve the container using the registry
-                case .registry:
-                    let container = RegistryPackageContainer(
-                        package: package,
-                        identityResolver: self.identityResolver,
-                        registryClient: self.registryClient,
-                        manifestLoader: self.manifestLoader,
-                        toolsVersionLoader: self.toolsVersionLoader,
-                        currentToolsVersion: self.currentToolsVersion,
-                        observabilityScope: observabilityScope
-                    )
-                    completion(.success(container))
-                }
-            } catch {
+        do {
+            switch package.kind {
+            // If the container is local, just create and return a local package container.
+            case .root, .fileSystem:
+                let container = try FileSystemPackageContainer(
+                    package: package,
+                    identityResolver: self.identityResolver,
+                    manifestLoader: self.manifestLoader,
+                    toolsVersionLoader: self.toolsVersionLoader,
+                    currentToolsVersion: self.currentToolsVersion,
+                    fileSystem: self.fileSystem,
+                    observabilityScope: observabilityScope
+                )
                 queue.async {
-                    completion(.failure(error))
+                    completion(.success(container))
                 }
+            // Resolve the container using the repository manager.
+            case .localSourceControl, .remoteSourceControl:
+                let repositorySpecifier = try package.makeRepositorySpecifier()
+                self.repositoryManager.lookup(
+                    package: package.identity,
+                    repository: repositorySpecifier,
+                    skipUpdate: skipUpdate,
+                    observabilityScope: observabilityScope,
+                    delegateQueue: queue,
+                    callbackQueue: queue
+                ) { result in
+                    dispatchPrecondition(condition: .onQueue(queue))
+                    // Create the container wrapper.
+                    let result = result.tryMap { handle -> PackageContainer in
+                        // Open the repository.
+                        //
+                        // FIXME: Do we care about holding this open for the lifetime of the container.
+                        let repository = try handle.open()
+                        return try SourceControlPackageContainer(
+                            package: package,
+                            identityResolver: self.identityResolver,
+                            repositorySpecifier: repositorySpecifier,
+                            repository: repository,
+                            manifestLoader: self.manifestLoader,
+                            toolsVersionLoader: self.toolsVersionLoader,
+                            currentToolsVersion: self.currentToolsVersion,
+                            fingerprintStorage: self.fingerprints,
+                            fingerprintCheckingMode: self.configuration.fingerprintCheckingMode,
+                            observabilityScope: observabilityScope
+                        )
+                    }
+                    completion(result)
+                }
+            // Resolve the container using the registry
+            case .registry:
+                let container = RegistryPackageContainer(
+                    package: package,
+                    identityResolver: self.identityResolver,
+                    registryClient: self.registryClient,
+                    manifestLoader: self.manifestLoader,
+                    toolsVersionLoader: self.toolsVersionLoader,
+                    currentToolsVersion: self.currentToolsVersion,
+                    observabilityScope: observabilityScope
+                )
+                queue.async {
+                    completion(.success(container))
+                }
+            }
+        } catch {
+            queue.async {
+                completion(.failure(error))
             }
         }
     }
