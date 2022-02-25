@@ -82,7 +82,7 @@ public struct Xcode {
         }
     }
 
-    /// Abstract base class for all items in the group hierarhcy.
+    /// Abstract base class for all items in the group hierarchy.
     public class Reference {
         /// Relative path of the reference.  It is usually a literal, but may
         /// in fact contain build settings.
@@ -498,7 +498,7 @@ public struct Xcode {
     }
 }
 
-/// Adds the abililty to append to an option array of strings that hasn't yet
+/// Adds the ability to append to an option array of strings that hasn't yet
 /// been created.
 /// FIXME: While we want the end result of being able to say `FLAGS += ["-O"]`
 /// it is probably not how we want to implement it, since it changes behavior

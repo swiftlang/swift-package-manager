@@ -82,7 +82,7 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
             }
         }
 
-        // No fingerprints found for the packagge
+        // No fingerprints found for the package
         let otherPackage = PackageIdentity.plain("other.LinkedList")
         XCTAssertThrowsError(try storage.get(package: otherPackage, version: Version("1.0.0"))) { error in
             guard case PackageFingerprintStorageError.notFound = error else {

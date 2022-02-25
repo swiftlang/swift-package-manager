@@ -166,7 +166,7 @@ final class PackageToolTests: CommandsTestCase {
                 _ = try execute(["reset"], packagePath: packageRoot)
                 try localFileSystem.removeFileTree(cachePath)
 
-                // Perfom another fetch
+                // Perform another fetch
                 _ = try execute(["resolve", "--enable-dependency-cache", "--cache-path", cachePath.pathString], packagePath: packageRoot)
                 XCTAssert(try localFileSystem.getDirectoryContents(repositoriesPath).contains { $0.hasPrefix("Foo-") })
                 XCTAssert(try localFileSystem.getDirectoryContents(repositoriesCachePath).contains { $0.hasPrefix("Foo-") })
@@ -209,7 +209,7 @@ final class PackageToolTests: CommandsTestCase {
                 _ = try execute(["reset"], packagePath: packageRoot)
                 try localFileSystem.removeFileTree(cachePath)
 
-                // Perfom another fetch
+                // Perform another fetch
                 _ = try execute(["resolve", "--enable-repository-cache", "--cache-path", cachePath.pathString], packagePath: packageRoot)
                 XCTAssert(try localFileSystem.getDirectoryContents(repositoriesPath).contains { $0.hasPrefix("Foo-") })
                 XCTAssert(try localFileSystem.getDirectoryContents(repositoriesCachePath).contains { $0.hasPrefix("Foo-") })
@@ -287,7 +287,7 @@ final class PackageToolTests: CommandsTestCase {
             _ = try execute(["reset"], packagePath: packageRoot)
             try localFileSystem.removeFileTree(cachePath)
 
-            // Perfom another fetch
+            // Perform another fetch
             _ = try execute(["resolve", "--cache-path", cachePath.pathString], packagePath: packageRoot)
             XCTAssert(try localFileSystem.getDirectoryContents(repositoriesPath).contains { $0.hasPrefix("Foo-") })
             XCTAssert(try localFileSystem.getDirectoryContents(repositoriesCachePath).contains { $0.hasPrefix("Foo-") })

@@ -560,13 +560,13 @@ public struct SourceCodeFragment {
     /// A literal prefix to emit at the start of the source code fragment.
     var literal: String
     
-    /// The type of delimeters to use around the subfragments (if any).
+    /// The type of delimiters to use around the subfragments (if any).
     var delimiters: Delimiters
     
     /// Whether or not to emit newlines before the subfragments (if any).
     var multiline: Bool
     
-    /// Any subfragments; no delimeters are emitted if none.
+    /// Any subfragments; no delimiters are emitted if none.
     var subnodes: [SourceCodeFragment]?
     
     /// Type of delimiters to emit around any subfragments.

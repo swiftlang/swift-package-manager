@@ -35,7 +35,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
         self.enableSandbox = enableSandbox
     }
     
-    /// Public protocol function that starts compiling the plugin script to an exectutable. The tools version controls the availability of APIs in PackagePlugin, and should be set to the tools version of the package that defines the plugin (not of the target to which it is being applied). This function returns immediately and then calls the completion handler on the callbackq queue when compilation ends.
+    /// Public protocol function that starts compiling the plugin script to an executable. The tools version controls the availability of APIs in PackagePlugin, and should be set to the tools version of the package that defines the plugin (not of the target to which it is being applied). This function returns immediately and then calls the completion handler on the callbackq queue when compilation ends.
     public func compilePluginScript(
         sources: Sources,
         toolsVersion: ToolsVersion,

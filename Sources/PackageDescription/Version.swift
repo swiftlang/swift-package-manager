@@ -62,8 +62,8 @@ public struct Version {
     ///   - buildMetaDataIdentifiers: Build metadata that identifies a build.
     ///
     /// - Precondition: `major >= 0 && minor >= 0 && patch >= 0`.
-    /// - Precondition: `prereleaseIdentifiers` can conatin only ASCII alpha-numeric characters and "-".
-    /// - Precondition: `buildMetaDataIdentifiers` can conatin only ASCII alpha-numeric characters and "-".
+    /// - Precondition: `prereleaseIdentifiers` can contain only ASCII alpha-numeric characters and "-".
+    /// - Precondition: `buildMetaDataIdentifiers` can contain only ASCII alpha-numeric characters and "-".
     public init(
         _ major: Int,
         _ minor: Int,

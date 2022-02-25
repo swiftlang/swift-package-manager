@@ -66,7 +66,7 @@ class GenerateXcodeprojTests: XCTestCase {
             XCTAssertEqual(outpath, dstdir.appending(component: projectName + ".xcodeproj"))
 
             // We can only validate this on OS X.
-            // Don't allow TOOLCHAINS to be overriden here, as it breaks the test below.
+            // Don't allow TOOLCHAINS to be overridden here, as it breaks the test below.
             let output = try Process.checkNonZeroExit(
                 args: "env", "-u", "TOOLCHAINS", "xcodebuild", "-list", "-project", outpath.pathString).spm_chomp()
 

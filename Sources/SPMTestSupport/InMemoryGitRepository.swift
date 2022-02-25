@@ -35,7 +35,7 @@ public final class InMemoryGitRepository {
     /// A struct representing a revision state. Minimally it contains a hash identifier for the revision
     /// and the file system state.
     fileprivate struct RevisionState {
-        /// The revision identifier hash. It should be unique amoung all the identifiers.
+        /// The revision identifier hash. It should be unique among all the identifiers.
         var hash: RevisionIdentifier
 
         /// The filesystem state contained in this revision.
@@ -141,7 +141,7 @@ public final class InMemoryGitRepository {
             throw InMemoryGitRepositoryError.unknownTag
         }
         // Point the head to the revision state of the tag.
-        // It should be impossible that a tag exisits which doesnot have a state.
+        // It should be impossible that a tag exists which does not have a state.
         try self.lock.withLock {
             guard let head = history[hash] else {
                 throw InternalError("unknown hash \(hash)")

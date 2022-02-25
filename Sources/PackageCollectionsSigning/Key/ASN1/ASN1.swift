@@ -342,7 +342,7 @@ extension ArraySlice where Element == UInt8 {
             let requiredBits = UInt.bitWidth - length.leadingZeroBitCount
             switch requiredBits {
             case 0 ... 7:
-                // For 0 to 7 bits, the long form is unnacceptable and we require the short.
+                // For 0 to 7 bits, the long form is unacceptable and we require the short.
                 throw ASN1Error.unsupportedFieldLength
             case 8...:
                 // For 8 or more bits, fieldLength should be the minimum required.

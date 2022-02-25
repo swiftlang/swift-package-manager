@@ -153,7 +153,7 @@ public final class Manifest {
     /// Returns the targets required for a particular product filter.
     public func targetsRequired(for productFilter: ProductFilter) -> [TargetDescription] {
         #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
-        // If we have already calcualted it, returned the cached value.
+        // If we have already calculated it, returned the cached value.
         if let targets = _requiredTargets[productFilter] {
             return targets
         } else {
@@ -328,7 +328,7 @@ public final class Manifest {
     ///
     /// - Parameters:
     ///   - targetDependency: The target dependency to register.
-    ///   - registry: The registry in which to record the assocation.
+    ///   - registry: The registry in which to record the association.
     ///   - availablePackages: The set of available packages.
     private func register(
         targetDependency: TargetDescription.Dependency,
@@ -387,7 +387,7 @@ public final class Manifest {
     ///
     /// - Parameters:
     ///   - requiredPlugIn: The plug‐in to register.
-    ///   - registry: The registry in which to record the assocation.
+    ///   - registry: The registry in which to record the association.
     ///   - availablePackages: The set of available packages.
     private func register(
         requiredPlugIn: TargetDescription.PluginUsage,

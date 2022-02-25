@@ -411,7 +411,7 @@ final class NewTargetWriter: SyntaxRewriter {
         )
 
         let emptyArray = SyntaxFactory.makeArrayExpr(leftSquare: SyntaxFactory.makeLeftSquareBracketToken(), elements: SyntaxFactory.makeBlankArrayElementList(), rightSquare: SyntaxFactory.makeRightSquareBracketToken())
-        let depenenciesArg = SyntaxFactory.makeFunctionCallArgument(
+        let dependenciesArg = SyntaxFactory.makeFunctionCallArgument(
             label: SyntaxFactory.makeIdentifier("dependencies", leadingTrivia: leadingTriviaArgs),
             colon: SyntaxFactory.makeColonToken(trailingTrivia: .spaces(1)),
             expression: emptyArray,
@@ -422,7 +422,7 @@ final class NewTargetWriter: SyntaxRewriter {
             calledExpression: dotPackageExpr,
             leftParen: SyntaxFactory.makeLeftParenToken(),
             argumentList: SyntaxFactory.makeFunctionCallArgumentList([
-                nameArg, depenenciesArg,
+                nameArg, dependenciesArg,
                 ]),
             rightParen: SyntaxFactory.makeRightParenToken(),
             trailingClosure: nil

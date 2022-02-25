@@ -1389,7 +1389,7 @@ final class WorkspaceTests: XCTestCase {
             ]
         )
 
-        // Do an intial run, capping at Foo at 1.0.0.
+        // Do an initial run, capping at Foo at 1.0.0.
         let deps: [MockDependency] = [
             .sourceControl(path: "./Foo", requirement: .exact("1.0.0"), products: .specific(["Foo"])),
         ]
@@ -1474,7 +1474,7 @@ final class WorkspaceTests: XCTestCase {
             ]
         )
 
-        // Do an intial run, capping at Foo at 1.0.0.
+        // Do an initial run, capping at Foo at 1.0.0.
         let deps: [MockDependency] = [
             .sourceControl(path: "./Foo", requirement: .exact("1.0.0"), products: .specific(["Foo"])),
         ]
@@ -1583,7 +1583,7 @@ final class WorkspaceTests: XCTestCase {
             ]
         )
 
-        // Do an intial run, capping at Foo at 1.0.0.
+        // Do an initial run, capping at Foo at 1.0.0.
         let deps: [MockDependency] = [
             .sourceControl(path: "./Foo", requirement: .exact("1.0.0"), products: .specific(["Foo"])),
         ]
@@ -7523,8 +7523,8 @@ final class WorkspaceTests: XCTestCase {
         let fs = InMemoryFileSystem()
 
         let hostToolchain = try UserToolchain(destination: .hostDestination())
-        let andriodTriple = try Triple("x86_64-unknown-linux-android")
-        let notHostTriple = hostToolchain.triple == andriodTriple ? .macOS : andriodTriple
+        let androidTriple = try Triple("x86_64-unknown-linux-android")
+        let notHostTriple = hostToolchain.triple == androidTriple ? .macOS : androidTriple
 
         let ari = """
         {

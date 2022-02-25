@@ -1017,7 +1017,7 @@ public enum GitProgressParser: FetchProgress {
     case receivingObjects(progress: Double, currentObjects: Int, totalObjects: Int, downloadProgress: String?, downloadSpeed: String?)
     case resolvingDeltas(progress: Double, currentObjects: Int, totalObjects: Int)
 
-    /// The pattern used to match git output. Caputre groups are labled from ?<i0> to ?<i19>.
+    /// The pattern used to match git output. Capture groups are labeled from ?<i0> to ?<i19>.
     static let pattern = #"""
 (?xi)
 (?:

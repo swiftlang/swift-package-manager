@@ -13,7 +13,7 @@ import PackageModel
 /// A registry for available platforms.
 public final class PlatformRegistry {
 
-    /// The current registery is hardcoded and static so we can just use
+    /// The current registry is hardcoded and static so we can just use
     /// a singleton for now.
     public static let `default`: PlatformRegistry = .init()
 

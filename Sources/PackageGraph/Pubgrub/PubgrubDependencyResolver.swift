@@ -310,7 +310,7 @@ public struct PubgrubDependencyResolver {
                         }
                     } else if !overriddenPackages.keys.contains(dependency.package) {
                         // Add the constraint if its not already present. This will ensure we don't
-                        // end up looping infinitely due to a cycle (which are diagnosed seperately).
+                        // end up looping infinitely due to a cycle (which are diagnosed separately).
                         constraints.append(dependency)
                     }
                 }
@@ -318,7 +318,7 @@ public struct PubgrubDependencyResolver {
         }
 
         // Process revision-based constraints in the second phase. Here we do the similar processing
-        // as the first phase but we also ignore the constraints that are overriden due to
+        // as the first phase but we also ignore the constraints that are overridden due to
         // presence of unversioned constraints.
         while let constraint = constraints.first(where: { $0.requirement.isRevision }) {
             guard case .revision(let revision) = constraint.requirement else {
@@ -331,7 +331,7 @@ public struct PubgrubDependencyResolver {
             switch overriddenPackages[package]?.version {
             case .excluded?, .version?:
                 // These values are not possible.
-                throw InternalError("Unexpected value for overriden package \(package) in \(overriddenPackages)")
+                throw InternalError("Unexpected value for overridden package \(package) in \(overriddenPackages)")
             case .unversioned?:
                 // This package is overridden by an unversioned package so we can ignore this constraint.
                 continue
@@ -1187,7 +1187,7 @@ internal final class PubGrubPackageContainer {
                 return [try Incompatibility(Term(node, .exact(version)), root: root, cause: cause)]
             }
 
-            // Skip if this package is overriden.
+            // Skip if this package is overridden.
             if overriddenPackages.keys.contains(dep.package) {
                 continue
             }

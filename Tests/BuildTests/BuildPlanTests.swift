@@ -267,7 +267,7 @@ final class BuildPlanTests: XCTestCase {
                 // If the toolchain being used is sufficiently old, the integrated driver
                 // will not be able to parse the `-print-target-info` output. In which case,
                 // we cannot yet rely on the integrated swift driver.
-                // This effectively guards the test from running on unupported, older toolchains.
+                // This effectively guards the test from running on unsupported, older toolchains.
                 throw XCTSkip()
             }
         }
