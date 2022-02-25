@@ -251,7 +251,8 @@ class RegistryPackageContainerTests: XCTestCase {
                           identityResolver: IdentityResolver,
                           fileSystem: FileSystem,
                           observabilityScope: ObservabilityScope,
-                          on queue: DispatchQueue,
+                          delegateQueue: DispatchQueue,
+                          callbackQueue: DispatchQueue,
                           completion: @escaping (Result<Manifest, Error>) -> Void) {
                     completion(.success(
                         Manifest(
