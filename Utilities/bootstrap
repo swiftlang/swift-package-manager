@@ -546,6 +546,7 @@ def build_dependency(args, target_name, common_cmake_flags = [], non_darwin_cmak
     if platform.system() == 'Darwin':
         cmake_flags.append("-DCMAKE_C_FLAGS=-target %s%s" % (get_build_target(args), g_macos_deployment_target))
         cmake_flags.append("-DCMAKE_OSX_DEPLOYMENT_TARGET=%s" % g_macos_deployment_target)
+        cmake_flags.append("-DCMAKE_AR=ar")
     else:
         cmake_flags += non_darwin_cmake_flags
 
