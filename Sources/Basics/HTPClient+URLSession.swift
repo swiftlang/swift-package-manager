@@ -149,7 +149,11 @@ private class DownloadTaskManager: NSObject, URLSessionDownloadDelegate {
             return
         }
 
-        task.location = location
+        do {
+            try task.fileSystem.move(from: AbsolutePath(location.path), to: task.destination)
+        } catch {
+            task.moveFileError = error
+        }
     }
 
     public func urlSession(_ session: URLSession, task downloadTask: URLSessionTask, didCompleteWithError error: Error?) {
@@ -160,10 +164,9 @@ private class DownloadTaskManager: NSObject, URLSessionDownloadDelegate {
         do {
             if let error = error {
                 throw HTTPClientError.downloadError("\(error)")
+            } else if let error = task.moveFileError {
+                throw error
             } else if let response = downloadTask.response as? HTTPURLResponse {
-                if let location = task.location {
-                    try task.fileSystem.move(from: AbsolutePath(location.path), to: task.destination)
-                }
                 task.completionHandler(.success(response.response(body: nil)))
             } else {
                 throw HTTPClientError.invalidResponse
@@ -180,7 +183,7 @@ private class DownloadTaskManager: NSObject, URLSessionDownloadDelegate {
         let completionHandler: HTTPClient.CompletionHandler
         let progressHandler: HTTPClient.ProgressHandler?
 
-        var location: URL?
+        var moveFileError: Error?
 
         init(task: URLSessionDownloadTask, fileSystem: FileSystem, destination: AbsolutePath, progressHandler: HTTPClient.ProgressHandler?, completionHandler: @escaping HTTPClient.CompletionHandler) {
             self.task = task

@@ -12,6 +12,8 @@ import Dispatch
 import class Foundation.ProcessInfo
 import TSCBasic
 
+public typealias Lock = TSCBasic.Lock
+
 /// Thread-safe dictionary like structure
 public final class ThreadSafeKeyValueStore<Key, Value> where Key: Hashable {
     private var underlying: [Key: Value]
@@ -194,6 +196,12 @@ public final class ThreadSafeBox<Value> {
         }
     }
 
+    public func get(`default`: Value) -> Value {
+        self.lock.withLock {
+            self.underlying ?? `default`
+        }
+    }
+
     public func put(_ newValue: Value) {
         self.lock.withLock {
             self.underlying = newValue
@@ -217,6 +225,23 @@ public final class ThreadSafeBox<Value> {
                 if var value = self.underlying {
                     value[keyPath: keyPath] = newValue
                 }
+            }
+        }
+    }
+}
+
+extension ThreadSafeBox where Value == Int {
+    public func increment() {
+        self.lock.withLock {
+            if let value = self.underlying {
+                self.underlying = value + 1
+            }
+        }
+    }
+    public func decrement() {
+        self.lock.withLock {
+            if let value = self.underlying {
+                self.underlying = value - 1
             }
         }
     }

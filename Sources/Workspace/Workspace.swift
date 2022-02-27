@@ -2521,9 +2521,6 @@ extension Workspace {
             }
         }
 
-        // download max n files concurrently
-        let semaphore = DispatchSemaphore(value: Concurrency.maxOperations)
-
         // finally download zip files, if any
         for artifact in zipArtifacts.get() {
             let parentDirectory =  self.location.artifactsDirectory.appending(component: artifact.packageRef.identity.description)
@@ -2538,7 +2535,6 @@ extension Workspace {
                 }
             }
 
-            semaphore.wait()
             group.enter()
             var headers = HTTPClientHeaders()
             headers.add(name: "Accept", value: "application/octet-stream")
@@ -2559,10 +2555,7 @@ extension Workspace {
                         totalBytesToDownload: totalBytesToDownload)
                 },
                 completion: { downloadResult in
-                    defer {
-                        group.leave()
-                        semaphore.signal()
-                    }
+                    defer { group.leave() }
 
                     // TODO: Use the same extraction logic for both remote and local archived artifacts.
                     switch downloadResult {
