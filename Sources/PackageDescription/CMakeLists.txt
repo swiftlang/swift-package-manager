@@ -47,10 +47,8 @@ set_target_properties(PackageDescription PROPERTIES
 )
 
 if(NOT CMAKE_SYSTEM_NAME STREQUAL Darwin)
-  if(Foundation_FOUND)
-    target_link_libraries(PackageDescription PRIVATE
-      Foundation)
-  endif()
+  target_link_libraries(PackageDescription PRIVATE
+    Foundation)
   target_link_options(PackageDescription PRIVATE
     "SHELL:-no-toolchain-stdlib-rpath")
   set_target_properties(PackageDescription PROPERTIES
