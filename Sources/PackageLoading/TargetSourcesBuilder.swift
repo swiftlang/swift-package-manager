@@ -172,7 +172,6 @@ public struct TargetSourcesBuilder {
         diagnoseConflictingResources(in: resources)
         diagnoseCopyConflictsWithLocalizationDirectories(in: resources)
         diagnoseLocalizedAndUnlocalizedVariants(in: resources)
-        diagnoseMissingDevelopmentRegionResource(in: resources)
         diagnoseInfoPlistConflicts(in: resources)
         diagnoseInvalidResource(in: target.resources)
 
@@ -318,30 +317,6 @@ public struct TargetSourcesBuilder {
             let hasUnlocalized = resources.contains(where: { $0.localization == nil })
             if hasLocalizations && hasUnlocalized {
                 self.observabilityScope.emit(.localizedAndUnlocalizedVariants(resource: basename, targetName: target.name))
-            }
-        }
-    }
-
-    private func diagnoseMissingDevelopmentRegionResource(in resources: [Resource]) {
-        // We can't diagnose anything here without a default localization set.
-        guard let defaultLocalization = self.defaultLocalization else {
-            return
-        }
-
-        // rdar://86297221
-        // There is no need to validate for english, because the string key is already in english
-        if self.defaultLocalization == "en" {
-            return
-        }
-
-        let localizedResources = resources.lazy.filter({ $0.localization != nil && $0.localization != "Base" })
-        let resourcesByBasename = Dictionary(grouping: localizedResources, by: { $0.path.basename })
-        for (basename, resources) in resourcesByBasename {
-            if !resources.contains(where: { $0.localization == defaultLocalization }) {
-                self.observabilityScope.emit(.missingDefaultLocalizationResource(
-                    resource: basename,
-                    targetName: target.name,
-                    defaultLocalization: defaultLocalization))
             }
         }
     }

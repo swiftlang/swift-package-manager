@@ -490,6 +490,8 @@ class TargetSourcesBuilderTests: XCTestCase {
         }
     }
 
+    // rdar://86297221
+    // There is no need to validate localization exists for default localization
     func testMissingDefaultLocalization() throws {
         let target = try TargetDescription(name: "Foo", resources: [
             .init(rule: .process(localization: .none), path: "Resources"),
@@ -509,15 +511,7 @@ class TargetSourcesBuilderTests: XCTestCase {
 
         do {
             build(target: target, defaultLocalization: "fr", toolsVersion: .v5_3, fs: fs) { _, _, _, _, identity, kind, path, diagnostics in
-                testDiagnostics(diagnostics) { result in
-                    let diagnostic = result.check(
-                        diagnostic: .contains("resource 'Icon.png' in target 'Foo' is missing the default localization 'fr'"),
-                        severity: .warning
-                    )
-                    XCTAssertEqual(diagnostic?.metadata?.packageIdentity, identity)
-                    XCTAssertEqual(diagnostic?.metadata?.packageKind, kind)
-                    XCTAssertEqual(diagnostic?.metadata?.targetName, target.name)
-                }
+                XCTAssertNoDiagnostics(diagnostics)
             }
         }
 
