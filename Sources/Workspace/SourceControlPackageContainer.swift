@@ -397,18 +397,21 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
         // Load the manifest.
         // FIXME: this should not block
         return try temp_await {
-            self.manifestLoader.load(at: AbsolutePath.root,
-                                     packageIdentity: self.package.identity,
-                                     packageKind: self.package.kind,
-                                     packageLocation: self.package.locationString,
-                                     version: version,
-                                     revision: nil,
-                                     toolsVersion: toolsVersion,
-                                     identityResolver: self.identityResolver,
-                                     fileSystem: fileSystem,
-                                     observabilityScope: self.observabilityScope,
-                                     on: .sharedConcurrent,
-                                     completion: $0)
+            self.manifestLoader.load(
+                at: AbsolutePath.root,
+                packageIdentity: self.package.identity,
+                packageKind: self.package.kind,
+                packageLocation: self.package.locationString,
+                version: version,
+                revision: nil,
+                toolsVersion: toolsVersion,
+                identityResolver: self.identityResolver,
+                fileSystem: fileSystem,
+                observabilityScope: self.observabilityScope,
+                delegateQueue: .sharedConcurrent,
+                callbackQueue: .sharedConcurrent,
+                completion: $0
+            )
         }
     }
 

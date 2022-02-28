@@ -91,7 +91,8 @@ public struct FileSystemPackageContainer: PackageContainer {
                     identityResolver: self.identityResolver,
                     fileSystem: self.fileSystem,
                     observabilityScope: self.observabilityScope,
-                    on: .sharedConcurrent,
+                    delegateQueue: .sharedConcurrent,
+                    callbackQueue: .sharedConcurrent,
                     completion: $0
                 )
             }

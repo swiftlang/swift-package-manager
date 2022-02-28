@@ -9184,22 +9184,26 @@ final class WorkspaceTests: XCTestCase {
                 identityResolver: IdentityResolver,
                 fileSystem: FileSystem,
                 observabilityScope: ObservabilityScope,
-                on queue: DispatchQueue,
+                delegateQueue: DispatchQueue,
+                callbackQueue: DispatchQueue,
                 completion: @escaping (Result<Manifest, Error>) -> Void
             ) {
                 if let error = self.error {
-                    completion(.failure(error))
+                    callbackQueue.async {
+                        completion(.failure(error))
+                    }
                 } else {
-                    completion(.success(
-                        .init(
-                            displayName: packageIdentity.description,
-                            path: path,
-                            packageKind: packageKind,
-                            packageLocation: packageLocation,
-                            platforms: [],
-                            toolsVersion: toolsVersion)
-                        )
-                    )
+                    callbackQueue.async {
+                        completion(.success(
+                            .init(
+                                displayName: packageIdentity.description,
+                                path: path,
+                                packageKind: packageKind,
+                                packageLocation: packageLocation,
+                                platforms: [],
+                                toolsVersion: toolsVersion)
+                        ))
+                    }
                 }
             }
 
