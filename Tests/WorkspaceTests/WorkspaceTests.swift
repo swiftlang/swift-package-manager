@@ -6737,14 +6737,13 @@ final class WorkspaceTests: XCTestCase {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
-        // this has knowledge of the expected behavior, we can also make this configurable
-        let maxConcurrentRequests = Concurrency.maxOperations
-
+        let maxConcurrentRequests = 2
         var concurrentRequests = 0
         let concurrentRequestsLock = Lock()
 
-        // returns a dummy zipfile for the requested artifact
-        let httpClient = HTTPClient(handler: { request, _, completion in
+        var configuration = HTTPClient.Configuration()
+        configuration.maxConcurrentRequests = maxConcurrentRequests
+        let httpClient = HTTPClient(configuration: configuration, handler: { request, _, completion in
             defer {
                 concurrentRequestsLock.withLock {
                     concurrentRequests -= 1
@@ -6763,6 +6762,7 @@ final class WorkspaceTests: XCTestCase {
                     }
                 }
 
+                // returns a dummy zipfile for the requested artifact
                 try fileSystem.writeFileContents(
                     destination,
                     bytes: [0x01],
