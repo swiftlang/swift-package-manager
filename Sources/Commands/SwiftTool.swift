@@ -537,7 +537,7 @@ public class SwiftTool {
             observabilityScope.emit(warning: "'--disable-repository-cache'/'--enable-repository-cache' flags are deprecated; use '--disable-dependency-cache'/'--enable-dependency-cache' instead")
         }
 
-        if options.build._deprecated_shouldLinkStaticSwiftStdlib != nil {
+        if options.linker._deprecated_shouldLinkStaticSwiftStdlib != nil {
             observabilityScope.emit(warning: "'--shouldLinkStaticSwiftStdlib' option is deprecated; Statically linking the Swift runtime is automatically done on relevant platforms (eg Linux). You may opt out of this behavior with --disable-static-swift-runtime")
         }
     }
@@ -834,7 +834,7 @@ public class SwiftTool {
                 flags: options.build.buildFlags,
                 xcbuildFlags: options.build.xcbuildFlags,
                 jobs: options.build.jobs ?? UInt32(ProcessInfo.processInfo.activeProcessorCount),
-                disableAutomaticSwiftRuntimeStaticLinking: options.build.disableAutomaticSwiftRuntimeStaticLinking,
+                disableAutomaticSwiftRuntimeStaticLinking: options.linker.disableAutomaticSwiftRuntimeStaticLinking,
                 canRenameEntrypointFunctionName: SwiftTargetBuildDescription.checkSupportedFrontendFlags(
                     flags: ["entry-point-function-name"], fileSystem: self.fileSystem
                 ),

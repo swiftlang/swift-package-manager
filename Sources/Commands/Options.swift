@@ -338,14 +338,6 @@ struct BuildOptions: ParsableArguments {
     @Flag(name: .customLong("experimental-explicit-module-build"))
     var useExplicitModuleBuild: Bool = false
 
-    /// If should link the Swift stdlib statically.
-    @Flag(name: .customLong("static-swift-stdlib"), inversion: .prefixedNo, help: .hidden)
-    var _deprecated_shouldLinkStaticSwiftStdlib: Bool?
-
-    /// If should link the Swift stdlib statically.
-    @Flag(name: .customLong("disable-static-swift-runtime"), help: "Disable static linking of the Swift runtime libraries (which is done automatically on supported platforms like Linux)")
-    var disableAutomaticSwiftRuntimeStaticLinking: Bool = false
-
     /// Whether to output a graphviz file visualization of the combined job graph for all targets
     @Flag(
         name: .customLong("print-manifest-job-graph"),
@@ -394,9 +386,13 @@ struct LinkerOptions: ParsableArguments {
         help: "Disable/enable dead code stripping by the linker")
     var linkerDeadStrip: Bool = true
 
+    /// If should link the Swift runtime libraries (stdlib, foundation, dispatch, etc) statically.
+    @Flag(name: .customLong("disable-static-swift-runtime"), help: "Disable static linking of the Swift runtime libraries (which is done automatically on supported platforms like Linux)")
+    var disableAutomaticSwiftRuntimeStaticLinking: Bool = false
+
     /// If should link the Swift stdlib statically.
-    @Flag(name: .customLong("static-swift-stdlib"), inversion: .prefixedNo, help: "Link Swift stdlib statically")
-    var shouldLinkStaticSwiftStdlib: Bool = false
+    @Flag(name: .customLong("static-swift-stdlib"), inversion: .prefixedNo, help: .hidden)
+    var _deprecated_shouldLinkStaticSwiftStdlib: Bool?
 }
 
 
