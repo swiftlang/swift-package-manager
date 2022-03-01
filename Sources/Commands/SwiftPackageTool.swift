@@ -1170,32 +1170,20 @@ final class PluginDelegate: PluginInvocationDelegate {
 
         // Create a build operation. We have to disable the cache in order to get a build plan created.
         let outputStream = BufferedOutputByteStream()
-        let buildOperation = BuildOperation(
-            buildParameters: buildParameters,
+        let buildOperation = try self.swiftTool.createBuildOperation(
+            explicitProduct: explicitProduct,
             cacheBuildManifest: false,
-            packageGraphLoader: { try self.swiftTool.loadPackageGraph(explicitProduct: explicitProduct) },
-            pluginScriptRunner: try self.swiftTool.getPluginScriptRunner(),
-            pluginWorkDirectory: try self.swiftTool.getActiveWorkspace().location.pluginWorkingDirectory,
-            outputStream: outputStream,
-            logLevel: logLevel,
-            fileSystem: swiftTool.fileSystem,
-            observabilityScope: self.swiftTool.observabilityScope
+            customBuildParameters: buildParameters,
+            customOutputStream: outputStream,
+            customLogLevel: logLevel
         )
 
-        // Save the instance so it can be canceled from the interrupt handler.
-        self.swiftTool.buildSystemRef.buildSystem = buildOperation
-
-        // Get or create the build description and plan the build.
-        let _ = try buildOperation.getBuildDescription()
-        let buildPlan = buildOperation.buildPlan!
-        
         // Run the build. This doesn't return until the build is complete.
-        var success = true
-        do {
-            try buildOperation.build(subset: buildSubset)
-        }
-        catch {
-            success = false
+        let success = buildOperation.buildIgnoringError(subset: buildSubset)
+
+        // Get the build plan used
+        guard let buildPlan = buildOperation.buildPlan else {
+            throw InternalError("invalid state, buildPlan is undefined")
         }
 
         // Create and return the build result record based on what the delegate collected and what's in the build plan.
@@ -1940,5 +1928,16 @@ private extension Basics.Diagnostic {
 
     static func missingRequiredArg(_ argument: String) -> Self {
         .error("missing required argument \(argument)")
+    }
+}
+
+extension BuildOperation {
+    fileprivate func buildIgnoringError(subset: BuildSubset) -> Bool {
+        do {
+            try self.build(subset: subset)
+            return true
+        } catch {
+            return false
+        }
     }
 }

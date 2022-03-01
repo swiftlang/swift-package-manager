@@ -735,6 +735,7 @@ public class SwiftTool {
         customBuildParameters: BuildParameters? = .none,
         customPackageGraphLoader: (() throws -> PackageGraph)? = .none,
         customOutputStream: OutputByteStream? = .none,
+        customLogLevel: Diagnostic.Severity? = .none,
         customObservabilityScope: ObservabilityScope? = .none
     ) throws -> BuildOperation {
         let graphLoader = { try self.loadPackageGraph(explicitProduct: explicitProduct) }
@@ -748,7 +749,7 @@ public class SwiftTool {
             pluginScriptRunner: self.getPluginScriptRunner(),
             pluginWorkDirectory: try self.getActiveWorkspace().location.pluginWorkingDirectory,
             outputStream: customOutputStream ?? self.outputStream,
-            logLevel: self.logLevel,
+            logLevel: customLogLevel ?? self.logLevel,
             fileSystem: self.fileSystem,
             observabilityScope: customObservabilityScope ?? self.observabilityScope
         )
