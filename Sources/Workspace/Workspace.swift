@@ -4061,18 +4061,21 @@ extension Workspace {
             return nil
         }
 
-        guard case .custom(_, _) = state else {
+        switch state {
+        // File-system based dependencies do not provide a custom file system object.
+        case .fileSystem:
+            return nil
+        case .custom:
+            let container = try temp_await { packageContainerProvider.getContainer(for: package, skipUpdate: true, observabilityScope: observabilityScope, on: .sharedConcurrent, completion: $0) }
+            guard let customContainer = container as? CustomPackageContainer else {
+                observabilityScope.emit(error: "invalid custom dependency container: \(container)")
+                return nil
+            }
+            return try customContainer.getFileSystem()
+        default:
             observabilityScope.emit(error: "invalid managed dependency state for custom dependency: \(state)")
             return nil
         }
-
-        let container = try temp_await { packageContainerProvider.getContainer(for: package, skipUpdate: true, observabilityScope: observabilityScope, on: .sharedConcurrent, completion: $0) }
-        guard let customContainer = container as? CustomPackageContainer else {
-            observabilityScope.emit(error: "invalid custom dependency container: \(container)")
-            return nil
-        }
-
-        return try customContainer.getFileSystem()
     }
 }
 
