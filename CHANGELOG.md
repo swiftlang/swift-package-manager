@@ -25,6 +25,10 @@ Swift 5.7
 
 Swift 5.6
 -----------
+* [SE-0303]
+
+  Package plugins of the type `buildTool` can now be declared in packages that specify a tools version of 5.6 or later, and can be invoked using the `swift build` command.
+  
 * [SE-0332]
 
   Package plugins of the type `command` can now be declared in packages that specify a tools version of 5.6 or later, and can be invoked using the `swift package` subcommand.
@@ -209,6 +213,7 @@ Swift 3.0
 [SE-0201]: https://github.com/apple/swift-evolution/blob/main/proposals/0201-package-manager-local-dependencies.md
 [SE-0208]: https://github.com/apple/swift-evolution/blob/main/proposals/0208-package-manager-system-library-targets.md
 [SE-0209]: https://github.com/apple/swift-evolution/blob/main/proposals/0209-package-manager-swift-lang-version-update.md
+[SE-0303]: https://github.com/apple/swift-evolution/blob/main/proposals/0303-swiftpm-extensible-build-tools.md
 [SE-0332]: https://github.com/apple/swift-evolution/blob/main/proposals/0332-swiftpm-command-plugins.md
 [SE-0339]: https://github.com/apple/swift-evolution/blob/main/proposals/0339-module-aliasing-for-disambiguation.md
 
