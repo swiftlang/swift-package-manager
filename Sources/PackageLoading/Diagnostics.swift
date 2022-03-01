@@ -127,17 +127,6 @@ extension Basics.Diagnostic {
             localized variants will never be chosen
             """)
     }
-
-    static func missingDefaultLocalizationResource(
-        resource: String,
-        targetName: String,
-        defaultLocalization: String
-    ) -> Self {
-        .warning("""
-            resource '\(resource)' in target '\(targetName)' is missing the default localization \
-            '\(defaultLocalization)'; the default localization is used as a fallback when no other localization matches
-            """)
-    }
 }
 
 extension ObservabilityMetadata {
