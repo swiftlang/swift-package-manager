@@ -42,6 +42,9 @@ final class CancellatorTests: XCTestCase {
     }
 
     func testProcess() throws {
+        #if !os(macOS)
+        try XCTSkipIf(true, "skipping on non-macOS, signal traps do not work well on docker")
+        #endif
         try withTemporaryDirectory { temporaryDirectory in
             let scriptPath = temporaryDirectory.appending(component: "script")
             try localFileSystem.writeFileContents(scriptPath) {
@@ -59,10 +62,13 @@ final class CancellatorTests: XCTestCase {
 
             // outputRedirection used to signal that the process SIGINT traps have been set up
             let startSemaphore = ProcessStartedSemaphore(term: "process started")
-            let process = TSCBasic.Process(arguments: ["bash", scriptPath.pathString], outputRedirection: .stream(
-                stdout: startSemaphore.handleOutput,
-                stderr: startSemaphore.handleOutput
-            ))
+            let process = TSCBasic.Process(
+                arguments: ["bash", scriptPath.pathString],
+                outputRedirection: .stream(
+                    stdout: startSemaphore.handleOutput,
+                    stderr: startSemaphore.handleOutput
+                )
+            )
 
             let registrationKey = cancellator.register(process)
             XCTAssertNotNil(registrationKey)
@@ -93,6 +99,9 @@ final class CancellatorTests: XCTestCase {
     }
 
     func testProcessForceKill() throws {
+        #if !os(macOS)
+        try XCTSkipIf(true, "skipping on non-macOS, signal traps do not work well on docker")
+        #endif
         try withTemporaryDirectory { temporaryDirectory in
             let scriptPath = temporaryDirectory.appending(component: "script")
             try localFileSystem.writeFileContents(scriptPath) {
@@ -119,10 +128,13 @@ final class CancellatorTests: XCTestCase {
 
             // outputRedirection used to signal that the process SIGINT traps have been set up
             let startSemaphore = ProcessStartedSemaphore(term: "trap installed")
-            let process = TSCBasic.Process(arguments: ["bash", scriptPath.pathString], outputRedirection: .stream(
-                stdout: startSemaphore.handleOutput,
-                stderr: startSemaphore.handleOutput
-            ))
+            let process = TSCBasic.Process(
+                arguments: ["bash", scriptPath.pathString],
+                outputRedirection: .stream(
+                    stdout: startSemaphore.handleOutput,
+                    stderr: startSemaphore.handleOutput
+                )
+            )
             let registrationKey = cancellator.register(process)
             XCTAssertNotNil(registrationKey)
 

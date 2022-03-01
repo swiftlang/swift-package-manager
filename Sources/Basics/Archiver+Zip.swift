@@ -62,15 +62,6 @@ public struct ZipArchiver: Archiver, Cancellable {
         } catch {
             return completion(.failure(error))
         }
-
-        /*
-        Process.popen(arguments: ["unzip", archivePath.pathString, "-d", destinationPath.pathString], queue: .sharedConcurrent) { result in
-            completion(result.tryMap { processResult in
-                guard processResult.exitStatus == .terminated(code: 0) else {
-                    throw try StringError(processResult.utf8stderrOutput())
-                }
-            })
-        }*/
     }
 
     public func validate(path: AbsolutePath, completion: @escaping (Result<Bool, Error>) -> Void) {
@@ -95,13 +86,6 @@ public struct ZipArchiver: Archiver, Cancellable {
         } catch {
             return completion(.failure(error))
         }
-
-        /*
-        Process.popen(arguments: ["unzip", "-t", path.pathString], queue: .sharedConcurrent) { result in
-            completion(result.tryMap { processResult in
-                return processResult.exitStatus == .terminated(code: 0)
-            })
-        }*/
     }
 
     public func cancel(deadline: DispatchTime) throws {
