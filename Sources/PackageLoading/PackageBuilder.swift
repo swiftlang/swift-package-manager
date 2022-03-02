@@ -240,13 +240,23 @@ public final class PackageBuilder {
     private let additionalFileRules: [FileRuleDescription]
 
     /// Minimum deployment target of XCTest per platform.
-    private let xcTestMinimumDeploymentTargets: [PackageModel.Platform:PlatformVersion]
+    //private let xcTestMinimumDeploymentTargets: [PackageModel.Platform:PlatformVersion]
 
     /// ObservabilityScope with which to emit diagnostics
     private let observabilityScope: ObservabilityScope
 
     /// The filesystem package builder will run on.
     private let fileSystem: FileSystem
+
+    // A cache to store declared and inferred supported platforms, based on the `isTest` parameter.
+    //private var _declaredPlatforms = [Bool: [SupportedPlatform]]()
+    //private var _inferredPlatforms = [Bool: [SupportedPlatform]]()
+
+    // FIXME: why is this a computed property?
+    /// The platform registry instance.
+    private var platformRegistry: PlatformRegistry {
+        return PlatformRegistry.default
+    }
 
     /// Create a builder for the given manifest and package `path`.
     ///
@@ -265,7 +275,7 @@ public final class PackageBuilder {
         path: AbsolutePath,
         additionalFileRules: [FileRuleDescription] = [],
         binaryArtifacts: [BinaryArtifact],
-        xcTestMinimumDeploymentTargets: [PackageModel.Platform:PlatformVersion],
+        //xcTestMinimumDeploymentTargets: [PackageModel.Platform:PlatformVersion],
         shouldCreateMultipleTestProducts: Bool = false,
         warnAboutImplicitExecutableTargets: Bool = true,
         createREPLProduct: Bool = false,
@@ -278,7 +288,7 @@ public final class PackageBuilder {
         self.packagePath = path
         self.additionalFileRules = additionalFileRules
         self.binaryArtifacts = binaryArtifacts
-        self.xcTestMinimumDeploymentTargets = xcTestMinimumDeploymentTargets
+        //self.xcTestMinimumDeploymentTargets = xcTestMinimumDeploymentTargets
         self.shouldCreateMultipleTestProducts = shouldCreateMultipleTestProducts
         self.createREPLProduct = createREPLProduct
         self.warnAboutImplicitExecutableTargets = warnAboutImplicitExecutableTargets
@@ -324,7 +334,7 @@ public final class PackageBuilder {
                     productFilter: .everything,
                     path: path,
                     binaryArtifacts: [], // this will fail for packages with binary artifacts, but this API is deprecated and the replacement API was fixed
-                    xcTestMinimumDeploymentTargets: xcTestMinimumDeploymentTargets,
+                    //xcTestMinimumDeploymentTargets: xcTestMinimumDeploymentTargets,
                     fileSystem: localFileSystem,
                     observabilityScope: ObservabilitySystem(diagnosticEngine: diagnostics).topScope
                 )
@@ -462,7 +472,7 @@ public final class PackageBuilder {
             return [
                 SystemLibraryTarget(
                     name: self.manifest.displayName, // FIXME: use identity instead?
-                    platforms: self.platforms(),
+                    //platforms: self.inferredPlatforms(),
                     path: self.packagePath,
                     isImplicit: true,
                     pkgConfig: self.manifest.pkgConfig,
@@ -763,7 +773,7 @@ public final class PackageBuilder {
 
             return SystemLibraryTarget(
                 name: potentialModule.name,
-                platforms: self.platforms(),
+                //platforms: self.inferredPlatforms(),
                 path: potentialModule.path, isImplicit: false,
                 pkgConfig: manifestTarget.pkgConfig,
                 providers: manifestTarget.providers
@@ -776,7 +786,7 @@ public final class PackageBuilder {
             return BinaryTarget(
                 name: potentialModule.name,
                 kind: artifact.kind,
-                platforms: self.platforms(),
+                //platforms: self.inferredPlatforms(),
                 path: potentialModule.path,
                 origin: artifactOrigin
             )
@@ -836,7 +846,7 @@ public final class PackageBuilder {
             // Create and return an PluginTarget configured with the information from the manifest.
             return PluginTarget(
                 name: potentialModule.name,
-                platforms: self.platforms(),  // FIXME: this should be host platform
+                //platforms: self.inferredPlatforms(),  // FIXME: this should be host platform
                 sources: sources,
                 apiVersion: self.manifest.toolsVersion,
                 pluginCapability: PluginCapability(from: declaredCapability),
@@ -863,7 +873,7 @@ public final class PackageBuilder {
                 name: potentialModule.name,
                 bundleName: bundleName,
                 defaultLocalization: manifest.defaultLocalization,
-                platforms: self.platforms(isTest: potentialModule.isTest),
+                //platforms: self.inferredPlatforms(isTest: potentialModule.isTest),
                 type: targetType,
                 sources: sources,
                 resources: resources,
@@ -893,7 +903,7 @@ public final class PackageBuilder {
                 name: potentialModule.name,
                 bundleName: bundleName,
                 defaultLocalization: manifest.defaultLocalization,
-                platforms: self.platforms(isTest: potentialModule.isTest),
+                //platforms: self.inferredPlatforms(isTest: potentialModule.isTest),
                 cLanguageStandard: manifest.cLanguageStandard,
                 cxxLanguageStandard: manifest.cxxLanguageStandard,
                 includeDir: publicHeadersPath,
@@ -1012,18 +1022,20 @@ public final class PackageBuilder {
         return conditions
     }
 
-    /// Returns the list of platforms supported by the manifest.
-    func platforms(isTest: Bool = false) -> [SupportedPlatform] {
-        if let platforms = _platforms[isTest] {
+
+    /*
+    /// Returns the list of platforms that are declared by the manifest.
+    func declaredPlatforms(isTest: Bool = false) -> [SupportedPlatform] {
+        if let platforms = self._declaredPlatforms[isTest] {
             return platforms
         }
 
         var supportedPlatforms: [SupportedPlatform] = []
 
         /// Add each declared platform to the supported platforms list.
-        for platform in manifest.platforms {
-            let declaredPlatform = platformRegistry.platformByName[platform.platformName]
-                ?? PackageModel.Platform.custom(name: platform.platformName, oldestSupportedVersion: platform.version)
+        for platform in self.manifest.platforms {
+            let declaredPlatform = self.platformRegistry.platformByName[platform.platformName]
+                ?? .custom(name: platform.platformName, oldestSupportedVersion: platform.version)
             var version = PlatformVersion(platform.version)
 
             if let xcTestMinimumDeploymentTarget = xcTestMinimumDeploymentTargets[declaredPlatform], isTest, version < xcTestMinimumDeploymentTarget {
@@ -1039,12 +1051,24 @@ public final class PackageBuilder {
             supportedPlatforms.append(supportedPlatform)
         }
 
+        self._declaredPlatforms[isTest] = supportedPlatforms
+        return supportedPlatforms
+    }
+
+    /// Returns the list of platforms that are inferred to be supported by the manifest.
+    func inferredPlatforms(isTest: Bool = false) -> [SupportedPlatform] {
+        if let platforms = self._inferredPlatforms[isTest] {
+            return platforms
+        }
+
+        var supportedPlatforms = self.declaredPlatforms(isTest: isTest)
+
         // Find the undeclared platforms.
         let remainingPlatforms = Set(platformRegistry.platformByName.keys).subtracting(supportedPlatforms.map({ $0.platform.name }))
 
         /// Start synthesizing for each undeclared platform.
         for platformName in remainingPlatforms.sorted() {
-            let platform = platformRegistry.platformByName[platformName]!
+            let platform = self.platformRegistry.platformByName[platformName]!
 
             let oldestSupportedVersion: PlatformVersion
             if let xcTestMinimumDeploymentTarget = xcTestMinimumDeploymentTargets[platform], isTest {
@@ -1065,16 +1089,10 @@ public final class PackageBuilder {
             supportedPlatforms.append(supportedPlatform)
         }
 
-        _platforms[isTest] = supportedPlatforms
+        self._inferredPlatforms[isTest] = supportedPlatforms
         return supportedPlatforms
     }
-    // Keep two sets of supported platforms, based on the `isTest` parameter.
-    private var _platforms = [Bool:[SupportedPlatform]]()
-
-    /// The platform registry instance.
-    private var platformRegistry: PlatformRegistry {
-        return PlatformRegistry.default
-    }
+     */
 
     /// Computes the swift version to use for this manifest.
     private func swiftVersion() throws -> SwiftLanguageVersion {
@@ -1472,13 +1490,15 @@ extension PackageBuilder {
                     buildSettings = try self.buildSettings(for: targetDescription, targetRoot: sourceFile.parentDirectory)
                 }
 
-                return SwiftTarget(name: name,
-                                   platforms: self.platforms(),
-                                   type: .snippet,
-                                   sources: sources,
-                                   dependencies: dependencies,
-                                   swiftVersion: try swiftVersion(),
-                                   buildSettings: buildSettings)
+                return SwiftTarget(
+                    name: name,
+                    //platforms: self.inferredPlatforms(),
+                    type: .snippet,
+                    sources: sources,
+                    dependencies: dependencies,
+                    swiftVersion: try swiftVersion(),
+                    buildSettings: buildSettings
+                )
             }
     }
 }

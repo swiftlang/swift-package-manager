@@ -259,7 +259,8 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         settings[.SDKROOT] = "auto"
         settings[.SDK_VARIANT] = "auto"
         settings[.SKIP_INSTALL] = "YES"
-        let firstTarget = package.targets.first(where: { $0.type != .test })?.underlyingTarget ?? package.targets.first?.underlyingTarget
+
+        let firstTarget = package.targets.first(where: { $0.type != .test }) ?? package.targets.first
         settings[.MACOSX_DEPLOYMENT_TARGET] = firstTarget?.deploymentTarget(for: .macOS)
         settings[.IPHONEOS_DEPLOYMENT_TARGET] = firstTarget?.deploymentTarget(for: .iOS)
         settings[.IPHONEOS_DEPLOYMENT_TARGET, for: .macCatalyst] = firstTarget?.deploymentTarget(for: .macCatalyst)
@@ -415,10 +416,10 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
 
         // Tests can have a custom deployment target based on the minimum supported by XCTest.
         if mainTarget.underlyingTarget.type == .test {
-            settings[.MACOSX_DEPLOYMENT_TARGET] = mainTarget.underlyingTarget.deploymentTarget(for: .macOS)
-            settings[.IPHONEOS_DEPLOYMENT_TARGET] = mainTarget.underlyingTarget.deploymentTarget(for: .iOS)
-            settings[.TVOS_DEPLOYMENT_TARGET] = mainTarget.underlyingTarget.deploymentTarget(for: .tvOS)
-            settings[.WATCHOS_DEPLOYMENT_TARGET] = mainTarget.underlyingTarget.deploymentTarget(for: .watchOS)
+            settings[.MACOSX_DEPLOYMENT_TARGET] = mainTarget.deploymentTarget(for: .macOS)
+            settings[.IPHONEOS_DEPLOYMENT_TARGET] = mainTarget.deploymentTarget(for: .iOS)
+            settings[.TVOS_DEPLOYMENT_TARGET] = mainTarget.deploymentTarget(for: .tvOS)
+            settings[.WATCHOS_DEPLOYMENT_TARGET] = mainTarget.deploymentTarget(for: .watchOS)
         }
 
         if product.type == .executable {
@@ -1377,7 +1378,7 @@ extension Array where Element == ResolvedTarget.Dependency {
     }
 }
 
-extension Target {
+extension ResolvedTarget {
     func deploymentTarget(for platform: PackageModel.Platform) -> String? {
         if let supportedPlatform = getSupportedPlatform(for: platform) {
             return supportedPlatform.version.versionString
@@ -1390,7 +1391,9 @@ extension Target {
             return nil
         }
     }
+}
 
+extension Target {
     var isCxx: Bool {
         (self as? ClangTarget)?.isCXX ?? false
     }

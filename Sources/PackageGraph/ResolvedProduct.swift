@@ -11,6 +11,7 @@
 import Basics
 import TSCBasic
 import PackageModel
+import PackageLoading
 
 public final class ResolvedProduct {
     /// The underlying product.
@@ -51,7 +52,13 @@ public final class ResolvedProduct {
             // Create an executable resolved target with the linux main, adding product's targets as dependencies.
             let dependencies: [Target.Dependency] = product.targets.map { .target($0, conditions: []) }
             let swiftTarget = SwiftTarget(testManifest: testManifest, name: product.name, dependencies: dependencies)
-            return ResolvedTarget(target: swiftTarget, dependencies: targets.map { .target($0, conditions: []) })
+            #warning("this is likely wrong")
+            return ResolvedTarget(
+                target: swiftTarget,
+                dependencies: targets.map { .target($0, conditions: []) },
+                declaredPlatforms: [],
+                inferredPlatforms: []
+            )
         }
     }
 

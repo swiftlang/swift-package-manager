@@ -127,10 +127,26 @@ public final class ResolvedTarget {
         return underlyingTarget.sources
     }
 
+    private let declaredPlatforms: [SupportedPlatform]
+    private let inferredPlatforms: [SupportedPlatform]
+
     /// Create a target instance.
-    public init(target: Target, dependencies: [Dependency]) {
+    public init(
+        target: Target,
+        dependencies: [Dependency],
+        declaredPlatforms: [SupportedPlatform],
+        inferredPlatforms: [SupportedPlatform]
+
+    ) {
         self.underlyingTarget = target
         self.dependencies = dependencies
+        self.declaredPlatforms = declaredPlatforms
+        self.inferredPlatforms = inferredPlatforms
+    }
+
+    /// Returns the supported platform instance for the given platform.
+    public func getSupportedPlatform(for platform: Platform) -> SupportedPlatform? {
+        return self.inferredPlatforms.first(where: { $0.platform == platform })
     }
 }
 

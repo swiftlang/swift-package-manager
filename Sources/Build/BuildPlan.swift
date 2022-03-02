@@ -122,7 +122,7 @@ extension BuildParameters {
         var args = ["-target"]
         // Compute the triple string for Darwin platform using the platform version.
         if triple.isDarwin() {
-            guard let macOSSupportedPlatform = target.underlyingTarget.getSupportedPlatform(for: .macOS) else {
+            guard let macOSSupportedPlatform = target.getSupportedPlatform(for: .macOS) else {
                 throw StringError("the target \(target) doesn't support building for macOS")
             }
             args += [triple.tripleString(forPlatformVersion: macOSSupportedPlatform.version.versionString)]
@@ -1348,7 +1348,7 @@ public final class ProductBuildDescription {
           // When deploying to macOS prior to macOS 12, add an rpath to the
           // back-deployed concurrency libraries.
           if buildParameters.triple.isDarwin(),
-             let macOSSupportedPlatform = product.targets[0].underlyingTarget.getSupportedPlatform(for: .macOS),
+             let macOSSupportedPlatform = product.targets[0].getSupportedPlatform(for: .macOS),
              macOSSupportedPlatform.version.major < 12 {
             let backDeployedStdlib = buildParameters.toolchain.macosSwiftStdlib
               .parentDirectory
@@ -1598,9 +1598,12 @@ public class BuildPlan {
                     name: testProduct.name,
                     dependencies: testProduct.underlyingProduct.targets.map { .target($0, conditions: []) }
                 )
+                #warning("this is likely wrong")
                 let testManifestTarget = ResolvedTarget(
                     target: swiftTarget,
-                    dependencies: testProduct.targets.map { .target($0, conditions: []) }
+                    dependencies: testProduct.targets.map { .target($0, conditions: []) },
+                    declaredPlatforms: [],
+                    inferredPlatforms: []
                 )
 
                 let target = try SwiftTargetBuildDescription(
@@ -1768,12 +1771,13 @@ public class BuildPlan {
     ) throws {
         // Get the first target as supported platforms are on the top-level.
         // This will need to become a bit complicated once we have target-level platform support.
-        let productTarget = product.underlyingProduct.targets[0]
+        //let productTarget = product.underlyingProduct.targets[0]
+        let productTarget = product.targets[0]
 
         guard let productPlatform = productTarget.getSupportedPlatform(for: .macOS) else {
             throw StringError("Expected supported platform macOS in product target \(productTarget)")
         }
-        guard let targetPlatform = target.underlyingTarget.getSupportedPlatform(for: .macOS) else {
+        guard let targetPlatform = target.getSupportedPlatform(for: .macOS) else {
             throw StringError("Expected supported platform macOS in target \(target)")
         }
 

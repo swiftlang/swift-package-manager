@@ -175,12 +175,12 @@ public class Target: PolymorphicCodableProtocol {
     public let others: [AbsolutePath]
 
     /// The list of platforms that are supported by this target.
-    public let platforms: [SupportedPlatform]
+    //public let platforms: [SupportedPlatform]
 
     /// Returns the supported platform instance for the given platform.
-    public func getSupportedPlatform(for platform: Platform) -> SupportedPlatform? {
+    /*public func getSupportedPlatform(for platform: Platform) -> SupportedPlatform? {
         return self.platforms.first(where: { $0.platform == platform })
-    }
+    }*/
 
     /// The build settings assignments of this target.
     public let buildSettings: BuildSettings.AssignmentTable
@@ -192,7 +192,7 @@ public class Target: PolymorphicCodableProtocol {
         name: String,
         bundleName: String? = nil,
         defaultLocalization: String?,
-        platforms: [SupportedPlatform],
+        //platforms: [SupportedPlatform],
         type: Kind,
         sources: Sources,
         resources: [Resource] = [],
@@ -205,7 +205,7 @@ public class Target: PolymorphicCodableProtocol {
         self.name = name
         self.bundleName = bundleName
         self.defaultLocalization = defaultLocalization
-        self.platforms = platforms
+        //self.platforms = platforms
         self.type = type
         self.sources = sources
         self.resources = resources
@@ -229,7 +229,7 @@ public class Target: PolymorphicCodableProtocol {
         try container.encode(name, forKey: .name)
         try container.encode(bundleName, forKey: .bundleName)
         try container.encode(defaultLocalization, forKey: .defaultLocalization)
-        try container.encode(platforms, forKey: .platforms)
+        //try container.encode(platforms, forKey: .platforms)
         try container.encode(type, forKey: .type)
         try container.encode(sources, forKey: .sources)
         try container.encode(resources, forKey: .resources)
@@ -245,7 +245,7 @@ public class Target: PolymorphicCodableProtocol {
         self.name = try container.decode(String.self, forKey: .name)
         self.bundleName = try container.decodeIfPresent(String.self, forKey: .bundleName)
         self.defaultLocalization = try container.decodeIfPresent(String.self, forKey: .defaultLocalization)
-        self.platforms = try container.decode([SupportedPlatform].self, forKey: .platforms)
+        //self.platforms = try container.decode([SupportedPlatform].self, forKey: .platforms)
         self.type = try container.decode(Kind.self, forKey: .type)
         self.sources = try container.decode(Sources.self, forKey: .sources)
         self.resources = try container.decode([Resource].self, forKey: .resources)
@@ -289,7 +289,7 @@ public final class SwiftTarget: Target {
         super.init(
             name: name,
             defaultLocalization: nil,
-            platforms: [],
+            //platforms: [],
             type: .executable,
             sources: testDiscoverySrc,
             dependencies: dependencies,
@@ -305,7 +305,7 @@ public final class SwiftTarget: Target {
         name: String,
         bundleName: String? = nil,
         defaultLocalization: String? = nil,
-        platforms: [SupportedPlatform] = [],
+        //platforms: [SupportedPlatform] = [],
         type: Kind,
         sources: Sources,
         resources: [Resource] = [],
@@ -321,7 +321,7 @@ public final class SwiftTarget: Target {
             name: name,
             bundleName: bundleName,
             defaultLocalization: defaultLocalization,
-            platforms: platforms,
+            //platforms: platforms,
             type: type,
             sources: sources,
             resources: resources,
@@ -350,12 +350,12 @@ public final class SwiftTarget: Target {
         self.swiftVersion = swiftTestTarget?.swiftVersion ?? SwiftLanguageVersion(string: String(ToolsVersion.currentToolsVersion.major)) ?? .v4
         let sources = Sources(paths: [testManifest], root: testManifest.parentDirectory)
 
-        let platforms: [SupportedPlatform] = swiftTestTarget?.platforms ?? []
+        //let platforms: [SupportedPlatform] = swiftTestTarget?.platforms ?? []
 
         super.init(
             name: name,
             defaultLocalization: nil,
-            platforms: platforms,
+            //platforms: platforms,
             type: .executable,
             sources: sources,
             dependencies: dependencies,
@@ -400,7 +400,7 @@ public final class SystemLibraryTarget: Target {
 
     public init(
         name: String,
-        platforms: [SupportedPlatform] = [],
+        //platforms: [SupportedPlatform] = [],
         path: AbsolutePath,
         isImplicit: Bool = true,
         pkgConfig: String? = nil,
@@ -413,7 +413,7 @@ public final class SystemLibraryTarget: Target {
         super.init(
             name: name,
             defaultLocalization: nil,
-            platforms: platforms,
+            //platforms: platforms,
             type: .systemModule,
             sources: sources,
             dependencies: [],
@@ -472,7 +472,7 @@ public final class ClangTarget: Target {
         name: String,
         bundleName: String? = nil,
         defaultLocalization: String? = nil,
-        platforms: [SupportedPlatform] = [],
+        //platforms: [SupportedPlatform] = [],
         cLanguageStandard: String?,
         cxxLanguageStandard: String?,
         includeDir: AbsolutePath,
@@ -499,7 +499,7 @@ public final class ClangTarget: Target {
             name: name,
             bundleName: bundleName,
             defaultLocalization: defaultLocalization,
-            platforms: platforms,
+            //platforms: platforms,
             type: type,
             sources: sources,
             resources: resources,
@@ -553,7 +553,7 @@ public final class BinaryTarget: Target {
     public init(
         name: String,
         kind: Kind,
-        platforms: [SupportedPlatform] = [],
+        //platforms: [SupportedPlatform] = [],
         path: AbsolutePath,
         origin: Origin
     ) {
@@ -563,7 +563,7 @@ public final class BinaryTarget: Target {
         super.init(
             name: name,
             defaultLocalization: nil,
-            platforms: platforms,
+            //platforms: platforms,
             type: .binary,
             sources: sources,
             dependencies: [],
@@ -675,7 +675,7 @@ public final class PluginTarget: Target {
 
     public init(
         name: String,
-        platforms: [SupportedPlatform] = [],
+        //platforms: [SupportedPlatform] = [],
         sources: Sources,
         apiVersion: ToolsVersion,
         pluginCapability: PluginCapability,
@@ -686,7 +686,7 @@ public final class PluginTarget: Target {
         super.init(
             name: name,
             defaultLocalization: nil,
-            platforms: platforms,
+            //platforms: platforms,
             type: .plugin,
             sources: sources,
             dependencies: dependencies,

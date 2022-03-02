@@ -405,6 +405,12 @@ public func xcodeProject(
 
         // Create a Xcode target for the target.
         let package = packagesByTarget[target]!
+
+        #warning("FIXME: cache since this is used in a loop")
+        let platformsResolver = PlatformsResolver(
+            manifest: package.manifest
+        )
+
         let xcodeTarget = project.addTarget(
             objectID: "\(package.identity)::\(target.name)",
             productType: productType, name: target.name)
@@ -425,7 +431,7 @@ public func xcodeProject(
 
         // Assign the deployment target if the package is using the newer manifest version.
         if package.manifest.toolsVersion >= .v5 {
-            for supportedPlatform in target.underlyingTarget.platforms {
+            for supportedPlatform in platformsResolver.inferredPlatforms(target: target.underlyingTarget) {
                 let version = supportedPlatform.version.versionString
                 switch supportedPlatform.platform {
                 case .macOS:

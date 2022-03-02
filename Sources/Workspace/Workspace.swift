@@ -1189,7 +1189,7 @@ extension Workspace {
             requiredDependencies: manifests.computePackages().required,
             unsafeAllowedPackages: manifests.unsafeAllowedPackages(),
             binaryArtifacts: binaryArtifacts,
-            xcTestMinimumDeploymentTargets: xcTestMinimumDeploymentTargets ?? MinimumDeploymentTarget.default.xcTestMinimumDeploymentTargets,
+            //xcTestMinimumDeploymentTargets: xcTestMinimumDeploymentTargets ?? MinimumDeploymentTarget.default.xcTestMinimumDeploymentTargets,
             shouldCreateMultipleTestProducts: createMultipleTestProducts,
             createREPLProduct: createREPLProduct,
             fileSystem: fileSystem,
@@ -1354,7 +1354,7 @@ extension Workspace {
                     productFilter: .everything,
                     path: path,
                     binaryArtifacts: binaryArtifacts,
-                    xcTestMinimumDeploymentTargets: MinimumDeploymentTarget.default.xcTestMinimumDeploymentTargets,
+                    //xcTestMinimumDeploymentTargets: MinimumDeploymentTarget.default.xcTestMinimumDeploymentTargets,
                     fileSystem: self.fileSystem,
                     observabilityScope: observabilityScope
                 )

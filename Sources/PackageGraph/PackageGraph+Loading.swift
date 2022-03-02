@@ -25,7 +25,7 @@ extension PackageGraph {
         requiredDependencies: Set<PackageReference> = [],
         unsafeAllowedPackages: Set<PackageReference> = [],
         binaryArtifacts: [BinaryArtifact] = [],
-        xcTestMinimumDeploymentTargets: [PackageModel.Platform:PlatformVersion] = MinimumDeploymentTarget.default.xcTestMinimumDeploymentTargets,
+        //xcTestMinimumDeploymentTargets: [PackageModel.Platform:PlatformVersion] = MinimumDeploymentTarget.default.xcTestMinimumDeploymentTargets,
         shouldCreateMultipleTestProducts: Bool = false,
         createREPLProduct: Bool = false,
         fileSystem: FileSystem,
@@ -114,7 +114,7 @@ extension PackageGraph {
                     path: packagePath,
                     additionalFileRules: additionalFileRules,
                     binaryArtifacts: binaryArtifacts,
-                    xcTestMinimumDeploymentTargets: xcTestMinimumDeploymentTargets,
+                    //xcTestMinimumDeploymentTargets: xcTestMinimumDeploymentTargets,
                     shouldCreateMultipleTestProducts: shouldCreateMultipleTestProducts,
                     createREPLProduct: manifest.packageKind.isRoot ? createREPLProduct : false,
                     fileSystem: node.fileSystem,
@@ -356,8 +356,16 @@ private func createResolvedPackages(
 
         packageBuilder.dependencies = Array(dependencies.values)
 
+        let platformsResolver = PlatformsResolver(manifest: package.manifest)
+
         // Create target builders for each target in the package.
-        let targetBuilders = package.targets.map{ ResolvedTargetBuilder(target: $0, observabilityScope: observabilityScope) }
+        let targetBuilders = package.targets.map{
+            ResolvedTargetBuilder(
+                target: $0,
+                platformsResolver: platformsResolver,
+                observabilityScope: observabilityScope
+            )
+        }
         packageBuilder.targets = targetBuilders
 
         // Establish dependencies between the targets. A target can only depend on another target present in the same package.
@@ -660,18 +668,24 @@ private final class ResolvedTargetBuilder: ResolvedBuilder<ResolvedTarget> {
         /// Dependency to a product, with conditions.
         case product(_ product: ResolvedProductBuilder, conditions: [PackageConditionProtocol])
     }
-
     /// The target reference.
     let target: Target
-
-    /// DiagnosticsEmitter with which to emit diagnostics
-    let diagnosticsEmitter: DiagnosticsEmitter
 
     /// The target dependencies of this target.
     var dependencies: [Dependency] = []
 
-    init(target: Target, observabilityScope: ObservabilityScope) {
+    let platformsResolver: PlatformsResolver
+
+    /// DiagnosticsEmitter with which to emit diagnostics
+    let diagnosticsEmitter: DiagnosticsEmitter
+
+    init(
+        target: Target,
+        platformsResolver: PlatformsResolver,
+        observabilityScope: ObservabilityScope
+    ) {
         self.target = target
+        self.platformsResolver = platformsResolver
         self.diagnosticsEmitter = observabilityScope.makeDiagnosticsEmitter() {
             var metadata = ObservabilityMetadata()
             metadata.targetName = target.name
@@ -706,7 +720,12 @@ private final class ResolvedTargetBuilder: ResolvedBuilder<ResolvedTarget> {
             }
         }
 
-        return ResolvedTarget(target: target, dependencies: dependencies)
+        return ResolvedTarget(
+            target: target,
+            dependencies: dependencies,
+            declaredPlatforms: self.platformsResolver.declaredPlatforms(target: target),
+            inferredPlatforms: self.platformsResolver.inferredPlatforms(target: target)
+        )
     }
 }
 

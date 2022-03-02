@@ -1673,6 +1673,7 @@ class PackageBuilderTests: XCTestCase {
         }
     }
 
+    /*
     func testPlatforms() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Sources/foo/module.modulemap",
@@ -1698,6 +1699,10 @@ class PackageBuilderTests: XCTestCase {
         )
 
         var expectedPlatforms = [
+            "macos": "10.12"
+        ]
+
+        var expectedInferredPlatforms = [
             "linux": "0.0",
             "macos": "10.12",
             "maccatalyst": "13.0",
@@ -1714,18 +1719,21 @@ class PackageBuilderTests: XCTestCase {
         PackageBuilderTester(manifest, in: fs) { package, _ in
             package.checkModule("foo") { t in
                 t.checkPlatforms(expectedPlatforms)
+                t.checkInferredPlatforms(expectedInferredPlatforms)
                 t.checkPlatformOptions(.macOS, options: ["option1"])
                 t.checkPlatformOptions(.iOS, options: [])
 
             }
             package.checkModule("bar") { t in
                 t.checkPlatforms(expectedPlatforms)
+                t.checkInferredPlatforms(expectedInferredPlatforms)
                 t.checkPlatformOptions(.macOS, options: ["option1"])
                 t.checkPlatformOptions(.iOS, options: [])
 
             }
             package.checkModule("cbar") { t in
                 t.checkPlatforms(expectedPlatforms)
+                t.checkInferredPlatforms(expectedInferredPlatforms)
                 t.checkPlatformOptions(.macOS, options: ["option1"])
                 t.checkPlatformOptions(.iOS, options: [])
             }
@@ -1735,6 +1743,7 @@ class PackageBuilderTests: XCTestCase {
                     expected[$0.name] = PackageBuilderTester.xcTestMinimumDeploymentTargets[$0]?.versionString
                 }
                 t.checkPlatforms(expected)
+                t.checkInferredPlatforms(expectedInferredPlatforms)
                 t.checkPlatformOptions(.macOS, options: ["option1"])
                 t.checkPlatformOptions(.iOS, options: [])
             }
@@ -1758,6 +1767,11 @@ class PackageBuilderTests: XCTestCase {
 
         expectedPlatforms = [
             "macos": "10.12",
+            "tvos": "10.0"
+        ]
+
+        expectedInferredPlatforms = [
+            "macos": "10.12",
             "maccatalyst": "13.0",
             "tvos": "10.0",
             "linux": "0.0",
@@ -1773,12 +1787,15 @@ class PackageBuilderTests: XCTestCase {
         PackageBuilderTester(manifest, in: fs) { package, _ in
             package.checkModule("foo") { t in
                 t.checkPlatforms(expectedPlatforms)
+                t.checkInferredPlatforms(expectedInferredPlatforms)
             }
             package.checkModule("bar") { t in
                 t.checkPlatforms(expectedPlatforms)
+                t.checkInferredPlatforms(expectedInferredPlatforms)
             }
             package.checkModule("cbar") { t in
                 t.checkPlatforms(expectedPlatforms)
+                t.checkInferredPlatforms(expectedInferredPlatforms)
             }
         }
     }
@@ -1844,7 +1861,7 @@ class PackageBuilderTests: XCTestCase {
                 t.checkPlatforms(expectedPlatforms)
             }
         }
-    }
+    }*/
 
     func testAsmIsIgnoredInV4_2Manifest() throws {
         // .s is not considered a valid source in 4.2 manifest.
@@ -2379,12 +2396,13 @@ final class PackageBuilderTester {
     /// Contains the products which have not been checked yet.
     private var uncheckedProducts: Set<PackageModel.Product> = []
 
+    /*
     fileprivate static let xcTestMinimumDeploymentTargets = [
         PackageModel.Platform.macOS: PlatformVersion("10.15"),
         PackageModel.Platform.iOS: PlatformVersion("9.0"),
         PackageModel.Platform.tvOS: PlatformVersion("9.0"),
         PackageModel.Platform.watchOS: PlatformVersion("2.0"),
-    ]
+    ]*/
 
     @discardableResult
     init(
@@ -2408,7 +2426,7 @@ final class PackageBuilderTester {
                 productFilter: .everything,
                 path: path,
                 binaryArtifacts: binaryArtifacts,
-                xcTestMinimumDeploymentTargets: Self.xcTestMinimumDeploymentTargets,
+                //xcTestMinimumDeploymentTargets: Self.xcTestMinimumDeploymentTargets,
                 shouldCreateMultipleTestProducts: shouldCreateMultipleTestProducts,
                 warnAboutImplicitExecutableTargets: true,
                 createREPLProduct: createREPLProduct,
@@ -2586,7 +2604,13 @@ final class PackageBuilderTester {
             XCTAssertEqual(SwiftLanguageVersion(string: swiftVersion)!, swiftTarget.swiftVersion, file: file, line: line)
         }
 
+        /*
         func checkPlatforms(_ platforms: [String: String], file: StaticString = #file, line: UInt = #line) {
+            let targetPlatforms = Dictionary(uniqueKeysWithValues: target.platforms.map({ ($0.platform.name, $0.version.versionString) }))
+            XCTAssertEqual(platforms, targetPlatforms, file: file, line: line)
+        }
+
+        func checkInferredPlatforms(_ platforms: [String: String], file: StaticString = #file, line: UInt = #line) {
             let targetPlatforms = Dictionary(uniqueKeysWithValues: target.platforms.map({ ($0.platform.name, $0.version.versionString) }))
             XCTAssertEqual(platforms, targetPlatforms, file: file, line: line)
         }
@@ -2594,7 +2618,7 @@ final class PackageBuilderTester {
         func checkPlatformOptions(_ platform: PackageModel.Platform, options: [String], file: StaticString = #file, line: UInt = #line) {
             let platform = target.getSupportedPlatform(for: platform)
             XCTAssertEqual(platform?.options, options, file: file, line: line)
-        }
+        }*/
 
         func check(pluginCapability: PluginCapability, file: StaticString = #file, line: UInt = #line) {
             guard case let target as PluginTarget = target else {

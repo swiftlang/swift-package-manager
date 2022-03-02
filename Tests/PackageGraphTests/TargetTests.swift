@@ -19,8 +19,12 @@ private extension ResolvedTarget {
         self.init(
             target: SwiftTarget(
                 name: name, type: .library, 
-                sources: Sources(paths: [], root: AbsolutePath("/")), dependencies: [], swiftVersion: .v4),
-            dependencies: deps.map { .target($0, conditions: []) })
+                sources: Sources(paths: [], root: AbsolutePath("/")), dependencies: [], swiftVersion: .v4
+            ),
+            dependencies: deps.map { .target($0, conditions: []) },
+            declaredPlatforms: [],
+            inferredPlatforms: []
+        )
     }
 }
 
