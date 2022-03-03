@@ -55,7 +55,7 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
         helpNames: [.short, .long, .customLong("help", withSingleDash: true)])
 
     @OptionGroup()
-    var swiftOptions: SwiftToolOptions
+    var globalOptions: GlobalOptions
 
     public init() {}
 
@@ -64,7 +64,7 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
             abstract: "Set a custom registry")
 
         @OptionGroup(_hiddenFromHelp: true)
-        var swiftOptions: SwiftToolOptions
+        var globalOptions: GlobalOptions
 
         @Flag(help: "Apply settings to all projects for this user")
         var global: Bool = false
@@ -116,7 +116,7 @@ public struct SwiftPackageRegistryTool: ParsableCommand {
             abstract: "Remove a configured registry")
 
         @OptionGroup(_hiddenFromHelp: true)
-        var swiftOptions: SwiftToolOptions
+        var globalOptions: GlobalOptions
 
         @Flag(help: "Apply settings to all projects for this user")
         var global: Bool = false

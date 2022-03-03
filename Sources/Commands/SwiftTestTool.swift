@@ -110,17 +110,6 @@ struct TestToolOptions: ParsableArguments {
         """)
     var filter: [String] = []
 
-    var testCaseSkip: TestCaseSpecifier {
-        // TODO: Remove this once the environment variable is no longer used.
-        if let override = testCaseSkipOverride() {
-            return override
-        }
-
-        return _testCaseSkip.isEmpty
-            ? .none
-            : .skip(_testCaseSkip)
-    }
-
     @Option(name: .customLong("skip"),
             help: "Skip test cases matching regular expression, Example: --skip PerformanceTests")
     var _testCaseSkip: [String] = []
@@ -135,29 +124,11 @@ struct TestToolOptions: ParsableArguments {
     @Option(help: "Test the specified product.")
     var testProduct: String?
 
-    /// Returns the test case specifier if overridden in the env.
-    private func testCaseSkipOverride() -> TestCaseSpecifier? {
-        guard let override = ProcessEnv.vars["_SWIFTPM_SKIP_TESTS_LIST"] else {
-            return nil
-        }
-
-        do {
-            let skipTests: [String.SubSequence]
-            // Read from the file if it exists.
-            if let path = try? AbsolutePath(validating: override), localFileSystem.exists(path) {
-                let contents = try localFileSystem.readFileContents(path).cString
-                skipTests = contents.split(separator: "\n", omittingEmptySubsequences: true)
-            } else {
-                // Otherwise, read the env variable.
-                skipTests = override.split(separator: ":", omittingEmptySubsequences: true)
-            }
-
-            return .skip(skipTests.map(String.init))
-        } catch {
-            // FIXME: We should surface errors from here.
-        }
-        return nil
-    }
+    /// Whether to enable code coverage.
+    @Flag(name: .customLong("code-coverage"),
+          inversion: .prefixedEnableDisable,
+          help: "Enable code coverage")
+    var enableCodeCoverage: Bool = false
 }
 
 /// Tests filtering specifier
@@ -192,15 +163,11 @@ public struct SwiftTestTool: SwiftCommand {
         version: SwiftVersion.currentVersion.completeDisplayString,
         helpNames: [.short, .long, .customLong("help", withSingleDash: true)])
 
-    @OptionGroup(_hiddenFromHelp: true)
-    var swiftOptions: SwiftToolOptions
+    @OptionGroup()
+    var globalOptions: GlobalOptions
 
     @OptionGroup()
     var options: TestToolOptions
-
-    var shouldEnableCodeCoverage: Bool {
-        swiftOptions.shouldEnableCodeCoverage
-    }
 
     public func run(_ swiftTool: SwiftTool) throws {
         // Validate commands arguments
@@ -209,10 +176,15 @@ public struct SwiftTestTool: SwiftCommand {
         switch options.mode {
         case .listTests:
             let testProducts = try buildTestsIfNeeded(swiftTool: swiftTool)
-            let testSuites = try TestingSupport.getTestSuites(in: testProducts, swiftTool: swiftTool, swiftOptions: swiftOptions)
+            let testSuites = try TestingSupport.getTestSuites(
+                in: testProducts,
+                swiftTool: swiftTool,
+                enableCodeCoverage: options.enableCodeCoverage,
+                sanitizers: globalOptions.build.sanitizers
+            )
             let tests = try testSuites
                 .filteredTests(specifier: options.testCaseSpecifier)
-                .skippedTests(specifier: options.testCaseSkip)
+                .skippedTests(specifier: options.skippedTests(fileSystem: localFileSystem))
 
             // Print the tests.
             for test in tests {
@@ -232,7 +204,7 @@ public struct SwiftTestTool: SwiftCommand {
             guard let rootManifest = rootManifests.values.first else {
                 throw StringError("invalid manifests at \(root.packages)")
             }
-            let buildParameters = try swiftTool.buildParametersForTest()
+            let buildParameters = try swiftTool.buildParametersForTest(options: options)
             print(codeCovAsJSONPath(buildParameters: buildParameters, packageName: rootManifest.displayName))
 
         case .generateLinuxMain:
@@ -245,7 +217,12 @@ public struct SwiftTestTool: SwiftCommand {
             #endif
             let graph = try swiftTool.loadPackageGraph()
             let testProducts = try buildTestsIfNeeded(swiftTool: swiftTool)
-            let testSuites = try TestingSupport.getTestSuites(in: testProducts, swiftTool: swiftTool, swiftOptions: swiftOptions)
+            let testSuites = try TestingSupport.getTestSuites(
+                in: testProducts,
+                swiftTool: swiftTool,
+                enableCodeCoverage: options.enableCodeCoverage,
+                sanitizers: globalOptions.build.sanitizers
+            )
             let allTestSuites = testSuites.values.flatMap { $0 }
             let generator = LinuxMainGenerator(graph: graph, testSuites: allTestSuites)
             try generator.generate()
@@ -253,11 +230,11 @@ public struct SwiftTestTool: SwiftCommand {
         case .runSerial:
             let toolchain = try swiftTool.getToolchain()
             let testProducts = try buildTestsIfNeeded(swiftTool: swiftTool)
-            let buildParameters = try swiftTool.buildParametersForTest()
+            let buildParameters = try swiftTool.buildParametersForTest(options: options)
 
             // Clean out the code coverage directory that may contain stale
             // profraw files from a previous run of the code coverage tool.
-            if shouldEnableCodeCoverage {
+            if self.options.enableCodeCoverage {
                 try localFileSystem.removeFileTree(buildParameters.codeCovPath)
             }
 
@@ -265,7 +242,7 @@ public struct SwiftTestTool: SwiftCommand {
 
             switch options.testCaseSpecifier {
             case .none:
-                if case .skip = options.testCaseSkip {
+                if case .skip = options.skippedTests(fileSystem: localFileSystem) {
                     fallthrough
                 } else {
                     xctestArg = nil
@@ -278,10 +255,15 @@ public struct SwiftTestTool: SwiftCommand {
                 }
 
                 // Find the tests we need to run.
-                let testSuites = try TestingSupport.getTestSuites(in: testProducts, swiftTool: swiftTool, swiftOptions: swiftOptions)
+                let testSuites = try TestingSupport.getTestSuites(
+                    in: testProducts,
+                    swiftTool: swiftTool,
+                    enableCodeCoverage: options.enableCodeCoverage,
+                    sanitizers: globalOptions.build.sanitizers
+                )
                 let tests = try testSuites
                     .filteredTests(specifier: options.testCaseSpecifier)
-                    .skippedTests(specifier: options.testCaseSkip)
+                    .skippedTests(specifier: options.skippedTests(fileSystem: localFileSystem))
 
                 // If there were no matches, emit a warning.
                 if tests.isEmpty {
@@ -292,7 +274,11 @@ public struct SwiftTestTool: SwiftCommand {
                 }
             }
 
-            let testEnv = try TestingSupport.constructTestEnvironment(toolchain: toolchain, options: swiftOptions, buildParameters: buildParameters)
+            let testEnv = try TestingSupport.constructTestEnvironment(
+                toolchain: toolchain,
+                buildParameters: buildParameters,
+                sanitizers: globalOptions.build.sanitizers
+            )
 
             let runner = TestRunner(
                 bundlePaths: testProducts.map { $0.bundlePath },
@@ -310,18 +296,23 @@ public struct SwiftTestTool: SwiftCommand {
                 swiftTool.executionStatus = .failure
             }
 
-            if shouldEnableCodeCoverage {
+            if self.options.enableCodeCoverage {
                 try processCodeCoverage(testProducts, swiftTool: swiftTool)
             }
 
         case .runParallel:
             let toolchain = try swiftTool.getToolchain()
             let testProducts = try buildTestsIfNeeded(swiftTool: swiftTool)
-            let testSuites = try TestingSupport.getTestSuites(in: testProducts, swiftTool: swiftTool, swiftOptions: swiftOptions)
+            let testSuites = try TestingSupport.getTestSuites(
+                in: testProducts,
+                swiftTool: swiftTool,
+                enableCodeCoverage: options.enableCodeCoverage,
+                sanitizers: globalOptions.build.sanitizers
+            )
             let tests = try testSuites
                 .filteredTests(specifier: options.testCaseSpecifier)
-                .skippedTests(specifier: options.testCaseSkip)
-            let buildParameters = try swiftTool.buildParametersForTest()
+                .skippedTests(specifier: options.skippedTests(fileSystem: localFileSystem))
+            let buildParameters = try swiftTool.buildParametersForTest(options: options)
 
             // If there were no matches, emit a warning and exit.
             if tests.isEmpty {
@@ -331,7 +322,7 @@ public struct SwiftTestTool: SwiftCommand {
 
             // Clean out the code coverage directory that may contain stale
             // profraw files from a previous run of the code coverage tool.
-            if shouldEnableCodeCoverage {
+            if self.options.enableCodeCoverage {
                 try localFileSystem.removeFileTree(buildParameters.codeCovPath)
             }
 
@@ -342,7 +333,7 @@ public struct SwiftTestTool: SwiftCommand {
                 toolchain: toolchain,
                 xUnitOutput: options.xUnitOutput,
                 numJobs: options.numberOfWorkers ?? ProcessInfo.processInfo.activeProcessorCount,
-                options: swiftOptions,
+                buildOptions: globalOptions.build,
                 buildParameters: buildParameters,
                 outputStream: swiftTool.outputStream,
                 observabilityScope: swiftTool.observabilityScope
@@ -353,7 +344,8 @@ public struct SwiftTestTool: SwiftCommand {
                 swiftTool.executionStatus = .failure
             }
 
-            if shouldEnableCodeCoverage {
+            // process code Coverage if request
+            if self.options.enableCodeCoverage {
                 try processCodeCoverage(testProducts, swiftTool: swiftTool)
             }
         }
@@ -377,7 +369,7 @@ public struct SwiftTestTool: SwiftCommand {
         // Merge all the profraw files to produce a single profdata file.
         try mergeCodeCovRawDataFiles(swiftTool: swiftTool)
 
-        let buildParameters = try swiftTool.buildParametersForTest()
+        let buildParameters = try swiftTool.buildParametersForTest(options: options)
         for product in testProducts {
             // Export the codecov data as JSON.
             let jsonPath = codeCovAsJSONPath(
@@ -393,7 +385,7 @@ public struct SwiftTestTool: SwiftCommand {
         let llvmProf = try swiftTool.getToolchain().getLLVMProf()
 
         // Get the profraw files.
-        let buildParameters = try swiftTool.buildParametersForTest()
+        let buildParameters = try swiftTool.buildParametersForTest(options: options)
         let codeCovFiles = try localFileSystem.getDirectoryContents(buildParameters.codeCovPath)
 
         // Construct arguments for invoking the llvm-prof tool.
@@ -417,7 +409,7 @@ public struct SwiftTestTool: SwiftCommand {
     private func exportCodeCovAsJSON(to path: AbsolutePath, testBinary: AbsolutePath, swiftTool: SwiftTool) throws {
         // Export using the llvm-cov tool.
         let llvmCov = try swiftTool.getToolchain().getLLVMCov()
-        let buildParameters = try swiftTool.buildParametersForTest()
+        let buildParameters = try swiftTool.buildParametersForTest(options: options)
         let args = [
             llvmCov.pathString,
             "export",
@@ -437,7 +429,7 @@ public struct SwiftTestTool: SwiftCommand {
     ///
     /// - Returns: The paths to the build test products.
     private func buildTestsIfNeeded(swiftTool: SwiftTool) throws -> [BuiltTestProduct] {
-        let buildSystem = try swiftTool.createBuildSystem(buildParameters: swiftTool.buildParametersForTest())
+        let buildSystem = try swiftTool.createBuildSystem(buildParameters: swiftTool.buildParametersForTest(options: options))
 
         if options.shouldBuildTests {
             let subset = options.testProduct.map(BuildSubset.product) ?? .allIncludingTests
@@ -678,7 +670,7 @@ final class ParallelTestRunner {
     private let toolchain: UserToolchain
     private let xUnitOutput: AbsolutePath?
 
-    private let options: SwiftToolOptions
+    private let buildOptions: BuildOptions
     private let buildParameters: BuildParameters
 
     /// Number of tests to execute in parallel.
@@ -696,7 +688,7 @@ final class ParallelTestRunner {
         toolchain: UserToolchain,
         xUnitOutput: AbsolutePath? = nil,
         numJobs: Int,
-        options: SwiftToolOptions,
+        buildOptions: BuildOptions,
         buildParameters: BuildParameters,
         outputStream: OutputByteStream,
         observabilityScope: ObservabilityScope
@@ -715,7 +707,7 @@ final class ParallelTestRunner {
             progressAnimation = NinjaProgressAnimation(stream: outputStream)
         }
 
-        self.options = options
+        self.buildOptions = buildOptions
         self.buildParameters = buildParameters
 
         assert(numJobs > 0, "num jobs should be > 0")
@@ -751,7 +743,11 @@ final class ParallelTestRunner {
     func run(_ tests: [UnitTest], outputStream: OutputByteStream) throws {
         assert(!tests.isEmpty, "There should be at least one test to execute.")
 
-        let testEnv = try TestingSupport.constructTestEnvironment(toolchain: self.toolchain, options: self.options, buildParameters: self.buildParameters)
+        let testEnv = try TestingSupport.constructTestEnvironment(
+            toolchain: self.toolchain,
+            buildParameters: self.buildParameters,
+            sanitizers: self.buildOptions.sanitizers
+        )
 
         // Enqueue all the tests.
         try enqueueTests(tests)
@@ -1010,6 +1006,51 @@ final class XUnitGenerator {
         stream <<< "</testsuites>\n"
 
         try localFileSystem.writeFileContents(path, bytes: stream.bytes)
+    }
+}
+
+extension SwiftTool {
+    func buildParametersForTest(options: TestToolOptions) throws -> BuildParameters {
+        try self.buildParametersForTest(
+            enableCodeCoverage: options.enableCodeCoverage
+        )
+    }
+}
+
+extension TestToolOptions {
+    func skippedTests(fileSystem: FileSystem) -> TestCaseSpecifier {
+        // TODO: Remove this once the environment variable is no longer used.
+        if let override = skippedTestsOverride(fileSystem: fileSystem) {
+            return override
+        }
+
+        return self._testCaseSkip.isEmpty
+            ? .none
+        : .skip(self._testCaseSkip)
+    }
+
+    /// Returns the test case specifier if overridden in the env.
+    private func skippedTestsOverride(fileSystem: FileSystem) -> TestCaseSpecifier? {
+        guard let override = ProcessEnv.vars["_SWIFTPM_SKIP_TESTS_LIST"] else {
+            return nil
+        }
+
+        do {
+            let skipTests: [String.SubSequence]
+            // Read from the file if it exists.
+            if let path = try? AbsolutePath(validating: override), fileSystem.exists(path) {
+                let contents: String = try fileSystem.readFileContents(path)
+                skipTests = contents.split(separator: "\n", omittingEmptySubsequences: true)
+            } else {
+                // Otherwise, read the env variable.
+                skipTests = override.split(separator: ":", omittingEmptySubsequences: true)
+            }
+
+            return .skip(skipTests.map(String.init))
+        } catch {
+            // FIXME: We should surface errors from here.
+        }
+        return nil
     }
 }
 

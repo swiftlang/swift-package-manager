@@ -42,9 +42,17 @@ enum TestingSupport {
         throw InternalError("XCTestHelper binary not found.")
     }
 
-    static func getTestSuites(in testProducts: [BuiltTestProduct], swiftTool: SwiftTool, swiftOptions: SwiftToolOptions) throws -> [AbsolutePath: [TestSuite]] {
+    static func getTestSuites(in testProducts: [BuiltTestProduct], swiftTool: SwiftTool, enableCodeCoverage: Bool, sanitizers: [Sanitizer]) throws -> [AbsolutePath: [TestSuite]] {
         let testSuitesByProduct = try testProducts
-            .map { try ($0.bundlePath, TestingSupport.getTestSuites(fromTestAt: $0.bundlePath, swiftTool: swiftTool, swiftOptions: swiftOptions)) }
+            .map {(
+                $0.bundlePath,
+                try Self.getTestSuites(
+                    fromTestAt: $0.bundlePath,
+                    swiftTool: swiftTool,
+                    enableCodeCoverage: enableCodeCoverage,
+                    sanitizers: sanitizers
+                )
+            )}
         return Dictionary(uniqueKeysWithValues: testSuitesByProduct)
     }
 
@@ -58,12 +66,18 @@ enum TestingSupport {
     /// - Throws: TestError, SystemError, TSCUtility.Error
     ///
     /// - Returns: Array of TestSuite
-    static func getTestSuites(fromTestAt path: AbsolutePath, swiftTool: SwiftTool, swiftOptions: SwiftToolOptions) throws -> [TestSuite] {
+    static func getTestSuites(fromTestAt path: AbsolutePath, swiftTool: SwiftTool, enableCodeCoverage: Bool, sanitizers: [Sanitizer]) throws -> [TestSuite] {
         // Run the correct tool.
         #if os(macOS)
         let data: String = try withTemporaryFile { tempFile in
-            let args = [try TestingSupport.xctestHelperPath(swiftTool: swiftTool).pathString, path.pathString, tempFile.path.pathString]
-            var env = try TestingSupport.constructTestEnvironment(toolchain: try swiftTool.getToolchain(), options: swiftOptions, buildParameters: swiftTool.buildParametersForTest())
+            let args = [try Self.xctestHelperPath(swiftTool: swiftTool).pathString, path.pathString, tempFile.path.pathString]
+            var env = try Self.constructTestEnvironment(
+                toolchain: try swiftTool.getToolchain(),
+                buildParameters: swiftTool.buildParametersForTest(
+                    enableCodeCoverage: enableCodeCoverage
+                ),
+                sanitizers: sanitizers
+            )
             // Add the sdk platform path if we have it. If this is not present, we
             // might always end up failing.
             if let sdkPlatformFrameworksPath = Destination.sdkPlatformFrameworkPaths() {
@@ -76,7 +90,13 @@ enum TestingSupport {
             return try localFileSystem.readFileContents(tempFile.path).validDescription ?? ""
         }
         #else
-        let env = try constructTestEnvironment(toolchain: try swiftTool.getToolchain(), options: swiftOptions, buildParameters: swiftTool.buildParametersForTest())
+        let env = try Self.constructTestEnvironment(
+            toolchain: try swiftTool.getToolchain(),
+            buildParameters: swiftTool.buildParametersForTest(
+                enableCodeCoverage: enableCodeCoverage
+            ),
+            sanitizers: sanitizers
+        )
         let args = [path.description, "--dump-tests-json"]
         let data = try Process.checkNonZeroExit(arguments: args, environment: env)
         #endif
@@ -87,13 +107,13 @@ enum TestingSupport {
     /// Creates the environment needed to test related tools.
     static func constructTestEnvironment(
         toolchain: UserToolchain,
-        options: SwiftToolOptions,
-        buildParameters: BuildParameters
+        buildParameters: BuildParameters,
+        sanitizers: [Sanitizer]
     ) throws -> EnvironmentVariables {
         var env = EnvironmentVariables.process()
 
         // Add the code coverage related variables.
-        if options.shouldEnableCodeCoverage {
+        if buildParameters.enableCodeCoverage {
             // Defines the path at which the profraw files will be written on test execution.
             //
             // `%m` will create a pool of profraw files and append the data from
@@ -113,12 +133,12 @@ enum TestingSupport {
         return env
         #else
         // Fast path when no sanitizers are enabled.
-        if options.sanitizers.isEmpty {
+        if sanitizers.isEmpty {
             return env
         }
 
         // Get the runtime libraries.
-        var runtimes = try options.sanitizers.map({ sanitizer in
+        var runtimes = try sanitizers.map({ sanitizer in
             return try toolchain.runtimeLibrary(for: sanitizer).pathString
         })
 
@@ -134,8 +154,11 @@ enum TestingSupport {
 }
 
 extension SwiftTool {
-    func buildParametersForTest() throws -> BuildParameters {
+    func buildParametersForTest(
+        enableCodeCoverage: Bool
+    ) throws -> BuildParameters {
         var parameters = try self.buildParameters()
+        parameters.enableCodeCoverage = enableCodeCoverage
         // for test commands, alway enable building with testability enabled
         parameters.enableTestability = true
         return parameters

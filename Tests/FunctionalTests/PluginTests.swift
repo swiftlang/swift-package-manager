@@ -117,7 +117,7 @@ class PluginTests: XCTestCase {
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
         
-        try fixture(name: "Miscellaneous/Plugins") { fixturePath in
+        fixture(name: "Miscellaneous/Plugins") { fixturePath in
             let (stdout, _) = try executeSwiftBuild(fixturePath.appending(component: "LibraryWithLocalBuildToolPluginUsingRemoteTool"))
             XCTAssert(stdout.contains("Compiling MySourceGenBuildTool main.swift"), "stdout:\n\(stdout)")
             XCTAssert(stdout.contains("Linking MySourceGenBuildTool"), "stdout:\n\(stdout)")

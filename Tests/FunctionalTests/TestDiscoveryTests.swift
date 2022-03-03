@@ -132,7 +132,7 @@ class TestDiscoveryTests: XCTestCase {
         #if os(macOS)
         try XCTSkipIf(true)
         #endif
-        try fixture(name: "Miscellaneous/TestDiscovery/Subclass") { fixturePath in
+        fixture(name: "Miscellaneous/TestDiscovery/Subclass") { fixturePath in
             let (stdout, _) = try executeSwiftTest(fixturePath)
             // in "swift test" test output goes to stdout
             XCTAssertMatch(stdout, .contains("SubclassTestsBase.test1"))

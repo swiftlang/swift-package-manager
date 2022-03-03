@@ -400,7 +400,7 @@ class MiscellaneousTestCase: XCTestCase {
     }
 
     func testSwiftRunSIGNINT() throws {
-        try fixture(name: "Miscellaneous/SwiftRun") { fixturePath in
+        fixture(name: "Miscellaneous/SwiftRun") { fixturePath in
             let mainFilePath = fixturePath.appending(component: "main.swift")
             try localFileSystem.removeFileTree(mainFilePath)
             try localFileSystem.writeFileContents(mainFilePath) {

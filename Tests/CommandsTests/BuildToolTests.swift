@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 */
 
-import Commands
+@testable import Commands
 import PackageGraph
 import PackageLoading
 import PackageModel
