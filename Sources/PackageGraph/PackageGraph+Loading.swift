@@ -265,7 +265,7 @@ private func createResolvedPackages(
     }
 
     // Gather all module aliases specified for targets in all dependent packages
-    let pkgToAliasesMap = gatherModuleAliases(for: rootManifests.first?.key, with: packagesByIdentity, onError: observabilityScope)
+    let pkgToAliasesMap = gatherModuleAliases(from: packageBuilders, for: rootManifests.first?.key, with: packagesByIdentity, onError: observabilityScope)
 
     // Scan and validate the dependencies
     for packageBuilder in packageBuilders {
@@ -276,7 +276,7 @@ private func createResolvedPackages(
             metadata: package.diagnosticsMetadata
         )
         
-        if let aliasMap = pkgToAliasesMap[package.identity] {
+        if let aliasMap = pkgToAliasesMap?[package.identity] {
             package.setModuleAliasesForTargets(with: aliasMap)
         }
 
@@ -523,9 +523,20 @@ private func createResolvedPackages(
 }
 
 // Create a map between a package and module aliases specified for the targets in the package.
-private func gatherModuleAliases(for rootPkgID: PackageIdentity?,
+private func gatherModuleAliases(from packageBuilders: [ResolvedPackageBuilder],
+                                 for rootPkgID: PackageIdentity?,
                                  with packagesByIdentity: [PackageIdentity: ResolvedPackageBuilder],
-                                 onError observabilityScope: ObservabilityScope) -> [PackageIdentity: [String: String]] {
+                                 onError observabilityScope: ObservabilityScope) -> [PackageIdentity: [String: String]]? {
+    // If there are no aliases, return early
+    let depsWithAliases = packageBuilders.map { $0.package.targets.map { $0.dependencies.filter { dep in
+        if case let .product(prodRef, _) = dep {
+            return prodRef.moduleAliases != nil
+        }
+        return false
+    }}}.flatMap{$0}.flatMap{$0}
+
+    guard !depsWithAliases.isEmpty else { return nil }
+
     var result = [PackageIdentity: [String: String]]()
     
     // There could be multiple root packages but the common cases involve
@@ -580,14 +591,13 @@ private func walkPkgTreeAndGetModuleAliases(for pkgID: PackageIdentity,
                     break
                 }
             }
-            
-            // Add pkgID to a stack used to keep track of multiple
-            // aliases specified in the package chain. Need to add
-            // pkgID here, otherwise need pkgID != pkgInChain check
-            // in the for loop above
-            pkgStack.append(pkgID)
         }
-        
+        // Add pkgID to a stack used to keep track of multiple
+        // aliases specified in the package chain. Need to add
+        // pkgID here, otherwise need pkgID != pkgInChain check
+        // in the for loop above
+        pkgStack.append(pkgID)
+
         // Recursively (depth-first) walk the package dependency tree
         for pkgDep in builder.package.manifest.dependencies {
             walkPkgTreeAndGetModuleAliases(for: pkgDep.identity, with: packagesByIdentity, onError: observabilityScope, using: &pkgStack, output: &result)
