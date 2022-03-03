@@ -43,6 +43,21 @@ public struct Platform: Equatable, Hashable, Codable {
 
 }
 
+public struct SupportedPlatforms {
+    public let declared: [SupportedPlatform]
+    public let derived: [SupportedPlatform]
+
+    public init(declared: [SupportedPlatform], derived: [SupportedPlatform]) {
+        self.declared = declared
+        self.derived = derived
+    }
+
+    /// Returns the supported platform instance for the given platform.
+    public func getDerived(for platform: Platform) -> SupportedPlatform? {
+        return self.derived.first(where: { $0.platform == platform })
+    }
+}
+
 /// Represents a platform supported by a target.
 public struct SupportedPlatform: Equatable, Codable {
     /// The platform.

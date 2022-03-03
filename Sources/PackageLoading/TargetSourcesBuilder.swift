@@ -69,7 +69,6 @@ public struct TargetSourcesBuilder {
     ) {
         self.packageIdentity = packageIdentity
         self.packageKind = packageKind
-        //self.packageLocation = packageLocation
         self.packagePath = packagePath
         self.target = target
         self.defaultLocalization = defaultLocalization

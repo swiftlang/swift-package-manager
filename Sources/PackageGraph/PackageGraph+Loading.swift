@@ -25,9 +25,10 @@ extension PackageGraph {
         requiredDependencies: Set<PackageReference> = [],
         unsafeAllowedPackages: Set<PackageReference> = [],
         binaryArtifacts: [PackageIdentity: [String: BinaryArtifact]],
-        xcTestMinimumDeploymentTargets: [PackageModel.Platform:PlatformVersion] = MinimumDeploymentTarget.default.xcTestMinimumDeploymentTargets,
         shouldCreateMultipleTestProducts: Bool = false,
         createREPLProduct: Bool = false,
+        customPlatformsRegistry: PlatformRegistry? = .none,
+        customXCTestMinimumDeploymentTargets: [PackageModel.Platform: PlatformVersion]? = .none,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
     ) throws -> PackageGraph {
@@ -113,8 +114,7 @@ extension PackageGraph {
                     productFilter: node.productFilter,
                     path: packagePath,
                     additionalFileRules: additionalFileRules,
-                    binaryArtifacts: binaryArtifacts[node.identity] ?? [:],
-                    xcTestMinimumDeploymentTargets: xcTestMinimumDeploymentTargets,
+                    binaryArtifacts: binaryArtifacts[node.identity] ?? [:],                
                     shouldCreateMultipleTestProducts: shouldCreateMultipleTestProducts,
                     createREPLProduct: manifest.packageKind.isRoot ? createREPLProduct : false,
                     fileSystem: node.fileSystem,
@@ -139,6 +139,8 @@ extension PackageGraph {
             manifestToPackage: manifestToPackage,
             rootManifests: root.manifests,
             unsafeAllowedPackages: unsafeAllowedPackages,
+            platformRegistry: customPlatformsRegistry ?? .default,
+            xcTestMinimumDeploymentTargets: customXCTestMinimumDeploymentTargets ?? MinimumDeploymentTarget.default.xcTestMinimumDeploymentTargets,
             observabilityScope: observabilityScope
         )
 
@@ -239,6 +241,8 @@ private func createResolvedPackages(
     // FIXME: This shouldn't be needed once <rdar://problem/33693433> is fixed.
     rootManifests: [PackageIdentity: Manifest],
     unsafeAllowedPackages: Set<PackageReference>,
+    platformRegistry: PlatformRegistry,
+    xcTestMinimumDeploymentTargets: [PackageModel.Platform: PlatformVersion],
     observabilityScope: ObservabilityScope
 ) throws -> [ResolvedPackage] {
 
@@ -357,6 +361,22 @@ private func createResolvedPackages(
 
         packageBuilder.dependencies = Array(dependencies.values)
 
+        packageBuilder.defaultLocalization = package.manifest.defaultLocalization
+
+        packageBuilder.platforms = computePlatforms(
+            package: package,
+            usingXCTest: false,
+            platformRegistry: platformRegistry,
+            xcTestMinimumDeploymentTargets: xcTestMinimumDeploymentTargets
+        )
+
+        let testPlatforms = computePlatforms(
+            package: package,
+            usingXCTest: true,
+            platformRegistry: platformRegistry,
+            xcTestMinimumDeploymentTargets: xcTestMinimumDeploymentTargets
+        )
+
         // Create target builders for each target in the package.
         let targetBuilders = package.targets.map{ ResolvedTargetBuilder(target: $0, observabilityScope: observabilityScope) }
         packageBuilder.targets = targetBuilders
@@ -375,6 +395,8 @@ private func createResolvedPackages(
                     return nil
                 }
             }
+            targetBuilder.defaultLocalization = packageBuilder.defaultLocalization
+            targetBuilder.platforms = targetBuilder.target.type == .test ? testPlatforms : packageBuilder.platforms
         }
 
         // Create product builders for each product in the package. A product can only contain a target present in the same package.
@@ -521,6 +543,78 @@ private func createResolvedPackages(
         }
     }
     return try packageBuilders.map{ try $0.construct() }
+}
+
+private func computePlatforms(
+    package: Package,
+    usingXCTest: Bool,
+    platformRegistry: PlatformRegistry,
+    xcTestMinimumDeploymentTargets: [PackageModel.Platform: PlatformVersion]
+) -> SupportedPlatforms {
+
+    // the supported platforms as declared in the manifest
+    let declaredPlatforms: [SupportedPlatform] = package.manifest.platforms.map { platform in
+        let declaredPlatform = platformRegistry.platformByName[platform.platformName]
+            ?? PackageModel.Platform.custom(name: platform.platformName, oldestSupportedVersion: platform.version)
+        return SupportedPlatform(
+            platform: declaredPlatform,
+            version: .init(platform.version),
+            options: platform.options
+        )
+    }
+
+    // the derived platforms based on known minimum deployment target logic
+    var derivedPlatforms = [SupportedPlatform]()
+
+    /// Add each declared platform to the supported platforms list.
+    for platform in package.manifest.platforms {
+        let declaredPlatform = platformRegistry.platformByName[platform.platformName]
+            ?? PackageModel.Platform.custom(name: platform.platformName, oldestSupportedVersion: platform.version)
+        var version = PlatformVersion(platform.version)
+
+        if usingXCTest, let xcTestMinimumDeploymentTarget = xcTestMinimumDeploymentTargets[declaredPlatform], version < xcTestMinimumDeploymentTarget {
+            version = xcTestMinimumDeploymentTarget
+        }
+
+        let supportedPlatform = SupportedPlatform(
+            platform: declaredPlatform,
+            version: version,
+            options: platform.options
+        )
+
+        derivedPlatforms.append(supportedPlatform)
+    }
+
+    // Find the undeclared platforms.
+    let remainingPlatforms = Set(platformRegistry.platformByName.keys).subtracting(derivedPlatforms.map({ $0.platform.name }))
+
+    /// Start synthesizing for each undeclared platform.
+    for platformName in remainingPlatforms.sorted() {
+        let platform = platformRegistry.platformByName[platformName]!
+
+        let oldestSupportedVersion: PlatformVersion
+        if usingXCTest, let xcTestMinimumDeploymentTarget = xcTestMinimumDeploymentTargets[platform] {
+            oldestSupportedVersion = xcTestMinimumDeploymentTarget
+        } else if platform == .macCatalyst, let iOS = derivedPlatforms.first(where: { $0.platform == .iOS }) {
+            // If there was no deployment target specified for Mac Catalyst, fall back to the iOS deployment target.
+            oldestSupportedVersion = max(platform.oldestSupportedVersion, iOS.version)
+        } else {
+            oldestSupportedVersion = platform.oldestSupportedVersion
+        }
+
+        let supportedPlatform = SupportedPlatform(
+            platform: platform,
+            version: oldestSupportedVersion,
+            options: []
+        )
+
+        derivedPlatforms.append(supportedPlatform)
+    }
+
+    return SupportedPlatforms(
+        declared: declaredPlatforms.sorted(by: { $0.platform.name < $1.platform.name }),
+        derived: derivedPlatforms.sorted(by: { $0.platform.name < $1.platform.name })
+    )
 }
 
 // Track and override module aliases specified for targets in a package graph
@@ -766,7 +860,16 @@ private final class ResolvedTargetBuilder: ResolvedBuilder<ResolvedTarget> {
     /// The target dependencies of this target.
     var dependencies: [Dependency] = []
 
-    init(target: Target, observabilityScope: ObservabilityScope) {
+    /// The defaultLocalization for this package
+    var defaultLocalization: String? = nil
+
+    /// The platforms supported by this package.
+    var platforms: SupportedPlatforms = .init(declared: [], derived: [])
+
+    init(
+        target: Target,
+        observabilityScope: ObservabilityScope
+    ) {
         self.target = target
         self.diagnosticsEmitter = observabilityScope.makeDiagnosticsEmitter() {
             var metadata = ObservabilityMetadata()
@@ -802,7 +905,12 @@ private final class ResolvedTargetBuilder: ResolvedBuilder<ResolvedTarget> {
             }
         }
 
-        return ResolvedTarget(target: target, dependencies: dependencies)
+        return ResolvedTarget(
+            target: self.target,
+            dependencies: dependencies,
+            defaultLocalization: self.defaultLocalization,
+            platforms: self.platforms
+        )
     }
 }
 
@@ -815,6 +923,12 @@ private final class ResolvedPackageBuilder: ResolvedBuilder<ResolvedPackage> {
     /// The product filter applied to the package.
     let productFilter: ProductFilter
 
+    /// Package can vend unsafe products
+    let isAllowedToVendUnsafeProducts: Bool
+
+    /// Package can be overridden
+    let allowedToOverride: Bool
+
     /// The targets in the package.
     var targets: [ResolvedTargetBuilder] = []
 
@@ -824,9 +938,11 @@ private final class ResolvedPackageBuilder: ResolvedBuilder<ResolvedPackage> {
     /// The dependencies of this package.
     var dependencies: [ResolvedPackageBuilder] = []
 
-    let isAllowedToVendUnsafeProducts: Bool
+    /// The defaultLocalization for this package.
+    var defaultLocalization: String? = nil
 
-    let allowedToOverride: Bool
+    /// The platforms supported by this package.
+    var platforms: SupportedPlatforms = .init(declared: [], derived: [])
 
     init(_ package: Package, productFilter: ProductFilter, isAllowedToVendUnsafeProducts: Bool, allowedToOverride: Bool) {
         self.package = package
@@ -837,10 +953,12 @@ private final class ResolvedPackageBuilder: ResolvedBuilder<ResolvedPackage> {
 
     override func constructImpl() throws -> ResolvedPackage {
         return ResolvedPackage(
-            package: package,
-            dependencies: try dependencies.map{ try $0.construct() },
-            targets: try targets.map{ try $0.construct() },
-            products: try products.map{ try  $0.construct() }
+            package: self.package,
+            defaultLocalization: self.defaultLocalization,
+            platforms: self.platforms,
+            dependencies: try self.dependencies.map{ try $0.construct() },
+            targets: try self.targets.map{ try $0.construct() },
+            products: try self.products.map{ try $0.construct() }
         )
     }
 }

@@ -1165,7 +1165,6 @@ extension Workspace {
             createMultipleTestProducts: createMultipleTestProducts,
             createREPLProduct: createREPLProduct,
             forceResolvedVersions: forceResolvedVersions,
-            xcTestMinimumDeploymentTargets: xcTestMinimumDeploymentTargets,
             observabilityScope: ObservabilitySystem(diagnosticEngine: diagnostics).topScope
         )
     }
@@ -1177,7 +1176,6 @@ extension Workspace {
         createMultipleTestProducts: Bool = false,
         createREPLProduct: Bool = false,
         forceResolvedVersions: Bool = false,
-        xcTestMinimumDeploymentTargets: [PackageModel.Platform:PlatformVersion]? = nil,
         observabilityScope: ObservabilityScope
     ) throws -> PackageGraph {
 
@@ -1212,7 +1210,6 @@ extension Workspace {
             requiredDependencies: manifests.computePackages().required,
             unsafeAllowedPackages: manifests.unsafeAllowedPackages(),
             binaryArtifacts: binaryArtifacts,
-            xcTestMinimumDeploymentTargets: xcTestMinimumDeploymentTargets ?? MinimumDeploymentTarget.default.xcTestMinimumDeploymentTargets,
             shouldCreateMultipleTestProducts: createMultipleTestProducts,
             createREPLProduct: createREPLProduct,
             fileSystem: fileSystem,
@@ -1376,8 +1373,8 @@ extension Workspace {
                     manifest: manifest,
                     productFilter: .everything,
                     path: path,
+                    additionalFileRules: [],
                     binaryArtifacts: binaryArtifacts,
-                    xcTestMinimumDeploymentTargets: MinimumDeploymentTarget.default.xcTestMinimumDeploymentTargets,
                     fileSystem: self.fileSystem,
                     observabilityScope: observabilityScope
                 )

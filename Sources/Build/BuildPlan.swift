@@ -122,7 +122,7 @@ extension BuildParameters {
         var args = ["-target"]
         // Compute the triple string for Darwin platform using the platform version.
         if triple.isDarwin() {
-            guard let macOSSupportedPlatform = target.underlyingTarget.getSupportedPlatform(for: .macOS) else {
+            guard let macOSSupportedPlatform = target.platforms.getDerived(for: .macOS) else {
                 throw StringError("the target \(target) doesn't support building for macOS")
             }
             args += [triple.tripleString(forPlatformVersion: macOSSupportedPlatform.version.versionString)]
@@ -1136,6 +1136,9 @@ public final class SwiftTargetBuildDescription {
 public final class ProductBuildDescription {
 
     /// The reference to the product.
+    public let package: ResolvedPackage
+
+    /// The reference to the product.
     public let product: ResolvedProduct
 
     /// The tools version of the package that declared the product.  This can
@@ -1192,11 +1195,19 @@ public final class ProductBuildDescription {
     private let observabilityScope: ObservabilityScope
 
     /// Create a build description for a product.
-    init(product: ResolvedProduct, toolsVersion: ToolsVersion, buildParameters: BuildParameters, fileSystem: FileSystem, observabilityScope: ObservabilityScope) throws {
+    init(
+        package: ResolvedPackage,
+        product: ResolvedProduct,
+        toolsVersion: ToolsVersion,
+        buildParameters: BuildParameters,
+        fileSystem: FileSystem,
+        observabilityScope: ObservabilityScope
+    ) throws {
         guard product.type != .library(.automatic) else {
             throw InternalError("Automatic type libraries should not be described.")
         }
 
+        self.package = package
         self.product = product
         self.toolsVersion = toolsVersion
         self.buildParameters = buildParameters
@@ -1348,7 +1359,7 @@ public final class ProductBuildDescription {
           // When deploying to macOS prior to macOS 12, add an rpath to the
           // back-deployed concurrency libraries.
           if buildParameters.triple.isDarwin(),
-             let macOSSupportedPlatform = product.targets[0].underlyingTarget.getSupportedPlatform(for: .macOS),
+             let macOSSupportedPlatform = self.package.platforms.getDerived(for: .macOS),
              macOSSupportedPlatform.version.major < 12 {
             let backDeployedStdlib = buildParameters.toolchain.macosSwiftStdlib
               .parentDirectory
@@ -1594,13 +1605,15 @@ public class BuildPlan {
                 let src = Sources(paths: paths, root: derivedTestListDir)
 
                 let swiftTarget = SwiftTarget(
-                    testDiscoverySrc: src,
                     name: testProduct.name,
-                    dependencies: testProduct.underlyingProduct.targets.map { .target($0, conditions: []) }
+                    dependencies: testProduct.underlyingProduct.targets.map { .target($0, conditions: []) },
+                    testDiscoverySrc: src
                 )
                 let testManifestTarget = ResolvedTarget(
                     target: swiftTarget,
-                    dependencies: testProduct.targets.map { .target($0, conditions: []) }
+                    dependencies: testProduct.targets.map { .target($0, conditions: []) },
+                    defaultLocalization: .none, // safe since this is a derived target
+                    platforms: .init(declared: [], derived: []) // safe since this is a derived target
                 )
 
                 let target = try SwiftTargetBuildDescription(
@@ -1664,7 +1677,6 @@ public class BuildPlan {
         var targetMap = [ResolvedTarget: TargetBuildDescription]()
         var pluginDescriptions = [PluginDescription]()
         for target in graph.allTargets.sorted(by: { $0.name < $1.name }) {
-
             // Validate the product dependencies of this target.
             for dependency in target.dependencies {
                 switch dependency {
@@ -1672,7 +1684,7 @@ public class BuildPlan {
                 case .product(let product, _):
                     if buildParameters.triple.isDarwin() {
                         try BuildPlan.validateDeploymentVersionOfProductDependency(
-                            product,
+                            product: product,
                             forTarget: target,
                             observabilityScope: self.observabilityScope
                         )
@@ -1740,11 +1752,14 @@ public class BuildPlan {
         // Create product description for each product we have in the package graph except
         // for automatic libraries and plugins, because they don't produce any output.
         for product in graph.allProducts where product.type != .library(.automatic) && product.type != .plugin {
-
+            guard let package = graph.package(for: product) else {
+                throw InternalError("unknown package for \(product)")
+            }
             // Determine the appropriate tools version to use for the product.
             // This can affect what flags to pass and other semantics.
-            let toolsVersion = graph.package(for: product)?.manifest.toolsVersion ?? .v5_5
+            let toolsVersion = package.manifest.toolsVersion
             productMap[product] = try ProductBuildDescription(
+                package: package,
                 product: product,
                 toolsVersion: toolsVersion,
                 buildParameters: buildParameters,
@@ -1762,18 +1777,16 @@ public class BuildPlan {
     }
 
     static func validateDeploymentVersionOfProductDependency(
-        _ product: ResolvedProduct,
+        product: ResolvedProduct,
         forTarget target: ResolvedTarget,
         observabilityScope: ObservabilityScope
     ) throws {
-        // Get the first target as supported platforms are on the top-level.
-        // This will need to become a bit complicated once we have target-level platform support.
-        let productTarget = product.underlyingProduct.targets[0]
-
-        guard let productPlatform = productTarget.getSupportedPlatform(for: .macOS) else {
-            throw StringError("Expected supported platform macOS in product target \(productTarget)")
+        // Supported platforms are defined at the package level.
+        // This will need to become a bit complicated once we have target-level or product-level platform support.
+        guard let productPlatform = product.platforms.getDerived(for: .macOS) else {
+            throw StringError("Expected supported platform macOS in product \(product)")
         }
-        guard let targetPlatform = target.underlyingTarget.getSupportedPlatform(for: .macOS) else {
+        guard let targetPlatform = target.platforms.getDerived(for: .macOS) else {
             throw StringError("Expected supported platform macOS in target \(target)")
         }
 
@@ -2252,7 +2265,7 @@ private func generateResourceInfoPlist(
     target: ResolvedTarget,
     path: AbsolutePath
 ) throws -> Bool {
-    guard let defaultLocalization = target.underlyingTarget.defaultLocalization else {
+    guard let defaultLocalization = target.defaultLocalization else {
         return false
     }
 

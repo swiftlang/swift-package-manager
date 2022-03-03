@@ -210,6 +210,13 @@ public struct BinaryArtifact {
 /// The 'builder' here refers to the builder pattern and not any build system
 /// related function.
 public final class PackageBuilder {
+    /// Predefined source directories, in order of preference.
+    public static let predefinedSourceDirectories = ["Sources", "Source", "src", "srcs"]
+    /// Predefined test directories, in order of preference.
+    public static let predefinedTestDirectories = ["Tests", "Sources", "Source", "src", "srcs"]
+    /// Predefined plugin directories, in order of preference.
+    public static let predefinedPluginDirectories = ["Plugins"]
+
     /// The identity for the package being constructed.
     private let identity: PackageIdentity
 
@@ -239,14 +246,20 @@ public final class PackageBuilder {
     /// The additional file detection rules.
     private let additionalFileRules: [FileRuleDescription]
 
-    /// Minimum deployment target of XCTest per platform.
-    private let xcTestMinimumDeploymentTargets: [PackageModel.Platform:PlatformVersion]
-
     /// ObservabilityScope with which to emit diagnostics
     private let observabilityScope: ObservabilityScope
 
     /// The filesystem package builder will run on.
     private let fileSystem: FileSystem
+
+    private var platformRegistry: PlatformRegistry {
+        return PlatformRegistry.default
+    }
+
+    // The set of the sources computed so far, used to validate source overlap
+    private var allSources = Set<AbsolutePath>()
+
+    private var swiftVersionCache: SwiftLanguageVersion? = nil
 
     /// Create a builder for the given manifest and package `path`.
     ///
@@ -263,9 +276,8 @@ public final class PackageBuilder {
         manifest: Manifest,
         productFilter: ProductFilter,
         path: AbsolutePath,
-        additionalFileRules: [FileRuleDescription] = [],
+        additionalFileRules: [FileRuleDescription],
         binaryArtifacts: [String: BinaryArtifact],
-        xcTestMinimumDeploymentTargets: [PackageModel.Platform:PlatformVersion],
         shouldCreateMultipleTestProducts: Bool = false,
         warnAboutImplicitExecutableTargets: Bool = true,
         createREPLProduct: Bool = false,
@@ -278,7 +290,6 @@ public final class PackageBuilder {
         self.packagePath = path
         self.additionalFileRules = additionalFileRules
         self.binaryArtifacts = binaryArtifacts
-        self.xcTestMinimumDeploymentTargets = xcTestMinimumDeploymentTargets
         self.shouldCreateMultipleTestProducts = shouldCreateMultipleTestProducts
         self.createREPLProduct = createREPLProduct
         self.warnAboutImplicitExecutableTargets = warnAboutImplicitExecutableTargets
@@ -304,7 +315,6 @@ public final class PackageBuilder {
         at path: AbsolutePath,
         swiftCompiler: AbsolutePath,
         swiftCompilerFlags: [String],
-        xcTestMinimumDeploymentTargets: [PackageModel.Platform:PlatformVersion] = MinimumDeploymentTarget.default.xcTestMinimumDeploymentTargets,
         identityResolver: IdentityResolver,
         diagnostics: DiagnosticsEngine,
         on queue: DispatchQueue,
@@ -323,8 +333,8 @@ public final class PackageBuilder {
                     manifest: manifest,
                     productFilter: .everything,
                     path: path,
+                    additionalFileRules: [],
                     binaryArtifacts: [:], // this will fail for packages with binary artifacts, but this API is deprecated and the replacement API was fixed
-                    xcTestMinimumDeploymentTargets: xcTestMinimumDeploymentTargets,
                     fileSystem: localFileSystem,
                     observabilityScope: ObservabilitySystem(diagnosticEngine: diagnostics).topScope
                 )
@@ -416,22 +426,6 @@ public final class PackageBuilder {
         return true
     }
 
-    private func shouldConsiderDirectory(_ path: AbsolutePath) -> Bool {
-        let base = path.basename.lowercased()
-        if base == "tests" { return false }
-        if base == "include" { return false }
-        if base.hasSuffix(".xcodeproj") { return false }
-        if base.hasSuffix(".playground") { return false }
-        if base.hasPrefix(".") { return false }  // eg .git
-        if path == packagesDirectory { return false }
-        if !fileSystem.isDirectory(path) { return false }
-        return true
-    }
-
-    private var packagesDirectory: AbsolutePath {
-        return packagePath.appending(component: "Packages")
-    }
-
     /// Returns path to all the items in a directory.
     // FIXME: This is generic functionality, and should move to FileSystem.
     func directoryContents(_ path: AbsolutePath) throws -> [AbsolutePath] {
@@ -462,7 +456,6 @@ public final class PackageBuilder {
             return [
                 SystemLibraryTarget(
                     name: self.manifest.displayName, // FIXME: use identity instead?
-                    platforms: self.platforms(),
                     path: self.packagePath,
                     isImplicit: true,
                     pkgConfig: self.manifest.pkgConfig,
@@ -486,15 +479,6 @@ public final class PackageBuilder {
         return try constructV4Targets()
     }
 
-    /// Predefined source directories, in order of preference.
-    public static let predefinedSourceDirectories = ["Sources", "Source", "src", "srcs"]
-
-    /// Predefined test directories, in order of preference.
-    public static let predefinedTestDirectories = ["Tests", "Sources", "Source", "src", "srcs"]
-
-    /// Predefined plugin directories, in order of preference.
-    public static let predefinedPluginDirectories = ["Plugins"]
-
     /// Finds the predefined directories for regular targets, test targets, and plugin targets.
     private func findPredefinedTargetDirectory() -> (targetDir: String, testTargetDir: String, pluginTargetDir: String) {
         let targetDir = PackageBuilder.predefinedSourceDirectories.first(where: {
@@ -510,16 +494,6 @@ public final class PackageBuilder {
         }) ?? PackageBuilder.predefinedPluginDirectories[0]
 
         return (targetDir, testTargetDir, pluginTargetDir)
-    }
-
-    struct PredefinedTargetDirectory {
-        let path: AbsolutePath
-        let contents: [String]
-
-        init(fs: FileSystem, path: AbsolutePath) {
-            self.path = path
-            self.contents = (try? fs.getDirectoryContents(path)) ?? []
-        }
     }
 
     /// Construct targets according to PackageDescription 4 conventions.
@@ -763,7 +737,6 @@ public final class PackageBuilder {
 
             return SystemLibraryTarget(
                 name: potentialModule.name,
-                platforms: self.platforms(),
                 path: potentialModule.path, isImplicit: false,
                 pkgConfig: manifestTarget.pkgConfig,
                 providers: manifestTarget.providers
@@ -776,7 +749,6 @@ public final class PackageBuilder {
             return BinaryTarget(
                 name: potentialModule.name,
                 kind: artifact.kind,
-                platforms: self.platforms(),
                 path: potentialModule.path,
                 origin: artifactOrigin
             )
@@ -836,7 +808,6 @@ public final class PackageBuilder {
             // Create and return an PluginTarget configured with the information from the manifest.
             return PluginTarget(
                 name: potentialModule.name,
-                platforms: self.platforms(),  // FIXME: this should be host platform
                 sources: sources,
                 apiVersion: self.manifest.toolsVersion,
                 pluginCapability: PluginCapability(from: declaredCapability),
@@ -862,8 +833,6 @@ public final class PackageBuilder {
             return SwiftTarget(
                 name: potentialModule.name,
                 bundleName: bundleName,
-                defaultLocalization: manifest.defaultLocalization,
-                platforms: self.platforms(isTest: potentialModule.isTest),
                 type: targetType,
                 sources: sources,
                 resources: resources,
@@ -892,8 +861,6 @@ public final class PackageBuilder {
             return try ClangTarget(
                 name: potentialModule.name,
                 bundleName: bundleName,
-                defaultLocalization: manifest.defaultLocalization,
-                platforms: self.platforms(isTest: potentialModule.isTest),
                 cLanguageStandard: manifest.cLanguageStandard,
                 cxxLanguageStandard: manifest.cxxLanguageStandard,
                 includeDir: publicHeadersPath,
@@ -1012,73 +979,9 @@ public final class PackageBuilder {
         return conditions
     }
 
-    /// Returns the list of platforms supported by the manifest.
-    func platforms(isTest: Bool = false) -> [SupportedPlatform] {
-        if let platforms = _platforms[isTest] {
-            return platforms
-        }
-
-        var supportedPlatforms: [SupportedPlatform] = []
-
-        /// Add each declared platform to the supported platforms list.
-        for platform in manifest.platforms {
-            let declaredPlatform = platformRegistry.platformByName[platform.platformName]
-                ?? PackageModel.Platform.custom(name: platform.platformName, oldestSupportedVersion: platform.version)
-            var version = PlatformVersion(platform.version)
-
-            if let xcTestMinimumDeploymentTarget = xcTestMinimumDeploymentTargets[declaredPlatform], isTest, version < xcTestMinimumDeploymentTarget {
-                version = xcTestMinimumDeploymentTarget
-            }
-
-            let supportedPlatform = SupportedPlatform(
-                platform: declaredPlatform,
-                version: version,
-                options: platform.options
-            )
-
-            supportedPlatforms.append(supportedPlatform)
-        }
-
-        // Find the undeclared platforms.
-        let remainingPlatforms = Set(platformRegistry.platformByName.keys).subtracting(supportedPlatforms.map({ $0.platform.name }))
-
-        /// Start synthesizing for each undeclared platform.
-        for platformName in remainingPlatforms.sorted() {
-            let platform = platformRegistry.platformByName[platformName]!
-
-            let oldestSupportedVersion: PlatformVersion
-            if let xcTestMinimumDeploymentTarget = xcTestMinimumDeploymentTargets[platform], isTest {
-                oldestSupportedVersion = xcTestMinimumDeploymentTarget
-            } else if platform == .macCatalyst, let iOS = supportedPlatforms.first(where: { $0.platform == .iOS }) {
-                // If there was no deployment target specified for Mac Catalyst, fall back to the iOS deployment target.
-                oldestSupportedVersion = max(platform.oldestSupportedVersion, iOS.version)
-            } else {
-                oldestSupportedVersion = platform.oldestSupportedVersion
-            }
-
-            let supportedPlatform = SupportedPlatform(
-                platform: platform,
-                version: oldestSupportedVersion,
-                options: []
-            )
-
-            supportedPlatforms.append(supportedPlatform)
-        }
-
-        _platforms[isTest] = supportedPlatforms
-        return supportedPlatforms
-    }
-    // Keep two sets of supported platforms, based on the `isTest` parameter.
-    private var _platforms = [Bool:[SupportedPlatform]]()
-
-    /// The platform registry instance.
-    private var platformRegistry: PlatformRegistry {
-        return PlatformRegistry.default
-    }
-
     /// Computes the swift version to use for this manifest.
     private func swiftVersion() throws -> SwiftLanguageVersion {
-        if let swiftVersion = _swiftVersion {
+        if let swiftVersion = self.swiftVersionCache {
             return swiftVersion
         }
 
@@ -1095,13 +998,9 @@ public final class PackageBuilder {
             // Otherwise, use the version depending on the manifest version.
             computedSwiftVersion = manifest.toolsVersion.swiftLanguageVersion
         }
-        _swiftVersion = computedSwiftVersion
+        self.swiftVersionCache = computedSwiftVersion
         return computedSwiftVersion
     }
-    private var _swiftVersion: SwiftLanguageVersion? = nil
-
-    /// The set of the sources computed so far.
-    private var allSources = Set<AbsolutePath>()
 
     /// Validates that the sources of a target are not already present in another target.
     private func validateSourcesOverlapping(forTarget target: String, sources: [AbsolutePath]) throws {
@@ -1367,6 +1266,18 @@ public final class PackageBuilder {
     }
 }
 
+extension PackageBuilder {
+    struct PredefinedTargetDirectory {
+        let path: AbsolutePath
+        let contents: [String]
+
+        init(fs: FileSystem, path: AbsolutePath) {
+            self.path = path
+            self.contents = (try? fs.getDirectoryContents(path)) ?? []
+        }
+    }
+}
+
 /// We create this structure after scanning the filesystem for potential targets.
 private struct PotentialModule: Hashable {
     /// Name of the target.
@@ -1471,14 +1382,15 @@ extension PackageBuilder {
                                                                   type: .executable)
                     buildSettings = try self.buildSettings(for: targetDescription, targetRoot: sourceFile.parentDirectory)
                 }
-
-                return SwiftTarget(name: name,
-                                   platforms: self.platforms(),
-                                   type: .snippet,
-                                   sources: sources,
-                                   dependencies: dependencies,
-                                   swiftVersion: try swiftVersion(),
-                                   buildSettings: buildSettings)
+                
+                return SwiftTarget(
+                    name: name,
+                    type: .snippet,
+                    sources: sources,
+                    dependencies: dependencies,
+                    swiftVersion: try swiftVersion(),
+                    buildSettings: buildSettings
+                )
             }
     }
 }

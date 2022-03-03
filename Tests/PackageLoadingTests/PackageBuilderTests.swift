@@ -1673,179 +1673,6 @@ class PackageBuilderTests: XCTestCase {
         }
     }
 
-    func testPlatforms() throws {
-        let fs = InMemoryFileSystem(emptyFiles:
-            "/Sources/foo/module.modulemap",
-            "/Sources/bar/bar.swift",
-            "/Sources/cbar/bar.c",
-            "/Sources/cbar/include/bar.h",
-            "/Tests/test/test.swift"
-        )
-
-        // One platform with an override.
-        var manifest = Manifest.createRootManifest(
-            name: "pkg",
-            platforms: [
-                PlatformDescription(name: "macos", version: "10.12", options: ["option1"]),
-            ],
-            toolsVersion: .v5,
-            targets: [
-                try TargetDescription(name: "foo", type: .system),
-                try TargetDescription(name: "cbar"),
-                try TargetDescription(name: "bar", dependencies: ["foo"]),
-                try TargetDescription(name: "test", type: .test)
-            ]
-        )
-
-        var expectedPlatforms = [
-            "linux": "0.0",
-            "macos": "10.12",
-            "maccatalyst": "13.0",
-            "ios": "9.0",
-            "tvos": "9.0",
-            "driverkit": "19.0",
-            "watchos": "2.0",
-            "android": "0.0",
-            "windows": "0.0",
-            "wasi": "0.0",
-            "openbsd": "0.0",
-        ]
-
-        PackageBuilderTester(manifest, in: fs) { package, _ in
-            package.checkModule("foo") { t in
-                t.checkPlatforms(expectedPlatforms)
-                t.checkPlatformOptions(.macOS, options: ["option1"])
-                t.checkPlatformOptions(.iOS, options: [])
-
-            }
-            package.checkModule("bar") { t in
-                t.checkPlatforms(expectedPlatforms)
-                t.checkPlatformOptions(.macOS, options: ["option1"])
-                t.checkPlatformOptions(.iOS, options: [])
-
-            }
-            package.checkModule("cbar") { t in
-                t.checkPlatforms(expectedPlatforms)
-                t.checkPlatformOptions(.macOS, options: ["option1"])
-                t.checkPlatformOptions(.iOS, options: [])
-            }
-            package.checkModule("test") { t in
-                var expected = expectedPlatforms
-                [PackageModel.Platform.macOS, .iOS, .tvOS, .watchOS].forEach {
-                    expected[$0.name] = PackageBuilderTester.xcTestMinimumDeploymentTargets[$0]?.versionString
-                }
-                t.checkPlatforms(expected)
-                t.checkPlatformOptions(.macOS, options: ["option1"])
-                t.checkPlatformOptions(.iOS, options: [])
-            }
-            package.checkProduct("pkgPackageTests") { _ in }
-        }
-
-        // Two platforms with overrides.
-        manifest = Manifest.createRootManifest(
-            name: "pkg",
-            platforms: [
-                PlatformDescription(name: "macos", version: "10.12"),
-                PlatformDescription(name: "tvos", version: "10.0"),
-            ],
-            toolsVersion: .v5,
-            targets: [
-                try TargetDescription(name: "foo", type: .system),
-                try TargetDescription(name: "cbar"),
-                try TargetDescription(name: "bar", dependencies: ["foo"]),
-            ]
-        )
-
-        expectedPlatforms = [
-            "macos": "10.12",
-            "maccatalyst": "13.0",
-            "tvos": "10.0",
-            "linux": "0.0",
-            "ios": "9.0",
-            "watchos": "2.0",
-            "driverkit": "19.0",
-            "android": "0.0",
-            "windows": "0.0",
-            "wasi": "0.0",
-            "openbsd": "0.0",
-        ]
-
-        PackageBuilderTester(manifest, in: fs) { package, _ in
-            package.checkModule("foo") { t in
-                t.checkPlatforms(expectedPlatforms)
-            }
-            package.checkModule("bar") { t in
-                t.checkPlatforms(expectedPlatforms)
-            }
-            package.checkModule("cbar") { t in
-                t.checkPlatforms(expectedPlatforms)
-            }
-        }
-    }
-
-    func testCustomPlatforms() throws {
-        let fs = InMemoryFileSystem(emptyFiles:
-            "/Sources/foo/module.modulemap"
-        )
-
-        // One custom platform.
-        var manifest = Manifest.createRootManifest(
-            name: "pkg",
-            platforms: [
-                PlatformDescription(name: "customos", version: "1.0"),
-            ],
-            toolsVersion: .v5_6,
-            targets: [
-                try TargetDescription(name: "foo", type: .system),
-            ]
-        )
-
-        // default platforms will be auto-added during package build
-        var expectedPlatforms = [
-            "linux": "0.0",
-            "macos": "10.10",
-            "maccatalyst": "13.0",
-            "ios": "9.0",
-            "tvos": "9.0",
-            "driverkit": "19.0",
-            "watchos": "2.0",
-            "android": "0.0",
-            "windows": "0.0",
-            "wasi": "0.0",
-            "openbsd": "0.0",
-        ]
-
-        // add our custom expectations
-        expectedPlatforms["customos"] = "1.0"
-
-        PackageBuilderTester(manifest, in: fs) { package, _ in
-            package.checkModule("foo") { t in
-                t.checkPlatforms(expectedPlatforms)
-            }
-        }
-
-        // Two platforms with overrides.
-        manifest = Manifest.createRootManifest(
-            name: "pkg",
-            platforms: [
-                PlatformDescription(name: "customos", version: "1.0"),
-                PlatformDescription(name: "anothercustomos", version: "2.3"),
-            ],
-            toolsVersion: .v5_6,
-            targets: [
-                try TargetDescription(name: "foo", type: .system),
-            ]
-        )
-
-        expectedPlatforms["anothercustomos"] = "2.3"
-
-        PackageBuilderTester(manifest, in: fs) { package, _ in
-            package.checkModule("foo") { t in
-                t.checkPlatforms(expectedPlatforms)
-            }
-        }
-    }
-
     func testAsmIsIgnoredInV4_2Manifest() throws {
         // .s is not considered a valid source in 4.2 manifest.
         let fs = InMemoryFileSystem(emptyFiles:
@@ -2379,13 +2206,6 @@ final class PackageBuilderTester {
     /// Contains the products which have not been checked yet.
     private var uncheckedProducts: Set<PackageModel.Product> = []
 
-    fileprivate static let xcTestMinimumDeploymentTargets = [
-        PackageModel.Platform.macOS: PlatformVersion("10.15"),
-        PackageModel.Platform.iOS: PlatformVersion("9.0"),
-        PackageModel.Platform.tvOS: PlatformVersion("9.0"),
-        PackageModel.Platform.watchOS: PlatformVersion("2.0"),
-    ]
-
     @discardableResult
     init(
         _ manifest: Manifest,
@@ -2407,8 +2227,8 @@ final class PackageBuilderTester {
                 manifest: manifest,
                 productFilter: .everything,
                 path: path,
+                additionalFileRules: [],
                 binaryArtifacts: binaryArtifacts,
-                xcTestMinimumDeploymentTargets: Self.xcTestMinimumDeploymentTargets,
                 shouldCreateMultipleTestProducts: shouldCreateMultipleTestProducts,
                 warnAboutImplicitExecutableTargets: true,
                 createREPLProduct: createREPLProduct,
@@ -2584,16 +2404,6 @@ final class PackageBuilderTester {
                 return XCTFail("\(target) is not a swift target", file: file, line: line)
             }
             XCTAssertEqual(SwiftLanguageVersion(string: swiftVersion)!, swiftTarget.swiftVersion, file: file, line: line)
-        }
-
-        func checkPlatforms(_ platforms: [String: String], file: StaticString = #file, line: UInt = #line) {
-            let targetPlatforms = Dictionary(uniqueKeysWithValues: target.platforms.map({ ($0.platform.name, $0.version.versionString) }))
-            XCTAssertEqual(platforms, targetPlatforms, file: file, line: line)
-        }
-
-        func checkPlatformOptions(_ platform: PackageModel.Platform, options: [String], file: StaticString = #file, line: UInt = #line) {
-            let platform = target.getSupportedPlatform(for: platform)
-            XCTAssertEqual(platform?.options, options, file: file, line: line)
         }
 
         func check(pluginCapability: PluginCapability, file: StaticString = #file, line: UInt = #line) {
