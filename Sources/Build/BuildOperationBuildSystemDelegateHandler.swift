@@ -410,7 +410,8 @@ final class BuildOperationBuildSystemDelegateHandler: LLBuildBuildSystemDelegate
     /// Swift parsers keyed by llbuild command name.
     private var swiftParsers: [String: SwiftCompilerOutputParser] = [:]
 
-    private var nonSwiftMessageBuffers: [String:[UInt8]] = [:]
+    /// Buffer to accumulate non-swift output until command is finished
+    private var nonSwiftMessageBuffers: [String: [UInt8]] = [:]
 
     /// The build execution context.
     private let buildExecutionContext: BuildExecutionContext
