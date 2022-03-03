@@ -39,6 +39,8 @@ services:
       - ../../../swift-driver:/code/swift-driver:z
       - ../../../swift-crypto:/code/swift-crypto:z
       - ../../../swift-llbuild:/code/llbuild:z
+      - ../../../swift-system:/code/swift-system:z
+      - ../../../swift-collections:/code/swift-collections:z
     working_dir: /code/swift-package-manager
     cap_drop:
       - CAP_NET_RAW
