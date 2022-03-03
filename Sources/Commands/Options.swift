@@ -79,16 +79,14 @@ struct LocationOptions: ParsableArguments {
 struct CachingOptions: ParsableArguments {
     /// Disables package caching.
     @Flag(name: .customLong("dependency-cache"), inversion: .prefixedEnableDisable, help: "Use a shared cache when fetching dependencies")
-    var _useDependenciesCache: Bool?
+    var _useDependenciesCache: Bool = true
 
     // TODO: simplify when deprecating the older flag
     var useDependenciesCache: Bool {
-        if let value = self._useDependenciesCache {
+        if let value = self._deprecated_useRepositoriesCache {
             return value
-        } else if let value = self._deprecated_useRepositoriesCache {
-            return value
-        } else {
-            return true
+        }  else {
+            return self._useDependenciesCache
         }
     }
 
