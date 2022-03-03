@@ -410,6 +410,8 @@ final class BuildOperationBuildSystemDelegateHandler: LLBuildBuildSystemDelegate
     /// Swift parsers keyed by llbuild command name.
     private var swiftParsers: [String: SwiftCompilerOutputParser] = [:]
 
+    private var nonSwiftMessageBuffers: [String:[UInt8]] = [:]
+
     /// The build execution context.
     private let buildExecutionContext: BuildExecutionContext
 
@@ -565,11 +567,7 @@ final class BuildOperationBuildSystemDelegateHandler: LLBuildBuildSystemDelegate
         if let swiftParser = swiftParsers[command.name] {
             swiftParser.parse(bytes: data)
         } else {
-            queue.async {
-                self.progressAnimation.clear()
-                self.outputStream <<< data
-                self.outputStream.flush()
-            }
+            self.nonSwiftMessageBuffers[command.name, default: []] += data
         }
     }
 
@@ -578,6 +576,14 @@ final class BuildOperationBuildSystemDelegateHandler: LLBuildBuildSystemDelegate
         process: ProcessHandle,
         result: CommandExtendedResult
     ) {
+        if let buffer = self.nonSwiftMessageBuffers[command.name] {
+            queue.async {
+                self.progressAnimation.clear()
+                self.outputStream <<< buffer
+                self.outputStream.flush()
+                self.nonSwiftMessageBuffers[command.name] = nil
+            }
+        }
         if result.result == .failed {
             // The command failed, so we queue up an asynchronous task to see if we have any error messages from the target to provide advice about.
             queue.async {
