@@ -20,7 +20,7 @@ final class SwiftToolTests: CommandsTestCase {
         try fixture(name: "Miscellaneous/Simple") { fixturePath in
             do {
                 let outputStream = BufferedOutputByteStream()
-                let options = try SwiftToolOptions.parse(["--package-path", fixturePath.pathString])
+                let options = try GlobalOptions.parse(["--package-path", fixturePath.pathString])
                 let tool = try SwiftTool(outputStream: outputStream, options: options)
                 XCTAssertEqual(tool.logLevel, .warning)
 
@@ -37,7 +37,7 @@ final class SwiftToolTests: CommandsTestCase {
 
             do {
                 let outputStream = BufferedOutputByteStream()
-                let options = try SwiftToolOptions.parse(["--package-path", fixturePath.pathString, "--verbose"])
+                let options = try GlobalOptions.parse(["--package-path", fixturePath.pathString, "--verbose"])
                 let tool = try SwiftTool(outputStream: outputStream, options: options)
                 XCTAssertEqual(tool.logLevel, .info)
 
@@ -54,7 +54,7 @@ final class SwiftToolTests: CommandsTestCase {
 
             do {
                 let outputStream = BufferedOutputByteStream()
-                let options = try SwiftToolOptions.parse(["--package-path", fixturePath.pathString, "-v"])
+                let options = try GlobalOptions.parse(["--package-path", fixturePath.pathString, "-v"])
                 let tool = try SwiftTool(outputStream: outputStream, options: options)
                 XCTAssertEqual(tool.logLevel, .info)
 
@@ -71,7 +71,7 @@ final class SwiftToolTests: CommandsTestCase {
 
             do {
                 let outputStream = BufferedOutputByteStream()
-                let options = try SwiftToolOptions.parse(["--package-path", fixturePath.pathString, "--very-verbose"])
+                let options = try GlobalOptions.parse(["--package-path", fixturePath.pathString, "--very-verbose"])
                 let tool = try SwiftTool(outputStream: outputStream, options: options)
                 XCTAssertEqual(tool.logLevel, .debug)
 
@@ -88,7 +88,7 @@ final class SwiftToolTests: CommandsTestCase {
 
             do {
                 let outputStream = BufferedOutputByteStream()
-                let options = try SwiftToolOptions.parse(["--package-path", fixturePath.pathString, "--vv"])
+                let options = try GlobalOptions.parse(["--package-path", fixturePath.pathString, "--vv"])
                 let tool = try SwiftTool(outputStream: outputStream, options: options)
                 XCTAssertEqual(tool.logLevel, .debug)
 
@@ -117,7 +117,7 @@ final class SwiftToolTests: CommandsTestCase {
                     "machine mymachine.labkey.org login custom@labkey.org password custom"
                 }
 
-                let options = try SwiftToolOptions.parse(["--package-path", fixturePath.pathString, "--netrc-file", customPath.pathString])
+                let options = try GlobalOptions.parse(["--package-path", fixturePath.pathString, "--netrc-file", customPath.pathString])
                 let tool = try SwiftTool(options: options)
 
                 let authorizationProvider = try tool.getAuthorizationProvider() as? CompositeAuthorizationProvider
@@ -142,7 +142,7 @@ final class SwiftToolTests: CommandsTestCase {
                     return "machine mymachine.labkey.org login local@labkey.org password local"
                 }
 
-                let options = try SwiftToolOptions.parse(["--package-path", fixturePath.pathString])
+                let options = try GlobalOptions.parse(["--package-path", fixturePath.pathString])
                 let tool = try SwiftTool(options: options)
 
                 let authorizationProvider = try tool.getAuthorizationProvider() as? CompositeAuthorizationProvider

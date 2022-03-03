@@ -78,7 +78,7 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
         var jsonOptions: JSONOptions
 
         @OptionGroup(_hiddenFromHelp: true)
-        var swiftOptions: SwiftToolOptions
+        var globalOptions: GlobalOptions
 
         func run(_ swiftTool: SwiftTool) throws {
             let collections = try with(swiftTool) { collections in
@@ -99,7 +99,7 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
         static let configuration = CommandConfiguration(abstract: "Refresh configured collections")
 
         @OptionGroup(_hiddenFromHelp: true)
-        var swiftOptions: SwiftToolOptions
+        var globalOptions: GlobalOptions
 
         func run(_ swiftTool: SwiftTool) throws {
             let collections = try with(swiftTool) { collections in
@@ -125,7 +125,7 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
         var skipSignatureCheck: Bool = false
 
         @OptionGroup(_hiddenFromHelp: true)
-        var swiftOptions: SwiftToolOptions
+        var globalOptions: GlobalOptions
 
         func run(_ swiftTool: SwiftTool) throws {
             let collectionURL = try url(self.collectionURL)
@@ -164,7 +164,7 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
         var collectionURL: String
 
         @OptionGroup(_hiddenFromHelp: true)
-        var swiftOptions: SwiftToolOptions
+        var globalOptions: GlobalOptions
 
         func run(_ swiftTool: SwiftTool) throws {
             let collectionURL = try url(self.collectionURL)
@@ -198,7 +198,7 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
         var searchQuery: String
 
         @OptionGroup(_hiddenFromHelp: true)
-        var swiftOptions: SwiftToolOptions
+        var globalOptions: GlobalOptions
 
         func run(_ swiftTool: SwiftTool) throws {
             try with(swiftTool) { collections in
@@ -245,7 +245,7 @@ public struct SwiftPackageCollectionsTool: ParsableCommand {
         var version: String?
 
         @OptionGroup(_hiddenFromHelp: true)
-        var swiftOptions: SwiftToolOptions
+        var globalOptions: GlobalOptions
 
         private func printVersion(_ version: PackageCollectionsModel.Package.Version?) -> String? {
             guard let version = version else {
