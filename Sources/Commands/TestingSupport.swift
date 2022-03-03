@@ -44,17 +44,15 @@ enum TestingSupport {
 
     static func getTestSuites(in testProducts: [BuiltTestProduct], swiftTool: SwiftTool, enableCodeCoverage: Bool, sanitizers: [Sanitizer]) throws -> [AbsolutePath: [TestSuite]] {
         let testSuitesByProduct = try testProducts
-            .map {
-                (
-                    $0.bundlePath,
-                    try TestingSupport.getTestSuites(
-                        fromTestAt: $0.bundlePath,
-                        swiftTool: swiftTool,
-                        enableCodeCoverage: enableCodeCoverage,
-                        sanitizers: sanitizers
-                    )
+            .map {(
+                $0.bundlePath,
+                try Self.getTestSuites(
+                    fromTestAt: $0.bundlePath,
+                    swiftTool: swiftTool,
+                    enableCodeCoverage: enableCodeCoverage,
+                    sanitizers: sanitizers
                 )
-            }
+            )}
         return try Dictionary(throwingUniqueKeysWithValues: testSuitesByProduct)
     }
 
@@ -72,8 +70,8 @@ enum TestingSupport {
         // Run the correct tool.
         #if os(macOS)
         let data: String = try withTemporaryFile { tempFile in
-            let args = [try TestingSupport.xctestHelperPath(swiftTool: swiftTool).pathString, path.pathString, tempFile.path.pathString]
-            var env = try TestingSupport.constructTestEnvironment(
+            let args = [try Self.xctestHelperPath(swiftTool: swiftTool).pathString, path.pathString, tempFile.path.pathString]
+            var env = try Self.constructTestEnvironment(
                 toolchain: try swiftTool.getToolchain(),
                 buildParameters: swiftTool.buildParametersForTest(
                     enableCodeCoverage: enableCodeCoverage
@@ -92,7 +90,13 @@ enum TestingSupport {
             return try swiftTool.fileSystem.readFileContents(tempFile.path)
         }
         #else
-        let env = try constructTestEnvironment(toolchain: try swiftTool.getToolchain(), buildParameters: swiftTool.buildParametersForTest(), options: options)
+        let env = try Self.constructTestEnvironment(
+            toolchain: try swiftTool.getToolchain(),
+            buildParameters: swiftTool.buildParametersForTest(
+                enableCodeCoverage: enableCodeCoverage
+            ),
+            sanitizers: sanitizers
+        )
         let args = [path.description, "--dump-tests-json"]
         let data = try Process.checkNonZeroExit(arguments: args, environment: env)
         #endif
