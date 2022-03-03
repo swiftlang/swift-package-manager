@@ -133,6 +133,12 @@ struct TestToolOptions: ParsableArguments {
     /// Generate LinuxMain entries and exit.
     @Flag(name: .customLong("testable-imports"), inversion: .prefixedEnableDisable, help: "Enable or disable testable imports. Enabled by default.")
     var enableTestableImports: Bool = true
+
+    /// Whether to enable code coverage.
+    @Flag(name: .customLong("code-coverage"),
+          inversion: .prefixedEnableDisable,
+          help: "Enable code coverage")
+    var enableCodeCoverage: Bool = false
 }
 
 /// Tests filtering specifier
@@ -167,15 +173,11 @@ public struct SwiftTestTool: SwiftCommand {
         version: SwiftVersion.currentVersion.completeDisplayString,
         helpNames: [.short, .long, .customLong("help", withSingleDash: true)])
 
-    @OptionGroup(_hiddenFromHelp: true)
-    var swiftOptions: SwiftToolOptions
+    @OptionGroup()
+    var globalOptions: GlobalOptions
 
     @OptionGroup()
     var options: TestToolOptions
-
-    var shouldEnableCodeCoverage: Bool {
-        swiftOptions.shouldEnableCodeCoverage
-    }
 
     public func run(_ swiftTool: SwiftTool) throws {
         do {
@@ -195,7 +197,12 @@ public struct SwiftTestTool: SwiftCommand {
         switch options.mode {
         case .listTests:
             let testProducts = try buildTestsIfNeeded(swiftTool: swiftTool)
-            let testSuites = try TestingSupport.getTestSuites(in: testProducts, swiftTool: swiftTool, swiftOptions: swiftOptions)
+            let testSuites = try TestingSupport.getTestSuites(
+                in: testProducts,
+                swiftTool: swiftTool,
+                enableCodeCoverage: options.enableCodeCoverage,
+                sanitizers: globalOptions.build.sanitizers
+            )
             let tests = try testSuites
                 .filteredTests(specifier: options.testCaseSpecifier)
                 .skippedTests(specifier: options.skippedTests(fileSystem: swiftTool.fileSystem))
@@ -231,7 +238,12 @@ public struct SwiftTestTool: SwiftCommand {
             #endif
             let graph = try swiftTool.loadPackageGraph()
             let testProducts = try buildTestsIfNeeded(swiftTool: swiftTool)
-            let testSuites = try TestingSupport.getTestSuites(in: testProducts, swiftTool: swiftTool, swiftOptions: swiftOptions)
+            let testSuites = try TestingSupport.getTestSuites(
+                in: testProducts,
+                swiftTool: swiftTool,
+                enableCodeCoverage: options.enableCodeCoverage,
+                sanitizers: globalOptions.build.sanitizers
+            )
             let allTestSuites = testSuites.values.flatMap { $0 }
             let generator = LinuxMainGenerator(graph: graph, testSuites: allTestSuites)
             try generator.generate()
@@ -243,7 +255,7 @@ public struct SwiftTestTool: SwiftCommand {
 
             // Clean out the code coverage directory that may contain stale
             // profraw files from a previous run of the code coverage tool.
-            if shouldEnableCodeCoverage {
+            if self.options.enableCodeCoverage {
                 try swiftTool.fileSystem.removeFileTree(buildParameters.codeCovPath)
             }
 
@@ -264,7 +276,12 @@ public struct SwiftTestTool: SwiftCommand {
                 }
 
                 // Find the tests we need to run.
-                let testSuites = try TestingSupport.getTestSuites(in: testProducts, swiftTool: swiftTool, swiftOptions: swiftOptions)
+                let testSuites = try TestingSupport.getTestSuites(
+                    in: testProducts,
+                    swiftTool: swiftTool,
+                    enableCodeCoverage: options.enableCodeCoverage,
+                    sanitizers: globalOptions.build.sanitizers
+                )
                 let tests = try testSuites
                     .filteredTests(specifier: options.testCaseSpecifier)
                     .skippedTests(specifier: options.skippedTests(fileSystem: swiftTool.fileSystem))
@@ -278,7 +295,11 @@ public struct SwiftTestTool: SwiftCommand {
                 }
             }
 
-            let testEnv = try TestingSupport.constructTestEnvironment(toolchain: toolchain, options: swiftOptions, buildParameters: buildParameters)
+            let testEnv = try TestingSupport.constructTestEnvironment(
+                toolchain: toolchain,
+                buildParameters: buildParameters,
+                sanitizers: globalOptions.build.sanitizers
+            )
 
             let runner = TestRunner(
                 bundlePaths: testProducts.map { $0.bundlePath },
@@ -299,14 +320,19 @@ public struct SwiftTestTool: SwiftCommand {
                 swiftTool.executionStatus = .failure
             }
 
-            if shouldEnableCodeCoverage {
+            if self.options.enableCodeCoverage {
                 try processCodeCoverage(testProducts, swiftTool: swiftTool)
             }
 
         case .runParallel:
             let toolchain = try swiftTool.getToolchain()
             let testProducts = try buildTestsIfNeeded(swiftTool: swiftTool)
-            let testSuites = try TestingSupport.getTestSuites(in: testProducts, swiftTool: swiftTool, swiftOptions: swiftOptions)
+            let testSuites = try TestingSupport.getTestSuites(
+                in: testProducts,
+                swiftTool: swiftTool,
+                enableCodeCoverage: options.enableCodeCoverage,
+                sanitizers: globalOptions.build.sanitizers
+            )
             let tests = try testSuites
                 .filteredTests(specifier: options.testCaseSpecifier)
                 .skippedTests(specifier: options.skippedTests(fileSystem: swiftTool.fileSystem))
@@ -320,7 +346,7 @@ public struct SwiftTestTool: SwiftCommand {
 
             // Clean out the code coverage directory that may contain stale
             // profraw files from a previous run of the code coverage tool.
-            if shouldEnableCodeCoverage {
+            if self.options.enableCodeCoverage {
                 try swiftTool.fileSystem.removeFileTree(buildParameters.codeCovPath)
             }
 
@@ -330,7 +356,7 @@ public struct SwiftTestTool: SwiftCommand {
                 processSet: swiftTool.processSet,
                 toolchain: toolchain,
                 numJobs: options.numberOfWorkers ?? ProcessInfo.processInfo.activeProcessorCount,
-                options: swiftOptions,
+                buildOptions: globalOptions.build,
                 buildParameters: buildParameters,
                 shouldOutputSuccess: swiftTool.logLevel <= .info,
                 observabilityScope: swiftTool.observabilityScope
@@ -348,7 +374,7 @@ public struct SwiftTestTool: SwiftCommand {
             }
 
             // process code Coverage if request
-            if shouldEnableCodeCoverage {
+            if self.options.enableCodeCoverage {
                 try processCodeCoverage(testProducts, swiftTool: swiftTool)
             }
 
@@ -648,7 +674,7 @@ final class ParallelTestRunner {
 
     private let toolchain: UserToolchain
 
-    private let options: SwiftToolOptions
+    private let buildOptions: BuildOptions
     private let buildParameters: BuildParameters
 
     /// Number of tests to execute in parallel.
@@ -665,7 +691,7 @@ final class ParallelTestRunner {
         processSet: ProcessSet,
         toolchain: UserToolchain,
         numJobs: Int,
-        options: SwiftToolOptions,
+        buildOptions: BuildOptions,
         buildParameters: BuildParameters,
         shouldOutputSuccess: Bool,
         observabilityScope: ObservabilityScope
@@ -685,7 +711,7 @@ final class ParallelTestRunner {
             progressAnimation = NinjaProgressAnimation(stream: TSCBasic.stdoutStream)
         }
 
-        self.options = options
+        self.buildOptions = buildOptions
         self.buildParameters = buildParameters
 
         assert(numJobs > 0, "num jobs should be > 0")
@@ -714,7 +740,11 @@ final class ParallelTestRunner {
     func run(_ tests: [UnitTest]) throws -> [TestResult] {
         assert(!tests.isEmpty, "There should be at least one test to execute.")
 
-        let testEnv = try TestingSupport.constructTestEnvironment(toolchain: self.toolchain, options: self.options, buildParameters: self.buildParameters)
+        let testEnv = try TestingSupport.constructTestEnvironment(
+            toolchain: self.toolchain,
+            buildParameters: self.buildParameters,
+            sanitizers: self.buildOptions.sanitizers
+        )
 
         // Enqueue all the tests.
         try enqueueTests(tests)
@@ -973,6 +1003,7 @@ final class XUnitGenerator {
 extension SwiftTool {
     func buildParametersForTest(options: TestToolOptions) throws -> BuildParameters {
         try self.buildParametersForTest(
+            enableCodeCoverage: options.enableCodeCoverage,
             enableTestability: options.enableTestableImports
         )
     }

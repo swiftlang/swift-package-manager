@@ -269,14 +269,14 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
 }
 
 protocol SwiftCommand: ParsableCommand {
-    var swiftOptions: SwiftToolOptions { get }
+    var globalOptions: GlobalOptions { get }
 
     func run(_ swiftTool: SwiftTool) throws
 }
 
 extension SwiftCommand {
     public func run() throws {
-        let swiftTool = try SwiftTool(options: swiftOptions)
+        let swiftTool = try SwiftTool(options: globalOptions)
         try self.run(swiftTool)
         if swiftTool.observabilityScope.errorsReported || swiftTool.executionStatus == .failure {
             throw ExitCode.failure
@@ -296,7 +296,7 @@ public class SwiftTool {
     let originalWorkingDirectory: AbsolutePath
 
     /// The options of this tool.
-    let options: SwiftToolOptions
+    let options: GlobalOptions
 
     /// Path to the root package directory, nil if manifest is not found.
     let packageRoot: AbsolutePath?
@@ -313,7 +313,7 @@ public class SwiftTool {
     func getWorkspaceRoot() throws -> PackageGraphRootInput {
         let packages: [AbsolutePath]
 
-        if let workspace = options.multirootPackageDataFile {
+        if let workspace = options.locations.multirootPackageDataFile {
             packages = try XcodeWorkspaceLoader(fileSystem: self.fileSystem, observabilityScope: self.observabilityScope).load(workspace: workspace)
         } else {
             packages = [try getPackageRoot()]
@@ -366,7 +366,7 @@ public class SwiftTool {
     /// Create an instance of this tool.
     ///
     /// - parameter options: The command line options to be passed to this tool.
-    public convenience init(options: SwiftToolOptions) throws {
+    convenience init(options: GlobalOptions) throws {
         // output from background activities goes to stderr, this includes diagnostics and output from build operations,
         // package resolution that take place as part of another action
         // CLI commands that have user facing output, use stdout directly to emit the final result
@@ -376,10 +376,10 @@ public class SwiftTool {
     }
 
     // marked internal for testing
-    internal init(outputStream: OutputByteStream, options: SwiftToolOptions) throws {
+    internal init(outputStream: OutputByteStream, options: GlobalOptions) throws {
         self.fileSystem = localFileSystem
         // first, bootstrap the observability system
-        self.logLevel = options.logLevel
+        self.logLevel = options.logging.logLevel
         self.observabilityHandler = SwiftToolObservabilityHandler(outputStream: outputStream, logLevel: self.logLevel)
         let observabilitySystem = ObservabilitySystem(self.observabilityHandler)
         self.observabilityScope = observabilitySystem.topScope
@@ -396,7 +396,7 @@ public class SwiftTool {
             self.options = options
 
             // Honor package-path option is provided.
-            if let packagePath = options.packagePath ?? options.chdir {
+            if let packagePath = options.locations.packagePath ?? options.locations.chdir {
                 try ProcessEnv.chdir(packagePath)
             }
 
@@ -466,7 +466,7 @@ public class SwiftTool {
         }
 
         // Create local variables to use while finding build path to avoid capture self before init error.
-        let customBuildPath = options.buildPath
+        let customBuildPath = options.locations.buildPath
         let packageRoot = findPackageRoot(fileSystem: fileSystem)
 
         self.packageRoot = packageRoot
@@ -483,54 +483,53 @@ public class SwiftTool {
         Process.loggingHandler = { self.observabilityScope.emit(debug: $0) }
     }
 
-    static func postprocessArgParserResult(options: SwiftToolOptions, observabilityScope: ObservabilityScope) throws {
-        if options.chdir != nil {
+    static func postprocessArgParserResult(options: GlobalOptions, observabilityScope: ObservabilityScope) throws {
+        if options.locations.chdir != nil {
             observabilityScope.emit(warning: "'--chdir/-C' option is deprecated; use '--package-path' instead")
         }
 
-        if options.multirootPackageDataFile != nil {
+        if options.locations.multirootPackageDataFile != nil {
             observabilityScope.emit(.unsupportedFlag("--multiroot-data-file"))
         }
 
-        if options.useExplicitModuleBuild && !options.useIntegratedSwiftDriver {
+        if options.build.useExplicitModuleBuild && !options.build.useIntegratedSwiftDriver {
             observabilityScope.emit(error: "'--experimental-explicit-module-build' option requires '--use-integrated-swift-driver'")
         }
 
-        if !options.archs.isEmpty && options.customCompileTriple != nil {
+        if !options.build.archs.isEmpty && options.build.customCompileTriple != nil {
             observabilityScope.emit(.mutuallyExclusiveArgumentsError(arguments: ["--arch", "--triple"]))
         }
 
         // --enable-test-discovery should never be called on darwin based platforms
-#if canImport(Darwin)
-        if options.enableTestDiscovery {
+        #if canImport(Darwin)
+        if options.build.enableTestDiscovery {
             observabilityScope.emit(warning: "'--enable-test-discovery' option is deprecated; tests are automatically discovered on all platforms")
         }
-#endif
+        #endif
 
-        if options.shouldDisableManifestCaching {
+        if options.caching.shouldDisableManifestCaching {
             observabilityScope.emit(warning: "'--disable-package-manifest-caching' option is deprecated; use '--manifest-caching' instead")
         }
 
-        if let _ = options.netrcFilePath, options.netrc == false {
+        if let _ = options.security.netrcFilePath, options.security.netrc == false {
             observabilityScope.emit(.mutuallyExclusiveArgumentsError(arguments: ["--disable-netrc", "--netrc-file"]))
         }
 
-        if options._deprecated_netrc {
+        if options.security._deprecated_netrc {
             observabilityScope.emit(warning: "'--netrc' option is deprecated; .netrc files are located by default")
         }
 
-        if options._deprecated_netrcOptional {
+        if options.security._deprecated_netrcOptional {
             observabilityScope.emit(warning: "'--netrc-optional' option is deprecated; .netrc files are located by default")
         }
 
-        if options._deprecated_enableResolverTrace {
+        if options.resolver._deprecated_enableResolverTrace {
             observabilityScope.emit(warning: "'--enableResolverTrace' flag is deprecated; use '--verbose' option to log resolver output")
         }
 
-        if options._deprecated_useRepositoriesCache != nil {
+        if options.caching._deprecated_useRepositoriesCache != nil {
             observabilityScope.emit(warning: "'--disable-repository-cache'/'--enable-repository-cache' flags are deprecated; use '--disable-dependency-cache'/'--enable-dependency-cache' instead")
         }
-
     }
 
     /// Returns the currently active workspace.
@@ -541,7 +540,7 @@ public class SwiftTool {
 
         let delegate = ToolWorkspaceDelegate(self.outputStream, logLevel: self.logLevel, observabilityScope: self.observabilityScope)
         let repositoryProvider = GitRepositoryProvider(processSet: self.processSet)
-        let isXcodeBuildSystemEnabled = self.options.buildSystem == .xcode
+        let isXcodeBuildSystemEnabled = self.options.build.buildSystem == .xcode
         let workspace = try Workspace(
             fileSystem: self.fileSystem,
             location: .init(
@@ -555,12 +554,12 @@ public class SwiftTool {
             ),
             authorizationProvider: self.getAuthorizationProvider(),
             configuration: .init(
-                skipDependenciesUpdates: options.skipDependencyUpdate,
-                prefetchBasedOnResolvedFile: options.shouldEnableResolverPrefetching,
+                skipDependenciesUpdates: options.resolver.skipDependencyUpdate,
+                prefetchBasedOnResolvedFile: options.resolver.shouldEnableResolverPrefetching,
                 additionalFileRules: isXcodeBuildSystemEnabled ? FileRuleDescription.xcbuildFileTypes : FileRuleDescription.swiftpmFileTypes,
-                sharedDependenciesCacheEnabled: self.options.useDependenciesCache,
-                fingerprintCheckingMode: self.options.resolverFingerprintCheckingMode,
-                sourceControlToRegistryDependencyTransformation: self.options.sourceControlToRegistryDependencyTransformation.workspaceConfiguration
+                sharedDependenciesCacheEnabled: self.options.caching.useDependenciesCache,
+                fingerprintCheckingMode: self.options.security.fingerprintCheckingMode,
+                sourceControlToRegistryDependencyTransformation: self.options.resolver.sourceControlToRegistryDependencyTransformation.workspaceConfiguration
             ),
             initializationWarningHandler: { self.observabilityScope.emit(warning: $0) },
             customHostToolchain: self.getHostToolchain(),
@@ -575,7 +574,7 @@ public class SwiftTool {
 
     private func getEditsDirectory() throws -> AbsolutePath {
         // TODO: replace multiroot-data-file with explicit overrides
-        if let multiRootPackageDataFile = options.multirootPackageDataFile {
+        if let multiRootPackageDataFile = options.locations.multirootPackageDataFile {
             return multiRootPackageDataFile.appending(component: "Packages")
         }
         return try Workspace.DefaultLocations.editsDirectory(forRootPackage: self.getPackageRoot())
@@ -583,7 +582,7 @@ public class SwiftTool {
 
     private func getResolvedVersionsFile() throws -> AbsolutePath {
         // TODO: replace multiroot-data-file with explicit overrides
-        if let multiRootPackageDataFile = options.multirootPackageDataFile {
+        if let multiRootPackageDataFile = options.locations.multirootPackageDataFile {
             return multiRootPackageDataFile.appending(components: "xcshareddata", "swiftpm", "Package.resolved")
         }
         return try Workspace.DefaultLocations.resolvedVersionsFile(forRootPackage: self.getPackageRoot())
@@ -592,7 +591,7 @@ public class SwiftTool {
     internal func getLocalConfigurationDirectory() throws -> AbsolutePath {
         // Otherwise, use the default path.
         // TODO: replace multiroot-data-file with explicit overrides
-        if let multiRootPackageDataFile = options.multirootPackageDataFile {
+        if let multiRootPackageDataFile = options.locations.multirootPackageDataFile {
             // migrate from legacy location
             let legacyPath = multiRootPackageDataFile.appending(components: "xcshareddata", "swiftpm", "config")
             let newPath = Workspace.DefaultLocations.mirrorsConfigurationFile(at: multiRootPackageDataFile.appending(components: "xcshareddata", "swiftpm", "configuration"))
@@ -607,17 +606,17 @@ public class SwiftTool {
 
     func getAuthorizationProvider() throws -> AuthorizationProvider? {
         var authorization = Workspace.Configuration.Authorization.default
-        if !options.netrc {
+        if !options.security.netrc {
             authorization.netrc = .disabled
-        } else if let configuredPath = options.netrcFilePath {
+        } else if let configuredPath = options.security.netrcFilePath {
             authorization.netrc = .custom(configuredPath)
         } else {
-            let rootPath = try options.multirootPackageDataFile ?? self.getPackageRoot()
+            let rootPath = try options.locations.multirootPackageDataFile ?? self.getPackageRoot()
             authorization.netrc = .workspaceAndUser(rootPath: rootPath)
         }
 
         #if canImport(Security)
-        authorization.keychain = self.options.keychain ? .enabled : .disabled
+        authorization.keychain = self.options.security.keychain ? .enabled : .disabled
         #endif
 
         return try authorization.makeAuthorizationProvider(fileSystem: self.fileSystem, observabilityScope: self.observabilityScope)
@@ -628,7 +627,7 @@ public class SwiftTool {
         let workspace = try getActiveWorkspace()
         let root = try getWorkspaceRoot()
 
-        if options.forceResolvedVersions {
+        if options.resolver.forceResolvedVersions {
             try workspace.resolveBasedOnResolvedVersionsFile(root: root, observabilityScope: self.observabilityScope)
         } else {
             try workspace.resolve(root: root, observabilityScope: self.observabilityScope)
@@ -660,7 +659,7 @@ public class SwiftTool {
                 explicitProduct: explicitProduct,
                 createMultipleTestProducts: createMultipleTestProducts,
                 createREPLProduct: createREPLProduct,
-                forceResolvedVersions: options.forceResolvedVersions,
+                forceResolvedVersions: options.resolver.forceResolvedVersions,
                 observabilityScope: self.observabilityScope
             )
 
@@ -682,7 +681,7 @@ public class SwiftTool {
             fileSystem: self.fileSystem,
             cacheDir: cacheDir,
             toolchain: self.getHostToolchain().configuration,
-            enableSandbox: !self.options.shouldDisableSandbox
+            enableSandbox: !self.options.security.shouldDisableSandbox
         )
         return pluginScriptRunner
     }
@@ -701,7 +700,7 @@ public class SwiftTool {
     }
 
     private func canUseCachedBuildManifest() throws -> Bool {
-        if !self.options.cacheBuildManifest {
+        if !self.options.caching.cacheBuildManifest {
             return false
         }
 
@@ -771,7 +770,7 @@ public class SwiftTool {
         customObservabilityScope: ObservabilityScope? = .none
     ) throws -> BuildSystem {
         let buildSystem: BuildSystem
-        switch options.buildSystem {
+        switch options.build.buildSystem {
         case .native:
             let graphLoader = { try self.loadPackageGraph(explicitProduct: explicitProduct) }
 
@@ -781,7 +780,7 @@ public class SwiftTool {
                 packageGraphLoader: customPackageGraphLoader ?? graphLoader,
                 pluginScriptRunner: self.getPluginScriptRunner(),
                 pluginWorkDirectory: try self.getActiveWorkspace().location.pluginWorkingDirectory,
-                disableSandboxForPluginCommands: self.options.shouldDisableSandbox,
+                disableSandboxForPluginCommands: self.options.security.shouldDisableSandbox,
                 outputStream: customOutputStream ?? self.outputStream,
                 logLevel: self.logLevel,
                 fileSystem: self.fileSystem,
@@ -819,31 +818,31 @@ public class SwiftTool {
             // can be used to build for any Apple platform and it has it's own
             // conventions for build subpaths based on platforms.
             let dataPath = buildPath.appending(
-                component: options.buildSystem == .xcode ? "apple" : triple.platformBuildPathComponent())
+                component: options.build.buildSystem == .xcode ? "apple" : triple.platformBuildPathComponent())
             return BuildParameters(
                 dataPath: dataPath,
-                configuration: options.configuration,
+                configuration: options.build.configuration,
                 toolchain: toolchain,
                 destinationTriple: triple,
-                archs: options.archs,
-                flags: options.buildFlags,
-                xcbuildFlags: options.xcbuildFlags,
-                jobs: options.jobs ?? UInt32(ProcessInfo.processInfo.activeProcessorCount),
-                shouldLinkStaticSwiftStdlib: options.shouldLinkStaticSwiftStdlib,
+                archs: options.build.archs,
+                flags: options.build.buildFlags,
+                xcbuildFlags: options.build.xcbuildFlags,
+                jobs: options.build.jobs ?? UInt32(ProcessInfo.processInfo.activeProcessorCount),
+                shouldLinkStaticSwiftStdlib: options.linker.shouldLinkStaticSwiftStdlib,
                 canRenameEntrypointFunctionName: SwiftTargetBuildDescription.checkSupportedFrontendFlags(
                     flags: ["entry-point-function-name"], fileSystem: self.fileSystem
                 ),
-                sanitizers: options.enabledSanitizers,
-                enableCodeCoverage: options.shouldEnableCodeCoverage,
-                indexStoreMode: options.indexStoreMode.buildParameter,
-                enableParseableModuleInterfaces: options.shouldEnableParseableModuleInterfaces,
-                emitSwiftModuleSeparately: options.emitSwiftModuleSeparately,
-                useIntegratedSwiftDriver: options.useIntegratedSwiftDriver,
-                useExplicitModuleBuild: options.useExplicitModuleBuild,
-                isXcodeBuildSystemEnabled: options.buildSystem == .xcode,
-                printManifestGraphviz: options.printManifestGraphviz,
-                forceTestDiscovery: options.enableTestDiscovery, // backwards compatibility, remove with --enable-test-discovery
-                linkerDeadStrip: options.linkerDeadStrip,
+                sanitizers: options.build.enabledSanitizers,
+                enableCodeCoverage: false, // set by test commands when appropriate
+                indexStoreMode: options.build.indexStoreMode.buildParameter,
+                enableParseableModuleInterfaces: options.build.shouldEnableParseableModuleInterfaces,
+                emitSwiftModuleSeparately: options.build.emitSwiftModuleSeparately,
+                useIntegratedSwiftDriver: options.build.useIntegratedSwiftDriver,
+                useExplicitModuleBuild: options.build.useExplicitModuleBuild,
+                isXcodeBuildSystemEnabled: options.build.buildSystem == .xcode,
+                printManifestGraphviz: options.build.printManifestGraphviz,
+                forceTestDiscovery: options.build.enableTestDiscovery, // backwards compatibility, remove with --enable-test-discovery
+                linkerDeadStrip: options.linker.linkerDeadStrip,
                 verboseOutput: self.logLevel <= .info
             )
         })
@@ -856,9 +855,9 @@ public class SwiftTool {
         do {
             hostDestination = try self._hostToolchain.get().destination
             // Create custom toolchain if present.
-            if let customDestination = self.options.customCompileDestination {
+            if let customDestination = self.options.locations.customCompileDestination {
                 destination = try Destination(fromFile: customDestination, fileSystem: self.fileSystem)
-            } else if let target = self.options.customCompileTriple,
+            } else if let target = self.options.build.customCompileTriple,
                       let targetDestination = Destination.defaultDestination(for: target, host: hostDestination) {
                 destination = targetDestination
             } else {
@@ -869,16 +868,16 @@ public class SwiftTool {
             return .failure(error)
         }
         // Apply any manual overrides.
-        if let triple = self.options.customCompileTriple {
+        if let triple = self.options.build.customCompileTriple {
             destination.target = triple
         }
-        if let binDir = self.options.customCompileToolchain {
+        if let binDir = self.options.build.customCompileToolchain {
             destination.binDir = binDir.appending(components: "usr", "bin")
         }
-        if let sdk = self.options.customCompileSDK {
+        if let sdk = self.options.build.customCompileSDK {
             destination.sdk = sdk
         }
-        destination.archs = options.archs
+        destination.archs = options.build.archs
 
         // Check if we ended up with the host toolchain.
         if hostDestination == destination {
@@ -899,7 +898,7 @@ public class SwiftTool {
     private lazy var _manifestLoader: Result<ManifestLoader, Swift.Error> = {
         return Result(catching: {
             let cachePath: AbsolutePath?
-            switch (self.options.shouldDisableManifestCaching, self.options.manifestCachingMode) {
+            switch (self.options.caching.shouldDisableManifestCaching, self.options.caching.manifestCachingMode) {
             case (true, _):
                 // backwards compatibility
                 cachePath = .none
@@ -911,7 +910,7 @@ public class SwiftTool {
                 cachePath = self.sharedCacheDirectory.map{ Workspace.DefaultLocations.manifestsDirectory(at: $0) }
             }
 
-            var extraManifestFlags = self.options.manifestFlags
+            var extraManifestFlags = self.options.build.manifestFlags
             // Disable the implicit concurrency import if the compiler in use supports it to avoid warnings if we are building against an older SDK that does not contain a Concurrency module.
             if SwiftTargetBuildDescription.checkSupportedFrontendFlags(flags: ["disable-implicit-concurrency-module-import"], fileSystem: self.fileSystem) {
                 extraManifestFlags += ["-Xfrontend", "-disable-implicit-concurrency-module-import"]
@@ -924,7 +923,7 @@ public class SwiftTool {
             return try ManifestLoader(
                 // Always use the host toolchain's resources for parsing manifest.
                 toolchain: self.getHostToolchain().configuration,
-                isManifestSandboxEnabled: !self.options.shouldDisableSandbox,
+                isManifestSandboxEnabled: !self.options.security.shouldDisableSandbox,
                 cacheDir: cachePath,
                 extraManifestFlags: extraManifestFlags
             )
@@ -964,8 +963,8 @@ private func getEnvBuildPath(workingDir: AbsolutePath) -> AbsolutePath? {
 }
 
 
-private func getSharedSecurityDirectory(options: SwiftToolOptions, fileSystem: FileSystem, observabilityScope: ObservabilityScope) throws -> AbsolutePath? {
-    if let explicitSecurityPath = options.securityPath {
+private func getSharedSecurityDirectory(options: GlobalOptions, fileSystem: FileSystem, observabilityScope: ObservabilityScope) throws -> AbsolutePath? {
+    if let explicitSecurityPath = options.locations.securityPath {
         // Create the explicit security path if necessary
         if !fileSystem.exists(explicitSecurityPath) {
             try fileSystem.createDirectory(explicitSecurityPath, recursive: true)
@@ -977,8 +976,8 @@ private func getSharedSecurityDirectory(options: SwiftToolOptions, fileSystem: F
     }
 }
 
-private func getSharedConfigurationDirectory(options: SwiftToolOptions, fileSystem: FileSystem, observabilityScope: ObservabilityScope) throws -> AbsolutePath? {
-    if let explicitConfigPath = options.configPath {
+private func getSharedConfigurationDirectory(options: GlobalOptions, fileSystem: FileSystem, observabilityScope: ObservabilityScope) throws -> AbsolutePath? {
+    if let explicitConfigPath = options.locations.configPath {
         // Create the explicit config path if necessary
         if !fileSystem.exists(explicitConfigPath) {
             try fileSystem.createDirectory(explicitConfigPath, recursive: true)
@@ -990,8 +989,8 @@ private func getSharedConfigurationDirectory(options: SwiftToolOptions, fileSyst
     }
 }
 
-private func getSharedCacheDirectory(options: SwiftToolOptions, fileSystem: FileSystem, observabilityScope: ObservabilityScope) throws -> AbsolutePath? {
-    if let explicitCachePath = options.cachePath {
+private func getSharedCacheDirectory(options: GlobalOptions, fileSystem: FileSystem, observabilityScope: ObservabilityScope) throws -> AbsolutePath? {
+    if let explicitCachePath = options.locations.cachePath {
         // Create the explicit cache path if necessary
         if !fileSystem.exists(explicitCachePath) {
             try fileSystem.createDirectory(explicitCachePath, recursive: true)
@@ -1145,7 +1144,7 @@ extension Workspace.ManagedDependency {
     }
 }
 
-extension SwiftToolOptions {
+extension LoggingOptions {
     var logLevel: Diagnostic.Severity {
         if self.verbose {
             return .info
@@ -1157,7 +1156,7 @@ extension SwiftToolOptions {
     }
 }
 
-extension SwiftToolOptions.SourceControlToRegistryDependencyTransformation {
+extension ResolverOptions.SourceControlToRegistryDependencyTransformation {
     var workspaceConfiguration: WorkspaceConfiguration.SourceControlToRegistryDependencyTransformation {
         switch self {
         case .disabled:
@@ -1170,7 +1169,7 @@ extension SwiftToolOptions.SourceControlToRegistryDependencyTransformation {
     }
 }
 
-extension SwiftToolOptions.StoreMode {
+extension BuildOptions.StoreMode {
     var buildParameter: BuildParameters.IndexStoreMode {
         switch self {
         case .autoIndexStore:

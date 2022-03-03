@@ -94,8 +94,8 @@ public struct SwiftRunTool: SwiftCommand {
         version: SwiftVersion.currentVersion.completeDisplayString,
         helpNames: [.short, .long, .customLong("help", withSingleDash: true)])
 
-    @OptionGroup(_hiddenFromHelp: true)
-    public var swiftOptions: SwiftToolOptions
+    @OptionGroup()
+    var globalOptions: GlobalOptions
 
     @OptionGroup()
     var options: RunToolOptions
