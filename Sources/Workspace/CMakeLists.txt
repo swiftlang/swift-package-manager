@@ -22,8 +22,9 @@ add_library(Workspace
   ToolsVersionSpecificationRewriter.swift
   UserToolchain.swift
   Workspace.swift
-  WorkspaceConfiguration.swift
-  WorkspaceState.swift
+  Workspace+BinaryArtifacts.swift
+  Workspace+Configuration.swift
+  Workspace+State.swift
   WindowsToolchainInfo.swift)
 target_link_libraries(Workspace PUBLIC
   TSCBasic

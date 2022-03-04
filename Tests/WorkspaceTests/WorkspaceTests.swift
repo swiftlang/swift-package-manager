@@ -4740,7 +4740,7 @@ final class WorkspaceTests: XCTestCase {
                     versions: ["1.0.0"]
                 )
             ],
-            binaryArchiver: archiver
+            binaryArtifactsManager: .init(archiver: archiver)
         )
 
         // Create dummy xcframework/artifactbundle zip files
@@ -4782,7 +4782,7 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertTrue(fs.exists(bFrameworkArchivePath))
 
             // Ensure that the temporary folders have been properly created
-            XCTAssertEqual(workspace.archiver.extractions.map { $0.destinationPath.parentDirectory }.sorted(), [
+            XCTAssertEqual(archiver.extractions.map { $0.destinationPath.parentDirectory }.sorted(), [
                 AbsolutePath("/tmp/ws/.build/artifacts/extract/a/A1"),
                 AbsolutePath("/tmp/ws/.build/artifacts/extract/a/A2"),
                 AbsolutePath("/tmp/ws/.build/artifacts/extract/b/B")
@@ -4950,8 +4950,10 @@ final class WorkspaceTests: XCTestCase {
                     versions: ["1.0.0"]
                 )
             ],
-            httpClient: httpClient,
-            binaryArchiver: archiver
+            binaryArtifactsManager: .init(
+                httpClient: httpClient,
+                archiver: archiver
+            )
         )
 
         // Create dummy xcframework directories and zip files
@@ -5105,7 +5107,9 @@ final class WorkspaceTests: XCTestCase {
                     ]
                 )
             ],
-            binaryArchiver: archiver
+            binaryArtifactsManager: .init(
+                archiver: archiver
+            )
         )
 
         // Create dummy zip files
@@ -5147,7 +5151,9 @@ final class WorkspaceTests: XCTestCase {
                     ]
                 )
             ],
-            binaryArchiver: archiver
+            binaryArtifactsManager: .init(
+                archiver: archiver
+            )
         )
 
         workspace.checkPackageGraphFailure(roots: ["Root"]) { diagnostics in
@@ -5181,7 +5187,6 @@ final class WorkspaceTests: XCTestCase {
                 completion(.failure(error))
             }
         })
-
         let workspace = try MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
@@ -5202,7 +5207,9 @@ final class WorkspaceTests: XCTestCase {
                     ]
                 )
             ],
-            binaryArchiver: archiver
+            binaryArtifactsManager: .init(
+                archiver: archiver
+            )
         )
 
         // Create dummy zip files
@@ -5267,7 +5274,9 @@ final class WorkspaceTests: XCTestCase {
                     ]
                 ),
             ],
-            binaryArchiver: archiver
+            binaryArtifactsManager: .init(
+                archiver: archiver
+            )
         )
 
         let rootPath = workspace.pathToRoot(withName: "Root")
@@ -5303,7 +5312,7 @@ final class WorkspaceTests: XCTestCase {
 
         try workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
             // Ensure that only the artifact archive with the changed checksum has been extracted
-            XCTAssertEqual(workspace.archiver.extractions.map { $0.destinationPath.parentDirectory }.sorted(), [
+            XCTAssertEqual(archiver.extractions.map { $0.destinationPath.parentDirectory }.sorted(), [
                 AbsolutePath("/tmp/ws/.build/artifacts/extract/root/A1")
             ])
         }
@@ -5374,7 +5383,9 @@ final class WorkspaceTests: XCTestCase {
                     ]
                 )
             ],
-            binaryArchiver: archiver
+            binaryArtifactsManager: .init(
+                archiver: archiver
+            )
         )
 
         // create the mock archives
@@ -5393,7 +5404,7 @@ final class WorkspaceTests: XCTestCase {
         try workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
             XCTAssert(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/root")))
-            XCTAssertEqual(workspace.archiver.extractions.map { $0.destinationPath.parentDirectory }.sorted(), [
+            XCTAssertEqual(archiver.extractions.map { $0.destinationPath.parentDirectory }.sorted(), [
                 AbsolutePath("/tmp/ws/.build/artifacts/extract/root/flat"),
                 AbsolutePath("/tmp/ws/.build/artifacts/extract/root/nested"),
                 AbsolutePath("/tmp/ws/.build/artifacts/extract/root/nested2"),
@@ -5616,8 +5627,10 @@ final class WorkspaceTests: XCTestCase {
                     versions: ["1.0.0"]
                 ),
             ],
-            httpClient: httpClient,
-            binaryArchiver: archiver
+            binaryArtifactsManager: .init(
+                httpClient: httpClient,
+                archiver: archiver
+            )
         )
 
         try workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
@@ -5634,14 +5647,14 @@ final class WorkspaceTests: XCTestCase {
                 ByteString([0xA2]).hexadecimalRepresentation,
                 ByteString([0xB0]).hexadecimalRepresentation,
             ])
-            XCTAssertEqual(workspace.archiver.extractions.map { $0.destinationPath.parentDirectory }.sorted(), [
+            XCTAssertEqual(archiver.extractions.map { $0.destinationPath.parentDirectory }.sorted(), [
                 AbsolutePath("/tmp/ws/.build/artifacts/extract/a/A1"),
                 AbsolutePath("/tmp/ws/.build/artifacts/extract/a/A2"),
                 AbsolutePath("/tmp/ws/.build/artifacts/extract/b/B")
             ])
             XCTAssertEqual(
                 downloads.map { $0.value }.sorted(),
-                workspace.archiver.extractions.map { $0.archivePath }.sorted()
+                archiver.extractions.map { $0.archivePath }.sorted()
             )
         }
 
@@ -5829,8 +5842,10 @@ final class WorkspaceTests: XCTestCase {
                     versions: ["1.0.0"]
                 ),
             ],
-            httpClient: httpClient,
-            binaryArchiver: archiver
+            binaryArtifactsManager: .init(
+                httpClient: httpClient,
+                archiver: archiver
+            )
         )
 
         let a4FrameworkPath = workspace.packagesDir.appending(components: "A", "XCFrameworks", "A4.xcframework")
@@ -5920,7 +5935,7 @@ final class WorkspaceTests: XCTestCase {
                 ByteString([0xA7]).hexadecimalRepresentation,
                 ByteString([0xB0]).hexadecimalRepresentation,
             ])
-            XCTAssertEqual(workspace.archiver.extractions.map { $0.destinationPath.parentDirectory }.sorted(), [
+            XCTAssertEqual(archiver.extractions.map { $0.destinationPath.parentDirectory }.sorted(), [
                 AbsolutePath("/tmp/ws/.build/artifacts/extract/a/A2"),
                 AbsolutePath("/tmp/ws/.build/artifacts/extract/a/A3"),
                 AbsolutePath("/tmp/ws/.build/artifacts/extract/a/A7"),
@@ -5928,7 +5943,7 @@ final class WorkspaceTests: XCTestCase {
             ])
             XCTAssertEqual(
                 downloads.map { $0.value }.sorted(),
-                workspace.archiver.extractions.map { $0.archivePath }.sorted()
+                archiver.extractions.map { $0.archivePath }.sorted()
             )
         }
 
@@ -6046,8 +6061,10 @@ final class WorkspaceTests: XCTestCase {
                     ]
                 )
             ],
-            httpClient: httpClient,
-            binaryArchiver: archiver
+            binaryArtifactsManager: .init(
+                httpClient: httpClient,
+                archiver: archiver
+            )
         )
 
         try workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
@@ -6158,8 +6175,10 @@ final class WorkspaceTests: XCTestCase {
                     ]
                 ),
             ],
-            httpClient: httpClient,
-            binaryArchiver: archiver
+            binaryArtifactsManager: .init(
+                httpClient: httpClient,
+                archiver: archiver
+            )
         )
 
         workspace.checkPackageGraphFailure(roots: ["Root"]) { diagnostics in
@@ -6257,9 +6276,10 @@ final class WorkspaceTests: XCTestCase {
                     dependencies: []
                 ),
             ],
-            packages: [],
-            httpClient: httpClient,
-            binaryArchiver: archiver
+            binaryArtifactsManager: .init(
+                httpClient: httpClient,
+                archiver: archiver
+            )
         )
 
         workspace.checkPackageGraphFailure(roots: ["Root"]) { diagnostics in
@@ -6271,40 +6291,35 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testArtifactChecksum() throws {
-        let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
+        let sandbox = AbsolutePath("/tmp/ws/")
+        try fs.createDirectory(sandbox, recursive: true)
 
-        let workspace = try MockWorkspace(
-            sandbox: sandbox,
+        let checksumAlgorithm = MockHashAlgorithm()
+        let binaryArtifactsManager = try Workspace.BinaryArtifactsManager(
             fileSystem: fs,
-            roots: [
-                MockPackage(
-                    name: "Foo",
-                    targets: [
-                        MockTarget(name: "Foo", dependencies: ["Foo"]),
-                    ],
-                    products: []
-                ),
-            ],
-            packages: []
+            authorizationProvider: .none,
+            hostToolchain: UserToolchain(destination: .hostDestination()),
+            checksumAlgorithm: checksumAlgorithm,
+            customHTTPClient: .none,
+            customArchiver: .none,
+            delegate: .none
         )
-
-        let ws = try workspace.getOrCreateWorkspace()
 
         // Checks the valid case.
         do {
             let binaryPath = sandbox.appending(component: "binary.zip")
             try fs.writeFileContents(binaryPath, bytes: ByteString([0xAA, 0xBB, 0xCC]))
 
-            let checksum = try ws.checksum(forBinaryArtifactAt: binaryPath)
-            XCTAssertEqual(workspace.checksumAlgorithm.hashes.map { $0.contents }, [[0xAA, 0xBB, 0xCC]])
+            let checksum = try binaryArtifactsManager.checksum(forBinaryArtifactAt: binaryPath)
+            XCTAssertEqual(checksumAlgorithm.hashes.map { $0.contents }, [[0xAA, 0xBB, 0xCC]])
             XCTAssertEqual(checksum, "ccbbaa")
         }
 
         // Checks an unsupported extension.
         do {
             let unknownPath = sandbox.appending(component: "unknown")
-            XCTAssertThrowsError(try ws.checksum(forBinaryArtifactAt: unknownPath), "error expected") { error in
+            XCTAssertThrowsError(try binaryArtifactsManager.checksum(forBinaryArtifactAt: unknownPath), "error expected") { error in
                 XCTAssertEqual(error as? StringError, StringError("unexpected file type; supported extensions are: zip"))
             }
         }
@@ -6312,7 +6327,7 @@ final class WorkspaceTests: XCTestCase {
         // Checks a supported extension that is not a file (does not exist).
         do {
             let unknownPath = sandbox.appending(component: "missingFile.zip")
-            XCTAssertThrowsError(try ws.checksum(forBinaryArtifactAt: unknownPath), "error expected") { error in
+            XCTAssertThrowsError(try binaryArtifactsManager.checksum(forBinaryArtifactAt: unknownPath), "error expected") { error in
                 XCTAssertEqual(error as? StringError, StringError("file not found at path: /tmp/ws/missingFile.zip"))
             }
         }
@@ -6321,7 +6336,7 @@ final class WorkspaceTests: XCTestCase {
         do {
             let unknownPath = sandbox.appending(component: "aDirectory.zip")
             try fs.createDirectory(unknownPath)
-            XCTAssertThrowsError(try ws.checksum(forBinaryArtifactAt: unknownPath), "error expected") { error in
+            XCTAssertThrowsError(try binaryArtifactsManager.checksum(forBinaryArtifactAt: unknownPath), "error expected") { error in
                 XCTAssertEqual(error as? StringError, StringError("file not found at path: /tmp/ws/aDirectory.zip"))
             }
         }
@@ -6346,7 +6361,9 @@ final class WorkspaceTests: XCTestCase {
                     ]
                 )
             ],
-            httpClient: httpClient
+            binaryArtifactsManager: .init(
+                httpClient: httpClient
+            )
         )
 
         let rootPath = workspace.pathToRoot(withName: "Root")
@@ -6442,8 +6459,10 @@ final class WorkspaceTests: XCTestCase {
                     ]
                 ),
             ],
-            httpClient: httpClient,
-            binaryArchiver: archiver
+            binaryArtifactsManager: .init(
+                httpClient: httpClient,
+                archiver: archiver
+            )
         )
 
         try workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
@@ -6591,8 +6610,10 @@ final class WorkspaceTests: XCTestCase {
                     versions: ["1.0.0"]
                 )
             ],
-            httpClient: httpClient,
-            binaryArchiver: archiver
+            binaryArtifactsManager: .init(
+                httpClient: httpClient,
+                archiver: archiver
+            )
         )
 
         try workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
@@ -6604,12 +6625,12 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertEqual(workspace.checksumAlgorithm.hashes.map{ $0.hexadecimalRepresentation }.sorted(), [
                 ByteString([0xA]).hexadecimalRepresentation
             ])
-            XCTAssertEqual(workspace.archiver.extractions.map { $0.destinationPath.parentDirectory }.sorted(), [
+            XCTAssertEqual(archiver.extractions.map { $0.destinationPath.parentDirectory }.sorted(), [
                 AbsolutePath("/tmp/ws/.build/artifacts/extract/a/A")
             ])
             XCTAssertEqual(
                 downloads.map { $0.value }.sorted(),
-                workspace.archiver.extractions.map { $0.archivePath }.sorted()
+                archiver.extractions.map { $0.archivePath }.sorted()
             )
         }
 
@@ -6703,8 +6724,10 @@ final class WorkspaceTests: XCTestCase {
                     ]
                 )
             ],
-            httpClient: httpClient,
-            binaryArchiver: archiver
+            binaryArtifactsManager: .init(
+                httpClient: httpClient,
+                archiver: archiver
+            )
         )
 
         // write the file to test it gets deleted
@@ -6824,8 +6847,10 @@ final class WorkspaceTests: XCTestCase {
                 ),
             ],
             packages: packages,
-            httpClient: httpClient,
-            binaryArchiver: archiver
+            binaryArtifactsManager: .init(
+                httpClient: httpClient,
+                archiver: archiver
+            )
         )
 
         try workspace.checkPackageGraph(roots: ["App"]) { graph, diagnostics in
@@ -6939,8 +6964,10 @@ final class WorkspaceTests: XCTestCase {
                     ]
                 ),
             ],
-            httpClient: httpClient,
-            binaryArchiver: archiver
+            binaryArtifactsManager: .init(
+                httpClient: httpClient,
+                archiver: archiver
+            )
         )
         
         try workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
@@ -6956,14 +6983,14 @@ final class WorkspaceTests: XCTestCase {
                 ByteString([0x02]).hexadecimalRepresentation,
                 ByteString([0x03]).hexadecimalRepresentation,
             ])
-            XCTAssertEqual(workspace.archiver.extractions.map { $0.destinationPath.parentDirectory }.sorted(), [
+            XCTAssertEqual(archiver.extractions.map { $0.destinationPath.parentDirectory }.sorted(), [
                 AbsolutePath("/tmp/ws/.build/artifacts/extract/root/flat"),
                 AbsolutePath("/tmp/ws/.build/artifacts/extract/root/nested"),
                 AbsolutePath("/tmp/ws/.build/artifacts/extract/root/nested2"),
             ])
             XCTAssertEqual(
                 downloads.map { $0.value }.sorted(),
-                workspace.archiver.extractions.map { $0.archivePath }.sorted()
+                archiver.extractions.map { $0.archivePath }.sorted()
             )
         }
         
@@ -7158,8 +7185,10 @@ final class WorkspaceTests: XCTestCase {
                     versions: ["1.0.0"]
                 ),
             ],
-            httpClient: httpClient,
-            binaryArchiver: archiver,
+            binaryArtifactsManager: .init(
+                httpClient: httpClient,
+                archiver: archiver
+            ),
             checksumAlgorithm: checksumAlgorithm
         )
 
@@ -7172,7 +7201,7 @@ final class WorkspaceTests: XCTestCase {
                 "https://a.com/a2/a2.zip",
                 "https://b.com/b.zip",
             ])
-            XCTAssertEqual(workspace.checksumAlgorithm.hashes.map{ $0.hexadecimalRepresentation }.sorted(),
+            XCTAssertEqual(checksumAlgorithm.hashes.map{ $0.hexadecimalRepresentation }.sorted(),
                 (
                     ariFiles.map(ByteString.init(encodingAsUTF8:)) +
                     ariFiles.map(ByteString.init(encodingAsUTF8:)) +
@@ -7183,14 +7212,14 @@ final class WorkspaceTests: XCTestCase {
                     ]
                 ).map{ $0.hexadecimalRepresentation }.sorted()
             )
-            XCTAssertEqual(workspace.archiver.extractions.map { $0.destinationPath.parentDirectory }.sorted(), [
+            XCTAssertEqual(archiver.extractions.map { $0.destinationPath.parentDirectory }.sorted(), [
                 AbsolutePath("/tmp/ws/.build/artifacts/extract/a/A1"),
                 AbsolutePath("/tmp/ws/.build/artifacts/extract/a/A2"),
                 AbsolutePath("/tmp/ws/.build/artifacts/extract/b/B"),
             ])
             XCTAssertEqual(
                 downloads.map { $0.value }.sorted(),
-                workspace.archiver.extractions.map { $0.archivePath }.sorted()
+                archiver.extractions.map { $0.archivePath }.sorted()
             )
         }
 
@@ -7249,7 +7278,9 @@ final class WorkspaceTests: XCTestCase {
                     ]
                 )
             ],
-            httpClient: httpClient
+            binaryArtifactsManager: .init(
+                httpClient: httpClient
+            )
         )
 
         workspace.checkPackageGraphFailure(roots: ["Root"]) { diagnostics in
@@ -7306,7 +7337,9 @@ final class WorkspaceTests: XCTestCase {
                     ]
                 )
             ],
-            httpClient: httpClient
+            binaryArtifactsManager: .init(
+                httpClient: httpClient
+            )
         )
 
         workspace.checkPackageGraphFailure(roots: ["Root"]) { diagnostics in
@@ -7432,7 +7465,6 @@ final class WorkspaceTests: XCTestCase {
             }
         })
 
-
         let workspace = try MockWorkspace(
             sandbox: sandbox,
             fileSystem: fs,
@@ -7444,8 +7476,10 @@ final class WorkspaceTests: XCTestCase {
                     ]
                 )
             ],
-            httpClient: httpClient,
-            binaryArchiver: archiver
+            binaryArtifactsManager: .init(
+                httpClient: httpClient,
+                archiver: archiver
+            )
         )
 
         workspace.checkPackageGraphFailure(roots: ["Root"]) { diagnostics in
@@ -7508,7 +7542,9 @@ final class WorkspaceTests: XCTestCase {
                     ]
                 )
             ],
-            httpClient: httpClient
+            binaryArtifactsManager: .init(
+                httpClient: httpClient
+            )
         )
 
         workspace.checkPackageGraphFailure(roots: ["Root"]) { diagnostics in
@@ -7568,7 +7604,9 @@ final class WorkspaceTests: XCTestCase {
                     ]
                 )
             ],
-            httpClient: httpClient
+            binaryArtifactsManager: .init(
+                httpClient: httpClient
+            )
         )
 
         workspace.checkPackageGraphFailure(roots: ["Root"]) { diagnostics in
