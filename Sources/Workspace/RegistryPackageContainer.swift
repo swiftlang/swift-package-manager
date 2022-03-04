@@ -179,7 +179,7 @@ public class RegistryPackageContainer: PackageContainer {
                                             return true
                                         } else if preferredToolsVersion.patch == 0, file == Manifest.basename + "@swift-\(preferredToolsVersion.major).\(preferredToolsVersion.minor).swift" {
                                             return true
-                                        } else  {
+                                        } else {
                                             return false
                                         }
                                     }) else {
