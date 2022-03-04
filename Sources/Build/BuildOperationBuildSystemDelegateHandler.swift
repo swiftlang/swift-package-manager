@@ -568,7 +568,9 @@ final class BuildOperationBuildSystemDelegateHandler: LLBuildBuildSystemDelegate
         if let swiftParser = swiftParsers[command.name] {
             swiftParser.parse(bytes: data)
         } else {
-            self.nonSwiftMessageBuffers[command.name, default: []] += data
+            queue.async {
+                self.nonSwiftMessageBuffers[command.name, default: []] += data
+            }
         }
     }
 
