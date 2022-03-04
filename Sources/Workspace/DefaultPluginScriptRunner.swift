@@ -19,6 +19,7 @@ import struct TSCUtility.Triple
 
 /// A plugin script runner that compiles the plugin source files as an executable binary for the host platform, and invokes it as a subprocess.
 public struct DefaultPluginScriptRunner: PluginScriptRunner {
+    let fileSystem: FileSystem
     let cacheDir: AbsolutePath
     let toolchain: ToolchainConfiguration
     let enableSandbox: Bool
@@ -27,13 +28,14 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
     private static var _packageDescriptionMinimumDeploymentTarget = ThreadSafeBox<String>()
     private let sdkRootCache = ThreadSafeBox<AbsolutePath>()
 
-    public init(cacheDir: AbsolutePath, toolchain: ToolchainConfiguration, enableSandbox: Bool = true) {
+    public init(fileSystem: FileSystem, cacheDir: AbsolutePath, toolchain: ToolchainConfiguration, enableSandbox: Bool = true) {
+        self.fileSystem = fileSystem
         self.cacheDir = cacheDir
         self.toolchain = toolchain
         self.enableSandbox = enableSandbox
     }
     
-    /// Public protocol function that starts compiling the plugin script to an exectutable. The tools version controls the availability of APIs in PackagePlugin, and should be set to the tools version of the package that defines the plugin (not of the target to which it is being applied). This function returns immediately and then calls the completion handler on the callbackq queue when compilation ends.
+    /// Public protocol function that starts compiling the plugin script to an executable. The tools version controls the availability of APIs in PackagePlugin, and should be set to the tools version of the package that defines the plugin (not of the target to which it is being applied). This function returns immediately and then calls the completion handler on the callbackq queue when compilation ends.
     public func compilePluginScript(
         sources: Sources,
         toolsVersion: ToolsVersion,
@@ -45,6 +47,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
             sources: sources,
             toolsVersion: toolsVersion,
             cacheDir: self.cacheDir,
+            fileSystem: self.fileSystem,
             observabilityScope: observabilityScope,
             callbackQueue: callbackQueue,
             completion: completion)
@@ -69,7 +72,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
     /// Public protocol function that starts evaluating a plugin by compiling it and running it as a subprocess. The tools version controls the availability of APIs in PackagePlugin, and should be set to the tools version of the package that defines the plugin (not the package containing the target to which it is being applied). This function returns immediately and then repeated calls the output handler on the given callback queue as plain-text output is received from the plugin, and then eventually calls the completion handler on the given callback queue once the plugin is done.
     public func runPluginScript(
         sources: Sources,
-        input: PluginScriptRunnerInput,
+        initialMessage: Data,
         toolsVersion: ToolsVersion,
         workingDirectory: AbsolutePath,
         writableDirectories: [AbsolutePath],
@@ -77,14 +80,15 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
-        delegate: PluginInvocationDelegate,
-        completion: @escaping (Result<Bool, Error>) -> Void
+        delegate: PluginScriptRunnerDelegate,
+        completion: @escaping (Result<Int32, Error>) -> Void
     ) {
         // If needed, compile the plugin script to an executable (asynchronously). Compilation is skipped if the plugin hasn't changed since it was last compiled.
         self.compile(
             sources: sources,
             toolsVersion: toolsVersion,
             cacheDir: self.cacheDir,
+            fileSystem: self.fileSystem,
             observabilityScope: observabilityScope,
             callbackQueue: DispatchQueue.sharedConcurrent,
             completion: {
@@ -98,7 +102,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
                             workingDirectory: workingDirectory,
                             writableDirectories: writableDirectories,
                             readOnlyDirectories: readOnlyDirectories,
-                            input: input,
+                            initialMessage: initialMessage,
                             observabilityScope: observabilityScope,
                             callbackQueue: callbackQueue,
                             delegate: delegate,
@@ -127,6 +131,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
         sources: Sources,
         toolsVersion: ToolsVersion,
         cacheDir: AbsolutePath,
+        fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
         completion: @escaping (Result<PluginCompilationResult, Error>) -> Void
@@ -248,7 +253,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
                     stream <<< "\(key)=\(value)\n"
                 }
                 for sourceFile in sources.paths {
-                    try stream <<< localFileSystem.readFileContents(sourceFile).contents
+                    try stream <<< fileSystem.readFileContents(sourceFile).contents
                 }
                 compilerInputsHash = stream.bytes.sha256Checksum
                 observabilityScope.emit(debug: "Computed hash of plugin compilation inputs: \(compilerInputsHash!)")
@@ -262,9 +267,9 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
             // If we already have a compiled executable, then compare its hash with the new one.
             var compilationNeeded = true
             let hashFile = executableFile.parentDirectory.appending(component: execName + ".inputhash")
-            if localFileSystem.exists(executableFile) && localFileSystem.exists(hashFile) {
+            if fileSystem.exists(executableFile) && fileSystem.exists(hashFile) {
                 do {
-                    if (try localFileSystem.readFileContents(hashFile)) == compilerInputsHash {
+                    if (try fileSystem.readFileContents(hashFile)) == compilerInputsHash {
                         compilationNeeded = false
                     }
                 }
@@ -291,8 +296,8 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
                             wasCached: false)
                         guard $0.exitStatus == .terminated(code: 0) else {
                             // Try to clean up any old executable and hash file that might still be around from before.
-                            try? localFileSystem.removeFileTree(executableFile)
-                            try? localFileSystem.removeFileTree(hashFile)
+                            try? fileSystem.removeFileTree(executableFile)
+                            try? fileSystem.removeFileTree(hashFile)
                             return result
                         }
 
@@ -300,7 +305,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
                         do {
                             // Write out the hash of the inputs so we can compare the next time we try to compile.
                             if let newHash = compilerInputsHash {
-                                try localFileSystem.writeFileContents(hashFile, string: newHash)
+                                try fileSystem.writeFileContents(hashFile, string: newHash)
                             }
                         }
                         catch {
@@ -366,11 +371,11 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
         workingDirectory: AbsolutePath,
         writableDirectories: [AbsolutePath],
         readOnlyDirectories: [AbsolutePath],
-        input: PluginScriptRunnerInput,
+        initialMessage: Data,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
-        delegate: PluginInvocationDelegate,
-        completion: @escaping (Result<Bool, Error>) -> Void
+        delegate: PluginScriptRunnerDelegate,
+        completion: @escaping (Result<Int32, Error>) -> Void
     ) {
 #if os(iOS) || os(watchOS) || os(tvOS)
         callbackQueue.async {
@@ -398,92 +403,36 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
         let outputQueue = DispatchQueue(label: "plugin-send-queue")
         process.standardInput = stdinPipe
 
-        // Private message handler method. Always invoked on the callback queue.
-        var emittedAtLeastOneError = false
-        func handle(message: PluginToHostMessage) throws {
-            dispatchPrecondition(condition: .onQueue(callbackQueue))
-            switch message {
-                
-            case .emitDiagnostic(let severity, let message, let file, let line):
-                let metadata: ObservabilityMetadata? = file.map {
-                    var metadata = ObservabilityMetadata()
-                    // FIXME: We should probably report some kind of protocol error if the path isn't valid.
-                    metadata.fileLocation = try? .init(.init(validating: $0), line: line)
-                    return metadata
-                }
-                let diagnostic: Basics.Diagnostic
-                switch severity {
-                case .error:
-                    emittedAtLeastOneError = true
-                    diagnostic = .error(message, metadata: metadata)
-                case .warning:
-                    diagnostic = .warning(message, metadata: metadata)
-                case .remark:
-                    diagnostic = .info(message, metadata: metadata)
-                }
-                delegate.pluginEmittedDiagnostic(diagnostic)
-                
-            case .defineBuildCommand(let config, let inputFiles, let outputFiles):
-                delegate.pluginDefinedBuildCommand(
-                    displayName: config.displayName,
-                    executable: try AbsolutePath(validating: config.executable),
-                    arguments: config.arguments,
-                    environment: config.environment,
-                    workingDirectory: try config.workingDirectory.map{ try AbsolutePath(validating: $0) },
-                    inputFiles: try inputFiles.map{ try AbsolutePath(validating: $0) },
-                    outputFiles: try outputFiles.map{ try AbsolutePath(validating: $0) })
-                
-            case .definePrebuildCommand(let config, let outputFilesDir):
-                delegate.pluginDefinedPrebuildCommand(
-                    displayName: config.displayName,
-                    executable: try AbsolutePath(validating: config.executable),
-                    arguments: config.arguments,
-                    environment: config.environment,
-                    workingDirectory: try config.workingDirectory.map{ try AbsolutePath(validating: $0) },
-                    outputFilesDirectory: try AbsolutePath(validating: outputFilesDir))
-
-            case .buildOperationRequest(let subset, let parameters):
-                delegate.pluginRequestedBuildOperation(subset: subset, parameters: parameters) {
-                    switch $0 {
-                    case .success(let result):
-                        outputQueue.async { try? outputHandle.writePluginMessage(.buildOperationResponse(result: result)) }
-                    case .failure(let error):
-                        outputQueue.async { try? outputHandle.writePluginMessage(.errorResponse(error: String(describing: error))) }
-                    }
-                }
-
-            case .testOperationRequest(let subset, let parameters):
-                delegate.pluginRequestedTestOperation(subset: subset, parameters: parameters) {
-                    switch $0 {
-                    case .success(let result):
-                        outputQueue.async { try? outputHandle.writePluginMessage(.testOperationResponse(result: result)) }
-                    case .failure(let error):
-                        outputQueue.async { try? outputHandle.writePluginMessage(.errorResponse(error: String(describing: error))) }
-                    }
-                }
-
-            case .symbolGraphRequest(let targetName, let options):
-                // The plugin requested symbol graph information for a target. We ask the delegate and then send a response.
-                delegate.pluginRequestedSymbolGraph(forTarget: targetName, options: options) {
-                    switch $0 {
-                    case .success(let result):
-                        outputQueue.async { try? outputHandle.writePluginMessage(.symbolGraphResponse(result: result)) }
-                    case .failure(let error):
-                        outputQueue.async { try? outputHandle.writePluginMessage(.errorResponse(error: String(describing: error))) }
-                    }
-                }
-            }
-        }
-
-        // Set up a pipe for receiving structured messages from the plugin on its stdout.
+        // Set up a pipe for receiving messages from the plugin on its stdout.
         let stdoutPipe = Pipe()
         let stdoutLock = Lock()
         stdoutPipe.fileHandleForReading.readabilityHandler = { fileHandle in
-            // Parse the next message and pass it on to the delegate.
+            // Receive the next message and pass it on to the delegate.
             stdoutLock.withLock {
-                while let message = try? fileHandle.readPluginMessage() {
-                    // FIXME: We should handle errors here.
-                    callbackQueue.async { try? handle(message: message) }
+                do {
+                    while let message = try fileHandle.readPluginMessage() {
+                        // FIXME: We should handle errors here.
+                        callbackQueue.async {
+                            do {
+                                try delegate.handleMessage(data: message, responder: { data in
+                                    outputQueue.async {
+                                        do {
+                                            try outputHandle.writePluginMessage(data)
+                                        }
+                                        catch {
+                                            print("error while trying to send message to plugin: \(error)")
+                                        }
+                                    }
+                                })
+                            }
+                            catch {
+                                print("error while trying to handle message from plugin: \(error)")
+                            }
+                        }
+                    }
+                }
+                catch {
+                    print("error while trying to read message from plugin: \(error)")
                 }
             }
         }
@@ -496,10 +445,10 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
         stderrPipe.fileHandleForReading.readabilityHandler = { fileHandle in
             // Pass on any available data to the delegate.
             stderrLock.withLock {
-                let newData = fileHandle.availableData
-                if newData.isEmpty { return }
-                stderrData.append(contentsOf: newData)
-                callbackQueue.async { delegate.pluginEmittedOutput(newData) }
+                let data = fileHandle.availableData
+                if data.isEmpty { return }
+                stderrData.append(contentsOf: data)
+                callbackQueue.async { delegate.handleOutput(data: data) }
             }
         }
         process.standardError = stderrPipe
@@ -535,16 +484,8 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
                             command: command,
                             output: String(decoding: stderrData, as: UTF8.self))
                     }
-                    // Otherwise we return a result based on its exit code. If
-                    // the plugin exits with an error but hasn't already emitted
-                    // an error, we do so for it.
-                    let success = (process.terminationStatus == 0)
-                    if !success && !emittedAtLeastOneError {
-                        delegate.pluginEmittedDiagnostic(
-                            .error("Plugin ended with exit code \(process.terminationStatus)")
-                        )
-                    }
-                    return success
+                    // Otherwise return the termination satatus.
+                    return process.terminationStatus
                 })
             }
         }
@@ -559,9 +500,9 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner {
             }
         }
 
-        /// Send an initial message to the plugin to ask it to perform its action based on the input data.
+        /// Send the initial message to the plugin.
         outputQueue.async {
-            try? outputHandle.writePluginMessage(.performAction(input: input))
+            try? outputHandle.writePluginMessage(initialMessage)
         }
 #endif
     }
@@ -630,93 +571,35 @@ public enum DefaultPluginScriptRunnerError: Error, CustomStringConvertible {
     }
 }
 
-/// A message that the host can send to the plugin.
-enum HostToPluginMessage: Encodable {
-    /// The host is requesting that the plugin perform one of its declared plugin actions.
-    case performAction(input: PluginScriptRunnerInput)
-    
-    /// A response to a request to run a build operation.
-    case buildOperationResponse(result: PluginInvocationBuildResult)
-
-    /// A response to a request to run a test.
-    case testOperationResponse(result: PluginInvocationTestResult)
-
-    /// A response to a request for symbol graph information for a target.
-    case symbolGraphResponse(result: PluginInvocationSymbolGraphResult)
-    
-    /// A response of an error while trying to complete a request.
-    case errorResponse(error: String)
-}
-
-/// A message that the plugin can send to the host.
-enum PluginToHostMessage: Decodable {
-    /// The plugin emits a diagnostic.
-    case emitDiagnostic(severity: DiagnosticSeverity, message: String, file: String?, line: Int?)
-
-    enum DiagnosticSeverity: String, Decodable {
-        case error, warning, remark
-    }
-    
-    /// The plugin defines a build command.
-    case defineBuildCommand(configuration: CommandConfiguration, inputFiles: [String], outputFiles: [String])
-
-    /// The plugin defines a prebuild command.
-    case definePrebuildCommand(configuration: CommandConfiguration, outputFilesDirectory: String)
-    
-    struct CommandConfiguration: Decodable {
-        var displayName: String?
-        var executable: String
-        var arguments: [String]
-        var environment: [String: String]
-        var workingDirectory: String?
-    }
-
-    /// The plugin is requesting that a build operation be run.
-    case buildOperationRequest(subset: PluginInvocationBuildSubset, parameters: PluginInvocationBuildParameters)
-    
-    /// The plugin is requesting that a test operation be run.
-    case testOperationRequest(subset: PluginInvocationTestSubset, parameters: PluginInvocationTestParameters)
-
-    /// The plugin is requesting symbol graph information for a given target and set of options.
-    case symbolGraphRequest(targetName: String, options: PluginInvocationSymbolGraphOptions)
-}
-
 fileprivate extension FileHandle {
     
-    func writePluginMessage(_ message: HostToPluginMessage) throws {
-        // Encode the message as JSON.
-        let payload = try JSONEncoder().encode(message)
-        
+    func writePluginMessage(_ message: Data) throws {
         // Write the header (a 64-bit length field in little endian byte order).
-        var count = UInt64(littleEndian: UInt64(payload.count))
-        let header = Swift.withUnsafeBytes(of: &count) { Data($0) }
+        var length = UInt64(littleEndian: UInt64(message.count))
+        let header = Swift.withUnsafeBytes(of: &length) { Data($0) }
         assert(header.count == 8)
         try self.write(contentsOf: header)
         
         // Write the payload.
-        try self.write(contentsOf: payload)
+        try self.write(contentsOf: message)
     }
     
-    func readPluginMessage() throws -> PluginToHostMessage? {
+    func readPluginMessage() throws -> Data? {
         // Read the header (a 64-bit length field in little endian byte order).
         guard let header = try self.read(upToCount: 8) else { return nil }
         guard header.count == 8 else {
             throw PluginMessageError.truncatedHeader
         }
-        
-        // Decode the count.
-        let count = header.withUnsafeBytes{ $0.load(as: UInt64.self).littleEndian }
-        guard count >= 2 else {
+        let length = header.withUnsafeBytes{ $0.load(as: UInt64.self).littleEndian }
+        guard length >= 2 else {
             throw PluginMessageError.invalidPayloadSize
         }
 
-        // Read the JSON payload.
-        guard let payload = try self.read(upToCount: Int(count)), payload.count == count else {
+        // Read and return the message.
+        guard let message = try self.read(upToCount: Int(length)), message.count == length else {
             throw PluginMessageError.truncatedPayload
         }
-
-        // Decode and return the message.
-        return try JSONDecoder().decode(PluginToHostMessage.self, from: payload)
+        return message
     }
 
     enum PluginMessageError: Swift.Error {

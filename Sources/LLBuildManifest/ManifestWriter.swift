@@ -11,11 +11,10 @@
 import TSCBasic
 
 public struct ManifestWriter {
+    let fileSystem: FileSystem
 
-    let fs: FileSystem
-
-    public init(_ fs: FileSystem = localFileSystem) {
-        self.fs = fs
+    public init(fileSystem: FileSystem) {
+        self.fileSystem = fileSystem
     }
 
     public func write(
@@ -68,7 +67,7 @@ public struct ManifestWriter {
             stream <<< "\n"
         }
 
-        try fs.writeFileContents(path, bytes: stream.bytes)
+        try self.fileSystem.writeFileContents(path, bytes: stream.bytes)
     }
 }
 

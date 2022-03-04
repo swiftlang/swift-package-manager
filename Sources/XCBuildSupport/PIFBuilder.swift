@@ -582,6 +582,9 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         // Disable code coverage linker flags since we're producing .o files. Otherwise, we will run into duplicated
         // symbols when there are more than one targets that produce .o as their product.
         settings[.CLANG_COVERAGE_MAPPING_LINKER_ARGS] = "NO"
+        if let aliases = target.moduleAliases {
+            settings[.SWIFT_MODULE_ALIASES] = aliases.map{ $0.key + "=" + $0.value }
+        }
 
         // Create a set of build settings that will be imparted to any target that depends on this one.
         var impartedSettings = PIF.BuildSettings()
@@ -1440,16 +1443,16 @@ private extension BuildSettings.AssignmentTable {
                 switch declaration {
                 case .LINK_LIBRARIES:
                     setting = .OTHER_LDFLAGS
-                    value = assignment.value.map { "-l\($0)" }
+                    value = assignment.values.map { "-l\($0)" }
                 case .LINK_FRAMEWORKS:
                     setting = .OTHER_LDFLAGS
-                    value = assignment.value.flatMap { ["-framework", $0] }
+                    value = assignment.values.flatMap { ["-framework", $0] }
                 default:
                     guard let parsedSetting = PIF.BuildSettings.MultipleValueSetting(rawValue: declaration.name) else {
                         continue
                     }
                     setting = parsedSetting
-                    value = assignment.value
+                    value = assignment.values
                 }
 
                 let pifAssignment = PIFBuildSettingAssignment(
@@ -1588,7 +1591,7 @@ extension PIF.PlatformFilter {
         .init(platform: "windows", environment: "gnu"),
     ]
 
-    /// Andriod platform filters.
+    /// Android platform filters.
     public static let androidFilters: [PIF.PlatformFilter] = [
         .init(platform: "linux", environment: "android"),
         .init(platform: "linux", environment: "androideabi"),

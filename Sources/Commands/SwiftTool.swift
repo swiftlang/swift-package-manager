@@ -31,7 +31,9 @@ import Darwin
 import Glibc
 #endif
 
+import protocol TSCUtility.ProgressAnimationProtocol
 import class TSCUtility.NinjaProgressAnimation
+import class TSCUtility.PercentProgressAnimation
 import var TSCUtility.verbosity
 
 typealias Diagnostic = Basics.Diagnostic
@@ -267,14 +269,14 @@ private class ToolWorkspaceDelegate: WorkspaceDelegate {
 }
 
 protocol SwiftCommand: ParsableCommand {
-    var swiftOptions: SwiftToolOptions { get }
+    var globalOptions: GlobalOptions { get }
 
     func run(_ swiftTool: SwiftTool) throws
 }
 
 extension SwiftCommand {
     public func run() throws {
-        let swiftTool = try SwiftTool(options: swiftOptions)
+        let swiftTool = try SwiftTool(options: globalOptions)
         try self.run(swiftTool)
         if swiftTool.observabilityScope.errorsReported || swiftTool.executionStatus == .failure {
             throw ExitCode.failure
@@ -294,7 +296,7 @@ public class SwiftTool {
     let originalWorkingDirectory: AbsolutePath
 
     /// The options of this tool.
-    let options: SwiftToolOptions
+    let options: GlobalOptions
 
     /// Path to the root package directory, nil if manifest is not found.
     let packageRoot: AbsolutePath?
@@ -311,8 +313,8 @@ public class SwiftTool {
     func getWorkspaceRoot() throws -> PackageGraphRootInput {
         let packages: [AbsolutePath]
 
-        if let workspace = options.multirootPackageDataFile {
-            packages = try XcodeWorkspaceLoader(fileSystem: localFileSystem, observabilityScope: self.observabilityScope).load(workspace: workspace)
+        if let workspace = options.locations.multirootPackageDataFile {
+            packages = try XcodeWorkspaceLoader(fileSystem: self.fileSystem, observabilityScope: self.observabilityScope).load(workspace: workspace)
         } else {
             packages = [try getPackageRoot()]
         }
@@ -342,32 +344,48 @@ public class SwiftTool {
     /// The execution status of the tool.
     var executionStatus: ExecutionStatus = .success
 
-    /// The stream to print standard output on.
-    fileprivate(set) var outputStream: OutputByteStream = TSCBasic.stdoutStream
-
     /// Holds the currently active workspace.
     ///
     /// It is not initialized in init() because for some of the commands like package init , usage etc,
-    /// workspace is not needed, infact it would be an error to ask for the workspace object
+    /// workspace is not needed, in-fact it would be an error to ask for the workspace object
     /// for package init because the Manifest file should *not* present.
     private var _workspace: Workspace?
     private var _workspaceDelegate: ToolWorkspaceDelegate?
 
+    private let observabilityHandler: SwiftToolObservabilityHandler
+
+    /// The observability scope to emit diagnostics event on
     let observabilityScope: ObservabilityScope
 
+    /// The min severity at which to log diagnostics
     let logLevel: Diagnostic.Severity
+
+    /// The file system in use
+    let fileSystem: FileSystem
 
     /// Create an instance of this tool.
     ///
-    /// - parameter args: The command line arguments to be passed to this tool.
-    public init(options: SwiftToolOptions) throws {
-        // first, bootstrap the observability syste
-        self.logLevel = options.logLevel
-        let observabilitySystem = ObservabilitySystem.init(SwiftToolObservability(logLevel: self.logLevel))
+    /// - parameter options: The command line options to be passed to this tool.
+    convenience init(options: GlobalOptions) throws {
+        // output from background activities goes to stderr, this includes diagnostics and output from build operations,
+        // package resolution that take place as part of another action
+        // CLI commands that have user facing output, use stdout directly to emit the final result
+        // this means that the build output from "swift build" goes to stdout
+        // but the build output from "swift test" goes to stderr, while the tests output go to stdout
+        try self.init(outputStream: TSCBasic.stderrStream, options: options)
+    }
+
+    // marked internal for testing
+    internal init(outputStream: OutputByteStream, options: GlobalOptions) throws {
+        self.fileSystem = localFileSystem
+        // first, bootstrap the observability system
+        self.logLevel = options.logging.logLevel
+        self.observabilityHandler = SwiftToolObservabilityHandler(outputStream: outputStream, logLevel: self.logLevel)
+        let observabilitySystem = ObservabilitySystem(self.observabilityHandler)
         self.observabilityScope = observabilitySystem.topScope
 
         // Capture the original working directory ASAP.
-        guard let cwd = localFileSystem.currentWorkingDirectory else {
+        guard let cwd = self.fileSystem.currentWorkingDirectory else {
             self.observabilityScope.emit(error: "couldn't determine the current working directory")
             throw ExitCode.failure
         }
@@ -378,7 +396,7 @@ public class SwiftTool {
             self.options = options
 
             // Honor package-path option is provided.
-            if let packagePath = options.packagePath ?? options.chdir {
+            if let packagePath = options.locations.packagePath ?? options.locations.chdir {
                 try ProcessEnv.chdir(packagePath)
             }
 
@@ -448,8 +466,8 @@ public class SwiftTool {
         }
 
         // Create local variables to use while finding build path to avoid capture self before init error.
-        let customBuildPath = options.buildPath
-        let packageRoot = findPackageRoot()
+        let customBuildPath = options.locations.buildPath
+        let packageRoot = findPackageRoot(fileSystem: fileSystem)
 
         self.packageRoot = packageRoot
         self.buildPath = getEnvBuildPath(workingDir: cwd) ??
@@ -457,71 +475,61 @@ public class SwiftTool {
         (packageRoot ?? cwd).appending(component: ".build")
 
         // make sure common directories are created
-        self.sharedSecurityDirectory = try getSharedSecurityDirectory(options: self.options, observabilityScope: self.observabilityScope)
-        self.sharedConfigurationDirectory = try getSharedConfigurationDirectory(options: self.options, observabilityScope: self.observabilityScope)
-        self.sharedCacheDirectory = try getSharedCacheDirectory(options: self.options, observabilityScope: self.observabilityScope)
+        self.sharedSecurityDirectory = try getSharedSecurityDirectory(options: self.options, fileSystem: fileSystem, observabilityScope: self.observabilityScope)
+        self.sharedConfigurationDirectory = try getSharedConfigurationDirectory(options: self.options, fileSystem: fileSystem, observabilityScope: self.observabilityScope)
+        self.sharedCacheDirectory = try getSharedCacheDirectory(options: self.options, fileSystem: fileSystem, observabilityScope: self.observabilityScope)
 
-        // set verbosity globals.
-        // TODO: get rid of this global settings in TSC
-        switch self.logLevel {
-        case .debug:
-            TSCUtility.verbosity = .debug
-        case .info:
-            TSCUtility.verbosity = .verbose
-        case .warning, .error:
-            TSCUtility.verbosity = .concise
-        }
-        Process.verbose = TSCUtility.verbosity != .concise
+        // set global process logging handler
+        Process.loggingHandler = { self.observabilityScope.emit(debug: $0) }
     }
 
-    static func postprocessArgParserResult(options: SwiftToolOptions, observabilityScope: ObservabilityScope) throws {
-        if options.chdir != nil {
+    static func postprocessArgParserResult(options: GlobalOptions, observabilityScope: ObservabilityScope) throws {
+        if options.locations.chdir != nil {
             observabilityScope.emit(warning: "'--chdir/-C' option is deprecated; use '--package-path' instead")
         }
 
-        if options.multirootPackageDataFile != nil {
+        if options.locations.multirootPackageDataFile != nil {
             observabilityScope.emit(.unsupportedFlag("--multiroot-data-file"))
         }
 
-        if options.useExplicitModuleBuild && !options.useIntegratedSwiftDriver {
+        if options.build.useExplicitModuleBuild && !options.build.useIntegratedSwiftDriver {
             observabilityScope.emit(error: "'--experimental-explicit-module-build' option requires '--use-integrated-swift-driver'")
         }
 
-        if !options.archs.isEmpty && options.customCompileTriple != nil {
+        if !options.build.archs.isEmpty && options.build.customCompileTriple != nil {
             observabilityScope.emit(.mutuallyExclusiveArgumentsError(arguments: ["--arch", "--triple"]))
         }
 
         // --enable-test-discovery should never be called on darwin based platforms
-#if canImport(Darwin)
-        if options.enableTestDiscovery {
+        #if canImport(Darwin)
+        if options.build.enableTestDiscovery {
             observabilityScope.emit(warning: "'--enable-test-discovery' option is deprecated; tests are automatically discovered on all platforms")
         }
-#endif
+        #endif
 
-        if options.shouldDisableManifestCaching {
+        if options.caching.shouldDisableManifestCaching {
             observabilityScope.emit(warning: "'--disable-package-manifest-caching' option is deprecated; use '--manifest-caching' instead")
         }
 
-        if let _ = options.netrcFilePath, options.netrc == false {
+        if let _ = options.security.netrcFilePath, options.security.netrc == false {
             observabilityScope.emit(.mutuallyExclusiveArgumentsError(arguments: ["--disable-netrc", "--netrc-file"]))
         }
 
-        if options._deprecated_netrc {
+        if options.security._deprecated_netrc {
             observabilityScope.emit(warning: "'--netrc' option is deprecated; .netrc files are located by default")
         }
 
-        if options._deprecated_netrcOptional {
+        if options.security._deprecated_netrcOptional {
             observabilityScope.emit(warning: "'--netrc-optional' option is deprecated; .netrc files are located by default")
         }
 
-        if options._deprecated_enableResolverTrace {
+        if options.resolver._deprecated_enableResolverTrace {
             observabilityScope.emit(warning: "'--enableResolverTrace' flag is deprecated; use '--verbose' option to log resolver output")
         }
 
-        if options._deprecated_useRepositoriesCache != nil {
+        if options.caching._deprecated_useRepositoriesCache != nil {
             observabilityScope.emit(warning: "'--disable-repository-cache'/'--enable-repository-cache' flags are deprecated; use '--disable-dependency-cache'/'--enable-dependency-cache' instead")
         }
-
     }
 
     /// Returns the currently active workspace.
@@ -532,9 +540,9 @@ public class SwiftTool {
 
         let delegate = ToolWorkspaceDelegate(self.outputStream, logLevel: self.logLevel, observabilityScope: self.observabilityScope)
         let repositoryProvider = GitRepositoryProvider(processSet: self.processSet)
-        let isXcodeBuildSystemEnabled = self.options.buildSystem == .xcode
+        let isXcodeBuildSystemEnabled = self.options.build.buildSystem == .xcode
         let workspace = try Workspace(
-            fileSystem: localFileSystem,
+            fileSystem: self.fileSystem,
             location: .init(
                 workingDirectory: self.buildPath,
                 editsDirectory: self.getEditsDirectory(),
@@ -546,11 +554,12 @@ public class SwiftTool {
             ),
             authorizationProvider: self.getAuthorizationProvider(),
             configuration: .init(
-                skipDependenciesUpdates: options.skipDependencyUpdate,
-                prefetchBasedOnResolvedFile: options.shouldEnableResolverPrefetching,
+                skipDependenciesUpdates: options.resolver.skipDependencyUpdate,
+                prefetchBasedOnResolvedFile: options.resolver.shouldEnableResolverPrefetching,
                 additionalFileRules: isXcodeBuildSystemEnabled ? FileRuleDescription.xcbuildFileTypes : FileRuleDescription.swiftpmFileTypes,
-                sharedDependenciesCacheEnabled: self.options.useDependenciesCache,
-                fingerprintCheckingMode: self.options.resolverFingerprintCheckingMode
+                sharedDependenciesCacheEnabled: self.options.caching.useDependenciesCache,
+                fingerprintCheckingMode: self.options.security.fingerprintCheckingMode,
+                sourceControlToRegistryDependencyTransformation: self.options.resolver.sourceControlToRegistryDependencyTransformation.workspaceConfiguration
             ),
             initializationWarningHandler: { self.observabilityScope.emit(warning: $0) },
             customHostToolchain: self.getHostToolchain(),
@@ -565,7 +574,7 @@ public class SwiftTool {
 
     private func getEditsDirectory() throws -> AbsolutePath {
         // TODO: replace multiroot-data-file with explicit overrides
-        if let multiRootPackageDataFile = options.multirootPackageDataFile {
+        if let multiRootPackageDataFile = options.locations.multirootPackageDataFile {
             return multiRootPackageDataFile.appending(component: "Packages")
         }
         return try Workspace.DefaultLocations.editsDirectory(forRootPackage: self.getPackageRoot())
@@ -573,7 +582,7 @@ public class SwiftTool {
 
     private func getResolvedVersionsFile() throws -> AbsolutePath {
         // TODO: replace multiroot-data-file with explicit overrides
-        if let multiRootPackageDataFile = options.multirootPackageDataFile {
+        if let multiRootPackageDataFile = options.locations.multirootPackageDataFile {
             return multiRootPackageDataFile.appending(components: "xcshareddata", "swiftpm", "Package.resolved")
         }
         return try Workspace.DefaultLocations.resolvedVersionsFile(forRootPackage: self.getPackageRoot())
@@ -582,54 +591,35 @@ public class SwiftTool {
     internal func getLocalConfigurationDirectory() throws -> AbsolutePath {
         // Otherwise, use the default path.
         // TODO: replace multiroot-data-file with explicit overrides
-        if let multiRootPackageDataFile = options.multirootPackageDataFile {
+        if let multiRootPackageDataFile = options.locations.multirootPackageDataFile {
             // migrate from legacy location
             let legacyPath = multiRootPackageDataFile.appending(components: "xcshareddata", "swiftpm", "config")
             let newPath = Workspace.DefaultLocations.mirrorsConfigurationFile(at: multiRootPackageDataFile.appending(components: "xcshareddata", "swiftpm", "configuration"))
-            if localFileSystem.exists(legacyPath) {
-                observabilityScope.emit(warning: "Usage of \(legacyPath) has been deprecated. Please delete it and use the new \(newPath) instead.")
-                if !localFileSystem.exists(newPath) {
-                    try localFileSystem.createDirectory(newPath.parentDirectory, recursive: true)
-                    try localFileSystem.copy(from: legacyPath, to: newPath)
-                }
-            }
-            return newPath.parentDirectory
+            return try Workspace.migrateMirrorsConfiguration(from: legacyPath, to: newPath, observabilityScope: observabilityScope)
+        } else {
+            // migrate from legacy location
+            let legacyPath = try self.getPackageRoot().appending(components: ".swiftpm", "config")
+            let newPath = try Workspace.DefaultLocations.mirrorsConfigurationFile(forRootPackage: self.getPackageRoot())
+            return try Workspace.migrateMirrorsConfiguration(from: legacyPath, to: newPath, observabilityScope: observabilityScope)
         }
-
-        // migrate from legacy location
-        let legacyPath = try self.getPackageRoot().appending(components: ".swiftpm", "config")
-        let newPath = try Workspace.DefaultLocations.mirrorsConfigurationFile(forRootPackage: self.getPackageRoot())
-        if localFileSystem.exists(legacyPath) {
-            observabilityScope.emit(warning: "Usage of \(legacyPath) has been deprecated. Please delete it and use the new \(newPath) instead.")
-            if !localFileSystem.exists(newPath) {
-                try localFileSystem.createDirectory(newPath.parentDirectory, recursive: true)
-                try localFileSystem.copy(from: legacyPath, to: newPath)
-            }
-        }
-        return newPath.parentDirectory
     }
 
     func getAuthorizationProvider() throws -> AuthorizationProvider? {
         var authorization = Workspace.Configuration.Authorization.default
-        if !options.netrc {
+        if !options.security.netrc {
             authorization.netrc = .disabled
-        } else if let configuredPath = options.netrcFilePath {
+        } else if let configuredPath = options.security.netrcFilePath {
             authorization.netrc = .custom(configuredPath)
         } else {
-            let rootPath = try options.multirootPackageDataFile ?? self.getPackageRoot()
+            let rootPath = try options.locations.multirootPackageDataFile ?? self.getPackageRoot()
             authorization.netrc = .workspaceAndUser(rootPath: rootPath)
         }
 
         #if canImport(Security)
-        authorization.keychain = self.options.keychain ? .enabled : .disabled
+        authorization.keychain = self.options.security.keychain ? .enabled : .disabled
         #endif
 
-        return try authorization.makeAuthorizationProvider(fileSystem: localFileSystem, observabilityScope: self.observabilityScope)
-    }
-
-    /// Start redirecting the standard output stream to the standard error stream.
-    func redirectStdoutToStderr() {
-        self.outputStream = TSCBasic.stderrStream
+        return try authorization.makeAuthorizationProvider(fileSystem: self.fileSystem, observabilityScope: self.observabilityScope)
     }
 
     /// Resolve the dependencies.
@@ -637,7 +627,7 @@ public class SwiftTool {
         let workspace = try getActiveWorkspace()
         let root = try getWorkspaceRoot()
 
-        if options.forceResolvedVersions {
+        if options.resolver.forceResolvedVersions {
             try workspace.resolveBasedOnResolvedVersionsFile(root: root, observabilityScope: self.observabilityScope)
         } else {
             try workspace.resolve(root: root, observabilityScope: self.observabilityScope)
@@ -669,7 +659,7 @@ public class SwiftTool {
                 explicitProduct: explicitProduct,
                 createMultipleTestProducts: createMultipleTestProducts,
                 createREPLProduct: createREPLProduct,
-                forceResolvedVersions: options.forceResolvedVersions,
+                forceResolvedVersions: options.resolver.forceResolvedVersions,
                 observabilityScope: self.observabilityScope
             )
 
@@ -688,9 +678,11 @@ public class SwiftTool {
         let pluginsDir = try self.getActiveWorkspace().location.pluginWorkingDirectory
         let cacheDir = pluginsDir.appending(component: "cache")
         let pluginScriptRunner = try DefaultPluginScriptRunner(
+            fileSystem: self.fileSystem,
             cacheDir: cacheDir,
             toolchain: self.getHostToolchain().configuration,
-            enableSandbox: !self.options.shouldDisableSandbox)
+            enableSandbox: !self.options.security.shouldDisableSandbox
+        )
         return pluginScriptRunner
     }
 
@@ -708,14 +700,14 @@ public class SwiftTool {
     }
 
     private func canUseCachedBuildManifest() throws -> Bool {
-        if !self.options.cacheBuildManifest {
+        if !self.options.caching.cacheBuildManifest {
             return false
         }
 
         let buildParameters = try self.buildParameters()
         let haveBuildManifestAndDescription =
-        localFileSystem.exists(buildParameters.llbuildManifest) &&
-        localFileSystem.exists(buildParameters.buildDescriptionPath)
+        self.fileSystem.exists(buildParameters.llbuildManifest) &&
+        self.fileSystem.exists(buildParameters.buildDescriptionPath)
 
         if !haveBuildManifestAndDescription {
             return false
@@ -732,22 +724,33 @@ public class SwiftTool {
         return true
     }
 
-    func createBuildOperation(explicitProduct: String? = nil, cacheBuildManifest: Bool = true) throws -> BuildOperation {
-        // Load a custom package graph which has a special product for REPL.
+    // note: do not customize the OutputStream unless absolutely necessary
+    // "customOutputStream" is designed to support build output redirection
+    // but it is only expected to be used when invoking builds from "swift build" command.
+    // in all other cases, the build output should go to the default which is stderr
+    func createBuildOperation(
+        explicitProduct: String? = .none,
+        cacheBuildManifest: Bool = true,
+        customBuildParameters: BuildParameters? = .none,
+        customPackageGraphLoader: (() throws -> PackageGraph)? = .none,
+        customOutputStream: OutputByteStream? = .none,
+        customLogLevel: Diagnostic.Severity? = .none,
+        customObservabilityScope: ObservabilityScope? = .none
+    ) throws -> BuildOperation {
         let graphLoader = { try self.loadPackageGraph(explicitProduct: explicitProduct) }
 
         // Construct the build operation.
         // FIXME: We need to implement the build tool invocation closure here so that build tool plugins work with dumping the symbol graph (the only case that currently goes through this path, as far as I can tell). rdar://86112934
         let buildOp = try BuildOperation(
-            buildParameters: buildParameters(),
+            buildParameters: customBuildParameters ?? self.buildParameters(),
             cacheBuildManifest: cacheBuildManifest && self.canUseCachedBuildManifest(),
-            packageGraphLoader: graphLoader,
+            packageGraphLoader: customPackageGraphLoader ?? graphLoader,
             pluginScriptRunner: self.getPluginScriptRunner(),
             pluginWorkDirectory: try self.getActiveWorkspace().location.pluginWorkingDirectory,
-            outputStream: self.outputStream,
-            logLevel: self.logLevel,
-            fileSystem: localFileSystem,
-            observabilityScope: self.observabilityScope
+            outputStream: customOutputStream ?? self.outputStream,
+            logLevel: customLogLevel ?? self.logLevel,
+            fileSystem: self.fileSystem,
+            observabilityScope: customObservabilityScope ?? self.observabilityScope
         )
 
         // Save the instance so it can be cancelled from the int handler.
@@ -755,33 +758,44 @@ public class SwiftTool {
         return buildOp
     }
 
-    func createBuildSystem(explicitProduct: String? = nil, buildParameters: BuildParameters? = nil) throws -> BuildSystem {
+    // note: do not customize the OutputStream unless absolutely necessary
+    // "customOutputStream" is designed to support build output redirection
+    // but it is only expected to be used when invoking builds from "swift build" command.
+    // in all other cases, the build output should go to the default which is stderr
+    func createBuildSystem(
+        explicitProduct: String? = .none,
+        customBuildParameters: BuildParameters? = .none,
+        customPackageGraphLoader: (() throws -> PackageGraph)? = .none,
+        customOutputStream: OutputByteStream? = .none,
+        customObservabilityScope: ObservabilityScope? = .none
+    ) throws -> BuildSystem {
         let buildSystem: BuildSystem
-        switch options.buildSystem {
+        switch options.build.buildSystem {
         case .native:
             let graphLoader = { try self.loadPackageGraph(explicitProduct: explicitProduct) }
+
             buildSystem = try BuildOperation(
-                buildParameters: buildParameters ?? self.buildParameters(),
+                buildParameters: customBuildParameters ?? self.buildParameters(),
                 cacheBuildManifest: self.canUseCachedBuildManifest(),
-                packageGraphLoader: graphLoader,
+                packageGraphLoader: customPackageGraphLoader ?? graphLoader,
                 pluginScriptRunner: self.getPluginScriptRunner(),
                 pluginWorkDirectory: try self.getActiveWorkspace().location.pluginWorkingDirectory,
-                disableSandboxForPluginCommands: self.options.shouldDisableSandbox,
-                outputStream: self.outputStream,
+                disableSandboxForPluginCommands: self.options.security.shouldDisableSandbox,
+                outputStream: customOutputStream ?? self.outputStream,
                 logLevel: self.logLevel,
-                fileSystem: localFileSystem,
-                observabilityScope: self.observabilityScope
+                fileSystem: self.fileSystem,
+                observabilityScope: customObservabilityScope ?? self.observabilityScope
             )
         case .xcode:
             let graphLoader = { try self.loadPackageGraph(explicitProduct: explicitProduct, createMultipleTestProducts: true) }
             // FIXME: Implement the custom build command provider also.
             buildSystem = try XcodeBuildSystem(
-                buildParameters: buildParameters ?? self.buildParameters(),
-                packageGraphLoader: graphLoader,
-                outputStream: self.outputStream,
+                buildParameters: customBuildParameters ?? self.buildParameters(),
+                packageGraphLoader: customPackageGraphLoader ??  graphLoader,
+                outputStream: customOutputStream ?? self.outputStream,
                 logLevel: self.logLevel,
-                fileSystem: localFileSystem,
-                observabilityScope: self.observabilityScope
+                fileSystem: self.fileSystem,
+                observabilityScope: customObservabilityScope ?? self.observabilityScope
             )
         }
 
@@ -800,50 +814,36 @@ public class SwiftTool {
             let toolchain = try self.getToolchain()
             let triple = toolchain.triple
 
-            /// Checks if stdout stream is tty.
-            let isTTY: Bool = {
-                let stream: OutputByteStream
-                if let threadSafeStream = self.outputStream as? ThreadSafeOutputByteStream {
-                    stream = threadSafeStream.stream
-                } else {
-                    stream = self.outputStream
-                }
-                guard let fileStream = stream as? LocalFileOutputByteStream else {
-                    return false
-                }
-                return TerminalController.isTTY(fileStream)
-            }()
-
             // Use "apple" as the subdirectory because in theory Xcode build system
             // can be used to build for any Apple platform and it has it's own
             // conventions for build subpaths based on platforms.
             let dataPath = buildPath.appending(
-                component: options.buildSystem == .xcode ? "apple" : triple.platformBuildPathComponent())
+                component: options.build.buildSystem == .xcode ? "apple" : triple.platformBuildPathComponent())
             return BuildParameters(
                 dataPath: dataPath,
-                configuration: options.configuration,
+                configuration: options.build.configuration,
                 toolchain: toolchain,
                 destinationTriple: triple,
-                archs: options.archs,
-                flags: options.buildFlags,
-                xcbuildFlags: options.xcbuildFlags,
-                jobs: options.jobs ?? UInt32(ProcessInfo.processInfo.activeProcessorCount),
-                shouldLinkStaticSwiftStdlib: options.shouldLinkStaticSwiftStdlib,
+                archs: options.build.archs,
+                flags: options.build.buildFlags,
+                xcbuildFlags: options.build.xcbuildFlags,
+                jobs: options.build.jobs ?? UInt32(ProcessInfo.processInfo.activeProcessorCount),
+                shouldLinkStaticSwiftStdlib: options.linker.shouldLinkStaticSwiftStdlib,
                 canRenameEntrypointFunctionName: SwiftTargetBuildDescription.checkSupportedFrontendFlags(
-                    flags: ["entry-point-function-name"], fileSystem: localFileSystem
+                    flags: ["entry-point-function-name"], fileSystem: self.fileSystem
                 ),
-                sanitizers: options.enabledSanitizers,
-                enableCodeCoverage: options.shouldEnableCodeCoverage,
-                indexStoreMode: options.indexStoreMode.indexStoreMode,
-                enableParseableModuleInterfaces: options.shouldEnableParseableModuleInterfaces,
-                emitSwiftModuleSeparately: options.emitSwiftModuleSeparately,
-                useIntegratedSwiftDriver: options.useIntegratedSwiftDriver,
-                useExplicitModuleBuild: options.useExplicitModuleBuild,
-                isXcodeBuildSystemEnabled: options.buildSystem == .xcode,
-                printManifestGraphviz: options.printManifestGraphviz,
-                forceTestDiscovery: options.enableTestDiscovery, // backwards compatibility, remove with --enable-test-discovery
-                linkerDeadStrip: options.linkerDeadStrip,
-                isTTY: isTTY
+                sanitizers: options.build.enabledSanitizers,
+                enableCodeCoverage: false, // set by test commands when appropriate
+                indexStoreMode: options.build.indexStoreMode.buildParameter,
+                enableParseableModuleInterfaces: options.build.shouldEnableParseableModuleInterfaces,
+                emitSwiftModuleSeparately: options.build.emitSwiftModuleSeparately,
+                useIntegratedSwiftDriver: options.build.useIntegratedSwiftDriver,
+                useExplicitModuleBuild: options.build.useExplicitModuleBuild,
+                isXcodeBuildSystemEnabled: options.build.buildSystem == .xcode,
+                printManifestGraphviz: options.build.printManifestGraphviz,
+                forceTestDiscovery: options.build.enableTestDiscovery, // backwards compatibility, remove with --enable-test-discovery
+                linkerDeadStrip: options.linker.linkerDeadStrip,
+                verboseOutput: self.logLevel <= .info
             )
         })
     }()
@@ -855,9 +855,9 @@ public class SwiftTool {
         do {
             hostDestination = try self._hostToolchain.get().destination
             // Create custom toolchain if present.
-            if let customDestination = self.options.customCompileDestination {
-                destination = try Destination(fromFile: customDestination)
-            } else if let target = self.options.customCompileTriple,
+            if let customDestination = self.options.locations.customCompileDestination {
+                destination = try Destination(fromFile: customDestination, fileSystem: self.fileSystem)
+            } else if let target = self.options.build.customCompileTriple,
                       let targetDestination = Destination.defaultDestination(for: target, host: hostDestination) {
                 destination = targetDestination
             } else {
@@ -868,16 +868,16 @@ public class SwiftTool {
             return .failure(error)
         }
         // Apply any manual overrides.
-        if let triple = self.options.customCompileTriple {
+        if let triple = self.options.build.customCompileTriple {
             destination.target = triple
         }
-        if let binDir = self.options.customCompileToolchain {
+        if let binDir = self.options.build.customCompileToolchain {
             destination.binDir = binDir.appending(components: "usr", "bin")
         }
-        if let sdk = self.options.customCompileSDK {
+        if let sdk = self.options.build.customCompileSDK {
             destination.sdk = sdk
         }
-        destination.archs = options.archs
+        destination.archs = options.build.archs
 
         // Check if we ended up with the host toolchain.
         if hostDestination == destination {
@@ -898,7 +898,7 @@ public class SwiftTool {
     private lazy var _manifestLoader: Result<ManifestLoader, Swift.Error> = {
         return Result(catching: {
             let cachePath: AbsolutePath?
-            switch (self.options.shouldDisableManifestCaching, self.options.manifestCachingMode) {
+            switch (self.options.caching.shouldDisableManifestCaching, self.options.caching.manifestCachingMode) {
             case (true, _):
                 // backwards compatibility
                 cachePath = .none
@@ -910,16 +910,20 @@ public class SwiftTool {
                 cachePath = self.sharedCacheDirectory.map{ Workspace.DefaultLocations.manifestsDirectory(at: $0) }
             }
 
-            var extraManifestFlags = self.options.manifestFlags
+            var extraManifestFlags = self.options.build.manifestFlags
             // Disable the implicit concurrency import if the compiler in use supports it to avoid warnings if we are building against an older SDK that does not contain a Concurrency module.
-            if SwiftTargetBuildDescription.checkSupportedFrontendFlags(flags: ["disable-implicit-concurrency-module-import"], fileSystem: localFileSystem) {
+            if SwiftTargetBuildDescription.checkSupportedFrontendFlags(flags: ["disable-implicit-concurrency-module-import"], fileSystem: self.fileSystem) {
                 extraManifestFlags += ["-Xfrontend", "-disable-implicit-concurrency-module-import"]
+            }
+
+            if self.logLevel <= .info {
+                extraManifestFlags.append("-v")
             }
 
             return try ManifestLoader(
                 // Always use the host toolchain's resources for parsing manifest.
                 toolchain: self.getHostToolchain().configuration,
-                isManifestSandboxEnabled: !self.options.shouldDisableSandbox,
+                isManifestSandboxEnabled: !self.options.security.shouldDisableSandbox,
                 cacheDir: cachePath,
                 extraManifestFlags: extraManifestFlags
             )
@@ -930,18 +934,18 @@ public class SwiftTool {
     enum ExecutionStatus {
         case success
         case failure
-    }
+        }
 }
 
 /// Returns path of the nearest directory containing the manifest file w.r.t
 /// current working directory.
-private func findPackageRoot() -> AbsolutePath? {
-    guard var root = localFileSystem.currentWorkingDirectory else {
+private func findPackageRoot(fileSystem: FileSystem) -> AbsolutePath? {
+    guard var root = fileSystem.currentWorkingDirectory else {
         return nil
     }
     // FIXME: It would be nice to move this to a generalized method which takes path and predicate and
     // finds the lowest path for which the predicate is true.
-    while !localFileSystem.isFile(root.appending(component: Manifest.filename)) {
+    while !fileSystem.isFile(root.appending(component: Manifest.filename)) {
         root = root.parentDirectory
         guard !root.isRoot else {
             return nil
@@ -959,42 +963,42 @@ private func getEnvBuildPath(workingDir: AbsolutePath) -> AbsolutePath? {
 }
 
 
-private func getSharedSecurityDirectory(options: SwiftToolOptions, observabilityScope: ObservabilityScope) throws -> AbsolutePath? {
-    if let explicitSecurityPath = options.securityPath {
+private func getSharedSecurityDirectory(options: GlobalOptions, fileSystem: FileSystem, observabilityScope: ObservabilityScope) throws -> AbsolutePath? {
+    if let explicitSecurityPath = options.locations.securityPath {
         // Create the explicit security path if necessary
-        if !localFileSystem.exists(explicitSecurityPath) {
-            try localFileSystem.createDirectory(explicitSecurityPath, recursive: true)
+        if !fileSystem.exists(explicitSecurityPath) {
+            try fileSystem.createDirectory(explicitSecurityPath, recursive: true)
         }
         return explicitSecurityPath
     } else {
         // further validation is done in workspace
-        return localFileSystem.swiftPMSecurityDirectory
+        return fileSystem.swiftPMSecurityDirectory
     }
 }
 
-private func getSharedConfigurationDirectory(options: SwiftToolOptions, observabilityScope: ObservabilityScope) throws -> AbsolutePath? {
-    if let explicitConfigPath = options.configPath {
+private func getSharedConfigurationDirectory(options: GlobalOptions, fileSystem: FileSystem, observabilityScope: ObservabilityScope) throws -> AbsolutePath? {
+    if let explicitConfigPath = options.locations.configPath {
         // Create the explicit config path if necessary
-        if !localFileSystem.exists(explicitConfigPath) {
-            try localFileSystem.createDirectory(explicitConfigPath, recursive: true)
+        if !fileSystem.exists(explicitConfigPath) {
+            try fileSystem.createDirectory(explicitConfigPath, recursive: true)
         }
         return explicitConfigPath
     } else {
         // further validation is done in workspace
-        return localFileSystem.swiftPMConfigurationDirectory
+        return fileSystem.swiftPMConfigurationDirectory
     }
 }
 
-private func getSharedCacheDirectory(options: SwiftToolOptions, observabilityScope: ObservabilityScope) throws -> AbsolutePath? {
-    if let explicitCachePath = options.cachePath {
+private func getSharedCacheDirectory(options: GlobalOptions, fileSystem: FileSystem, observabilityScope: ObservabilityScope) throws -> AbsolutePath? {
+    if let explicitCachePath = options.locations.cachePath {
         // Create the explicit cache path if necessary
-        if !localFileSystem.exists(explicitCachePath) {
-            try localFileSystem.createDirectory(explicitCachePath, recursive: true)
+        if !fileSystem.exists(explicitCachePath) {
+            try fileSystem.createDirectory(explicitCachePath, recursive: true)
         }
         return explicitCachePath
     } else {
         // further validation is done in workspace
-        return localFileSystem.swiftPMCacheDirectory
+        return fileSystem.swiftPMCacheDirectory
     }
 }
 
@@ -1012,27 +1016,53 @@ extension Basics.Diagnostic {
 
 // MARK: - Diagnostics
 
-private struct SwiftToolObservability: ObservabilityHandlerProvider, DiagnosticsHandler {
-    private let logLevel: Diagnostic.Severity
+private struct SwiftToolObservabilityHandler: ObservabilityHandlerProvider {
+    private let outputHandler: OutputHandler
 
-    var diagnosticsHandler: DiagnosticsHandler { self }
-
-    init(logLevel: Diagnostic.Severity) {
-        self.logLevel = logLevel
+    var diagnosticsHandler: DiagnosticsHandler {
+        self.outputHandler
     }
 
-    func handleDiagnostic(scope: ObservabilityScope, diagnostic: Basics.Diagnostic) {
-        // TODO: do something useful with scope
-        if diagnostic.severity >= self.logLevel {
-            diagnostic.print()
+    init(outputStream: OutputByteStream, logLevel: Diagnostic.Severity) {
+        let threadSafeOutputByteStream = outputStream as? ThreadSafeOutputByteStream ?? ThreadSafeOutputByteStream(outputStream)
+        self.outputHandler = OutputHandler(logLevel: logLevel, outputStream: threadSafeOutputByteStream)
+    }
+
+    // FIXME: deprecate this one we are further along refactoring the call sites that use it
+    var outputStream: OutputByteStream {
+        self.outputHandler.outputStream
+    }
+
+    struct OutputHandler: DiagnosticsHandler {
+        let logLevel: Diagnostic.Severity
+        let outputStream: ThreadSafeOutputByteStream
+        let writer: InteractiveWriter
+
+        init(logLevel: Diagnostic.Severity, outputStream: ThreadSafeOutputByteStream) {
+            self.logLevel = logLevel
+            self.outputStream = outputStream
+            self.writer = InteractiveWriter(stream: outputStream)
+        }
+
+        func handleDiagnostic(scope: ObservabilityScope, diagnostic: Basics.Diagnostic) {
+            // TODO: do something useful with scope
+            if diagnostic.severity >= self.logLevel {
+                diagnostic.print(with: self.writer)
+            }
         }
     }
 }
 
-extension Basics.Diagnostic {
-    func print() {
-        let writer = InteractiveWriter.stderr
+extension SwiftTool {
+    // FIXME: deprecate these one we are further along refactoring the call sites that use it
+    /// The stream to print standard output on.
+    var outputStream: OutputByteStream {
+        self.observabilityHandler.outputStream
+    }
+}
 
+extension Basics.Diagnostic {
+    fileprivate func print(with writer: InteractiveWriter) {
         var message: String
         switch self.severity {
         case .error:
@@ -1063,14 +1093,7 @@ extension Basics.Diagnostic {
 ///
 /// If underlying stream is a not tty, the string will be written in without any
 /// formatting.
-private final class InteractiveWriter {
-
-    /// The standard error writer.
-    static let stderr = InteractiveWriter(stream: TSCBasic.stderrStream)
-
-    /// The standard output writer.
-    static let stdout = InteractiveWriter(stream: TSCBasic.stdoutStream)
-
+private struct InteractiveWriter {
     /// The terminal controller, if present.
     let term: TerminalController?
 
@@ -1114,7 +1137,14 @@ extension ObservabilityMetadata {
     }
 }
 
-extension SwiftToolOptions {
+extension Workspace.ManagedDependency {
+    fileprivate var isEdited: Bool {
+        if case .edited = self.state { return true }
+        return false
+    }
+}
+
+extension LoggingOptions {
     var logLevel: Diagnostic.Severity {
         if self.verbose {
             return .info
@@ -1126,9 +1156,28 @@ extension SwiftToolOptions {
     }
 }
 
-extension Workspace.ManagedDependency {
-    fileprivate var isEdited: Bool {
-        if case .edited = self.state { return true }
-        return false
+extension ResolverOptions.SourceControlToRegistryDependencyTransformation {
+    var workspaceConfiguration: WorkspaceConfiguration.SourceControlToRegistryDependencyTransformation {
+        switch self {
+        case .disabled:
+            return .disabled
+        case .identity:
+            return .identity
+        case .swizzle:
+            return .swizzle
+        }
+    }
+}
+
+extension BuildOptions.StoreMode {
+    var buildParameter: BuildParameters.IndexStoreMode {
+        switch self {
+        case .autoIndexStore:
+            return .auto
+        case .enableIndexStore:
+            return .on
+        case .disableIndexStore:
+            return .off
+        }
     }
 }

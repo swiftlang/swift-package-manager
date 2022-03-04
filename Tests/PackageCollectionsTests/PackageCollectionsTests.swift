@@ -1605,6 +1605,7 @@ private extension PackageCollections {
     ) {
         self.init(
             configuration: configuration,
+            fileSystem: localFileSystem,
             observabilityScope: ObservabilitySystem.NOOP,
             storage: storage,
             collectionProviders: collectionProviders,

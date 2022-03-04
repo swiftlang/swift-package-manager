@@ -59,7 +59,7 @@ class PackageGraphPerfTests: XCTestCasePerf {
                 toolsVersion: .v4_2,
                 dependencies: dependencies,
                 products: [
-                    ProductDescription(name: name, type: .library(.automatic), targets: [name])
+                    try ProductDescription(name: name, type: .library(.automatic), targets: [name])
                 ],
                 targets: targets
             )

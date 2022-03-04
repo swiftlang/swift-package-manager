@@ -18,7 +18,223 @@ import Build
 import struct TSCUtility.BuildFlags
 import struct TSCUtility.Triple
 
-struct BuildFlagsGroup: ParsableArguments {
+struct GlobalOptions: ParsableArguments {
+    init() {}
+
+    @OptionGroup()
+    var locations: LocationOptions
+
+    @OptionGroup()
+    var caching: CachingOptions
+
+    @OptionGroup()
+    var logging: LoggingOptions
+
+    @OptionGroup()
+    var security: SecurityOptions
+
+    @OptionGroup()
+    var resolver: ResolverOptions
+
+    @OptionGroup()
+    var build: BuildOptions
+
+    @OptionGroup()
+    var linker: LinkerOptions
+}
+
+struct LocationOptions: ParsableArguments {
+    init() {}
+
+    /// The custom build directory, if provided.
+    @Option(help: "Specify build/cache directory")
+    var buildPath: AbsolutePath?
+
+    @Option(help: "Specify the shared cache directory")
+    var cachePath: AbsolutePath?
+
+    @Option(help: "Specify the shared configuration directory")
+    var configPath: AbsolutePath?
+
+    @Option(help: "Specify the shared security directory")
+    var securityPath: AbsolutePath?
+
+    /// The custom working directory that the tool should operate in (deprecated).
+    @Option(name: [.long, .customShort("C")])
+    var chdir: AbsolutePath?
+
+    /// The custom working directory that the tool should operate in.
+    @Option(help: "Change working directory before any other operation")
+    var packagePath: AbsolutePath?
+
+    /// The path to the file containing multiroot package data. This is currently Xcode's workspace file.
+    @Option(name: .customLong("multiroot-data-file"), completion: .file())
+    var multirootPackageDataFile: AbsolutePath?
+
+    /// Path to the compilation destination describing JSON file.
+    @Option(name: .customLong("destination"), completion: .file())
+    var customCompileDestination: AbsolutePath?
+}
+
+struct CachingOptions: ParsableArguments {
+    /// Disables package caching.
+    @Flag(name: .customLong("dependency-cache"), inversion: .prefixedEnableDisable, help: "Use a shared cache when fetching dependencies")
+    var _useDependenciesCache: Bool?
+
+    // TODO: simplify when deprecating the older flag
+    var useDependenciesCache: Bool {
+        if let value = self._useDependenciesCache {
+            return value
+        } else if let value = self._deprecated_useRepositoriesCache {
+            return value
+        } else {
+            return true
+        }
+    }
+
+    /// Disables manifest caching.
+    @Flag(name: .customLong("disable-package-manifest-caching"), help: .hidden)
+    var shouldDisableManifestCaching: Bool = false
+
+    /// Whether to enable llbuild manifest caching.
+    @Flag(name: .customLong("build-manifest-caching"), inversion: .prefixedEnableDisable)
+    var cacheBuildManifest: Bool = true
+
+    /// Disables manifest caching.
+    @Option(name: .customLong("manifest-cache"), help: "Caching mode of Package.swift manifests (shared: shared cache, local: package's build directory, none: disabled")
+    var manifestCachingMode: ManifestCachingMode = .shared
+
+    enum ManifestCachingMode: String, ExpressibleByArgument {
+        case none
+        case local
+        case shared
+
+        init?(argument: String) {
+            self.init(rawValue: argument)
+        }
+    }
+
+    /// Disables repository caching.
+    @Flag(name: .customLong("repository-cache"), inversion: .prefixedEnableDisable, help: .hidden)
+    var _deprecated_useRepositoriesCache: Bool?
+}
+
+struct LoggingOptions: ParsableArguments {
+    init() {}
+
+    /// The verbosity of informational output.
+    @Flag(name: .shortAndLong, help: "Increase verbosity to include informational output")
+    var verbose: Bool = false
+
+    /// The verbosity of informational output.
+    @Flag(name: [.long, .customLong("vv")], help: "Increase verbosity to include debug output")
+    var veryVerbose: Bool = false
+}
+
+struct SecurityOptions: ParsableArguments {
+    init() {}
+
+    /// Disables sandboxing when executing subprocesses.
+    @Flag(name: .customLong("disable-sandbox"), help: "Disable using the sandbox when executing subprocesses")
+    var shouldDisableSandbox: Bool = false
+
+    /// Whether to load .netrc files for authenticating with remote servers
+    /// when downloading binary artifacts or communicating with a registry.
+    @Flag(inversion: .prefixedEnableDisable,
+          exclusivity: .exclusive,
+          help: "Load credentials from a .netrc file")
+    var netrc: Bool = true
+
+    /// The path to the .netrc file used when `netrc` is `true`.
+    @Option(
+        name: .customLong("netrc-file"),
+        help: "Specify the .netrc file path.",
+        completion: .file())
+    var netrcFilePath: AbsolutePath?
+
+    /// Whether to use keychain for authenticating with remote servers
+    /// when downloading binary artifacts or communicating with a registry.
+    #if canImport(Security)
+    @Flag(inversion: .prefixedEnableDisable,
+          exclusivity: .exclusive,
+          help: "Search credentials in macOS keychain")
+    var keychain: Bool = true
+    #else
+    @Flag(inversion: .prefixedEnableDisable,
+          exclusivity: .exclusive,
+          help: .hidden)
+    var keychain: Bool = false
+    #endif
+
+    @Option(name: .customLong("resolver-fingerprint-checking"))
+    var fingerprintCheckingMode: FingerprintCheckingMode = .warn
+
+    @Flag(name: .customLong("netrc"), help: .hidden)
+    var _deprecated_netrc: Bool = false
+
+    @Flag(name: .customLong("netrc-optional"), help: .hidden)
+    var _deprecated_netrcOptional: Bool = false
+}
+
+struct ResolverOptions: ParsableArguments {
+    init() {}
+
+    /// Enable prefetching in resolver which will kick off parallel git cloning.
+    @Flag(name: .customLong("prefetching"), inversion: .prefixedEnableDisable)
+    var shouldEnableResolverPrefetching: Bool = true
+
+    /// Use Package.resolved file for resolving dependencies.
+    @Flag(name: [.long, .customLong("disable-automatic-resolution"), .customLong("only-use-versions-from-resolved-file")], help: "Only use versions from the Package.resolved file and fail resolution if it is out-of-date")
+    var forceResolvedVersions: Bool = false
+
+    /// Skip updating dependencies from their remote during a resolution.
+    @Flag(name: .customLong("skip-update"), help: "Skip updating dependencies from their remote during a resolution")
+    var skipDependencyUpdate: Bool = false
+
+
+    @Flag(help: "Define automatic transformation of source control based dependencies to registry based ones")
+    var sourceControlToRegistryDependencyTransformation: SourceControlToRegistryDependencyTransformation = .disabled
+
+    /// Write dependency resolver trace to a file.
+    @Flag(name: .customLong("trace-resolver"), help: .hidden)
+    var _deprecated_enableResolverTrace: Bool = false
+
+    enum SourceControlToRegistryDependencyTransformation: EnumerableFlag {
+        case disabled
+        case identity
+        case swizzle
+
+        static func name(for value: Self) -> NameSpecification {
+            switch value {
+            case .disabled:
+                return .customLong("disable-scm-to-registry-transformation")
+            case .identity:
+                return .customLong("use-registry-identity-for-scm")
+            case .swizzle:
+                return .customLong("replace-scm-with-registry")
+            }
+        }
+
+        static func help(for value: SourceControlToRegistryDependencyTransformation) -> ArgumentHelp? {
+            switch value {
+            case .disabled:
+                return "disable source control to registry transformation"
+            case .identity:
+                return "look up source control dependencies in the registry and use their registry identity when possible to help deduplicate across the two origins"
+            case .swizzle:
+                return "look up source control dependencies in the registry and use the registry to retrieve them instead of source control when possible"
+            }
+        }
+    }
+}
+
+struct BuildOptions: ParsableArguments {
+    init() {}
+
+    /// Build configuration.
+    @Option(name: .shortAndLong, help: "Build with configuration")
+    var configuration: BuildConfiguration = .debug
+
     @Option(name: .customLong("Xcc", withSingleDash: true),
             parsing: .unconditionalSingleValue,
             help: "Pass flag through to all C compiler invocations")
@@ -60,165 +276,6 @@ struct BuildFlagsGroup: ParsableArguments {
             xlinker: linkerFlags)
     }
 
-    init() {}
-}
-
-extension BuildConfiguration: ExpressibleByArgument {
-    public init?(argument: String) {
-        self.init(rawValue: argument)
-    }
-}
-
-extension AbsolutePath: ExpressibleByArgument {
-    public init?(argument: String) {
-        if let cwd = localFileSystem.currentWorkingDirectory {
-            self.init(argument, relativeTo: cwd)
-        } else {
-            guard let path = try? AbsolutePath(validating: argument) else {
-                return nil
-            }
-            self = path
-        }
-    }
-
-    public static var defaultCompletionKind: CompletionKind {
-        // This type is most commonly used to select a directory, not a file.
-        // Specify '.file()' in an argument declaration when necessary.
-        .directory
-    }
-}
-
-enum BuildSystemKind: String, ExpressibleByArgument, CaseIterable {
-    case native
-    case xcode
-}
-
-extension FingerprintCheckingMode: ExpressibleByArgument {
-    public init?(argument: String) {
-        self.init(rawValue: argument)
-    }
-}
-
-public extension Sanitizer {
-    init(argument: String) throws {
-        if let sanitizer = Sanitizer(rawValue: argument) {
-            self = sanitizer
-            return
-        }
-
-        for sanitizer in Sanitizer.allCases where sanitizer.shortName == argument {
-            self = sanitizer
-            return
-        }
-
-        throw StringError("valid sanitizers: \(Sanitizer.formattedValues)")
-    }
-
-    /// All sanitizer options in a comma separated string
-    fileprivate static var formattedValues: String {
-        return Sanitizer.allCases.map(\.rawValue).joined(separator: ", ")
-    }
-}
-
-public struct SwiftToolOptions: ParsableArguments {
-    @OptionGroup()
-    var buildFlagsGroup: BuildFlagsGroup
-
-    /// Custom arguments to pass to C compiler, swift compiler and the linker.
-    var buildFlags: BuildFlags {
-        buildFlagsGroup.buildFlags
-    }
-
-    var xcbuildFlags: [String] {
-        buildFlagsGroup.xcbuildFlags
-    }
-
-    var manifestFlags: [String] {
-        buildFlagsGroup.manifestFlags
-    }
-
-    /// Build configuration.
-    @Option(name: .shortAndLong, help: "Build with configuration")
-    var configuration: BuildConfiguration = .debug
-
-    /// The custom build directory, if provided.
-    @Option(help: "Specify build/cache directory")
-    var buildPath: AbsolutePath?
-
-    @Option(help: "Specify the shared cache directory")
-    var cachePath: AbsolutePath?
-
-    @Option(help: "Specify the shared configuration directory")
-    var configPath: AbsolutePath?
-
-    @Option(help: "Specify the shared security directory")
-    var securityPath: AbsolutePath?
-
-    /// Disables package caching.
-    @Flag(name: .customLong("dependency-cache"), inversion: .prefixedEnableDisable, help: "Use a shared cache when fetching dependencies")
-    var _useDependenciesCache: Bool?
-
-    // TODO: simplify when deprecating the older flag
-    var useDependenciesCache: Bool {
-        if let value = self._useDependenciesCache {
-            return value
-        } else if let value = self._deprecated_useRepositoriesCache {
-            return value
-        } else {
-            return true
-        }
-    }
-
-    /// The custom working directory that the tool should operate in (deprecated).
-    @Option(name: [.long, .customShort("C")])
-    var chdir: AbsolutePath?
-
-    /// The custom working directory that the tool should operate in.
-    @Option(help: "Change working directory before any other operation")
-    var packagePath: AbsolutePath?
-
-    /// The path to the file containing multiroot package data. This is currently Xcode's workspace file.
-    @Option(name: .customLong("multiroot-data-file"), completion: .file())
-    var multirootPackageDataFile: AbsolutePath?
-
-    /// Enable prefetching in resolver which will kick off parallel git cloning.
-    @Flag(name: .customLong("prefetching"), inversion: .prefixedEnableDisable)
-    var shouldEnableResolverPrefetching: Bool = true
-
-    /// The verbosity of informational output.
-    @Flag(name: .shortAndLong, help: "Increase verbosity to include informational output")
-    var verbose: Bool = false
-
-    /// The verbosity of informational output.
-    @Flag(name: [.long, .customLong("vv")], help: "Increase verbosity to include debug output")
-    var veryVerbose: Bool = false
-
-    /// Disables sandboxing when executing subprocesses.
-    @Flag(name: .customLong("disable-sandbox"), help: "Disable using the sandbox when executing subprocesses")
-    var shouldDisableSandbox: Bool = false
-
-    /// Disables manifest caching.
-    @Flag(name: .customLong("disable-package-manifest-caching"), help: .hidden)
-    var shouldDisableManifestCaching: Bool = false
-
-    /// Disables manifest caching.
-    @Option(name: .customLong("manifest-cache"), help: "Caching mode of Package.swift manifests (shared: shared cache, local: package's build directory, none: disabled")
-    var manifestCachingMode: ManifestCachingMode = .shared
-
-    enum ManifestCachingMode: String, ExpressibleByArgument {
-        case none
-        case local
-        case shared
-
-        init?(argument: String) {
-            self.init(rawValue: argument)
-        }
-    }
-
-    /// Path to the compilation destination describing JSON file.
-    @Option(name: .customLong("destination"), completion: .file())
-    var customCompileDestination: AbsolutePath?
-
     /// The compilation destination’s target triple.
     @Option(name: .customLong("triple"), transform: Triple.init)
     var customCompileTriple: Triple?
@@ -239,14 +296,6 @@ public struct SwiftToolOptions: ParsableArguments {
         shouldDisplay: false))
     public var archs: [String] = []
 
-    /// If should link the Swift stdlib statically.
-    @Flag(name: .customLong("static-swift-stdlib"), inversion: .prefixedNo, help: "Link Swift stdlib statically")
-    var shouldLinkStaticSwiftStdlib: Bool = false
-
-    /// Skip updating dependencies from their remote during a resolution.
-    @Flag(name: .customLong("skip-update"), help: "Skip updating dependencies from their remote during a resolution")
-    var skipDependencyUpdate: Bool = false
-
     /// Which compile-time sanitizers should be enabled.
     @Option(name: .customLong("sanitize"),
             help: "Turn on runtime checks for erroneous behavior, possible values: \(Sanitizer.formattedValues)",
@@ -257,37 +306,6 @@ public struct SwiftToolOptions: ParsableArguments {
         EnabledSanitizers(Set(sanitizers))
     }
 
-    /// Whether to enable code coverage.
-    @Flag(name: .customLong("code-coverage"),
-          inversion: .prefixedEnableDisable,
-          help: "Enable code coverage")
-    var shouldEnableCodeCoverage: Bool = false
-
-    /// Use Package.resolved file for resolving dependencies.
-    @Flag(name: [.long, .customLong("disable-automatic-resolution"), .customLong("only-use-versions-from-resolved-file")], help: "Only use versions from the Package.resolved file and fail resolution if it is out-of-date")
-    var forceResolvedVersions: Bool = false
-
-    // @Flag works best when there is a default value present
-    // if true, false aren't enough and a third state is needed
-    // nil should not be the goto. Instead create an enum
-    enum StoreMode: EnumerableFlag {
-        case autoIndexStore
-        case enableIndexStore
-        case disableIndexStore
-
-        /// The mode to use for indexing-while-building feature.
-        var indexStoreMode: BuildParameters.IndexStoreMode {
-            switch self {
-            case .autoIndexStore:
-                return .auto
-            case .enableIndexStore:
-                return .on
-            case .disableIndexStore:
-                return .off
-            }
-        }
-    }
-
     @Flag(help: "Enable or disable indexing-while-building feature")
     var indexStoreMode: StoreMode = .autoIndexStore
 
@@ -295,21 +313,9 @@ public struct SwiftToolOptions: ParsableArguments {
     @Flag(name: .customLong("enable-parseable-module-interfaces"))
     var shouldEnableParseableModuleInterfaces: Bool = false
 
-    /// Write dependency resolver trace to a file.
-    @Flag(name: .customLong("trace-resolver"), help: .hidden)
-    var _deprecated_enableResolverTrace: Bool = false
-
     /// The number of jobs for llbuild to start (aka the number of schedulerLanes)
     @Option(name: .shortAndLong, help: "The number of jobs to spawn in parallel during the build process")
     var jobs: UInt32?
-
-    /// Whether to enable test discovery on platforms without Objective-C runtime.
-    @Flag(help: .hidden)
-    var enableTestDiscovery: Bool = false
-
-    /// Whether to enable llbuild manifest caching.
-    @Flag(name: .customLong("build-manifest-caching"), inversion: .prefixedEnableDisable)
-    var cacheBuildManifest: Bool = true
 
     /// Emit the Swift module separately from the object files.
     @Flag()
@@ -344,36 +350,27 @@ public struct SwiftToolOptions: ParsableArguments {
         #endif
     }
 
-    /// Whether to load .netrc files for authenticating with remote servers
-    /// when downloading binary artifacts or communicating with a registry.
-    @Flag(inversion: .prefixedEnableDisable,
-          exclusivity: .exclusive,
-          help: "Load credentials from a .netrc file")
-    var netrc: Bool = true
+    /// Whether to enable test discovery on platforms without Objective-C runtime.
+    @Flag(help: .hidden)
+    var enableTestDiscovery: Bool = false
 
-    /// The path to the .netrc file used when `netrc` is `true`.
-    @Option(
-        name: .customLong("netrc-file"),
-        help: "Specify the .netrc file path.",
-        completion: .file())
-    var netrcFilePath: AbsolutePath?
+    // @Flag works best when there is a default value present
+    // if true, false aren't enough and a third state is needed
+    // nil should not be the goto. Instead create an enum
+    enum StoreMode: EnumerableFlag {
+        case autoIndexStore
+        case enableIndexStore
+        case disableIndexStore
+    }
 
-    /// Whether to use keychain for authenticating with remote servers
-    /// when downloading binary artifacts or communicating with a registry.
-#if canImport(Security)
-    @Flag(inversion: .prefixedEnableDisable,
-          exclusivity: .exclusive,
-          help: "Search credentials in macOS keychain")
-    var keychain: Bool = true
-#else
-    @Flag(inversion: .prefixedEnableDisable,
-          exclusivity: .exclusive,
-          help: .hidden)
-    var keychain: Bool = false
-#endif
-    
-    @Option(name: .customLong("resolver-fingerprint-checking"))
-    var resolverFingerprintCheckingMode: FingerprintCheckingMode = .warn
+    enum BuildSystemKind: String, ExpressibleByArgument, CaseIterable {
+        case native
+        case xcode
+    }
+}
+
+struct LinkerOptions: ParsableArguments {
+    init() {}
 
     @Flag(
         name: .customLong("dead-strip"),
@@ -381,15 +378,64 @@ public struct SwiftToolOptions: ParsableArguments {
         help: "Disable/enable dead code stripping by the linker")
     var linkerDeadStrip: Bool = true
 
-    @Flag(name: .customLong("netrc"), help: .hidden)
-    var _deprecated_netrc: Bool = false
+    /// If should link the Swift stdlib statically.
+    @Flag(name: .customLong("static-swift-stdlib"), inversion: .prefixedNo, help: "Link Swift stdlib statically")
+    var shouldLinkStaticSwiftStdlib: Bool = false
+}
 
-    @Flag(name: .customLong("netrc-optional"), help: .hidden)
-    var _deprecated_netrcOptional: Bool = false
 
-    /// Disables repository caching.
-    @Flag(name: .customLong("repository-cache"), inversion: .prefixedEnableDisable, help: .hidden)
-    var _deprecated_useRepositoriesCache: Bool?
+// MARK: - Extensions
 
-    public init() {}
+
+extension BuildConfiguration: ExpressibleByArgument {
+    public init?(argument: String) {
+        self.init(rawValue: argument)
+    }
+}
+
+extension AbsolutePath: ExpressibleByArgument {
+    public init?(argument: String) {
+        if let cwd = localFileSystem.currentWorkingDirectory {
+            self.init(argument, relativeTo: cwd)
+        } else {
+            guard let path = try? AbsolutePath(validating: argument) else {
+                return nil
+            }
+            self = path
+        }
+    }
+
+    public static var defaultCompletionKind: CompletionKind {
+        // This type is most commonly used to select a directory, not a file.
+        // Specify '.file()' in an argument declaration when necessary.
+        .directory
+    }
+}
+
+
+extension FingerprintCheckingMode: ExpressibleByArgument {
+    public init?(argument: String) {
+        self.init(rawValue: argument)
+    }
+}
+
+extension Sanitizer {
+    init(argument: String) throws {
+        if let sanitizer = Sanitizer(rawValue: argument) {
+            self = sanitizer
+            return
+        }
+
+        for sanitizer in Sanitizer.allCases where sanitizer.shortName == argument {
+            self = sanitizer
+            return
+        }
+
+        throw StringError("valid sanitizers: \(Sanitizer.formattedValues)")
+    }
+
+    /// All sanitizer options in a comma separated string
+    fileprivate static var formattedValues: String {
+        return Sanitizer.allCases.map(\.rawValue).joined(separator: ", ")
+    }
 }

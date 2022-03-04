@@ -58,7 +58,7 @@ public struct BuildSettingCondition: Encodable {
         self.config = config
     }
     
-    @available(_PackageDescription, deprecated: 999.0)
+    @available(_PackageDescription, deprecated: 5.7)
     public static func when(
         platforms: [Platform]? = nil,
         configuration: BuildConfiguration? = nil
@@ -72,7 +72,7 @@ public struct BuildSettingCondition: Encodable {
     /// - Parameters:
     ///   - platforms: The applicable platforms for this build setting condition.
     ///   - configuration: The applicable build configuration for this build setting condition.
-    @available(_PackageDescription, introduced: 999.0)
+    @available(_PackageDescription, introduced: 5.7)
     public static func when(platforms: [Platform], configuration: BuildConfiguration) -> BuildSettingCondition {
         BuildSettingCondition(platforms: platforms, config: configuration)
     }
@@ -81,7 +81,7 @@ public struct BuildSettingCondition: Encodable {
     ///
     /// - Parameters:
     ///   - platforms: The applicable platforms for this build setting condition.
-    @available(_PackageDescription, introduced: 999.0)
+    @available(_PackageDescription, introduced: 5.7)
     public static func when(platforms: [Platform]) -> BuildSettingCondition {
         BuildSettingCondition(platforms: platforms, config: .none)
     }
@@ -90,7 +90,7 @@ public struct BuildSettingCondition: Encodable {
     ///
     /// - Parameters:
     ///   - configuration: The applicable build configuration for this build setting condition.
-    @available(_PackageDescription, introduced: 999.0)
+    @available(_PackageDescription, introduced: 5.7)
     public static func when(configuration: BuildConfiguration) -> BuildSettingCondition {
         BuildSettingCondition(platforms: .none, config: configuration)
     }

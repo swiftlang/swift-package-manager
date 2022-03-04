@@ -171,7 +171,7 @@ public final class Manifest {
     /// Returns the targets required for a particular product filter.
     public func targetsRequired(for productFilter: ProductFilter) -> [TargetDescription] {
         #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
-        // If we have already calcualted it, returned the cached value.
+        // If we have already calculated it, returned the cached value.
         if let targets = _requiredTargets[productFilter] {
             return targets
         } else {
@@ -216,17 +216,16 @@ public final class Manifest {
             return self.dependencies
         }
 
-        var requiredDependencyURLs: Set<PackageIdentity> = []
-
+        var requiredDependencies: Set<PackageIdentity> = []
         for target in self.targetsRequired(for: products) {
             for targetDependency in target.dependencies {
                 if let dependency = self.packageDependency(referencedBy: targetDependency) {
-                    requiredDependencyURLs.insert(dependency.identity)
+                    requiredDependencies.insert(dependency.identity)
                 }
             }
         }
 
-        return self.dependencies.filter { requiredDependencyURLs.contains($0.identity) }
+        return self.dependencies.filter { requiredDependencies.contains($0.identity) }
         #endif
     }
 
@@ -355,7 +354,7 @@ public final class Manifest {
     ///
     /// - Parameters:
     ///   - targetDependency: The target dependency to register.
-    ///   - registry: The registry in which to record the assocation.
+    ///   - registry: The registry in which to record the association.
     ///   - availablePackages: The set of available packages.
     private func register(
         targetDependency: TargetDescription.Dependency,
@@ -414,7 +413,7 @@ public final class Manifest {
     ///
     /// - Parameters:
     ///   - requiredPlugIn: The plug‐in to register.
-    ///   - registry: The registry in which to record the assocation.
+    ///   - registry: The registry in which to record the association.
     ///   - availablePackages: The set of available packages.
     private func register(
         requiredPlugIn: TargetDescription.PluginUsage,

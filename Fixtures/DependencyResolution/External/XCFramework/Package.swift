@@ -5,10 +5,10 @@ import PackageDescription
 let package = Package(
     name: "Foo",
     products: [
-        .library(name: "Foo", targets: ["Foo", "XCFramework"]),
+        .library(name: "Foo", targets: ["Foo", "Bar"]),
     ],
     targets: [
         .target(name: "Foo", path: "./Foo"),
-        .binaryTarget(name: "XCFramework", path: "./Foo.xcframework")
+        .binaryTarget(name: "Bar", path: "./Bar.xcframework")
     ]
 )

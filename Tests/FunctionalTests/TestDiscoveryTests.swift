@@ -17,50 +17,38 @@ class TestDiscoveryTests: XCTestCase {
     func testBuild() throws {
         try fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
             let (stdout, _) = try executeSwiftBuild(fixturePath)
-            #if os(macOS)
-            XCTAssertMatch(stdout, .contains("module Simple"))
-            #else
-            XCTAssertMatch(stdout, .contains("module Simple"))
-            #endif
+            // in "swift build" build output goes to stdout
+            XCTAssertMatch(stdout, .contains("Build complete!"))
         }
     }
 
     func testDiscovery() throws {
         try fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
             let (stdout, stderr) = try executeSwiftTest(fixturePath)
-            #if os(macOS)
-            XCTAssertMatch(stdout, .contains("module Simple"))
-            XCTAssertMatch(stderr, .contains("Executed 3 tests"))
-            #else
-            XCTAssertMatch(stdout, .contains("module Simple"))
+            // in "swift test" build output goes to stderr
+            XCTAssertMatch(stderr, .contains("Build complete!"))
+            // in "swift test" test output goes to stdout
             XCTAssertMatch(stdout, .contains("Executed 3 tests"))
-            #endif
         }
     }
 
     func testNonStandardName() throws {
         try fixture(name: "Miscellaneous/TestDiscovery/hello world") { fixturePath in
             let (stdout, stderr) = try executeSwiftTest(fixturePath)
-            #if os(macOS)
-            XCTAssertMatch(stdout, .contains("module hello_world"))
-            XCTAssertMatch(stderr, .contains("Executed 1 test"))
-            #else
-            XCTAssertMatch(stdout, .contains("module hello_world"))
+            // in "swift test" build output goes to stderr
+            XCTAssertMatch(stderr, .contains("Build complete!"))
+            // in "swift test" test output goes to stdout
             XCTAssertMatch(stdout, .contains("Executed 1 test"))
-            #endif
         }
     }
 
     func testAsyncMethods() throws {
         try fixture(name: "Miscellaneous/TestDiscovery/Async") { fixturePath in
             let (stdout, stderr) = try executeSwiftTest(fixturePath)
-            #if os(macOS)
-            XCTAssertMatch(stdout, .contains("module Async"))
-            XCTAssertMatch(stderr, .contains("Executed 4 tests"))
-            #else
-            XCTAssertMatch(stdout, .contains("module Async"))
+            // in "swift test" build output goes to stderr
+            XCTAssertMatch(stderr, .contains("Build complete!"))
+            // in "swift test" test output goes to stdout
             XCTAssertMatch(stdout, .contains("Executed 4 tests"))
-            #endif
         }
     }
 
@@ -73,8 +61,10 @@ class TestDiscoveryTests: XCTestCase {
                 let random = UUID().uuidString
                 let manifestPath = fixturePath.appending(components: "Tests", name)
                 try localFileSystem.writeFileContents(manifestPath, bytes: ByteString("print(\"\(random)\")".utf8))
-                let (stdout, _) = try executeSwiftTest(fixturePath)
-                XCTAssertMatch(stdout, .contains("module Simple"))
+                let (stdout, stderr) = try executeSwiftTest(fixturePath)
+                // in "swift test" build output goes to stderr
+                XCTAssertMatch(stderr, .contains("Build complete!"))
+                // in "swift test" test output goes to stdout
                 XCTAssertNoMatch(stdout, .contains("Executed 1 test"))
                 XCTAssertMatch(stdout, .contains(random))
             }
@@ -89,8 +79,10 @@ class TestDiscoveryTests: XCTestCase {
         try fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
             let manifestPath = fixturePath.appending(components: "Tests", name)
             try localFileSystem.writeFileContents(manifestPath, bytes: ByteString("fatalError(\"should not be called\")".utf8))
-            let (stdout, _) = try executeSwiftTest(fixturePath, extraArgs: ["--enable-test-discovery"])
-            XCTAssertMatch(stdout, .contains("module Simple"))
+            let (stdout, stderr) = try executeSwiftTest(fixturePath, extraArgs: ["--enable-test-discovery"])
+            // in "swift test" build output goes to stderr
+            XCTAssertMatch(stderr, .contains("Build complete!"))
+            // in "swift test" test output goes to stdout
             XCTAssertNoMatch(stdout, .contains("Executed 1 test"))
         }
     }
@@ -100,8 +92,10 @@ class TestDiscoveryTests: XCTestCase {
         try XCTSkipIf(true)
         #endif
         try fixture(name: "Miscellaneous/TestDiscovery/Extensions") { fixturePath in
-            let (stdout, _) = try executeSwiftTest(fixturePath, extraArgs: ["--enable-test-discovery"])
-            XCTAssertMatch(stdout, .contains("module Simple"))
+            let (stdout, stderr) = try executeSwiftTest(fixturePath)
+            // in "swift test" build output goes to stderr
+            XCTAssertMatch(stderr, .contains("Build complete!"))
+            // in "swift test" test output goes to stdout
             XCTAssertMatch(stdout, .contains("SimpleTests1.testExample1"))
             XCTAssertMatch(stdout, .contains("SimpleTests1.testExample1_a"))
             XCTAssertMatch(stdout, .contains("SimpleTests2.testExample2"))
@@ -118,9 +112,10 @@ class TestDiscoveryTests: XCTestCase {
         try XCTSkipIf(true)
         #endif
         try fixture(name: "Miscellaneous/TestDiscovery/Deprecation") { fixturePath in
-            let (stdout, _) = try executeSwiftTest(fixturePath, extraArgs: ["--enable-test-discovery"])
+            let (stdout, stderr) = try executeSwiftTest(fixturePath)
+            // in "swift test" test output goes to stdout
             XCTAssertMatch(stdout, .contains("Executed 2 tests"))
-            XCTAssertNoMatch(stdout, .contains("is deprecated"))
+            XCTAssertNoMatch(stderr, .contains("is deprecated"))
         }
     }
 }

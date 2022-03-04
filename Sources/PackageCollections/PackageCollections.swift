@@ -22,6 +22,7 @@ public struct PackageCollections: PackageCollectionsProtocol, Closable {
     #endif
 
     let configuration: Configuration
+    private let fileSystem: FileSystem
     private let observabilityScope: ObservabilityScope
     private let storageContainer: (storage: Storage, owned: Bool)
     private let collectionProviders: [Model.CollectionSourceType: PackageCollectionProvider]
@@ -32,17 +33,28 @@ public struct PackageCollections: PackageCollectionsProtocol, Closable {
     }
 
     // initialize with defaults
-    public init(configuration: Configuration = .init(), observabilityScope: ObservabilityScope) {
-        self.init(configuration: configuration, customMetadataProvider: nil, observabilityScope: observabilityScope)
+    public init(
+        configuration: Configuration = .init(),
+        fileSystem: FileSystem,
+        observabilityScope: ObservabilityScope
+    ) {
+        self.init(
+            configuration: configuration,
+            customMetadataProvider: nil,
+            fileSystem: fileSystem,
+            observabilityScope: observabilityScope
+        )
     }
     
     init(
         configuration: Configuration = .init(),
         customMetadataProvider: PackageMetadataProvider?,
+        fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
     ) {
         let storage = Storage(
             sources: FilePackageCollectionsSourcesStorage(
+                fileSystem: fileSystem,
                 path: configuration.configurationDirectory?.appending(component: "collections.json")
             ),
             collections: SQLitePackageCollectionsStorage(
@@ -52,7 +64,10 @@ public struct PackageCollections: PackageCollectionsProtocol, Closable {
         )
 
         let collectionProviders = [
-            Model.CollectionSourceType.json: JSONPackageCollectionProvider(observabilityScope: observabilityScope)
+            Model.CollectionSourceType.json: JSONPackageCollectionProvider(
+                fileSystem: fileSystem,
+                observabilityScope: observabilityScope
+            )
         ]
 
         let metadataProvider = customMetadataProvider ?? GitHubPackageMetadataProvider(
@@ -64,6 +79,7 @@ public struct PackageCollections: PackageCollectionsProtocol, Closable {
         )
 
         self.configuration = configuration
+        self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope
         self.storageContainer = (storage, true)
         self.collectionProviders = collectionProviders
@@ -72,12 +88,14 @@ public struct PackageCollections: PackageCollectionsProtocol, Closable {
 
     // internal initializer for testing
     init(configuration: Configuration = .init(),
+         fileSystem: FileSystem,
          observabilityScope: ObservabilityScope,
          storage: Storage,
          collectionProviders: [Model.CollectionSourceType: PackageCollectionProvider],
          metadataProvider: PackageMetadataProvider
     ) {
         self.configuration = configuration
+        self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope
         self.storageContainer = (storage, false)
         self.collectionProviders = collectionProviders
@@ -214,7 +232,7 @@ public struct PackageCollections: PackageCollectionsProtocol, Closable {
             return callback(.failure(PackageCollectionError.unsupportedPlatform))
         }
 
-        if let errors = source.validate()?.errors() {
+        if let errors = source.validate(fileSystem: self.fileSystem)?.errors() {
             return callback(.failure(MultipleErrors(errors)))
         }
 
@@ -301,7 +319,7 @@ public struct PackageCollections: PackageCollectionsProtocol, Closable {
             switch result {
             case .failure:
                 // The collection is not in storage. Validate the source before fetching it.
-                if let errors = source.validate()?.errors() {
+                if let errors = source.validate(fileSystem: self.fileSystem)?.errors() {
                     return callback(.failure(MultipleErrors(errors)))
                 }
                 guard let provider = self.collectionProviders[source.type] else {
@@ -551,7 +569,11 @@ public struct PackageCollections: PackageCollectionsProtocol, Closable {
                      collections: Set<PackageCollectionsModel.CollectionIdentifier>?,
                      callback: @escaping (Result<PackageCollectionsModel.PackageSearchResult.Item, Error>) -> Void) {
         self.storage.sources.list { result in
+            let notFoundError = NotFoundError("identity: \(identity), location: \(location ?? "none")")
+            
             switch result {
+            case .failure(is NotFoundError):
+                callback(.failure(notFoundError))
             case .failure(let error):
                 callback(.failure(error))
             case .success(let sources):
@@ -560,10 +582,12 @@ public struct PackageCollections: PackageCollectionsProtocol, Closable {
                     collectionIdentifiers = collectionIdentifiers.filter { collections.contains($0) }
                 }
                 if collectionIdentifiers.isEmpty {
-                    return callback(.failure(NotFoundError("\(identity)")))
+                    return callback(.failure(notFoundError))
                 }
                 self.storage.collections.findPackage(identifier: identity, collectionIdentifiers: collectionIdentifiers) { findPackageResult in
                     switch findPackageResult {
+                    case .failure(is NotFoundError):
+                        callback(.failure(notFoundError))
                     case .failure(let error):
                         callback(.failure(error))
                     case .success(let packagesCollections):
@@ -576,7 +600,7 @@ public struct PackageCollections: PackageCollectionsProtocol, Closable {
                             matches = packagesCollections.packages
                         }
                         guard let package = matches.first else {
-                            return callback(.failure(NotFoundError("\(identity), \(location ?? "none")")))
+                            return callback(.failure(notFoundError))
                         }
                         callback(.success(.init(package: package, collections: packagesCollections.collections)))
                     }

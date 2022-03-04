@@ -69,27 +69,29 @@ public struct Destination: Encodable, Equatable {
 
     /// Creates a compilation destination with the specified properties.
     public init(
-      target: Triple? = nil,
-      sdk: AbsolutePath?,
-      binDir: AbsolutePath,
-      extraCCFlags: [String] = [],
-      extraSwiftCFlags: [String] = [],
-      extraCPPFlags: [String] = []
+        target: Triple? = nil,
+        sdk: AbsolutePath?,
+        binDir: AbsolutePath,
+        extraCCFlags: [String] = [],
+        extraSwiftCFlags: [String] = [],
+        extraCPPFlags: [String] = []
     ) {
-      self.target = target
-      self.sdk = sdk
-      self.binDir = binDir
-      self.extraCCFlags = extraCCFlags
-      self.extraSwiftCFlags = extraSwiftCFlags
-      self.extraCPPFlags = extraCPPFlags
+        self.target = target
+        self.sdk = sdk
+        self.binDir = binDir
+        self.extraCCFlags = extraCCFlags
+        self.extraSwiftCFlags = extraSwiftCFlags
+        self.extraCPPFlags = extraCPPFlags
     }
 
     /// Returns the bin directory for the host.
     ///
     /// - Parameter originalWorkingDirectory: The working directory when the program was launched.
     private static func hostBinDir(
-        originalWorkingDirectory: AbsolutePath? = localFileSystem.currentWorkingDirectory
+        fileSystem: FileSystem,
+        originalWorkingDirectory: AbsolutePath? = nil
     ) throws -> AbsolutePath {
+        let originalWorkingDirectory = originalWorkingDirectory ?? fileSystem.currentWorkingDirectory
         guard let cwd = originalWorkingDirectory else {
             return try AbsolutePath(validating: CommandLine.arguments[0]).parentDirectory
         }
@@ -99,9 +101,10 @@ public struct Destination: Encodable, Equatable {
     /// The destination describing the host OS.
     public static func hostDestination(
         _ binDir: AbsolutePath? = nil,
-        originalWorkingDirectory: AbsolutePath? = localFileSystem.currentWorkingDirectory,
+        originalWorkingDirectory: AbsolutePath? = nil,
         environment: [String:String] = ProcessEnv.vars
     ) throws -> Destination {
+        let originalWorkingDirectory = originalWorkingDirectory ?? localFileSystem.currentWorkingDirectory
         // Select the correct binDir.
         if ProcessEnv.vars["SWIFTPM_CUSTOM_BINDIR"] != nil {
             print("SWIFTPM_CUSTOM_BINDIR was deprecated in favor of SWIFTPM_CUSTOM_BIN_DIR")
@@ -109,7 +112,9 @@ public struct Destination: Encodable, Equatable {
         let customBinDir = (ProcessEnv.vars["SWIFTPM_CUSTOM_BIN_DIR"] ?? ProcessEnv.vars["SWIFTPM_CUSTOM_BINDIR"])
             .flatMap{ try? AbsolutePath(validating: $0) }
         let binDir = try customBinDir ?? binDir ?? Destination.hostBinDir(
-            originalWorkingDirectory: originalWorkingDirectory)
+            fileSystem: localFileSystem,
+            originalWorkingDirectory: originalWorkingDirectory
+        )
 
         let sdkPath: AbsolutePath?
 #if os(macOS)
@@ -212,7 +217,7 @@ public struct Destination: Encodable, Equatable {
 
 extension Destination {
     /// Load a Destination description from a JSON representation from disk.
-    public init(fromFile path: AbsolutePath, fileSystem: FileSystem = localFileSystem) throws {
+    public init(fromFile path: AbsolutePath, fileSystem: FileSystem) throws {
         let decoder = JSONDecoder.makeWithDefaults()
         let version = try decoder.decode(path: path, fileSystem: fileSystem, as: VersionInfo.self)
         // Check schema version.

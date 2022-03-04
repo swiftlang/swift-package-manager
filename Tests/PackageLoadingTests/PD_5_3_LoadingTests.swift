@@ -51,12 +51,12 @@ class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
 
         let resources = manifest.targets[0].resources
         XCTAssertEqual(resources[0], TargetDescription.Resource(rule: .copy, path: "foo.txt"))
-        XCTAssertEqual(resources[1], TargetDescription.Resource(rule: .process, path: "bar.txt"))
-        XCTAssertEqual(resources[2], TargetDescription.Resource(rule: .process, path: "biz.txt", localization: .default))
-        XCTAssertEqual(resources[3], TargetDescription.Resource(rule: .process, path: "baz.txt", localization: .base))
+        XCTAssertEqual(resources[1], TargetDescription.Resource(rule: .process(localization: .none), path: "bar.txt"))
+        XCTAssertEqual(resources[2], TargetDescription.Resource(rule: .process(localization: .default), path: "biz.txt"))
+        XCTAssertEqual(resources[3], TargetDescription.Resource(rule: .process(localization: .base), path: "baz.txt"))
 
         let testResources = manifest.targets[1].resources
-        XCTAssertEqual(testResources[0], TargetDescription.Resource(rule: .process, path: "testfixture.txt"))
+        XCTAssertEqual(testResources[0], TargetDescription.Resource(rule: .process(localization: .none), path: "testfixture.txt"))
     }
 
     func testBinaryTargetsTrivial() throws {
@@ -451,7 +451,6 @@ class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
         XCTAssertEqual(dependencies[1], .target(name: "Bar", condition: .init(platformNames: ["linux"], config: nil)))
         XCTAssertEqual(dependencies[2], .product(name: "Baz", package: "Baz", condition: .init(platformNames: ["macos"])))
         XCTAssertEqual(dependencies[3], .byName(name: "Bar", condition: .init(platformNames: ["watchos", "ios"])))
-
     }
 
     func testDefaultLocalization() throws {

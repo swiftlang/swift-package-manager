@@ -353,13 +353,13 @@ class RepositoryManagerTests: XCTestCase {
                     observabilityScope: observability.topScope,
                     delegateQueue: .sharedConcurrent,
                     callbackQueue: .sharedConcurrent
-                ) { result in
+                ) { result in                    
                     results[index] = result
                     group.leave()
                 }
             }
 
-            if case .timedOut = group.wait(timeout: .now() + 10) {
+            if case .timedOut = group.wait(timeout: .now() + 60) {
                 return XCTFail("timeout")
             }
 

@@ -17,7 +17,6 @@ import FoundationNetworking
 #endif
 import TSCBasic
 import TSCTestSupport
-import struct TSCUtility.Netrc
 import XCTest
 
 final class URLSessionHTTPClientTest: XCTestCase {
@@ -281,9 +280,7 @@ final class URLSessionHTTPClientTest: XCTestCase {
         try XCTSkipIf(true, "test is only supported on macOS")
         #endif
         let netrcContent = "machine protected.downloader-tests.com login anonymous password qwerty"
-        guard case .success(let netrc) = Netrc.from(netrcContent) else {
-            return XCTFail("Cannot load netrc content")
-        }
+        let netrc = try NetrcAuthorizationWrapper(underlying: NetrcParser.parse(netrcContent))
         let authData = "anonymous:qwerty".data(using: .utf8)!
         let testAuthHeader = "Basic \(authData.base64EncodedString())"
 
@@ -301,7 +298,7 @@ final class URLSessionHTTPClientTest: XCTestCase {
             let url = URL(string: "https://protected.downloader-tests.com/testBasics.zip")!
             let destination = tmpdir.appending(component: "download")
             var request = HTTPClient.Request.download(url: url, fileSystem: localFileSystem, destination: destination)
-            request.options.authorizationProvider = netrc.authorization(for:)
+            request.options.authorizationProvider = netrc.httpAuthorizationHeader(for:)
             httpClient.execute(
                 request,
                 progress: { bytesDownloaded, totalBytesToDownload in
@@ -352,9 +349,7 @@ final class URLSessionHTTPClientTest: XCTestCase {
         try XCTSkipIf(true, "test is only supported on macOS")
         #endif
         let netrcContent = "default login default password default"
-        guard case .success(let netrc) = Netrc.from(netrcContent) else {
-            return XCTFail("Cannot load netrc content")
-        }
+        let netrc = try NetrcAuthorizationWrapper(underlying: NetrcParser.parse(netrcContent))
         let authData = "default:default".data(using: .utf8)!
         let testAuthHeader = "Basic \(authData.base64EncodedString())"
 
@@ -372,7 +367,7 @@ final class URLSessionHTTPClientTest: XCTestCase {
             let url = URL(string: "https://restricted.downloader-tests.com/testBasics.zip")!
             let destination = tmpdir.appending(component: "download")
             var request = HTTPClient.Request.download(url: url, fileSystem: localFileSystem, destination: destination)
-            request.options.authorizationProvider = netrc.authorization(for:)
+            request.options.authorizationProvider = netrc.httpAuthorizationHeader(for:)
             httpClient.execute(
                 request,
                 progress: { bytesDownloaded, totalBytesToDownload in
@@ -811,5 +806,13 @@ class FailingFileSystem: FileSystem {
 
     func move(from sourcePath: AbsolutePath, to destinationPath: AbsolutePath) throws {
         throw FileSystemError(.unsupported)
+    }
+}
+
+fileprivate struct NetrcAuthorizationWrapper: AuthorizationProvider {
+    let underlying: Netrc
+
+    func authentication(for url: URL) -> (user: String, password: String)? {
+        self.underlying.authorization(for: url).map{ (user: $0.login, password: $0.password) }
     }
 }

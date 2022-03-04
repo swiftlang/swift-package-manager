@@ -6,14 +6,13 @@
 # See http://swift.org/LICENSE.txt for license information
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
-add_library(XCBuildSupport
+add_library(XCBuildSupport STATIC
   PIF.swift
   PIFBuilder.swift
   XCBuildDelegate.swift
   XCBuildMessage.swift
   XCBuildOutputParser.swift
-  XcodeBuildSystem.swift
-)
+  XcodeBuildSystem.swift)
 target_link_libraries(XCBuildSupport PUBLIC
   Build
   TSCBasic
@@ -23,10 +22,3 @@ target_link_libraries(XCBuildSupport PUBLIC
 
 set_target_properties(XCBuildSupport PROPERTIES
   INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})
-
-if(USE_CMAKE_INSTALL)
-install(TARGETS XCBuildSupport
-  ARCHIVE DESTINATION lib
-  LIBRARY DESTINATION lib
-  RUNTIME DESTINATION bin)
-endif()

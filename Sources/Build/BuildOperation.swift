@@ -88,6 +88,10 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         fileSystem: TSCBasic.FileSystem,
         observabilityScope: ObservabilityScope
     ) {
+        /// Checks if stdout stream is tty.
+        var buildParameters = buildParameters
+        buildParameters.colorizedOutput = outputStream.isTTY
+
         self.buildParameters = buildParameters
         self.cacheBuildManifest = cacheBuildManifest
         self.packageGraphLoader = packageGraphLoader
@@ -123,7 +127,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                             throw InternalError("could not find build descriptor at \(buildDescriptionPath)")
                         }
                         // return the build description that's on disk.
-                        return try BuildDescription.load(from: buildDescriptionPath)
+                        return try BuildDescription.load(fileSystem: self.fileSystem, path: buildDescriptionPath)
                     }
                 } catch {
                     // since caching is an optimization, warn about failing to load the cached version
@@ -278,7 +282,8 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             toolSearchDirectories: [self.buildParameters.toolchain.swiftCompiler.parentDirectory],
             pluginScriptRunner: self.pluginScriptRunner,
             observabilityScope: self.observabilityScope,
-            fileSystem: localFileSystem)
+            fileSystem: self.fileSystem
+        )
 
 
         // Surface any diagnostics from build tool plugins.
@@ -389,6 +394,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         let buildExecutionContext = BuildExecutionContext(
             buildParameters,
             buildDescription: buildDescription,
+            fileSystem: self.fileSystem,
             observabilityScope: self.observabilityScope,
             packageStructureDelegate: self,
             buildErrorAdviceProvider: self
@@ -449,7 +455,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 
                 // Add any files found in the output directory declared for the prebuild command after the command ends.
                 let outputFilesDir = command.outputFilesDirectory
-                if let swiftFiles = try? localFileSystem.getDirectoryContents(outputFilesDir).sorted() {
+                if let swiftFiles = try? self.fileSystem.getDirectoryContents(outputFilesDir).sorted() {
                     derivedSourceFiles.append(contentsOf: swiftFiles.map{ outputFilesDir.appending(component: $0) })
                 }
 
@@ -522,7 +528,7 @@ extension BuildDescription {
             plan.buildParameters.buildDescriptionPath.parentDirectory,
             recursive: true
         )
-        try buildDescription.write(to: plan.buildParameters.buildDescriptionPath)
+        try buildDescription.write(fileSystem: fileSystem, path: plan.buildParameters.buildDescriptionPath)
         return (buildDescription, buildManifest)
     }
 }
@@ -561,6 +567,21 @@ extension BuildSubset {
             }
             return target.getLLBuildTargetName(config: config)
         }
+    }
+}
+
+extension OutputByteStream {
+    fileprivate var isTTY: Bool {
+        let stream: OutputByteStream
+        if let threadSafeStream = self as? ThreadSafeOutputByteStream {
+            stream = threadSafeStream.stream
+        } else {
+            stream = self
+        }
+        guard let fileStream = stream as? LocalFileOutputByteStream else {
+            return false
+        }
+        return TerminalController.isTTY(fileStream)
     }
 }
 

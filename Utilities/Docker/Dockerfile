@@ -24,9 +24,11 @@ ENV LANGUAGE en_US.UTF-8
 #---------------------
 
 RUN apt-get update && apt-get install -y \
-  sqlite3 \
+  git \
   libsqlite3-dev \
-  libncurses5-dev
+  libncurses5-dev \
+  sqlite3 \
+  zip
 
 # Bootstrap script dependencies
 #------------------------------

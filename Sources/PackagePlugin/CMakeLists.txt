@@ -16,7 +16,8 @@ add_library(PackagePlugin
   PackageModel.swift
   Path.swift
   Plugin.swift
-  PluginInput.swift
+  PluginContextDeserializer.swift
+  PluginMessages.swift
   Protocols.swift
   Utilities.swift)
 
@@ -45,10 +46,8 @@ set_target_properties(PackagePlugin PROPERTIES
 )
 
 if(NOT CMAKE_SYSTEM_NAME STREQUAL Darwin)
-  if(Foundation_FOUND)
-    target_link_libraries(PackagePlugin PRIVATE
-      Foundation)
-  endif()
+  target_link_libraries(PackagePlugin PRIVATE
+    Foundation)
   target_link_options(PackagePlugin PRIVATE
     "SHELL:-no-toolchain-stdlib-rpath")
   set_target_properties(PackagePlugin PROPERTIES

@@ -34,7 +34,7 @@ extension PackageDependency {
 extension Manifest {
     /// Constructs constraints of the dependencies in the raw package.
     public func dependencyConstraints(productFilter: ProductFilter) throws -> [PackageContainerConstraint] {
-        return try dependenciesRequired(for: productFilter).map({
+        return try self.dependenciesRequired(for: productFilter).map({
             return PackageContainerConstraint(
                 package: $0.createPackageRef(),
                 requirement: try $0.toConstraintRequirement(),

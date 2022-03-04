@@ -21,7 +21,7 @@ class GenerateXcodeprojTests: XCTestCase {
     func testBuildXcodeprojPath() {
         let outdir = AbsolutePath("/path/to/project")
         let projectName = "Bar"
-        let xcodeprojPath = Xcodeproj.buildXcodeprojPath(outputDir: outdir, projectName: projectName)
+        let xcodeprojPath = XcodeProject.makePath(outputDir: outdir, projectName: projectName)
         let expectedPath = AbsolutePath("/path/to/project/Bar.xcodeproj")
         XCTAssertEqual(xcodeprojPath, expectedPath)
     }
@@ -52,8 +52,8 @@ class GenerateXcodeprojTests: XCTestCase {
             XCTAssertNoDiagnostics(observability.diagnostics)
 
             let projectName = "DummyProjectName"
-            let outpath = Xcodeproj.buildXcodeprojPath(outputDir: dstdir, projectName: projectName)
-            try Xcodeproj.generate(
+            let outpath = XcodeProject.makePath(outputDir: dstdir, projectName: projectName)
+            try XcodeProject.generate(
                 projectName: projectName,
                 xcodeprojPath: outpath,
                 graph: graph,
@@ -66,7 +66,7 @@ class GenerateXcodeprojTests: XCTestCase {
             XCTAssertEqual(outpath, dstdir.appending(component: projectName + ".xcodeproj"))
 
             // We can only validate this on OS X.
-            // Don't allow TOOLCHAINS to be overriden here, as it breaks the test below.
+            // Don't allow TOOLCHAINS to be overridden here, as it breaks the test below.
             let output = try Process.checkNonZeroExit(
                 args: "env", "-u", "TOOLCHAINS", "xcodebuild", "-list", "-project", outpath.pathString).spm_chomp()
 
@@ -191,8 +191,8 @@ class GenerateXcodeprojTests: XCTestCase {
             XCTAssertNoDiagnostics(observability.diagnostics)
 
             let projectName = "DummyProjectName"
-            let outpath = Xcodeproj.buildXcodeprojPath(outputDir: dstdir, projectName: projectName)
-            let project = try Xcodeproj.generate(
+            let outpath = XcodeProject.makePath(outputDir: dstdir, projectName: projectName)
+            let project = try XcodeProject.generate(
                 projectName: projectName,
                 xcodeprojPath: outpath,
                 graph: graph,
@@ -232,8 +232,8 @@ class GenerateXcodeprojTests: XCTestCase {
             XCTAssertNoDiagnostics(observability.diagnostics)
 
             let projectName = "DummyProjectName"
-            let outpath = Xcodeproj.buildXcodeprojPath(outputDir: dstdir, projectName: projectName)
-            let project = try Xcodeproj.generate(
+            let outpath = XcodeProject.makePath(outputDir: dstdir, projectName: projectName)
+            let project = try XcodeProject.generate(
                 projectName: projectName,
                 xcodeprojPath: outpath,
                 graph: graph,
@@ -272,8 +272,8 @@ class GenerateXcodeprojTests: XCTestCase {
             XCTAssertNoDiagnostics(observability.diagnostics)
 
             let projectName = "DummyProjectName"
-            let outpath = Xcodeproj.buildXcodeprojPath(outputDir: dstdir, projectName: projectName)
-            let project = try Xcodeproj.generate(
+            let outpath = XcodeProject.makePath(outputDir: dstdir, projectName: projectName)
+            let project = try XcodeProject.generate(
                 projectName: projectName,
                 xcodeprojPath: outpath,
                 graph: graph,
@@ -284,7 +284,7 @@ class GenerateXcodeprojTests: XCTestCase {
 
             XCTAssertTrue(project.mainGroup.subitems.contains { $0.path == "a.txt" })
 
-            let projectWithoutExtraFiles = try Xcodeproj.generate(
+            let projectWithoutExtraFiles = try XcodeProject.generate(
                 projectName: projectName,
                 xcodeprojPath: outpath,
                 graph: graph,
@@ -323,8 +323,8 @@ class GenerateXcodeprojTests: XCTestCase {
             XCTAssertNoDiagnostics(observability.diagnostics)
 
             let projectName = "DummyProjectName"
-            let outpath = Xcodeproj.buildXcodeprojPath(outputDir: tmpdir, projectName: projectName)
-            let project = try Xcodeproj.generate(
+            let outpath = XcodeProject.makePath(outputDir: tmpdir, projectName: projectName)
+            let project = try XcodeProject.generate(
                 projectName: projectName,
                 xcodeprojPath: outpath,
                 graph: graph,
@@ -372,8 +372,8 @@ class GenerateXcodeprojTests: XCTestCase {
             XCTAssertNoDiagnostics(observability.diagnostics)
 
             let projectName = "DummyProjectName"
-            let outpath = Xcodeproj.buildXcodeprojPath(outputDir: dstdir, projectName: projectName)
-            let project = try Xcodeproj.generate(
+            let outpath = XcodeProject.makePath(outputDir: dstdir, projectName: projectName)
+            let project = try XcodeProject.generate(
                 projectName: projectName,
                 xcodeprojPath: outpath,
                 graph: graph,
@@ -436,8 +436,8 @@ class GenerateXcodeprojTests: XCTestCase {
                 observabilityScope: observability.topScope
             )
 
-            let outpath = Xcodeproj.buildXcodeprojPath(outputDir: dstdir, projectName: "Foo")
-            try Xcodeproj.generate(
+            let outpath = XcodeProject.makePath(outputDir: dstdir, projectName: "Foo")
+            try XcodeProject.generate(
                 projectName: "Foo",
                 xcodeprojPath: outpath,
                 graph: graph,

@@ -55,30 +55,21 @@ final class PackageToolTests: CommandsTestCase {
     }
 
     func testPlugin() throws {
-        do {
-            try execute(["plugin"])
-            XCTFail("This should have been an error")
-        } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
-            XCTAssertMatch(stderr, .contains("error: Missing expected plugin command"))
+        XCTAssertThrowsCommandExecutionError(try execute(["plugin"])) { error in
+            XCTAssertMatch(error.stderr, .contains("error: Missing expected plugin command"))
         }
     }
 
     func testUnknownOption() throws {
-        do {
-            try execute(["--foo"])
-            XCTFail("This should have been an error")
-        } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
-            XCTAssertMatch(stderr, .contains("error: Unknown option '--foo'"))
+        XCTAssertThrowsCommandExecutionError(try execute(["--foo"])) { error in
+            XCTAssertMatch(error.stderr, .contains("error: Unknown option '--foo'"))
         }
     }
 
     func testUnknownSubommand() throws {
         try fixture(name: "Miscellaneous/ExeTest") { fixturePath in
-            do {
-                try execute(["foo"], packagePath: fixturePath)
-                XCTFail("This should have been an error")
-            } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
-                XCTAssertMatch(stderr, .contains("error: Unknown subcommand or plugin name 'foo'"))
+            XCTAssertThrowsCommandExecutionError(try execute(["foo"], packagePath: fixturePath)) { error in
+                XCTAssertMatch(error.stderr, .contains("error: Unknown subcommand or plugin name 'foo'"))
             }
         }
     }
@@ -175,7 +166,7 @@ final class PackageToolTests: CommandsTestCase {
                 _ = try execute(["reset"], packagePath: packageRoot)
                 try localFileSystem.removeFileTree(cachePath)
 
-                // Perfom another fetch
+                // Perform another fetch
                 _ = try execute(["resolve", "--enable-dependency-cache", "--cache-path", cachePath.pathString], packagePath: packageRoot)
                 XCTAssert(try localFileSystem.getDirectoryContents(repositoriesPath).contains { $0.hasPrefix("Foo-") })
                 XCTAssert(try localFileSystem.getDirectoryContents(repositoriesCachePath).contains { $0.hasPrefix("Foo-") })
@@ -218,7 +209,7 @@ final class PackageToolTests: CommandsTestCase {
                 _ = try execute(["reset"], packagePath: packageRoot)
                 try localFileSystem.removeFileTree(cachePath)
 
-                // Perfom another fetch
+                // Perform another fetch
                 _ = try execute(["resolve", "--enable-repository-cache", "--cache-path", cachePath.pathString], packagePath: packageRoot)
                 XCTAssert(try localFileSystem.getDirectoryContents(repositoriesPath).contains { $0.hasPrefix("Foo-") })
                 XCTAssert(try localFileSystem.getDirectoryContents(repositoriesCachePath).contains { $0.hasPrefix("Foo-") })
@@ -296,7 +287,7 @@ final class PackageToolTests: CommandsTestCase {
             _ = try execute(["reset"], packagePath: packageRoot)
             try localFileSystem.removeFileTree(cachePath)
 
-            // Perfom another fetch
+            // Perform another fetch
             _ = try execute(["resolve", "--cache-path", cachePath.pathString], packagePath: packageRoot)
             XCTAssert(try localFileSystem.getDirectoryContents(repositoriesPath).contains { $0.hasPrefix("Foo-") })
             XCTAssert(try localFileSystem.getDirectoryContents(repositoriesCachePath).contains { $0.hasPrefix("Foo-") })
@@ -506,7 +497,7 @@ final class PackageToolTests: CommandsTestCase {
                 .fileSystem(path: .init("/PackageC")),
             ],
             products: [
-                .init(name: "exe", type: .executable, targets: ["TargetA"])
+                try .init(name: "exe", type: .executable, targets: ["TargetA"])
             ],
             targets: [
                 try .init(name: "TargetA", dependencies: ["PackageB", "PackageC"])
@@ -522,7 +513,7 @@ final class PackageToolTests: CommandsTestCase {
                 .fileSystem(path: .init("/PackageD")),
             ],
             products: [
-                .init(name: "PackageB", type: .library(.dynamic), targets: ["TargetB"])
+                try .init(name: "PackageB", type: .library(.dynamic), targets: ["TargetB"])
             ],
             targets: [
                 try .init(name: "TargetB", dependencies: ["PackageC", "PackageD"])
@@ -537,7 +528,7 @@ final class PackageToolTests: CommandsTestCase {
                 .fileSystem(path: .init("/PackageD")),
             ],
             products: [
-                .init(name: "PackageC", type: .library(.dynamic), targets: ["TargetC"])
+                try .init(name: "PackageC", type: .library(.dynamic), targets: ["TargetC"])
             ],
             targets: [
                 try .init(name: "TargetC", dependencies: ["PackageD"])
@@ -549,7 +540,7 @@ final class PackageToolTests: CommandsTestCase {
             path: .init("/PackageD"),
             toolsVersion: .v5_3,
             products: [
-                .init(name: "PackageD", type: .library(.dynamic), targets: ["TargetD"])
+                try .init(name: "PackageD", type: .library(.dynamic), targets: ["TargetD"])
             ],
             targets: [
                 try .init(name: "TargetD")
@@ -975,11 +966,8 @@ final class PackageToolTests: CommandsTestCase {
             // Try pinning a dependency which is in edit mode.
             do {
                 try execute("edit", "bar", "--branch", "bugfix")
-                do {
-                    try execute("resolve", "bar")
-                    XCTFail("This should have been an error")
-                } catch SwiftPMProductError.executionFailure(_, _, let stderr) {
-                    XCTAssertMatch(stderr, .contains("error: edited dependency 'bar' can't be resolved"))
+                XCTAssertThrowsCommandExecutionError(try execute("resolve", "bar")) { error in
+                    XCTAssertMatch(error.stderr, .contains("error: edited dependency 'bar' can't be resolved"))
                 }
                 try execute("unedit", "bar")
             }
@@ -1194,13 +1182,8 @@ final class PackageToolTests: CommandsTestCase {
             XCTAssertEqual(stdout.spm_chomp(), "git@mygithub.com:foo/swift-package-manager.git")
 
             func check(stderr: String, _ block: () throws -> ()) {
-                do {
-                    try block()
-                    XCTFail()
-                } catch SwiftPMProductError.executionFailure(_, _, let stderrOutput) {
-                    XCTAssertMatch(stderrOutput, .contains(stderr))
-                } catch {
-                    XCTFail("unexpected error: \(error)")
+                XCTAssertThrowsCommandExecutionError(try block()) { error in
+                    XCTAssertMatch(stderr, .contains(stderr))
                 }
             }
 

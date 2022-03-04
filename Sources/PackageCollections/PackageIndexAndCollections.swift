@@ -22,6 +22,7 @@ public struct PackageIndexAndCollections: Closable {
     public init(
         indexConfiguration: PackageIndexConfiguration = .init(),
         collectionsConfiguration: PackageCollections.Configuration = .init(),
+        fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
     ) {
         let index = PackageIndex(
@@ -31,9 +32,12 @@ public struct PackageIndexAndCollections: Closable {
         )
         let metadataProvider = PackageIndexMetadataProvider(
             index: index,
-            alternative: GitHubPackageMetadataProvider(
-                configuration: .init(authTokens: collectionsConfiguration.authTokens),
-                observabilityScope: observabilityScope
+            alternativeContainer: (
+                provider: GitHubPackageMetadataProvider(
+                    configuration: .init(authTokens: collectionsConfiguration.authTokens),
+                    observabilityScope: observabilityScope
+                ),
+                managed: true
             )
         )
         
@@ -41,6 +45,7 @@ public struct PackageIndexAndCollections: Closable {
         self.collections = PackageCollections(
             configuration: collectionsConfiguration,
             customMetadataProvider: metadataProvider,
+            fileSystem: fileSystem,
             observabilityScope: observabilityScope
         )
         self.observabilityScope = observabilityScope
@@ -342,9 +347,15 @@ public struct PackageIndexAndCollections: Closable {
     }
 }
 
-struct PackageIndexMetadataProvider: PackageMetadataProvider {
+struct PackageIndexMetadataProvider: PackageMetadataProvider, Closable {
+    typealias ProviderContainer = (provider: PackageMetadataProvider, managed: Bool)
+    
     let index: PackageIndex
-    let alternative: PackageMetadataProvider
+    let alternativeContainer: ProviderContainer
+    
+    var alternative: PackageMetadataProvider {
+        self.alternativeContainer.provider
+    }
 
     func get(
         identity: PackageIdentity,
@@ -355,6 +366,15 @@ struct PackageIndexMetadataProvider: PackageMetadataProvider {
             self.index.get(identity: identity, location: location, callback: callback)
         } else {
             self.alternative.get(identity: identity, location: location, callback: callback)
+        }
+    }
+    
+    func close() throws {
+        guard self.alternativeContainer.managed else {
+            return
+        }
+        if let alternative = self.alternative as? Closable {
+            try alternative.close()
         }
     }
 }

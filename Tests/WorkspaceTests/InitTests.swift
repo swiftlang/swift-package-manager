@@ -26,7 +26,12 @@ class InitTests: XCTestCase {
             try fs.createDirectory(path)
             
             // Create the package
-            let initPackage = try InitPackage(name: name, destinationPath: path, packageType: InitPackage.PackageType.empty)
+            let initPackage = try InitPackage(
+                name: name,
+                packageType: .empty,
+                destinationPath: path,
+                fileSystem: localFileSystem
+            )
             var progressMessages = [String]()
             initPackage.progressReporter = { message in
                 progressMessages.append(message)
@@ -58,7 +63,12 @@ class InitTests: XCTestCase {
             try fs.createDirectory(path)
 
             // Create the package
-            let initPackage = try InitPackage(name: name, destinationPath: path, packageType: InitPackage.PackageType.executable)
+            let initPackage = try InitPackage(
+                name: name,
+                packageType: .executable,
+                destinationPath: path,
+                fileSystem: localFileSystem
+            )
             var progressMessages = [String]()
             initPackage.progressReporter = { message in
                 progressMessages.append(message)
@@ -103,7 +113,12 @@ class InitTests: XCTestCase {
             try fs.createDirectory(path)
 
             // Create the package
-            let initPackage = try InitPackage(name: name, destinationPath: path, packageType: InitPackage.PackageType.library)
+            let initPackage = try InitPackage(
+                name: name,
+                packageType: .library,
+                destinationPath: path,
+                fileSystem: localFileSystem
+            )
             var progressMessages = [String]()
             initPackage.progressReporter = { message in
                 progressMessages.append(message)
@@ -154,7 +169,12 @@ class InitTests: XCTestCase {
             try fs.createDirectory(path)
             
             // Create the package
-            let initPackage = try InitPackage(name: name, destinationPath: path, packageType: InitPackage.PackageType.systemModule)
+            let initPackage = try InitPackage(
+                name: name,
+                packageType: .systemModule,
+                destinationPath: path,
+                fileSystem: localFileSystem
+            )
             var progressMessages = [String]()
             initPackage.progressReporter = { message in
                 progressMessages.append(message)
@@ -185,7 +205,12 @@ class InitTests: XCTestCase {
             try fs.createDirectory(path)
 
             // Create the package
-            let initPackage = try InitPackage(name: name, destinationPath: path, packageType: InitPackage.PackageType.manifest)
+            let initPackage = try InitPackage(
+                name: name,
+                packageType: InitPackage.PackageType.manifest,
+                destinationPath: path,
+                fileSystem: localFileSystem
+            )
             var progressMessages = [String]()
             initPackage.progressReporter = { message in
                 progressMessages.append(message)
@@ -218,7 +243,12 @@ class InitTests: XCTestCase {
             XCTAssertDirectoryExists(packageRoot)
             
             // Create the package
-            let initPackage = try InitPackage(name: packageName, destinationPath: packageRoot, packageType: InitPackage.PackageType.library)
+            let initPackage = try InitPackage(
+                name: packageName,
+                packageType: .library,
+                destinationPath: packageRoot,
+                fileSystem: localFileSystem
+            )
             initPackage.progressReporter = { message in }
             try initPackage.writePackageStructure()
 
@@ -238,7 +268,12 @@ class InitTests: XCTestCase {
             XCTAssertDirectoryExists(packageRoot)
             
             // Create package with non c99name.
-            let initPackage = try InitPackage(name: "package-name", destinationPath: packageRoot, packageType: InitPackage.PackageType.executable)
+            let initPackage = try InitPackage(
+                name: "package-name",
+                packageType: .executable,
+                destinationPath: packageRoot,
+                fileSystem: localFileSystem
+            )
             try initPackage.writePackageStructure()
             
             #if os(macOS)
@@ -265,8 +300,9 @@ class InitTests: XCTestCase {
 
             let initPackage = try InitPackage(
                 name: "Foo",
+                options: options,
                 destinationPath: packageRoot,
-                options: options
+                fileSystem: localFileSystem
             )
             try initPackage.writePackageStructure()
 

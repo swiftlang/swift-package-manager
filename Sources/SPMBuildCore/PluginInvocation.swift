@@ -17,11 +17,9 @@ import TSCBasic
 
 import struct TSCUtility.Triple
 
-public typealias Diagnostic = Basics.Diagnostic
-
 public enum PluginAction {
-    case createBuildToolCommands(target: ResolvedTarget)
-    case performCommand(arguments: [String])
+    case createBuildToolCommands(package: ResolvedPackage, target: ResolvedTarget)
+    case performCommand(package: ResolvedPackage, arguments: [String])
 }
 
 extension PluginTarget {
@@ -49,7 +47,6 @@ extension PluginTarget {
     /// - Returns: A PluginInvocationResult that contains the results of invoking the plugin.
     public func invoke(
         action: PluginAction,
-        package: ResolvedPackage,
         buildEnvironment: BuildEnvironment,
         scriptRunner: PluginScriptRunner,
         workingDirectory: AbsolutePath,
@@ -64,7 +61,7 @@ extension PluginTarget {
         delegate: PluginInvocationDelegate,
         completion: @escaping (Result<Bool, Error>) -> Void
     ) {
-        // Create the plugin working directory if needed (but don't do anything with it if it already exists).
+        // Create the plugin's output directory if needed (but don't do anything with it if it already exists).
         do {
             try fileSystem.createDirectory(outputDirectory, recursive: true)
         }
@@ -72,25 +69,173 @@ extension PluginTarget {
             return callbackQueue.async { completion(.failure(PluginEvaluationError.couldNotCreateOuputDirectory(path: outputDirectory, underlyingError: error))) }
         }
 
-        // Create the input context to send to the plugin.
-        var serializer = PluginScriptRunnerInputSerializer(buildEnvironment: buildEnvironment)
-        let inputStruct: PluginScriptRunnerInput
+        // Serialize the plugin action to send as the initial message.
+        let initialMessage: Data
         do {
-            inputStruct = try serializer.makePluginScriptRunnerInput(
-                rootPackage: package,
-                pluginWorkDir: outputDirectory,
-                toolSearchDirs: toolSearchDirectories,
-                toolNamesToPaths: toolNamesToPaths,
-                pluginAction: action)
+            var serializer = PluginContextSerializer(fileSystem: fileSystem, buildEnvironment: buildEnvironment)
+            let pluginWorkDirId = try serializer.serialize(path: outputDirectory)
+            let toolSearchDirIds = try toolSearchDirectories.map{ try serializer.serialize(path: $0) }
+            let toolNamesToPathIds = try toolNamesToPaths.mapValues{ try serializer.serialize(path: $0) }
+            let actionMessage: HostToPluginMessage
+            switch action {
+                
+            case .createBuildToolCommands(let package, let target):
+                let rootPackageId = try serializer.serialize(package: package)
+                guard let targetId = try serializer.serialize(target: target) else {
+                    throw StringError("unexpectedly was unable to serialize target \(target)")
+                }
+                let wireInput = WireInput(
+                    paths: serializer.paths,
+                    targets: serializer.targets,
+                    products: serializer.products,
+                    packages: serializer.packages,
+                    pluginWorkDirId: pluginWorkDirId,
+                    toolSearchDirIds: toolSearchDirIds,
+                    toolNamesToPathIds: toolNamesToPathIds)
+                actionMessage = .createBuildToolCommands(
+                    context: wireInput,
+                    rootPackageId: rootPackageId,
+                    targetId: targetId)
+            
+            case .performCommand(let package, let arguments):
+                let rootPackageId = try serializer.serialize(package: package)
+                let wireInput = WireInput(
+                    paths: serializer.paths,
+                    targets: serializer.targets,
+                    products: serializer.products,
+                    packages: serializer.packages,
+                    pluginWorkDirId: pluginWorkDirId,
+                    toolSearchDirIds: toolSearchDirIds,
+                    toolNamesToPathIds: toolNamesToPathIds)
+                actionMessage = .performCommand(
+                    context: wireInput,
+                    rootPackageId: rootPackageId,
+                    arguments: arguments)
+            }
+            initialMessage = try actionMessage.toData()
         }
         catch {
             return callbackQueue.async { completion(.failure(PluginEvaluationError.couldNotSerializePluginInput(underlyingError: error))) }
         }
+        
+        // Handle messages and output from the plugin.
+        class ScriptRunnerDelegate: PluginScriptRunnerDelegate {
+            /// Delegate that should be told about events involving the plugin.
+            let invocationDelegate: PluginInvocationDelegate
+            
+            /// Observability scope for the invoking of the plugin. Diagnostics from the plugin itself are sent through the delegate.
+            let observabilityScope: ObservabilityScope
+            
+            /// Whether at least one error has been reported; this is used to make sure there is at least one error if the plugin fails.
+            var hasReportedError = false
+            
+            init(invocationDelegate: PluginInvocationDelegate, observabilityScope: ObservabilityScope) {
+                self.invocationDelegate = invocationDelegate
+                self.observabilityScope = observabilityScope
+            }
+            
+            /// Invoked when the plugin emits arbtirary data on its stdout/stderr. There is no guarantee that the data is split on UTF-8 character encoding boundaries etc.  The script runner delegate just passes it on to the invocation delegate.
+            func handleOutput(data: Data) {
+                invocationDelegate.pluginEmittedOutput(data)
+            }
 
+            /// Invoked when the plugin emits a message. The `responder` closure can be used to send any reply messages.
+            func handleMessage(data: Data, responder: @escaping (Data) -> Void) throws {
+                let message = try PluginToHostMessage(data)
+                switch message {
+                    
+                case .emitDiagnostic(let severity, let message, let file, let line):
+                    let metadata: ObservabilityMetadata? = file.map {
+                        var metadata = ObservabilityMetadata()
+                        // FIXME: We should probably report some kind of protocol error if the path isn't valid.
+                        metadata.fileLocation = try? .init(.init(validating: $0), line: line)
+                        return metadata
+                    }
+                    let diagnostic: Basics.Diagnostic
+                    switch severity {
+                    case .error:
+                        diagnostic = .error(message, metadata: metadata)
+                        hasReportedError = true
+                    case .warning:
+                        diagnostic = .warning(message, metadata: metadata)
+                    case .remark:
+                        diagnostic = .info(message, metadata: metadata)
+                    }
+                    self.invocationDelegate.pluginEmittedDiagnostic(diagnostic)
+                    
+                case .defineBuildCommand(let config, let inputFiles, let outputFiles):
+                    self.invocationDelegate.pluginDefinedBuildCommand(
+                        displayName: config.displayName,
+                        executable: try AbsolutePath(validating: config.executable),
+                        arguments: config.arguments,
+                        environment: config.environment,
+                        workingDirectory: try config.workingDirectory.map{ try AbsolutePath(validating: $0) },
+                        inputFiles: try inputFiles.map{ try AbsolutePath(validating: $0) },
+                        outputFiles: try outputFiles.map{ try AbsolutePath(validating: $0) })
+                    
+                case .definePrebuildCommand(let config, let outputFilesDir):
+                    self.invocationDelegate.pluginDefinedPrebuildCommand(
+                        displayName: config.displayName,
+                        executable: try AbsolutePath(validating: config.executable),
+                        arguments: config.arguments,
+                        environment: config.environment,
+                        workingDirectory: try config.workingDirectory.map{ try AbsolutePath(validating: $0) },
+                        outputFilesDirectory: try AbsolutePath(validating: outputFilesDir))
+
+                case .buildOperationRequest(let subset, let parameters):
+                    self.invocationDelegate.pluginRequestedBuildOperation(subset: .init(subset), parameters: .init(parameters)) {
+                        do {
+                            switch $0 {
+                            case .success(let result):
+                                responder(try HostToPluginMessage.buildOperationResponse(result: .init(result)).toData())
+                            case .failure(let error):
+                                responder(try HostToPluginMessage.errorResponse(error: String(describing: error)).toData())
+                            }
+                        }
+                        catch {
+                            self.observabilityScope.emit(debug: "couldn't send reply to plugin \(error)")
+                        }
+                    }
+
+                case .testOperationRequest(let subset, let parameters):
+                    self.invocationDelegate.pluginRequestedTestOperation(subset: .init(subset), parameters: .init(parameters)) {
+                        do {
+                            switch $0 {
+                            case .success(let result):
+                                responder(try HostToPluginMessage.testOperationResponse(result: .init(result)).toData())
+                            case .failure(let error):
+                                responder(try HostToPluginMessage.errorResponse(error: String(describing: error)).toData())
+                            }
+                        }
+                        catch {
+                            self.observabilityScope.emit(debug: "couldn't send reply to plugin \(error)")
+                        }
+                    }
+
+                case .symbolGraphRequest(let targetName, let options):
+                    // The plugin requested symbol graph information for a target. We ask the delegate and then send a response.
+                    self.invocationDelegate.pluginRequestedSymbolGraph(forTarget: .init(targetName), options: .init(options)) {
+                        do {
+                            switch $0 {
+                            case .success(let result):
+                                responder(try HostToPluginMessage.symbolGraphResponse(result: .init(result)).toData())
+                            case .failure(let error):
+                                responder(try HostToPluginMessage.errorResponse(error: String(describing: error)).toData())
+                            }
+                        }
+                        catch {
+                            self.observabilityScope.emit(debug: "couldn't send reply to plugin \(error)")
+                        }
+                    }
+                }
+            }
+        }
+        let runnerDelegate = ScriptRunnerDelegate(invocationDelegate: delegate, observabilityScope: observabilityScope)
+        
         // Call the plugin script runner to actually invoke the plugin.
         scriptRunner.runPluginScript(
             sources: sources,
-            input: inputStruct,
+            initialMessage: initialMessage,
             toolsVersion: self.apiVersion,
             workingDirectory: workingDirectory,
             writableDirectories: writableDirectories,
@@ -98,10 +243,36 @@ extension PluginTarget {
             fileSystem: fileSystem,
             observabilityScope: observabilityScope,
             callbackQueue: callbackQueue,
-            delegate: delegate,
-            completion: completion)
+            delegate: runnerDelegate) { result in
+                dispatchPrecondition(condition: .onQueue(callbackQueue))
+                completion(result.map { exitCode in
+                    // Return a result based on the exit code. If the plugin
+                    // exits with an error but hasn't already emitted an error,
+                    // we do so for it.
+                    let exitedCleanly = (exitCode == 0)
+                    if !exitedCleanly && !runnerDelegate.hasReportedError {
+                        delegate.pluginEmittedDiagnostic(
+                            .error("Plugin ended with exit code \(exitCode)")
+                        )
+                    }
+                    return exitedCleanly
+                })
+        }
     }
 }
+
+fileprivate extension HostToPluginMessage {
+    func toData() throws -> Data {
+        return try JSONEncoder.makeWithDefaults().encode(self)
+    }
+}
+
+fileprivate extension PluginToHostMessage {
+    init(_ data: Data) throws {
+        self = try JSONDecoder.makeWithDefaults().decode(Self.self, from: data)
+    }
+}
+
 
 extension PackageGraph {
 
@@ -170,7 +341,7 @@ extension PackageGraph {
             for pluginTarget in pluginTargets {
                 // Determine the tools to which this plugin has access, and create a name-to-path mapping from tool
                 // names to the corresponding paths. Built tools are assumed to be in the build tools directory.
-                let accessibleTools = pluginTarget.accessibleTools(for: pluginScriptRunner.hostTriple)
+                let accessibleTools = pluginTarget.accessibleTools(fileSystem: fileSystem, for: pluginScriptRunner.hostTriple)
                 let toolNamesToPaths = accessibleTools.reduce(into: [String: AbsolutePath](), { dict, tool in
                     switch tool {
                     case .builtTool(let name, let path):
@@ -194,7 +365,7 @@ extension PackageGraph {
                 class PluginDelegate: PluginInvocationDelegate {
                     let delegateQueue: DispatchQueue
                     var outputData = Data()
-                    var diagnostics = [Diagnostic]()
+                    var diagnostics = [Basics.Diagnostic]()
                     var buildCommands = [BuildToolPluginInvocationResult.BuildCommand]()
                     var prebuildCommands = [BuildToolPluginInvocationResult.PrebuildCommand]()
                     
@@ -207,7 +378,7 @@ extension PackageGraph {
                         outputData.append(contentsOf: data)
                     }
                     
-                    func pluginEmittedDiagnostic(_ diagnostic: Diagnostic) {
+                    func pluginEmittedDiagnostic(_ diagnostic: Basics.Diagnostic) {
                         dispatchPrecondition(condition: .onQueue(delegateQueue))
                         diagnostics.append(diagnostic)
                     }
@@ -242,8 +413,7 @@ extension PackageGraph {
                 // Invoke the build tool plugin with the input parameters and the delegate that will collect outputs.
                 let startTime = DispatchTime.now()
                 let success = try tsc_await { pluginTarget.invoke(
-                    action: .createBuildToolCommands(target: target),
-                    package: package,
+                    action: .createBuildToolCommands(package: package, target: target),
                     buildEnvironment: buildEnvironment,
                     scriptRunner: pluginScriptRunner,
                     workingDirectory: package.path,
@@ -293,13 +463,13 @@ public enum PluginAccessibleTool: Hashable {
 public extension PluginTarget {
 
     /// The set of tools that are accessible to this plugin.
-    func accessibleTools(for hostTriple: Triple) -> Set<PluginAccessibleTool> {
+    func accessibleTools(fileSystem: FileSystem, for hostTriple: Triple) -> Set<PluginAccessibleTool> {
         return Set(self.dependencies.flatMap { dependency -> [PluginAccessibleTool] in
             if case .target(let target, _) = dependency {
                 // For a binary target we create a `vendedTool`.
                 if let target = target as? BinaryTarget {
                     // TODO: Memoize this result for the host triple
-                    guard let execInfos = try? target.parseArtifactArchives(for: hostTriple, fileSystem: localFileSystem) else {
+                    guard let execInfos = try? target.parseArtifactArchives(for: hostTriple, fileSystem: fileSystem) else {
                         // TODO: Deal better with errors in parsing the artifacts
                         return []
                     }
@@ -338,7 +508,7 @@ public struct BuildToolPluginInvocationResult {
     public var duration: DispatchTimeInterval
 
     /// Any diagnostics emitted by the plugin.
-    public var diagnostics: [Diagnostic]
+    public var diagnostics: [Basics.Diagnostic]
 
     /// Any textual output emitted by the plugin.
     public var textOutput: String
@@ -393,102 +563,12 @@ public enum PluginEvaluationError: Swift.Error {
 }
 
 
-/// Implements the mechanics of running a plugin script (implemented as a set of Swift source files) as a process.
-public protocol PluginScriptRunner {
-    
-    /// Public protocol function that starts compiling the plugin script to an exectutable. The tools version controls the availability of APIs in PackagePlugin, and should be set to the tools version of the package that defines the plugin (not of the target to which it is being applied). This function returns immediately and then calls the completion handler on the callbackq queue when compilation ends.
-    func compilePluginScript(
-        sources: Sources,
-        toolsVersion: ToolsVersion,
-        observabilityScope: ObservabilityScope
-    ) throws -> PluginCompilationResult
-
-    /// Implements the mechanics of running a plugin script implemented as a set of Swift source files, for use
-    /// by the package graph when it is evaluating package plugins.
-    ///
-    /// The `sources` refer to the Swift source files and are accessible in the provided `fileSystem`. The input is
-    /// a PluginScriptRunnerInput structure, and the output will be a PluginScriptRunnerOutput structure.
-    ///
-    /// The text output callback handler will receive free-form output from the script as it's running. Structured
-    /// diagnostics emitted by the plugin will be added to the observability scope.
-    ///
-    /// Every concrete implementation should cache any intermediates as necessary to avoid redundant work.
-    func runPluginScript(
-        sources: Sources,
-        input: PluginScriptRunnerInput,
-        toolsVersion: ToolsVersion,
-        workingDirectory: AbsolutePath,
-        writableDirectories: [AbsolutePath],
-        readOnlyDirectories: [AbsolutePath],
-        fileSystem: FileSystem,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        delegate: PluginInvocationDelegate,
-        completion: @escaping (Result<Bool, Error>) -> Void
-    )
-
-    /// Returns the Triple that represents the host for which plugin script tools should be built, or for which binary
-    /// tools should be selected.
-    var hostTriple: Triple { get }
-}
-
-
-/// The result of compiling a plugin. The executable path will only be present if the compilation succeeds, while the other properties are present in all cases.
-public struct PluginCompilationResult {
-    /// Process result of invoking the Swift compiler to produce the executable (contains command line, environment, exit status, and any output).
-    public var compilerResult: ProcessResult?
-    
-    /// Path of the libClang diagnostics file emitted by the compiler (even if compilation succeded, it might contain warnings).
-    public var diagnosticsFile: AbsolutePath
-    
-    /// Path of the compiled executable.
-    public var compiledExecutable: AbsolutePath
-
-    /// Whether the compilation result was cached.
-    public var wasCached: Bool
-
-    public init(compilerResult: ProcessResult?, diagnosticsFile: AbsolutePath, compiledExecutable: AbsolutePath, wasCached: Bool) {
-        self.compilerResult = compilerResult
-        self.diagnosticsFile = diagnosticsFile
-        self.compiledExecutable = compiledExecutable
-        self.wasCached = wasCached
-    }
-    
-    /// Returns true if and only if the compilation succeeded or was cached
-    public var succeeded: Bool {
-        return self.wasCached || self.compilerResult?.exitStatus == .terminated(code: 0)
-    }
-}
-
-extension PluginCompilationResult: CustomStringConvertible {
-    public var description: String {
-        let stdout = (try? compilerResult?.utf8Output()) ?? ""
-        let stderr = (try? compilerResult?.utf8stderrOutput()) ?? ""
-        let output = (stdout + stderr).spm_chomp()
-        return output + (output.isEmpty || output.hasSuffix("\n") ? "" : "\n")
-    }
-}
-
-extension PluginCompilationResult: CustomDebugStringConvertible {
-    public var debugDescription: String {
-        return """
-            <PluginCompilationResult(
-                exitStatus: \(compilerResult.map{ "\($0.exitStatus)" } ?? "-"),
-                stdout: \((try? compilerResult?.utf8Output()) ?? ""),
-                stderr: \((try? compilerResult?.utf8stderrOutput()) ?? ""),
-                executable: \(compiledExecutable.prettyPath())
-            )>
-            """
-    }
-}
-
-
 public protocol PluginInvocationDelegate {
     /// Called for each piece of textual output data emitted by the plugin. Note that there is no guarantee that the data begins and ends on a UTF-8 byte sequence boundary (much less on a line boundary) so the delegate should buffer partial data as appropriate.
     func pluginEmittedOutput(_: Data)
     
     /// Called when a plugin emits a diagnostic through the PackagePlugin APIs.
-    func pluginEmittedDiagnostic(_: Diagnostic)
+    func pluginEmittedDiagnostic(_: Basics.Diagnostic)
 
     /// Called when a plugin defines a build command through the PackagePlugin APIs.
     func pluginDefinedBuildCommand(displayName: String?, executable: AbsolutePath, arguments: [String], environment: [String: String], workingDirectory: AbsolutePath?, inputFiles: [AbsolutePath], outputFiles: [AbsolutePath])
@@ -506,35 +586,35 @@ public protocol PluginInvocationDelegate {
     func pluginRequestedSymbolGraph(forTarget name: String, options: PluginInvocationSymbolGraphOptions, completion: @escaping (Result<PluginInvocationSymbolGraphResult, Error>) -> Void)
 }
 
-public struct PluginInvocationSymbolGraphOptions: Decodable {
+public struct PluginInvocationSymbolGraphOptions {
     public var minimumAccessLevel: AccessLevel
-    public enum AccessLevel: String, Decodable {
+    public enum AccessLevel: String {
         case `private`, `fileprivate`, `internal`, `public`, `open`
     }
     public var includeSynthesized: Bool
     public var includeSPI: Bool
 }
 
-public struct PluginInvocationSymbolGraphResult: Encodable {
+public struct PluginInvocationSymbolGraphResult {
     public var directoryPath: String
     public init(directoryPath: String) {
         self.directoryPath = directoryPath
     }
 }
 
-public enum PluginInvocationBuildSubset: Decodable {
+public enum PluginInvocationBuildSubset {
     case all(includingTests: Bool)
     case product(String)
     case target(String)
 }
 
-public struct PluginInvocationBuildParameters: Decodable {
+public struct PluginInvocationBuildParameters {
     public var configuration: Configuration
-    public enum Configuration: String, Decodable {
+    public enum Configuration: String {
         case debug, release
     }
     public var logging: LogVerbosity
-    public enum LogVerbosity: String, Decodable {
+    public enum LogVerbosity: String {
         case concise, verbose, debug
     }
     public var otherCFlags: [String]
@@ -543,14 +623,14 @@ public struct PluginInvocationBuildParameters: Decodable {
     public var otherLinkerFlags: [String]
 }
 
-public struct PluginInvocationBuildResult: Encodable {
+public struct PluginInvocationBuildResult {
     public var succeeded: Bool
     public var logText: String
     public var builtArtifacts: [BuiltArtifact]
-    public struct BuiltArtifact: Encodable {
+    public struct BuiltArtifact {
         public var path: String
         public var kind: Kind
-        public enum Kind: String, Encodable {
+        public enum Kind: String {
             case executable, dynamicLibrary, staticLibrary
         }
         public init(path: String, kind: Kind) {
@@ -565,31 +645,31 @@ public struct PluginInvocationBuildResult: Encodable {
     }
 }
 
-public enum PluginInvocationTestSubset: Decodable {
+public enum PluginInvocationTestSubset {
     case all
     case filtered([String])
 }
 
-public struct PluginInvocationTestParameters: Decodable {
+public struct PluginInvocationTestParameters {
     public var enableCodeCoverage: Bool
 }
 
-public struct PluginInvocationTestResult: Encodable {
+public struct PluginInvocationTestResult {
     public var succeeded: Bool
     public var testTargets: [TestTarget]
     public var codeCoverageDataFile: String?
 
-    public struct TestTarget: Encodable {
+    public struct TestTarget {
         public var name: String
         public var testCases: [TestCase]
-        public struct TestCase: Encodable {
+        public struct TestCase {
             public var name: String
             public var tests: [Test]
-            public struct Test: Encodable {
+            public struct Test {
                 public var name: String
                 public var result: Result
                 public var duration: Double
-                public enum Result: String, Encodable {
+                public enum Result: String {
                     case succeeded, skipped, failed
                 }
                 public init(name: String, result: Result, duration: Double) {
@@ -631,525 +711,170 @@ public extension PluginInvocationDelegate {
     }
 }
 
-/// Serializable context that's passed as input to an invocation of a plugin.
-/// This is the transport data to a particular invocation of a plugin for a
-/// particular purpose; everything we can communicate to the plugin is here.
-///
-/// It consists mainly of a flattened package graph, with each kind of entity
-/// referenced by an array that is indexed by an ID (a small integer). This
-/// structure is serialized from the package model (a directed acyclic graph).
-/// All references in the flattened graph are ID numbers.
-///
-/// Other information includes a mapping from names of command line tools that
-/// are available to the plugin to their corresponding paths, and a serialized
-/// representation of the plugin action.
-public struct PluginScriptRunnerInput: Codable {
-    let paths: [Path]
-    let targets: [Target]
-    let products: [Product]
-    let packages: [Package]
-    let rootPackageId: Package.Id
-    let pluginWorkDirId: Path.Id
-    let toolSearchDirIds: [Path.Id]
-    let toolNamesToPathIds: [String: Path.Id]
-    let pluginAction: PluginAction
-
-    /// An action that SwiftPM can ask the plugin to take. This corresponds to
-    /// the capabilities declared for the plugin.
-    enum PluginAction: Codable {
-        case createBuildToolCommands(targetId: Target.Id)
-        case performCommand(arguments: [String])
-    }
-
-    /// A single absolute path in the wire structure, represented as a tuple
-    /// consisting of the ID of the base path and subpath off of that path.
-    /// This avoids repetition of path components in the wire representation.
-    struct Path: Codable {
-        typealias Id = Int
-        let basePathId: Path.Id?
-        let subpath: String
-    }
-
-    /// A package in the wire structure. All references to other entities are
-    /// their ID numbers.
-    struct Package: Codable {
-        typealias Id = Int
-        let identity: String
-        let displayName: String
-        let directoryId: Path.Id
-        let origin: Origin
-        let toolsVersion: ToolsVersion
-        let dependencies: [Dependency]
-        let productIds: [Product.Id]
-        let targetIds: [Target.Id]
-
-        /// The origin of the package (root, local, repository, registry, etc).
-        enum Origin: Codable {
-            case root
-            case local(
-                path: Path.Id)
-            case repository(
-                url: String,
-                displayVersion: String,
-                scmRevision: String)
-            case registry(
-                identity: String,
-                displayVersion: String)
-        }
-
-        /// Represents a version of SwiftPM on whose semantics a package relies.
-        struct ToolsVersion: Codable {
-            let major: Int
-            let minor: Int
-            let patch: Int
-        }
-
-        /// A dependency on a package in the wire structure. All references to
-        /// other entities are ID numbers.
-        struct Dependency: Codable {
-            let packageId: Package.Id
-        }
-    }
-
-    /// A product in the wire structure. All references to other entities are
-    /// their ID numbers.
-    struct Product: Codable {
-        typealias Id = Int
-        let name: String
-        let targetIds: [Target.Id]
-        let info: ProductInfo
-
-        /// Information for each type of product in the wire structure. All
-        /// references to other entities are their ID numbers.
-        enum ProductInfo: Codable {
-            case executable(
-                mainTargetId: Target.Id)
-            case library(
-                kind: LibraryKind)
-
-            /// A type of library in the wire structure, as SwiftPM sees it.
-            enum LibraryKind: Codable {
-                case `static`
-                case `dynamic`
-                case automatic
-            }
-        }
-    }
-
-    /// A target in the wire structure. All references to other entities are
-    /// their ID numbers.
-    struct Target: Codable {
-        typealias Id = Int
-        let name: String
-        let directoryId: Path.Id
-        let dependencies: [Dependency]
-        let info: TargetInfo
-
-        /// A dependency on either a target or a product in the wire structure.
-        /// All references to other entities are ID their numbers.
-        enum Dependency: Codable {
-            case target(
-                targetId: Target.Id)
-            case product(
-                productId: Product.Id)
-        }
-        
-        /// Type-specific information for a target in the wire structure. All
-        /// references to other entities are their ID numbers.
-        enum TargetInfo: Codable {
-            /// Information about a Swift source module target.
-            case swiftSourceModuleInfo(
-                moduleName: String,
-                kind: SourceModuleKind,
-                sourceFiles: [File],
-                compilationConditions: [String],
-                linkedLibraries: [String],
-                linkedFrameworks: [String])
-            
-            /// Information about a Clang source module target.
-            case clangSourceModuleInfo(
-                moduleName: String,
-                kind: SourceModuleKind,
-                sourceFiles: [File],
-                preprocessorDefinitions: [String],
-                headerSearchPaths: [String],
-                publicHeadersDirId: Path.Id?,
-                linkedLibraries: [String],
-                linkedFrameworks: [String])
-            
-            /// Information about a binary artifact target.
-            case binaryArtifactInfo(
-                kind: BinaryArtifactKind,
-                origin: BinaryArtifactOrigin,
-                artifactId: Path.Id)
-            
-            /// Information about a system library target.
-            case systemLibraryInfo(
-                pkgConfig: String?,
-                compilerFlags: [String],
-                linkerFlags: [String])
-
-            /// A file in the wire structure.
-            struct File: Codable {
-                let basePathId: Path.Id
-                let name: String
-                let type: FileType
-
-                /// A type of file in the wire structure, as SwiftPM sees it.
-                enum FileType: String, Codable {
-                    case source
-                    case header
-                    case resource
-                    case unknown
-                }
-            }
-            
-            /// A kind of source module.
-            enum SourceModuleKind: String, Codable {
-                case generic
-                case executable
-                case test
-            }
-
-            /// A kind of binary artifact.
-            enum BinaryArtifactKind: Codable {
-                case xcframework
-                case artifactsArchive
-                case unknown
-            }
-            
-            /// The origin of a binary artifact.
-            enum BinaryArtifactOrigin: Codable {
-                case local
-                case remote(url: String)
-            }
+fileprivate extension PluginInvocationBuildSubset {
+    init(_ subset: PluginToHostMessage.BuildSubset) {
+        switch subset {
+        case .all(let includingTests):
+            self = .all(includingTests: includingTests)
+        case .product(let name):
+            self = .product(name)
+        case .target(let name):
+            self = .target(name)
         }
     }
 }
 
-/// Creates the serialized input structure for the plugin script based on all
-/// the input information to a plugin.
-struct PluginScriptRunnerInputSerializer {
-    let buildEnvironment: BuildEnvironment
-    var paths: [PluginScriptRunnerInput.Path] = []
-    var pathsToIds: [AbsolutePath: PluginScriptRunnerInput.Path.Id] = [:]
-    var targets: [PluginScriptRunnerInput.Target] = []
-    var targetsToIds: [ResolvedTarget: PluginScriptRunnerInput.Target.Id] = [:]
-    var products: [PluginScriptRunnerInput.Product] = []
-    var productsToIds: [ResolvedProduct: PluginScriptRunnerInput.Product.Id] = [:]
-    var packages: [PluginScriptRunnerInput.Package] = []
-    var packagesToIds: [ResolvedPackage: PluginScriptRunnerInput.Package.Id] = [:]
-    
-    mutating func makePluginScriptRunnerInput(
-        rootPackage: ResolvedPackage,
-        pluginWorkDir: AbsolutePath,
-        toolSearchDirs: [AbsolutePath],
-        toolNamesToPaths: [String: AbsolutePath],
-        pluginAction: PluginAction
-    ) throws -> PluginScriptRunnerInput {
-        let rootPackageId = try serialize(package: rootPackage)
-        let pluginWorkDirId = try serialize(path: pluginWorkDir)
-        let toolSearchDirIds = try toolSearchDirs.map{ try serialize(path: $0) }
-        let toolNamesToPathIds = try toolNamesToPaths.mapValues{ try serialize(path: $0) }
-        let serializedPluginAction: PluginScriptRunnerInput.PluginAction
-        switch pluginAction {
-        case .createBuildToolCommands(let target):
-            guard let targetId = try serialize(target: target) else {
-                throw StringError("unexpectedly was unable to serialize target \(target)")
-            }
-            serializedPluginAction = .createBuildToolCommands(targetId: targetId)
-        case .performCommand(let arguments):
-            serializedPluginAction = .performCommand(arguments: arguments)
-        }
-        return PluginScriptRunnerInput(
-            paths: paths,
-            targets: targets,
-            products: products,
-            packages: packages,
-            rootPackageId: rootPackageId,
-            pluginWorkDirId: pluginWorkDirId,
-            toolSearchDirIds: toolSearchDirIds,
-            toolNamesToPathIds: toolNamesToPathIds,
-            pluginAction: serializedPluginAction)
-    }
-    
-    /// Adds a path to the serialized structure, if it isn't already there.
-    /// Either way, this function returns the path's wire ID.
-    mutating func serialize(path: AbsolutePath) throws -> PluginScriptRunnerInput.Path.Id {
-        // If we've already seen the path, just return the wire ID we already assigned to it.
-        if let id = pathsToIds[path] { return id }
-        
-        // Split up the path into a base path and a subpath (currently always with the last path component as the
-        // subpath, but this can be optimized where there are sequences of path components with a valence of one).
-        let basePathId = (path.parentDirectory.isRoot ? nil : try serialize(path: path.parentDirectory))
-        let subpathString = path.basename
-        
-        // Finally assign the next wire ID to the path and append a serialized Path record.
-        let id = paths.count
-        paths.append(.init(basePathId: basePathId, subpath: subpathString))
-        pathsToIds[path] = id
-        return id
-    }
-
-    // Adds a target to the serialized structure, if it isn't already there and
-    // if it is of a kind that should be passed to the plugin. If so, this func-
-    // tion returns the target's wire ID. If not, it returns nil.
-    mutating func serialize(target: ResolvedTarget) throws -> PluginScriptRunnerInput.Target.Id? {
-        // If we've already seen the target, just return the wire ID we already assigned to it.
-        if let id = targetsToIds[target] { return id }
-        
-        // Construct the FileList
-        var targetFiles: [PluginScriptRunnerInput.Target.TargetInfo.File] = []
-        targetFiles.append(contentsOf: try target.underlyingTarget.sources.paths.map {
-            .init(basePathId: try serialize(path: $0.parentDirectory), name: $0.basename, type: .source)
-        })
-        targetFiles.append(contentsOf: try target.underlyingTarget.resources.map {
-            .init(basePathId: try serialize(path: $0.path.parentDirectory), name: $0.path.basename, type: .resource)
-        })
-        targetFiles.append(contentsOf: try target.underlyingTarget.ignored.map {
-            .init(basePathId: try serialize(path: $0.parentDirectory), name: $0.basename, type: .unknown)
-        })
-        targetFiles.append(contentsOf: try target.underlyingTarget.others.map {
-            .init(basePathId: try serialize(path: $0.parentDirectory), name: $0.basename, type: .unknown)
-        })
-        
-        // Create a scope for evaluating build settings.
-        let scope = BuildSettings.Scope(target.underlyingTarget.buildSettings, environment: buildEnvironment)
-        
-        // Look at the target and decide what to serialize. At this point we may decide to not serialize it at all.
-        let targetInfo: PluginScriptRunnerInput.Target.TargetInfo
-        switch target.underlyingTarget {
-            
-        case let target as SwiftTarget:
-            targetInfo = .swiftSourceModuleInfo(
-                moduleName: target.c99name,
-                kind: try .init(target.type),
-                sourceFiles: targetFiles,
-                compilationConditions: scope.evaluate(.SWIFT_ACTIVE_COMPILATION_CONDITIONS),
-                linkedLibraries: scope.evaluate(.LINK_LIBRARIES),
-                linkedFrameworks: scope.evaluate(.LINK_FRAMEWORKS))
-
-        case let target as ClangTarget:
-            targetInfo = .clangSourceModuleInfo(
-                moduleName: target.c99name,
-                kind: try .init(target.type),
-                sourceFiles: targetFiles,
-                preprocessorDefinitions: scope.evaluate(.GCC_PREPROCESSOR_DEFINITIONS),
-                headerSearchPaths: scope.evaluate(.HEADER_SEARCH_PATHS),
-                publicHeadersDirId: try serialize(path: target.includeDir),
-                linkedLibraries: scope.evaluate(.LINK_LIBRARIES),
-                linkedFrameworks: scope.evaluate(.LINK_FRAMEWORKS))
-
-        case let target as SystemLibraryTarget:
-            var cFlags: [String] = []
-            var ldFlags: [String] = []
-            // FIXME: What do we do with any diagnostics here?
-            let observabilityScope = ObservabilitySystem({ _, _ in }).topScope
-            for result in pkgConfigArgs(for: target, fileSystem: localFileSystem, observabilityScope: observabilityScope) {
-                if let error = result.error {
-                    observabilityScope.emit(
-                        warning: "\(error)",
-                        metadata: .pkgConfig(pcFile: result.pkgConfigName, targetName: target.name)
-                    )
-                }
-                else {
-                    cFlags += result.cFlags
-                    ldFlags += result.libs
-                }
-            }
-
-            targetInfo = .systemLibraryInfo(
-                pkgConfig: target.pkgConfig,
-                compilerFlags: cFlags,
-                linkerFlags: ldFlags)
-            
-        case let target as BinaryTarget:
-            let artifactKind: PluginScriptRunnerInput.Target.TargetInfo.BinaryArtifactKind
-            switch target.kind {
-            case .artifactsArchive:
-                artifactKind = .artifactsArchive
-            case .xcframework:
-                artifactKind = .xcframework
-            case .unknown:
-                artifactKind = .unknown
-            }
-            let artifactOrigin: PluginScriptRunnerInput.Target.TargetInfo.BinaryArtifactOrigin
-            switch target.origin {
-            case .local:
-                artifactOrigin = .local
-            case .remote(let url):
-                artifactOrigin = .remote(url: url)
-            }
-            targetInfo = .binaryArtifactInfo(
-                kind: artifactKind,
-                origin: artifactOrigin,
-                artifactId: try serialize(path: target.artifactPath))
-            
-        default:
-            // It's not a type of target that we pass through to the plugin.
-            return nil
-        }
-        
-        // We only get this far if we are serializing the target. If so we also serialize its dependencies. This needs to be done before assigning the next wire ID for the target we're serializing, to make sure we end up with the correct one.
-        let dependencies: [PluginScriptRunnerInput.Target.Dependency] = try target.dependencies(satisfying: buildEnvironment).compactMap {
-            switch $0 {
-            case .target(let target, _):
-                return try serialize(target: target).map { .target(targetId: $0) }
-            case .product(let product, _):
-                return try serialize(product: product).map { .product(productId: $0) }
-            }
-        }
-
-        // Finally assign the next wire ID to the target and append a serialized Target record.
-        let id = targets.count
-        targets.append(.init(
-            name: target.name,
-            directoryId: try serialize(path: target.sources.root),
-            dependencies: dependencies,
-            info: targetInfo))
-        targetsToIds[target] = id
-        return id
-    }
-
-    // Adds a product to the serialized structure, if it isn't already there and
-    // if it is of a kind that should be passed to the plugin. If so, this func-
-    // tion returns the product's wire ID. If not, it returns nil.
-    mutating func serialize(product: ResolvedProduct) throws -> PluginScriptRunnerInput.Product.Id? {
-        // If we've already seen the product, just return the wire ID we already assigned to it.
-        if let id = productsToIds[product] { return id }
-        
-        // Look at the product and decide what to serialize. At this point we may decide to not serialize it at all.
-        let productInfo: PluginScriptRunnerInput.Product.ProductInfo
-        switch product.type {
-            
-        case .executable:
-            guard let mainExecTarget = product.targets.first(where: { $0.type == .executable }) else {
-                throw InternalError("could not determine main executable target for product \(product)")
-            }
-            guard let mainExecTargetId = try serialize(target: mainExecTarget) else {
-                throw InternalError("unable to serialize main executable target \(mainExecTarget) for product \(product)")
-            }
-            productInfo = .executable(mainTargetId: mainExecTargetId)
-
-        case .library(let kind):
-            switch kind {
-            case .static:
-                productInfo = .library(kind: .static)
-            case .dynamic:
-                productInfo = .library(kind: .dynamic)
-            case .automatic:
-                productInfo = .library(kind: .automatic)
-            }
-
-        default:
-            // It's not a type of product that we pass through to the plugin.
-            return nil
-        }
-        
-        // Finally assign the next wire ID to the product and append a serialized Product record.
-        let id = products.count
-        products.append(.init(
-            name: product.name,
-            targetIds: try product.targets.compactMap{ try serialize(target: $0) },
-            info: productInfo))
-        productsToIds[product] = id
-        return id
-    }
-
-    // Adds a package to the serialized structure, if it isn't already there.
-    // Either way, this function returns the target's wire ID.
-    mutating func serialize(package: ResolvedPackage) throws -> PluginScriptRunnerInput.Package.Id {
-        // If we've already seen the package, just return the wire ID we already assigned to it.
-        if let id = packagesToIds[package] { return id }
-        
-        // Determine how we should represent the origin of the package to the plugin.
-        func origin(for package: ResolvedPackage) throws -> PluginScriptRunnerInput.Package.Origin {
-            switch package.manifest.packageKind {
-            case .root(_):
-                return .root
-            case .fileSystem(let path):
-                return .local(path: try serialize(path: path))
-            case .localSourceControl(let path):
-                return .repository(url: path.asURL.absoluteString, displayVersion: String(describing: package.manifest.version), scmRevision: String(describing: package.manifest.revision))
-            case .remoteSourceControl(let url):
-                return .repository(url: url.absoluteString, displayVersion: String(describing: package.manifest.version), scmRevision: String(describing: package.manifest.revision))
-            case .registry(let identity):
-                return .registry(identity: identity.description, displayVersion: String(describing: package.manifest.version))
-            }
-        }
-
-        // Serialize the dependency packages. This needs to be done assigning the next wire ID to the package we're serializing, to make sure we end up with the correct one.
-        let dependencies = try package.dependencies.map {
-            PluginScriptRunnerInput.Package.Dependency(packageId: try serialize(package: $0))
-        }
-
-        // Assign the next wire ID to the package and append a serialized Package record.
-        let id = packages.count
-        packages.append(.init(
-            identity: package.identity.description,
-            displayName: package.manifest.displayName,
-            directoryId: try serialize(path: package.path),
-            origin: try origin(for: package),
-            toolsVersion: .init(
-                major: package.manifest.toolsVersion.major,
-                minor: package.manifest.toolsVersion.minor,
-                patch: package.manifest.toolsVersion.patch),
-            dependencies: dependencies,
-            productIds: try package.products.compactMap{ try serialize(product: $0) },
-            targetIds: try package.targets.compactMap{ try serialize(target: $0) }))
-        packagesToIds[package] = id
-        return id
+fileprivate extension PluginInvocationBuildParameters {
+    init(_ parameters: PluginToHostMessage.BuildParameters) {
+        self.configuration = .init(parameters.configuration)
+        self.logging = .init(parameters.logging)
+        self.otherCFlags = parameters.otherCFlags
+        self.otherCxxFlags = parameters.otherCxxFlags
+        self.otherSwiftcFlags = parameters.otherSwiftcFlags
+        self.otherLinkerFlags = parameters.otherLinkerFlags
     }
 }
 
-fileprivate extension PluginScriptRunnerInput.Target.TargetInfo.SourceModuleKind {
-    init(_ kind: Target.Kind) throws {
+fileprivate extension PluginInvocationBuildParameters.Configuration {
+    init(_ configuration: PluginToHostMessage.BuildParameters.Configuration) {
+        switch configuration {
+        case .debug:
+            self = .debug
+        case .release:
+            self = .release
+        }
+    }
+}
+
+fileprivate extension PluginInvocationBuildParameters.LogVerbosity {
+    init(_ verbosity: PluginToHostMessage.BuildParameters.LogVerbosity) {
+        switch verbosity {
+        case .concise:
+            self = .concise
+        case .verbose:
+            self = .verbose
+        case .debug:
+            self = .debug
+        }
+    }
+}
+
+fileprivate extension HostToPluginMessage.BuildResult {
+    init(_ result: PluginInvocationBuildResult) {
+        self.succeeded = result.succeeded
+        self.logText = result.logText
+        self.builtArtifacts = result.builtArtifacts.map { .init($0) }
+    }
+}
+
+fileprivate extension HostToPluginMessage.BuildResult.BuiltArtifact {
+    init(_ artifact: PluginInvocationBuildResult.BuiltArtifact) {
+        self.path = .init(artifact.path)
+        self.kind = .init(artifact.kind)
+    }
+}
+
+fileprivate extension HostToPluginMessage.BuildResult.BuiltArtifact.Kind {
+    init(_ kind: PluginInvocationBuildResult.BuiltArtifact.Kind) {
         switch kind {
-        case .library:
-            self = .generic
         case .executable:
             self = .executable
-        case .test:
-            self = .test
-        case .binary, .plugin, .snippet, .systemModule:
-            throw StringError("unexpected target kind \(kind) for source module")
+        case .dynamicLibrary:
+            self = .dynamicLibrary
+        case .staticLibrary:
+            self = .staticLibrary
         }
     }
 }
 
-
-
-/// Deserializable result that's received as output from the invocation of the plugin. This is the transport data from
-/// the invocation of the plugin for a particular target; everything the plugin can commuicate to us is here.
-public struct PluginScriptRunnerOutput: Codable {
-    var diagnostics: [Diagnostic]
-    struct Diagnostic: Codable {
-        enum Severity: String, Codable {
-            case error, warning, remark
+fileprivate extension PluginInvocationTestSubset {
+    init(_ subset: PluginToHostMessage.TestSubset) {
+        switch subset {
+        case .all:
+            self = .all
+        case .filtered(let regexes):
+            self = .filtered(regexes)
         }
-        let severity: Severity
-        let message: String
-        let file: String?
-        let line: Int?
     }
-    let buildCommands: [BuildCommand]
-    struct BuildCommand: Codable {
-        let displayName: String
-        let executable: String
-        let arguments: [String]
-        let environment: [String: String]
-        let workingDirectory: String?
-        let inputFiles: [String]
-        let outputFiles: [String]
+}
+
+fileprivate extension PluginInvocationTestParameters {
+    init(_ parameters: PluginToHostMessage.TestParameters) {
+        self.enableCodeCoverage = parameters.enableCodeCoverage
     }
-    let prebuildCommands: [PrebuildCommand]
-    struct PrebuildCommand: Codable {
-        let displayName: String
-        let executable: String
-        let arguments: [String]
-        let environment: [String: String]
-        let workingDirectory: String?
-        let outputFilesDirectory: String
+}
+
+fileprivate extension HostToPluginMessage.TestResult {
+    init(_ result: PluginInvocationTestResult) {
+        self.succeeded = result.succeeded
+        self.testTargets = result.testTargets.map{ .init($0) }
+        self.codeCoverageDataFile = result.codeCoverageDataFile.map{ .init($0) }
+    }
+}
+
+fileprivate extension HostToPluginMessage.TestResult.TestTarget {
+    init(_ testTarget: PluginInvocationTestResult.TestTarget) {
+        self.name = testTarget.name
+        self.testCases = testTarget.testCases.map{ .init($0) }
+    }
+}
+
+fileprivate extension HostToPluginMessage.TestResult.TestTarget.TestCase {
+    init(_ testCase: PluginInvocationTestResult.TestTarget.TestCase) {
+        self.name = testCase.name
+        self.tests = testCase.tests.map{ .init($0) }
+    }
+}
+
+fileprivate extension HostToPluginMessage.TestResult.TestTarget.TestCase.Test {
+    init(_ test: PluginInvocationTestResult.TestTarget.TestCase.Test) {
+        self.name = test.name
+        self.result = .init(test.result)
+        self.duration = test.duration
+    }
+}
+
+fileprivate extension HostToPluginMessage.TestResult.TestTarget.TestCase.Test.Result {
+    init(_ result: PluginInvocationTestResult.TestTarget.TestCase.Test.Result) {
+        switch result {
+        case .succeeded:
+            self = .succeeded
+        case .skipped:
+            self = .skipped
+        case .failed:
+            self = .failed
+        }
+    }
+}
+
+fileprivate extension PluginInvocationSymbolGraphOptions {
+    init(_ options: PluginToHostMessage.SymbolGraphOptions) {
+        self.minimumAccessLevel = .init(options.minimumAccessLevel)
+        self.includeSynthesized = options.includeSynthesized
+        self.includeSPI = options.includeSPI
+    }
+}
+
+fileprivate extension PluginInvocationSymbolGraphOptions.AccessLevel {
+    init(_ accessLevel: PluginToHostMessage.SymbolGraphOptions.AccessLevel) {
+        switch accessLevel {
+        case .private:
+            self = .private
+        case .fileprivate:
+            self = .fileprivate
+        case .internal:
+            self = .internal
+        case .public:
+            self = .public
+        case .open:
+            self = .open
+        }
+    }
+}
+
+fileprivate extension HostToPluginMessage.SymbolGraphResult {
+    init(_ result: PluginInvocationSymbolGraphResult) {
+        self.directoryPath = .init(result.directoryPath)
     }
 }
 
@@ -1197,4 +922,3 @@ extension ObservabilityMetadata {
         typealias Value = String
     }
 }
-

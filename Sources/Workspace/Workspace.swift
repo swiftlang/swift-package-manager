@@ -459,7 +459,8 @@ public class Workspace {
             prefetchBasedOnResolvedFile: resolverPrefetchingEnabled ?? WorkspaceConfiguration.default.prefetchBasedOnResolvedFile,
             additionalFileRules: additionalFileRules ?? WorkspaceConfiguration.default.additionalFileRules,
             sharedDependenciesCacheEnabled: sharedRepositoriesCacheEnabled ?? WorkspaceConfiguration.default.sharedDependenciesCacheEnabled,
-            fingerprintCheckingMode: resolverFingerprintCheckingMode
+            fingerprintCheckingMode: resolverFingerprintCheckingMode,
+            sourceControlToRegistryDependencyTransformation: WorkspaceConfiguration.default.sourceControlToRegistryDependencyTransformation
         )
         try self.init(
             fileSystem: fileSystem,
@@ -660,7 +661,7 @@ public class Workspace {
         let currentToolsVersion = customToolsVersion ?? ToolsVersion.currentToolsVersion
         let toolsVersionLoader = ToolsVersionLoader(currentToolsVersion: currentToolsVersion)
         let hostToolchain = try customHostToolchain ?? UserToolchain(destination: .hostDestination())
-        let manifestLoader = customManifestLoader ?? ManifestLoader(
+        var manifestLoader = customManifestLoader ?? ManifestLoader(
             toolchain: hostToolchain.configuration,
             cacheDir: location.sharedManifestsCacheDirectory
         )
@@ -674,6 +675,8 @@ public class Workspace {
         ).mirrors
 
         let identityResolver = customIdentityResolver ?? DefaultIdentityResolver(locationMapper: mirrors.effectiveURL(for:))
+        let checksumAlgorithm = customChecksumAlgorithm ?? SHA256()
+
         let repositoryProvider = customRepositoryProvider ?? GitRepositoryProvider()
         let repositoryManager = customRepositoryManager ?? RepositoryManager(
             fileSystem: fileSystem,
@@ -704,7 +707,6 @@ public class Workspace {
             authorizationProvider: authorizationProvider?.httpAuthorizationHeader(for:)
         )
 
-        let checksumAlgorithm = customChecksumAlgorithm ?? SHA256()
         let registryDownloadsManager = RegistryDownloadsManager(
             fileSystem: fileSystem,
             path: location.registryDownloadDirectory,
@@ -714,8 +716,16 @@ public class Workspace {
             delegate: delegate.map(WorkspaceRegistryDownloadsManagerDelegate.init(workspaceDelegate:))
         )
 
+        if registryClient.configured, let transformationMode = RegistryAwareManifestLoader.TransformationMode(configuration.sourceControlToRegistryDependencyTransformation) {
+            manifestLoader = RegistryAwareManifestLoader(
+                underlying: manifestLoader,
+                registryClient: registryClient,
+                transformationMode: transformationMode
+            )
+        }
+
         let httpClient = customHTTPClient ?? HTTPClient()
-        let archiver = customArchiver ?? ZipArchiver()
+        let archiver = customArchiver ?? ZipArchiver(fileSystem: fileSystem)
 
         // initialize
         self.fileSystem = fileSystem
@@ -967,17 +977,17 @@ extension Workspace {
     ///     - observabilityScope: The observability scope that reports errors, warnings, etc
     public func reset(observabilityScope: ObservabilityScope) {
         let removed = observabilityScope.trap { () -> Bool in
-            try fileSystem.chmod(.userWritable, path: self.location.repositoriesCheckoutsDirectory, options: [.recursive, .onlyFiles])
+            try self.fileSystem.chmod(.userWritable, path: self.location.repositoriesCheckoutsDirectory, options: [.recursive, .onlyFiles])
             // Reset state.
             try self.resetState()
             return true
         }
 
         guard (removed ?? false) else { return }
-        try? repositoryManager.reset()
-        try? registryDownloadsManager.reset()
-        try? manifestLoader.resetCache()
-        try? fileSystem.removeFileTree(self.location.workingDirectory)
+        try? self.repositoryManager.reset()
+        try? self.registryDownloadsManager.reset()
+        try? self.manifestLoader.resetCache()
+        try? self.fileSystem.removeFileTree(self.location.workingDirectory)
     }
 
     // FIXME: @testable internal
@@ -2127,58 +2137,52 @@ extension Workspace {
             .packageMetadata(identity: packageIdentity, kind: packageKind)
         }
 
-        //diagnostics.with(location: PackageLocation.Local(packagePath: packagePath)) { diagnostics in
-            do {
-                // Load the tools version for the package.
-                let toolsVersion = try toolsVersionLoader.load(at: packagePath, fileSystem: fileSystem)
+        do {
+            // Load the tools version for the package.
+            let toolsVersion = try toolsVersionLoader.load(at: packagePath, fileSystem: fileSystem)
 
-                // Validate the tools version.
-                try toolsVersion.validateToolsVersion(currentToolsVersion, packageIdentity: packageIdentity)
+            // Validate the tools version.
+            try toolsVersion.validateToolsVersion(currentToolsVersion, packageIdentity: packageIdentity)
 
-                // Load the manifest.
-                // The delegate callback is only passed any diagnostics emitted during the parsing of the manifest, but they are also forwarded up to the caller.
-                //let manifestLoadingDiagnostics = DiagnosticsEngine(handlers: [{ diagnostics.emit($0) }], defaultLocation: diagnostics.defaultLocation)
-                //let manifestLoadingObservabilityScope = observabilityScope.makeChildScope(description: "Loading manifest")
-
-                let manifestLoadingDiagnostics = ThreadSafeArrayStore<Basics.Diagnostic>()
-                let manifestLoadingScope = ObservabilitySystem( { _, diagnostic in
-                    observabilityScope.emit(diagnostic)
-                    manifestLoadingDiagnostics.append(diagnostic)
-                }).topScope.makeChildScope(description: "Loading manifest") {
-                    .packageMetadata(identity: packageIdentity, kind: packageKind)
-                }
-
-                manifestLoader.load(
-                    at: packagePath,
-                    packageIdentity: packageIdentity,
-                    packageKind: packageKind,
-                    packageLocation: packageLocation,
-                    version: version,
-                    revision: nil,
-                    toolsVersion: toolsVersion,
-                    identityResolver: self.identityResolver,
-                    fileSystem: fileSystem,
-                    observabilityScope: manifestLoadingScope,
-                    on: .sharedConcurrent
-                ) { result in
-                    switch result {
-                    // Diagnostics.fatalError indicates that a more specific diagnostic has already been added.
-                    case .failure(Diagnostics.fatalError):
-                        self.delegate?.didLoadManifest(packagePath: packagePath, url: packageLocation, version: version, packageKind: packageKind, manifest: nil, diagnostics: manifestLoadingDiagnostics.get())
-                    case .failure(let error):
-                        manifestLoadingScope.emit(error)
-                        self.delegate?.didLoadManifest(packagePath: packagePath, url: packageLocation, version: version, packageKind: packageKind, manifest: nil, diagnostics: manifestLoadingDiagnostics.get())
-                    case .success(let manifest):
-                        manifestLoadingScope.trap { try self.validateManifest(manifest) }
-                        self.delegate?.didLoadManifest(packagePath: packagePath, url: packageLocation, version: version, packageKind: packageKind, manifest: manifest, diagnostics: manifestLoadingDiagnostics.get())
-                    }
-                    completion(result)
-                }
-            } catch {
-                observabilityScope.emit(error)
-                completion(.failure(error))
+            let manifestLoadingDiagnostics = ThreadSafeArrayStore<Basics.Diagnostic>()
+            let manifestLoadingScope = ObservabilitySystem( { _, diagnostic in
+                observabilityScope.emit(diagnostic)
+                manifestLoadingDiagnostics.append(diagnostic)
+            }).topScope.makeChildScope(description: "Loading manifest") {
+                .packageMetadata(identity: packageIdentity, kind: packageKind)
             }
-        //}
+
+            self.manifestLoader.load(
+                at: packagePath,
+                packageIdentity: packageIdentity,
+                packageKind: packageKind,
+                packageLocation: packageLocation,
+                version: version,
+                revision: nil,
+                toolsVersion: toolsVersion,
+                identityResolver: self.identityResolver,
+                fileSystem: fileSystem,
+                observabilityScope: manifestLoadingScope,
+                delegateQueue: .sharedConcurrent,
+                callbackQueue: .sharedConcurrent
+            ) { result in
+                switch result {
+                // Diagnostics.fatalError indicates that a more specific diagnostic has already been added.
+                case .failure(Diagnostics.fatalError):
+                    self.delegate?.didLoadManifest(packagePath: packagePath, url: packageLocation, version: version, packageKind: packageKind, manifest: nil, diagnostics: manifestLoadingDiagnostics.get())
+                case .failure(let error):
+                    manifestLoadingScope.emit(error)
+                    self.delegate?.didLoadManifest(packagePath: packagePath, url: packageLocation, version: version, packageKind: packageKind, manifest: nil, diagnostics: manifestLoadingDiagnostics.get())
+                case .success(let manifest):
+                    manifestLoadingScope.trap { try self.validateManifest(manifest) }
+                    self.delegate?.didLoadManifest(packagePath: packagePath, url: packageLocation, version: version, packageKind: packageKind, manifest: manifest, diagnostics: manifestLoadingDiagnostics.get())
+                }
+                completion(result)
+            }
+        } catch {
+            observabilityScope.emit(error)
+            completion(.failure(error))
+        }
     }
 
     // TODO: move more manifest validation in here from other parts of the code, e.g. from ManifestLoader
@@ -2219,7 +2223,6 @@ extension Workspace {
                 }
             }
         }
-
     }
 
 
@@ -2324,6 +2327,10 @@ extension Workspace {
 
                 artifactsToExtract.append(artifact)
             } else {
+                guard artifact.targetName == artifact.path.basenameWithoutExt else {
+                    observabilityScope.emit(.localArtifactNotFound(targetName: artifact.targetName, artifactName: artifact.targetName))
+                    continue
+                }
                 artifactsToAdd.append(artifact)
             }
 
@@ -2508,9 +2515,6 @@ extension Workspace {
             }
         }
 
-        // download max n files concurrently
-        let semaphore = DispatchSemaphore(value: Concurrency.maxOperations)
-
         // finally download zip files, if any
         for artifact in zipArtifacts.get() {
             let parentDirectory =  self.location.artifactsDirectory.appending(component: artifact.packageRef.identity.description)
@@ -2525,7 +2529,6 @@ extension Workspace {
                 }
             }
 
-            semaphore.wait()
             group.enter()
             var headers = HTTPClientHeaders()
             headers.add(name: "Accept", value: "application/octet-stream")
@@ -2546,10 +2549,7 @@ extension Workspace {
                         totalBytesToDownload: totalBytesToDownload)
                 },
                 completion: { downloadResult in
-                    defer {
-                        group.leave()
-                        semaphore.signal()
-                    }
+                    defer { group.leave() }
 
                     // TODO: Use the same extraction logic for both remote and local archived artifacts.
                     switch downloadResult {
@@ -2708,7 +2708,7 @@ extension Workspace {
                         try self.fileSystem.removeFileTree(tempExtractionDirectory)
 
                         guard let mainArtifactPath = artifactPath else {
-                            return observabilityScope.emit(.localArtifactNotFound(targetName: artifact.targetName, artifactName: artifact.targetName))
+                            return observabilityScope.emit(.localArchivedArtifactNotFound(targetName: artifact.targetName, artifactName: artifact.targetName))
                         }
 
                         // compute the checksum
@@ -3496,70 +3496,73 @@ extension Workspace: PackageContainerProvider {
         on queue: DispatchQueue,
         completion: @escaping (Result<PackageContainer, Swift.Error>) -> Void
     ) {
-        queue.async {
-            do {
-                switch package.kind {
-                // If the container is local, just create and return a local package container.
-                case .root, .fileSystem:
-                    let container = try FileSystemPackageContainer(
-                        package: package,
-                        identityResolver: self.identityResolver,
-                        manifestLoader: self.manifestLoader,
-                        toolsVersionLoader: self.toolsVersionLoader,
-                        currentToolsVersion: self.currentToolsVersion,
-                        fileSystem: self.fileSystem,
-                        observabilityScope: observabilityScope
-                    )
-                    completion(.success(container))
-                // Resolve the container using the repository manager.
-                case .localSourceControl, .remoteSourceControl:
-                    let repositorySpecifier = try package.makeRepositorySpecifier()
-                    self.repositoryManager.lookup(
-                        package: package.identity,
-                        repository: repositorySpecifier,
-                        skipUpdate: skipUpdate,
-                        observabilityScope: observabilityScope,
-                        delegateQueue: queue,
-                        callbackQueue: queue
-                    ) { result in
-                        // Create the container wrapper.
-                        let result = result.tryMap { handle -> PackageContainer in
-                            // Open the repository.
-                            //
-                            // FIXME: Do we care about holding this open for the lifetime of the container.
-                            let repository = try handle.open()
-                            return try SourceControlPackageContainer(
-                                package: package,
-                                identityResolver: self.identityResolver,
-                                repositorySpecifier: repositorySpecifier,
-                                repository: repository,
-                                manifestLoader: self.manifestLoader,
-                                toolsVersionLoader: self.toolsVersionLoader,
-                                currentToolsVersion: self.currentToolsVersion,
-                                fingerprintStorage: self.fingerprints,
-                                fingerprintCheckingMode: self.configuration.fingerprintCheckingMode,
-                                observabilityScope: observabilityScope
-                            )
-                        }
-                        completion(result)
-                    }
-                // Resolve the container using the registry
-                case .registry:
-                    let container = RegistryPackageContainer(
-                        package: package,
-                        identityResolver: self.identityResolver,
-                        registryClient: self.registryClient,
-                        manifestLoader: self.manifestLoader,
-                        toolsVersionLoader: self.toolsVersionLoader,
-                        currentToolsVersion: self.currentToolsVersion,
-                        observabilityScope: observabilityScope
-                    )
-                    completion(.success(container))
-                }
-            } catch {
+        do {
+            switch package.kind {
+            // If the container is local, just create and return a local package container.
+            case .root, .fileSystem:
+                let container = try FileSystemPackageContainer(
+                    package: package,
+                    identityResolver: self.identityResolver,
+                    manifestLoader: self.manifestLoader,
+                    toolsVersionLoader: self.toolsVersionLoader,
+                    currentToolsVersion: self.currentToolsVersion,
+                    fileSystem: self.fileSystem,
+                    observabilityScope: observabilityScope
+                )
                 queue.async {
-                    completion(.failure(error))
+                    completion(.success(container))
                 }
+            // Resolve the container using the repository manager.
+            case .localSourceControl, .remoteSourceControl:
+                let repositorySpecifier = try package.makeRepositorySpecifier()
+                self.repositoryManager.lookup(
+                    package: package.identity,
+                    repository: repositorySpecifier,
+                    skipUpdate: skipUpdate,
+                    observabilityScope: observabilityScope,
+                    delegateQueue: queue,
+                    callbackQueue: queue
+                ) { result in
+                    dispatchPrecondition(condition: .onQueue(queue))
+                    // Create the container wrapper.
+                    let result = result.tryMap { handle -> PackageContainer in
+                        // Open the repository.
+                        //
+                        // FIXME: Do we care about holding this open for the lifetime of the container.
+                        let repository = try handle.open()
+                        return try SourceControlPackageContainer(
+                            package: package,
+                            identityResolver: self.identityResolver,
+                            repositorySpecifier: repositorySpecifier,
+                            repository: repository,
+                            manifestLoader: self.manifestLoader,
+                            toolsVersionLoader: self.toolsVersionLoader,
+                            currentToolsVersion: self.currentToolsVersion,
+                            fingerprintStorage: self.fingerprints,
+                            fingerprintCheckingMode: self.configuration.fingerprintCheckingMode,
+                            observabilityScope: observabilityScope
+                        )
+                    }
+                    completion(result)
+                }
+            // Resolve the container using the registry
+            case .registry:
+                let container = RegistryPackageContainer(
+                    package: package,
+                    identityResolver: self.identityResolver,
+                    registryClient: self.registryClient,
+                    manifestLoader: self.manifestLoader,
+                    toolsVersionLoader: self.toolsVersionLoader,
+                    currentToolsVersion: self.currentToolsVersion,
+                    observabilityScope: observabilityScope
+                )
+                queue.async {
+                    completion(.success(container))
+                }
+            }
+        } catch {
+            queue.async {
+                completion(.failure(error))
             }
         }
     }
@@ -4058,18 +4061,21 @@ extension Workspace {
             return nil
         }
 
-        guard case .custom(_, _) = state else {
+        switch state {
+        // File-system based dependencies do not provide a custom file system object.
+        case .fileSystem:
+            return nil
+        case .custom:
+            let container = try temp_await { packageContainerProvider.getContainer(for: package, skipUpdate: true, observabilityScope: observabilityScope, on: .sharedConcurrent, completion: $0) }
+            guard let customContainer = container as? CustomPackageContainer else {
+                observabilityScope.emit(error: "invalid custom dependency container: \(container)")
+                return nil
+            }
+            return try customContainer.getFileSystem()
+        default:
             observabilityScope.emit(error: "invalid managed dependency state for custom dependency: \(state)")
             return nil
         }
-
-        let container = try temp_await { packageContainerProvider.getContainer(for: package, skipUpdate: true, observabilityScope: observabilityScope, on: .sharedConcurrent, completion: $0) }
-        guard let customContainer = container as? CustomPackageContainer else {
-            observabilityScope.emit(error: "invalid custom dependency container: \(container)")
-            return nil
-        }
-
-        return try customContainer.getFileSystem()
     }
 }
 
@@ -4182,6 +4188,307 @@ extension Workspace.Location {
             }
         }
         return location
+    }
+}
+
+extension Workspace {
+    // the goal of this code is to help align dependency identities across source control and registry origins
+    // the issue this solves is that dependencies will have different identities across the origins
+    // for example, source control based dependency on http://github.com/apple/swift-nio would have an identifier of "swift-nio"
+    // while in the registry, the same package will [likely] have an identifier of "apple.swift-nio"
+    // since there is not generally fire sure way to translate one system to the other (urls can vary widely, so the best we would be able to do is guess)
+    // what this code does is query the registry of it "knows" what the registry identity of URL is, and then use the registry identity instead of the URL bases one
+    // the code also supports a "full swizzle" mode in which it _replaces_ the source control dependency with a registry one which encourages the transition
+    // from source control based dependencies to registry based ones
+
+    // TODO
+    // 1. handle mixed situation when some versions on the registry but some on source control. we need a second lookup to make sure the version exists
+    // 2. handle registry returning multiple identifiers, how do we choose the right one?
+    fileprivate struct RegistryAwareManifestLoader: ManifestLoaderProtocol {
+        
+        private let underlying: ManifestLoaderProtocol
+        private let registryClient: RegistryClient
+        private let transformationMode: TransformationMode
+
+        private let cacheTTL = DispatchTimeInterval.seconds(300) // 5m
+        private let identitiesCache = ThreadSafeKeyValueStore<URL, (identity: PackageIdentity, expirationTime: DispatchTime)>()
+
+        init(underlying: ManifestLoaderProtocol, registryClient: RegistryClient, transformationMode: TransformationMode) {
+            self.underlying = underlying
+            self.registryClient = registryClient
+            self.transformationMode = transformationMode
+        }
+
+        func load(
+            at path: AbsolutePath,
+            packageIdentity: PackageIdentity,
+            packageKind: PackageReference.Kind,
+            packageLocation: String,
+            version: Version?,
+            revision: String?,
+            toolsVersion: ToolsVersion,
+            identityResolver: IdentityResolver,
+            fileSystem: FileSystem,
+            observabilityScope: ObservabilityScope,
+            delegateQueue: DispatchQueue,
+            callbackQueue: DispatchQueue,
+            completion: @escaping (Result<Manifest, Error>) -> Void
+        ) {
+            self.underlying.load(
+                at: path,
+                packageIdentity: packageIdentity,
+                packageKind: packageKind,
+                packageLocation: packageLocation,
+                version: version,
+                revision: revision,
+                toolsVersion: toolsVersion,
+                identityResolver: identityResolver,
+                fileSystem: fileSystem,
+                observabilityScope: observabilityScope,
+                delegateQueue: delegateQueue,
+                callbackQueue: callbackQueue
+            ) { result in
+                switch result {
+                case .failure(let error):
+                    completion(.failure(error))
+                case .success(let manifest):
+                    self.transformSourceControlDependenciesToRegistry(
+                        manifest: manifest,
+                        transformationMode: transformationMode,
+                        observabilityScope: observabilityScope,
+                        callbackQueue: callbackQueue,
+                        completion: completion
+                    )
+                }
+            }
+        }
+
+        func resetCache() throws {
+            try self.underlying.resetCache()
+        }
+
+        func purgeCache() throws {
+            try self.underlying.purgeCache()
+        }
+
+        private func transformSourceControlDependenciesToRegistry(
+            manifest: Manifest,
+            transformationMode: TransformationMode,
+            observabilityScope: ObservabilityScope,
+            callbackQueue: DispatchQueue,
+            completion: @escaping (Result<Manifest, Error>) -> Void
+        ) {
+            let sync = DispatchGroup()
+            let transformations = ThreadSafeKeyValueStore<PackageDependency, PackageIdentity>()
+            for dependency in manifest.dependencies {
+                if case .sourceControl(let settings) = dependency, case .remote(let url) = settings.location  {
+                    sync.enter()
+                    self.mapRegistryIdentity(url: url, observabilityScope: observabilityScope, callbackQueue: callbackQueue) { result in
+                        defer { sync.leave() }
+                        switch result {
+                        case .failure(let error):
+                            // do not raise error, only report it as warning
+                            observabilityScope.emit(warning: "failed querying registry identity for '\(url)': \(error)")
+                        case .success(.some(let identity)):
+                            transformations[dependency] = identity
+                        case .success(.none):
+                            // no identity found
+                            break
+                        }
+                    }
+                }
+            }
+
+            // update the manifest with the transformed dependencies
+            sync.notify(queue: callbackQueue) {
+                do {
+                    let updatedManifest = try self.transformManifest(
+                        manifest: manifest,
+                        transformations: transformations.get(),
+                        transformationMode: transformationMode,
+                        observabilityScope: observabilityScope
+                    )
+                    completion(.success(updatedManifest))
+                }
+                catch {
+                    return completion(.failure(error))
+                }
+            }
+        }
+
+        private func transformManifest(
+            manifest: Manifest,
+            transformations: [PackageDependency: PackageIdentity],
+            transformationMode: TransformationMode,
+            observabilityScope: ObservabilityScope
+        ) throws -> Manifest {
+            var targetDependencyPackageNameTransformations = [String: String]()
+
+            var modifiedDependencies = [PackageDependency]()
+            for dependency in manifest.dependencies {
+                var modifiedDependency = dependency
+                if let registryIdentity = transformations[dependency] {
+                    guard case .sourceControl(let settings) = dependency, case .remote = settings.location else {
+                        // an implementation mistake
+                        throw InternalError("unexpected non-source-control dependency: \(dependency)")
+                    }
+                    switch transformationMode {
+                    case .identity:
+                        // we replace the *identity* of the dependency in order to align the identities
+                        // and de-dupe across source control and registry origins
+                        observabilityScope.emit(info: "adjusting '\(dependency.locationString)' identity to registry identity of '\(registryIdentity)'.")
+                        modifiedDependency = .sourceControl(
+                            identity: registryIdentity,
+                            nameForTargetDependencyResolutionOnly: settings.nameForTargetDependencyResolutionOnly,
+                            location: settings.location,
+                            requirement: settings.requirement,
+                            productFilter: settings.productFilter
+                        )
+                    case .swizzle:
+                        // we replace the *entire* source control dependency with a registry one
+                        // this helps de-dupe across source control and registry dependencies
+                        // and also encourages use of registry over source control
+                        switch settings.requirement {
+                        case .exact, .range:
+                            let requirement = try settings.requirement.asRegistryRequirement()
+                            observabilityScope.emit(info: "swizzling '\(dependency.locationString)' with registry dependency '\(registryIdentity)'.")
+                            targetDependencyPackageNameTransformations[dependency.nameForTargetDependencyResolutionOnly] = registryIdentity.description
+                            modifiedDependency = .registry(
+                                identity: registryIdentity,
+                                requirement: requirement,
+                                productFilter: settings.productFilter
+                            )
+                        case .branch, .revision:
+                            // branch and revision dependencies are not supported by the registry
+                            // in such case, the best we can do is to replace the *identity* of the
+                            // source control dependency in order to align the identities
+                            // and de-dupe across source control and registry origins
+                            observabilityScope.emit(info: "adjusting '\(dependency.locationString)' identity to registry identity of '\(registryIdentity)'.")
+                            modifiedDependency = .sourceControl(
+                                identity: registryIdentity,
+                                nameForTargetDependencyResolutionOnly: settings.nameForTargetDependencyResolutionOnly,
+                                location: settings.location,
+                                requirement: settings.requirement,
+                                productFilter: settings.productFilter
+                            )
+                        }
+                    }
+                }
+                modifiedDependencies.append(modifiedDependency)
+            }
+
+            var modifiedTargets = manifest.targets
+            if !transformations.isEmpty {
+                modifiedTargets = []
+                for target in manifest.targets {
+                    var modifiedDependencies = [TargetDescription.Dependency]()
+                    for dependency in target.dependencies {
+                        var modifiedDependency = dependency
+                        if case .product(let name, let packageName, let moduleAliases, let condition) = dependency, let packageName = packageName {
+                            // makes sure we use the updated package name for target based dependencies
+                            if let modifiedPackageName = targetDependencyPackageNameTransformations[packageName] {
+                                modifiedDependency = .product(name: name, package: modifiedPackageName, moduleAliases: moduleAliases, condition: condition)
+                            }
+                        }
+                        modifiedDependencies.append(modifiedDependency)
+                    }
+
+                    modifiedTargets.append(
+                        try TargetDescription(
+                            name: target.name,
+                            dependencies: modifiedDependencies,
+                            path: target.path,
+                            url: target.url,
+                            exclude: target.exclude,
+                            sources: target.sources,
+                            resources: target.resources,
+                            publicHeadersPath: target.publicHeadersPath,
+                            type: target.type,
+                            pkgConfig: target.pkgConfig,
+                            providers: target.providers,
+                            pluginCapability: target.pluginCapability,
+                            settings: target.settings,
+                            checksum: target.checksum,
+                            pluginUsages: target.pluginUsages
+                        )
+                    )
+                }
+            }
+
+            let modifiedManifest = Manifest(
+                displayName: manifest.displayName,
+                path: manifest.path,
+                packageKind: manifest.packageKind,
+                packageLocation: manifest.packageLocation,
+                defaultLocalization: manifest.defaultLocalization,
+                platforms: manifest.platforms,
+                version: manifest.version,
+                revision: manifest.revision,
+                toolsVersion: manifest.toolsVersion,
+                pkgConfig: manifest.pkgConfig,
+                providers: manifest.providers,
+                cLanguageStandard: manifest.cLanguageStandard,
+                cxxLanguageStandard: manifest.cxxLanguageStandard,
+                swiftLanguageVersions: manifest.swiftLanguageVersions,
+                dependencies: modifiedDependencies,
+                products: manifest.products,
+                targets: modifiedTargets
+            )
+
+            return modifiedManifest
+        }
+
+        private func mapRegistryIdentity(
+            url: URL,
+            observabilityScope: ObservabilityScope,
+            callbackQueue: DispatchQueue,
+            completion: @escaping (Result<PackageIdentity?, Error>) -> Void
+        ) {
+            if let cached = self.identitiesCache[url], cached.expirationTime > .now() {
+                return completion(.success(cached.identity))
+            }
+
+            self.registryClient.lookupIdentities(url: url, observabilityScope: observabilityScope, callbackQueue: callbackQueue) { result in
+                switch result {
+                case .failure(let error):
+                    completion(.failure(error))
+                case .success(let identities):
+                    // FIXME: returns first result... need to consider how to address multiple ones
+                    let identity = identities.first
+                    self.identitiesCache[url] = identity.map { (identity: $0, expirationTime: .now() + self.cacheTTL) }
+                    completion(.success(identity))
+                }
+            }
+        }
+
+        enum TransformationMode {
+            case identity
+            case swizzle
+
+            init?(_ seed: WorkspaceConfiguration.SourceControlToRegistryDependencyTransformation) {
+                switch seed {
+                case .identity:
+                    self = .identity
+                case .swizzle:
+                    self = .swizzle
+                case .disabled:
+                    return nil
+                }
+            }
+        }
+    }
+}
+
+fileprivate extension PackageDependency.SourceControl.Requirement {
+    func asRegistryRequirement() throws -> PackageDependency.Registry.Requirement {
+        switch self {
+        case .range(let versions):
+            return .range(versions)
+        case .exact(let version):
+            return .exact(version)
+        case .branch, .revision:
+            throw InternalError("invalid source control to registry requirement tranformation")
+        }
     }
 }
 

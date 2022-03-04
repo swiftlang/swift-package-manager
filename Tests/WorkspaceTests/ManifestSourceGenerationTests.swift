@@ -36,18 +36,21 @@ class ManifestSourceGenerationTests: XCTestCase {
             let manifestLoader = ManifestLoader(toolchain: ToolchainConfiguration.default)
             let identityResolver = DefaultIdentityResolver()
             let manifest = try tsc_await {
-                manifestLoader.load(at: packageDir,
-                                    packageIdentity: .plain("Root"),
-                                    packageKind: .root(packageDir),
-                                    packageLocation: packageDir.pathString,
-                                    version: nil,
-                                    revision: nil,
-                                    toolsVersion: toolsVersion,
-                                    identityResolver: identityResolver,
-                                    fileSystem: fs,
-                                    observabilityScope: observability.topScope,
-                                    on: .global(),
-                                    completion: $0)
+                manifestLoader.load(
+                    at: packageDir,
+                    packageIdentity: .plain("Root"),
+                    packageKind: .root(packageDir),
+                    packageLocation: packageDir.pathString,
+                    version: nil,
+                    revision: nil,
+                    toolsVersion: toolsVersion,
+                    identityResolver: identityResolver,
+                    fileSystem: fs,
+                    observabilityScope: observability.topScope,
+                    delegateQueue: .sharedConcurrent,
+                    callbackQueue: .sharedConcurrent,
+                    completion: $0
+                )
             }
 
             XCTAssertNoDiagnostics(observability.diagnostics)
@@ -64,18 +67,21 @@ class ManifestSourceGenerationTests: XCTestCase {
             // Write out the generated manifest to replace the old manifest file contents, and load it again.
             try fs.writeFileContents(packageDir.appending(component: Manifest.filename), bytes: ByteString(encodingAsUTF8: newContents))
             let newManifest = try tsc_await {
-                manifestLoader.load(at: packageDir,
-                                    packageIdentity: .plain("Root"),
-                                    packageKind: .root(packageDir),
-                                    packageLocation: packageDir.pathString,
-                                    version: nil,
-                                    revision: nil,
-                                    toolsVersion: toolsVersion,
-                                    identityResolver: identityResolver,
-                                    fileSystem: fs,
-                                    observabilityScope: observability.topScope,
-                                    on: .global(),
-                                    completion: $0)
+                manifestLoader.load(
+                    at: packageDir,
+                    packageIdentity: .plain("Root"),
+                    packageKind: .root(packageDir),
+                    packageLocation: packageDir.pathString,
+                    version: nil,
+                    revision: nil,
+                    toolsVersion: toolsVersion,
+                    identityResolver: identityResolver,
+                    fileSystem: fs,
+                    observabilityScope: observability.topScope,
+                    delegateQueue: .sharedConcurrent,
+                    callbackQueue: .sharedConcurrent,
+                    completion: $0
+                )
             }
 
             XCTAssertNoDiagnostics(observability.diagnostics)
@@ -398,7 +404,7 @@ class ManifestSourceGenerationTests: XCTestCase {
             platforms: [],
             toolsVersion: .v5_5,
             products: [
-                .init(name: "Foo", type: .library(.static), targets: ["Bar"])
+                try .init(name: "Foo", type: .library(.static), targets: ["Bar"])
             ]
         )
 

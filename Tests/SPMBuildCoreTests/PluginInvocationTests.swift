@@ -87,6 +87,7 @@ class PluginInvocationTests: XCTestCase {
 
         // A fake PluginScriptRunner that just checks the input conditions and returns canned output.
         struct MockPluginScriptRunner: PluginScriptRunner {
+            
             var hostTriple: Triple {
                 return UserToolchain.default.triple
             }
@@ -97,7 +98,7 @@ class PluginInvocationTests: XCTestCase {
             
             func runPluginScript(
                 sources: Sources,
-                input: PluginScriptRunnerInput,
+                initialMessage: Data,
                 toolsVersion: ToolsVersion,
                 workingDirectory: AbsolutePath,
                 writableDirectories: [AbsolutePath],
@@ -105,54 +106,67 @@ class PluginInvocationTests: XCTestCase {
                 fileSystem: FileSystem,
                 observabilityScope: ObservabilityScope,
                 callbackQueue: DispatchQueue,
-                delegate: PluginInvocationDelegate,
-                completion: @escaping (Result<Bool, Error>) -> Void
+                delegate: PluginScriptRunnerDelegate,
+                completion: @escaping (Result<Int32, Error>) -> Void
             ) {
                 // Check that we were given the right sources.
                 XCTAssertEqual(sources.root, AbsolutePath("/Foo/Plugins/FooPlugin"))
                 XCTAssertEqual(sources.relativePaths, [RelativePath("source.swift")])
 
-                // Check the input structure we received.
-                XCTAssertEqual(input.products.count, 2, "unexpected products: \(dump(input.products))")
-                XCTAssertEqual(input.products[0].name, "Foo", "unexpected products: \(dump(input.products))")
-                XCTAssertEqual(input.products[0].targetIds.count, 1, "unexpected product targets: \(dump(input.products[0].targetIds))")
-                XCTAssertEqual(input.products[1].name, "FooTool", "unexpected products: \(dump(input.products))")
-                XCTAssertEqual(input.products[1].targetIds.count, 1, "unexpected product targets: \(dump(input.products[1].targetIds))")
-                XCTAssertEqual(input.targets.count, 2, "unexpected targets: \(dump(input.targets))")
-                XCTAssertEqual(input.targets[0].name, "Foo", "unexpected targets: \(dump(input.targets))")
-                XCTAssertEqual(input.targets[0].dependencies.count, 0, "unexpected target dependencies: \(dump(input.targets[0].dependencies))")
-                XCTAssertEqual(input.targets[1].name, "FooTool", "unexpected targets: \(dump(input.targets))")
-                XCTAssertEqual(input.targets[1].dependencies.count, 0, "unexpected target dependencies: \(dump(input.targets[1].dependencies))")
+                do {
+                    // Pretend the plugin emitted some output.
+                    callbackQueue.sync {
+                        delegate.handleOutput(data: Data("Hello Plugin!".utf8))
+                    }
+                    
+                    // Pretend it emitted a warning.
+                    try callbackQueue.sync {
+                        let message = Data("""
+                        {   "emitDiagnostic": {
+                                "severity": "warning",
+                                "message": "A warning",
+                                "file": "/Foo/Sources/Foo/SomeFile.abc",
+                                "line": 42
+                            }
+                        }
+                        """.utf8)
+                        try delegate.handleMessage(data: message, responder: { _ in })
+                    }
 
-                // Pretend the plugin emitted some output.
-                callbackQueue.sync {
-                    delegate.pluginEmittedOutput(Data("Hello Plugin!".utf8))
+                    // Pretend it defined a build command.
+                    try callbackQueue.sync {
+                        let message = Data("""
+                        {   "defineBuildCommand": {
+                                "configuration": {
+                                    "displayName": "Do something",
+                                    "executable": "/bin/FooTool",
+                                    "arguments": [
+                                        "-c", "/Foo/Sources/Foo/SomeFile.abc"
+                                    ],
+                                    "workingDirectory": "/Foo/Sources/Foo",
+                                    "environment": {
+                                        "X": "Y"
+                                    },
+                                },
+                                "inputFiles": [
+                                ],
+                                "outputFiles": [
+                                ]
+                            }
+                        }
+                        """.utf8)
+                        try delegate.handleMessage(data: message, responder: { _ in })
+                    }
                 }
-                
-                // Pretend it emitted a warning.
-                callbackQueue.sync {
-                    var locationMetadata = ObservabilityMetadata()
-                    locationMetadata.fileLocation = .init(AbsolutePath("/Foo/Sources/Foo/SomeFile.abc"), line: 42)
-                    delegate.pluginEmittedDiagnostic(.warning("A warning", metadata: locationMetadata))
+                catch {
+                    callbackQueue.sync {
+                        completion(.failure(error))
+                    }
                 }
-                
-                // Pretend it defined a build command.
+
+                // If we get this far we succeded, so invoke the completion handler.
                 callbackQueue.sync {
-                    delegate.pluginDefinedBuildCommand(
-                        displayName: "Do something",
-                        executable: AbsolutePath("/bin/FooTool"),
-                        arguments: ["-c", "/Foo/Sources/Foo/SomeFile.abc"],
-                        environment: [
-                            "X": "Y"
-                        ],
-                        workingDirectory: AbsolutePath("/Foo/Sources/Foo"),
-                        inputFiles: [],
-                        outputFiles: [])
-                }
-                
-                // Finally, invoke the completion handler.
-                callbackQueue.sync {
-                    completion(.success(true))
+                    completion(.success(0))
                 }
             }
         }
@@ -276,7 +290,11 @@ class PluginInvocationTests: XCTestCase {
 
             // Create a plugin script runner for the duration of the test.
             let pluginCacheDir = tmpPath.appending(component: "plugin-cache")
-            let pluginScriptRunner = DefaultPluginScriptRunner(cacheDir: pluginCacheDir, toolchain: ToolchainConfiguration.default)
+            let pluginScriptRunner = DefaultPluginScriptRunner(
+                fileSystem: localFileSystem,
+                cacheDir: pluginCacheDir,
+                toolchain: ToolchainConfiguration.default
+            )
 
             // Try to compile the broken plugin script.
             do {

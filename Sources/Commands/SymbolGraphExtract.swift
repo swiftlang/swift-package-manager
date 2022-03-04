@@ -18,6 +18,7 @@ import TSCBasic
 
 /// A wrapper for swift-symbolgraph-extract tool.
 public struct SymbolGraphExtract {
+    let fileSystem: FileSystem
     let tool: AbsolutePath
     
     var skipSynthesizedMembers = false
@@ -43,11 +44,11 @@ public struct SymbolGraphExtract {
         target: ResolvedTarget,
         buildPlan: BuildPlan,
         outputRedirection: Process.OutputRedirection = .none,
-        logLevel: Basics.Diagnostic.Severity,
-        outputDirectory: AbsolutePath
+        outputDirectory: AbsolutePath,
+        verboseOutput: Bool
     ) throws {
         let buildParameters = buildPlan.buildParameters
-        try localFileSystem.createDirectory(outputDirectory, recursive: true)
+        try self.fileSystem.createDirectory(outputDirectory, recursive: true)
 
         // Construct arguments for extracting symbols for a single target.
         var commandLine = [self.tool.pathString]
@@ -55,7 +56,7 @@ public struct SymbolGraphExtract {
         commandLine += try buildParameters.targetTripleArgs(for: target)
         commandLine += buildPlan.createAPIToolCommonArgs(includeLibrarySearchPaths: true)
         commandLine += ["-module-cache-path", buildParameters.moduleCache.pathString]
-        if logLevel <= .info {
+        if verboseOutput {
             commandLine += ["-v"]
         }
         commandLine += ["-minimum-access-level", minimumAccessLevel.rawValue]
@@ -79,8 +80,8 @@ public struct SymbolGraphExtract {
         // Run the extraction.
         let process = Process(
             arguments: commandLine,
-            outputRedirection: outputRedirection,
-            verbose: logLevel <= .info)
+            outputRedirection: outputRedirection
+        )
         try process.launch()
         try process.waitUntilExit()
     }

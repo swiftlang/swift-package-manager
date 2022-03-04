@@ -23,7 +23,7 @@ struct FilePackageCollectionsSourcesStorage: PackageCollectionsSourcesStorage {
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
 
-    init(fileSystem: FileSystem = localFileSystem, path: AbsolutePath? = nil) {
+    init(fileSystem: FileSystem, path: AbsolutePath? = nil) {
         self.fileSystem = fileSystem
 
         self.path = path ?? fileSystem.swiftPMConfigurationDirectory.appending(component: "collections.json")

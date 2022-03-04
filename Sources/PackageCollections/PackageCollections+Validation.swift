@@ -1,7 +1,7 @@
 /*
  This source file is part of the Swift.org open source project
 
- Copyright (c) 2020-2021 Apple Inc. and the Swift project authors
+ Copyright (c) 2020-2022 Apple Inc. and the Swift project authors
  Licensed under Apache License v2.0 with Runtime Library Exception
 
  See http://swift.org/LICENSE.txt for license information
@@ -17,7 +17,7 @@ import PackageModel
 // MARK: - Model validations
 
 extension Model.CollectionSource {
-    func validate() -> [ValidationMessage]? {
+    func validate(fileSystem: FileSystem) -> [ValidationMessage]? {
         var messages: [ValidationMessage]?
         let appendMessage = { (message: ValidationMessage) in
             if messages == nil {
@@ -38,7 +38,7 @@ extension Model.CollectionSource {
 
                 if absolutePath == nil {
                     appendMessage(.error("Invalid file path: \(self.url.path). It must be an absolute file system path."))
-                } else if let absolutePath = absolutePath, !localFileSystem.exists(absolutePath) {
+                } else if let absolutePath = absolutePath, !fileSystem.exists(absolutePath) {
                     appendMessage(.error("\(self.url.path) is either a non-local path or the file does not exist."))
                 }
             }
@@ -80,7 +80,7 @@ extension PackageCollectionModel.V1 {
 
         // TODO: validate package url?
         private func validate(package: Collection.Package, messages: inout [ValidationMessage]) {
-            let packageID = PackageIdentity(url: package.url).description
+            let packageID = "\(PackageIdentity(url: package.url).description) (\(package.url.absoluteString))"
 
             guard !package.versions.isEmpty else {
                 messages.append(.error("Package \(packageID) does not have any versions.", property: "package.versions"))
@@ -145,7 +145,7 @@ extension PackageCollectionModel.V1 {
 
                 version.manifests.forEach { toolsVersion, manifest in
                     if toolsVersion != manifest.toolsVersion {
-                        messages.append(.error("Manifest tools version \(manifest.toolsVersion) does not match \(toolsVersion)", property: "version.manifest"))
+                        messages.append(.error("Package \(packageID) manifest tools version \(manifest.toolsVersion) does not match \(toolsVersion)", property: "version.manifest"))
                     }
 
                     if manifest.products.isEmpty {
@@ -231,6 +231,15 @@ extension Array where Element == ValidationMessage {
 public enum ValidationError: Error, Equatable, CustomStringConvertible {
     case property(name: String, message: String)
     case other(message: String)
+    
+    public var message: String {
+        switch self {
+        case .property(_, let message):
+            return message
+        case .other(let message):
+            return message
+        }
+    }
 
     public var description: String {
         switch self {

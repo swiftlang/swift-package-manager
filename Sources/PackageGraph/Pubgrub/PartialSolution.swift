@@ -18,7 +18,7 @@ import struct TSCUtility.Version
 public struct PartialSolution {
     var root: DependencyResolutionNode?
 
-    /// All known assigments.
+    /// All known assignments.
     public private(set) var assignments: [Assignment]
 
     /// All known decisions.
@@ -68,7 +68,7 @@ public struct PartialSolution {
         register(decision)
     }
 
-    /// Populates the _positive and _negative poperties with the assignment.
+    /// Populates the _positive and _negative properties with the assignment.
     private mutating func register(_ assignment: Assignment) {
         let term = assignment.term
         let pkg = term.node

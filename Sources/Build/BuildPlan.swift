@@ -56,7 +56,9 @@ extension BuildParameters {
     public var swiftCompilerFlags: [String] {
         var flags = self.flags.cCompilerFlags.flatMap({ ["-Xcc", $0] })
         flags += self.flags.swiftCompilerFlags
-        flags += verbosity.ccArgs
+        if self.verboseOutput {
+            flags.append("-v")
+        }
         return flags
     }
 
@@ -276,7 +278,10 @@ public final class ClangTargetBuildDescription {
 
     /// Create a new target description with target and build parameters.
     init(target: ResolvedTarget, toolsVersion: ToolsVersion, buildParameters: BuildParameters, fileSystem: FileSystem) throws {
-        assert(target.underlyingTarget is ClangTarget, "underlying target type mismatch \(target)")
+        guard target.underlyingTarget is ClangTarget else {
+            throw InternalError("underlying target type mismatch \(target)")
+        }
+
         self.fileSystem = fileSystem
         self.target = target
         self.toolsVersion = toolsVersion
@@ -305,7 +310,7 @@ public final class ClangTargetBuildDescription {
             try self.generateResourceAccessor()
 
             let infoPlistPath = tempsPath.appending(component: "Info.plist")
-            if try generateResourceInfoPlist(for: target, to: infoPlistPath) {
+            if try generateResourceInfoPlist(fileSystem: fileSystem, target: target, path: infoPlistPath) {
                 resourceBundleInfoPlistPath = infoPlistPath
             }
         }
@@ -383,7 +388,7 @@ public final class ClangTargetBuildDescription {
         }
         args += buildParameters.sanitizers.compileCFlags()
 
-        // Add agruments from declared build settings.
+        // Add arguments from declared build settings.
         args += self.buildSettingsFlags()
 
         if let resourceAccessorHeaderFile = self.resourceAccessorHeaderFile {
@@ -635,7 +640,9 @@ public final class SwiftTargetBuildDescription {
         isTestDiscoveryTarget: Bool = false,
         fileSystem: FileSystem
     ) throws {
-        assert(target.underlyingTarget is SwiftTarget, "underlying target type mismatch \(target)")
+        guard target.underlyingTarget is SwiftTarget else {
+            throw InternalError("underlying target type mismatch \(target)")
+        }
         self.target = target
         self.toolsVersion = toolsVersion
         self.buildParameters = buildParameters
@@ -676,7 +683,7 @@ public final class SwiftTargetBuildDescription {
             try self.generateResourceAccessor()
 
             let infoPlistPath = tempsPath.appending(component: "Info.plist")
-            if try generateResourceInfoPlist(for: target, to: infoPlistPath) {
+            if try generateResourceInfoPlist(fileSystem: self.fileSystem, target: target, path: infoPlistPath) {
                 resourceBundleInfoPlistPath = infoPlistPath
             }
         }
@@ -812,7 +819,7 @@ public final class SwiftTargetBuildDescription {
         }
 
         // Add arguments to colorize output if stdout is tty
-        if buildParameters.isTTY {
+        if buildParameters.colorizedOutput {
             args += ["-color-diagnostics"]
         }
 
@@ -868,7 +875,9 @@ public final class SwiftTargetBuildDescription {
 
     /// Command-line for emitting just the Swift module.
     public func emitModuleCommandLine() throws -> [String] {
-        assert(buildParameters.emitSwiftModuleSeparately)
+        guard buildParameters.emitSwiftModuleSeparately else {
+            throw InternalError("expecting emitSwiftModuleSeparately in build parameters")
+        }
 
         var result: [String] = []
         result.append(buildParameters.toolchain.swiftCompiler.pathString)
@@ -913,7 +922,9 @@ public final class SwiftTargetBuildDescription {
     ///
     /// Note: This doesn't emit the module.
     public func emitObjectsCommandLine() throws -> [String] {
-        assert(buildParameters.emitSwiftModuleSeparately)
+        guard buildParameters.emitSwiftModuleSeparately else {
+            throw InternalError("expecting emitSwiftModuleSeparately in build parameters")
+        }
 
         var result: [String] = []
         result.append(buildParameters.toolchain.swiftCompiler.pathString)
@@ -1181,8 +1192,11 @@ public final class ProductBuildDescription {
     private let observabilityScope: ObservabilityScope
 
     /// Create a build description for a product.
-    init(product: ResolvedProduct, toolsVersion: ToolsVersion, buildParameters: BuildParameters, fileSystem: FileSystem, observabilityScope: ObservabilityScope) {
-        assert(product.type != .library(.automatic), "Automatic type libraries should not be described.")
+    init(product: ResolvedProduct, toolsVersion: ToolsVersion, buildParameters: BuildParameters, fileSystem: FileSystem, observabilityScope: ObservabilityScope) throws {
+        guard product.type != .library(.automatic) else {
+            throw InternalError("Automatic type libraries should not be described.")
+        }
+
         self.product = product
         self.toolsVersion = toolsVersion
         self.buildParameters = buildParameters
@@ -1291,11 +1305,12 @@ public final class ProductBuildDescription {
             // a main symbol named that way to allow tests to link against it without
             // conflicts. If we're using a linker that doesn't support symbol renaming,
             // we will instead have generated a source file containing the redirect.
-            // Support for linking tests againsts executables is conditional on the tools
+            // Support for linking tests against executables is conditional on the tools
             // version of the package that defines the executable product.
-            if product.executableModule.underlyingTarget is SwiftTarget, toolsVersion >= .v5_5,
+            let executableTarget = try product.executableTarget()
+            if executableTarget.underlyingTarget is SwiftTarget, toolsVersion >= .v5_5,
                buildParameters.canRenameEntrypointFunctionName {
-                if let flags = buildParameters.linkerFlagsForRenamingMainFunction(of: product.executableModule) {
+                if let flags = buildParameters.linkerFlagsForRenamingMainFunction(of: executableTarget) {
                     args += flags
                 }
             }
@@ -1454,7 +1469,10 @@ public final class PluginDescription: Codable {
         testDiscoveryTarget: Bool = false,
         fileSystem: FileSystem
     ) throws {
-        assert(target.underlyingTarget is PluginTarget, "underlying target type mismatch \(target)")
+        guard target.underlyingTarget is PluginTarget else {
+            throw InternalError("underlying target type mismatch \(target)")
+        }
+
         self.package = package.identity
         self.targetName = target.name
         self.productNames = products.map{ $0.name }
@@ -1726,7 +1744,7 @@ public class BuildPlan {
             // Determine the appropriate tools version to use for the product.
             // This can affect what flags to pass and other semantics.
             let toolsVersion = graph.package(for: product)?.manifest.toolsVersion ?? .v5_5
-            productMap[product] = ProductBuildDescription(
+            productMap[product] = try ProductBuildDescription(
                 product: product,
                 toolsVersion: toolsVersion,
                 buildParameters: buildParameters,
@@ -1837,7 +1855,7 @@ public class BuildPlan {
 
                 // Based on the debugging strategy, we either need to pass swiftmodule paths to the
                 // product or link in the wrapped module object. This is required for properly debugging
-                // Swift products. Debugging statergy is computed based on the current platform we're
+                // Swift products. Debugging strategy is computed based on the current platform we're
                 // building for and is nil for the release configuration.
                 switch buildParameters.debuggingStrategy {
                 case .swiftAST:
@@ -1890,7 +1908,7 @@ public class BuildPlan {
         let nodes: [ResolvedTarget.Dependency] = product.targets.map { .target($0, conditions: []) }
         let allTargets = try topologicalSort(nodes, successors: { dependency in
             switch dependency {
-            // Include all the depenencies of a target.
+            // Include all the dependencies of a target.
             case .target(let target, _):
                 return target.dependencies.filter { $0.satisfies(self.buildEnvironment) }
 
@@ -2230,9 +2248,9 @@ extension FileSystem {
 
 /// Generate the resource bundle Info.plist.
 private func generateResourceInfoPlist(
-    for target: ResolvedTarget,
-    to path: AbsolutePath,
-    fileSystem: FileSystem = localFileSystem
+    fileSystem: FileSystem,
+    target: ResolvedTarget,
+    path: AbsolutePath
 ) throws -> Bool {
     guard let defaultLocalization = target.underlyingTarget.defaultLocalization else {
         return false

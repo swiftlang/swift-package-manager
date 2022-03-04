@@ -287,12 +287,14 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider, Closable {
         public var cacheTTLInSeconds: Int
         public var cacheSizeInMegabytes: Int
 
-        public init(authTokens: @escaping () -> [AuthTokenType: String]? = { nil },
-                    apiLimitWarningThreshold: Int? = nil,
-                    disableCache: Bool = false,
-                    cacheDir: AbsolutePath? = nil,
-                    cacheTTLInSeconds: Int? = nil,
-                    cacheSizeInMegabytes: Int? = nil) {
+        public init(
+            authTokens: @escaping () -> [AuthTokenType: String]? = { nil },
+            apiLimitWarningThreshold: Int? = nil,
+            disableCache: Bool = false,
+            cacheDir: AbsolutePath? = nil,
+            cacheTTLInSeconds: Int? = nil,
+            cacheSizeInMegabytes: Int? = nil            
+        ) {
             self.authTokens = authTokens
             self.apiLimitWarningThreshold = apiLimitWarningThreshold ?? 5
             self.cacheDir = cacheDir.map(resolveSymlinks) ?? localFileSystem.swiftPMCacheDirectory.appending(components: "package-metadata")

@@ -91,7 +91,8 @@ public struct FileSystemPackageContainer: PackageContainer {
                     identityResolver: self.identityResolver,
                     fileSystem: self.fileSystem,
                     observabilityScope: self.observabilityScope,
-                    on: .sharedConcurrent,
+                    delegateQueue: .sharedConcurrent,
+                    callbackQueue: .sharedConcurrent,
                     completion: $0
                 )
             }
@@ -99,7 +100,8 @@ public struct FileSystemPackageContainer: PackageContainer {
     }
 
     public func getUnversionedDependencies(productFilter: ProductFilter) throws -> [PackageContainerConstraint] {
-        return try loadManifest().dependencyConstraints(productFilter: productFilter)
+        let manifest = try self.loadManifest()
+        return try manifest.dependencyConstraints(productFilter: productFilter)
     }
 
     public func loadPackageReference(at boundVersion: BoundVersion) throws -> PackageReference {

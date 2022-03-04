@@ -26,15 +26,18 @@ class MiscellaneousTestCase: XCTestCase {
         // the selected version of the package
 
         try fixture(name: "DependencyResolution/External/Simple") { fixturePath in
-            let (output, _) = try executeSwiftBuild(fixturePath.appending(component: "Bar"))
-            XCTAssertMatch(output, .regex("Computed .* at 1\\.2\\.3"))
-            XCTAssertMatch(output, .contains("Compiling Foo Foo.swift"))
-            XCTAssertMatch(output, .or(.contains("Merging module Foo"),
+            let (stdout, stderr) = try executeSwiftBuild(fixturePath.appending(component: "Bar"))
+            // package resolution output goes to stderr
+            XCTAssertMatch(stderr, .regex("Computed .* at 1\\.2\\.3"))
+            // in "swift build" build output goes to stdout
+            XCTAssertMatch(stdout, .contains("Compiling Foo Foo.swift"))
+            XCTAssertMatch(stdout, .or(.contains("Merging module Foo"),
                                        .contains("Emitting module Foo")))
-            XCTAssertMatch(output, .contains("Compiling Bar main.swift"))
-            XCTAssertMatch(output, .or(.contains("Merging module Bar"),
+            XCTAssertMatch(stdout, .contains("Compiling Bar main.swift"))
+            XCTAssertMatch(stdout, .or(.contains("Merging module Bar"),
                                       .contains("Emitting module Bar")))
-            XCTAssertMatch(output, .contains("Linking Bar"))
+            XCTAssertMatch(stdout, .contains("Linking Bar"))
+            XCTAssertMatch(stdout, .contains("Build complete!"))
         }
     }
 
@@ -66,41 +69,23 @@ class MiscellaneousTestCase: XCTestCase {
     }
 
     func testNoArgumentsExitsWithOne() throws {
-        var foo = false
-        do {
-            try executeSwiftBuild(AbsolutePath("/"))
-        } catch SwiftPMProductError.executionFailure(let error, _, _) {
-            switch error {
-            case ProcessResult.Error.nonZeroExit(let result):
-                // if our code crashes we'll get an exit code of 256
-                XCTAssertEqual(result.exitStatus, .terminated(code: 1))
-                foo = true
-            default:
-                XCTFail()
+        XCTAssertThrowsCommandExecutionError(try executeSwiftBuild(AbsolutePath("/"))) { error in
+            // if our code crashes we'll get an exit code of 256
+            guard error.result.exitStatus == .terminated(code: 1) else {
+                return XCTFail("failed in an unexpected manner: \(error)")
             }
-        } catch {
-            XCTFail("\(error)")
         }
-        XCTAssertTrue(foo)
     }
 
     func testCompileFailureExitsGracefully() throws {
         try fixture(name: "Miscellaneous/CompileFails") { fixturePath in
-            do {
-                try executeSwiftBuild(fixturePath)
-                XCTFail()
-            } catch SwiftPMProductError.executionFailure(let error, let output, let stderr) {
-                XCTAssertMatch(stderr + output, .contains("Compiling CompileFails Foo.swift"))
-                XCTAssertMatch(stderr + output, .regex("error: .*\n.*compile_failure"))
-
-                if case ProcessResult.Error.nonZeroExit(let result) = error {
-                    // if our code crashes we'll get an exit code of 256
-                    XCTAssertEqual(result.exitStatus, .terminated(code: 1))
-                } else {
-                    XCTFail("\(stderr + output)")
+            XCTAssertThrowsCommandExecutionError(try executeSwiftBuild(fixturePath)) { error in
+                // if our code crashes we'll get an exit code of 256
+                guard error.result.exitStatus == .terminated(code: 1) else {
+                    return XCTFail("failed in an unexpected manner: \(error)")
                 }
-            } catch {
-                XCTFail()
+                XCTAssertMatch(error.stdout + error.stderr, .contains("Compiling CompileFails Foo.swift"))
+                XCTAssertMatch(error.stdout + error.stderr, .regex("error: .*\n.*compile_failure"))
             }
         }
     }
@@ -213,51 +198,47 @@ class MiscellaneousTestCase: XCTestCase {
     func testSwiftTestParallel() throws {
         try fixture(name: "Miscellaneous/ParallelTestsPkg") { fixturePath in
             // First try normal serial testing.
-            do {
-                _ = try SwiftPMProduct.SwiftTest.execute([], packagePath: fixturePath)
-            } catch SwiftPMProductError.executionFailure(_, let output, let stderr) {
-                #if os(macOS)
-                XCTAssertMatch(stderr, .contains("Executed 2 tests"))
-                #else
-                XCTAssertMatch(output, .contains("Executed 2 tests"))
-                #endif
+            XCTAssertThrowsCommandExecutionError(try SwiftPMProduct.SwiftTest.execute([], packagePath: fixturePath)) { error in
+                // in "swift test" test output goes to stdout
+                XCTAssertMatch(error.stdout, .contains("Executed 2 tests"))
+            }
+
+            // Run tests in parallel.
+            XCTAssertThrowsCommandExecutionError(try SwiftPMProduct.SwiftTest.execute(["--parallel"], packagePath: fixturePath)) { error in
+                // in "swift test" test output goes to stdout
+                XCTAssertMatch(error.stdout, .contains("testExample1"))
+                XCTAssertMatch(error.stdout, .contains("testExample2"))
+                XCTAssertNoMatch(error.stdout, .contains("'ParallelTestsTests' passed"))
+                XCTAssertMatch(error.stdout, .contains("'ParallelTestsFailureTests' failed"))
+                XCTAssertMatch(error.stdout, .contains("[3/3]"))
             }
 
             do {
-                // Run tests in parallel.
-                _ = try SwiftPMProduct.SwiftTest.execute(["--parallel"], packagePath: fixturePath)
-            } catch SwiftPMProductError.executionFailure(_, let output, _) {
-                XCTAssertMatch(output, .contains("testExample1"))
-                XCTAssertMatch(output, .contains("testExample2"))
-                XCTAssertNoMatch(output, .contains("'ParallelTestsTests' passed"))
-                XCTAssertMatch(output, .contains("'ParallelTestsFailureTests' failed"))
-                XCTAssertMatch(output, .contains("[3/3]"))
-            }
-
-            let xUnitOutput = fixturePath.appending(component: "result.xml")
-            do {
+                let xUnitOutput = fixturePath.appending(component: "result.xml")
                 // Run tests in parallel with verbose output.
-                _ = try SwiftPMProduct.SwiftTest.execute(
-                    ["--parallel", "--verbose", "--xunit-output", xUnitOutput.pathString],
-                    packagePath: fixturePath)
-            } catch SwiftPMProductError.executionFailure(_, let output, _) {
-                XCTAssertMatch(output, .contains("testExample1"))
-                XCTAssertMatch(output, .contains("testExample2"))
-                XCTAssertMatch(output, .contains("'ParallelTestsTests' passed"))
-                XCTAssertMatch(output, .contains("'ParallelTestsFailureTests' failed"))
-                XCTAssertMatch(output, .contains("[3/3]"))
-            }
+                XCTAssertThrowsCommandExecutionError(
+                    try SwiftPMProduct.SwiftTest.execute(["--parallel", "--verbose", "--xunit-output", xUnitOutput.pathString], packagePath: fixturePath)
+                ) { error in
+                    // in "swift test" test output goes to stdout
+                    XCTAssertMatch(error.stdout, .contains("testExample1"))
+                    XCTAssertMatch(error.stdout, .contains("testExample2"))
+                    XCTAssertMatch(error.stdout, .contains("'ParallelTestsTests' passed"))
+                    XCTAssertMatch(error.stdout, .contains("'ParallelTestsFailureTests' failed"))
+                    XCTAssertMatch(error.stdout, .contains("[3/3]"))
+                }
 
-            // Check the xUnit output.
-            XCTAssertFileExists(xUnitOutput)
-            let contents: String = try localFileSystem.readFileContents(xUnitOutput)
-            XCTAssertMatch(contents, .contains("tests=\"3\" failures=\"1\""))
+                // Check the xUnit output.
+                XCTAssertFileExists(xUnitOutput)
+                let contents: String = try localFileSystem.readFileContents(xUnitOutput)
+                XCTAssertMatch(contents, .contains("tests=\"3\" failures=\"1\""))
+            }
         }
     }
 
     func testSwiftTestFilter() throws {
         try fixture(name: "Miscellaneous/ParallelTestsPkg") { fixturePath in
             let (stdout, _) = try SwiftPMProduct.SwiftTest.execute(["--filter", ".*1", "-l"], packagePath: fixturePath)
+            // in "swift test" test output goes to stdout
             XCTAssertMatch(stdout, .contains("testExample1"))
             XCTAssertNoMatch(stdout, .contains("testExample2"))
             XCTAssertNoMatch(stdout, .contains("testSureFailure"))
@@ -265,6 +246,7 @@ class MiscellaneousTestCase: XCTestCase {
 
         try fixture(name: "Miscellaneous/ParallelTestsPkg") { fixturePath in
             let (stdout, _) = try SwiftPMProduct.SwiftTest.execute(["--filter", "ParallelTestsTests", "--skip", ".*1", "--filter", "testSureFailure", "-l"], packagePath: fixturePath)
+            // in "swift test" test output goes to stdout
             XCTAssertNoMatch(stdout, .contains("testExample1"))
             XCTAssertMatch(stdout, .contains("testExample2"))
             XCTAssertMatch(stdout, .contains("testSureFailure"))
@@ -274,6 +256,7 @@ class MiscellaneousTestCase: XCTestCase {
     func testSwiftTestSkip() throws {
         try fixture(name: "Miscellaneous/ParallelTestsPkg") { fixturePath in
             let (stdout, _) = try SwiftPMProduct.SwiftTest.execute(["--skip", "ParallelTestsTests", "-l"], packagePath: fixturePath)
+            // in "swift test" test output goes to stdout
             XCTAssertNoMatch(stdout, .contains("testExample1"))
             XCTAssertNoMatch(stdout, .contains("testExample2"))
             XCTAssertMatch(stdout, .contains("testSureFailure"))
@@ -281,6 +264,7 @@ class MiscellaneousTestCase: XCTestCase {
 
         try fixture(name: "Miscellaneous/ParallelTestsPkg") { fixturePath in
             let (stdout, _) = try SwiftPMProduct.SwiftTest.execute(["--filter", "ParallelTestsTests", "--skip", ".*2", "--filter", "TestsFailure", "--skip", "testSureFailure", "-l"], packagePath: fixturePath)
+            // in "swift test" test output goes to stdout
             XCTAssertMatch(stdout, .contains("testExample1"))
             XCTAssertNoMatch(stdout, .contains("testExample2"))
             XCTAssertNoMatch(stdout, .contains("testSureFailure"))
@@ -288,6 +272,7 @@ class MiscellaneousTestCase: XCTestCase {
 
         try fixture(name: "Miscellaneous/ParallelTestsPkg") { fixturePath in
             let (stdout, stderr) = try SwiftPMProduct.SwiftTest.execute(["--skip", "Tests"], packagePath: fixturePath)
+            // in "swift test" test output goes to stdout
             XCTAssertNoMatch(stdout, .contains("testExample1"))
             XCTAssertNoMatch(stdout, .contains("testExample2"))
             XCTAssertNoMatch(stdout, .contains("testSureFailure"))
@@ -572,10 +557,14 @@ class MiscellaneousTestCase: XCTestCase {
 
         try fixture(name: "Miscellaneous/TestableExe") { fixturePath in
             do {
-                let (stdout, _) = try executeSwiftTest(fixturePath)
-                XCTAssertMatch(stdout, .contains("Linking TestableExe1"))
-                XCTAssertMatch(stdout, .contains("Linking TestableExe2"))
-                XCTAssertMatch(stdout, .contains("Linking TestableExePackageTests"))
+                let (stdout, stderr) = try executeSwiftTest(fixturePath)
+                // in "swift test" build output goes to stderr
+                XCTAssertMatch(stderr, .contains("Linking TestableExe1"))
+                XCTAssertMatch(stderr, .contains("Linking TestableExe2"))
+                XCTAssertMatch(stderr, .contains("Linking TestableExePackageTests"))
+                XCTAssertMatch(stderr, .contains("Build complete!"))
+                // in "swift test" test output goes to stdout
+                XCTAssertMatch(stdout, .contains("Executed 1 test"))
                 XCTAssertMatch(stdout, .contains("Hello, world"))
                 XCTAssertMatch(stdout, .contains("Hello, planet"))
             } catch {
@@ -600,6 +589,7 @@ class MiscellaneousTestCase: XCTestCase {
         try fixture(name: "Miscellaneous/TargetMismatch") { path in
             do {
                 let output = try executeSwiftBuild(path)
+                // in "swift build" build output goes to stdout
                 XCTAssertMatch(output.stdout, .contains("Compiling Sample main.swift"))
                 XCTAssertMatch(output.stderr, .contains("The target named 'Sample' was identified as an executable target but a non-executable product with this name already exists."))
             } catch {
@@ -622,8 +612,10 @@ class MiscellaneousTestCase: XCTestCase {
             do {
                 // make sure it builds
                 let output = try executeSwiftBuild(appPath)
-                XCTAssertTrue(output.stdout.contains("Fetching \(prefix)/Foo"), output.stdout)
-                XCTAssertTrue(output.stdout.contains("Creating working copy for \(prefix)/Foo"), output.stdout)
+                // package resolution output goes to stderr
+                XCTAssertTrue(output.stderr.contains("Fetching \(prefix)/Foo"), output.stderr)
+                XCTAssertTrue(output.stderr.contains("Creating working copy for \(prefix)/Foo"), output.stderr)
+                // in "swift build" build output goes to stdout
                 XCTAssertTrue(output.stdout.contains("Build complete!"), output.stdout)
             }
 
@@ -640,13 +632,15 @@ class MiscellaneousTestCase: XCTestCase {
             do {
                 // take foo out of edit mode
                 let output = try executeSwiftPackage(appPath, extraArgs: ["unedit", "Foo"])
-                XCTAssertTrue(output.stdout.contains("Creating working copy for \(prefix)/Foo"), output.stdout)
+                // package resolution output goes to stderr
+                XCTAssertTrue(output.stderr.contains("Creating working copy for \(prefix)/Foo"), output.stderr)
                 XCTAssertNoSuchPath(appPath.appending(components: ["Packages", "Foo"]))
             }
 
             // build again in edit mode
             do {
                 let output = try executeSwiftBuild(appPath)
+                // in "swift build" build output goes to stdout
                 XCTAssertTrue(output.stdout.contains("Build complete!"), output.stdout)
             }
         }

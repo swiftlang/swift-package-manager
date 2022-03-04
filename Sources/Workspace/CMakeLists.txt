@@ -36,10 +36,8 @@ target_link_libraries(Workspace PUBLIC
   PackageModel
   SourceControl
   Xcodeproj)
-if(Foundation_FOUND)
-  target_link_libraries(PackageLoading PUBLIC
-    $<$<NOT:$<PLATFORM_ID:Darwin>>:Foundation>)
-endif()
+target_link_libraries(PackageLoading PUBLIC
+  $<$<NOT:$<PLATFORM_ID:Darwin>>:Foundation>)
 # NOTE(compnerd) workaround for CMake not setting up include flags yet
 set_target_properties(Workspace PROPERTIES
   INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})

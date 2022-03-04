@@ -227,7 +227,9 @@ public struct PubgrubDependencyResolver {
             let updatePackage = try container.underlying.loadPackageReference(at: boundVersion)
 
             if var existing = flattenedAssignments[updatePackage] {
-                assert(existing.binding == boundVersion, "Two products in one package resolved to different versions: \(existing.products)@\(existing.binding) vs \(products)@\(boundVersion)")
+                guard existing.binding == boundVersion else {
+                    throw InternalError("Two products in one package resolved to different versions: \(existing.products)@\(existing.binding) vs \(products)@\(boundVersion)")
+                }
                 existing.products.formUnion(products)
                 flattenedAssignments[updatePackage] = existing
             } else {
@@ -284,7 +286,9 @@ public struct PubgrubDependencyResolver {
 
             // Mark the package as overridden.
             if var existing = overriddenPackages[constraint.package] {
-                assert(existing.version == .unversioned, "Overridden package is not unversioned: \(constraint.package)@\(existing.version)")
+                guard existing.version == .unversioned else {
+                    throw InternalError("Overridden package is not unversioned: \(constraint.package)@\(existing.version)")
+                }
                 existing.products.formUnion(constraint.products)
                 overriddenPackages[constraint.package] = existing
             } else {
@@ -306,7 +310,7 @@ public struct PubgrubDependencyResolver {
                         }
                     } else if !overriddenPackages.keys.contains(dependency.package) {
                         // Add the constraint if its not already present. This will ensure we don't
-                        // end up looping infinitely due to a cycle (which are diagnosed seperately).
+                        // end up looping infinitely due to a cycle (which are diagnosed separately).
                         constraints.append(dependency)
                     }
                 }
@@ -314,7 +318,7 @@ public struct PubgrubDependencyResolver {
         }
 
         // Process revision-based constraints in the second phase. Here we do the similar processing
-        // as the first phase but we also ignore the constraints that are overriden due to
+        // as the first phase but we also ignore the constraints that are overridden due to
         // presence of unversioned constraints.
         while let constraint = constraints.first(where: { $0.requirement.isRevision }) {
             guard case .revision(let revision) = constraint.requirement else {
@@ -327,7 +331,7 @@ public struct PubgrubDependencyResolver {
             switch overriddenPackages[package]?.version {
             case .excluded?, .version?:
                 // These values are not possible.
-                throw InternalError("Unexpected value for overriden package \(package) in \(overriddenPackages)")
+                throw InternalError("Unexpected value for overridden package \(package) in \(overriddenPackages)")
             case .unversioned?:
                 // This package is overridden by an unversioned package so we can ignore this constraint.
                 continue
@@ -1183,7 +1187,7 @@ internal final class PubGrubPackageContainer {
                 return [try Incompatibility(Term(node, .exact(version)), root: root, cause: cause)]
             }
 
-            // Skip if this package is overriden.
+            // Skip if this package is overridden.
             if overriddenPackages.keys.contains(dep.package) {
                 continue
             }

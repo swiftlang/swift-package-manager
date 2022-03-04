@@ -785,50 +785,16 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             """
 
         let observability = ObservabilitySystem.makeForTesting()
-        //_ = try loadManifest(content, observabilityScope: observability.topScope)
         XCTAssertThrowsError(try loadManifest(content, observabilityScope: observability.topScope), "expected error")
         testDiagnostics(observability.diagnostics) { result in
             result.check(diagnostic: .contains("target 'B' referenced in product 'Product' could not be found; valid targets are: 'A', 'C', 'b'"), severity: .error)
         }
-        /*
-        XCTAssertManifestLoadThrows(manifest) { _, diagnostics in
-            diagnostics.check(diagnostic: "target 'B' referenced in product 'Product' could not be found; valid targets are: 'A', 'C', 'b'", severity: .error)
-        }*/
     }
-
-    /*func testLoadingWithoutDiagnostics() throws {
-        let manifest = """
-            import PackageDescription
-
-            let package = Package(
-                name: "Foo",
-                products: [
-                    .library(name: "Product", targets: ["B"]),
-                ],
-                targets: [
-                    .target(name: "A"),
-                ]
-            )
-            """
-
-        do {
-            _ = try loadManifest(
-                manifest,
-                toolsVersion: toolsVersion,
-                diagnostics: nil
-            )
-
-            XCTFail("Unexpected success")
-        } catch let error as StringError {
-            XCTAssertMatch(error.description, "target 'B' referenced in product 'Product' could not be found; valid targets are: 'A'")
-        }
-    }*/
 
     // run this with TSAN/ASAN to detect concurrency issues
     func testConcurrencyWithWarmup() throws {
         try testWithTemporaryDirectory { path in
             let total = 1000
-            let semaphore = DispatchSemaphore(value: Concurrency.maxOperations)
             let manifestPath = path.appending(components: "pkg", "Package.swift")
             try localFileSystem.writeFileContents(manifestPath) { stream in
                 stream <<< """
@@ -863,7 +829,8 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                     identityResolver: identityResolver,
                     fileSystem: localFileSystem,
                     observabilityScope: observability.topScope,
-                    on: .global(),
+                    delegateQueue: .sharedConcurrent,
+                    callbackQueue: .sharedConcurrent,
                     completion: $0
                 )
             }
@@ -874,7 +841,6 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
 
             let sync = DispatchGroup()
             for _ in 0 ..< total {
-                semaphore.wait()
                 sync.enter()
                 delegate.prepare(expectParsing: false)
                 manifestLoader.load(
@@ -888,10 +854,10 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                     identityResolver: identityResolver,
                     fileSystem: localFileSystem,
                     observabilityScope: observability.topScope,
-                    on: .global()
+                    delegateQueue: .sharedConcurrent,
+                    callbackQueue: .sharedConcurrent
                 ) { result in
                     defer {
-                        semaphore.signal()
                         sync.leave()
                     }
 
@@ -920,7 +886,6 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
     func testConcurrencyNoWarmUp() throws {
         try testWithTemporaryDirectory { path in
             let total = 1000
-            let semaphore = DispatchSemaphore(value: Concurrency.maxOperations)
             let observability = ObservabilitySystem.makeForTesting()
             let delegate = ManifestTestDelegate()
             let manifestLoader = ManifestLoader(toolchain: ToolchainConfiguration.default, cacheDir: path, delegate: delegate)
@@ -928,7 +893,6 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
 
             let sync = DispatchGroup()
             for _ in 0 ..< total {
-                semaphore.wait()
                 let random = Int.random(in: 0 ... total / 4)
                 let manifestPath = path.appending(components: "pkg-\(random)", "Package.swift")
                 if !localFileSystem.exists(manifestPath) {
@@ -960,10 +924,10 @@ class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                     identityResolver: identityResolver,
                     fileSystem: localFileSystem,
                     observabilityScope: observability.topScope,
-                    on: .global()
+                    delegateQueue: .sharedConcurrent,
+                    callbackQueue: .sharedConcurrent
                 ) { result in
                     defer {
-                        semaphore.signal()
                         sync.leave()
                     }
 
