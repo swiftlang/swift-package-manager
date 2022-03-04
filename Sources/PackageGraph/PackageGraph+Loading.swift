@@ -265,7 +265,7 @@ private func createResolvedPackages(
     }
 
     // Gather all module aliases specified for targets in all dependent packages
-    let pkgToAliasesMap = gatherModuleAliases(from: packageBuilders, for: rootManifests.first?.key, with: packagesByIdentity, onError: observabilityScope)
+    let packageAliases = gatherModuleAliases(from: packageBuilders, for: rootManifests.first?.key, with: packagesByIdentity, onError: observabilityScope)
 
     // Scan and validate the dependencies
     for packageBuilder in packageBuilders {
@@ -276,7 +276,7 @@ private func createResolvedPackages(
             metadata: package.diagnosticsMetadata
         )
         
-        if let aliasMap = pkgToAliasesMap?[package.identity] {
+        if let aliasMap = packageAliases?[package.identity] {
             package.setModuleAliasesForTargets(with: aliasMap)
         }
 
