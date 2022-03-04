@@ -208,6 +208,8 @@ class RegistryPackageContainerTests: XCTestCase {
         let packageVersion = Version("1.0.0")
         let packagePath = AbsolutePath.root
 
+        let v5_3_3 = ToolsVersion(string: "5.3.3")!
+
         func createProvider(_ toolsVersion: ToolsVersion) throws -> PackageContainerProvider {
             let registryClient = try makeRegistryClient(
                 packageIdentity: packageIdentity,
@@ -222,6 +224,7 @@ class RegistryPackageContainerTests: XCTestCase {
                                 "Content-Version": "1",
                                 "Content-Type": "text/x-swift",
                                 "Link": """
+                                \(self.manifestLink(packageIdentity, v5_3_3)),
                                 \(self.manifestLink(packageIdentity, .v5_4)),
                                 \(self.manifestLink(packageIdentity, .v5_5))
                                 """
@@ -277,6 +280,14 @@ class RegistryPackageContainerTests: XCTestCase {
             let container = try provider.getContainer(for: ref, skipUpdate: false) as! RegistryPackageContainer
             let manifest = try container.loadManifest(version: packageVersion)
             XCTAssertEqual(manifest.toolsVersion, .v5_3)
+        }
+
+        do {
+            let provider = try createProvider(v5_3_3) // the version of the alternate
+            let ref = PackageReference.registry(identity: packageIdentity)
+            let container = try provider.getContainer(for: ref, skipUpdate: false) as! RegistryPackageContainer
+            let manifest = try container.loadManifest(version: packageVersion)
+            XCTAssertEqual(manifest.toolsVersion, v5_3_3)
         }
 
         do {
@@ -453,7 +464,8 @@ class RegistryPackageContainerTests: XCTestCase {
         guard let (scope, name) = identity.scopeAndName else {
             preconditionFailure("invalid identity")
         }
-        return "<http://localhost/\(scope)/\(name)/\(version)/\(Manifest.filename)?swift-version=\(version)>; rel=\"alternate\"; filename=\"Package@swift-\(version).swift\"; swift-tools-version=\"\(version)\""
+        let versionString = version.patch == 0 ? "\(version.major).\(version.minor)" : version.description
+        return "<http://localhost/\(scope)/\(name)/\(version)/\(Manifest.filename)?swift-version=\(version)>; rel=\"alternate\"; filename=\"\(Manifest.basename)@swift-\(versionString).swift\"; swift-tools-version=\"\(version)\""
     }
 }
 
