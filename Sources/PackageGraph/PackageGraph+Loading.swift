@@ -674,6 +674,7 @@ private class ModuleAliasTracker {
     }
 }
 
+// Used to keep track of module alias info for each package
 private class ModuleAliasModel {
     let name: String
     var alias: String

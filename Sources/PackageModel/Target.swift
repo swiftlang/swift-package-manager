@@ -143,7 +143,6 @@ public class Target: PolymorphicCodableProtocol {
             self.c99name = alias.spm_mangledToC99ExtendedIdentifier()
         }
     }
-
     /// The default localization for resources.
     public let defaultLocalization: String?
 
