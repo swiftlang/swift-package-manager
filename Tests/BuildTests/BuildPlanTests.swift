@@ -1785,7 +1785,9 @@ final class BuildPlanTests: XCTestCase {
                                         "/thisPkg/Sources/exe/main.swift",
                                         "/thisPkg/Sources/Logging/file.swift",
                                         "/otherPkg/Sources/Utils/fileUtils.swift",
-                                        "/otherPkg/Sources/Logging/fileLogging.swift"
+                                        "/otherPkg/Sources/Logging/fileLogging.swift",
+                                        "/otherPkg/Sources/Math/file.swift",
+                                        "/otherPkg/Sources/Tools/file.swift"
         )
         
         let observability = ObservabilitySystem.makeForTesting()
@@ -1797,10 +1799,13 @@ final class BuildPlanTests: XCTestCase {
                     path: .init("/otherPkg"),
                     products: [
                         ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"]),
+                        ProductDescription(name: "Math", type: .library(.automatic), targets: ["Math"]),
                     ],
                     targets: [
                         TargetDescription(name: "Utils", dependencies: ["Logging"]),
                         TargetDescription(name: "Logging", dependencies: []),
+                        TargetDescription(name: "Math", dependencies: ["Tools"]),
+                        TargetDescription(name: "Tools", dependencies: []),
                     ]),
                 Manifest.createRootManifest(
                     name: "thisPkg",
@@ -1811,6 +1816,8 @@ final class BuildPlanTests: XCTestCase {
                     targets: [
                         TargetDescription(name: "exe",
                                           dependencies: ["Logging",
+                                                         .product(name: "Math",
+                                                                  package: "otherPkg"),
                                                          .product(name: "Utils",
                                                                   package: "otherPkg",
                                                                   moduleAliases: ["Logging": "OtherLogging"])]),
@@ -1829,8 +1836,8 @@ final class BuildPlanTests: XCTestCase {
         ))
         
         result.checkProductsCount(1)
-        result.checkTargetsCount(4)
-        
+        result.checkTargetsCount(6)
+
         XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "OtherLogging" && $0.target.moduleAliases?["Logging"] == "OtherLogging" })
         XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "Utils" && $0.target.moduleAliases?["Logging"] == "OtherLogging" })
         XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "Logging" && $0.target.moduleAliases == nil })
@@ -2205,7 +2212,7 @@ final class BuildPlanTests: XCTestCase {
         
         result.checkProductsCount(1)
         result.checkTargetsCount(5)
-        
+
         XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "FooLogging" && $0.target.moduleAliases?["Logging"] == "FooLogging" })
         XCTAssertFalse(result.targetMap.values.contains { $0.target.name == "Logging" && $0.target.moduleAliases == nil })
         XCTAssertTrue(result.targetMap.values.contains { $0.target.name == "CarLogging" && $0.target.moduleAliases?["Logging"] == "CarLogging" })
