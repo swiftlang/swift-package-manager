@@ -963,6 +963,7 @@ public enum PIF {
             case SPECIALIZATION_SDK_OPTIONS
             case SUPPORTED_PLATFORMS
             case SWIFT_ACTIVE_COMPILATION_CONDITIONS
+            case SWIFT_MODULE_ALIASES
         }
 
         public enum Platform: String, CaseIterable, Codable {

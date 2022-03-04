@@ -391,6 +391,7 @@ public struct Xcode {
             public var SWIFT_ACTIVE_COMPILATION_CONDITIONS: [String]?
             public var SWIFT_FORCE_STATIC_LINK_STDLIB: String?
             public var SWIFT_FORCE_DYNAMIC_LINK_STDLIB: String?
+            public var SWIFT_MODULE_ALIASES: [String: String]?
             public var SWIFT_OPTIMIZATION_LEVEL: String?
             public var SWIFT_VERSION: String?
             public var TARGET_NAME: String?
@@ -440,6 +441,7 @@ public struct Xcode {
                 SWIFT_ACTIVE_COMPILATION_CONDITIONS: [String]? = nil,
                 SWIFT_FORCE_STATIC_LINK_STDLIB: String? = nil,
                 SWIFT_FORCE_DYNAMIC_LINK_STDLIB: String? = nil,
+                SWIFT_MODULE_ALIASES: [String: String]? = nil,
                 SWIFT_OPTIMIZATION_LEVEL: String? = nil,
                 SWIFT_VERSION: String? = nil,
                 TARGET_NAME: String? = nil,
@@ -488,6 +490,7 @@ public struct Xcode {
                 self.SWIFT_ACTIVE_COMPILATION_CONDITIONS = SWIFT_ACTIVE_COMPILATION_CONDITIONS
                 self.SWIFT_FORCE_STATIC_LINK_STDLIB = SWIFT_FORCE_STATIC_LINK_STDLIB
                 self.SWIFT_FORCE_DYNAMIC_LINK_STDLIB = SWIFT_FORCE_DYNAMIC_LINK_STDLIB
+                self.SWIFT_MODULE_ALIASES = SWIFT_MODULE_ALIASES
                 self.SWIFT_OPTIMIZATION_LEVEL = SWIFT_OPTIMIZATION_LEVEL
                 self.SWIFT_VERSION = SWIFT_VERSION
                 self.TARGET_NAME = TARGET_NAME
