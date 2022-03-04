@@ -25,7 +25,7 @@ import protocol TSCUtility.SimplePersistanceProtocol
 extension Workspace {
     /// Workspace location configuration
     public struct Location {
-        /// Path to working directory for this workspace.
+        /// Path to scratch space / working directory for this workspace.
         public var workingDirectory: AbsolutePath
 
         /// Path to store the editable versions of dependencies.

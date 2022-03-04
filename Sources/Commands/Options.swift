@@ -46,33 +46,42 @@ struct GlobalOptions: ParsableArguments {
 struct LocationOptions: ParsableArguments {
     init() {}
 
-    /// The custom build directory, if provided.
-    @Option(help: "Specify build/cache directory")
-    var buildPath: AbsolutePath?
+    @Option(name: .customLong("package-path"), help: "Specify the package path to operate on (default current directory). This changes the working directory before any other operation", completion: .directory)
+    var _packageDirectory: AbsolutePath?
 
-    @Option(help: "Specify the shared cache directory")
-    var cachePath: AbsolutePath?
+    @Option(name: .customLong("cache-path"), help: "Specify the shared cache directory path", completion: .directory)
+    var cacheDirectory: AbsolutePath?
 
-    @Option(help: "Specify the shared configuration directory")
-    var configPath: AbsolutePath?
+    @Option(name: .customLong("config-path"), help: "Specify the shared configuration directory path", completion: .directory)
+    var configurationDirectory: AbsolutePath?
 
-    @Option(help: "Specify the shared security directory")
-    var securityPath: AbsolutePath?
+    @Option(name: .customLong("security-path"), help: "Specify the shared security directory path", completion: .directory)
+    var securityDirectory: AbsolutePath?
 
-    /// The custom working directory that the tool should operate in (deprecated).
-    @Option(name: [.long, .customShort("C")])
-    var chdir: AbsolutePath?
+    @Option(name: [.long, .customShort("C")], help: .hidden)
+    var _deprecated_chdir: AbsolutePath?
 
-    /// The custom working directory that the tool should operate in.
-    @Option(help: "Change working directory before any other operation")
-    var packagePath: AbsolutePath?
+    var packageDirectory: AbsolutePath? {
+        self._packageDirectory ?? self._deprecated_chdir
+    }
+
+    /// The custom .build directory, if provided.
+    @Option(name: .customLong("working-directory-path"), help: "Specify a custom working directory path (default .build)", completion: .directory)
+    var _workingDirectory: AbsolutePath?
+
+    @Option(name: .customLong("build-path"), help: .hidden)
+    var _deprecated_buildPath: AbsolutePath?
+
+    var workingDirectory: AbsolutePath? {
+        self._workingDirectory ?? self._deprecated_buildPath
+    }
 
     /// The path to the file containing multiroot package data. This is currently Xcode's workspace file.
-    @Option(name: .customLong("multiroot-data-file"), completion: .file())
+    @Option(name: .customLong("multiroot-data-file"), help: .hidden, completion: .directory)
     var multirootPackageDataFile: AbsolutePath?
 
     /// Path to the compilation destination describing JSON file.
-    @Option(name: .customLong("destination"), completion: .file())
+    @Option(name: .customLong("destination"), help: .hidden, completion: .directory)
     var customCompileDestination: AbsolutePath?
 }
 

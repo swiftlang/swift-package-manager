@@ -393,7 +393,7 @@ extension SwiftPackageTool {
             let apiDigesterPath = try swiftTool.getToolchain().getSwiftAPIDigester()
             let apiDigesterTool = SwiftAPIDigester(fileSystem: swiftTool.fileSystem, tool: apiDigesterPath)
 
-            let packageRoot = try globalOptions.locations.packagePath ?? swiftTool.getPackageRoot()
+            let packageRoot = try globalOptions.locations.packageDirectory ?? swiftTool.getPackageRoot()
             let repository = GitRepository(path: packageRoot)
             let baselineRevision = try repository.resolveRevision(identifier: treeish)
 
@@ -890,7 +890,7 @@ extension SwiftPackageTool {
         var output: AbsolutePath?
 
         func run(_ swiftTool: SwiftTool) throws {
-            let packageRoot = try globalOptions.locations.packagePath ?? swiftTool.getPackageRoot()
+            let packageRoot = try globalOptions.locations.packageDirectory ?? swiftTool.getPackageRoot()
             let repository = GitRepository(path: packageRoot)
 
             let destination: AbsolutePath
@@ -1580,7 +1580,7 @@ extension SwiftPackageTool {
             // Run the file watcher if requested.
             if options.enableAutogeneration {
                 try WatchmanHelper(
-                    watchmanScriptsDir: swiftTool.buildPath.appending(component: "watchman"),
+                    watchmanScriptsDir: swiftTool.workingDirectory.appending(component: "watchman"),
                     packageRoot: swiftTool.packageRoot!,
                     fileSystem: swiftTool.fileSystem,
                     observabilityScope: swiftTool.observabilityScope
