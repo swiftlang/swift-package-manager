@@ -78,7 +78,7 @@ public protocol ManifestLoaderProtocol {
 }
 
 public extension ManifestLoaderProtocol {
-    var supportedArchiveExtensions: [String] { ["zip"] }
+    static var supportedArchiveExtensions: [String] { ["zip"] }
 }
 
 public protocol ManifestLoaderDelegate {
@@ -437,7 +437,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                     continue
                 }
 
-                let validExtensions = self.supportedArchiveExtensions + BinaryTarget.Kind.allCases.filter{ $0 != .unknown }.map { $0.fileExtension }
+                let validExtensions = Self.supportedArchiveExtensions + BinaryTarget.Kind.allCases.filter{ $0 != .unknown }.map { $0.fileExtension }
                 guard let fileExtension = relativePath.extension, validExtensions.contains(fileExtension) else {
                     observabilityScope.emit(.unsupportedBinaryLocationExtension(
                         targetName: target.name,
@@ -470,10 +470,10 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                     continue
                 }
 
-                guard self.supportedArchiveExtensions.contains(url.pathExtension) else {
+                guard Self.supportedArchiveExtensions.contains(url.pathExtension) else {
                     observabilityScope.emit(.unsupportedBinaryLocationExtension(
                         targetName: target.name,
-                        validExtensions: self.supportedArchiveExtensions
+                        validExtensions: Self.supportedArchiveExtensions
                     ))
                     continue
                 }

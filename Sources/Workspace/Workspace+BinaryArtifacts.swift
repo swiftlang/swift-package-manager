@@ -1,0 +1,477 @@
+/*
+ This source file is part of the Swift.org open source project
+
+ Copyright (c) 2022 Apple Inc. and the Swift project authors
+ Licensed under Apache License v2.0 with Runtime Library Exception
+
+ See http://swift.org/LICENSE.txt for license information
+ See http://swift.org/CONTRIBUTORS.txt for Swift project authors
+ */
+
+import Basics
+import Foundation
+import PackageModel
+import TSCBasic
+
+import enum TSCUtility.Diagnostics
+import struct TSCUtility.Triple
+import PackageLoading
+
+extension Workspace {
+    // marked public for testing
+    public struct CustomBinaryArtifactsManager {
+        let httpClient: HTTPClient?
+        let archiver: Archiver?
+
+        public init(httpClient: HTTPClient? = .none, archiver: Archiver? = .none) {
+            self.httpClient = httpClient
+            self.archiver = archiver
+        }
+    }
+
+    // marked public since used in tools
+    public struct BinaryArtifactsManager {
+        public typealias Delegate = BinaryArtifactsManagerDelegate
+
+        private let fileSystem: FileSystem
+        private let authorizationProvider: AuthorizationProvider?
+        private let hostToolchain: UserToolchain
+        private let httpClient: HTTPClient
+        private let archiver: Archiver
+        private let checksumAlgorithm: HashAlgorithm
+        private let delegate: Delegate?
+
+        public init(
+            fileSystem: FileSystem,
+            authorizationProvider: AuthorizationProvider?,
+            hostToolchain: UserToolchain,
+            checksumAlgorithm: HashAlgorithm,
+            customHTTPClient: HTTPClient?,
+            customArchiver: Archiver?,
+            delegate: Delegate?
+        ) {
+            self.fileSystem = fileSystem
+            self.authorizationProvider = authorizationProvider
+            self.hostToolchain = hostToolchain
+            self.checksumAlgorithm = checksumAlgorithm
+            self.httpClient = customHTTPClient ?? HTTPClient()
+            self.archiver = customArchiver ?? ZipArchiver(fileSystem: fileSystem)
+            self.delegate = delegate
+        }
+
+        func parseArtifacts(from manifests: DependencyManifests, observabilityScope: ObservabilityScope) throws -> (local: [ManagedArtifact], remote: [RemoteArtifact]) {
+            let packageAndManifests: [(reference: PackageReference, manifest: Manifest)] =
+                manifests.root.packages.values + // Root package and manifests.
+                manifests.dependencies.map({ manifest, managed, _, _ in (managed.packageRef, manifest) }) // Dependency package and manifests.
+
+            var localArtifacts: [ManagedArtifact] = []
+            var remoteArtifacts: [RemoteArtifact] = []
+
+            for (packageReference, manifest) in packageAndManifests {
+                for target in manifest.targets where target.type == .binary {
+                    if let path = target.path {
+                        // TODO: find a better way to get the base path (not via the manifest)
+                        let absolutePath = try manifest.path.parentDirectory.appending(RelativePath(validating: path))
+                        localArtifacts.append(
+                            .local(
+                                packageRef: packageReference,
+                                targetName: target.name,
+                                path: absolutePath)
+                        )
+                    } else if let url = target.url.flatMap(URL.init(string:)), let checksum = target.checksum {
+                        remoteArtifacts.append(
+                            .init(
+                                packageRef: packageReference,
+                                targetName: target.name,
+                                url: url,
+                                checksum: checksum)
+                        )
+                    } else {
+                        throw InternalError("a binary target should have either a path or a URL and a checksum")
+                    }
+                }
+            }
+
+            return (local: localArtifacts, remote: remoteArtifacts)
+        }
+
+        func download(_ artifacts: [RemoteArtifact], artifactsDirectory: AbsolutePath, observabilityScope: ObservabilityScope) throws -> [ManagedArtifact] {
+            let group = DispatchGroup()
+            let result = ThreadSafeArrayStore<ManagedArtifact>()
+
+            // zip files to download
+            // stored in a thread-safe way as we may fetch more from "artifactbundleindex" files
+            let zipArtifacts = ThreadSafeArrayStore<RemoteArtifact>(artifacts.filter {
+                $0.url.pathExtension.lowercased() == "zip"
+            })
+
+            // fetch and parse "artifactbundleindex" files, if any
+            let indexFiles = artifacts.filter { $0.url.pathExtension.lowercased() == "artifactbundleindex" }
+            if !indexFiles.isEmpty {
+                let errors = ThreadSafeArrayStore<Error>()
+                let jsonDecoder = JSONDecoder.makeWithDefaults()
+                for indexFile in indexFiles {
+                    group.enter()
+                    var request = HTTPClient.Request(method: .get, url: indexFile.url)
+                    request.options.validResponseCodes = [200]
+                    request.options.authorizationProvider = self.authorizationProvider?.httpAuthorizationHeader(for:)
+                    self.httpClient.execute(request) { result in
+                        defer { group.leave() }
+
+                        do {
+                            switch result {
+                            case .failure(let error):
+                                throw error
+                            case .success(let response):
+                                guard let body = response.body else {
+                                    throw StringError("Body is empty")
+                                }
+                                // FIXME: would be nice if checksumAlgorithm.hash took Data directly
+                                let bodyChecksum = self.checksumAlgorithm.hash(ByteString(body)).hexadecimalRepresentation
+                                guard bodyChecksum == indexFile.checksum else {
+                                    throw StringError("checksum of downloaded artifact of binary target '\(indexFile.targetName)' (\(bodyChecksum)) does not match checksum specified by the manifest (\(indexFile.checksum ))")
+                                }
+                                let metadata = try jsonDecoder.decode(ArchiveIndexFile.self, from: body)
+                                // FIXME: this filter needs to become more sophisticated
+                                guard let supportedArchive = metadata.archives.first(where: { $0.fileName.lowercased().hasSuffix(".zip") && $0.supportedTriples.contains(self.hostToolchain.triple) }) else {
+                                    throw StringError("No supported archive was found for '\(self.hostToolchain.triple.tripleString)'")
+                                }
+                                // add relevant archive
+                                zipArtifacts.append(
+                                    RemoteArtifact(
+                                        packageRef: indexFile.packageRef,
+                                        targetName: indexFile.targetName,
+                                        url: indexFile.url.deletingLastPathComponent().appendingPathComponent(supportedArchive.fileName),
+                                        checksum: supportedArchive.checksum)
+                                )
+                            }
+                        } catch {
+                            errors.append(error)
+                            observabilityScope.emit(error: "failed retrieving '\(indexFile.url)': \(error)")
+                        }
+                    }
+                }
+
+                // wait for all "artifactbundleindex" files to be processed
+                group.wait()
+
+                // no reason to continue if we already ran into issues
+                if !errors.isEmpty {
+                    throw Diagnostics.fatalError
+                }
+            }
+
+            // finally download zip files, if any
+            for artifact in zipArtifacts.get() {
+                let parentDirectory =  artifactsDirectory.appending(component: artifact.packageRef.identity.description)
+                guard observabilityScope.trap ({ try fileSystem.createDirectory(parentDirectory, recursive: true) }) else {
+                    continue
+                }
+
+                let archivePath = parentDirectory.appending(component: artifact.url.lastPathComponent)
+                if self.fileSystem.exists(archivePath) {
+                    guard observabilityScope.trap ({ try self.fileSystem.removeFileTree(archivePath) }) else {
+                        continue
+                    }
+                }
+
+                group.enter()
+                var headers = HTTPClientHeaders()
+                headers.add(name: "Accept", value: "application/octet-stream")
+                var request = HTTPClient.Request.download(url: artifact.url, headers: headers, fileSystem: self.fileSystem, destination: archivePath)
+                request.options.authorizationProvider = self.authorizationProvider?.httpAuthorizationHeader(for:)
+                request.options.retryStrategy = .exponentialBackoff(maxAttempts: 3, baseDelay: .milliseconds(50))
+                request.options.validResponseCodes = [200]
+
+                let downloadStart: DispatchTime = .now()
+                self.delegate?.willDownloadBinaryArtifact(from: artifact.url.absoluteString)
+                observabilityScope.emit(debug: "downloading \(artifact.url) to \(archivePath)")
+                self.httpClient.execute(
+                    request,
+                    progress: { bytesDownloaded, totalBytesToDownload in
+                        self.delegate?.downloadingBinaryArtifact(
+                            from: artifact.url.absoluteString,
+                            bytesDownloaded: bytesDownloaded,
+                            totalBytesToDownload: totalBytesToDownload)
+                    },
+                    completion: { downloadResult in
+                        defer { group.leave() }
+
+                        // TODO: Use the same extraction logic for both remote and local archived artifacts.
+                        switch downloadResult {
+                        case .success:
+
+                            group.enter()
+                            observabilityScope.emit(debug: "validating \(archivePath)")
+                            self.archiver.validate(path: archivePath, completion: { validationResult in
+                                defer { group.leave() }
+
+                                switch validationResult {
+                                case .success(let valid):
+                                    guard valid else {
+                                        observabilityScope.emit(.artifactInvalidArchive(artifactURL: artifact.url, targetName: artifact.targetName))
+                                        return
+                                    }
+
+                                    guard let archiveChecksum = observabilityScope.trap ({ try self.checksum(forBinaryArtifactAt: archivePath) }) else {
+                                        return
+                                    }
+                                    guard archiveChecksum == artifact.checksum else {
+                                        observabilityScope.emit(.artifactInvalidChecksum(targetName: artifact.targetName, expectedChecksum: artifact.checksum, actualChecksum: archiveChecksum))
+                                        observabilityScope.trap { try self.fileSystem.removeFileTree(archivePath) }
+                                        return
+                                    }
+
+                                    guard let tempExtractionDirectory = observabilityScope.trap({ () -> AbsolutePath in
+                                        let path = artifactsDirectory.appending(components: "extract", artifact.packageRef.identity.description, artifact.targetName, UUID().uuidString)
+                                        try self.fileSystem.forceCreateDirectory(at: path)
+                                        return path
+                                    }) else {
+                                        return
+                                    }
+
+                                    group.enter()
+                                    observabilityScope.emit(debug: "extracting \(archivePath) to \(tempExtractionDirectory)")
+                                    self.archiver.extract(from: archivePath, to: tempExtractionDirectory, completion: { extractResult in
+                                        defer { group.leave() }
+
+                                        switch extractResult {
+                                        case .success:
+                                            var artifactPath: AbsolutePath? = nil
+                                            observabilityScope.trap {
+                                                try self.fileSystem.withLock(on: parentDirectory, type: .exclusive) {
+                                                    // strip first level component if needed
+                                                    if try self.fileSystem.shouldStripFirstLevel(archiveDirectory: tempExtractionDirectory, acceptableExtensions: BinaryTarget.Kind.allCases.map({ $0.fileExtension })) {
+                                                        observabilityScope.emit(debug: "stripping first level component from  \(tempExtractionDirectory)")
+                                                        try self.fileSystem.stripFirstLevel(of: tempExtractionDirectory)
+                                                    } else {
+                                                        observabilityScope.emit(debug: "no first level component stripping needed for \(tempExtractionDirectory)")
+                                                    }
+                                                    let content = try self.fileSystem.getDirectoryContents(tempExtractionDirectory)
+                                                    // copy from temp location to actual location
+                                                    for file in content {
+                                                        let source = tempExtractionDirectory.appending(component: file)
+                                                        let destination = parentDirectory.appending(component: file)
+                                                        if self.fileSystem.exists(destination) {
+                                                            try self.fileSystem.removeFileTree(destination)
+                                                        }
+                                                        try self.fileSystem.copy(from: source, to: destination)
+                                                        if destination.basenameWithoutExt == artifact.targetName {
+                                                            artifactPath = destination
+                                                        }
+                                                    }
+                                                }
+                                                // remove temp location
+                                                try self.fileSystem.removeFileTree(tempExtractionDirectory)
+                                            }
+
+                                            guard let mainArtifactPath = artifactPath else {
+                                                return observabilityScope.emit(.artifactNotFound(targetName: artifact.targetName, artifactName: artifact.targetName))
+                                            }
+
+                                            result.append(
+                                                .remote(
+                                                    packageRef: artifact.packageRef,
+                                                    targetName: artifact.targetName,
+                                                    url: artifact.url.absoluteString,
+                                                    checksum: artifact.checksum,
+                                                    path: mainArtifactPath
+                                                )
+                                            )
+                                            self.delegate?.didDownloadBinaryArtifact(from: artifact.url.absoluteString, result: .success(mainArtifactPath), duration: downloadStart.distance(to: .now()))
+                                        case .failure(let error):
+                                            let reason = (error as? LocalizedError)?.errorDescription ?? "\(error)"
+                                            observabilityScope.emit(.artifactFailedExtraction(artifactURL: artifact.url, targetName: artifact.targetName, reason: reason))
+                                            self.delegate?.didDownloadBinaryArtifact(from: artifact.url.absoluteString, result: .failure(error), duration: downloadStart.distance(to: .now()))
+                                        }
+
+                                        observabilityScope.trap { try self.fileSystem.removeFileTree(archivePath) }
+                                    })
+                                case .failure(let error):
+                                    let reason = (error as? LocalizedError)?.errorDescription ?? "\(error)"
+                                    observabilityScope.emit(.artifactFailedValidation(artifactURL: artifact.url, targetName: artifact.targetName, reason: "\(reason)"))
+                                    self.delegate?.didDownloadBinaryArtifact(from: artifact.url.absoluteString, result: .failure(error), duration: downloadStart.distance(to: .now()))
+                                }
+                            })
+                        case .failure(let error):
+                            let reason = (error as? LocalizedError)?.errorDescription ?? "\(error)"
+                            observabilityScope.emit(.artifactFailedDownload(artifactURL: artifact.url, targetName: artifact.targetName, reason: "\(reason)"))
+                            self.delegate?.didDownloadBinaryArtifact(from: artifact.url.absoluteString, result: .failure(error), duration: downloadStart.distance(to: .now()))
+                        }
+                    })
+            }
+
+            group.wait()
+
+            if zipArtifacts.count > 0 {
+                delegate?.didDownloadAllBinaryArtifacts()
+            }
+
+            return result.get()
+        }
+
+        func extract(_ artifacts: [ManagedArtifact], artifactsDirectory: AbsolutePath, observabilityScope: ObservabilityScope) throws -> [ManagedArtifact] {
+            let result = ThreadSafeArrayStore<ManagedArtifact>()
+            let group = DispatchGroup()
+
+            for artifact in artifacts {
+                let destinationDirectory = artifactsDirectory.appending(component: artifact.packageRef.identity.description)
+                try fileSystem.createDirectory(destinationDirectory, recursive: true)
+
+                let tempExtractionDirectory = artifactsDirectory.appending(components: "extract", artifact.packageRef.identity.description, artifact.targetName, UUID().uuidString)
+                try self.fileSystem.forceCreateDirectory(at: tempExtractionDirectory)
+
+                group.enter()
+                self.archiver.extract(from: artifact.path, to: tempExtractionDirectory, completion: { extractResult in
+                    defer { group.leave() }
+
+                    switch extractResult {
+                    case .success:
+                        observabilityScope.trap { () -> Void in
+                            var artifactPath: AbsolutePath? = nil
+                            // strip first level component if needed
+                            if try self.fileSystem.shouldStripFirstLevel(archiveDirectory: tempExtractionDirectory, acceptableExtensions: BinaryTarget.Kind.allCases.map({ $0.fileExtension })) {
+                                observabilityScope.emit(debug: "stripping first level component from  \(tempExtractionDirectory)")
+                                try self.fileSystem.stripFirstLevel(of: tempExtractionDirectory)
+                            } else {
+                                observabilityScope.emit(debug: "no first level component stripping needed for \(tempExtractionDirectory)")
+                            }
+                            let content = try self.fileSystem.getDirectoryContents(tempExtractionDirectory)
+                            // copy from temp location to actual location
+                            for file in content {
+                                let source = tempExtractionDirectory.appending(component: file)
+                                let destination = destinationDirectory.appending(component: file)
+                                if self.fileSystem.exists(destination) {
+                                    try self.fileSystem.removeFileTree(destination)
+                                }
+                                try self.fileSystem.copy(from: source, to: destination)
+                                if destination.basenameWithoutExt == artifact.targetName {
+                                    artifactPath = destination
+                                }
+                            }
+
+                            // remove temp location
+                            try self.fileSystem.removeFileTree(tempExtractionDirectory)
+
+                            guard let mainArtifactPath = artifactPath else {
+                                return observabilityScope.emit(.localArchivedArtifactNotFound(targetName: artifact.targetName, artifactName: artifact.targetName))
+                            }
+
+                            // compute the checksum
+                            let artifactChecksum = try self.checksum(forBinaryArtifactAt: artifact.path)
+
+                            result.append(
+                                .local(
+                                    packageRef: artifact.packageRef,
+                                    targetName: artifact.targetName,
+                                    path: mainArtifactPath,
+                                    checksum: artifactChecksum
+                                )
+                            )
+                        }
+                    case .failure(let error):
+                        let reason = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+
+                        observabilityScope.emit(.localArtifactFailedExtraction(artifactPath: artifact.path, targetName: artifact.targetName, reason: reason))
+                    }
+                })
+            }
+
+            group.wait()
+
+            return result.get()
+        }
+
+        public func checksum(forBinaryArtifactAt path: AbsolutePath) throws -> String {
+            // Validate the path has a supported extension.
+            guard let pathExtension = path.extension, self.archiver.supportedExtensions.contains(pathExtension) else {
+                let supportedExtensionList = self.archiver.supportedExtensions.joined(separator: ", ")
+                throw StringError("unexpected file type; supported extensions are: \(supportedExtensionList)")
+            }
+
+            // Ensure that the path with the accepted extension is a file.
+            guard self.fileSystem.isFile(path) else {
+                throw StringError("file not found at path: \(path.pathString)")
+            }
+
+            let contents = try self.fileSystem.readFileContents(path)
+            return self.checksumAlgorithm.hash(contents).hexadecimalRepresentation
+        }
+    }
+}
+
+/// Delegate to notify clients about actions being performed by BinaryArtifactsDownloadsManage.
+public protocol BinaryArtifactsManagerDelegate {
+    /// The workspace has started downloading a binary artifact.
+    func willDownloadBinaryArtifact(from url: String)
+    /// The workspace has finished downloading a binary artifact.
+    func didDownloadBinaryArtifact(from url: String, result: Result<AbsolutePath, Error>, duration: DispatchTimeInterval)
+    /// The workspace is downloading a binary artifact.
+    func downloadingBinaryArtifact(from url: String, bytesDownloaded: Int64, totalBytesToDownload: Int64?)
+    /// The workspace finished downloading all binary artifacts.
+    func didDownloadAllBinaryArtifacts()
+}
+
+extension Workspace.BinaryArtifactsManager {
+    struct RemoteArtifact {
+        let packageRef: PackageReference
+        let targetName: String
+        let url: URL
+        let checksum: String
+    }
+}
+
+extension Workspace.BinaryArtifactsManager {
+    struct ArchiveIndexFile: Decodable {
+        let schemaVersion: String
+        let archives: [Archive]
+
+        struct Archive: Decodable {
+            let fileName: String
+            let checksum: String
+            let supportedTriples: [Triple]
+
+            enum CodingKeys: String, CodingKey {
+                case fileName
+                case checksum
+                case supportedTriples
+            }
+
+            public init(from decoder: Decoder) throws {
+                let container = try decoder.container(keyedBy: CodingKeys.self)
+                self.fileName = try container.decode(String.self, forKey: .fileName)
+                self.checksum = try container.decode(String.self, forKey: .checksum)
+                self.supportedTriples = try container.decode([String].self, forKey: .supportedTriples).map(Triple.init)
+            }
+        }
+    }
+}
+
+extension FileSystem {
+    // helper to decide if an archive directory would benefit from stripping first level
+    fileprivate func shouldStripFirstLevel(archiveDirectory: AbsolutePath, acceptableExtensions: [String]? = nil) throws -> Bool {
+        let subdirectories = try self.getDirectoryContents(archiveDirectory)
+            .map{ archiveDirectory.appending(component: $0) }
+            .filter { self.isDirectory($0) }
+
+        // single top-level directory required
+        guard subdirectories.count == 1, let rootDirectory = subdirectories.first else {
+            return false
+        }
+
+        // no acceptable extensions defined, so the single top-level directory is a good candidate
+        guard let acceptableExtensions = acceptableExtensions else {
+            return true
+        }
+
+        // the single top-level directory is already one of the acceptable extensions, so no need to strip
+        if rootDirectory.extension.map({ acceptableExtensions.contains($0) }) ?? false {
+            return false
+        }
+
+        // see if there is "grand-child" directory with one of the acceptable extensions
+        return try self.getDirectoryContents(rootDirectory)
+            .map{ rootDirectory.appending(component: $0) }
+            .first{ $0.extension.map { acceptableExtensions.contains($0) } ?? false } != nil
+    }
+}

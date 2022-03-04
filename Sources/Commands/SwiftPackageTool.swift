@@ -860,8 +860,16 @@ extension SwiftPackageTool {
         var path: AbsolutePath
 
         func run(_ swiftTool: SwiftTool) throws {
-            let workspace = try swiftTool.getActiveWorkspace()
-            let checksum = try workspace.checksum(forBinaryArtifactAt: path)
+            let binaryArtifactsManager = try Workspace.BinaryArtifactsManager(
+                fileSystem: swiftTool.fileSystem,
+                authorizationProvider: swiftTool.getAuthorizationProvider(),
+                hostToolchain: swiftTool.getHostToolchain(),
+                checksumAlgorithm: SHA256(),
+                customHTTPClient: .none,
+                customArchiver: .none,
+                delegate: .none
+            )
+            let checksum = try binaryArtifactsManager.checksum(forBinaryArtifactAt: path)
             print(checksum)
         }
     }
