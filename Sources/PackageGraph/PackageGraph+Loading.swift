@@ -589,7 +589,6 @@ private class ModuleAliasTracker {
     var idTargetToAliases = [PackageIdentity: [String: [ModuleAliasModel]]]()
     var parentToChildIDs = [PackageIdentity: [PackageIdentity]]()
     var childToParentID = [PackageIdentity: PackageIdentity]()
-    var rootPkg: PackageIdentity?
 
     init() {}
 
@@ -605,14 +604,11 @@ private class ModuleAliasTracker {
     func addPackageIDChain(parent: PackageIdentity,
                          child: PackageIdentity) {
         if parentToChildIDs[parent]?.contains(child) ?? false {
-            // already added
+            // Already added
         } else {
             parentToChildIDs[parent, default: []].append(child)
+            // Used to track the top-most level package
             childToParentID[child] = parent
-            // track the top level package
-            if childToParentID[parent] == nil {
-                rootPkg = parent
-            }
         }
     }
 
@@ -644,6 +640,15 @@ private class ModuleAliasTracker {
     }
 
     func propagateAliases() {
+        // First get the root package ID
+        var pkgID = childToParentID.first?.key
+        var rootPkg = pkgID
+        while pkgID != nil {
+            rootPkg = pkgID
+            // pkgID is not nil here so can be force unwrapped
+            pkgID = childToParentID[pkgID!]
+        }
+    
         guard let rootPkg = rootPkg else { return }
         propagate(from: rootPkg)
     }
@@ -653,10 +658,11 @@ private class ModuleAliasTracker {
         for child in children {
             if let parentMap = idTargetToAliases[cur],
                let childMap = idTargetToAliases[child] {
-                for (_, parentAliases) in parentMap {
+                for (parentTarget, parentAliases) in parentMap {
                     for parentModel in parentAliases {
                         for (childTarget, childAliases) in childMap {
-                            if childTarget == parentModel.name {
+                            if !parentMap.keys.contains(childTarget),
+                                childTarget == parentModel.name {
                                 if childAliases.isEmpty {
                                     idTargetToAliases[child]?[childTarget]?.append(parentModel)
                                 } else {
