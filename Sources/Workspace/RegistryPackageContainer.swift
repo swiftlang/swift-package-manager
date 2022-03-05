@@ -173,8 +173,20 @@ public class RegistryPackageContainer: PackageContainer {
                                 return completion(.failure(error))
                             case .success(let manifestContent):
                                 do {
+                                    // find the fake manifest so we can replace it with the real manifest content
+                                    guard let placeholderManifestFileName = try fileSystem.getDirectoryContents(.root).first(where: { file in
+                                        if file == Manifest.basename + "@swift-\(preferredToolsVersion).swift" {
+                                            return true
+                                        } else if preferredToolsVersion.patch == 0, file == Manifest.basename + "@swift-\(preferredToolsVersion.major).\(preferredToolsVersion.minor).swift" {
+                                            return true
+                                        } else {
+                                            return false
+                                        }
+                                    }) else {
+                                        throw StringError("failed locating placeholder manifest for \(preferredToolsVersion)")
+                                    }
                                     // replace the fake manifest with the real manifest content
-                                    let manifestPath = AbsolutePath.root.appending(component: Manifest.basename + "@swift-\(preferredToolsVersion).swift")
+                                    let manifestPath = AbsolutePath.root.appending(component: placeholderManifestFileName)
                                     try fileSystem.removeFileTree(manifestPath)
                                     try fileSystem.writeFileContents(manifestPath, string: manifestContent)
                                     // finally, load the manifest
